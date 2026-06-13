@@ -1,0 +1,7 @@
+# Local Claude Code settings — machine-specific permission grants
+.claude/settings.local.json
+
+# OS / editor cruft
+Thumbs.db
+.DS_Store
+*.swp

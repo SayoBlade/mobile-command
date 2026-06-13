@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "foundry",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-Command", "Write-Host 'Foundry VTT runs externally as a desktop app on port 30000; this entry only attaches the preview browser.'; Start-Sleep -Seconds 86400"],
+      "port": 30000
+    }
+  ]
+}

@@ -1,0 +1,246 @@
+import { MODULE_ID } from "./preset.js";
+import { resolveExecutorId, isExecutor } from "./settings.js";
+
+// §5 Service RPC contract, Phase 1 subset, running on the executor client
+// (§2.1: the DM Screen GM client). All Spike 3 findings are baked in:
+// - explicit targets ride in usage.midiOptions.targetUuids (2nd arg)
+// - midi ignores explicit targets for area activities -> refuse them here
+// - completeActivityUse resolves falsy/aborted on refusal with only a local
+//   toast -> capture notifications and surface {ok:false, stage, reason}
+
+export let socket = null;
+
+// Phone-side state written by executor/DM pushes.
+export const remoteState = {
+  lastHeartbeat: null,
+  assignedTargetUuids: []
+};
+
+let heartbeatTimer = null;
+
+export function initSocket() {
+  if (socket) return socket; // idempotent: socketlib.ready and the ready-hook fallback both call this
+  if (!globalThis.socketlib) {
+    console.error(`${MODULE_ID} | socketlib global not available — is the socketlib module active? RPC disabled.`);
+    return null;
+  }
+  const registered = socketlib.registerModule(MODULE_ID);
+  if (!registered) {
+    console.error(`${MODULE_ID} | socketlib.registerModule returned nothing — ensure "socket": true is in module.json and RELAUNCH THE WORLD (a browser reload is not enough). RPC disabled.`);
+    return null;
+  }
+  socket = registered;
+  socket.register("itemUse", handleItemUse);
+  socket.register("moveRequest", handleMoveRequest);
+  socket.register("measure", handleMeasure);
+  socket.register("targetsList", handleTargetsList);
+  socket.register("assignTargets", handleAssignTargets);
+  socket.register("heartbeat", handleHeartbeat);
+  console.log(`${MODULE_ID} | socket registered`);
+  return socket;
+}
+
+export function startHeartbeat() {
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  if (!socket) {
+    console.warn(`${MODULE_ID} | heartbeat not started — socket unavailable`);
+    return;
+  }
+  const seconds = game.settings.get(MODULE_ID, "heartbeatSeconds");
+  if (!seconds || seconds <= 0) return;
+  heartbeatTimer = setInterval(() => {
+    if (!isExecutor() || !socket) return;
+    socket.executeForOthers("heartbeat", {
+      ts: Date.now(),
+      sceneId: game.scenes.active?.id ?? null,
+      paused: game.paused
+    });
+  }, seconds * 1000);
+}
+
+function handleHeartbeat(data) {
+  remoteState.lastHeartbeat = data;
+  Hooks.callAll("mobile-command.heartbeat", data);
+}
+
+function handleAssignTargets({ tokenUuids, fromName }) {
+  // Phones have no canvas, so user.updateTokenTargets is unusable here —
+  // assignments live in module state until the controller UI consumes them.
+  remoteState.assignedTargetUuids = tokenUuids ?? [];
+  Hooks.callAll("mobile-command.assignTargets", remoteState.assignedTargetUuids, fromName);
+  console.log(`mobile-command | targets assigned by ${fromName}:`, tokenUuids);
+  return true;
+}
+
+// --- executor-side helpers -------------------------------------------------
+
+function requireExecutor(stage) {
+  if (!isExecutor()) return { ok: false, stage, reason: "not the executor client" };
+  if (game.paused) return { ok: false, stage, reason: "game is paused" };
+  return null;
+}
+
+function onActiveScene() {
+  return canvas?.ready && canvas.scene?.id === game.scenes.active?.id;
+}
+
+function requesterCanAct(requesterId, actorOrToken) {
+  const user = game.users.get(requesterId);
+  if (!user) return false;
+  const actor = actorOrToken?.actor ?? actorOrToken;
+  return actor?.testUserPermission(user, "OWNER") ?? false;
+}
+
+// Capture toast notifications fired during a callback so refusal reasons can
+// be surfaced back to the phone instead of dying on the executor's screen.
+async function captureNotifications(fn) {
+  const captured = [];
+  const original = ui.notifications.notify.bind(ui.notifications);
+  ui.notifications.notify = function (message, type, options) {
+    if (["warning", "error"].includes(type)) captured.push(String(message));
+    return original(message, type, options);
+  };
+  try {
+    return { result: await fn(), captured };
+  } finally {
+    ui.notifications.notify = original;
+  }
+}
+
+// --- endpoints ---------------------------------------------------------------
+
+async function handleItemUse(payload) {
+  const refused = requireExecutor("preflight");
+  if (refused) return refused;
+
+  const { activityUuid, targetUuids = [], midiOptions = {}, consume = true, requesterId } = payload;
+  const activity = await fromUuid(activityUuid);
+  if (!activity) return { ok: false, stage: "resolve", reason: `activity not found: ${activityUuid}` };
+  if (!requesterCanAct(requesterId, activity.item?.actor)) {
+    return { ok: false, stage: "permission", reason: "requester does not own the acting actor" };
+  }
+  // Spike 3: midi's setupTargets refuses explicit targets for area activities.
+  if (activity.target?.template?.type) {
+    return { ok: false, stage: "validate", reason: "area-target activity — use the DM template flow" };
+  }
+  if (!onActiveScene()) {
+    return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
+  }
+
+  // dnd5e usage contract (_prepareUsageConfig): consume===false skips
+  // consumption; undefined => normal consumption. A boolean `true` is INVALID
+  // (dnd5e does `config.consume ??= {}` then sets `.action` on it → throws on a
+  // primitive). So only ever set the falsy form; omit the key otherwise.
+  const usage = {
+    midiOptions: { targetUuids, ignoreUserTargets: true, ...midiOptions }
+  };
+  if (consume === false) usage.consume = false;
+
+  const { result: workflow, captured } = await captureNotifications(() =>
+    MidiQOL.completeActivityUse(activity.uuid, usage, { configure: false }, {})
+  );
+
+  if (!workflow || workflow.aborted) {
+    return {
+      ok: false,
+      stage: "use",
+      reason: captured.join("; ") || "activity refused (consumption/requirements) or workflow timed out"
+    };
+  }
+  return {
+    ok: true,
+    itemName: activity.item?.name ?? null,
+    targets: Array.from(workflow.targets ?? []).map(t => t?.name),
+    hitTargets: Array.from(workflow.hitTargets ?? []).map(t => t?.name),
+    failedSaves: Array.from(workflow.failedSaves ?? []).map(t => t?.name)
+  };
+}
+
+async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
+  const refused = requireExecutor("preflight");
+  if (refused) return refused;
+  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
+
+  const tokenDoc = game.scenes.active.tokens.get(tokenId);
+  if (!tokenDoc) return { ok: false, stage: "resolve", reason: `token not found: ${tokenId}` };
+  if (!requesterCanAct(requesterId, tokenDoc)) {
+    return { ok: false, stage: "permission", reason: "requester does not own the token" };
+  }
+
+  const grid = canvas.scene.grid.size;
+  const from = tokenDoc.object?.center ?? { x: tokenDoc.x, y: tokenDoc.y };
+  const to = { x: from.x + dxGrid * grid, y: from.y + dyGrid * grid };
+
+  const blocked = CONFIG.Canvas.polygonBackends.move.testCollision(from, to, { type: "move", mode: "any" });
+  if (blocked) return { ok: false, stage: "collision", reason: "a wall blocks that move" };
+
+  await tokenDoc.update(
+    { x: tokenDoc.x + dxGrid * grid, y: tokenDoc.y + dyGrid * grid },
+    { animate: false }
+  );
+  return { ok: true, x: tokenDoc.x, y: tokenDoc.y };
+}
+
+async function handleMeasure({ fromTokenId, toTokenId }) {
+  const refused = requireExecutor("preflight");
+  if (refused) return refused;
+  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
+
+  const a = canvas.tokens.get(fromTokenId);
+  const b = canvas.tokens.get(toTokenId);
+  if (!a || !b) return { ok: false, stage: "resolve", reason: "token not found on active scene" };
+  return { ok: true, distanceFt: MidiQOL.computeDistance(a, b, { wallsBlock: false }) };
+}
+
+async function handleTargetsList({ forTokenId }) {
+  const refused = requireExecutor("preflight");
+  if (refused) return refused;
+  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
+
+  const origin = canvas.tokens.get(forTokenId);
+  if (!origin) return { ok: false, stage: "resolve", reason: `token not found: ${forTokenId}` };
+
+  const candidates = [];
+  for (const token of canvas.tokens.placeables) {
+    if (token === origin || !token.actor) continue;
+    if (token.document.hidden) continue;
+    if (!MidiQOL.canSense(origin, token)) continue;
+    candidates.push({
+      tokenId: token.id,
+      uuid: token.document.uuid,
+      // TODO(§5): respect the token's display-name mode before phones ship —
+      // this must not leak "Doppelganger" when the token shows "Villager".
+      name: token.document.name,
+      disposition: token.document.disposition,
+      distanceFt: MidiQOL.computeDistance(origin, token, { wallsBlock: false })
+    });
+  }
+  candidates.sort((a, b) => a.distanceFt - b.distanceFt);
+  return { ok: true, forTokenId, candidates };
+}
+
+// --- phone/DM-facing API (any client) ---------------------------------------
+
+function toExecutor(handler, payload) {
+  const executorId = resolveExecutorId();
+  if (!executorId) return Promise.resolve({ ok: false, stage: "route", reason: "no active GM/executor client" });
+  payload.requesterId = game.user.id;
+  if (game.user.id === executorId) {
+    const handlers = { itemUse: handleItemUse, moveRequest: handleMoveRequest, measure: handleMeasure, targetsList: handleTargetsList };
+    return handlers[handler](payload);
+  }
+  if (!socket) return Promise.resolve({ ok: false, stage: "route", reason: "socketlib unavailable on this client" });
+  return socket.executeAsUser(handler, executorId, payload);
+}
+
+export const api = {
+  useActivity: (payload) => toExecutor("itemUse", payload),
+  moveToken: (payload) => toExecutor("moveRequest", payload),
+  measure: (payload) => toExecutor("measure", payload),
+  listTargets: (payload) => toExecutor("targetsList", payload),
+  assignTargets: (userId, tokenUuids) =>
+    socket
+      ? socket.executeAsUser("assignTargets", userId, { tokenUuids, fromName: game.user.name })
+      : Promise.resolve({ ok: false, stage: "route", reason: "socketlib unavailable on this client" }),
+  state: remoteState
+};

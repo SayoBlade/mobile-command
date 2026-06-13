@@ -1,0 +1,52 @@
+{
+  "id": "mobile-command",
+  "title": "Mobile Command — Phone Controller",
+  "description": "Phones as full Foundry clients with a touch-first UI replacement layer. Phase 1: executor RPC plumbing, Settings Enforcer, pause guard. Pinned stack: Foundry 14 / dnd5e 5.3.x / midi-qol 14.0.x — see DESIGN.md.",
+  "version": "0.1.0",
+  "authors": [
+    {
+      "name": "Mobile Command Maintainer"
+    }
+  ],
+  "compatibility": {
+    "minimum": "14",
+    "verified": "14.363"
+  },
+  "relationships": {
+    "systems": [
+      {
+        "id": "dnd5e",
+        "type": "system",
+        "compatibility": {
+          "minimum": "5.0.0",
+          "verified": "5.3.3"
+        }
+      }
+    ],
+    "requires": [
+      {
+        "id": "midi-qol",
+        "type": "module",
+        "compatibility": {
+          "minimum": "14.0.0",
+          "verified": "14.0.8"
+        }
+      },
+      {
+        "id": "socketlib",
+        "type": "module"
+      }
+    ]
+  },
+  "socket": true,
+  "esmodules": [
+    "scripts/main.js"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ]
+}
