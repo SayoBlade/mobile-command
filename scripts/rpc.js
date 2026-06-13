@@ -37,6 +37,7 @@ export function initSocket() {
   socket.register("moveRequest", handleMoveRequest);
   socket.register("measure", handleMeasure);
   socket.register("targetsList", handleTargetsList);
+  socket.register("previewTargets", handlePreviewTargets);
   socket.register("assignTargets", handleAssignTargets);
   socket.register("heartbeat", handleHeartbeat);
   console.log(`${MODULE_ID} | socket registered`);
@@ -305,6 +306,23 @@ async function handleTargetsList({ forTokenId }) {
   return { ok: true, forTokenId, candidates };
 }
 
+// Live target preview (B9): reflect the phone's current selection on the
+// executor's canvas as the player taps, so the target commits immediately
+// rather than at attack time. Interim DM-side version — sets the executor's
+// own targets (visible on the DM canvas + TV); the player-colored TV reticle
+// (§5 broadcast trick) supersedes this once the TV client is in play. Empty
+// list clears. completeActivityUse passes ignoreUserTargets, so these preview
+// targets never interfere with the explicit targetUuids at fire time.
+function handlePreviewTargets({ tokenUuids = [] }) {
+  if (!isExecutor()) return { ok: false, reason: "not the executor" };
+  if (!onActiveScene()) return { ok: false, reason: "executor not on active scene" };
+  const ids = tokenUuids.map(u => fromUuidSync(u)?.object?.id).filter(Boolean);
+  // v14: TokenLayer#setTargets(ids, {mode}) — "replace" sets exactly these and
+  // releases the rest; [] clears. (User#updateTokenTargets no longer exists.)
+  canvas.tokens.setTargets(ids, { mode: "replace" });
+  return { ok: true };
+}
+
 // --- phone/DM-facing API (any client) ---------------------------------------
 
 function toExecutor(handler, payload) {
@@ -315,7 +333,8 @@ function toExecutor(handler, payload) {
     const handlers = {
       itemUse: handleItemUse, itemUseStart: handleItemUseStart,
       itemUseDamage: handleItemUseDamage, itemUseCancel: handleItemUseCancel,
-      moveRequest: handleMoveRequest, measure: handleMeasure, targetsList: handleTargetsList
+      moveRequest: handleMoveRequest, measure: handleMeasure, targetsList: handleTargetsList,
+      previewTargets: handlePreviewTargets
     };
     return handlers[handler](payload);
   }
@@ -331,6 +350,7 @@ export const api = {
   moveToken: (payload) => toExecutor("moveRequest", payload),
   measure: (payload) => toExecutor("measure", payload),
   listTargets: (payload) => toExecutor("targetsList", payload),
+  previewTargets: (payload) => toExecutor("previewTargets", payload),
   assignTargets: (userId, tokenUuids) =>
     socket
       ? socket.executeAsUser("assignTargets", userId, { tokenUuids, fromName: game.user.name })

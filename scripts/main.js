@@ -15,13 +15,20 @@ Hooks.once("setup", () => {
   // hardware 2026-06-13). So disable it here, before the draw, by writing the
   // exact localStorage key core reads at canvas-init time (foundry.mjs
   // #setClient: storage key is `${namespace}.${key}`, value JSON-encoded).
+  // Phones: no canvas (D2). Everyone else (DM, TV): canvas ON. Set BOTH
+  // directions so a browser that switches roles (e.g. a player account then
+  // the DM in the same browser) self-corrects — core.noCanvas is per-browser
+  // localStorage, so a leftover "true" from a phone session would otherwise
+  // strand a GM without a canvas.
   try {
-    if (isPhoneClient() && game.settings.get("core", "noCanvas") !== true) {
-      window.localStorage.setItem("core.noCanvas", "true");
-      console.log(`${MODULE_ID} | phone client — canvas disabled before draw (D2)`);
+    const want = isPhoneClient();
+    const current = game.settings.get("core", "noCanvas") === true;
+    if (want !== current) {
+      window.localStorage.setItem("core.noCanvas", want ? "true" : "false");
+      console.log(`${MODULE_ID} | ${want ? "phone" : "non-phone"} client — canvas ${want ? "disabled" : "enabled"} (D2)`);
     }
   } catch (e) {
-    console.warn(`${MODULE_ID} | could not auto-disable canvas`, e);
+    console.warn(`${MODULE_ID} | could not set canvas mode`, e);
   }
 });
 

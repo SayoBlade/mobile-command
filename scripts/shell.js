@@ -226,7 +226,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     } else if (s.candidates === null) {
       body = `<div class="mc-target-note">Finding targets…</div>`;
     } else if (!s.candidates.length) {
-      body = `<div class="mc-target-note">No targets in range/sight. Ask the DM to assign, or move closer.</div>`;
+      const msg = s.targetError === "game is paused" ? "Game is paused — ask the DM to resume."
+        : s.targetError ? foundry.utils.escapeHTML(s.targetError)
+        : "No targets in range/sight. Ask the DM to assign, or move closer.";
+      body = `<div class="mc-target-note">${msg}</div>`;
     } else {
       body = s.candidates.map(c => {
         const on = s.selected.has(c.uuid);
@@ -260,18 +263,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   async #pickAction(uuid) {
     const activity = await fromUuid(uuid);
     if (!activity) return;
+    this.#clearPreview(); // drop any stale preview from a prior action
     const affects = activity.target?.affects ?? {};
     const selfTarget = affects.type === "self";
     const maxTargets = Math.max(1, Number(affects.count) || 1);
     this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets,
       hasAttack: activity.type === "attack",
       candidates: selfTarget ? [] : null, selected: new Set(), adv: "normal",
-      busy: false, phase: "pick", requestId: null, hit: null, attackTotal: null };
+      busy: false, phase: "pick", requestId: null, hit: null, attackTotal: null,
+      targetError: null };
     this.render();
     if (!selfTarget) {
       const res = await rpc.listTargets({ forTokenId: this.originTokenId });
       if (this.#actionState?.uuid !== uuid) return; // user navigated away
       this.#actionState.candidates = res?.ok ? res.candidates : [];
+      this.#actionState.targetError = res?.ok ? null : (res?.reason ?? "could not load targets");
       this.render();
     }
   }
@@ -297,6 +303,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       res = { ok: false, reason: err?.message ?? "error — see DM console" };
     }
     if (this.#actionState !== s) return; // navigated away mid-roll
+    this.#clearPreview(); // attack fired — the workflow owns its targets now
     if (!res?.ok) {
       this.#actionState = null; this.render();
       return ui.notifications.warn(`${s.name}: ${res?.reason ?? "could not use"}`);
@@ -318,7 +325,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #abandonAction() {
     const s = this.#actionState;
     if (s?.requestId) rpc.useActivityCancel({ requestId: s.requestId });
+    this.#clearPreview();
     this.#actionState = null;
+  }
+
+  // B9 live target preview: reflect the current selection on the executor's
+  // canvas/TV as the player taps (empty list clears it).
+  #pushPreview() {
+    rpc.previewTargets({ tokenUuids: this.#actionState ? Array.from(this.#actionState.selected) : [] });
+  }
+  #clearPreview() {
+    rpc.previewTargets({ tokenUuids: [] });
   }
 
   // Step 2 of the two-tap: trigger the held workflow's damage roll.
@@ -375,6 +392,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         if (s.selected.has(uuid)) s.selected.delete(uuid);
         else if (s.selected.size < s.maxTargets) s.selected.add(uuid);
         else if (s.maxTargets === 1) { s.selected.clear(); s.selected.add(uuid); } // single-target: tap to swap
+        this.#pushPreview(); // B9: commit the target to the canvas/TV on tap
         return this.render();
       }
       case "fire":
