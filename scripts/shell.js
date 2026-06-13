@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { api as rpc } from "./rpc.js";
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -32,6 +33,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #recentRolls = [];   // newest-first cache backing the recent-rolls strip
   #toastEl = null;     // transient roll toast; overlay node kept across re-renders
   #toastTimer = null;
+  #actionState = null; // null = action list; object = target-pick/fire sub-view
 
   /** The actor this phone controls: assigned character, else first owned character. */
   get actor() {
@@ -106,7 +108,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   #tabContent(actor) {
     if (this.#tab === "actions") {
-      return `<div class="mc-placeholder">Actions &amp; item use arrive in Phase 3 (Route B).</div>`;
+      return this.#actionsHTML(actor);
     }
     if (this.#tab === "journal") {
       return `<div class="mc-placeholder">The shared journal composer arrives in Phase 4.</div>`;
@@ -148,6 +150,201 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <div class="mc-abilities">${abilityGrid}</div>`;
   }
 
+  // --- Actions tab: combat loop (Route B, Step 1 — fully resolved) ----------
+  // Lists the actor's usable offensive activities; tapping one opens a target
+  // picker (candidates from the Service listTargets RPC) + adv/normal/dis, then
+  // fires via the proven Route B path (rpc.useActivity). AoE activities are
+  // excluded (DM template flow); the RPC surfaces refusals (no slots, etc.).
+
+  /** The controlled actor's token id on the active scene (no canvas needed). */
+  get originTokenId() {
+    const id = this.actor?.id;
+    return game.scenes.active?.tokens.find(t => t.actor?.id === id)?.id ?? null;
+  }
+
+  #usableActivities() {
+    const out = [];
+    for (const item of this.actor?.items ?? []) {
+      const acts = item.system?.activities;
+      if (!acts) continue;
+      for (const a of acts) {
+        if (!["attack", "save", "damage"].includes(a.type)) continue;
+        if (a.target?.template?.type) continue; // AoE → DM places template
+        out.push(a);
+      }
+    }
+    return out;
+  }
+
+  #actionsHTML() {
+    if (this.#actionState) return this.#targetPickerHTML();
+    const acts = this.#usableActivities();
+    if (!acts.length) {
+      return `<div class="mc-placeholder">No usable attacks or offensive spells found.</div>`;
+    }
+    const rows = acts.map(a => {
+      const sub = a.item.name === a.name ? a.type : a.name;
+      return `<button class="mc-action" data-action="action-pick" data-uuid="${a.uuid}">
+        <span class="mc-action-name">${foundry.utils.escapeHTML(a.item.name)}</span>
+        <span class="mc-action-sub">${foundry.utils.escapeHTML(sub)}</span>
+      </button>`;
+    }).join("");
+    return `<div class="mc-section-label">Actions — tap to target &amp; use</div>
+      <div class="mc-actions">${rows}</div>`;
+  }
+
+  #targetPickerHTML() {
+    const s = this.#actionState;
+
+    // Post-attack phase: show the attack result + a deliberate "Roll damage" tap.
+    if (s.phase === "rolling" || s.phase === "attacked") {
+      const head = `<div class="mc-picker-head">
+        <button class="mc-back" data-action="action-back">‹ Back</button>
+        <span class="mc-picker-title">${foundry.utils.escapeHTML(s.name)}</span>
+      </div>`;
+      if (s.phase === "rolling") {
+        return head + `<div class="mc-target-note">Rolling…</div>`;
+      }
+      const attackLine = s.hasAttack
+        ? `<div class="mc-attack-result ${s.hit ? "mc-hit" : "mc-miss"}">
+             <span class="mc-attack-total">${s.attackTotal ?? "—"}</span>
+             <span class="mc-attack-label">${s.hit ? "Hit" : "Attack"}</span>
+           </div>`
+        : "";
+      return head + attackLine + `
+        <button class="mc-fire mc-roll-damage" data-action="roll-damage" ${s.busy ? "disabled" : ""}>
+          ${s.busy ? "Rolling…" : "Roll damage"}
+        </button>`;
+    }
+
+    const advBtn = (mode, label) =>
+      `<button class="mc-adv ${s.adv === mode ? "mc-adv-on" : ""}" data-action="adv" data-mode="${mode}">${label}</button>`;
+
+    let body;
+    if (s.selfTarget) {
+      body = `<div class="mc-target-note">Self-target — no enemy needed.</div>`;
+    } else if (s.candidates === null) {
+      body = `<div class="mc-target-note">Finding targets…</div>`;
+    } else if (!s.candidates.length) {
+      body = `<div class="mc-target-note">No targets in range/sight. Ask the DM to assign, or move closer.</div>`;
+    } else {
+      body = s.candidates.map(c => {
+        const on = s.selected.has(c.uuid);
+        const [cls, label] = c.disposition < 0 ? ["foe", "Foe"]
+          : c.disposition > 0 ? ["ally", "Ally"] : ["neutral", "Neutral"];
+        return `<button class="mc-target ${on ? "mc-target-on" : ""}" data-action="target-toggle" data-uuid="${c.uuid}">
+          <span class="mc-target-name">${foundry.utils.escapeHTML(c.name)}</span>
+          <span class="mc-target-right">
+            <span class="mc-disp mc-${cls}">${label}</span>
+            <span class="mc-target-dist">${Math.round(c.distanceFt)} ft</span>
+          </span>
+        </button>`;
+      }).join("");
+    }
+
+    const count = s.selfTarget ? "" : `<span class="mc-target-count">${s.selected.size}/${s.maxTargets}</span>`;
+    const canFire = s.selfTarget || s.selected.size > 0;
+    return `
+      <div class="mc-picker-head">
+        <button class="mc-back" data-action="action-back">‹ Back</button>
+        <span class="mc-picker-title">${foundry.utils.escapeHTML(s.name)}</span>
+        ${count}
+      </div>
+      <div class="mc-adv-row">${advBtn("advantage", "Advantage")}${advBtn("normal", "Normal")}${advBtn("disadvantage", "Disadvantage")}</div>
+      <div class="mc-targets">${body}</div>
+      <button class="mc-fire ${canFire ? "" : "mc-disabled"}" data-action="fire" ${canFire ? "" : "disabled"}>
+        ${s.busy ? "Using…" : "Use"}
+      </button>`;
+  }
+
+  async #pickAction(uuid) {
+    const activity = await fromUuid(uuid);
+    if (!activity) return;
+    const affects = activity.target?.affects ?? {};
+    const selfTarget = affects.type === "self";
+    const maxTargets = Math.max(1, Number(affects.count) || 1);
+    this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets,
+      hasAttack: activity.type === "attack",
+      candidates: selfTarget ? [] : null, selected: new Set(), adv: "normal",
+      busy: false, phase: "pick", requestId: null, hit: null, attackTotal: null };
+    this.render();
+    if (!selfTarget) {
+      const res = await rpc.listTargets({ forTokenId: this.originTokenId });
+      if (this.#actionState?.uuid !== uuid) return; // user navigated away
+      this.#actionState.candidates = res?.ok ? res.candidates : [];
+      this.render();
+    }
+  }
+
+  // Step 1 of the two-tap: fire the attack (or park a damage/save workflow);
+  // the executor holds it at WaitForDamageRoll and returns the attack result.
+  async #fireAction() {
+    const s = this.#actionState;
+    if (!s || s.busy) return;
+    s.busy = true; s.phase = "rolling"; this.render();
+    const midiOptions = {};
+    if (s.adv === "advantage") midiOptions.advantage = true;
+    if (s.adv === "disadvantage") midiOptions.disadvantage = true;
+    let res;
+    try {
+      res = await this.#withTimeout(rpc.useActivityStart({
+        activityUuid: s.uuid,
+        targetUuids: s.selfTarget ? [] : Array.from(s.selected),
+        midiOptions
+      }));
+    } catch (err) {
+      console.error("mobile-command | useActivityStart failed", err);
+      res = { ok: false, reason: err?.message ?? "error — see DM console" };
+    }
+    if (this.#actionState !== s) return; // navigated away mid-roll
+    if (!res?.ok) {
+      this.#actionState = null; this.render();
+      return ui.notifications.warn(`${s.name}: ${res?.reason ?? "could not use"}`);
+    }
+    if (!res.needsDamage) {
+      // Resolved without a damage step (a miss, or nothing to roll).
+      this.#actionState = null; this.render();
+      if (res.reason) ui.notifications.info(`${s.name}: ${res.reason}`);
+      return;
+    }
+    s.busy = false; s.phase = "attacked";
+    s.requestId = res.requestId; s.hasAttack = res.hasAttack;
+    s.hit = res.hit; s.attackTotal = res.attackTotal;
+    this.render();
+  }
+
+  // Clear the picker; if a workflow is parked awaiting damage, cancel it on the
+  // executor so we never orphan a held workflow when the player backs out.
+  #abandonAction() {
+    const s = this.#actionState;
+    if (s?.requestId) rpc.useActivityCancel({ requestId: s.requestId });
+    this.#actionState = null;
+  }
+
+  // Step 2 of the two-tap: trigger the held workflow's damage roll.
+  async #rollDamage() {
+    const s = this.#actionState;
+    if (!s || s.busy || !s.requestId) return;
+    s.busy = true; this.render();
+    let res;
+    try {
+      res = await this.#withTimeout(rpc.useActivityDamage({ requestId: s.requestId }));
+    } catch (err) {
+      console.error("mobile-command | useActivityDamage failed", err);
+      res = { ok: false, reason: err?.message ?? "error — see DM console" };
+    }
+    this.#actionState = null; this.render();
+    if (!res?.ok) ui.notifications.warn(`${s.name}: ${res?.reason ?? "damage failed"}`);
+  }
+
+  // Never let a hung RPC strand the UI on "Rolling…".
+  #withTimeout(promise, ms = 12000) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("request timed out")), ms))
+    ]);
+  }
+
   // Bound once so remove+add is idempotent — prevents handler stacking across
   // re-renders, and re-binds correctly if the root element is recreated.
   #onClick = (ev) => {
@@ -159,7 +356,29 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "exit": return this.close();
       case "tab":
         this.#tab = el.dataset.tab;
+        this.#abandonAction(); // leave the picker clean; cancel any held workflow
         return this.render();
+      case "action-pick":
+        return this.#pickAction(el.dataset.uuid);
+      case "action-back":
+        this.#abandonAction();
+        return this.render();
+      case "roll-damage":
+        return this.#rollDamage();
+      case "adv":
+        if (this.#actionState) { this.#actionState.adv = el.dataset.mode; this.render(); }
+        return;
+      case "target-toggle": {
+        const s = this.#actionState;
+        if (!s) return;
+        const uuid = el.dataset.uuid;
+        if (s.selected.has(uuid)) s.selected.delete(uuid);
+        else if (s.selected.size < s.maxTargets) s.selected.add(uuid);
+        else if (s.maxTargets === 1) { s.selected.clear(); s.selected.add(uuid); } // single-target: tap to swap
+        return this.render();
+      }
+      case "fire":
+        return this.#fireAction();
       case "check":
         return actor?.rollAbilityCheck({ ability: el.dataset.ability });
       case "save":
@@ -296,6 +515,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   _onClose(options) {
+    this.#abandonAction(); // cancel any held workflow if the shell closes mid-flow
     clearTimeout(this.#toastTimer);
     this.#toastEl = null;
     this.#recentRolls = [];

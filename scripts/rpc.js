@@ -31,6 +31,9 @@ export function initSocket() {
   }
   socket = registered;
   socket.register("itemUse", handleItemUse);
+  socket.register("itemUseStart", handleItemUseStart);
+  socket.register("itemUseDamage", handleItemUseDamage);
+  socket.register("itemUseCancel", handleItemUseCancel);
   socket.register("moveRequest", handleMoveRequest);
   socket.register("measure", handleMeasure);
   socket.register("targetsList", handleTargetsList);
@@ -156,6 +159,89 @@ async function handleItemUse(payload) {
   };
 }
 
+// --- Q5 two-tap cadence: hold the workflow at WaitForDamageRoll between the
+// attack tap and the damage tap. Verified live 2026-06-13 (spike). The workflow
+// is fired without awaiting completion (it parks at WaitForDamageRoll when
+// autoRollDamage:"none"); we hold the reference keyed by a requestId and
+// trigger its damage roll on the second tap.
+const parkedWorkflows = new Map();
+
+async function findParkedWorkflow(activityUuid, timeoutMs = 4000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const wf = Object.values(globalThis.MidiQOL?.Workflow?.workflows ?? {})
+      .find(w => w.activity?.uuid === activityUuid);
+    if (wf) {
+      if (wf.currentAction === wf.WorkflowState_WaitForDamageRoll) return wf;
+      if (wf.currentAction === wf.WorkflowState_Completed || wf.currentAction === wf.WorkflowState_Abort) return null;
+    }
+    await new Promise(r => setTimeout(r, 150));
+  }
+  return null;
+}
+
+async function handleItemUseStart(payload) {
+  const refused = requireExecutor("preflight");
+  if (refused) return refused;
+  const { activityUuid, targetUuids = [], midiOptions = {}, requesterId } = payload;
+  const activity = await fromUuid(activityUuid);
+  if (!activity) return { ok: false, stage: "resolve", reason: `activity not found: ${activityUuid}` };
+  if (!requesterCanAct(requesterId, activity.item?.actor)) {
+    return { ok: false, stage: "permission", reason: "requester does not own the acting actor" };
+  }
+  if (activity.target?.template?.type) return { ok: false, stage: "validate", reason: "area-target activity — use the DM template flow" };
+  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
+
+  const hasAttack = activity.type === "attack";
+  // Fire attack-only; do NOT await (the workflow parks at WaitForDamageRoll).
+  const { captured } = await captureNotifications(async () => {
+    MidiQOL.completeActivityUse(activity.uuid, {
+      midiOptions: {
+        targetUuids, ignoreUserTargets: true,
+        autoRollAttack: true, fastForwardAttack: true,
+        autoRollDamage: "none", fastForwardDamage: false,
+        ...midiOptions
+      }
+    }, { configure: false }, {});
+    return true;
+  });
+
+  const wf = await findParkedWorkflow(activity.uuid);
+  if (!wf) {
+    // No parked workflow: resolved already (e.g. a miss with no damage) or refused.
+    return { ok: true, needsDamage: false, hasAttack, hit: false,
+      itemName: activity.item?.name ?? null, reason: captured.join("; ") || null };
+  }
+  const requestId = foundry.utils.randomID();
+  parkedWorkflows.set(requestId, wf);
+  return {
+    ok: true, needsDamage: true, requestId, hasAttack,
+    itemName: activity.item?.name ?? null,
+    hit: hasAttack ? (wf.hitTargets?.size ?? 0) > 0 : null,
+    attackTotal: hasAttack ? (wf.attackTotal ?? wf.attackRoll?.total ?? null) : null
+  };
+}
+
+async function handleItemUseDamage({ requestId }) {
+  const refused = requireExecutor("preflight");
+  if (refused) return refused;
+  const wf = parkedWorkflows.get(requestId);
+  if (!wf) return { ok: false, stage: "expired", reason: "the attack expired — fire again" };
+  parkedWorkflows.delete(requestId);
+  const { captured } = await captureNotifications(async () => {
+    await wf.activity.rollDamage({ workflow: wf, midiOptions: { fastForwardDamage: true } });
+    return true;
+  });
+  return { ok: true, damageTotal: wf.damageTotal ?? null, reason: captured.join("; ") || null };
+}
+
+function handleItemUseCancel({ requestId }) {
+  const wf = parkedWorkflows.get(requestId);
+  parkedWorkflows.delete(requestId);
+  try { wf?.aborted !== undefined && (wf.aborted = true); wf?.performState?.(wf.WorkflowState_Abort); } catch (e) { /* best effort */ }
+  return { ok: true };
+}
+
 async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
@@ -226,7 +312,11 @@ function toExecutor(handler, payload) {
   if (!executorId) return Promise.resolve({ ok: false, stage: "route", reason: "no active GM/executor client" });
   payload.requesterId = game.user.id;
   if (game.user.id === executorId) {
-    const handlers = { itemUse: handleItemUse, moveRequest: handleMoveRequest, measure: handleMeasure, targetsList: handleTargetsList };
+    const handlers = {
+      itemUse: handleItemUse, itemUseStart: handleItemUseStart,
+      itemUseDamage: handleItemUseDamage, itemUseCancel: handleItemUseCancel,
+      moveRequest: handleMoveRequest, measure: handleMeasure, targetsList: handleTargetsList
+    };
     return handlers[handler](payload);
   }
   if (!socket) return Promise.resolve({ ok: false, stage: "route", reason: "socketlib unavailable on this client" });
@@ -235,6 +325,9 @@ function toExecutor(handler, payload) {
 
 export const api = {
   useActivity: (payload) => toExecutor("itemUse", payload),
+  useActivityStart: (payload) => toExecutor("itemUseStart", payload),
+  useActivityDamage: (payload) => toExecutor("itemUseDamage", payload),
+  useActivityCancel: (payload) => toExecutor("itemUseCancel", payload),
   moveToken: (payload) => toExecutor("moveRequest", payload),
   measure: (payload) => toExecutor("measure", payload),
   listTargets: (payload) => toExecutor("targetsList", payload),
