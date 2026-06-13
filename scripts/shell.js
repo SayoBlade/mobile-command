@@ -76,13 +76,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <div class="mc-id">
           <div class="mc-name">${foundry.utils.escapeHTML(actor.name)}</div>
           <div class="mc-hp">
+            <button class="mc-hp-step" data-action="hp-delta" data-delta="-1" aria-label="HP −1">−</button>
             <span class="mc-hp-cur ${hpClass}">${hp.value ?? "—"}</span>
+            <button class="mc-hp-step" data-action="hp-delta" data-delta="1" aria-label="HP +1">+</button>
             <span class="mc-hp-max">/ ${hp.max ?? "—"} HP</span>
             ${hp.temp ? `<span class="mc-hp-temp">+${hp.temp} temp</span>` : ""}
           </div>
         </div>
         <button class="mc-exit" data-action="exit" title="Exit (testing)">✕</button>
       </header>
+      <div class="mc-hp-edit">
+        <input class="mc-hp-input" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="amount">
+        <button class="mc-btn mc-hp-damage" data-action="hp-apply" data-mode="damage">Damage</button>
+        <button class="mc-btn mc-hp-heal" data-action="hp-apply" data-mode="heal">Heal</button>
+      </div>
       <div class="mc-conditions">${condHTML}</div>
       <main class="mc-content">${this.#tabContent(actor)}</main>
       ${this.#rollStripHTML()}
@@ -159,8 +166,30 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return actor?.rollSavingThrow({ ability: el.dataset.ability });
       case "skill":
         return actor?.rollSkill({ skill: el.dataset.skill });
+      case "hp-delta":
+        return this.#applyHP(Number(el.dataset.delta));
+      case "hp-apply": {
+        const input = this.element?.querySelector(".mc-hp-input");
+        const n = Math.abs(parseInt(input?.value, 10)) || 0;
+        if (input) input.value = "";
+        if (!n) return;
+        return this.#applyHP(el.dataset.mode === "damage" ? -n : n);
+      }
     }
   };
+
+  /** Apply an HP delta to the controlled actor, clamped to [0, max]. */
+  async #applyHP(delta) {
+    const actor = this.actor;
+    if (!actor || !delta) return;
+    const hp = actor.system.attributes?.hp;
+    if (!hp) return;
+    const max = hp.max ?? (hp.value + delta);
+    const next = Math.max(0, Math.min(max, hp.value + delta));
+    if (next === hp.value) return;
+    await actor.update({ "system.attributes.hp.value": next });
+    // The updateActor hook re-renders the shell, refreshing the HP display.
+  }
 
   #attachListeners(root) {
     root.removeEventListener("click", this.#onClick);

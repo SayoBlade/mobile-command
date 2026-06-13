@@ -60,6 +60,32 @@
   font-size: 16px; line-height: 1;
 }
 
+/* --- HP steppers + damage/heal delta (first write interaction) --- */
+.mc-hp-step {
+  width: 26px; height: 26px;
+  border: 1px solid #3a3e4c; border-radius: 7px;
+  background: #2a2d38; color: #e8e8ec;
+  font-size: 18px; line-height: 1; font-weight: 700;
+}
+.mc-hp-step:active { background: #3a4250; }
+.mc-hp-edit {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  background: #16171d;
+  border-bottom: 1px solid #2c2f3a;
+  flex: 0 0 auto;
+}
+.mc-hp-input {
+  flex: 1 1 auto; min-width: 0;
+  padding: 9px 12px;
+  background: #0c0d11; color: #e8e8ec;
+  border: 1px solid #313542; border-radius: 8px;
+  font-size: 15px; font-variant-numeric: tabular-nums;
+}
+.mc-hp-edit .mc-btn { flex: 0 0 auto; padding: 9px 16px; }
+.mc-hp-damage { background: #3a2526; border-color: #5c2f2c; }
+.mc-hp-heal { background: #20342a; border-color: #2f5d39; }
+
 /* --- conditions --- */
 .mc-conditions {
   display: flex; flex-wrap: wrap; gap: 6px;
