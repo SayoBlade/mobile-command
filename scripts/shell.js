@@ -34,6 +34,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #toastEl = null;     // transient roll toast; overlay node kept across re-renders
   #toastTimer = null;
   #actionState = null; // null = action list; object = target-pick/fire sub-view
+  #editingField = null; // B7: "hp" | "temp" while that stat is an inline input
 
   /** The actor this phone controls: assigned character, else first owned character. */
   get actor() {
@@ -54,6 +55,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     content.innerHTML = typeof result === "string" ? result : "";
     this.#attachListeners(content);
     if (toast) content.appendChild(toast);
+    if (this.#editingField) {
+      const inp = content.querySelector(".mc-stat-input");
+      if (inp) { inp.focus(); inp.select(); }
+    }
   }
 
   #buildHTML() {
@@ -61,9 +66,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!actor) {
       return `<div class="mc-placeholder">No owned character found for ${game.user.name}.</div>`;
     }
-    const hp = actor.system.attributes?.hp ?? {};
+    const sys = actor.system;
+    const hp = sys.attributes?.hp ?? {};
     const pct = hp.max ? (hp.value / hp.max) : 1;
     const hpClass = pct <= 0.33 ? "mc-bloodied" : pct < 1 ? "mc-hurt" : "";
+    const ac = sys.attributes?.ac?.value ?? "—";
+    const insp = !!sys.attributes?.inspiration;
     const img = actor.img || actor.prototypeToken?.texture?.src || "icons/svg/mystery-man.svg";
 
     const conditions = (actor.temporaryEffects ?? [])
@@ -72,32 +80,36 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ? conditions.map(c => `<span class="mc-chip">${foundry.utils.escapeHTML(c)}</span>`).join("")
       : `<span class="mc-chip mc-none">No active conditions</span>`;
 
+    // B7: HP & temp are tap-to-edit — input accepts absolute ("22") or relative ("-10"/"+3").
+    const hpField = this.#editingField === "hp"
+      ? `<input class="mc-stat-input" data-field="hp" type="text" inputmode="numeric" value="${hp.value ?? ""}">`
+      : `<button class="mc-stat-val mc-hp-cur ${hpClass}" data-action="edit-hp">${hp.value ?? "—"}</button>`;
+    const tempField = this.#editingField === "temp"
+      ? `<input class="mc-stat-input mc-temp-input" data-field="temp" type="text" inputmode="numeric" value="${hp.temp || ""}">`
+      : `<button class="mc-stat-val mc-temp-val ${hp.temp ? "" : "mc-zero"}" data-action="edit-temp">${hp.temp || 0}</button>`;
+
     return `
       <header class="mc-header">
         <img class="mc-portrait" src="${img}" alt="">
         <div class="mc-id">
           <div class="mc-name">${foundry.utils.escapeHTML(actor.name)}</div>
-          <div class="mc-hp">
-            <button class="mc-hp-step" data-action="hp-delta" data-delta="-1" aria-label="HP −1">−</button>
-            <span class="mc-hp-cur ${hpClass}">${hp.value ?? "—"}</span>
-            <button class="mc-hp-step" data-action="hp-delta" data-delta="1" aria-label="HP +1">+</button>
-            <span class="mc-hp-max">/ ${hp.max ?? "—"} HP</span>
-            ${hp.temp ? `<span class="mc-hp-temp">+${hp.temp} temp</span>` : ""}
+          <div class="mc-stats">
+            <span class="mc-stat"><span class="mc-stat-label">HP</span>${hpField}<span class="mc-stat-sub">/${hp.max ?? "—"}</span></span>
+            <span class="mc-stat"><span class="mc-stat-label">Temp</span>${tempField}</span>
+            <span class="mc-stat"><span class="mc-stat-label">AC</span><span class="mc-stat-val mc-stat-ac">${ac}</span></span>
+            <button class="mc-insp ${insp ? "mc-insp-on" : ""}" data-action="toggle-insp" title="Inspiration">★</button>
           </div>
         </div>
         <button class="mc-exit" data-action="exit" title="Exit (testing)">✕</button>
       </header>
-      <div class="mc-hp-edit">
-        <input class="mc-hp-input" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="amount">
-        <button class="mc-btn mc-hp-damage" data-action="hp-apply" data-mode="damage">Damage</button>
-        <button class="mc-btn mc-hp-heal" data-action="hp-apply" data-mode="heal">Heal</button>
-      </div>
       <div class="mc-conditions">${condHTML}</div>
       <main class="mc-content">${this.#tabContent(actor)}</main>
       ${this.#rollStripHTML()}
+      ${this.#turnHudHTML()}
       <nav class="mc-tabs">
         ${this.#tabButton("actions", "Actions")}
         ${this.#tabButton("sheet", "Sheet")}
+        ${this.#tabButton("move", "Move")}
         ${this.#tabButton("journal", "Journal")}
       </nav>`;
   }
@@ -107,13 +119,47 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   #tabContent(actor) {
-    if (this.#tab === "actions") {
-      return this.#actionsHTML(actor);
-    }
+    if (this.#tab === "actions") return this.#actionsHTML(actor);
+    if (this.#tab === "move") return this.#moveHTML();
     if (this.#tab === "journal") {
       return `<div class="mc-placeholder">The shared journal composer arrives in Phase 4.</div>`;
     }
     return this.#sheetHTML(actor);
+  }
+
+  // Move pad (§7.4): D-pad steps the player's own token via the move.request
+  // RPC (executor wall-validates and applies). Out-of-combat group-token
+  // binding is a later refinement; this moves the controlled actor's token.
+  #moveHTML() {
+    if (!this.originTokenId) {
+      return `<div class="mc-placeholder">No token for this character on the active scene.</div>`;
+    }
+    const cell = (dx, dy, glyph, cls = "") =>
+      `<button class="mc-dpad-btn ${cls}" data-action="move" data-dx="${dx}" data-dy="${dy}">${glyph}</button>`;
+    const blank = `<span class="mc-dpad-blank"></span>`;
+    return `
+      <div class="mc-section-label">Move — one square per tap</div>
+      <div class="mc-dpad">
+        ${cell(-1, -1, "↖")}${cell(0, -1, "↑")}${cell(1, -1, "↗")}
+        ${cell(-1, 0, "←")}${blank}${cell(1, 0, "→")}
+        ${cell(-1, 1, "↙")}${cell(0, 1, "↓")}${cell(1, 1, "↘")}
+      </div>
+      <div class="mc-move-note" data-role="move-note"></div>`;
+  }
+
+  // Turn HUD (§7.4): shows the current combatant; End turn routes to the
+  // executor (nextTurn is GM-side) and is enabled only on the player's turn.
+  #turnHudHTML() {
+    const combat = game.combat;
+    if (!combat?.started) return "";
+    const cur = combat.combatant;
+    const isMyTurn = !!cur?.actor && cur.actor.id === this.actor?.id;
+    const label = isMyTurn ? "Your turn"
+      : `Up: ${foundry.utils.escapeHTML(cur?.name ?? "—")}`;
+    return `<div class="mc-turnhud ${isMyTurn ? "mc-myturn" : ""}">
+      <span class="mc-turn-label">${label}</span>
+      <button class="mc-endturn" data-action="end-turn" ${isMyTurn ? "" : "disabled"}>End turn</button>
+    </div>`;
   }
 
   #sheetHTML(actor) {
@@ -403,35 +449,77 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return actor?.rollSavingThrow({ ability: el.dataset.ability });
       case "skill":
         return actor?.rollSkill({ skill: el.dataset.skill });
-      case "hp-delta":
-        return this.#applyHP(Number(el.dataset.delta));
-      case "hp-apply": {
-        const input = this.element?.querySelector(".mc-hp-input");
-        const n = Math.abs(parseInt(input?.value, 10)) || 0;
-        if (input) input.value = "";
-        if (!n) return;
-        return this.#applyHP(el.dataset.mode === "damage" ? -n : n);
-      }
+      case "edit-hp":
+        this.#editingField = "hp"; return this.render();
+      case "edit-temp":
+        this.#editingField = "temp"; return this.render();
+      case "toggle-insp":
+        return this.#toggleInspiration();
+      case "move":
+        return this.#move(Number(el.dataset.dx), Number(el.dataset.dy));
+      case "end-turn":
+        return this.#endTurn();
     }
   };
 
-  /** Apply an HP delta to the controlled actor, clamped to [0, max]. */
-  async #applyHP(delta) {
+  // B7: commit a tapped HP/temp edit — absolute ("22") or relative ("+3"/"-10").
+  // Guarded by #editingField so the Enter-keydown and the blur-change don't both
+  // apply (which would double a relative delta).
+  async #commitStat(field, raw) {
+    if (this.#editingField !== field) return;
+    this.#editingField = null;
     const actor = this.actor;
-    if (!actor || !delta) return;
-    const hp = actor.system.attributes?.hp;
-    if (!hp) return;
-    const max = hp.max ?? (hp.value + delta);
-    const next = Math.max(0, Math.min(max, hp.value + delta));
-    if (next === hp.value) return;
-    await actor.update({ "system.attributes.hp.value": next });
-    // The updateActor hook re-renders the shell, refreshing the HP display.
+    const hp = actor?.system.attributes?.hp;
+    raw = String(raw ?? "").trim();
+    if (!actor || !hp || !raw) return this.render();
+    const rel = /^[+-]/.test(raw);
+    const n = Number(raw);
+    if (Number.isNaN(n)) return this.render();
+    if (field === "hp") {
+      const next = Math.max(0, Math.min(hp.max ?? Infinity, rel ? hp.value + n : n));
+      await actor.update({ "system.attributes.hp.value": next });
+    } else {
+      const cur = hp.temp || 0;
+      await actor.update({ "system.attributes.hp.temp": Math.max(0, rel ? cur + n : n) });
+    }
+    this.render(); // ensure the input drops even if the value didn't change
+  }
+
+  async #toggleInspiration() {
+    const actor = this.actor;
+    if (!actor) return;
+    await actor.update({ "system.attributes.inspiration": !actor.system.attributes?.inspiration });
+  }
+
+  async #move(dx, dy) {
+    const note = this.element?.querySelector('[data-role="move-note"]');
+    const res = await rpc.moveToken({ tokenId: this.originTokenId, dxGrid: dx, dyGrid: dy });
+    if (note) note.textContent = res?.ok ? "" : (res?.reason ?? "can't move there");
+  }
+
+  async #endTurn() {
+    const res = await rpc.endTurn({});
+    if (res && !res.ok) ui.notifications.warn(`End turn: ${res.reason ?? "failed"}`);
   }
 
   #attachListeners(root) {
     root.removeEventListener("click", this.#onClick);
     root.addEventListener("click", this.#onClick);
+    root.removeEventListener("change", this.#onChange);
+    root.addEventListener("change", this.#onChange);
+    root.removeEventListener("keydown", this.#onKeydown);
+    root.addEventListener("keydown", this.#onKeydown);
   }
+
+  // Commit a stat input on blur/Enter; cancel on Escape.
+  #onChange = (ev) => {
+    if (ev.target.matches?.(".mc-stat-input")) this.#commitStat(ev.target.dataset.field, ev.target.value);
+  };
+  #onKeydown = (ev) => {
+    if (!ev.target.matches?.(".mc-stat-input")) return;
+    if (ev.key === "Enter") { ev.preventDefault(); this.#commitStat(ev.target.dataset.field, ev.target.value); }
+    else if (ev.key === "Escape") { this.#editingField = null; this.render(); }
+  };
 
   // --- roll-result surface (read-only) -------------------------------------
   // The full-screen shell covers Foundry's native chat, so a phone player can't
@@ -595,4 +683,9 @@ export function registerShellHooks() {
   Hooks.on("createChatMessage", (message) => {
     if (shellInstance?.rendered) shellInstance.noteRoll(message);
   });
+  // Turn HUD: re-render on combat turn/round changes and combat start/stop.
+  const onCombat = () => { if (shellInstance?.rendered) shellInstance.render(); };
+  Hooks.on("updateCombat", onCombat);
+  Hooks.on("deleteCombat", onCombat);
+  Hooks.on("combatStart", onCombat);
 }

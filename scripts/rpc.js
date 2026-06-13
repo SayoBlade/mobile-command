@@ -38,6 +38,7 @@ export function initSocket() {
   socket.register("measure", handleMeasure);
   socket.register("targetsList", handleTargetsList);
   socket.register("previewTargets", handlePreviewTargets);
+  socket.register("endTurn", handleEndTurn);
   socket.register("assignTargets", handleAssignTargets);
   socket.register("heartbeat", handleHeartbeat);
   console.log(`${MODULE_ID} | socket registered`);
@@ -323,6 +324,20 @@ function handlePreviewTargets({ tokenUuids = [] }) {
   return { ok: true };
 }
 
+// Turn HUD: advancing the turn is GM-side (Combat#nextTurn), so the phone's
+// End-turn routes here. Only the owner of the current combatant may advance.
+async function handleEndTurn({ requesterId }) {
+  const refused = requireExecutor("preflight");
+  if (refused) return refused;
+  const combat = game.combat;
+  if (!combat?.started) return { ok: false, stage: "combat", reason: "no active combat" };
+  if (!requesterCanAct(requesterId, combat.combatant?.actor)) {
+    return { ok: false, stage: "permission", reason: "not your turn" };
+  }
+  await combat.nextTurn();
+  return { ok: true };
+}
+
 // --- phone/DM-facing API (any client) ---------------------------------------
 
 function toExecutor(handler, payload) {
@@ -334,7 +349,7 @@ function toExecutor(handler, payload) {
       itemUse: handleItemUse, itemUseStart: handleItemUseStart,
       itemUseDamage: handleItemUseDamage, itemUseCancel: handleItemUseCancel,
       moveRequest: handleMoveRequest, measure: handleMeasure, targetsList: handleTargetsList,
-      previewTargets: handlePreviewTargets
+      previewTargets: handlePreviewTargets, endTurn: handleEndTurn
     };
     return handlers[handler](payload);
   }
@@ -351,6 +366,7 @@ export const api = {
   measure: (payload) => toExecutor("measure", payload),
   listTargets: (payload) => toExecutor("targetsList", payload),
   previewTargets: (payload) => toExecutor("previewTargets", payload),
+  endTurn: (payload) => toExecutor("endTurn", payload),
   assignTargets: (userId, tokenUuids) =>
     socket
       ? socket.executeAsUser("assignTargets", userId, { tokenUuids, fromName: game.user.name })

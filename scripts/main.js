@@ -42,6 +42,7 @@ Hooks.once("ready", () => {
   if (isPhoneClient()) {
     suppressResolutionWarning();
     document.body.classList.add("mc-phone"); // scopes phone-only CSS (e.g. roll-dialog spacing)
+    enableSafeAreaInsets(); // so env(safe-area-inset-*) is non-zero on iOS (B1 tab clearance)
   }
 
   injectShellStyles(); // load CSS via JS so a plain F5 works without re-reading the manifest
@@ -67,6 +68,13 @@ Hooks.once("ready", () => {
 
   console.log(`${MODULE_ID} | ready — executor: ${resolveExecutorId() ?? "none"} (this client: ${isExecutor()})`);
 });
+
+function enableSafeAreaInsets() {
+  // env(safe-area-inset-*) only resolves to non-zero when the viewport opts in
+  // with viewport-fit=cover. Append it to Foundry's existing viewport meta.
+  const vp = document.querySelector('meta[name="viewport"]');
+  if (vp && !/viewport-fit/.test(vp.content)) vp.content += ", viewport-fit=cover";
+}
 
 function injectShellStyles() {
   const id = `${MODULE_ID}-shell-styles`;
