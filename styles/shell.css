@@ -1,0 +1,239 @@
+/* Mobile Command — Controller Shell (Phase 2, read-only Touch Sheet).
+   Full-screen takeover for phone-role clients. Dark, thumb-first. */
+
+#mobile-command-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  background: #14151a;
+  color: #e8e8ec;
+  font-family: "Signika", sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  overflow: hidden;
+}
+
+#mobile-command-shell * { box-sizing: border-box; }
+
+/* --- header: portrait, name, HP --- */
+.mc-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #1d1f27;
+  border-bottom: 1px solid #2c2f3a;
+  flex: 0 0 auto;
+}
+.mc-portrait {
+  width: 52px; height: 52px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #0c0d11;
+  border: 1px solid #2c2f3a;
+}
+.mc-id { flex: 1 1 auto; min-width: 0; }
+.mc-name {
+  font-size: 17px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mc-hp {
+  display: flex; align-items: baseline; gap: 6px;
+  margin-top: 2px; font-variant-numeric: tabular-nums;
+}
+.mc-hp-cur { font-size: 22px; font-weight: 700; color: #6fcf7d; }
+.mc-hp-cur.mc-hurt { color: #e0b24a; }
+.mc-hp-cur.mc-bloodied { color: #e2584a; }
+.mc-hp-max { font-size: 14px; color: #9a9da8; }
+.mc-hp-temp {
+  font-size: 12px; color: #5db4e6;
+  margin-left: 6px; padding: 1px 6px;
+  border: 1px solid #2c4a5c; border-radius: 10px;
+}
+.mc-exit {
+  flex: 0 0 auto;
+  width: 34px; height: 34px;
+  border: 1px solid #2c2f3a; border-radius: 8px;
+  background: #25272f; color: #9a9da8;
+  font-size: 16px; line-height: 1;
+}
+
+/* --- conditions --- */
+.mc-conditions {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 8px 14px;
+  background: #16171d;
+  border-bottom: 1px solid #2c2f3a;
+  flex: 0 0 auto;
+}
+.mc-chip {
+  font-size: 12px; padding: 3px 9px;
+  background: #2a2d38; border: 1px solid #3a3e4c; border-radius: 12px;
+  color: #cfd2db;
+}
+.mc-chip.mc-none { color: #6a6d78; border-style: dashed; }
+
+/* --- scrollable content --- */
+.mc-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px;
+}
+.mc-section-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: #81869a; margin: 4px 2px 8px;
+}
+
+/* --- skills favorites strip --- */
+.mc-skills {
+  display: flex; gap: 8px; margin-bottom: 16px;
+}
+.mc-skill {
+  flex: 1 1 0;
+  padding: 10px 6px;
+  background: #20222b; border: 1px solid #313542; border-radius: 10px;
+  text-align: center;
+}
+.mc-skill .mc-skill-name { font-size: 12px; color: #b9bcc7; }
+.mc-skill .mc-skill-mod { font-size: 18px; font-weight: 700; margin-top: 2px; }
+
+/* --- ability grid --- */
+.mc-abilities {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+}
+.mc-ability {
+  background: #20222b; border: 1px solid #313542; border-radius: 12px;
+  padding: 10px;
+}
+.mc-ability-top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.mc-ability-abbr { font-size: 13px; font-weight: 700; letter-spacing: .05em; color: #b9bcc7; }
+.mc-ability-mod { font-size: 24px; font-weight: 800; }
+.mc-ability-btns { display: flex; gap: 8px; }
+.mc-btn {
+  flex: 1 1 0;
+  padding: 10px 0;
+  border-radius: 8px; border: 1px solid #3a3e4c;
+  background: #2a2d38; color: #e8e8ec;
+  font-size: 13px; font-weight: 600;
+}
+.mc-btn:active { background: #3a4250; }
+.mc-btn.mc-save { background: #243042; border-color: #2f4660; }
+
+/* --- placeholder panels --- */
+.mc-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; min-height: 200px;
+  color: #6a6d78; font-size: 14px; text-align: center; padding: 24px;
+}
+
+/* --- bottom tab bar --- */
+.mc-tabs {
+  display: flex; flex: 0 0 auto;
+  background: #1d1f27; border-top: 1px solid #2c2f3a;
+}
+.mc-tab {
+  flex: 1 1 0; padding: 12px 0;
+  text-align: center; font-size: 12px; font-weight: 600;
+  color: #81869a; background: none; border: none;
+}
+.mc-tab.mc-active { color: #e8e8ec; box-shadow: inset 0 2px 0 #5db4e6; }
+
+/* --- roll-result surface (read-only): recent-rolls strip + transient toast ---
+   The shell covers Foundry's native chat, so the player's own roll outcomes are
+   echoed here. Strip sits in-flow above the tabs; toast floats over the sheet. */
+.mc-roll-strip {
+  display: flex; flex: 0 0 auto; gap: 8px;
+  padding: 8px 12px;
+  background: #16171d;
+  border-top: 1px solid #2c2f3a;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.mc-roll-strip::-webkit-scrollbar { display: none; }
+.mc-roll-pill {
+  flex: 0 0 auto;
+  display: flex; align-items: baseline; gap: 7px;
+  max-width: 62vw;
+  padding: 6px 11px;
+  background: #20222b; border: 1px solid #313542; border-radius: 999px;
+}
+.mc-roll-pill.mc-latest { border-color: #2f4660; box-shadow: inset 0 0 0 1px #243042; }
+.mc-roll-pill-total {
+  font-size: 16px; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums; color: #e8e8ec;
+}
+.mc-roll-pill-label {
+  font-size: 11px; color: #9a9da8;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mc-roll-pill.nat20 .mc-roll-pill-total { color: #6fcf7d; }
+.mc-roll-pill.nat1  .mc-roll-pill-total { color: #e2584a; }
+
+/* transient toast: floats above the strip, fades out, tap to dismiss */
+.mc-roll-toast {
+  position: absolute;
+  left: 50%;
+  bottom: calc(98px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%) translateY(10px);
+  display: flex; align-items: center; gap: 14px;
+  min-width: 200px; max-width: 86%;
+  padding: 13px 18px;
+  background: #1d1f27;
+  border: 1px solid #2c2f3a; border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .55);
+  opacity: 0; pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.mc-roll-toast.mc-show {
+  opacity: 1; pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+.mc-roll-toast-total {
+  flex: 0 0 auto;
+  font-size: 40px; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums; color: #e8e8ec;
+}
+.mc-roll-toast-meta { min-width: 0; }
+.mc-roll-toast-label {
+  font-size: 14px; font-weight: 600; color: #e8e8ec;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mc-roll-toast-formula {
+  font-size: 11px; color: #81869a; margin-top: 1px;
+  font-variant-numeric: tabular-nums;
+}
+.mc-roll-toast.nat20 { border-color: #2f5d39; }
+.mc-roll-toast.nat20 .mc-roll-toast-total { color: #6fcf7d; }
+.mc-roll-toast.nat1 { border-color: #5c2f2c; }
+.mc-roll-toast.nat1 .mc-roll-toast-total { color: #e2584a; }
+.mc-roll-tag {
+  display: inline-block; margin-top: 4px;
+  padding: 2px 7px; border-radius: 8px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+  background: #25272f; color: #cfd2db;
+}
+.mc-roll-toast.nat20 .mc-roll-tag { background: #1c2f22; color: #8fe0a0; }
+.mc-roll-toast.nat1  .mc-roll-tag { background: #2f1d1c; color: #f0a097; }
+
+/* --- dnd5e roll dialog: phone breathing room (scoped to body.mc-phone) ---
+   Quick spacing fix so the submit buttons clear the form text on narrow
+   viewports. NOT the full restyle — that's the Prompt Restyler (§7.6). */
+body.mc-phone .roll-configuration .dialog-buttons {
+  margin-top: 14px;
+  gap: 8px;
+}
+body.mc-phone .roll-configuration .dialog-buttons button {
+  padding: 10px 8px;
+}
+body.mc-phone .roll-configuration .form-group,
+body.mc-phone .roll-configuration .roll-formulas,
+body.mc-phone .roll-configuration fieldset {
+  margin-bottom: 10px;
+}

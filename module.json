@@ -42,6 +42,9 @@
   "esmodules": [
     "scripts/main.js"
   ],
+  "styles": [
+    "styles/shell.css"
+  ],
   "languages": [
     {
       "lang": "en",
