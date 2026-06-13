@@ -430,3 +430,47 @@ body.mc-phone .roll-configuration fieldset {
 .mc-turnhud.mc-myturn .mc-turn-label { color: var(--mc-gold); }
 .mc-endturn { padding: 9px 18px; border-radius: 9px; background: var(--mc-crimson); border: 1px solid #7a2d27; color: #fff; font-weight: 700; font-size: 14px; }
 .mc-endturn:disabled { background: #2a272e; border-color: var(--mc-edge); color: #5a5560; }
+
+/* ============================================================
+   Round-2 tweaks (2026-06-14): move pad into Explore, bigger/closer
+   D-pad, action icons, and the mobile-friendly HP/Temp stat editor
+   (on-screen − / + / Set so the iOS numeric keypad suffices).
+   ============================================================ */
+
+/* Move pad — bigger buttons, closer together; sits atop the Explore tab. */
+.mc-dpad { gap: 6px; max-width: 300px; margin: 12px auto 16px; }
+.mc-dpad-btn { font-size: 30px; }
+
+/* Action rows: item/feature icon + name + sub. */
+#mobile-command-shell .mc-action { justify-content: flex-start; gap: 12px; }
+.mc-action-icon {
+  width: 42px; height: 42px; flex: 0 0 auto;
+  border-radius: 7px; object-fit: cover;
+  border: 1px solid var(--mc-edge); background: #0c0d11;
+}
+.mc-action-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left; }
+#mobile-command-shell .mc-action-name { font-size: 15px; font-weight: 600; }
+
+/* Header HP/Temp are tappable; the one being edited is highlighted. */
+.mc-stat-val.mc-editing { color: var(--mc-gold); text-decoration: underline; }
+
+/* B7 stat editor row */
+.mc-stat-editor {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; background: #16131b;
+  border-bottom: 1px solid var(--mc-gold); flex: 0 0 auto;
+}
+.mc-stat-editor-label { font-size: 13px; color: var(--mc-muted); white-space: nowrap; }
+.mc-stat-editor-label b { color: var(--mc-ink); font-size: 16px; }
+.mc-stat-editor .mc-stat-input {
+  flex: 1 1 auto; min-width: 0; width: auto;
+  font-size: 20px; padding: 11px 10px; text-align: center;
+}
+.mc-pm {
+  min-width: 48px; padding: 11px 12px; border-radius: 9px;
+  font-size: 19px; font-weight: 800; line-height: 1;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink);
+}
+.mc-pm:active { background: #3a4250; }
+.mc-pm.mc-set { font-size: 14px; background: #243042; border-color: #2f5d8a; }
+.mc-pm.mc-cancel { min-width: 36px; background: none; border: none; color: var(--mc-muted); }

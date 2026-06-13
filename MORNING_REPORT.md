@@ -1,48 +1,38 @@
-# Morning Report — overnight build 2026-06-13 (test 2026-06-14)
+# Morning Report — overnight build (test on waking)
 
 ## TL;DR
 
-Built **two things while you slept, both UNTESTED** (I have no live client, so nothing here is verified): (1) the **L&F pass** — a dark-fantasy "character sheet" theme — folding in the §12 backlog items B1/B3/B4/B7; (2) the **Move pad + Turn HUD** to round out the combat loop. The working combat loop from yesterday was left intact (the restyle layers over the same DOM). Five commits from yesterday are untouched; tonight's work is one new commit. **Please run the numbered tests below and stop at the first failure** — since I built blind, the most likely issues are runtime/behavioral, not structural.
+Acted on your screenshot feedback overnight. Everything below is **built but UNTESTED** (no live client on my side — I can't run Foundry). The working combat loop and the parts you already liked were left intact. Please run the numbered tests and **stop at the first failure**. Two commits tonight: the first big L&F + Move/Turn build, then a round-2 pass addressing your notes.
 
-Code sanity-checked as far as I could without node: brace/paren balance OK on all files; manual review of the new handlers clean. No `node` on this machine to run a real syntax check — flagged as a gap.
+## Your notes → what I did
 
-## What I built
+- **"movement buttons bigger, closer together"** → D-pad enlarged, gap tightened. ✅ built
+- **"fit them in the sheet page, rename it Exploration"** → the **"Sheet" tab is now "Explore"** and the move pad sits at the top of it; the separate "Move" tab is gone. ✅ built
+- **"HP/temp inputs bigger + iOS keypad has no +/− keys, still want add/subtract"** → tapping HP or Temp now opens a roomy editor row with on-screen **− / + / Set**: type an amount, tap **−** to subtract or **+** to add (delta), or **Set** for an absolute value. No keyboard +/− or return needed. Inputs enlarged. ✅ built — **this is the highest-risk piece, please test carefully (test 4–6)**
+- **"actions/bonus actions that aren't items — Action Surge, Second Wind, lamp"** → the Actions list now includes **features** (Action Surge, Second Wind, etc.), not just weapons/spells. **Inventory use (lamp, equip toggles, potions) is NOT done** — that's a Sheet/inventory surface, logged for a later stage.
+- **"an icon for each key, from the item itself"** → each action row now shows the item/feature **icon**. ✅ built (applies to Actions; ability/skill buttons have no per-item icon)
+- **"drag between tabs"** → **not done** (you said not a must; doing it blind risks breaking tap handling). Logged (B2).
+- **"long presses don't work"** → correct, that's the v2 detail-card/context-menu (§7.2). Logged, not built.
 
-**L&F (B5) + folded-in backlog** — all in [scripts/shell.js](scripts/shell.js), [styles/shell.css](styles/shell.css), [scripts/main.js](scripts/main.js):
-- **Theme:** dark-fantasy palette, gold/crimson accents, dnd5e's **Modesto Condensed** display font on the name/section labels/big numbers/tabs. Applied as an appended CSS layer over the existing DOM, so the combat loop's behavior is unchanged.
-- **B4 — AC** shown in the header.
-- **B3 — Inspiration** star in the header; tap toggles `system.attributes.inspiration`.
-- **B7 — HP & Temp are tap-to-edit:** tap the number → it becomes an input → type an absolute (`22`) or relative (`-10` / `+3`) value, Enter or tap-away commits, Esc cancels. The old −/+ steppers and Damage/Heal row are **removed**.
-- **B1 — tab bar** enlarged, and the module now adds `viewport-fit=cover` to the viewport on phones so `env(safe-area-inset-bottom)` actually clears the iOS home-swipe area.
+## Do this (hard-reload BOTH windows first: Ctrl+Shift+R; DM unpaused & on the active scene)
 
-**Phase 3 — Move pad + Turn HUD** ([scripts/shell.js](scripts/shell.js), [scripts/rpc.js](scripts/rpc.js)):
-- **Move tab** with a 3×3 D-pad → the proven `move.request` RPC (executor wall-validates). Moves the controlled actor's own token.
-- **Turn HUD** — a banner that appears when a combat is active: shows whose turn it is, highlights "Your turn", and an **End turn** button → new `endTurn` RPC (turn advancement is GM-side, so it routes to the executor; only the current combatant's owner may advance).
+1. **Explore tab:** the old "Sheet" tab now reads **"Explore"** (tabs: Actions · Explore · Journal); opening it shows the **move pad on top**, then skills/abilities below.
+2. **Move pad:** buttons are bigger and closer; tapping a direction steps your token on the DM canvas; toward a wall it doesn't move (a small note shows).
+3. **Header:** HP, Temp, AC, and the ★ inspiration button are present; AC matches the sheet.
+4. **HP −/+ (the iOS fix):** tap the **HP** number → an editor row appears with an input and **− / + / Set**. Type `5`, tap **−** → HP drops 5; type `3`, tap **+** → HP rises 3.
+5. **HP Set:** tap HP → type `20` → tap **Set** → HP becomes 20 (clamped to max). Tap the ✕ to cancel without changing.
+6. **Temp:** tap **Temp** → same editor → set/add/subtract temp HP.
+7. **Inspiration:** tap ★ → toggles on/off (gold when on).
+8. **Actions list:** open Actions — it now shows **icons** per row and includes **features** (e.g. Action Surge, Second Wind) alongside weapons/spells. Tapping a no-target feature (Action Surge) should fire without asking for a target; Second Wind should give you a "Roll damage" (healing) step.
+9. **Regression — two-tap attack:** Actions → Greatsword → pick a live target (reticle commits on DM) → Use → Roll damage still works.
+10. **Turn HUD (needs a combat):** start combat; the banner shows whose turn; on your turn **End turn** is enabled and advances the turn.
 
-## Do this (numbered; one at a time; stop at the first failure)
+## Honest risk notes
 
-**Setup:** hard-reload **both** windows (Ctrl+Shift+R) — DM and player — to load the new JS/CSS (it's all JS+CSS, no manifest change). DM unpaused and on the active scene. Player = the Fighter's owner.
+- **All untested.** Most likely to need a fix: the **HP editor** (focus/commit/clamp) and **features in Actions** (some utility activities may behave oddly through Route B — if one hangs or errors, tell me which feature).
+- No `node` on this machine, so I couldn't run a real JS syntax check — only brace/paren balance (clean) + manual review.
+- The move pad still moves **your own token** even out of combat (design wants the shared group token out of combat) — flagged, not changed.
 
-1. **Shell reskins:** the player shell looks restyled — gold/crimson dark-fantasy theme, the name and headers in a condensed display font (not the plain sans). (If the font looks unchanged, that's cosmetic — Modesto may not be scoping in; note it and continue.)
-2. **Header stats:** the header shows **HP**, **Temp**, **AC** (a number), and a **★ inspiration** button.
-3. **AC** matches the Fighter's sheet AC.
-4. **Inspiration:** tap ★ → it fills gold (and the actor gains inspiration); tap again → clears. (Cross-check on the DM if you like.)
-5. **HP edit (absolute):** tap the HP number → it becomes an input → type `25` → Enter → HP becomes 25.
-6. **HP edit (relative):** tap HP → type `-5` → Enter → HP drops by 5; tap HP → `+3` → rises by 3. (No double-apply.)
-7. **Temp:** tap the Temp number → set it (e.g. `5`) → it shows; set `0` to clear.
-8. **Tab bar:** four tabs now — Actions · Sheet · **Move** · Journal — and the bar sits clear of the iPhone home bar (not flush against the bottom).
-9. **Move pad:** Move tab shows a D-pad; tap a direction → your token steps one square on the DM canvas; tap toward a wall → it doesn't move and a small note shows underneath.
-10. **Turn HUD (needs combat):** start a combat with the Fighter in it. The shell shows a turn banner. On the Fighter's turn it says **"Your turn"** and **End turn** is enabled; tap it → the turn advances (check the DM tracker). On others' turns it shows who's up and End turn is disabled.
-11. **Regression:** the two-tap attack still works — Actions → Greatsword → tap target (reticle commits on DM) → Use → Roll damage.
+## Next action for me
 
-## Known/unverified + deferred (so you're not surprised)
-
-- **Everything above is untested.** Highest-risk-to-work-first-try, in my estimation: the **HP inline-edit focus/commit** (B7) and the **Turn HUD/endTurn** (combat API used without a live check). If HP edit misbehaves, tell me exactly how (input doesn't appear / doesn't commit / double-applies).
-- **Switching directly from editing HP to editing Temp** may need two taps (the blur commits the first, the tap re-opens) — minor, noted.
-- **Deferred, not built:** B2 (swipe between tabs), B8 (in-range badge — needs the activity's range passed into `listTargets`), action-economy pips on the HUD, and out-of-combat **group-token** binding for the move pad (it currently always moves your own token).
-- **Move pad** moves your own token even out of combat (design wants the shared group token out of combat) — fine for testing, flagged for later.
-- No `node` on this machine, so I couldn't run a real JS syntax check — only brace-balance + manual review.
-
-## Exact next action for me
-
-Tell me the first test number that fails (with what you saw), or "all pass." If all pass, the next build choices are: the **TV/Table client** (unlocks the real player-colored reticle + a lot of §7.3/§6.1), **B8 in-range badge**, or starting to refine the L&F from your reactions.
+Tell me the first failing test number (with what you saw) or "all pass." Then the open choices remain: **inventory use** (lamp/equip/potions in the Explore sheet), the **TV/Table client** (real player-colored reticle), **B8 in-range badge**, **swipe tabs**, or a deeper **L&F polish** pass.

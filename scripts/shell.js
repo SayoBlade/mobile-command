@@ -80,13 +80,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ? conditions.map(c => `<span class="mc-chip">${foundry.utils.escapeHTML(c)}</span>`).join("")
       : `<span class="mc-chip mc-none">No active conditions</span>`;
 
-    // B7: HP & temp are tap-to-edit — input accepts absolute ("22") or relative ("-10"/"+3").
-    const hpField = this.#editingField === "hp"
-      ? `<input class="mc-stat-input" data-field="hp" type="text" inputmode="numeric" value="${hp.value ?? ""}">`
-      : `<button class="mc-stat-val mc-hp-cur ${hpClass}" data-action="edit-hp">${hp.value ?? "—"}</button>`;
-    const tempField = this.#editingField === "temp"
-      ? `<input class="mc-stat-input mc-temp-input" data-field="temp" type="text" inputmode="numeric" value="${hp.temp || ""}">`
-      : `<button class="mc-stat-val mc-temp-val ${hp.temp ? "" : "mc-zero"}" data-action="edit-temp">${hp.temp || 0}</button>`;
+    // B7: HP & temp are tap-to-edit. Tapping opens a roomy editor row with
+    // on-screen − / + / Set so it works on the iOS numeric keypad (which has no
+    // +/− or reliable return key) — not only an absolute fill.
+    const hpBtn = `<button class="mc-stat-val mc-hp-cur ${hpClass} ${this.#editingField === "hp" ? "mc-editing" : ""}" data-action="edit-hp">${hp.value ?? "—"}</button>`;
+    const tempBtn = `<button class="mc-stat-val mc-temp-val ${hp.temp ? "" : "mc-zero"} ${this.#editingField === "temp" ? "mc-editing" : ""}" data-action="edit-temp">${hp.temp || 0}</button>`;
 
     return `
       <header class="mc-header">
@@ -94,22 +92,22 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <div class="mc-id">
           <div class="mc-name">${foundry.utils.escapeHTML(actor.name)}</div>
           <div class="mc-stats">
-            <span class="mc-stat"><span class="mc-stat-label">HP</span>${hpField}<span class="mc-stat-sub">/${hp.max ?? "—"}</span></span>
-            <span class="mc-stat"><span class="mc-stat-label">Temp</span>${tempField}</span>
+            <span class="mc-stat"><span class="mc-stat-label">HP</span>${hpBtn}<span class="mc-stat-sub">/${hp.max ?? "—"}</span></span>
+            <span class="mc-stat"><span class="mc-stat-label">Temp</span>${tempBtn}</span>
             <span class="mc-stat"><span class="mc-stat-label">AC</span><span class="mc-stat-val mc-stat-ac">${ac}</span></span>
             <button class="mc-insp ${insp ? "mc-insp-on" : ""}" data-action="toggle-insp" title="Inspiration">★</button>
           </div>
         </div>
         <button class="mc-exit" data-action="exit" title="Exit (testing)">✕</button>
       </header>
+      ${this.#statEditorHTML(hp)}
       <div class="mc-conditions">${condHTML}</div>
       <main class="mc-content">${this.#tabContent(actor)}</main>
       ${this.#rollStripHTML()}
       ${this.#turnHudHTML()}
       <nav class="mc-tabs">
         ${this.#tabButton("actions", "Actions")}
-        ${this.#tabButton("sheet", "Sheet")}
-        ${this.#tabButton("move", "Move")}
+        ${this.#tabButton("sheet", "Explore")}
         ${this.#tabButton("journal", "Journal")}
       </nav>`;
   }
@@ -120,31 +118,49 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   #tabContent(actor) {
     if (this.#tab === "actions") return this.#actionsHTML(actor);
-    if (this.#tab === "move") return this.#moveHTML();
     if (this.#tab === "journal") {
       return `<div class="mc-placeholder">The shared journal composer arrives in Phase 4.</div>`;
     }
-    return this.#sheetHTML(actor);
+    return this.#exploreHTML(actor); // "Explore" tab: move pad + the sheet
+  }
+
+  // Explore tab = move pad (when the actor has a token) above the touch sheet.
+  #exploreHTML(actor) {
+    return this.#moveHTML() + this.#sheetHTML(actor);
   }
 
   // Move pad (§7.4): D-pad steps the player's own token via the move.request
   // RPC (executor wall-validates and applies). Out-of-combat group-token
   // binding is a later refinement; this moves the controlled actor's token.
   #moveHTML() {
-    if (!this.originTokenId) {
-      return `<div class="mc-placeholder">No token for this character on the active scene.</div>`;
-    }
+    if (!this.originTokenId) return "";
     const cell = (dx, dy, glyph, cls = "") =>
       `<button class="mc-dpad-btn ${cls}" data-action="move" data-dx="${dx}" data-dy="${dy}">${glyph}</button>`;
     const blank = `<span class="mc-dpad-blank"></span>`;
     return `
-      <div class="mc-section-label">Move — one square per tap</div>
       <div class="mc-dpad">
         ${cell(-1, -1, "↖")}${cell(0, -1, "↑")}${cell(1, -1, "↗")}
         ${cell(-1, 0, "←")}${blank}${cell(1, 0, "→")}
         ${cell(-1, 1, "↙")}${cell(0, 1, "↓")}${cell(1, 1, "↘")}
       </div>
       <div class="mc-move-note" data-role="move-note"></div>`;
+  }
+
+  // B7 stat editor: roomy row under the header when editing HP/Temp. On-screen
+  // − / + apply the typed amount as a delta; Set applies it absolute. Works on
+  // the iOS numeric keypad, which lacks +/− and a reliable return key.
+  #statEditorHTML(hp) {
+    const f = this.#editingField;
+    if (f !== "hp" && f !== "temp") return "";
+    const cur = f === "hp" ? (hp.value ?? 0) : (hp.temp || 0);
+    return `<div class="mc-stat-editor">
+      <span class="mc-stat-editor-label">${f === "hp" ? "HP" : "Temp"}: <b>${cur}</b></span>
+      <input class="mc-stat-input" data-field="${f}" type="text" inputmode="numeric" placeholder="amount">
+      <button class="mc-pm mc-minus" data-action="stat-minus">−</button>
+      <button class="mc-pm mc-plus" data-action="stat-plus">+</button>
+      <button class="mc-pm mc-set" data-action="stat-set">Set</button>
+      <button class="mc-pm mc-cancel" data-action="stat-cancel" aria-label="cancel">✕</button>
+    </div>`;
   }
 
   // Turn HUD (§7.4): shows the current combatant; End turn routes to the
@@ -214,7 +230,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const acts = item.system?.activities;
       if (!acts) continue;
       for (const a of acts) {
-        if (!["attack", "save", "damage"].includes(a.type)) continue;
+        // Include features (Action Surge=utility, Second Wind=heal) and item
+        // uses, not just weapons/offensive spells. AoE still routes to the DM.
+        if (!["attack", "save", "damage", "utility", "heal"].includes(a.type)) continue;
         if (a.target?.template?.type) continue; // AoE → DM places template
         out.push(a);
       }
@@ -226,16 +244,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#actionState) return this.#targetPickerHTML();
     const acts = this.#usableActivities();
     if (!acts.length) {
-      return `<div class="mc-placeholder">No usable attacks or offensive spells found.</div>`;
+      return `<div class="mc-placeholder">No usable actions found.</div>`;
     }
     const rows = acts.map(a => {
       const sub = a.item.name === a.name ? a.type : a.name;
+      const icon = a.item.img || a.img || "icons/svg/upgrade.svg";
       return `<button class="mc-action" data-action="action-pick" data-uuid="${a.uuid}">
-        <span class="mc-action-name">${foundry.utils.escapeHTML(a.item.name)}</span>
-        <span class="mc-action-sub">${foundry.utils.escapeHTML(sub)}</span>
+        <img class="mc-action-icon" src="${icon}" alt="">
+        <span class="mc-action-text">
+          <span class="mc-action-name">${foundry.utils.escapeHTML(a.item.name)}</span>
+          <span class="mc-action-sub">${foundry.utils.escapeHTML(sub)}</span>
+        </span>
       </button>`;
     }).join("");
-    return `<div class="mc-section-label">Actions — tap to target &amp; use</div>
+    return `<div class="mc-section-label">Actions — tap to use</div>
       <div class="mc-actions">${rows}</div>`;
   }
 
@@ -311,7 +333,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!activity) return;
     this.#clearPreview(); // drop any stale preview from a prior action
     const affects = activity.target?.affects ?? {};
-    const selfTarget = affects.type === "self";
+    // "selfTarget" here means "no enemy target needed" — self-buffs and
+    // no-target features (Action Surge, Second Wind) skip the target picker.
+    const selfTarget = affects.type === "self" || !affects.type;
     const maxTargets = Math.max(1, Number(affects.count) || 1);
     this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets,
       hasAttack: activity.type === "attack",
@@ -450,9 +474,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "skill":
         return actor?.rollSkill({ skill: el.dataset.skill });
       case "edit-hp":
-        this.#editingField = "hp"; return this.render();
+        this.#editingField = (this.#editingField === "hp") ? null : "hp"; return this.render();
       case "edit-temp":
-        this.#editingField = "temp"; return this.render();
+        this.#editingField = (this.#editingField === "temp") ? null : "temp"; return this.render();
+      case "stat-minus":
+        return this.#applyStat(-1);
+      case "stat-plus":
+        return this.#applyStat(1);
+      case "stat-set":
+        return this.#applyStat(0);
+      case "stat-cancel":
+        this.#editingField = null; return this.render();
       case "toggle-insp":
         return this.#toggleInspiration();
       case "move":
@@ -462,27 +494,24 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
   };
 
-  // B7: commit a tapped HP/temp edit — absolute ("22") or relative ("+3"/"-10").
-  // Guarded by #editingField so the Enter-keydown and the blur-change don't both
-  // apply (which would double a relative delta).
-  async #commitStat(field, raw) {
-    if (this.#editingField !== field) return;
+  // B7: apply the editor's typed amount. sign −1 subtract / +1 add (delta) /
+  // 0 set absolute. On-screen buttons drive this, so no keyboard +/− or return
+  // is needed (iOS numeric keypad has neither).
+  async #applyStat(sign) {
+    const f = this.#editingField;
+    if (f !== "hp" && f !== "temp") return;
+    const input = this.element?.querySelector(".mc-stat-input");
+    const amt = Math.abs(parseInt(input?.value, 10));
     this.#editingField = null;
     const actor = this.actor;
     const hp = actor?.system.attributes?.hp;
-    raw = String(raw ?? "").trim();
-    if (!actor || !hp || !raw) return this.render();
-    const rel = /^[+-]/.test(raw);
-    const n = Number(raw);
-    if (Number.isNaN(n)) return this.render();
-    if (field === "hp") {
-      const next = Math.max(0, Math.min(hp.max ?? Infinity, rel ? hp.value + n : n));
-      await actor.update({ "system.attributes.hp.value": next });
-    } else {
-      const cur = hp.temp || 0;
-      await actor.update({ "system.attributes.hp.temp": Math.max(0, rel ? cur + n : n) });
-    }
-    this.render(); // ensure the input drops even if the value didn't change
+    if (!actor || !hp || Number.isNaN(amt)) return this.render();
+    const cur = f === "hp" ? (hp.value ?? 0) : (hp.temp || 0);
+    let next = Math.max(0, sign === 0 ? amt : cur + sign * amt);
+    if (f === "hp") next = Math.min(hp.max ?? next, next);
+    const path = f === "hp" ? "system.attributes.hp.value" : "system.attributes.hp.temp";
+    await actor.update({ [path]: next });
+    this.render();
   }
 
   async #toggleInspiration() {
@@ -505,19 +534,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #attachListeners(root) {
     root.removeEventListener("click", this.#onClick);
     root.addEventListener("click", this.#onClick);
-    root.removeEventListener("change", this.#onChange);
-    root.addEventListener("change", this.#onChange);
     root.removeEventListener("keydown", this.#onKeydown);
     root.addEventListener("keydown", this.#onKeydown);
   }
 
-  // Commit a stat input on blur/Enter; cancel on Escape.
-  #onChange = (ev) => {
-    if (ev.target.matches?.(".mc-stat-input")) this.#commitStat(ev.target.dataset.field, ev.target.value);
-  };
+  // Keyboard convenience for the stat editor (where a return key exists):
+  // Enter = Set absolute; Escape = cancel. The −/+/Set buttons are the
+  // primary, keyboard-independent path.
   #onKeydown = (ev) => {
     if (!ev.target.matches?.(".mc-stat-input")) return;
-    if (ev.key === "Enter") { ev.preventDefault(); this.#commitStat(ev.target.dataset.field, ev.target.value); }
+    if (ev.key === "Enter") { ev.preventDefault(); this.#applyStat(0); }
     else if (ev.key === "Escape") { this.#editingField = null; this.render(); }
   };
 
