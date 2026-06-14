@@ -1,38 +1,30 @@
-# Morning Report — overnight build (test on waking)
+# STATUS — continue here (updated 2026-06-14)
 
-## TL;DR
+Entry point for picking the project back up (incl. a fresh conversation).
 
-Acted on your screenshot feedback overnight. Everything below is **built but UNTESTED** (no live client on my side — I can't run Foundry). The working combat loop and the parts you already liked were left intact. Please run the numbered tests and **stop at the first failure**. Two commits tonight: the first big L&F + Move/Turn build, then a round-2 pass addressing your notes.
+## Where we are
 
-## Your notes → what I did
+- **DESIGN.md is the source of truth** (architecture D1–D7, topology §2 + §2.1, the D4 settings preset, the RPC contract §5, spike findings §8, the UI rounds §12, and the **consolidated open backlog §13**). Read it first.
+- **Phases:** Phase 1 (plumbing) ✅, Phase 2 (sheet + HP) ✅, Phase 3 combat loop ✅ (Route B two-tap item use, live targeting, move pad, Turn HUD). Plus 7 rounds of L&F/feature polish (§12).
+- **Spikes 2 & 3 passed** (Route A dead → Route B; two-tap player-rolls via held workflow). Spikes 4 (sense/latency), 5 (full iOS), 6 (TV reticles) still owed.
+- The module is junction-linked into `%LOCALAPPDATA%\FoundryVTT\Data\modules\mobile-command`; edits are JS/CSS so a **hard reload (Ctrl+Shift+R)** of the client loads them (manifest changes need a full Foundry app restart). Test world: **"Offline test"** (Restored Keep). Phone client = a non-GM browser logged in as a player; the module forces `core.noCanvas` for phone clients.
 
-- **"movement buttons bigger, closer together"** → D-pad enlarged, gap tightened. ✅ built
-- **"fit them in the sheet page, rename it Exploration"** → the **"Sheet" tab is now "Explore"** and the move pad sits at the top of it; the separate "Move" tab is gone. ✅ built
-- **"HP/temp inputs bigger + iOS keypad has no +/− keys, still want add/subtract"** → tapping HP or Temp now opens a roomy editor row with on-screen **− / + / Set**: type an amount, tap **−** to subtract or **+** to add (delta), or **Set** for an absolute value. No keyboard +/− or return needed. Inputs enlarged. ✅ built — **this is the highest-risk piece, please test carefully (test 4–6)**
-- **"actions/bonus actions that aren't items — Action Surge, Second Wind, lamp"** → the Actions list now includes **features** (Action Surge, Second Wind, etc.), not just weapons/spells. **Inventory use (lamp, equip toggles, potions) is NOT done** — that's a Sheet/inventory surface, logged for a later stage.
-- **"an icon for each key, from the item itself"** → each action row now shows the item/feature **icon**. ✅ built (applies to Actions; ability/skill buttons have no per-item icon)
-- **"drag between tabs"** → **not done** (you said not a must; doing it blind risks breaking tap handling). Logged (B2).
-- **"long presses don't work"** → correct, that's the v2 detail-card/context-menu (§7.2). Logged, not built.
+## How to test the combat loop (two clients)
 
-## Do this (hard-reload BOTH windows first: Ctrl+Shift+R; DM unpaused & on the active scene)
+DM/app = the executor (GM, on the active scene, unpaused). One browser window = a player (Fighter/Wizard owner). Actions tab → pick an action → pick target(s) (reticle commits on the DM) → Use → Roll damage. Saves/reactions fan to the target owner's phone. Rests/rolls open dialogs that render as full-height bottom-sheets on the phone.
 
-1. **Explore tab:** the old "Sheet" tab now reads **"Explore"** (tabs: Actions · Explore · Journal); opening it shows the **move pad on top**, then skills/abilities below.
-2. **Move pad:** buttons are bigger and closer; tapping a direction steps your token on the DM canvas; toward a wall it doesn't move (a small note shows).
-3. **Header:** HP, Temp, AC, and the ★ inspiration button are present; AC matches the sheet.
-4. **HP −/+ (the iOS fix):** tap the **HP** number → an editor row appears with an input and **− / + / Set**. Type `5`, tap **−** → HP drops 5; type `3`, tap **+** → HP rises 3.
-5. **HP Set:** tap HP → type `20` → tap **Set** → HP becomes 20 (clamped to max). Tap the ✕ to cancel without changing.
-6. **Temp:** tap **Temp** → same editor → set/add/subtract temp HP.
-7. **Inspiration:** tap ★ → toggles on/off (gold when on).
-8. **Actions list:** open Actions — it now shows **icons** per row and includes **features** (e.g. Action Surge, Second Wind) alongside weapons/spells. Tapping a no-target feature (Action Surge) should fire without asking for a target; Second Wind should give you a "Roll damage" (healing) step.
-9. **Regression — two-tap attack:** Actions → Greatsword → pick a live target (reticle commits on DM) → Use → Roll damage still works.
-10. **Turn HUD (needs a combat):** start combat; the banner shows whose turn; on your turn **End turn** is enabled and advances the turn.
+## What's been confirmed working (DM-tested)
 
-## Honest risk notes
+Shell + sheet, HP/temp tap-edit (±/Set), AC, inspiration, the two-tap attack→damage loop, live target preview, move pad, the dark-fantasy L&F. DM quote: "looks and acts GREAT, huge improvement."
 
-- **All untested.** Most likely to need a fix: the **HP editor** (focus/commit/clamp) and **features in Actions** (some utility activities may behave oddly through Route B — if one hangs or errors, tell me which feature).
-- No `node` on this machine, so I couldn't run a real JS syntax check — only brace/paren balance (clean) + manual review.
-- The move pad still moves **your own token** even out of combat (design wants the shared group token out of combat) — flagged, not changed.
+## Untested by CC (no live client here) — verify on reload
 
-## Next action for me
+UI rounds 3–7 broadly; Details skills/tools list; rests; Turn HUD/End turn; the bottom-sheet dialog restyle (rest/attack/reactions); reactions actually fanning to the phone.
 
-Tell me the first failing test number (with what you saw) or "all pass." Then the open choices remain: **inventory use** (lamp/equip/potions in the Explore sheet), the **TV/Table client** (real player-colored reticle), **B8 in-range badge**, **swipe tabs**, or a deeper **L&F polish** pass.
+## What to do next
+
+Pick from **DESIGN.md §13** (consolidated backlog). Likely next: death saves, a Spells tab (slots/prep), the long-press detail suite, real inventory/Equipment, or the TV/Table client (unblocks player-colored reticles + §6/§7.3). Pacing: build a focused increment → DM tests live → iterate → commit. ~14 commits so far, all with detailed messages.
+
+## House rules (from CLAUDE.md)
+
+Pinned stack: Foundry 14.363 · dnd5e 5.3.3 · midi-qol 14.0.8. Tests = numbered expected results, one at a time, stop on first failure. Write only in the test world; never delete. New findings → DESIGN.md, dated.

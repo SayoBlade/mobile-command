@@ -396,3 +396,33 @@ Captured 2026-06-13 from live iOS Safari testing of the Phase 2 shell (read-only
   - **Tapping either value turns it into a text input** (raises the mobile keyboard). On commit, accept **absolute** (`22`) **or relative** (`-10`, `+3`) input — the same relative-delta syntax the dnd5e sheet's HP field uses. Relative applies a delta; absolute sets the value. Clamp to [0, max] for current HP; temp is independent.
   - Reuse dnd5e's own relative-input parsing if exposed; otherwise parse `^[+-]` → delta, else absolute. Group with B3 (inspiration) / B4 (AC) as the header/sheet write-control cluster, ideally inside the B5 L&F pass so it matches the sheet aesthetic.
 - **B8 — Target picker: in-range badge (color = reachable), disposition as a tag.** From combat-loop testing (2026-06-13): coloring the *distance* by disposition (red foe / green ally) read as reachable/unreachable, not friend/foe. Fixed immediately — distance is now neutral, disposition shows as a Foe/Ally/Neutral tag. **Reserve red/green for an actual in-range badge** (§7.3): pass the activity's range/reach into `listTargets` (or compute reach on the executor) so each candidate carries `inRange`, then color/badge by that — advisory only, never disables Fire (warnings-not-walls, §11). This is the genuine use of color the disposition coloring was accidentally impersonating.
+
+---
+
+## 13. Consolidated open backlog (as of 2026-06-14)
+
+Single list so a fresh session can pick up. UI rounds 1–7 (§12) are built; details/rationale for each are in §12 and the git log. Source of truth remains this doc.
+
+**UI / interaction (deferred):**
+- **Favorites** — should be the *landing view* of an existing tab (§7.2), NOT a 6th bottom tab. Back it with dnd5e `system.favorites`.
+- **Settings** — NOT a bottom tab (7 won't fit; ~5 max). Put behind a gear in Details; move the "Leave" button there. Later: themes (DM wants a theme picker).
+- **Long-press suite** (needs gesture infra): detail popup = the PC middle-click card (full-screen, closable, drill into subcategories; header = name truncated to 15 chars … + a total-level box e.g. "Fighter 4 / Rogue 2 = 6"); full-screen image popup (switch portrait ↔ token); AC formula on long-press.
+- **In-range badge** (B8) — color targets by reachable; pass the activity range into `targetsList`.
+- **Group Actions by activation type** (Action / Bonus / Reaction headers).
+- **Action-economy pips** on the Turn HUD.
+- **Containers** open a popup of their contents (with inventory build).
+- **Out-of-combat group-token** movement for the move pad (currently moves own token).
+- **Swipe between tabs** (nice-to-have).
+
+**Character-sheet capabilities not yet on mobile (DM asked "what else"):**
+- **Death saves** — at 0 HP, collapse to a giant Death Save button (§7.4). Not built.
+- **Spells** — a Spells tab (or split Equipment): spell slots display, prepare/unprepare, cast with slot-level choice (the restyled dialog already handles the level prompt, but there's no prep/slot UI). DM may add a Spells tab next ver.
+- **Spellbook module** support — DM wants it a later version.
+- **Concentration** — see/break concentration.
+- **Condition add/remove** — we only *display* conditions; can't toggle them on/off from the phone.
+- **Currency** (gp/sp/…), **exhaustion** level, **biography/notes** editing — not present.
+- **Inventory** proper — equip/attune toggles, use consumables (potions, lamp), item transfer, containers (the Equipment tab is a placeholder).
+
+**Verification still owed (built, untested by CC — no live client):** UI rounds 3–7; the reactions popup (midi `doReactions:"all"` should fan to the owner's phone like saves — confirm live); Spike 4 (sense/latency on the real LAN); Spike 5 full (iOS resync/wake-lock/audio); Spike 6 (TV reticles, needs the TV client).
+
+**Known non-bugs:** test Fighter's Speed shows 0 (actor/Foundry data quirk, not ours).
