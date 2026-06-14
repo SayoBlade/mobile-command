@@ -474,3 +474,50 @@ body.mc-phone .roll-configuration fieldset {
 .mc-pm:active { background: #3a4250; }
 .mc-pm.mc-set { font-size: 14px; background: #243042; border-color: #2f5d8a; }
 .mc-pm.mc-cancel { min-width: 36px; background: none; border: none; color: var(--mc-muted); }
+
+/* ============================================================
+   Round-3 (2026-06-14): iOS sizing pass — Apple HIG ~44pt min
+   touch targets + spacing; taller action rows that fit the icon;
+   clean Font Awesome D-pad; tidier tab bar.
+   ============================================================ */
+
+/* Action rows — taller, icon fits, easy to press. (Grouping into
+   action/bonus/reaction is a follow-up, logged in DESIGN.md.) */
+#mobile-command-shell .mc-action { min-height: 60px; padding: 10px 14px; gap: 14px; }
+.mc-action-icon { width: 46px; height: 46px; }
+#mobile-command-shell .mc-actions { gap: 10px; }
+
+/* Move pad — compact, centered, uniform FA arrows. */
+.mc-dpad { gap: 8px; max-width: 232px; margin: 14px auto 18px; }
+.mc-dpad-btn {
+  aspect-ratio: 1 / 1; min-height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 14px;
+}
+.mc-dpad-btn i { color: var(--mc-ink); font-size: 22px; line-height: 1; }
+.mc-dpad-btn:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
+.mc-dpad-btn:active i { color: var(--mc-gold); }
+
+/* iOS ~44pt minimum tap targets + comfortable spacing. */
+#mobile-command-shell .mc-btn { min-height: 44px; }
+#mobile-command-shell .mc-skill { min-height: 48px; }
+#mobile-command-shell .mc-skills { gap: 10px; }
+#mobile-command-shell .mc-adv { min-height: 44px; }
+#mobile-command-shell .mc-target { min-height: 52px; }
+#mobile-command-shell .mc-fire { min-height: 50px; }
+#mobile-command-shell .mc-pm { min-height: 46px; }
+#mobile-command-shell .mc-insp { width: 40px; height: 40px; font-size: 18px; }
+#mobile-command-shell .mc-exit { width: 40px; height: 40px; }
+#mobile-command-shell .mc-ability-btns { gap: 10px; }
+
+/* Tab bar — standard iOS height, centered labels, clean active accent. */
+#mobile-command-shell .mc-tabs { align-items: stretch; }
+#mobile-command-shell .mc-tab {
+  min-height: 50px; padding: 14px 0 12px;
+  display: flex; align-items: center; justify-content: center;
+  border-top: 2px solid transparent;
+}
+#mobile-command-shell .mc-tab.mc-active {
+  color: var(--mc-gold); box-shadow: none; border-top-color: var(--mc-gold);
+  background: linear-gradient(#2a2415, rgba(42,36,21,0));
+}

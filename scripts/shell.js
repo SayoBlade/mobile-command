@@ -134,14 +134,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // binding is a later refinement; this moves the controlled actor's token.
   #moveHTML() {
     if (!this.originTokenId) return "";
-    const cell = (dx, dy, glyph, cls = "") =>
-      `<button class="mc-dpad-btn ${cls}" data-action="move" data-dx="${dx}" data-dy="${dy}">${glyph}</button>`;
+    // One Font Awesome arrow, rotated per direction — renders uniformly (the
+    // unicode diagonals ↖↗↙↘ get emoji-fied on iOS, which looked inconsistent).
+    const cell = (dx, dy) => {
+      const deg = Math.round(Math.atan2(dx, -dy) * 180 / Math.PI);
+      return `<button class="mc-dpad-btn" data-action="move" data-dx="${dx}" data-dy="${dy}">
+        <i class="fas fa-arrow-up" style="transform: rotate(${deg}deg)"></i>
+      </button>`;
+    };
     const blank = `<span class="mc-dpad-blank"></span>`;
     return `
       <div class="mc-dpad">
-        ${cell(-1, -1, "↖")}${cell(0, -1, "↑")}${cell(1, -1, "↗")}
-        ${cell(-1, 0, "←")}${blank}${cell(1, 0, "→")}
-        ${cell(-1, 1, "↙")}${cell(0, 1, "↓")}${cell(1, 1, "↘")}
+        ${cell(-1, -1)}${cell(0, -1)}${cell(1, -1)}
+        ${cell(-1, 0)}${blank}${cell(1, 0)}
+        ${cell(-1, 1)}${cell(0, 1)}${cell(1, 1)}
       </div>
       <div class="mc-move-note" data-role="move-note"></div>`;
   }
