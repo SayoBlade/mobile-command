@@ -30,8 +30,16 @@ export const MIDI_CONFIG_PRESET = {
   "optionalRules.wallsBlockRange": "none",
   "doReactions": "all",
   "gmDoReactions": "all",
-  "enforceReactions": "none",
-  "enforceBonusActions": "none",
+  // "displayOnly" makes midi RECORD bonus/reaction usage (flags.midi-qol.actions)
+  // so the phone can show the ACT/BA/RE availability indicator — WITHOUT blocking
+  // re-use (warnings-not-walls, §11). "all"/"none" would enforce/disable; the
+  // record-without-enforce path is gated on "all"|"displayOnly" (midi-qol.js:18665,18697).
+  "enforceReactions": "displayOnly",
+  "enforceBonusActions": "displayOnly",
+  // Charge the reaction when an off-turn attack (opportunity attack) is made, so
+  // the RE indicator reflects it. midi does NOT auto-prompt OAs on movement —
+  // this only records the reaction once a manual OA is rolled (midi-qol.js:8382).
+  "recordAOO": "all",
   "undoWorkflow": true,
   // midi 14 dropdown: "none"|"spell"|"item"|"both"; non-strings migrate to
   // "none" on load (midi-qol.js:32313) — booleans here would flap forever.

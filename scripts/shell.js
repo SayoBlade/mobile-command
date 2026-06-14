@@ -111,7 +111,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // — temporaryEffects alone misses them, so the chip read "No active
     // conditions" even with conditions set) alongside temporary effects (Bless).
     const effects = (actor.effects ?? []).filter(e =>
-      e.active && e.name && (e.isTemporary || e.statuses?.size > 0));
+      e.active && e.name && (e.isTemporary || e.statuses?.size > 0)
+      // Exclude midi's action-economy effects (Reaction / Bonus Action) — the
+      // dedicated ACT/BA/RE indicator covers those; no chip needed.
+      && !e.changes?.some?.(c => c.key?.startsWith("flags.midi-qol.actions")));
     const condHTML = effects.length
       ? effects.map(e =>
           `<span class="mc-chip">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}</span>`
@@ -159,6 +162,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   #tabContent(actor) {
+    if (this.#atZeroHP(actor)) return this.#deathSaveHTML(actor); // §7.4: collapse to death saves
     if (this.#tab === "actions") return this.#actionsHTML(actor);
     if (this.#tab === "details") return this.#detailsHTML(actor);
     if (this.#tab === "equipment") {
@@ -168,6 +172,45 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       return `<div class="mc-placeholder">The shared journal composer arrives in Phase 4.</div>`;
     }
     return this.#exploreHTML(actor); // "Explore" tab: move pad + the sheet
+  }
+
+  // At 0 HP a player character can only make death saves — the content area
+  // collapses to the death-save panel regardless of the selected tab (§7.4).
+  #atZeroHP(actor) {
+    return actor?.type === "character" && (actor.system.attributes?.hp?.value ?? 1) <= 0;
+  }
+
+  // Death saves (§7.4): 3 success / 3 failure pips + a big Roll button.
+  // actor.rollDeathSave() is document-level (no canvas); dnd5e tallies the
+  // result, stabilizes at 3 successes, and a nat 20 restores 1 HP — the
+  // updateActor hook re-renders this panel as the state changes.
+  #deathSaveHTML(actor) {
+    const d = actor.system.attributes?.death ?? {};
+    const succ = d.success ?? 0;
+    const fail = d.failure ?? 0;
+    const pips = (count) => Array.from({ length: 3 }, (_, i) =>
+      `<span class="mc-death-pip ${i < count ? "mc-on" : ""}"></span>`).join("");
+    const stable = succ >= 3;
+    const dead = fail >= 3;
+    const footer = dead
+      ? `<div class="mc-death-status mc-dead">Dead</div>`
+      : stable
+        ? `<div class="mc-death-status mc-stable">Stabilized</div>`
+        : `<button class="mc-death-roll" data-action="death-save">Roll Death Save</button>`;
+    return `<div class="mc-death">
+      <div class="mc-section-label">Death Saves</div>
+      <div class="mc-death-pips">
+        <div class="mc-death-group mc-death-success">
+          <span class="mc-death-grouplabel">Successes</span>
+          <span class="mc-death-row">${pips(succ)}</span>
+        </div>
+        <div class="mc-death-group mc-death-failure">
+          <span class="mc-death-grouplabel">Failures</span>
+          <span class="mc-death-row">${pips(fail)}</span>
+        </div>
+      </div>
+      ${footer}
+    </div>`;
   }
 
   // Explore tab = a movement row (Init/Hit Dice · D-pad · Speed/Prof), the
@@ -214,13 +257,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // laptop). Grows downward as favorites are added.
   #favoritesHTML(actor) {
     const favs = [...(actor.system.favorites ?? [])].sort((x, y) => (x.sort ?? 0) - (y.sort ?? 0));
-    const rows = favs.map(f => this.#favoriteRow(actor, f)).filter(Boolean).join("");
+    const econ = this.#actionEconomy(actor);
+    const rows = favs.map(f => this.#favoriteRow(actor, f, econ)).filter(Boolean).join("");
     const body = rows || `<div class="mc-fav-empty">No favorites yet — tap the bookmark in Actions to pin one.</div>`;
     return `<div class="mc-section-label">Favorites</div>
       <div class="mc-favorites">${body}</div>`;
   }
 
-  #favoriteRow(actor, fav) {
+  #favoriteRow(actor, fav, econ) {
     const { id, type } = fav;
     if (type === "skill") {
       const cfg = CONFIG.DND5E.skills[id] ?? {};
@@ -245,21 +289,26 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // generic action icon, not the weapon/spell icon the player recognizes.
     const img = (type === "activity" ? (doc.item?.img || doc.img) : doc.img) || "icons/svg/upgrade.svg";
     const name = type === "activity" ? (doc.item?.name ?? doc.name) : doc.name;
+    const cost = this.#costBadge(activity, econ);
     return activity?.uuid
-      ? this.#favRowHTML({ img, name, action: "fav-act", data: `data-uuid="${activity.uuid}"` })
-      : this.#favRowHTML({ img, name, action: "", data: "" });
+      ? this.#favRowHTML({ img, name, cost, action: "fav-act", data: `data-uuid="${activity.uuid}"` })
+      : this.#favRowHTML({ img, name, cost, action: "", data: "" });
   }
 
-  #favRowHTML({ img, icon, name, val = "", action, data }) {
+  #favRowHTML({ img, icon, name, val = "", cost = null, action, data }) {
     const tag = action ? "button" : "div";
     const attrs = action ? ` data-action="${action}" ${data}` : "";
     const media = img
       ? `<img class="mc-fav-icon" src="${img}" alt="">`
       : `<span class="mc-fav-glyph"><i class="fas ${icon}"></i></span>`;
+    // Right edge: an action-economy cost badge for activities, else the modifier.
+    const right = cost
+      ? `<span class="mc-fav-cost mc-econ-${cost.type} ${cost.on ? "mc-on" : "mc-off"}">${cost.label}</span>`
+      : val ? `<span class="mc-fav-val">${val}</span>` : "";
     return `<${tag} class="mc-fav"${attrs}>
       ${media}
       <span class="mc-fav-name">${foundry.utils.escapeHTML(name)}</span>
-      ${val ? `<span class="mc-fav-val">${val}</span>` : ""}
+      ${right}
     </${tag}>`;
   }
 
@@ -413,7 +462,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #conditionPaletteHTML(actor) {
     const active = actor.statuses;
     const conc = CONFIG.specialStatusEffects?.CONCENTRATING;
-    const conditions = (CONFIG.statusEffects ?? []).filter(s => s.id && s.id !== conc);
+    const conditions = (CONFIG.statusEffects ?? []).filter(s => s.id && s.id !== conc && s.id !== "exhaustion");
     const cells = conditions.map(s => {
       const on = active?.has?.(s.id);
       return `<button class="mc-cond-opt ${on ? "mc-on" : ""}" data-action="cond-toggle" data-status="${s.id}">
@@ -425,12 +474,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const breakRow = isConc
       ? `<button class="mc-cond-break" data-action="break-conc"><i class="fas fa-brain"></i> Break concentration</button>`
       : "";
+    // Exhaustion is leveled (0–6) — a stepper rather than an on/off toggle.
+    const exh = actor.system.attributes?.exhaustion ?? 0;
+    const exhRow = `<div class="mc-cond-exh">
+      <span class="mc-cond-exh-label">Exhaustion</span>
+      <button class="mc-cond-exh-btn" data-action="exh-step" data-delta="-1" ${exh <= 0 ? "disabled" : ""}>−</button>
+      <span class="mc-cond-exh-val">${exh}</span>
+      <button class="mc-cond-exh-btn" data-action="exh-step" data-delta="1" ${exh >= 6 ? "disabled" : ""}>+</button>
+    </div>`;
     return `<div class="mc-cond-panel">
       <div class="mc-cond-panel-head">
         <span>Conditions — tap to toggle</span>
         <button class="mc-cond-close" data-action="cond-edit" aria-label="Close"><i class="fas fa-xmark"></i></button>
       </div>
       ${breakRow}
+      ${exhRow}
       <div class="mc-cond-grid">${cells}</div>
     </div>`;
   }
@@ -508,32 +566,101 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       return `<div class="mc-placeholder">No usable actions found.</div>`;
     }
     const editing = this.#favEditing;
-    const rows = acts.map(a => {
-      const sub = a.item.name === a.name ? a.type : a.name;
-      const icon = a.item.img || a.img || "icons/svg/upgrade.svg";
-      const favId = `${a.item.getRelativeUUID(actor)}.Activity.${a.id}`;
-      const isFav = actor.system.hasFavorite?.(favId) ?? false;
-      // In edit mode the row toggles the favorite; otherwise it opens the picker.
-      const action = editing ? "fav-toggle" : "action-pick";
-      const data = editing ? `data-favid="${favId}"` : `data-uuid="${a.uuid}"`;
-      const mark = (editing || isFav)
-        ? `<i class="fas fa-bookmark mc-action-fav ${isFav ? "mc-on" : ""}"></i>`
-        : "";
-      return `<button class="mc-action" data-action="${action}" ${data}>
-        <img class="mc-action-icon" src="${icon}" alt="">
-        <span class="mc-action-text">
-          <span class="mc-action-name">${foundry.utils.escapeHTML(a.item.name)}</span>
-          <span class="mc-action-sub">${foundry.utils.escapeHTML(sub)}</span>
-        </span>
-        ${mark}
-      </button>`;
-    }).join("");
+    // Group by activation cost: Action / Bonus / Reaction, with everything else
+    // (timed/special activations) under Other. Fixed order; empty groups drop.
+    const groups = [
+      { key: "action", label: "Actions" },
+      { key: "bonus", label: "Bonus actions" },
+      { key: "reaction", label: "Reactions" },
+      { key: "free", label: "Free" },
+      { key: "other", label: "Other" }
+    ];
+    const bucket = { action: [], bonus: [], reaction: [], free: [], other: [] };
+    for (const a of acts) bucket[this.#econGroup(a)].push(a);
+    const shown = groups.filter(g => bucket[g.key].length);
+    const rowsFor = (key) => bucket[key].map(a => this.#actionRowHTML(a, actor, editing)).join("");
+    // One group → skip the sub-header (it would just echo the title).
+    const body = shown.length <= 1
+      ? `<div class="mc-actions">${rowsFor(shown[0].key)}</div>`
+      : shown.map(g => `<div class="mc-actions-sub mc-econ-${g.key}">${g.label}</div>
+          <div class="mc-actions">${rowsFor(g.key)}</div>`).join("");
     const editBtn = `<button class="mc-fav-edit ${editing ? "mc-on" : ""}" data-action="fav-edit-toggle" title="Add/remove favorites" aria-label="Add or remove favorites"><i class="fas fa-bookmark"></i></button>`;
     return `<div class="mc-actions-head">
         <span class="mc-section-label">Actions — ${editing ? "tap to favorite" : "tap to use"}</span>
         ${editBtn}
       </div>
-      <div class="mc-actions">${rows}</div>`;
+      ${this.#actionEconomyHTML(actor)}
+      ${body}`;
+  }
+
+  // Action-economy state from midi's per-turn flags (flags.midi-qol.actions) —
+  // plain document data the phone reads directly. Each boolean = the resource is
+  // still AVAILABLE. ACT is recorded unconditionally on your turn; BA/RE need
+  // enforce*Actions ≥ "displayOnly" (set in the preset) to be recorded.
+  #actionEconomy(actor) {
+    const inCombat = !!game.combat?.combatants?.some(c => c.actor?.id === actor?.id);
+    const f = actor?.getFlag?.("midi-qol", "actions") ?? {};
+    return {
+      inCombat,
+      action: !f.action,
+      bonus: (f.bonusActionsUsed ?? 0) < (f.bonusActionsMax ?? 1),
+      reaction: (f.reactionsUsed ?? 0) < (f.reactionsMax ?? 1)
+    };
+  }
+
+  // Compact ACT / BA / RE availability strip atop the Actions tab (combat only).
+  #actionEconomyHTML(actor) {
+    const e = this.#actionEconomy(actor);
+    if (!e.inCombat) return "";
+    const chip = (type, label, on) =>
+      `<span class="mc-econ-chip mc-econ-${type} ${on ? "mc-on" : "mc-off"}">${label}</span>`;
+    return `<div class="mc-econ">
+      ${chip("action", "ACT", e.action)}
+      ${chip("bonus", "BA", e.bonus)}
+      ${chip("reaction", "RE", e.reaction)}
+    </div>`;
+  }
+
+  // Action-economy badge for a favorite activity: ACT/BA/RE colored by cost, lit
+  // when that resource is still available (always lit out of combat).
+  #costBadge(activity, econ) {
+    if (!activity) return null;
+    const g = this.#econGroup(activity);
+    const labels = { action: "ACT", bonus: "BA", reaction: "RE", free: "FREE" };
+    if (!labels[g]) return null; // "other" (timed/rest) → no badge
+    // Free has no economy cost → always lit; the rest dim once used (in combat).
+    const on = g === "free" ? true : (!econ.inCombat || econ[g]);
+    return { type: g, label: labels[g], on };
+  }
+
+  // Action-group key for an activity. Free = at-will / no economy cost (special
+  // or no activation, e.g. Action Surge); timed/rest activations fall to other.
+  #econGroup(a) {
+    const t = a.activation?.type;
+    if (t === "action" || t === "bonus" || t === "reaction") return t;
+    if (!t || t === "special") return "free";
+    return "other";
+  }
+
+  #actionRowHTML(a, actor, editing) {
+    const sub = a.item.name === a.name ? a.type : a.name;
+    const icon = a.item.img || a.img || "icons/svg/upgrade.svg";
+    const favId = `${a.item.getRelativeUUID(actor)}.Activity.${a.id}`;
+    const isFav = actor.system.hasFavorite?.(favId) ?? false;
+    // In edit mode the row toggles the favorite; otherwise it opens the picker.
+    const action = editing ? "fav-toggle" : "action-pick";
+    const data = editing ? `data-favid="${favId}"` : `data-uuid="${a.uuid}"`;
+    const mark = (editing || isFav)
+      ? `<i class="fas fa-bookmark mc-action-fav ${isFav ? "mc-on" : ""}"></i>`
+      : "";
+    return `<button class="mc-action" data-action="${action}" ${data}>
+      <img class="mc-action-icon" src="${icon}" alt="">
+      <span class="mc-action-text">
+        <span class="mc-action-name">${foundry.utils.escapeHTML(a.item.name)}</span>
+        <span class="mc-action-sub">${foundry.utils.escapeHTML(sub)}</span>
+      </span>
+      ${mark}
+    </button>`;
   }
 
   #targetPickerHTML() {
@@ -797,6 +924,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return actor?.toggleStatusEffect?.(el.dataset.status);
       case "break-conc":
         return actor?.endConcentration?.();
+      case "exh-step": {
+        const cur = actor?.system.attributes?.exhaustion ?? 0;
+        const next = Math.max(0, Math.min(6, cur + Number(el.dataset.delta)));
+        return actor?.update({ "system.attributes.exhaustion": next });
+      }
       case "move":
         return this.#move(Number(el.dataset.dx), Number(el.dataset.dy));
       case "end-turn":
@@ -805,6 +937,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return actor?.rollInitiativeDialog?.();
       case "roll-hd":
         return actor?.rollHitDie?.();
+      case "death-save":
+        return actor?.rollDeathSave?.();
       case "short-rest":
         return actor?.shortRest?.();
       case "long-rest":
@@ -997,6 +1131,16 @@ function liftDialogAboveShell(app) {
   if (app.options?.window?.frame === false) return; // skip docked/frameless UI
   const el = app.element;
   if (!(el instanceof HTMLElement)) return;
+  // Phone clients: suppress third-party combat HUDs (Argon / Enhanced Combat HUD
+  // etc.) — they compete with the shell's own Actions tab and route actions
+  // outside Route B. The DM client is untouched (its shell isn't rendered). The
+  // log helps identify any popup we haven't classified yet.
+  const ident = `${app.constructor?.name ?? ""} ${app.id ?? ""} ${typeof el.className === "string" ? el.className : ""}`.toLowerCase();
+  console.debug("mobile-command | app over shell:", app.constructor?.name, app.id);
+  if (/argon|enhancedcombat|combat-?hud/.test(ident)) {
+    setTimeout(() => { try { app.close(); } catch (e) { /* best effort */ } }, 0);
+    return;
+  }
   // Prompt Restyler (§7.6) MVP: any dialog/prompt opened over the shell
   // (rest, attack/roll config, reactions, our confirms) becomes a full-width
   // bottom-sheet (CSS .mc-phone-dialog) — the native popups are tiny/unusable
@@ -1046,4 +1190,14 @@ export function registerShellHooks() {
   Hooks.on("updateCombat", onCombat);
   Hooks.on("deleteCombat", onCombat);
   Hooks.on("combatStart", onCombat);
+
+  // Partial Connection Guard (§7.8): iOS suspends backgrounded tabs, so a turn
+  // change while the phone is locked can leave the shell stale. Re-render on
+  // refocus during combat so it catches up to the current turn. (A full state
+  // re-fetch on socket reconnect is the larger §7.8 item.)
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && shellInstance?.rendered && game.combat?.started) {
+      shellInstance.render();
+    }
+  });
 }
