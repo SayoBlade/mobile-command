@@ -780,11 +780,15 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-move-row .mc-dpad-blank { width: 52px; height: 52px; }
 .mc-move-row .mc-dpad-btn i { font-size: 18px; }
 
-/* Favorites container — grows downward as favorites are added. */
-.mc-favorites { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+/* Favorites container — two vertical stacks so more fit without pushing the
+   movement buttons off-screen. Wraps to extra rows as favorites are added. */
+.mc-favorites {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px; margin-bottom: 16px;
+}
 .mc-fav {
-  display: flex; align-items: center; gap: 12px;
-  width: 100%; min-height: 52px; padding: 8px 12px;
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; min-height: 52px; padding: 8px 10px;
   background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
   color: var(--mc-ink); text-align: left;
 }
@@ -803,7 +807,7 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mc-fav-val { flex: 0 0 auto; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.mc-fav-empty { color: var(--mc-muted); font-size: 13px; padding: 10px 2px; }
+.mc-fav-empty { grid-column: 1 / -1; color: var(--mc-muted); font-size: 13px; padding: 10px 2px; }
 
 /* Actions header bar with a right-aligned favorites-edit (bookmark) toggle. */
 .mc-actions-head { position: relative; margin: 6px 0 10px; }
@@ -816,7 +820,7 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 }
 .mc-fav-edit.mc-on { background: var(--mc-gold); border-color: var(--mc-gold); color: #1a1410; }
 /* Per-row bookmark: gold when favorited, faint outline otherwise. */
-.mc-action-fav { flex: 0 0 auto; font-size: 15px; color: var(--mc-edge); }
+.mc-action-fav { flex: 0 0 auto; margin-left: auto; font-size: 15px; color: var(--mc-edge); }
 .mc-action-fav.mc-on { color: var(--mc-gold); }
 
 /* Section titles: a burgundy banner echoing the dnd5e character sheet. */
@@ -829,3 +833,61 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
   letter-spacing: .06em;
 }
+
+/* ============================================================
+   Conditions add/remove (2026-06-14): a "+" on the conditions row
+   opens a palette of dnd5e CONFIG.statusEffects (tiny icon + name,
+   active highlighted), plus a Break-concentration button. Toggles
+   via the document-level actor.toggleStatusEffect (no canvas).
+   ============================================================ */
+.mc-cond-manage {
+  flex: 0 0 auto; width: 26px; height: 26px; border-radius: 13px;
+  background: rgba(0, 0, 0, .22); border: 1px solid var(--mc-edge);
+  color: var(--mc-ink); font-size: 12px; line-height: 1;
+}
+.mc-cond-manage.mc-on { background: var(--mc-gold); border-color: var(--mc-gold); color: #1a1410; }
+
+.mc-cond-panel {
+  flex: 0 0 auto;
+  background: #16131b; border-bottom: 1px solid var(--mc-gold);
+  padding: 10px 14px;
+}
+.mc-cond-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--mc-gold); margin-bottom: 10px;
+}
+.mc-cond-close { background: none; border: none; color: var(--mc-muted); font-size: 16px; padding: 2px 8px; }
+.mc-cond-close:active { color: var(--mc-gold); }
+.mc-cond-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px;
+  max-height: 42vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+.mc-cond-opt {
+  display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 8px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 8px;
+  color: var(--mc-ink); text-align: left;
+}
+.mc-cond-opt.mc-on { background: #2a2415; border-color: var(--mc-gold); }
+.mc-cond-opt-icon { width: 22px; height: 22px; flex: 0 0 auto; border-radius: 4px; object-fit: cover; }
+.mc-cond-opt-name {
+  flex: 1 1 auto; min-width: 0; font-size: 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mc-cond-opt.mc-on .mc-cond-opt-name { color: var(--mc-gold); }
+.mc-cond-break {
+  width: 100%; min-height: 42px; margin-bottom: 10px;
+  background: #3a2526; border: 1px solid #5c2f2c; border-radius: 8px;
+  color: #f0b8b2; font-size: 13px; font-weight: 600;
+}
+.mc-cond-break i { margin-right: 6px; }
+.mc-cond-break:active { background: #4a2f30; }
+
+/* Targeting "Use" is the default primary blue in every state (the disabled
+   state, before a target is picked, is no longer dimmed or gray). */
+#mobile-command-shell .mc-fire.mc-disabled {
+  background: var(--mc-primary); border-color: var(--mc-primary-edge); color: var(--mc-ink);
+}
+
+/* Explore is the centered "home" tab — give its icon a little more presence. */
+#mobile-command-shell .mc-tab[data-tab="sheet"] i { font-size: 24px; }

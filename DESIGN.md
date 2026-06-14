@@ -442,9 +442,9 @@ Single list so a fresh session can pick up. UI rounds 1–7 (§12) are built; de
 - **Death saves** — at 0 HP, collapse to a giant Death Save button (§7.4). Not built.
 - **Spells** — a Spells tab (or split Equipment): spell slots display, prepare/unprepare, cast with slot-level choice (the restyled dialog already handles the level prompt, but there's no prep/slot UI). DM may add a Spells tab next ver.
 - **Spellbook module** support — DM wants it a later version.
-- **Concentration** — see/break concentration.
-- **Condition add/remove** — we only *display* conditions; can't toggle them on/off from the phone.
-- **Currency** (gp/sp/…), **exhaustion** level, **biography/notes** editing — not present.
+- **Concentration** — ✅ **built (2026-06-14):** if the actor is concentrating, the condition palette shows a "Break concentration" button → `actor.endConcentration()`. (Can't manually *add* concentration — it comes from casting.)
+- **Condition add/remove** — ✅ **built (2026-06-14):** a "+" on the conditions row opens a palette of `CONFIG.statusEffects` (tiny icon + name, active highlighted); tap toggles via the document-level `actor.toggleStatusEffect(id)` (no canvas; dnd5e applies riders). **Untested live** — verify a toggled condition behaves mechanically (midi/DAE automation) and that ownership permits the write. **Follow-up:** exhaustion is leveled, so the toggle only does on/off (0↔1) — proper level stepping is a small later add.
+- **Currency** (gp/sp/…), **exhaustion** level (see condition note above), **biography/notes** editing — not present.
 - **Inventory** proper — equip/attune toggles, use consumables (potions, lamp), item transfer, containers (the Equipment tab is a placeholder).
 
 **Verification still owed (built, untested by CC — no live client):** UI rounds 3–7; the reactions popup (midi `doReactions:"all"` should fan to the owner's phone like saves — confirm live); Spike 4 (sense/latency on the real LAN); Spike 5 full (iOS resync/wake-lock/audio); Spike 6 (TV reticles, needs the TV client).

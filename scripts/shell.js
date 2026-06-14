@@ -67,6 +67,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #actionState = null; // null = action list; object = target-pick/fire sub-view
   #editingField = null; // B7: "hp" | "temp" while that stat is an inline input
   #favEditing = false;  // Actions tab: bookmark-toggle mode (add/remove favorites)
+  #condEditing = false; // header: condition palette (add/remove) open
 
   /** The actor this phone controls: assigned character, else first owned character. */
   get actor() {
@@ -106,7 +107,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const insp = !!sys.attributes?.inspiration;
     const img = actor.img || actor.prototypeToken?.texture?.src || "icons/svg/mystery-man.svg";
 
-    const effects = (actor.temporaryEffects ?? []).filter(e => e.name);
+    // Include toggled conditions (status effects, which often carry NO duration
+    // — temporaryEffects alone misses them, so the chip read "No active
+    // conditions" even with conditions set) alongside temporary effects (Bless).
+    const effects = (actor.effects ?? []).filter(e =>
+      e.active && e.name && (e.isTemporary || e.statuses?.size > 0));
     const condHTML = effects.length
       ? effects.map(e =>
           `<span class="mc-chip">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}</span>`
@@ -133,14 +138,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         </div>
       </header>
       ${this.#statEditorHTML(hp)}
-      <div class="mc-conditions">${condHTML}</div>
+      <div class="mc-conditions">${condHTML}
+        <button class="mc-cond-manage ${this.#condEditing ? "mc-on" : ""}" data-action="cond-edit" aria-label="Manage conditions" title="Add or remove conditions"><i class="fas fa-plus"></i></button>
+      </div>
+      ${this.#condEditing ? this.#conditionPaletteHTML(actor) : ""}
       <main class="mc-content">${this.#tabContent(actor)}</main>
       ${this.#rollStripHTML()}
       ${this.#turnHudHTML()}
       <nav class="mc-tabs">
         ${this.#tabButton("actions", "fa-hand-fist", "Actions")}
-        ${this.#tabButton("sheet", "fa-compass", "Explore")}
         ${this.#tabButton("details", "fa-user", "Details")}
+        ${this.#tabButton("sheet", "fa-compass", "Explore")}
         ${this.#tabButton("equipment", "fa-bag-shopping", "Equipment")}
         ${this.#tabButton("journal", "fa-feather", "Journal")}
       </nav>`;
@@ -393,6 +401,37 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <button class="mc-pm mc-plus" data-action="stat-plus">+</button>
       <button class="mc-pm mc-set" data-action="stat-set">Set</button>
       <button class="mc-pm mc-cancel" data-action="stat-cancel" aria-label="cancel">✕</button>
+    </div>`;
+  }
+
+  // Condition palette (header): the standard dnd5e conditions from
+  // CONFIG.statusEffects, active ones highlighted; tap toggles via the
+  // document-level actor.toggleStatusEffect (no canvas needed; dnd5e applies
+  // riders like unconscious→prone). Concentration is special — shown as a
+  // break button, never a manual add. Exhaustion is on/off here; level
+  // stepping is a logged follow-up.
+  #conditionPaletteHTML(actor) {
+    const active = actor.statuses;
+    const conc = CONFIG.specialStatusEffects?.CONCENTRATING;
+    const conditions = (CONFIG.statusEffects ?? []).filter(s => s.id && s.id !== conc);
+    const cells = conditions.map(s => {
+      const on = active?.has?.(s.id);
+      return `<button class="mc-cond-opt ${on ? "mc-on" : ""}" data-action="cond-toggle" data-status="${s.id}">
+        ${s.img ? `<img class="mc-cond-opt-icon" src="${s.img}" alt="">` : ""}
+        <span class="mc-cond-opt-name">${foundry.utils.escapeHTML(s.name)}</span>
+      </button>`;
+    }).join("");
+    const isConc = conc && active?.has?.(conc);
+    const breakRow = isConc
+      ? `<button class="mc-cond-break" data-action="break-conc"><i class="fas fa-brain"></i> Break concentration</button>`
+      : "";
+    return `<div class="mc-cond-panel">
+      <div class="mc-cond-panel-head">
+        <span>Conditions — tap to toggle</span>
+        <button class="mc-cond-close" data-action="cond-edit" aria-label="Close"><i class="fas fa-xmark"></i></button>
+      </div>
+      ${breakRow}
+      <div class="mc-cond-grid">${cells}</div>
     </div>`;
   }
 
@@ -752,6 +791,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#editingField = null; return this.render();
       case "toggle-insp":
         return this.#toggleInspiration();
+      case "cond-edit":
+        this.#condEditing = !this.#condEditing; return this.render();
+      case "cond-toggle":
+        return actor?.toggleStatusEffect?.(el.dataset.status);
+      case "break-conc":
+        return actor?.endConcentration?.();
       case "move":
         return this.#move(Number(el.dataset.dx), Number(el.dataset.dy));
       case "end-turn":
