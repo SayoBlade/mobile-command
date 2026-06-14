@@ -22,6 +22,34 @@ function signed(n) {
   return v >= 0 ? `+${v}` : `${v}`;
 }
 
+// Proficiency dot class from the dnd5e multiplier (0 / 0.5 / 1 / 2).
+function profClassFor(v) {
+  if (v >= 2) return "2";       // expertise — full + ring
+  if (v >= 1) return "1";       // proficient — full
+  if (v >= 0.5) return "half";  // half proficiency
+  return "0";                    // not proficient — empty
+}
+
+// Resolve a trait key (mar/lgt/etc.) to its full label via CONFIG.DND5E.
+function findInTree(tree, key) {
+  for (const [k, v] of Object.entries(tree ?? {})) {
+    if (k === key) return typeof v === "string" ? v : (v?.label ?? key);
+    if (v && typeof v === "object" && v.children) {
+      const r = findInTree(v.children, key);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+function traitLabel(key, trait) {
+  const C = CONFIG.DND5E ?? {};
+  if (trait === "weaponProf") return C.weaponProficiencies?.[key] ?? key;
+  if (trait === "armorProf") return C.armorProficiencies?.[key] ?? key;
+  if (trait === "languages") return findInTree(C.languages, key) ?? key;
+  if (trait === "tools") return C.tools?.[key]?.label ?? findInTree(C.toolProficiencies, key) ?? key;
+  return key;
+}
+
 export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   static DEFAULT_OPTIONS = {
     id: "mobile-command-shell",
@@ -107,20 +135,24 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#rollStripHTML()}
       ${this.#turnHudHTML()}
       <nav class="mc-tabs">
-        ${this.#tabButton("actions", "Actions")}
-        ${this.#tabButton("sheet", "Explore")}
-        ${this.#tabButton("details", "Details")}
-        ${this.#tabButton("journal", "Journal")}
+        ${this.#tabButton("actions", "fa-hand-fist", "Actions")}
+        ${this.#tabButton("sheet", "fa-compass", "Explore")}
+        ${this.#tabButton("details", "fa-user", "Details")}
+        ${this.#tabButton("equipment", "fa-bag-shopping", "Equipment")}
+        ${this.#tabButton("journal", "fa-feather", "Journal")}
       </nav>`;
   }
 
-  #tabButton(id, label) {
-    return `<button class="mc-tab ${this.#tab === id ? "mc-active" : ""}" data-action="tab" data-tab="${id}">${label}</button>`;
+  #tabButton(id, icon, label) {
+    return `<button class="mc-tab ${this.#tab === id ? "mc-active" : ""}" data-action="tab" data-tab="${id}" title="${label}" aria-label="${label}"><i class="fas ${icon}"></i></button>`;
   }
 
   #tabContent(actor) {
     if (this.#tab === "actions") return this.#actionsHTML(actor);
     if (this.#tab === "details") return this.#detailsHTML(actor);
+    if (this.#tab === "equipment") {
+      return `<div class="mc-placeholder">Inventory &amp; equipment arrive in a later phase.</div>`;
+    }
     if (this.#tab === "journal") {
       return `<div class="mc-placeholder">The shared journal composer arrives in Phase 4.</div>`;
     }
@@ -175,17 +207,35 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const cls = actor.items.filter(i => i.type === "class").map(c => `${c.name}${c.system.levels ? " " + c.system.levels : ""}`);
     const race = [...names("race"), ...names("species")];
 
-    const trait = (path) => {
+    // Full skills list (same model as the dnd5e sheet): proficiency dot
+    // (empty/half/full/full-with-ring), governing ability (3-letter), the roll
+    // bonus, and the native roll flow on tap (rollSkill).
+    const skills = sys.skills ?? {};
+    const skillRows = Object.keys(CONFIG.DND5E.skills ?? {}).map(key => {
+      const sk = skills[key] ?? {};
+      const label = CONFIG.DND5E.skills[key]?.label ?? key;
+      const abil = (sk.ability ?? CONFIG.DND5E.skills[key]?.ability ?? "").toUpperCase();
+      const total = sk.total;
+      return `<button class="mc-skillrow" data-action="skill" data-skill="${key}">
+        <span class="mc-prof mc-prof-${profClassFor(sk.value ?? sk.proficient ?? 0)}"></span>
+        <span class="mc-skillrow-name">${foundry.utils.escapeHTML(label)}</span>
+        <span class="mc-skillrow-abbr">${abil}</span>
+        <span class="mc-skillrow-mod">${total == null ? "—" : signed(total)}</span>
+      </button>`;
+    }).join("");
+
+    // Proficiencies, resolved to full labels (not "mar"/"lgt").
+    const traitLabels = (path, trait) => {
       const t = foundry.utils.getProperty(sys, path) ?? {};
-      const vals = Array.from(t.value ?? []);
+      const vals = Array.from(t.value ?? []).map(k => traitLabel(k, trait));
       if (t.custom) vals.push(...String(t.custom).split(";").map(s => s.trim()).filter(Boolean));
       return vals;
     };
-    const tools = Object.keys(sys.tools ?? {});
+    const tools = Object.keys(sys.tools ?? {}).map(k => traitLabel(k, "tools"));
     const senses = sys.attributes?.senses ?? {};
     const sr = senses.ranges ?? senses;
     const senseList = ["darkvision", "blindsight", "tremorsense", "truesight"]
-      .filter(k => Number(sr?.[k]) > 0).map(k => `${k} ${sr[k]} ft`);
+      .filter(k => Number(sr?.[k]) > 0).map(k => `${k.titleCase?.() ?? k} ${sr[k]} ft`);
 
     const row = (k, v) => (v && v.length)
       ? `<div class="mc-detail-row"><span class="mc-detail-key">${k}</span><span class="mc-detail-val">${foundry.utils.escapeHTML(v.join(", "))}</span></div>`
@@ -196,6 +246,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       : "";
 
     return `
+      <div class="mc-section-label">Skills</div>
+      <div class="mc-skillrows">${skillRows}</div>
       <div class="mc-detail-xp">
         <span class="mc-detail-level">Lv ${level || "—"}</span>
         <span class="mc-detail-xpnum">${xpStr}</span>
@@ -209,9 +261,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>
       <div class="mc-detail-sec">
         <div class="mc-section-label">Proficiencies</div>
-        ${row("Languages", trait("traits.languages"))}
-        ${row("Weapons", trait("traits.weaponProf"))}
-        ${row("Armor", trait("traits.armorProf"))}
+        ${row("Languages", traitLabels("traits.languages", "languages"))}
+        ${row("Weapons", traitLabels("traits.weaponProf", "weaponProf"))}
+        ${row("Armor", traitLabels("traits.armorProf", "armorProf"))}
         ${row("Tools", tools)}
       </div>
       ${featChips}`;
