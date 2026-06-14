@@ -215,8 +215,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #favoriteRow(actor, fav) {
     const { id, type } = fav;
     if (type === "skill") {
+      const cfg = CONFIG.DND5E.skills[id] ?? {};
       const mod = actor.system.skills?.[id]?.total;
-      return this.#favRowHTML({ icon: "fa-dice-d20", name: CONFIG.DND5E.skills[id]?.label ?? id,
+      return this.#favRowHTML({ img: cfg.icon, icon: "fa-dice-d20", name: cfg.label ?? id,
         val: mod == null ? "" : signed(mod), action: "skill", data: `data-skill="${id}"` });
     }
     if (type === "tool") {
@@ -232,7 +233,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     // item or activity → route into the Actions target picker.
     const activity = type === "activity" ? doc : [...(doc.system?.activities ?? [])][0];
-    const img = (type === "activity" ? (doc.img || doc.item?.img) : doc.img) || "icons/svg/upgrade.svg";
+    // Prefer the parent item's art for activities — activity.img is midi's
+    // generic action icon, not the weapon/spell icon the player recognizes.
+    const img = (type === "activity" ? (doc.item?.img || doc.img) : doc.img) || "icons/svg/upgrade.svg";
     const name = type === "activity" ? (doc.item?.name ?? doc.name) : doc.name;
     return activity?.uuid
       ? this.#favRowHTML({ img, name, action: "fav-act", data: `data-uuid="${activity.uuid}"` })
