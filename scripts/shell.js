@@ -46,7 +46,11 @@ function traitLabel(key, trait) {
   if (trait === "weaponProf") return C.weaponProficiencies?.[key] ?? key;
   if (trait === "armorProf") return C.armorProficiencies?.[key] ?? key;
   if (trait === "languages") return findInTree(C.languages, key) ?? key;
-  if (trait === "tools") return C.tools?.[key]?.label ?? findInTree(C.toolProficiencies, key) ?? key;
+  if (trait === "tools") {
+    const id = C.tools?.[key]?.id;
+    const fromPack = id ? fromUuidSync(id)?.name : null;          // "Mason's Tools"
+    return fromPack ?? findInTree(C.toolProficiencies, key) ?? (key.titleCase?.() ?? key);
+  }
   return key;
 }
 
@@ -230,7 +234,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (t.custom) vals.push(...String(t.custom).split(";").map(s => s.trim()).filter(Boolean));
       return vals;
     };
-    const tools = Object.keys(sys.tools ?? {}).map(k => traitLabel(k, "tools"));
+    // Tools — same row style as skills (prof dot, ability, bonus), tappable to
+    // roll a tool check (rollToolCheck). Shown under the skills, own header.
+    const toolRows = Object.keys(sys.tools ?? {}).map(key => {
+      const tl = sys.tools[key] ?? {};
+      const abil = (tl.ability ?? CONFIG.DND5E.tools?.[key]?.ability ?? "").toUpperCase();
+      return `<button class="mc-skillrow" data-action="tool" data-tool="${key}">
+        <span class="mc-prof mc-prof-${profClassFor(tl.value ?? 0)}"></span>
+        <span class="mc-skillrow-name">${foundry.utils.escapeHTML(traitLabel(key, "tools"))}</span>
+        <span class="mc-skillrow-abbr">${abil}</span>
+        <span class="mc-skillrow-mod">${tl.total == null ? "—" : signed(tl.total)}</span>
+      </button>`;
+    }).join("");
+    const toolsBlock = toolRows
+      ? `<div class="mc-section-label">Tools</div><div class="mc-skillrows">${toolRows}</div>`
+      : "";
     const senses = sys.attributes?.senses ?? {};
     const sr = senses.ranges ?? senses;
     const senseList = ["darkvision", "blindsight", "tremorsense", "truesight"]
@@ -247,6 +265,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return `
       <div class="mc-section-label">Skills</div>
       <div class="mc-skillrows">${skillRows}</div>
+      ${toolsBlock}
       <div class="mc-detail-xp">
         <span class="mc-detail-level">Lv ${level || "—"}</span>
         <span class="mc-detail-xpnum">${xpStr}</span>
@@ -263,7 +282,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ${row("Languages", traitLabels("traits.languages", "languages"))}
         ${row("Weapons", traitLabels("traits.weaponProf", "weaponProf"))}
         ${row("Armor", traitLabels("traits.armorProf", "armorProf"))}
-        ${row("Tools", tools)}
       </div>
       ${featChips}
       <button class="mc-leave" data-action="exit"><i class="fas fa-right-from-bracket"></i> Leave Mobile Command</button>`;
@@ -475,7 +493,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <span class="mc-picker-title">${foundry.utils.escapeHTML(s.name)}</span>
         ${count}
       </div>
-      <div class="mc-adv-row">${advBtn("advantage", "Advantage")}${advBtn("normal", "Normal")}${advBtn("disadvantage", "Disadvantage")}</div>
+      ${s.hasAttack ? `<div class="mc-adv-row">${advBtn("advantage", "Advantage")}${advBtn("normal", "Normal")}${advBtn("disadvantage", "Disadvantage")}</div>` : ""}
       <div class="mc-targets">${body}${selfRow}</div>
       <button class="mc-fire ${canFire ? "" : "mc-disabled"}" data-action="fire" ${canFire ? "" : "disabled"}>
         ${s.busy ? "Using…" : "Use"}
@@ -487,9 +505,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!activity) return;
     this.#clearPreview(); // drop any stale preview from a prior action
     const affects = activity.target?.affects ?? {};
-    // "selfTarget" here means "no enemy target needed" — self-buffs and
-    // no-target features (Action Surge, Second Wind) skip the target picker.
-    const selfTarget = affects.type === "self" || !affects.type;
+    // "selfTarget" = no enemy target needed → skip the picker. Attacks/saves/
+    // damage ALWAYS need a target (weapon attacks have an empty affects.type
+    // but still target a creature) — only treat an empty type as no-target for
+    // non-roll features (Action Surge=utility, Second Wind=heal self).
+    const targeted = ["attack", "save", "damage"].includes(activity.type);
+    const selfTarget = affects.type === "self" || (!affects.type && !targeted);
     const maxTargets = Math.max(1, Number(affects.count) || 1);
     this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets,
       hasAttack: activity.type === "attack",
@@ -627,6 +648,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return actor?.rollSavingThrow({ ability: el.dataset.ability });
       case "skill":
         return actor?.rollSkill({ skill: el.dataset.skill });
+      case "tool":
+        return actor?.rollToolCheck?.({ tool: el.dataset.tool });
       case "edit-hp":
         this.#editingField = (this.#editingField === "hp") ? null : "hp"; return this.render();
       case "edit-temp":

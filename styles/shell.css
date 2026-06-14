@@ -669,3 +669,39 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 }
 .mc-leave:active { background: #4a2f30; }
 .mc-leave i { margin-right: 6px; }
+
+/* ============================================================
+   Round-7 (2026-06-14): uniform adv/Use buttons (colored text),
+   button shadows, fixed-cell movement grid, flatter LVL/XP.
+   ============================================================ */
+
+/* Adv / Normal / Dis + Use — same neutral background; meaning via text color. */
+#mobile-command-shell .mc-adv { background: #20222b; border-color: #313542; }
+#mobile-command-shell .mc-adv[data-mode="advantage"] { color: #8fe0a0; }
+#mobile-command-shell .mc-adv[data-mode="normal"] { color: #ffffff; }
+#mobile-command-shell .mc-adv[data-mode="disadvantage"] { color: #f0a8a0; }
+#mobile-command-shell .mc-adv.mc-adv-on { background: #2a2d38; border-color: var(--mc-gold); }
+#mobile-command-shell .mc-fire { background: #20222b; border-color: #313542; color: #e8e8ec; }
+#mobile-command-shell .mc-fire:active { background: #2a2d38; }
+#mobile-command-shell .mc-fire.mc-roll-damage { color: #f0b8b2; }
+
+/* Subtle shadow under interactive controls; none on gray info (speed/prof/AC). */
+.mc-action, .mc-skill, .mc-skillrow, .mc-btn, .mc-adv, .mc-fire, .mc-rest,
+.mc-dpad-btn, .mc-target, .mc-estat.mc-tappable, .mc-insp, .mc-leave {
+  box-shadow: 0 1.5px 2px rgba(0, 0, 0, .45);
+}
+.mc-estat.mc-gray, .mc-ac-frame { box-shadow: none; }
+
+/* Movement pad: fixed equal cells — removes the 1fr rounding misalignment. */
+.mc-dpad {
+  display: grid; grid-template-columns: repeat(3, 64px); grid-auto-rows: 64px;
+  gap: 8px; justify-content: center; max-width: none;
+}
+.mc-dpad-btn { width: 64px; height: 64px; aspect-ratio: auto; min-height: 0; }
+.mc-dpad-blank { width: 64px; height: 64px; aspect-ratio: auto; }
+
+/* LVL/XP — flat banner, not a button. */
+.mc-detail-xp {
+  background: transparent; border: none; border-bottom: 1px solid #23252e;
+  border-radius: 0; padding: 6px 2px 12px; box-shadow: none;
+}
