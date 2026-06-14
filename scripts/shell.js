@@ -74,10 +74,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const insp = !!sys.attributes?.inspiration;
     const img = actor.img || actor.prototypeToken?.texture?.src || "icons/svg/mystery-man.svg";
 
-    const conditions = (actor.temporaryEffects ?? [])
-      .map(e => e.name).filter(Boolean);
-    const condHTML = conditions.length
-      ? conditions.map(c => `<span class="mc-chip">${foundry.utils.escapeHTML(c)}</span>`).join("")
+    const effects = (actor.temporaryEffects ?? []).filter(e => e.name);
+    const condHTML = effects.length
+      ? effects.map(e =>
+          `<span class="mc-chip">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}</span>`
+        ).join("")
       : `<span class="mc-chip mc-none">No active conditions</span>`;
 
     // B7: HP & temp are tap-to-edit. Tapping opens a roomy editor row with
@@ -94,7 +95,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           <div class="mc-stats">
             <span class="mc-stat"><span class="mc-stat-label">HP</span>${hpBtn}<span class="mc-stat-sub">/${hp.max ?? "—"}</span></span>
             <span class="mc-stat"><span class="mc-stat-label">Temp</span>${tempBtn}</span>
-            <span class="mc-stat"><span class="mc-stat-label">AC</span><span class="mc-stat-val mc-stat-ac">${ac}</span></span>
+            <span class="mc-stat mc-stat-acwrap"><span class="mc-ac-frame" title="Armor Class">${ac}</span></span>
             <button class="mc-insp ${insp ? "mc-insp-on" : ""}" data-action="toggle-insp" title="Inspiration">★</button>
           </div>
         </div>
@@ -108,6 +109,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <nav class="mc-tabs">
         ${this.#tabButton("actions", "Actions")}
         ${this.#tabButton("sheet", "Explore")}
+        ${this.#tabButton("details", "Details")}
         ${this.#tabButton("journal", "Journal")}
       </nav>`;
   }
@@ -118,15 +120,101 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   #tabContent(actor) {
     if (this.#tab === "actions") return this.#actionsHTML(actor);
+    if (this.#tab === "details") return this.#detailsHTML(actor);
     if (this.#tab === "journal") {
       return `<div class="mc-placeholder">The shared journal composer arrives in Phase 4.</div>`;
     }
     return this.#exploreHTML(actor); // "Explore" tab: move pad + the sheet
   }
 
-  // Explore tab = move pad (when the actor has a token) above the touch sheet.
+  // Explore tab = move pad, a stats strip (init/hit-dice/speed/prof), the touch
+  // sheet, and rest buttons.
   #exploreHTML(actor) {
-    return this.#moveHTML() + this.#sheetHTML(actor);
+    return this.#moveHTML() + this.#exploreStatsHTML(actor) + this.#sheetHTML(actor) + this.#restsHTML();
+  }
+
+  #exploreStatsHTML(actor) {
+    const a = actor.system.attributes ?? {};
+    const init = a.init?.total ?? a.init?.mod;
+    const initStr = init == null ? "—" : signed(init);
+    const hd = a.hd?.value;
+    const hdStr = hd == null ? "—" : (a.hd?.max != null ? `${hd}/${a.hd.max}` : `${hd}`);
+    const move = a.movement ?? {};
+    const speed = move.walk != null ? `${move.walk}` : "—";
+    const prof = a.prof != null ? signed(a.prof) : "—";
+    return `<div class="mc-explore-stats">
+      <button class="mc-estat mc-tappable" data-action="roll-init">
+        <span class="mc-estat-label">Init</span><span class="mc-estat-val">${initStr}</span></button>
+      <button class="mc-estat mc-tappable" data-action="roll-hd">
+        <span class="mc-estat-label">Hit Dice</span><span class="mc-estat-val">${hdStr}</span></button>
+      <div class="mc-estat mc-gray">
+        <span class="mc-estat-label">Speed</span><span class="mc-estat-val">${speed}</span></div>
+      <div class="mc-estat mc-gray">
+        <span class="mc-estat-label">Prof</span><span class="mc-estat-val">${prof}</span></div>
+    </div>`;
+  }
+
+  #restsHTML() {
+    return `<div class="mc-rests">
+      <button class="mc-rest" data-action="short-rest"><i class="fas fa-mug-hot"></i> Short Rest</button>
+      <button class="mc-rest" data-action="long-rest"><i class="fas fa-campground"></i> Long Rest</button>
+    </div>`;
+  }
+
+  // Details tab: read-only character info. Tooltips / long-press detail cards
+  // are a later refinement (logged); proficiency/language labels are best-effort
+  // raw keys for now.
+  #detailsHTML(actor) {
+    const sys = actor.system;
+    const det = sys.details ?? {};
+    const level = det.level || actor.items.filter(i => i.type === "class").reduce((n, c) => n + (c.system.levels || 0), 0);
+    const xp = det.xp ?? {};
+    const xpStr = xp.value != null ? `${xp.value}${xp.max != null ? " / " + xp.max : ""} XP` : "";
+
+    const names = (t) => actor.items.filter(i => i.type === t).map(i => i.name);
+    const cls = actor.items.filter(i => i.type === "class").map(c => `${c.name}${c.system.levels ? " " + c.system.levels : ""}`);
+    const race = [...names("race"), ...names("species")];
+
+    const trait = (path) => {
+      const t = foundry.utils.getProperty(sys, path) ?? {};
+      const vals = Array.from(t.value ?? []);
+      if (t.custom) vals.push(...String(t.custom).split(";").map(s => s.trim()).filter(Boolean));
+      return vals;
+    };
+    const tools = Object.keys(sys.tools ?? {});
+    const senses = sys.attributes?.senses ?? {};
+    const sr = senses.ranges ?? senses;
+    const senseList = ["darkvision", "blindsight", "tremorsense", "truesight"]
+      .filter(k => Number(sr?.[k]) > 0).map(k => `${k} ${sr[k]} ft`);
+
+    const row = (k, v) => (v && v.length)
+      ? `<div class="mc-detail-row"><span class="mc-detail-key">${k}</span><span class="mc-detail-val">${foundry.utils.escapeHTML(v.join(", "))}</span></div>`
+      : "";
+    const feats = actor.items.filter(i => i.type === "feat").map(i => i.name);
+    const featChips = feats.length
+      ? `<div class="mc-section-label">Feats &amp; Features</div><div class="mc-feat-chips">${feats.map(f => `<span class="mc-feat-chip">${foundry.utils.escapeHTML(f)}</span>`).join("")}</div>`
+      : "";
+
+    return `
+      <div class="mc-detail-xp">
+        <span class="mc-detail-level">Lv ${level || "—"}</span>
+        <span class="mc-detail-xpnum">${xpStr}</span>
+      </div>
+      <div class="mc-detail-sec">
+        ${row("Class", cls)}
+        ${row("Subclass", names("subclass"))}
+        ${row("Race", race)}
+        ${row("Background", names("background"))}
+        ${row("Senses", senseList)}
+      </div>
+      <div class="mc-detail-sec">
+        <div class="mc-section-label">Proficiencies</div>
+        ${row("Languages", trait("traits.languages"))}
+        ${row("Weapons", trait("traits.weaponProf"))}
+        ${row("Armor", trait("traits.armorProf"))}
+        ${row("Tools", tools)}
+      </div>
+      ${featChips}`;
   }
 
   // Move pad (§7.4): D-pad steps the player's own token via the move.request
@@ -497,6 +585,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#move(Number(el.dataset.dx), Number(el.dataset.dy));
       case "end-turn":
         return this.#endTurn();
+      case "roll-init":
+        return actor?.rollInitiativeDialog?.();
+      case "roll-hd":
+        return actor?.rollHitDie?.();
+      case "short-rest":
+        return actor?.shortRest?.();
+      case "long-rest":
+        return actor?.longRest?.();
     }
   };
 

@@ -521,3 +521,66 @@ body.mc-phone .roll-configuration fieldset {
   color: var(--mc-gold); box-shadow: none; border-top-color: var(--mc-gold);
   background: linear-gradient(#2a2415, rgba(42,36,21,0));
 }
+
+/* ============================================================
+   Round-4 (2026-06-14): condition icons, framed AC, Explore stats
+   strip (init/hit-dice/speed/prof) + rest, Details tab.
+   ============================================================ */
+
+/* Conditions: small icon in each chip; container already wraps. */
+.mc-conditions { gap: 6px 8px; align-items: center; }
+.mc-chip { display: inline-flex; align-items: center; gap: 6px; }
+.mc-chip-icon {
+  width: 18px; height: 18px; border-radius: 4px; object-fit: cover;
+  flex: 0 0 auto; filter: saturate(1.1);
+}
+
+/* AC: framed + gray so it reads as info, not a button. */
+.mc-stat-acwrap { align-items: center; }
+.mc-ac-frame {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 34px; padding: 3px 8px;
+  font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums;
+  color: #aeb4c0; background: #1a1c22;
+  border: 1px solid #4a4f5c; border-radius: 7px;
+}
+
+/* Explore stats strip: Initiative / Hit dice (tappable) · Speed / Prof (gray). */
+.mc-explore-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  margin: 4px 0 14px;
+}
+.mc-estat {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 10px 4px; min-height: 56px;
+  background: #20222b; border: 1px solid #313542; border-radius: 10px;
+}
+.mc-estat-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--mc-muted); }
+.mc-estat-val { font-size: 18px; font-weight: 800; color: var(--mc-ink); font-variant-numeric: tabular-nums; }
+.mc-estat.mc-tappable:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
+.mc-estat.mc-gray .mc-estat-val { color: #aeb4c0; }
+
+/* Rest buttons at the bottom of Explore. */
+.mc-rests { display: flex; gap: 10px; margin-top: 8px; }
+.mc-rest {
+  flex: 1 1 0; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
+  color: var(--mc-ink); font-size: 14px; font-weight: 600;
+}
+.mc-rest:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
+.mc-rest i { color: var(--mc-gold); }
+
+/* Details tab. */
+.mc-detail-sec { margin-bottom: 16px; }
+.mc-detail-row { display: flex; gap: 8px; padding: 9px 2px; border-bottom: 1px solid #23252e; }
+.mc-detail-key { flex: 0 0 38%; color: var(--mc-muted); font-size: 13px; }
+.mc-detail-val { flex: 1 1 auto; font-size: 14px; }
+.mc-detail-xp {
+  display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px;
+  padding: 12px 14px; background: #20222b; border: 1px solid #313542; border-radius: 10px;
+}
+.mc-detail-level { font-size: 22px; font-weight: 800; color: var(--mc-gold); }
+.mc-detail-xpbar { flex: 1 1 auto; }
+.mc-detail-xpnum { font-size: 12px; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
+.mc-feat-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.mc-feat-chip { font-size: 12px; padding: 4px 9px; background: #20222b; border: 1px solid #313542; border-radius: 12px; color: #cfd2db; }
