@@ -426,3 +426,18 @@ Single list so a fresh session can pick up. UI rounds 1–7 (§12) are built; de
 **Verification still owed (built, untested by CC — no live client):** UI rounds 3–7; the reactions popup (midi `doReactions:"all"` should fan to the owner's phone like saves — confirm live); Spike 4 (sense/latency on the real LAN); Spike 5 full (iOS resync/wake-lock/audio); Spike 6 (TV reticles, needs the TV client).
 
 **Known non-bugs:** test Fighter's Speed shows 0 (actor/Foundry data quirk, not ours).
+
+---
+
+## 14. Why the phone has its own adv/dis buttons — and the spike to remove them
+
+**Question (DM, 2026-06-14):** midi's roll dialog already has Advantage/Normal/Disadvantage and now renders full-screen — why keep our own adv/dis buttons; can't we just use midi's popup?
+
+**Reason it's not trivial — Route B workflow locality:**
+- Checks/saves roll *on the phone* (`actor.rollAbilityCheck`; saves routed to the target's client), so midi's native dialog opens on the phone and the Prompt Restyler makes it usable. No custom adv/dis there — already native.
+- Attacks/damage go through **Route B**: a no-canvas phone can't build a midi Workflow (Spike 2 PlaceableObject crash), so the Workflow runs on the **executor/DM**, and any dialog it spawns appears on the **DM's screen, not the phone**. We therefore **fast-forward the roll and pre-collect adv/dis on the phone** (our buttons). Dropping them and letting midi show its dialog would pop the prompt on the DM's laptop, unreachable by the player. The Restyler can't help — it only restyles dialogs rendered *on the phone*.
+
+**Spike (do before removing the buttons). DM-preferred path = #1 (optimal if possible):**
+1. **★ PREFERRED — route the attacker's attack/damage roll to the player's client** the way `playerRollSaves` routes saves to the defender. midi can push a roll to a specific user (saves/reactions prove it); confirm it works for the *attacker's* roll. If yes: the native dialog (adv/dis + situational bonus + crit) opens on the phone, the Restyler makes it usable, and we **delete our adv/dis buttons** — strictly better. Investigate `midiOptions` roll routing / `rollAs` / a player-roll-attack setting in midi 14 source.
+2. Fallback — phone rolls the attack d20 locally (native dialog, like a check) and feeds the result into the executor's workflow (verify midi accepts a supplied/pre-rolled attack).
+3. If neither works: keep the pre-collect buttons and grow them into the §7.5 pre-roll screen (add a situational-bonus field).
