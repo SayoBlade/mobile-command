@@ -8,7 +8,6 @@ import { api as rpc } from "./rpc.js";
 // HP editing, inventory, spell prep, item use (Route B) come in later phases.
 
 const ABILITIES = ["str", "dex", "con", "int", "wis", "cha"];
-const SKILL_STRIP = ["prc", "ste", "ins"]; // §7.2 common one-tap skills
 const ROLL_HISTORY_MAX = 6;   // recent-rolls strip cap (newest-first)
 const ROLL_TOAST_MS = 4500;   // transient roll toast lifetime (ms)
 
@@ -67,6 +66,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #toastTimer = null;
   #actionState = null; // null = action list; object = target-pick/fire sub-view
   #editingField = null; // B7: "hp" | "temp" while that stat is an inline input
+  #favEditing = false;  // Actions tab: bookmark-toggle mode (add/remove favorites)
 
   /** The actor this phone controls: assigned character, else first owned character. */
   get actor() {
@@ -162,13 +162,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return this.#exploreHTML(actor); // "Explore" tab: move pad + the sheet
   }
 
-  // Explore tab = move pad, a stats strip (init/hit-dice/speed/prof), the touch
-  // sheet, and rest buttons.
+  // Explore tab = a movement row (Init/Hit Dice · D-pad · Speed/Prof), the
+  // favorites container, the ability roll grid, and rest buttons.
   #exploreHTML(actor) {
-    return this.#moveHTML() + this.#exploreStatsHTML(actor) + this.#sheetHTML(actor) + this.#restsHTML();
+    return this.#moveRowHTML(actor) + this.#favoritesHTML(actor)
+      + this.#abilitiesHTML(actor) + this.#restsHTML();
   }
 
-  #exploreStatsHTML(actor) {
+  // Movement row: Init / Hit Dice (tappable) flank the D-pad on the left,
+  // Speed / Prof (read-only) on the right. All four cells are equal height so
+  // the columns line up regardless of the drop shadow on the tappable ones.
+  #moveRowHTML(actor) {
     const a = actor.system.attributes ?? {};
     const init = a.init?.total ?? a.init?.mod;
     const initStr = init == null ? "—" : signed(init);
@@ -177,16 +181,75 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const move = a.movement ?? {};
     const speed = move.walk != null ? `${move.walk}` : "—";
     const prof = a.prof != null ? signed(a.prof) : "—";
-    return `<div class="mc-explore-stats">
-      <button class="mc-estat mc-tappable" data-action="roll-init">
-        <span class="mc-estat-label">Init</span><span class="mc-estat-val">${initStr}</span></button>
-      <button class="mc-estat mc-tappable" data-action="roll-hd">
-        <span class="mc-estat-label">Hit Dice</span><span class="mc-estat-val">${hdStr}</span></button>
-      <div class="mc-estat mc-gray">
-        <span class="mc-estat-label">Speed</span><span class="mc-estat-val">${speed}</span></div>
-      <div class="mc-estat mc-gray">
-        <span class="mc-estat-label">Prof</span><span class="mc-estat-val">${prof}</span></div>
+    const estat = (cls, action, label, val) => {
+      const tag = action ? "button" : "div";
+      const attr = action ? ` data-action="${action}"` : "";
+      return `<${tag} class="mc-estat ${cls}"${attr}>
+        <span class="mc-estat-label">${label}</span><span class="mc-estat-val">${val}</span></${tag}>`;
+    };
+    return `<div class="mc-move-row">
+      <div class="mc-estat-col">
+        ${estat("mc-tappable", "roll-init", "Init", initStr)}
+        ${estat("mc-tappable", "roll-hd", "Hit Dice", hdStr)}
+      </div>
+      <div class="mc-dpad-wrap">${this.#moveHTML()}</div>
+      <div class="mc-estat-col">
+        ${estat("mc-gray", "", "Speed", speed)}
+        ${estat("mc-gray", "", "Prof", prof)}
+      </div>
     </div>`;
+  }
+
+  // Favorites container (§7.2): the actor's dnd5e system.favorites, resolved for
+  // display and tappable by type — activities/items open the Actions picker,
+  // skills/tools roll natively. Curate from the Actions bookmark toggle (or a
+  // laptop). Grows downward as favorites are added.
+  #favoritesHTML(actor) {
+    const favs = [...(actor.system.favorites ?? [])].sort((x, y) => (x.sort ?? 0) - (y.sort ?? 0));
+    const rows = favs.map(f => this.#favoriteRow(actor, f)).filter(Boolean).join("");
+    const body = rows || `<div class="mc-fav-empty">No favorites yet — tap the bookmark in Actions to pin one.</div>`;
+    return `<div class="mc-section-label">Favorites</div>
+      <div class="mc-favorites">${body}</div>`;
+  }
+
+  #favoriteRow(actor, fav) {
+    const { id, type } = fav;
+    if (type === "skill") {
+      const mod = actor.system.skills?.[id]?.total;
+      return this.#favRowHTML({ icon: "fa-dice-d20", name: CONFIG.DND5E.skills[id]?.label ?? id,
+        val: mod == null ? "" : signed(mod), action: "skill", data: `data-skill="${id}"` });
+    }
+    if (type === "tool") {
+      const mod = actor.system.tools?.[id]?.total;
+      return this.#favRowHTML({ icon: "fa-screwdriver-wrench", name: traitLabel(id, "tools"),
+        val: mod == null ? "" : signed(mod), action: "tool", data: `data-tool="${id}"` });
+    }
+    if (type === "slots") return ""; // slot trackers aren't actionable on the phone
+    const doc = fromUuidSync(id, { relative: actor });
+    if (!doc) return "";
+    if (type === "effect") {
+      return this.#favRowHTML({ img: doc.img, name: doc.name, action: "", data: "" });
+    }
+    // item or activity → route into the Actions target picker.
+    const activity = type === "activity" ? doc : [...(doc.system?.activities ?? [])][0];
+    const img = (type === "activity" ? (doc.img || doc.item?.img) : doc.img) || "icons/svg/upgrade.svg";
+    const name = type === "activity" ? (doc.item?.name ?? doc.name) : doc.name;
+    return activity?.uuid
+      ? this.#favRowHTML({ img, name, action: "fav-act", data: `data-uuid="${activity.uuid}"` })
+      : this.#favRowHTML({ img, name, action: "", data: "" });
+  }
+
+  #favRowHTML({ img, icon, name, val = "", action, data }) {
+    const tag = action ? "button" : "div";
+    const attrs = action ? ` data-action="${action}" ${data}` : "";
+    const media = img
+      ? `<img class="mc-fav-icon" src="${img}" alt="">`
+      : `<span class="mc-fav-glyph"><i class="fas ${icon}"></i></span>`;
+    return `<${tag} class="mc-fav"${attrs}>
+      ${media}
+      <span class="mc-fav-name">${foundry.utils.escapeHTML(name)}</span>
+      ${val ? `<span class="mc-fav-val">${val}</span>` : ""}
+    </${tag}>`;
   }
 
   #restsHTML() {
@@ -296,7 +359,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // unicode diagonals ↖↗↙↘ get emoji-fied on iOS, which looked inconsistent).
     const cell = (dx, dy) => {
       const deg = Math.round(Math.atan2(dx, -dy) * 180 / Math.PI);
-      return `<button class="mc-dpad-btn" data-action="move" data-dx="${dx}" data-dy="${dy}">
+      // Orthogonal moves (up/down/left/right) get the primary blue; diagonals
+      // stay neutral.
+      const ortho = (dx === 0) !== (dy === 0);
+      return `<button class="mc-dpad-btn ${ortho ? "mc-dpad-primary" : ""}" data-action="move" data-dx="${dx}" data-dy="${dy}">
         <i class="fas fa-arrow-up" style="transform: rotate(${deg}deg)"></i>
       </button>`;
     };
@@ -342,17 +408,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     </div>`;
   }
 
-  #sheetHTML(actor) {
-    const skills = actor.system.skills ?? {};
-    const skillStrip = SKILL_STRIP.map(s => {
-      const label = CONFIG.DND5E.skills[s]?.label ?? s;
-      const mod = skills[s]?.total;
-      return `<button class="mc-skill" data-action="skill" data-skill="${s}">
-        <div class="mc-skill-name">${label}</div>
-        <div class="mc-skill-mod">${mod == null ? "—" : signed(mod)}</div>
-      </button>`;
-    }).join("");
-
+  #abilitiesHTML(actor) {
     const abilities = actor.system.abilities ?? {};
     const abilityGrid = ABILITIES.map(a => {
       const abbr = (CONFIG.DND5E.abilities[a]?.abbreviation ?? a).toUpperCase();
@@ -370,8 +426,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }).join("");
 
     return `
-      <div class="mc-section-label">Skills</div>
-      <div class="mc-skills">${skillStrip}</div>
       <div class="mc-section-label">Abilities — tap Check or Save</div>
       <div class="mc-abilities">${abilityGrid}</div>`;
   }
@@ -406,22 +460,37 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   #actionsHTML() {
     if (this.#actionState) return this.#targetPickerHTML();
+    const actor = this.actor;
     const acts = this.#usableActivities();
     if (!acts.length) {
       return `<div class="mc-placeholder">No usable actions found.</div>`;
     }
+    const editing = this.#favEditing;
     const rows = acts.map(a => {
       const sub = a.item.name === a.name ? a.type : a.name;
       const icon = a.item.img || a.img || "icons/svg/upgrade.svg";
-      return `<button class="mc-action" data-action="action-pick" data-uuid="${a.uuid}">
+      const favId = `${a.item.getRelativeUUID(actor)}.Activity.${a.id}`;
+      const isFav = actor.system.hasFavorite?.(favId) ?? false;
+      // In edit mode the row toggles the favorite; otherwise it opens the picker.
+      const action = editing ? "fav-toggle" : "action-pick";
+      const data = editing ? `data-favid="${favId}"` : `data-uuid="${a.uuid}"`;
+      const mark = (editing || isFav)
+        ? `<i class="fas fa-bookmark mc-action-fav ${isFav ? "mc-on" : ""}"></i>`
+        : "";
+      return `<button class="mc-action" data-action="${action}" ${data}>
         <img class="mc-action-icon" src="${icon}" alt="">
         <span class="mc-action-text">
           <span class="mc-action-name">${foundry.utils.escapeHTML(a.item.name)}</span>
           <span class="mc-action-sub">${foundry.utils.escapeHTML(sub)}</span>
         </span>
+        ${mark}
       </button>`;
     }).join("");
-    return `<div class="mc-section-label">Actions — tap to use</div>
+    const editBtn = `<button class="mc-fav-edit ${editing ? "mc-on" : ""}" data-action="fav-edit-toggle" title="Add/remove favorites" aria-label="Add or remove favorites"><i class="fas fa-bookmark"></i></button>`;
+    return `<div class="mc-actions-head">
+        <span class="mc-section-label">Actions — ${editing ? "tap to favorite" : "tap to use"}</span>
+        ${editBtn}
+      </div>
       <div class="mc-actions">${rows}</div>`;
   }
 
@@ -527,6 +596,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
   }
 
+  // Favorites (dnd5e system.favorites): the Actions bookmark toggle adds/removes
+  // the tapped activity; the Explore favorites container renders the result. The
+  // updateActor hook re-renders the shell on change.
+  async #toggleFavorite(favId) {
+    const actor = this.actor;
+    if (!actor || !favId) return;
+    if (actor.system.hasFavorite?.(favId)) await actor.system.removeFavorite(favId);
+    else await actor.system.addFavorite?.({ type: "activity", id: favId });
+  }
+
   // Step 1 of the two-tap: fire the attack (or park a damage/save workflow);
   // the executor holds it at WaitForDamageRoll and returns the attack result.
   async #fireAction() {
@@ -622,6 +701,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.render();
       case "action-pick":
         return this.#pickAction(el.dataset.uuid);
+      case "fav-edit-toggle":
+        this.#favEditing = !this.#favEditing; return this.render();
+      case "fav-toggle":
+        return this.#toggleFavorite(el.dataset.favid);
+      case "fav-act":
+        this.#tab = "actions"; return this.#pickAction(el.dataset.uuid);
       case "action-back":
         this.#abandonAction();
         return this.render();

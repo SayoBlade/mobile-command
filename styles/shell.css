@@ -705,3 +705,127 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
   background: transparent; border: none; border-bottom: 1px solid #23252e;
   border-radius: 0; padding: 6px 2px 12px; box-shadow: none;
 }
+
+/* ============================================================
+   Round-8 (2026-06-14): "Save" blue as the primary button color
+   (Use + orthogonal D-pad + rests), visible drop shadow, Explore
+   movement-row reflow (stats flank the D-pad) + favorites
+   container, Actions favorites toggle, burgundy section titles.
+   ============================================================ */
+
+#mobile-command-shell {
+  --mc-primary: #243042;        /* the "Save" blue, now the primary action color */
+  --mc-primary-edge: #2f4660;
+  --mc-primary-active: #2d3d52;
+  --mc-burgundy: #782e22;       /* dnd5e character-sheet header burgundy */
+}
+
+/* Primary (blue) buttons — Save (already), Use (not the red Roll-damage /
+   disabled states), rests, and the orthogonal D-pad arrows. Check buttons,
+   targets, adv/dis are deliberately left as-is. */
+#mobile-command-shell .mc-btn.mc-save,
+#mobile-command-shell .mc-fire:not(.mc-roll-damage):not(.mc-disabled),
+#mobile-command-shell .mc-rest,
+#mobile-command-shell .mc-dpad-btn.mc-dpad-primary {
+  background: var(--mc-primary);
+  border-color: var(--mc-primary-edge);
+  color: var(--mc-ink);
+}
+#mobile-command-shell .mc-btn.mc-save:active,
+#mobile-command-shell .mc-fire:not(.mc-roll-damage):not(.mc-disabled):active,
+#mobile-command-shell .mc-rest:active,
+#mobile-command-shell .mc-dpad-btn.mc-dpad-primary:active {
+  background: var(--mc-primary-active);
+  border-color: var(--mc-gold);
+}
+
+/* Drop shadow — round 7's 1.5px/45% was invisible on the near-black ground.
+   Stronger drop + a faint top highlight so controls read as raised. */
+#mobile-command-shell .mc-action,
+#mobile-command-shell .mc-skill,
+#mobile-command-shell .mc-skillrow,
+#mobile-command-shell .mc-btn,
+#mobile-command-shell .mc-adv,
+#mobile-command-shell .mc-fire,
+#mobile-command-shell .mc-rest,
+#mobile-command-shell .mc-dpad-btn,
+#mobile-command-shell .mc-target,
+#mobile-command-shell .mc-estat.mc-tappable,
+#mobile-command-shell .mc-fav,
+#mobile-command-shell .mc-insp,
+#mobile-command-shell .mc-leave {
+  box-shadow: 0 3px 6px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+#mobile-command-shell .mc-estat.mc-gray,
+#mobile-command-shell .mc-ac-frame { box-shadow: none; }
+
+/* Explore movement row: Init/Hit Dice · D-pad · Speed/Prof. */
+.mc-move-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; margin: 6px 0 14px;
+}
+.mc-estat-col { display: flex; flex-direction: column; gap: 10px; flex: 0 0 auto; }
+.mc-dpad-wrap { flex: 0 0 auto; }
+/* Equal height for all four stats; the shadow lives outside the box, so the
+   gray (Speed/Prof) and tappable (Init/Hit Dice) cells line up. */
+#mobile-command-shell .mc-estat {
+  height: 56px; min-height: 0; width: 68px; padding: 6px 4px;
+}
+/* The D-pad shrinks to fit between the stat columns on a narrow phone. */
+.mc-move-row .mc-dpad {
+  grid-template-columns: repeat(3, 52px); grid-auto-rows: 52px;
+  gap: 6px; max-width: none;
+}
+.mc-move-row .mc-dpad-btn,
+.mc-move-row .mc-dpad-blank { width: 52px; height: 52px; }
+.mc-move-row .mc-dpad-btn i { font-size: 18px; }
+
+/* Favorites container — grows downward as favorites are added. */
+.mc-favorites { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.mc-fav {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: 52px; padding: 8px 12px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
+  color: var(--mc-ink); text-align: left;
+}
+.mc-fav:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
+.mc-fav-icon {
+  width: 38px; height: 38px; flex: 0 0 auto; border-radius: 7px; object-fit: cover;
+  border: 1px solid var(--mc-edge); background: #0c0d11;
+}
+.mc-fav-glyph {
+  width: 38px; height: 38px; flex: 0 0 auto; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--mc-edge); background: #0c0d11; color: var(--mc-gold); font-size: 16px;
+}
+.mc-fav-name {
+  flex: 1 1 auto; min-width: 0; font-size: 14px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mc-fav-val { flex: 0 0 auto; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.mc-fav-empty { color: var(--mc-muted); font-size: 13px; padding: 10px 2px; }
+
+/* Actions header bar with a right-aligned favorites-edit (bookmark) toggle. */
+.mc-actions-head { position: relative; margin: 6px 0 10px; }
+#mobile-command-shell .mc-actions-head .mc-section-label { margin: 0; padding-right: 46px; }
+.mc-fav-edit {
+  position: absolute; right: 6px; top: 0; bottom: 0; margin: auto 0;
+  width: 36px; height: 26px; border-radius: 7px;
+  background: rgba(0, 0, 0, .22); border: 1px solid rgba(0, 0, 0, .3);
+  color: var(--mc-ink); font-size: 14px; line-height: 1;
+}
+.mc-fav-edit.mc-on { background: var(--mc-gold); border-color: var(--mc-gold); color: #1a1410; }
+/* Per-row bookmark: gold when favorited, faint outline otherwise. */
+.mc-action-fav { flex: 0 0 auto; font-size: 15px; color: var(--mc-edge); }
+.mc-action-fav.mc-on { color: var(--mc-gold); }
+
+/* Section titles: a burgundy banner echoing the dnd5e character sheet. */
+#mobile-command-shell .mc-section-label {
+  display: block;
+  background: linear-gradient(var(--mc-burgundy), #5e231a);
+  color: var(--mc-ink);
+  margin: 6px 0 10px; padding: 5px 10px;
+  border: 1px solid #4a1c15; border-radius: 5px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+  letter-spacing: .06em;
+}
