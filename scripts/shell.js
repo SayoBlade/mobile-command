@@ -123,11 +123,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           <div class="mc-stats">
             <span class="mc-stat"><span class="mc-stat-label">HP</span>${hpBtn}<span class="mc-stat-sub">/${hp.max ?? "—"}</span></span>
             <span class="mc-stat"><span class="mc-stat-label">Temp</span>${tempBtn}</span>
-            <span class="mc-stat mc-stat-acwrap"><span class="mc-ac-frame" title="Armor Class">${ac}</span></span>
+            <span class="mc-stat mc-stat-acwrap"><span class="mc-ac-frame" title="Armor Class"><i class="fas fa-shield"></i>${ac}</span></span>
             <button class="mc-insp ${insp ? "mc-insp-on" : ""}" data-action="toggle-insp" title="Inspiration">★</button>
           </div>
         </div>
-        <button class="mc-exit" data-action="exit" title="Exit (testing)">✕</button>
       </header>
       ${this.#statEditorHTML(hp)}
       <div class="mc-conditions">${condHTML}</div>
@@ -266,7 +265,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ${row("Armor", traitLabels("traits.armorProf", "armorProf"))}
         ${row("Tools", tools)}
       </div>
-      ${featChips}`;
+      ${featChips}
+      <button class="mc-leave" data-action="exit"><i class="fas fa-right-from-bracket"></i> Leave Mobile Command</button>`;
   }
 
   // Move pad (§7.4): D-pad steps the player's own token via the move.request
@@ -413,7 +413,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Post-attack phase: show the attack result + a deliberate "Roll damage" tap.
     if (s.phase === "rolling" || s.phase === "attacked") {
       const head = `<div class="mc-picker-head">
-        <button class="mc-back" data-action="action-back">‹ Back</button>
+        <button class="mc-back mc-picker-x" data-action="action-back" aria-label="Close"><i class="fas fa-xmark"></i></button>
         <span class="mc-picker-title">${foundry.utils.escapeHTML(s.name)}</span>
       </div>`;
       if (s.phase === "rolling") {
@@ -459,16 +459,24 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       }).join("");
     }
 
+    // Self is always a target option (gray "Self" tag, at the bottom).
+    const selfUuid = game.scenes.active?.tokens.get(this.originTokenId)?.uuid;
+    const selfRow = (!s.selfTarget && selfUuid)
+      ? `<button class="mc-target ${s.selected.has(selfUuid) ? "mc-target-on" : ""}" data-action="target-toggle" data-uuid="${selfUuid}">
+          <span class="mc-target-name">Self</span>
+          <span class="mc-target-right"><span class="mc-disp mc-self">Self</span></span>
+        </button>`
+      : "";
     const count = s.selfTarget ? "" : `<span class="mc-target-count">${s.selected.size}/${s.maxTargets}</span>`;
     const canFire = s.selfTarget || s.selected.size > 0;
     return `
       <div class="mc-picker-head">
-        <button class="mc-back" data-action="action-back">‹ Back</button>
+        <button class="mc-back mc-picker-x" data-action="action-back" aria-label="Close"><i class="fas fa-xmark"></i></button>
         <span class="mc-picker-title">${foundry.utils.escapeHTML(s.name)}</span>
         ${count}
       </div>
       <div class="mc-adv-row">${advBtn("advantage", "Advantage")}${advBtn("normal", "Normal")}${advBtn("disadvantage", "Disadvantage")}</div>
-      <div class="mc-targets">${body}</div>
+      <div class="mc-targets">${body}${selfRow}</div>
       <button class="mc-fire ${canFire ? "" : "mc-disabled"}" data-action="fire" ${canFire ? "" : "disabled"}>
         ${s.busy ? "Using…" : "Use"}
       </button>`;
@@ -586,7 +594,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const action = el.dataset.action;
     const actor = this.actor;
     switch (action) {
-      case "exit": return this.close();
+      case "exit": return this.#confirmExit();
       case "tab":
         this.#tab = el.dataset.tab;
         this.#abandonAction(); // leave the picker clean; cancel any held workflow
@@ -666,6 +674,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const path = f === "hp" ? "system.attributes.hp.value" : "system.attributes.hp.temp";
     await actor.update({ [path]: next });
     this.render();
+  }
+
+  async #confirmExit() {
+    const ok = await foundry.applications.api.DialogV2.confirm({
+      window: { title: "Leave Mobile Command?" },
+      content: "<p>Return to the standard Foundry interface?</p>",
+      modal: true, rejectClose: false
+    });
+    if (ok) this.close();
   }
 
   async #toggleInspiration() {
@@ -824,6 +841,11 @@ function liftDialogAboveShell(app) {
   if (app.options?.window?.frame === false) return; // skip docked/frameless UI
   const el = app.element;
   if (!(el instanceof HTMLElement)) return;
+  // Prompt Restyler (§7.6) MVP: any dialog/prompt opened over the shell
+  // (rest, attack/roll config, reactions, our confirms) becomes a full-width
+  // bottom-sheet (CSS .mc-phone-dialog) — the native popups are tiny/unusable
+  // on a phone. The dialog's own header X handles close.
+  el.classList.add("mc-phone-dialog");
   const AppV2 = foundry.applications.api.ApplicationV2;
   AppV2._maxZ = Math.max(AppV2._maxZ + 1, SHELL_Z + 2);
   el.style.zIndex = String(AppV2._maxZ);

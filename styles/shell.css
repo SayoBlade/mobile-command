@@ -614,3 +614,58 @@ body.mc-phone .roll-configuration fieldset {
 .mc-prof-1 { background: var(--mc-gold); border-color: var(--mc-gold); }
 .mc-prof-2 { background: var(--mc-gold); border-color: var(--mc-gold); box-shadow: 0 0 0 2px #16131b, 0 0 0 3.5px var(--mc-gold); }
 .mc-prof-half { background: linear-gradient(90deg, var(--mc-gold) 50%, transparent 50%); border-color: var(--mc-gold); }
+
+/* ============================================================
+   Round-6 (2026-06-14): Prompt Restyler (full-height phone dialogs),
+   adv/dis tints, AC shield, inspiration sizing, Self target, picker
+   X, relocated Leave button.
+   ============================================================ */
+
+/* Prompt Restyler — phone dialogs (rest, roll config, reactions, confirms)
+   become a full-width bottom-sheet. !important beats ApplicationV2's inline
+   position/size. The dialog's own header X closes it. */
+body.mc-phone .mc-phone-dialog {
+  position: fixed !important;
+  left: 0 !important; right: 0 !important; top: auto !important; bottom: 0 !important;
+  width: 100% !important; max-width: 100% !important;
+  height: auto !important; max-height: 92vh !important;
+  border-radius: 16px 16px 0 0 !important;
+  display: flex !important; flex-direction: column !important;
+}
+body.mc-phone .mc-phone-dialog .window-content {
+  flex: 1 1 auto; overflow-y: auto; max-height: none; -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+body.mc-phone .mc-phone-dialog .window-header { flex: 0 0 auto; }
+body.mc-phone .mc-phone-dialog .window-title { font-size: 16px; }
+body.mc-phone .mc-phone-dialog .window-header button,
+body.mc-phone .mc-phone-dialog .header-control { min-width: 40px; min-height: 40px; font-size: 17px; }
+body.mc-phone .mc-phone-dialog button { min-height: 44px; }
+
+/* Adv / Normal / Dis — green and red tints (stronger when selected). */
+.mc-adv[data-mode="advantage"] { background: #1b2a20; border-color: #2f5d39; }
+.mc-adv[data-mode="disadvantage"] { background: #2a1b1b; border-color: #5c2f2c; }
+.mc-adv[data-mode="advantage"].mc-adv-on { background: #234a30; border-color: #3f8a52; color: #cdeed4; }
+.mc-adv[data-mode="disadvantage"].mc-adv-on { background: #4a2727; border-color: #8a3f3a; color: #f2c4be; }
+
+/* AC shield glyph. */
+.mc-ac-frame i { font-size: 11px; margin-right: 4px; opacity: .85; }
+
+/* Inspiration: smaller, aligned to the stats row. */
+#mobile-command-shell .mc-insp { width: 30px; height: 30px; font-size: 15px; align-self: center; }
+
+/* Self target option (gray). */
+.mc-disp.mc-self { background: #25272f; color: #b9bcc7; }
+
+/* Picker close X (replaces "Back"). */
+.mc-picker-x { color: var(--mc-muted); font-size: 18px; padding: 4px 10px; }
+.mc-picker-x:active { color: var(--mc-gold); }
+
+/* Relocated Leave/close button at the bottom of Details. */
+.mc-leave {
+  width: 100%; min-height: 46px; margin-top: 18px;
+  background: #3a2526; border: 1px solid #5c2f2c; border-radius: 10px;
+  color: #f0b8b2; font-size: 14px; font-weight: 600;
+}
+.mc-leave:active { background: #4a2f30; }
+.mc-leave i { margin-right: 6px; }
