@@ -122,6 +122,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const ac = sys.attributes?.ac?.value ?? "—";
     const insp = !!sys.attributes?.inspiration;
     const img = actor.img || actor.prototypeToken?.texture?.src || "icons/svg/mystery-man.svg";
+    // Total character level (multiclass = sum of class levels). Full class/
+    // subclass breakdown + XP bar move into the long-press name tooltip later.
+    const totalLevel = sys.details?.level
+      || actor.items.filter(i => i.type === "class").reduce((n, c) => n + (c.system.levels || 0), 0);
 
     // Include toggled conditions (status effects, which often carry NO duration
     // — temporaryEffects alone misses them, so the chip read "No active
@@ -147,7 +151,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <header class="mc-header">
         <img class="mc-portrait" src="${img}" alt="">
         <div class="mc-id">
-          <div class="mc-name">${foundry.utils.escapeHTML(actor.name)}</div>
+          <div class="mc-name">${foundry.utils.escapeHTML(actor.name)}${totalLevel ? `<span class="mc-name-lvl">Lvl ${totalLevel}</span>` : ""}</div>
           <div class="mc-stats">
             <span class="mc-stat"><span class="mc-stat-label">HP</span>${hpBtn}<span class="mc-stat-sub">/${hp.max ?? "—"}</span></span>
             <span class="mc-stat"><span class="mc-stat-label">Temp</span>${tempBtn}</span>
@@ -444,6 +448,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (t.custom) vals.push(...String(t.custom).split(";").map(s => s.trim()).filter(Boolean));
       return vals;
     };
+    // Damage resistances / vulnerabilities / immunities (system.traits.dr/dv/di).
+    const dmgTraits = (path) => {
+      const t = foundry.utils.getProperty(sys, path) ?? {};
+      const vals = Array.from(t.value ?? []).map(k => CONFIG.DND5E.damageTypes[k]?.label ?? k);
+      if (t.custom) vals.push(...String(t.custom).split(";").map(s => s.trim()).filter(Boolean));
+      return vals;
+    };
     // Tools — same row style as skills (prof dot, ability, bonus), tappable to
     // roll a tool check (rollToolCheck). Shown under the skills, own header.
     const toolRows = Object.keys(sys.tools ?? {}).map(key => {
@@ -471,6 +482,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const featChips = feats.length
       ? `<div class="mc-section-label">Feats &amp; Features</div><div class="mc-feat-chips">${feats.map(f => `<span class="mc-feat-chip">${foundry.utils.escapeHTML(f)}</span>`).join("")}</div>`
       : "";
+    // Defenses: damage resistances / vulnerabilities / immunities (above feats).
+    const defenses = [
+      row("Resistances", dmgTraits("traits.dr")),
+      row("Vulnerabilities", dmgTraits("traits.dv")),
+      row("Immunities", dmgTraits("traits.di"))
+    ].join("");
+    const defenseSec = defenses
+      ? `<div class="mc-detail-sec"><div class="mc-section-label">Defenses</div>${defenses}</div>`
+      : "";
 
     return `
       <div class="mc-section-label">Skills</div>
@@ -493,6 +513,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ${row("Weapons", traitLabels("traits.weaponProf", "weaponProf"))}
         ${row("Armor", traitLabels("traits.armorProf", "armorProf"))}
       </div>
+      ${defenseSec}
       ${featChips}
       <button class="mc-leave" data-action="exit"><i class="fas fa-right-from-bracket"></i> Leave Mobile Command</button>`;
   }
@@ -1283,6 +1304,15 @@ export function registerShellHooks() {
   Hooks.on("deleteActiveEffect", (effect) => {
     if (shellInstance?.rendered && effect.parent === shellInstance.actor) shellInstance.render();
   });
+  // Item changes live on the item, not the actor: spell prepared toggle
+  // (system.prepared), uses spent, and learning/removing items. Without these
+  // the prepared toggle wrote data but the UI never refreshed (reported bug).
+  const onItem = (item) => {
+    if (shellInstance?.rendered && item.parent === shellInstance.actor) shellInstance.render();
+  };
+  Hooks.on("updateItem", onItem);
+  Hooks.on("createItem", onItem);
+  Hooks.on("deleteItem", onItem);
   // Surface this user's/actor's roll results inside the shell (it covers chat).
   Hooks.on("createChatMessage", (message) => {
     if (shellInstance?.rendered) shellInstance.noteRoll(message);

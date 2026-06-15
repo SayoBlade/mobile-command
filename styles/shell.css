@@ -938,6 +938,21 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-spell-sub { display: flex; align-items: center; }
 .mc-spell-sub .mc-pips { margin-left: auto; }
 
+/* Level badge next to the character name. */
+.mc-name-lvl {
+  margin-left: 8px; font-size: 12px; font-weight: 700; vertical-align: middle;
+  color: var(--mc-gold); background: rgba(0, 0, 0, .28);
+  border: 1px solid var(--mc-edge); border-radius: 8px; padding: 1px 7px;
+  letter-spacing: .03em; white-space: nowrap;
+}
+
+/* Targeting: keep the Use / Roll-damage button pinned to the bottom of the
+   scroll area so a long target list never pushes it out of view. */
+#mobile-command-shell .mc-fire {
+  position: sticky; bottom: 0; z-index: 2;
+  box-shadow: 0 -8px 14px -6px rgba(0, 0, 0, .65), 0 3px 6px rgba(0, 0, 0, .6);
+}
+
 .mc-spells { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .mc-spell {
   display: flex; align-items: stretch;
