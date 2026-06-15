@@ -938,13 +938,42 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-spell-sub { display: flex; align-items: center; }
 .mc-spell-sub .mc-pips { margin-left: auto; }
 
-/* Level badge next to the character name. */
+/* Level button next to the name — taps open the class/level/XP panel. A little
+   bluish + a drop shadow so it reads as an inviting button, not flat text. */
 .mc-name-lvl {
-  margin-left: 8px; font-size: 12px; font-weight: 700; vertical-align: middle;
-  color: var(--mc-gold); background: rgba(0, 0, 0, .28);
-  border: 1px solid var(--mc-edge); border-radius: 8px; padding: 1px 7px;
-  letter-spacing: .03em; white-space: nowrap;
+  margin-left: 10px; font-size: 14px; font-weight: 800; vertical-align: middle;
+  color: var(--mc-ink); line-height: 1; white-space: nowrap; letter-spacing: .03em;
+  background: linear-gradient(#2a3a52, #213044);
+  border: 1px solid var(--mc-primary-edge); border-radius: 9px; padding: 4px 11px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .08);
 }
+.mc-name-lvl.mc-on { border-color: var(--mc-gold); }
+.mc-name-lvl:active { background: linear-gradient(#31435e, #28384e); }
+
+/* Bigger portrait; top-align the name with the top of the image. */
+#mobile-command-shell .mc-portrait { width: 62px; height: 62px; }
+#mobile-command-shell .mc-header { align-items: flex-start; }
+
+/* Class / level / XP panel (opened by the Lvl button). */
+.mc-levels-panel {
+  flex: 0 0 auto; background: #16131b; border-bottom: 1px solid var(--mc-gold); padding: 10px 14px;
+}
+.mc-lvl-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 2px; border-bottom: 1px solid #23252e;
+}
+.mc-lvl-cls { font-size: 14px; color: var(--mc-ink); }
+.mc-lvl-num { font-size: 16px; font-weight: 800; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
+.mc-xp { margin-top: 10px; }
+.mc-xp-track {
+  height: 8px; border-radius: 5px; overflow: hidden;
+  background: #2a272e; border: 1px solid var(--mc-edge);
+}
+.mc-xp-fill { height: 100%; background: linear-gradient(90deg, #c8a44d, #e0b24a); }
+.mc-xp-num { margin-top: 5px; font-size: 12px; color: var(--mc-muted); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Over-prepared (x > y) warning. */
+.mc-prep-line.mc-over { color: #e2584a; }
 
 /* Targeting: keep the Use / Roll-damage button pinned to the bottom of the
    scroll area so a long target list never pushes it out of view. */

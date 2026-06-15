@@ -84,6 +84,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #editingField = null; // B7: "hp" | "temp" while that stat is an inline input
   #favEditing = false;  // Actions tab: bookmark-toggle mode (add/remove favorites)
   #condEditing = false; // header: condition palette (add/remove) open
+  #showLevels = false;  // header: class/level/XP panel (Lvl button) open
 
   /** The actor this phone controls: assigned character, else first owned character. */
   get actor() {
@@ -151,7 +152,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <header class="mc-header">
         <img class="mc-portrait" src="${img}" alt="">
         <div class="mc-id">
-          <div class="mc-name">${foundry.utils.escapeHTML(actor.name)}${totalLevel ? `<span class="mc-name-lvl">Lvl ${totalLevel}</span>` : ""}</div>
+          <div class="mc-name">${foundry.utils.escapeHTML(actor.name)}${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}</div>
           <div class="mc-stats">
             <span class="mc-stat"><span class="mc-stat-label">HP</span>${hpBtn}<span class="mc-stat-sub">/${hp.max ?? "—"}</span></span>
             <span class="mc-stat"><span class="mc-stat-label">Temp</span>${tempBtn}</span>
@@ -160,6 +161,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           </div>
         </div>
       </header>
+      ${this.#showLevels ? this.#levelsHTML(actor) : ""}
       ${this.#statEditorHTML(hp)}
       <div class="mc-conditions">${condHTML}
         <button class="mc-cond-manage ${this.#condEditing ? "mc-on" : ""}" data-action="cond-edit" aria-label="Manage conditions" title="Add or remove conditions"><i class="fas fa-plus"></i></button>
@@ -183,6 +185,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   #tabContent(actor) {
     if (this.#atZeroHP(actor)) return this.#deathSaveHTML(actor); // §7.4: collapse to death saves
+    // An in-progress action/cast overlays the current tab — so casting from the
+    // Spells tab (or using a favorite from Explore) stays put instead of jumping.
+    if (this.#actionState) return this.#targetPickerHTML();
     if (this.#tab === "actions") return this.#actionsHTML(actor);
     if (this.#tab === "details") return this.#detailsHTML(actor);
     if (this.#tab === "spells") return this.#spellsHTML(actor);
@@ -367,7 +372,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const p = c.system.spellcasting?.preparation;
       if (p?.max) { pv += p.value ?? 0; pm += p.max; }
     }
-    const prepLine = pm > 0 ? `<div class="mc-prep-line">Prepared ${pv}/${pm}</div>` : "";
+    const prepLine = pm > 0 ? `<div class="mc-prep-line ${pv > pm ? "mc-over" : ""}">Prepared ${pv}/${pm}</div>` : "";
 
     const byLevel = new Map();
     for (const sp of spellItems) {
@@ -390,7 +395,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   #spellRowHTML(sp) {
     const prep = sp.system.preparation ?? {};
-    const canPrepare = prep.mode === "prepared"; // toggleable (not always/pact/innate/atwill)
+    const canPrepare = prep.mode === "prepared" && sp.system.level > 0; // cantrips are always prepared
     const isPrepared = !!prep.prepared;
     const activity = [...(sp.system.activities ?? [])][0];
     const img = sp.img || "icons/svg/daze.svg";
@@ -415,13 +420,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // raw keys for now.
   #detailsHTML(actor) {
     const sys = actor.system;
-    const det = sys.details ?? {};
-    const level = det.level || actor.items.filter(i => i.type === "class").reduce((n, c) => n + (c.system.levels || 0), 0);
-    const xp = det.xp ?? {};
-    const xpStr = xp.value != null ? `${xp.value}${xp.max != null ? " / " + xp.max : ""} XP` : "";
-
     const names = (t) => actor.items.filter(i => i.type === t).map(i => i.name);
-    const cls = actor.items.filter(i => i.type === "class").map(c => `${c.name}${c.system.levels ? " " + c.system.levels : ""}`);
     const race = [...names("race"), ...names("species")];
 
     // Full skills list (same model as the dnd5e sheet): proficiency dot
@@ -496,13 +495,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <div class="mc-section-label">Skills</div>
       <div class="mc-skillrows">${skillRows}</div>
       ${toolsBlock}
-      <div class="mc-detail-xp">
-        <span class="mc-detail-level">Lv ${level || "—"}</span>
-        <span class="mc-detail-xpnum">${xpStr}</span>
-      </div>
       <div class="mc-detail-sec">
-        ${row("Class", cls)}
-        ${row("Subclass", names("subclass"))}
         ${row("Race", race)}
         ${row("Background", names("background"))}
         ${row("Senses", senseList)}
@@ -558,6 +551,36 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <button class="mc-pm mc-plus" data-action="stat-plus">+</button>
       <button class="mc-pm mc-set" data-action="stat-set">Set</button>
       <button class="mc-pm mc-cancel" data-action="stat-cancel" aria-label="cancel">✕</button>
+    </div>`;
+  }
+
+  // Class / subclass / level breakdown + XP bar, opened by tapping the Lvl
+  // button (a button, not a long-press). This is where class/subclass/level/XP
+  // now live — the duplicated rows were removed from the Details tab.
+  #levelsHTML(actor) {
+    const classes = actor.items.filter(i => i.type === "class");
+    const subs = actor.items.filter(i => i.type === "subclass");
+    const rows = classes.map(c => {
+      const sub = subs.find(s => s.system.classIdentifier === c.system.identifier);
+      const name = sub ? `${c.name} / ${sub.name}` : c.name;
+      return `<div class="mc-lvl-row">
+        <span class="mc-lvl-cls">${foundry.utils.escapeHTML(name)}</span>
+        <span class="mc-lvl-num">${c.system.levels ?? ""}</span></div>`;
+    }).join("") || `<div class="mc-lvl-row"><span class="mc-lvl-cls">No classes</span></div>`;
+    const xp = actor.system.details?.xp ?? {};
+    const hasXp = (xp.max ?? 0) > 0;
+    const pct = hasXp ? Math.round(Math.min(100, Math.max(0, (xp.value ?? 0) / xp.max * 100))) : 0;
+    const xpBar = hasXp
+      ? `<div class="mc-xp"><div class="mc-xp-track"><div class="mc-xp-fill" style="width:${pct}%"></div></div>
+          <div class="mc-xp-num">${xp.value ?? 0} / ${xp.max} XP</div></div>`
+      : "";
+    return `<div class="mc-levels-panel">
+      <div class="mc-cond-panel-head">
+        <span>Classes &amp; level</span>
+        <button class="mc-cond-close" data-action="toggle-levels" aria-label="Close"><i class="fas fa-xmark"></i></button>
+      </div>
+      ${rows}
+      ${xpBar}
     </div>`;
   }
 
@@ -667,7 +690,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   #actionsHTML() {
-    if (this.#actionState) return this.#targetPickerHTML();
     const actor = this.actor;
     const acts = this.#usableActivities();
     if (!acts.length) {
@@ -992,7 +1014,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "fav-toggle":
         return this.#toggleFavorite(el.dataset.favid);
       case "fav-act":
-        this.#tab = "actions"; return this.#pickAction(el.dataset.uuid);
+        return this.#pickAction(el.dataset.uuid);
       case "toggle-prep": {
         const item = actor?.items.get(el.dataset.itemId);
         if (!item) return;
@@ -1042,6 +1064,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#toggleInspiration();
       case "cond-edit":
         this.#condEditing = !this.#condEditing; return this.render();
+      case "toggle-levels":
+        this.#showLevels = !this.#showLevels; return this.render();
       case "cond-toggle":
         return actor?.toggleStatusEffect?.(el.dataset.status);
       case "break-conc":
