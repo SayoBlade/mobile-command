@@ -21,6 +21,11 @@ function signed(n) {
   return v >= 0 ? `+${v}` : `${v}`;
 }
 
+function ordinal(n) {
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+}
+
 // Proficiency dot class from the dnd5e multiplier (0 / 0.5 / 1 / 2).
 function profClassFor(v) {
   if (v >= 2) return "2";       // expertise — full + ring
@@ -152,7 +157,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ${this.#tabButton("actions", "fa-hand-fist", "Actions")}
         ${this.#tabButton("details", "fa-user", "Details")}
         ${this.#tabButton("sheet", "fa-compass", "Explore")}
-        ${this.#tabButton("equipment", "fa-bag-shopping", "Equipment")}
+        ${this.#tabButton("spells", "fa-wand-sparkles", "Spells")}
         ${this.#tabButton("journal", "fa-feather", "Journal")}
       </nav>`;
   }
@@ -165,9 +170,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#atZeroHP(actor)) return this.#deathSaveHTML(actor); // §7.4: collapse to death saves
     if (this.#tab === "actions") return this.#actionsHTML(actor);
     if (this.#tab === "details") return this.#detailsHTML(actor);
-    if (this.#tab === "equipment") {
-      return `<div class="mc-placeholder">Inventory &amp; equipment arrive in a later phase.</div>`;
-    }
+    if (this.#tab === "spells") return this.#spellsHTML(actor);
     if (this.#tab === "journal") {
       return `<div class="mc-placeholder">The shared journal composer arrives in Phase 4.</div>`;
     }
@@ -316,6 +319,77 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return `<div class="mc-rests">
       <button class="mc-rest" data-action="short-rest"><i class="fas fa-mug-hot"></i> Short Rest</button>
       <button class="mc-rest" data-action="long-rest"><i class="fas fa-campground"></i> Long Rest</button>
+    </div>`;
+  }
+
+  // Spells tab: slot counters, a prepared count, and the spellbook grouped by
+  // level with prepared toggles. Casting routes a spell's first activity into
+  // the Actions picker (Route B); slot-level upcast selection is a later add
+  // (§7.5 pre-roll). Backed entirely by document data — no canvas.
+  #spellsHTML(actor) {
+    const spellItems = actor.items.filter(i => i.type === "spell");
+    const spells = actor.system.spells ?? {};
+    const hasSlots = Object.values(spells).some(s => (s?.max ?? 0) > 0);
+    if (!spellItems.length && !hasSlots) {
+      return `<div class="mc-placeholder">No spellcasting.</div>`;
+    }
+    const slotChip = (label, value, max) =>
+      `<span class="mc-slot ${value ? "" : "mc-empty"}">
+        <span class="mc-slot-label">${label}</span>
+        <span class="mc-slot-val">${value ?? 0}/${max}</span></span>`;
+    const chips = [];
+    for (let lvl = 1; lvl <= 9; lvl++) {
+      const s = spells[`spell${lvl}`];
+      if ((s?.max ?? 0) > 0) chips.push(slotChip(ordinal(lvl), s.value, s.max));
+    }
+    if ((spells.pact?.max ?? 0) > 0) {
+      chips.push(slotChip(`Pact ${ordinal(spells.pact.level ?? 1)}`, spells.pact.value, spells.pact.max));
+    }
+    const slotsRow = chips.length ? `<div class="mc-slots">${chips.join("")}</div>` : "";
+
+    let pv = 0, pm = 0;
+    for (const c of actor.items.filter(i => i.type === "class")) {
+      const p = c.system.spellcasting?.preparation;
+      if (p?.max) { pv += p.value ?? 0; pm += p.max; }
+    }
+    const prepLine = pm > 0 ? `<div class="mc-prep-line">Prepared ${pv}/${pm}</div>` : "";
+
+    const byLevel = new Map();
+    for (const sp of spellItems) {
+      const lvl = sp.system.level ?? 0;
+      if (!byLevel.has(lvl)) byLevel.set(lvl, []);
+      byLevel.get(lvl).push(sp);
+    }
+    const sections = [...byLevel.keys()].sort((a, b) => a - b).map(lvl => {
+      const rows = byLevel.get(lvl).sort((a, b) => a.name.localeCompare(b.name))
+        .map(sp => this.#spellRowHTML(sp)).join("");
+      const label = lvl === 0 ? "Cantrips" : `${ordinal(lvl)} level`;
+      return `<div class="mc-actions-sub">${label}</div><div class="mc-spells">${rows}</div>`;
+    }).join("");
+
+    return `<div class="mc-actions-head"><span class="mc-section-label">Spells</span></div>
+      ${slotsRow}${prepLine}${sections}`;
+  }
+
+  #spellRowHTML(sp) {
+    const prep = sp.system.preparation ?? {};
+    const canPrepare = prep.mode === "prepared"; // toggleable (not always/pact/innate/atwill)
+    const isPrepared = !!prep.prepared;
+    const activity = [...(sp.system.activities ?? [])][0];
+    const img = sp.img || "icons/svg/daze.svg";
+    const open = activity?.uuid
+      ? `<button class="mc-spell-main" data-action="fav-act" data-uuid="${activity.uuid}">`
+      : `<div class="mc-spell-main">`;
+    const close = activity?.uuid ? `</button>` : `</div>`;
+    const prepBtn = canPrepare
+      ? `<button class="mc-spell-prep ${isPrepared ? "mc-on" : ""}" data-action="toggle-prep" data-item-id="${sp.id}" aria-label="Toggle prepared"><i class="fas fa-book"></i></button>`
+      : "";
+    return `<div class="mc-spell ${canPrepare && !isPrepared ? "mc-unprepared" : ""}">
+      ${open}
+        <img class="mc-spell-icon" src="${img}" alt="">
+        <span class="mc-spell-name">${foundry.utils.escapeHTML(sp.name)}</span>
+      ${close}
+      ${prepBtn}
     </div>`;
   }
 
@@ -876,6 +950,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#toggleFavorite(el.dataset.favid);
       case "fav-act":
         this.#tab = "actions"; return this.#pickAction(el.dataset.uuid);
+      case "toggle-prep": {
+        const item = actor?.items.get(el.dataset.itemId);
+        if (!item) return;
+        return item.update({ "system.prepared": (item.system.prepared ?? 0) ? 0 : 1 });
+      }
       case "action-back":
         this.#abandonAction();
         return this.render();
@@ -1137,7 +1216,7 @@ function liftDialogAboveShell(app) {
   // log helps identify any popup we haven't classified yet.
   const ident = `${app.constructor?.name ?? ""} ${app.id ?? ""} ${typeof el.className === "string" ? el.className : ""}`.toLowerCase();
   console.debug("mobile-command | app over shell:", app.constructor?.name, app.id);
-  if (/argon|enhancedcombat|combat-?hud/.test(ident)) {
+  if (/argon|enhancedcombat|combat-?hud|action-?pack|combat-guidance/.test(ident)) {
     setTimeout(() => { try { app.close(); } catch (e) { /* best effort */ } }, 0);
     return;
   }

@@ -902,6 +902,50 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
   font-size: 16px; font-weight: 800; color: var(--mc-gold); font-variant-numeric: tabular-nums;
 }
 
+/* ============================================================
+   Spells tab (2026-06-15): slot counters, prepared count, spellbook
+   grouped by level with prepared toggles. Casting routes to the picker.
+   ============================================================ */
+.mc-slots { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.mc-slot {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  padding: 5px 10px; border-radius: 999px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge);
+}
+.mc-slot-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--mc-muted); }
+.mc-slot-val { font-size: 14px; font-weight: 800; color: var(--mc-ink); font-variant-numeric: tabular-nums; }
+.mc-slot.mc-empty .mc-slot-val { color: var(--mc-muted); }
+.mc-prep-line { font-size: 12px; color: var(--mc-gold); margin: 0 2px 12px; }
+
+.mc-spells { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.mc-spell {
+  display: flex; align-items: stretch;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+.mc-spell-main {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px; background: none; border: none; color: var(--mc-ink); text-align: left;
+}
+.mc-spell-main:active { background: var(--mc-panel-2); }
+.mc-spell-icon {
+  width: 36px; height: 36px; flex: 0 0 auto; border-radius: 7px; object-fit: cover;
+  border: 1px solid var(--mc-edge); background: #0c0d11;
+}
+.mc-spell-name {
+  flex: 1 1 auto; min-width: 0; font-size: 14px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mc-spell.mc-unprepared .mc-spell-name { color: var(--mc-muted); }
+.mc-spell.mc-unprepared .mc-spell-icon { filter: grayscale(.6); opacity: .7; }
+.mc-spell-prep {
+  flex: 0 0 auto; width: 46px;
+  background: rgba(0, 0, 0, .18); border: none; border-left: 1px solid var(--mc-edge);
+  color: var(--mc-edge); font-size: 16px;
+}
+.mc-spell-prep.mc-on { color: var(--mc-gold); }
+
 /* Targeting "Use" is the default primary blue in every state (the disabled
    state, before a target is picked, is no longer dimmed or gray). */
 #mobile-command-shell .mc-fire.mc-disabled {
