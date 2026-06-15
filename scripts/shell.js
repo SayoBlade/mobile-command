@@ -716,6 +716,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return "other";
   }
 
+  // Limited-use counter from item.system.uses (Rage, Ki, Action Surge, Second
+  // Wind, etc.): "value/max", red at 0. Empty when the item has no use limit.
+  #usesBadge(item) {
+    const u = item?.system?.uses;
+    if (!u || !(u.max > 0)) return "";
+    const v = u.value ?? 0;
+    return `<span class="mc-uses ${v === 0 ? "mc-spent" : ""}">${v}/${u.max}</span>`;
+  }
+
   #actionRowHTML(a, actor, editing) {
     const sub = a.item.name === a.name ? a.type : a.name;
     const icon = a.item.img || a.img || "icons/svg/upgrade.svg";
@@ -727,13 +736,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const mark = (editing || isFav)
       ? `<i class="fas fa-bookmark mc-action-fav ${isFav ? "mc-on" : ""}"></i>`
       : "";
+    const right = `<span class="mc-action-right">${this.#usesBadge(a.item)}${mark}</span>`;
     return `<button class="mc-action" data-action="${action}" ${data}>
       <img class="mc-action-icon" src="${icon}" alt="">
       <span class="mc-action-text">
         <span class="mc-action-name">${foundry.utils.escapeHTML(a.item.name)}</span>
         <span class="mc-action-sub">${foundry.utils.escapeHTML(sub)}</span>
       </span>
-      ${mark}
+      ${right}
     </button>`;
   }
 
