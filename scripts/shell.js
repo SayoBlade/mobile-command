@@ -26,6 +26,17 @@ function ordinal(n) {
   return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
 }
 
+// dnd5e-style use/slot indicator: gold dots, filled = remaining, hollow = spent.
+// Falls back to value/max text above 8 (too many dots to read).
+function pips(value, max) {
+  if (!(max > 0)) return "";
+  const v = Math.max(0, Math.min(value ?? 0, max));
+  if (max > 8) return `<span class="mc-pips-num ${v === 0 ? "mc-spent" : ""}">${v}/${max}</span>`;
+  let dots = "";
+  for (let i = 0; i < max; i++) dots += `<span class="mc-pip ${i < v ? "mc-on" : ""}"></span>`;
+  return `<span class="mc-pips">${dots}</span>`;
+}
+
 // Proficiency dot class from the dnd5e multiplier (0 / 0.5 / 1 / 2).
 function profClassFor(v) {
   if (v >= 2) return "2";       // expertise — full + ring
@@ -334,9 +345,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       return `<div class="mc-placeholder">No spellcasting.</div>`;
     }
     const slotChip = (label, value, max) =>
-      `<span class="mc-slot ${value ? "" : "mc-empty"}">
+      `<span class="mc-slot">
         <span class="mc-slot-label">${label}</span>
-        <span class="mc-slot-val">${value ?? 0}/${max}</span></span>`;
+        ${pips(value, max)}</span>`;
     const chips = [];
     for (let lvl = 1; lvl <= 9; lvl++) {
       const s = spells[`spell${lvl}`];
@@ -364,7 +375,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const rows = byLevel.get(lvl).sort((a, b) => a.name.localeCompare(b.name))
         .map(sp => this.#spellRowHTML(sp)).join("");
       const label = lvl === 0 ? "Cantrips" : `${ordinal(lvl)} level`;
-      return `<div class="mc-actions-sub">${label}</div><div class="mc-spells">${rows}</div>`;
+      const slot = spells[`spell${lvl}`];
+      const headPips = (lvl >= 1 && (slot?.max ?? 0) > 0) ? pips(slot.value, slot.max) : "";
+      return `<div class="mc-actions-sub mc-spell-sub">${label}${headPips}</div><div class="mc-spells">${rows}</div>`;
     }).join("");
 
     return `<div class="mc-actions-head"><span class="mc-section-label">Spells</span></div>
@@ -721,8 +734,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #usesBadge(item) {
     const u = item?.system?.uses;
     if (!u || !(u.max > 0)) return "";
-    const v = u.value ?? 0;
-    return `<span class="mc-uses ${v === 0 ? "mc-spent" : ""}">${v}/${u.max}</span>`;
+    return pips(u.value ?? 0, u.max);
   }
 
   #actionRowHTML(a, actor, editing) {
@@ -1227,6 +1239,7 @@ function liftDialogAboveShell(app) {
   const ident = `${app.constructor?.name ?? ""} ${app.id ?? ""} ${typeof el.className === "string" ? el.className : ""}`.toLowerCase();
   console.debug("mobile-command | app over shell:", app.constructor?.name, app.id);
   if (/argon|enhancedcombat|combat-?hud|action-?pack|combat-guidance/.test(ident)) {
+    el.style.display = "none"; // hide instantly so it doesn't flash before closing
     setTimeout(() => { try { app.close(); } catch (e) { /* best effort */ } }, 0);
     return;
   }

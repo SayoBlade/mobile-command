@@ -925,6 +925,19 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-slot.mc-empty .mc-slot-val { color: var(--mc-muted); }
 .mc-prep-line { font-size: 12px; color: var(--mc-gold); margin: 0 2px 12px; }
 
+/* dnd5e-style use/slot pips (shared: spell slots, level headers, resource uses). */
+.mc-pips { display: inline-flex; gap: 3px; align-items: center; vertical-align: middle; }
+.mc-pip {
+  width: 9px; height: 9px; border-radius: 50%; box-sizing: border-box;
+  border: 1.5px solid var(--mc-gold); background: transparent;
+}
+.mc-pip.mc-on { background: var(--mc-gold); }
+.mc-pips-num { font-size: 11px; font-weight: 800; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
+.mc-pips-num.mc-spent { color: #e2584a; }
+/* Spell level header: label left, slot pips pushed to the right. */
+.mc-spell-sub { display: flex; align-items: center; }
+.mc-spell-sub .mc-pips { margin-left: auto; }
+
 .mc-spells { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .mc-spell {
   display: flex; align-items: stretch;
