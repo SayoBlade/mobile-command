@@ -1201,7 +1201,20 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
    Death saves (§7.4): at 0 HP the content collapses to 3 success /
    3 failure pips + a big crimson Roll button.
    ============================================================ */
-.mc-death { text-align: center; padding: 6px 0; }
+.mc-death { text-align: center; padding: 6px 0; position: relative; }
+.mc-death-x {
+  position: absolute; top: 0; right: 0;
+  background: none; border: none; color: var(--mc-muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 4px 6px;
+}
+.mc-death-x:hover { color: var(--mc-gold); }
+/* Reopen chip when the death panel is dismissed but the actor is still at 0 HP. */
+.mc-death-reopen {
+  display: block; width: 100%; margin: 2px 0 6px; padding: 8px 12px;
+  background: #2a1c1a; border: 1px solid var(--mc-crimson); border-radius: 8px;
+  color: #e2a09a; font-size: 13px; font-weight: 700; text-align: center; cursor: pointer;
+}
+.mc-death-reopen .fa-skull { margin-right: 6px; }
+.mc-death-reopen:active { background: #341f1c; }
 .mc-death-pips { display: flex; justify-content: center; gap: 28px; margin: 16px 0 20px; }
 .mc-death-group { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .mc-death-grouplabel {

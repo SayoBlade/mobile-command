@@ -113,6 +113,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #subjectId = null;     // §7.1 token switcher: active-scene token id the shell controls
   #savePrompt = null;    // §7.4/§7.6 incoming save request relayed from the executor
   #savePromptTimer = null;
+  #deathSaveDismissed = false; // X'd the death-save panel (DM's call overrides; warnings-not-walls)
 
   /** The actor this phone controls: assigned character, else first owned character. */
   get actor() {
@@ -201,6 +202,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <button class="mc-cond-manage ${this.#condEditing ? "mc-on" : ""}" data-action="cond-edit" aria-label="Manage conditions" title="Add or remove conditions"><i class="fas fa-plus"></i></button>
       </div>
       ${this.#condEditing ? this.#conditionPaletteHTML(actor) : ""}
+      ${this.#atZeroHP(actor) && this.#deathSaveDismissed
+        ? `<button class="mc-death-reopen" data-action="death-reopen"><i class="fas fa-skull"></i> At 0 HP — death saves</button>` : ""}
       <main class="mc-content">${this.#tabContent(actor)}</main>
       ${this.#rollStripHTML()}
       ${this.#turnHudHTML()}
@@ -258,7 +261,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   #tabContent(actor) {
-    if (this.#atZeroHP(actor)) return this.#deathSaveHTML(actor); // §7.4: collapse to death saves
+    if (!this.#atZeroHP(actor)) this.#deathSaveDismissed = false; // back above 0 → re-arm for next time
+    // §7.4: collapse to death saves at 0 HP — unless the player X'd it (the DM
+    // may rule otherwise; warnings-not-walls). A reopen chip (#buildHTML) brings
+    // it back while still down.
+    if (this.#atZeroHP(actor) && !this.#deathSaveDismissed) return this.#deathSaveHTML(actor);
     // An in-progress action/cast overlays the current tab — so casting from the
     // Spells tab (or using a favorite from Explore) stays put instead of jumping.
     if (this.#actionState) return this.#targetPickerHTML();
@@ -295,6 +302,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ? `<div class="mc-death-status mc-stable">Stabilized</div>`
         : `<button class="mc-death-roll" data-action="death-save">Roll Death Save</button>`;
     return `<div class="mc-death">
+      <button class="mc-death-x" data-action="death-dismiss" aria-label="Close" title="Close (DM's call)"><i class="fas fa-xmark"></i></button>
       <div class="mc-section-label">Death Saves</div>
       <div class="mc-death-pips">
         <div class="mc-death-group mc-death-success">
@@ -1317,6 +1325,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return actor?.rollHitDie?.();
       case "death-save":
         return actor?.rollDeathSave?.();
+      case "death-dismiss":
+        this.#deathSaveDismissed = true; return this.render();
+      case "death-reopen":
+        this.#deathSaveDismissed = false; return this.render();
       case "save-prompt-roll":
         this.#rollSavePrompt(el.dataset.ability); return;
       case "save-prompt-dismiss":

@@ -90,6 +90,7 @@ function handleHeartbeat(data) {
 // normally (midi intercepts the matching roll, Spike 3) — this is only the
 // visible, actionable cue.
 function handleSavePrompt(payload) {
+  console.debug(`${MODULE_ID} | savePrompt received`, payload);
   remoteState.savePrompt = payload ?? null;
   Hooks.callAll("mobile-command.savePrompt", payload ?? null);
   return true;
@@ -102,12 +103,20 @@ export function registerSaveRelay() {
   Hooks.on("midi-qol.preTargetSave", (target, workflow, saveDetails) => {
     try {
       if (!isExecutor() || !socket) return;
-      const actor = target?.actor ?? target?.document?.actor;
+      const actor = target?.actor ?? target?.document?.actor
+        ?? (saveDetails?.actorUuid ? fromUuidSync(saveDetails.actorUuid) : null);
       const abilities = saveDetails?.rollAbilities ?? [];
+      const rollType = saveDetails?.rollType ?? "save";
       // Only ability saves for now; skills/tools/custom rolls aren't wired to a
       // one-tap on the phone yet (the player can still roll them manually).
-      if (!actor || (saveDetails?.rollType && saveDetails.rollType !== "save") || !abilities.length) return;
+      if (!actor || rollType !== "save" || !abilities.length) {
+        console.debug(`${MODULE_ID} | save relay skip`, { actor: actor?.name, rollType, abilities });
+        return;
+      }
+      // NB: an owner whose client is not `active` is excluded — midi routes that
+      // target's save to the GM in the same case, so there's no phone to prompt.
       const owners = game.users.filter(u => u.active && !u.isGM && actor.testUserPermission(u, "OWNER"));
+      console.debug(`${MODULE_ID} | save relay`, { actor: actor.name, abilities, dc: saveDetails.rollDC, owners: owners.map(u => u.name) });
       if (!owners.length) return;
       const timeout = MidiQOL?.configSettings?.().playerSaveTimeout ?? 0;
       const payload = {
