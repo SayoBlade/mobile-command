@@ -265,7 +265,7 @@ async function handleItemUse(payload) {
   // (dnd5e does `config.consume ??= {}` then sets `.action` on it → throws on a
   // primitive). So only ever set the falsy form; omit the key otherwise.
   const usage = {
-    midiOptions: { targetUuids, ignoreUserTargets: true, ...midiOptions }
+    midiOptions: { targetUuids, ignoreUserTargets: true, workflowOptions: { autoConsumeResource: "both" }, ...midiOptions }
   };
   if (consume === false) usage.consume = false;
 
@@ -342,7 +342,7 @@ async function handleItemUseStart(payload) {
   if (flatHeal) {
     const { result: workflow, captured } = await captureNotifications(() =>
       MidiQOL.completeActivityUse(activity.uuid, {
-        midiOptions: { targetUuids, ignoreUserTargets: true, autoRollDamage: "always", fastForwardDamage: true, ...midiOptions }
+        midiOptions: { targetUuids, ignoreUserTargets: true, autoRollDamage: "always", fastForwardDamage: true, workflowOptions: { autoConsumeResource: "both" }, ...midiOptions }
       }, { configure: false }, {})
     );
     if (!workflow || workflow.aborted) {
@@ -358,6 +358,7 @@ async function handleItemUseStart(payload) {
         targetUuids, ignoreUserTargets: true,
         autoRollAttack: true, fastForwardAttack: true,
         autoRollDamage: "none", fastForwardDamage: false,
+        workflowOptions: { autoConsumeResource: "both" },
         ...midiOptions
       }
     }, { configure: false }, {});
