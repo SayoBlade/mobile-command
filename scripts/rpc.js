@@ -324,12 +324,21 @@ async function handleItemUseStart(payload) {
 
   const hasAttack = activity.type === "attack";
 
-  // Flat heals (no dice — e.g. Aid's +5) have nothing to roll, so the two-tap
-  // can't park on a damage roll; midi then leaks the heal-roll config dialog to
-  // the executor (DM-reported via Aid). Resolve them on this single Use tap,
-  // fast-forwarded like the AoE; the amount shows in the phone's roll strip.
-  // Dice heals (Cure Wounds) keep the two-tap below so the player still rolls.
-  const flatHeal = activity.type === "heal" && !activity.healing?.denomination && !activity.healing?.number;
+  // "Flat" = a heal whose amount has NO dice (Aid's +5) — only then is there
+  // nothing for the player to roll, so it can't park on a damage roll and midi
+  // leaks the heal-roll dialog to the executor (DM-reported via Aid). Dice can
+  // live in number/denomination OR in the bonus/custom formula string
+  // (system/importer-dependent), so test the assembled formula — NOT just the
+  // structured fields (Mass Healing Word keeps 1d4 in `bonus` and was wrongly
+  // fast-forwarded by the field-only check). Dice heals keep the two-tap below.
+  const h = activity.healing ?? {};
+  const healFormula = [
+    (h.number && h.denomination) ? `${h.number}d${h.denomination}` : "",
+    h.custom?.enabled ? (h.custom?.formula ?? "") : "",
+    h.bonus ?? ""
+  ].join(" ");
+  const flatHeal = activity.type === "heal" && !/\d*d\d+/i.test(healFormula);
+  if (activity.type === "heal") console.debug(`${MODULE_ID} | heal`, { name: activity.item?.name, formula: healFormula, flat: flatHeal });
   if (flatHeal) {
     const { result: workflow, captured } = await captureNotifications(() =>
       MidiQOL.completeActivityUse(activity.uuid, {
@@ -356,6 +365,7 @@ async function handleItemUseStart(payload) {
   });
 
   const wf = await findParkedWorkflow(activity.uuid);
+  if (activity.type === "heal") console.debug(`${MODULE_ID} | dice heal parked for two-tap?`, !!wf);
   if (!wf) {
     // No parked workflow: resolved already (e.g. a miss with no damage) or refused.
     return { ok: true, needsDamage: false, hasAttack, hit: false,
