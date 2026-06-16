@@ -86,6 +86,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #condEditing = false; // header: condition palette (add/remove) open
   #showLevels = false;  // header: class/level/XP panel (Lvl button) open
   #imagePopup = null;   // full-screen image popup: null | "profile" | "token"
+  #assignedTargets = []; // §11: token uuids the DM assigned to this player
+  #assignedBy = null;    // DM/user name who assigned them (for the picker banner)
 
   /** The actor this phone controls: assigned character, else first owned character. */
   get actor() {
@@ -912,12 +914,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       : "";
     const count = s.selfTarget ? "" : `<span class="mc-target-count">${s.selected.size}/${s.maxTargets}</span>`;
     const canFire = s.selfTarget || s.selected.size > 0;
+    const assignedBanner = s.assignedByDM
+      ? `<div class="mc-assigned"><span><i class="fas fa-crosshairs"></i> Targets set by ${foundry.utils.escapeHTML(s.assignedByDM)} (${s.selected.size})</span>
+          <button class="mc-assigned-change" data-action="assigned-change">change</button></div>`
+      : "";
     return `
       <div class="mc-picker-head">
         <button class="mc-back mc-picker-x" data-action="action-back" aria-label="Close"><i class="fas fa-xmark"></i></button>
         <span class="mc-picker-title">${foundry.utils.escapeHTML(s.name)}</span>
         ${count}
       </div>
+      ${assignedBanner}
       ${s.hasAttack ? `<div class="mc-adv-row">${advBtn("advantage", "Advantage")}${advBtn("normal", "Normal")}${advBtn("disadvantage", "Disadvantage")}</div>` : ""}
       <div class="mc-targets">${body}${selfRow}</div>
       <button class="mc-fire ${canFire ? "" : "mc-disabled"}" data-action="fire" ${canFire ? "" : "disabled"}>
@@ -937,12 +944,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const targeted = ["attack", "save", "damage"].includes(activity.type);
     const selfTarget = affects.type === "self" || (!affects.type && !targeted);
     const maxTargets = Math.max(1, Number(affects.count) || 1);
+    // §11: DM-assigned targets pre-load the picker (skip the cycler), capped to
+    // the activity's target count.
+    const assigned = (!selfTarget && this.#assignedTargets.length)
+      ? this.#assignedTargets.slice(0, maxTargets) : [];
     this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets,
       hasAttack: activity.type === "attack",
-      candidates: selfTarget ? [] : null, selected: new Set(), adv: "normal",
+      candidates: selfTarget ? [] : null, selected: new Set(assigned), adv: "normal",
+      assignedByDM: assigned.length ? this.#assignedBy : null,
       busy: false, phase: "pick", requestId: null, hit: null, attackTotal: null,
       targetError: null };
     this.render();
+    if (assigned.length) this.#pushPreview(); // reflect the assigned selection on the TV
     if (!selfTarget) {
       const res = await rpc.listTargets({ forTokenId: this.originTokenId });
       if (this.#actionState?.uuid !== uuid) return; // user navigated away
@@ -951,6 +964,22 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       this.render();
     }
   }
+
+  // §11 DM-assign: the DM panel hands targets here (mobile-command.assignTargets
+  // hook). They pre-load the next action's picker ("Targets set by DM") and
+  // expire at the end of the player's turn.
+  noteAssignedTargets(uuids, from) {
+    this.#assignedTargets = Array.isArray(uuids) ? uuids.filter(Boolean) : [];
+    this.#assignedBy = this.#assignedTargets.length ? (from || "DM") : null;
+    if (this.#assignedTargets.length) ui.notifications.info(`Targets set by ${this.#assignedBy}`);
+    if (this.rendered) this.render();
+  }
+  expireAssignedIfNotMyTurn() {
+    if (!this.#assignedTargets.length) return;
+    const cur = game.combat?.combatant?.actor?.id;
+    if (cur && cur !== this.actor?.id) this.#clearAssigned();
+  }
+  #clearAssigned() { this.#assignedTargets = []; this.#assignedBy = null; }
 
   // Favorites (dnd5e system.favorites): the Actions bookmark toggle adds/removes
   // the tapped activity; the Explore favorites container renders the result. The
@@ -1087,6 +1116,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#pushPreview(); // B9: commit the target to the canvas/TV on tap
         return this.render();
       }
+      case "assigned-change":
+        this.#clearAssigned();
+        if (this.#actionState) { this.#actionState.assignedByDM = null; this.#actionState.selected.clear(); this.#pushPreview(); }
+        return this.render();
       case "fire":
         return this.#fireAction();
       case "check":
@@ -1398,8 +1431,15 @@ export function registerShellHooks() {
   Hooks.on("createChatMessage", (message) => {
     if (shellInstance?.rendered) shellInstance.noteRoll(message);
   });
+  // §11 DM-assign: the executor relays assigned targets here; pre-load them in
+  // the next picker (ControllerShell.noteAssignedTargets).
+  Hooks.on("mobile-command.assignTargets", (uuids, from) => shellInstance?.noteAssignedTargets(uuids, from));
   // Turn HUD: re-render on combat turn/round changes and combat start/stop.
-  const onCombat = () => { if (shellInstance?.rendered) shellInstance.render(); };
+  // Also expire DM-assigned targets once the player's turn ends (§11).
+  const onCombat = () => {
+    shellInstance?.expireAssignedIfNotMyTurn();
+    if (shellInstance?.rendered) shellInstance.render();
+  };
   Hooks.on("updateCombat", onCombat);
   Hooks.on("deleteCombat", onCombat);
   Hooks.on("combatStart", onCombat);

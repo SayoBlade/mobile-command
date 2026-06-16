@@ -1056,6 +1056,19 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 }
 .mc-imgpop-tab.mc-on { background: var(--mc-primary); border-color: var(--mc-primary-edge); color: var(--mc-ink); }
 
+/* §11 "Targets set by DM" banner in the target picker. */
+.mc-assigned {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-bottom: 12px; padding: 8px 12px;
+  background: #2a2415; border: 1px solid var(--mc-gold); border-radius: 9px;
+  color: var(--mc-gold); font-size: 13px; font-weight: 600;
+}
+.mc-assigned i { margin-right: 6px; }
+.mc-assigned-change {
+  flex: 0 0 auto; background: rgba(0, 0, 0, .25); border: 1px solid var(--mc-edge);
+  border-radius: 7px; padding: 5px 12px; color: var(--mc-ink); font-size: 12px; font-weight: 600;
+}
+
 /* Name row: Lvl button sits before the name, its right edge at the name's start. */
 #mobile-command-shell .mc-name { display: flex; align-items: center; gap: 8px; }
 .mc-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
