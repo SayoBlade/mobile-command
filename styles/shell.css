@@ -1236,6 +1236,11 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 }
 .mc-inv-toggle.mc-on { color: var(--mc-gold); }
 .mc-inv-toggle.mc-warn { color: #e0b24a; }
+/* Container expand chevron + nested contents (indented, gold rule). */
+.mc-inv-chev { flex: 0 0 auto; color: var(--mc-muted); font-size: 13px; margin-left: 8px; }
+.mc-inv-container .mc-inv-name { display: flex; align-items: baseline; }
+.mc-inv-contents { margin: 6px 0 2px 14px; padding-left: 10px; border-left: 2px solid var(--mc-edge); display: flex; flex-direction: column; gap: 8px; }
+.mc-inv-empty { font-size: 12px; color: var(--mc-muted); padding: 4px 2px; }
 
 /* Targeting "Use" is the default primary blue in every state (the disabled
    state, before a target is picked, is no longer dimmed or gray). */

@@ -114,6 +114,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #savePrompt = null;    // §7.4/§7.6 incoming save request relayed from the executor
   #savePromptTimer = null;
   #deathSaveDismissed = false; // X'd the death-save panel (DM's call overrides; warnings-not-walls)
+  #openContainers = new Set(); // Equipment tab: container item ids currently expanded
 
   /** The actor this phone controls: assigned character, else first owned character. */
   get actor() {
@@ -583,6 +584,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // later add (§13). Currency is shown read-only for now.
   #equipmentHTML(actor) {
     const physical = actor.items.filter(i => "quantity" in (i.system ?? {}));
+    // Only items NOT inside a container show at the top level; contained items
+    // render nested under their container (system.container = container id).
+    const topLevel = physical.filter(i => !i.system.container);
     const groups = [
       { key: "weapon", label: "Weapons" },
       { key: "equipment", label: "Equipment" },
@@ -592,19 +596,33 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       { key: "loot", label: "Other" }
     ];
     const bucket = { weapon: [], equipment: [], consumable: [], tool: [], container: [], loot: [] };
-    for (const i of physical) (bucket[i.type] ?? bucket.loot).push(i);
+    for (const i of topLevel) (bucket[i.type] ?? bucket.loot).push(i);
     const currency = this.#currencyHTML(actor);
     if (!physical.length) {
       return `<div class="mc-actions-head"><span class="mc-section-label">Equipment</span></div>
         ${currency}<div class="mc-placeholder">No items carried.</div>`;
     }
     const sections = groups.filter(g => bucket[g.key].length).map(g => {
-      const rows = bucket[g.key].sort((a, b) => a.name.localeCompare(b.name))
-        .map(i => this.#inventoryRowHTML(i)).join("");
-      return `<div class="mc-actions-sub">${g.label}</div><div class="mc-inv">${rows}</div>`;
+      const items = bucket[g.key].sort((a, b) => a.name.localeCompare(b.name));
+      return `<div class="mc-actions-sub">${g.label}</div><div class="mc-inv">${this.#inventoryItemsHTML(items)}</div>`;
     }).join("");
     return `<div class="mc-actions-head"><span class="mc-section-label">Equipment</span></div>
       ${currency}${sections}`;
+  }
+
+  // Render rows, expanding any open container in place to show its contents
+  // (recurses for nested containers). #openContainers tracks expanded ids.
+  #inventoryItemsHTML(items) {
+    return items.map(i => {
+      let html = this.#inventoryRowHTML(i);
+      if (i.type === "container" && this.#openContainers.has(i.id)) {
+        const contents = this.actor.items
+          .filter(x => x.system.container === i.id)
+          .sort((a, b) => a.name.localeCompare(b.name));
+        html += `<div class="mc-inv-contents">${contents.length ? this.#inventoryItemsHTML(contents) : `<div class="mc-inv-empty">Empty</div>`}</div>`;
+      }
+      return html;
+    }).join("");
   }
 
   #currencyHTML(actor) {
@@ -620,29 +638,42 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const sys = item.system ?? {};
     const qty = sys.quantity ?? 1;
     const img = item.img || "icons/svg/item-bag.svg";
-    // First usable activity → tap the row to use it (potion, scroll, wand…).
-    const activity = [...(sys.activities ?? [])].find(a => ["attack", "save", "damage", "utility", "heal"].includes(a.type));
     const canEquip = "equipped" in sys;
     const canAttune = !!sys.attunement;
     const equipped = !!sys.equipped;
     const attuned = !!sys.attuned;
     const needsAttune = sys.attunement === "required" && !attuned;
+    const equipBtnEarly = canEquip
+      ? `<button class="mc-inv-toggle ${equipped ? "mc-on" : ""}" data-action="equip-toggle" data-item-id="${item.id}" aria-label="Toggle equipped" title="${equipped ? "Equipped" : "Not equipped"}"><i class="fas fa-shield-halved"></i></button>`
+      : "";
+    const attuneBtnEarly = canAttune
+      ? `<button class="mc-inv-toggle ${attuned ? "mc-on" : ""} ${needsAttune ? "mc-warn" : ""}" data-action="attune-toggle" data-item-id="${item.id}" aria-label="Toggle attunement" title="${attuned ? "Attuned" : (needsAttune ? "Requires attunement" : "Not attuned")}"><i class="fas fa-sun"></i></button>`
+      : "";
+    // Containers: the row is an expand toggle showing a contents count + chevron.
+    if (item.type === "container") {
+      const opened = this.#openContainers.has(item.id);
+      const n = this.actor.items.filter(x => x.system.container === item.id).length;
+      return `<div class="mc-inv-row mc-inv-container ${equipped ? "mc-equipped" : ""}">
+        <button class="mc-inv-main" data-action="container-toggle" data-item-id="${item.id}">
+          <img class="mc-inv-icon" src="${img}" alt="">
+          <span class="mc-inv-name">${foundry.utils.escapeHTML(item.name)}<span class="mc-inv-qty">${n} item${n === 1 ? "" : "s"}</span></span>
+          <i class="fas fa-chevron-${opened ? "down" : "right"} mc-inv-chev"></i>
+        </button>
+        <span class="mc-inv-toggles">${equipBtnEarly}${attuneBtnEarly}</span>
+      </div>`;
+    }
+    // First usable activity → tap the row to use it (potion, scroll, wand…).
+    const activity = [...(sys.activities ?? [])].find(a => ["attack", "save", "damage", "utility", "heal"].includes(a.type));
     const open = activity?.uuid
       ? `<button class="mc-inv-main" data-action="action-pick" data-uuid="${activity.uuid}">`
       : `<div class="mc-inv-main">`;
     const close = activity?.uuid ? `</button>` : `</div>`;
-    const equipBtn = canEquip
-      ? `<button class="mc-inv-toggle ${equipped ? "mc-on" : ""}" data-action="equip-toggle" data-item-id="${item.id}" aria-label="Toggle equipped" title="${equipped ? "Equipped" : "Not equipped"}"><i class="fas fa-shield-halved"></i></button>`
-      : "";
-    const attuneBtn = canAttune
-      ? `<button class="mc-inv-toggle ${attuned ? "mc-on" : ""} ${needsAttune ? "mc-warn" : ""}" data-action="attune-toggle" data-item-id="${item.id}" aria-label="Toggle attunement" title="${attuned ? "Attuned" : (needsAttune ? "Requires attunement" : "Not attuned")}"><i class="fas fa-sun"></i></button>`
-      : "";
     return `<div class="mc-inv-row ${equipped ? "mc-equipped" : ""}">
       ${open}
         <img class="mc-inv-icon" src="${img}" alt="">
         <span class="mc-inv-name">${foundry.utils.escapeHTML(item.name)}${qty > 1 ? `<span class="mc-inv-qty">×${qty}</span>` : ""}</span>
       ${close}
-      <span class="mc-inv-toggles">${equipBtn}${attuneBtn}</span>
+      <span class="mc-inv-toggles">${equipBtnEarly}${attuneBtnEarly}</span>
     </div>`;
   }
 
@@ -1339,6 +1370,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "attune-toggle": {
         const item = actor?.items.get(el.dataset.itemId);
         return item?.update({ "system.attuned": !item.system.attuned });
+      }
+      case "container-toggle": {
+        const id = el.dataset.itemId;
+        if (this.#openContainers.has(id)) this.#openContainers.delete(id);
+        else this.#openContainers.add(id);
+        return this.render();
       }
       case "action-back":
         this.#abandonAction();
