@@ -9,16 +9,27 @@ import { api } from "./rpc.js";
 
 let panelEl = null;
 
-/** Active player users (non-GM) that have an assigned character. */
+/** Active player users (non-GM). Don't require a formally assigned character —
+ * the phone resolves an owned character if none is assigned, and requiring it
+ * made the panel show "no players" for unassigned (but connected) users. */
 function activePlayers() {
-  return game.users.filter(u => u.active && !u.isGM && u.character);
+  return game.users.filter(u => u.active && !u.isGM);
 }
 
-/** The user whose character is the current combatant (highlight as primary). */
+/** Best label for a player: assigned character, else an owned character, else the user name. */
+function playerLabel(u) {
+  if (u.character) return u.character.name;
+  const owned = game.actors.find(a => a.type === "character" && a.testUserPermission(u, "OWNER"));
+  return owned?.name ?? u.name;
+}
+
+/** The user tied to the current combatant — assigned character, else an owner. */
 function currentTurnUserId() {
-  const actorId = game.combat?.combatant?.actor?.id;
-  if (!actorId) return null;
-  return game.users.find(u => !u.isGM && u.character?.id === actorId)?.id ?? null;
+  const actor = game.combat?.combatant?.actor;
+  if (!actor) return null;
+  return game.users.find(u => !u.isGM && u.character?.id === actor.id)?.id
+    ?? game.users.find(u => !u.isGM && actor.testUserPermission(u, "OWNER"))?.id
+    ?? null;
 }
 
 function ensureEl() {
@@ -41,7 +52,7 @@ function render() {
   const players = activePlayers();
   const buttons = players.length
     ? players.map(u => `<button class="mc-dmp-send ${u.id === cur ? "mc-current" : ""}" data-user="${u.id}">
-        ${foundry.utils.escapeHTML(u.character?.name ?? u.name)}${u.id === cur ? " · turn" : ""}</button>`).join("")
+        ${foundry.utils.escapeHTML(playerLabel(u))}${u.id === cur ? " · turn" : ""}</button>`).join("")
     : `<div class="mc-dmp-empty">No players connected</div>`;
 
   el.innerHTML = `
@@ -64,7 +75,7 @@ async function onClick(ev) {
   if (!uuids.length) return;
   await api.assignTargets(btn.dataset.user, uuids);
   const u = game.users.get(btn.dataset.user);
-  ui.notifications.info(`Assigned ${uuids.length} target(s) to ${u?.character?.name ?? u?.name ?? "player"}`);
+  ui.notifications.info(`Assigned ${uuids.length} target(s) to ${u ? playerLabel(u) : "player"}`);
   // Clear the DM's own targets after the handoff so the player's reticle owns the
   // table-visible confirmation (§11). v14: setTargets replaces (User#updateTokenTargets is gone).
   canvas.tokens?.setTargets([], { mode: "replace" });
