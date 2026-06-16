@@ -4,6 +4,7 @@ import { diffPreset, applyPreset, checkAndPrompt } from "./enforcer.js";
 import { initSocket, startHeartbeat, api } from "./rpc.js";
 import { initPauseGuard } from "./pause-guard.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient } from "./shell.js";
+import { registerDMPanel } from "./dm-panel.js";
 
 Hooks.once("init", () => {
   registerSettings();
@@ -50,6 +51,7 @@ Hooks.once("ready", () => {
   initPauseGuard();
   startHeartbeat();
   registerShellHooks();
+  registerDMPanel(); // DM-assign panel (GM clients only; self-gates)
 
   globalThis.MobileCommand = {
     ...api,
