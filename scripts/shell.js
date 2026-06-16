@@ -367,12 +367,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     const slotsRow = chips.length ? `<div class="mc-slots">${chips.join("")}</div>` : "";
 
-    let pv = 0, pm = 0;
-    for (const c of actor.items.filter(i => i.type === "class")) {
-      const p = c.system.spellcasting?.preparation;
-      if (p?.max) { pv += p.value ?? 0; pm += p.max; }
-    }
-    const prepLine = pm > 0 ? `<div class="mc-prep-line ${pv > pm ? "mc-over" : ""}">Prepared ${pv}/${pm}</div>` : "";
+    const cards = this.#spellcastingCardsHTML(actor);
 
     const byLevel = new Map();
     for (const sp of spellItems) {
@@ -390,7 +385,34 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }).join("");
 
     return `<div class="mc-actions-head"><span class="mc-section-label">Spells</span></div>
-      ${slotsRow}${prepLine}${sections}`;
+      ${cards}${slotsRow}${sections}`;
+  }
+
+  // Per-class spellcasting cards (ability mod · spell attack · save DC · prepared
+  // x/y), like the dnd5e sheet. Sourced from actor.spellcastingClasses, whose
+  // computed spellcasting.{ability,attack,save,preparation} cover multiclass and
+  // homebrew casters (e.g. "Bender") for free.
+  #spellcastingCardsHTML(actor) {
+    const classes = Object.values(actor.spellcastingClasses ?? {});
+    if (!classes.length) return "";
+    const stat = (label, val, extra = "") =>
+      `<div class="mc-sc-stat"><span class="mc-sc-label">${label}</span><span class="mc-sc-val ${extra}">${val}</span></div>`;
+    const cards = classes.map(cls => {
+      const sc = cls.spellcasting ?? cls.system?.spellcasting ?? {};
+      const abilMod = actor.system.abilities?.[sc.ability]?.mod;
+      const prep = sc.preparation ?? {};
+      const over = (prep.value ?? 0) > (prep.max ?? 0);
+      return `<div class="mc-sc-card">
+        <div class="mc-sc-head">${foundry.utils.escapeHTML(cls.name)}</div>
+        <div class="mc-sc-stats">
+          ${stat("Ability", abilMod == null ? "—" : signed(abilMod))}
+          ${stat("Attack", sc.attack == null ? "—" : signed(sc.attack))}
+          ${stat("Spell DC", sc.save ?? "—")}
+          ${stat("Prepared", `${prep.value ?? 0}/${prep.max ?? 0}`, over ? "mc-over" : "")}
+        </div>
+      </div>`;
+    }).join("");
+    return `<div class="mc-sc-cards">${cards}</div>`;
   }
 
   #spellRowHTML(sp) {

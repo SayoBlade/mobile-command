@@ -975,6 +975,24 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 /* Over-prepared (x > y) warning. */
 .mc-prep-line.mc-over { color: #e2584a; }
 
+/* Per-class spellcasting cards (Ability / Attack / Spell DC / Prepared). */
+.mc-sc-cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.mc-sc-card {
+  background: var(--mc-panel); border: 1px solid var(--mc-edge);
+  border-radius: 10px; overflow: hidden;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+.mc-sc-head {
+  background: linear-gradient(var(--mc-burgundy), #5e231a); color: var(--mc-ink);
+  font-weight: 700; font-size: 13px; letter-spacing: .04em; padding: 6px 12px;
+}
+.mc-sc-stats { display: flex; }
+.mc-sc-stat { flex: 1 1 0; text-align: center; padding: 8px 4px; border-left: 1px solid #23252e; }
+.mc-sc-stat:first-child { border-left: none; }
+.mc-sc-label { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: var(--mc-muted); }
+.mc-sc-val { display: block; margin-top: 2px; font-size: 18px; font-weight: 800; color: var(--mc-ink); font-variant-numeric: tabular-nums; }
+.mc-sc-val.mc-over { color: #e2584a; }
+
 /* Name row: Lvl button sits before the name, its right edge at the name's start. */
 #mobile-command-shell .mc-name { display: flex; align-items: baseline; gap: 8px; }
 .mc-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
