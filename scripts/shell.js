@@ -152,7 +152,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <header class="mc-header">
         <img class="mc-portrait" src="${img}" alt="">
         <div class="mc-id">
-          <div class="mc-name">${foundry.utils.escapeHTML(actor.name)}${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}</div>
+          <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}<span class="mc-name-text">${foundry.utils.escapeHTML(actor.name)}</span></div>
           <div class="mc-stats">
             <span class="mc-stat"><span class="mc-stat-label">HP</span>${hpBtn}<span class="mc-stat-sub">/${hp.max ?? "—"}</span></span>
             <span class="mc-stat"><span class="mc-stat-label">Temp</span>${tempBtn}</span>
@@ -481,14 +481,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const featChips = feats.length
       ? `<div class="mc-section-label">Feats &amp; Features</div><div class="mc-feat-chips">${feats.map(f => `<span class="mc-feat-chip">${foundry.utils.escapeHTML(f)}</span>`).join("")}</div>`
       : "";
-    // Defenses: damage resistances / vulnerabilities / immunities (above feats).
-    const defenses = [
-      row("Resistances", dmgTraits("traits.dr")),
-      row("Vulnerabilities", dmgTraits("traits.dv")),
-      row("Immunities", dmgTraits("traits.di"))
-    ].join("");
-    const defenseSec = defenses
-      ? `<div class="mc-detail-sec"><div class="mc-section-label">Defenses</div>${defenses}</div>`
+    // Resistances / vulnerabilities / immunities as colour-coded chips (green =
+    // resist, filled green = immune, red = vulnerable) — colour replaces labels.
+    const defChips = (types, cls) => types.map(l =>
+      `<span class="mc-def mc-def-${cls}">${foundry.utils.escapeHTML(l)}</span>`).join("");
+    const defenseChips = defChips(dmgTraits("traits.dr"), "res")
+      + defChips(dmgTraits("traits.di"), "imm")
+      + defChips(dmgTraits("traits.dv"), "vuln");
+    const defenseSec = defenseChips
+      ? `<div class="mc-section-label">Resistances / Vulnerabilities</div><div class="mc-defenses">${defenseChips}</div>`
       : "";
 
     return `
@@ -508,7 +509,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>
       ${defenseSec}
       ${featChips}
-      <button class="mc-leave" data-action="exit"><i class="fas fa-right-from-bracket"></i> Leave Mobile Command</button>`;
+      <button class="mc-leave" data-action="exit"><i class="fas fa-right-from-bracket"></i> Leave Mobile Command</button>
+      <button class="mc-logout" data-action="logout"><i class="fas fa-power-off"></i> Log out</button>`;
   }
 
   // Move pad (§7.4): D-pad steps the player's own token via the move.request
@@ -1003,6 +1005,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const actor = this.actor;
     switch (action) {
       case "exit": return this.#confirmExit();
+      case "logout": return game.logOut?.(); // temp: switching Foundry users on a phone is painful
       case "tab":
         this.#tab = el.dataset.tab;
         this.#abandonAction(); // leave the picker clean; cancel any held workflow

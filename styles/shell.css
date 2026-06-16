@@ -941,7 +941,7 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 /* Level button next to the name — taps open the class/level/XP panel. A little
    bluish + a drop shadow so it reads as an inviting button, not flat text. */
 .mc-name-lvl {
-  margin-left: 10px; font-size: 14px; font-weight: 800; vertical-align: middle;
+  margin-left: 0; font-size: 14px; font-weight: 800; flex: 0 0 auto;
   color: var(--mc-ink); line-height: 1; white-space: nowrap; letter-spacing: .03em;
   background: linear-gradient(#2a3a52, #213044);
   border: 1px solid var(--mc-primary-edge); border-radius: 9px; padding: 4px 11px;
@@ -974,6 +974,31 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 
 /* Over-prepared (x > y) warning. */
 .mc-prep-line.mc-over { color: #e2584a; }
+
+/* Name row: Lvl button sits before the name, its right edge at the name's start. */
+#mobile-command-shell .mc-name { display: flex; align-items: baseline; gap: 8px; }
+.mc-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Resistances / Vulnerabilities chips (green = resist, solid green = immune,
+   red = vulnerable) — colour replaces per-category labels. */
+.mc-defenses { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.mc-def {
+  font-size: 12px; padding: 3px 10px; border-radius: 12px;
+  border: 1px solid; text-transform: capitalize;
+}
+.mc-def-res { color: #8fe0a0; border-color: #2f5d39; background: #1c2f22; }   /* resistance */
+.mc-def-imm { color: #14211a; border-color: #6fcf7d; background: #6fcf7d; }   /* immunity (solid) */
+.mc-def-vuln { color: #f0a8a0; border-color: #5c2f2c; background: #2f1d1c; }  /* vulnerability */
+
+/* Temporary "Log out" button (under Leave MC) — switching Foundry users on a
+   phone is painful, so give players a one-tap logout to the join screen. */
+.mc-logout {
+  width: 100%; min-height: 46px; margin-top: 10px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
+  color: var(--mc-muted); font-size: 14px; font-weight: 600;
+}
+.mc-logout:active { background: var(--mc-panel-2); }
+.mc-logout i { margin-right: 6px; }
 
 /* Targeting: keep the Use / Roll-damage button pinned to the bottom of the
    scroll area so a long target list never pushes it out of view. */
