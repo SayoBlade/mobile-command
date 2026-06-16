@@ -180,8 +180,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // B7: HP & temp are tap-to-edit. Tapping opens a roomy editor row with
     // on-screen − / + / Set so it works on the iOS numeric keypad (which has no
     // +/− or reliable return key) — not only an absolute fill.
-    const hpBtn = `<button class="mc-stat-val mc-hp-cur ${hpClass} ${this.#editingField === "hp" ? "mc-editing" : ""}" data-action="edit-hp">${hp.value ?? "—"}</button>`;
-    const tempBtn = `<button class="mc-stat-val mc-temp-val ${hp.temp ? "" : "mc-zero"} ${this.#editingField === "temp" ? "mc-editing" : ""}" data-action="edit-temp">${hp.temp || 0}</button>`;
+    // Whole stat (label + number) is the tap target, not just the digit — temp
+    // is usually 0 and far too small to hit on touch (DM 2026-06-17).
+    const hpBtn = `<button class="mc-stat mc-stat-tap ${this.#editingField === "hp" ? "mc-editing" : ""}" data-action="edit-hp">
+      <span class="mc-stat-label">HP</span>
+      <span class="mc-stat-val mc-hp-cur ${hpClass}">${hp.value ?? "—"}</span>
+      <span class="mc-stat-sub">/${hp.max ?? "—"}</span>
+    </button>`;
+    const tempBtn = `<button class="mc-stat mc-stat-tap ${this.#editingField === "temp" ? "mc-editing" : ""}" data-action="edit-temp">
+      <span class="mc-stat-label">Temp</span>
+      <span class="mc-stat-val mc-temp-val ${hp.temp ? "" : "mc-zero"}">${hp.temp || 0}</span>
+    </button>`;
 
     return `
       <header class="mc-header">
@@ -189,8 +198,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <div class="mc-id">
           <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}<span class="mc-name-text">${foundry.utils.escapeHTML(actor.name)}</span></div>
           <div class="mc-stats">
-            <span class="mc-stat"><span class="mc-stat-label">HP</span>${hpBtn}<span class="mc-stat-sub">/${hp.max ?? "—"}</span></span>
-            <span class="mc-stat"><span class="mc-stat-label">Temp</span>${tempBtn}</span>
+            ${hpBtn}${tempBtn}
             <span class="mc-stat mc-stat-acwrap"><span class="mc-ac-frame" title="Armor Class"><i class="fas fa-shield"></i>${ac}</span></span>
             <button class="mc-insp ${insp ? "mc-insp-on" : ""}" data-action="toggle-insp" title="Inspiration">★</button>
           </div>
@@ -212,6 +220,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ${this.#tabButton("details", "fa-user", "Details")}
         ${this.#tabButton("sheet", "fa-compass", "Explore")}
         ${this.#tabButton("spells", "fa-wand-sparkles", "Spells")}
+        ${this.#tabButton("equipment", "fa-suitcase", "Equipment")}
         ${this.#tabButton("journal", "fa-feather", "Journal")}
       </nav>
       ${this.#imagePopupHTML(actor)}
@@ -278,6 +287,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#tab === "actions") return this.#actionsHTML(actor);
     if (this.#tab === "details") return this.#detailsHTML(actor);
     if (this.#tab === "spells") return this.#spellsHTML(actor);
+    if (this.#tab === "equipment") return this.#equipmentHTML(actor);
     if (this.#tab === "journal") {
       return `<div class="mc-placeholder">The shared journal composer arrives in Phase 4.</div>`;
     }
@@ -563,6 +573,76 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <span class="mc-spell-name">${foundry.utils.escapeHTML(sp.name)}</span>
       ${close}
       ${prepBtn}
+    </div>`;
+  }
+
+  // Equipment tab: the actor's physical inventory, grouped by type, with
+  // equip/attune toggles and one-tap use for items that have a usable activity
+  // (potions, scrolls, wands). Document-data driven (no canvas); the updateItem
+  // hook re-renders on equip/attune/quantity changes. Containers' contents are a
+  // later add (§13). Currency is shown read-only for now.
+  #equipmentHTML(actor) {
+    const physical = actor.items.filter(i => "quantity" in (i.system ?? {}));
+    const groups = [
+      { key: "weapon", label: "Weapons" },
+      { key: "equipment", label: "Equipment" },
+      { key: "consumable", label: "Consumables" },
+      { key: "tool", label: "Tools" },
+      { key: "container", label: "Containers" },
+      { key: "loot", label: "Other" }
+    ];
+    const bucket = { weapon: [], equipment: [], consumable: [], tool: [], container: [], loot: [] };
+    for (const i of physical) (bucket[i.type] ?? bucket.loot).push(i);
+    const currency = this.#currencyHTML(actor);
+    if (!physical.length) {
+      return `<div class="mc-actions-head"><span class="mc-section-label">Equipment</span></div>
+        ${currency}<div class="mc-placeholder">No items carried.</div>`;
+    }
+    const sections = groups.filter(g => bucket[g.key].length).map(g => {
+      const rows = bucket[g.key].sort((a, b) => a.name.localeCompare(b.name))
+        .map(i => this.#inventoryRowHTML(i)).join("");
+      return `<div class="mc-actions-sub">${g.label}</div><div class="mc-inv">${rows}</div>`;
+    }).join("");
+    return `<div class="mc-actions-head"><span class="mc-section-label">Equipment</span></div>
+      ${currency}${sections}`;
+  }
+
+  #currencyHTML(actor) {
+    const cur = actor.system?.currency;
+    if (!cur) return "";
+    const order = Object.keys(CONFIG.DND5E?.currencies ?? { pp: 1, gp: 1, ep: 1, sp: 1, cp: 1 });
+    const chips = order.map(k =>
+      `<span class="mc-coin mc-coin-${k}"><span class="mc-coin-amt">${cur[k] ?? 0}</span><span class="mc-coin-label">${k}</span></span>`).join("");
+    return `<div class="mc-currency">${chips}</div>`;
+  }
+
+  #inventoryRowHTML(item) {
+    const sys = item.system ?? {};
+    const qty = sys.quantity ?? 1;
+    const img = item.img || "icons/svg/item-bag.svg";
+    // First usable activity → tap the row to use it (potion, scroll, wand…).
+    const activity = [...(sys.activities ?? [])].find(a => ["attack", "save", "damage", "utility", "heal"].includes(a.type));
+    const canEquip = "equipped" in sys;
+    const canAttune = !!sys.attunement;
+    const equipped = !!sys.equipped;
+    const attuned = !!sys.attuned;
+    const needsAttune = sys.attunement === "required" && !attuned;
+    const open = activity?.uuid
+      ? `<button class="mc-inv-main" data-action="action-pick" data-uuid="${activity.uuid}">`
+      : `<div class="mc-inv-main">`;
+    const close = activity?.uuid ? `</button>` : `</div>`;
+    const equipBtn = canEquip
+      ? `<button class="mc-inv-toggle ${equipped ? "mc-on" : ""}" data-action="equip-toggle" data-item-id="${item.id}" aria-label="Toggle equipped" title="${equipped ? "Equipped" : "Not equipped"}"><i class="fas fa-shield-halved"></i></button>`
+      : "";
+    const attuneBtn = canAttune
+      ? `<button class="mc-inv-toggle ${attuned ? "mc-on" : ""} ${needsAttune ? "mc-warn" : ""}" data-action="attune-toggle" data-item-id="${item.id}" aria-label="Toggle attunement" title="${attuned ? "Attuned" : (needsAttune ? "Requires attunement" : "Not attuned")}"><i class="fas fa-sun"></i></button>`
+      : "";
+    return `<div class="mc-inv-row ${equipped ? "mc-equipped" : ""}">
+      ${open}
+        <img class="mc-inv-icon" src="${img}" alt="">
+        <span class="mc-inv-name">${foundry.utils.escapeHTML(item.name)}${qty > 1 ? `<span class="mc-inv-qty">×${qty}</span>` : ""}</span>
+      ${close}
+      <span class="mc-inv-toggles">${equipBtn}${attuneBtn}</span>
     </div>`;
   }
 
@@ -1251,6 +1331,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         const item = actor?.items.get(el.dataset.itemId);
         if (!item) return;
         return item.update({ "system.prepared": (item.system.prepared ?? 0) ? 0 : 1 });
+      }
+      case "equip-toggle": {
+        const item = actor?.items.get(el.dataset.itemId);
+        return item?.update({ "system.equipped": !item.system.equipped });
+      }
+      case "attune-toggle": {
+        const item = actor?.items.get(el.dataset.itemId);
+        return item?.update({ "system.attuned": !item.system.attuned });
       }
       case "action-back":
         this.#abandonAction();

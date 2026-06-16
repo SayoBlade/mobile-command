@@ -1,4 +1,19 @@
-# STATUS — continue here (updated 2026-06-14)
+# STATUS — continue here (updated 2026-06-17)
+
+## ⚠️ PENDING LIVE TESTS — DM to verify next session (reload ALL clients first)
+
+Built but unverified, in rough priority. Test one at a time, stop on first failure, note what you saw + the DM/phone console lines.
+
+1. **Save/reaction prompt on the phone** (the load-bearing one). Trigger an AoE/save against a phone player → expect a tappable "⚡ <spell> — Roll DEX (DC X)" card on the phone, tap rolls + midi counts it (no double-roll), auto-clears at `playerSaveTimeout`. **Capture the logs:** DM `mobile-command | save relay {…owners…}`, phone `savePrompt received`. (Last time Fireball routed to the DM — suspect the player read as inactive.)
+2. **Resource consumption** (just fixed). Use the **Staff of Healing** → its charges drop per activity, no DM dialog; cast a **slot spell** → slot deducts; use at **0 charges** → midi's consume dialog appears on the DM (no free spell).
+3. **Heals.** **Aid** → resolves on one tap, no DM dialog (`heal {flat:true}`); **Mass Healing Word / Cure Wounds** → phone shows the roll step (`flat:false`, `parked:true`), player rolls, no DM dialog.
+4. **Equipment tab** (NEW). Items grouped by type; equip toggle (shield) + attune toggle (sun) work and persist; tapping a potion/usable item opens the use picker + consumes; currency row shows.
+5. **HP/Temp tap target** (NEW). Tapping anywhere on the "HP"/"Temp" label *or* number opens the editor (temp's 0 is now easy to hit).
+6. **TV shared vision out of combat.** In combat → follows the turn; **End Combat → vision opens to the whole party**.
+7. **"This is the TV" button** (Details → Leave popup → "This is the TV") → reloads into Display mode (canvas, no shell). TV no longer shows the Action Pack HUD on turn changes.
+8. **Older untested:** UI rounds 3–7; Details skills/tools; rests; Turn HUD/End turn; bottom-sheet dialog restyle; the owned-token switcher label (`actor name i/n`).
+
+# (history below — updated 2026-06-14)
 
 Entry point for picking the project back up (incl. a fresh conversation).
 

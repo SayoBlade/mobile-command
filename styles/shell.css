@@ -380,6 +380,12 @@ body.mc-phone .roll-configuration fieldset {
 /* header stats row: HP / Temp / AC / inspiration */
 .mc-stats { display: flex; align-items: center; gap: 12px; margin-top: 5px; flex-wrap: wrap; }
 .mc-stat { display: inline-flex; align-items: baseline; gap: 4px; }
+/* HP/Temp are tappable buttons: reset chrome, give a roomy touch target so the
+   whole label+number is hittable (temp's "0" alone is far too small). */
+.mc-stat-tap { background: none; border: none; cursor: pointer; padding: 6px 4px; margin: -6px 0; font: inherit; border-radius: 8px; }
+.mc-stat-tap:active { background: var(--mc-panel); }
+.mc-stat-tap.mc-editing .mc-stat-val { color: var(--mc-gold); text-decoration: underline; }
+.mc-stat-tap.mc-editing .mc-stat-label { color: var(--mc-gold); }
 .mc-stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--mc-muted); }
 .mc-stat-val { font-size: 21px; font-weight: 800; color: var(--mc-ink); background: none; border: none; padding: 0; line-height: 1; }
 .mc-stat-sub { font-size: 12px; color: var(--mc-muted); }
@@ -1194,6 +1200,42 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
   color: var(--mc-edge); font-size: 16px;
 }
 .mc-spell-prep.mc-on { color: var(--mc-gold); }
+
+/* Equipment tab: currency chips + inventory rows (modeled on .mc-spell), with
+   equip/attune toggles. */
+.mc-currency { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+.mc-coin {
+  display: inline-flex; align-items: baseline; gap: 3px;
+  padding: 4px 9px; border-radius: 8px; background: var(--mc-panel); border: 1px solid var(--mc-edge);
+  font-size: 15px; font-weight: 700;
+}
+.mc-coin-label { font-size: 10px; text-transform: uppercase; color: var(--mc-muted); }
+.mc-coin-gp .mc-coin-amt { color: var(--mc-gold); }
+.mc-inv { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.mc-inv-row {
+  display: flex; align-items: stretch;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px; overflow: hidden;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+.mc-inv-row.mc-equipped { border-color: #3f6a48; }
+.mc-inv-main {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 12px;
+  padding: 8px 12px; background: none; border: none; color: var(--mc-ink); text-align: left;
+}
+.mc-inv-main:active { background: var(--mc-panel-2); }
+.mc-inv-icon {
+  width: 36px; height: 36px; flex: 0 0 auto; border-radius: 7px; object-fit: cover;
+  border: 1px solid var(--mc-edge); background: #0c0d11;
+}
+.mc-inv-name { flex: 1 1 auto; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-inv-qty { color: var(--mc-muted); font-size: 12px; margin-left: 6px; }
+.mc-inv-toggles { display: flex; align-items: stretch; flex: 0 0 auto; }
+.mc-inv-toggle {
+  width: 42px; min-height: 44px; background: rgba(0, 0, 0, .18); border: none; border-left: 1px solid var(--mc-edge);
+  color: var(--mc-edge); font-size: 16px; cursor: pointer;
+}
+.mc-inv-toggle.mc-on { color: var(--mc-gold); }
+.mc-inv-toggle.mc-warn { color: #e0b24a; }
 
 /* Targeting "Use" is the default primary blue in every state (the disabled
    state, before a target is picked, is no longer dimmed or gray). */
