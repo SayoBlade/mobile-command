@@ -85,6 +85,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #favEditing = false;  // Actions tab: bookmark-toggle mode (add/remove favorites)
   #condEditing = false; // header: condition palette (add/remove) open
   #showLevels = false;  // header: class/level/XP panel (Lvl button) open
+  #imagePopup = null;   // full-screen image popup: null | "profile" | "token"
 
   /** The actor this phone controls: assigned character, else first owned character. */
   get actor() {
@@ -150,7 +151,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
     return `
       <header class="mc-header">
-        <img class="mc-portrait" src="${img}" alt="">
+        <img class="mc-portrait" src="${img}" alt="" data-action="show-image">
         <div class="mc-id">
           <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}<span class="mc-name-text">${foundry.utils.escapeHTML(actor.name)}</span></div>
           <div class="mc-stats">
@@ -176,7 +177,24 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ${this.#tabButton("sheet", "fa-compass", "Explore")}
         ${this.#tabButton("spells", "fa-wand-sparkles", "Spells")}
         ${this.#tabButton("journal", "fa-feather", "Journal")}
-      </nav>`;
+      </nav>
+      ${this.#imagePopupHTML(actor)}`;
+  }
+
+  // Full-screen image popup (tap the portrait): toggles between the actor's
+  // portrait and its token art. Closable with the X.
+  #imagePopupHTML(actor) {
+    if (!this.#imagePopup) return "";
+    const profile = actor.img || "icons/svg/mystery-man.svg";
+    const token = actor.prototypeToken?.texture?.src || profile;
+    const src = this.#imagePopup === "token" ? token : profile;
+    const tab = (which, label) =>
+      `<button class="mc-imgpop-tab ${this.#imagePopup === which ? "mc-on" : ""}" data-action="img-show" data-which="${which}">${label}</button>`;
+    return `<div class="mc-imgpop">
+      <button class="mc-imgpop-x" data-action="img-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
+      <img class="mc-imgpop-img" src="${src}" alt="">
+      <div class="mc-imgpop-toggle">${tab("profile", "Portrait")}${tab("token", "Token")}</div>
+    </div>`;
   }
 
   #tabButton(id, icon, label) {
@@ -397,13 +415,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!classes.length) return "";
     const stat = (label, val, extra = "") =>
       `<div class="mc-sc-stat"><span class="mc-sc-label">${label}</span><span class="mc-sc-val ${extra}">${val}</span></div>`;
+    const primaryAbil = actor.system.attributes?.spellcasting; // the actor-level primary caster ability
     const cards = classes.map(cls => {
       const sc = cls.spellcasting ?? cls.system?.spellcasting ?? {};
       const abilMod = actor.system.abilities?.[sc.ability]?.mod;
       const prep = sc.preparation ?? {};
       const over = (prep.value ?? 0) > (prep.max ?? 0);
-      return `<div class="mc-sc-card">
-        <div class="mc-sc-head">${foundry.utils.escapeHTML(cls.name)}</div>
+      const isPrimary = !!sc.ability && sc.ability === primaryAbil;
+      return `<div class="mc-sc-card ${isPrimary ? "mc-primary" : ""}">
+        <div class="mc-sc-head">
+          <span class="mc-sc-name">${foundry.utils.escapeHTML(cls.name)}</span>
+          ${isPrimary ? `<span class="mc-sc-primary">Primary</span>` : ""}
+          <button class="mc-sc-wand" data-action="set-primary" data-ability="${sc.ability}" title="Set as primary caster" aria-label="Set as primary caster"><i class="fas fa-wand-sparkles"></i></button>
+        </div>
         <div class="mc-sc-stats">
           ${stat("Ability", abilMod == null ? "—" : signed(abilMod))}
           ${stat("Attack", sc.attack == null ? "—" : signed(sc.attack))}
@@ -1091,6 +1115,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#condEditing = !this.#condEditing; return this.render();
       case "toggle-levels":
         this.#showLevels = !this.#showLevels; return this.render();
+      case "set-primary":
+        return actor?.update({ "system.attributes.spellcasting": el.dataset.ability });
+      case "show-image":
+        this.#imagePopup = "profile"; return this.render();
+      case "img-show":
+        this.#imagePopup = el.dataset.which; return this.render();
+      case "img-close":
+        this.#imagePopup = null; return this.render();
       case "cond-toggle":
         return actor?.toggleStatusEffect?.(el.dataset.status);
       case "break-conc":

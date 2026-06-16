@@ -982,10 +982,22 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
   border-radius: 10px; overflow: hidden;
   box-shadow: 0 3px 6px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
 }
+/* Class header: toned down (flat, muted) so it doesn't dominate the card. */
 .mc-sc-head {
-  background: linear-gradient(var(--mc-burgundy), #5e231a); color: var(--mc-ink);
-  font-weight: 700; font-size: 13px; letter-spacing: .04em; padding: 6px 12px;
+  display: flex; align-items: center; gap: 8px;
+  background: #211f24; color: var(--mc-gold);
+  font-weight: 600; font-size: 12px; letter-spacing: .03em; padding: 6px 10px;
+  border-bottom: 1px solid var(--mc-edge);
 }
+.mc-sc-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-sc-primary { flex: 0 0 auto; font-size: 9px; text-transform: uppercase; letter-spacing: .07em; color: var(--mc-gold); }
+/* Magic-wand button: set this class as the actor's primary caster ability. */
+.mc-sc-wand {
+  flex: 0 0 auto; width: 28px; height: 22px; border-radius: 6px;
+  background: rgba(0, 0, 0, .22); border: 1px solid var(--mc-edge); color: var(--mc-muted); font-size: 12px;
+}
+.mc-sc-card.mc-primary { border-color: var(--mc-gold); }
+.mc-sc-card.mc-primary .mc-sc-wand { color: var(--mc-gold); border-color: var(--mc-gold); }
 .mc-sc-stats { display: flex; }
 .mc-sc-stat { flex: 1 1 0; text-align: center; padding: 8px 4px; border-left: 1px solid #23252e; }
 .mc-sc-stat:first-child { border-left: none; }
@@ -1019,8 +1031,33 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-dmp-send.mc-current { border-color: #c8a44d; background: #2a2415; }
 .mc-dmp-empty { font-size: 12px; color: #a59b86; }
 
+/* Full-screen image popup (tap the portrait): portrait ↔ token, X to close. */
+.mc-imgpop {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 18px; background: rgba(0, 0, 0, .92);
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+}
+.mc-imgpop-img {
+  max-width: 100%; max-height: 78%; object-fit: contain;
+  border-radius: 8px; border: 1px solid var(--mc-edge); background: #0c0d11;
+}
+.mc-imgpop-x {
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 12px); right: 16px;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: rgba(255, 255, 255, .12); border: 1px solid var(--mc-edge);
+  color: #fff; font-size: 20px; line-height: 1;
+}
+.mc-imgpop-toggle { display: flex; gap: 8px; }
+.mc-imgpop-tab {
+  padding: 10px 22px; border-radius: 9px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge);
+  color: var(--mc-muted); font-size: 14px; font-weight: 600;
+}
+.mc-imgpop-tab.mc-on { background: var(--mc-primary); border-color: var(--mc-primary-edge); color: var(--mc-ink); }
+
 /* Name row: Lvl button sits before the name, its right edge at the name's start. */
-#mobile-command-shell .mc-name { display: flex; align-items: baseline; gap: 8px; }
+#mobile-command-shell .mc-name { display: flex; align-items: center; gap: 8px; }
 .mc-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Resistances / Vulnerabilities chips (green = resist, solid green = immune,
