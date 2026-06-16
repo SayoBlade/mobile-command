@@ -823,6 +823,20 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 /* Per-row bookmark: gold when favorited, faint outline otherwise. */
 .mc-action-fav { flex: 0 0 auto; font-size: 15px; color: var(--mc-edge); }
 .mc-action-fav.mc-on { color: var(--mc-gold); }
+.mc-action-fav.mc-ph { visibility: hidden; } /* reserves the slot so usage dots align */
+
+/* §7.1 owned-token switcher (Explore): Prev / current / Next. */
+.mc-tokensw { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 2px 0 12px; }
+.mc-tokensw-btn {
+  width: 40px; height: 40px; border-radius: 9px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 16px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+.mc-tokensw-btn:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
+.mc-tokensw-name {
+  min-width: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 15px; font-weight: 700; color: var(--mc-gold);
+}
 /* Right-side group on action rows: limited-use counter + favorite bookmark. */
 .mc-action-right { margin-left: auto; flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
 .mc-uses {

@@ -373,6 +373,11 @@ Captured 2026-06-13 from live iOS Safari testing of the Phase 2 shell (read-only
 
 **⏳ Round 2 (2026-06-14, from DM feedback on the first build — also UNTESTED):** Move pad **moved into the renamed "Explore" tab** (was "Sheet"; the dedicated Move tab is gone) and the **D-pad enlarged + tightened**. **HP/Temp editor reworked for iOS** — the iOS numeric keypad has no +/− or reliable return, so tapping HP/Temp now opens a roomy row with on-screen **− / + / Set** buttons (− and + apply the typed amount as a delta; Set is absolute); inputs enlarged. **Actions broadened** beyond weapons/offensive spells to include **features** (Action Surge=utility, Second Wind=heal) and any non-AoE activity; no-target features skip the target picker. **Each action row now shows the item/feature icon** (`item.img`). **Still deferred (logged, not built):** inventory use (lamp/equip toggles, potions) as a Sheet/inventory surface; long-press detail card + context menu (§7.2 v2); swipe between tabs (B2); in-range badge (B8); action-economy pips on the Turn HUD; out-of-combat group-token movement; **grouping the Actions list by activation type (Action / Bonus / Reaction)** — DM-requested 2026-06-14, group via `activity.activation.type` with section headers.
 
+**⏳ Round 15 (2026-06-15, token switcher + action-row alignment):**
+- **Owned-token switcher (§7.1) — built.** Prev/Next buttons at the top of Explore cycle the controlled subject among the active-scene tokens the user owns (`#ownedTokens` = scene tokens where `t.actor.isOwner`), shown only when there's >1. Subject is tracked by **token id** (`#subjectId`) so it works for unlinked summons/familiars/wild-shape, not just linked PCs; `actor` and `originTokenId` getters resolve through it (so sheet, rolls, actions, and the move pad all follow the selected token). **Untested.**
+- **Action-row bookmark slot** is now always reserved (hidden placeholder when not favorited/not editing) so the resource usage-dots align across rows.
+- **"Follow leader" — LOGGED for a later version** (familiars/summons trailing the PC's movement). Likely delegate to an existing module rather than build; pairs with the token switcher (§7.1 movement-subject vs roll-subject split).
+
 **⏳ Round 14 (2026-06-15, spell/header polish + DM-assign loop CLOSED):**
 - **Spells:** class header on the spellcasting cards flattened (was a dominant burgundy gradient → flat muted bar); **per-class "primary caster" magic-wand button** sets `system.attributes.spellcasting` to that class's ability — the primary card highlights (gold frame) and shows "Primary".
 - **Header:** name vertically centered with the Lvl button; **tapping the portrait opens a full-screen image popup** with a Portrait↔Token toggle + X close (`#imagePopup` state).
@@ -484,6 +489,7 @@ Single list so a fresh session can pick up. UI rounds 1–7 (§12) are built; de
 - **Action-economy indicator** — ✅ **built (2026-06-15):** an ACT/BA/RE availability strip atop the Actions tab (combat only), color-coded (action=blue, bonus=green, reaction=violet) to match the group sub-headers; lit = available, struck-through = used. Favorite *activity* rows show the same badge on the far right. Reads midi's `flags.midi-qol.actions` directly (no canvas/RPC), re-renders on `updateActor`. **Requires `enforce*Actions: "displayOnly"`** (preset updated; DM must apply via the enforcer) for BA/RE to record — ACT works regardless. **Untested live.** Could also mirror onto the Turn HUD later.
 - **Containers** open a popup of their contents (with inventory build).
 - **Out-of-combat group-token** movement for the move pad (currently moves own token).
+- **"Follow leader"** (later version) — familiars/summons trailing the PC's movement; likely an existing module rather than custom. Pairs with the owned-token switcher (§7.1, built Round 15).
 - **Swipe between tabs** (nice-to-have).
 
 **Character-sheet capabilities not yet on mobile (DM asked "what else"):**

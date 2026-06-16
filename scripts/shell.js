@@ -88,9 +88,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #imagePopup = null;   // full-screen image popup: null | "profile" | "token"
   #assignedTargets = []; // §11: token uuids the DM assigned to this player
   #assignedBy = null;    // DM/user name who assigned them (for the picker banner)
+  #subjectId = null;     // §7.1 token switcher: active-scene token id the shell controls
 
   /** The actor this phone controls: assigned character, else first owned character. */
   get actor() {
+    // Token switcher (§7.1): if a subject token is selected and still owned, the
+    // shell controls its actor (covers summons/familiars/wild shape, incl. unlinked).
+    if (this.#subjectId) {
+      const tok = game.scenes?.active?.tokens.get(this.#subjectId);
+      if (tok?.actor?.isOwner) return tok.actor;
+    }
     if (game.user.character) return game.user.character;
     return game.actors.find(a => a.type === "character" && a.isOwner) ?? null;
   }
@@ -256,11 +263,39 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     </div>`;
   }
 
-  // Explore tab = a movement row (Init/Hit Dice · D-pad · Speed/Prof), the
-  // favorites container, the ability roll grid, and rest buttons.
+  // Explore tab = a token switcher (when the user owns >1 token), a movement row
+  // (Init/Hit Dice · D-pad · Speed/Prof), the favorites container, the ability
+  // roll grid, and rest buttons.
   #exploreHTML(actor) {
-    return this.#moveRowHTML(actor) + this.#favoritesHTML(actor)
+    return this.#tokenSwitcherHTML() + this.#moveRowHTML(actor) + this.#favoritesHTML(actor)
       + this.#abilitiesHTML(actor) + this.#restsHTML();
+  }
+
+  // Active-scene tokens the user owns (PC + summons/familiars/wild shape).
+  #ownedTokens() {
+    return (game.scenes?.active?.tokens ?? []).filter(t => t.actor?.isOwner);
+  }
+
+  // §7.1 token switcher: Prev/Next to change the controlled token. Only shown
+  // when the user owns more than one token on the active scene. "Follow leader"
+  // (familiars trailing the PC) is a later-version item — likely an existing mod.
+  #tokenSwitcherHTML() {
+    if (this.#ownedTokens().length < 2) return "";
+    return `<div class="mc-tokensw">
+      <button class="mc-tokensw-btn" data-action="token-prev" aria-label="Previous token"><i class="fas fa-chevron-left"></i></button>
+      <span class="mc-tokensw-name">${foundry.utils.escapeHTML(this.actor?.name ?? "—")}</span>
+      <button class="mc-tokensw-btn" data-action="token-next" aria-label="Next token"><i class="fas fa-chevron-right"></i></button>
+    </div>`;
+  }
+
+  #cycleSubject(dir) {
+    const toks = this.#ownedTokens();
+    if (toks.length < 2) return;
+    let i = toks.findIndex(t => t.id === this.originTokenId);
+    if (i < 0) i = 0;
+    this.#subjectId = toks[(i + dir + toks.length) % toks.length].id;
+    this.#abandonAction(); // leave any open picker clean when switching subject
+    this.render();
   }
 
   // Movement row: Init / Hit Dice (tappable) flank the D-pad on the left,
@@ -719,6 +754,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   /** The controlled actor's token id on the active scene (no canvas needed). */
   get originTokenId() {
+    if (this.#subjectId && game.scenes?.active?.tokens.get(this.#subjectId)) return this.#subjectId;
     const id = this.actor?.id;
     return game.scenes.active?.tokens.find(t => t.actor?.id === id)?.id ?? null;
   }
@@ -838,9 +874,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // In edit mode the row toggles the favorite; otherwise it opens the picker.
     const action = editing ? "fav-toggle" : "action-pick";
     const data = editing ? `data-favid="${favId}"` : `data-uuid="${a.uuid}"`;
-    const mark = (editing || isFav)
-      ? `<i class="fas fa-bookmark mc-action-fav ${isFav ? "mc-on" : ""}"></i>`
-      : "";
+    // Always render the bookmark slot (hidden when not favorited/not editing) so
+    // the usage dots line up across rows.
+    const showMark = editing || isFav;
+    const mark = `<i class="fas fa-bookmark mc-action-fav ${isFav ? "mc-on" : ""} ${showMark ? "" : "mc-ph"}"></i>`;
     const right = `<span class="mc-action-right">${this.#usesBadge(a.item)}${mark}</span>`;
     return `<button class="mc-action" data-action="${action}" ${data}>
       <img class="mc-action-icon" src="${icon}" alt="">
@@ -1148,6 +1185,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#condEditing = !this.#condEditing; return this.render();
       case "toggle-levels":
         this.#showLevels = !this.#showLevels; return this.render();
+      case "token-prev": return this.#cycleSubject(-1);
+      case "token-next": return this.#cycleSubject(1);
       case "set-primary":
         return actor?.update({ "system.attributes.spellcasting": el.dataset.ability });
       case "show-image":
