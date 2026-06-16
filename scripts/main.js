@@ -1,7 +1,7 @@
 import { MODULE_ID } from "./preset.js";
 import { registerSettings, resolveExecutorId, isExecutor } from "./settings.js";
 import { diffPreset, applyPreset, checkAndPrompt } from "./enforcer.js";
-import { initSocket, startHeartbeat, api } from "./rpc.js";
+import { initSocket, startHeartbeat, registerSaveRelay, api } from "./rpc.js";
 import { initPauseGuard } from "./pause-guard.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient } from "./shell.js";
 import { registerDMPanel } from "./dm-panel.js";
@@ -52,6 +52,7 @@ Hooks.once("ready", () => {
   startHeartbeat();
   registerShellHooks();
   registerDMPanel(); // DM-assign panel (GM clients only; self-gates)
+  registerSaveRelay(); // executor relays midi save requests to phones (self-gates on isExecutor)
 
   globalThis.MobileCommand = {
     ...api,

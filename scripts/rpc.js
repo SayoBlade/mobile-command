@@ -13,7 +13,8 @@ export let socket = null;
 // Phone-side state written by executor/DM pushes.
 export const remoteState = {
   lastHeartbeat: null,
-  assignedTargetUuids: []
+  assignedTargetUuids: [],
+  savePrompt: null
 };
 
 // Executor-side state: area spells the phone has asked the DM to place (AoE push,
@@ -52,6 +53,7 @@ export function initSocket() {
   socket.register("endTurn", handleEndTurn);
   socket.register("assignTargets", handleAssignTargets);
   socket.register("announceCast", handleAnnounceCast);
+  socket.register("savePrompt", handleSavePrompt);
   socket.register("heartbeat", handleHeartbeat);
   console.log(`${MODULE_ID} | socket registered`);
   return socket;
@@ -78,6 +80,52 @@ export function startHeartbeat() {
 function handleHeartbeat(data) {
   remoteState.lastHeartbeat = data;
   Hooks.callAll("mobile-command.heartbeat", data);
+}
+
+// Save/reaction prompt surface (§7.4/§7.6). midi (playerRollSaves:"chat")
+// delivers a save request as a whispered chat card, which the full-screen shell
+// hides — so a phone player never sees it and playerSaveTimeout silently
+// auto-rolls. The executor relays the request to the target's phone (below); the
+// phone stores it and shows a tappable prompt. The player still rolls the save
+// normally (midi intercepts the matching roll, Spike 3) — this is only the
+// visible, actionable cue.
+function handleSavePrompt(payload) {
+  remoteState.savePrompt = payload ?? null;
+  Hooks.callAll("mobile-command.savePrompt", payload ?? null);
+  return true;
+}
+
+// Executor-side relay: midi fires preTargetSave on the workflow client (the
+// executor) right before it queues each target's save. We forward a structured
+// prompt to that target's active owners. Registered once on ready.
+export function registerSaveRelay() {
+  Hooks.on("midi-qol.preTargetSave", (target, workflow, saveDetails) => {
+    try {
+      if (!isExecutor() || !socket) return;
+      const actor = target?.actor ?? target?.document?.actor;
+      const abilities = saveDetails?.rollAbilities ?? [];
+      // Only ability saves for now; skills/tools/custom rolls aren't wired to a
+      // one-tap on the phone yet (the player can still roll them manually).
+      if (!actor || (saveDetails?.rollType && saveDetails.rollType !== "save") || !abilities.length) return;
+      const owners = game.users.filter(u => u.active && !u.isGM && actor.testUserPermission(u, "OWNER"));
+      if (!owners.length) return;
+      const timeout = MidiQOL?.configSettings?.().playerSaveTimeout ?? 0;
+      const payload = {
+        actorUuid: actor.uuid,
+        abilities,
+        dc: saveDetails.rollDC ?? null,
+        advantage: !!saveDetails.advantage,
+        disadvantage: !!saveDetails.disadvantage,
+        isConcentration: !!saveDetails.isConcentrationCheck,
+        spellName: workflow?.item?.name ?? "",
+        ttlMs: timeout > 0 ? timeout * 1000 : null,
+        ts: Date.now()
+      };
+      for (const u of owners) socket.executeAsUser("savePrompt", u.id, payload);
+    } catch (e) {
+      console.warn(`${MODULE_ID} | save relay failed`, e);
+    }
+  });
 }
 
 function handleAssignTargets({ tokenUuids, fromName }) {

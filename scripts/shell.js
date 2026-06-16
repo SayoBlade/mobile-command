@@ -111,6 +111,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #assignedTargets = []; // §11: token uuids the DM assigned to this player
   #assignedBy = null;    // DM/user name who assigned them (for the picker banner)
   #subjectId = null;     // §7.1 token switcher: active-scene token id the shell controls
+  #savePrompt = null;    // §7.4/§7.6 incoming save request relayed from the executor
+  #savePromptTimer = null;
 
   /** The actor this phone controls: assigned character, else first owned character. */
   get actor() {
@@ -209,7 +211,30 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ${this.#tabButton("spells", "fa-wand-sparkles", "Spells")}
         ${this.#tabButton("journal", "fa-feather", "Journal")}
       </nav>
-      ${this.#imagePopupHTML(actor)}`;
+      ${this.#imagePopupHTML(actor)}
+      ${this.#savePromptHTML()}`;
+  }
+
+  // Save/reaction prompt (§7.4/§7.6): a persistent, tappable cue when the
+  // executor relays a midi save request to this player (the whispered chat card
+  // is hidden behind the shell). Tapping rolls the save the normal way
+  // (actor.rollSavingThrow → the native dialog, Restyled), which midi intercepts.
+  #savePromptHTML() {
+    const s = this.#savePrompt;
+    if (!s) return "";
+    const abilLabel = (a) => CONFIG.DND5E?.abilities?.[a]?.label ?? a.toUpperCase();
+    const dc = s.dc != null ? ` DC ${s.dc}` : "";
+    const tag = s.advantage && !s.disadvantage ? " · advantage"
+      : (!s.advantage && s.disadvantage ? " · disadvantage" : "");
+    const title = s.isConcentration ? "Concentration check" : "Saving throw";
+    const btns = (s.abilities ?? []).map(a =>
+      `<button class="mc-save-roll" data-action="save-prompt-roll" data-ability="${a}">Roll ${abilLabel(a)}${dc}</button>`).join("");
+    return `<div class="mc-saveprompt">
+      <button class="mc-saveprompt-x" data-action="save-prompt-dismiss" aria-label="Dismiss"><i class="fas fa-xmark"></i></button>
+      <div class="mc-saveprompt-head"><i class="fas fa-bolt"></i> ${foundry.utils.escapeHTML(s.spellName || title)}</div>
+      <div class="mc-saveprompt-sub">${title}${tag}</div>
+      <div class="mc-saveprompt-btns">${btns}</div>
+    </div>`;
   }
 
   // Full-screen image popup (tap the portrait): toggles between the actor's
@@ -1051,6 +1076,35 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     else ui.notifications.warn(`${name}: ${res?.reason ?? "could not reach the DM"}`);
   }
 
+  // Save/reaction prompt: the executor relayed a midi save request for one of
+  // this user's actors. Store it, show the cue, and auto-clear when midi's
+  // timeout would have lapsed (so a stale prompt doesn't linger after the
+  // auto-roll). A new request replaces the old.
+  noteSavePrompt(payload) {
+    clearTimeout(this.#savePromptTimer);
+    this.#savePrompt = payload || null;
+    if (payload?.ttlMs) {
+      this.#savePromptTimer = setTimeout(() => {
+        this.#savePrompt = null;
+        if (this.rendered) this.render();
+      }, payload.ttlMs);
+    }
+    if (this.rendered) this.render();
+  }
+  #clearSavePrompt() {
+    clearTimeout(this.#savePromptTimer);
+    this.#savePrompt = null;
+  }
+  // Roll the requested save on the *specific* actor that needs it (which may not
+  // be the currently-viewed subject). midi intercepts the matching roll.
+  async #rollSavePrompt(ability) {
+    const s = this.#savePrompt;
+    this.#clearSavePrompt();
+    this.render();
+    const actor = s?.actorUuid ? await fromUuid(s.actorUuid) : this.actor;
+    actor?.rollSavingThrow?.({ ability });
+  }
+
   // §11 DM-assign: the DM panel hands targets here (mobile-command.assignTargets
   // hook). They pre-load the next action's picker ("Targets set by DM") and
   // expire at the end of the player's turn.
@@ -1263,6 +1317,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return actor?.rollHitDie?.();
       case "death-save":
         return actor?.rollDeathSave?.();
+      case "save-prompt-roll":
+        this.#rollSavePrompt(el.dataset.ability); return;
+      case "save-prompt-dismiss":
+        this.#clearSavePrompt(); return this.render();
       case "short-rest":
         return actor?.shortRest?.();
       case "long-rest":
@@ -1535,6 +1593,8 @@ export function registerShellHooks() {
   // §11 DM-assign: the executor relays assigned targets here; pre-load them in
   // the next picker (ControllerShell.noteAssignedTargets).
   Hooks.on("mobile-command.assignTargets", (uuids, from) => shellInstance?.noteAssignedTargets(uuids, from));
+  // §7.4/§7.6 save/reaction prompt: the executor relays a midi save request here.
+  Hooks.on("mobile-command.savePrompt", (payload) => shellInstance?.noteSavePrompt(payload));
   // Turn HUD: re-render on combat turn/round changes and combat start/stop.
   // Also expire DM-assigned targets once the player's turn ends (§11).
   const onCombat = () => {

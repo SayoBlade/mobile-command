@@ -25,7 +25,11 @@ UI rounds 3–7 broadly; Details skills/tools list; rests; Turn HUD/End turn; th
 
 **AoE push (§11) — ✅ VERIFIED LIVE 2026-06-16** ("everything worked as expected"): phone announces → DM panel "Place" → template → auto-target → damage → saves → template auto-clears. Also live: the owned-token switcher and the "This is the TV" display-role button + TV combat-HUD suppression.
 
-**⭐ NEXT (surfaced live 2026-06-16): the save/reaction prompt surface on the phone** (§13 top item). midi's `playerRollSaves:"chat"` delivers saves as a whispered **chat card**, which the full-screen shell hides → a phone player never sees the save prompt (and `playerSaveTimeout` auto-rolls). Build: detect the incoming save-request chat message and render a persistent, tappable bottom-sheet ("roll a DEX save, DC X") → `actor.rollSavingThrow` which midi intercepts (Spike 3). Same surface covers reactions. This is the load-bearing combat-loop piece. After that: long-press detail suite, real inventory/Equipment, or TV reticles (§6/§7.3). Pacing: focused increment → DM tests live → iterate → commit.
+**Save/reaction prompt surface — ✅ BUILT (Round 17, 2026-06-16, UNTESTED).** The executor relays midi's `preTargetSave` to the target's phone (`registerSaveRelay` in rpc.js); the phone shows a tappable "⚡ <spell> — Roll DEX (DC X)" card (`#savePromptHTML`/`noteSavePrompt`) that fires the native (Restyled) save roll midi intercepts (Spike 3). Auto-clears after `playerSaveTimeout`. Fixes the gap the DM hit live (the whispered save card is hidden behind the shell). **Verify:** the card appears when an AoE/single-target save hits a phone player, the tap rolls + midi counts it (no double-roll), and the auto-clear timing. Ability saves only for now (reactions are the next use of the same relay).
+
+**Module eval (Round 17):** Bugbear's Scripts (`thatlonelybugbear/bugs`) — recommended **not** adding (Foundry-14 unverified, redundant with automated-conditions-5e, orthogonal to the phone use case). See §12 Round 17.
+
+**Next:** long-press detail suite, real inventory/Equipment, TV reticles (§6/§7.3), or extend the save relay to reactions. Pacing: focused increment → DM tests live → iterate → commit.
 
 ## House rules (from CLAUDE.md)
 
