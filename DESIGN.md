@@ -181,6 +181,21 @@ All calls via socketlib, addressed to the Service user by ID. Phones never trust
 
 This table is the strongest argument for preferring Route A if Spike 2 allows it.
 
+### §6.1 — Route-B popup routing (consolidated live, 2026-06-16; answers "how do we handle all these popups?")
+
+Route A is dead (Spike 2), so **every workflow runs on the executor** and any dialog/roll it spawns appears *there*, not on the caster's phone. We don't try to teleport arbitrary Applications to the phone — instead we classify each popup by **whose decision/roll it is** and route accordingly:
+
+1. **The acting player's own roll** — attack, damage, **and healing** (midi treats healing as "damage" of type `healing`). Kept on the phone via the **two-tap**: tap-to-use parks the workflow at `WaitForDamageRoll` (`autoRollDamage:"none"`), the phone's second tap rolls it. *A heal should therefore surface its roll as the phone's second tap; if it doesn't, that activity isn't entering the two-tap path — inspect its activity type/structure (the Aid investigation, below).* Adv/dis is pre-collected on the phone (§14).
+2. **Another actor's save/check** (AoE/attack targets) — midi whispers it to the owner; we **relay it to that phone** as a tappable prompt (built Round 17, §13) that fires the native (Restyled) roll midi intercepts.
+3. **Reaction prompts** — the same relay mechanism as saves; the next use of the `preTargetSave`-style relay.
+4. **A choice the acting player should make** — upcast slot level, "choose one of N effects/targets". **Pre-collect on the phone before firing** (the §7.5 pre-roll screen) when the choice is known up front; otherwise it pops on the executor and the **DM picks** (universal fallback, §11).
+5. **Spatial** — template/summon placement → **DM** (AoE push, §11).
+6. **Unanticipated module dialogs** — DM handles on the executor; a watchdog/notifier is the §6 v2. We add a relay only per high-traffic, known popup type (saves done; reactions next) — the long tail stays DM-side by design (warnings-not-walls).
+
+**Rule of thumb:** *a roll or choice that is the acting player's → route to the phone (two-tap · native-roll-intercept · pre-collect); everything else → the DM decides on the executor.* Visual consistency: anything we surface on the phone (the save prompt, etc.) is styled to match the Prompt Restyler's bottom-sheet so popups don't read as foreign (DM feedback 2026-06-16).
+
+**⚠️ Aid — "strange flow", investigating (2026-06-16):** the DM reports Aid's healing-roll popup lands on the executor, not the phone. dnd5e's Aid is partly *effect* (raise max HP) and may also have a *heal* component; need to dump its activities to see whether it has a heal **roll** (→ should ride the two-tap, item 1) vs an effect-only application (no roll) vs a choice dialog (→ pre-collect/DM, item 4). Console dump pending from the DM.
+
 ---
 
 ## 7. UI specification

@@ -232,11 +232,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const title = s.isConcentration ? "Concentration check" : "Saving throw";
     const btns = (s.abilities ?? []).map(a =>
       `<button class="mc-save-roll" data-action="save-prompt-roll" data-ability="${a}">Roll ${abilLabel(a)}${dc}</button>`).join("");
+    // Bottom-sheet styled to match the Prompt Restyler's native dialogs
+    // (.mc-phone-dialog): header bar with title + X, then content.
     return `<div class="mc-saveprompt">
-      <button class="mc-saveprompt-x" data-action="save-prompt-dismiss" aria-label="Dismiss"><i class="fas fa-xmark"></i></button>
-      <div class="mc-saveprompt-head"><i class="fas fa-bolt"></i> ${foundry.utils.escapeHTML(s.spellName || title)}</div>
-      <div class="mc-saveprompt-sub">${title}${tag}</div>
-      <div class="mc-saveprompt-btns">${btns}</div>
+      <div class="mc-saveprompt-bar">
+        <span class="mc-saveprompt-title">${title}</span>
+        <button class="mc-saveprompt-x" data-action="save-prompt-dismiss" aria-label="Close"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="mc-saveprompt-body">
+        <div class="mc-saveprompt-sub">${foundry.utils.escapeHTML(s.spellName || title)}${tag}</div>
+        <div class="mc-saveprompt-btns">${btns}</div>
+      </div>
     </div>`;
   }
 
@@ -1616,6 +1622,22 @@ export function registerShellHooks() {
   Hooks.on("updateCombat", onCombat);
   Hooks.on("deleteCombat", onCombat);
   Hooks.on("combatStart", onCombat);
+
+  // TV vision: monks-common-display focuses the current combatant each turn
+  // (control({releaseOthers}), monks-common-display.js:684) so the shared screen
+  // shows the active player's LOS — good in combat. But it leaves that token
+  // controlled when combat ends, stranding the TV on the last turn's view. On
+  // the Display client, release on combat end so vision reverts to the shared
+  // party view (out of combat every player is "active" at once). Doesn't fight
+  // MCD — MCD only re-focuses while combat is running.
+  if (isDisplayClient()) {
+    Hooks.on("deleteCombat", () => {
+      try {
+        canvas?.tokens?.releaseAll();
+        canvas?.perception?.update({ initializeVision: true });
+      } catch (e) { console.warn(`${MODULE_ID} | TV vision reset failed`, e); }
+    });
+  }
 
   // Partial Connection Guard (§7.8): iOS suspends backgrounded tabs, so a turn
   // change while the phone is locked can leave the shell stale. Re-render on
