@@ -323,6 +323,25 @@ async function handleItemUseStart(payload) {
   if (!onActiveScene()) return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
 
   const hasAttack = activity.type === "attack";
+
+  // Flat heals (no dice — e.g. Aid's +5) have nothing to roll, so the two-tap
+  // can't park on a damage roll; midi then leaks the heal-roll config dialog to
+  // the executor (DM-reported via Aid). Resolve them on this single Use tap,
+  // fast-forwarded like the AoE; the amount shows in the phone's roll strip.
+  // Dice heals (Cure Wounds) keep the two-tap below so the player still rolls.
+  const flatHeal = activity.type === "heal" && !activity.healing?.denomination && !activity.healing?.number;
+  if (flatHeal) {
+    const { result: workflow, captured } = await captureNotifications(() =>
+      MidiQOL.completeActivityUse(activity.uuid, {
+        midiOptions: { targetUuids, ignoreUserTargets: true, autoRollDamage: "always", fastForwardDamage: true, ...midiOptions }
+      }, { configure: false }, {})
+    );
+    if (!workflow || workflow.aborted) {
+      return { ok: false, stage: "use", reason: captured.join("; ") || "heal refused (consumption/requirements) or timed out" };
+    }
+    return { ok: true, needsDamage: false, hasAttack: false, itemName: activity.item?.name ?? null, reason: captured.join("; ") || null };
+  }
+
   // Fire attack-only; do NOT await (the workflow parks at WaitForDamageRoll).
   const { captured } = await captureNotifications(async () => {
     MidiQOL.completeActivityUse(activity.uuid, {
