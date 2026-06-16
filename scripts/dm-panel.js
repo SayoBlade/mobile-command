@@ -1,11 +1,11 @@
-import { api } from "./rpc.js";
+import { api, listPendingCasts, placeCast, dismissCast } from "./rpc.js";
 
-// DM-assign panel (§11) — the first DM-role surface. A small docked panel on the
-// DM/executor client (GM, canvas present) that wakes when the DM holds ≥1 target
-// and lets them hand those targets to a player's phone via the existing
-// api.assignTargets RPC, with the current combatant highlighted. The DM's own
-// targets clear after the handoff (no lingering reticle). The phone consumes the
-// assignment in its target picker — that half is the next increment.
+// DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
+// canvas present). It wakes for two jobs:
+//   1. DM-assign: when the DM holds ≥1 target, hand them to a player's phone via
+//      api.assignTargets (current combatant highlighted; DM targets clear after).
+//   2. AoE push: when a phone announces an area spell, show a "Player — Spell"
+//      row with a Place button that drops the template (placeCast) on this client.
 
 let panelEl = null;
 
@@ -41,11 +41,22 @@ function ensureEl() {
   return panelEl;
 }
 
-function render() {
-  const el = ensureEl();
-  const targets = Array.from(game.user.targets ?? []);
-  if (!targets.length) { el.classList.remove("mc-show"); return; } // sleeps when no targets held
+/** AoE-push section: a Place button per pending cast announced from a phone. */
+function pendingHTML(pending) {
+  const esc = foundry.utils.escapeHTML;
+  const rows = pending.map(pc => `
+    <div class="mc-dmp-cast" data-cast="${pc.id}">
+      <span class="mc-dmp-cast-info"><b>${esc(pc.casterName)}</b> — ${esc(pc.spellName)}</span>
+      <button class="mc-dmp-place" data-place="${pc.id}">Place</button>
+      <button class="mc-dmp-cast-x" data-dismiss="${pc.id}" aria-label="Dismiss">✕</button>
+    </div>`).join("");
+  return `
+    <div class="mc-dmp-head"><span>Place spell${pending.length === 1 ? "" : "s"}</span></div>
+    <div class="mc-dmp-casts">${rows}</div>`;
+}
 
+/** DM-assign section: target chips + a send button per active player. */
+function assignHTML(targets) {
   const chips = targets.map(t =>
     `<span class="mc-dmp-chip">${foundry.utils.escapeHTML(t.document?.name ?? "?")}</span>`).join("");
   const cur = currentTurnUserId();
@@ -54,18 +65,36 @@ function render() {
     ? players.map(u => `<button class="mc-dmp-send ${u.id === cur ? "mc-current" : ""}" data-user="${u.id}">
         ${foundry.utils.escapeHTML(playerLabel(u))}${u.id === cur ? " · turn" : ""}</button>`).join("")
     : `<div class="mc-dmp-empty">No players connected</div>`;
-
-  el.innerHTML = `
+  return `
     <div class="mc-dmp-head">
       <span>Assign ${targets.length} target${targets.length === 1 ? "" : "s"}</span>
       <button class="mc-dmp-clear" data-action="clear" aria-label="Clear targets">✕</button>
     </div>
     <div class="mc-dmp-chips">${chips}</div>
     <div class="mc-dmp-players">${buttons}</div>`;
+}
+
+function render() {
+  const el = ensureEl();
+  const targets = Array.from(game.user.targets ?? []);
+  const pending = listPendingCasts();
+  if (!targets.length && !pending.length) { el.classList.remove("mc-show"); return; } // sleeps when idle
+
+  el.innerHTML = (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
   el.classList.add("mc-show");
 }
 
 async function onClick(ev) {
+  const place = ev.target.closest("[data-place]");
+  if (place) {
+    const res = await placeCast(place.dataset.place);
+    if (res && !res.ok) ui.notifications.warn(`Place: ${res.reason}`);
+    return render();
+  }
+  if (ev.target.closest("[data-dismiss]")) {
+    dismissCast(ev.target.closest("[data-dismiss]").dataset.dismiss);
+    return render();
+  }
   if (ev.target.closest('[data-action="clear"]')) {
     return canvas.tokens?.setTargets([], { mode: "replace" });
   }
@@ -86,5 +115,7 @@ export function registerDMPanel() {
   if (!game.user.isGM) return;
   Hooks.on("targetToken", () => render());
   Hooks.on("updateCombat", () => render());
+  Hooks.on("mobile-command.pendingCast", () => render());          // a phone announced an AoE cast
+  Hooks.on("mobile-command.pendingCastResolved", () => render());  // placed or dismissed
   render();
 }

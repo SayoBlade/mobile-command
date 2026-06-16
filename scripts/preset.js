@@ -20,7 +20,24 @@ export const MIDI_CONFIG_PRESET = {
   // "chat" = whispered request; the player rolls from their own sheet/UI and
   // midi intercepts the matching save roll (Spike 3, Test B).
   "playerRollSaves": "chat",
-  "autoTarget": "none",
+  // AoE auto-targeting on template placement. Was "none" (no-canvas phones can't
+  // place templates, so it seemed irrelevant) — but the AoE-push flow (§11) has
+  // the DM place the template on the executor, and with "none" midi selects no
+  // tokens under it → the workflow stalls with nothing to resolve. A targeting
+  // value is safe: the refreshMeasuredTemplate auto-target only fires for the
+  // placing user (midi-qol.js:13653), and phones never create templates, so this
+  // affects ONLY DM-placed templates. wallsBlock* respects walls (the executor
+  // has a real canvas) and ignores already-defeated tokens.
+  "autoTarget": "wallsBlockIgnoreDefeated",
+  // Auto-delete a spell's measured template once the workflow finishes, but ONLY
+  // for instantaneous-duration spells (midi checks activity.duration.units ===
+  // "inst", midi-qol.js:26846). For the AoE-push flow the template only appears
+  // on the TV after the DM commits the placement — by then the spell's own
+  // effect/damage is the visual, so the template is redundant and otherwise
+  // lingers until manually deleted (DM-reported 2026-06-16). Persistent-area
+  // spells (Wall of Fire, Spike Growth — non-"inst") keep their template, as they
+  // should. midi waits ~5s before deleting so any cast animation plays first.
+  "autoRemoveInstantaneousTemplate": true,
   "rangeTarget": "none",
   // The actual attack-blocking range check (midi UI: Mechanics tab). Module
   // default "longFail" blocks beyond long range. Warnings-not-walls => none.

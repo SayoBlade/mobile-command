@@ -16,6 +16,28 @@ export function isPhoneClient() {
   return role === "phone" || (role === "auto" && !game.user.isGM);
 }
 
+// The shared table display (TV): a canvas client with no shell. It still needs
+// third-party combat HUDs suppressed so the map view stays clean (those HUDs are
+// player-action helpers meant for phones, not a passive display).
+export function isDisplayClient() {
+  return game.settings.get(MODULE_ID, "role") === "display";
+}
+
+// Third-party combat HUDs (Argon / Enhanced Combat HUD / Action Pack /
+// combat-guidance) that compete with the shell on phones and clutter the TV.
+const COMBAT_HUD_RE = /argon|enhancedcombat|combat-?hud|action-?pack|combat-guidance/;
+
+/** Hide + close a third-party combat HUD app. Returns true if it matched. */
+function killCombatHUD(app) {
+  const el = app?.element;
+  if (!(el instanceof HTMLElement)) return false;
+  const ident = `${app.constructor?.name ?? ""} ${app.id ?? ""} ${typeof el.className === "string" ? el.className : ""}`.toLowerCase();
+  if (!COMBAT_HUD_RE.test(ident)) return false;
+  el.style.display = "none"; // hide instantly so it doesn't flash before closing
+  setTimeout(() => { try { app.close(); } catch (e) { /* best effort */ } }, 0);
+  return true;
+}
+
 function signed(n) {
   const v = Number(n) || 0;
   return v >= 0 ? `+${v}` : `${v}`;
@@ -280,10 +302,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // when the user owns more than one token on the active scene. "Follow leader"
   // (familiars trailing the PC) is a later-version item — likely an existing mod.
   #tokenSwitcherHTML() {
-    if (this.#ownedTokens().length < 2) return "";
+    const toks = this.#ownedTokens();
+    if (toks.length < 2) return "";
+    // Label by the *actor* (sheet) name + position (i/n): the actor name is the
+    // one players recognize (DM 2026-06-16), and the position counter still makes
+    // a switch obvious even when two tokens share an actor or look alike.
+    let i = toks.findIndex(t => t.id === this.originTokenId);
+    if (i < 0) i = 0;
+    const label = toks[i]?.actor?.name ?? this.actor?.name ?? "—";
     return `<div class="mc-tokensw">
       <button class="mc-tokensw-btn" data-action="token-prev" aria-label="Previous token"><i class="fas fa-chevron-left"></i></button>
-      <span class="mc-tokensw-name">${foundry.utils.escapeHTML(this.actor?.name ?? "—")}</span>
+      <span class="mc-tokensw-name">${foundry.utils.escapeHTML(label)} <span class="mc-tokensw-count">${i + 1}/${toks.length}</span></span>
       <button class="mc-tokensw-btn" data-action="token-next" aria-label="Next token"><i class="fas fa-chevron-right"></i></button>
     </div>`;
   }
@@ -766,9 +795,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (!acts) continue;
       for (const a of acts) {
         // Include features (Action Surge=utility, Second Wind=heal) and item
-        // uses, not just weapons/offensive spells. AoE still routes to the DM.
+        // uses, not just weapons/offensive spells. AoE activities are kept too —
+        // tapping one announces the cast to the DM (#announceCast), not the picker.
         if (!["attack", "save", "damage", "utility", "heal"].includes(a.type)) continue;
-        if (a.target?.template?.type) continue; // AoE → DM places template
         out.push(a);
       }
     }
@@ -972,6 +1001,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   async #pickAction(uuid) {
     const activity = await fromUuid(uuid);
     if (!activity) return;
+    // AoE push (§11): a no-canvas phone can't place a template, so an area spell
+    // asks the DM to place it instead of opening the target picker.
+    if (activity.target?.template?.type) return this.#announceCast(activity);
     this.#clearPreview(); // drop any stale preview from a prior action
     const affects = activity.target?.affects ?? {};
     // "selfTarget" = no enemy target needed → skip the picker. Attacks/saves/
@@ -1000,6 +1032,23 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       this.#actionState.targetError = res?.ok ? null : (res?.reason ?? "could not load targets");
       this.render();
     }
+  }
+
+  // AoE push (§11): tell the DM to place this area spell's template. The cast
+  // resolves on the executor (caster's slot deducts, saves fan to targets); the
+  // phone only announces. Live aiming preview isn't broadcast to the TV — the
+  // player guides the DM verbally off the placed result.
+  async #announceCast(activity) {
+    const name = activity.item?.name ?? "spell";
+    const casterTokenUuid = game.scenes.active?.tokens.get(this.originTokenId)?.uuid ?? null;
+    const res = await rpc.announceCast({
+      activityUuid: activity.uuid,
+      casterName: this.actor?.name,
+      spellName: name,
+      casterTokenUuid
+    });
+    if (res?.ok) ui.notifications.info(`Asked the DM to place ${name}.`);
+    else ui.notifications.warn(`${name}: ${res?.reason ?? "could not reach the DM"}`);
   }
 
   // §11 DM-assign: the DM panel hands targets here (mobile-command.assignTargets
@@ -1242,12 +1291,27 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   async #confirmExit() {
-    const ok = await foundry.applications.api.DialogV2.confirm({
+    const choice = await foundry.applications.api.DialogV2.wait({
       window: { title: "Leave Mobile Command?" },
-      content: "<p>Return to the standard Foundry interface?</p>",
+      content: "<p>Return to the standard Foundry interface, or set this device up as the shared table display (TV)?</p>",
+      buttons: [
+        { action: "leave", label: "Leave", icon: "fas fa-right-from-bracket", callback: () => "leave" },
+        { action: "tv", label: "This is the TV", icon: "fas fa-tv", callback: () => "tv" },
+        { action: "cancel", label: "Cancel", icon: "fas fa-xmark", default: true, callback: () => "cancel" }
+      ],
       modal: true, rejectClose: false
     });
-    if (ok) this.close();
+    if (choice === "tv") return this.#becomeDisplay();
+    if (choice === "leave") this.close();
+  }
+
+  // "This is the TV": switch this client to the Display role (per-client, D7) so
+  // it shows the canvas/map instead of the phone shell. D2 force-disables the
+  // canvas for phone clients at setup-time, so a reload is required for this
+  // client to re-evaluate as a non-phone client (canvas on, shell suppressed).
+  async #becomeDisplay() {
+    await game.settings.set(MODULE_ID, "role", "display");
+    window.location.reload();
   }
 
   async #toggleInspiration() {
@@ -1402,6 +1466,9 @@ let shellInstance = null;
 const SHELL_Z = 9999;
 
 function liftDialogAboveShell(app) {
+  // Display (TV) clients have no shell, but still suppress the combat HUDs so the
+  // shared map view stays clean (they pop on turn changes — DM-reported 2026-06-16).
+  if (isDisplayClient()) { killCombatHUD(app); return; }
   if (!shellInstance?.rendered || app === shellInstance) return;
   if (app.options?.window?.frame === false) return; // skip docked/frameless UI
   const el = app.element;
@@ -1410,13 +1477,8 @@ function liftDialogAboveShell(app) {
   // etc.) — they compete with the shell's own Actions tab and route actions
   // outside Route B. The DM client is untouched (its shell isn't rendered). The
   // log helps identify any popup we haven't classified yet.
-  const ident = `${app.constructor?.name ?? ""} ${app.id ?? ""} ${typeof el.className === "string" ? el.className : ""}`.toLowerCase();
   console.debug("mobile-command | app over shell:", app.constructor?.name, app.id);
-  if (/argon|enhancedcombat|combat-?hud|action-?pack|combat-guidance/.test(ident)) {
-    el.style.display = "none"; // hide instantly so it doesn't flash before closing
-    setTimeout(() => { try { app.close(); } catch (e) { /* best effort */ } }, 0);
-    return;
-  }
+  if (killCombatHUD(app)) return;
   // Prompt Restyler (§7.6) MVP: any dialog/prompt opened over the shell
   // (rest, attack/roll config, reactions, our confirms) becomes a full-width
   // bottom-sheet (CSS .mc-phone-dialog) — the native popups are tiny/unusable

@@ -16,6 +16,17 @@ export const remoteState = {
   assignedTargetUuids: []
 };
 
+// Executor-side state: area spells the phone has asked the DM to place (AoE push,
+// §11). Lives only on the executor client; the DM panel renders these and the DM
+// taps Place to drop the template. Keyed by a random id; cleared on place/dismiss.
+const pendingCasts = new Map();
+export function listPendingCasts() { return [...pendingCasts.values()]; }
+export function dismissCast(id) {
+  if (!pendingCasts.delete(id)) return false;
+  Hooks.callAll("mobile-command.pendingCastResolved", { id });
+  return true;
+}
+
 let heartbeatTimer = null;
 
 export function initSocket() {
@@ -40,6 +51,7 @@ export function initSocket() {
   socket.register("previewTargets", handlePreviewTargets);
   socket.register("endTurn", handleEndTurn);
   socket.register("assignTargets", handleAssignTargets);
+  socket.register("announceCast", handleAnnounceCast);
   socket.register("heartbeat", handleHeartbeat);
   console.log(`${MODULE_ID} | socket registered`);
   return socket;
@@ -75,6 +87,65 @@ function handleAssignTargets({ tokenUuids, fromName }) {
   Hooks.callAll("mobile-command.assignTargets", remoteState.assignedTargetUuids, fromName);
   console.log(`mobile-command | targets assigned by ${fromName}:`, tokenUuids);
   return true;
+}
+
+// AoE push (§11): a phone can't place a template (no canvas), so an area spell
+// tap records a pending cast on the executor and wakes the DM panel; the DM taps
+// Place (placeCast) to drop the template. The caster's activity runs on the
+// executor so the caster's slot deducts and saves fan to targets' phones.
+async function handleAnnounceCast(payload) {
+  if (!isExecutor()) return { ok: false, stage: "route", reason: "not the executor client" };
+  const { activityUuid, casterName, spellName, casterTokenUuid, requesterId } = payload;
+  const activity = await fromUuid(activityUuid);
+  if (!activity) return { ok: false, stage: "resolve", reason: `activity not found: ${activityUuid}` };
+  if (!requesterCanAct(requesterId, activity.item?.actor)) {
+    return { ok: false, stage: "permission", reason: "requester does not own the acting actor" };
+  }
+  const id = foundry.utils.randomID();
+  pendingCasts.set(id, {
+    id, activityUuid, casterTokenUuid, requesterId, ts: Date.now(),
+    casterName: casterName ?? activity.item?.actor?.name ?? "Player",
+    spellName: spellName ?? activity.item?.name ?? "spell"
+  });
+  Hooks.callAll("mobile-command.pendingCast", pendingCasts.get(id));
+  console.log(`${MODULE_ID} | pending cast from ${casterName}: ${spellName}`);
+  return { ok: true, id };
+}
+
+// Executor-side: drop the template for a pending cast. Called directly by the DM
+// panel (which only renders on the executor, where pendingCasts lives). Controls
+// + pans to the caster token, then runs the player's spell activity natively so
+// dnd5e/midi attach the template to the DM's cursor; placement IS the commit
+// (§11). Base level — slot-level upcast on the phone is a later add (§7.5).
+export async function placeCast(id) {
+  const pc = pendingCasts.get(id);
+  if (!pc) return { ok: false, reason: "cast expired" };
+  if (game.paused) return { ok: false, reason: "game is paused" };
+  if (!onActiveScene()) return { ok: false, reason: "executor is not viewing the active scene" };
+  const activity = await fromUuid(pc.activityUuid);
+  if (!activity) { dismissCast(id); return { ok: false, reason: "spell no longer exists" }; }
+
+  const token = pc.casterTokenUuid ? fromUuidSync(pc.casterTokenUuid)?.object : null;
+  if (token) {
+    token.control({ releaseOthers: true });
+    try { await canvas.animatePan({ x: token.center.x, y: token.center.y, duration: 250 }); } catch (e) { /* pan is best-effort */ }
+  }
+  // Remove the entry before use(): placement attaches to the cursor and blocks,
+  // and a double-tap must not enqueue a second template.
+  dismissCast(id);
+  // Fast-forward the roll per-cast: the preset keeps autoRollDamage "none" for
+  // the two-tap phone flow, but a DM-placed AoE has no phone follow-up, so it
+  // would otherwise stall at WaitForDamageRoll. midi reads usage.midiOptions
+  // (midi-qol.js:7597). Saves still fan to target owners (playerRollSaves:"chat",
+  // unchanged). Auto-targeting under the template comes from the global preset
+  // (autoTarget), which only fires for DM-placed templates.
+  await activity.use({
+    midiOptions: {
+      autoRollAttack: true, fastForwardAttack: true,
+      autoRollDamage: "always", fastForwardDamage: true
+    }
+  }, {}, {});
+  return { ok: true };
 }
 
 // --- executor-side helpers -------------------------------------------------
@@ -349,7 +420,7 @@ function toExecutor(handler, payload) {
       itemUse: handleItemUse, itemUseStart: handleItemUseStart,
       itemUseDamage: handleItemUseDamage, itemUseCancel: handleItemUseCancel,
       moveRequest: handleMoveRequest, measure: handleMeasure, targetsList: handleTargetsList,
-      previewTargets: handlePreviewTargets, endTurn: handleEndTurn
+      previewTargets: handlePreviewTargets, endTurn: handleEndTurn, announceCast: handleAnnounceCast
     };
     return handlers[handler](payload);
   }
@@ -367,6 +438,7 @@ export const api = {
   listTargets: (payload) => toExecutor("targetsList", payload),
   previewTargets: (payload) => toExecutor("previewTargets", payload),
   endTurn: (payload) => toExecutor("endTurn", payload),
+  announceCast: (payload) => toExecutor("announceCast", payload),
   assignTargets: (userId, tokenUuids) =>
     socket
       ? socket.executeAsUser("assignTargets", userId, { tokenUuids, fromName: game.user.name })

@@ -23,7 +23,9 @@ UI rounds 3–7 broadly; Details skills/tools list; rests; Turn HUD/End turn; th
 
 ## What to do next
 
-Pick from **DESIGN.md §13** (consolidated backlog). Likely next: death saves, a Spells tab (slots/prep), the long-press detail suite, real inventory/Equipment, or the TV/Table client (unblocks player-colored reticles + §6/§7.3). Pacing: build a focused increment → DM tests live → iterate → commit. ~14 commits so far, all with detailed messages.
+**AoE push (§11) — ✅ VERIFIED LIVE 2026-06-16** ("everything worked as expected"): phone announces → DM panel "Place" → template → auto-target → damage → saves → template auto-clears. Also live: the owned-token switcher and the "This is the TV" display-role button + TV combat-HUD suppression.
+
+**⭐ NEXT (surfaced live 2026-06-16): the save/reaction prompt surface on the phone** (§13 top item). midi's `playerRollSaves:"chat"` delivers saves as a whispered **chat card**, which the full-screen shell hides → a phone player never sees the save prompt (and `playerSaveTimeout` auto-rolls). Build: detect the incoming save-request chat message and render a persistent, tappable bottom-sheet ("roll a DEX save, DC X") → `actor.rollSavingThrow` which midi intercepts (Spike 3). Same surface covers reactions. This is the load-bearing combat-loop piece. After that: long-press detail suite, real inventory/Equipment, or TV reticles (§6/§7.3). Pacing: focused increment → DM tests live → iterate → commit.
 
 ## House rules (from CLAUDE.md)
 
