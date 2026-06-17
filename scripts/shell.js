@@ -115,6 +115,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #savePromptTimer = null;
   #deathSaveDismissed = false; // X'd the death-save panel (DM's call overrides; warnings-not-walls)
   #openContainers = new Set(); // Equipment tab: container item ids currently expanded
+  #collapsedActionGroups = new Set(); // Actions tab: accordion groups the user/use closed
 
   /** The actor this phone controls: assigned character, else first owned character. */
   get actor() {
@@ -643,23 +644,27 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const equipped = !!sys.equipped;
     const attuned = !!sys.attuned;
     const needsAttune = sys.attunement === "required" && !attuned;
-    const equipBtnEarly = canEquip
-      ? `<button class="mc-inv-toggle ${equipped ? "mc-on" : ""}" data-action="equip-toggle" data-item-id="${item.id}" aria-label="Toggle equipped" title="${equipped ? "Equipped" : "Not equipped"}"><i class="fas fa-shield-halved"></i></button>`
-      : "";
-    const attuneBtnEarly = canAttune
-      ? `<button class="mc-inv-toggle ${attuned ? "mc-on" : ""} ${needsAttune ? "mc-warn" : ""}" data-action="attune-toggle" data-item-id="${item.id}" aria-label="Toggle attunement" title="${attuned ? "Attuned" : (needsAttune ? "Requires attunement" : "Not attuned")}"><i class="fas fa-sun"></i></button>`
-      : "";
-    // Containers: the row is an expand toggle showing a contents count + chevron.
+    // Fixed columns so every row aligns: attune on the LEFT, equip on the RIGHT
+    // (DM 2026-06-17). Both slots are always present — a transparent placeholder
+    // when N/A — so icons, names, and the equip column line up across rows.
+    const attuneSlot = canAttune
+      ? `<button class="mc-inv-attune ${attuned ? "mc-on" : ""} ${needsAttune ? "mc-warn" : ""}" data-action="attune-toggle" data-item-id="${item.id}" aria-label="Toggle attunement" title="${attuned ? "Attuned" : (needsAttune ? "Requires attunement" : "Not attuned")}"><i class="fas fa-sun"></i></button>`
+      : `<span class="mc-inv-attune mc-ph"></span>`;
+    const equipSlot = canEquip
+      ? `<button class="mc-inv-equip ${equipped ? "mc-on" : ""}" data-action="equip-toggle" data-item-id="${item.id}" aria-label="Toggle equipped" title="${equipped ? "Equipped" : "Not equipped"}"><i class="fas fa-shield-halved"></i></button>`
+      : `<span class="mc-inv-equip mc-ph"></span>`;
+    // Containers: the main area is an expand toggle (contents count + chevron).
     if (item.type === "container") {
       const opened = this.#openContainers.has(item.id);
       const n = this.actor.items.filter(x => x.system.container === item.id).length;
       return `<div class="mc-inv-row mc-inv-container ${equipped ? "mc-equipped" : ""}">
+        ${attuneSlot}
         <button class="mc-inv-main" data-action="container-toggle" data-item-id="${item.id}">
           <img class="mc-inv-icon" src="${img}" alt="">
           <span class="mc-inv-name">${foundry.utils.escapeHTML(item.name)}<span class="mc-inv-qty">${n} item${n === 1 ? "" : "s"}</span></span>
           <i class="fas fa-chevron-${opened ? "down" : "right"} mc-inv-chev"></i>
         </button>
-        <span class="mc-inv-toggles">${equipBtnEarly}${attuneBtnEarly}</span>
+        ${equipSlot}
       </div>`;
     }
     // First usable activity → tap the row to use it (potion, scroll, wand…).
@@ -669,11 +674,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       : `<div class="mc-inv-main">`;
     const close = activity?.uuid ? `</button>` : `</div>`;
     return `<div class="mc-inv-row ${equipped ? "mc-equipped" : ""}">
+      ${attuneSlot}
       ${open}
         <img class="mc-inv-icon" src="${img}" alt="">
         <span class="mc-inv-name">${foundry.utils.escapeHTML(item.name)}${qty > 1 ? `<span class="mc-inv-qty">×${qty}</span>` : ""}</span>
       ${close}
-      <span class="mc-inv-toggles">${equipBtnEarly}${attuneBtnEarly}</span>
+      ${equipSlot}
     </div>`;
   }
 
@@ -974,11 +980,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     for (const a of acts) bucket[this.#econGroup(a)].push(a);
     const shown = groups.filter(g => bucket[g.key].length);
     const rowsFor = (key) => bucket[key].map(a => this.#actionRowHTML(a, actor, editing)).join("");
-    // One group → skip the sub-header (it would just echo the title).
+    // Accordion: each group header is a drawer the user can open/close; using an
+    // action auto-collapses its drawer (still reopenable). One group → no header.
     const body = shown.length <= 1
       ? `<div class="mc-actions">${rowsFor(shown[0].key)}</div>`
-      : shown.map(g => `<div class="mc-actions-sub mc-econ-${g.key}">${g.label}</div>
-          <div class="mc-actions">${rowsFor(g.key)}</div>`).join("");
+      : shown.map(g => {
+          const collapsed = this.#collapsedActionGroups.has(g.key);
+          const header = `<button class="mc-actions-sub mc-econ-${g.key} mc-accordion ${collapsed ? "mc-collapsed" : ""}" data-action="agroup" data-group="${g.key}">
+            <span>${g.label}</span><i class="fas fa-chevron-${collapsed ? "right" : "down"}"></i></button>`;
+          return header + (collapsed ? "" : `<div class="mc-actions">${rowsFor(g.key)}</div>`);
+        }).join("");
     const editBtn = `<button class="mc-fav-edit ${editing ? "mc-on" : ""}" data-action="fav-edit-toggle" title="Add/remove favorites" aria-label="Add or remove favorites"><i class="fas fa-bookmark"></i></button>`;
     return `<div class="mc-actions-head">
         <span class="mc-section-label">Actions — ${editing ? "tap to favorite" : "tap to use"}</span>
@@ -1168,7 +1179,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const assigned = (!selfTarget && this.#assignedTargets.length)
       ? this.#assignedTargets.slice(0, maxTargets) : [];
     this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets,
-      hasAttack: activity.type === "attack",
+      hasAttack: activity.type === "attack", group: this.#econGroup(activity),
       candidates: selfTarget ? [] : null, selected: new Set(assigned), adv: "normal",
       assignedByDM: assigned.length ? this.#assignedBy : null,
       busy: false, phase: "pick", requestId: null, hit: null, attackTotal: null,
@@ -1282,6 +1293,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       this.#actionState = null; this.render();
       return ui.notifications.warn(`${s.name}: ${res?.reason ?? "could not use"}`);
     }
+    // Used → auto-collapse its Actions drawer (the action is committed now;
+    // resource consumed). Reopenable; takes effect when the list re-renders.
+    if (s.group) this.#collapsedActionGroups.add(s.group);
     if (!res.needsDamage) {
       // Resolved without a damage step (a miss, or nothing to roll).
       this.#actionState = null; this.render();
@@ -1375,6 +1389,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         const id = el.dataset.itemId;
         if (this.#openContainers.has(id)) this.#openContainers.delete(id);
         else this.#openContainers.add(id);
+        return this.render();
+      }
+      case "agroup": {
+        const g = el.dataset.group;
+        if (this.#collapsedActionGroups.has(g)) this.#collapsedActionGroups.delete(g);
+        else this.#collapsedActionGroups.add(g);
         return this.render();
       }
       case "action-back":
@@ -1558,6 +1578,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   /** Called from the createChatMessage hook for every new message. */
   noteRoll(message) {
+    // Close the save prompt once a save actually rolls — however it was rolled
+    // (our card, the native card, or the sheet), so it never lingers (DM 2026-06-17).
+    if (this.#savePrompt && message.author?.id === game.user.id
+        && message.flags?.dnd5e?.roll?.type === "save") {
+      this.#clearSavePrompt();
+      if (this.rendered) this.render();
+    }
     const entry = this.#describeRoll(message);
     if (!entry) return;
     if (this.#recentRolls[0]?.id === entry.id) return; // belt-and-suspenders dedupe

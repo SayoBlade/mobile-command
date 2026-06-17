@@ -4,14 +4,16 @@
 
 Built but unverified, in rough priority. Test one at a time, stop on first failure, note what you saw + the DM/phone console lines.
 
-1. **Save/reaction prompt on the phone** (the load-bearing one). Trigger an AoE/save against a phone player → expect a tappable "⚡ <spell> — Roll DEX (DC X)" card on the phone, tap rolls + midi counts it (no double-roll), auto-clears at `playerSaveTimeout`. **Capture the logs:** DM `mobile-command | save relay {…owners…}`, phone `savePrompt received`. (Last time Fireball routed to the DM — suspect the player read as inactive.)
-2. **Resource consumption** (just fixed). Use the **Staff of Healing** → its charges drop per activity, no DM dialog; cast a **slot spell** → slot deducts; use at **0 charges** → midi's consume dialog appears on the DM (no free spell).
-3. **Heals.** **Aid** → resolves on one tap, no DM dialog (`heal {flat:true}`); **Mass Healing Word / Cure Wounds** → phone shows the roll step (`flat:false`, `parked:true`), player rolls, no DM dialog.
-4. **Equipment tab** (NEW). Items grouped by type; equip toggle (shield) + attune toggle (sun) work and persist; tapping a potion/usable item opens the use picker + consumes; currency row shows. **Containers:** a container row shows "N items" + chevron, expands in place to show its contents nested; contained items don't also appear at the top level. (Make a container with items to test; create one in the test world if needed.)
-5. **HP/Temp tap target** (NEW). Tapping anywhere on the "HP"/"Temp" label *or* number opens the editor (temp's 0 is now easy to hit).
-6. **TV shared vision out of combat.** In combat → follows the turn; **End Combat → vision opens to the whole party**.
-7. **"This is the TV" button** (Details → Leave popup → "This is the TV") → reloads into Display mode (canvas, no shell). TV no longer shows the Action Pack HUD on turn changes.
-8. **Older untested:** UI rounds 3–7; Details skills/tools; rests; Turn HUD/End turn; bottom-sheet dialog restyle; the owned-token switcher label (`actor name i/n`).
+1. **Save/reaction prompt on the phone** — ✅ confirmed reaching the phone (2026-06-17). Re-verify the polish: the prompt now **closes once the save rolls** (however rolled), and after an AoE the **caster is deselected** on the DM so monster saves roll faster. Watch: does the saving token still get left selected on the DM after the player rolls? (If so it's midi selecting it, not placeCast — report it.)
+2. **Magic Missile (no-attack damage spell) — did NOT roll damage.** Cast it from the phone with the DM console open and capture `mobile-command | use start {name, type, hasAttack, parked}`. `parked:false` = it resolved without a roll step (the fix path); `parked:true` but no roll = a different bug.
+3. **Resource consumption** (just fixed). Use the **Staff of Healing** → its charges drop per activity, no DM dialog; cast a **slot spell** → slot deducts; use at **0 charges** → midi's consume dialog appears on the DM (no free spell).
+4. **Heals.** **Aid** → resolves on one tap, no DM dialog (`heal {flat:true}`); **Mass Healing Word / Cure Wounds** → phone shows the roll step (`flat:false`, `parked:true`), player rolls, no DM dialog.
+5. **Equipment tab + containers + toggle layout.** Items grouped by type; **attune toggle (sun) on the LEFT, equip toggle (shield) on the RIGHT**, columns aligned across rows + the container header. Toggles persist; tapping a usable item uses + consumes; currency row shows. **Containers** expand in place ("N items" + chevron), contents nested, not duplicated at top level.
+6. **Actions accordion drawers** (NEW). Each Action/Bonus/Reaction/Free header opens/closes on tap; **using an action auto-closes its drawer** (still reopenable).
+7. **HP/Temp tap target.** Tapping anywhere on the "HP"/"Temp" label *or* number opens the editor (temp's 0 is now easy to hit).
+8. **TV shared vision out of combat.** In combat → follows the turn; **End Combat → vision opens to the whole party**.
+9. **"This is the TV" button** (Details → Leave popup → "This is the TV") → reloads into Display mode (canvas, no shell). TV no longer shows the Action Pack HUD on turn changes.
+10. **Older untested:** UI rounds 3–7; Details skills/tools; rests; Turn HUD/End turn; bottom-sheet dialog restyle; the owned-token switcher label (`actor name i/n`).
 
 # (history below — updated 2026-06-14)
 

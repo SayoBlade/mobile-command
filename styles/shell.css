@@ -1229,13 +1229,17 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 }
 .mc-inv-name { flex: 1 1 auto; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mc-inv-qty { color: var(--mc-muted); font-size: 12px; margin-left: 6px; }
-.mc-inv-toggles { display: flex; align-items: stretch; flex: 0 0 auto; }
-.mc-inv-toggle {
-  width: 42px; min-height: 44px; background: rgba(0, 0, 0, .18); border: none; border-left: 1px solid var(--mc-edge);
-  color: var(--mc-edge); font-size: 16px; cursor: pointer;
+/* Fixed toggle columns: attune left, equip right; placeholders reserve the
+   column so every row's icon/name/equip line up. */
+.mc-inv-attune, .mc-inv-equip {
+  flex: 0 0 auto; width: 40px; align-self: stretch; min-height: 44px;
+  background: rgba(0, 0, 0, .18); border: none; color: var(--mc-edge); font-size: 16px; cursor: pointer;
 }
-.mc-inv-toggle.mc-on { color: var(--mc-gold); }
-.mc-inv-toggle.mc-warn { color: #e0b24a; }
+.mc-inv-attune { border-right: 1px solid var(--mc-edge); }
+.mc-inv-equip { border-left: 1px solid var(--mc-edge); }
+.mc-inv-attune.mc-on, .mc-inv-equip.mc-on { color: var(--mc-gold); }
+.mc-inv-attune.mc-warn { color: #e0b24a; }
+.mc-inv-attune.mc-ph, .mc-inv-equip.mc-ph { background: none; border-color: transparent; cursor: default; }
 /* Container expand chevron + nested contents (indented, gold rule). */
 .mc-inv-chev { flex: 0 0 auto; color: var(--mc-muted); font-size: 13px; margin-left: 8px; }
 .mc-inv-container .mc-inv-name { display: flex; align-items: baseline; }
@@ -1299,6 +1303,16 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
   color: var(--c, var(--mc-gold)); margin: 14px 4px 6px;
 }
 .mc-actions-head + .mc-actions-sub { margin-top: 6px; }
+/* Accordion group header (tappable drawer). Inherits the sub-header colour/caps;
+   resets button chrome and lays out label + chevron full-width. */
+.mc-actions-sub.mc-accordion {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  background: none; border: none; cursor: pointer; text-align: left;
+  font-family: inherit; font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--c, var(--mc-gold));
+}
+.mc-actions-sub.mc-accordion i { font-size: 12px; opacity: .75; margin-left: 8px; }
+.mc-actions-sub.mc-accordion.mc-collapsed { opacity: .82; }
 
 /* ============================================================
    Action economy (2026-06-15): per-type accent (--c) shared by the

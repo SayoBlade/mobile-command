@@ -202,6 +202,9 @@ export async function placeCast(id) {
       autoRollDamage: "always", fastForwardDamage: true
     }
   }, {}, {});
+  // Don't leave the caster token selected on the executor — the DM rolls the
+  // monsters' saves next, and a lingering PC selection slows that (DM 2026-06-17).
+  try { canvas.tokens?.releaseAll(); } catch (e) { /* best effort */ }
   return { ok: true };
 }
 
@@ -366,7 +369,10 @@ async function handleItemUseStart(payload) {
   });
 
   const wf = await findParkedWorkflow(activity.uuid);
-  if (activity.type === "heal") console.debug(`${MODULE_ID} | dice heal parked for two-tap?`, !!wf);
+  // Whether the workflow parked for the two-tap. If false for a damage spell that
+  // should let the player roll (e.g. Magic Missile), it resolved without a roll
+  // step — that's the bug to chase (DM-reported MM didn't roll damage 2026-06-17).
+  console.debug(`${MODULE_ID} | use start`, { name: activity.item?.name, type: activity.type, hasAttack, parked: !!wf });
   if (!wf) {
     // No parked workflow: resolved already (e.g. a miss with no damage) or refused.
     return { ok: true, needsDamage: false, hasAttack, hit: false,
