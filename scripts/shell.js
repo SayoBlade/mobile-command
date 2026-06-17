@@ -660,20 +660,23 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const opened = this.#openContainers.has(item.id);
       const n = this.actor.items.filter(x => x.system.container === item.id).length;
       return `<div class="mc-inv-row mc-inv-container ${equipped ? "mc-equipped" : ""}">
-        <button class="mc-inv-main" data-action="container-toggle" data-item-id="${item.id}">
+        <div class="mc-inv-main" data-action="container-toggle" data-item-id="${item.id}">
           <img class="mc-inv-icon" src="${img}" alt="">
           <span class="mc-inv-name">${foundry.utils.escapeHTML(item.name)}<span class="mc-inv-qty">${n} item${n === 1 ? "" : "s"}</span></span>
           <i class="fas fa-chevron-${opened ? "down" : "right"} mc-inv-chev"></i>
-        </button>
+        </div>
         ${toggles}
       </div>`;
     }
     // First usable activity → tap the row to use it (potion, scroll, wand…).
+    // The main is a <div> (not <button>): clicks route via delegation, and it
+    // dodges the iOS Safari flex-centering bug on <button> that top-aligned the
+    // usable rows (DM 2026-06-17 — they centred differently from the div rows).
     const activity = [...(sys.activities ?? [])].find(a => ["attack", "save", "damage", "utility", "heal"].includes(a.type));
     const open = activity?.uuid
-      ? `<button class="mc-inv-main" data-action="action-pick" data-uuid="${activity.uuid}">`
+      ? `<div class="mc-inv-main" data-action="action-pick" data-uuid="${activity.uuid}">`
       : `<div class="mc-inv-main">`;
-    const close = activity?.uuid ? `</button>` : `</div>`;
+    const close = `</div>`;
     return `<div class="mc-inv-row ${equipped ? "mc-equipped" : ""}">
       ${open}
         <img class="mc-inv-icon" src="${img}" alt="">

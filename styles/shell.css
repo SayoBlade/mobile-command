@@ -1212,17 +1212,17 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-coin-label { font-size: 10px; text-transform: uppercase; color: var(--mc-muted); }
 .mc-coin-gp .mc-coin-amt { color: var(--mc-gold); }
 .mc-inv { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-/* Row: fixed height, everything vertically centered (icon ↔ name ↔ toggles). */
+/* Row height = content (no min-height buffer); everything vertically centered. */
 .mc-inv-row {
-  display: flex; align-items: center; min-height: 56px;
+  display: flex; align-items: center;
   background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px; overflow: hidden;
   box-shadow: 0 3px 6px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
 }
 .mc-inv-row.mc-equipped { border-color: #3f6a48; }
 .mc-inv-main {
-  flex: 1 1 auto; min-width: 0; align-self: stretch;
-  display: flex; align-items: center; gap: 12px; padding: 0 12px;
-  background: none; border: none; color: var(--mc-ink); text-align: left;
+  flex: 1 1 auto; min-width: 0;
+  display: flex; align-items: center; gap: 12px; padding: 8px 12px;
+  background: none; border: none; color: var(--mc-ink); text-align: left; font: inherit;
 }
 .mc-inv-main:active { background: var(--mc-panel-2); }
 .mc-inv-icon {
