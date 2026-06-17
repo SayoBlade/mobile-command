@@ -644,27 +644,28 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const equipped = !!sys.equipped;
     const attuned = !!sys.attuned;
     const needsAttune = sys.attunement === "required" && !attuned;
-    // Fixed columns so every row aligns: attune on the LEFT, equip on the RIGHT
-    // (DM 2026-06-17). Both slots are always present — a transparent placeholder
-    // when N/A — so icons, names, and the equip column line up across rows.
-    const attuneSlot = canAttune
-      ? `<button class="mc-inv-attune ${attuned ? "mc-on" : ""} ${needsAttune ? "mc-warn" : ""}" data-action="attune-toggle" data-item-id="${item.id}" aria-label="Toggle attunement" title="${attuned ? "Attuned" : (needsAttune ? "Requires attunement" : "Not attuned")}"><i class="fas fa-sun"></i></button>`
-      : `<span class="mc-inv-attune mc-ph"></span>`;
-    const equipSlot = canEquip
-      ? `<button class="mc-inv-equip ${equipped ? "mc-on" : ""}" data-action="equip-toggle" data-item-id="${item.id}" aria-label="Toggle equipped" title="${equipped ? "Equipped" : "Not equipped"}"><i class="fas fa-shield-halved"></i></button>`
-      : `<span class="mc-inv-equip mc-ph"></span>`;
+    // Toggles ride together on the RIGHT — attune just left of equip (DM
+    // 2026-06-17). Equip is always rendered (transparent placeholder when N/A)
+    // so the equip column lines up across every row incl. container headers;
+    // attune only shows when relevant, sitting immediately left of equip.
+    const attuneBtn = canAttune
+      ? `<button class="mc-inv-toggle ${attuned ? "mc-on" : ""} ${needsAttune ? "mc-warn" : ""}" data-action="attune-toggle" data-item-id="${item.id}" aria-label="Toggle attunement" title="${attuned ? "Attuned" : (needsAttune ? "Requires attunement" : "Not attuned")}"><i class="fas fa-sun"></i></button>`
+      : "";
+    const equipBtn = canEquip
+      ? `<button class="mc-inv-toggle ${equipped ? "mc-on" : ""}" data-action="equip-toggle" data-item-id="${item.id}" aria-label="Toggle equipped" title="${equipped ? "Equipped" : "Not equipped"}"><i class="fas fa-shield-halved"></i></button>`
+      : `<span class="mc-inv-toggle mc-ph"></span>`;
+    const toggles = `<span class="mc-inv-toggles">${attuneBtn}${equipBtn}</span>`;
     // Containers: the main area is an expand toggle (contents count + chevron).
     if (item.type === "container") {
       const opened = this.#openContainers.has(item.id);
       const n = this.actor.items.filter(x => x.system.container === item.id).length;
       return `<div class="mc-inv-row mc-inv-container ${equipped ? "mc-equipped" : ""}">
-        ${attuneSlot}
         <button class="mc-inv-main" data-action="container-toggle" data-item-id="${item.id}">
           <img class="mc-inv-icon" src="${img}" alt="">
           <span class="mc-inv-name">${foundry.utils.escapeHTML(item.name)}<span class="mc-inv-qty">${n} item${n === 1 ? "" : "s"}</span></span>
           <i class="fas fa-chevron-${opened ? "down" : "right"} mc-inv-chev"></i>
         </button>
-        ${equipSlot}
+        ${toggles}
       </div>`;
     }
     // First usable activity → tap the row to use it (potion, scroll, wand…).
@@ -674,12 +675,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       : `<div class="mc-inv-main">`;
     const close = activity?.uuid ? `</button>` : `</div>`;
     return `<div class="mc-inv-row ${equipped ? "mc-equipped" : ""}">
-      ${attuneSlot}
       ${open}
         <img class="mc-inv-icon" src="${img}" alt="">
         <span class="mc-inv-name">${foundry.utils.escapeHTML(item.name)}${qty > 1 ? `<span class="mc-inv-qty">×${qty}</span>` : ""}</span>
       ${close}
-      ${equipSlot}
+      ${toggles}
     </div>`;
   }
 
