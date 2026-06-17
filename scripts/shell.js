@@ -590,7 +590,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const topLevel = physical.filter(i => !i.system.container);
     const groups = [
       { key: "weapon", label: "Weapons" },
-      { key: "equipment", label: "Equipment" },
+      { key: "equipment", label: "Armor & Gear" }, // distinct from the "Equipment" tab title
       { key: "consumable", label: "Consumables" },
       { key: "tool", label: "Tools" },
       { key: "container", label: "Containers" },
