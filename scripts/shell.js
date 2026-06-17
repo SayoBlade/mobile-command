@@ -644,13 +644,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const equipped = !!sys.equipped;
     const attuned = !!sys.attuned;
     const needsAttune = sys.attunement === "required" && !attuned;
-    // Toggles ride together on the RIGHT — attune just left of equip (DM
-    // 2026-06-17). Equip is always rendered (transparent placeholder when N/A)
-    // so the equip column lines up across every row incl. container headers;
-    // attune only shows when relevant, sitting immediately left of equip.
+    // Two fixed columns on the RIGHT — attune then equip — each always rendered
+    // (transparent placeholder when N/A) so the sun column AND the shield column
+    // each line up across every row, incl. container headers (DM 2026-06-18).
     const attuneBtn = canAttune
       ? `<button class="mc-inv-toggle ${attuned ? "mc-on" : ""} ${needsAttune ? "mc-warn" : ""}" data-action="attune-toggle" data-item-id="${item.id}" aria-label="Toggle attunement" title="${attuned ? "Attuned" : (needsAttune ? "Requires attunement" : "Not attuned")}"><i class="fas fa-sun"></i></button>`
-      : "";
+      : `<span class="mc-inv-toggle mc-ph"></span>`;
     const equipBtn = canEquip
       ? `<button class="mc-inv-toggle ${equipped ? "mc-on" : ""}" data-action="equip-toggle" data-item-id="${item.id}" aria-label="Toggle equipped" title="${equipped ? "Equipped" : "Not equipped"}"><i class="fas fa-shield-halved"></i></button>`
       : `<span class="mc-inv-toggle mc-ph"></span>`;
