@@ -800,8 +800,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // raw keys for now.
   #detailsHTML(actor) {
     const sys = actor.system;
-    const names = (t) => actor.items.filter(i => i.type === t).map(i => i.name);
-    const race = [...names("race"), ...names("species")];
 
     // Full skills list (same model as the dnd5e sheet): proficiency dot
     // (empty/half/full/full-with-ring), governing ability (3-letter), the roll
@@ -812,7 +810,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const label = CONFIG.DND5E.skills[key]?.label ?? key;
       const abil = (sk.ability ?? CONFIG.DND5E.skills[key]?.ability ?? "").toUpperCase();
       const total = sk.total;
-      return `<button class="mc-skillrow" data-action="skill" data-skill="${key}">
+      return `<button class="mc-skillrow" data-action="skill" data-skill="${key}" data-detail="skill">
         <span class="mc-prof mc-prof-${profClassFor(sk.value ?? sk.proficient ?? 0)}"></span>
         <span class="mc-skillrow-name">${foundry.utils.escapeHTML(label)}</span>
         <span class="mc-skillrow-abbr">${abil}</span>
@@ -839,7 +837,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const toolRows = Object.keys(sys.tools ?? {}).map(key => {
       const tl = sys.tools[key] ?? {};
       const abil = (tl.ability ?? CONFIG.DND5E.tools?.[key]?.ability ?? "").toUpperCase();
-      return `<button class="mc-skillrow" data-action="tool" data-tool="${key}">
+      return `<button class="mc-skillrow" data-action="tool" data-tool="${key}" data-detail="tool">
         <span class="mc-prof mc-prof-${profClassFor(tl.value ?? 0)}"></span>
         <span class="mc-skillrow-name">${foundry.utils.escapeHTML(traitLabel(key, "tools"))}</span>
         <span class="mc-skillrow-abbr">${abil}</span>
@@ -857,9 +855,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const row = (k, v) => (v && v.length)
       ? `<div class="mc-detail-row"><span class="mc-detail-key">${k}</span><span class="mc-detail-val">${foundry.utils.escapeHTML(v.join(", "))}</span></div>`
       : "";
-    const feats = actor.items.filter(i => i.type === "feat").map(i => i.name);
-    const featChips = feats.length
-      ? `<div class="mc-section-label">Feats &amp; Features</div><div class="mc-feat-chips">${feats.map(f => `<span class="mc-feat-chip">${foundry.utils.escapeHTML(f)}</span>`).join("")}</div>`
+    // Item-backed row: each value is long-pressable for the item's description
+    // (same #detailTargetFor → #showDetails path as inventory rows). Used for
+    // race/background, whose items carry real descriptions (DM: long-press "all
+    // the stuff in the character info area").
+    const itemRow = (k, items) => items.length
+      ? `<div class="mc-detail-row"><span class="mc-detail-key">${k}</span><span class="mc-detail-val">${items.map(i => `<span class="mc-detail-link" data-item-id="${i.id}">${foundry.utils.escapeHTML(i.name)}</span>`).join(", ")}</span></div>`
+      : "";
+    const raceItems = actor.items.filter(i => i.type === "race" || i.type === "species");
+    const bgItems = actor.items.filter(i => i.type === "background");
+    const featItems = actor.items.filter(i => i.type === "feat");
+    const featChips = featItems.length
+      ? `<div class="mc-section-label">Feats &amp; Features</div><div class="mc-feat-chips">${featItems.map(i => `<span class="mc-feat-chip" data-item-id="${i.id}">${foundry.utils.escapeHTML(i.name)}</span>`).join("")}</div>`
       : "";
     // Resistances / vulnerabilities / immunities as colour-coded chips (green =
     // resist, filled green = immune, red = vulnerable) — colour replaces labels.
@@ -877,8 +884,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <div class="mc-skillrows">${skillRows}</div>
       ${toolsBlock}
       <div class="mc-detail-sec">
-        ${row("Race", race)}
-        ${row("Background", names("background"))}
+        ${itemRow("Race", raceItems)}
+        ${itemRow("Background", bgItems)}
         ${row("Senses", senseList)}
       </div>
       <div class="mc-detail-sec">
@@ -1796,6 +1803,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (detail === "ac") return this.#showACDetails();
     if (detail === "character") return this.#showCharacterDetails();
     if (detail === "cond") return this.#showEffectDetails(el.dataset.effectId);
+    if (detail === "skill") return this.#showCheckDetails("skill", el.dataset.skill);
+    if (detail === "tool") return this.#showCheckDetails("tool", el.dataset.tool);
     let item = null, activity = null;
     if (uuid) { const doc = fromUuidSync(uuid, { relative: this.actor }); if (doc?.item) { activity = doc; item = doc.item; } else item = doc; }
     else if (itemId) item = this.actor?.items.get(itemId);
@@ -1839,6 +1848,28 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const desc = `<div class="mc-ac-breakdown">${list}
       <div class="mc-ac-row mc-ac-total"><span class="mc-ac-k">Total</span><span class="mc-ac-v">${ac.value ?? "—"}</span></div></div>`;
     this.#detailCard = { name: "Armor Class", glyph: "fa-shield-halved", subtitle: ac.label || "", desc, favId: null, isFav: false };
+    this.render();
+  }
+  // Skill/tool check card (long-press a row; tap still rolls): governing ability,
+  // proficiency level, total modifier, and passive score (skills) — the static
+  // facts behind the roll (adv/dis is computed live by AC5E at roll time, not here).
+  #showCheckDetails(kind, key) {
+    const sys = this.actor?.system ?? {};
+    const sign = (n) => (n >= 0 ? `+${n}` : `${n}`);
+    const data = (kind === "skill" ? sys.skills : sys.tools)?.[key] ?? {};
+    const label = kind === "skill" ? (CONFIG.DND5E.skills?.[key]?.label ?? key) : traitLabel(key, "tools");
+    const abilKey = data.ability ?? (kind === "skill" ? CONFIG.DND5E.skills?.[key]?.ability : CONFIG.DND5E.tools?.[key]?.ability);
+    const abilLabel = CONFIG.DND5E.abilities?.[abilKey]?.label ?? (abilKey || "").toUpperCase();
+    const profMult = data.value ?? (data.proficient ? 1 : 0);
+    const profLabel = { 0: "Not proficient", 0.5: "Half proficient", 1: "Proficient", 2: "Expertise" }[profMult] ?? "Proficient";
+    const rows = [["Ability", abilLabel], ["Proficiency", profLabel], ["Modifier", data.total == null ? "—" : sign(data.total)]];
+    if (kind === "skill" && data.passive != null) rows.push(["Passive", `${data.passive}`]);
+    const list = rows.map(([k, v]) =>
+      `<div class="mc-ac-row"><span class="mc-ac-k">${k}</span><span class="mc-ac-v">${foundry.utils.escapeHTML(String(v))}</span></div>`).join("");
+    this.#detailCard = {
+      name: label, glyph: kind === "skill" ? "fa-dice-d20" : "fa-screwdriver-wrench",
+      subtitle: kind === "skill" ? "Skill" : "Tool", desc: `<div class="mc-ac-breakdown">${list}</div>`, favId: null, isFav: false
+    };
     this.render();
   }
   // Condition/effect card (long-press a chip): best-available detail, in priority —

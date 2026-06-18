@@ -618,6 +618,8 @@ body.mc-phone .roll-configuration fieldset {
 .mc-detail-row { display: flex; gap: 8px; padding: 9px 2px; border-bottom: 1px solid #23252e; }
 .mc-detail-key { flex: 0 0 38%; color: var(--mc-muted); font-size: 13px; }
 .mc-detail-val { flex: 1 1 auto; font-size: 14px; }
+/* Long-pressable item-backed value (race/background) — a faint hint there's more. */
+.mc-detail-link { border-bottom: 1px dotted #4a4f5e; }
 .mc-detail-xp {
   display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px;
   padding: 12px 14px; background: #20222b; border: 1px solid #313542; border-radius: 10px;
