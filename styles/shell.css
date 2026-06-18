@@ -1212,9 +1212,10 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-coin-label { font-size: 10px; text-transform: uppercase; color: var(--mc-muted); }
 .mc-coin-gp .mc-coin-amt { color: var(--mc-gold); }
 .mc-inv { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-/* Row height = content (no min-height buffer); everything vertically centered. */
+/* Uniform row height so the toggle column lines up; content centered (the main
+   is a div now, so this centers rather than top-aligns). */
 .mc-inv-row {
-  display: flex; align-items: center;
+  display: flex; align-items: center; min-height: 56px;
   background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px; overflow: hidden;
   box-shadow: 0 3px 6px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
 }
@@ -1317,12 +1318,12 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
   display: flex; align-items: center; justify-content: space-between; width: 100%;
   background: var(--mc-panel); border: 1px solid var(--mc-edge);
   border-left: 3px solid var(--c, var(--mc-gold)); border-radius: 8px;
-  padding: 11px 12px; margin: 12px 0 8px; cursor: pointer; text-align: left;
-  font-family: inherit; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+  min-height: 48px; padding: 12px 14px; margin: 12px 0 8px; cursor: pointer; text-align: left;
+  font-family: inherit; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
   color: var(--c, var(--mc-gold));
   box-shadow: 0 2px 4px rgba(0, 0, 0, .4);
 }
-.mc-actions-sub.mc-accordion i { font-size: 15px; opacity: .9; margin-left: 8px; }
+.mc-actions-sub.mc-accordion i { font-size: 17px; opacity: .9; margin-left: 8px; }
 .mc-actions-sub.mc-accordion:active { background: var(--mc-panel-2); }
 /* Collapsed (incl. auto-collapsed after use) reads as dimmed/spent. */
 .mc-actions-sub.mc-accordion.mc-collapsed { opacity: .5; }
