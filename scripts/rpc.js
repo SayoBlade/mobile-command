@@ -299,21 +299,22 @@ async function handleItemUse(payload) {
 // trigger its damage roll on the second tap.
 const parkedWorkflows = new Map();
 
-async function findParkedWorkflow(activityUuid, timeoutMs = 4000) {
+async function findParkedWorkflow(activityUuid, itemUuid, timeoutMs = 4000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
+    // Match by activity uuid, or by item (a scaling spell can cast through a
+    // cloned activity whose uuid differs from the one the phone sent).
     const wf = Object.values(globalThis.MidiQOL?.Workflow?.workflows ?? {})
-      .find(w => w.activity?.uuid === activityUuid);
+      .find(w => w.activity?.uuid === activityUuid
+        || (itemUuid && (w.itemUuid === itemUuid || w.activity?.item?.uuid === itemUuid)));
     if (wf) {
-      // Parked awaiting a manual damage roll. A weapon attack lingers briefly in
-      // WaitForDamageRoll, but midi's WaitForDamageRoll handler (midi-qol.js:26265)
-      // SUSPENDS the workflow when it won't auto-roll, so a no-attack damage spell
-      // (Magic Missile) races straight to WorkflowState_Suspend before we poll —
-      // accept that too (while damage is still pending) or we miss it and midi
-      // falls back to its in-chat DAMAGE card (DM-reported 2026-06-18).
-      const parkedForDamage = wf.currentAction === wf.WorkflowState_WaitForDamageRoll
-        || (wf.currentAction === wf.WorkflowState_Suspend && wf.needsDamage !== false);
-      if (parkedForDamage) return wf;
+      // Parked awaiting a manual damage roll. midi's loop (midi-qol.js:25981) sets
+      // wf.suspended=true and breaks, LEAVING currentAction at WaitForDamageRoll —
+      // so `suspended` is the reliable signal (a no-attack spell like Magic Missile
+      // reaches it the same way an attack does). Gate on damage still pending.
+      const awaitingDamage = (wf.suspended || wf.currentAction === wf.WorkflowState_WaitForDamageRoll)
+        && wf.needsDamage !== false;
+      if (awaitingDamage) return wf;
       if (wf.currentAction === wf.WorkflowState_Completed || wf.currentAction === wf.WorkflowState_Abort) return null;
     }
     await new Promise(r => setTimeout(r, 150));
@@ -376,7 +377,7 @@ async function handleItemUseStart(payload) {
     return true;
   });
 
-  const wf = await findParkedWorkflow(activity.uuid);
+  const wf = await findParkedWorkflow(activity.uuid, activity.item?.uuid);
   // Whether the workflow parked for the two-tap. If false for a damage spell that
   // should let the player roll (e.g. Magic Missile), it resolved without a roll
   // step — that's the bug to chase (DM-reported MM didn't roll damage 2026-06-17).
