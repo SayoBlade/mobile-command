@@ -1712,11 +1712,60 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "save-prompt-dismiss":
         this.#clearSavePrompt(); return this.render();
       case "short-rest":
-        return actor?.shortRest?.();
+        return this.#doRest("short");
       case "long-rest":
-        return actor?.longRest?.();
+        return this.#doRest("long");
     }
   };
+
+  // Run a rest, then show a card of what it recovered (HP, hit dice, spell slots,
+  // item charges, exhaustion). Diffs the actor before/after rather than parsing
+  // dnd5e's RestResult, so it's robust to what the rest actually restored.
+  #restSnapshot(actor) {
+    const s = actor.system ?? {};
+    const snap = { hp: s.attributes?.hp?.value ?? 0, hd: s.attributes?.hd?.value ?? null, exhaustion: s.attributes?.exhaustion ?? 0, slots: {}, uses: {} };
+    for (const [k, v] of Object.entries(s.spells ?? {})) if (v && typeof v === "object" && "value" in v) snap.slots[k] = v.value;
+    for (const it of actor.items) if (it.system?.uses?.max > 0) snap.uses[it.id] = it.system.uses.value;
+    return snap;
+  }
+  #restBenefits(before, after, actor) {
+    const rows = [];
+    const dhp = after.hp - before.hp; if (dhp > 0) rows.push(`+${dhp} HP`);
+    const dhd = (after.hd ?? 0) - (before.hd ?? 0); if (dhd > 0) rows.push(`+${dhd} Hit ${dhd === 1 ? "Die" : "Dice"}`);
+    const dexh = before.exhaustion - after.exhaustion; if (dexh > 0) rows.push(`−${dexh} Exhaustion`);
+    for (const [k, av] of Object.entries(after.slots)) {
+      const d = av - (before.slots[k] ?? 0);
+      if (d <= 0) continue;
+      const lvl = actor.system.spells?.[k]?.level;
+      const label = k === "pact" ? "Pact slot" : lvl ? `level-${lvl} slot` : "spell slot";
+      rows.push(`+${d} ${label}${d > 1 ? "s" : ""}`);
+    }
+    for (const [id, av] of Object.entries(after.uses)) {
+      const d = av - (before.uses[id] ?? 0);
+      if (d > 0) rows.push(`+${d} ${actor.items.get(id)?.name ?? "charge"}`);
+    }
+    return rows;
+  }
+  async #doRest(kind) {
+    const actor = this.actor; if (!actor) return;
+    const before = this.#restSnapshot(actor);
+    let result;
+    try { result = await (kind === "long" ? actor.longRest() : actor.shortRest()); }
+    catch (e) { return; } // dialog error
+    if (this.actor !== actor) return;
+    const after = this.#restSnapshot(actor);
+    const benefits = this.#restBenefits(before, after, actor);
+    if (!result && !benefits.length) return; // dialog cancelled, nothing happened
+    const list = benefits.length
+      ? `<ul class="mc-rest-benefits">${benefits.map((b) => `<li>${foundry.utils.escapeHTML(b)}</li>`).join("")}</ul>`
+      : `<div class="mc-rest-none">Nothing needed recovering.</div>`;
+    this.#detailStack = [];
+    this.#detailCard = {
+      name: kind === "long" ? "Long Rest" : "Short Rest", glyph: kind === "long" ? "fa-bed" : "fa-campground",
+      subtitle: "Recovered", desc: list, favId: null, isFav: false
+    };
+    this.render();
+  }
 
   // B7: apply the editor's typed amount. sign −1 subtract / +1 add (delta) /
   // 0 set absolute. On-screen buttons drive this, so no keyboard +/− or return
@@ -1922,7 +1971,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Skill/tool check card (long-press a row; tap still rolls): governing ability,
   // proficiency level, total modifier, and passive score (skills) — the static
   // facts behind the roll (adv/dis is computed live by AC5E at roll time, not here).
-  #showCheckDetails(kind, key) {
+  async #showCheckDetails(kind, key) {
     const sys = this.actor?.system ?? {};
     const sign = (n) => (n >= 0 ? `+${n}` : `${n}`);
     const data = (kind === "skill" ? sys.skills : sys.tools)?.[key] ?? {};
@@ -1935,10 +1984,28 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (kind === "skill" && data.passive != null) rows.push(["Passive", `${data.passive}`]);
     const list = rows.map(([k, v]) =>
       `<div class="mc-ac-row"><span class="mc-ac-k">${k}</span><span class="mc-ac-v">${foundry.utils.escapeHTML(String(v))}</span></div>`).join("");
-    this.#detailCard = {
+    const card = {
       name: label, glyph: kind === "skill" ? "fa-dice-d20" : "fa-screwdriver-wrench",
-      subtitle: kind === "skill" ? "Skill" : "Tool", desc: `<div class="mc-ac-breakdown">${list}</div>`, favId: null, isFav: false
+      subtitle: kind === "skill" ? "Skill" : "Tool", favId: null, isFav: false
     };
+    const ledger = `<div class="mc-ac-breakdown">${list}</div>`;
+    this.#detailStack = [];
+    this.#detailCard = { ...card, desc: ledger };
+    this.render();
+    // Append the official skill/tool description (PHB reference page) below the ledger.
+    const ref = kind === "skill" ? CONFIG.DND5E.skills?.[key]?.reference : CONFIG.DND5E.tools?.[key]?.reference;
+    if (!ref) return;
+    let body = "";
+    try {
+      const page = await fromUuid(ref);
+      const raw = page?.text?.content ?? page?.system?.description?.value ?? "";
+      if (raw) {
+        const TE = foundry.applications?.ux?.TextEditor?.implementation ?? globalThis.TextEditor;
+        body = await TE.enrichHTML(raw, { relativeTo: page, secrets: false });
+      }
+    } catch (e) { /* no description available */ }
+    if (!body || this.#detailCard?.name !== label) return; // navigated away
+    this.#detailCard = { ...card, desc: `${ledger}<div class="mc-check-desc">${body}</div>` };
     this.render();
   }
   // Condition/effect card (long-press a chip): best-available detail, in priority —

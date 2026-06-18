@@ -1419,7 +1419,7 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
    (enriched HTML). Lives in the scrollable content area below the picker head. */
 .mc-detail { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 16px; }
 .mc-detail-head { display: flex; align-items: center; gap: 12px; }
-.mc-detail-icon { width: 56px; height: 56px; flex: 0 0 auto; border-radius: 9px; object-fit: cover; border: 1px solid var(--mc-edge); background: #0c0d11; }
+.mc-detail-icon { width: 56px; height: 56px; flex: 0 0 auto; border-radius: 9px; object-fit: cover; object-position: top; border: 1px solid var(--mc-edge); background: #0c0d11; }
 .mc-detail-glyph { display: flex; align-items: center; justify-content: center; color: var(--mc-gold); font-size: 26px; }
 .mc-detail-sub { color: var(--mc-muted); font-size: 13px; text-transform: capitalize; }
 /* AC (and similar stat) breakdown: a small label→value ledger ending in a bold total. */
@@ -1429,6 +1429,13 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-ac-row .mc-ac-v { color: var(--mc-muted); font-variant-numeric: tabular-nums; }
 .mc-ac-total { border-bottom: none; margin-top: 2px; font-weight: 700; }
 .mc-ac-total .mc-ac-k, .mc-ac-total .mc-ac-v { color: var(--mc-gold); font-size: 16px; }
+/* Skill/tool reference description appended under the stat ledger. */
+.mc-check-desc { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--mc-edge); font-size: 14px; line-height: 1.5; color: var(--mc-ink); }
+.mc-check-desc p { margin: 0 0 8px; }
+/* Rest-benefits card: a tidy list of what a short/long rest restored. */
+.mc-rest-benefits { margin: 0; padding-left: 18px; font-size: 15px; line-height: 1.7; color: var(--mc-ink); }
+.mc-rest-benefits li::marker { color: var(--mc-gold); }
+.mc-rest-none { color: var(--mc-muted); font-style: italic; }
 /* Character summary: ability grid (3×2) + a prof/speed/init meta line + background. */
 .mc-pc-abils { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .mc-ab { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 4px; border: 1px solid var(--mc-edge); border-radius: 9px; background: #0c0d11; }
@@ -1459,6 +1466,10 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
    2026-06-18). Inline rolls / other anchors stay inert (they'd roll/open over the shell). */
 .mc-detail-desc a { color: var(--mc-gold); }
 .mc-detail-desc a:not(.content-link) { pointer-events: none; }
+/* dnd5e renders a tiny "apply condition" action icon next to &reference[...] links;
+   it's meaningless on the phone (inert) and crowds the tap target — hide it so the
+   word (the real content-link) is the only thing to tap. */
+.mc-detail-desc a.enricher-action { display: none; }
 .mc-detail-desc img { max-width: 100%; height: auto; border-radius: 6px; }
 /* ★ favorite toggle in the details-card header (gold when favorited). */
 .mc-detail-fav { margin-left: auto; background: none; border: none; color: var(--mc-muted); font-size: 18px; padding: 4px 10px; line-height: 1; }
