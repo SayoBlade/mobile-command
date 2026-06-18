@@ -300,36 +300,19 @@ async function handleItemUse(payload) {
 const parkedWorkflows = new Map();
 
 async function findParkedWorkflow(activityUuid, itemUuid, timeoutMs = 8000) {
-  // Timeout bumped 4s→8s: live testing (2026-06-18) on the heavily-modded test
-  // world showed both a weapon (Greatsword) and Magic Missile fast-forward the
-  // attack and then SUSPEND with a "Roll Damage" button card on the executor —
-  // i.e. midi parks correctly (shouldRollDamage:false → manual path, midi-qol.js
-  // 26266/26278 → WorkflowState_Suspend) — yet this scan returned null and the
-  // phone dropped back to the list. The 4s window may simply expire before the
-  // workflow lands at the suspended damage state with all the modules loaded.
   const start = Date.now();
-  let lastDump = "";
   while (Date.now() - start < timeoutMs) {
-    // ROOT CAUSE of the two-tap break (2026-06-18): midi 14 keeps workflows in a
-    // Map keyed by id, stored optionally as WeakRefs (useWeakReferences; midi-qol.js
-    // 24336/24347). `Object.values()` on a Map is ALWAYS [], so the old scan never
-    // saw any workflow and silently failed for weapon AND spell alike. Iterate the
-    // Map's values and deref. Match by activity uuid, or by item (a scaling spell
-    // can cast through a cloned activity whose uuid differs from what the phone sent).
+    // midi 14 keeps workflows in a Map keyed by id, stored optionally as WeakRefs
+    // (useWeakReferences; midi-qol.js 24336/24347). `Object.values()` on a Map is
+    // ALWAYS [], which previously made this scan see nothing and the two-tap fail
+    // silently for weapon AND spell (root-caused + fixed live 2026-06-18). Iterate
+    // the Map's values and deref. Match by activity uuid, or by item (a scaling
+    // spell can cast through a cloned activity whose uuid differs from what we sent).
     const coll = globalThis.MidiQOL?.Workflow?.workflows;
     const all = (coll instanceof Map ? Array.from(coll.values()) : Object.values(coll ?? {}))
       .map(w => (w instanceof WeakRef ? w.deref() : w)).filter(Boolean);
     const wf = all.find(w => w.activity?.uuid === activityUuid
       || (itemUuid && (w.itemUuid === itemUuid || w.activity?.item?.uuid === itemUuid)));
-    // DIAGNOSTIC (remove once two-tap detection is verified): why a matched
-    // workflow is / isn't accepted as the parked damage step. Logs on change only.
-    if (wf) {
-      const dump = JSON.stringify({ suspended: !!wf.suspended, action: wf.nameForState?.(wf.currentAction), needsDamage: wf.needsDamage, hasDamage: !!wf.activity?.hasDamage });
-      if (dump !== lastDump) { console.debug(`${MODULE_ID} | parkScan match`, dump); lastDump = dump; }
-    } else if (lastDump !== "nomatch") {
-      console.debug(`${MODULE_ID} | parkScan no match`, { workflows: all.length, activityUuid, itemUuid });
-      lastDump = "nomatch";
-    }
     if (wf) {
       // Parked awaiting a manual damage roll. midi's loop (midi-qol.js:25981) sets
       // wf.suspended=true and breaks, LEAVING currentAction at WaitForDamageRoll —
@@ -338,14 +321,10 @@ async function findParkedWorkflow(activityUuid, itemUuid, timeoutMs = 8000) {
       const awaitingDamage = (wf.suspended || wf.currentAction === wf.WorkflowState_WaitForDamageRoll)
         && wf.needsDamage !== false;
       if (awaitingDamage) return wf;
-      if (wf.currentAction === wf.WorkflowState_Completed || wf.currentAction === wf.WorkflowState_Abort) {
-        console.debug(`${MODULE_ID} | parkScan rejected (completed/abort)`);
-        return null;
-      }
+      if (wf.currentAction === wf.WorkflowState_Completed || wf.currentAction === wf.WorkflowState_Abort) return null;
     }
     await new Promise(r => setTimeout(r, 150));
   }
-  console.debug(`${MODULE_ID} | parkScan TIMEOUT after ${timeoutMs}ms`, { activityUuid, itemUuid });
   return null;
 }
 
