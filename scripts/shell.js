@@ -1008,8 +1008,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // plain document data the phone reads directly. Each boolean = the resource is
   // still AVAILABLE. ACT is recorded unconditionally on your turn; BA/RE need
   // enforce*Actions ≥ "displayOnly" (set in the preset) to be recorded.
+  #inCombat(actor = this.actor) {
+    return !!game.combat?.combatants?.some(c => c.actor?.id === actor?.id);
+  }
   #actionEconomy(actor) {
-    const inCombat = !!game.combat?.combatants?.some(c => c.actor?.id === actor?.id);
+    const inCombat = this.#inCombat(actor);
     const f = actor?.getFlag?.("midi-qol", "actions") ?? {};
     return {
       inCombat,
@@ -1036,6 +1039,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // when that resource is still available (always lit out of combat).
   #costBadge(activity, econ) {
     if (!activity) return null;
+    // Out of combat there's no economy to track — drop the ACT/BA/RE label so the
+    // sheet isn't "counting" actions when it doesn't matter (DM, 2026-06-18).
+    if (!econ.inCombat) return null;
     const g = this.#econGroup(activity);
     const labels = { action: "ACT", bonus: "BA", reaction: "RE", free: "FREE" };
     if (!labels[g]) return null; // "other" (timed/rest) → no badge
@@ -1300,7 +1306,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     // Used → auto-collapse its Actions drawer (the action is committed now;
     // resource consumed). Reopenable; takes effect when the list re-renders.
-    if (s.group) this.#collapsedActionGroups.add(s.group);
+    // Only in combat: out of combat you often fire several things in a row, and
+    // the drawer snapping shut each time is just friction (DM, 2026-06-18).
+    if (s.group && this.#inCombat()) this.#collapsedActionGroups.add(s.group);
     if (!res.needsDamage) {
       // Resolved without a damage step (a miss, or nothing to roll).
       this.#actionState = null; this.render();
@@ -1743,23 +1751,36 @@ export function maybeAutoOpenShell() {
 export function registerShellHooks() {
   // Keep framed dialogs/prompts above the full-screen shell.
   Hooks.on("renderApplicationV2", liftDialogAboveShell);
+  // Match the controlled actor by id, not object identity: a GM-initiated change
+  // can hand us a different document instance (e.g. a synthetic/token actor) than
+  // the one our getter returns, and a `===` check would silently drop the render
+  // (DM-reported: items a DM added didn't appear until a full page reload).
+  const controlsActor = (a) => {
+    const mine = shellInstance?.actor;
+    return !!mine && !!a && a.id === mine.id;
+  };
   Hooks.on("updateActor", (actor) => {
-    if (shellInstance?.rendered && actor === shellInstance.actor) shellInstance.render();
+    if (shellInstance?.rendered && controlsActor(actor)) shellInstance.render();
   });
   Hooks.on("createActiveEffect", (effect) => {
-    if (shellInstance?.rendered && effect.parent === shellInstance.actor) shellInstance.render();
+    if (shellInstance?.rendered && controlsActor(effect.parent)) shellInstance.render();
   });
   Hooks.on("deleteActiveEffect", (effect) => {
-    if (shellInstance?.rendered && effect.parent === shellInstance.actor) shellInstance.render();
+    if (shellInstance?.rendered && controlsActor(effect.parent)) shellInstance.render();
   });
   // Item changes live on the item, not the actor: spell prepared toggle
   // (system.prepared), uses spent, and learning/removing items. Without these
   // the prepared toggle wrote data but the UI never refreshed (reported bug).
   const onItem = (item) => {
-    if (shellInstance?.rendered && item.parent === shellInstance.actor) shellInstance.render();
+    if (shellInstance?.rendered && controlsActor(item.parent)) shellInstance.render();
   };
   Hooks.on("updateItem", onItem);
-  Hooks.on("createItem", onItem);
+  Hooks.on("createItem", (item) => {
+    // DIAGNOSTIC (remove once #3 verified): confirm the create hook reaches the
+    // phone when a DM adds an item, and whether it matched the controlled actor.
+    console.debug("mobile-command | createItem", { item: item?.name, parent: item?.parent?.name, matched: controlsActor(item?.parent), rendered: !!shellInstance?.rendered });
+    onItem(item);
+  });
   Hooks.on("deleteItem", onItem);
   // Surface this user's/actor's roll results inside the shell (it covers chat).
   Hooks.on("createChatMessage", (message) => {
