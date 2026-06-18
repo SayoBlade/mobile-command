@@ -213,7 +213,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <header class="mc-header">
         <img class="mc-portrait" src="${img}" alt="" data-action="show-image" data-detail="bio" title="Tap for image · hold for bio">
         <div class="mc-id">
-          <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}<span class="mc-name-text" data-detail="character">${foundry.utils.escapeHTML(actor.name)}</span></div>
+          <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}<span class="mc-name-text" data-action="show-bio" data-detail="character" title="Tap for bio · hold for summary">${foundry.utils.escapeHTML(actor.name)}</span></div>
           <div class="mc-stats">
             ${hpBtn}${tempBtn}
             <button class="mc-stat mc-stat-tap mc-stat-acwrap" data-action="ac-detail" title="Armor Class — tap for breakdown"><span class="mc-ac-frame"><i class="fas fa-shield"></i>${ac}</span></button>
@@ -747,8 +747,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const open = multi
       ? `<div class="mc-inv-main" data-action="item-activities" data-item-id="${item.id}">`
       : usable.length === 1
-        ? `<div class="mc-inv-main" data-action="action-pick" data-uuid="${usable[0].uuid}">`
-        : `<div class="mc-inv-main">`;
+        ? `<div class="mc-inv-main" data-action="action-pick" data-uuid="${usable[0].uuid}" data-item-id="${item.id}">`
+        // Non-usable items (armor, ammo, plain gear, "other", player-made with no
+        // activity) still carry data-item-id so a long-press opens their details
+        // popup — without it the row had no detail target and nothing happened.
+        : `<div class="mc-inv-main" data-item-id="${item.id}">`;
     return `<div class="mc-inv-row ${equipped ? "mc-equipped" : ""}">
       ${open}
         ${iconHTML}
@@ -870,16 +873,34 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const featChips = featItems.length
       ? `<div class="mc-section-label">Feats &amp; Features</div><div class="mc-feat-chips">${featItems.map(i => `<span class="mc-feat-chip" data-item-id="${i.id}">${foundry.utils.escapeHTML(i.name)}</span>`).join("")}</div>`
       : "";
-    // Resistances / vulnerabilities / immunities as colour-coded chips (green =
-    // resist, filled green = immune, red = vulnerable) — colour replaces labels.
-    const defChips = (types, cls) => types.map(l =>
-      `<span class="mc-def mc-def-${cls}">${foundry.utils.escapeHTML(l)}</span>`).join("");
-    const defenseChips = defChips(dmgTraits("traits.dr"), "res")
-      + defChips(dmgTraits("traits.di"), "imm")
-      + defChips(dmgTraits("traits.dv"), "vuln");
-    const defenseSec = defenseChips
-      ? `<div class="mc-section-label">Resistances / Vulnerabilities</div><div class="mc-defenses">${defenseChips}</div>`
+    // Defenses, split into the dnd5e categories (DM 2026-06-19): resistances (dr),
+    // damage immunities (di), condition immunities (ci — condition labels, not
+    // damage types), vulnerabilities (dv), and damage modification (dm.amount,
+    // a {damageType: ±N} map, e.g. "Force +2").
+    const condTraits = (path) => {
+      const t = foundry.utils.getProperty(sys, path) ?? {};
+      const vals = Array.from(t.value ?? []).map(k => CONFIG.DND5E.conditionTypes?.[k]?.label ?? k);
+      if (t.custom) vals.push(...String(t.custom).split(";").map(s => s.trim()).filter(Boolean));
+      return vals;
+    };
+    const dmgMods = () => {
+      const dm = sys.traits?.dm?.amount ?? {};
+      return Object.entries(dm).filter(([, v]) => v !== "" && v != null).map(([k, v]) => {
+        const label = CONFIG.DND5E.damageTypes[k]?.label ?? k;
+        const n = Number(v);
+        const amt = Number.isFinite(n) ? (n >= 0 ? `+${n}` : `${n}`) : String(v);
+        return `${label} ${amt}`;
+      });
+    };
+    const defSec = (label, chips, cls) => chips.length
+      ? `<div class="mc-section-label">${label}</div><div class="mc-defenses">${chips.map(l =>
+          `<span class="mc-def mc-def-${cls}">${foundry.utils.escapeHTML(l)}</span>`).join("")}</div>`
       : "";
+    const defenseSec = defSec("Resistances", dmgTraits("traits.dr"), "res")
+      + defSec("Damage Immunities", dmgTraits("traits.di"), "imm")
+      + defSec("Condition Immunities", condTraits("traits.ci"), "cimm")
+      + defSec("Vulnerabilities", dmgTraits("traits.dv"), "vuln")
+      + defSec("Damage Modification", dmgMods(), "dmod");
 
     return `
       <div class="mc-section-label">Skills</div>
@@ -1240,7 +1261,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       : s.recPending && !rec ? `<div class="mc-rec mc-rec-pending"><i class="fas fa-circle-notch fa-spin"></i> Checking adv/dis…</div>`
       : rec && rec.reasons?.length
         ? `<div class="mc-rec mc-rec-${rec.mode}">
-             <div class="mc-rec-head"><i class="fas fa-wand-magic-sparkles"></i> ${rec.mode === "advantage" ? "Advantage" : rec.mode === "disadvantage" ? "Disadvantage" : "Normal"} suggested</div>
              <ul class="mc-rec-reasons">${rec.reasons.map((r) => `<li class="mc-rec-${r.kind}">${foundry.utils.escapeHTML(r.label)}</li>`).join("")}</ul>
            </div>`
         : "";
@@ -1591,6 +1611,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         // AC opens its breakdown on a tap (it has no other tap action) rather than
         // long-press — DM preference, and more discoverable for a bare stat.
         return this.#showACDetails();
+      case "show-bio":
+        // Tap the name → biography (long-press the name still gives the summary).
+        return this.#showBioDetails();
       case "detail-close":
         // Drill-down back: pop to the previous card if we navigated into a link,
         // else close the card entirely back to the sheet.

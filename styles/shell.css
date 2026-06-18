@@ -1176,6 +1176,8 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-def-res { color: #8fe0a0; border-color: #2f5d39; background: #1c2f22; }   /* resistance */
 .mc-def-imm { color: #14211a; border-color: #6fcf7d; background: #6fcf7d; }   /* immunity (solid) */
 .mc-def-vuln { color: #f0a8a0; border-color: #5c2f2c; background: #2f1d1c; }  /* vulnerability */
+.mc-def-cimm { color: #8fe0a0; border-color: #2f5d39; background: #1c2f22; }  /* condition immunity */
+.mc-def-dmod { color: #e9b04a; border-color: #5c4a2c; background: #2a2417; font-variant-numeric: tabular-nums; }  /* damage modification (Force +2) */
 
 /* Temporary "Log out" button (under Leave MC) — switching Foundry users on a
    phone is painful, so give players a one-tap logout to the join screen. */
