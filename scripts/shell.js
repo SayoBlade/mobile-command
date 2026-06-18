@@ -1713,11 +1713,43 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ["focusin", this.#onFocusIn] // select a coin's value on focus → typing replaces it
     ];
     for (const [type, fn] of pairs) { root.removeEventListener(type, fn); root.addEventListener(type, fn); }
+    // Capture-phase so it beats Foundry's content-link handler AND the bubble #onClick.
+    root.removeEventListener("click", this.#onContentLinkCapture, true);
+    root.addEventListener("click", this.#onContentLinkCapture, true);
   }
 
   // The closest element carrying an item/activity reference (a "detailable" row).
   #detailTargetFor(target) {
-    return target instanceof Element ? target.closest("[data-uuid], [data-item-id]") : null;
+    if (!(target instanceof Element)) return null;
+    // Links inside an open details card are handled by tap (#onContentLinkCapture),
+    // not long-press — so a long-press there doesn't fight the in-card navigation.
+    if (target.closest(".mc-detail-desc")) return null;
+    return target.closest("[data-uuid], [data-item-id]");
+  }
+  // Capture-phase: a content link inside the details card opens the linked
+  // item/spell/journal in THIS card (not Foundry's native window, which gets
+  // trapped over/under the full-screen shell). Capture beats both Foundry's
+  // handler and the shell's own #onClick.
+  #onContentLinkCapture = (ev) => {
+    const link = ev.target?.closest?.(".mc-detail-desc a.content-link[data-uuid], .mc-detail-desc a[data-uuid]");
+    if (!link?.dataset?.uuid) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.#openLinkDetails(link.dataset.uuid);
+  };
+  async #openLinkDetails(uuid) {
+    let doc; try { doc = await fromUuid(uuid); } catch (e) { return; }
+    if (!doc) return;
+    const raw = doc.system?.description?.value ?? doc.text?.content ?? "";
+    let desc = raw;
+    try {
+      const TE = foundry.applications?.ux?.TextEditor?.implementation ?? globalThis.TextEditor;
+      desc = await TE.enrichHTML(raw, { relativeTo: doc, secrets: false });
+    } catch (e) { desc = raw; }
+    const subtitle = doc.system ? this.#itemSubtitle(doc) : (doc.documentName === "JournalEntryPage" ? "Reference" : "");
+    // Linked refs aren't the actor's own item, so no favorite toggle (favId null).
+    this.#detailCard = { name: doc.name ?? "Reference", img: doc.img || "icons/svg/book.svg", subtitle, desc, favId: null, isFav: false };
+    this.render();
   }
   #onPointerDown = (ev) => {
     if (ev.pointerType === "mouse" && ev.button !== 0) return; // right-click → contextmenu path

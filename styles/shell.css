@@ -1411,11 +1411,13 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-detail-desc h1, .mc-detail-desc h2, .mc-detail-desc h3, .mc-detail-desc h4 { font-size: 15px; margin: 10px 0 4px; }
 .mc-detail-desc table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 0 0 8px; }
 .mc-detail-desc td, .mc-detail-desc th { border: 1px solid var(--mc-edge); padding: 3px 6px; }
-/* Embedded @UUID content links (spell/condition refs) + inline rolls are INERT in
-   the read-only card: tapping one fired Foundry's native sheet/journal, which
-   rendered relative to the full-screen shell and got trapped — a condition journal
-   that couldn't be closed needed a restart (DM 2026-06-18). Neutralize them. */
-.mc-detail-desc a, .mc-detail-desc .content-link, .mc-detail-desc .inline-roll { color: var(--mc-gold); pointer-events: none; }
+/* @UUID content links (spell/condition refs) stay tappable but are INTERCEPTED in
+   the shell (capture-phase #onContentLinkCapture) → they open the linked thing in
+   THIS card instead of Foundry's native sheet/journal, which rendered relative to
+   the full-screen shell and got trapped (a condition journal needing a restart, DM
+   2026-06-18). Inline rolls / other anchors stay inert (they'd roll/open over the shell). */
+.mc-detail-desc a { color: var(--mc-gold); }
+.mc-detail-desc a:not(.content-link) { pointer-events: none; }
 .mc-detail-desc img { max-width: 100%; height: auto; border-radius: 6px; }
 /* ★ favorite toggle in the details-card header (gold when favorited). */
 .mc-detail-fav { margin-left: auto; background: none; border: none; color: var(--mc-muted); font-size: 18px; padding: 4px 10px; line-height: 1; }
