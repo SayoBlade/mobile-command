@@ -497,7 +497,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // the Actions picker (Route B); slot-level upcast selection is a later add
   // (§7.5 pre-roll). Backed entirely by document data — no canvas.
   #spellsHTML(actor) {
-    const spellItems = actor.items.filter(i => i.type === "spell");
+    // Exclude item-granted spells (a Cast activity caches its linked spell with
+    // flags.dnd5e.cachedFor) — they muddy the spellbook with staff/wand spells.
+    // They stay usable in the Actions tab (the activity scan still surfaces them).
+    const spellItems = actor.items.filter(i => i.type === "spell" && !i.getFlag?.("dnd5e", "cachedFor"));
     const spells = actor.system.spells ?? {};
     const hasSlots = Object.values(spells).some(s => (s?.max ?? 0) > 0);
     if (!spellItems.length && !hasSlots) {
@@ -682,7 +685,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #currencyHTML(actor) {
     const cur = actor.system?.currency;
     if (!cur) return "";
-    const order = Object.keys(CONFIG.DND5E?.currencies ?? { pp: 1, gp: 1, ep: 1, sp: 1, cp: 1 });
+    // Drop electrum (ep) from the row — rarely used, and it lets the remaining
+    // four coins sit on one line (DM 2026-06-18). The ep value is untouched, just hidden.
+    const order = Object.keys(CONFIG.DND5E?.currencies ?? { pp: 1, gp: 1, sp: 1, cp: 1 }).filter(k => k !== "ep");
     // Tap-to-edit: each coin is a numeric input (mobile numpad); writes the new
     // amount to system.currency.<k> on blur/Enter (#onChange). DM 2026-06-18.
     const chips = order.map(k =>

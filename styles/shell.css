@@ -700,8 +700,10 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 /* Self target option (gray). */
 .mc-disp.mc-self { background: #25272f; color: #b9bcc7; }
 
-/* Picker close X (replaces "Back"). */
-.mc-picker-x { color: var(--mc-muted); font-size: 18px; padding: 4px 10px; }
+/* Picker close X (replaces "Back"). Ordered to the far right of the header — an
+   X reads as "close", which conventionally sits top-right (DM 2026-06-18). The
+   title has flex:1 so it fills and pushes the X (and any ★) to the right edge. */
+.mc-picker-x { color: var(--mc-muted); font-size: 18px; padding: 4px 10px; order: 9; }
 .mc-picker-x:active { color: var(--mc-gold); }
 
 /* Relocated Leave/close button at the bottom of Details. */
@@ -1207,7 +1209,7 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 
 /* Equipment tab: currency chips + inventory rows (modeled on .mc-spell), with
    equip/attune toggles. */
-.mc-currency { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+.mc-currency { display: flex; flex-wrap: nowrap; gap: 6px; margin: 4px 0 14px; }
 .mc-coin {
   display: inline-flex; align-items: center; gap: 3px;
   padding: 4px 9px; border-radius: 8px; background: var(--mc-panel); border: 1px solid var(--mc-edge);
