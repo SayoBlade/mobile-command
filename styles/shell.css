@@ -1235,13 +1235,12 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 /* Toggle pair on the right — attune then equip, no background (the row is busy
    enough); icons centered; equip placeholder reserves the right column so equip
    aligns across rows + container headers. */
-.mc-inv-toggles { display: flex; align-items: center; align-self: stretch; flex: 0 0 auto; padding-right: 4px; }
+.mc-inv-toggles { display: flex; align-items: center; flex: 0 0 auto; padding-right: 4px; }
 .mc-inv-toggle {
   display: flex; align-items: center; justify-content: center;
-  width: 40px; align-self: stretch; line-height: 1; padding: 0;
+  width: 40px; height: 44px; line-height: 1; padding: 0;
   background: none; border: none; color: var(--mc-edge); font-size: 17px; cursor: pointer;
 }
-.mc-inv-toggle i { display: block; line-height: 1; }
 .mc-inv-toggle.mc-on { color: var(--mc-gold); }
 .mc-inv-toggle.mc-warn { color: #e0b24a; }
 .mc-inv-toggle.mc-ph { cursor: default; }
