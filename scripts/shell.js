@@ -454,21 +454,25 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const img = (type === "activity" ? (doc.item?.img || doc.img) : doc.img) || "icons/svg/upgrade.svg";
     const name = type === "activity" ? (doc.item?.name ?? doc.name) : doc.name;
     const cost = this.#costBadge(activity, econ);
+    const uses = this.#usesBadge(type === "activity" ? doc.item : doc); // X/Y, like Equipment
     return activity?.uuid
-      ? this.#favRowHTML({ img, name, cost, action: "fav-act", data: `data-uuid="${activity.uuid}"` })
-      : this.#favRowHTML({ img, name, cost, action: "", data: "" });
+      ? this.#favRowHTML({ img, name, cost, uses, action: "fav-act", data: `data-uuid="${activity.uuid}"` })
+      : this.#favRowHTML({ img, name, cost, uses, action: "", data: "" });
   }
 
-  #favRowHTML({ img, icon, name, val = "", cost = null, action, data }) {
+  #favRowHTML({ img, icon, name, val = "", cost = null, uses = "", action, data }) {
     const tag = action ? "button" : "div";
     const attrs = action ? ` data-action="${action}" ${data}` : "";
     const media = img
       ? `<img class="mc-fav-icon" src="${img}" alt="">`
       : `<span class="mc-fav-glyph"><i class="fas ${icon}"></i></span>`;
-    // Right edge: an action-economy cost badge for activities, else the modifier.
-    const right = cost
+    // Right edge: item uses (X/Y, same as the Equipment row), then an action-economy
+    // cost badge for activities, else the ability modifier — so a favorited thing
+    // carries the same info as its native tab (DM 2026-06-18).
+    const costOrVal = cost
       ? `<span class="mc-fav-cost mc-econ-${cost.type} ${cost.on ? "mc-on" : "mc-off"}">${cost.label}</span>`
       : val ? `<span class="mc-fav-val">${val}</span>` : "";
+    const right = `${uses}${costOrVal}`;
     return `<${tag} class="mc-fav"${attrs}>
       ${media}
       <span class="mc-fav-name">${foundry.utils.escapeHTML(name)}</span>
@@ -718,18 +722,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // 2026-06-18, #8). The main is a <div> (not <button>): clicks route via
     // delegation, dodging the iOS Safari flex-centering bug on <button>.
     const usable = this.#itemUsableActivities(item);
-    const chev = usable.length > 1 ? `<i class="fas fa-chevron-right mc-inv-chev"></i>` : "";
-    const open = usable.length > 1
+    const multi = usable.length > 1;
+    // Multi-activity items get a small "+" badge on the icon corner (DM 2026-06-18,
+    // replacing the row-edge chevron) — signals "tap for multiple actions".
+    const iconHTML = `<span class="mc-inv-icon-wrap"><img class="mc-inv-icon" src="${img}" alt="">${multi ? `<span class="mc-inv-multi" title="Multiple actions"><i class="fas fa-plus"></i></span>` : ""}</span>`;
+    const open = multi
       ? `<div class="mc-inv-main" data-action="item-activities" data-item-id="${item.id}">`
       : usable.length === 1
         ? `<div class="mc-inv-main" data-action="action-pick" data-uuid="${usable[0].uuid}">`
         : `<div class="mc-inv-main">`;
     return `<div class="mc-inv-row ${equipped ? "mc-equipped" : ""}">
       ${open}
-        <img class="mc-inv-icon" src="${img}" alt="">
+        ${iconHTML}
         <span class="mc-inv-name">${foundry.utils.escapeHTML(item.name)}${qty > 1 ? `<span class="mc-inv-qty">×${qty}</span>` : ""}</span>
         ${this.#usesBadge(item)}
-        ${chev}
       </div>
       ${toggles}
     </div>`;
@@ -1145,11 +1151,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   // Limited-use counter from item.system.uses (Rage, Ki, Action Surge, Second
-  // Wind, etc.): "value/max", red at 0. Empty when the item has no use limit.
+  // Wind, charges, etc.). Always "value/max" — DM 2026-06-18 prefers a single
+  // counter style over dots-below-8 / number-above (no mixed dots + X/Y). Red at 0.
   #usesBadge(item) {
     const u = item?.system?.uses;
     if (!u || !(u.max > 0)) return "";
-    return pips(u.value ?? 0, u.max);
+    return `<span class="mc-pips-num ${(u.value ?? 0) === 0 ? "mc-spent" : ""}">${u.value ?? 0}/${u.max}</span>`;
   }
 
   #actionRowHTML(a, actor, editing) {
