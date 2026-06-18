@@ -169,15 +169,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // — temporaryEffects alone misses them, so the chip read "No active
     // conditions" even with conditions set) alongside temporary effects (Bless).
     const effects = (actor.effects ?? []).filter(e =>
-      e.active && e.name && (e.isTemporary || e.statuses?.size > 0)
-      // Exclude midi's action-economy effects (Reaction / Bonus Action) — the
-      // dedicated ACT/BA/RE indicator covers those; no chip needed.
-      && !e.changes?.some?.(c => c.key?.startsWith("flags.midi-qol.actions")));
-    const condHTML = effects.length
-      ? effects.map(e =>
-          `<span class="mc-chip">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}</span>`
-        ).join("")
-      : `<span class="mc-chip mc-none">No active conditions</span>`;
+      e.active && e.name && (e.isTemporary || e.statuses?.size > 0));
+    // DM request (2026-06-18): surface the action-economy "used" conditions as
+    // chips. midi ships visible effects for "Bonus Action used" / "Reaction used"
+    // (we no longer exclude them) and styles them as spent (mc-chip-used). The main
+    // Action has no status effect — only the per-turn flag — so synthesize an
+    // "Action used" chip from it, in combat where the economy applies.
+    const isEconEffect = (e) => e.changes?.some?.(c => c.key?.startsWith("flags.midi-qol.actions"));
+    const econ = this.#actionEconomy(actor);
+    const actionChip = (econ.inCombat && !econ.action) ? `<span class="mc-chip mc-chip-used">Action used</span>` : "";
+    const condsHTML = effects.map(e =>
+      `<span class="mc-chip${isEconEffect(e) ? " mc-chip-used" : ""}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}</span>`
+    ).join("");
+    const condHTML = (actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
 
     // B7: HP & temp are tap-to-edit. Tapping opens a roomy editor row with
     // on-screen − / + / Set so it works on the iOS numeric keypad (which has no

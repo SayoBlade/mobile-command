@@ -101,6 +101,9 @@
   color: #cfd2db;
 }
 .mc-chip.mc-none { color: #6a6d78; border-style: dashed; }
+/* Action-economy "used"/spent chips (Action / Bonus Action / Reaction used) — */
+/* muted + dashed so a spent resource reads differently from an active buff. */
+.mc-chip-used { color: #9a9da8; border-style: dashed; }
 
 /* --- scrollable content --- */
 .mc-content {
