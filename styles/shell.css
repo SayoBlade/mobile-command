@@ -1387,3 +1387,18 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 }
 .mc-fav-cost.mc-on { color: var(--c); border-color: var(--c); }
 .mc-fav-cost.mc-off { color: #57525f; opacity: .6; text-decoration: line-through; }
+
+/* Long-press details card: icon + subtitle, then the item's Foundry description
+   (enriched HTML). Lives in the scrollable content area below the picker head. */
+.mc-detail { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 16px; }
+.mc-detail-head { display: flex; align-items: center; gap: 12px; }
+.mc-detail-icon { width: 56px; height: 56px; flex: 0 0 auto; border-radius: 9px; object-fit: cover; border: 1px solid var(--mc-edge); background: #0c0d11; }
+.mc-detail-sub { color: var(--mc-muted); font-size: 13px; text-transform: capitalize; }
+.mc-detail-desc { font-size: 14px; line-height: 1.5; color: var(--mc-ink); }
+.mc-detail-desc p { margin: 0 0 8px; }
+.mc-detail-desc ul, .mc-detail-desc ol { margin: 0 0 8px; padding-left: 20px; }
+.mc-detail-desc h1, .mc-detail-desc h2, .mc-detail-desc h3, .mc-detail-desc h4 { font-size: 15px; margin: 10px 0 4px; }
+.mc-detail-desc table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 0 0 8px; }
+.mc-detail-desc td, .mc-detail-desc th { border: 1px solid var(--mc-edge); padding: 3px 6px; }
+.mc-detail-desc a { color: var(--mc-gold); }
+.mc-detail-desc img { max-width: 100%; height: auto; border-radius: 6px; }

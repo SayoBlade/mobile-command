@@ -116,6 +116,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #deathSaveDismissed = false; // X'd the death-save panel (DM's call overrides; warnings-not-walls)
   #openContainers = new Set(); // Equipment tab: container item ids currently expanded
   #itemPickerId = null; // Equipment tab: item whose multi-activity picker is open
+  #detailCard = null;   // long-press: { name, img, subtitle, desc } of an item shown full-screen
+  #longPressTimer = null;
+  #lpStart = null;      // pointer start position, to abort the press on scroll
+  #suppressClick = false; // a long-press fired → swallow the trailing click so the row doesn't also act
   #collapsedActionGroups = new Set(); // Actions tab: accordion groups the user/use closed
 
   /** The actor this phone controls: assigned character, else first owned character. */
@@ -290,6 +294,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#atZeroHP(actor) && !this.#deathSaveDismissed) return this.#deathSaveHTML(actor);
     // An in-progress action/cast overlays the current tab — so casting from the
     // Spells tab (or using a favorite from Explore) stays put instead of jumping.
+    if (this.#detailCard) return this.#detailCardHTML();
     if (this.#actionState) return this.#targetPickerHTML();
     if (this.#itemPickerId) return this.#itemActivityPickerHTML(actor);
     if (this.#tab === "actions") return this.#actionsHTML(actor);
@@ -1434,6 +1439,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#clearPreview();
     this.#actionState = null;
     this.#itemPickerId = null;
+    this.#detailCard = null;
   }
 
   // B9 live target preview: reflect the current selection on the executor's
@@ -1472,6 +1478,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Bound once so remove+add is idempotent — prevents handler stacking across
   // re-renders, and re-binds correctly if the root element is recreated.
   #onClick = (ev) => {
+    if (this.#suppressClick) { this.#suppressClick = false; return; } // swallow the tap after a long-press
     const el = ev.target.closest("[data-action]");
     if (!el) return;
     const action = el.dataset.action;
@@ -1522,6 +1529,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       }
       case "action-back":
         this.#abandonAction();
+        return this.render();
+      case "detail-close":
+        this.#detailCard = null;
         return this.render();
       case "roll-damage":
         return this.#rollDamage();
@@ -1676,10 +1686,93 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   #attachListeners(root) {
-    root.removeEventListener("click", this.#onClick);
-    root.addEventListener("click", this.#onClick);
-    root.removeEventListener("keydown", this.#onKeydown);
-    root.addEventListener("keydown", this.#onKeydown);
+    // Bound handlers → remove+add is idempotent across re-renders.
+    const pairs = [
+      ["click", this.#onClick], ["keydown", this.#onKeydown],
+      // Long-press (touch hold ~500ms) / right-click (desktop + CC testing) on an
+      // actionable row → its full details card (#showDetails). Move/up/cancel abort.
+      ["pointerdown", this.#onPointerDown], ["pointermove", this.#onPointerMove],
+      ["pointerup", this.#cancelLongPress], ["pointercancel", this.#cancelLongPress],
+      ["pointerleave", this.#cancelLongPress], ["contextmenu", this.#onContextMenu]
+    ];
+    for (const [type, fn] of pairs) { root.removeEventListener(type, fn); root.addEventListener(type, fn); }
+  }
+
+  // The closest element carrying an item/activity reference (a "detailable" row).
+  #detailTargetFor(target) {
+    return target instanceof Element ? target.closest("[data-uuid], [data-item-id]") : null;
+  }
+  #onPointerDown = (ev) => {
+    if (ev.pointerType === "mouse" && ev.button !== 0) return; // right-click → contextmenu path
+    const el = this.#detailTargetFor(ev.target);
+    if (!el) return;
+    this.#lpStart = { x: ev.clientX, y: ev.clientY };
+    clearTimeout(this.#longPressTimer);
+    this.#longPressTimer = setTimeout(() => {
+      this.#longPressTimer = null;
+      this.#suppressClick = true; // the upcoming click must not also fire the row's action
+      this.#triggerDetail(el);
+    }, 500);
+  };
+  #onPointerMove = (ev) => {
+    if (!this.#longPressTimer || !this.#lpStart) return;
+    const dx = ev.clientX - this.#lpStart.x, dy = ev.clientY - this.#lpStart.y;
+    if (dx * dx + dy * dy > 100) this.#cancelLongPress(); // moved >10px → it's a scroll, not a press
+  };
+  #cancelLongPress = () => { clearTimeout(this.#longPressTimer); this.#longPressTimer = null; };
+  #onContextMenu = (ev) => {
+    const el = this.#detailTargetFor(ev.target);
+    if (!el) return;
+    ev.preventDefault(); // right-click = the desktop / CC-testing long-press
+    this.#triggerDetail(el);
+  };
+  // Resolve a detailable row to its Item and show the details card.
+  #triggerDetail(el) {
+    const { uuid, itemId } = el.dataset;
+    let item = null;
+    if (uuid) { const doc = fromUuidSync(uuid, { relative: this.actor }); item = doc?.item ?? doc; }
+    else if (itemId) item = this.actor?.items.get(itemId);
+    if (item?.system) this.#showDetails(item);
+  }
+  // Full details card (long-press v1): mirror Foundry's item card — name, a short
+  // subtitle, and the (enriched) item description. Async because enrichHTML is.
+  async #showDetails(item) {
+    const sys = item.system ?? {};
+    const raw = sys.description?.value || "";
+    let desc = raw;
+    try {
+      const TE = foundry.applications?.ux?.TextEditor?.implementation ?? globalThis.TextEditor;
+      desc = await TE.enrichHTML(raw, { relativeTo: item, secrets: false });
+    } catch (e) { desc = raw; /* fall back to the raw HTML if enrichment is unavailable */ }
+    this.#detailCard = { name: item.name, img: item.img || "icons/svg/item-bag.svg", subtitle: this.#itemSubtitle(item), desc };
+    this.render();
+  }
+  // Short type/level/rarity line under the name.
+  #itemSubtitle(item) {
+    const sys = item.system ?? {};
+    if (item.type === "spell") {
+      const lvl = sys.level ? `${ordinal(sys.level)}-level` : "Cantrip";
+      const school = CONFIG.DND5E?.spellSchools?.[sys.school]?.label ?? sys.school ?? "";
+      return [lvl, school].filter(Boolean).join(" ");
+    }
+    const typeLabel = CONFIG.Item?.typeLabels?.[item.type] ? game.i18n.localize(CONFIG.Item.typeLabels[item.type]) : item.type;
+    const rarity = sys.rarity ? (CONFIG.DND5E?.itemRarity?.[sys.rarity] ?? sys.rarity) : "";
+    return [rarity, typeLabel].filter(Boolean).join(" ");
+  }
+  #detailCardHTML() {
+    const d = this.#detailCard;
+    if (!d) return "";
+    return `<div class="mc-picker-head">
+        <button class="mc-back mc-picker-x" data-action="detail-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
+        <span class="mc-picker-title">${foundry.utils.escapeHTML(d.name)}</span>
+      </div>
+      <div class="mc-detail">
+        <div class="mc-detail-head">
+          <img class="mc-detail-icon" src="${d.img}" alt="">
+          ${d.subtitle ? `<span class="mc-detail-sub">${foundry.utils.escapeHTML(d.subtitle)}</span>` : ""}
+        </div>
+        <div class="mc-detail-desc">${d.desc || "<em>No description.</em>"}</div>
+      </div>`;
   }
 
   // Keyboard convenience for the stat editor (where a return key exists):
