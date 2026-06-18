@@ -117,6 +117,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #openContainers = new Set(); // Equipment tab: container item ids currently expanded
   #itemPickerId = null; // Equipment tab: item whose multi-activity picker is open
   #detailCard = null;   // long-press: { name, img, subtitle, desc } of an item shown full-screen
+  #detailStack = [];    // drill-down back-stack: closing a linked card returns to the previous one
   #longPressTimer = null;
   #lpStart = null;      // pointer start position, to abort the press on scroll
   #suppressClick = false; // a long-press fired → swallow the trailing click so the row doesn't also act
@@ -183,17 +184,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const isEconEffect = (e) => e.changes?.some?.(c => c.key?.startsWith("flags.midi-qol.actions"));
     const econ = this.#actionEconomy(actor);
     const actionChip = (econ.inCombat && !econ.action) ? `<span class="mc-chip mc-chip-used">Action used</span>` : "";
-    // A real condition (not an econ "used" effect) whose dnd5e config carries a
-    // rules reference → long-pressable for an in-shell rules card (#triggerDetail).
-    const condRef = (e) => {
-      for (const id of (e.statuses ?? [])) if (CONFIG.DND5E?.conditionTypes?.[id]?.reference) return id;
-      return null;
-    };
-    const condsHTML = effects.map(e => {
-      const refId = isEconEffect(e) ? null : condRef(e);
-      const ref = refId ? ` data-detail="cond" data-cond="${refId}"` : "";
-      return `<span class="mc-chip${isEconEffect(e) ? " mc-chip-used" : ""}"${ref}>${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}</span>`;
-    }).join("");
+    // Every effect-backed chip is long-pressable for its detail (#showEffectDetails
+    // picks rules reference → own description → change summary). The synthetic
+    // "Action used" chip has no backing effect, so it isn't pressable.
+    const condsHTML = effects.map(e =>
+      `<span class="mc-chip${isEconEffect(e) ? " mc-chip-used" : ""}" data-detail="cond" data-effect-id="${e.id}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}</span>`
+    ).join("");
     const condHTML = (actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
 
     // B7: HP & temp are tap-to-edit. Tapping opens a roomy editor row with
@@ -1455,6 +1451,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#actionState = null;
     this.#itemPickerId = null;
     this.#detailCard = null;
+    this.#detailStack = [];
   }
 
   // B9 live target preview: reflect the current selection on the executor's
@@ -1546,7 +1543,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#abandonAction();
         return this.render();
       case "detail-close":
-        this.#detailCard = null;
+        // Drill-down back: pop to the previous card if we navigated into a link,
+        // else close the card entirely back to the sheet.
+        this.#detailCard = this.#detailStack.pop() ?? null;
         return this.render();
       case "detail-fav": {
         const d = this.#detailCard;
@@ -1755,12 +1754,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       desc = await TE.enrichHTML(raw, { relativeTo: doc, secrets: false });
     } catch (e) { desc = raw; }
     const subtitle = subtitleOverride ?? (doc.system ? this.#itemSubtitle(doc) : (doc.documentName === "JournalEntryPage" ? "Reference" : ""));
+    // Drilling into a link from an open card: remember it so the X steps back here.
+    if (this.#detailCard) this.#detailStack.push(this.#detailCard);
     // Linked refs aren't the actor's own item, so no favorite toggle (favId null).
     this.#detailCard = { name: doc.name ?? "Reference", img: doc.img || "icons/svg/book.svg", subtitle, desc, favId: null, isFav: false };
     this.render();
   }
   #onPointerDown = (ev) => {
     if (ev.pointerType === "mouse" && ev.button !== 0) return; // right-click → contextmenu path
+    // A fresh interaction clears any stuck swallow: a long-press sets #suppressClick
+    // to eat its trailing click, but if the press re-rendered the element out from
+    // under the finger the click never fires — so the flag would otherwise survive
+    // and eat the user's NEXT real tap (e.g. the first tap on the detail card's X).
+    this.#suppressClick = false;
     const el = this.#detailTargetFor(ev.target);
     if (!el) return;
     this.#lpStart = { x: ev.clientX, y: ev.clientY };
@@ -1785,14 +1791,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   };
   // Resolve a detailable row to its Item and show the details card.
   #triggerDetail(el) {
+    this.#detailStack = []; // a fresh long-press starts a new drill-down context
     const { uuid, itemId, detail } = el.dataset;
     if (detail === "ac") return this.#showACDetails();
     if (detail === "character") return this.#showCharacterDetails();
-    if (detail === "cond") {
-      const ref = CONFIG.DND5E?.conditionTypes?.[el.dataset.cond]?.reference;
-      if (ref) this.#openLinkDetails(ref, "Condition");
-      return;
-    }
+    if (detail === "cond") return this.#showEffectDetails(el.dataset.effectId);
     let item = null, activity = null;
     if (uuid) { const doc = fromUuidSync(uuid, { relative: this.actor }); if (doc?.item) { activity = doc; item = doc.item; } else item = doc; }
     else if (itemId) item = this.actor?.items.get(itemId);
@@ -1836,6 +1839,34 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const desc = `<div class="mc-ac-breakdown">${list}
       <div class="mc-ac-row mc-ac-total"><span class="mc-ac-k">Total</span><span class="mc-ac-v">${ac.value ?? "—"}</span></div></div>`;
     this.#detailCard = { name: "Armor Class", glyph: "fa-shield-halved", subtitle: ac.label || "", desc, favId: null, isFav: false };
+    this.render();
+  }
+  // Condition/effect card (long-press a chip): best-available detail, in priority —
+  // (1) the dnd5e/status rules reference page (standard conditions), opened in-shell;
+  // (2) the effect's own description; (3) a plain summary of its stat changes. So
+  // every chip is long-pressable, not just standard-5e conditions (DM ask 2026-06-18).
+  async #showEffectDetails(effectId) {
+    const e = this.actor?.effects?.get(effectId);
+    if (!e) return;
+    const refOf = (id) => CONFIG.DND5E?.conditionTypes?.[id]?.reference
+      || (CONFIG.statusEffects ?? []).find((s) => s.id === id)?.reference;
+    for (const id of (e.statuses ?? [])) { const ref = refOf(id); if (ref) return this.#openLinkDetails(ref, "Condition"); }
+    let desc = (e.description ?? "").trim();
+    if (desc) {
+      try {
+        const TE = foundry.applications?.ux?.TextEditor?.implementation ?? globalThis.TextEditor;
+        desc = await TE.enrichHTML(desc, { relativeTo: this.actor, secrets: false });
+      } catch (err) { /* keep raw */ }
+    } else if (e.changes?.length) {
+      const modes = CONST.ACTIVE_EFFECT_MODES;
+      const op = { [modes.ADD]: "+", [modes.MULTIPLY]: "×", [modes.OVERRIDE]: "=", [modes.UPGRADE]: "↑", [modes.DOWNGRADE]: "↓" };
+      desc = `<ul class="mc-eff-changes">${e.changes.map((c) =>
+        `<li>${foundry.utils.escapeHTML(c.key)} ${op[c.mode] ?? ""} ${foundry.utils.escapeHTML(String(c.value))}</li>`).join("")}</ul>`;
+    } else {
+      desc = "<em>No description.</em>";
+    }
+    if (this.#detailCard) this.#detailStack.push(this.#detailCard);
+    this.#detailCard = { name: e.name, img: e.img || "icons/svg/aura.svg", subtitle: "Condition", desc, favId: null, isFav: false };
     this.render();
   }
   // Character summary card (long-press the name): level/race/class line, an
