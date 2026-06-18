@@ -1404,7 +1404,15 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-detail { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 16px; }
 .mc-detail-head { display: flex; align-items: center; gap: 12px; }
 .mc-detail-icon { width: 56px; height: 56px; flex: 0 0 auto; border-radius: 9px; object-fit: cover; border: 1px solid var(--mc-edge); background: #0c0d11; }
+.mc-detail-glyph { display: flex; align-items: center; justify-content: center; color: var(--mc-gold); font-size: 26px; }
 .mc-detail-sub { color: var(--mc-muted); font-size: 13px; text-transform: capitalize; }
+/* AC (and similar stat) breakdown: a small label→value ledger ending in a bold total. */
+.mc-ac-breakdown { display: flex; flex-direction: column; gap: 2px; }
+.mc-ac-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 2px; border-bottom: 1px solid var(--mc-edge); }
+.mc-ac-row .mc-ac-k { color: var(--mc-ink); }
+.mc-ac-row .mc-ac-v { color: var(--mc-muted); font-variant-numeric: tabular-nums; }
+.mc-ac-total { border-bottom: none; margin-top: 2px; font-weight: 700; }
+.mc-ac-total .mc-ac-k, .mc-ac-total .mc-ac-v { color: var(--mc-gold); font-size: 16px; }
 .mc-detail-desc { font-size: 14px; line-height: 1.5; color: var(--mc-ink); }
 .mc-detail-desc p { margin: 0 0 8px; }
 .mc-detail-desc ul, .mc-detail-desc ol { margin: 0 0 8px; padding-left: 20px; }

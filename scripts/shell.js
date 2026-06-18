@@ -210,7 +210,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}<span class="mc-name-text">${foundry.utils.escapeHTML(actor.name)}</span></div>
           <div class="mc-stats">
             ${hpBtn}${tempBtn}
-            <span class="mc-stat mc-stat-acwrap"><span class="mc-ac-frame" title="Armor Class"><i class="fas fa-shield"></i>${ac}</span></span>
+            <span class="mc-stat mc-stat-acwrap" data-detail="ac"><span class="mc-ac-frame" title="Armor Class"><i class="fas fa-shield"></i>${ac}</span></span>
             <button class="mc-insp ${insp ? "mc-insp-on" : ""}" data-action="toggle-insp" title="Inspiration">★</button>
           </div>
         </div>
@@ -1724,7 +1724,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Links inside an open details card are handled by tap (#onContentLinkCapture),
     // not long-press — so a long-press there doesn't fight the in-card navigation.
     if (target.closest(".mc-detail-desc")) return null;
-    return target.closest("[data-uuid], [data-item-id]");
+    return target.closest("[data-uuid], [data-item-id], [data-detail]");
   }
   // Capture-phase: a content link inside the details card opens the linked
   // item/spell/journal in THIS card (not Foundry's native window, which gets
@@ -1777,7 +1777,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   };
   // Resolve a detailable row to its Item and show the details card.
   #triggerDetail(el) {
-    const { uuid, itemId } = el.dataset;
+    const { uuid, itemId, detail } = el.dataset;
+    if (detail === "ac") return this.#showACDetails();
     let item = null, activity = null;
     if (uuid) { const doc = fromUuidSync(uuid, { relative: this.actor }); if (doc?.item) { activity = doc; item = doc.item; } else item = doc; }
     else if (itemId) item = this.actor?.items.get(itemId);
@@ -1802,6 +1803,27 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#detailCard = { name: item.name, img: item.img || "icons/svg/item-bag.svg", subtitle: this.#itemSubtitle(item), desc, favType, favId, isFav };
     this.render();
   }
+  // AC breakdown card (long-press the AC stat): mirror dnd5e's AC config — the
+  // equipped-armor/base value plus dex/shield/bonus/cover contributions and the
+  // total. Calc-agnostic: shows whatever components the prepared `ac` carries.
+  #showACDetails() {
+    const ac = this.actor?.system?.attributes?.ac ?? {};
+    const sign = (n) => (n >= 0 ? `+${n}` : `${n}`);
+    const rows = [];
+    const baseLabel = ac.equippedArmor?.name || ac.label || "Base";
+    const baseVal = ac.calc === "flat" ? (ac.flat ?? ac.value ?? 10) : (ac.armor ?? 10);
+    rows.push([baseLabel, `${baseVal}`]);
+    if (ac.dex) rows.push(["Dexterity", sign(ac.dex)]);
+    if (ac.shield) rows.push(["Shield", sign(ac.shield)]);
+    if (ac.bonus) rows.push(["Bonus", sign(ac.bonus)]);
+    if (ac.cover) rows.push(["Cover", sign(ac.cover)]);
+    const list = rows.map(([l, v]) =>
+      `<div class="mc-ac-row"><span class="mc-ac-k">${foundry.utils.escapeHTML(String(l))}</span><span class="mc-ac-v">${v}</span></div>`).join("");
+    const desc = `<div class="mc-ac-breakdown">${list}
+      <div class="mc-ac-row mc-ac-total"><span class="mc-ac-k">Total</span><span class="mc-ac-v">${ac.value ?? "—"}</span></div></div>`;
+    this.#detailCard = { name: "Armor Class", glyph: "fa-shield-halved", subtitle: ac.label || "", desc, favId: null, isFav: false };
+    this.render();
+  }
   // Short type/level/rarity line under the name.
   #itemSubtitle(item) {
     const sys = item.system ?? {};
@@ -1824,7 +1846,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>
       <div class="mc-detail">
         <div class="mc-detail-head">
-          <img class="mc-detail-icon" src="${d.img}" alt="">
+          ${d.glyph ? `<span class="mc-detail-icon mc-detail-glyph"><i class="fas ${d.glyph}"></i></span>` : `<img class="mc-detail-icon" src="${d.img}" alt="">`}
           ${d.subtitle ? `<span class="mc-detail-sub">${foundry.utils.escapeHTML(d.subtitle)}</span>` : ""}
         </div>
         <div class="mc-detail-desc">${d.desc || "<em>No description.</em>"}</div>
