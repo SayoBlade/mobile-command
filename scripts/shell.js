@@ -1564,6 +1564,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         d.isFav = !d.isFav; // optimistic; the updateActor hook re-renders with the saved state
         return this.render();
       }
+      case "effect-remove": {
+        const e = actor?.effects?.get(el.dataset.effectId);
+        if (!e) return;
+        const statuses = [...(e.statuses ?? [])];
+        // Mirror Foundry: status conditions toggle off (dnd5e clears its riders);
+        // other effects (a buff like Bless) delete directly.
+        if (statuses.length) statuses.forEach((sid) => actor.toggleStatusEffect(sid, { active: false }));
+        else e.delete();
+        this.#detailCard = this.#detailStack.pop() ?? null; // the chip is gone — close the card
+        return this.render();
+      }
       case "roll-damage":
         return this.#rollDamage();
       case "adv":
@@ -1764,7 +1775,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     ev.stopPropagation();
     this.#openLinkDetails(link.dataset.uuid);
   };
-  async #openLinkDetails(uuid, subtitleOverride = null) {
+  async #openLinkDetails(uuid, subtitleOverride = null, removeEffectId = null) {
     let doc; try { doc = await fromUuid(uuid); } catch (e) { return; }
     if (!doc) return;
     const raw = doc.system?.description?.value ?? doc.text?.content ?? "";
@@ -1777,7 +1788,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Drilling into a link from an open card: remember it so the X steps back here.
     if (this.#detailCard) this.#detailStack.push(this.#detailCard);
     // Linked refs aren't the actor's own item, so no favorite toggle (favId null).
-    this.#detailCard = { name: doc.name ?? "Reference", img: doc.img || "icons/svg/book.svg", subtitle, desc, favId: null, isFav: false };
+    // removeEffectId is set only when a condition chip opened its rules page → the
+    // card still offers "Remove condition".
+    this.#detailCard = { name: doc.name ?? "Reference", img: doc.img || "icons/svg/book.svg", subtitle, desc, favId: null, isFav: false, removeEffectId };
     this.render();
   }
   #onPointerDown = (ev) => {
@@ -1895,7 +1908,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!e) return;
     const refOf = (id) => CONFIG.DND5E?.conditionTypes?.[id]?.reference
       || (CONFIG.statusEffects ?? []).find((s) => s.id === id)?.reference;
-    for (const id of (e.statuses ?? [])) { const ref = refOf(id); if (ref) return this.#openLinkDetails(ref, "Condition"); }
+    for (const id of (e.statuses ?? [])) { const ref = refOf(id); if (ref) return this.#openLinkDetails(ref, "Condition", e.id); }
     let desc = (e.description ?? "").trim();
     if (desc) {
       try {
@@ -1911,7 +1924,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       desc = "<em>No description.</em>";
     }
     if (this.#detailCard) this.#detailStack.push(this.#detailCard);
-    this.#detailCard = { name: e.name, img: e.img || "icons/svg/aura.svg", subtitle: "Condition", desc, favId: null, isFav: false };
+    this.#detailCard = { name: e.name, img: e.img || "icons/svg/aura.svg", subtitle: "Condition", desc, favId: null, isFav: false, removeEffectId: e.id };
     this.render();
   }
   // Travel speeds the actor actually has (speed > 0), in a sensible order.
@@ -2004,6 +2017,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           ${d.subtitle ? `<span class="mc-detail-sub">${foundry.utils.escapeHTML(d.subtitle)}</span>` : ""}
         </div>
         <div class="mc-detail-desc">${d.desc || "<em>No description.</em>"}</div>
+        ${d.removeEffectId ? `<button class="mc-detail-remove" data-action="effect-remove" data-effect-id="${d.removeEffectId}"><i class="fas fa-circle-xmark"></i> Remove condition</button>` : ""}
       </div>`;
   }
 

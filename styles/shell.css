@@ -1449,3 +1449,6 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 /* ★ favorite toggle in the details-card header (gold when favorited). */
 .mc-detail-fav { margin-left: auto; background: none; border: none; color: var(--mc-muted); font-size: 18px; padding: 4px 10px; line-height: 1; }
 .mc-detail-fav.mc-on { color: var(--mc-gold); }
+/* Remove-condition action at the foot of an effect's detail card. */
+.mc-detail-remove { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin-top: 14px; padding: 10px; font-size: 14px; font-weight: 600; color: #f1b0b0; background: rgba(180, 60, 60, 0.12); border: 1px solid rgba(200, 80, 80, 0.5); border-radius: 10px; cursor: pointer; }
+.mc-detail-remove:active { background: rgba(180, 60, 60, 0.24); }
