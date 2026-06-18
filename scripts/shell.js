@@ -738,9 +738,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // item that casts a linked spell, e.g. the Staff of Healing's heals), which the
   // Actions list intentionally omits to avoid clutter but which belong on the item.
   #itemUsableActivities(item) {
+    // Surface EVERY usable activity — NO activity-type allowlist (DM 2026-06-18:
+    // global solution, no per-item handling). Items with summon/check/enchant/etc.
+    // activities are at least tappable; execution routes through Route B on the
+    // executor (a full client) which handles whatever the activity is. Only
+    // canUse/automationOnly gate what's offered (dnd5e's own "can this be used").
     return [...(item.system?.activities ?? [])].filter(a =>
-      ["attack", "save", "damage", "utility", "heal", "cast"].includes(a.type)
-      && a.canUse !== false && !a.midiProperties?.automationOnly);
+      a.canUse !== false && !a.midiProperties?.automationOnly);
   }
 
   // Multi-activity picker (#8): tap a multi-activity inventory item → choose which
@@ -1271,7 +1275,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const assigned = (!selfTarget && this.#assignedTargets.length)
       ? this.#assignedTargets.slice(0, maxTargets) : [];
     this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets,
-      hasAttack: activity.type === "attack", isCast: activity.type === "cast",
+      hasAttack: activity.type === "attack",
+      // Auto-resolve on the executor for anything that ISN'T a player-rolled
+      // attack/damage/save/heal (cast/utility/summon/check/enchant/…): those have
+      // no damage to park OR spawn an untrackable linked workflow (cast), so the
+      // two-tap scan can't follow them — running to completion on the executor
+      // applies the effect + consumes resources instead of orphaning a roll card.
+      autoResolve: !["attack", "damage", "save", "heal"].includes(activity.type),
       group: this.#econGroup(activity),
       candidates: selfTarget ? [] : null, selected: new Set(assigned), adv: "normal",
       assignedByDM: assigned.length ? this.#assignedBy : null,
@@ -1369,12 +1379,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const midiOptions = {};
     if (s.adv === "advantage") midiOptions.advantage = true;
     if (s.adv === "disadvantage") midiOptions.disadvantage = true;
-    // Item-cast activities (e.g. Staff of Healing → Cure Wounds) spawn a workflow
-    // for the LINKED spell, whose uuids don't match what we sent — so the parked-
-    // workflow scan can't find it and the heal/damage roll would orphan on the
-    // executor (charge spent, nothing applied). Auto-resolve those on the executor
-    // instead: the effect applies + the charge consumes in one tap, no roll step.
-    if (s.isCast) { midiOptions.autoRollDamage = "always"; midiOptions.fastForwardDamage = true; }
+    // Auto-resolve non player-rolled activities on the executor (see autoResolve
+    // in #pickAction): a full client can run cast/summon/check/utility/enchant to
+    // completion, applying the effect + consuming resources in one tap, instead of
+    // orphaning an untrackable roll card (the cast/Staff-of-Healing footgun).
+    if (s.autoResolve) { midiOptions.autoRollDamage = "always"; midiOptions.fastForwardDamage = true; }
     let res;
     try {
       res = await this.#withTimeout(rpc.useActivityStart({
