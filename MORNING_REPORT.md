@@ -1,8 +1,47 @@
 # STATUS — continue here (updated 2026-06-19)
 
+## ⚔️ GAME-DAY READINESS (asked 2026-06-19, game ~2026-06-20)
+
+**Verdict: yes for a useful SUBSET, with the desktop as backup + a dry-run first. Not yet reliable for the fully-automated combat flow.** The DM streams Foundry on TV (Discord), players watch the stream + drive their phones.
+
+**Use it for (solid, phone-verified):** each player viewing their sheet, editing their own HP/temp, adding/removing/looking-up conditions, browsing Actions/Spells/Equipment/Details, long-press detail cards (item/spell/skill/condition/bio), the **two-tap attack→damage** loop (verified MM + Greatsword), casting, **rests** (+ new benefits card), the move pad, favorites. This is where it shines.
+
+**Be cautious with (unverified / multi-client):**
+- **Saves/reactions reaching a player's phone** — the relay's *first* live test FAILED (prompt didn't appear; suspected the target's owner wasn't `active` from the executor's view → midi routed to the GM). **Biggest risk.** Plan: if a player must save, be ready to roll it on the DM screen or have them tap their own save from the sheet. Re-test this first (cast an AoE on a player).
+- **attackPreview** (adv/dis banner) & **setMovementAction** (travel type → token) — NEW, executor side never reloaded. They **degrade gracefully** (manual adv/dis buttons + move pad still work), so not blockers — but reload the GM client to enable them, and if they misbehave they fall back to manual.
+- **AoE template push** (announce → DM place) — verified once (2026-06-16) but exercise it in the dry-run.
+
+**Setup before the session:**
+1. **Reload the GM/executor desktop client AND every phone** (loads this session's code + registers the new `attackPreview`/`setMovementAction` RPCs).
+2. **Per-player users:** the party is on "Player 1" — for a real multi-player game each player needs their own Foundry **user that OWNS their PC**, so their phone shows their character. (One device can cycle owned tokens via the switcher, but that's for solo testing.)
+3. Apply the **midi-qol D4 preset** via the enforcer if not already.
+4. **This session's UI changes were built WITHOUT live verification** (browser unavailable) — spot-check on reload: items open on long-press (incl. armor/gear/ammo), the new defense categories render, name-tap → bio, spell-level counts, the attack banner shows reasons only.
+
+**Dry-run checklist (5 min, one phone):** open sheet → edit HP → add+remove a condition → long-press an item/spell (popup opens) → do a weapon attack (two-tap) → cast a spell → take a long rest (benefits card) → cast an AoE save on that token and watch whether the save prompt reaches the phone.
+
+
+
 ## 2026-06-19 (later) — attack adv/dis recommendation (§14 spike resolved + built)
 
 DM picked this as the next big chunk. Spike resolved: the recommendation can't be computed on the phone (no canvas/targets — AC5E bails; statusEffectsTables has no mode), so the **executor asks AC5E directly** (fire `activity.rollAttack` with the target → AC5E annotates the roll config via `preRollAttackV2` → capture + abort) and relays `{mode, reasons}` to the phone. Phone shows a "Disadvantage suggested: Poisoned; …" banner + a star on the recommended adv/dis button (pre-selected, overridable). Built (`45b0d4b`). **Phone half verified** (mock); **executor half needs the DM's GM client reloaded** (new `attackPreview` RPC) — test item 0d.
+
+## 2026-06-19 (batch) — status of the DM's pre-game request list
+
+**Shipped (unverified — browser was unavailable; reload + eyeball):**
+- ✅ Item popups open for ALL items (blocker: armor/ammo/gear/other/player-made had no long-press target).
+- ✅ Defense categories: Resistances / Damage Immunities / Condition Immunities / Vulnerabilities / Damage Modification (dr/di/ci/dv/dm).
+- ✅ Bio on **name tap** (long-press name still = summary; long-press portrait also = bio).
+- ✅ Attack banner: dropped the "X suggested" header (reasons only).
+- ✅ Spellbook: learned/prepared count per level header.
+
+**Deferred (need live verification and/or are big — do together, NOT rushed before the game):**
+- **Popup action buttons** (spell → Learn/Cast, skill → Roll, action → Use, item → Equip/Attune/Use opening the multi-picker). Big, behavioral; the unifying "popup behaviour" the DM wants. Foundation is there (#showDetails has the item/activity); needs careful wiring + verification.
+- **Spells divided by caster type** + active-caster filtering + **multiple spell-point pools**. Large spellbook restructure (per-class cards already exist; the list is still by level).
+- **Drop/remove items** (+ remove/add amount when qty>1). Involves item delete/qty — careful + verify.
+- **Scroll-to-top on expand/collapse** (containers, action groups, …) — re-render scroll preservation; hard to get right blind.
+- **Travel types as toggles in the profile** + **click Speed in Explore → travel picker popup**.
+- **Visual tweaks** (couldn't judge unseen): Prof/Init more presence in the character card; abilities name+number aligned to bottom; extra left padding for x/y-only rows (favorites).
+- **flametooth/sparkblade/Tarr(vial)/rations "no options"** — needs live inspection (likely `canUse:false`/unequipped/no-activity); they at least open on long-press now.
 
 ## 2026-06-19 — travel-type selector + condition Remove
 
