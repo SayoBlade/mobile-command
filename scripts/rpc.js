@@ -310,9 +310,15 @@ async function findParkedWorkflow(activityUuid, itemUuid, timeoutMs = 8000) {
   const start = Date.now();
   let lastDump = "";
   while (Date.now() - start < timeoutMs) {
-    // Match by activity uuid, or by item (a scaling spell can cast through a
-    // cloned activity whose uuid differs from the one the phone sent).
-    const all = Object.values(globalThis.MidiQOL?.Workflow?.workflows ?? {});
+    // ROOT CAUSE of the two-tap break (2026-06-18): midi 14 keeps workflows in a
+    // Map keyed by id, stored optionally as WeakRefs (useWeakReferences; midi-qol.js
+    // 24336/24347). `Object.values()` on a Map is ALWAYS [], so the old scan never
+    // saw any workflow and silently failed for weapon AND spell alike. Iterate the
+    // Map's values and deref. Match by activity uuid, or by item (a scaling spell
+    // can cast through a cloned activity whose uuid differs from what the phone sent).
+    const coll = globalThis.MidiQOL?.Workflow?.workflows;
+    const all = (coll instanceof Map ? Array.from(coll.values()) : Object.values(coll ?? {}))
+      .map(w => (w instanceof WeakRef ? w.deref() : w)).filter(Boolean);
     const wf = all.find(w => w.activity?.uuid === activityUuid
       || (itemUuid && (w.itemUuid === itemUuid || w.activity?.item?.uuid === itemUuid)));
     // DIAGNOSTIC (remove once two-tap detection is verified): why a matched
