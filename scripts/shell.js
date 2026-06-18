@@ -115,6 +115,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #savePromptTimer = null;
   #deathSaveDismissed = false; // X'd the death-save panel (DM's call overrides; warnings-not-walls)
   #openContainers = new Set(); // Equipment tab: container item ids currently expanded
+  #itemPickerId = null; // Equipment tab: item whose multi-activity picker is open
   #collapsedActionGroups = new Set(); // Actions tab: accordion groups the user/use closed
 
   /** The actor this phone controls: assigned character, else first owned character. */
@@ -290,6 +291,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // An in-progress action/cast overlays the current tab — so casting from the
     // Spells tab (or using a favorite from Explore) stays put instead of jumping.
     if (this.#actionState) return this.#targetPickerHTML();
+    if (this.#itemPickerId) return this.#itemActivityPickerHTML(actor);
     if (this.#tab === "actions") return this.#actionsHTML(actor);
     if (this.#tab === "details") return this.#detailsHTML(actor);
     if (this.#tab === "spells") return this.#spellsHTML(actor);
@@ -709,22 +711,61 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ${toggles}
       </div>`;
     }
-    // First usable activity → tap the row to use it (potion, scroll, wand…).
-    // The main is a <div> (not <button>): clicks route via delegation, and it
-    // dodges the iOS Safari flex-centering bug on <button> that top-aligned the
-    // usable rows (DM 2026-06-17 — they centred differently from the div rows).
-    const activity = [...(sys.activities ?? [])].find(a => ["attack", "save", "damage", "utility", "heal"].includes(a.type));
-    const open = activity?.uuid
-      ? `<div class="mc-inv-main" data-action="action-pick" data-uuid="${activity.uuid}">`
-      : `<div class="mc-inv-main">`;
-    const close = `</div>`;
+    // Usable activities (incl. `cast` — e.g. a Staff of Healing's Cure Wounds).
+    // One → tap the row to use it directly (potion, scroll, wand…). Many → tap
+    // opens an activity picker so a multi-activity item isn't reduced to just its
+    // first activity (the Staff used to expose only its quarterstaff attack; DM
+    // 2026-06-18, #8). The main is a <div> (not <button>): clicks route via
+    // delegation, dodging the iOS Safari flex-centering bug on <button>.
+    const usable = this.#itemUsableActivities(item);
+    const chev = usable.length > 1 ? `<i class="fas fa-chevron-right mc-inv-chev"></i>` : "";
+    const open = usable.length > 1
+      ? `<div class="mc-inv-main" data-action="item-activities" data-item-id="${item.id}">`
+      : usable.length === 1
+        ? `<div class="mc-inv-main" data-action="action-pick" data-uuid="${usable[0].uuid}">`
+        : `<div class="mc-inv-main">`;
     return `<div class="mc-inv-row ${equipped ? "mc-equipped" : ""}">
       ${open}
         <img class="mc-inv-icon" src="${img}" alt="">
         <span class="mc-inv-name">${foundry.utils.escapeHTML(item.name)}${qty > 1 ? `<span class="mc-inv-qty">×${qty}</span>` : ""}</span>
-      ${close}
+        ${chev}
+      </div>
       ${toggles}
     </div>`;
+  }
+
+  // Activities of an item that the phone can drive directly — incl. `cast` (an
+  // item that casts a linked spell, e.g. the Staff of Healing's heals), which the
+  // Actions list intentionally omits to avoid clutter but which belong on the item.
+  #itemUsableActivities(item) {
+    return [...(item.system?.activities ?? [])].filter(a =>
+      ["attack", "save", "damage", "utility", "heal", "cast"].includes(a.type)
+      && a.canUse !== false && !a.midiProperties?.automationOnly);
+  }
+
+  // Multi-activity picker (#8): tap a multi-activity inventory item → choose which
+  // activity to use. Selecting one routes through the normal action flow
+  // (#pickAction → target picker → Route B), so charge/slot consumption applies.
+  #itemActivityPickerHTML(actor) {
+    const item = actor?.items.get(this.#itemPickerId);
+    if (!item) { this.#itemPickerId = null; return this.#equipmentHTML(actor); }
+    const rows = this.#itemUsableActivities(item).map(a => {
+      const cost = (a.consumption?.targets ?? []).find(t => t.type === "itemUses")?.value;
+      const right = cost ? `<span class="mc-action-right">${cost} use${cost === "1" ? "" : "s"}</span>` : "";
+      return `<button class="mc-action" data-action="action-pick" data-uuid="${a.uuid}">
+        <img class="mc-action-icon" src="${a.item?.img || item.img}" alt="">
+        <span class="mc-action-text">
+          <span class="mc-action-name">${foundry.utils.escapeHTML(a.name ?? a.type)}</span>
+          <span class="mc-action-sub">${foundry.utils.escapeHTML(item.name)}</span>
+        </span>
+        ${right}
+      </button>`;
+    }).join("");
+    return `<div class="mc-picker-head">
+        <button class="mc-back mc-picker-x" data-action="item-pick-back" aria-label="Back"><i class="fas fa-xmark"></i></button>
+        <span class="mc-picker-title">${foundry.utils.escapeHTML(item.name)}</span>
+      </div>
+      <div class="mc-actions">${rows}</div>`;
   }
 
   // Details tab: read-only character info. Tooltips / long-press detail cards
@@ -1210,6 +1251,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   async #pickAction(uuid) {
+    this.#itemPickerId = null; // leaving any multi-activity picker
     const activity = await fromUuid(uuid);
     if (!activity) return;
     // AoE push (§11): a no-canvas phone can't place a template, so an area spell
@@ -1367,6 +1409,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (s?.requestId) rpc.useActivityCancel({ requestId: s.requestId });
     this.#clearPreview();
     this.#actionState = null;
+    this.#itemPickerId = null;
   }
 
   // B9 live target preview: reflect the current selection on the executor's
@@ -1443,6 +1486,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         else this.#openContainers.add(id);
         return this.render();
       }
+      case "item-activities":
+        this.#itemPickerId = el.dataset.itemId; return this.render();
+      case "item-pick-back":
+        this.#itemPickerId = null; return this.render();
       case "agroup": {
         const g = el.dataset.group;
         if (this.#collapsedActionGroups.has(g)) this.#collapsedActionGroups.delete(g);
