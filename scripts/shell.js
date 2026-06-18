@@ -602,16 +602,51 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const bucket = { weapon: [], equipment: [], consumable: [], tool: [], container: [], loot: [] };
     for (const i of topLevel) (bucket[i.type] ?? bucket.loot).push(i);
     const currency = this.#currencyHTML(actor);
+    const enc = this.#encumbranceHTML(actor);
     if (!physical.length) {
       return `<div class="mc-actions-head"><span class="mc-section-label">Equipment</span></div>
-        ${currency}<div class="mc-placeholder">No items carried.</div>`;
+        ${currency}${enc}<div class="mc-placeholder">No items carried.</div>`;
     }
     const sections = groups.filter(g => bucket[g.key].length).map(g => {
       const items = bucket[g.key].sort((a, b) => a.name.localeCompare(b.name));
       return `<div class="mc-actions-sub">${g.label}</div><div class="mc-inv">${this.#inventoryItemsHTML(items)}</div>`;
     }).join("");
     return `<div class="mc-actions-head"><span class="mc-section-label">Equipment</span></div>
-      ${currency}${sections}`;
+      ${currency}${enc}${sections}`;
+  }
+
+  // Encumbrance readout — mirrors Foundry exactly: dnd5e renders/applies nothing
+  // when the encumbrance variant is "none" (updateEncumbrance returns early,
+  // dnd5e.mjs ~39547), so we hide it too. "normal" only flags exceeding the carry
+  // maximum; "variant" adds the encumbered (>⅓) / heavily-encumbered (>⅔) tiers.
+  // Whether penalties bite is the DM's setting to enable — we just surface what
+  // the native sheet shows (DM, 2026-06-18: always copy Foundry's flows).
+  #encumbranceHTML(actor) {
+    let mode = "none";
+    try { mode = game.settings.get("dnd5e", "encumbrance"); } catch (e) { /* setting absent → treat as off */ }
+    if (mode === "none") return "";
+    const enc = actor.system?.attributes?.encumbrance;
+    if (!enc?.max) return "";
+    const variant = mode === "variant";
+    const th = enc.thresholds ?? {};
+    const pct = Math.max(0, Math.min(100, Math.round(enc.pct ?? (enc.value / enc.max) * 100)));
+    let tier = "ok";
+    if (enc.value > th.maximum) tier = "over";
+    else if (variant && enc.value > th.heavilyEncumbered) tier = "heavy";
+    else if (variant && enc.value > th.encumbered) tier = "enc";
+    const labels = { over: "Over capacity", heavy: "Heavily encumbered", enc: "Encumbered" };
+    let unit = "lb";
+    try { unit = game.settings.get("dnd5e", "metricWeightUnits") ? "kg" : "lb"; } catch (e) { /* default lb */ }
+    const r = (n) => Math.round((n ?? 0) * 10) / 10;
+    // Variant marks the two tier boundaries at dnd5e's computed stop positions.
+    const stops = variant && enc.stops
+      ? `<span class="mc-enc-stop" style="left:${enc.stops.encumbered}%"></span><span class="mc-enc-stop" style="left:${enc.stops.heavilyEncumbered}%"></span>`
+      : "";
+    const note = tier !== "ok" ? `<span class="mc-enc-tier mc-enc-${tier}">${labels[tier]}</span>` : "";
+    return `<div class="mc-enc">
+      <div class="mc-enc-head"><span class="mc-enc-label">Weight</span><span class="mc-enc-val">${r(enc.value)} / ${r(enc.max)} ${unit}</span>${note}</div>
+      <div class="mc-enc-bar mc-enc-${tier}"><div class="mc-enc-fill" style="width:${pct}%"></div>${stops}</div>
+    </div>`;
   }
 
   // Render rows, expanding any open container in place to show its contents

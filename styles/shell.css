@@ -1211,6 +1211,21 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 }
 .mc-coin-label { font-size: 10px; text-transform: uppercase; color: var(--mc-muted); }
 .mc-coin-gp .mc-coin-amt { color: var(--mc-gold); }
+/* Encumbrance bar (only shown when the dnd5e encumbrance variant is enabled). */
+.mc-enc { margin: 0 0 14px; }
+.mc-enc-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; font-size: 13px; }
+.mc-enc-label { text-transform: uppercase; font-size: 10px; letter-spacing: .08em; color: var(--mc-muted); }
+.mc-enc-val { font-weight: 700; color: var(--mc-ink); }
+.mc-enc-tier { margin-left: auto; font-size: 11px; font-weight: 700; }
+.mc-enc-tier.mc-enc-enc { color: var(--mc-gold); }
+.mc-enc-tier.mc-enc-heavy { color: #e0913f; }
+.mc-enc-tier.mc-enc-over { color: #e2584a; }
+.mc-enc-bar { position: relative; height: 8px; border-radius: 6px; background: var(--mc-panel); border: 1px solid var(--mc-edge); overflow: hidden; }
+.mc-enc-fill { height: 100%; background: #4f7d5a; transition: width .2s ease; }
+.mc-enc-bar.mc-enc-enc .mc-enc-fill { background: var(--mc-gold); }
+.mc-enc-bar.mc-enc-heavy .mc-enc-fill { background: #e0913f; }
+.mc-enc-bar.mc-enc-over .mc-enc-fill { background: #e2584a; }
+.mc-enc-stop { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(236,229,214,.3); }
 .mc-inv { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 /* Uniform row height so the toggle column lines up; content centered (the main
    is a div now, so this centers rather than top-aligns). */
