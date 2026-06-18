@@ -1271,7 +1271,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const assigned = (!selfTarget && this.#assignedTargets.length)
       ? this.#assignedTargets.slice(0, maxTargets) : [];
     this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets,
-      hasAttack: activity.type === "attack", group: this.#econGroup(activity),
+      hasAttack: activity.type === "attack", isCast: activity.type === "cast",
+      group: this.#econGroup(activity),
       candidates: selfTarget ? [] : null, selected: new Set(assigned), adv: "normal",
       assignedByDM: assigned.length ? this.#assignedBy : null,
       busy: false, phase: "pick", requestId: null, hit: null, attackTotal: null,
@@ -1368,6 +1369,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const midiOptions = {};
     if (s.adv === "advantage") midiOptions.advantage = true;
     if (s.adv === "disadvantage") midiOptions.disadvantage = true;
+    // Item-cast activities (e.g. Staff of Healing → Cure Wounds) spawn a workflow
+    // for the LINKED spell, whose uuids don't match what we sent — so the parked-
+    // workflow scan can't find it and the heal/damage roll would orphan on the
+    // executor (charge spent, nothing applied). Auto-resolve those on the executor
+    // instead: the effect applies + the charge consumes in one tap, no roll step.
+    if (s.isCast) { midiOptions.autoRollDamage = "always"; midiOptions.fastForwardDamage = true; }
     let res;
     try {
       res = await this.#withTimeout(rpc.useActivityStart({
