@@ -211,7 +211,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
     return `
       <header class="mc-header">
-        <img class="mc-portrait" src="${img}" alt="" data-action="show-image">
+        <img class="mc-portrait" src="${img}" alt="" data-action="show-image" data-detail="bio" title="Tap for image · hold for bio">
         <div class="mc-id">
           <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}<span class="mc-name-text" data-detail="character">${foundry.utils.escapeHTML(actor.name)}</span></div>
           <div class="mc-stats">
@@ -1918,6 +1918,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#movePickerOpen = false; // and a collapsed travel-type picker
     const { uuid, itemId, detail } = el.dataset;
     if (detail === "character") return this.#showCharacterDetails();
+    if (detail === "bio") return this.#showBioDetails();
     if (detail === "cond") return this.#showEffectDetails(el.dataset.effectId);
     if (detail === "status") return this.#showStatusDetails(el.dataset.status);
     if (detail === "skill") return this.#showCheckDetails("skill", el.dataset.skill);
@@ -2097,6 +2098,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const raw = CONFIG.Token?.movement?.actions?.[key]?.label;
     const loc = raw ? game.i18n.localize(raw) : "";
     return loc && !loc.includes("TOKEN.MOVEMENT") ? loc : key.charAt(0).toUpperCase() + key.slice(1);
+  }
+  // Biography card (long-press the portrait; tap still opens the image): the
+  // actor's (enriched) biography. Public bio falls back to the GM bio.
+  async #showBioDetails() {
+    const a = this.actor; if (!a) return;
+    const bio = a.system?.details?.biography ?? {};
+    const raw = bio.value || bio.public || "";
+    let desc = raw;
+    try {
+      const TE = foundry.applications?.ux?.TextEditor?.implementation ?? globalThis.TextEditor;
+      desc = await TE.enrichHTML(raw, { relativeTo: a, secrets: false });
+    } catch (e) { /* keep raw */ }
+    this.#detailStack = [];
+    this.#detailCard = { name: a.name, img: a.img || "icons/svg/mystery-man.svg", subtitle: "Biography", desc: desc || "<em>No biography.</em>", favId: null, isFav: false };
+    this.render();
   }
   // Character summary card (long-press the name): level/race/class line, an
   // ability-score grid (modifier + score, save-proficient abilities flagged),
