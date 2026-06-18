@@ -1880,7 +1880,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Linked refs aren't the actor's own item, so no favorite toggle (favId null).
     // removeEffectId is set only when a condition chip opened its rules page → the
     // card still offers "Remove condition".
-    this.#detailCard = { name: doc.name ?? "Reference", img: doc.img || "icons/svg/book.svg", subtitle, desc, favId: null, isFav: false, removeEffectId };
+    this.#detailCard = { name: doc.name ?? "Reference", img: doc.img || "icons/svg/book.svg", subtitle, meta: doc.system ? this.#itemMeta(doc) : "", desc, favId: null, isFav: false, removeEffectId };
     this.render();
   }
   #onPointerDown = (ev) => {
@@ -1943,8 +1943,37 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const favType = activity ? "activity" : "item";
     const favId = rel ? (activity ? `${rel}.Activity.${activity.id}` : rel) : null;
     const isFav = favId ? !!this.actor?.system?.hasFavorite?.(favId) : false;
-    this.#detailCard = { name: item.name, img: item.img || "icons/svg/item-bag.svg", subtitle: this.#itemSubtitle(item), desc, favType, favId, isFav };
+    this.#detailCard = { name: item.name, img: item.img || "icons/svg/item-bag.svg", subtitle: this.#itemSubtitle(item), meta: this.#itemMeta(item), desc, favType, favId, isFav };
     this.render();
+  }
+  // Compact mechanical stats line for the detail-card head, built from dnd5e's own
+  // prepared `item.labels` (mirror Foundry, not reimplemented): spell time/range/
+  // duration/components, weapon damage/reach/properties, else activation/target/range.
+  #itemMeta(item) {
+    const sys = item?.system ?? {}, L = item?.labels ?? {};
+    const props = sys.properties ?? new Set();
+    const has = (k) => (props.has ? props.has(k) : Array.isArray(props) && props.includes(k));
+    const parts = [];
+    if (item?.type === "spell") {
+      if (L.activation) parts.push(L.activation);
+      if (L.range) parts.push(L.range);
+      let dur = L.duration || "";
+      if (sys.duration?.concentration) dur = dur ? `Conc., ${dur}` : "Concentration";
+      if (dur) parts.push(dur);
+      const comps = [has("vocal") && "V", has("somatic") && "S", has("material") && "M"].filter(Boolean);
+      if (comps.length) parts.push(comps.join(", "));
+      if (has("ritual")) parts.push("Ritual");
+    } else if (item?.type === "weapon") {
+      if (L.damage) parts.push(`${L.damage}${L.damageTypes ? " " + L.damageTypes : ""}`);
+      const reach = L.range || L.reach; if (reach) parts.push(reach);
+      const wp = Array.isArray(L.properties) ? L.properties.map((p) => p?.label ?? p).filter(Boolean) : [];
+      if (wp.length) parts.push(wp.join(", "));
+    } else {
+      if (L.activation) parts.push(L.activation);
+      if (L.target) parts.push(L.target);
+      if (L.range && L.range !== "Self") parts.push(L.range);
+    }
+    return parts.filter(Boolean).join(" · ");
   }
   // AC breakdown card (long-press the AC stat): mirror dnd5e's AC config — the
   // equipped-armor/base value plus dex/shield/bonus/cover contributions and the
@@ -2136,7 +2165,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <div class="mc-detail">
         <div class="mc-detail-head">
           ${d.glyph ? `<span class="mc-detail-icon mc-detail-glyph"><i class="fas ${d.glyph}"></i></span>` : `<img class="mc-detail-icon" src="${d.img}" alt="">`}
-          ${d.subtitle ? `<span class="mc-detail-sub">${foundry.utils.escapeHTML(d.subtitle)}</span>` : ""}
+          <div class="mc-detail-headtext">
+            ${d.subtitle ? `<span class="mc-detail-sub">${foundry.utils.escapeHTML(d.subtitle)}</span>` : ""}
+            ${d.meta ? `<span class="mc-detail-meta">${foundry.utils.escapeHTML(d.meta)}</span>` : ""}
+          </div>
         </div>
         <div class="mc-detail-desc">${d.desc || "<em>No description.</em>"}</div>
         ${d.removeEffectId ? `<button class="mc-detail-remove" data-action="effect-remove" data-effect-id="${d.removeEffectId}"><i class="fas fa-circle-xmark"></i> Remove condition</button>` : ""}

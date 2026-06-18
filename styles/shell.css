@@ -1421,7 +1421,10 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-detail-head { display: flex; align-items: center; gap: 12px; }
 .mc-detail-icon { width: 56px; height: 56px; flex: 0 0 auto; border-radius: 9px; object-fit: cover; object-position: top; border: 1px solid var(--mc-edge); background: #0c0d11; }
 .mc-detail-glyph { display: flex; align-items: center; justify-content: center; color: var(--mc-gold); font-size: 26px; }
+.mc-detail-headtext { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mc-detail-sub { color: var(--mc-muted); font-size: 13px; text-transform: capitalize; }
+/* Mechanical stats line (spell time/range/components, weapon damage/properties…). */
+.mc-detail-meta { color: var(--mc-ink); font-size: 12px; }
 /* AC (and similar stat) breakdown: a small label→value ledger ending in a bold total. */
 .mc-ac-breakdown { display: flex; flex-direction: column; gap: 2px; }
 .mc-ac-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 2px; border-bottom: 1px solid var(--mc-edge); }
