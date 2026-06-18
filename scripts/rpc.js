@@ -305,7 +305,15 @@ async function findParkedWorkflow(activityUuid, timeoutMs = 4000) {
     const wf = Object.values(globalThis.MidiQOL?.Workflow?.workflows ?? {})
       .find(w => w.activity?.uuid === activityUuid);
     if (wf) {
-      if (wf.currentAction === wf.WorkflowState_WaitForDamageRoll) return wf;
+      // Parked awaiting a manual damage roll. A weapon attack lingers briefly in
+      // WaitForDamageRoll, but midi's WaitForDamageRoll handler (midi-qol.js:26265)
+      // SUSPENDS the workflow when it won't auto-roll, so a no-attack damage spell
+      // (Magic Missile) races straight to WorkflowState_Suspend before we poll —
+      // accept that too (while damage is still pending) or we miss it and midi
+      // falls back to its in-chat DAMAGE card (DM-reported 2026-06-18).
+      const parkedForDamage = wf.currentAction === wf.WorkflowState_WaitForDamageRoll
+        || (wf.currentAction === wf.WorkflowState_Suspend && wf.needsDamage !== false);
+      if (parkedForDamage) return wf;
       if (wf.currentAction === wf.WorkflowState_Completed || wf.currentAction === wf.WorkflowState_Abort) return null;
     }
     await new Promise(r => setTimeout(r, 150));

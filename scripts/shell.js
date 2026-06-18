@@ -539,11 +539,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const prep = sc.preparation ?? {};
       const over = (prep.value ?? 0) > (prep.max ?? 0);
       const isPrimary = !!sc.ability && sc.ability === primaryAbil;
+      // The whole header row is the tap target for "set primary caster" — the
+      // old wand button alone was too small for touch (DM 2026-06-18). A <div>
+      // (clicks via delegation) dodges the iOS Safari <button> flex-centering bug.
       return `<div class="mc-sc-card ${isPrimary ? "mc-primary" : ""}">
-        <div class="mc-sc-head">
+        <div class="mc-sc-head" data-action="set-primary" data-ability="${sc.ability}" role="button" aria-label="Set ${foundry.utils.escapeHTML(cls.name)} as primary caster">
+          <i class="fas fa-wand-sparkles mc-sc-wand"></i>
           <span class="mc-sc-name">${foundry.utils.escapeHTML(cls.name)}</span>
-          ${isPrimary ? `<span class="mc-sc-primary">Primary</span>` : ""}
-          <button class="mc-sc-wand" data-action="set-primary" data-ability="${sc.ability}" title="Set as primary caster" aria-label="Set as primary caster"><i class="fas fa-wand-sparkles"></i></button>
+          ${isPrimary ? `<span class="mc-sc-primary">Primary</span>` : `<span class="mc-sc-setp">Set primary</span>`}
         </div>
         <div class="mc-sc-stats">
           ${stat("Ability", abilMod == null ? "—" : signed(abilMod))}
