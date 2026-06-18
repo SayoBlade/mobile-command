@@ -1013,6 +1013,7 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 /* Spell level header: label left, slot pips pushed to the right. */
 .mc-spell-sub { display: flex; align-items: center; }
 .mc-spell-sub .mc-pips { margin-left: auto; }
+.mc-spell-count { margin-left: 8px; font-size: 11px; font-weight: 600; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
 
 /* Level button next to the name — taps open the class/level/XP panel. A little
    bluish + a drop shadow so it reads as an inviting button, not flat text. */

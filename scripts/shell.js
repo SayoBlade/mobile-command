@@ -535,12 +535,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       byLevel.get(lvl).push(sp);
     }
     const sections = [...byLevel.keys()].sort((a, b) => a - b).map(lvl => {
-      const rows = byLevel.get(lvl).sort((a, b) => a.name.localeCompare(b.name))
-        .map(sp => this.#spellRowHTML(sp)).join("");
+      const lvlSpells = byLevel.get(lvl).sort((a, b) => a.name.localeCompare(b.name));
+      const rows = lvlSpells.map(sp => this.#spellRowHTML(sp)).join("");
       const label = lvl === 0 ? "Cantrips" : `${ordinal(lvl)} level`;
       const slot = spells[`spell${lvl}`];
       const headPips = (lvl >= 1 && (slot?.max ?? 0) > 0) ? pips(slot.value, slot.max) : "";
-      return `<div class="mc-actions-sub mc-spell-sub">${label}${headPips}</div><div class="mc-spells">${rows}</div>`;
+      // Learned count near the header — prepared/known for prepared casters at this
+      // level, else just the number known (DM 2026-06-19).
+      const known = lvlSpells.length;
+      const isPrep = lvl >= 1 && lvlSpells.some(sp => sp.system.preparation?.mode === "prepared");
+      const preparedN = lvlSpells.filter(sp => { const p = sp.system.preparation ?? {}; return p.prepared || p.mode !== "prepared"; }).length;
+      const countBadge = `<span class="mc-spell-count">${isPrep ? `${preparedN}/${known}` : known}</span>`;
+      return `<div class="mc-actions-sub mc-spell-sub">${label}${countBadge}${headPips}</div><div class="mc-spells">${rows}</div>`;
     }).join("");
 
     return `<div class="mc-actions-head"><span class="mc-section-label">Spells</span></div>
