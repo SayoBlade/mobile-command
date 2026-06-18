@@ -47,6 +47,7 @@ export function initSocket() {
   socket.register("itemUseDamage", handleItemUseDamage);
   socket.register("itemUseCancel", handleItemUseCancel);
   socket.register("moveRequest", handleMoveRequest);
+  socket.register("setMovementAction", handleSetMovementAction);
   socket.register("measure", handleMeasure);
   socket.register("targetsList", handleTargetsList);
   socket.register("previewTargets", handlePreviewTargets);
@@ -448,6 +449,30 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   return { ok: true, x: tokenDoc.x, y: tokenDoc.y };
 }
 
+// Set the token's active movement action (walk/fly/swim/climb/burrow) so the
+// phone's travel-type pick is reflected in Foundry's own movement (the DM/TV
+// ruler, terrain cost). The phone has no canvas, so this must run on the executor.
+async function handleSetMovementAction({ tokenId, action, requesterId }) {
+  const refused = requireExecutor("preflight");
+  if (refused) return refused;
+  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
+
+  const tokenDoc = game.scenes.active.tokens.get(tokenId);
+  if (!tokenDoc) return { ok: false, stage: "resolve", reason: `token not found: ${tokenId}` };
+  if (!requesterCanAct(requesterId, tokenDoc)) {
+    return { ok: false, stage: "permission", reason: "requester does not own the token" };
+  }
+  if (!(action in (CONFIG.Token?.movement?.actions ?? {}))) {
+    return { ok: false, stage: "validate", reason: `unknown movement action: ${action}` };
+  }
+  try {
+    await tokenDoc.update({ movementAction: action });
+  } catch (e) {
+    return { ok: false, stage: "update", reason: e.message };
+  }
+  return { ok: true, action };
+}
+
 async function handleMeasure({ fromTokenId, toTokenId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
@@ -527,7 +552,8 @@ function toExecutor(handler, payload) {
     const handlers = {
       itemUse: handleItemUse, itemUseStart: handleItemUseStart,
       itemUseDamage: handleItemUseDamage, itemUseCancel: handleItemUseCancel,
-      moveRequest: handleMoveRequest, measure: handleMeasure, targetsList: handleTargetsList,
+      moveRequest: handleMoveRequest, setMovementAction: handleSetMovementAction,
+      measure: handleMeasure, targetsList: handleTargetsList,
       previewTargets: handlePreviewTargets, endTurn: handleEndTurn, announceCast: handleAnnounceCast
     };
     return handlers[handler](payload);
@@ -542,6 +568,7 @@ export const api = {
   useActivityDamage: (payload) => toExecutor("itemUseDamage", payload),
   useActivityCancel: (payload) => toExecutor("itemUseCancel", payload),
   moveToken: (payload) => toExecutor("moveRequest", payload),
+  setMovementAction: (payload) => toExecutor("setMovementAction", payload),
   measure: (payload) => toExecutor("measure", payload),
   listTargets: (payload) => toExecutor("targetsList", payload),
   previewTargets: (payload) => toExecutor("previewTargets", payload),

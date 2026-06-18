@@ -1424,6 +1424,13 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-ab-prof { border-color: var(--mc-gold); }
 .mc-ab-prof .mc-ab-k { color: var(--mc-gold); }
 .mc-pc-meta { margin-top: 10px; font-size: 13px; color: var(--mc-muted); text-align: center; }
+/* Travel-type: the active speed is a tappable chip; tapping reveals the picker. */
+.mc-move-active { font: inherit; color: var(--mc-gold); background: transparent; border: 1px solid var(--mc-edge); border-radius: 999px; padding: 4px 12px; min-height: 32px; cursor: pointer; }
+.mc-move-picker { display: flex; flex-direction: column; gap: 6px; margin: 10px auto 0; max-width: 280px; }
+.mc-move-opt { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; font-size: 14px; color: var(--mc-ink); background: #0c0d11; border: 1px solid var(--mc-edge); border-radius: 10px; cursor: pointer; }
+.mc-move-opt.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-move-spd { color: var(--mc-muted); font-variant-numeric: tabular-nums; }
+.mc-move-opt.mc-on .mc-move-spd { color: var(--mc-gold); }
 .mc-pc-bg { margin-top: 4px; font-size: 13px; color: var(--mc-muted); text-align: center; font-style: italic; }
 .mc-detail-desc { font-size: 14px; line-height: 1.5; color: var(--mc-ink); }
 .mc-detail-desc p { margin: 0 0 8px; }

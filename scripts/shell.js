@@ -121,6 +121,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #longPressTimer = null;
   #lpStart = null;      // pointer start position, to abort the press on scroll
   #suppressClick = false; // a long-press fired → swallow the trailing click so the row doesn't also act
+  #moveMode = null;       // chosen travel type (walk/fly/swim/climb/burrow); null → effective default
+  #movePickerOpen = false; // character card: the travel-type picker is expanded
   #collapsedActionGroups = new Set(); // Actions tab: accordion groups the user/use closed
 
   /** The actor this phone controls: assigned character, else first owned character. */
@@ -1630,6 +1632,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       }
       case "move":
         return this.#move(Number(el.dataset.dx), Number(el.dataset.dy));
+      case "move-toggle":
+        this.#movePickerOpen = !this.#movePickerOpen;
+        return this.#showCharacterDetails(); // rebuild the card with the picker open/closed
+      case "move-mode": {
+        this.#moveMode = el.dataset.mode;
+        this.#movePickerOpen = false;
+        // Reflect the travel type on the actual token (DM/TV ruler, terrain cost).
+        // Executor-side; safe to ignore the result on the phone.
+        if (this.originTokenId) Promise.resolve(rpc.setMovementAction({ tokenId: this.originTokenId, action: this.#moveMode })).catch(() => {});
+        return this.#showCharacterDetails();
+      }
       case "end-turn":
         return this.#endTurn();
       case "roll-init":
@@ -1799,6 +1812,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Resolve a detailable row to its Item and show the details card.
   #triggerDetail(el) {
     this.#detailStack = []; // a fresh long-press starts a new drill-down context
+    this.#movePickerOpen = false; // and a collapsed travel-type picker
     const { uuid, itemId, detail } = el.dataset;
     if (detail === "ac") return this.#showACDetails();
     if (detail === "character") return this.#showCharacterDetails();
@@ -1900,6 +1914,26 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#detailCard = { name: e.name, img: e.img || "icons/svg/aura.svg", subtitle: "Condition", desc, favId: null, isFav: false };
     this.render();
   }
+  // Travel speeds the actor actually has (speed > 0), in a sensible order.
+  #movementModes(actor) {
+    const mv = actor?.system?.attributes?.movement ?? {};
+    return ["walk", "fly", "swim", "climb", "burrow"]
+      .filter((k) => Number(mv[k]) > 0)
+      .map((k) => ({ key: k, speed: Number(mv[k]), units: mv.units || "ft" }));
+  }
+  // The effective active travel type: the user's pick if the actor still has it,
+  // else walk (or the only/fastest available mode).
+  #activeMoveMode(actor) {
+    const modes = this.#movementModes(actor);
+    if (!modes.length) return null;
+    if (this.#moveMode && modes.some((m) => m.key === this.#moveMode)) return this.#moveMode;
+    return (modes.find((m) => m.key === "walk") ?? modes[0]).key;
+  }
+  #moveModeLabel(key) {
+    const raw = CONFIG.Token?.movement?.actions?.[key]?.label;
+    const loc = raw ? game.i18n.localize(raw) : "";
+    return loc && !loc.includes("TOKEN.MOVEMENT") ? loc : key.charAt(0).toUpperCase() + key.slice(1);
+  }
   // Character summary card (long-press the name): level/race/class line, an
   // ability-score grid (modifier + score, save-proficient abilities flagged),
   // and a prof/speed/init meta line. Mirrors the top of Foundry's character sheet.
@@ -1920,15 +1954,26 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const subtitle = [lvl ? `Level ${lvl}` : "", race, cls].filter(Boolean).join(" ");
     const abils = Object.entries(s.abilities ?? {}).map(([k, v]) =>
       `<div class="mc-ab${v.proficient ? " mc-ab-prof" : ""}"><span class="mc-ab-k">${k.toUpperCase()}</span><span class="mc-ab-mod">${sign(v.mod ?? 0)}</span><span class="mc-ab-score">${v.value ?? "—"}</span></div>`).join("");
-    const mv = s.attributes?.movement;
-    const meta = [
+    // Speed shows the active travel type (Walk/Fly/…) + its speed, and taps open a
+    // picker of the actor's other modes — selecting one sets it as the travel type.
+    const modes = this.#movementModes(a);
+    const active = this.#activeMoveMode(a);
+    const am = modes.find((m) => m.key === active);
+    const speedBtn = am
+      ? `<button class="mc-move-active" data-action="move-toggle"><i class="fas fa-person-running"></i> ${this.#moveModeLabel(active)} ${am.speed} ${am.units}${modes.length > 1 ? ` <i class="fas fa-caret-${this.#movePickerOpen ? "up" : "down"}"></i>` : ""}</button>`
+      : "";
+    const metaText = [
       `Prof ${sign(s.attributes?.prof ?? 0)}`,
-      mv?.walk != null ? `Speed ${mv.walk} ${mv.units || "ft"}` : "",
       s.attributes?.init?.total != null ? `Init ${sign(s.attributes.init.total)}` : ""
     ].filter(Boolean).join(" · ");
+    const picker = (this.#movePickerOpen && modes.length)
+      ? `<div class="mc-move-picker">${modes.map((m) =>
+          `<button class="mc-move-opt ${m.key === active ? "mc-on" : ""}" data-action="move-mode" data-mode="${m.key}"><span>${this.#moveModeLabel(m.key)}</span><span class="mc-move-spd">${m.speed} ${m.units}</span></button>`).join("")}</div>`
+      : "";
     const bg = a.itemTypes.background?.[0]?.name ?? s.details?.background;
     const desc = `<div class="mc-pc-abils">${abils}</div>
-      <div class="mc-pc-meta">${foundry.utils.escapeHTML(meta)}</div>
+      <div class="mc-pc-meta">${foundry.utils.escapeHTML(metaText)}${metaText && speedBtn ? " · " : ""}${speedBtn}</div>
+      ${picker}
       ${bg ? `<div class="mc-pc-bg">${foundry.utils.escapeHTML(bg)}</div>` : ""}`;
     this.#detailCard = { name: a.name, img: a.img || "icons/svg/mystery-man.svg", subtitle, desc, favId: null, isFav: false };
     this.render();
