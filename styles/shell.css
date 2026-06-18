@@ -823,10 +823,11 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-move-row .mc-dpad-blank { width: 52px; height: 52px; }
 .mc-move-row .mc-dpad-btn i { font-size: 18px; }
 
-/* Favorites container — two vertical stacks so more fit without pushing the
-   movement buttons off-screen. Wraps to extra rows as favorites are added. */
+/* Favorites container — single column so a favorited thing renders with the same
+   full-width row + info as in its source tab (Actions/Spells/Equipment), for
+   uniformity (DM 2026-06-18). */
 .mc-favorites {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex; flex-direction: column;
   gap: 8px; margin-bottom: 16px;
 }
 .mc-fav {
