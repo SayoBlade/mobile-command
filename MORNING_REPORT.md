@@ -1,4 +1,16 @@
-# STATUS — continue here (updated 2026-06-17)
+# STATUS — continue here (updated 2026-06-18)
+
+## 2026-06-18 — combat loop is the open blocker; two quick fixes shipped
+
+DM live-tested and dumped 5 observations (logged in DESIGN §13, 2026-06-18 batch). Status:
+
+- **#1 combat loop (BLOCKER, NOT yet fixed):** weapon → attack-roll popup on the DM; MM → damage/refund box on the DM; nothing reaches the phone. Diagnosed (§14, 2026-06-18): (a) midi force-shows the attack dialog for **thrown/ammo** weapons regardless of fast-forward — likely what the DM hit; test a plain melee weapon (longsword) vs. a dagger to confirm. (b) MM's forced consumption pops the consume/refund box **when out of slots** — long-rest the Wizard FIRST or it's the same masking as before. **Need one data point:** which weapon + the `mobile-command | use start {…parked…}` console line.
+- **#2 native dialog on the phone (DM's desired flow):** investigated — **blocked** (no-canvas Workflow crash / midi has no attacker-roll routing; §14, 2026-06-18). Near-term plan: compute proficiency + adv/dis on the phone and recommend the right button instead of the literal native dialog. Decide after #1.
+- **#3 DM-added items not appearing till reload — ✅ fixed (untested):** id-based actor match + a temporary createItem console diagnostic.
+- **#4 equipment items — ✅ confirmed good by DM.**
+- **#5 action economy out of combat — ✅ fixed (untested):** no cost badges + no drawer auto-close out of combat.
+
+**Next session:** verify #3 (DM adds an item → appears live; check console `createItem … matched:true`) and #5 (out of combat: no ACT/BA/RE badges, drawers stay open after use), then resolve #1 with the data point above.
 
 ## ⚠️ PENDING LIVE TESTS — DM to verify next session (reload ALL clients first)
 
