@@ -48,6 +48,7 @@ export function initSocket() {
   socket.register("itemUseCancel", handleItemUseCancel);
   socket.register("moveRequest", handleMoveRequest);
   socket.register("setMovementAction", handleSetMovementAction);
+  socket.register("attackPreview", handleAttackPreview);
   socket.register("measure", handleMeasure);
   socket.register("targetsList", handleTargetsList);
   socket.register("previewTargets", handlePreviewTargets);
@@ -473,6 +474,80 @@ async function handleSetMovementAction({ tokenId, action, requesterId }) {
   return { ok: true, action };
 }
 
+// §14: surface AC5E's adv/dis recommendation for an attack on the phone. The
+// phone can't evaluate it (no canvas/targets — AC5E bails), so the executor asks
+// AC5E directly: set the target(s), fire dnd5e's attack-roll config build (which
+// triggers AC5E's preRollAttackV2 hook → it annotates config.options[ac5e]), read
+// the result, and ABORT the roll (return false) — no dice, no chat. We then
+// normalise to {mode, reasons} for the phone. `raw` is returned for diagnostics
+// while this is verified live on the DM client (hook order / clean abort).
+async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenUuids = [], requesterId }) {
+  const refused = requireExecutor("preflight");
+  if (refused) return refused;
+  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
+
+  const tokenDoc = game.scenes.active.tokens.get(attackerTokenId);
+  if (!tokenDoc) return { ok: false, stage: "resolve", reason: `attacker token not found: ${attackerTokenId}` };
+  if (!requesterCanAct(requesterId, tokenDoc)) {
+    return { ok: false, stage: "permission", reason: "requester does not own the token" };
+  }
+  let activity;
+  try { activity = await fromUuid(activityUuid); } catch (e) { return { ok: false, stage: "resolve", reason: e.message }; }
+  if (!activity?.rollAttack) return { ok: false, stage: "resolve", reason: "activity has no attack roll" };
+
+  const MID = "automated-conditions-5e";
+  if (!game.modules.get(MID)?.active) return { ok: true, mode: "normal", reasons: [], unevaluated: "ac5e-not-active" };
+
+  // Point the executor's targets at the chosen tokens (AC5E reads game.user.targets),
+  // then restore — brief, and the preview is non-committal.
+  const prevTargetIds = Array.from(game.user.targets).map((t) => t.id);
+  const targetIds = [];
+  for (const u of targetTokenUuids) {
+    let td; try { td = await fromUuid(u); } catch (e) { continue; }
+    if (td?.id) targetIds.push(td.id);
+  }
+  try { game.user.updateTokenTargets(targetIds); } catch (e) { /* non-fatal */ }
+
+  let ac5 = null, raw = null;
+  const hookId = Hooks.on("dnd5e.preRollAttackV2", (config) => {
+    try {
+      ac5 = foundry.utils.getProperty(config, `options.${MID}`) ?? config?.[MID] ?? config?.rolls?.[0]?.options?.[MID] ?? null;
+      raw = ac5
+        ? { advantageMode: ac5.advantageMode, defaultButton: ac5.defaultButton,
+            subAdv: ac5.subject?.advantage, subDis: ac5.subject?.disadvantage, subFail: ac5.subject?.fail,
+            oppAdv: ac5.opponent?.advantage, oppDis: ac5.opponent?.disadvantage }
+        : { note: "no ac5e config on roll", optionKeys: Object.keys(config?.options ?? {}) };
+    } catch (e) { raw = { err: e.message }; }
+    return false; // abort the roll — config build already fired AC5E's hook
+  });
+  try { await activity.rollAttack({}, { configure: false }, { create: false }); }
+  catch (e) { /* hook abort can reject — expected */ }
+  finally {
+    Hooks.off("dnd5e.preRollAttackV2", hookId);
+    try { game.user.updateTokenTargets(prevTargetIds); } catch (e) { /* non-fatal */ }
+  }
+
+  if (!ac5) return { ok: true, mode: "normal", reasons: [], unevaluated: "ac5e-did-not-annotate", raw };
+
+  const labelOf = (x) => (typeof x === "string" ? x : (x?.label ?? x?.name ?? x?.id ?? String(x)));
+  const sub = ac5.subject ?? {}, opp = ac5.opponent ?? {};
+  const advN = (sub.advantage?.length || 0) + (opp.advantage?.length || 0);
+  const disN = (sub.disadvantage?.length || 0) + (opp.disadvantage?.length || 0);
+  let mode = "normal";
+  const dbn = String(ac5.defaultButton ?? "").toLowerCase();
+  if (["advantage", "normal", "disadvantage"].includes(dbn)) mode = dbn;
+  else if (ac5.advantageMode === 1) mode = "advantage";
+  else if (ac5.advantageMode === -1) mode = "disadvantage";
+  else if (disN && !advN) mode = "disadvantage";
+  else if (advN && !disN) mode = "advantage";
+  const reasons = [
+    ...((sub.advantage ?? []).concat(opp.advantage ?? [])).map((r) => ({ kind: "adv", label: labelOf(r) })),
+    ...((sub.disadvantage ?? []).concat(opp.disadvantage ?? [])).map((r) => ({ kind: "dis", label: labelOf(r) })),
+    ...((sub.fail ?? [])).map((r) => ({ kind: "fail", label: labelOf(r) })),
+  ];
+  return { ok: true, mode, reasons, raw };
+}
+
 async function handleMeasure({ fromTokenId, toTokenId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
@@ -553,6 +628,7 @@ function toExecutor(handler, payload) {
       itemUse: handleItemUse, itemUseStart: handleItemUseStart,
       itemUseDamage: handleItemUseDamage, itemUseCancel: handleItemUseCancel,
       moveRequest: handleMoveRequest, setMovementAction: handleSetMovementAction,
+      attackPreview: handleAttackPreview,
       measure: handleMeasure, targetsList: handleTargetsList,
       previewTargets: handlePreviewTargets, endTurn: handleEndTurn, announceCast: handleAnnounceCast
     };
@@ -569,6 +645,7 @@ export const api = {
   useActivityCancel: (payload) => toExecutor("itemUseCancel", payload),
   moveToken: (payload) => toExecutor("moveRequest", payload),
   setMovementAction: (payload) => toExecutor("setMovementAction", payload),
+  attackPreview: (payload) => toExecutor("attackPreview", payload),
   measure: (payload) => toExecutor("measure", payload),
   listTargets: (payload) => toExecutor("targetsList", payload),
   previewTargets: (payload) => toExecutor("previewTargets", payload),

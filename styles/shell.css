@@ -181,6 +181,20 @@
   color: #cfd2db; font-size: 13px; font-weight: 600;
 }
 .mc-adv-on { background: #243042; border-color: #2f5d8a; color: #e8e8ec; }
+/* AC5E recommendation (§14): a star on the suggested adv/dis button + a reasons banner. */
+.mc-adv-rec { box-shadow: inset 0 0 0 1px var(--mc-gold); }
+.mc-adv-rec-star { font-size: 9px; color: var(--mc-gold); margin-left: 2px; vertical-align: 1px; }
+.mc-rec { margin: -4px 0 12px; padding: 8px 10px; border-radius: 9px; font-size: 12px; background: #1a1c24; border: 1px solid var(--mc-edge); }
+.mc-rec-pending { color: var(--mc-muted); }
+.mc-rec-advantage { border-color: #3f8a52; }
+.mc-rec-disadvantage { border-color: #8a3f3a; }
+.mc-rec-head { font-weight: 700; margin-bottom: 4px; color: var(--mc-ink); }
+.mc-rec-advantage .mc-rec-head { color: #cdeed4; }
+.mc-rec-disadvantage .mc-rec-head { color: #f2c4be; }
+.mc-rec-reasons { margin: 0; padding-left: 16px; color: var(--mc-muted); }
+.mc-rec-reasons li.mc-rec-adv { color: #9fd4ad; }
+.mc-rec-reasons li.mc-rec-dis { color: #d99b95; }
+.mc-rec-reasons li.mc-rec-fail { color: #d99b95; font-weight: 600; }
 
 .mc-targets { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 .mc-target {

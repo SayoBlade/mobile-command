@@ -1231,8 +1231,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         </button>`;
     }
 
+    const recMode = s.recommendation?.mode;
+    const recOf = (mode) => recMode === mode && recMode !== "normal"; // only flag adv/dis, not "normal"
     const advBtn = (mode, label) =>
-      `<button class="mc-adv ${s.adv === mode ? "mc-adv-on" : ""}" data-action="adv" data-mode="${mode}">${label}</button>`;
+      `<button class="mc-adv ${s.adv === mode ? "mc-adv-on" : ""} ${recOf(mode) ? "mc-adv-rec" : ""}" data-action="adv" data-mode="${mode}">${label}${recOf(mode) ? ' <i class="fas fa-star mc-adv-rec-star"></i>' : ""}</button>`;
+    const rec = s.recommendation;
+    const recBanner = !s.hasAttack ? ""
+      : s.recPending && !rec ? `<div class="mc-rec mc-rec-pending"><i class="fas fa-circle-notch fa-spin"></i> Checking adv/dis…</div>`
+      : rec && rec.reasons?.length
+        ? `<div class="mc-rec mc-rec-${rec.mode}">
+             <div class="mc-rec-head"><i class="fas fa-wand-magic-sparkles"></i> ${rec.mode === "advantage" ? "Advantage" : rec.mode === "disadvantage" ? "Disadvantage" : "Normal"} suggested</div>
+             <ul class="mc-rec-reasons">${rec.reasons.map((r) => `<li class="mc-rec-${r.kind}">${foundry.utils.escapeHTML(r.label)}</li>`).join("")}</ul>
+           </div>`
+        : "";
 
     let body;
     if (s.selfTarget) {
@@ -1281,6 +1292,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>
       ${assignedBanner}
       ${s.hasAttack ? `<div class="mc-adv-row">${advBtn("advantage", "Advantage")}${advBtn("normal", "Normal")}${advBtn("disadvantage", "Disadvantage")}</div>` : ""}
+      ${recBanner}
       <div class="mc-targets">${body}${selfRow}</div>
       <button class="mc-fire ${canFire ? "" : "mc-disabled"}" data-action="fire" ${canFire ? "" : "disabled"}>
         ${s.busy ? "Using…" : "Use"}
@@ -1319,9 +1331,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       candidates: selfTarget ? [] : null, selected: new Set(assigned), adv: "normal",
       assignedByDM: assigned.length ? this.#assignedBy : null,
       busy: false, phase: "pick", requestId: null, hit: null, attackTotal: null,
-      targetError: null };
+      targetError: null, recommendation: null, recPending: false };
     this.render();
-    if (assigned.length) this.#pushPreview(); // reflect the assigned selection on the TV
+    if (assigned.length) { this.#pushPreview(); this.#refreshAttackPreview(); } // reflect the assigned selection on the TV + recommend
     if (!selfTarget) {
       const res = await rpc.listTargets({ forTokenId: this.originTokenId });
       if (this.#actionState?.uuid !== uuid) return; // user navigated away
@@ -1472,6 +1484,30 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     rpc.previewTargets({ tokenUuids: [] });
   }
 
+  // §14: ask the executor for AC5E's adv/dis recommendation for this attack at the
+  // current target(s). Runs there (canvas + targets); the phone can't evaluate it.
+  // Pre-selects the recommended button (player can still override) + lists reasons.
+  async #refreshAttackPreview() {
+    const s = this.#actionState;
+    if (!s || !s.hasAttack) return;
+    const targetTokenUuids = Array.from(s.selected);
+    if (!targetTokenUuids.length) { s.recommendation = null; return; }
+    const token = s.uuid; // capture to detect navigation/target changes mid-flight
+    s.recPending = true;
+    let res;
+    try { res = await rpc.attackPreview({ attackerTokenId: this.originTokenId, activityUuid: s.uuid, targetTokenUuids }); }
+    catch (e) { res = null; }
+    if (this.#actionState !== s || s.uuid !== token) return; // navigated away
+    s.recPending = false;
+    if (res?.ok) {
+      s.recommendation = { mode: res.mode ?? "normal", reasons: res.reasons ?? [], unevaluated: res.unevaluated ?? null };
+      if (["advantage", "normal", "disadvantage"].includes(res.mode)) s.adv = res.mode; // pre-select; overridable
+    } else {
+      s.recommendation = null;
+    }
+    this.render();
+  }
+
   // Step 2 of the two-tap: trigger the held workflow's damage roll.
   async #rollDamage() {
     const s = this.#actionState;
@@ -1592,6 +1628,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         else if (s.selected.size < s.maxTargets) s.selected.add(uuid);
         else if (s.maxTargets === 1) { s.selected.clear(); s.selected.add(uuid); } // single-target: tap to swap
         this.#pushPreview(); // B9: commit the target to the canvas/TV on tap
+        this.#refreshAttackPreview(); // §14: ask the executor for AC5E's recommendation
         return this.render();
       }
       case "assigned-change":
