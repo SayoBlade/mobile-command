@@ -1535,6 +1535,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "detail-close":
         this.#detailCard = null;
         return this.render();
+      case "detail-fav": {
+        const d = this.#detailCard;
+        if (!d?.favId) return;
+        if (d.isFav) actor?.system.removeFavorite?.(d.favId);
+        else actor?.system.addFavorite?.({ type: d.favType, id: d.favId });
+        d.isFav = !d.isFav; // optimistic; the updateActor hook re-renders with the saved state
+        return this.render();
+      }
       case "roll-damage":
         return this.#rollDamage();
       case "adv":
@@ -1733,14 +1741,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Resolve a detailable row to its Item and show the details card.
   #triggerDetail(el) {
     const { uuid, itemId } = el.dataset;
-    let item = null;
-    if (uuid) { const doc = fromUuidSync(uuid, { relative: this.actor }); item = doc?.item ?? doc; }
+    let item = null, activity = null;
+    if (uuid) { const doc = fromUuidSync(uuid, { relative: this.actor }); if (doc?.item) { activity = doc; item = doc.item; } else item = doc; }
     else if (itemId) item = this.actor?.items.get(itemId);
-    if (item?.system) this.#showDetails(item);
+    if (item?.system) this.#showDetails(item, activity);
   }
   // Full details card (long-press v1): mirror Foundry's item card — name, a short
   // subtitle, and the (enriched) item description. Async because enrichHTML is.
-  async #showDetails(item) {
+  async #showDetails(item, activity = null) {
     const sys = item.system ?? {};
     const raw = sys.description?.value || "";
     let desc = raw;
@@ -1748,7 +1756,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const TE = foundry.applications?.ux?.TextEditor?.implementation ?? globalThis.TextEditor;
       desc = await TE.enrichHTML(raw, { relativeTo: item, secrets: false });
     } catch (e) { desc = raw; /* fall back to the raw HTML if enrichment is unavailable */ }
-    this.#detailCard = { name: item.name, img: item.img || "icons/svg/item-bag.svg", subtitle: this.#itemSubtitle(item), desc };
+    // Favorite descriptor: the activity if one was long-pressed (matches the Actions
+    // bookmark), else the bare item — so the card's ★ adds/removes the same entry.
+    const rel = item.getRelativeUUID?.(this.actor);
+    const favType = activity ? "activity" : "item";
+    const favId = rel ? (activity ? `${rel}.Activity.${activity.id}` : rel) : null;
+    const isFav = favId ? !!this.actor?.system?.hasFavorite?.(favId) : false;
+    this.#detailCard = { name: item.name, img: item.img || "icons/svg/item-bag.svg", subtitle: this.#itemSubtitle(item), desc, favType, favId, isFav };
     this.render();
   }
   // Short type/level/rarity line under the name.
@@ -1769,6 +1783,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return `<div class="mc-picker-head">
         <button class="mc-back mc-picker-x" data-action="detail-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
         <span class="mc-picker-title">${foundry.utils.escapeHTML(d.name)}</span>
+        ${d.favId ? `<button class="mc-detail-fav ${d.isFav ? "mc-on" : ""}" data-action="detail-fav" aria-label="${d.isFav ? "Unfavorite" : "Favorite"}" title="${d.isFav ? "Remove from favorites" : "Add to favorites"}"><i class="fas fa-bookmark"></i></button>` : ""}
       </div>
       <div class="mc-detail">
         <div class="mc-detail-head">

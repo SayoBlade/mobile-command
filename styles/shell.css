@@ -1411,3 +1411,6 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-detail-desc td, .mc-detail-desc th { border: 1px solid var(--mc-edge); padding: 3px 6px; }
 .mc-detail-desc a { color: var(--mc-gold); }
 .mc-detail-desc img { max-width: 100%; height: auto; border-radius: 6px; }
+/* ★ favorite toggle in the details-card header (gold when favorited). */
+.mc-detail-fav { margin-left: auto; background: none; border: none; color: var(--mc-muted); font-size: 18px; padding: 4px 10px; line-height: 1; }
+.mc-detail-fav.mc-on { color: var(--mc-gold); }
