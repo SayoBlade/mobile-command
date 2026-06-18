@@ -183,9 +183,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const isEconEffect = (e) => e.changes?.some?.(c => c.key?.startsWith("flags.midi-qol.actions"));
     const econ = this.#actionEconomy(actor);
     const actionChip = (econ.inCombat && !econ.action) ? `<span class="mc-chip mc-chip-used">Action used</span>` : "";
-    const condsHTML = effects.map(e =>
-      `<span class="mc-chip${isEconEffect(e) ? " mc-chip-used" : ""}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}</span>`
-    ).join("");
+    // A real condition (not an econ "used" effect) whose dnd5e config carries a
+    // rules reference → long-pressable for an in-shell rules card (#triggerDetail).
+    const condRef = (e) => {
+      for (const id of (e.statuses ?? [])) if (CONFIG.DND5E?.conditionTypes?.[id]?.reference) return id;
+      return null;
+    };
+    const condsHTML = effects.map(e => {
+      const refId = isEconEffect(e) ? null : condRef(e);
+      const ref = refId ? ` data-detail="cond" data-cond="${refId}"` : "";
+      return `<span class="mc-chip${isEconEffect(e) ? " mc-chip-used" : ""}"${ref}>${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}</span>`;
+    }).join("");
     const condHTML = (actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
 
     // B7: HP & temp are tap-to-edit. Tapping opens a roomy editor row with
@@ -1737,7 +1745,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     ev.stopPropagation();
     this.#openLinkDetails(link.dataset.uuid);
   };
-  async #openLinkDetails(uuid) {
+  async #openLinkDetails(uuid, subtitleOverride = null) {
     let doc; try { doc = await fromUuid(uuid); } catch (e) { return; }
     if (!doc) return;
     const raw = doc.system?.description?.value ?? doc.text?.content ?? "";
@@ -1746,7 +1754,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const TE = foundry.applications?.ux?.TextEditor?.implementation ?? globalThis.TextEditor;
       desc = await TE.enrichHTML(raw, { relativeTo: doc, secrets: false });
     } catch (e) { desc = raw; }
-    const subtitle = doc.system ? this.#itemSubtitle(doc) : (doc.documentName === "JournalEntryPage" ? "Reference" : "");
+    const subtitle = subtitleOverride ?? (doc.system ? this.#itemSubtitle(doc) : (doc.documentName === "JournalEntryPage" ? "Reference" : ""));
     // Linked refs aren't the actor's own item, so no favorite toggle (favId null).
     this.#detailCard = { name: doc.name ?? "Reference", img: doc.img || "icons/svg/book.svg", subtitle, desc, favId: null, isFav: false };
     this.render();
@@ -1780,6 +1788,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const { uuid, itemId, detail } = el.dataset;
     if (detail === "ac") return this.#showACDetails();
     if (detail === "character") return this.#showCharacterDetails();
+    if (detail === "cond") {
+      const ref = CONFIG.DND5E?.conditionTypes?.[el.dataset.cond]?.reference;
+      if (ref) this.#openLinkDetails(ref, "Condition");
+      return;
+    }
     let item = null, activity = null;
     if (uuid) { const doc = fromUuidSync(uuid, { relative: this.actor }); if (doc?.item) { activity = doc; item = doc.item; } else item = doc; }
     else if (itemId) item = this.actor?.items.get(itemId);
