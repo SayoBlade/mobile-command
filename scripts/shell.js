@@ -683,8 +683,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const cur = actor.system?.currency;
     if (!cur) return "";
     const order = Object.keys(CONFIG.DND5E?.currencies ?? { pp: 1, gp: 1, ep: 1, sp: 1, cp: 1 });
+    // Tap-to-edit: each coin is a numeric input (mobile numpad); writes the new
+    // amount to system.currency.<k> on blur/Enter (#onChange). DM 2026-06-18.
     const chips = order.map(k =>
-      `<span class="mc-coin mc-coin-${k}"><span class="mc-coin-amt">${cur[k] ?? 0}</span><span class="mc-coin-label">${k}</span></span>`).join("");
+      `<label class="mc-coin mc-coin-${k}"><input class="mc-coin-input" type="number" inputmode="numeric" min="0" step="1" data-coin="${k}" value="${cur[k] ?? 0}" aria-label="${k}"><span class="mc-coin-label">${k}</span></label>`).join("");
     return `<div class="mc-currency">${chips}</div>`;
   }
 
@@ -1693,7 +1695,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // actionable row → its full details card (#showDetails). Move/up/cancel abort.
       ["pointerdown", this.#onPointerDown], ["pointermove", this.#onPointerMove],
       ["pointerup", this.#cancelLongPress], ["pointercancel", this.#cancelLongPress],
-      ["pointerleave", this.#cancelLongPress], ["contextmenu", this.#onContextMenu]
+      ["pointerleave", this.#cancelLongPress], ["contextmenu", this.#onContextMenu],
+      ["change", this.#onChange], // currency inputs save on blur/commit
+      ["focusin", this.#onFocusIn] // select a coin's value on focus → typing replaces it
     ];
     for (const [type, fn] of pairs) { root.removeEventListener(type, fn); root.addEventListener(type, fn); }
   }
@@ -1779,9 +1783,27 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Enter = Set absolute; Escape = cancel. The −/+/Set buttons are the
   // primary, keyboard-independent path.
   #onKeydown = (ev) => {
+    if (ev.target.matches?.(".mc-coin-input")) {
+      if (ev.key === "Enter") { ev.preventDefault(); ev.target.blur(); } // commit → #onChange
+      return;
+    }
     if (!ev.target.matches?.(".mc-stat-input")) return;
     if (ev.key === "Enter") { ev.preventDefault(); this.#applyStat(0); }
     else if (ev.key === "Escape") { this.#editingField = null; this.render(); }
+  };
+
+  // Currency tap-to-edit: write the new coin amount on blur/Enter. A non-negative
+  // integer; the updateActor hook re-renders the row with the saved value.
+  #onChange = (ev) => {
+    const inp = ev.target;
+    if (!inp?.classList?.contains?.("mc-coin-input")) return;
+    const k = inp.dataset.coin;
+    const v = Math.max(0, Math.floor(Number(inp.value) || 0));
+    if (k) this.actor?.update({ [`system.currency.${k}`]: v });
+  };
+  // Select a coin's current amount on focus so typing replaces it (no manual clear).
+  #onFocusIn = (ev) => {
+    if (ev.target?.classList?.contains?.("mc-coin-input")) ev.target.select?.();
   };
 
   // --- roll-result surface (read-only) -------------------------------------

@@ -1209,12 +1209,21 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
    equip/attune toggles. */
 .mc-currency { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
 .mc-coin {
-  display: inline-flex; align-items: baseline; gap: 3px;
+  display: inline-flex; align-items: center; gap: 3px;
   padding: 4px 9px; border-radius: 8px; background: var(--mc-panel); border: 1px solid var(--mc-edge);
   font-size: 15px; font-weight: 700;
 }
+.mc-coin:focus-within { border-color: var(--mc-gold); }
 .mc-coin-label { font-size: 10px; text-transform: uppercase; color: var(--mc-muted); }
-.mc-coin-gp .mc-coin-amt { color: var(--mc-gold); }
+/* Editable coin amount (tap → numpad). Strip the native number spinners so it
+   reads like the old static amount until focused. */
+.mc-coin-input {
+  width: 3.2em; padding: 0; border: none; background: transparent; color: var(--mc-ink);
+  font: inherit; font-weight: 700; text-align: right; -moz-appearance: textfield;
+}
+.mc-coin-input::-webkit-outer-spin-button,
+.mc-coin-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.mc-coin-gp .mc-coin-input { color: var(--mc-gold); }
 /* Encumbrance bar (only shown when the dnd5e encumbrance variant is enabled). */
 .mc-enc { margin: 0 0 14px; }
 .mc-enc-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; font-size: 13px; }
