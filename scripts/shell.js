@@ -728,6 +728,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${open}
         <img class="mc-inv-icon" src="${img}" alt="">
         <span class="mc-inv-name">${foundry.utils.escapeHTML(item.name)}${qty > 1 ? `<span class="mc-inv-qty">×${qty}</span>` : ""}</span>
+        ${this.#usesBadge(item)}
         ${chev}
       </div>
       ${toggles}
