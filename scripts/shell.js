@@ -207,7 +207,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <header class="mc-header">
         <img class="mc-portrait" src="${img}" alt="" data-action="show-image">
         <div class="mc-id">
-          <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}<span class="mc-name-text">${foundry.utils.escapeHTML(actor.name)}</span></div>
+          <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}<span class="mc-name-text" data-detail="character">${foundry.utils.escapeHTML(actor.name)}</span></div>
           <div class="mc-stats">
             ${hpBtn}${tempBtn}
             <span class="mc-stat mc-stat-acwrap" data-detail="ac"><span class="mc-ac-frame" title="Armor Class"><i class="fas fa-shield"></i>${ac}</span></span>
@@ -1779,6 +1779,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #triggerDetail(el) {
     const { uuid, itemId, detail } = el.dataset;
     if (detail === "ac") return this.#showACDetails();
+    if (detail === "character") return this.#showCharacterDetails();
     let item = null, activity = null;
     if (uuid) { const doc = fromUuidSync(uuid, { relative: this.actor }); if (doc?.item) { activity = doc; item = doc.item; } else item = doc; }
     else if (itemId) item = this.actor?.items.get(itemId);
@@ -1822,6 +1823,39 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const desc = `<div class="mc-ac-breakdown">${list}
       <div class="mc-ac-row mc-ac-total"><span class="mc-ac-k">Total</span><span class="mc-ac-v">${ac.value ?? "—"}</span></div></div>`;
     this.#detailCard = { name: "Armor Class", glyph: "fa-shield-halved", subtitle: ac.label || "", desc, favId: null, isFav: false };
+    this.render();
+  }
+  // Character summary card (long-press the name): level/race/class line, an
+  // ability-score grid (modifier + score, save-proficient abilities flagged),
+  // and a prof/speed/init meta line. Mirrors the top of Foundry's character sheet.
+  #showCharacterDetails() {
+    const a = this.actor; if (!a) return;
+    const s = a.system ?? {};
+    const sign = (n) => (n >= 0 ? `+${n}` : `${n}`);
+    const subs = a.itemTypes.subclass ?? [];
+    const classes = a.itemTypes.class ?? [];
+    const multiclass = classes.length > 1; // per-class level only helps when multiclassed
+    const cls = classes.map((c) => {
+      const sub = subs.find((x) => x.system?.classIdentifier === c.system?.identifier)?.name
+        || ((classes.length === 1 && subs.length === 1) ? subs[0].name : c.system?.subclass);
+      return `${c.name}${multiclass && c.system?.levels ? ` ${c.system.levels}` : ""}${sub ? ` (${sub})` : ""}`;
+    }).join(" / ");
+    const race = a.itemTypes.race?.[0]?.name ?? s.details?.race ?? "";
+    const lvl = s.details?.level;
+    const subtitle = [lvl ? `Level ${lvl}` : "", race, cls].filter(Boolean).join(" ");
+    const abils = Object.entries(s.abilities ?? {}).map(([k, v]) =>
+      `<div class="mc-ab${v.proficient ? " mc-ab-prof" : ""}"><span class="mc-ab-k">${k.toUpperCase()}</span><span class="mc-ab-mod">${sign(v.mod ?? 0)}</span><span class="mc-ab-score">${v.value ?? "—"}</span></div>`).join("");
+    const mv = s.attributes?.movement;
+    const meta = [
+      `Prof ${sign(s.attributes?.prof ?? 0)}`,
+      mv?.walk != null ? `Speed ${mv.walk} ${mv.units || "ft"}` : "",
+      s.attributes?.init?.total != null ? `Init ${sign(s.attributes.init.total)}` : ""
+    ].filter(Boolean).join(" · ");
+    const bg = a.itemTypes.background?.[0]?.name ?? s.details?.background;
+    const desc = `<div class="mc-pc-abils">${abils}</div>
+      <div class="mc-pc-meta">${foundry.utils.escapeHTML(meta)}</div>
+      ${bg ? `<div class="mc-pc-bg">${foundry.utils.escapeHTML(bg)}</div>` : ""}`;
+    this.#detailCard = { name: a.name, img: a.img || "icons/svg/mystery-man.svg", subtitle, desc, favId: null, isFav: false };
     this.render();
   }
   // Short type/level/rarity line under the name.

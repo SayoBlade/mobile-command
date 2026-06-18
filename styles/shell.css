@@ -1413,6 +1413,16 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-ac-row .mc-ac-v { color: var(--mc-muted); font-variant-numeric: tabular-nums; }
 .mc-ac-total { border-bottom: none; margin-top: 2px; font-weight: 700; }
 .mc-ac-total .mc-ac-k, .mc-ac-total .mc-ac-v { color: var(--mc-gold); font-size: 16px; }
+/* Character summary: ability grid (3×2) + a prof/speed/init meta line + background. */
+.mc-pc-abils { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.mc-ab { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 4px; border: 1px solid var(--mc-edge); border-radius: 9px; background: #0c0d11; }
+.mc-ab-k { font-size: 11px; letter-spacing: 0.08em; color: var(--mc-muted); }
+.mc-ab-mod { font-size: 20px; font-weight: 700; color: var(--mc-ink); font-variant-numeric: tabular-nums; }
+.mc-ab-score { font-size: 12px; color: var(--mc-muted); }
+.mc-ab-prof { border-color: var(--mc-gold); }
+.mc-ab-prof .mc-ab-k { color: var(--mc-gold); }
+.mc-pc-meta { margin-top: 10px; font-size: 13px; color: var(--mc-muted); text-align: center; }
+.mc-pc-bg { margin-top: 4px; font-size: 13px; color: var(--mc-muted); text-align: center; font-style: italic; }
 .mc-detail-desc { font-size: 14px; line-height: 1.5; color: var(--mc-ink); }
 .mc-detail-desc p { margin: 0 0 8px; }
 .mc-detail-desc ul, .mc-detail-desc ol { margin: 0 0 8px; padding-left: 20px; }
