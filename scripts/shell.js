@@ -216,7 +216,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}<span class="mc-name-text" data-detail="character">${foundry.utils.escapeHTML(actor.name)}</span></div>
           <div class="mc-stats">
             ${hpBtn}${tempBtn}
-            <span class="mc-stat mc-stat-acwrap" data-detail="ac"><span class="mc-ac-frame" title="Armor Class"><i class="fas fa-shield"></i>${ac}</span></span>
+            <button class="mc-stat mc-stat-tap mc-stat-acwrap" data-action="ac-detail" title="Armor Class — tap for breakdown"><span class="mc-ac-frame"><i class="fas fa-shield"></i>${ac}</span></button>
             <button class="mc-insp ${insp ? "mc-insp-on" : ""}" data-action="toggle-insp" title="Inspiration">★</button>
           </div>
         </div>
@@ -987,7 +987,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const conditions = (CONFIG.statusEffects ?? []).filter(s => s.id && s.id !== conc && s.id !== "exhaustion");
     const cells = conditions.map(s => {
       const on = active?.has?.(s.id);
-      return `<button class="mc-cond-opt ${on ? "mc-on" : ""}" data-action="cond-toggle" data-status="${s.id}">
+      return `<button class="mc-cond-opt ${on ? "mc-on" : ""}" data-action="cond-toggle" data-status="${s.id}" data-detail="status">
         ${s.img ? `<img class="mc-cond-opt-icon" src="${s.img}" alt="">` : ""}
         <span class="mc-cond-opt-name">${foundry.utils.escapeHTML(s.name)}</span>
       </button>`;
@@ -1006,7 +1006,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     </div>`;
     return `<div class="mc-cond-panel">
       <div class="mc-cond-panel-head">
-        <span>Conditions — tap to toggle</span>
+        <span>Conditions — tap to toggle, hold for details</span>
         <button class="mc-cond-close" data-action="cond-edit" aria-label="Close"><i class="fas fa-xmark"></i></button>
       </div>
       ${breakRow}
@@ -1551,6 +1551,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "action-back":
         this.#abandonAction();
         return this.render();
+      case "ac-detail":
+        // AC opens its breakdown on a tap (it has no other tap action) rather than
+        // long-press — DM preference, and more discoverable for a bare stat.
+        return this.#showACDetails();
       case "detail-close":
         // Drill-down back: pop to the previous card if we navigated into a link,
         // else close the card entirely back to the sheet.
@@ -1827,9 +1831,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#detailStack = []; // a fresh long-press starts a new drill-down context
     this.#movePickerOpen = false; // and a collapsed travel-type picker
     const { uuid, itemId, detail } = el.dataset;
-    if (detail === "ac") return this.#showACDetails();
     if (detail === "character") return this.#showCharacterDetails();
     if (detail === "cond") return this.#showEffectDetails(el.dataset.effectId);
+    if (detail === "status") return this.#showStatusDetails(el.dataset.status);
     if (detail === "skill") return this.#showCheckDetails("skill", el.dataset.skill);
     if (detail === "tool") return this.#showCheckDetails("tool", el.dataset.tool);
     let item = null, activity = null;
@@ -1860,6 +1864,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // equipped-armor/base value plus dex/shield/bonus/cover contributions and the
   // total. Calc-agnostic: shows whatever components the prepared `ac` carries.
   #showACDetails() {
+    this.#detailStack = []; // tap-entry → a clean top-level card
     const ac = this.actor?.system?.attributes?.ac ?? {};
     const sign = (n) => (n >= 0 ? `+${n}` : `${n}`);
     const rows = [];
@@ -1925,6 +1930,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     if (this.#detailCard) this.#detailStack.push(this.#detailCard);
     this.#detailCard = { name: e.name, img: e.img || "icons/svg/aura.svg", subtitle: "Condition", desc, favId: null, isFav: false, removeEffectId: e.id };
+    this.render();
+  }
+  // Condition detail by status id (long-press a palette cell, which may not be on
+  // the actor): if it IS active, show its effect card (rules + Remove); otherwise
+  // just its rules page, else a minimal card from the status config.
+  #showStatusDetails(statusId) {
+    const eff = this.actor?.effects?.find((e) => e.statuses?.has?.(statusId));
+    if (eff) return this.#showEffectDetails(eff.id);
+    const ref = CONFIG.DND5E?.conditionTypes?.[statusId]?.reference
+      || (CONFIG.statusEffects ?? []).find((s) => s.id === statusId)?.reference;
+    if (ref) return this.#openLinkDetails(ref, "Condition");
+    const cfg = (CONFIG.statusEffects ?? []).find((s) => s.id === statusId);
+    this.#detailCard = { name: cfg?.name ?? statusId, img: cfg?.img || "icons/svg/aura.svg", subtitle: "Condition", desc: "<em>No description.</em>", favId: null, isFav: false };
     this.render();
   }
   // Travel speeds the actor actually has (speed > 0), in a sensible order.
