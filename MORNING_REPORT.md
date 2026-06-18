@@ -1,5 +1,16 @@
 # STATUS — continue here (updated 2026-06-18)
 
+## 2026-06-18 (later) — long-press detail suite shipped (AC / character / conditions)
+
+Autonomous run on top of the verified combat-loop fix. All built **and verified live** by CC driving the Player-1 client (via the Chrome plugin), exercised through the `contextmenu` path (= the desktop long-press equivalent). Pushed.
+
+- **In-shell content links** (`3763ffd`) — `@UUID` links in a detail card (a spell inside an item, a condition in rules text) now open in the shell's own card, never a native Foundry window. Kills the journal-lockup that needed a restart.
+- **Long-press AC** (`9b8f9ef`) — AC breakdown card (equipped-armor/base + dex/shield/bonus/cover → total).
+- **Long-press the name** (`54c8e4d`) — character summary (level/race/class + ability grid + prof/speed/init).
+- **Long-press a condition chip** (`9de3121`) — its rules in-shell.
+
+**DM test items added below** (real-device touch-hold timing is the one thing CC's `contextmenu` path didn't exercise). Next candidates if continuing: long-press portrait↔token image popup (or confirm tap-on-portrait is enough), favorite/unfavorite as a long-press context action, drill-into-subcategories.
+
 ## 2026-06-18 — combat loop is the open blocker; two quick fixes shipped
 
 DM live-tested and dumped 5 observations (logged in DESIGN §13, 2026-06-18 batch). Status:
@@ -16,6 +27,7 @@ DM live-tested and dumped 5 observations (logged in DESIGN §13, 2026-06-18 batc
 
 Built but unverified, in rough priority. Test one at a time, stop on first failure, note what you saw + the DM/phone console lines.
 
+0. **Long-press detail suite on a real phone** (NEW 2026-06-18) — CC verified the logic via `contextmenu`; verify the **touch-hold (~500ms) gesture** itself fires on iOS without also triggering the row's tap action. Check each: (a) long-press an Actions/Spells/Equipment row → description card; (b) long-press the **AC** → breakdown; (c) long-press the **name** → character summary; (d) long-press a **condition chip** → rules card; (e) inside a card, tap a spell/condition **link** → it drills in-shell, no native window, no lockup; (f) the X closes back to the sheet, and a normal tap on those rows still does the normal action (no accidental double-fire).
 1. **Save/reaction prompt on the phone** — ✅ confirmed reaching the phone (2026-06-17). Re-verify the polish: the prompt now **closes once the save rolls** (however rolled), and after an AoE the **caster is deselected** on the DM so monster saves roll faster. Watch: does the saving token still get left selected on the DM after the player rolls? (If so it's midi selecting it, not placeCast — report it.)
 2. **Magic Missile** — fix v2 (2026-06-18). `findParkedWorkflow` now gates on `wf.suspended` (midi keeps `currentAction` at WaitForDamageRoll and just sets `suspended`, midi-qol.js:25981) + matches by item uuid. **BUT the live test was run with the Wizard out of 1st-level slots** ("no available spell slots" in the damage dialog) — with forced consumption that pops a config dialog on the DM and never cleanly parks, masking the fix. **Verify: long-rest the Wizard (restore slots) FIRST, then cast MM** → phone shows "Roll damage" → tap rolls all darts. Re-check a weapon attack still two-taps. **Side note (forced consumption):** casting a spell/item with no resource now surfaces a consume dialog on the DM (a consequence of enforcing resources, §6.2) — could be surfaced to the phone as "no slots" instead if the DM prefers.
 3. **Resource consumption** (just fixed). Use the **Staff of Healing** → its charges drop per activity, no DM dialog; cast a **slot spell** → slot deducts; use at **0 charges** → midi's consume dialog appears on the DM (no free spell).
