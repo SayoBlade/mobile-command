@@ -1,5 +1,5 @@
 import { MODULE_ID, SAVE_TIMEOUT_SETTING } from "./preset.js";
-import { makeRevertMenuClass } from "./enforcer.js";
+import { makeConfirmMenuClass, deactivate, reactivate, hasBackup, hasReactivateSnapshot } from "./enforcer.js";
 
 export function registerSettings() {
   // D7 role, per-client. Phase 1 uses it only to decide which client runs
@@ -69,32 +69,54 @@ export function registerSettings() {
     default: true
   });
 
-  // Snapshot of the midi-qol/dnd5e values from before the preset was first applied,
-  // so the module's changes can be reverted (Foundry won't do it on disable).
-  game.settings.register(MODULE_ID, "presetBackup", {
-    scope: "world",
-    config: false,
-    type: Object,
-    default: {}
-  });
+  // Comprehensive snapshots so the module's changes can be reverted/reactivated
+  // (Foundry won't revert them on disable). presetBackup = original pre-module state;
+  // reactivateSnapshot = the module-active state captured when you revert.
+  game.settings.register(MODULE_ID, "presetBackup", { scope: "world", config: false, type: Object, default: {} });
+  game.settings.register(MODULE_ID, "reactivateSnapshot", { scope: "world", config: false, type: Object, default: {} });
 
-  // A "Revert mobile-command settings" button in the module config — run it before
-  // disabling the module to restore your original midi-qol/dnd5e settings. Guarded:
-  // a base-class hiccup here must never break module load.
+  // Two buttons in the module config: "Remove Mobile Command & revert" (snapshots the
+  // current state for reactivation, then restores your original settings) and
+  // "Reactivate". Guarded — a base-class hiccup must never break module load.
   try {
-    const RevertMenu = makeRevertMenuClass();
-    if (RevertMenu) {
-      game.settings.registerMenu(MODULE_ID, "revertPreset", {
-        name: "Revert mobile-command settings",
-        label: "Revert to backup",
-        hint: "Restore the midi-qol / dnd5e settings mobile-command changed to the values from before it was applied. Run this BEFORE disabling the module — Foundry does not revert them automatically.",
+    const DeactivateMenu = makeConfirmMenuClass(() => ({
+      title: "Remove Mobile Command & revert settings",
+      content: `<p><strong>This reverts the midi-qol / dnd5e settings to the snapshot from before Mobile Command was first applied.</strong></p>
+        <p>First it snapshots your <em>current</em> settings so you can <b>Reactivate Mobile Command</b> later. It does <em>not</em> uninstall the module — disable or remove it from <b>Manage Modules</b> afterward.</p>
+        <p>${hasBackup() ? "✓ An original backup exists." : "<strong>⚠ No original backup found</strong> — apply the preset at least once first, or there's nothing to revert to."}</p>`,
+      yesLabel: "Revert now",
+      icon: "fas fa-rotate-left",
+      action: deactivate
+    }));
+    const ReactivateMenu = makeConfirmMenuClass(() => ({
+      title: "Reactivate Mobile Command",
+      content: `<p>Restore the Mobile Command settings ${hasReactivateSnapshot() ? "from the snapshot taken when you last reverted." : "by re-applying the preset (no prior active snapshot found)."}</p>`,
+      yesLabel: "Reactivate",
+      icon: "fas fa-rotate-right",
+      action: reactivate
+    }));
+    if (DeactivateMenu) {
+      game.settings.registerMenu(MODULE_ID, "deactivate", {
+        name: "Remove Mobile Command & revert",
+        label: "Remove & revert settings",
+        hint: "Restore midi-qol / dnd5e settings to the snapshot from before Mobile Command was applied (snapshots the current state first so you can Reactivate). Run before disabling the module.",
         icon: "fas fa-rotate-left",
-        type: RevertMenu,
+        type: DeactivateMenu,
+        restricted: true
+      });
+    }
+    if (ReactivateMenu) {
+      game.settings.registerMenu(MODULE_ID, "reactivate", {
+        name: "Reactivate Mobile Command",
+        label: "Reactivate Mobile Command",
+        hint: "Re-apply the Mobile Command settings (restores the snapshot taken at the last revert, else re-applies the preset).",
+        icon: "fas fa-rotate-right",
+        type: ReactivateMenu,
         restricted: true
       });
     }
   } catch (e) {
-    console.warn(`${MODULE_ID} | could not register the revert-settings menu (use MobileCommand.enforcer.revert() instead)`, e);
+    console.warn(`${MODULE_ID} | could not register the deactivate/reactivate menus (use MobileCommand.enforcer.deactivate()/reactivate())`, e);
   }
 }
 

@@ -1,6 +1,6 @@
 import { MODULE_ID } from "./preset.js";
 import { registerSettings, resolveExecutorId, isExecutor } from "./settings.js";
-import { diffPreset, applyPreset, checkAndPrompt, revertPreset, hasBackup } from "./enforcer.js";
+import { diffPreset, applyPreset, checkAndPrompt, deactivate, reactivate, hasBackup } from "./enforcer.js";
 import { initSocket, startHeartbeat, registerSaveRelay, api } from "./rpc.js";
 import { initPauseGuard } from "./pause-guard.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient, isDisplayClient } from "./shell.js";
@@ -177,7 +177,7 @@ Hooks.once("ready", () => {
 
   globalThis.MobileCommand = {
     ...api,
-    enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, revert: revertPreset, hasBackup },
+    enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, deactivate, reactivate, revert: deactivate, hasBackup },
     openShell,
     closeShell,
     frameParty: framePartyTokens,        // local canvas only

@@ -8,47 +8,89 @@ import { MODULE_ID, midiPresetEntries, standaloneSettingsPreset } from "./preset
 // changes when the module is disabled/removed. So we snapshot the pre-module values
 // of every preset key the FIRST time the preset is applied, and expose a Revert that
 // restores them. Run Revert before disabling mobile-command to get your settings back.
-const BACKUP_KEY = "presetBackup";
+const BACKUP_KEY = "presetBackup";            // ORIGINAL, pre-mobile-command settings (first apply)
+const REACTIVATE_KEY = "reactivateSnapshot";  // mobile-command-ACTIVE settings (taken when reverting)
 
+// A COMPREHENSIVE snapshot of everything the module can change: the WHOLE midi-qol
+// ConfigSettings object (not just the preset keys) plus the standalone midi/dnd5e
+// settings. So a restore is complete, not key-by-key. (Those are the only mods the
+// module modifies — it reads AC5E etc. but never writes their settings.)
+function snapshotCurrentSettings() {
+  let midiConfig = null;
+  try { midiConfig = foundry.utils.deepClone(game.settings.get("midi-qol", "ConfigSettings") ?? {}); } catch (e) { /* midi not present */ }
+  const standalone = {};
+  for (const { namespace, key } of standaloneSettingsPreset()) {
+    try { standalone[`${namespace}.${key}`] = game.settings.get(namespace, key); } catch (e) { /* not registered */ }
+  }
+  return { at: Date.now(), midiConfig, standalone };
+}
+
+async function restoreSnapshot(snap) {
+  if (!snap?.at && !snap?.captured) return false; // (captured = legacy snapshots)
+  if (snap.midiConfig) {
+    try { await game.settings.set("midi-qol", "ConfigSettings", foundry.utils.deepClone(snap.midiConfig)); }
+    catch (e) { console.warn("mobile-command | could not restore midi ConfigSettings", e); }
+  } else if (snap.midi) { // legacy: per-path patch into the live ConfigSettings
+    try {
+      const cfg = game.settings.get("midi-qol", "ConfigSettings");
+      for (const [path, value] of Object.entries(snap.midi)) foundry.utils.setProperty(cfg, path, value);
+      await game.settings.set("midi-qol", "ConfigSettings", cfg);
+    } catch (e) { console.warn("mobile-command | could not restore legacy midi paths", e); }
+  }
+  for (const [nk, value] of Object.entries(snap.standalone ?? snap.settings ?? {})) {
+    if (value === undefined) continue;
+    const dot = nk.indexOf(".");
+    try { await game.settings.set(nk.slice(0, dot), nk.slice(dot + 1), value); }
+    catch (e) { console.warn(`mobile-command | could not restore ${nk}`, e); }
+  }
+  return true;
+}
+
+// Snapshot the ORIGINAL (pre-module) settings the first time the preset is applied.
 export function captureBackup() {
   if (!game.user?.isGM) return null;
   const existing = game.settings.get(MODULE_ID, BACKUP_KEY);
-  if (existing?.captured) return existing; // keep the ORIGINAL (don't overwrite on re-apply)
-  const midiCfg = game.settings.get("midi-qol", "ConfigSettings") ?? {};
-  const midi = {};
-  for (const path of Object.keys(midiPresetEntries())) midi[path] = foundry.utils.getProperty(midiCfg, path) ?? null;
-  const settings = {};
-  for (const { namespace, key } of standaloneSettingsPreset()) {
-    try { settings[`${namespace}.${key}`] = game.settings.get(namespace, key); } catch (e) { /* setting not registered */ }
-  }
-  const backup = { captured: Date.now(), midi, settings };
-  game.settings.set(MODULE_ID, BACKUP_KEY, backup);
-  return backup;
+  if (existing?.at || existing?.captured) return existing; // keep the true original (incl. legacy); never overwrite
+  const snap = snapshotCurrentSettings();
+  game.settings.set(MODULE_ID, BACKUP_KEY, snap);
+  return snap;
 }
 
-export function hasBackup() {
-  return !!game.settings.get(MODULE_ID, BACKUP_KEY)?.captured;
-}
+export function hasBackup() { const b = game.settings.get(MODULE_ID, BACKUP_KEY); return !!(b?.at || b?.captured); }
+export function hasReactivateSnapshot() { return !!game.settings.get(MODULE_ID, REACTIVATE_KEY)?.at; }
 
-export async function revertPreset() {
-  if (!game.user?.isGM) throw new Error("mobile-command | revertPreset requires a GM user");
-  const backup = game.settings.get(MODULE_ID, BACKUP_KEY);
-  if (!backup?.captured) {
-    ui.notifications.warn("mobile-command | no settings backup found — nothing to revert (the preset was never applied through this module).");
+// "Remove Mobile Command & revert": snapshot the CURRENT (module-active) settings so
+// they can be reactivated later, THEN restore the original pre-module snapshot. Does
+// everything except uninstall — disable/remove the module from Manage Modules after.
+export async function deactivate() {
+  if (!game.user?.isGM) throw new Error("mobile-command | deactivate requires a GM user");
+  const original = game.settings.get(MODULE_ID, BACKUP_KEY);
+  if (!original?.at) {
+    ui.notifications.warn("mobile-command | no original backup found — apply the preset at least once first; there's nothing to revert to.");
     return false;
   }
-  const cfg = game.settings.get("midi-qol", "ConfigSettings");
-  for (const [path, value] of Object.entries(backup.midi ?? {})) foundry.utils.setProperty(cfg, path, value);
-  await game.settings.set("midi-qol", "ConfigSettings", cfg);
-  for (const [nk, value] of Object.entries(backup.settings ?? {})) {
-    const dot = nk.indexOf(".");
-    const namespace = nk.slice(0, dot), key = nk.slice(dot + 1);
-    try { await game.settings.set(namespace, key, value); } catch (e) { console.warn(`mobile-command | could not revert ${nk}`, e); }
-  }
-  await game.settings.set(MODULE_ID, BACKUP_KEY, {}); // clear so a later apply re-snapshots a fresh original
-  ui.notifications.info("mobile-command | reverted midi-qol / dnd5e settings to the pre-module backup. Safe to disable the module now.");
+  await game.settings.set(MODULE_ID, REACTIVATE_KEY, snapshotCurrentSettings()); // so Reactivate can bring the config back
+  await restoreSnapshot(original);
+  ui.notifications.info("mobile-command | reverted to your pre-module settings. You can disable/remove the module now — use 'Reactivate Mobile Command' to restore its config.");
   return true;
 }
+
+// "Reactivate Mobile Command": restore the module-active snapshot taken at the last
+// revert (else just re-apply the preset).
+export async function reactivate() {
+  if (!game.user?.isGM) throw new Error("mobile-command | reactivate requires a GM user");
+  const snap = game.settings.get(MODULE_ID, REACTIVATE_KEY);
+  if (snap?.at) {
+    await restoreSnapshot(snap);
+    ui.notifications.info("mobile-command | reactivated — restored the mobile-command settings.");
+    return true;
+  }
+  await applyPreset();
+  ui.notifications.info("mobile-command | applied the mobile-command preset.");
+  return true;
+}
+
+export const revertPreset = deactivate; // back-compat alias
 
 export function diffPreset() {
   const drift = [];
@@ -92,28 +134,25 @@ export async function applyPreset(drift = null) {
   return diffPreset();
 }
 
-// A settings-menu button (registered in settings.js) that confirms + reverts. Run
-// it BEFORE disabling the module — Foundry won't restore world settings on disable.
-export function revertPresetWithConfirm() {
-  return foundry.applications.api.DialogV2.confirm({
-    window: { title: "Mobile Command — revert settings" },
-    content: `<p>Restore the midi-qol / dnd5e settings mobile-command changed back to the values saved before it was first applied?</p>
-      <p>${hasBackup() ? "A backup was found." : "<strong>No backup found</strong> — the preset hasn't been applied through this module, so there's nothing to revert."}</p>`,
-    yes: { label: "Revert", icon: "fas fa-rotate-left" },
-    no: { label: "Cancel" },
-    modal: true,
-    rejectClose: false
-  }).then((ok) => (ok ? revertPreset() : false));
-}
-
-// Minimal settings-menu wrapper: clicking the menu button runs the confirm above
-// instead of opening a form of its own. FormApplication is deprecated in v14 but
-// still supported through v16; registration is guarded in settings.js.
-export function makeRevertMenuClass() {
+// Generic settings-menu wrapper: clicking the menu button shows a confirm (built by
+// buildConfig()) and runs its action — no form of its own. FormApplication is
+// deprecated in v14 but supported through v16; registration is guarded in settings.js.
+export function makeConfirmMenuClass(buildConfig) {
   const Base = globalThis.FormApplication ?? foundry.appv1?.api?.FormApplication;
   if (!Base) return null;
-  return class RevertPresetMenu extends Base {
-    render() { revertPresetWithConfirm(); return this; }
+  return class extends Base {
+    render() {
+      const cfg = buildConfig();
+      foundry.applications.api.DialogV2.confirm({
+        window: { title: cfg.title },
+        content: cfg.content,
+        yes: { label: cfg.yesLabel ?? "Confirm", icon: cfg.icon },
+        no: { label: "Cancel" },
+        modal: true,
+        rejectClose: false
+      }).then((ok) => { if (ok) return cfg.action(); }).catch(() => {});
+      return this;
+    }
     async _updateObject() {}
   };
 }
