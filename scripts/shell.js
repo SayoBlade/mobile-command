@@ -2093,7 +2093,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   async #move(dx, dy) {
     const note = this.element?.querySelector('[data-role="move-note"]');
     const res = await rpc.moveToken({ tokenId: this.originTokenId, dxGrid: dx, dyGrid: dy });
-    if (note) note.textContent = res?.ok ? "" : (res?.reason ?? "can't move there");
+    if (!note) return;
+    // Blocked → red reason. In combat on your turn → "used / speed ft" coloured
+    // green (within speed) / yellow (within dash) / red (beyond), like the drag
+    // ruler. Out of combat → blank (no turn budget to show).
+    if (!res?.ok) { note.textContent = res?.reason ?? "can't move there"; note.className = "mc-move-note mc-move-red"; return; }
+    if (res.speed) { note.textContent = `${res.used} / ${res.speed} ft`; note.className = `mc-move-note mc-move-${res.color}`; }
+    else { note.textContent = ""; note.className = "mc-move-note"; }
   }
 
   async #endTurn() {

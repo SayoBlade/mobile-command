@@ -426,6 +426,18 @@ function handleItemUseCancel({ requestId }) {
   return { ok: true };
 }
 
+// Movement budget: ft each token has used on its CURRENT turn, so the phone can
+// colour the D-pad readout green/yellow/red like the canvas drag ruler. Executor
+// only (moves + grid measurement happen here). A token's budget resets when its
+// turn begins; the whole map clears on combat start/end.
+const turnMove = new Map(); // tokenId -> ft used this turn
+Hooks.on("updateCombat", (combat, changed) => {
+  if (!isExecutor()) return;
+  if (("turn" in changed) || ("round" in changed)) turnMove.delete(combat.combatant?.tokenId);
+});
+Hooks.on("combatStart", () => { if (isExecutor()) turnMove.clear(); });
+Hooks.on("deleteCombat", () => { if (isExecutor()) turnMove.clear(); });
+
 async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
@@ -448,7 +460,20 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
     { x: tokenDoc.x + dxGrid * grid, y: tokenDoc.y + dyGrid * grid },
     { animate: false }
   );
-  return { ok: true, x: tokenDoc.x, y: tokenDoc.y };
+
+  // Movement budget — only while it's this token's turn in active combat (the
+  // green/yellow/red cue is a combat concept; out of combat we just move).
+  const onMyTurn = game.combat?.started && game.combat.combatant?.tokenId === tokenId;
+  if (!onMyTurn) return { ok: true, x: tokenDoc.x, y: tokenDoc.y };
+  let step = canvas.scene.grid.distance; // fallback: one square
+  try { step = canvas.grid.measurePath([from, to]).distance ?? step; } catch (e) { /* keep fallback */ }
+  const used = (turnMove.get(tokenId) ?? 0) + step;
+  turnMove.set(tokenId, used);
+  const mv = tokenDoc.actor?.system?.attributes?.movement ?? {};
+  const action = tokenDoc.movementAction ?? "walk";
+  const speed = Number(mv[action] ?? mv.walk ?? 0) || 0;
+  const color = !speed ? "none" : used <= speed ? "green" : used <= speed * 2 ? "yellow" : "red";
+  return { ok: true, x: tokenDoc.x, y: tokenDoc.y, used: Math.round(used), speed, color };
 }
 
 // Set the token's active movement action (walk/fly/swim/climb/burrow) so the

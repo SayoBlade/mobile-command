@@ -539,7 +539,12 @@ body.mc-phone .roll-configuration fieldset {
 }
 .mc-dpad-btn:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
 .mc-dpad-blank { aspect-ratio: 1 / 1; }
-.mc-move-note { text-align: center; color: #e2584a; font-size: 13px; min-height: 1.2em; }
+.mc-move-note { text-align: center; color: var(--mc-muted); font-size: 13px; min-height: 1.2em; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Movement budget on key moves, mirroring the canvas drag ruler: within speed =
+   green, within dash (2×) = yellow, beyond / blocked = red. */
+.mc-move-note.mc-move-green { color: #5bbf6a; }
+.mc-move-note.mc-move-yellow { color: #e0b24a; }
+.mc-move-note.mc-move-red { color: #e2584a; }
 
 /* turn HUD */
 .mc-turnhud { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #1c1922; border-top: 1px solid var(--mc-edge); flex: 0 0 auto; }
