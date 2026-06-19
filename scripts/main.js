@@ -161,6 +161,13 @@ Hooks.once("ready", () => {
     suppressResolutionWarning();
     document.body.classList.add("mc-phone"); // scopes phone-only CSS (e.g. roll-dialog spacing)
     enableSafeAreaInsets(); // so env(safe-area-inset-*) is non-zero on iOS (B1 tab clearance)
+    // Players can't reach the chat roll-mode dropdown from the shell, so pin their
+    // default to PUBLIC — every roll then shows on the shared TV (and in chat).
+    try {
+      if (game.settings.get("core", "rollMode") !== CONST.DICE_ROLL_MODES.PUBLIC) {
+        game.settings.set("core", "rollMode", CONST.DICE_ROLL_MODES.PUBLIC);
+      }
+    } catch (e) { console.warn(`${MODULE_ID} | could not set public roll mode`, e); }
   }
 
   // TV (display role): canvas-only clean view. mc-display marks the role; mc-clean
