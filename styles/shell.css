@@ -15,10 +15,25 @@ body.mc-clean #players, body.mc-clean #players-active, body.mc-clean #players-in
 body.mc-clean #logo, body.mc-clean #camera-views,
 body.mc-clean #notifications, body.mc-clean #chat-notifications,
 body.mc-clean #pause, body.mc-clean #fps, body.mc-clean #tooltip, body.mc-clean #context-menu,
+/* Third-party HUD overlays that aren't .application windows (Action Pack Enhanced
+   renders #ape-app, a bare div appended to the UI — so the .app/.application rule
+   and the render-hook HUD-killer both miss it). */
+body.mc-clean #ape-app, body.mc-clean .enhancedcombathud, body.mc-clean #argon-hud,
 body.mc-clean .app, body.mc-clean .application:not(#mobile-command-shell) {
   display: none !important;
 }
 body.mc-clean #board, body.mc-clean canvas#board { display: block !important; visibility: visible !important; }
+/* Clean-mode escape-hatch hint: a dismissable pill telling the user how to get the
+   UI back. Exempt from the hiding above (custom id), high z, fades after ~60s. */
+#mc-clean-hint {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+  z-index: 100000; padding: 10px 18px; border-radius: 999px; cursor: pointer;
+  background: rgba(18, 19, 24, 0.94); color: #e8e8ec; border: 1px solid #3a3f4b;
+  font-family: "Signika", sans-serif; font-size: 14px; box-shadow: 0 4px 18px rgba(0,0,0,0.55);
+  opacity: 1; transition: opacity 0.8s ease;
+}
+#mc-clean-hint.mc-fade { opacity: 0; }
+#mc-clean-hint kbd { padding: 1px 7px; margin: 0 2px; border: 1px solid #5a5f6b; border-radius: 4px; background: #2a2d36; font-family: monospace; }
 
 #mobile-command-shell {
   position: fixed;

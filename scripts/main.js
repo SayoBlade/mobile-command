@@ -16,7 +16,11 @@ Hooks.once("init", () => {
       name: "Mobile Command: Toggle clean display (TV)",
       hint: "Hide/show all Foundry UI so a shared display shows only the canvas. Use it to reach settings on a display-role client.",
       editable: [{ key: "Backquote" }],
-      onDown: () => { document.body.classList.toggle("mc-clean"); return true; },
+      onDown: () => {
+        const on = document.body.classList.toggle("mc-clean");
+        if (on) showCleanHint(); else hideCleanHint();
+        return true;
+      },
       restricted: false
     });
   } catch (e) {
@@ -63,7 +67,7 @@ Hooks.once("ready", () => {
   // TV (display role): canvas-only clean view. mc-display marks the role; mc-clean
   // hides the chrome (toggle with the keybinding to reach settings). Runtime-only —
   // disabling the module just stops adding these classes, so it auto-reverts.
-  if (isDisplayClient()) document.body.classList.add("mc-display", "mc-clean");
+  if (isDisplayClient()) { document.body.classList.add("mc-display", "mc-clean"); showCleanHint(); }
 
   injectShellStyles(); // load CSS via JS so a plain F5 works without re-reading the manifest
   initSocket(); // idempotent fallback in case socketlib.ready raced or didn't fire
@@ -90,6 +94,30 @@ Hooks.once("ready", () => {
 
   console.log(`${MODULE_ID} | ready — executor: ${resolveExecutorId() ?? "none"} (this client: ${isExecutor()})`);
 });
+
+// Clean-display escape-hatch hint: a dismissable pill telling the user how to get
+// the Foundry UI back, so a display-role client (or anyone who toggled clean mode)
+// isn't stranded. Auto-fades after ~60s; click or the keybinding dismisses it.
+function showCleanHint() {
+  let hint = document.getElementById("mc-clean-hint");
+  if (!hint) {
+    hint = document.createElement("div");
+    hint.id = "mc-clean-hint";
+    hint.innerHTML = `Table display — press <kbd>\`</kbd> for the Foundry UI`;
+    hint.addEventListener("click", () => hint.remove());
+    document.body.appendChild(hint);
+  }
+  hint.classList.remove("mc-fade");
+  clearTimeout(showCleanHint._timer);
+  showCleanHint._timer = setTimeout(() => {
+    hint.classList.add("mc-fade");
+    setTimeout(() => hint.remove(), 900);
+  }, 60000);
+}
+function hideCleanHint() {
+  clearTimeout(showCleanHint._timer);
+  document.getElementById("mc-clean-hint")?.remove();
+}
 
 function enableSafeAreaInsets() {
   // env(safe-area-inset-*) only resolves to non-zero when the viewport opts in
