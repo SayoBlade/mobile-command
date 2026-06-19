@@ -469,10 +469,10 @@ body.mc-phone .roll-configuration fieldset {
    with the AC box (both rows are align-items:center). */
 .mc-name .mc-insp { flex: 0 0 auto; }
 .mc-dtray-btn {
-  margin-left: auto; flex: 0 0 auto;
-  width: 40px; height: 40px; border-radius: 10px;
+  margin-left: auto; flex: 0 0 auto; align-self: center;
+  width: 30px; height: 30px; border-radius: 50%;
   background: #1a1820; border: 1px solid var(--mc-edge); color: var(--mc-gold);
-  font-size: 17px; line-height: 1;
+  font-size: 15px; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
 }
 .mc-dtray-btn.mc-on { color: #1a1410; background: var(--mc-gold); border-color: var(--mc-gold); }
