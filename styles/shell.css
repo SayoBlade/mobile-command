@@ -464,10 +464,12 @@ body.mc-phone .roll-configuration fieldset {
 }
 .mc-insp-on { color: #1a1410; background: var(--mc-gold); border-color: var(--mc-gold); }
 
-/* Header right-side control stack: inspiration (top) + dice-tray D20 (under it). */
-.mc-stat-side { display: flex; flex-direction: column; gap: 6px; margin-left: auto; }
-.mc-stat-side .mc-insp { margin-left: 0; }
+/* Inspiration rides the name row (right-aligned via its own margin-left:auto);
+   the dice-tray D20 rides the stats row, pushed right and vertically centered
+   with the AC box (both rows are align-items:center). */
+.mc-name .mc-insp { flex: 0 0 auto; }
 .mc-dtray-btn {
+  margin-left: auto; flex: 0 0 auto;
   width: 40px; height: 40px; border-radius: 10px;
   background: #1a1820; border: 1px solid var(--mc-edge); color: var(--mc-gold);
   font-size: 17px; line-height: 1;
