@@ -26,7 +26,48 @@ Hooks.once("init", () => {
   } catch (e) {
     console.warn(`${MODULE_ID} | could not register the clean-display keybinding`, e);
   }
+  // "Frame the party" (DM 2026-06-19): pan + zoom the local canvas to fit all PC
+  // tokens. Out of combat nothing auto-frames the TV, so press this on the display
+  // client to recenter on the party (their combined vision is already shown OOC).
+  try {
+    game.keybindings.register(MODULE_ID, "frameParty", {
+      name: "Mobile Command: Frame the party",
+      hint: "Pan/zoom the canvas to fit all player-character tokens. Use it on the TV/display to recenter on the party.",
+      editable: [{ key: "KeyP" }],
+      onDown: () => { framePartyTokens(); return true; },
+      restricted: false
+    });
+  } catch (e) {
+    console.warn(`${MODULE_ID} | could not register the frame-party keybinding`, e);
+  }
 });
+
+// Pan + zoom the local canvas to fit every (visible) player-character token. Used by
+// the "Frame the party" keybinding and exposed as MobileCommand.frameParty().
+function framePartyTokens() {
+  try {
+    if (!canvas?.ready) return false;
+    const toks = (canvas.tokens?.placeables ?? []).filter(
+      (t) => t.actor?.hasPlayerOwner && t.actor?.type === "character" && !t.document?.hidden);
+    if (!toks.length) { ui.notifications?.info?.(`${MODULE_ID} | no party tokens on this scene to frame`); return false; }
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const t of toks) {
+      const w = t.w ?? t.width ?? 0, h = t.h ?? t.height ?? 0;
+      minX = Math.min(minX, t.x); minY = Math.min(minY, t.y);
+      maxX = Math.max(maxX, t.x + w); maxY = Math.max(maxY, t.y + h);
+    }
+    const pad = (canvas.grid?.size ?? 100) * 2;
+    const worldW = (maxX - minX) + pad * 2, worldH = (maxY - minY) + pad * 2;
+    const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
+    const fit = Math.min(screenW / worldW, screenH / worldH);
+    const scale = Math.max(0.1, Math.min(fit, CONFIG.Canvas?.maxZoom ?? 3, 1.2)); // never over-zoom a tight group
+    canvas.animatePan({ x: (minX + maxX) / 2, y: (minY + maxY) / 2, scale, duration: 400 });
+    return true;
+  } catch (e) {
+    console.warn(`${MODULE_ID} | framePartyTokens failed`, e);
+    return false;
+  }
+}
 
 Hooks.once("setup", () => {
   // D2: phones run canvasless. The canvas draws on world entry — AFTER setup,
@@ -82,6 +123,7 @@ Hooks.once("ready", () => {
     enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, revert: revertPreset, hasBackup },
     openShell,
     closeShell,
+    frameParty: framePartyTokens,
     resolveExecutorId,
     isExecutor
   };
