@@ -1204,6 +1204,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.rendered) this.render();
   }
 
+  // Combat-start cue on the phone: a vibration + Foundry's combat sound, so a
+  // player watching the TV (phone in hand) knows the fight kicked off. Vibration
+  // is Android-only (iOS Safari has no Vibration API → silent no-op) and needs the
+  // app foregrounded; the sound needs audio unlocked (true after the first tap of
+  // the session). Fires for every phone client on combatStart. DM 2026-06-20.
+  alertCombatStart() {
+    if (!isPhoneClient()) return;
+    try { navigator.vibrate?.([180, 70, 180]); } catch (e) { /* unsupported */ }
+    try {
+      const src = CONFIG.sounds?.combat;
+      if (src) foundry.audio.AudioHelper.play({ src, volume: 0.8, autoplay: true, loop: false }, false);
+    } catch (e) { /* audio context may still be locked */ }
+  }
+
   #abilitiesHTML(actor) {
     const abilities = actor.system.abilities ?? {};
     const abilityGrid = ABILITIES.map(a => {
@@ -2762,6 +2776,8 @@ export function registerShellHooks() {
   Hooks.on("createCombatant", onCombat);
   Hooks.on("updateCombatant", onCombat);
   Hooks.on("deleteCombatant", onCombat);
+  // Phone combat-start cue (vibration + Foundry's combat sound).
+  Hooks.on("combatStart", () => shellInstance?.alertCombatStart?.());
 
   // TV vision: monks-common-display focuses the current combatant each turn
   // (control({releaseOthers}), monks-common-display.js:684) so the shared screen
