@@ -1,5 +1,14 @@
 # STATUS — continue here (updated 2026-06-19)
 
+## 🖥️ TV clean-canvas + ⚙️ settings safety (2026-06-19) — UNVERIFIED, reload to load
+
+**TV / shared display = canvas only.** Set the client's role to **Display** (Details → Leave → "This is the TV", or the module's Role setting) → it auto-hides ALL Foundry UI (sidebar, hotbar, controls, nav, players, logo, popups, menus, notifications, tooltips), leaving just the canvas. **Escape hatch:** press the **`` ` ``** (backquote) keybinding on that client to toggle the UI back (to reach settings/exit). Runtime-only — disabling the module self-reverts it. *(The hide targets the common Foundry UI ids; if any chrome leaks on your exact build, press `` ` `` and tell me which element so I can add it.)*
+
+**Does disabling the module revert my settings? — NO, Foundry doesn't do that automatically.** mobile-command only changes midi-qol/dnd5e settings when you click **Apply preset**. As of now it **snapshots your original values** on the first apply, and you revert with either:
+- the **"Revert to backup"** button in *Configure Settings → Mobile Command* (a menu button), or
+- `MobileCommand.enforcer.revert()` in the console / a macro.
+**Run Revert BEFORE disabling the module** to restore your pre-mobile-command midi/dnd5e settings. (The per-client `noCanvas` and the clean-display are runtime-only and revert by themselves.)
+
 ## ⚔️ GAME-DAY READINESS (asked 2026-06-19, game ~2026-06-20)
 
 **Verdict: yes for a useful SUBSET, with the desktop as backup + a dry-run first. Not yet reliable for the fully-automated combat flow.** The DM streams Foundry on TV (Discord), players watch the stream + drive their phones.
