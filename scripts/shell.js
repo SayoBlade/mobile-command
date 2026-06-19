@@ -1073,6 +1073,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // check); Clear resets it. noteRoll (createChatMessage hook) toasts the result.
   }
 
+  // Tap-to-open header/Explore controls toggle: re-tapping the trigger of the
+  // card that's already showing closes it back to the sheet. The detail card
+  // renders in the content area, so the header trigger stays visible above it
+  // (DM 2026-06-19). Identity is the card's `kind` tag (ac / character / travel).
+  #detailCardIs(kind) { return this.#detailCard?.kind === kind; }
+  #closeDetail() { this.#detailCard = null; this.#detailStack = []; this.#dropArmed = null; }
+
   // Class / subclass / level breakdown + XP bar, opened by tapping the Lvl
   // button (a button, not a long-press). This is where class/subclass/level/XP
   // now live — the duplicated rows were removed from the Details tab.
@@ -1732,9 +1739,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "ac-detail":
         // AC opens its breakdown on a tap (it has no other tap action) rather than
         // long-press — DM preference, and more discoverable for a bare stat.
+        // Re-tap closes it (the header AC stays visible above the card).
+        if (this.#detailCardIs("ac")) { this.#closeDetail(); return this.render(); }
         return this.#showACDetails();
       case "show-summary":
         // Tap the name → character summary (long-press the name → biography).
+        // Re-tap closes it.
+        if (this.#detailCardIs("character")) { this.#closeDetail(); return this.render(); }
         return this.#showCharacterDetails();
       case "show-bio": // (still used elsewhere if wired)
         return this.#showBioDetails();
@@ -1869,7 +1880,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "set-primary":
         return actor?.update({ "system.attributes.spellcasting": el.dataset.ability });
       case "show-image":
-        this.#imagePopup = "profile"; return this.render();
+        // Re-tap the portrait to close the image popup.
+        this.#imagePopup = this.#imagePopup ? null : "profile"; return this.render();
       case "img-show":
         this.#imagePopup = el.dataset.which; return this.render();
       case "img-close":
@@ -1889,6 +1901,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#movePickerOpen = !this.#movePickerOpen;
         return this.#showCharacterDetails(); // rebuild the card with the picker open/closed
       case "speed-picker": // Explore Speed → travel chip popup
+        // Re-tap closes the travel card.
+        if (this.#detailCardIs("travel")) { this.#closeDetail(); return this.render(); }
         return this.#showTravelPicker();
       case "move-mode": {
         this.#moveMode = el.dataset.mode;
@@ -2202,7 +2216,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       `<div class="mc-ac-row"><span class="mc-ac-k">${foundry.utils.escapeHTML(String(l))}</span><span class="mc-ac-v">${v}</span></div>`).join("");
     const desc = `<div class="mc-ac-breakdown">${list}
       <div class="mc-ac-row mc-ac-total"><span class="mc-ac-k">Total</span><span class="mc-ac-v">${ac.value ?? "—"}</span></div></div>`;
-    this.#detailCard = { name: "Armor Class", glyph: "fa-shield-halved", subtitle: ac.label || "", desc, favId: null, isFav: false };
+    this.#detailCard = { name: "Armor Class", glyph: "fa-shield-halved", subtitle: ac.label || "", desc, favId: null, isFav: false, kind: "ac" };
     this.render();
   }
   // Skill/tool check card (long-press a row; tap still rolls): governing ability,
