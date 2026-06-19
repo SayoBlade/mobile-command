@@ -153,7 +153,7 @@ function handleAssignTargets({ tokenUuids, fromName }) {
 // Place (placeCast) to drop the template. The caster's activity runs on the
 // executor so the caster's slot deducts and saves fan to targets' phones.
 async function handleAnnounceCast(payload) {
-  if (!isExecutor()) return { ok: false, stage: "route", reason: "not the executor client" };
+  if (!isExecutor()) return { ok: false, stage: "route", reason: "not the DM client" };
   const { activityUuid, casterName, spellName, casterTokenUuid, kind, requesterId } = payload;
   const activity = await fromUuid(activityUuid);
   if (!activity) return { ok: false, stage: "resolve", reason: `activity not found: ${activityUuid}` };
@@ -181,7 +181,7 @@ export async function placeCast(id) {
   const pc = pendingCasts.get(id);
   if (!pc) return { ok: false, reason: "cast expired" };
   if (game.paused) return { ok: false, reason: "game is paused" };
-  if (!onActiveScene()) return { ok: false, reason: "executor is not viewing the active scene" };
+  if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
   const activity = await fromUuid(pc.activityUuid);
   if (!activity) { dismissCast(id); return { ok: false, reason: "spell no longer exists" }; }
 
@@ -214,7 +214,7 @@ export async function placeCast(id) {
 // --- executor-side helpers -------------------------------------------------
 
 function requireExecutor(stage) {
-  if (!isExecutor()) return { ok: false, stage, reason: "not the executor client" };
+  if (!isExecutor()) return { ok: false, stage, reason: "not the DM client" };
   if (game.paused) return { ok: false, stage, reason: "game is paused" };
   return null;
 }
@@ -263,7 +263,7 @@ async function handleItemUse(payload) {
     return { ok: false, stage: "validate", reason: "area-target activity — use the DM template flow" };
   }
   if (!onActiveScene()) {
-    return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
+    return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
   }
 
   // dnd5e usage contract (_prepareUsageConfig): consume===false skips
@@ -341,7 +341,7 @@ async function handleItemUseStart(payload) {
     return { ok: false, stage: "permission", reason: "requester does not own the acting actor" };
   }
   if (activity.target?.template?.type) return { ok: false, stage: "validate", reason: "area-target activity — use the DM template flow" };
-  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
+  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
 
   const hasAttack = activity.type === "attack";
 
@@ -429,7 +429,7 @@ function handleItemUseCancel({ requestId }) {
 async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
-  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
+  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
 
   const tokenDoc = game.scenes.active.tokens.get(tokenId);
   if (!tokenDoc) return { ok: false, stage: "resolve", reason: `token not found: ${tokenId}` };
@@ -457,7 +457,7 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
 async function handleSetMovementAction({ tokenId, action, requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
-  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
+  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
 
   const tokenDoc = game.scenes.active.tokens.get(tokenId);
   if (!tokenDoc) return { ok: false, stage: "resolve", reason: `token not found: ${tokenId}` };
@@ -485,7 +485,7 @@ async function handleSetMovementAction({ tokenId, action, requesterId }) {
 async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenUuids = [], requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
-  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
+  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
 
   const tokenDoc = game.scenes.active.tokens.get(attackerTokenId);
   if (!tokenDoc) return { ok: false, stage: "resolve", reason: `attacker token not found: ${attackerTokenId}` };
@@ -552,7 +552,7 @@ async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenU
 async function handleMeasure({ fromTokenId, toTokenId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
-  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
+  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
 
   const a = canvas.tokens.get(fromTokenId);
   const b = canvas.tokens.get(toTokenId);
@@ -563,7 +563,7 @@ async function handleMeasure({ fromTokenId, toTokenId }) {
 async function handleTargetsList({ forTokenId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
-  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "executor is not viewing the active scene" };
+  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
 
   const origin = canvas.tokens.get(forTokenId);
   if (!origin) return { ok: false, stage: "resolve", reason: `token not found: ${forTokenId}` };
@@ -595,8 +595,8 @@ async function handleTargetsList({ forTokenId }) {
 // list clears. completeActivityUse passes ignoreUserTargets, so these preview
 // targets never interfere with the explicit targetUuids at fire time.
 function handlePreviewTargets({ tokenUuids = [] }) {
-  if (!isExecutor()) return { ok: false, reason: "not the executor" };
-  if (!onActiveScene()) return { ok: false, reason: "executor not on active scene" };
+  if (!isExecutor()) return { ok: false, reason: "not the DM" };
+  if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
   const ids = tokenUuids.map(u => fromUuidSync(u)?.object?.id).filter(Boolean);
   // v14: TokenLayer#setTargets(ids, {mode}) — "replace" sets exactly these and
   // releases the rest; [] clears. (User#updateTokenTargets no longer exists.)
@@ -622,7 +622,7 @@ async function handleEndTurn({ requesterId }) {
 
 function toExecutor(handler, payload) {
   const executorId = resolveExecutorId();
-  if (!executorId) return Promise.resolve({ ok: false, stage: "route", reason: "no active GM/executor client" });
+  if (!executorId) return Promise.resolve({ ok: false, stage: "route", reason: "no active DM (GM) client" });
   payload.requesterId = game.user.id;
   if (game.user.id === executorId) {
     const handlers = {

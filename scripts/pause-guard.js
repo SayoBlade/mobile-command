@@ -21,7 +21,7 @@ function evaluate() {
   if (offScene && !game.paused) {
     pausedByGuard = true;
     game.togglePause(true, { broadcast: true });
-    ui.notifications.info("Mobile Command: paused — executor left the active scene");
+    ui.notifications.info("Mobile Command: paused — DM left the active scene");
   } else if (!offScene && game.paused && pausedByGuard) {
     pausedByGuard = false;
     game.togglePause(false, { broadcast: true });
