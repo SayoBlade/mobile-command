@@ -398,11 +398,19 @@ async function handleItemUseStart(payload) {
   }
   const requestId = foundry.utils.randomID();
   parkedWorkflows.set(requestId, wf);
+  // attackRoll.total is the actual d20 Roll total (what the chat card shows).
+  // Prefer it over wf.attackTotal, which was observed returning a bogus value —
+  // the phone showed -100 while the server's chat card was realistic (DM
+  // 2026-06-20). Instrumented so we can confirm which field was wrong if it recurs.
+  const attackTotal = hasAttack ? (wf.attackRoll?.total ?? wf.attackTotal ?? null) : null;
+  if (hasAttack) console.debug(`${MODULE_ID} | attack total`, {
+    rollTotal: wf.attackRoll?.total, attackTotal: wf.attackTotal, formula: wf.attackRoll?.formula
+  });
   return {
     ok: true, needsDamage: true, requestId, hasAttack,
     itemName: activity.item?.name ?? null,
     hit: hasAttack ? (wf.hitTargets?.size ?? 0) > 0 : null,
-    attackTotal: hasAttack ? (wf.attackTotal ?? wf.attackRoll?.total ?? null) : null
+    attackTotal
   };
 }
 
