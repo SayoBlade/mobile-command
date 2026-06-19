@@ -2279,15 +2279,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const subtitle = [lvl ? `Level ${lvl}` : "", race, cls].filter(Boolean).join(" ");
     const abils = Object.entries(s.abilities ?? {}).map(([k, v]) =>
       `<div class="mc-ab${v.proficient ? " mc-ab-prof" : ""}"><span class="mc-ab-k">${k.toUpperCase()}</span><span class="mc-ab-mod">${sign(v.mod ?? 0)}</span><span class="mc-ab-score">${v.value ?? "—"}</span></div>`).join("");
-    const metaText = [
-      `Prof ${sign(s.attributes?.prof ?? 0)}`,
-      s.attributes?.init?.total != null ? `Init ${sign(s.attributes.init.total)}` : ""
-    ].filter(Boolean).join(" · ");
+    // Prof / Init as their own boxed stat tiles (bigger, with presence) — DM 2026-06-19.
+    const initV = s.attributes?.init?.total;
+    const statTile = (label, val) => `<div class="mc-pc-stat"><span class="mc-pc-stat-label">${label}</span><span class="mc-pc-stat-val">${val}</span></div>`;
+    const pcStats = `<div class="mc-pc-stats">${statTile("Prof", sign(s.attributes?.prof ?? 0))}${initV != null ? statTile("Init", sign(initV)) : ""}</div>`;
     // Travel types as a horizontal single-select chip row (DM 2026-06-19), not a dropdown.
     const chips = this.#travelChipsHTML(a);
     const bg = a.itemTypes.background?.[0]?.name ?? s.details?.background;
     const desc = `<div class="mc-pc-abils">${abils}</div>
-      <div class="mc-pc-meta">${foundry.utils.escapeHTML(metaText)}</div>
+      ${pcStats}
       ${chips ? `<div class="mc-pc-speed-label">Speed</div>${chips}` : ""}
       ${bg ? `<div class="mc-pc-bg">${foundry.utils.escapeHTML(bg)}</div>` : ""}`;
     this.#detailCard = { name: a.name, img: a.img || "icons/svg/mystery-man.svg", subtitle, desc, favId: null, isFav: false, kind: "character" };

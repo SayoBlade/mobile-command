@@ -1,6 +1,25 @@
 /* Mobile Command — Controller Shell (Phase 2, read-only Touch Sheet).
    Full-screen takeover for phone-role clients. Dark, thumb-first. */
 
+/* TV clean-canvas (body.mc-clean): hide ALL Foundry UI so the shared display shows
+   only the canvas — no sidebar, hotbar, controls, nav, players, logo, popups, menus,
+   notifications, tooltips. The canvas (#board) is explicitly kept. Toggle with the
+   "Toggle clean display" keybinding (default: `) to reach settings. The mobile-command
+   shell (#mobile-command-shell) is exempt, so a phone is unaffected. */
+body.mc-clean #ui-top, body.mc-clean #ui-left, body.mc-clean #ui-right, body.mc-clean #ui-bottom,
+body.mc-clean #navigation, body.mc-clean #scene-navigation, body.mc-clean #nav-toggle,
+body.mc-clean #controls, body.mc-clean #scene-controls,
+body.mc-clean #sidebar, body.mc-clean #sidebar-tabs,
+body.mc-clean #hotbar, body.mc-clean #action-bar, body.mc-clean #macro-list,
+body.mc-clean #players, body.mc-clean #players-active, body.mc-clean #players-inactive,
+body.mc-clean #logo, body.mc-clean #camera-views,
+body.mc-clean #notifications, body.mc-clean #chat-notifications,
+body.mc-clean #pause, body.mc-clean #fps, body.mc-clean #tooltip, body.mc-clean #context-menu,
+body.mc-clean .app, body.mc-clean .application:not(#mobile-command-shell) {
+  display: none !important;
+}
+body.mc-clean #board, body.mc-clean canvas#board { display: block !important; visibility: visible !important; }
+
 #mobile-command-shell {
   position: fixed;
   inset: 0;
@@ -869,6 +888,10 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mc-fav-val { flex: 0 0 auto; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+/* When a favorite's only right-side indicator is an x/y (uses), it hugged the name
+   and looked cramped (DM 2026-06-19) — give the right-side badges breathing room. */
+.mc-fav { padding-right: 14px; }
+.mc-fav .mc-pips-num, .mc-fav .mc-pips, .mc-fav .mc-fav-val, .mc-fav .mc-fav-cost { margin-left: 8px; }
 .mc-fav-empty { grid-column: 1 / -1; color: var(--mc-muted); font-size: 13px; padding: 10px 2px; }
 
 /* Actions header bar with a right-aligned favorites-edit (bookmark) toggle. */
@@ -1451,6 +1474,11 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-ab-prof { border-color: var(--mc-gold); }
 .mc-ab-prof .mc-ab-k { color: var(--mc-gold); }
 .mc-pc-meta { margin-top: 10px; font-size: 13px; color: var(--mc-muted); text-align: center; }
+/* Prof / Init: boxed stat tiles with presence (DM 2026-06-19). */
+.mc-pc-stats { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+.mc-pc-stat { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 76px; padding: 7px 16px; border: 1px solid var(--mc-edge); border-radius: 10px; background: #0c0d11; }
+.mc-pc-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--mc-muted); }
+.mc-pc-stat-val { font-size: 22px; font-weight: 800; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
 /* Travel-type: the active speed is a tappable chip; tapping reveals the picker. */
 .mc-move-active { font: inherit; color: var(--mc-gold); background: transparent; border: 1px solid var(--mc-edge); border-radius: 999px; padding: 4px 12px; min-height: 32px; cursor: pointer; }
 .mc-move-picker { display: flex; flex-direction: column; gap: 6px; margin: 10px auto 0; max-width: 280px; }

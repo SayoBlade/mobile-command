@@ -1,4 +1,5 @@
 import { MODULE_ID, SAVE_TIMEOUT_SETTING } from "./preset.js";
+import { makeRevertMenuClass } from "./enforcer.js";
 
 export function registerSettings() {
   // D7 role, per-client. Phase 1 uses it only to decide which client runs
@@ -67,6 +68,34 @@ export function registerSettings() {
     type: Boolean,
     default: true
   });
+
+  // Snapshot of the midi-qol/dnd5e values from before the preset was first applied,
+  // so the module's changes can be reverted (Foundry won't do it on disable).
+  game.settings.register(MODULE_ID, "presetBackup", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {}
+  });
+
+  // A "Revert mobile-command settings" button in the module config — run it before
+  // disabling the module to restore your original midi-qol/dnd5e settings. Guarded:
+  // a base-class hiccup here must never break module load.
+  try {
+    const RevertMenu = makeRevertMenuClass();
+    if (RevertMenu) {
+      game.settings.registerMenu(MODULE_ID, "revertPreset", {
+        name: "Revert mobile-command settings",
+        label: "Revert to backup",
+        hint: "Restore the midi-qol / dnd5e settings mobile-command changed to the values from before it was applied. Run this BEFORE disabling the module — Foundry does not revert them automatically.",
+        icon: "fas fa-rotate-left",
+        type: RevertMenu,
+        restricted: true
+      });
+    }
+  } catch (e) {
+    console.warn(`${MODULE_ID} | could not register the revert-settings menu (use MobileCommand.enforcer.revert() instead)`, e);
+  }
 }
 
 export function resolveExecutorId() {

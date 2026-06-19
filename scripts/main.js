@@ -1,13 +1,27 @@
 import { MODULE_ID } from "./preset.js";
 import { registerSettings, resolveExecutorId, isExecutor } from "./settings.js";
-import { diffPreset, applyPreset, checkAndPrompt } from "./enforcer.js";
+import { diffPreset, applyPreset, checkAndPrompt, revertPreset, hasBackup } from "./enforcer.js";
 import { initSocket, startHeartbeat, registerSaveRelay, api } from "./rpc.js";
 import { initPauseGuard } from "./pause-guard.js";
-import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient } from "./shell.js";
+import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient, isDisplayClient } from "./shell.js";
 import { registerDMPanel } from "./dm-panel.js";
 
 Hooks.once("init", () => {
   registerSettings();
+  // TV clean-canvas toggle (DM 2026-06-19): hide ALL Foundry UI so the shared
+  // display shows only the canvas. Auto-on for the "display" role; this keybinding
+  // toggles it back so the DM can reach settings on the display client (escape hatch).
+  try {
+    game.keybindings.register(MODULE_ID, "toggleCleanDisplay", {
+      name: "Mobile Command: Toggle clean display (TV)",
+      hint: "Hide/show all Foundry UI so a shared display shows only the canvas. Use it to reach settings on a display-role client.",
+      editable: [{ key: "Backquote" }],
+      onDown: () => { document.body.classList.toggle("mc-clean"); return true; },
+      restricted: false
+    });
+  } catch (e) {
+    console.warn(`${MODULE_ID} | could not register the clean-display keybinding`, e);
+  }
 });
 
 Hooks.once("setup", () => {
@@ -46,6 +60,11 @@ Hooks.once("ready", () => {
     enableSafeAreaInsets(); // so env(safe-area-inset-*) is non-zero on iOS (B1 tab clearance)
   }
 
+  // TV (display role): canvas-only clean view. mc-display marks the role; mc-clean
+  // hides the chrome (toggle with the keybinding to reach settings). Runtime-only —
+  // disabling the module just stops adding these classes, so it auto-reverts.
+  if (isDisplayClient()) document.body.classList.add("mc-display", "mc-clean");
+
   injectShellStyles(); // load CSS via JS so a plain F5 works without re-reading the manifest
   initSocket(); // idempotent fallback in case socketlib.ready raced or didn't fire
   initPauseGuard();
@@ -56,7 +75,7 @@ Hooks.once("ready", () => {
 
   globalThis.MobileCommand = {
     ...api,
-    enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt },
+    enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, revert: revertPreset, hasBackup },
     openShell,
     closeShell,
     resolveExecutorId,
