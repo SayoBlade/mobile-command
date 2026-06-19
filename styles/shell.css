@@ -1132,6 +1132,9 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
   font-family: "Signika", sans-serif; box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
 }
 #mc-dm-panel.mc-show { display: block; }
+/* Drag grip — repositions the panel so it doesn't cover other widgets. */
+.mc-dmp-drag { display: flex; align-items: center; justify-content: center; height: 16px; margin: -4px -4px 6px; color: #8a7f63; cursor: move; touch-action: none; }
+.mc-dmp-drag:hover { color: #c8a44d; }
 /* Camera bar (focus party + manual TV control). */
 .mc-dmp-cam { display: flex; gap: 8px; }
 .mc-dmp-cam:not(:last-child) { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }

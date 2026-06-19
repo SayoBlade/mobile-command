@@ -37,8 +37,44 @@ function ensureEl() {
   panelEl = document.createElement("div");
   panelEl.id = "mc-dm-panel";
   panelEl.addEventListener("click", onClick);
+  panelEl.addEventListener("pointerdown", onPointerDown); // drag from the grip handle
   document.body.appendChild(panelEl);
+  applySavedPos(panelEl);
   return panelEl;
+}
+
+// Draggable so it doesn't cover other widgets (DM 2026-06-19). Position is saved
+// per-browser in localStorage and re-applied on load.
+const POS_KEY = "mc-dm-panel-pos";
+function applySavedPos(el) {
+  try {
+    const pos = JSON.parse(window.localStorage.getItem(POS_KEY) || "null");
+    if (pos && Number.isFinite(pos.left) && Number.isFinite(pos.top)) {
+      el.style.left = `${pos.left}px`;
+      el.style.top = `${pos.top}px`;
+      el.style.bottom = "auto";
+    }
+  } catch (e) { /* ignore bad stored value */ }
+}
+function onPointerDown(ev) {
+  if (!ev.target.closest(".mc-dmp-drag")) return;
+  ev.preventDefault();
+  const rect = panelEl.getBoundingClientRect();
+  const offX = ev.clientX - rect.left, offY = ev.clientY - rect.top;
+  const move = (e) => {
+    const left = Math.max(0, Math.min(window.innerWidth - 44, e.clientX - offX));
+    const top = Math.max(0, Math.min(window.innerHeight - 24, e.clientY - offY));
+    panelEl.style.left = `${left}px`;
+    panelEl.style.top = `${top}px`;
+    panelEl.style.bottom = "auto";
+  };
+  const up = () => {
+    document.removeEventListener("pointermove", move);
+    document.removeEventListener("pointerup", up);
+    try { window.localStorage.setItem(POS_KEY, JSON.stringify({ left: parseInt(panelEl.style.left, 10), top: parseInt(panelEl.style.top, 10) })); } catch (e) {}
+  };
+  document.addEventListener("pointermove", move);
+  document.addEventListener("pointerup", up);
 }
 
 /** Always-on camera bar: focus the table display on the party + a manual-drive
@@ -90,8 +126,10 @@ function render() {
   const targets = Array.from(game.user.targets ?? []);
   const pending = listPendingCasts();
   // The camera bar is always present (the DM needs TV control out of combat, with
-  // no targets); targeting/cast sections grow the panel when relevant.
-  el.innerHTML = cameraBarHTML() + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
+  // no targets); targeting/cast sections grow the panel when relevant. A grip at the
+  // top lets the DM drag the panel off other widgets.
+  const grip = `<div class="mc-dmp-drag" title="Drag to move"><i class="fas fa-grip-lines"></i></div>`;
+  el.innerHTML = grip + cameraBarHTML() + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
   el.classList.add("mc-show");
 }
 
