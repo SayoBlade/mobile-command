@@ -1489,7 +1489,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   async #pickAction(uuid) {
     this.#itemPickerId = null; // leaving any multi-activity picker
     const activity = await fromUuid(uuid);
-    if (!activity) return;
+    if (!activity) {
+      console.debug("mobile-command | pickAction: activity not found", { uuid });
+      return ui.notifications.warn("That action couldn't load — try reopening the sheet.");
+    }
+    console.debug("mobile-command | pickAction", {
+      name: activity.item?.name, type: activity.type,
+      template: activity.target?.template?.type ?? null, affects: activity.target?.affects?.type ?? null
+    });
     // AoE push (§11): a no-canvas phone can't place a template, so an area spell
     // asks the DM to place it instead of opening the target picker.
     if (activity.target?.template?.type) return this.#announceCast(activity, "aoe");
@@ -1540,13 +1547,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   async #announceCast(activity, kind = "aoe") {
     const name = activity.item?.name ?? (kind === "summon" ? "summon" : "spell");
     const casterTokenUuid = game.scenes.active?.tokens.get(this.originTokenId)?.uuid ?? null;
-    const res = await rpc.announceCast({
-      activityUuid: activity.uuid,
-      casterName: this.actor?.name,
-      spellName: name,
-      kind,
-      casterTokenUuid
-    });
+    let res;
+    try {
+      res = await rpc.announceCast({
+        activityUuid: activity.uuid,
+        casterName: this.actor?.name,
+        spellName: name,
+        kind,
+        casterTokenUuid
+      });
+    } catch (e) {
+      console.error("mobile-command | announceCast failed", { name, kind, error: e });
+      return ui.notifications.warn(`${name}: couldn't reach the DM (${e?.message ?? "error"}).`);
+    }
     const verb = kind === "summon" ? "summon" : "place";
     if (res?.ok) ui.notifications.info(`Asked the DM to ${verb} ${name}.`);
     else ui.notifications.warn(`${name}: ${res?.reason ?? "could not reach the DM"}`);
