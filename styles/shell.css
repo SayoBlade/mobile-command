@@ -493,10 +493,12 @@ body.mc-phone .roll-configuration fieldset {
 .mc-dtray-formula.mc-empty { color: var(--mc-muted); font-weight: 500; }
 .mc-dtray-dice { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .mc-dtray-die {
-  position: relative; min-width: 52px; min-height: 46px; padding: 8px 10px;
+  position: relative; min-width: 58px; min-height: 46px; padding: 8px 10px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
   border-radius: 9px; font-size: 16px; font-weight: 800; line-height: 1;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink);
 }
+.mc-dtray-die i { font-size: 13px; opacity: .7; }
 .mc-dtray-die.mc-has { border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-dtray-die:active { background: #3a4250; }
 .mc-dtray-n {

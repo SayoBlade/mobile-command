@@ -1034,7 +1034,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const formula = this.#dtrayFormula();
     const dieBtns = DICE.map(f => {
       const n = this.#dtrayPool[f] || 0;
-      return `<button class="mc-dtray-die ${n ? "mc-has" : ""}" data-action="dtray-add" data-faces="${f}">d${f}${n ? `<span class="mc-dtray-n">${n}</span>` : ""}</button>`;
+      return `<button class="mc-dtray-die ${n ? "mc-has" : ""}" data-action="dtray-add" data-faces="${f}"><i class="fas fa-dice-d20"></i>d${f}${n ? `<span class="mc-dtray-n">${n}</span>` : ""}</button>`;
     }).join("");
     const m = this.#dtrayMod;
     return `<div class="mc-dtray">
