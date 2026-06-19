@@ -31,14 +31,21 @@ Hooks.once("init", () => {
   // client to recenter on the party (their combined vision is already shown OOC).
   try {
     game.keybindings.register(MODULE_ID, "frameParty", {
-      name: "Mobile Command: Frame the party",
-      hint: "Pan/zoom the canvas to fit all player-character tokens. Use it on the TV/display to recenter on the party.",
+      name: "Mobile Command: Focus the party",
+      hint: "Frame all player-character tokens here AND on the table display, and return the display to its default camera (Stream Deck-friendly).",
       editable: [{ key: "KeyP" }],
-      onDown: () => { framePartyTokens(); return true; },
+      onDown: () => { focusPartyAll(); return true; },
+      restricted: false
+    });
+    game.keybindings.register(MODULE_ID, "toggleTvManual", {
+      name: "Mobile Command: Toggle manual TV control",
+      hint: "While on, your pan/zoom drives the table display (a spotlight tool). Focus-party turns it back off (Stream Deck-friendly).",
+      editable: [{ key: "KeyM" }],
+      onDown: () => { toggleTvManual(); return true; },
       restricted: false
     });
   } catch (e) {
-    console.warn(`${MODULE_ID} | could not register the frame-party keybinding`, e);
+    console.warn(`${MODULE_ID} | could not register the camera keybindings`, e);
   }
 });
 
@@ -68,6 +75,44 @@ function framePartyTokens() {
     return false;
   }
 }
+
+// --- TV camera remote control (DM 2026-06-19) -------------------------------
+// The DM drives the shared display's camera: "focus party" reframes it, and a
+// "manual" toggle mirrors the DM's own pan/zoom to the display (a spotlight tool
+// for OOC scene-setting). Relayed over Foundry's socket; only display clients act.
+let tvManual = false;   // (display side) currently under manual DM control
+let dmRelaying = false; // (DM side) mirroring our pan/zoom to the display
+let _panTimer = null, _lastPan = 0;
+
+function tvBroadcast(payload) { try { game.socket?.emit(`module.${MODULE_ID}`, payload); } catch (e) { /* socket not ready */ } }
+
+function onTvControl(payload) {
+  if (!payload || typeof payload !== "object" || !isDisplayClient()) return; // only the shared display reacts
+  if (payload.cmd === "frameParty") { tvManual = false; framePartyTokens(); }
+  else if (payload.cmd === "manual") { tvManual = !!payload.on; }
+  else if (payload.cmd === "pan" && tvManual && canvas?.ready) {
+    try { canvas.pan({ x: payload.x, y: payload.y, scale: payload.scale }); } catch (e) { /* pan best-effort */ }
+  }
+}
+
+// Focus the party here AND on the display(s), and end manual mode so the display
+// returns to default (follow the turn in combat / shared party vision out of it).
+function focusPartyAll() {
+  // On the display client this IS the TV → frame here. On the DM client, only drive
+  // the display (the DM keeps their own view — they were zoomed out to click this).
+  if (isDisplayClient()) framePartyTokens();
+  tvBroadcast({ cmd: "frameParty" });
+  if (dmRelaying) setDmRelaying(false);
+}
+
+function setDmRelaying(on) {
+  dmRelaying = !!on;
+  tvBroadcast({ cmd: "manual", on: dmRelaying });
+  Hooks.callAll("mobile-command.tvManualChanged", dmRelaying);
+  ui.notifications?.info?.(`${MODULE_ID} | manual TV control ${dmRelaying ? "ON — your pan/zoom drives the display" : "OFF"}`);
+}
+function toggleTvManual() { setDmRelaying(!dmRelaying); return dmRelaying; }
+function isTvManualActive() { return dmRelaying; }
 
 Hooks.once("setup", () => {
   // D2: phones run canvasless. The canvas draws on world entry — AFTER setup,
@@ -110,6 +155,18 @@ Hooks.once("ready", () => {
   // disabling the module just stops adding these classes, so it auto-reverts.
   if (isDisplayClient()) { document.body.classList.add("mc-display", "mc-clean"); showCleanHint(); }
 
+  // TV camera remote control: receive DM commands (display clients act), and on the
+  // DM side mirror pan/zoom to the display while manual mode is on (throttled — the
+  // canvasPan hook fires rapidly during a drag).
+  game.socket.on(`module.${MODULE_ID}`, onTvControl);
+  Hooks.on("canvasPan", (_c, view) => {
+    if (!dmRelaying || !view) return;
+    const now = Date.now();
+    const send = () => { _lastPan = Date.now(); tvBroadcast({ cmd: "pan", x: view.x, y: view.y, scale: view.scale }); };
+    clearTimeout(_panTimer);
+    if (now - _lastPan > 80) send(); else _panTimer = setTimeout(send, 80 - (now - _lastPan));
+  });
+
   injectShellStyles(); // load CSS via JS so a plain F5 works without re-reading the manifest
   initSocket(); // idempotent fallback in case socketlib.ready raced or didn't fire
   initPauseGuard();
@@ -123,7 +180,10 @@ Hooks.once("ready", () => {
     enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, revert: revertPreset, hasBackup },
     openShell,
     closeShell,
-    frameParty: framePartyTokens,
+    frameParty: framePartyTokens,        // local canvas only
+    focusParty: focusPartyAll,           // here + the display(s) + exit manual
+    toggleTvManual,                      // DM drives the display by panning own view
+    tvManualActive: isTvManualActive,
     resolveExecutorId,
     isExecutor
   };

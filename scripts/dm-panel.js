@@ -41,6 +41,17 @@ function ensureEl() {
   return panelEl;
 }
 
+/** Always-on camera bar: focus the table display on the party + a manual-drive
+ * toggle (the DM's pan/zoom mirrors to the display). Both also have keybindings
+ * (P / M) for a Stream Deck. The manual button lights up while active. */
+function cameraBarHTML() {
+  const manualOn = globalThis.MobileCommand?.tvManualActive?.() ? "mc-active" : "";
+  return `<div class="mc-dmp-cam">
+    <button class="mc-dmp-cam-btn" data-cam="focus" title="Focus the display on the party (P)" aria-label="Focus on party"><i class="fas fa-bullseye"></i></button>
+    <button class="mc-dmp-cam-btn ${manualOn}" data-cam="manual" title="Manual TV control: your pan/zoom drives the display (M)" aria-label="Manual TV control"><i class="fas fa-arrows-up-down-left-right"></i></button>
+  </div>`;
+}
+
 /** AoE-push section: a Place button per pending cast announced from a phone. */
 function pendingHTML(pending) {
   const esc = foundry.utils.escapeHTML;
@@ -78,13 +89,19 @@ function render() {
   const el = ensureEl();
   const targets = Array.from(game.user.targets ?? []);
   const pending = listPendingCasts();
-  if (!targets.length && !pending.length) { el.classList.remove("mc-show"); return; } // sleeps when idle
-
-  el.innerHTML = (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
+  // The camera bar is always present (the DM needs TV control out of combat, with
+  // no targets); targeting/cast sections grow the panel when relevant.
+  el.innerHTML = cameraBarHTML() + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
   el.classList.add("mc-show");
 }
 
 async function onClick(ev) {
+  const cam = ev.target.closest("[data-cam]");
+  if (cam) {
+    if (cam.dataset.cam === "focus") globalThis.MobileCommand?.focusParty?.();
+    else if (cam.dataset.cam === "manual") globalThis.MobileCommand?.toggleTvManual?.();
+    return render();
+  }
   const place = ev.target.closest("[data-place]");
   if (place) {
     const res = await placeCast(place.dataset.place);
@@ -117,5 +134,6 @@ export function registerDMPanel() {
   Hooks.on("updateCombat", () => render());
   Hooks.on("mobile-command.pendingCast", () => render());          // a phone announced an AoE cast
   Hooks.on("mobile-command.pendingCastResolved", () => render());  // placed or dismissed
+  Hooks.on("mobile-command.tvManualChanged", () => render());      // keep the manual button in sync (keybinding toggles too)
   render();
 }

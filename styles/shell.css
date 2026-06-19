@@ -18,7 +18,7 @@ body.mc-clean #pause, body.mc-clean #fps, body.mc-clean #tooltip, body.mc-clean 
 /* Third-party HUD overlays that aren't .application windows (Action Pack Enhanced
    renders #ape-app, a bare div appended to the UI — so the .app/.application rule
    and the render-hook HUD-killer both miss it). */
-body.mc-clean #ape-app, body.mc-clean .enhancedcombathud, body.mc-clean #argon-hud,
+body.mc-clean #ape-app, body.mc-clean .enhancedcombathud, body.mc-clean #argon-hud, body.mc-clean #mc-dm-panel,
 body.mc-clean .app, body.mc-clean .application:not(#mobile-command-shell) {
   display: none !important;
 }
@@ -1132,6 +1132,15 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
   font-family: "Signika", sans-serif; box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
 }
 #mc-dm-panel.mc-show { display: block; }
+/* Camera bar (focus party + manual TV control). */
+.mc-dmp-cam { display: flex; gap: 8px; }
+.mc-dmp-cam:not(:last-child) { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
+.mc-dmp-cam-btn {
+  flex: 1 1 0; min-height: 40px; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; color: #ece5d6; background: #2c2733; border: 1px solid #4a4334; border-radius: 8px; cursor: pointer;
+}
+.mc-dmp-cam-btn:hover { background: #36303f; }
+.mc-dmp-cam-btn.mc-active { color: #1a1712; background: #c8a44d; border-color: #c8a44d; }
 .mc-dmp-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
 .mc-dmp-clear { background: none; border: none; color: #a59b86; font-size: 14px; line-height: 1; cursor: pointer; }
 .mc-dmp-clear:hover { color: #c8a44d; }
