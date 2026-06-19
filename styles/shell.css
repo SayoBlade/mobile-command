@@ -23,6 +23,13 @@ body.mc-clean .app, body.mc-clean .application:not(#mobile-command-shell) {
   display: none !important;
 }
 body.mc-clean #board, body.mc-clean canvas#board { display: block !important; visibility: visible !important; }
+/* Dice So Nice 3D dice must stay visible on the clean TV. DSN appends
+   #dice-box-canvas to <body> (z-index "over"/"auto") or after #board ("under") —
+   none of those match the hide list above, but pin it explicitly so a future
+   hide rule can't strand the dice. Roll visibility is handled upstream: the TV
+   logs in as a player, so Foundry filters blind/private GM rolls (they never
+   animate here) while public player + DM rolls do. */
+body.mc-clean #dice-box-canvas { display: block !important; visibility: visible !important; }
 /* Clean-mode escape-hatch hint: a dismissable pill telling the user how to get the
    UI back. Exempt from the hiding above (custom id), high z, fades after ~60s. */
 #mc-clean-hint {
