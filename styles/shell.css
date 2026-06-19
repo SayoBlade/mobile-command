@@ -54,9 +54,13 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   -webkit-user-select: none;
   user-select: none;
   overflow: hidden;
+  /* Kill iOS Safari double-tap-to-zoom (and the 300ms tap delay) across the
+     shell; scrolling and pinch-zoom still work. Also stops double-tap-zoom from
+     racing the re-tap-to-close gesture on AC/name/etc. */
+  touch-action: manipulation;
 }
 
-#mobile-command-shell * { box-sizing: border-box; }
+#mobile-command-shell * { box-sizing: border-box; touch-action: manipulation; }
 
 /* --- header: portrait, name, HP --- */
 .mc-header {
