@@ -126,6 +126,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #moveMode = null;       // chosen travel type (walk/fly/swim/climb/burrow); null → effective default
   #movePickerOpen = false; // character card: the travel-type picker is expanded
   #collapsedActionGroups = new Set(); // Actions tab: accordion groups the user/use closed
+  #diceTrayOpen = false; // header D20: contextless dice-tray panel open
+  #dtrayPool = {};       // dice tray: {faces: count}, e.g. {20:2, 6:1}
+  #dtrayMod = 0;         // dice tray: flat modifier
 
   /** The actor this phone controls: assigned character, else first owned character. */
   get actor() {
@@ -245,7 +248,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           <div class="mc-stats">
             ${hpBtn}${tempBtn}
             <button class="mc-stat mc-stat-tap mc-stat-acwrap" data-action="ac-detail" title="Armor Class — tap for breakdown"><span class="mc-ac-frame"><i class="fas fa-shield"></i>${ac}</span></button>
-            <button class="mc-insp ${insp ? "mc-insp-on" : ""}" data-action="toggle-insp" title="Inspiration">★</button>
+            <div class="mc-stat-side">
+              <button class="mc-insp ${insp ? "mc-insp-on" : ""}" data-action="toggle-insp" title="Inspiration">★</button>
+              <button class="mc-dtray-btn ${this.#diceTrayOpen ? "mc-on" : ""}" data-action="dice-tray" title="Dice tray — roll any die" aria-label="Dice tray"><i class="fas fa-dice-d20"></i></button>
+            </div>
           </div>
         </div>
       </header>
@@ -255,6 +261,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <button class="mc-cond-manage ${this.#condEditing ? "mc-on" : ""}" data-action="cond-edit" aria-label="Manage conditions" title="Add or remove conditions"><i class="fas fa-plus"></i></button>
       </div>
       ${this.#condEditing ? this.#conditionPaletteHTML(actor) : ""}
+      ${this.#diceTrayOpen ? this.#diceTrayHTML() : ""}
       ${this.#atZeroHP(actor) && this.#deathSaveDismissed
         ? `<button class="mc-death-reopen" data-action="death-reopen"><i class="fas fa-skull"></i> At 0 HP — death saves</button>` : ""}
       <main class="mc-content">${this.#tabContent(actor)}</main>
@@ -1003,6 +1010,67 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <button class="mc-pm mc-set" data-action="stat-set">Set</button>
       <button class="mc-pm mc-cancel" data-action="stat-cancel" aria-label="cancel">✕</button>
     </div>`;
+  }
+
+  // Dice tray (header D20): roll any die with no context — e.g. a DM "1-10 the
+  // guard sneezes, 11-20 he doesn't" luck check. Pure core Roll API: it posts a
+  // PUBLIC chat message, so the existing createChatMessage hook toasts it on the
+  // phone AND Dice So Nice — if installed — animates the 3D dice on the TV.
+  // Neither DSN nor any dice-tray module is required; both are merely supported.
+  #dtrayFormula() {
+    const parts = Object.keys(this.#dtrayPool).map(Number)
+      .filter(f => this.#dtrayPool[f] > 0)
+      .sort((a, b) => b - a)
+      .map(f => `${this.#dtrayPool[f]}d${f}`);
+    let formula = parts.join(" + ");
+    const m = this.#dtrayMod;
+    // ASCII operators only — this string is fed to new Roll(), which won't parse
+    // a typographic minus (the on-screen "−" buttons are display-only).
+    if (m) formula = formula ? `${formula} ${m > 0 ? "+" : "-"} ${Math.abs(m)}` : `${m}`;
+    return formula;
+  }
+
+  #diceTrayHTML() {
+    const DICE = [4, 6, 8, 10, 12, 20, 100];
+    const formula = this.#dtrayFormula();
+    const dieBtns = DICE.map(f => {
+      const n = this.#dtrayPool[f] || 0;
+      return `<button class="mc-dtray-die ${n ? "mc-has" : ""}" data-action="dtray-add" data-faces="${f}">d${f}${n ? `<span class="mc-dtray-n">${n}</span>` : ""}</button>`;
+    }).join("");
+    const m = this.#dtrayMod;
+    return `<div class="mc-dtray">
+      <div class="mc-dtray-formula ${formula ? "" : "mc-empty"}">${formula ? foundry.utils.escapeHTML(formula) : "Tap dice to build a roll"}</div>
+      <div class="mc-dtray-dice">${dieBtns}</div>
+      <div class="mc-dtray-row">
+        <span class="mc-dtray-modlabel">Mod</span>
+        <button class="mc-pm mc-minus" data-action="dtray-mod" data-delta="-1">−</button>
+        <span class="mc-dtray-mod">${m > 0 ? `+${m}` : m}</span>
+        <button class="mc-pm mc-plus" data-action="dtray-mod" data-delta="1">+</button>
+        <button class="mc-dtray-clear" data-action="dtray-clear">Clear</button>
+        <button class="mc-dtray-roll" data-action="dtray-roll"><i class="fas fa-dice-d20"></i> Roll</button>
+      </div>
+    </div>`;
+  }
+
+  async #rollDiceTray() {
+    if (!Object.values(this.#dtrayPool).some(n => n > 0)) {
+      return ui.notifications.info("Dice tray: tap a die first.");
+    }
+    const formula = this.#dtrayFormula();
+    let roll;
+    try {
+      roll = await new Roll(formula).evaluate();
+    } catch (e) {
+      return ui.notifications.warn(`Dice tray: couldn't roll "${formula}".`);
+    }
+    // Force PUBLIC so the roll always reaches the shared TV (and players can't
+    // change roll mode from the phone anyway). DSN animates it there if present.
+    await roll.toMessage(
+      { speaker: ChatMessage.getSpeaker({ actor: this.actor }), flavor: "Dice tray" },
+      { rollMode: CONST.DICE_ROLL_MODES.PUBLIC }
+    );
+    // Keep the pool so repeated Roll taps re-roll the same dice (spam a luck
+    // check); Clear resets it. noteRoll (createChatMessage hook) toasts the result.
   }
 
   // Class / subclass / level breakdown + XP bar, opened by tapping the Lvl
@@ -1778,6 +1846,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#editingField = null; return this.render();
       case "toggle-insp":
         return this.#toggleInspiration();
+      case "dice-tray":
+        this.#diceTrayOpen = !this.#diceTrayOpen; return this.render();
+      case "dtray-add": {
+        const f = Number(el.dataset.faces);
+        this.#dtrayPool[f] = (this.#dtrayPool[f] || 0) + 1;
+        return this.render();
+      }
+      case "dtray-mod":
+        this.#dtrayMod = Math.max(-99, Math.min(99, this.#dtrayMod + Number(el.dataset.delta)));
+        return this.render();
+      case "dtray-clear":
+        this.#dtrayPool = {}; this.#dtrayMod = 0; return this.render();
+      case "dtray-roll":
+        return this.#rollDiceTray();
       case "cond-edit":
         this.#condEditing = !this.#condEditing; return this.render();
       case "toggle-levels":

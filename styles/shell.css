@@ -464,6 +464,51 @@ body.mc-phone .roll-configuration fieldset {
 }
 .mc-insp-on { color: #1a1410; background: var(--mc-gold); border-color: var(--mc-gold); }
 
+/* Header right-side control stack: inspiration (top) + dice-tray D20 (under it). */
+.mc-stat-side { display: flex; flex-direction: column; gap: 6px; margin-left: auto; }
+.mc-stat-side .mc-insp { margin-left: 0; }
+.mc-dtray-btn {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: #1a1820; border: 1px solid var(--mc-edge); color: var(--mc-gold);
+  font-size: 17px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.mc-dtray-btn.mc-on { color: #1a1410; background: var(--mc-gold); border-color: var(--mc-gold); }
+.mc-dtray-btn:active { background: #2a2730; }
+
+/* Dice tray panel (contextless rolls). Posts a public roll so it shows on the TV
+   via Dice So Nice when present — DSN not required. Mirrors the stat-editor row. */
+.mc-dtray {
+  display: flex; flex-direction: column; gap: 9px;
+  padding: 10px 14px; background: #16131b;
+  border-bottom: 1px solid var(--mc-gold); flex: 0 0 auto;
+}
+.mc-dtray-formula {
+  min-height: 20px; text-align: center; letter-spacing: .02em;
+  font-size: 16px; font-weight: 700; color: var(--mc-ink);
+  font-variant-numeric: tabular-nums;
+}
+.mc-dtray-formula.mc-empty { color: var(--mc-muted); font-weight: 500; }
+.mc-dtray-dice { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.mc-dtray-die {
+  position: relative; min-width: 52px; min-height: 46px; padding: 8px 10px;
+  border-radius: 9px; font-size: 16px; font-weight: 800; line-height: 1;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink);
+}
+.mc-dtray-die.mc-has { border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-dtray-die:active { background: #3a4250; }
+.mc-dtray-n {
+  position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px;
+  padding: 0 4px; border-radius: 9px; background: var(--mc-gold); color: #1a1410;
+  font-size: 11px; font-weight: 800; line-height: 18px; text-align: center;
+}
+.mc-dtray-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mc-dtray-modlabel { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--mc-muted); }
+.mc-dtray-mod { min-width: 2.2em; text-align: center; font-size: 17px; font-weight: 800; color: var(--mc-ink); font-variant-numeric: tabular-nums; }
+.mc-dtray-clear { min-height: 46px; padding: 8px 14px; border-radius: 9px; background: none; border: 1px solid var(--mc-edge); color: var(--mc-muted); font-weight: 700; }
+.mc-dtray-roll { margin-left: auto; min-height: 46px; padding: 8px 18px; border-radius: 9px; background: #243042; border: 1px solid #2f5d8a; color: var(--mc-ink); font-size: 16px; font-weight: 800; }
+.mc-dtray-roll:active { background: #2c3d54; }
+
 #mobile-command-shell .mc-section-label { color: var(--mc-gold); }
 #mobile-command-shell .mc-ability { background: var(--mc-panel); border-color: var(--mc-edge); }
 #mobile-command-shell .mc-ability-mod { font-size: 26px; }
