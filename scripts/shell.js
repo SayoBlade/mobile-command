@@ -265,6 +265,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ? `<button class="mc-death-reopen" data-action="death-reopen"><i class="fas fa-skull"></i> At 0 HP — death saves</button>` : ""}
       <main class="mc-content">${this.#tabContent(actor)}</main>
       ${this.#rollStripHTML()}
+      ${this.#initPromptHTML()}
       ${this.#turnHudHTML()}
       <nav class="mc-tabs">
         ${this.#tabButton("actions", "fa-hand-fist", "Actions")}
@@ -1164,6 +1165,45 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     </div>`;
   }
 
+  // Players have no combat tracker, so when the DM adds them to an encounter
+  // (combat exists, they're a combatant, initiative not yet rolled) surface a
+  // prominent "Roll initiative" prompt. This covers the pre-start roll phase —
+  // the Turn HUD above only appears once combat has *started* (DM 2026-06-20).
+  #initPromptHTML() {
+    const combat = game.combat;
+    if (!combat) return "";
+    const me = combat.combatants?.find(c => c.actor?.id === this.actor?.id);
+    if (!me || me.initiative != null) return ""; // not in this combat, or already rolled
+    return `<div class="mc-turnhud mc-myturn mc-init-prompt">
+      <span class="mc-turn-label"><i class="fas fa-dice-d20" style="margin-right:6px"></i>Roll initiative</span>
+      <button class="mc-endturn" data-action="roll-init">Roll</button>
+    </div>`;
+  }
+
+  // Initiative from the phone — the player's only entry (no tracker). Opens
+  // dnd5e's roll-config dialog (lifted above the shell like saves) and writes the
+  // combatant's initiative. The old handler fired it with ?.() and swallowed any
+  // rejection; now we guard for an active combat, await, and surface failures.
+  async #rollInitiative() {
+    const actor = this.actor;
+    if (!actor) return;
+    if (!game.combat) {
+      ui.notifications.info("No active encounter yet — ask the DM to start combat.");
+      return;
+    }
+    try {
+      await actor.rollInitiativeDialog();
+    } catch (e) {
+      console.error("mobile-command | initiative roll failed", {
+        hasCombat: !!game.combat,
+        isCombatant: !!game.combat?.combatants?.some(c => c.actor?.id === actor.id),
+        error: e
+      });
+      ui.notifications.warn("Couldn't roll initiative — check the console (F12) and tell me what it says.");
+    }
+    if (this.rendered) this.render();
+  }
+
   #abilitiesHTML(actor) {
     const abilities = actor.system.abilities ?? {};
     const abilityGrid = ABILITIES.map(a => {
@@ -1917,7 +1957,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "end-turn":
         return this.#endTurn();
       case "roll-init":
-        return actor?.rollInitiativeDialog?.();
+        return this.#rollInitiative();
       case "roll-hd":
         return actor?.rollHitDie?.();
       case "death-save":
@@ -2716,6 +2756,12 @@ export function registerShellHooks() {
   Hooks.on("updateCombat", onCombat);
   Hooks.on("deleteCombat", onCombat);
   Hooks.on("combatStart", onCombat);
+  // Also react to being added/removed from combat and to initiative being set,
+  // so the "Roll initiative" prompt appears and clears without a manual refresh.
+  Hooks.on("createCombat", onCombat);
+  Hooks.on("createCombatant", onCombat);
+  Hooks.on("updateCombatant", onCombat);
+  Hooks.on("deleteCombatant", onCombat);
 
   // TV vision: monks-common-display focuses the current combatant each turn
   // (control({releaseOthers}), monks-common-display.js:684) so the shared screen
