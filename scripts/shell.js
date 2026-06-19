@@ -1703,7 +1703,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Step 2 of the two-tap: trigger the held workflow's damage roll.
   async #rollDamage() {
     const s = this.#actionState;
-    if (!s || s.busy || !s.requestId) return;
+    if (!s || s.busy || !s.requestId) {
+      console.debug("mobile-command | rollDamage skipped", { hasState: !!s, busy: s?.busy, requestId: s?.requestId });
+      return;
+    }
     s.busy = true; this.render();
     let res;
     try {

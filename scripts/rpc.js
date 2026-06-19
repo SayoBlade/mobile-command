@@ -420,11 +420,22 @@ async function handleItemUseDamage({ requestId }) {
   const wf = parkedWorkflows.get(requestId);
   if (!wf) return { ok: false, stage: "expired", reason: "the attack expired — fire again" };
   parkedWorkflows.delete(requestId);
-  const { captured } = await captureNotifications(async () => {
-    await wf.activity.rollDamage({ workflow: wf, midiOptions: { fastForwardDamage: true } });
-    return true;
-  });
-  return { ok: true, damageTotal: wf.damageTotal ?? null, reason: captured.join("; ") || null };
+  try {
+    const { captured } = await captureNotifications(async () => {
+      await wf.activity.rollDamage({ workflow: wf, midiOptions: { fastForwardDamage: true } });
+      return true;
+    });
+    if (wf.damageTotal == null) {
+      console.warn(`${MODULE_ID} | rollDamage produced no total`, { item: wf.item?.name, actor: wf.actor?.name, captured });
+    }
+    return { ok: true, damageTotal: wf.damageTotal ?? null, reason: captured.join("; ") || null };
+  } catch (e) {
+    // Names the actor/item + logs the error — a corrupted PC (e.g. invalid item
+    // types from a disabled content module → DAE prep failures) throws here, which
+    // otherwise looked like the button "doing nothing" (DM 2026-06-20).
+    console.error(`${MODULE_ID} | rollDamage failed`, { item: wf.item?.name, actor: wf.actor?.name, error: e });
+    return { ok: false, stage: "damage", reason: `damage errored on ${wf.actor?.name ?? "this PC"}: ${e.message}` };
+  }
 }
 
 function handleItemUseCancel({ requestId }) {
