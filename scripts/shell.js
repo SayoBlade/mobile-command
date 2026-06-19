@@ -119,6 +119,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #detailCard = null;   // long-press: { name, img, subtitle, desc } of an item shown full-screen
   #detailStack = [];    // drill-down back-stack: closing a linked card returns to the previous one
   #dropArmed = null;    // itemId mid-confirm for a "Drop" (2-tap so a stray tap can't delete)
+  #viewKey = null;      // identity of the current screen — scroll is kept while it's unchanged
   #longPressTimer = null;
   #lpStart = null;      // pointer start position, to abort the press on scroll
   #suppressClick = false; // a long-press fired → swallow the trailing click so the row doesn't also act
@@ -142,15 +143,41 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return this.#buildHTML();
   }
 
+  // Identity of the current screen for scroll preservation: changes when the user
+  // navigates (tab / detail card / target picker / item picker / stat editor), but
+  // NOT for in-place toggles (containers, action drawers, prepared/equip, conditions)
+  // — so those keep the scroll position while navigation resets it.
+  #currentViewKey() {
+    return [
+      this.#tab,
+      this.#detailCard?.name ?? "",
+      this.#actionState?.uuid ?? "",
+      this.#actionState?.phase ?? "",
+      this.#itemPickerId ?? "",
+      this.#editingField ?? ""
+    ].join("|");
+  }
+
   _replaceHTML(result, content) {
     // Detach the live toast first so the innerHTML swap doesn't destroy an
     // in-flight roll toast on an unrelated re-render (e.g. an HP/condition
     // update). The recent-rolls strip is rebuilt from #recentRolls below.
     const toast = this.#toastEl;
     if (toast?.parentElement === content) content.removeChild(toast);
+    // Preserve scroll across SAME-view re-renders (open a container, toggle a
+    // drawer/prepared/equip, edit HP) so the player stays put (DM 2026-06-19).
+    // A view change (tab / detail card / picker) resets to top.
+    const prevTop = content.querySelector(".mc-content")?.scrollTop ?? 0;
+    const prevKey = this.#viewKey;
+    const nextKey = this.#currentViewKey();
     content.innerHTML = typeof result === "string" ? result : "";
     this.#attachListeners(content);
     if (toast) content.appendChild(toast);
+    if (nextKey === prevKey) {
+      const scroller = content.querySelector(".mc-content");
+      if (scroller && prevTop) scroller.scrollTop = prevTop;
+    }
+    this.#viewKey = nextKey;
     if (this.#editingField) {
       const inp = content.querySelector(".mc-stat-input");
       if (inp) { inp.focus(); inp.select(); }
@@ -214,7 +241,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <header class="mc-header">
         <img class="mc-portrait" src="${img}" alt="" data-action="show-image" data-detail="bio" title="Tap for image · hold for bio">
         <div class="mc-id">
-          <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}<span class="mc-name-text" data-action="show-bio" data-detail="character" title="Tap for bio · hold for summary">${foundry.utils.escapeHTML(actor.name)}</span></div>
+          <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}<span class="mc-name-text" data-action="show-summary" data-detail="bio" title="Tap for summary · hold for bio">${foundry.utils.escapeHTML(actor.name)}</span></div>
           <div class="mc-stats">
             ${hpBtn}${tempBtn}
             <button class="mc-stat mc-stat-tap mc-stat-acwrap" data-action="ac-detail" title="Armor Class — tap for breakdown"><span class="mc-ac-frame"><i class="fas fa-shield"></i>${ac}</span></button>
@@ -406,7 +433,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const hd = a.hd?.value;
     const hdStr = hd == null ? "—" : (a.hd?.max != null ? `${hd}/${a.hd.max}` : `${hd}`);
     const move = a.movement ?? {};
-    const speed = move.walk != null ? `${move.walk}` : "—";
+    // Speed shows the ACTIVE travel mode's icon + its speed, and taps → the picker.
+    const activeMode = this.#activeMoveMode(actor);
+    const am = this.#movementModes(actor).find((m) => m.key === activeMode);
+    const speedNum = am ? am.speed : (move.walk != null ? move.walk : null);
+    const speed = speedNum == null ? "—"
+      : `${activeMode ? `<i class="fas ${this.#moveModeIcon(activeMode)} mc-speed-ico"></i> ` : ""}${speedNum}`;
     const prof = a.prof != null ? signed(a.prof) : "—";
     const estat = (cls, action, label, val) => {
       const tag = action ? "button" : "div";
@@ -421,7 +453,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>
       <div class="mc-dpad-wrap">${this.#moveHTML()}</div>
       <div class="mc-estat-col">
-        ${estat("mc-gray", "", "Speed", speed)}
+        ${estat("mc-gray mc-tappable", "speed-picker", "Speed", speed)}
         ${estat("mc-gray", "", "Prof", prof)}
       </div>
     </div>`;
@@ -1548,7 +1580,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       res = { ok: false, reason: err?.message ?? "error — see DM console" };
     }
     this.#actionState = null; this.render();
-    if (!res?.ok) ui.notifications.warn(`${s.name}: ${res?.reason ?? "damage failed"}`);
+    if (!res?.ok) return ui.notifications.warn(`${s.name}: ${res?.reason ?? "damage failed"}`);
+    // Damage toaster (DM 2026-06-19): the damage rolls on the executor and midi's
+    // card doesn't reach the phone's chat-roll hook cleanly, so toast the total the
+    // executor returned, the same way attack/check rolls toast.
+    if (res.damageTotal != null) {
+      const entry = { id: `${s.requestId}-dmg`, label: `${s.name} — damage`, total: res.damageTotal, formula: "", outcome: "dmg" };
+      this.#recentRolls.unshift(entry);
+      if (this.#recentRolls.length > ROLL_HISTORY_MAX) this.#recentRolls.length = ROLL_HISTORY_MAX;
+      this.#refreshStrip();
+      this.#showToast(entry);
+    }
   }
 
   // Never let a hung RPC strand the UI on "Rolling…".
@@ -1618,8 +1660,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         // AC opens its breakdown on a tap (it has no other tap action) rather than
         // long-press — DM preference, and more discoverable for a bare stat.
         return this.#showACDetails();
-      case "show-bio":
-        // Tap the name → biography (long-press the name still gives the summary).
+      case "show-summary":
+        // Tap the name → character summary (long-press the name → biography).
+        return this.#showCharacterDetails();
+      case "show-bio": // (still used elsewhere if wired)
         return this.#showBioDetails();
       case "detail-close":
         // Drill-down back: pop to the previous card if we navigated into a link,
@@ -1757,13 +1801,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "move-toggle":
         this.#movePickerOpen = !this.#movePickerOpen;
         return this.#showCharacterDetails(); // rebuild the card with the picker open/closed
+      case "speed-picker": // Explore Speed → travel chip popup
+        return this.#showTravelPicker();
       case "move-mode": {
         this.#moveMode = el.dataset.mode;
         this.#movePickerOpen = false;
         // Reflect the travel type on the actual token (DM/TV ruler, terrain cost).
         // Executor-side; safe to ignore the result on the phone.
         if (this.originTokenId) Promise.resolve(rpc.setMovementAction({ tokenId: this.originTokenId, action: this.#moveMode })).catch(() => {});
-        return this.#showCharacterDetails();
+        // Rebuild whichever surface is showing the chips so the active one updates.
+        if (this.#detailCard?.kind === "travel") return this.#showTravelPicker();
+        if (this.#detailCard?.kind === "character") return this.#showCharacterDetails();
+        return this.render();
       }
       case "end-turn":
         return this.#endTurn();
@@ -2171,6 +2220,30 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const loc = raw ? game.i18n.localize(raw) : "";
     return loc && !loc.includes("TOKEN.MOVEMENT") ? loc : key.charAt(0).toUpperCase() + key.slice(1);
   }
+  #moveModeIcon(key) {
+    return { walk: "fa-person-walking", fly: "fa-feather", swim: "fa-person-swimming", climb: "fa-person-hiking", burrow: "fa-worm" }[key] ?? "fa-shoe-prints";
+  }
+  // Horizontal single-select travel-type chips (big icon + speed) — DM 2026-06-19
+  // wanted toggle chips, not a dropdown. Used in the character summary + the Explore
+  // Speed popup. Tapping a chip → move-mode (sets #moveMode + token movementAction).
+  #travelChipsHTML(actor) {
+    const modes = this.#movementModes(actor);
+    if (!modes.length) return "";
+    const active = this.#activeMoveMode(actor);
+    return `<div class="mc-move-chips">${modes.map((m) =>
+      `<button class="mc-move-chip ${m.key === active ? "mc-on" : ""}" data-action="move-mode" data-mode="${m.key}" aria-label="${this.#moveModeLabel(m.key)} ${m.speed} ${m.units}">
+         <i class="fas ${this.#moveModeIcon(m.key)}"></i>
+         <span class="mc-move-chip-spd">${m.speed}</span>
+       </button>`).join("")}</div>`;
+  }
+  // Explore "Speed" → a popup with just a header + the travel chip row (DM 2026-06-19).
+  #showTravelPicker() {
+    const a = this.actor; if (!a) return;
+    if (!this.#movementModes(a).length) return;
+    this.#detailStack = [];
+    this.#detailCard = { name: "Travel", glyph: "fa-person-running", subtitle: "Movement", desc: this.#travelChipsHTML(a), favId: null, isFav: false, kind: "travel" };
+    this.render();
+  }
   // Biography card (long-press the portrait; tap still opens the image): the
   // actor's (enriched) biography. Public bio falls back to the GM bio.
   async #showBioDetails() {
@@ -2206,28 +2279,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const subtitle = [lvl ? `Level ${lvl}` : "", race, cls].filter(Boolean).join(" ");
     const abils = Object.entries(s.abilities ?? {}).map(([k, v]) =>
       `<div class="mc-ab${v.proficient ? " mc-ab-prof" : ""}"><span class="mc-ab-k">${k.toUpperCase()}</span><span class="mc-ab-mod">${sign(v.mod ?? 0)}</span><span class="mc-ab-score">${v.value ?? "—"}</span></div>`).join("");
-    // Speed shows the active travel type (Walk/Fly/…) + its speed, and taps open a
-    // picker of the actor's other modes — selecting one sets it as the travel type.
-    const modes = this.#movementModes(a);
-    const active = this.#activeMoveMode(a);
-    const am = modes.find((m) => m.key === active);
-    const speedBtn = am
-      ? `<button class="mc-move-active" data-action="move-toggle"><i class="fas fa-person-running"></i> ${this.#moveModeLabel(active)} ${am.speed} ${am.units}${modes.length > 1 ? ` <i class="fas fa-caret-${this.#movePickerOpen ? "up" : "down"}"></i>` : ""}</button>`
-      : "";
     const metaText = [
       `Prof ${sign(s.attributes?.prof ?? 0)}`,
       s.attributes?.init?.total != null ? `Init ${sign(s.attributes.init.total)}` : ""
     ].filter(Boolean).join(" · ");
-    const picker = (this.#movePickerOpen && modes.length)
-      ? `<div class="mc-move-picker">${modes.map((m) =>
-          `<button class="mc-move-opt ${m.key === active ? "mc-on" : ""}" data-action="move-mode" data-mode="${m.key}"><span>${this.#moveModeLabel(m.key)}</span><span class="mc-move-spd">${m.speed} ${m.units}</span></button>`).join("")}</div>`
-      : "";
+    // Travel types as a horizontal single-select chip row (DM 2026-06-19), not a dropdown.
+    const chips = this.#travelChipsHTML(a);
     const bg = a.itemTypes.background?.[0]?.name ?? s.details?.background;
     const desc = `<div class="mc-pc-abils">${abils}</div>
-      <div class="mc-pc-meta">${foundry.utils.escapeHTML(metaText)}${metaText && speedBtn ? " · " : ""}${speedBtn}</div>
-      ${picker}
+      <div class="mc-pc-meta">${foundry.utils.escapeHTML(metaText)}</div>
+      ${chips ? `<div class="mc-pc-speed-label">Speed</div>${chips}` : ""}
       ${bg ? `<div class="mc-pc-bg">${foundry.utils.escapeHTML(bg)}</div>` : ""}`;
-    this.#detailCard = { name: a.name, img: a.img || "icons/svg/mystery-man.svg", subtitle, desc, favId: null, isFav: false };
+    this.#detailCard = { name: a.name, img: a.img || "icons/svg/mystery-man.svg", subtitle, desc, favId: null, isFav: false, kind: "character" };
     this.render();
   }
   // Short type/level/rarity line under the name.

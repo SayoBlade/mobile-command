@@ -1458,6 +1458,14 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 .mc-move-opt.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-move-spd { color: var(--mc-muted); font-variant-numeric: tabular-nums; }
 .mc-move-opt.mc-on .mc-move-spd { color: var(--mc-gold); }
+/* Travel-type chips: a horizontal single-select row of big icon buttons (DM 2026-06-19). */
+.mc-pc-speed-label { margin: 12px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--mc-muted); text-align: center; }
+.mc-move-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.mc-move-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 60px; min-height: 56px; padding: 8px 10px; background: #0c0d11; border: 1px solid var(--mc-edge); border-radius: 12px; color: var(--mc-muted); cursor: pointer; }
+.mc-move-chip i { font-size: 18px; }
+.mc-move-chip-spd { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mc-move-chip.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); background: #2a2417; }
+.mc-speed-ico { font-size: 11px; margin-right: 2px; opacity: .9; }
 .mc-pc-bg { margin-top: 4px; font-size: 13px; color: var(--mc-muted); text-align: center; font-style: italic; }
 .mc-detail-desc { font-size: 14px; line-height: 1.5; color: var(--mc-ink); }
 .mc-detail-desc p { margin: 0 0 8px; }
