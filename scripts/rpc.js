@@ -561,7 +561,10 @@ async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenU
     try { game.user.updateTokenTargets(prevTargetIds); } catch (e) { /* non-fatal */ }
   }
 
-  if (!ac5) return { ok: true, mode: "normal", reasons: [], unevaluated: "ac5e-did-not-annotate", raw };
+  if (!ac5) {
+    console.debug(`${MODULE_ID} | attackPreview: AC5E active but did not annotate the roll (midi may route attacks past dnd5e.preRollAttackV2)`, raw);
+    return { ok: true, mode: "normal", reasons: [], unevaluated: "ac5e-did-not-annotate", raw };
+  }
 
   const labelOf = (x) => (typeof x === "string" ? x : (x?.label ?? x?.name ?? x?.id ?? String(x)));
   const sub = ac5.subject ?? {}, opp = ac5.opponent ?? {};
@@ -579,6 +582,7 @@ async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenU
     ...((sub.disadvantage ?? []).concat(opp.disadvantage ?? [])).map((r) => ({ kind: "dis", label: labelOf(r) })),
     ...((sub.fail ?? [])).map((r) => ({ kind: "fail", label: labelOf(r) })),
   ];
+  console.debug(`${MODULE_ID} | attackPreview`, { mode, advN, disN, defaultButton: ac5.defaultButton, advantageMode: ac5.advantageMode, reasons });
   return { ok: true, mode, reasons, raw };
 }
 
