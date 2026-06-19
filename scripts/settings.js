@@ -97,10 +97,10 @@ export function registerSettings() {
     }));
     if (DeactivateMenu) {
       game.settings.registerMenu(MODULE_ID, "deactivate", {
-        name: "Remove Mobile Command & revert",
-        label: "Remove & revert settings",
-        hint: "Restore midi-qol / dnd5e settings to the snapshot from before Mobile Command was applied (snapshots the current state first so you can Reactivate). Run before disabling the module.",
-        icon: "fas fa-rotate-left",
+        name: "⚠ Remove Mobile Command & revert",
+        label: "⚠ Remove & revert settings",
+        hint: "IMPORTANT — run this BEFORE you disable or remove Mobile Command. Foundry does NOT restore the midi-qol / dnd5e settings it changed; this button restores the snapshot from before it was applied (and snapshots the current state first so you can Reactivate).",
+        icon: "fas fa-triangle-exclamation",
         type: DeactivateMenu,
         restricted: true
       });
@@ -118,6 +118,27 @@ export function registerSettings() {
   } catch (e) {
     console.warn(`${MODULE_ID} | could not register the deactivate/reactivate menus (use MobileCommand.enforcer.deactivate()/reactivate())`, e);
   }
+
+  // A dominant red warning at the top of Mobile Command's settings so the
+  // revert-before-disable step is impossible to miss (GM only).
+  Hooks.on("renderSettingsConfig", (app, html) => {
+    try {
+      if (!game.user?.isGM) return;
+      const root = html instanceof HTMLElement ? html : html?.[0];
+      if (!root || root.querySelector("#mc-revert-warning")) return;
+      const warning = document.createElement("div");
+      warning.id = "mc-revert-warning";
+      warning.innerHTML = `<i class="fas fa-triangle-exclamation"></i> <strong>Before you disable or remove Mobile Command</strong>, click <b>“⚠ Remove &amp; revert settings”</b> below — Foundry will <u>not</u> restore the midi-qol / dnd5e settings it changed on its own.`;
+      warning.style.cssText = "display:flex;gap:10px;align-items:center;margin:8px 0;padding:11px 14px;border:1px solid #c0504a;border-left:4px solid #c0504a;border-radius:8px;background:rgba(192,80,74,0.14);color:#f1b5b0;font-weight:600;line-height:1.4;";
+      // Anchor next to our "Remove & revert" menu button; fall back to the form top.
+      const btn = [...root.querySelectorAll("button")].find((b) => /remove & revert/i.test(b.textContent || ""));
+      const anchor = btn?.closest(".form-group, .settings-list-entry, .form-fields, label") ?? btn;
+      if (anchor?.parentElement) anchor.parentElement.insertBefore(warning, anchor);
+      else (root.querySelector(".scrollable, section, form") ?? root).prepend(warning);
+    } catch (e) {
+      console.warn(`${MODULE_ID} | could not inject the revert warning`, e);
+    }
+  });
 }
 
 export function resolveExecutorId() {
