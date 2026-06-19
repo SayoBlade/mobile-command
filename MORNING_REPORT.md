@@ -27,17 +27,18 @@ DM picked this as the next big chunk. Spike resolved: the recommendation can't b
 
 ## 2026-06-19 (batch) — status of the DM's pre-game request list
 
-**Shipped (unverified — browser was unavailable; reload + eyeball):**
+**⚠️ NONE of this was live-verified** — two browsers were connected with none selected (the selection must be made by the DM, who was asleep), so I couldn't drive the client to test the 4 new PCs or anything else. **All built from source; reload every client and spot-check before the game.** When the DM is back + picks a browser, CC can verify the batch + test the 4 PCs.
+
+**Shipped (UNVERIFIED — reload + eyeball):**
 - ✅ Item popups open for ALL items (blocker: armor/ammo/gear/other/player-made had no long-press target).
 - ✅ Defense categories: Resistances / Damage Immunities / Condition Immunities / Vulnerabilities / Damage Modification (dr/di/ci/dv/dm).
 - ✅ Bio on **name tap** (long-press name still = summary; long-press portrait also = bio).
 - ✅ Attack banner: dropped the "X suggested" header (reasons only).
 - ✅ Spellbook: learned/prepared count per level header.
+- ✅ **Popup action footer** (`db384aa`): spell → Cast/Learn, skill/tool → Roll, item → Use/Equip/Attune, physical → quantity ±/Drop (2-tap). Additive (degrades to row-taps); also makes non-tappable items (armor, Aslan's flametooth) usable from the popup.
 
 **Deferred (need live verification and/or are big — do together, NOT rushed before the game):**
-- **Popup action buttons** (spell → Learn/Cast, skill → Roll, action → Use, item → Equip/Attune/Use opening the multi-picker). Big, behavioral; the unifying "popup behaviour" the DM wants. Foundation is there (#showDetails has the item/activity); needs careful wiring + verification.
 - **Spells divided by caster type** + active-caster filtering + **multiple spell-point pools**. Large spellbook restructure (per-class cards already exist; the list is still by level).
-- **Drop/remove items** (+ remove/add amount when qty>1). Involves item delete/qty — careful + verify.
 - **Scroll-to-top on expand/collapse** (containers, action groups, …) — re-render scroll preservation; hard to get right blind.
 - **Travel types as toggles in the profile** + **click Speed in Explore → travel picker popup**.
 - **Visual tweaks** (couldn't judge unseen): Prof/Init more presence in the character card; abilities name+number aligned to bottom; extra left padding for x/y-only rows (favorites).
