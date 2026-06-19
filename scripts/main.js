@@ -49,6 +49,9 @@ Hooks.once("init", () => {
   }
 });
 
+// Cinematic ease (0→1) for TV camera moves — a smooth pan/zoom instead of a jump cut.
+const tvEase = (t) => (1 - Math.cos(Math.PI * t)) / 2;
+
 // Pan + zoom the local canvas to fit every (visible) player-character token. Used by
 // the "Frame the party" keybinding and exposed as MobileCommand.frameParty().
 function framePartyTokens() {
@@ -68,7 +71,7 @@ function framePartyTokens() {
     const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
     const fit = Math.min(screenW / worldW, screenH / worldH);
     const scale = Math.max(0.1, Math.min(fit, CONFIG.Canvas?.maxZoom ?? 3, 1.2)); // never over-zoom a tight group
-    canvas.animatePan({ x: (minX + maxX) / 2, y: (minY + maxY) / 2, scale, duration: 400 });
+    canvas.animatePan({ x: (minX + maxX) / 2, y: (minY + maxY) / 2, scale, duration: 1000, easing: tvEase });
     return true;
   } catch (e) {
     console.warn(`${MODULE_ID} | framePartyTokens failed`, e);
@@ -91,7 +94,11 @@ function onTvControl(payload) {
   if (payload.cmd === "frameParty") { tvManual = false; framePartyTokens(); }
   else if (payload.cmd === "manual") { tvManual = !!payload.on; }
   else if (payload.cmd === "pan" && tvManual && canvas?.ready) {
-    try { canvas.pan({ x: payload.x, y: payload.y, scale: payload.scale }); } catch (e) { /* pan best-effort */ }
+    // dur present (e.g. entering manual) → animated glide; live drag-follow stays instant/responsive.
+    try {
+      if (payload.dur) canvas.animatePan({ x: payload.x, y: payload.y, scale: payload.scale, duration: payload.dur, easing: tvEase });
+      else canvas.pan({ x: payload.x, y: payload.y, scale: payload.scale });
+    } catch (e) { /* pan best-effort */ }
   }
 }
 
@@ -108,6 +115,12 @@ function focusPartyAll() {
 function setDmRelaying(on) {
   dmRelaying = !!on;
   tvBroadcast({ cmd: "manual", on: dmRelaying });
+  // Smoothly glide the display to the DM's current view when manual turns on, so
+  // entering manual is a pan-and-zoom rather than a jump cut.
+  if (dmRelaying && canvas?.ready) {
+    const s = canvas.stage;
+    tvBroadcast({ cmd: "pan", x: s.pivot.x, y: s.pivot.y, scale: s.scale.x, dur: 1000 });
+  }
   Hooks.callAll("mobile-command.tvManualChanged", dmRelaying);
   ui.notifications?.info?.(`${MODULE_ID} | manual TV control ${dmRelaying ? "ON — your pan/zoom drives the display" : "OFF"}`);
 }
