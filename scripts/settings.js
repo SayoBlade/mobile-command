@@ -128,13 +128,20 @@ export function registerSettings() {
       if (!root || root.querySelector("#mc-revert-warning")) return;
       const warning = document.createElement("div");
       warning.id = "mc-revert-warning";
-      warning.innerHTML = `<i class="fas fa-triangle-exclamation"></i> <strong>Before you disable or remove Mobile Command</strong>, click <b>“⚠ Remove &amp; revert settings”</b> below — Foundry will <u>not</u> restore the midi-qol / dnd5e settings it changed on its own.`;
-      warning.style.cssText = "display:flex;gap:10px;align-items:center;margin:8px 0;padding:11px 14px;border:1px solid #c0504a;border-left:4px solid #c0504a;border-radius:8px;background:rgba(192,80,74,0.14);color:#f1b5b0;font-weight:600;line-height:1.4;";
-      // Anchor next to our "Remove & revert" menu button; fall back to the form top.
+      warning.innerHTML = `<strong><i class="fas fa-triangle-exclamation"></i> Before you disable or remove Mobile Command,</strong> click <b>“Remove &amp; revert settings”</b> below — Foundry will <u>not</u> restore the midi-qol / dnd5e settings it changed on its own.`;
+      // Block + full width (span any grid) so the text flows as a paragraph, not a
+      // squished column inside a narrow settings cell.
+      warning.style.cssText = "display:block;width:100%;grid-column:1 / -1;box-sizing:border-box;margin:10px 0;padding:11px 14px;border:1px solid #c0504a;border-left:4px solid #c0504a;border-radius:8px;background:rgba(192,80,74,0.14);color:#f1b5b0;font-weight:600;line-height:1.5;";
+      // Put it at the top of Mobile Command's own settings section (full width).
       const btn = [...root.querySelectorAll("button")].find((b) => /remove & revert/i.test(b.textContent || ""));
-      const anchor = btn?.closest(".form-group, .settings-list-entry, .form-fields, label") ?? btn;
-      if (anchor?.parentElement) anchor.parentElement.insertBefore(warning, anchor);
-      else (root.querySelector(".scrollable, section, form") ?? root).prepend(warning);
+      const section = btn?.closest("fieldset, section, .settings-list");
+      if (section) section.prepend(warning);
+      else if (btn?.closest(".form-group")?.parentElement) {
+        const group = btn.closest(".form-group");
+        group.parentElement.insertBefore(warning, group);
+      } else {
+        (root.querySelector(".scrollable, form") ?? root).prepend(warning);
+      }
     } catch (e) {
       console.warn(`${MODULE_ID} | could not inject the revert warning`, e);
     }
