@@ -1364,7 +1364,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!activity) return;
     // AoE push (§11): a no-canvas phone can't place a template, so an area spell
     // asks the DM to place it instead of opening the target picker.
-    if (activity.target?.template?.type) return this.#announceCast(activity);
+    if (activity.target?.template?.type) return this.#announceCast(activity, "aoe");
+    // Summons (#12): route to the DM to place the summoned token(s) rather than
+    // auto-resolving silently — the phone has no canvas to drop the token on.
+    if (activity.type === "summon") return this.#announceCast(activity, "summon");
     this.#clearPreview(); // drop any stale preview from a prior action
     const affects = activity.target?.affects ?? {};
     // "selfTarget" = no enemy target needed → skip the picker. Attacks/saves/
@@ -1406,16 +1409,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // resolves on the executor (caster's slot deducts, saves fan to targets); the
   // phone only announces. Live aiming preview isn't broadcast to the TV — the
   // player guides the DM verbally off the placed result.
-  async #announceCast(activity) {
-    const name = activity.item?.name ?? "spell";
+  async #announceCast(activity, kind = "aoe") {
+    const name = activity.item?.name ?? (kind === "summon" ? "summon" : "spell");
     const casterTokenUuid = game.scenes.active?.tokens.get(this.originTokenId)?.uuid ?? null;
     const res = await rpc.announceCast({
       activityUuid: activity.uuid,
       casterName: this.actor?.name,
       spellName: name,
+      kind,
       casterTokenUuid
     });
-    if (res?.ok) ui.notifications.info(`Asked the DM to place ${name}.`);
+    const verb = kind === "summon" ? "summon" : "place";
+    if (res?.ok) ui.notifications.info(`Asked the DM to ${verb} ${name}.`);
     else ui.notifications.warn(`${name}: ${res?.reason ?? "could not reach the DM"}`);
   }
 

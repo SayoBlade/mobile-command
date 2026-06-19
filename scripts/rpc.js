@@ -154,7 +154,7 @@ function handleAssignTargets({ tokenUuids, fromName }) {
 // executor so the caster's slot deducts and saves fan to targets' phones.
 async function handleAnnounceCast(payload) {
   if (!isExecutor()) return { ok: false, stage: "route", reason: "not the executor client" };
-  const { activityUuid, casterName, spellName, casterTokenUuid, requesterId } = payload;
+  const { activityUuid, casterName, spellName, casterTokenUuid, kind, requesterId } = payload;
   const activity = await fromUuid(activityUuid);
   if (!activity) return { ok: false, stage: "resolve", reason: `activity not found: ${activityUuid}` };
   if (!requesterCanAct(requesterId, activity.item?.actor)) {
@@ -163,6 +163,7 @@ async function handleAnnounceCast(payload) {
   const id = foundry.utils.randomID();
   pendingCasts.set(id, {
     id, activityUuid, casterTokenUuid, requesterId, ts: Date.now(),
+    kind: kind === "summon" ? "summon" : "aoe", // summon → DM places the summoned token(s)
     casterName: casterName ?? activity.item?.actor?.name ?? "Player",
     spellName: spellName ?? activity.item?.name ?? "spell"
   });

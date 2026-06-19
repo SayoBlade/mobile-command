@@ -88,17 +88,18 @@ function cameraBarHTML() {
   </div>`;
 }
 
-/** AoE-push section: a Place button per pending cast announced from a phone. */
+/** AoE-push / summon section: a Place (or Summon) button per pending cast. */
 function pendingHTML(pending) {
   const esc = foundry.utils.escapeHTML;
   const rows = pending.map(pc => `
     <div class="mc-dmp-cast" data-cast="${pc.id}">
       <span class="mc-dmp-cast-info"><b>${esc(pc.casterName)}</b> — ${esc(pc.spellName)}</span>
-      <button class="mc-dmp-place" data-place="${pc.id}">Place</button>
+      <button class="mc-dmp-place" data-place="${pc.id}">${pc.kind === "summon" ? "Summon" : "Place"}</button>
       <button class="mc-dmp-cast-x" data-dismiss="${pc.id}" aria-label="Dismiss">✕</button>
     </div>`).join("");
+  const head = pending.every(p => p.kind === "summon") ? "Place summon" : "Place spell";
   return `
-    <div class="mc-dmp-head"><span>Place spell${pending.length === 1 ? "" : "s"}</span></div>
+    <div class="mc-dmp-head"><span>${head}${pending.length === 1 ? "" : "s"}</span></div>
     <div class="mc-dmp-casts">${rows}</div>`;
 }
 
