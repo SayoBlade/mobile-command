@@ -1483,3 +1483,14 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 /* Remove-condition action at the foot of an effect's detail card. */
 .mc-detail-remove { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin-top: 14px; padding: 10px; font-size: 14px; font-weight: 600; color: #f1b0b0; background: rgba(180, 60, 60, 0.12); border: 1px solid rgba(200, 80, 80, 0.5); border-radius: 10px; cursor: pointer; }
 .mc-detail-remove:active { background: rgba(180, 60, 60, 0.24); }
+/* Detail-card action footer (Use/Cast/Learn/Roll/Equip/Attune + quantity/Drop). */
+.mc-detail-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.mc-detail-act { flex: 1 1 auto; min-width: 88px; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 12px; font: inherit; font-size: 14px; font-weight: 600; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-edge); border-radius: 10px; cursor: pointer; }
+.mc-detail-act.mc-act-primary { color: #0c0d11; background: var(--mc-gold); border-color: var(--mc-gold); }
+.mc-detail-act.mc-on { color: var(--mc-gold); border-color: var(--mc-gold); }
+.mc-detail-act.mc-act-danger { flex: 1 1 100%; color: #f1b0b0; background: rgba(180, 60, 60, 0.12); border-color: rgba(200, 80, 80, 0.5); }
+.mc-detail-act.mc-act-danger.mc-armed { color: #fff; background: rgba(180, 60, 60, 0.55); }
+.mc-detail-qtyrow { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.mc-qty { display: flex; align-items: center; gap: 8px; }
+.mc-qty-btn { width: 40px; height: 40px; font-size: 20px; line-height: 1; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-edge); border-radius: 9px; cursor: pointer; }
+.mc-qty-val { min-width: 28px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; }

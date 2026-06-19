@@ -118,6 +118,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #itemPickerId = null; // Equipment tab: item whose multi-activity picker is open
   #detailCard = null;   // long-press: { name, img, subtitle, desc } of an item shown full-screen
   #detailStack = [];    // drill-down back-stack: closing a linked card returns to the previous one
+  #dropArmed = null;    // itemId mid-confirm for a "Drop" (2-tap so a stray tap can't delete)
   #longPressTimer = null;
   #lpStart = null;      // pointer start position, to abort the press on scroll
   #suppressClick = false; // a long-press fired → swallow the trailing click so the row doesn't also act
@@ -1623,6 +1624,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "detail-close":
         // Drill-down back: pop to the previous card if we navigated into a link,
         // else close the card entirely back to the sheet.
+        this.#dropArmed = null;
         this.#detailCard = this.#detailStack.pop() ?? null;
         return this.render();
       case "detail-fav": {
@@ -1642,6 +1644,45 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         if (statuses.length) statuses.forEach((sid) => actor.toggleStatusEffect(sid, { active: false }));
         else e.delete();
         this.#detailCard = this.#detailStack.pop() ?? null; // the chip is gone — close the card
+        return this.render();
+      }
+      // --- detail-card action footer (#detailActionsHTML) ---
+      case "detail-use-activity": // Use / Cast → the normal target-picker flow
+        this.#detailCard = null; this.#detailStack = []; this.#dropArmed = null;
+        return this.#pickAction(el.dataset.uuid);
+      case "detail-use-item": // multi-activity item → its activity picker
+        this.#detailCard = null; this.#detailStack = []; this.#dropArmed = null;
+        this.#itemPickerId = el.dataset.itemId; return this.render();
+      case "detail-equip": {
+        const it = actor?.items.get(el.dataset.itemId);
+        return it?.update({ "system.equipped": !it.system.equipped }); // updateActor re-renders → footer reads live state
+      }
+      case "detail-attune": {
+        const it = actor?.items.get(el.dataset.itemId);
+        return it?.update({ "system.attuned": !it.system.attuned });
+      }
+      case "detail-prepare": {
+        const it = actor?.items.get(el.dataset.itemId);
+        return it?.update({ "system.preparation.prepared": !it.system.preparation?.prepared });
+      }
+      case "detail-roll":
+        this.#detailCard = null; // close the card; the native (Restyled) roll dialog opens
+        if (el.dataset.checkKind === "skill") return actor?.rollSkill?.({ skill: el.dataset.checkKey });
+        if (el.dataset.checkKind === "tool") return actor?.rollToolCheck?.({ tool: el.dataset.checkKey });
+        return this.render();
+      case "detail-qty": {
+        const it = actor?.items.get(el.dataset.itemId);
+        if (!it) return;
+        const q = Math.max(1, (it.system.quantity ?? 1) + Number(el.dataset.delta));
+        return it.update({ "system.quantity": q });
+      }
+      case "detail-drop": {
+        const id = el.dataset.itemId;
+        if (this.#dropArmed !== id) { this.#dropArmed = id; return this.render(); } // arm (2-tap guard)
+        const it = actor?.items.get(id);
+        this.#dropArmed = null;
+        this.#detailCard = this.#detailStack.pop() ?? null;
+        it?.delete();
         return this.render();
       }
       case "roll-damage":
@@ -1945,6 +1986,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #triggerDetail(el) {
     this.#detailStack = []; // a fresh long-press starts a new drill-down context
     this.#movePickerOpen = false; // and a collapsed travel-type picker
+    this.#dropArmed = null; // and a disarmed Drop
     const { uuid, itemId, detail } = el.dataset;
     if (detail === "character") return this.#showCharacterDetails();
     if (detail === "bio") return this.#showBioDetails();
@@ -1973,7 +2015,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const favType = activity ? "activity" : "item";
     const favId = rel ? (activity ? `${rel}.Activity.${activity.id}` : rel) : null;
     const isFav = favId ? !!this.actor?.system?.hasFavorite?.(favId) : false;
-    this.#detailCard = { name: item.name, img: item.img || "icons/svg/item-bag.svg", subtitle: this.#itemSubtitle(item), meta: this.#itemMeta(item), desc, favType, favId, isFav };
+    this.#detailCard = { name: item.name, img: item.img || "icons/svg/item-bag.svg", subtitle: this.#itemSubtitle(item), meta: this.#itemMeta(item), desc, favType, favId, isFav, itemId: item.id };
     this.render();
   }
   // Compact mechanical stats line for the detail-card head, built from dnd5e's own
@@ -2045,7 +2087,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       `<div class="mc-ac-row"><span class="mc-ac-k">${k}</span><span class="mc-ac-v">${foundry.utils.escapeHTML(String(v))}</span></div>`).join("");
     const card = {
       name: label, glyph: kind === "skill" ? "fa-dice-d20" : "fa-screwdriver-wrench",
-      subtitle: kind === "skill" ? "Skill" : "Tool", favId: null, isFav: false
+      subtitle: kind === "skill" ? "Skill" : "Tool", favId: null, isFav: false,
+      skillKey: kind === "skill" ? key : null, toolKey: kind === "tool" ? key : null
     };
     const ledger = `<div class="mc-ac-breakdown">${list}</div>`;
     this.#detailStack = [];
@@ -2199,6 +2242,49 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const rarity = sys.rarity ? (CONFIG.DND5E?.itemRarity?.[sys.rarity] ?? sys.rarity) : "";
     return [rarity, typeLabel].filter(Boolean).join(" ");
   }
+  #actBtn(label, icon, action, data = {}, cls = "") {
+    const attrs = Object.entries(data).map(([k, v]) => `data-${k}="${v}"`).join(" ");
+    return `<button class="mc-detail-act ${cls}" data-action="${action}" ${attrs}><i class="fas ${icon}"></i> ${label}</button>`;
+  }
+  // Contextual action footer for the detail card (DM 2026-06-19: spell→Cast/Learn,
+  // skill/tool→Roll, item→Use/Equip/Attune, physical→quantity ± and Drop). Buttons
+  // dispatch the SAME flows the rows already use; item state is read LIVE so toggles
+  // reflect on the next render. Conditions keep their own Remove button.
+  #detailActionsHTML(d) {
+   try {
+    if (d.skillKey) return `<div class="mc-detail-acts">${this.#actBtn("Roll", "fa-dice-d20", "detail-roll", { "check-kind": "skill", "check-key": d.skillKey }, "mc-act-primary")}</div>`;
+    if (d.toolKey) return `<div class="mc-detail-acts">${this.#actBtn("Roll", "fa-dice-d20", "detail-roll", { "check-kind": "tool", "check-key": d.toolKey }, "mc-act-primary")}</div>`;
+    if (!d.itemId) return "";
+    const item = this.actor?.items.get(d.itemId);
+    if (!item) return "";
+    const sys = item.system ?? {};
+    const usable = this.#itemUsableActivities(item);
+    const btns = [];
+    if (item.type === "spell") {
+      const castUuid = usable[0]?.uuid ?? [...(sys.activities ?? [])][0]?.uuid;
+      if (castUuid) btns.push(this.#actBtn("Cast", "fa-wand-sparkles", "detail-use-activity", { uuid: castUuid }, "mc-act-primary"));
+      const prep = sys.preparation ?? {};
+      if (prep.mode === "prepared" && (sys.level ?? 0) > 0)
+        btns.push(this.#actBtn(prep.prepared ? "Learned" : "Learn", "fa-book", "detail-prepare", { "item-id": item.id }, prep.prepared ? "mc-on" : ""));
+    } else {
+      if (usable.length === 1) btns.push(this.#actBtn("Use", "fa-bolt", "detail-use-activity", { uuid: usable[0].uuid }, "mc-act-primary"));
+      else if (usable.length > 1) btns.push(this.#actBtn("Use", "fa-bolt", "detail-use-item", { "item-id": item.id }, "mc-act-primary"));
+      if ("equipped" in sys) btns.push(this.#actBtn(sys.equipped ? "Equipped" : "Equip", "fa-shield-halved", "detail-equip", { "item-id": item.id }, sys.equipped ? "mc-on" : ""));
+      if (sys.attunement) btns.push(this.#actBtn(sys.attuned ? "Attuned" : "Attune", "fa-sun", "detail-attune", { "item-id": item.id }, sys.attuned ? "mc-on" : ""));
+    }
+    let qtyRow = "";
+    if ("quantity" in sys) {
+      const qty = sys.quantity ?? 1;
+      const armed = this.#dropArmed === item.id;
+      const stepper = qty > 1
+        ? `<div class="mc-qty"><button class="mc-qty-btn" data-action="detail-qty" data-item-id="${item.id}" data-delta="-1" aria-label="Remove one">−</button><span class="mc-qty-val">${qty}</span><button class="mc-qty-btn" data-action="detail-qty" data-item-id="${item.id}" data-delta="1" aria-label="Add one">+</button></div>`
+        : "";
+      const dropBtn = `<button class="mc-detail-act mc-act-danger ${armed ? "mc-armed" : ""}" data-action="detail-drop" data-item-id="${item.id}"><i class="fas fa-trash"></i> ${armed ? "Confirm drop" : "Drop"}</button>`;
+      qtyRow = `<div class="mc-detail-qtyrow">${stepper}${dropBtn}</div>`;
+    }
+    return `${btns.length ? `<div class="mc-detail-acts">${btns.join("")}</div>` : ""}${qtyRow}`;
+   } catch (e) { console.warn("mobile-command | detail actions failed", e); return ""; }
+  }
   #detailCardHTML() {
     const d = this.#detailCard;
     if (!d) return "";
@@ -2216,6 +2302,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           </div>
         </div>
         <div class="mc-detail-desc">${d.desc || "<em>No description.</em>"}</div>
+        ${this.#detailActionsHTML(d)}
         ${d.removeEffectId ? `<button class="mc-detail-remove" data-action="effect-remove" data-effect-id="${d.removeEffectId}"><i class="fas fa-circle-xmark"></i> Remove condition</button>` : ""}
       </div>`;
   }
