@@ -8,6 +8,9 @@ import { api as rpc } from "./rpc.js";
 // HP editing, inventory, spell prep, item use (Route B) come in later phases.
 
 const ABILITIES = ["str", "dex", "con", "int", "wis", "cha"];
+// 5e point-buy (PHB 2014 & 2024): 27-point budget, scores 8–15.
+const PB_COST = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
+const PB_BUDGET = 27;
 const ROLL_HISTORY_MAX = 6;   // recent-rolls strip cap (newest-first)
 const ROLL_TOAST_MS = 4500;   // transient roll toast lifetime (ms)
 
@@ -320,6 +323,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Workspace: pick Species / Background / Class (each → real advancement popup),
   // each row showing the chosen item once added. Ability scores + Finish below.
   #charGenHTML(actor) {
+    if (this.#charGen?.picking === "abilities") return this.#abilityPanelHTML(actor);
     if (this.#charGen?.picking) return this.#charGenPickerHTML(actor);
     const row = (label, type, icon) => {
       const item = actor.items.find(i => i.type === type);
@@ -335,6 +339,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           ${row("Species", "race", "fa-dragon")}
           ${row("Background", "background", "fa-scroll")}
           ${row("Class", "class", "fa-hat-wizard")}
+          <button class="mc-cg-row" data-action="char-gen-abilities">
+            <i class="fas fa-dumbbell mc-cg-row-ico"></i>
+            <span class="mc-cg-row-label">Ability scores</span>
+            <span class="mc-cg-row-val">Point buy…</span>
+            <i class="fas fa-chevron-right"></i>
+          </button>
         </div>
         <button class="mc-cg-finish" data-action="char-gen-finish"><i class="fas fa-check-double"></i> Finish</button>`;
   }
@@ -401,6 +411,58 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       console.error("mobile-command | char-gen add failed", e);
       ui.notifications.warn(`Couldn't add ${item.name} — see console.`);
     }
+  }
+
+  // Point-buy ability scores. Working set lives on #charGen.abil while editing;
+  // Apply writes to the actor. (Standard array + roll are the next layer.)
+  #openAbilities() {
+    if (!this.#charGen) return;
+    const cur = this.actor?.system?.abilities ?? {};
+    this.#charGen.abil = {};
+    for (const k of ABILITIES) { const v = Number(cur[k]?.value); this.#charGen.abil[k] = (v >= 8 && v <= 15) ? v : 8; }
+    this.#charGen.picking = "abilities";
+    this.render();
+  }
+  #pbUsed(scores) { return ABILITIES.reduce((n, k) => n + (PB_COST[scores[k]] ?? 0), 0); }
+  #adjAbility(abil, delta) {
+    const cg = this.#charGen; if (!cg?.abil) return;
+    const next = Math.max(8, Math.min(15, (cg.abil[abil] ?? 8) + delta));
+    if (this.#pbUsed({ ...cg.abil, [abil]: next }) > PB_BUDGET) return; // over budget
+    cg.abil[abil] = next;
+    this.render();
+  }
+  async #applyAbilities() {
+    const a = this.actor, cg = this.#charGen; if (!a || !cg?.abil) return;
+    const upd = {};
+    for (const k of ABILITIES) upd[`system.abilities.${k}.value`] = cg.abil[k];
+    try { await a.update(upd); } catch (e) { return ui.notifications.warn(`Couldn't set scores: ${e.message}`); }
+    cg.picking = null; cg.abil = null;
+    this.render();
+    ui.notifications.info("Ability scores set.");
+  }
+  #abilityPanelHTML() {
+    const scores = this.#charGen?.abil ?? {};
+    const left = PB_BUDGET - this.#pbUsed(scores);
+    const rows = ABILITIES.map(k => {
+      const v = scores[k] ?? 8;
+      const label = CONFIG.DND5E.abilities[k]?.label ?? k.toUpperCase();
+      const canDec = v > 8;
+      const incCost = (PB_COST[Math.min(15, v + 1)] ?? 99) - (PB_COST[v] ?? 0);
+      const canInc = v < 15 && (left - incCost) >= 0;
+      return `<div class="mc-abil-row">
+        <span class="mc-abil-name">${foundry.utils.escapeHTML(label)}</span>
+        <button class="mc-pm mc-minus" data-action="abil-dec" data-abil="${k}" ${canDec ? "" : "disabled"}>−</button>
+        <span class="mc-abil-val">${v}</span>
+        <button class="mc-pm mc-plus" data-action="abil-inc" data-abil="${k}" ${canInc ? "" : "disabled"}>+</button>
+      </div>`;
+    }).join("");
+    return `<div class="mc-picker-head">
+        <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+        <span class="mc-picker-title">Ability scores</span>
+      </div>
+      <div class="mc-abil-budget"><span>Point buy</span><b>${left}</b><span>points left</span></div>
+      <div class="mc-abils">${rows}</div>
+      <button class="mc-cg-finish" data-action="char-gen-abil-apply">Apply scores</button>`;
   }
 
   // Save/reaction prompt (§7.4/§7.6): a persistent, tappable cue when the
@@ -2104,6 +2166,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return;
       case "char-gen-finish":
         return this.#finishCharGen();
+      case "char-gen-abilities":
+        return this.#openAbilities();
+      case "abil-inc":
+        return this.#adjAbility(el.dataset.abil, 1);
+      case "abil-dec":
+        return this.#adjAbility(el.dataset.abil, -1);
+      case "char-gen-abil-apply":
+        return this.#applyAbilities();
       case "cond-edit":
         this.#condEditing = !this.#condEditing; return this.render();
       case "toggle-levels":

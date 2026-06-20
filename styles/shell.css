@@ -560,6 +560,14 @@ body.mc-phone .roll-configuration fieldset {
 .mc-cg-opt:active { background: var(--mc-panel-2); }
 .mc-cg-opt-name { font-size: 15px; font-weight: 700; }
 .mc-cg-opt-src { font-size: 11px; color: var(--mc-muted); }
+/* Point-buy ability panel */
+.mc-abil-budget { display: flex; align-items: baseline; gap: 6px; justify-content: center; padding: 12px; color: var(--mc-muted); font-size: 13px; }
+.mc-abil-budget b { color: var(--mc-gold); font-size: 20px; font-weight: 800; }
+.mc-abils { display: flex; flex-direction: column; gap: 8px; padding: 2px 14px 12px; }
+.mc-abil-row { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 12px; border-radius: 11px; background: var(--mc-panel); border: 1px solid var(--mc-edge); }
+.mc-abil-name { flex: 1 1 auto; font-size: 15px; font-weight: 700; color: var(--mc-ink); }
+.mc-abil-val { min-width: 2em; text-align: center; font-size: 21px; font-weight: 800; color: var(--mc-ink); font-variant-numeric: tabular-nums; }
+.mc-pm:disabled { opacity: .4; }
 
 #mobile-command-shell .mc-section-label { color: var(--mc-gold); }
 #mobile-command-shell .mc-ability { background: var(--mc-panel); border-color: var(--mc-edge); }
