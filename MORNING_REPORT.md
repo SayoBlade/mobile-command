@@ -1,7 +1,10 @@
-# STATUS — continue here (updated 2026-06-20, char-gen ability methods)
+# STATUS — continue here (updated 2026-06-21, overnight autonomous session)
+
+## ⚠️ DO THIS FIRST (2026-06-21): reload the GM client + test ONE attack
+**v0.1.4 shipped a regression that breaks ALL attacks** — the phone shows "—" after an ~8s "Rolling…" hang (caught live overnight). **v0.1.5 reverts it.** It's executor-side, so: **hard-reload the Gamemaster (executor) browser, then fire one weapon attack** — the phone total should show immediately and match chat. (CC couldn't verify this overnight — the GM browser has no Claude extension, so it can't be driven/reloaded by CC. This is a revert to the 8/8-live-verified version, so confidence is high, but confirm first.)
 
 ## Where we are
-- **Released v0.1.4** — public GitHub Releases (v0.1.4 = this session's attack-total/scene-switch/turn-cycle fixes + char-gen array/roll + TV margin-follow; commit fa432bb). Manifest: `https://github.com/SayoBlade/mobile-command/releases/latest/download/module.json`. **Sqyre runs the release; the local Foundry runs the symlink** (live on reload).
+- **Released v0.1.5** — public GitHub Releases. v0.1.5 = **fix the v0.1.4 attack-total regression** + **save-prompt phone-side fallback** + **in-range target badge (B8)** (overnight 2026-06-21; details below). v0.1.4 = attack-total guard/scene-switch/turn-cycle + char-gen array/roll + TV margin-follow. Manifest: `https://github.com/SayoBlade/mobile-command/releases/latest/download/module.json`. **Sqyre runs the release; the local Foundry runs the symlink** (live on reload).
 - **Char-gen MVP shipped (v0.1.3):** a blank PC (no class) shows a **"Create Character"** gate → workspace picks **Species/Background/Class** from compendiums → dnd5e's **real advancement popups** (proven to lift onto the phone, `mc-phone-dialog`) → **point-buy ability panel** (27-pt) → Finish. DM drops the blank PC + grants Owner (players can't create actors); snags → DM client.
 - Also in v0.1.3 (this generation): spell upcasting picker, public-roll default, initiative prompt + Init button, move-pad green/yellow/red distance budget, combat-start vibrate/sound, dice tray, smooth TV-camera pans, iOS double-tap-zoom fix, silent-failure diagnostics across damage/spell/announce/attack-preview.
 
@@ -9,7 +12,28 @@
 - **Char-gen layers:** DM "Player X started" + **compendium-approval handshake**; **phone-fit CSS** for the dense (~563px) advancement dialog; ~~standard-array/roll abilities~~ ✅ built (test below); AoE/template spell upcast (carry slot through `#announceCast`).
 - **−100 attack bug — ✅ ROOT-CAUSED & GUARDED LIVE (2026-06-20):** see the dated entry below. Favorites and the Actions tab are the SAME code path (proven: identical activity uuid → `useActivityStart`); the −100 was the **executor serving midi's `minAttackTotal=-100` placeholder** (pre-roll), i.e. a stale/pre-fix executor. Captured 8 live favorites greatsword attacks post-fix: totals 10/27/15/23/28/13/22/18, **zero −100**. Added a guard on BOTH sides so the sentinel can never display again (phone shows "—").
 - **Parked live confirms (need the DM/executor client reloaded + world UNPAUSED):** upcast slot-deducts-at-chosen-level. Bench = local `http://localhost:30000` "Offline test", Player 1 + Gamemaster executor.
-- **Sqyre:** v0.1.2 install got stuck in the queue ("verifying disk space" — Sqyre-side, package verified good); clear the pending job + reinstall **v0.1.3** via the manifest URL.
+- **Sqyre:** v0.1.2 install got stuck in the queue ("verifying disk space" — Sqyre-side, package verified good); clear the pending job + reinstall the latest via the manifest URL.
+
+---
+
+## 🌙 Overnight autonomous session (2026-06-21) — regression fix + 2 verified features
+
+DM left the Player-1 browser open ("get a few features in, I'll review in the morning"). CC drove the **Player-1** client live; the **GM/executor** browser has no Claude extension, so CC **could not drive or reload it** — meaning executor-side (rpc.js) changes are **built but unverified** (need a GM reload). All phone-side work was verified live.
+
+### 🔴 CAUGHT: v0.1.4 attack regression → reverted (rpc.js)
+Live-testing the shipped v0.1.4 attack flow, every greatsword attack hung ~8s on "Rolling…" then showed **"—"** (executor returned null). Cause: the **pre-push tightening** I made right before shipping v0.1.4 changed `findParkedWorkflow`'s readiness gate to require `wf.attackRoll.total`, but in this Route-B flow midi populates **`wf.attackTotal`** (the scalar) — the gate never passed, the workflow waited the full 8s timeout, returned null. (The version the DM confirmed "working" was BEFORE this tightening.) **Reverted** `findParkedWorkflow` to the simple, 8/8-live-verified matching (return as soon as `awaitingDamage`) + `resolveAttackTotal` polls `attackRoll.total ?? attackTotal` (−100→null) up to 3s for cold-start. **Executor-side → unverified overnight; reload the GM + test (see top).**
+
+### ✅ Save-prompt phone-side fallback (shell.js) — VERIFIED LIVE
+Addresses the Gelatinous-Cube-Engulf "I wasn't prompted" issue. The executor relay only fires if the GM runs current code; when stale, no prompt reaches the phone. midi ALSO whispers a plain save-request card to the player (`requestPCSave`: `{content, whisper}`, no flags/rolls). The shell hides chat, so the new `maybeSavePromptFromCard` (in the `createChatMessage` hook) catches that card and surfaces the same tappable prompt — relay-independent. Parses owned-actor name + ability label + DC + flavor; **saving throws only**; **de-dupes** with the relay. **Verified:** a simulated whispered card → "Saving throw / Test Engulf / Roll Dexterity DC 13"; an Ability-Check card correctly ignored.
+
+### ✅ In-range target badge (B8) (shell.js + shell.css) — VERIFIED LIVE
+The target picker now flags targets past the activity's reach: the row dims and the distance turns red (still tappable — warnings, not walls). Reach read from `activity.range` (max of reach/value/long, scene units; no reimplementation). **Verified:** Greatsword (reach 5 ft) → Gelatinous Cube at 5 ft normal; two Spear Barricades at 20 ft flagged out-of-range.
+
+### Backlog note — §13 is stale (as of 2026-06-14)
+While picking features, found several "TODO" items already shipped: **scroll preservation on expand/collapse** (done 2026-06-19, `_replaceHTML` view-key) and **currency tap-to-edit** (done 2026-06-18, `#currencyHTML`/`#onChange`). Don't re-derive these. **Swipe-between-tabs (B2)** is genuinely not done (skipped overnight — gesture-conflict risk + needs real-device feel).
+
+### Test artifacts left in the world
+Two whispered test chat messages to Player 1 (simulated save/check cards) — harmless; not deleted (conduct: never delete). A transient save-prompt may linger ≤60s then auto-clear.
 
 ---
 
