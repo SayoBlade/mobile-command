@@ -1745,11 +1745,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         const on = s.selected.has(c.uuid);
         const [cls, label] = c.disposition < 0 ? ["foe", "Foe"]
           : c.disposition > 0 ? ["ally", "Ally"] : ["neutral", "Neutral"];
-        return `<button class="mc-target ${on ? "mc-target-on" : ""}" data-action="target-toggle" data-uuid="${c.uuid}">
+        // B8 in-range hint: flag a target past the activity's reach (still tappable).
+        const far = s.rangeFt != null && Number(c.distanceFt) > s.rangeFt + 0.5;
+        return `<button class="mc-target ${on ? "mc-target-on" : ""} ${far ? "mc-target-far" : ""}" data-action="target-toggle" data-uuid="${c.uuid}">
           <span class="mc-target-name">${foundry.utils.escapeHTML(c.name)}</span>
           <span class="mc-target-right">
             <span class="mc-disp mc-${cls}">${label}</span>
-            <span class="mc-target-dist">${Math.round(c.distanceFt)} ft</span>
+            <span class="mc-target-dist ${far ? "mc-far" : ""}">${Math.round(c.distanceFt)} ft</span>
           </span>
         </button>`;
       }).join("");
@@ -1838,7 +1840,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const assigned = (!selfTarget && this.#assignedTargets.length)
       ? this.#assignedTargets.slice(0, maxTargets) : [];
     const slotOptions = this.#spellSlotOptions(activity); // upcast picker (leveled spells)
-    this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets,
+    // In-range badge (B8): the activity's max reach in feet (melee reach / normal /
+    // long), but only when it's a plain distance in the scene's units — used to flag
+    // out-of-range targets in the picker (a hint, not a wall: still selectable).
+    const rng = activity.range ?? {};
+    const distUnits = game.scenes.active?.grid?.units || "ft";
+    const rangeFt = (rng.units === "ft" || rng.units === distUnits)
+      ? (Math.max(0, Number(rng.reach) || 0, Number(rng.value) || 0, Number(rng.long) || 0) || null)
+      : null;
+    this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets, rangeFt,
       slotOptions, slot: slotOptions[0]?.id ?? null, // default = lowest available slot ≥ base level
       hasAttack: activity.type === "attack",
       // Auto-resolve on the executor for anything that ISN'T a player-rolled

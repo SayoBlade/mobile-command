@@ -266,10 +266,14 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 }
 .mc-target-on { border-color: #5db4e6; box-shadow: inset 0 0 0 1px #243042; }
 .mc-target-name { font-size: 15px; }
-/* distance is neutral — color is reserved for a future in-range badge (§7.3),
-   not disposition (which read as reachable/unreachable). Disposition is a tag. */
+/* In-range badge (B8 / §7.3): a target past the activity's reach reads as
+   out-of-range — the row dims and the distance turns red. It stays tappable
+   (warnings, not walls); the player can still pick it. */
+.mc-target.mc-target-far { opacity: .6; }
+.mc-target.mc-target-far.mc-target-on { opacity: 1; } /* selected anyway → full strength */
 .mc-target-right { display: flex; align-items: center; gap: 10px; }
 .mc-target-dist { font-size: 12px; color: #9a9da8; font-variant-numeric: tabular-nums; }
+.mc-target-dist.mc-far { color: #e8857a; font-weight: 700; }
 .mc-disp {
   font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
   padding: 2px 7px; border-radius: 8px;
