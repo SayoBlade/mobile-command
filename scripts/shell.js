@@ -126,6 +126,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #moveMode = null;       // chosen travel type (walk/fly/swim/climb/burrow); null → effective default
   #movePickerOpen = false; // character card: the travel-type picker is expanded
   #collapsedActionGroups = new Set(); // Actions tab: accordion groups the user/use closed
+  #charGen = null;        // char-gen workspace: null | { actorId, picking } (picking: null|"race"|"background"|"class")
+  #charGenOptions = null; // compendium entries for the current picking type (null = loading)
   #diceTrayOpen = false; // header D20: contextless dice-tray panel open
   #dtrayPool = {};       // dice tray: {faces: count}, e.g. {20:2, 6:1}
   #dtrayMod = 0;         // dice tray: flat modifier
@@ -192,6 +194,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!actor) {
       return `<div class="mc-placeholder">No owned character found for ${game.user.name}.</div>`;
     }
+    // Char-gen (§7.x): once started, the build workspace replaces the sheet until
+    // Finish. A blank PC (no class) that hasn't started offers only "Create
+    // Character". Otherwise fall through to the normal sheet.
+    if (this.#charGen?.actorId === actor.id) return this.#charGenHTML(actor);
+    if (this.#isBlankPC(actor)) return this.#charGenStartHTML(actor);
     const sys = actor.system;
     const hp = sys.attributes?.hp ?? {};
     const pct = hp.max ? (hp.value / hp.max) : 1;
@@ -277,6 +284,123 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </nav>
       ${this.#imagePopupHTML(actor)}
       ${this.#savePromptHTML()}`;
+  }
+
+  // ===== Character creation (§7.x) ==========================================
+  // A blank PC (the DM drops the actor + grants ownership) shows only "Create
+  // Character". Starting it opens a workspace where the player picks Species /
+  // Background / Class from compendiums — each add fires dnd5e's real advancement
+  // popups, which already lift onto the phone (verified). Snags → DM client.
+
+  #isBlankPC(actor) {
+    return actor?.type === "character" && !actor.items.some(i => i.type === "class");
+  }
+
+  #charGenHeaderHTML(actor, sub) {
+    const img = actor.img || "icons/svg/mystery-man.svg";
+    return `<header class="mc-header mc-cg-header">
+      <img class="mc-portrait" src="${img}" alt="">
+      <div class="mc-id"><div class="mc-name"><span class="mc-name-text">${foundry.utils.escapeHTML(actor.name)}</span></div>
+        <div class="mc-cg-sub">${sub}</div></div>
+    </header>`;
+  }
+
+  // Start screen: blank PC → only Create Character (+ the switcher to move between
+  // owned PCs, some of which may already be built).
+  #charGenStartHTML(actor) {
+    return this.#charGenHeaderHTML(actor, "New character")
+      + this.#tokenSwitcherHTML()
+      + `<div class="mc-cg-start">
+          <i class="fas fa-wand-magic-sparkles mc-cg-bigicon"></i>
+          <div class="mc-cg-blurb">This character is blank. Build it together at the table.</div>
+          <button class="mc-cg-create" data-action="char-gen-start"><i class="fas fa-hammer"></i> Create Character</button>
+        </div>`;
+  }
+
+  // Workspace: pick Species / Background / Class (each → real advancement popup),
+  // each row showing the chosen item once added. Ability scores + Finish below.
+  #charGenHTML(actor) {
+    if (this.#charGen?.picking) return this.#charGenPickerHTML(actor);
+    const row = (label, type, icon) => {
+      const item = actor.items.find(i => i.type === type);
+      return `<button class="mc-cg-row ${item ? "mc-cg-done" : ""}" data-action="char-gen-pick" data-cgtype="${type}">
+        <i class="fas ${icon} mc-cg-row-ico"></i>
+        <span class="mc-cg-row-label">${label}</span>
+        <span class="mc-cg-row-val">${item ? foundry.utils.escapeHTML(item.name) : "Choose…"}</span>
+        <i class="fas ${item ? "fa-check mc-cg-check" : "fa-chevron-right"}"></i>
+      </button>`;
+    };
+    return this.#charGenHeaderHTML(actor, "Building character…")
+      + `<div class="mc-cg-steps">
+          ${row("Species", "race", "fa-dragon")}
+          ${row("Background", "background", "fa-scroll")}
+          ${row("Class", "class", "fa-hat-wizard")}
+        </div>
+        <button class="mc-cg-finish" data-action="char-gen-finish"><i class="fas fa-check-double"></i> Finish</button>`;
+  }
+
+  // Compendium chooser for the current pick type (null options = still loading).
+  #charGenPickerHTML(actor) {
+    const type = this.#charGen.picking;
+    const label = { race: "Species", background: "Background", class: "Class" }[type] ?? type;
+    const head = `<div class="mc-picker-head">
+        <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+        <span class="mc-picker-title">Choose ${label}</span>
+      </div>`;
+    if (this.#charGenOptions === null) return head + `<div class="mc-target-note">Loading ${label.toLowerCase()}…</div>`;
+    if (!this.#charGenOptions.length) return head + `<div class="mc-target-note">No ${label.toLowerCase()} options found in the available compendiums.</div>`;
+    const rows = this.#charGenOptions.map(o =>
+      `<button class="mc-cg-opt" data-action="char-gen-add" data-uuid="${o.uuid}">
+        <span class="mc-cg-opt-name">${foundry.utils.escapeHTML(o.name)}</span>
+        <span class="mc-cg-opt-src">${foundry.utils.escapeHTML(o.src)}</span>
+      </button>`).join("");
+    return head + `<div class="mc-cg-opts">${rows}</div>`;
+  }
+
+  #startCharGen() {
+    const actor = this.actor; if (!actor) return;
+    this.#charGen = { actorId: actor.id, picking: null };
+    this.render();
+  }
+  #finishCharGen() { this.#charGen = null; this.#charGenOptions = null; this.render(); }
+
+  // Load every compendium item of the requested type (scoped later by the DM's
+  // approved-source list). Scans Item packs' indexes for the matching subtype.
+  async #charGenPick(type) {
+    if (!this.#charGen) return;
+    this.#charGen.picking = type;
+    this.#charGenOptions = null; // loading
+    this.render();
+    const out = [];
+    for (const pack of game.packs) {
+      if (pack.metadata.type !== "Item") continue;
+      let idx;
+      try { idx = await pack.getIndex({ fields: ["type"] }); } catch (e) { continue; }
+      for (const e of idx) {
+        if (e.type === type) out.push({ name: e.name, uuid: `Compendium.${pack.collection}.Item.${e._id}`, src: pack.metadata.label });
+      }
+    }
+    out.sort((a, b) => a.name.localeCompare(b.name));
+    if (this.#charGen?.picking === type) { this.#charGenOptions = out; this.render(); }
+  }
+
+  // Add the chosen item via dnd5e's advancement manager — the real creation
+  // popup (lifted onto the phone). Not awaited: the player completes the popup,
+  // dnd5e commits the item, and the createItem hook re-renders this workspace.
+  async #charGenAdd(uuid) {
+    const actor = this.actor; if (!actor) return;
+    const item = await fromUuid(uuid);
+    this.#charGen.picking = null; this.#charGenOptions = null;
+    this.render();
+    if (!item) return ui.notifications.warn("That option couldn't load.");
+    try {
+      const AM = dnd5e.applications?.advancement?.AdvancementManager ?? dnd5e.documents?.advancement?.AdvancementManager;
+      if (!AM) throw new Error("AdvancementManager unavailable");
+      AM.forNewItem(actor, item.toObject()).render(true);
+    } catch (e) {
+      console.error("mobile-command | char-gen add failed", e);
+      ui.notifications.warn(`Couldn't add ${item.name} — see console.`);
+    }
   }
 
   // Save/reaction prompt (§7.4/§7.6): a persistent, tappable cue when the
@@ -1969,6 +2093,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#dtrayPool = {}; this.#dtrayMod = 0; return this.render();
       case "dtray-roll":
         return this.#rollDiceTray();
+      case "char-gen-start":
+        return this.#startCharGen();
+      case "char-gen-pick":
+        return this.#charGenPick(el.dataset.cgtype);
+      case "char-gen-add":
+        return this.#charGenAdd(el.dataset.uuid);
+      case "char-gen-pick-back":
+        if (this.#charGen) { this.#charGen.picking = null; this.#charGenOptions = null; this.render(); }
+        return;
+      case "char-gen-finish":
+        return this.#finishCharGen();
       case "cond-edit":
         this.#condEditing = !this.#condEditing; return this.render();
       case "toggle-levels":
