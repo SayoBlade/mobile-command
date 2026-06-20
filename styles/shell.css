@@ -217,6 +217,8 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 }
 .mc-back { background: none; border: none; color: #5db4e6; font-size: 14px; padding: 4px 0; }
 .mc-picker-title { flex: 1 1 auto; font-size: 16px; font-weight: 600; }
+.mc-picker-range { margin-left: 8px; font-size: 11px; font-weight: 600; color: #9a9da8;
+  padding: 2px 7px; border-radius: 7px; background: #20222b; border: 1px solid #313542; white-space: nowrap; }
 .mc-target-count { font-size: 13px; color: #9a9da8; font-variant-numeric: tabular-nums; }
 
 .mc-adv-row { display: flex; gap: 8px; margin-bottom: 12px; }

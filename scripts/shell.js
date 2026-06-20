@@ -1780,7 +1780,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return `
       <div class="mc-picker-head">
         <button class="mc-back mc-picker-x" data-action="action-back" aria-label="Close"><i class="fas fa-xmark"></i></button>
-        <span class="mc-picker-title">${foundry.utils.escapeHTML(s.name)}</span>
+        <span class="mc-picker-title">${foundry.utils.escapeHTML(s.name)}${s.rangeLabel ? `<span class="mc-picker-range">${foundry.utils.escapeHTML(s.rangeLabel)}</span>` : ""}</span>
         ${count}
       </div>
       ${assignedBanner}
@@ -1848,7 +1848,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const rangeFt = (rng.units === "ft" || rng.units === distUnits)
       ? (Math.max(0, Number(rng.reach) || 0, Number(rng.value) || 0, Number(rng.long) || 0) || null)
       : null;
-    this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets, rangeFt,
+    // dnd5e's own range/reach label for the picker header (e.g. "reach 5 ft",
+    // "80/320 ft") — explains why a target reads out-of-range. No reimplementation.
+    const rangeLabel = activity.item?.labels?.range || activity.item?.labels?.reach || null;
+    this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets, rangeFt, rangeLabel,
       slotOptions, slot: slotOptions[0]?.id ?? null, // default = lowest available slot ≥ base level
       hasAttack: activity.type === "attack",
       // Auto-resolve on the executor for anything that ISN'T a player-rolled
