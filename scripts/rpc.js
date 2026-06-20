@@ -302,17 +302,8 @@ async function handleItemUse(payload) {
 // trigger its damage roll on the second tap.
 const parkedWorkflows = new Map();
 
-// requireAttackReady (attacks): hold the parked workflow until its d20 result has
-// attached, so the phone gets the real total — the FIRST attack of a session can
-// take >1s to process (cold midi/AC5E), which is when -100/"—" slipped through.
-async function findParkedWorkflow(activityUuid, itemUuid, requireAttackReady = false, timeoutMs = 8000) {
+async function findParkedWorkflow(activityUuid, itemUuid, timeoutMs = 8000) {
   const start = Date.now();
-  let pending = null; // a parked-but-not-yet-rolled attack wf; returned at timeout so we never lose it
-  // Wait for the kept d20 Roll specifically — wf.attackRoll is the roll midi posts
-  // to chat (setAttackRoll), so its total is the canonical number the player sees.
-  // The derived wf.attackTotal scalar is NOT used as the readiness signal (it can be
-  // -100 pre-roll, and we don't want to forward anything but the chat-true value).
-  const attackReady = (wf) => typeof wf.attackRoll?.total === "number";
   while (Date.now() - start < timeoutMs) {
     // midi 14 keeps workflows in a Map keyed by id, stored optionally as WeakRefs
     // (useWeakReferences; midi-qol.js 24336/24347). `Object.values()` on a Map is
@@ -332,31 +323,25 @@ async function findParkedWorkflow(activityUuid, itemUuid, requireAttackReady = f
       // reaches it the same way an attack does). Gate on damage still pending.
       const awaitingDamage = (wf.suspended || wf.currentAction === wf.WorkflowState_WaitForDamageRoll)
         && wf.needsDamage !== false;
-      if (awaitingDamage) {
-        // For attacks, wait until the d20 has attached so the phone shows the real
-        // total (not midi's -100 placeholder). Hold the ref and keep polling within
-        // budget; if it never reports, return it anyway so the two-tap still works.
-        if (!requireAttackReady || attackReady(wf)) return wf;
-        pending = wf;
-      } else if (wf.currentAction === wf.WorkflowState_Completed || wf.currentAction === wf.WorkflowState_Abort) {
-        return pending ?? null;
-      }
+      if (awaitingDamage) return wf;
+      if (wf.currentAction === wf.WorkflowState_Completed || wf.currentAction === wf.WorkflowState_Abort) return null;
     }
     await new Promise(r => setTimeout(r, 150));
   }
-  return pending; // attack never reported a total in time — return the parked wf (phone shows "—")
+  return null;
 }
 
-// The attack d20 attaches to the workflow as it processes; usually it's set by the
-// time the workflow parks at WaitForDamageRoll, but on rare timing it isn't yet —
-// leaving wf.attackTotal at midi's -100 placeholder (midi-qol.js:24342) and
-// wf.attackRoll still null. Briefly poll for the real total so the phone shows the
-// number that matches chat instead of "—". Returns null only if it never resolves.
-async function resolveAttackTotal(wf, timeoutMs = 1500) {
+// The attack total can lag the park by a tick: on a cold first attack (midi/AC5E
+// warming up) wf.attackTotal is briefly midi's -100 placeholder (midi-qol.js:24342)
+// before it's set to the real d20 total. Poll for a real value so the phone shows
+// the number that matches chat instead of "—". wf.attackTotal is the field midi
+// populates in this Route-B flow (= the kept roll total); wf.attackRoll.total is
+// preferred when present. Returns null only if neither resolves in time.
+async function resolveAttackTotal(wf, timeoutMs = 3000) {
   const read = () => {
-    const r = wf.attackRoll?.total; // the kept d20 Roll — exactly the chat total
+    const r = wf.attackRoll?.total;
     if (typeof r === "number") return r;
-    const a = wf.attackTotal;        // derived scalar fallback only if the Roll isn't attached
+    const a = wf.attackTotal;
     return (typeof a === "number" && a !== -100) ? a : null; // -100 = pre-roll placeholder
   };
   const start = Date.now();
@@ -429,7 +414,7 @@ async function handleItemUseStart(payload) {
     return true;
   });
 
-  const wf = await findParkedWorkflow(activity.uuid, activity.item?.uuid, hasAttack);
+  const wf = await findParkedWorkflow(activity.uuid, activity.item?.uuid);
   // Whether the workflow parked for the two-tap. If false for a damage spell that
   // should let the player roll (e.g. Magic Missile), it resolved without a roll
   // step — that's the bug to chase (DM-reported MM didn't roll damage 2026-06-17).
