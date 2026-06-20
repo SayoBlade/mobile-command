@@ -1,3 +1,31 @@
+# STATUS — continue here (updated 2026-06-20, overnight)
+
+## 🌙 Overnight build + live test (2026-06-20) — Spell upcasting + bug confirmations
+
+Tested live on the **local clean world** (`localhost:30000` "Offline test", Restored Keep) driving the **Player 1** browser; Gamemaster was connected as executor. The local Foundry runs this repo via symlink, so player-side code was live on reload.
+
+### ✅ Built: Spell upcasting (slot-level picker)
+Leveled spells now show a **"Cast at"** row of slot chips (badge = slots left) in the action picker — base level up through your highest slot tier, default = lowest available. **Player-side verified:** Clumpy Mcruge → Chromatic Orb showed **L1×3 · L2×2 · L3×3 · L4×1**, defaulting to L1. The chosen slot rides through `useActivityStart` → `handleItemUseStart` which adds `{spell:{slot}}` to the dnd5e usage config (midi forwards `usage` to `activity.use`, confirmed in midi source).
+
+### ✅ Confirmed: public-roll default works
+On reload, `core.rollMode` = `publicroll` for the player. Good.
+
+### 🔴 Confirmed root cause: the −100 attack
+Live: Clumpy's Chromatic Orb attack showed **−100 on the phone**, but **chat shows the real roll: d20=7 → total 14**. So `wf.attackTotal` is the bogus field and `wf.attackRoll.total` (=14, = chat) is correct — exactly what the fix now reports.
+
+### ⚠️ CRITICAL: the executor (DM) client must RELOAD to get `rpc.js` changes
+The −100 and the upcast both **misbehaved in the live test** (cast deducted an **L1** slot, total showed −100) **because the Gamemaster/executor client was still on old `rpc.js`** — the player reload doesn't update the executor. **All executor-side fixes from the last day** (−100 total, upcast slot, damage/announce/attackPreview diagnostics, save relay) only activate once the **DM/executor client reloads**.
+
+### ▶️ Do this in the morning (5 min)
+1. **Reload the DM/executor (Gamemaster) client** and one phone.
+2. **Upcast re-test:** as a caster with multiple slot levels, open a leveled spell → tap a higher "Cast at" chip → fire. **Expect:** that level's slot deducts (not L1) and damage scales. *(Plumbing is high-confidence but this deduction is the one thing not yet live-verified — it needs the DM reload.)*
+3. **−100 re-test:** any weapon/spell attack → the phone total should match the chat roll (no more −100).
+4. Glance at: init "Roll initiative" prompt when added to combat; move-pad green/yellow/red; combat-start buzz/sound; dice-tray d20 glyphs; header (inspiration on name row, dice on stats row).
+
+*(Test left the world clean: parked workflow cancelled, the test L1 slot refunded.)*
+
+---
+
 # STATUS — continue here (updated 2026-06-19)
 
 ## 🖥️ TV clean-canvas + ⚙️ settings safety (2026-06-19) — UNVERIFIED, reload to load
