@@ -116,6 +116,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #assignedTargets = []; // §11: token uuids the DM assigned to this player
   #assignedBy = null;    // DM/user name who assigned them (for the picker banner)
   #subjectId = null;     // §7.1 token switcher: active-scene token id the shell controls
+  #subjectActorId = null; // tokenless subject (a blank PC mid-creation, no token yet)
   #savePrompt = null;    // §7.4/§7.6 incoming save request relayed from the executor
   #savePromptTimer = null;
   #deathSaveDismissed = false; // X'd the death-save panel (DM's call overrides; warnings-not-walls)
@@ -145,6 +146,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
    *  ON THE ACTIVE SCENE (so a scene switch rebinds to the PC the player has here),
    *  else the assigned character, else the first owned character. */
   get actor() {
+    // Tokenless subject: a blank PC the player picked from the switcher to build
+    // (char-gen). It has no token yet, so it can't be reached the in-scene way.
+    if (this.#subjectActorId) {
+      const a = game.actors.get(this.#subjectActorId);
+      if (a?.isOwner) return a;
+    }
     // Token switcher (§7.1): an explicit subject token still present + owned on the
     // active scene (covers summons/familiars/wild shape, incl. unlinked).
     if (this.#subjectId) {
@@ -169,6 +176,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // here. Public so the scene-change hook can call it before re-rendering.
   syncSubject() {
     if (this.#subjectId && !game.scenes?.active?.tokens.get(this.#subjectId)) this.#subjectId = null;
+    // Keep a tokenless char-gen subject (blank or mid-creation) until it's no longer
+    // owned or creation finishes (Finish clears the flag → it resolves normally).
+    if (this.#subjectActorId) {
+      const a = game.actors.get(this.#subjectActorId);
+      if (!a?.isOwner || !this.#isCharGenPC(a)) this.#subjectActorId = null;
+    }
   }
 
   async _renderHTML() {
@@ -225,6 +238,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Char-gen (§7.x): once started, the build workspace replaces the sheet until
     // Finish. A blank PC (no class) that hasn't started offers only "Create
     // Character". Otherwise fall through to the normal sheet.
+    // Resume after a reload: the charGen flag persists but the workspace state is
+    // in-memory, so re-seat #charGen for a flagged PC.
+    if (actor.getFlag(MODULE_ID, "charGen") && this.#charGen?.actorId !== actor.id) {
+      this.#charGen = { actorId: actor.id, picking: null };
+    }
     if (this.#charGen?.actorId === actor.id) return this.#charGenHTML(actor);
     if (this.#isBlankPC(actor)) return this.#charGenStartHTML(actor);
     const sys = actor.system;
@@ -392,12 +410,26 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return head + `<div class="mc-cg-opts">${rows}</div>`;
   }
 
+  // A PC needing char-gen: a blank PC (no class), OR one flagged mid-creation. The
+  // flag persists creation across the moment a class is added (no longer "blank")
+  // and across a reload (the workspace state is in-memory) — so the subject stays
+  // reachable + resumable until the player actually taps Finish.
+  #isCharGenPC(actor) {
+    return actor?.type === "character"
+      && (!actor.items.some(i => i.type === "class") || !!actor.getFlag?.(MODULE_ID, "charGen"));
+  }
   #startCharGen() {
     const actor = this.actor; if (!actor) return;
     this.#charGen = { actorId: actor.id, picking: null };
+    actor.setFlag(MODULE_ID, "charGen", true); // persist so a reload can resume
     this.render();
   }
-  #finishCharGen() { this.#charGen = null; this.#charGenOptions = null; this.render(); }
+  #finishCharGen() {
+    const actor = this.actor;
+    this.#charGen = null; this.#charGenOptions = null;
+    actor?.unsetFlag(MODULE_ID, "charGen");
+    this.render();
+  }
 
   // Load every compendium item of the requested type (scoped later by the DM's
   // approved-source list). Scans Item packs' indexes for the matching subtype.
@@ -508,9 +540,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return ui.notifications.warn("Assign every ability score first.");
       for (const k of ABILITIES) scores[k] = cg.pool[cg.assign[k]];
     }
+    // `scores` is the chosen BASE per ability. Species/background/class ASIs bake
+    // their bonus into `system.abilities.X.value`, so writing the base raw would
+    // wipe them. Preserve the bonus = current value − the base we set last time
+    // (10 = the blank-PC default on first apply, tracked in a flag for re-apply),
+    // and write base + bonus so the racial/background increases still count.
+    const prevBase = a.getFlag(MODULE_ID, "abilBase") || {};
     const upd = {};
-    for (const k of ABILITIES) upd[`system.abilities.${k}.value`] = scores[k];
-    try { await a.update(upd); } catch (e) { return ui.notifications.warn(`Couldn't set scores: ${e.message}`); }
+    for (const k of ABILITIES) {
+      const cur = Number(a.system.abilities[k]?.value) || 10;
+      const base0 = Number(prevBase[k]) || 10;
+      const bonus = Math.max(0, cur - base0); // ASI bonus already applied
+      upd[`system.abilities.${k}.value`] = scores[k] + bonus;
+    }
+    try { await a.update(upd); await a.setFlag(MODULE_ID, "abilBase", scores); }
+    catch (e) { return ui.notifications.warn(`Couldn't set scores: ${e.message}`); }
     cg.picking = null; cg.abil = null; cg.assign = {};
     this.render();
     ui.notifications.info("Ability scores set.");
@@ -699,31 +743,54 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return (game.scenes?.active?.tokens ?? []).filter(t => t.actor?.isOwner);
   }
 
-  // §7.1 token switcher: Prev/Next to change the controlled token. Only shown
-  // when the user owns more than one token on the active scene. "Follow leader"
-  // (familiars trailing the PC) is a later-version item — likely an existing mod.
-  #tokenSwitcherHTML() {
+  // Switchable subjects: every owned token on the active scene, PLUS owned blank
+  // PCs (no class) with no token here — so a player can reach a blank PC to BUILD
+  // it (char-gen) before the DM drops a token. Token subjects carry tokenId; a
+  // blank PC is tokenless (actorId only).
+  #subjects() {
     const toks = this.#ownedTokens();
-    if (toks.length < 2) return "";
+    const list = toks.map(t => ({ actorId: t.actor.id, tokenId: t.id, name: t.actor.name }));
+    const seen = new Set(toks.map(t => t.actor.id));
+    for (const a of game.actors) {
+      if (a.isOwner && !seen.has(a.id) && this.#isCharGenPC(a)) {
+        list.push({ actorId: a.id, tokenId: null, name: a.name });
+      }
+    }
+    return list;
+  }
+  #currentSubjectIndex(subs) {
+    if (this.#subjectActorId) {
+      const i = subs.findIndex(s => s.tokenId == null && s.actorId === this.#subjectActorId);
+      if (i >= 0) return i;
+    }
+    const i = subs.findIndex(s => s.tokenId && s.tokenId === this.originTokenId);
+    return i >= 0 ? i : 0;
+  }
+
+  // §7.1 token switcher: Prev/Next to change the controlled subject (token or a
+  // blank PC to build). Shown when the user has more than one switchable subject.
+  #tokenSwitcherHTML() {
+    const subs = this.#subjects();
+    if (subs.length < 2) return "";
     // Label by the *actor* (sheet) name + position (i/n): the actor name is the
     // one players recognize (DM 2026-06-16), and the position counter still makes
     // a switch obvious even when two tokens share an actor or look alike.
-    let i = toks.findIndex(t => t.id === this.originTokenId);
-    if (i < 0) i = 0;
-    const label = toks[i]?.actor?.name ?? this.actor?.name ?? "—";
+    const i = this.#currentSubjectIndex(subs);
+    const label = subs[i]?.name ?? this.actor?.name ?? "—";
     return `<div class="mc-tokensw">
       <button class="mc-tokensw-btn" data-action="token-prev" aria-label="Previous token"><i class="fas fa-chevron-left"></i></button>
-      <span class="mc-tokensw-name">${foundry.utils.escapeHTML(label)} <span class="mc-tokensw-count">${i + 1}/${toks.length}</span></span>
+      <span class="mc-tokensw-name">${foundry.utils.escapeHTML(label)} <span class="mc-tokensw-count">${i + 1}/${subs.length}</span></span>
       <button class="mc-tokensw-btn" data-action="token-next" aria-label="Next token"><i class="fas fa-chevron-right"></i></button>
     </div>`;
   }
 
   #cycleSubject(dir) {
-    const toks = this.#ownedTokens();
-    if (toks.length < 2) return;
-    let i = toks.findIndex(t => t.id === this.originTokenId);
-    if (i < 0) i = 0;
-    this.#subjectId = toks[(i + dir + toks.length) % toks.length].id;
+    const subs = this.#subjects();
+    if (subs.length < 2) return;
+    const i = this.#currentSubjectIndex(subs);
+    const next = subs[(i + dir + subs.length) % subs.length];
+    if (next.tokenId) { this.#subjectId = next.tokenId; this.#subjectActorId = null; }
+    else { this.#subjectActorId = next.actorId; this.#subjectId = null; }
     this.#abandonAction(); // leave any open picker clean when switching subject
     this.render();
   }
