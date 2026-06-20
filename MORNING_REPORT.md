@@ -1,4 +1,16 @@
-# STATUS — continue here (updated 2026-06-20, overnight)
+# STATUS — continue here (updated 2026-06-20, char-gen MVP + v0.1.3)
+
+## Where we are
+- **Released v0.1.3** — public GitHub Releases. Manifest: `https://github.com/SayoBlade/mobile-command/releases/latest/download/module.json`. **Sqyre runs the release; the local Foundry runs the symlink** (live on reload).
+- **Char-gen MVP shipped (v0.1.3):** a blank PC (no class) shows a **"Create Character"** gate → workspace picks **Species/Background/Class** from compendiums → dnd5e's **real advancement popups** (proven to lift onto the phone, `mc-phone-dialog`) → **point-buy ability panel** (27-pt) → Finish. DM drops the blank PC + grants Owner (players can't create actors); snags → DM client.
+- Also in v0.1.3 (this generation): spell upcasting picker, public-roll default, initiative prompt + Init button, move-pad green/yellow/red distance budget, combat-start vibrate/sound, dice tray, smooth TV-camera pans, iOS double-tap-zoom fix, silent-failure diagnostics across damage/spell/announce/attack-preview.
+
+## Open / next
+- **Char-gen layers:** DM "Player X started" + **compendium-approval handshake**; **phone-fit CSS** for the dense (~563px) advancement dialog; standard-array/roll abilities; AoE/template spell upcast (carry slot through `#announceCast`).
+- **Parked live confirms (need the DM/executor client reloaded + world UNPAUSED):** upcast slot-deducts-at-chosen-level, and −100→real attack total. Bench = local `http://localhost:30000` "Offline test", Player 1 + Gamemaster executor.
+- **Sqyre:** v0.1.2 install got stuck in the queue ("verifying disk space" — Sqyre-side, package verified good); clear the pending job + reinstall **v0.1.3** via the manifest URL.
+
+---
 
 ## 🌙 Overnight build + live test (2026-06-20) — Spell upcasting + bug confirmations
 
