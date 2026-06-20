@@ -4,7 +4,7 @@
 **v0.1.4 shipped a regression that breaks ALL attacks** — the phone shows "—" after an ~8s "Rolling…" hang (caught live overnight). **v0.1.5 reverts it.** It's executor-side, so: **hard-reload the Gamemaster (executor) browser, then fire one weapon attack** — the phone total should show immediately and match chat. (CC couldn't verify this overnight — the GM browser has no Claude extension, so it can't be driven/reloaded by CC. This is a revert to the 8/8-live-verified version, so confidence is high, but confirm first.)
 
 ## Where we are
-- **Released v0.1.6** — public GitHub Releases. v0.1.5/v0.1.6 = **fix the v0.1.4 attack-total regression** + **save-prompt phone-side fallback** + **in-range target badge (B8) + reach label** (overnight 2026-06-21; details below). v0.1.4 = attack-total guard/scene-switch/turn-cycle + char-gen array/roll + TV margin-follow. Manifest: `https://github.com/SayoBlade/mobile-command/releases/latest/download/module.json`. **Sqyre runs the release; the local Foundry runs the symlink** (live on reload).
+- **Released v0.1.7** — public GitHub Releases. Overnight (2026-06-21): **fix the v0.1.4 attack-total regression** + **save-prompt phone-side fallback** + **in-range target badge (B8) + reach label** + **char-gen fixes** (blank-PC reachable / survives class-add+reload / ASIs preserved). Details below. v0.1.4 = attack-total guard/scene-switch/turn-cycle + char-gen array/roll + TV margin-follow. Manifest: `https://github.com/SayoBlade/mobile-command/releases/latest/download/module.json`. **Sqyre runs the release; the local Foundry runs the symlink** (live on reload).
 - **Char-gen MVP shipped (v0.1.3):** a blank PC (no class) shows a **"Create Character"** gate → workspace picks **Species/Background/Class** from compendiums → dnd5e's **real advancement popups** (proven to lift onto the phone, `mc-phone-dialog`) → **point-buy ability panel** (27-pt) → Finish. DM drops the blank PC + grants Owner (players can't create actors); snags → DM client.
 - Also in v0.1.3 (this generation): spell upcasting picker, public-roll default, initiative prompt + Init button, move-pad green/yellow/red distance budget, combat-start vibrate/sound, dice tray, smooth TV-camera pans, iOS double-tap-zoom fix, silent-failure diagnostics across damage/spell/announce/attack-preview.
 
@@ -32,8 +32,20 @@ The target picker now flags targets past the activity's reach: the row dims and 
 ### Backlog note — §13 is stale (as of 2026-06-14)
 While picking features, found several "TODO" items already shipped: **scroll preservation on expand/collapse** (done 2026-06-19, `_replaceHTML` view-key) and **currency tap-to-edit** (done 2026-06-18, `#currencyHTML`/`#onChange`). Don't re-derive these. **Swipe-between-tabs (B2)** is genuinely not done (skipped overnight — gesture-conflict risk + needs real-device feel).
 
+### 🐉 Char-gen: built a full PC on the phone + fixed 3 bugs (your blank-PC task)
+You left a blank "Player Character" on Player 1. **CAN I drive the DM-side popups? YES** — dnd5e's AdvancementManager runs on the *player* client (lifts onto the phone, `mc-phone-dialog`), so I drove the **entire** flow and built **"Pyraxis Emberscale"** — a Lvl 1 **Dragonborn (Red) Sorcerer (Draconic Bloodline) · Dragon Cultist**: STR 12 / DEX 11 / CON 17 / WIS 9 / INT 9 / CHA 17, HP 9, AC 13 (Draconic Resilience), fire resistance, Common/Draconic/Giant/Goblin/Elvish, skills Arcana/Deception/Intimidation/Stealth. (I renamed the actor — rename freely. **Spells aren't picked yet** — char-gen only sets the counts: 4 cantrips / 2 spells / 2 L1 slots; pick them on the Spells tab.)
+
+Species + Background + Class advancement (incl. **choices** — Fire resistance, Red ancestry, ASI steppers, language/skill selects) all drove fine on the phone. **3 real bugs found + fixed** (commit, shell.js):
+1. **Blank PC unreachable** — a blank PC with no token couldn't be selected (the switcher is token-based + the scene-switch fix prefers in-scene tokens). The switcher now also surfaces owned char-gen PCs without a token.
+2. **Kicked out mid-creation** — adding a class made the PC "non-blank" so the subject was dropped and the workspace vanished. A persistent `flags.mobile-command.charGen` (set on start / cleared on Finish) keeps it a char-gen subject through the class-add **and across a reload** (creation now resumes after refresh).
+3. **Ability ASIs wiped** — the ability panel wrote `.value` raw, clobbering the species/background bonuses. Now preserves `bonus = current − last base` and writes `base + bonus`. *(Fix is logic-verified, not yet run through a clean flow — I corrected Pyraxis's scores by hand.)*
+
+Also verified live: the **Roll** ability method (4d6-drop-lowest) rolls, tap-to-cycle assigns, and Apply gates on all-six-assigned — all working in-flow.
+
+**🔴 KNOWN GAP (the one real blocker):** the **Subclass** advancement step uses a **drag-drop "Select Subclass" target** — no touch drag-drop, so it can't be completed by tapping. I worked around it with a synthetic drop (which proves a fix is feasible). **Next char-gen task: intercept the Subclass advancement and offer a tap-picker.** Until then, subclass selection is a "snag → DM client" item.
+
 ### Test artifacts left in the world
-Two whispered test chat messages to Player 1 (simulated save/check cards) — harmless; not deleted (conduct: never delete). A transient save-prompt may linger ≤60s then auto-clear.
+Two whispered test chat messages to Player 1 (simulated save/check cards) — harmless; not deleted (conduct: never delete). A transient save-prompt may linger ≤60s then auto-clear. Built actor **"Pyraxis Emberscale"** (was the blank "Player Character") — keep, rename, or delete as you like; it has no token (drop one to play it).
 
 ---
 
