@@ -1471,6 +1471,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ? `<div class="mc-assigned"><span><i class="fas fa-crosshairs"></i> Targets set by ${foundry.utils.escapeHTML(s.assignedByDM)} (${s.selected.size})</span>
           <button class="mc-assigned-change" data-action="assigned-change">change</button></div>`
       : "";
+    // Upcast: slot-level chips for leveled spells (badge = slots left at that level).
+    const slotRow = (s.slotOptions?.length)
+      ? `<div class="mc-slot-row"><span class="mc-slot-label">Cast at</span>${s.slotOptions.map(o =>
+          `<button class="mc-slot ${s.slot === o.id ? "mc-slot-on" : ""}" data-action="slot-pick" data-slot="${o.id}" title="Level ${o.level} — ${o.value} left">L${o.level}<span class="mc-slot-n">${o.value}</span></button>`
+        ).join("")}</div>`
+      : "";
     return `
       <div class="mc-picker-head">
         <button class="mc-back mc-picker-x" data-action="action-back" aria-label="Close"><i class="fas fa-xmark"></i></button>
@@ -1478,12 +1484,29 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ${count}
       </div>
       ${assignedBanner}
+      ${slotRow}
       ${s.hasAttack ? `<div class="mc-adv-row">${advBtn("advantage", "Advantage")}${advBtn("normal", "Normal")}${advBtn("disadvantage", "Disadvantage")}</div>` : ""}
       ${recBanner}
       <div class="mc-targets">${body}${selfRow}</div>
       <button class="mc-fire ${canFire ? "" : "mc-disabled"}" data-action="fire" ${canFire ? "" : "disabled"}>
         ${s.busy ? "Using…" : "Use"}
       </button>`;
+  }
+
+  // Upcast (§7.5): the slot levels a leveled spell can be cast at — every slot
+  // tier at or above the spell's base level that still has charges. Returns []
+  // for cantrips/non-spells (no picker). Mirrors dnd5e's own slot filtering
+  // (system.spells keyed by slot id, each {value,max,level}).
+  #spellSlotOptions(activity) {
+    const item = activity?.item;
+    if (item?.type !== "spell") return [];
+    const base = item.system?.level ?? 0;
+    if (base < 1) return []; // cantrip — no slot
+    const spells = this.actor?.system?.spells ?? {};
+    return Object.entries(spells)
+      .filter(([, s]) => s?.max && s.level >= base && (s.value ?? 0) > 0)
+      .map(([id, s]) => ({ id, level: s.level, value: s.value }))
+      .sort((a, b) => a.level - b.level);
   }
 
   async #pickAction(uuid) {
@@ -1516,7 +1539,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // the activity's target count.
     const assigned = (!selfTarget && this.#assignedTargets.length)
       ? this.#assignedTargets.slice(0, maxTargets) : [];
+    const slotOptions = this.#spellSlotOptions(activity); // upcast picker (leveled spells)
     this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets,
+      slotOptions, slot: slotOptions[0]?.id ?? null, // default = lowest available slot ≥ base level
       hasAttack: activity.type === "attack",
       // Auto-resolve on the executor for anything that ISN'T a player-rolled
       // attack/damage/save/heal (cast/utility/summon/check/enchant/…): those have
@@ -1639,7 +1664,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       res = await this.#withTimeout(rpc.useActivityStart({
         activityUuid: s.uuid,
         targetUuids: s.selfTarget ? [] : Array.from(s.selected),
-        midiOptions
+        midiOptions,
+        spellSlot: s.slot ?? null // upcast: cast at the chosen slot level
       }));
     } catch (err) {
       console.error("mobile-command | useActivityStart failed", err);
@@ -1886,6 +1912,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#rollDamage();
       case "adv":
         if (this.#actionState) { this.#actionState.adv = el.dataset.mode; this.render(); }
+        return;
+      case "slot-pick": // upcast: choose the spell-slot level to cast at
+        if (this.#actionState) { this.#actionState.slot = el.dataset.slot; this.render(); }
         return;
       case "target-toggle": {
         const s = this.#actionState;

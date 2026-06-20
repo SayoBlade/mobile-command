@@ -334,7 +334,7 @@ async function findParkedWorkflow(activityUuid, itemUuid, timeoutMs = 8000) {
 async function handleItemUseStart(payload) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
-  const { activityUuid, targetUuids = [], midiOptions = {}, requesterId } = payload;
+  const { activityUuid, targetUuids = [], midiOptions = {}, spellSlot = null, requesterId } = payload;
   const activity = await fromUuid(activityUuid);
   if (!activity) return { ok: false, stage: "resolve", reason: `activity not found: ${activityUuid}` };
   if (!requesterCanAct(requesterId, activity.item?.actor)) {
@@ -344,6 +344,10 @@ async function handleItemUseStart(payload) {
   if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
 
   const hasAttack = activity.type === "attack";
+  // Upcast: cast at the slot level the phone chose (dnd5e usage config field
+  // `spell.slot`, e.g. "spell3"). Omitted → activity casts at its base level.
+  const spellCfg = spellSlot ? { spell: { slot: spellSlot } } : {};
+  if (spellSlot) console.debug(`${MODULE_ID} | upcast`, { name: activity.item?.name, slot: spellSlot });
 
   // "Flat" = a heal whose amount has NO dice (Aid's +5) — only then is there
   // nothing for the player to roll, so it can't park on a damage roll and midi
@@ -363,6 +367,7 @@ async function handleItemUseStart(payload) {
   if (flatHeal) {
     const { result: workflow, captured } = await captureNotifications(() =>
       MidiQOL.completeActivityUse(activity.uuid, {
+        ...spellCfg,
         midiOptions: { targetUuids, ignoreUserTargets: true, autoRollDamage: "always", fastForwardDamage: true, workflowOptions: { autoConsumeResource: "both" }, ...midiOptions }
       }, { configure: false }, {})
     );
@@ -375,6 +380,7 @@ async function handleItemUseStart(payload) {
   // Fire attack-only; do NOT await (the workflow parks at WaitForDamageRoll).
   const { captured } = await captureNotifications(async () => {
     MidiQOL.completeActivityUse(activity.uuid, {
+      ...spellCfg,
       midiOptions: {
         targetUuids, ignoreUserTargets: true,
         autoRollAttack: true, fastForwardAttack: true,
