@@ -554,13 +554,18 @@ body.mc-phone .roll-configuration fieldset {
 .mc-cg-finish { display: flex; align-items: center; justify-content: center; gap: 8px; width: calc(100% - 28px); margin: 6px 14px 16px;
   min-height: 50px; border-radius: 12px; font-size: 16px; font-weight: 800; background: #243042; border: 1px solid #2f5d8a; color: var(--mc-ink); }
 .mc-cg-finish:active { background: #2c3d54; }
+.mc-cg-finish:disabled { opacity: .4; }
 .mc-cg-opts { display: flex; flex-direction: column; gap: 8px; padding: 8px 14px 16px; }
 .mc-cg-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 52px; padding: 10px 14px;
   border-radius: 10px; background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); text-align: left; }
 .mc-cg-opt:active { background: var(--mc-panel-2); }
 .mc-cg-opt-name { font-size: 15px; font-weight: 700; }
 .mc-cg-opt-src { font-size: 11px; color: var(--mc-muted); }
-/* Point-buy ability panel */
+/* Ability panel — method picker + point-buy / standard-array / roll */
+.mc-abil-method { display: flex; gap: 6px; padding: 12px 14px 4px; }
+.mc-abil-seg { flex: 1 1 0; min-height: 44px; padding: 8px 6px; border-radius: 10px; font-size: 13px; font-weight: 700;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
+.mc-abil-seg.mc-on { background: #243042; border-color: #2f5d8a; color: var(--mc-ink); }
 .mc-abil-budget { display: flex; align-items: baseline; gap: 6px; justify-content: center; padding: 12px; color: var(--mc-muted); font-size: 13px; }
 .mc-abil-budget b { color: var(--mc-gold); font-size: 20px; font-weight: 800; }
 .mc-abils { display: flex; flex-direction: column; gap: 8px; padding: 2px 14px 12px; }
@@ -568,6 +573,23 @@ body.mc-phone .roll-configuration fieldset {
 .mc-abil-name { flex: 1 1 auto; font-size: 15px; font-weight: 700; color: var(--mc-ink); }
 .mc-abil-val { min-width: 2em; text-align: center; font-size: 21px; font-weight: 800; color: var(--mc-ink); font-variant-numeric: tabular-nums; }
 .mc-pm:disabled { opacity: .4; }
+/* standard-array / roll: value pool + tap-to-cycle assignment rows */
+.mc-abil-pool { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px 4px; }
+.mc-abil-chip { min-width: 40px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 9px; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink); }
+.mc-abil-chip.mc-used { opacity: .3; text-decoration: line-through; }
+.mc-abil-poolnote { margin-left: auto; color: var(--mc-muted); font-size: 12px; }
+.mc-abil-assignrow { width: 100%; text-align: left; }
+.mc-abil-assignrow:active { background: var(--mc-panel-2); }
+.mc-abil-slot { min-width: 2.2em; text-align: center; font-size: 21px; font-weight: 800; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
+.mc-abil-slot.mc-empty { color: var(--mc-muted); }
+.mc-abil-rollintro { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 30px 20px; text-align: center; }
+.mc-abil-roll { min-height: 52px; padding: 12px 22px; border-radius: 12px; font-size: 16px; font-weight: 800;
+  background: #243042; border: 1px solid #2f5d8a; color: var(--mc-ink); display: inline-flex; align-items: center; gap: 9px; }
+.mc-abil-roll:active { background: #2c3d54; }
+.mc-abil-reroll { display: inline-flex; align-items: center; gap: 6px; margin: 2px 14px 10px; padding: 10px 4px;
+  background: none; border: none; color: #5db4e6; font-size: 13px; }
 
 #mobile-command-shell .mc-section-label { color: var(--mc-gold); }
 #mobile-command-shell .mc-ability { background: var(--mc-panel); border-color: var(--mc-edge); }

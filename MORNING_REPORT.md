@@ -1,4 +1,4 @@
-# STATUS — continue here (updated 2026-06-20, char-gen MVP + v0.1.3)
+# STATUS — continue here (updated 2026-06-20, char-gen ability methods)
 
 ## Where we are
 - **Released v0.1.3** — public GitHub Releases. Manifest: `https://github.com/SayoBlade/mobile-command/releases/latest/download/module.json`. **Sqyre runs the release; the local Foundry runs the symlink** (live on reload).
@@ -6,11 +6,83 @@
 - Also in v0.1.3 (this generation): spell upcasting picker, public-roll default, initiative prompt + Init button, move-pad green/yellow/red distance budget, combat-start vibrate/sound, dice tray, smooth TV-camera pans, iOS double-tap-zoom fix, silent-failure diagnostics across damage/spell/announce/attack-preview.
 
 ## Open / next
-- **Char-gen layers:** DM "Player X started" + **compendium-approval handshake**; **phone-fit CSS** for the dense (~563px) advancement dialog; standard-array/roll abilities; AoE/template spell upcast (carry slot through `#announceCast`).
-- **Parked live confirms (need the DM/executor client reloaded + world UNPAUSED):** upcast slot-deducts-at-chosen-level, and −100→real attack total. Bench = local `http://localhost:30000` "Offline test", Player 1 + Gamemaster executor.
+- **Char-gen layers:** DM "Player X started" + **compendium-approval handshake**; **phone-fit CSS** for the dense (~563px) advancement dialog; ~~standard-array/roll abilities~~ ✅ built (test below); AoE/template spell upcast (carry slot through `#announceCast`).
+- **−100 attack bug — ✅ ROOT-CAUSED & GUARDED LIVE (2026-06-20):** see the dated entry below. Favorites and the Actions tab are the SAME code path (proven: identical activity uuid → `useActivityStart`); the −100 was the **executor serving midi's `minAttackTotal=-100` placeholder** (pre-roll), i.e. a stale/pre-fix executor. Captured 8 live favorites greatsword attacks post-fix: totals 10/27/15/23/28/13/22/18, **zero −100**. Added a guard on BOTH sides so the sentinel can never display again (phone shows "—").
+- **Parked live confirms (need the DM/executor client reloaded + world UNPAUSED):** upcast slot-deducts-at-chosen-level. Bench = local `http://localhost:30000` "Offline test", Player 1 + Gamemaster executor.
 - **Sqyre:** v0.1.2 install got stuck in the queue ("verifying disk space" — Sqyre-side, package verified good); clear the pending job + reinstall **v0.1.3** via the manifest URL.
 
 ---
+
+## 📺 TV margin-follow — BUILT (2026-06-20, needs TV verification)
+
+**DM request:** the TV should always keep **3 grid squares between the PCs and the screen edge** (unless it's the very edge of the map) so a token never has to leave the screen before the camera updates.
+
+**Built (`main.js`, `tvEdgeFollow` + `updateToken` hook):** a **deadzone camera follow** on the Display client. When a player-character token moves to within `TV_EDGE_MARGIN_SQUARES` (=3) grid squares of the viewport edge, the camera pans the **minimum** needed to restore the 3-square margin (smooth `animatePan`, 250ms, `tvEase`). **Clamped to the scene rect** so it never overscrolls past the map — at the map boundary the token is simply allowed nearer the screen edge ("the very edge" exception). Degenerate-zoom guard (viewport < 6 squares wide → just centre the token). **Display-only and yields to manual TV control** (`tvManual`); inert on phones/DM (returns before any canvas access).
+
+**Verified:** deadzone + scene-clamp math checked with concrete values (near-edge → 3-sq margin restored; inside deadzone → no pan; scene smaller than viewport → centre); `main.js` loads clean on reload (module ready, shell renders). **NOT verified on a real TV** (CC is on the phone client, no canvas) — DM to confirm on the Display client: move a PC toward each edge → camera follows keeping ~3 squares; at the map edge it stops and lets the token approach the screen edge; manual TV mode still overrides.
+
+---
+
+## 🔧 Turn-cycle: action drawers stay closed + ACT/BA/RE — FIXED (2026-06-20)
+
+**DM report:** in combat, after using ACT/BA and ending the turn, when the player's turn comes around again the **action drawers stay collapsed** and the **ACT/BA/RE strip doesn't reset to available**.
+
+**Findings:**
+- **Drawers = shell bug.** `#collapsedActionGroups` is added to when an action auto-closes its drawer in combat ([shell.js](scripts/shell.js):~1981) and was **only ever cleared by a manual tap** — never on a new turn, so it carried last turn's closed state forward. **Fixed:** `noteCombatTurn()` (new) tracks the active combatant and **reopens the drawers when it becomes this actor's turn again (or combat ends)**; wired into the `onCombat` hook.
+- **ACT/BA/RE = midi's flags, and midi resets them GM-side on turn start.** Source: midi-qol.js:15754 — with **times-up NOT installed** (it isn't here), midi itself calls `removeActionBonusReaction` per turn-transition (gated to the preferred active GM); it does **not** depend on times-up. Live proof: on Belnor's turn his flags are `{action:false}` and the shell strip shows ACT/BA/RE all lit. The shell re-renders on the flag change (updateActor / create+deleteActiveEffect) and now also on turn-start. **So if the strip ever sticks while the drawers reopen, it's the GM/executor not processing the reset (stale-executor, cf. the −100) — reload the GM client.**
+
+**Verified live (CC-driven Player 1):** new code loads clean; on Belnor's turn the strip reads ACT/BA/RE available and all drawers open. Full turn-cycle (use → collapse → end → cycle back → reopen) not driven live (would disturb the DM's active combat) — logic-verified, DM confirms on reload.
+
+---
+
+## 🔧 Scene-switch "token not found: null" — FIXED & VERIFIED LIVE (2026-06-20)
+
+**DM report:** after switching scenes, the phone was stuck on a PC not in the new scene, couldn't switch to the in-scene PC, and attacks failed with **"token not found: null."**
+
+**Root cause:** the shell had **no scene-change hook**, and `get actor()` ([shell.js](scripts/shell.js)) fell back to `game.user.character` (or the first owned character) when the subject token wasn't on the active scene — a PC with **no token on the new scene** → `originTokenId` resolves to **null** → spatial RPCs (listTargets/attack/move) fail. The token switcher only lists *in-scene* owned tokens and hides below 2, so a lone in-scene PC gave no switch button either.
+
+**Fix (3 parts):**
+1. `get actor()` now **prefers an owned token on the active scene** (assigned character if it's on-scene, else any owned in-scene token) before falling back to the assigned/first-owned character.
+2. New `syncSubject()` clears a `#subjectId` that's no longer on the active scene; called at the top of `#buildHTML` (self-heals every render).
+3. New **`updateScene`** hook: on `active` change, `syncSubject()` + re-render so the phone rebinds immediately when the GM switches scenes.
+
+**Verified live (CC-driven Player 1):** switched world to **"Caves of Chaos"** (Belnor the only owned token there) → after reload the shell **auto-bound to Belnor** (previously defaulted to off-scene Aslan Fang), and `listTargets({forTokenId: <Belnor token>})` returned **ok:true** (no "token not found"). **DM: reload your phone to pick it up.**
+
+---
+
+## 🔬 −100 attack bug — root-caused live (2026-06-20, CC-driven Player 1 + capture hooks)
+
+DM reported the −100 still hitting Belnor's Greatsword **from the Favorites button** (not the Actions tab) — "as most players will." Drove a second Player-1 connection (Chrome plugin) and instrumented `api.useActivityStart` to capture sent config vs returned result.
+
+**Findings:**
+1. **Same code path.** The Greatsword favorite resolves to the *identical* attack activity uuid (`…Item.n39e8Qxl9NfjYXQm.Activity.zi3BW6RGO2ugOyXu`) the Actions tab uses; both `fav-act` and `action-pick` → `#pickAction` → `#fireAction` → `useActivityStart`. Favorites-vs-action was a red herring.
+2. **Source of −100.** midi's `Workflow` constructor sets `attackTotal = minAttackTotal = -100` (midi-qol.js:25470/24342) and only overwrites it after the attack roll is processed (30009). The executor returns −100 when it reads the workflow before that — i.e. a **stale/pre-fix executor** (`rpc.js` change needs the GM client reloaded; the player reload doesn't update it).
+3. **Confirmed fixed live.** Captured 8 consecutive favorites Greatsword attacks: totals **10, 27, 15, 23, 28, 13, 22, 18 — zero −100** (incl. a miss at 10). The fixed `rpc.js` (prefers `wf.attackRoll.total`) is active on the current executor.
+
+**Hardening (so the sentinel can NEVER show again, regardless of executor reload state):**
+- **Phone** (`shell.js` `#fireAction`): `s.attackTotal = res.attackTotal === -100 ? null : res.attackTotal` → the result card shows "—" (with the Hit/Attack label + Roll-damage step) instead of −100. The phone always reloads, so this protects even against a stale executor.
+- **Executor** (`rpc.js` handleItemUseStart): maps the −100 sentinel → null before returning.
+
+**Follow-up (2026-06-20, DM saw "—" with 17 on the DM):** the guard worked (no −100) but the phone showed "—" instead of the real total — a **timing race**: `findParkedWorkflow` returns the workflow the instant it suspends at WaitForDamageRoll, and on rare timing the d20 isn't attached yet (`wf.attackRoll` null, `wf.attackTotal` still −100). Chat shows 17 because the roll completes a tick later. **Fix v1:** `resolveAttackTotal(wf)` polled up to 1.5s. **Then DM: "first roll got a −"** → cold-start (first attack of a session, midi/AC5E warming) exceeds 1.5s. **Fix v2 (current):** `findParkedWorkflow` gained `requireAttackReady` (passed for attacks) — it now **holds the parked attack workflow until the d20 has attached**, reusing the existing 8s poll budget, and returns the wf anyway at timeout so the two-tap never breaks. So the total is ready by the time the phone is told `needsDamage`. **rpc.js change → MUST reload the GM/executor client** (all three −100 iterations are executor-side; a phone reload does nothing). rpc.js parses clean; cold-start race not reproduced live (need the GM console, which CC can't reach — GM browser didn't respond to the connect prompt).
+
+**Reload the phone to get the guard; reload the GM client to get the executor-side cleanup (and the real total).**
+
+---
+
+## 🔨 Build (2026-06-20) — char-gen ability-score methods (BUILT, UNTESTED)
+
+Added **Standard array** and **Roll (4d6 drop lowest)** alongside Point buy in the char-gen ability panel. A segmented picker at the top of the Ability-scores screen switches method. Point-buy is unchanged. Array/roll show a value **pool** and you **tap each ability to cycle** it through the still-free values (then back to "—"); spent values dim in the pool strip. **Apply is disabled until all six are assigned.** Roll generates locally (no chat post) with a **Reroll all** link. (`shell.js` `#abilityPanelHTML`/`#assignBodyHTML`; `styles/shell.css` `.mc-abil-*`.) No live client here → verify on the phone:
+
+**Test (one at a time, stop on first failure). On a blank PC → Create Character → Ability scores:**
+1. The panel shows three buttons — **Point buy · Standard array · Roll** — with Point buy active and the existing ± point-buy rows below it.
+2. Tap **Standard array** → a pool strip **15 14 13 12 10 8** appears, each ability reads **"—"**, and **Apply scores is disabled** (dimmed).
+3. Tap **STR** repeatedly → its value **cycles 15 → 14 → 13 → … → 8 → —** and each value you land on **dims in the pool strip**; the "N left" count drops as you assign.
+4. Assign a value to **STR** (say 15), then tap **DEX** → DEX **cannot** land on 15 (it's taken) — it cycles through only the remaining values.
+5. Assign all six distinct values → **Apply scores enables**; tap it → the sheet shows those scores on the abilities and a "Ability scores set." notice; reopening the panel keeps the method.
+6. Tap **Roll** → a **"Roll 4d6 ×6"** button (Apply disabled). Tap it → six rolled scores (each 3–18) appear in the pool, sorted high→low, all abilities "—".
+7. Assign all six → **Apply enables**; **Reroll all** generates a fresh six and clears the assignment.
+8. Switch **Roll → Standard array → Roll**: the array shows 15/14/13/12/10/8; returning to Roll **restores your last rolled six** (not the array), assignment cleared.
+9. **Back arrow** returns to the Species/Background/Class step list with no error; **Finish** still works.
 
 ## 🌙 Overnight build + live test (2026-06-20) — Spell upcasting + bug confirmations
 

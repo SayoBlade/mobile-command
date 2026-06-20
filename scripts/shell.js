@@ -11,6 +11,8 @@ const ABILITIES = ["str", "dex", "con", "int", "wis", "cha"];
 // 5e point-buy (PHB 2014 & 2024): 27-point budget, scores 8–15.
 const PB_COST = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
 const PB_BUDGET = 27;
+// 5e standard array (PHB) — six fixed scores assigned one each to an ability.
+const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
 const ROLL_HISTORY_MAX = 6;   // recent-rolls strip cap (newest-first)
 const ROLL_TOAST_MS = 4500;   // transient roll toast lifetime (ms)
 
@@ -129,22 +131,44 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #moveMode = null;       // chosen travel type (walk/fly/swim/climb/burrow); null → effective default
   #movePickerOpen = false; // character card: the travel-type picker is expanded
   #collapsedActionGroups = new Set(); // Actions tab: accordion groups the user/use closed
-  #charGen = null;        // char-gen workspace: null | { actorId, picking } (picking: null|"race"|"background"|"class")
+  #lastCombatantId = null; // track the active combatant to detect "my turn started"
+  #charGen = null;        // char-gen workspace: null | { actorId, picking, abilMethod, abil, pool, rolled, assign }
+                          //   picking: null|"race"|"background"|"class"|"abilities"
+                          //   abilMethod: "pointbuy"|"array"|"roll"; abil = point-buy scores;
+                          //   pool = active array/roll values; rolled = last 4d6 roll; assign = ability→pool index
   #charGenOptions = null; // compendium entries for the current picking type (null = loading)
   #diceTrayOpen = false; // header D20: contextless dice-tray panel open
   #dtrayPool = {};       // dice tray: {faces: count}, e.g. {20:2, 6:1}
   #dtrayMod = 0;         // dice tray: flat modifier
 
-  /** The actor this phone controls: assigned character, else first owned character. */
+  /** The actor this phone controls: the subject token if set, else an owned token
+   *  ON THE ACTIVE SCENE (so a scene switch rebinds to the PC the player has here),
+   *  else the assigned character, else the first owned character. */
   get actor() {
-    // Token switcher (§7.1): if a subject token is selected and still owned, the
-    // shell controls its actor (covers summons/familiars/wild shape, incl. unlinked).
+    // Token switcher (§7.1): an explicit subject token still present + owned on the
+    // active scene (covers summons/familiars/wild shape, incl. unlinked).
     if (this.#subjectId) {
       const tok = game.scenes?.active?.tokens.get(this.#subjectId);
       if (tok?.actor?.isOwner) return tok.actor;
     }
-    if (game.user.character) return game.user.character;
-    return game.actors.find(a => a.type === "character" && a.isOwner) ?? null;
+    // Prefer an owned token on the ACTIVE scene so that when the GM switches scenes
+    // the phone binds to the PC that's actually there — not a stranded off-scene
+    // character with no token (which gives originTokenId=null → "token not found").
+    // Favour the assigned character when it's on the scene, else any owned token.
+    const inScene = this.#ownedTokens();
+    const assigned = game.user.character;
+    if (assigned && inScene.some(t => t.actor?.id === assigned.id)) return assigned;
+    if (inScene.length) return inScene[0].actor;
+    // No owned token here: fall back to the assigned / first owned character for
+    // read-only viewing (spatial actions will warn there's no token on this scene).
+    return assigned ?? game.actors.find(a => a.type === "character" && a.isOwner) ?? null;
+  }
+
+  // Drop a subject token that's no longer on the active scene (e.g. the GM switched
+  // scenes) so `actor`/`originTokenId` rebind to an owned token that's actually
+  // here. Public so the scene-change hook can call it before re-rendering.
+  syncSubject() {
+    if (this.#subjectId && !game.scenes?.active?.tokens.get(this.#subjectId)) this.#subjectId = null;
   }
 
   async _renderHTML() {
@@ -193,6 +217,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   #buildHTML() {
+    this.syncSubject(); // self-heal a subject stranded by a scene switch
     const actor = this.actor;
     if (!actor) {
       return `<div class="mc-placeholder">No owned character found for ${game.user.name}.</div>`;
@@ -413,14 +438,56 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
   }
 
-  // Point-buy ability scores. Working set lives on #charGen.abil while editing;
-  // Apply writes to the actor. (Standard array + roll are the next layer.)
+  // Ability scores — three methods: point-buy (27-pt budget), standard array, and
+  // 4d6-drop-lowest roll. Working state lives on #charGen while editing; Apply
+  // writes to the actor. Point-buy edits #charGen.abil (8–15 each via ±). Array
+  // and roll assign a fixed value pool (#charGen.pool) to abilities via
+  // #charGen.assign (ability → pool index, so duplicate rolled scores stay
+  // distinct). Default method = point-buy.
   #openAbilities() {
-    if (!this.#charGen) return;
+    const cg = this.#charGen; if (!cg) return;
+    cg.abilMethod = cg.abilMethod || "pointbuy";
+    this.#resetPointBuy(cg);
+    cg.pool = cg.abilMethod === "array" ? STANDARD_ARRAY.slice()
+      : cg.abilMethod === "roll" ? (cg.rolled ?? null) : null;
+    cg.assign = {};
+    cg.picking = "abilities";
+    this.render();
+  }
+  #resetPointBuy(cg) {
     const cur = this.actor?.system?.abilities ?? {};
-    this.#charGen.abil = {};
-    for (const k of ABILITIES) { const v = Number(cur[k]?.value); this.#charGen.abil[k] = (v >= 8 && v <= 15) ? v : 8; }
-    this.#charGen.picking = "abilities";
+    cg.abil = {};
+    for (const k of ABILITIES) { const v = Number(cur[k]?.value); cg.abil[k] = (v >= 8 && v <= 15) ? v : 8; }
+  }
+  #setAbilMethod(m) {
+    const cg = this.#charGen; if (!cg || cg.abilMethod === m) return;
+    cg.abilMethod = m;
+    cg.assign = {};
+    if (m === "array") cg.pool = STANDARD_ARRAY.slice();
+    else if (m === "roll") cg.pool = cg.rolled ?? null; // restore a prior roll if any
+    else { cg.pool = null; this.#resetPointBuy(cg); }
+    this.render();
+  }
+  // 4d6, drop the lowest die.
+  #roll4d6dl() {
+    const d = () => 1 + Math.floor(Math.random() * 6);
+    const dice = [d(), d(), d(), d()].sort((a, b) => a - b);
+    return dice[1] + dice[2] + dice[3];
+  }
+  #rollAbilityScores() {
+    const cg = this.#charGen; if (!cg) return;
+    cg.rolled = Array.from({ length: 6 }, () => this.#roll4d6dl()).sort((a, b) => b - a);
+    cg.pool = cg.rolled.slice();
+    cg.assign = {};
+    this.render();
+  }
+  // Tap an ability to cycle it through the still-free pool slots, then "unassigned".
+  #assignAbility(k) {
+    const cg = this.#charGen; if (!cg?.pool) return;
+    const usedByOther = new Set(ABILITIES.filter(a => a !== k).map(a => cg.assign?.[a]).filter(i => i != null));
+    const cycle = [...cg.pool.map((_, i) => i).filter(i => !usedByOther.has(i)), null];
+    const cur = cg.assign?.[k] ?? null;
+    cg.assign[k] = cycle[(cycle.indexOf(cur) + 1) % cycle.length];
     this.render();
   }
   #pbUsed(scores) { return ABILITIES.reduce((n, k) => n + (PB_COST[scores[k]] ?? 0), 0); }
@@ -432,16 +499,39 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.render();
   }
   async #applyAbilities() {
-    const a = this.actor, cg = this.#charGen; if (!a || !cg?.abil) return;
+    const a = this.actor, cg = this.#charGen; if (!a || !cg) return;
+    const scores = {};
+    if (cg.abilMethod === "pointbuy") {
+      for (const k of ABILITIES) scores[k] = cg.abil?.[k] ?? 8;
+    } else {
+      if (!cg.pool || ABILITIES.some(k => cg.assign?.[k] == null))
+        return ui.notifications.warn("Assign every ability score first.");
+      for (const k of ABILITIES) scores[k] = cg.pool[cg.assign[k]];
+    }
     const upd = {};
-    for (const k of ABILITIES) upd[`system.abilities.${k}.value`] = cg.abil[k];
+    for (const k of ABILITIES) upd[`system.abilities.${k}.value`] = scores[k];
     try { await a.update(upd); } catch (e) { return ui.notifications.warn(`Couldn't set scores: ${e.message}`); }
-    cg.picking = null; cg.abil = null;
+    cg.picking = null; cg.abil = null; cg.assign = {};
     this.render();
     ui.notifications.info("Ability scores set.");
   }
   #abilityPanelHTML() {
-    const scores = this.#charGen?.abil ?? {};
+    const cg = this.#charGen ?? {};
+    const method = cg.abilMethod ?? "pointbuy";
+    const seg = (m, label) =>
+      `<button class="mc-abil-seg ${method === m ? "mc-on" : ""}" data-action="abil-method" data-method="${m}">${label}</button>`;
+    const head = `<div class="mc-picker-head">
+        <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+        <span class="mc-picker-title">Ability scores</span>
+      </div>
+      <div class="mc-abil-method">${seg("pointbuy", "Point buy")}${seg("array", "Standard array")}${seg("roll", "Roll")}</div>`;
+    const body = method === "pointbuy" ? this.#pointBuyBodyHTML(cg) : this.#assignBodyHTML(cg, method);
+    const complete = method === "pointbuy" || (!!cg.pool && ABILITIES.every(k => cg.assign?.[k] != null));
+    return head + body
+      + `<button class="mc-cg-finish" data-action="char-gen-abil-apply" ${complete ? "" : "disabled"}>Apply scores</button>`;
+  }
+  #pointBuyBodyHTML(cg) {
+    const scores = cg.abil ?? {};
     const left = PB_BUDGET - this.#pbUsed(scores);
     const rows = ABILITIES.map(k => {
       const v = scores[k] ?? 8;
@@ -456,13 +546,35 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <button class="mc-pm mc-plus" data-action="abil-inc" data-abil="${k}" ${canInc ? "" : "disabled"}>+</button>
       </div>`;
     }).join("");
-    return `<div class="mc-picker-head">
-        <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
-        <span class="mc-picker-title">Ability scores</span>
-      </div>
-      <div class="mc-abil-budget"><span>Point buy</span><b>${left}</b><span>points left</span></div>
-      <div class="mc-abils">${rows}</div>
-      <button class="mc-cg-finish" data-action="char-gen-abil-apply">Apply scores</button>`;
+    return `<div class="mc-abil-budget"><span>Point buy</span><b>${left}</b><span>points left</span></div>
+      <div class="mc-abils">${rows}</div>`;
+  }
+  // Standard array / roll: a fixed value pool assigned one-per-ability. Each
+  // ability row is a tap-to-cycle button; the pool strip dims spent values.
+  #assignBodyHTML(cg, method) {
+    if (method === "roll" && !cg.pool) {
+      return `<div class="mc-abil-rollintro">
+          <div class="mc-cg-blurb">Roll six scores (4d6, drop the lowest die), then assign each to an ability.</div>
+          <button class="mc-abil-roll" data-action="abil-roll"><i class="fas fa-dice-d6"></i> Roll 4d6 ×6</button>
+        </div>`;
+    }
+    const pool = cg.pool ?? [];
+    const used = new Set(ABILITIES.map(k => cg.assign?.[k]).filter(i => i != null));
+    const chips = pool.map((v, i) =>
+      `<span class="mc-abil-chip ${used.has(i) ? "mc-used" : ""}">${v}</span>`).join("");
+    const rows = ABILITIES.map(k => {
+      const idx = cg.assign?.[k];
+      const v = idx != null ? pool[idx] : null;
+      const label = CONFIG.DND5E.abilities[k]?.label ?? k.toUpperCase();
+      return `<button class="mc-abil-row mc-abil-assignrow" data-action="abil-assign" data-abil="${k}">
+        <span class="mc-abil-name">${foundry.utils.escapeHTML(label)}</span>
+        <span class="mc-abil-slot ${v == null ? "mc-empty" : ""}">${v == null ? "—" : v}</span>
+      </button>`;
+    }).join("");
+    const reroll = method === "roll"
+      ? `<button class="mc-abil-reroll" data-action="abil-roll"><i class="fas fa-rotate"></i> Reroll all</button>` : "";
+    return `<div class="mc-abil-pool">${chips}<span class="mc-abil-poolnote">${pool.length - used.size} left</span></div>
+      <div class="mc-abils">${rows}</div>${reroll}`;
   }
 
   // Save/reaction prompt (§7.4/§7.6): a persistent, tappable cue when the
@@ -1821,6 +1933,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
   #clearAssigned() { this.#assignedTargets = []; this.#assignedBy = null; }
 
+  // Combat turn changed: when it becomes THIS actor's turn again (or combat ends),
+  // reopen the Actions drawers that auto-collapsed as actions were used last turn —
+  // a fresh turn shouldn't inherit last turn's closed/"used" UI. The ACT/BA/RE
+  // strip itself reads midi's flags, which midi resets GM-side on turn start
+  // (midi-qol.js, removeActionBonusReaction); the shell re-renders on that flag
+  // change, so this only owns the drawer state we collapse ourselves.
+  noteCombatTurn() {
+    const cur = game.combat?.combatant?.actor?.id ?? null;
+    if (cur === this.#lastCombatantId) return;
+    this.#lastCombatantId = cur;
+    if (!cur || cur === this.actor?.id) this.#collapsedActionGroups.clear();
+  }
+
   // Favorites (dnd5e system.favorites): the Actions bookmark toggle adds/removes
   // the tapped activity; the Explore favorites container renders the result. The
   // updateActor hook re-renders the shell on change.
@@ -1876,7 +2001,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     s.busy = false; s.phase = "attacked";
     s.requestId = res.requestId; s.hasAttack = res.hasAttack;
-    s.hit = res.hit; s.attackTotal = res.attackTotal;
+    s.hit = res.hit;
+    // -100 is midi's pre-roll placeholder (minAttackTotal, midi-qol.js:24342) — it
+    // leaks through when the executor reads the workflow before the attack roll is
+    // applied (e.g. an executor still on pre-fix rpc.js). The phone always reloads,
+    // so guard here too: show "—" (with the Hit/Attack label + Roll-damage step)
+    // rather than a bogus -100, no matter what the executor returns.
+    s.attackTotal = res.attackTotal === -100 ? null : res.attackTotal;
     this.render();
   }
 
@@ -2168,6 +2299,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#finishCharGen();
       case "char-gen-abilities":
         return this.#openAbilities();
+      case "abil-method":
+        return this.#setAbilMethod(el.dataset.method);
+      case "abil-roll":
+        return this.#rollAbilityScores();
+      case "abil-assign":
+        return this.#assignAbility(el.dataset.abil);
       case "abil-inc":
         return this.#adjAbility(el.dataset.abil, 1);
       case "abil-dec":
@@ -3021,6 +3158,7 @@ export function registerShellHooks() {
   // Also expire DM-assigned targets once the player's turn ends (§11).
   const onCombat = () => {
     shellInstance?.expireAssignedIfNotMyTurn();
+    shellInstance?.noteCombatTurn(); // reopen drawers when my turn comes around again
     if (shellInstance?.rendered) shellInstance.render();
   };
   Hooks.on("updateCombat", onCombat);
@@ -3032,6 +3170,16 @@ export function registerShellHooks() {
   Hooks.on("createCombatant", onCombat);
   Hooks.on("updateCombatant", onCombat);
   Hooks.on("deleteCombatant", onCombat);
+  // Scene switch: the controlled token lives on a scene, so when the GM activates
+  // a new scene the shell can be stranded on an off-scene actor with no token
+  // ("token not found: null") and the switcher hides. Drop a stale subject + re-
+  // render so the phone rebinds to an owned token on the new active scene.
+  Hooks.on("updateScene", (scene, changes) => {
+    if (shellInstance && "active" in changes) {
+      shellInstance.syncSubject();
+      if (shellInstance.rendered) shellInstance.render();
+    }
+  });
   // Phone combat-start cue (vibration + Foundry's combat sound).
   Hooks.on("combatStart", () => shellInstance?.alertCombatStart?.());
 

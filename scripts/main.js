@@ -127,6 +127,55 @@ function setDmRelaying(on) {
 function toggleTvManual() { setDmRelaying(!dmRelaying); return dmRelaying; }
 function isTvManualActive() { return dmRelaying; }
 
+// --- TV margin-follow (DM 2026-06-20) ---------------------------------------
+// Keep a moving player-character token at least N grid squares from the screen
+// edge so it never slides off-screen before the camera catches up. A deadzone
+// follow: pan only the minimum needed to pull the token back inside the margin,
+// smoothly. Clamp to the scene so we never overscroll past the map edge — there
+// the token is simply allowed nearer the screen edge ("unless it's the very
+// edge"). Display client only, and yields to manual TV control.
+const TV_EDGE_MARGIN_SQUARES = 3;
+
+function tvEdgeFollow(tokenDoc, changes) {
+  try {
+    if (!isDisplayClient() || tvManual || !canvas?.ready) return;
+    if (!("x" in changes) && !("y" in changes)) return; // only on movement
+    const actor = tokenDoc.actor;
+    if (tokenDoc.hidden || !actor?.hasPlayerOwner || actor.type !== "character") return;
+
+    const gs = canvas.dimensions?.size ?? 100;
+    const margin = TV_EDGE_MARGIN_SQUARES * gs;
+    const stage = canvas.stage;
+    const scale = stage.scale.x || 1;
+    const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
+    const halfW = screenW / scale / 2, halfH = screenH / scale / 2;
+
+    // Target token centre from the document (robust while the move animates).
+    const tw = (tokenDoc.width ?? 1) * gs, th = (tokenDoc.height ?? 1) * gs;
+    const tx = tokenDoc.x + tw / 2, ty = tokenDoc.y + th / 2;
+
+    // Pan the minimum to bring the token back inside the margin deadzone. If the
+    // viewport is narrower than 2×margin (zoomed in past ~6 squares), just centre.
+    let cx = stage.pivot.x, cy = stage.pivot.y;
+    if (halfW <= margin) cx = tx;
+    else if (tx < cx - halfW + margin) cx = tx + halfW - margin;
+    else if (tx > cx + halfW - margin) cx = tx - halfW + margin;
+    if (halfH <= margin) cy = ty;
+    else if (ty < cy - halfH + margin) cy = ty + halfH - margin;
+    else if (ty > cy + halfH - margin) cy = ty - halfH + margin;
+
+    // Clamp so the viewport stays within the scene (centre an axis smaller than it).
+    const r = canvas.dimensions?.sceneRect ?? canvas.dimensions?.rect;
+    if (r) {
+      cx = r.width  <= halfW * 2 ? r.x + r.width  / 2 : Math.min(Math.max(cx, r.x + halfW), r.x + r.width  - halfW);
+      cy = r.height <= halfH * 2 ? r.y + r.height / 2 : Math.min(Math.max(cy, r.y + halfH), r.y + r.height - halfH);
+    }
+
+    if (Math.abs(cx - stage.pivot.x) < 1 && Math.abs(cy - stage.pivot.y) < 1) return; // already inside
+    canvas.animatePan({ x: cx, y: cy, scale, duration: 250, easing: tvEase });
+  } catch (e) { /* follow is best-effort */ }
+}
+
 Hooks.once("setup", () => {
   // D2: phones run canvasless. The canvas draws on world entry — AFTER setup,
   // BEFORE ready — and loading it crashes iOS Safari (confirmed on real
@@ -186,6 +235,8 @@ Hooks.once("ready", () => {
     clearTimeout(_panTimer);
     if (now - _lastPan > 80) send(); else _panTimer = setTimeout(send, 80 - (now - _lastPan));
   });
+  // TV margin-follow: keep moving PCs ≥3 squares inside the screen edge (display only).
+  Hooks.on("updateToken", (tokenDoc, changes) => tvEdgeFollow(tokenDoc, changes));
 
   injectShellStyles(); // load CSS via JS so a plain F5 works without re-reading the manifest
   initSocket(); // idempotent fallback in case socketlib.ready raced or didn't fire
