@@ -1903,6 +1903,39 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     if (this.rendered) this.render();
   }
+  // Phone-side fallback for the save prompt. The executor relay (rpc.js) is the
+  // primary path, but it only fires if the GM/executor client is running current
+  // code — so if that's stale, no prompt reaches the phone. midi ALSO whispers a
+  // plain save-request card to the player (requestPCSave: {content, whisper}, no
+  // flags, no rolls). The shell hides chat, so catch that card here and surface the
+  // same tappable prompt. De-dupes with the relay (skip if a prompt for this actor
+  // is already up). Saves only (matches the relay scope); checks/skills are skipped.
+  maybeSavePromptFromCard(message) {
+    try {
+      if (!(message?.whisper ?? []).includes(game.user.id)) return; // whispered to me
+      if ((message.rolls?.length ?? 0) > 0) return;                 // a result, not a request
+      if (message.flags?.["midi-qol"]) return;                      // midi workflow card, not the plain request
+      const text = (message.content || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      if (!/sav(?:e|ing)\s*throw/i.test(text)) return;              // saving throws only
+      const actor = game.actors.find(a => a.isOwner && a.type === "character" && a.name && text.includes(a.name));
+      if (!actor) return;
+      const abil = Object.entries(CONFIG.DND5E?.abilities ?? {})
+        .find(([, v]) => v?.label && new RegExp(`\\b${v.label}\\b`, "i").test(text))?.[0];
+      if (!abil) return;
+      if (this.#savePrompt?.actorUuid === actor.uuid) return;        // relay (or a prior card) already prompted
+      const dc = Number((text.match(/DC\s*(\d+)/i) || [])[1]) || null;
+      const flavor = (text.split(/\s[-–]\s/).pop() || "").replace(/[)\s]+$/, "").trim();
+      const timeout = game.settings.get("midi-qol", "ConfigSettings")?.playerSaveTimeout ?? 0;
+      this.noteSavePrompt({
+        actorUuid: actor.uuid, abilities: [abil], dc,
+        advantage: /\badvantage\b/i.test(text) && !/\bdisadvantage\b/i.test(text),
+        disadvantage: /\bdisadvantage\b/i.test(text),
+        isConcentration: /concentrat/i.test(text),
+        spellName: flavor && flavor.length < 40 ? flavor : "",
+        ttlMs: timeout > 0 ? timeout * 1000 : null, ts: Date.now(), source: "card"
+      });
+    } catch (e) { console.warn(`${MODULE_ID} | save-card fallback failed`, e); }
+  }
   #clearSavePrompt() {
     clearTimeout(this.#savePromptTimer);
     this.#savePrompt = null;
@@ -3147,7 +3180,9 @@ export function registerShellHooks() {
   Hooks.on("deleteItem", onItem);
   // Surface this user's/actor's roll results inside the shell (it covers chat).
   Hooks.on("createChatMessage", (message) => {
-    if (shellInstance?.rendered) shellInstance.noteRoll(message);
+    if (!shellInstance) return;
+    shellInstance.maybeSavePromptFromCard(message); // phone-side save-prompt fallback (relay-independent)
+    if (shellInstance.rendered) shellInstance.noteRoll(message);
   });
   // §11 DM-assign: the executor relays assigned targets here; pre-load them in
   // the next picker (ControllerShell.noteAssignedTargets).
