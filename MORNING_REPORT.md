@@ -1,7 +1,7 @@
 # STATUS — continue here (updated 2026-06-20, char-gen ability methods)
 
 ## Where we are
-- **Released v0.1.3** — public GitHub Releases. Manifest: `https://github.com/SayoBlade/mobile-command/releases/latest/download/module.json`. **Sqyre runs the release; the local Foundry runs the symlink** (live on reload).
+- **Released v0.1.4** — public GitHub Releases (v0.1.4 = this session's attack-total/scene-switch/turn-cycle fixes + char-gen array/roll + TV margin-follow; commit fa432bb). Manifest: `https://github.com/SayoBlade/mobile-command/releases/latest/download/module.json`. **Sqyre runs the release; the local Foundry runs the symlink** (live on reload).
 - **Char-gen MVP shipped (v0.1.3):** a blank PC (no class) shows a **"Create Character"** gate → workspace picks **Species/Background/Class** from compendiums → dnd5e's **real advancement popups** (proven to lift onto the phone, `mc-phone-dialog`) → **point-buy ability panel** (27-pt) → Finish. DM drops the blank PC + grants Owner (players can't create actors); snags → DM client.
 - Also in v0.1.3 (this generation): spell upcasting picker, public-roll default, initiative prompt + Init button, move-pad green/yellow/red distance budget, combat-start vibrate/sound, dice tray, smooth TV-camera pans, iOS double-tap-zoom fix, silent-failure diagnostics across damage/spell/announce/attack-preview.
 
