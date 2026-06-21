@@ -2107,7 +2107,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       return;
     }
     try {
-      await actor.rollInitiativeDialog();
+      // Roll the actor's EXISTING combatant(s). Calling actor.rollInitiativeDialog()
+      // on a canvas-off phone can ADD a second, token-based combatant alongside the
+      // one already in the tracker → duplicate combatant (one named for the actor, one
+      // for the token) and a double initiative roll. Roll the existing ids instead;
+      // only fall back to the dialog if the actor truly isn't in this combat yet.
+      const mine = game.combat.combatants.filter(c => c.actor?.id === actor.id).map(c => c.id);
+      if (mine.length) await game.combat.rollInitiative(mine);
+      else await actor.rollInitiativeDialog();
     } catch (e) {
       console.error("mobile-command | initiative roll failed", {
         hasCombat: !!game.combat,
