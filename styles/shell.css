@@ -168,6 +168,20 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 /* Top-level char-gen notes (e.g. "Loading the X spell list…") sit directly in the
    padding-free scroll wrapper — give them the same 14px gutter as the rows. */
 .mc-cg-scroll > .mc-target-note { padding-left: 14px; padding-right: 14px; }
+/* Char-gen name + biography box (top of the workspace) */
+.mc-bio-box { display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 4px; }
+.mc-bio-name { min-height: 46px; padding: 10px 12px; border-radius: 10px; background: var(--mc-panel);
+  border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 18px; font-weight: 700; }
+.mc-bio-toggle { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 8px 12px; border-radius: 10px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-muted); font-size: 13px; text-align: left; }
+.mc-bio-chev { margin-left: auto; }
+.mc-bio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mc-bio-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mc-bio-wide { grid-column: 1 / -1; }
+.mc-bio-label { font-size: 11px; color: var(--mc-muted); text-transform: uppercase; letter-spacing: .04em; }
+.mc-bio-input, .mc-bio-area { width: 100%; padding: 8px 10px; border-radius: 8px; background: var(--mc-panel);
+  border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 14px; min-height: 38px; box-sizing: border-box; }
+.mc-bio-area { resize: vertical; font-family: inherit; line-height: 1.4; }
 .mc-section-label {
   font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
   color: #81869a; margin: 4px 2px 8px;
@@ -616,6 +630,7 @@ body.mc-phone .roll-configuration fieldset {
 .mc-equip-label { font-size: 14px; font-weight: 600; flex: 1 1 auto; }
 .mc-equip-auto { margin-top: 6px; padding: 10px 13px; border-radius: 10px; background: var(--mc-panel); border: 1px solid #2f5d39;
   color: #8fe0a0; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.mc-equip-granted { margin-top: 0; margin-bottom: 10px; background: rgba(143, 224, 160, .1); }
 .mc-cg-opts { display: flex; flex-direction: column; gap: 8px; padding: 8px 14px 16px; }
 .mc-cg-opt { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; min-height: 52px; padding: 8px 13px;
   border-radius: 10px; background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); text-align: left; }

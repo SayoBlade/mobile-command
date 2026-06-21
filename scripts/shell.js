@@ -181,7 +181,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // owned or creation finishes (Finish clears the flag → it resolves normally).
     if (this.#subjectActorId) {
       const a = game.actors.get(this.#subjectActorId);
-      if (!a?.isOwner || !this.#isCharGenPC(a)) this.#subjectActorId = null;
+      // Keep a tokenless owned character selected — a blank PC mid-build OR a
+      // just-finished PC with no token yet (so Finish doesn't strand the new PC).
+      if (!a?.isOwner || a.type !== "character") this.#subjectActorId = null;
     }
   }
 
@@ -396,30 +398,80 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <i class="fas ${done ? "fa-check mc-cg-check" : "fa-chevron-right"}"></i>
       </button>`;
     })() : "";
-    // Starting-equipment step: shown once a class/background that defines starting
-    // equipment is present.
-    const hasSE = actor.items.some(i => (i.type === "class" || i.type === "background") && (i.system?.startingEquipment?.length));
-    const equipRow = hasSE ? `<button class="mc-cg-row" data-action="char-gen-equip">
+    // Starting equipment — SEPARATE rows for class and background (each granted on
+    // its own, so the DM can see which one took: dnd5e grants can silently fail).
+    // Once granted, the row shows what was added + a ✓; re-tapping reviews/redoes it
+    // rather than silently adding again.
+    const granted = actor.getFlag(MODULE_ID, "equipGranted") || {};
+    const equipRow = (source, label) => {
+      const item = actor.items.find(i => i.type === source);
+      if (!item?.system?.startingEquipment?.length) return "";
+      const g = granted[source];
+      const done = !!g;
+      return `<button class="mc-cg-row ${done ? "mc-cg-done" : ""}" data-action="char-gen-equip" data-cgsource="${source}">
         <i class="fas fa-briefcase mc-cg-row-ico"></i>
-        <span class="mc-cg-row-label">Starting equipment</span>
-        <span class="mc-cg-row-val">Choose…</span>
+        <span class="mc-cg-row-label">${label}</span>
+        <span class="mc-cg-row-val">${foundry.utils.escapeHTML(done ? (g.summary || "Granted") : "Choose…")}</span>
+        <i class="fas ${done ? "fa-check mc-cg-check" : "fa-chevron-right"}"></i>
+      </button>`;
+    };
+    const abilitiesRow = `<button class="mc-cg-row" data-action="char-gen-abilities">
+        <i class="fas fa-dumbbell mc-cg-row-ico"></i>
+        <span class="mc-cg-row-label">Ability scores</span>
+        <span class="mc-cg-row-val">Point buy…</span>
         <i class="fas fa-chevron-right"></i>
-      </button>` : "";
+      </button>`;
+    // Order (DM 2026-06-21): name/bio box on top, then abilities first, then each
+    // source immediately followed by its own equipment row.
     return this.#charGenHeaderHTML(actor, "Building character…")
+      + this.#charGenBioHTML(actor)
       + `<div class="mc-cg-steps">
+          ${abilitiesRow}
           ${row("Species", "race", "fa-dragon")}
           ${row("Background", "background", "fa-scroll")}
+          ${equipRow("background", "Background equipment")}
           ${row("Class", "class", "fa-hat-wizard")}
-          ${equipRow}
-          <button class="mc-cg-row" data-action="char-gen-abilities">
-            <i class="fas fa-dumbbell mc-cg-row-ico"></i>
-            <span class="mc-cg-row-label">Ability scores</span>
-            <span class="mc-cg-row-val">Point buy…</span>
-            <i class="fas fa-chevron-right"></i>
-          </button>
+          ${equipRow("class", "Class equipment")}
           ${spellsRow}
         </div>
         <button class="mc-cg-finish" data-action="char-gen-finish"><i class="fas fa-check-double"></i> Finish</button>`;
+  }
+  // Name + biography box atop the workspace (DM: "all the inputs in the Foundry
+  // biography tab"). Collapsed = just the name; expanded = the dnd5e details fields.
+  // Each input commits on blur via #onChange (data-bio = the actor path, or "name").
+  #charGenBioHTML(actor) {
+    const open = !!this.#charGen?.bioOpen;
+    const d = actor.system?.details ?? {};
+    const esc = (v) => foundry.utils.escapeHTML(String(v ?? ""));
+    const fld = (label, path, val) => `<label class="mc-bio-field"><span class="mc-bio-label">${label}</span>
+        <input class="mc-bio-input" type="text" data-bio="${path}" value="${esc(val)}"></label>`;
+    const area = (label, path, val) => `<label class="mc-bio-field mc-bio-wide"><span class="mc-bio-label">${label}</span>
+        <textarea class="mc-bio-area" data-bio="${path}" rows="2">${esc(val)}</textarea></label>`;
+    const details = open ? `<div class="mc-bio-grid">
+        ${fld("Alignment", "system.details.alignment", d.alignment)}
+        ${fld("Faith", "system.details.faith", d.faith)}
+        ${fld("Gender", "system.details.gender", d.gender)}
+        ${fld("Age", "system.details.age", d.age)}
+        ${fld("Height", "system.details.height", d.height)}
+        ${fld("Weight", "system.details.weight", d.weight)}
+        ${fld("Eyes", "system.details.eyes", d.eyes)}
+        ${fld("Hair", "system.details.hair", d.hair)}
+        ${fld("Skin", "system.details.skin", d.skin)}
+        ${area("Appearance", "system.details.appearance", d.appearance)}
+        ${area("Personality Traits", "system.details.trait", d.trait)}
+        ${area("Ideals", "system.details.ideal", d.ideal)}
+        ${area("Bonds", "system.details.bond", d.bond)}
+        ${area("Flaws", "system.details.flaw", d.flaw)}
+        ${area("Biography", "system.details.biography.value", d.biography?.value)}
+      </div>` : "";
+    return `<div class="mc-bio-box">
+        <input class="mc-bio-name" type="text" data-bio="name" value="${esc(actor.name)}" placeholder="Character name" aria-label="Character name">
+        <button class="mc-bio-toggle" data-action="char-gen-bio-toggle">
+          <i class="fas fa-feather"></i> ${open ? "Hide biography & details" : "Biography & details"}
+          <i class="fas fa-chevron-${open ? "up" : "down"} mc-bio-chev"></i>
+        </button>
+        ${details}
+      </div>`;
   }
 
   // Known-caster spell needs: the cantrips/spells-known scale values define the
@@ -484,10 +536,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     actor.setFlag(MODULE_ID, "charGen", true); // persist so a reload can resume
     this.render();
   }
-  #finishCharGen() {
+  async #finishCharGen() {
     const actor = this.actor;
+    // Stay on the just-finished PC. It has no token yet, so pin it as the tokenless
+    // subject — otherwise `actor` would fall back to an in-scene token and the new
+    // PC would be unreachable until the DM drops a token.
+    if (actor) { this.#subjectActorId = actor.id; this.#subjectId = null; }
+    // AWAIT the flag clear before clearing in-memory state + rendering: otherwise the
+    // synchronous re-render reads the still-set flag and the #buildHTML resume logic
+    // re-creates #charGen — stranding the player back in the builder after Finish.
+    await actor?.unsetFlag(MODULE_ID, "charGen");
     this.#charGen = null; this.#charGenOptions = null;
-    actor?.unsetFlag(MODULE_ID, "charGen");
     this.render();
   }
 
@@ -716,8 +775,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #equipPlanFor(item) {
     const se = item?.system?.startingEquipment ?? [];
     const top = se.filter(e => !e.group);
-    const auto = [], choices = [];
+    const auto = [], choices = []; let autoGold = 0;
     const linked = (entry) => { const out = []; const walk = e => { if (e.type === "linked" && e.key) out.push({ uuid: e.key, count: e.count || 1 }); (e.children ?? []).forEach(walk); }; walk(entry); return out; };
+    // Fixed wealth granted outright (not an "or gold" choice) — e.g. a background's
+    // flat starting gold. Walk the entry so nested wealth counts too.
+    const wealthOf = (entry) => { let g = 0; const walk = e => { if (e.type === "wealth") g += Number(e.count ?? e.key) || 0; (e.children ?? []).forEach(walk); }; walk(entry); return g; };
     for (const e of top) {
       if (e.type === "OR") {
         const options = (e.children ?? []).map(c => {
@@ -726,29 +788,29 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           return { label: this.#stripHtml(c.label), kind: "items", items: linked(c) };
         });
         choices.push({ label: this.#stripHtml(e.label), options });
-      } else { auto.push(...linked(e)); }
+      } else { auto.push(...linked(e)); autoGold += wealthOf(e); }
     }
-    return { auto, choices };
+    return { auto, choices, autoGold };
   }
-  #charGenEquip() {
+  #charGenEquip(source) {
     const actor = this.actor, cg = this.#charGen; if (!actor || !cg) return;
-    const cls = actor.items.find(i => i.type === "class");
-    const bg = actor.items.find(i => i.type === "background");
-    const cp = cls ? this.#equipPlanFor(cls) : { auto: [], choices: [] };
-    const bp = bg ? this.#equipPlanFor(bg) : { auto: [], choices: [] };
-    const plan = { auto: [...cp.auto, ...bp.auto], choices: [...cp.choices, ...bp.choices] };
-    cg.equip = { plan, sel: plan.choices.map(() => 0), catUuid: {}, catOpen: null, catOptions: null };
+    if (source !== "class" && source !== "background") source = "class";
+    const item = actor.items.find(i => i.type === source);
+    const plan = item ? this.#equipPlanFor(item) : { auto: [], choices: [], autoGold: 0 };
+    cg.equip = { source, plan, sel: plan.choices.map(() => 0), catUuid: {}, catOpen: null, catOptions: null };
     cg.picking = "equip";
     this.render();
   }
   #equipPickerHTML() {
     const eq = this.#charGen?.equip;
+    const srcLabel = eq?.source === "background" ? "Background" : "Class";
     const head = `<div class="mc-picker-head">
         <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
-        <span class="mc-picker-title">Starting equipment</span>
+        <span class="mc-picker-title">${srcLabel} equipment</span>
       </div>`;
     if (!eq) return head + `<div class="mc-target-note">No starting equipment.</div>`;
     if (eq.catOpen != null) return head + this.#equipCatBodyHTML(eq);
+    const prior = this.actor?.getFlag(MODULE_ID, "equipGranted")?.[eq.source];
     const choiceHTML = eq.plan.choices.map((ch, ci) => {
       const opts = ch.options.map((o, oi) => {
         const on = eq.sel[ci] === oi;
@@ -764,10 +826,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       }).join("");
       return `<div class="mc-equip-choice"><div class="mc-section-label">Choose one</div>${opts}</div>`;
     }).join("");
-    const autoNote = eq.plan.auto.length
-      ? `<div class="mc-equip-auto"><i class="fas fa-check"></i> Also granted: ${eq.plan.auto.length} fixed item${eq.plan.auto.length > 1 ? "s" : ""} (class + background)</div>` : "";
-    return head + `<div class="mc-equip-body">${choiceHTML || `<div class="mc-target-note">No equipment choices.</div>`}${autoNote}</div>`
-      + `<button class="mc-cg-finish" data-action="equip-apply">Add equipment</button>`;
+    const grantedBanner = prior
+      ? `<div class="mc-equip-auto mc-equip-granted"><i class="fas fa-circle-check"></i> Already added: ${foundry.utils.escapeHTML(prior.summary || "granted")}</div>` : "";
+    const autoBits = [];
+    if (eq.plan.auto.length) autoBits.push(`${eq.plan.auto.length} fixed item${eq.plan.auto.length > 1 ? "s" : ""}`);
+    if (eq.plan.autoGold) autoBits.push(`${eq.plan.autoGold} gp`);
+    const autoNote = autoBits.length
+      ? `<div class="mc-equip-auto"><i class="fas fa-check"></i> Also granted: ${autoBits.join(" + ")}</div>` : "";
+    return head + `<div class="mc-equip-body">${grantedBanner}${choiceHTML || `<div class="mc-target-note">No equipment choices.</div>`}${autoNote}</div>`
+      + `<button class="mc-cg-finish" data-action="equip-apply">${prior ? "Grant again" : "Add equipment"}</button>`;
   }
   #charGenEquipCatName(ci) {
     return this.#charGen?.equip?.catName?.[ci] ?? "chosen";
@@ -832,7 +899,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   async #applyEquip(actor) {
     const eq = this.#charGen?.equip; if (!actor || !eq) return;
     const want = [...eq.plan.auto.map(i => ({ uuid: i.uuid, count: i.count }))];
-    let gold = 0;
+    let gold = eq.plan.autoGold || 0;
     eq.plan.choices.forEach((ch, ci) => {
       const o = ch.options[eq.sel[ci]];
       if (!o) return;
@@ -840,16 +907,24 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       else if (o.kind === "gold") gold += o.gold || 0;
       else if (o.kind === "category" && eq.catUuid[ci]) want.push({ uuid: eq.catUuid[ci], count: 1 });
     });
-    const toAdd = [];
+    const toAdd = [], names = [];
     for (const w of want) {
       const doc = await fromUuid(w.uuid); if (!doc) continue;
       const data = doc.toObject();
       if (w.count > 1 && "quantity" in (data.system ?? {})) data.system.quantity = w.count;
       toAdd.push(data);
+      names.push(w.count > 1 ? `${doc.name} ×${w.count}` : doc.name);
     }
     try {
       if (toAdd.length) await actor.createEmbeddedDocuments("Item", toAdd);
       if (gold) await actor.update({ "system.currency.gp": (actor.system.currency?.gp ?? 0) + gold });
+      // Record what THIS source granted so its row shows the list + a ✓, and a re-tap
+      // is a deliberate "Grant again" rather than the silent duplicate that bit us.
+      const summaryBits = [...names];
+      if (gold) summaryBits.push(`${gold} gp`);
+      const grant = foundry.utils.deepClone(actor.getFlag(MODULE_ID, "equipGranted") || {});
+      grant[eq.source] = { summary: summaryBits.join(", ") || "nothing", count: toAdd.length, gold };
+      await actor.setFlag(MODULE_ID, "equipGranted", grant);
     } catch (e) { return ui.notifications.warn(`Couldn't add equipment: ${e.message}`); }
     this.#charGen.picking = null; this.#charGen.equip = null;
     this.render();
@@ -1147,7 +1222,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const list = toks.map(t => ({ actorId: t.actor.id, tokenId: t.id, name: t.actor.name }));
     const seen = new Set(toks.map(t => t.actor.id));
     for (const a of game.actors) {
-      if (a.isOwner && !seen.has(a.id) && this.#isCharGenPC(a)) {
+      if (!a.isOwner || seen.has(a.id) || a.type !== "character") continue;
+      // Blank/char-gen PCs (to build them) AND — for a player — any of their own PCs
+      // not on this scene, so a JUST-FINISHED tokenless PC stays reachable (the DM
+      // hasn't dropped a token yet). Skip the GM's blanket ownership (would list the
+      // whole world); the GM reaches characters by selecting their token.
+      if (this.#isCharGenPC(a) || !game.user.isGM) {
         list.push({ actorId: a.id, tokenId: null, name: a.name });
       }
     }
@@ -2815,6 +2895,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#finishCharGen();
       case "char-gen-abilities":
         return this.#openAbilities();
+      case "char-gen-bio-toggle":
+        if (this.#charGen) { this.#charGen.bioOpen = !this.#charGen.bioOpen; this.render(); }
+        return;
       case "char-gen-spells":
         return this.#charGenSpells();
       case "char-gen-spell-toggle":
@@ -2824,7 +2907,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "char-gen-spell-apply":
         return this.#applySpells(this.actor);
       case "char-gen-equip":
-        return this.#charGenEquip();
+        return this.#charGenEquip(el.dataset.cgsource);
       case "equip-opt":
         return this.#selectEquipOption(Number(el.dataset.ci), Number(el.dataset.oi));
       case "equip-cat-pick":
@@ -3481,6 +3564,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // integer; the updateActor hook re-renders the row with the saved value.
   #onChange = (ev) => {
     const inp = ev.target;
+    // Char-gen name/biography box: commit the field to the actor on blur. data-bio is
+    // the actor path ("name" → the document name, else a system.details.* path).
+    if (inp?.dataset?.bio) {
+      const path = inp.dataset.bio;
+      const val = inp.value;
+      this.actor?.update(path === "name" ? { name: val || "Unnamed Character" } : { [path]: val });
+      return;
+    }
     // Spell-picker filters (commit on blur/change — no live re-render to keep focus).
     if (inp?.classList?.contains?.("mc-spellfilter-q") && this.#charGen) {
       (this.#charGen.spellFilter ??= {}).q = (inp.value || "").trim().toLowerCase(); return this.render();
