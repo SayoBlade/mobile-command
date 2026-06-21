@@ -567,6 +567,7 @@ body.mc-phone .roll-configuration fieldset {
 .mc-spell-count { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--mc-muted);
   padding: 2px 8px; border-radius: 8px; background: var(--mc-panel); border: 1px solid var(--mc-edge); font-variant-numeric: tabular-nums; }
 .mc-spell-count.mc-full { color: #8fe0a0; border-color: #2f5d39; }
+.mc-spell-count.mc-over { color: #e8857a; border-color: #5d2f2f; }
 .mc-spellpick { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 8px 13px; border-radius: 10px;
   background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); text-align: left; }
 .mc-spellpick:active { background: var(--mc-panel-2); }

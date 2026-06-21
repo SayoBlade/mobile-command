@@ -579,7 +579,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <span class="mc-spellpick-name">${foundry.utils.escapeHTML(s.name)}</span>
       </button>`;
     const sec = (label, list, selN, cap) => list.length
-      ? `<div class="mc-section-label">${label} <span class="mc-spell-count ${selN >= cap ? "mc-full" : ""}">${selN}/${cap}</span></div>${list.map(spellRow).join("")}` : "";
+      ? `<div class="mc-section-label">${label} <span class="mc-spell-count ${selN > cap ? "mc-over" : selN === cap ? "mc-full" : ""}">${selN}/${cap}</span></div>${list.map(spellRow).join("")}` : "";
     return head
       + `<div class="mc-spellpick-body">
           ${sec("Cantrips", opts.cantrips, selCant, si.knownCantrips)}
@@ -587,19 +587,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         </div>
         <button class="mc-cg-finish" data-action="char-gen-spell-apply">Add spells</button>`;
   }
-  #toggleSpellSel(uuid, level) {
+  #toggleSpellSel(uuid) {
     const cg = this.#charGen; if (!cg) return;
     const sel = cg.spellSel ?? (cg.spellSel = new Set());
-    if (sel.has(uuid)) { sel.delete(uuid); return this.render(); }
-    const si = this.#charGenSpellInfo(this.actor); if (!si) return;
-    const opts = this.#charGenSpellOptions ?? { cantrips: [], leveled: [] };
-    const isCantrip = Number(level) === 0;
-    const cap = isCantrip ? si.knownCantrips : si.knownSpells;
-    const pool = isCantrip ? opts.cantrips : opts.leveled;
-    if (pool.filter(s => sel.has(s.uuid)).length >= cap) {
-      return ui.notifications.info(`You can choose ${cap} ${isCantrip ? "cantrip" : "spell"}${cap === 1 ? "" : "s"}.`);
-    }
-    sel.add(uuid);
+    // No cap-block — over-picking is allowed (the DM may permit it); the count
+    // just turns red over the limit (warnings, not walls).
+    if (sel.has(uuid)) sel.delete(uuid); else sel.add(uuid);
     this.render();
   }
   async #applySpells(actor) {
@@ -2729,7 +2722,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "char-gen-spells":
         return this.#charGenSpells();
       case "char-gen-spell-toggle":
-        return this.#toggleSpellSel(el.dataset.uuid, el.dataset.lvl);
+        return this.#toggleSpellSel(el.dataset.uuid);
       case "char-gen-spell-apply":
         return this.#applySpells(this.actor);
       case "char-gen-equip":
