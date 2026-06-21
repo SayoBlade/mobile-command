@@ -507,9 +507,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (pack.metadata.type !== "Item") continue;
       if (!this.#packSourceAllowed(pack.collection)) continue;
       let idx;
-      try { idx = await pack.getIndex({ fields: ["type"] }); } catch (e) { continue; }
+      try { idx = await pack.getIndex({ fields: ["type", "system.source.book"] }); } catch (e) { continue; }
       for (const e of idx) {
-        if (e.type === type) out.push({ name: e.name, uuid: `Compendium.${pack.collection}.Item.${e._id}`, src: pack.metadata.label, img: e.img });
+        if (e.type === type) out.push({ name: e.name, uuid: `Compendium.${pack.collection}.Item.${e._id}`, src: this.#optionSource(e.system?.source?.book, pack), img: e.img });
       }
     }
     out.sort((a, b) => a.name.localeCompare(b.name));
@@ -569,6 +569,29 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const title = pkg === game.system.id ? game.system.title : (game.modules.get(pkg)?.title ?? pkg ?? meta.label);
     return String(title ?? "").replace(/^Dungeons\s*&\s*Dragons\s*/i, "").trim() || String(title ?? "");
   }
+  // The item's actual source BOOK (system.source.book, e.g. "PHB 2024"), resolved
+  // to its full title via CONFIG.DND5E.sourceBooks ("Player's Handbook (2024)") —
+  // the real source, not the generic pack label ("Character Classes"). Empty when
+  // the item declares no book (caller falls back to the pack/package label).
+  #sourceBookLabel(book) {
+    if (!book) return "";
+    return CONFIG.DND5E?.sourceBooks?.[book] ?? String(book);
+  }
+  // dnd5e's source.book is a DERIVED getter: when an item's stored book is empty,
+  // the full doc fills it from the module's declared source book. The index only
+  // has the raw (empty) value, so for index scans we mirror that fallback —
+  // the module's single declared book (unambiguous only when it declares one).
+  #packDefaultBook(pack) {
+    const pkg = pack?.metadata?.packageName;
+    const mod = pkg === game.system.id ? game.system : game.modules.get(pkg);
+    const keys = Object.keys(mod?.flags?.dnd5e?.sourceBooks ?? {});
+    return keys.length === 1 ? keys[0] : "";
+  }
+  // Resolve an index entry's display source: its own book, else the module default,
+  // else the generic pack label (last resort). For full docs use source.book direct.
+  #optionSource(indexBook, pack) {
+    return this.#sourceBookLabel(indexBook || this.#packDefaultBook(pack)) || pack.metadata.label;
+  }
   async #loadSpellOptions(actor) {
     const si = this.#charGenSpellInfo(actor);
     if (!si) return { cantrips: [], leveled: [] };
@@ -582,7 +605,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       for (const s of all) {
         if (s.compendium && !this.#packSourceAllowed(s.compendium.collection)) continue; // DM-excluded source
         const lvl = s.system?.level ?? 0;
-        const entry = { name: s.name, uuid: s.uuid, level: lvl, src: this.#srcLabel(s.compendium?.metadata),
+        const entry = { name: s.name, uuid: s.uuid, level: lvl, src: this.#sourceBookLabel(s.system?.source?.book) || this.#srcLabel(s.compendium?.metadata),
           img: s.img || "icons/svg/daze.svg", school: s.system?.school || "" };
         if (lvl === 0) cantrips.push(entry);
         else if (lvl <= si.maxLevel) leveled.push(entry);
@@ -766,11 +789,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     for (const pack of game.packs) {
       if (pack.metadata.type !== "Item") continue;
       if (!this.#packSourceAllowed(pack.collection)) continue;
-      let idx; try { idx = await pack.getIndex({ fields: ["type", "system.type.value", "system.rarity"] }); } catch (e) { continue; }
+      let idx; try { idx = await pack.getIndex({ fields: ["type", "system.type.value", "system.rarity", "system.source.book"] }); } catch (e) { continue; }
       for (const e of idx) {
         if (e.type !== (opt.catType === "focus" ? "equipment" : opt.catType)) continue;
         if (!match(e)) continue;
-        out.push({ name: e.name, uuid: `Compendium.${pack.collection}.Item.${e._id}`, src: this.#srcLabel(pack.metadata), img: e.img });
+        out.push({ name: e.name, uuid: `Compendium.${pack.collection}.Item.${e._id}`, src: this.#optionSource(e.system?.source?.book, pack), img: e.img });
       }
     }
     // No name-dedupe: same-named items can differ by source — show every version
