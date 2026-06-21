@@ -575,6 +575,7 @@ body.mc-phone .roll-configuration fieldset {
 .mc-spellpick-tick { font-size: 16px; color: var(--mc-muted); width: 18px; text-align: center; }
 .mc-spellpick.mc-on .mc-spellpick-tick { color: #5db4e6; }
 .mc-spellpick-name { font-size: 15px; font-weight: 600; }
+.mc-spellpick-src { display: block; font-size: 11px; font-weight: 400; color: var(--mc-muted); margin-top: 1px; }
 /* Starting-equipment step: OR choices (radios) + category sub-pick */
 .mc-equip-body { display: flex; flex-direction: column; gap: 6px; padding: 6px 14px 12px; }
 .mc-equip-choice { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }

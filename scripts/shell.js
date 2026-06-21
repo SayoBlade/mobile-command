@@ -533,13 +533,25 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.render();
     const opts = await this.#loadSpellOptions(actor);
     if (this.#charGen?.picking !== "spells") return;
-    // pre-select what the actor already knows (match by name) so re-opening is stable
+    // pre-select what the actor already knows (best-effort by name, one option per
+    // name so identically-named versions don't all light up) so re-opening is stable.
     const have = new Set(actor.items.filter(i => i.type === "spell").map(i => i.name));
-    const sel = new Set();
-    for (const s of [...opts.cantrips, ...opts.leveled]) if (have.has(s.name)) sel.add(s.uuid);
+    const sel = new Set(); const used = new Set();
+    for (const s of [...opts.cantrips, ...opts.leveled]) {
+      if (have.has(s.name) && !used.has(s.name)) { sel.add(s.uuid); used.add(s.name); }
+    }
     this.#charGen.spellSel = sel;
     this.#charGenSpellOptions = opts;
     this.render();
+  }
+  // Short, distinguishing source label for a compendium pack (the package title,
+  // minus the common "Dungeons & Dragons" prefix) — so same-named items from
+  // different sources are told apart (pack labels like "Spells" collide).
+  #srcLabel(meta) {
+    if (!meta) return "";
+    const pkg = meta.packageName;
+    const title = pkg === game.system.id ? game.system.title : (game.modules.get(pkg)?.title ?? pkg ?? meta.label);
+    return String(title ?? "").replace(/^Dungeons\s*&\s*Dragons\s*/i, "").trim() || String(title ?? "");
   }
   async #loadSpellOptions(actor) {
     const si = this.#charGenSpellInfo(actor);
@@ -547,16 +559,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     try {
       const sl = await dnd5e.registry.spellLists.forType("class", si.classId);
       const all = await sl.getSpells();
-      const seen = new Set(); const cantrips = []; const leveled = [];
+      // No name-dedupe: same-named spells from different sources can have different
+      // stats/text — show every version with its source; which to use is the DM's
+      // call (scoped later by the compendium-approval handshake).
+      const cantrips = [], leveled = [];
       for (const s of all) {
-        if (seen.has(s.name)) continue; seen.add(s.name); // dedupe across sources
         const lvl = s.system?.level ?? 0;
-        const entry = { name: s.name, uuid: s.uuid, level: lvl };
+        const entry = { name: s.name, uuid: s.uuid, level: lvl, src: this.#srcLabel(s.compendium?.metadata) };
         if (lvl === 0) cantrips.push(entry);
         else if (lvl <= si.maxLevel) leveled.push(entry);
       }
-      cantrips.sort((a, b) => a.name.localeCompare(b.name));
-      leveled.sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+      cantrips.sort((a, b) => a.name.localeCompare(b.name) || a.src.localeCompare(b.src));
+      leveled.sort((a, b) => a.level - b.level || a.name.localeCompare(b.name) || a.src.localeCompare(b.src));
       return { cantrips, leveled };
     } catch (e) {
       console.error("mobile-command | spell list load failed", e);
@@ -574,9 +588,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const opts = this.#charGenSpellOptions;
     const selCant = opts.cantrips.filter(s => sel.has(s.uuid)).length;
     const selLev = opts.leveled.filter(s => sel.has(s.uuid)).length;
-    const spellRow = (s) => `<button class="mc-spellpick ${sel.has(s.uuid) ? "mc-on" : ""}" data-action="char-gen-spell-toggle" data-uuid="${s.uuid}" data-lvl="${s.level}">
+    const spellRow = (s) => `<button class="mc-spellpick ${sel.has(s.uuid) ? "mc-on" : ""}" data-action="char-gen-spell-toggle" data-uuid="${s.uuid}">
         <i class="fas ${sel.has(s.uuid) ? "fa-circle-check" : "fa-circle"} mc-spellpick-tick"></i>
-        <span class="mc-spellpick-name">${foundry.utils.escapeHTML(s.name)}</span>
+        <span class="mc-spellpick-name">${foundry.utils.escapeHTML(s.name)}${s.src ? `<span class="mc-spellpick-src">${foundry.utils.escapeHTML(s.src)}</span>` : ""}</span>
       </button>`;
     const sec = (label, list, selN, cap) => list.length
       ? `<div class="mc-section-label">${label} <span class="mc-spell-count ${selN > cap ? "mc-over" : selN === cap ? "mc-full" : ""}">${selN}/${cap}</span></div>${list.map(spellRow).join("")}` : "";
@@ -717,18 +731,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       for (const e of idx) {
         if (e.type !== (opt.catType === "focus" ? "equipment" : opt.catType)) continue;
         if (!match(e)) continue;
-        out.push({ name: e.name, uuid: `Compendium.${pack.collection}.Item.${e._id}` });
+        out.push({ name: e.name, uuid: `Compendium.${pack.collection}.Item.${e._id}`, src: this.#srcLabel(pack.metadata) });
       }
     }
-    const seen = new Set(); const deduped = out.filter(o => seen.has(o.name) ? false : seen.add(o.name));
-    deduped.sort((a, b) => a.name.localeCompare(b.name));
-    if (this.#charGen?.equip?.catOpen === ci) { this.#charGen.equip.catOptions = deduped; this.render(); }
+    // No name-dedupe: same-named items can differ by source — show every version
+    // with its source (the DM scopes sources via the approval handshake later).
+    out.sort((a, b) => a.name.localeCompare(b.name) || a.src.localeCompare(b.src));
+    if (this.#charGen?.equip?.catOpen === ci) { this.#charGen.equip.catOptions = out; this.render(); }
   }
   #equipCatBodyHTML(eq) {
     if (eq.catOptions === null) return `<div class="mc-target-note">Loading options…</div>`;
     if (!eq.catOptions.length) return `<div class="mc-target-note">No matching items found.</div>`;
     const rows = eq.catOptions.map(o => `<button class="mc-equip-opt" data-action="equip-cat-pick" data-uuid="${o.uuid}">
-        <i class="fas fa-box mc-equip-ico"></i><span class="mc-equip-label">${foundry.utils.escapeHTML(o.name)}</span>
+        <i class="fas fa-box mc-equip-ico"></i><span class="mc-equip-label">${foundry.utils.escapeHTML(o.name)}${o.src ? `<span class="mc-spellpick-src">${foundry.utils.escapeHTML(o.src)}</span>` : ""}</span>
       </button>`).join("");
     return `<div class="mc-equip-body">${rows}</div>`;
   }
