@@ -574,8 +574,16 @@ body.mc-phone .roll-configuration fieldset {
 .mc-spellpick.mc-on { border-color: #2f5d8a; background: #1d2735; }
 .mc-spellpick-tick { font-size: 16px; color: var(--mc-muted); width: 18px; text-align: center; }
 .mc-spellpick.mc-on .mc-spellpick-tick { color: #5db4e6; }
-.mc-spellpick-name { font-size: 15px; font-weight: 600; }
+.mc-spellpick-name { font-size: 15px; font-weight: 600; flex: 1 1 auto; min-width: 0; }
 .mc-spellpick-src { display: block; font-size: 11px; font-weight: 400; color: var(--mc-muted); margin-top: 1px; }
+.mc-spellpick .mc-spell-icon { flex: 0 0 auto; }
+/* Add/Remove button in the long-pressed spell detail card (green add / red remove) */
+.mc-spellpickbtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 46px;
+  margin-top: 14px; padding: 10px; font-size: 14px; font-weight: 700; border-radius: 10px; cursor: pointer;
+  color: #8fe0a0; background: rgba(60, 140, 80, 0.14); border: 1px solid rgba(80, 160, 100, 0.5); }
+.mc-spellpickbtn:active { background: rgba(60, 140, 80, 0.26); }
+.mc-spellpickbtn.mc-on { color: #f1b0b0; background: rgba(180, 60, 60, 0.12); border-color: rgba(200, 80, 80, 0.5); }
+.mc-spellpickbtn.mc-on:active { background: rgba(180, 60, 60, 0.24); }
 /* Starting-equipment step: OR choices (radios) + category sub-pick */
 .mc-equip-body { display: flex; flex-direction: column; gap: 6px; padding: 6px 14px 12px; }
 .mc-equip-choice { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }

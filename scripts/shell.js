@@ -367,6 +367,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Workspace: pick Species / Background / Class (each → real advancement popup),
   // each row showing the chosen item once added. Ability scores + Finish below.
   #charGenHTML(actor) {
+    if (this.#detailCard) return this.#detailCardHTML(); // long-press detail over any char-gen step
     if (this.#charGen?.picking === "abilities") return this.#abilityPanelHTML(actor);
     if (this.#charGen?.picking === "spells") return this.#spellPickerHTML(actor);
     if (this.#charGen?.picking === "equip") return this.#equipPickerHTML(actor);
@@ -565,7 +566,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const cantrips = [], leveled = [];
       for (const s of all) {
         const lvl = s.system?.level ?? 0;
-        const entry = { name: s.name, uuid: s.uuid, level: lvl, src: this.#srcLabel(s.compendium?.metadata) };
+        const entry = { name: s.name, uuid: s.uuid, level: lvl, src: this.#srcLabel(s.compendium?.metadata),
+          img: s.img || "icons/svg/daze.svg", school: s.system?.school || "" };
         if (lvl === 0) cantrips.push(entry);
         else if (lvl <= si.maxLevel) leveled.push(entry);
       }
@@ -588,9 +590,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const opts = this.#charGenSpellOptions;
     const selCant = opts.cantrips.filter(s => sel.has(s.uuid)).length;
     const selLev = opts.leveled.filter(s => sel.has(s.uuid)).length;
+    // Reuse the spellbook row look (icon + name) + source; tap toggles, long-press
+    // (data-uuid) opens the spell's detail card, which carries an Add/Remove button.
     const spellRow = (s) => `<button class="mc-spellpick ${sel.has(s.uuid) ? "mc-on" : ""}" data-action="char-gen-spell-toggle" data-uuid="${s.uuid}">
-        <i class="fas ${sel.has(s.uuid) ? "fa-circle-check" : "fa-circle"} mc-spellpick-tick"></i>
+        <img class="mc-spell-icon" src="${s.img}" alt="">
         <span class="mc-spellpick-name">${foundry.utils.escapeHTML(s.name)}${s.src ? `<span class="mc-spellpick-src">${foundry.utils.escapeHTML(s.src)}</span>` : ""}</span>
+        <i class="fas ${sel.has(s.uuid) ? "fa-circle-check" : "fa-circle"} mc-spellpick-tick"></i>
       </button>`;
     const sec = (label, list, selN, cap) => list.length
       ? `<div class="mc-section-label">${label} <span class="mc-spell-count ${selN > cap ? "mc-over" : selN === cap ? "mc-full" : ""}">${selN}/${cap}</span></div>${list.map(spellRow).join("")}` : "";
@@ -2738,6 +2743,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#charGenSpells();
       case "char-gen-spell-toggle":
         return this.#toggleSpellSel(el.dataset.uuid);
+      case "spell-pick-detail-toggle":
+        return this.#toggleSpellSel(el.dataset.uuid); // from the long-press detail card
       case "char-gen-spell-apply":
         return this.#applySpells(this.actor);
       case "char-gen-equip":
@@ -3042,11 +3049,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     let item = null, activity = null;
     if (uuid) { const doc = fromUuidSync(uuid, { relative: this.actor }); if (doc?.item) { activity = doc; item = doc.item; } else item = doc; }
     else if (itemId) item = this.actor?.items.get(itemId);
-    if (item?.system) this.#showDetails(item, activity);
+    // In the char-gen spell picker, long-press → detail card carries an Add/Remove
+    // button bound to the selection (the pressed uuid is the option's spell uuid).
+    const pickUuid = (this.#charGen?.picking === "spells" && uuid) ? uuid : null;
+    if (item?.system) this.#showDetails(item, activity, pickUuid);
   }
   // Full details card (long-press v1): mirror Foundry's item card — name, a short
   // subtitle, and the (enriched) item description. Async because enrichHTML is.
-  async #showDetails(item, activity = null) {
+  async #showDetails(item, activity = null, spellPickUuid = null) {
     const sys = item.system ?? {};
     const raw = sys.description?.value || "";
     let desc = raw;
@@ -3060,7 +3070,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const favType = activity ? "activity" : "item";
     const favId = rel ? (activity ? `${rel}.Activity.${activity.id}` : rel) : null;
     const isFav = favId ? !!this.actor?.system?.hasFavorite?.(favId) : false;
-    this.#detailCard = { name: item.name, img: item.img || "icons/svg/item-bag.svg", subtitle: this.#itemSubtitle(item), meta: this.#itemMeta(item), desc, favType, favId, isFav, itemId: item.id };
+    this.#detailCard = { name: item.name, img: item.img || "icons/svg/item-bag.svg", subtitle: this.#itemSubtitle(item), meta: this.#itemMeta(item), desc, favType, favId, isFav, itemId: item.id, spellPickUuid };
     this.render();
   }
   // Compact mechanical stats line for the detail-card head, built from dnd5e's own
@@ -3362,6 +3372,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         </div>
         <div class="mc-detail-desc">${d.desc || "<em>No description.</em>"}</div>
         ${this.#detailActionsHTML(d)}
+        ${d.spellPickUuid ? (() => {
+          const on = this.#charGen?.spellSel?.has(d.spellPickUuid);
+          return `<button class="mc-spellpickbtn ${on ? "mc-on" : ""}" data-action="spell-pick-detail-toggle" data-uuid="${d.spellPickUuid}">
+            <i class="fas ${on ? "fa-circle-minus" : "fa-circle-plus"}"></i> ${on ? "Remove from character" : "Add to character"}</button>`;
+        })() : ""}
         ${d.removeEffectId ? `<button class="mc-detail-remove" data-action="effect-remove" data-effect-id="${d.removeEffectId}"><i class="fas fa-circle-xmark"></i> Remove condition</button>` : ""}
       </div>`;
   }
