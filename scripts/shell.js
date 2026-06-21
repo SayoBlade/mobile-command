@@ -3059,7 +3059,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#triggerDetail(el);
   };
   // Resolve a detailable row to its Item and show the details card.
-  #triggerDetail(el) {
+  async #triggerDetail(el) {
     this.#detailStack = []; // a fresh long-press starts a new drill-down context
     this.#movePickerOpen = false; // and a collapsed travel-type picker
     this.#dropArmed = null; // and a disarmed Drop
@@ -3071,7 +3071,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (detail === "skill") return this.#showCheckDetails("skill", el.dataset.skill);
     if (detail === "tool") return this.#showCheckDetails("tool", el.dataset.tool);
     let item = null, activity = null;
-    if (uuid) { const doc = fromUuidSync(uuid, { relative: this.actor }); if (doc?.item) { activity = doc; item = doc.item; } else item = doc; }
+    if (uuid) {
+      // Compendium uuids resolve SYNC to an index stub (no description) — load the
+      // full document async so the detail card has the real text (char-gen pickers).
+      let doc = uuid.startsWith("Compendium.")
+        ? await fromUuid(uuid).catch(() => null)
+        : fromUuidSync(uuid, { relative: this.actor });
+      if (doc?.item) { activity = doc; item = doc.item; } else item = doc;
+    }
     else if (itemId) item = this.actor?.items.get(itemId);
     // In the char-gen spell picker, long-press → detail card carries an Add/Remove
     // button bound to the selection (the pressed uuid is the option's spell uuid).

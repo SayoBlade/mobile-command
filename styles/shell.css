@@ -222,6 +222,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 
 .mc-picker-head {
   display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+  padding: 10px 14px 0; /* match the list bodies' 14px gutter (scroll wrapper has none) */
 }
 .mc-back { background: none; border: none; color: #5db4e6; font-size: 14px; padding: 4px 0; }
 .mc-picker-title { flex: 1 1 auto; font-size: 16px; font-weight: 600; }
