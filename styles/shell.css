@@ -561,6 +561,19 @@ body.mc-phone .roll-configuration fieldset {
   min-height: 50px; border-radius: 12px; font-size: 16px; font-weight: 800; background: #243042; border: 1px solid #2f5d8a; color: var(--mc-ink); }
 .mc-cg-finish:active { background: #2c3d54; }
 .mc-cg-finish:disabled { opacity: .4; }
+/* Spell-pick step (known casters): tap to select up to the known count */
+.mc-spellpick-body { display: flex; flex-direction: column; gap: 6px; padding: 6px 14px 12px; }
+.mc-spellpick-body .mc-section-label { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; }
+.mc-spell-count { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--mc-muted);
+  padding: 2px 8px; border-radius: 8px; background: var(--mc-panel); border: 1px solid var(--mc-edge); font-variant-numeric: tabular-nums; }
+.mc-spell-count.mc-full { color: #8fe0a0; border-color: #2f5d39; }
+.mc-spellpick { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 8px 13px; border-radius: 10px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); text-align: left; }
+.mc-spellpick:active { background: var(--mc-panel-2); }
+.mc-spellpick.mc-on { border-color: #2f5d8a; background: #1d2735; }
+.mc-spellpick-tick { font-size: 16px; color: var(--mc-muted); width: 18px; text-align: center; }
+.mc-spellpick.mc-on .mc-spellpick-tick { color: #5db4e6; }
+.mc-spellpick-name { font-size: 15px; font-weight: 600; }
 .mc-cg-opts { display: flex; flex-direction: column; gap: 8px; padding: 8px 14px 16px; }
 .mc-cg-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 52px; padding: 10px 14px;
   border-radius: 10px; background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); text-align: left; }

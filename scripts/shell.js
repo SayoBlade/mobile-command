@@ -138,6 +138,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
                           //   abilMethod: "pointbuy"|"array"|"roll"; abil = point-buy scores;
                           //   pool = active array/roll values; rolled = last 4d6 roll; assign = ability→pool index
   #charGenOptions = null; // compendium entries for the current picking type (null = loading)
+  #charGenSpellOptions = null; // {cantrips:[], leveled:[]} for the spell-pick step (null = loading)
   #diceTrayOpen = false; // header D20: contextless dice-tray panel open
   #dtrayPool = {};       // dice tray: {faces: count}, e.g. {20:2, 6:1}
   #dtrayMod = 0;         // dice tray: flat modifier
@@ -367,6 +368,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // each row showing the chosen item once added. Ability scores + Finish below.
   #charGenHTML(actor) {
     if (this.#charGen?.picking === "abilities") return this.#abilityPanelHTML(actor);
+    if (this.#charGen?.picking === "spells") return this.#spellPickerHTML(actor);
     if (this.#charGen?.picking) return this.#charGenPickerHTML(actor);
     const row = (label, type, icon) => {
       const item = actor.items.find(i => i.type === type);
@@ -377,6 +379,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <i class="fas ${item ? "fa-check mc-cg-check" : "fa-chevron-right"}"></i>
       </button>`;
     };
+    // Spells step: only for a known caster (has cantrips/spells-known scale values).
+    const si = this.#charGenSpellInfo(actor);
+    const spellsRow = si ? (() => {
+      const done = si.haveCantrips >= si.knownCantrips && si.haveSpells >= si.knownSpells;
+      const val = done ? "All chosen"
+        : `${si.haveCantrips}/${si.knownCantrips} cantrips · ${si.haveSpells}/${si.knownSpells} spells`;
+      return `<button class="mc-cg-row ${done ? "mc-cg-done" : ""}" data-action="char-gen-spells">
+        <i class="fas fa-book-sparkles mc-cg-row-ico"></i>
+        <span class="mc-cg-row-label">Spells</span>
+        <span class="mc-cg-row-val">${val}</span>
+        <i class="fas ${done ? "fa-check mc-cg-check" : "fa-chevron-right"}"></i>
+      </button>`;
+    })() : "";
     return this.#charGenHeaderHTML(actor, "Building character…")
       + `<div class="mc-cg-steps">
           ${row("Species", "race", "fa-dragon")}
@@ -388,8 +403,32 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
             <span class="mc-cg-row-val">Point buy…</span>
             <i class="fas fa-chevron-right"></i>
           </button>
+          ${spellsRow}
         </div>
         <button class="mc-cg-finish" data-action="char-gen-finish"><i class="fas fa-check-double"></i> Finish</button>`;
+  }
+
+  // Known-caster spell needs: the cantrips/spells-known scale values define the
+  // limits; "have" counts the actor's current cantrip/leveled spell items. Returns
+  // null for non-casters and prepared casters (no -known scale → handled later).
+  #charGenSpellInfo(actor) {
+    const cls = actor.items.find(i => i.type === "class" && i.system?.spellcasting?.progression
+      && i.system.spellcasting.progression !== "none");
+    if (!cls) return null;
+    const id = cls.system.identifier;
+    const scale = actor.system.scale?.[id] ?? {};
+    const num = (v) => Number(v?.value ?? v) || 0;
+    const knownCantrips = num(scale["cantrips-known"]);
+    const knownSpells = num(scale["spells-known"]);
+    if (!knownCantrips && !knownSpells) return null; // not a "known"-list caster
+    const maxLevel = Math.max(0, ...Object.entries(actor.system.spells ?? {})
+      .filter(([k, v]) => /^spell\d/.test(k) && v?.max > 0).map(([k]) => Number(k.replace("spell", ""))));
+    let haveCantrips = 0, haveSpells = 0;
+    for (const s of actor.items) {
+      if (s.type !== "spell") continue;
+      if ((s.system?.level ?? 0) === 0) haveCantrips++; else haveSpells++;
+    }
+    return { classId: id, maxLevel, knownCantrips, knownSpells, haveCantrips, haveSpells };
   }
 
   // Compendium chooser for the current pick type (null options = still loading).
@@ -468,6 +507,118 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       console.error("mobile-command | char-gen add failed", e);
       ui.notifications.warn(`Couldn't add ${item.name} — see console.`);
     }
+  }
+
+  // ===== Spell selection (known casters) ====================================
+  // dnd5e exposes the class spell list as a registry: forType("class", id).
+  // getSpells() → resolved spells; we split cantrips vs leveled (≤ max slot), dedupe
+  // by name across compendium sources, and let the player pick up to the known count.
+
+  async #charGenSpells() {
+    const actor = this.actor; if (!actor || !this.#charGen) return;
+    this.#charGen.picking = "spells";
+    this.#charGenSpellOptions = null;
+    this.#charGen.spellSel = new Set();
+    this.render();
+    const opts = await this.#loadSpellOptions(actor);
+    if (this.#charGen?.picking !== "spells") return;
+    // pre-select what the actor already knows (match by name) so re-opening is stable
+    const have = new Set(actor.items.filter(i => i.type === "spell").map(i => i.name));
+    const sel = new Set();
+    for (const s of [...opts.cantrips, ...opts.leveled]) if (have.has(s.name)) sel.add(s.uuid);
+    this.#charGen.spellSel = sel;
+    this.#charGenSpellOptions = opts;
+    this.render();
+  }
+  async #loadSpellOptions(actor) {
+    const si = this.#charGenSpellInfo(actor);
+    if (!si) return { cantrips: [], leveled: [] };
+    try {
+      const sl = await dnd5e.registry.spellLists.forType("class", si.classId);
+      const all = await sl.getSpells();
+      const seen = new Set(); const cantrips = []; const leveled = [];
+      for (const s of all) {
+        if (seen.has(s.name)) continue; seen.add(s.name); // dedupe across sources
+        const lvl = s.system?.level ?? 0;
+        const entry = { name: s.name, uuid: s.uuid, level: lvl };
+        if (lvl === 0) cantrips.push(entry);
+        else if (lvl <= si.maxLevel) leveled.push(entry);
+      }
+      cantrips.sort((a, b) => a.name.localeCompare(b.name));
+      leveled.sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+      return { cantrips, leveled };
+    } catch (e) {
+      console.error("mobile-command | spell list load failed", e);
+      return { cantrips: [], leveled: [] };
+    }
+  }
+  #spellPickerHTML(actor) {
+    const si = this.#charGenSpellInfo(actor) ?? { knownCantrips: 0, knownSpells: 0 };
+    const head = `<div class="mc-picker-head">
+        <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+        <span class="mc-picker-title">Choose spells</span>
+      </div>`;
+    if (this.#charGenSpellOptions === null) return head + `<div class="mc-target-note">Loading the ${si.classId ?? "class"} spell list…</div>`;
+    const sel = this.#charGen.spellSel ?? new Set();
+    const opts = this.#charGenSpellOptions;
+    const selCant = opts.cantrips.filter(s => sel.has(s.uuid)).length;
+    const selLev = opts.leveled.filter(s => sel.has(s.uuid)).length;
+    const spellRow = (s) => `<button class="mc-spellpick ${sel.has(s.uuid) ? "mc-on" : ""}" data-action="char-gen-spell-toggle" data-uuid="${s.uuid}" data-lvl="${s.level}">
+        <i class="fas ${sel.has(s.uuid) ? "fa-circle-check" : "fa-circle"} mc-spellpick-tick"></i>
+        <span class="mc-spellpick-name">${foundry.utils.escapeHTML(s.name)}</span>
+      </button>`;
+    const sec = (label, list, selN, cap) => list.length
+      ? `<div class="mc-section-label">${label} <span class="mc-spell-count ${selN >= cap ? "mc-full" : ""}">${selN}/${cap}</span></div>${list.map(spellRow).join("")}` : "";
+    return head
+      + `<div class="mc-spellpick-body">
+          ${sec("Cantrips", opts.cantrips, selCant, si.knownCantrips)}
+          ${sec("Spells", opts.leveled, selLev, si.knownSpells)}
+        </div>
+        <button class="mc-cg-finish" data-action="char-gen-spell-apply">Add spells</button>`;
+  }
+  #toggleSpellSel(uuid, level) {
+    const cg = this.#charGen; if (!cg) return;
+    const sel = cg.spellSel ?? (cg.spellSel = new Set());
+    if (sel.has(uuid)) { sel.delete(uuid); return this.render(); }
+    const si = this.#charGenSpellInfo(this.actor); if (!si) return;
+    const opts = this.#charGenSpellOptions ?? { cantrips: [], leveled: [] };
+    const isCantrip = Number(level) === 0;
+    const cap = isCantrip ? si.knownCantrips : si.knownSpells;
+    const pool = isCantrip ? opts.cantrips : opts.leveled;
+    if (pool.filter(s => sel.has(s.uuid)).length >= cap) {
+      return ui.notifications.info(`You can choose ${cap} ${isCantrip ? "cantrip" : "spell"}${cap === 1 ? "" : "s"}.`);
+    }
+    sel.add(uuid);
+    this.render();
+  }
+  async #applySpells(actor) {
+    const cg = this.#charGen; if (!actor || !cg) return;
+    const sel = cg.spellSel ?? new Set();
+    const opts = this.#charGenSpellOptions ?? { cantrips: [], leveled: [] };
+    const haveNames = new Set(actor.items.filter(i => i.type === "spell").map(i => i.name));
+    const toAdd = [];
+    for (const s of [...opts.cantrips, ...opts.leveled]) {
+      if (!sel.has(s.uuid) || haveNames.has(s.name)) continue; // add-only (no removal)
+      const doc = await fromUuid(s.uuid);
+      if (!doc) continue;
+      const data = doc.toObject();
+      foundry.utils.setProperty(data, "system.preparation.mode", "prepared");
+      foundry.utils.setProperty(data, "system.preparation.prepared", true);
+      toAdd.push(data);
+    }
+    try {
+      const created = toAdd.length ? await actor.createEmbeddedDocuments("Item", toAdd) : [];
+      // dnd5e resets preparation.prepared to false on create; a known caster's
+      // leveled spells must be prepared to be castable (cantrips auto-become mode
+      // "always" and are fine). Re-prepare the leveled ones in a follow-up update.
+      const reprep = created
+        .filter(i => (i.system?.level ?? 0) > 0 && i.system?.preparation?.mode === "prepared" && !i.system.preparation.prepared)
+        .map(i => ({ _id: i.id, "system.preparation.prepared": true }));
+      if (reprep.length) await actor.updateEmbeddedDocuments("Item", reprep);
+    } catch (e) { return ui.notifications.warn(`Couldn't add spells: ${e.message}`); }
+    cg.picking = null; this.#charGenSpellOptions = null;
+    this.render();
+    ui.notifications.info(toAdd.length ? `Learned ${toAdd.length} spell${toAdd.length > 1 ? "s" : ""}.` : "No new spells added.");
   }
 
   // Ability scores — three methods: point-buy (27-pt budget), standard array, and
@@ -2406,12 +2557,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "char-gen-add":
         return this.#charGenAdd(el.dataset.uuid);
       case "char-gen-pick-back":
-        if (this.#charGen) { this.#charGen.picking = null; this.#charGenOptions = null; this.render(); }
+        if (this.#charGen) { this.#charGen.picking = null; this.#charGenOptions = null; this.#charGenSpellOptions = null; this.render(); }
         return;
       case "char-gen-finish":
         return this.#finishCharGen();
       case "char-gen-abilities":
         return this.#openAbilities();
+      case "char-gen-spells":
+        return this.#charGenSpells();
+      case "char-gen-spell-toggle":
+        return this.#toggleSpellSel(el.dataset.uuid, el.dataset.lvl);
+      case "char-gen-spell-apply":
+        return this.#applySpells(this.actor);
       case "abil-method":
         return this.#setAbilMethod(el.dataset.method);
       case "abil-roll":
