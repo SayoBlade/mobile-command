@@ -165,6 +165,9 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
+/* Top-level char-gen notes (e.g. "Loading the X spell list…") sit directly in the
+   padding-free scroll wrapper — give them the same 14px gutter as the rows. */
+.mc-cg-scroll > .mc-target-note { padding-left: 14px; padding-right: 14px; }
 .mc-section-label {
   font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
   color: #81869a; margin: 4px 2px 8px;

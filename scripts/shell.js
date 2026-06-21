@@ -603,6 +603,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // call (scoped later by the compendium-approval handshake).
       const cantrips = [], leveled = [];
       for (const s of all) {
+        if (!s) continue; // getSpells() yields null for any UUID that no longer resolves
         if (s.compendium && !this.#packSourceAllowed(s.compendium.collection)) continue; // DM-excluded source
         const lvl = s.system?.level ?? 0;
         const entry = { name: s.name, uuid: s.uuid, level: lvl, src: this.#sourceBookLabel(s.system?.source?.book) || this.#srcLabel(s.compendium?.metadata),
@@ -1241,6 +1242,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (type === "slots") return ""; // slot trackers aren't actionable on the phone
     const doc = fromUuidSync(id, { relative: actor });
     if (!doc) return "";
+    // Class/subclass/species/background are progression items, not usable actions —
+    // never list them in Favorites even if dnd5e (or the desktop sheet) favorited
+    // them. System-wide: applies to every character (DM 2026-06-21).
+    if (type === "item" && ["class", "subclass", "race", "species", "background"].includes(doc.type)) return "";
     if (type === "effect") {
       return this.#favRowHTML({ img: doc.img, name: doc.name, action: "", data: "" });
     }
