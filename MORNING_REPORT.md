@@ -1,3 +1,13 @@
+# STATUS — continue here (updated 2026-06-21, char-gen: spells + equipment)
+
+## 🪄 Char-gen spell + equipment pickers (2026-06-21, v0.1.8) — BUILT & VERIFIED LIVE
+Did the two requested next layers (CC drove the whole flow on the phone, built them on Pyraxis):
+- **Spell selection (known casters)** — a "Spells" step pulls the class spell list from `dnd5e.registry.spellLists.forType("class",id).getSpells()`, dedupes across sources, splits cantrips vs leveled (≤ max slot), tap-select up to the known counts (cap-enforced). Apply adds them (cantrips → mode "always", leveled re-prepared so they're castable). Verified: Pyraxis picked 4 cantrips + 2 spells; a 5th cantrip was blocked. **Prepared casters (Cleric/Druid/Wizard) have no Spells step yet** (different mechanic — next piece).
+- **Starting equipment** — a "Starting equipment" step reads the class+background `startingEquipment` OR/AND/linked/category tree. Auto-grants fixed items; each OR is a tap-radio (items / gold alt / category); category options ("any simple weapon") open a nested pick (mundane-filtered). Verified: Pyraxis auto-got 2× Dagger + 9 background items, chose Quarterstaff + Pouch + Dungeoneer's Pack → 13 items. **Gold-alternative path built but untested** (2014 sorcerer has no gold option). **Compendium source-scoping (the approval handshake) is the cleanup** — the category scan still shows homebrew weapons.
+- **Pyraxis Emberscale is now a complete, equipped, 6-spell Dragonborn Sorcerer** — fully built on the phone.
+
+---
+
 # STATUS — continue here (updated 2026-06-21, overnight autonomous session)
 
 ## ⚠️ DO THIS FIRST (2026-06-21): reload the GM client + test ONE attack
