@@ -487,8 +487,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.render();
   }
 
-  // Load every compendium item of the requested type (scoped later by the DM's
-  // approved-source list). Scans Item packs' indexes for the matching subtype.
+  // Player-facing sources = the DM's curated list, mirroring dnd5e's own
+  // compendium-browser exclusion (Settings → dnd5e → "Compendium Browser /
+  // Sources", a.k.a. packSourceConfiguration). dnd5e includes a pack when the
+  // stored value !== false; a pack the DM unticked there is set false (excluded).
+  #packSourceAllowed(collection) {
+    const cfg = game.settings.get("dnd5e", "packSourceConfiguration") ?? {};
+    return cfg[collection] !== false;
+  }
+  // Load every compendium item of the requested type from the DM-approved
+  // sources. Scans allowed Item packs' indexes for the matching subtype.
   async #charGenPick(type) {
     if (!this.#charGen) return;
     this.#charGen.picking = type;
@@ -497,6 +505,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const out = [];
     for (const pack of game.packs) {
       if (pack.metadata.type !== "Item") continue;
+      if (!this.#packSourceAllowed(pack.collection)) continue;
       let idx;
       try { idx = await pack.getIndex({ fields: ["type"] }); } catch (e) { continue; }
       for (const e of idx) {
@@ -571,6 +580,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // call (scoped later by the compendium-approval handshake).
       const cantrips = [], leveled = [];
       for (const s of all) {
+        if (s.compendium && !this.#packSourceAllowed(s.compendium.collection)) continue; // DM-excluded source
         const lvl = s.system?.level ?? 0;
         const entry = { name: s.name, uuid: s.uuid, level: lvl, src: this.#srcLabel(s.compendium?.metadata),
           img: s.img || "icons/svg/daze.svg", school: s.system?.school || "" };
@@ -755,6 +765,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     };
     for (const pack of game.packs) {
       if (pack.metadata.type !== "Item") continue;
+      if (!this.#packSourceAllowed(pack.collection)) continue;
       let idx; try { idx = await pack.getIndex({ fields: ["type", "system.type.value", "system.rarity"] }); } catch (e) { continue; }
       for (const e of idx) {
         if (e.type !== (opt.catType === "focus" ? "equipment" : opt.catType)) continue;
