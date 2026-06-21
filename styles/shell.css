@@ -577,6 +577,12 @@ body.mc-phone .roll-configuration fieldset {
 .mc-spellpick-name { font-size: 15px; font-weight: 600; flex: 1 1 auto; min-width: 0; }
 .mc-spellpick-src { display: block; font-size: 11px; font-weight: 400; color: var(--mc-muted); margin-top: 1px; }
 .mc-spellpick .mc-spell-icon { flex: 0 0 auto; }
+/* Spell-picker filter bar (search + school), like the compendium browser */
+.mc-spellfilter-bar { display: flex; gap: 8px; padding: 4px 14px 8px; }
+.mc-spellfilter-q { flex: 1 1 auto; min-width: 0; min-height: 40px; padding: 8px 12px; border-radius: 10px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 14px; }
+.mc-spellfilter-school { flex: 0 0 auto; max-width: 44%; min-height: 40px; padding: 8px 10px; border-radius: 10px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 13px; }
 /* Add/Remove button in the long-pressed spell detail card (green add / red remove) */
 .mc-spellpickbtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 46px;
   margin-top: 14px; padding: 10px; font-size: 14px; font-weight: 700; border-radius: 10px; cursor: pointer;

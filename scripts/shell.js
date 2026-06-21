@@ -531,6 +531,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#charGen.picking = "spells";
     this.#charGenSpellOptions = null;
     this.#charGen.spellSel = new Set();
+    this.#charGen.spellFilter = { q: "", school: "all" };
     this.render();
     const opts = await this.#loadSpellOptions(actor);
     if (this.#charGen?.picking !== "spells") return;
@@ -597,9 +598,26 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <span class="mc-spellpick-name">${foundry.utils.escapeHTML(s.name)}${s.src ? `<span class="mc-spellpick-src">${foundry.utils.escapeHTML(s.src)}</span>` : ""}</span>
         <i class="fas ${sel.has(s.uuid) ? "fa-circle-check" : "fa-circle"} mc-spellpick-tick"></i>
       </button>`;
-    const sec = (label, list, selN, cap) => list.length
-      ? `<div class="mc-section-label">${label} <span class="mc-spell-count ${selN > cap ? "mc-over" : selN === cap ? "mc-full" : ""}">${selN}/${cap}</span></div>${list.map(spellRow).join("")}` : "";
-    return head
+    // Filters (like the compendium spell browser): name search + school. The count
+    // headers track the FULL selection; the filter only narrows what's shown.
+    const f = this.#charGen.spellFilter ?? { q: "", school: "all" };
+    const filt = (list) => list.filter(s =>
+      (!f.q || s.name.toLowerCase().includes(f.q)) &&
+      (!f.school || f.school === "all" || s.school === f.school));
+    const schools = CONFIG.DND5E?.spellSchools ?? {};
+    const schoolOpts = `<option value="all">All schools</option>` + Object.entries(schools).map(([k, v]) =>
+      `<option value="${k}" ${f.school === k ? "selected" : ""}>${foundry.utils.escapeHTML(v.label ?? v)}</option>`).join("");
+    const filterBar = `<div class="mc-spellfilter-bar">
+        <input class="mc-spellfilter-q" type="search" inputmode="search" placeholder="Search spells…" value="${foundry.utils.escapeHTML(f.q ?? "")}">
+        <select class="mc-spellfilter-school">${schoolOpts}</select>
+      </div>`;
+    const sec = (label, list, selN, cap) => {
+      if (!list.length) return "";
+      const shown = filt(list);
+      const rows = shown.length ? shown.map(spellRow).join("") : `<div class="mc-target-note">No matches.</div>`;
+      return `<div class="mc-section-label">${label} <span class="mc-spell-count ${selN > cap ? "mc-over" : selN === cap ? "mc-full" : ""}">${selN}/${cap}</span></div>${rows}`;
+    };
+    return head + filterBar
       + `<div class="mc-spellpick-body">
           ${sec("Cantrips", opts.cantrips, selCant, si.knownCantrips)}
           ${sec("Spells", opts.leveled, selLev, si.knownSpells)}
@@ -3398,6 +3416,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // integer; the updateActor hook re-renders the row with the saved value.
   #onChange = (ev) => {
     const inp = ev.target;
+    // Spell-picker filters (commit on blur/change — no live re-render to keep focus).
+    if (inp?.classList?.contains?.("mc-spellfilter-q") && this.#charGen) {
+      (this.#charGen.spellFilter ??= {}).q = (inp.value || "").trim().toLowerCase(); return this.render();
+    }
+    if (inp?.classList?.contains?.("mc-spellfilter-school") && this.#charGen) {
+      (this.#charGen.spellFilter ??= {}).school = inp.value; return this.render();
+    }
     if (!inp?.classList?.contains?.("mc-coin-input")) return;
     const k = inp.dataset.coin;
     const v = Math.max(0, Math.floor(Number(inp.value) || 0));
