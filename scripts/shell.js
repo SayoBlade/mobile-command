@@ -455,8 +455,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!this.#charGenOptions.length) return head + `<div class="mc-target-note">No ${label.toLowerCase()} options found in the available compendiums.</div>`;
     const rows = this.#charGenOptions.map(o =>
       `<button class="mc-cg-opt" data-action="char-gen-add" data-uuid="${o.uuid}">
-        <span class="mc-cg-opt-name">${foundry.utils.escapeHTML(o.name)}</span>
-        <span class="mc-cg-opt-src">${foundry.utils.escapeHTML(o.src)}</span>
+        <img class="mc-cg-opt-icon" src="${o.img || "icons/svg/mystery-man.svg"}" alt="">
+        <span class="mc-cg-opt-text">
+          <span class="mc-cg-opt-name">${foundry.utils.escapeHTML(o.name)}</span>
+          <span class="mc-cg-opt-src">${foundry.utils.escapeHTML(o.src)}</span>
+        </span>
       </button>`).join("");
     return head + `<div class="mc-cg-opts">${rows}</div>`;
   }
@@ -495,7 +498,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       let idx;
       try { idx = await pack.getIndex({ fields: ["type"] }); } catch (e) { continue; }
       for (const e of idx) {
-        if (e.type === type) out.push({ name: e.name, uuid: `Compendium.${pack.collection}.Item.${e._id}`, src: pack.metadata.label });
+        if (e.type === type) out.push({ name: e.name, uuid: `Compendium.${pack.collection}.Item.${e._id}`, src: pack.metadata.label, img: e.img });
       }
     }
     out.sort((a, b) => a.name.localeCompare(b.name));
@@ -754,7 +757,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       for (const e of idx) {
         if (e.type !== (opt.catType === "focus" ? "equipment" : opt.catType)) continue;
         if (!match(e)) continue;
-        out.push({ name: e.name, uuid: `Compendium.${pack.collection}.Item.${e._id}`, src: this.#srcLabel(pack.metadata) });
+        out.push({ name: e.name, uuid: `Compendium.${pack.collection}.Item.${e._id}`, src: this.#srcLabel(pack.metadata), img: e.img });
       }
     }
     // No name-dedupe: same-named items can differ by source — show every version
@@ -766,7 +769,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (eq.catOptions === null) return `<div class="mc-target-note">Loading options…</div>`;
     if (!eq.catOptions.length) return `<div class="mc-target-note">No matching items found.</div>`;
     const rows = eq.catOptions.map(o => `<button class="mc-equip-opt" data-action="equip-cat-pick" data-uuid="${o.uuid}">
-        <i class="fas fa-box mc-equip-ico"></i><span class="mc-equip-label">${foundry.utils.escapeHTML(o.name)}${o.src ? `<span class="mc-spellpick-src">${foundry.utils.escapeHTML(o.src)}</span>` : ""}</span>
+        <img class="mc-cg-opt-icon" src="${o.img || "icons/svg/item-bag.svg"}" alt="">
+        <span class="mc-equip-label">${foundry.utils.escapeHTML(o.name)}${o.src ? `<span class="mc-spellpick-src">${foundry.utils.escapeHTML(o.src)}</span>` : ""}</span>
       </button>`).join("");
     return `<div class="mc-equip-body">${rows}</div>`;
   }
