@@ -568,7 +568,7 @@ body.mc-phone .roll-configuration fieldset {
   padding: 2px 8px; border-radius: 8px; background: var(--mc-panel); border: 1px solid var(--mc-edge); font-variant-numeric: tabular-nums; }
 .mc-spell-count.mc-full { color: #8fe0a0; border-color: #2f5d39; }
 .mc-spell-count.mc-over { color: #e8857a; border-color: #5d2f2f; }
-.mc-spellpick { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 8px 13px; border-radius: 10px;
+.mc-spellpick { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 46px; padding: 8px 13px; border-radius: 10px;
   background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); text-align: left; }
 .mc-spellpick:active { background: var(--mc-panel-2); }
 .mc-spellpick.mc-on { border-color: #2f5d8a; background: #1d2735; }
@@ -594,7 +594,7 @@ body.mc-phone .roll-configuration fieldset {
 .mc-equip-body { display: flex; flex-direction: column; gap: 6px; padding: 6px 14px 12px; }
 .mc-equip-choice { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .mc-equip-choice .mc-section-label { margin: 8px 0 2px; }
-.mc-equip-opt { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 8px 13px; border-radius: 10px;
+.mc-equip-opt { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 46px; padding: 8px 13px; border-radius: 10px;
   background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); text-align: left; }
 .mc-equip-opt:active { background: var(--mc-panel-2); }
 .mc-equip-opt.mc-on { border-color: #2f5d8a; background: #1d2735; }
@@ -605,12 +605,12 @@ body.mc-phone .roll-configuration fieldset {
 .mc-equip-auto { margin-top: 6px; padding: 10px 13px; border-radius: 10px; background: var(--mc-panel); border: 1px solid #2f5d39;
   color: #8fe0a0; font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .mc-cg-opts { display: flex; flex-direction: column; gap: 8px; padding: 8px 14px 16px; }
-.mc-cg-opt { display: flex; flex-direction: row; align-items: center; gap: 12px; min-height: 52px; padding: 8px 13px;
+.mc-cg-opt { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; min-height: 52px; padding: 8px 13px;
   border-radius: 10px; background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); text-align: left; }
 .mc-cg-opt:active { background: var(--mc-panel-2); }
 .mc-cg-opt-icon { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 8px; object-fit: cover;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); }
-.mc-cg-opt-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mc-cg-opt-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
 .mc-cg-opt-name { font-size: 15px; font-weight: 700; }
 .mc-cg-opt-src { font-size: 11px; color: var(--mc-muted); }
 /* Ability panel — method picker + point-buy / standard-array / roll */
