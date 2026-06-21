@@ -157,6 +157,14 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   -webkit-overflow-scrolling: touch;
   padding: 12px;
 }
+/* Char-gen views render outside .mc-content; give them their own scroll area so
+   long pick lists scroll (the shell root is overflow:hidden). No padding — the
+   char-gen sub-views (.mc-cg-opts, .mc-spellpick-body, …) provide their own. */
+.mc-cg-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .mc-section-label {
   font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
   color: #81869a; margin: 4px 2px 8px;

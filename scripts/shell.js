@@ -213,14 +213,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Preserve scroll across SAME-view re-renders (open a container, toggle a
     // drawer/prepared/equip, edit HP) so the player stays put (DM 2026-06-19).
     // A view change (tab / detail card / picker) resets to top.
-    const prevTop = content.querySelector(".mc-content")?.scrollTop ?? 0;
+    const prevTop = content.querySelector(".mc-content, .mc-cg-scroll")?.scrollTop ?? 0;
     const prevKey = this.#viewKey;
     const nextKey = this.#currentViewKey();
     content.innerHTML = typeof result === "string" ? result : "";
     this.#attachListeners(content);
     if (toast) content.appendChild(toast);
     if (nextKey === prevKey) {
-      const scroller = content.querySelector(".mc-content");
+      const scroller = content.querySelector(".mc-content, .mc-cg-scroll");
       if (scroller && prevTop) scroller.scrollTop = prevTop;
     }
     this.#viewKey = nextKey;
@@ -244,8 +244,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (actor.getFlag(MODULE_ID, "charGen") && this.#charGen?.actorId !== actor.id) {
       this.#charGen = { actorId: actor.id, picking: null };
     }
-    if (this.#charGen?.actorId === actor.id) return this.#charGenHTML(actor);
-    if (this.#isBlankPC(actor)) return this.#charGenStartHTML(actor);
+    // Wrap char-gen in a scroll container (the shell root is overflow:hidden and
+    // these views render outside .mc-content — long pick lists couldn't scroll).
+    if (this.#charGen?.actorId === actor.id) return `<div class="mc-cg-scroll">${this.#charGenHTML(actor)}</div>`;
+    if (this.#isBlankPC(actor)) return `<div class="mc-cg-scroll">${this.#charGenStartHTML(actor)}</div>`;
     const sys = actor.system;
     const hp = sys.attributes?.hp ?? {};
     const pct = hp.max ? (hp.value / hp.max) : 1;
