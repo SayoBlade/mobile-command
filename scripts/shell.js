@@ -112,6 +112,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #favEditing = false;  // Actions tab: bookmark-toggle mode (add/remove favorites)
   #condEditing = false; // header: condition palette (add/remove) open
   #showLevels = false;  // header: class/level/XP panel (Lvl button) open
+  #levelUp = null;      // level-up flow from the Lvl panel: null | { adding, options }
   #imagePopup = null;   // full-screen image popup: null | "profile" | "token"
   #assignedTargets = []; // §11: token uuids the DM assigned to this player
   #assignedBy = null;    // DM/user name who assigned them (for the picker banner)
@@ -1928,6 +1929,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // button (a button, not a long-press). This is where class/subclass/level/XP
   // now live — the duplicated rows were removed from the Details tab.
   #levelsHTML(actor) {
+    if (this.#levelUp) return this.#levelUpPanelHTML(actor);
     const classes = actor.items.filter(i => i.type === "class");
     const subs = actor.items.filter(i => i.type === "subclass");
     const rows = classes.map(c => {
@@ -1951,7 +1953,76 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>
       ${rows}
       ${xpBar}
+      ${classes.length ? `<button class="mc-lvlup-btn" data-action="level-up-open"><i class="fas fa-arrow-up-right-dots"></i> Level up</button>` : ""}
     </div>`;
+  }
+  // Level-up flow (from the Lvl panel): pick which class to level — the actor's
+  // existing classes are the highlighted primary choices (forLevelChange +1) — or
+  // add a different class (multiclass → the real advancement popup via forNewItem).
+  #levelUpPanelHTML(actor) {
+    const lu = this.#levelUp;
+    const esc = (v) => foundry.utils.escapeHTML(String(v ?? ""));
+    const classes = actor.items.filter(i => i.type === "class");
+    const head = `<div class="mc-cond-panel-head">
+        <span>Level up</span>
+        <button class="mc-cond-close" data-action="level-up-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+      </div>`;
+    if (lu.adding) {
+      if (lu.options === null) return `<div class="mc-levels-panel">${head}<div class="mc-target-note">Loading classes…</div></div>`;
+      const have = new Set(classes.map(c => c.system.identifier));
+      const rows = lu.options.map(o => `<button class="mc-cg-opt ${have.has(o.identifier) ? "mc-on" : ""}" data-action="level-up-pick" data-uuid="${o.uuid}">
+          <img class="mc-cg-opt-icon" src="${o.img || "icons/svg/mystery-man.svg"}" alt="">
+          <span class="mc-cg-opt-text"><span class="mc-cg-opt-name">${esc(o.name)}</span><span class="mc-cg-opt-src">${esc(o.src)}</span></span>
+        </button>`).join("") || `<div class="mc-target-note">No classes found.</div>`;
+      return `<div class="mc-levels-panel">${head}<div class="mc-lvlup-sub">Add a class — your current ones are highlighted</div><div class="mc-cg-opts">${rows}</div></div>`;
+    }
+    const total = classes.reduce((n, c) => n + (c.system.levels || 0), 0);
+    const rows = classes.map(c => `<button class="mc-lvlup-class mc-on" data-action="level-up-class" data-class-id="${c.id}">
+        <span class="mc-lvlup-name">${esc(c.name)}</span>
+        <span class="mc-lvlup-arrow">${c.system.levels ?? 0} <i class="fas fa-arrow-right"></i> ${(c.system.levels ?? 0) + 1}</span>
+      </button>`).join("") || `<div class="mc-target-note">No classes to level.</div>`;
+    return `<div class="mc-levels-panel">${head}
+        <div class="mc-lvlup-sub">Which class? (character level ${total})</div>
+        ${rows}
+        <button class="mc-lvlup-add" data-action="level-up-add"><i class="fas fa-plus"></i> Add a different class (multiclass)</button>
+      </div>`;
+  }
+  #openLevelUp() { this.#levelUp = { adding: false, options: null }; this.render(); }
+  #closeLevelUp() {
+    // Back from the multiclass list returns to the class choice; back from the class
+    // choice closes the flow.
+    if (this.#levelUp?.adding) this.#levelUp = { adding: false, options: null };
+    else this.#levelUp = null;
+    this.render();
+  }
+  #doLevelUp(classId) {
+    const actor = this.actor; if (!actor || !classId) return;
+    this.#levelUp = null; this.#showLevels = false; this.render();
+    try {
+      const AM = dnd5e.applications?.advancement?.AdvancementManager ?? dnd5e.documents?.advancement?.AdvancementManager;
+      AM.forLevelChange(actor, classId, 1).render(true); // dnd5e advancement popup, lifted onto the phone
+    } catch (e) { console.error("mobile-command | level-up failed", e); ui.notifications.warn("Couldn't start level-up — see console."); }
+  }
+  async #openMulticlass() {
+    this.#levelUp = { adding: true, options: null }; this.render();
+    const out = [];
+    for (const pack of game.packs) {
+      if (pack.metadata.type !== "Item" || !this.#packSourceAllowed(pack.collection)) continue;
+      let idx; try { idx = await pack.getIndex({ fields: ["type", "system.identifier", "system.source.book"] }); } catch (e) { continue; }
+      for (const e of idx) if (e.type === "class") out.push({ name: e.name, uuid: `Compendium.${pack.collection}.Item.${e._id}`, identifier: e.system?.identifier, src: this.#optionSource(e.system?.source?.book, pack), img: e.img });
+    }
+    out.sort((a, b) => a.name.localeCompare(b.name) || a.src.localeCompare(b.src));
+    if (this.#levelUp?.adding) { this.#levelUp.options = out; this.render(); }
+  }
+  async #addMulticlass(uuid) {
+    const actor = this.actor; if (!actor) return;
+    const item = await fromUuid(uuid);
+    this.#levelUp = null; this.#showLevels = false; this.render();
+    if (!item) return ui.notifications.warn("That class couldn't load.");
+    try {
+      const AM = dnd5e.applications?.advancement?.AdvancementManager ?? dnd5e.documents?.advancement?.AdvancementManager;
+      AM.forNewItem(actor, item.toObject()).render(true);
+    } catch (e) { console.error("mobile-command | multiclass add failed", e); ui.notifications.warn(`Couldn't add ${item.name}.`); }
   }
 
   // Condition palette (header): the standard dnd5e conditions from
@@ -2929,7 +3000,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "cond-edit":
         this.#condEditing = !this.#condEditing; return this.render();
       case "toggle-levels":
-        this.#showLevels = !this.#showLevels; return this.render();
+        this.#showLevels = !this.#showLevels; this.#levelUp = null; return this.render();
+      case "level-up-open": return this.#openLevelUp();
+      case "level-up-back": return this.#closeLevelUp();
+      case "level-up-class": return this.#doLevelUp(el.dataset.classId);
+      case "level-up-add": return this.#openMulticlass();
+      case "level-up-pick": return this.#addMulticlass(el.dataset.uuid);
       case "token-prev": return this.#cycleSubject(-1);
       case "token-next": return this.#cycleSubject(1);
       case "set-primary":

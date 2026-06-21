@@ -1297,6 +1297,21 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 }
 .mc-lvl-cls { font-size: 14px; color: var(--mc-ink); }
 .mc-lvl-num { font-size: 16px; font-weight: 800; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
+/* Level-up flow (from the Lvl panel) */
+.mc-lvlup-btn { width: 100%; min-height: 44px; margin-top: 12px; border-radius: 10px; font-weight: 700; font-size: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--mc-gold); border: none; color: #1a1206; }
+.mc-lvlup-sub { font-size: 12px; color: var(--mc-muted); margin: 2px 0 10px; }
+.mc-lvlup-class { width: 100%; min-height: 50px; margin-bottom: 8px; padding: 10px 14px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left;
+  background: var(--mc-panel); border: 1px solid var(--mc-gold); color: var(--mc-ink); }
+.mc-lvlup-class:active { background: var(--mc-panel-2); }
+.mc-lvlup-name { font-size: 15px; font-weight: 700; }
+.mc-lvlup-arrow { font-size: 15px; font-weight: 800; color: var(--mc-gold); display: flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
+.mc-lvlup-add { width: 100%; min-height: 44px; margin-top: 4px; border-radius: 10px; font-size: 13px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--mc-panel); border: 1px dashed var(--mc-edge); color: var(--mc-muted); }
+.mc-levels-panel .mc-cg-opts { padding: 0; }
 .mc-xp { margin-top: 10px; }
 .mc-xp-track {
   height: 8px; border-radius: 5px; overflow: hidden;
