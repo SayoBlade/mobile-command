@@ -433,8 +433,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const scale = actor.system.scale?.[id] ?? {};
     const num = (v) => Number(v?.value ?? v) || 0;
     const knownCantrips = num(scale["cantrips-known"]);
-    const knownSpells = num(scale["spells-known"]);
-    if (!knownCantrips && !knownSpells) return null; // not a "known"-list caster
+    // Known casters (Sorcerer/Bard/Ranger) carry a spells-known scale; prepared
+    // casters (Wizard/Cleric/Druid/Paladin) instead carry max-prepared and no
+    // spells-known — use that as the leveled target so they aren't stuck at "0/0".
+    const prepared = scale["spells-known"] == null && scale["max-prepared"] != null;
+    const knownSpells = num(scale["spells-known"]) || num(scale["max-prepared"]);
+    if (!knownCantrips && !knownSpells) return null; // not a list caster we can scope
     const maxLevel = Math.max(0, ...Object.entries(actor.system.spells ?? {})
       .filter(([k, v]) => /^spell\d/.test(k) && v?.max > 0).map(([k]) => Number(k.replace("spell", ""))));
     let haveCantrips = 0, haveSpells = 0;
@@ -442,7 +446,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (s.type !== "spell") continue;
       if ((s.system?.level ?? 0) === 0) haveCantrips++; else haveSpells++;
     }
-    return { classId: id, maxLevel, knownCantrips, knownSpells, haveCantrips, haveSpells };
+    return { classId: id, maxLevel, knownCantrips, knownSpells, haveCantrips, haveSpells, prepared };
   }
 
   // Compendium chooser for the current pick type (null options = still loading).
@@ -659,7 +663,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return head + filterBar
       + `<div class="mc-spellpick-body">
           ${sec("Cantrips", opts.cantrips, selCant, si.knownCantrips)}
-          ${sec("Spells", opts.leveled, selLev, si.knownSpells)}
+          ${sec(si.prepared ? "Spells to prepare" : "Spells", opts.leveled, selLev, si.knownSpells)}
         </div>
         <button class="mc-cg-finish" data-action="char-gen-spell-apply">Add spells</button>`;
   }
@@ -869,9 +873,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.render();
   }
   #resetPointBuy(cg) {
+    // Seed from the saved point-buy BASE (abilBase flag), NOT the live value —
+    // species/background/class ASIs bake their bonus into system.abilities.X.value,
+    // so reading the live value would treat 15+2=17 as out-of-range (→ reset to 8,
+    // "refunding" points) or 14+1=15 as a 15 you didn't pay for. Fall back to the
+    // live value only before the first Apply (no flag yet).
+    const base = this.actor?.getFlag(MODULE_ID, "abilBase") || {};
     const cur = this.actor?.system?.abilities ?? {};
     cg.abil = {};
-    for (const k of ABILITIES) { const v = Number(cur[k]?.value); cg.abil[k] = (v >= 8 && v <= 15) ? v : 8; }
+    for (const k of ABILITIES) {
+      const v = Number(base[k] ?? cur[k]?.value);
+      cg.abil[k] = (v >= 8 && v <= 15) ? v : 8;
+    }
   }
   #setAbilMethod(m) {
     const cg = this.#charGen; if (!cg || cg.abilMethod === m) return;
