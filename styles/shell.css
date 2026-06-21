@@ -574,6 +574,20 @@ body.mc-phone .roll-configuration fieldset {
 .mc-spellpick-tick { font-size: 16px; color: var(--mc-muted); width: 18px; text-align: center; }
 .mc-spellpick.mc-on .mc-spellpick-tick { color: #5db4e6; }
 .mc-spellpick-name { font-size: 15px; font-weight: 600; }
+/* Starting-equipment step: OR choices (radios) + category sub-pick */
+.mc-equip-body { display: flex; flex-direction: column; gap: 6px; padding: 6px 14px 12px; }
+.mc-equip-choice { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.mc-equip-choice .mc-section-label { margin: 8px 0 2px; }
+.mc-equip-opt { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 8px 13px; border-radius: 10px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); text-align: left; }
+.mc-equip-opt:active { background: var(--mc-panel-2); }
+.mc-equip-opt.mc-on { border-color: #2f5d8a; background: #1d2735; }
+.mc-equip-radio { font-size: 16px; color: var(--mc-muted); width: 18px; text-align: center; }
+.mc-equip-opt.mc-on .mc-equip-radio { color: #5db4e6; }
+.mc-equip-ico { font-size: 14px; color: var(--mc-gold); width: 18px; text-align: center; }
+.mc-equip-label { font-size: 14px; font-weight: 600; flex: 1 1 auto; }
+.mc-equip-auto { margin-top: 6px; padding: 10px 13px; border-radius: 10px; background: var(--mc-panel); border: 1px solid #2f5d39;
+  color: #8fe0a0; font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .mc-cg-opts { display: flex; flex-direction: column; gap: 8px; padding: 8px 14px 16px; }
 .mc-cg-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 52px; padding: 10px 14px;
   border-radius: 10px; background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); text-align: left; }

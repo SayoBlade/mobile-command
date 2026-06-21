@@ -369,6 +369,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #charGenHTML(actor) {
     if (this.#charGen?.picking === "abilities") return this.#abilityPanelHTML(actor);
     if (this.#charGen?.picking === "spells") return this.#spellPickerHTML(actor);
+    if (this.#charGen?.picking === "equip") return this.#equipPickerHTML(actor);
     if (this.#charGen?.picking) return this.#charGenPickerHTML(actor);
     const row = (label, type, icon) => {
       const item = actor.items.find(i => i.type === type);
@@ -392,11 +393,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <i class="fas ${done ? "fa-check mc-cg-check" : "fa-chevron-right"}"></i>
       </button>`;
     })() : "";
+    // Starting-equipment step: shown once a class/background that defines starting
+    // equipment is present.
+    const hasSE = actor.items.some(i => (i.type === "class" || i.type === "background") && (i.system?.startingEquipment?.length));
+    const equipRow = hasSE ? `<button class="mc-cg-row" data-action="char-gen-equip">
+        <i class="fas fa-briefcase mc-cg-row-ico"></i>
+        <span class="mc-cg-row-label">Starting equipment</span>
+        <span class="mc-cg-row-val">Choose…</span>
+        <i class="fas fa-chevron-right"></i>
+      </button>` : "";
     return this.#charGenHeaderHTML(actor, "Building character…")
       + `<div class="mc-cg-steps">
           ${row("Species", "race", "fa-dragon")}
           ${row("Background", "background", "fa-scroll")}
           ${row("Class", "class", "fa-hat-wizard")}
+          ${equipRow}
           <button class="mc-cg-row" data-action="char-gen-abilities">
             <i class="fas fa-dumbbell mc-cg-row-ico"></i>
             <span class="mc-cg-row-label">Ability scores</span>
@@ -619,6 +630,154 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     cg.picking = null; this.#charGenSpellOptions = null;
     this.render();
     ui.notifications.info(toAdd.length ? `Learned ${toAdd.length} spell${toAdd.length > 1 ? "s" : ""}.` : "No new spells added.");
+  }
+
+  // ===== Starting equipment (class + background) ============================
+  // dnd5e stores startingEquipment as an OR/AND/linked/category tree. We auto-grant
+  // the fixed items and present each OR as a tap choice — concrete items, a gold
+  // alternative (2024 "take gold instead"), or a category ("any simple weapon") that
+  // opens a nested pick. Once on the actor's items, this never re-runs (warnings,
+  // not walls — the DM can still adjust).
+
+  #stripHtml(s) { return String(s ?? "").replace(/<[^>]+>/g, "").replace(/&times;/g, "×").replace(/&[a-z]+;/g, " ").replace(/\s+/g, " ").trim(); }
+  #equipPlanFor(item) {
+    const se = item?.system?.startingEquipment ?? [];
+    const top = se.filter(e => !e.group);
+    const auto = [], choices = [];
+    const linked = (entry) => { const out = []; const walk = e => { if (e.type === "linked" && e.key) out.push({ uuid: e.key, count: e.count || 1 }); (e.children ?? []).forEach(walk); }; walk(entry); return out; };
+    for (const e of top) {
+      if (e.type === "OR") {
+        const options = (e.children ?? []).map(c => {
+          if (c.type === "wealth") return { label: this.#stripHtml(c.label), kind: "gold", gold: Number(c.count ?? c.key) || 0 };
+          if (["weapon", "armor", "tool", "focus"].includes(c.type)) return { label: this.#stripHtml(c.label), kind: "category", catType: c.type, catKey: c.key };
+          return { label: this.#stripHtml(c.label), kind: "items", items: linked(c) };
+        });
+        choices.push({ label: this.#stripHtml(e.label), options });
+      } else { auto.push(...linked(e)); }
+    }
+    return { auto, choices };
+  }
+  #charGenEquip() {
+    const actor = this.actor, cg = this.#charGen; if (!actor || !cg) return;
+    const cls = actor.items.find(i => i.type === "class");
+    const bg = actor.items.find(i => i.type === "background");
+    const cp = cls ? this.#equipPlanFor(cls) : { auto: [], choices: [] };
+    const bp = bg ? this.#equipPlanFor(bg) : { auto: [], choices: [] };
+    const plan = { auto: [...cp.auto, ...bp.auto], choices: [...cp.choices, ...bp.choices] };
+    cg.equip = { plan, sel: plan.choices.map(() => 0), catUuid: {}, catOpen: null, catOptions: null };
+    cg.picking = "equip";
+    this.render();
+  }
+  #equipPickerHTML() {
+    const eq = this.#charGen?.equip;
+    const head = `<div class="mc-picker-head">
+        <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+        <span class="mc-picker-title">Starting equipment</span>
+      </div>`;
+    if (!eq) return head + `<div class="mc-target-note">No starting equipment.</div>`;
+    if (eq.catOpen != null) return head + this.#equipCatBodyHTML(eq);
+    const choiceHTML = eq.plan.choices.map((ch, ci) => {
+      const opts = ch.options.map((o, oi) => {
+        const on = eq.sel[ci] === oi;
+        const needsPick = o.kind === "category" && on && !eq.catUuid[ci];
+        const picked = o.kind === "category" && eq.catUuid[ci];
+        const sub = picked ? ` — ${foundry.utils.escapeHTML(this.#charGenEquipCatName(ci))}` : (needsPick ? " — tap to choose" : "");
+        const icon = o.kind === "gold" ? "fa-coins" : o.kind === "category" ? "fa-list" : "fa-box";
+        return `<button class="mc-equip-opt ${on ? "mc-on" : ""}" data-action="equip-opt" data-ci="${ci}" data-oi="${oi}">
+            <i class="fas ${on ? "fa-circle-dot" : "fa-circle"} mc-equip-radio"></i>
+            <i class="fas ${icon} mc-equip-ico"></i>
+            <span class="mc-equip-label">${foundry.utils.escapeHTML(o.label)}${sub}</span>
+          </button>`;
+      }).join("");
+      return `<div class="mc-equip-choice"><div class="mc-section-label">Choose one</div>${opts}</div>`;
+    }).join("");
+    const autoNote = eq.plan.auto.length
+      ? `<div class="mc-equip-auto"><i class="fas fa-check"></i> Also granted: ${eq.plan.auto.length} fixed item${eq.plan.auto.length > 1 ? "s" : ""} (class + background)</div>` : "";
+    return head + `<div class="mc-equip-body">${choiceHTML || `<div class="mc-target-note">No equipment choices.</div>`}${autoNote}</div>`
+      + `<button class="mc-cg-finish" data-action="equip-apply">Add equipment</button>`;
+  }
+  #charGenEquipCatName(ci) {
+    return this.#charGen?.equip?.catName?.[ci] ?? "chosen";
+  }
+  // Nested category pick: scan Item compendiums for the catType, loosely filtered
+  // by the category key (weapon proficiency / armor / tool / focus).
+  async #openEquipCat(ci) {
+    const eq = this.#charGen?.equip; if (!eq) return;
+    const opt = eq.plan.choices[ci]?.options[eq.sel[ci]];
+    if (!opt || opt.kind !== "category") return;
+    eq.catOpen = ci; eq.catOptions = null;
+    this.render();
+    const out = [];
+    const wpMap = CONFIG.DND5E?.weaponProficienciesMap ?? {};
+    // starting equipment is mundane: skip magic items (any rarity) and "+N" variants.
+    const mundane = (e) => !e.system?.rarity && !/\s\+\d\b/.test(e.name);
+    const match = (e) => {
+      if (!mundane(e)) return false;
+      const tv = e.system?.type?.value;
+      if (opt.catType === "weapon") return !opt.catKey || wpMap[tv] === opt.catKey || tv === opt.catKey;
+      if (opt.catType === "focus") return tv === "focus";
+      return !opt.catKey || tv === opt.catKey; // armor/tool
+    };
+    for (const pack of game.packs) {
+      if (pack.metadata.type !== "Item") continue;
+      let idx; try { idx = await pack.getIndex({ fields: ["type", "system.type.value", "system.rarity"] }); } catch (e) { continue; }
+      for (const e of idx) {
+        if (e.type !== (opt.catType === "focus" ? "equipment" : opt.catType)) continue;
+        if (!match(e)) continue;
+        out.push({ name: e.name, uuid: `Compendium.${pack.collection}.Item.${e._id}` });
+      }
+    }
+    const seen = new Set(); const deduped = out.filter(o => seen.has(o.name) ? false : seen.add(o.name));
+    deduped.sort((a, b) => a.name.localeCompare(b.name));
+    if (this.#charGen?.equip?.catOpen === ci) { this.#charGen.equip.catOptions = deduped; this.render(); }
+  }
+  #equipCatBodyHTML(eq) {
+    if (eq.catOptions === null) return `<div class="mc-target-note">Loading options…</div>`;
+    if (!eq.catOptions.length) return `<div class="mc-target-note">No matching items found.</div>`;
+    const rows = eq.catOptions.map(o => `<button class="mc-equip-opt" data-action="equip-cat-pick" data-uuid="${o.uuid}">
+        <i class="fas fa-box mc-equip-ico"></i><span class="mc-equip-label">${foundry.utils.escapeHTML(o.name)}</span>
+      </button>`).join("");
+    return `<div class="mc-equip-body">${rows}</div>`;
+  }
+  #selectEquipOption(ci, oi) {
+    const eq = this.#charGen?.equip; if (!eq) return;
+    eq.sel[ci] = oi;
+    const opt = eq.plan.choices[ci]?.options[oi];
+    if (opt?.kind === "category") { if (!eq.catUuid[ci]) return this.#openEquipCat(ci); } // pick the specific item
+    this.render();
+  }
+  #pickEquipCat(uuid) {
+    const eq = this.#charGen?.equip; if (!eq || eq.catOpen == null) return;
+    eq.catUuid[eq.catOpen] = uuid;
+    (eq.catName ??= {})[eq.catOpen] = (eq.catOptions ?? []).find(o => o.uuid === uuid)?.name; // keep the label after options clear
+    eq.catOpen = null; eq.catOptions = null;
+    this.render();
+  }
+  async #applyEquip(actor) {
+    const eq = this.#charGen?.equip; if (!actor || !eq) return;
+    const want = [...eq.plan.auto.map(i => ({ uuid: i.uuid, count: i.count }))];
+    let gold = 0;
+    eq.plan.choices.forEach((ch, ci) => {
+      const o = ch.options[eq.sel[ci]];
+      if (!o) return;
+      if (o.kind === "items") want.push(...o.items.map(i => ({ uuid: i.uuid, count: i.count })));
+      else if (o.kind === "gold") gold += o.gold || 0;
+      else if (o.kind === "category" && eq.catUuid[ci]) want.push({ uuid: eq.catUuid[ci], count: 1 });
+    });
+    const toAdd = [];
+    for (const w of want) {
+      const doc = await fromUuid(w.uuid); if (!doc) continue;
+      const data = doc.toObject();
+      if (w.count > 1 && "quantity" in (data.system ?? {})) data.system.quantity = w.count;
+      toAdd.push(data);
+    }
+    try {
+      if (toAdd.length) await actor.createEmbeddedDocuments("Item", toAdd);
+      if (gold) await actor.update({ "system.currency.gp": (actor.system.currency?.gp ?? 0) + gold });
+    } catch (e) { return ui.notifications.warn(`Couldn't add equipment: ${e.message}`); }
+    this.#charGen.picking = null; this.#charGen.equip = null;
+    this.render();
+    ui.notifications.info(`Added ${toAdd.length} item${toAdd.length === 1 ? "" : "s"}${gold ? ` + ${gold} gp` : ""}.`);
   }
 
   // Ability scores — three methods: point-buy (27-pt budget), standard array, and
@@ -2557,7 +2716,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "char-gen-add":
         return this.#charGenAdd(el.dataset.uuid);
       case "char-gen-pick-back":
-        if (this.#charGen) { this.#charGen.picking = null; this.#charGenOptions = null; this.#charGenSpellOptions = null; this.render(); }
+        if (this.#charGen) {
+          if (this.#charGen.equip?.catOpen != null) { this.#charGen.equip.catOpen = null; this.#charGen.equip.catOptions = null; }
+          else { this.#charGen.picking = null; this.#charGenOptions = null; this.#charGenSpellOptions = null; this.#charGen.equip = null; }
+          this.render();
+        }
         return;
       case "char-gen-finish":
         return this.#finishCharGen();
@@ -2569,6 +2732,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#toggleSpellSel(el.dataset.uuid, el.dataset.lvl);
       case "char-gen-spell-apply":
         return this.#applySpells(this.actor);
+      case "char-gen-equip":
+        return this.#charGenEquip();
+      case "equip-opt":
+        return this.#selectEquipOption(Number(el.dataset.ci), Number(el.dataset.oi));
+      case "equip-cat-pick":
+        return this.#pickEquipCat(el.dataset.uuid);
+      case "equip-apply":
+        return this.#applyEquip(this.actor);
       case "abil-method":
         return this.#setAbilMethod(el.dataset.method);
       case "abil-roll":
