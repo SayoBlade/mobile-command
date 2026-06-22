@@ -1,3 +1,29 @@
+# STATUS — continue here (updated 2026-06-23, overnight: shared party journal)
+
+## 🌙 Overnight session (2026-06-23) — built 1 feature well, deferred the risky one
+
+**Context:** this was the back half of a big day. Earlier today shipped v0.1.34→v0.1.41 (revolver/resource guard, Roll-damage safeguard, multi-activity favorites, reactions V1-dialog lift, **dialog watchdog**, **Item Piles loot + shops**, display GM-account warning, off-map-PC fix, **animated theme backgrounds**, NPC-HD diagnosis). The DM then said "work on some missing features, see you in the morning."
+
+### ✅ Shared party journal (v0.1.42) — BUILT & locally verified
+The Journal tab was a "Phase 4" placeholder; it's now real (a stated MVP goal — "write to a shared party journal"). Read the notes + a composer; posting routes through the executor (players can't author on a journal they only observe — confirmed: Player 1 gets "lacks permission to create JournalEntry", which is exactly why the GM brokers the write).
+- **Verified locally:** tab renders (composer + empty state), typing works (draft survives re-renders via `#onInput`), **Post routes through the executor and fails gracefully when none is connected** (clear warning, *draft preserved*). 
+- **NEEDS A GM-CONNECTED WORLD TO FINISH VERIFYING (Sqyre):** the executor-side create (`handlePartyJournalAdd` → find-or-create the flagged "Party Journal" entry @ default OBSERVER + append a timestamped page) and the read-render of real pages. My local world had **no GM connected**, so the create never ran here.
+- **To test on Sqyre:** GM connected as executor + a non-GM player on the phone → open the Journal tab (feather icon) → type a note → Post → it should appear, and show for other players watching the tab (live via the `createJournalEntryPage` hook).
+
+### ⏸️ Wild Shape — investigated, DEFERRED (wants your input, not a blind build)
+You flagged this as "a big deal." I dug into dnd5e 5.3.3: it DOES have `Actor#transformInto(source, TransformationSetting, options)` + built-in Wild Shape **presets**. But I chose **not** to automate it overnight because it's genuinely risky without you:
+1. **It modifies actors** (transform/revert) and almost certainly needs **GM permission** → must run on the executor; I can't verify that as a non-GM, and a bad transform/revert is hard to undo.
+2. **`revertOriginal` doesn't exist** on the prototype — the revert path needs finding (likely a flag/restore flow), untested.
+3. **Shape source + filtering is a design decision, not a fact:** which compendium of beasts? Strict CR rules (CR ≤ level/3, level-gated swim/fly) — encoding those is *inventing rules*; the project rule is copy-Foundry/warnings-not-walls, so I'd rather **show beasts + their CR and let you/the player judge** — but that's hundreds of entries needing search UI + an entry-point decision.
+- **My recommendation when you're ready:** decide (a) auto-transform via the executor **vs** your own "announce-to-DM + shape list" idea (safer), (b) the beast source compendium, (c) CR gating vs warnings-only. Then it's a clean build. ~30–60 min once those 3 are answered.
+
+### Other genuinely-missing features (menu for you to prioritize)
+- **Out-of-combat group/party-token movement** (stated goal) — needs executor/canvas; can't verify as a player locally.
+- **Swipe between tabs** (B2) — easy to build, but real risk of fighting the D-pad/scroll/long-press gestures; wants careful on-device testing.
+- Already DONE (so I didn't touch): death saves, equip/attune toggles, container expand, in-range badge, action grouping, resource counters.
+
+---
+
 # STATUS — continue here (updated 2026-06-21, char-gen: spells + equipment)
 
 ## 🪄 Char-gen spell + equipment pickers (2026-06-21, v0.1.8) — BUILT & VERIFIED LIVE
