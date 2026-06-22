@@ -883,6 +883,27 @@ body.mc-phone .roll-configuration fieldset {
 .mc-rest:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
 .mc-rest i { color: var(--mc-gold); }
 
+/* Item Piles loot (Explore tab). */
+.mc-loot { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.mc-loot-check {
+  min-height: 48px; width: 100%;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
+  color: var(--mc-ink); font-size: 14px; font-weight: 600;
+}
+.mc-loot-check:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
+.mc-loot-check[disabled] { opacity: 0.6; }
+.mc-loot-list { display: flex; flex-direction: column; gap: 8px; }
+.mc-loot-row {
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 10px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
+  color: var(--mc-ink); text-align: left; width: 100%;
+}
+.mc-loot-row:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
+.mc-loot-img { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; flex: 0 0 auto; background: var(--mc-panel-2); }
+.mc-loot-name { flex: 1 1 auto; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-loot-meta { flex: 0 0 auto; font-size: 12px; color: var(--mc-muted); }
+.mc-loot-empty { font-size: 13px; color: var(--mc-muted); padding: 4px 2px; }
+
 /* Details tab. */
 .mc-detail-sec { margin-bottom: 16px; }
 .mc-detail-row { display: flex; gap: 8px; padding: 9px 2px; border-bottom: 1px solid #23252e; }

@@ -136,6 +136,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #moveBudget = null;     // last D-pad move readout { text, cls } — persisted so a combat
                           //   re-render doesn't wipe the counter (it lived only in the DOM)
   #collapsedActionGroups = new Set(); // Actions tab: accordion groups the user/use closed
+  #nearbyLoot = null;     // Item Piles loot: null (not checked) | [] (none) | [{uuid,name,img,itemCount,distance}]
+  #lootBusy = false;      // a listLoot round-trip is in flight
   #lastCombatantId = null; // track the active combatant to detect "my turn started"
   #charGen = null;        // char-gen workspace: null | { actorId, picking, abilMethod, abil, pool, rolled, assign }
                           //   picking: null|"race"|"background"|"class"|"abilities"
@@ -1233,7 +1235,52 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // roll grid, and rest buttons.
   #exploreHTML(actor) {
     return this.#tokenSwitcherHTML() + this.#moveRowHTML(actor) + this.#favoritesHTML(actor)
-      + this.#abilitiesHTML(actor) + this.#restsHTML();
+      + this.#abilitiesHTML(actor) + this.#lootHTML(actor) + this.#restsHTML();
+  }
+
+  // Item Piles loot: a phone has no canvas to double-click a pile, so the player taps
+  // "Check for loot" → the executor (which has the canvas) lists nearby lootable piles,
+  // and tapping one renders Item Piles' OWN loot window targeted at this phone (the
+  // dialog-lift surfaces it). null = not checked yet, [] = checked, none nearby.
+  #lootHTML() {
+    const loot = this.#nearbyLoot;
+    const rows = (loot ?? []).map(p => `
+      <button class="mc-loot-row" data-action="loot-open" data-uuid="${p.uuid}">
+        <img class="mc-loot-img" src="${p.img || "icons/svg/chest.svg"}" alt="">
+        <span class="mc-loot-name">${foundry.utils.escapeHTML(p.name)}</span>
+        <span class="mc-loot-meta">${p.itemCount} item${p.itemCount === 1 ? "" : "s"}${p.distance != null ? ` · ${p.distance} ft` : ""}</span>
+      </button>`).join("");
+    const body = loot == null ? ""
+      : loot.length ? `<div class="mc-loot-list">${rows}</div>`
+      : `<div class="mc-loot-empty">No loot nearby.</div>`;
+    return `
+      <section class="mc-loot">
+        <button class="mc-loot-check" data-action="loot-refresh" ${this.#lootBusy ? "disabled" : ""}>
+          ${this.#lootBusy ? "Checking…" : "🎒 Check for loot nearby"}
+        </button>
+        ${body}
+      </section>`;
+  }
+
+  async #refreshLoot() {
+    if (this.#lootBusy) return;
+    this.#lootBusy = true; this.render();
+    try {
+      const res = await rpc.listLoot({ forActorUuid: this.actor?.uuid });
+      this.#nearbyLoot = res?.ok ? (res.piles ?? []) : [];
+      if (!res?.ok && res?.reason) ui.notifications.warn(`Loot: ${res.reason}`);
+    } catch (e) {
+      this.#nearbyLoot = [];
+      ui.notifications.warn("Loot: couldn't reach the DM client.");
+    } finally {
+      this.#lootBusy = false; this.render();
+    }
+  }
+
+  async #openLoot(pileUuid) {
+    const res = await rpc.openLoot({ pileUuid, forActorUuid: this.actor?.uuid });
+    if (!res?.ok) ui.notifications.warn(`Loot: ${res?.reason ?? "couldn't open that loot"}`);
+    // success → Item Piles renders its window on this client; the dialog-lift surfaces it.
   }
 
   // Active-scene tokens the user owns (PC + summons/familiars/wild shape).
@@ -3140,6 +3187,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#imagePopup = null; return this.render();
       case "shared-img-close":
         this.#sharedImage = null; return this.render();
+      case "loot-refresh":
+        return this.#refreshLoot();
+      case "loot-open":
+        return this.#openLoot(el.dataset.uuid);
       case "cond-toggle":
         return actor?.toggleStatusEffect?.(el.dataset.status);
       case "break-conc":

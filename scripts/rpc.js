@@ -57,6 +57,8 @@ export function initSocket() {
   socket.register("announceCast", handleAnnounceCast);
   socket.register("savePrompt", handleSavePrompt);
   socket.register("watchdogPing", handleWatchdogPing);
+  socket.register("listLoot", handleListLoot);
+  socket.register("openLoot", handleOpenLoot);
   socket.register("heartbeat", handleHeartbeat);
   console.log(`${MODULE_ID} | socket registered`);
   return socket;
@@ -758,6 +760,54 @@ async function handleEndTurn({ requesterId }) {
   return { ok: true };
 }
 
+// --- Item Piles loot (§7.x) --------------------------------------------------
+// A phone has no canvas, so it can't double-click a pile to loot it. The executor
+// (which has the canvas + Item Piles) lists nearby lootable piles, and on tap renders
+// Item Piles' OWN loot interface targeted at the player's client via `userIds` — the
+// shell's dialog-lift then surfaces that window on the phone. We reuse Item Piles'
+// real loot/currency/transfer machinery rather than reimplementing it.
+async function handleListLoot({ forActorUuid } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" }; // looting is fine while paused
+  const API = game.itempiles?.API;
+  if (!API) return { ok: false, reason: "Item Piles isn't installed on the DM client" };
+  if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
+  const myTok = forActorUuid ? fromUuidSync(forActorUuid)?.getActiveTokens?.()[0] ?? null : null;
+  const piles = [];
+  for (const t of (canvas.tokens?.placeables ?? [])) {
+    try {
+      if (!API.isValidItemPile(t) || !API.isItemPileLootable(t) || API.isItemPileEmpty(t)) continue;
+      if (API.isItemPileMerchant?.(t)) continue; // merchants/vaults aren't simple loot
+      let distance = null;
+      try { distance = myTok ? Math.round(canvas.grid.measurePath([myTok.center, t.center]).distance) : null; } catch (e) { /* optional */ }
+      piles.push({
+        uuid: t.document.uuid,
+        name: t.name,
+        img: t.document.texture?.src || t.actor?.img || null,
+        itemCount: (API.getActorItems(t) ?? []).length,
+        distance
+      });
+    } catch (e) { /* skip a bad pile, keep scanning */ }
+  }
+  piles.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+  return { ok: true, piles };
+}
+
+async function handleOpenLoot({ pileUuid, forActorUuid, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" }; // looting is fine while paused
+  const API = game.itempiles?.API;
+  if (!API) return { ok: false, reason: "Item Piles isn't installed on the DM client" };
+  const pile = pileUuid ? fromUuidSync(pileUuid) : null;
+  if (!pile) return { ok: false, reason: "that loot is no longer here" };
+  const actor = forActorUuid ? fromUuidSync(forActorUuid) : null;
+  try {
+    await API.renderItemPileInterface(pile, { userIds: [requesterId], inspectingTarget: actor ?? undefined });
+    return { ok: true };
+  } catch (e) {
+    console.warn(`${MODULE_ID} | openLoot failed`, e);
+    return { ok: false, reason: e?.message ?? "could not open that loot" };
+  }
+}
+
 // --- phone/DM-facing API (any client) ---------------------------------------
 
 function toExecutor(handler, payload) {
@@ -771,7 +821,8 @@ function toExecutor(handler, payload) {
       moveRequest: handleMoveRequest, setMovementAction: handleSetMovementAction,
       attackPreview: handleAttackPreview,
       measure: handleMeasure, targetsList: handleTargetsList,
-      previewTargets: handlePreviewTargets, endTurn: handleEndTurn, announceCast: handleAnnounceCast
+      previewTargets: handlePreviewTargets, endTurn: handleEndTurn, announceCast: handleAnnounceCast,
+      listLoot: handleListLoot, openLoot: handleOpenLoot
     };
     return handlers[handler](payload);
   }
@@ -792,6 +843,8 @@ export const api = {
   previewTargets: (payload) => toExecutor("previewTargets", payload),
   endTurn: (payload) => toExecutor("endTurn", payload),
   announceCast: (payload) => toExecutor("announceCast", payload),
+  listLoot: (payload = {}) => toExecutor("listLoot", payload),
+  openLoot: (payload = {}) => toExecutor("openLoot", payload),
   assignTargets: (userId, tokenUuids) =>
     socket
       ? socket.executeAsUser("assignTargets", userId, { tokenUuids, fromName: game.user.name })
