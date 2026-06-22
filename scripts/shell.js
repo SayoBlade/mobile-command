@@ -1304,11 +1304,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const seen = new Set(toks.map(t => t.actor.id));
     for (const a of game.actors) {
       if (!a.isOwner || seen.has(a.id) || a.type !== "character") continue;
-      // Blank/char-gen PCs (to build them) AND — for a player — any of their own PCs
-      // not on this scene, so a JUST-FINISHED tokenless PC stays reachable (the DM
-      // hasn't dropped a token yet). Skip the GM's blanket ownership (would list the
-      // whole world); the GM reaches characters by selecting their token.
-      if (this.#isCharGenPC(a) || !game.user.isGM) {
+      // Only INCOMPLETE (char-gen) PCs belong off-map — so a player can build a blank
+      // PC before the DM drops a token. Do NOT list every owned-but-off-map PC: the
+      // earlier broad `!isGM` form cluttered players who own several PCs with characters
+      // that aren't in play (DM-reported 2026-06-23). The lone exception is the pinned
+      // subject — a JUST-FINISHED tokenless PC stays reachable until its token drops.
+      if (this.#isCharGenPC(a) || a.id === this.#subjectActorId) {
         list.push({ actorId: a.id, tokenId: null, name: a.name });
       }
     }
