@@ -1036,6 +1036,32 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
   --mc-burgundy: #782e22;       /* dnd5e character-sheet header burgundy */
 }
 
+/* ===== Themes (Details → Theme picker; persisted per-device in localStorage) =====
+   Each variant just re-tints the accent (--mc-gold), the panels, and the shell
+   background — text stays light and the semantic HP-green/damage-red are untouched.
+   "Tavern" is the default (no body class). */
+body.mc-theme-slate #mobile-command-shell {
+  --mc-gold: #79b8e0; --mc-panel: #1d2330; --mc-panel-2: #262d3c; --mc-edge: #36404f;
+  --mc-primary: #2a3a52; --mc-primary-edge: #3a5374; --mc-primary-active: #34496a;
+  background: radial-gradient(120% 80% at 50% -10%, #1c2433 0%, #11151c 60%);
+}
+body.mc-theme-ember #mobile-command-shell {
+  --mc-gold: #e2924a; --mc-panel: #251c1a; --mc-panel-2: #2f2421; --mc-edge: #463530;
+  --mc-primary: #4a2b22; --mc-primary-edge: #6a4030; --mc-primary-active: #5c3527;
+  background: radial-gradient(120% 80% at 50% -10%, #2a1d17 0%, #16110e 60%);
+}
+body.mc-theme-arcane #mobile-command-shell {
+  --mc-gold: #b483e0; --mc-panel: #221c2e; --mc-panel-2: #2b2439; --mc-edge: #3e3550;
+  --mc-primary: #3a2c52; --mc-primary-edge: #54407a; --mc-primary-active: #463463;
+  background: radial-gradient(120% 80% at 50% -10%, #241a33 0%, #14111c 60%);
+}
+/* Theme picker chips (Details tab) */
+.mc-theme-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.mc-theme-opt { flex: 1 1 0; min-width: 64px; min-height: 40px; border-radius: 10px; font-size: 13px; font-weight: 600;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
+.mc-theme-opt.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-theme-sw { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(255,255,255,.25); }
+
 /* Primary (blue) buttons — Save (already), Use (not the red Roll-damage /
    disabled states), rests, and the orthogonal D-pad arrows. Check buttons,
    targets, adv/dis are deliberately left as-is. */

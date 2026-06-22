@@ -224,6 +224,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const nextKey = this.#currentViewKey();
     content.innerHTML = typeof result === "string" ? result : "";
     this.#attachListeners(content);
+    this.#applyTheme(); // keep the saved theme's body class in sync each render
     if (toast) content.appendChild(toast);
     if (nextKey === prevKey) {
       const scroller = content.querySelector(".mc-content, .mc-cg-scroll");
@@ -1837,8 +1838,28 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>
       ${defenseSec}
       ${featChips}
+      <div class="mc-detail-sec">
+        <div class="mc-section-label">Theme</div>
+        <div class="mc-theme-row">${this.#themeOptionsHTML()}</div>
+      </div>
       <button class="mc-leave" data-action="exit"><i class="fas fa-right-from-bracket"></i> Leave Mobile Command</button>
       <button class="mc-logout" data-action="logout"><i class="fas fa-power-off"></i> Log out</button>`;
+  }
+  // Theme picker (Details). Choice is per-device (localStorage), applied as a body
+  // class that re-tints the shell's CSS vars; "tavern" is the default (no class).
+  #currentTheme() {
+    try { return window.localStorage.getItem("mc-theme") || "tavern"; } catch (e) { return "tavern"; }
+  }
+  #applyTheme() {
+    const t = this.#currentTheme();
+    for (const c of [...document.body.classList]) if (c.startsWith("mc-theme-")) document.body.classList.remove(c);
+    if (t && t !== "tavern") document.body.classList.add(`mc-theme-${t}`);
+  }
+  #themeOptionsHTML() {
+    const cur = this.#currentTheme();
+    const themes = [["tavern", "Tavern", "#c8a44d"], ["slate", "Slate", "#79b8e0"], ["ember", "Ember", "#e2924a"], ["arcane", "Arcane", "#b483e0"]];
+    return themes.map(([id, label, sw]) =>
+      `<button class="mc-theme-opt ${cur === id ? "mc-on" : ""}" data-action="set-theme" data-theme="${id}"><span class="mc-theme-sw" style="background:${sw}"></span>${label}</button>`).join("");
   }
 
   // Move pad (§7.4): D-pad steps the player's own token via the move.request
@@ -2821,6 +2842,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     switch (action) {
       case "exit": return this.#confirmExit();
       case "logout": return game.logOut?.(); // temp: switching Foundry users on a phone is painful
+      case "set-theme":
+        try { window.localStorage.setItem("mc-theme", el.dataset.theme); } catch (e) { /* private mode */ }
+        this.#applyTheme(); return this.render();
       case "tab":
         this.#tab = el.dataset.tab;
         this.#abandonAction(); // leave the picker clean; cancel any held workflow
