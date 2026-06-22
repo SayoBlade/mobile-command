@@ -132,6 +132,43 @@ function combatHTML() {
     </div>`;
 }
 
+/** Controlled (selected) tokens that have an actor — the quick-HP targets. */
+function controlledWithActors() {
+  return (canvas.tokens?.controlled ?? []).filter((t) => t.actor);
+}
+
+/** Apply an HP delta to an actor (negative = damage, positive = heal). Damage eats
+ *  temp HP first; both clamp to [0, max]. Direct update — robust across dnd5e versions. */
+async function applyHpDelta(actor, delta) {
+  const hp = actor.system?.attributes?.hp;
+  if (!hp) return;
+  if (delta < 0) {
+    let dmg = -delta;
+    const temp = hp.temp || 0;
+    const fromTemp = Math.min(temp, dmg);
+    dmg -= fromTemp;
+    await actor.update({ "system.attributes.hp.temp": temp - fromTemp, "system.attributes.hp.value": Math.max(0, (hp.value ?? 0) - dmg) });
+  } else {
+    await actor.update({ "system.attributes.hp.value": Math.min(hp.max ?? 0, (hp.value ?? 0) + delta) });
+  }
+}
+
+/** Quick HP: Damage / Heal the selected token(s) without opening a sheet. */
+function quickHpHTML() {
+  const toks = controlledWithActors();
+  if (!toks.length) return "";
+  const esc = foundry.utils.escapeHTML;
+  const label = toks.length === 1 ? esc(toks[0].name) : `${toks.length} tokens`;
+  return `<div class="mc-dmp-hp">
+      <div class="mc-dmp-hp-head"><i class="fas fa-heart-pulse"></i> ${label}</div>
+      <div class="mc-dmp-hp-row">
+        <button class="mc-dmp-hp-btn mc-dmp-dmg" data-hp="damage" title="Damage the selected token(s)">− Damage</button>
+        <input class="mc-dmp-hp-input" type="number" min="0" step="1" inputmode="numeric" aria-label="HP amount">
+        <button class="mc-dmp-hp-btn mc-dmp-heal" data-hp="heal" title="Heal the selected token(s)">Heal +</button>
+      </div>
+    </div>`;
+}
+
 /** AoE-push / summon section: a Place (or Summon) button per pending cast. */
 function pendingHTML(pending) {
   const esc = foundry.utils.escapeHTML;
@@ -174,7 +211,7 @@ function render() {
   // no targets); targeting/cast sections grow the panel when relevant. A grip at the
   // top lets the DM drag the panel off other widgets.
   const grip = `<div class="mc-dmp-drag" title="Drag to move"><i class="fas fa-grip-lines"></i></div>`;
-  el.innerHTML = grip + statusHTML() + cameraBarHTML() + combatHTML()
+  el.innerHTML = grip + statusHTML() + cameraBarHTML() + combatHTML() + quickHpHTML()
     + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
   el.classList.add("mc-show");
 }
@@ -201,6 +238,19 @@ async function onClick(ev) {
     game.socket.emit("shareImage", { image: img, title: tok.document?.name || tok.actor?.name || "", showTitle: true });
     ui.notifications.info("Shown on players' phones.");
     return;
+  }
+  const hpBtn = ev.target.closest("[data-hp]");
+  if (hpBtn) {
+    const input = panelEl.querySelector(".mc-dmp-hp-input");
+    const amt = Math.max(0, Math.floor(Number(input?.value) || 0));
+    const toks = controlledWithActors();
+    if (!amt) { ui.notifications.warn("Enter an HP amount first."); return; }
+    if (!toks.length) { ui.notifications.warn("Select a token first."); return; }
+    const dmg = hpBtn.dataset.hp === "damage";
+    for (const t of toks) await applyHpDelta(t.actor, dmg ? -amt : amt);
+    ui.notifications.info(`${dmg ? "Damaged" : "Healed"} ${amt} → ${toks.length} token${toks.length === 1 ? "" : "s"}.`);
+    if (input) input.value = "";
+    return render();
   }
   const combat = ev.target.closest("[data-combat]");
   if (combat) {
@@ -247,6 +297,7 @@ async function onClick(ev) {
 export function registerDMPanel() {
   if (!game.user.isGM) return;
   Hooks.on("targetToken", () => render());
+  Hooks.on("controlToken", () => render());                        // quick-HP: selection changed
   Hooks.on("updateCombat", () => render());
   Hooks.on("deleteCombat", () => render());                        // combat ended → drop the strip
   Hooks.on("combatStart", () => render());
