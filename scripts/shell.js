@@ -2779,19 +2779,30 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     rpc.previewTargets({ tokenUuids: [] });
   }
 
-  // §14: ask the executor for AC5E's adv/dis recommendation for this attack at the
-  // current target(s). Runs there (canvas + targets); the phone can't evaluate it.
-  // Pre-selects the recommended button (player can still override) + lists reasons.
+  // §14: AC5E's adv/dis recommendation + the named reasons (WHY). The executor runs a
+  // throwaway, HIDDEN pre-roll so AC5E annotates (it can't be read without rolling),
+  // and returns {mode, reasons}. The pre-roll is suppressed there (blind + DSN off +
+  // card deleted); players never see it (phones hide chat, no canvas). Pre-selects the
+  // recommended button (player can still override) and lists the causes.
   async #refreshAttackPreview() {
-    // §14 attack adv/dis hint — DISABLED 2026-06-22. The executor read AC5E by calling
-    // activity.rollAttack({create:false}) and aborting via dnd5e.preRollAttackV2→false,
-    // but a MIDI-wrapped activity ignores that abort and rolls a REAL extra attack:
-    // LIVE every attack rolled twice + AutoAnimations errored on the phantom roll's
-    // missing token (DM, Sqyre, 2026-06-22). Re-enable only with a NON-rolling AC5E read
-    // (§14 path #2/#3). The phone's own adv/dis buttons still let the player choose;
-    // checks/saves keep AC5E's recommendation via the native dialog.
     const s = this.#actionState;
-    if (s) { s.recommendation = null; s.recPending = false; }
+    if (!s || !s.hasAttack) { if (s) s.recommendation = null; return; }
+    const targetTokenUuids = Array.from(s.selected);
+    if (!targetTokenUuids.length) { s.recommendation = null; return; }
+    const token = s.uuid; // detect navigation / target change mid-flight
+    s.recPending = true;
+    let res;
+    try { res = await rpc.attackPreview({ attackerTokenId: this.originTokenId, activityUuid: s.uuid, targetTokenUuids }); }
+    catch (e) { res = null; }
+    if (this.#actionState !== s || s.uuid !== token) return;
+    s.recPending = false;
+    if (res?.ok) {
+      s.recommendation = { mode: res.mode ?? "normal", reasons: res.reasons ?? [], unevaluated: res.unevaluated ?? null };
+      if (["advantage", "normal", "disadvantage"].includes(res.mode)) s.adv = res.mode; // pre-select; overridable
+    } else {
+      s.recommendation = null;
+    }
+    this.render();
   }
 
   // Step 2 of the two-tap: trigger the held workflow's damage roll.

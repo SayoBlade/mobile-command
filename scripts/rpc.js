@@ -557,13 +557,6 @@ async function handleSetMovementAction({ tokenId, action, requesterId }) {
 async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenUuids = [], requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
-  // DISABLED 2026-06-22 (defends against a not-yet-updated phone still calling this):
-  // reading AC5E via activity.rollAttack({create:false}) + a dnd5e.preRollAttackV2
-  // abort does NOT abort a MIDI-wrapped attack — it rolled a REAL second attack live
-  // (DM/Sqyre) + AutoAnimations errored on the phantom roll. NEVER roll here until a
-  // non-rolling AC5E read exists (§14 path #2/#3). Report "normal" → no hint, no roll.
-  return { ok: true, mode: "normal", reasons: [], disabled: true };
-  /* eslint-disable no-unreachable */
   if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
 
   const tokenDoc = game.scenes.active.tokens.get(attackerTokenId);
@@ -578,33 +571,44 @@ async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenU
   const MID = "automated-conditions-5e";
   if (!game.modules.get(MID)?.active) return { ok: true, mode: "normal", reasons: [], unevaluated: "ac5e-not-active" };
 
-  // Point the executor's targets at the chosen tokens (AC5E reads game.user.targets),
-  // then restore — brief, and the preview is non-committal.
-  const prevTargetIds = Array.from(game.user.targets).map((t) => t.id);
-  const targetIds = [];
+  // Target the chosen tokens so AC5E evaluates the real situation (it reads
+  // game.user.targets). v14: token.setTarget — updateTokenTargets was removed.
+  const setTargets = (toks, on) => { for (const t of toks) { try { t.setTarget(on, { user: game.user, releaseOthers: false }); } catch (e) {} } };
+  const prevTargets = Array.from(game.user.targets);
+  setTargets(prevTargets, false);
+  const wanted = [];
   for (const u of targetTokenUuids) {
     let td; try { td = await fromUuid(u); } catch (e) { continue; }
-    if (td?.id) targetIds.push(td.id);
+    const place = td?.object ?? canvas.tokens?.get(td?.id);
+    if (place) wanted.push(place);
   }
-  try { game.user.updateTokenTargets(targetIds); } catch (e) { /* non-fatal */ }
+  setTargets(wanted, true);
 
+  // Capture AC5E's annotation (mode + named reasons). We do NOT abort the roll —
+  // a midi-wrapped attack ignores the abort and rolls a REAL extra die anyway. Instead
+  // let it roll and HIDE it: cancel Dice So Nice, roll BLIND (GM-only), and delete the
+  // throwaway card. Players' phones hide chat + have no canvas (no DSN/AutoAnimations),
+  // so it's invisible to them; the TV is the only place a residual could flash.
+  // (DM-accepted experimental, 2026-06-23; the real check is Sqyre on midi 14.0.9.)
   let ac5 = null, raw = null;
   const hookId = Hooks.on("dnd5e.preRollAttackV2", (config) => {
     try {
-      ac5 = foundry.utils.getProperty(config, `options.${MID}`) ?? config?.[MID] ?? config?.rolls?.[0]?.options?.[MID] ?? null;
-      raw = ac5
-        ? { advantageMode: ac5.advantageMode, defaultButton: ac5.defaultButton,
-            subAdv: ac5.subject?.advantage, subDis: ac5.subject?.disadvantage, subFail: ac5.subject?.fail,
-            oppAdv: ac5.opponent?.advantage, oppDis: ac5.opponent?.disadvantage }
-        : { note: "no ac5e config on roll", optionKeys: Object.keys(config?.options ?? {}) };
+      const a = foundry.utils.getProperty(config, `options.${MID}`) ?? config?.[MID] ?? config?.rolls?.[0]?.options?.[MID] ?? null;
+      if (a) { ac5 = a; raw = { advantageMode: a.advantageMode, defaultButton: a.defaultButton, subAdv: a.subject?.advantage, subDis: a.subject?.disadvantage, oppAdv: a.opponent?.advantage, oppDis: a.opponent?.disadvantage }; }
     } catch (e) { raw = { err: e.message }; }
-    return false; // abort the roll — config build already fired AC5E's hook
   });
-  try { await activity.rollAttack({}, { configure: false }, { create: false }); }
-  catch (e) { /* hook abort can reject — expected */ }
+  const dsnHook = Hooks.on("diceSoNiceRollStart", () => false); // suppress the 3D dice for the throwaway
+  const msgIdsBefore = new Set(game.messages.keys());
+  try {
+    await activity.rollAttack({}, { configure: false }, { create: false, rollMode: CONST.DICE_ROLL_MODES.BLIND });
+  } catch (e) { /* non-fatal */ }
   finally {
     Hooks.off("dnd5e.preRollAttackV2", hookId);
-    try { game.user.updateTokenTargets(prevTargetIds); } catch (e) { /* non-fatal */ }
+    Hooks.off("diceSoNiceRollStart", dsnHook);
+    // create:false isn't honored on every midi path — delete any throwaway card it made.
+    for (const m of game.messages.filter((mm) => !msgIdsBefore.has(mm.id))) { try { await m.delete(); } catch (e) {} }
+    setTargets(wanted, false);
+    setTargets(prevTargets, true);
   }
 
   if (!ac5) {
