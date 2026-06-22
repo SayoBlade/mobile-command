@@ -56,6 +56,7 @@ export function initSocket() {
   socket.register("assignTargets", handleAssignTargets);
   socket.register("announceCast", handleAnnounceCast);
   socket.register("savePrompt", handleSavePrompt);
+  socket.register("watchdogPing", handleWatchdogPing);
   socket.register("heartbeat", handleHeartbeat);
   console.log(`${MODULE_ID} | socket registered`);
   return socket;
@@ -95,6 +96,15 @@ function handleSavePrompt(payload) {
   console.debug(`${MODULE_ID} | savePrompt received`, payload);
   remoteState.savePrompt = payload ?? null;
   Hooks.callAll("mobile-command.savePrompt", payload ?? null);
+  return true;
+}
+
+// Phone-side: the executor's dialog watchdog pinged us — one of our actions opened a
+// blocking dialog on the DM screen that we can't reach. Replace the silent hang with
+// an honest "waiting on the DM" cue so the player knows it's not frozen.
+function handleWatchdogPing({ name, title } = {}) {
+  console.warn(`${MODULE_ID} | watchdog ping`, { name, title });
+  ui.notifications?.warn(`"${name ?? "Your action"}" is waiting on the DM to clear a "${title ?? "popup"}" on their screen.`);
   return true;
 }
 
@@ -246,6 +256,47 @@ async function captureNotifications(fn) {
   }
 }
 
+// --- dialog watchdog ---------------------------------------------------------
+// Route B runs the workflow on the EXECUTOR with configure:false + fast-forward, so
+// NO dialog should ever appear. If midi can't auto-resolve something (a forced
+// consumption / ammunition / roll-config prompt), it opens a BLOCKING dialog on the
+// DM screen that the phone can't see or reach → the player hangs with zero feedback
+// (DM/Sqyre: the empty-revolver "Consume Item Use?" pop-up). We mark the executor
+// "mid phone action" for a short window; a render hook below catches any prompt that
+// pops inside it, alerts the DM (so they can clear it), and pings the player's phone.
+let activePhoneAction = null; // { name, requesterId, ts } | null
+const PHONE_ACTION_WINDOW_MS = 8000;
+function markPhoneAction(name, requesterId) {
+  activePhoneAction = { name: name || "A phone action", requesterId, ts: Date.now() };
+}
+
+export function registerDialogWatchdog() {
+  const onRender = (app) => {
+    try {
+      if (!isExecutor() || !activePhoneAction) return;
+      if (Date.now() - activePhoneAction.ts > PHONE_ACTION_WINDOW_MS) { activePhoneAction = null; return; }
+      // Only blocking PROMPTS (DialogV2 / legacy Dialog / dnd5e config/usage/consume/
+      // ammo dialogs) — never sheets, AutoAnimations, DSN, or our own UI.
+      const cname = app?.constructor?.name || "";
+      const DialogV2 = foundry.applications?.api?.DialogV2;
+      const isPrompt = (DialogV2 && app instanceof DialogV2)
+        || (globalThis.Dialog && app instanceof globalThis.Dialog)
+        || /Dialog|Configuration|Usage|Consum|Ammunition|Prompt/i.test(cname);
+      if (!isPrompt) return;
+      const title = app?.title || app?.options?.window?.title || cname || "a popup";
+      const { name, requesterId } = activePhoneAction;
+      activePhoneAction = null; // alert once per action
+      console.warn(`${MODULE_ID} | dialog watchdog: stranded prompt "${title}" during phone action "${name}"`);
+      ui.notifications?.warn(`⚠ Mobile Command: "${name}" opened "${title}" here — the phone can't reach it. Resolve it so the player isn't stuck.`, { permanent: true });
+      if (socket && requesterId) {
+        try { socket.executeAsUser("watchdogPing", requesterId, { name, title }); } catch (e) { /* best effort */ }
+      }
+    } catch (e) { console.warn(`${MODULE_ID} | dialog watchdog error`, e); }
+  };
+  Hooks.on("renderApplicationV2", onRender);
+  Hooks.on("renderApplication", onRender); // legacy V1 prompts too
+}
+
 // --- endpoints ---------------------------------------------------------------
 
 async function handleItemUse(payload) {
@@ -265,6 +316,7 @@ async function handleItemUse(payload) {
   if (!onActiveScene()) {
     return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
   }
+  markPhoneAction(activity.item?.name, requesterId); // dialog watchdog: arm for this action
 
   // dnd5e usage contract (_prepareUsageConfig): consume===false skips
   // consumption; undefined => normal consumption. A boolean `true` is INVALID
@@ -364,6 +416,7 @@ async function handleItemUseStart(payload) {
   }
   if (activity.target?.template?.type) return { ok: false, stage: "validate", reason: "area-target activity — use the DM template flow" };
   if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
+  markPhoneAction(activity.item?.name, requesterId); // dialog watchdog: arm for this action
 
   const hasAttack = activity.type === "attack";
   // Upcast: cast at the slot level the phone chose (dnd5e usage config field
