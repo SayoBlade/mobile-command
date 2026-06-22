@@ -16,11 +16,16 @@ function activePlayers() {
   return game.users.filter(u => u.active && !u.isGM);
 }
 
-/** Best label for a player: assigned character, else an owned character, else the user name. */
+/** Best label for a player: their assigned character, else their SOLE owned
+ *  character, else the user's name. The old "first owned" fallback picked an
+ *  ARBITRARY character for a user who owns several (a test/DM account owning the whole
+ *  party), so the presence row showed a character that isn't even in the scene —
+ *  "Aslan"/"Multi" for users Player 1/Player 2 (DM 2026-06-22). Only collapse to a
+ *  character name when it's unambiguous (exactly one owned). */
 function playerLabel(u) {
   if (u.character) return u.character.name;
-  const owned = game.actors.find(a => a.type === "character" && a.testUserPermission(u, "OWNER"));
-  return owned?.name ?? u.name;
+  const owned = game.actors.filter(a => a.type === "character" && a.testUserPermission(u, "OWNER"));
+  return owned.length === 1 ? owned[0].name : u.name;
 }
 
 /** The user tied to the current combatant — assigned character, else an owner. */
@@ -91,8 +96,8 @@ function cameraBarHTML() {
 }
 
 /** Top status row: a pause toggle (the pause-guard freezes player actions) + a
- *  per-player presence light — green = on the active scene, amber = connected but
- *  viewing a different scene (won't see the camera/combat), gray = offline. */
+ *  per-player presence light — green = present (on the active scene OR a canvasless
+ *  phone), amber = a desktop client viewing a DIFFERENT scene, gray = offline. */
 function statusHTML() {
   const esc = foundry.utils.escapeHTML;
   const paused = game.paused;
@@ -101,8 +106,15 @@ function statusHTML() {
   const activeScene = game.scenes?.active?.id;
   const players = game.users.filter(u => !u.isGM);
   const chips = players.map(u => {
-    const cls = !u.active ? "mc-off" : (u.viewedScene === activeScene ? "mc-on" : "mc-amber");
-    const state = !u.active ? "Offline" : (u.viewedScene === activeScene ? "on the active scene" : "connected — on a different scene");
+    // A phone client is canvasless (D2) so its viewedScene is null — that's "present
+    // at the table via the shell", NOT "off on another scene". Only an active client
+    // viewing a *real, different* scene is amber. Without this, every phone player
+    // (the module's whole point) showed amber/"not in the scene" (DM 2026-06-22).
+    let cls, state;
+    if (!u.active) { cls = "mc-off"; state = "Offline"; }
+    else if (u.viewedScene === activeScene) { cls = "mc-on"; state = "on the active scene"; }
+    else if (u.viewedScene == null) { cls = "mc-on"; state = "connected (phone)"; }
+    else { cls = "mc-amber"; state = "connected — on a different scene"; }
     return `<span class="mc-dmp-pres ${cls}" title="${esc(playerLabel(u))} — ${state}"><i class="fas fa-circle"></i> ${esc(playerLabel(u))}</span>`;
   }).join("") || `<span class="mc-dmp-pres mc-off">No players</span>`;
   return `<div class="mc-dmp-status">${pauseBtn}${showBtn}<div class="mc-dmp-pres-row">${chips}</div></div>`;
