@@ -85,7 +85,50 @@ function cameraBarHTML() {
   return `<div class="mc-dmp-cam">
     <button class="mc-dmp-cam-btn" data-cam="focus" title="Focus the display on the party (P)" aria-label="Focus on party"><i class="fas fa-bullseye"></i></button>
     <button class="mc-dmp-cam-btn ${manualOn}" data-cam="manual" title="Manual TV control: your pan/zoom drives the display (M)" aria-label="Manual TV control"><i class="fas fa-arrows-up-down-left-right"></i></button>
+    <button class="mc-dmp-cam-btn" data-cam="zoom-out" title="Zoom the display out" aria-label="Zoom display out"><i class="fas fa-magnifying-glass-minus"></i></button>
+    <button class="mc-dmp-cam-btn" data-cam="zoom-in" title="Zoom the display in" aria-label="Zoom display in"><i class="fas fa-magnifying-glass-plus"></i></button>
   </div>`;
+}
+
+/** Top status row: a pause toggle (the pause-guard freezes player actions) + a
+ *  per-player presence light — green = on the active scene, amber = connected but
+ *  viewing a different scene (won't see the camera/combat), gray = offline. */
+function statusHTML() {
+  const esc = foundry.utils.escapeHTML;
+  const paused = game.paused;
+  const pauseBtn = `<button class="mc-dmp-pause ${paused ? "mc-active" : ""}" data-action="pause" title="${paused ? "Resume — players' actions allowed" : "Pause — freeze players' actions"}"><i class="fas fa-${paused ? "play" : "pause"}"></i></button>`;
+  const activeScene = game.scenes?.active?.id;
+  const players = game.users.filter(u => !u.isGM);
+  const chips = players.map(u => {
+    const cls = !u.active ? "mc-off" : (u.viewedScene === activeScene ? "mc-on" : "mc-amber");
+    const state = !u.active ? "Offline" : (u.viewedScene === activeScene ? "on the active scene" : "connected — on a different scene");
+    return `<span class="mc-dmp-pres ${cls}" title="${esc(playerLabel(u))} — ${state}"><i class="fas fa-circle"></i> ${esc(playerLabel(u))}</span>`;
+  }).join("") || `<span class="mc-dmp-pres mc-off">No players</span>`;
+  return `<div class="mc-dmp-status">${pauseBtn}<div class="mc-dmp-pres-row">${chips}</div></div>`;
+}
+
+/** Combat control strip — run the encounter from the panel. Pre-start: Roll all +
+ *  Start. Started: previous / roll remaining NPCs / end / next, with a round +
+ *  current-turn readout. All are stable core Combat methods. */
+function combatHTML() {
+  const c = game.combat;
+  if (!c) return "";
+  const esc = foundry.utils.escapeHTML;
+  let btns;
+  if (!c.started) {
+    btns = `<button data-combat="rollAll" title="Roll initiative for everyone"><i class="fas fa-dice-d20"></i> Roll all</button>
+      <button data-combat="start" title="Begin combat"><i class="fas fa-play"></i> Start</button>`;
+  } else {
+    btns = `<button data-combat="prev" title="Previous turn"><i class="fas fa-backward-step"></i></button>
+      <button data-combat="rollNPC" title="Roll remaining NPC initiative"><i class="fas fa-dice-d20"></i></button>
+      <button data-combat="end" title="End combat"><i class="fas fa-flag-checkered"></i></button>
+      <button data-combat="next" title="Next turn"><i class="fas fa-forward-step"></i></button>`;
+  }
+  const label = c.started ? `R${c.round} · ${esc(c.combatant?.name ?? "—")}` : "Not started";
+  return `<div class="mc-dmp-combat">
+      <div class="mc-dmp-turn"><i class="fas fa-khanda"></i> ${label}</div>
+      <div class="mc-dmp-combatbtns">${btns}</div>
+    </div>`;
 }
 
 /** AoE-push / summon section: a Place (or Summon) button per pending cast. */
@@ -130,7 +173,8 @@ function render() {
   // no targets); targeting/cast sections grow the panel when relevant. A grip at the
   // top lets the DM drag the panel off other widgets.
   const grip = `<div class="mc-dmp-drag" title="Drag to move"><i class="fas fa-grip-lines"></i></div>`;
-  el.innerHTML = grip + cameraBarHTML() + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
+  el.innerHTML = grip + statusHTML() + cameraBarHTML() + combatHTML()
+    + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
   el.classList.add("mc-show");
 }
 
@@ -139,6 +183,28 @@ async function onClick(ev) {
   if (cam) {
     if (cam.dataset.cam === "focus") globalThis.MobileCommand?.focusParty?.();
     else if (cam.dataset.cam === "manual") globalThis.MobileCommand?.toggleTvManual?.();
+    else if (cam.dataset.cam === "zoom-in") globalThis.MobileCommand?.tvZoom?.(1.25);
+    else if (cam.dataset.cam === "zoom-out") globalThis.MobileCommand?.tvZoom?.(1 / 1.25);
+    return render();
+  }
+  if (ev.target.closest('[data-action="pause"]')) {
+    game.togglePause(!game.paused, { broadcast: true });
+    return render();
+  }
+  const combat = ev.target.closest("[data-combat]");
+  if (combat) {
+    const c = game.combat;
+    if (c) {
+      const act = combat.dataset.combat;
+      try {
+        if (act === "next") await c.nextTurn();
+        else if (act === "prev") await c.previousTurn();
+        else if (act === "rollNPC") await c.rollNPC();
+        else if (act === "rollAll") await c.rollAll();
+        else if (act === "start") await c.startCombat();
+        else if (act === "end") await c.endCombat(); // core shows its own confirm
+      } catch (e) { ui.notifications.warn(`Combat: ${e.message}`); }
+    }
     return render();
   }
   const place = ev.target.closest("[data-place]");
@@ -171,6 +237,11 @@ export function registerDMPanel() {
   if (!game.user.isGM) return;
   Hooks.on("targetToken", () => render());
   Hooks.on("updateCombat", () => render());
+  Hooks.on("deleteCombat", () => render());                        // combat ended → drop the strip
+  Hooks.on("combatStart", () => render());
+  Hooks.on("pauseGame", () => render());                           // pause toggle ↔ panel button
+  Hooks.on("userConnected", () => render());                       // presence: connect/disconnect
+  Hooks.on("updateUser", () => render());                          // presence: a player changed scene (viewedScene)
   Hooks.on("mobile-command.pendingCast", () => render());          // a phone announced an AoE cast
   Hooks.on("mobile-command.pendingCastResolved", () => render());  // placed or dismissed
   Hooks.on("mobile-command.tvManualChanged", () => render());      // keep the manual button in sync (keybinding toggles too)

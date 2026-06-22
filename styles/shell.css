@@ -692,7 +692,10 @@ body.mc-phone .roll-configuration fieldset {
 }
 .mc-dpad-btn:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
 .mc-dpad-blank { aspect-ratio: 1 / 1; }
-.mc-move-note { text-align: center; color: var(--mc-muted); font-size: 13px; min-height: 1.2em; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Movement readout sits ABOVE the D-pad (over the Up key) — bigger so it reads at a
+   glance and clears the thumb (DM 2026-06-21). Fixed min-height reserves space so an
+   empty→filled change doesn't nudge the pad. */
+.mc-move-note { text-align: center; color: var(--mc-muted); font-size: 19px; min-height: 24px; line-height: 24px; margin-bottom: 2px; font-weight: 800; font-variant-numeric: tabular-nums; }
 /* Movement budget on key moves, mirroring the canvas drag ruler: within speed =
    green, within dash (2×) = yellow, beyond / blocked = red. */
 .mc-move-note.mc-move-green { color: #5bbf6a; }
@@ -1368,6 +1371,26 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
 /* Drag grip — repositions the panel so it doesn't cover other widgets. */
 .mc-dmp-drag { display: flex; align-items: center; justify-content: center; height: 16px; margin: -4px -4px 6px; color: #8a7f63; cursor: move; touch-action: none; }
 .mc-dmp-drag:hover { color: #c8a44d; }
+/* Status row: pause toggle + per-player presence lights. */
+.mc-dmp-status { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
+.mc-dmp-pause { flex: none; width: 32px; height: 32px; border-radius: 8px; background: #2c2733; border: 1px solid #4a4334; color: #ece5d6; cursor: pointer; }
+.mc-dmp-pause:hover { background: #36303f; }
+.mc-dmp-pause.mc-active { color: #1a1712; background: #c8a44d; border-color: #c8a44d; }
+.mc-dmp-pres-row { display: flex; flex-wrap: wrap; gap: 3px 8px; min-width: 0; }
+.mc-dmp-pres { font-size: 11px; color: #d6cfbf; display: inline-flex; align-items: center; gap: 4px; }
+.mc-dmp-pres i { font-size: 8px; }
+.mc-dmp-pres.mc-on i { color: #5fbf6a; }
+.mc-dmp-pres.mc-amber i { color: #d6a93e; }
+.mc-dmp-pres.mc-off { color: #8a8478; }
+.mc-dmp-pres.mc-off i { color: #6a6458; }
+/* Combat control strip. */
+.mc-dmp-combat { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
+.mc-dmp-turn { font-size: 12px; font-weight: 700; color: #c8a44d; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.mc-dmp-combatbtns { display: flex; gap: 6px; }
+.mc-dmp-combatbtns button { flex: 1 1 0; min-height: 34px; border-radius: 8px; cursor: pointer; gap: 4px;
+  display: flex; align-items: center; justify-content: center; font-size: 12px;
+  background: #1f2a38; border: 1px solid #2f4a6a; color: #cfe0f2; }
+.mc-dmp-combatbtns button:hover { background: #2c3d54; }
 /* Camera bar (focus party + manual TV control). */
 .mc-dmp-cam { display: flex; gap: 8px; }
 .mc-dmp-cam:not(:last-child) { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }

@@ -93,6 +93,14 @@ function onTvControl(payload) {
   if (!payload || typeof payload !== "object" || !isDisplayClient()) return; // only the shared display reacts
   if (payload.cmd === "frameParty") { tvManual = false; framePartyTokens(); }
   else if (payload.cmd === "manual") { tvManual = !!payload.on; }
+  else if (payload.cmd === "zoom" && canvas?.ready) {
+    // Zoom around the display's CURRENT centre. Not gated on manual mode — a direct
+    // DM control of the TV (DM 2026-06-21). Clamp to the canvas zoom limits.
+    const s = canvas.stage;
+    const min = CONFIG.Canvas?.minZoom ?? 0.1, max = CONFIG.Canvas?.maxZoom ?? 3;
+    const scale = Math.max(min, Math.min((s.scale?.x || 1) * (payload.factor || 1), max));
+    canvas.animatePan({ x: s.pivot.x, y: s.pivot.y, scale, duration: 250, easing: tvEase });
+  }
   else if (payload.cmd === "pan" && tvManual && canvas?.ready) {
     // dur present (e.g. entering manual) → animated glide; live drag-follow stays instant/responsive.
     try {
@@ -126,6 +134,21 @@ function setDmRelaying(on) {
 }
 function toggleTvManual() { setDmRelaying(!dmRelaying); return dmRelaying; }
 function isTvManualActive() { return dmRelaying; }
+
+// Zoom the shared display in/out around its current centre (DM 2026-06-21). factor
+// > 1 zooms in, < 1 out. Like focusPartyAll: act locally if this IS a display, and
+// always drive the display(s) over the socket. Independent of manual mode so the DM
+// can nudge the TV's zoom without taking over its pan. (game.socket.emit doesn't echo
+// to the sender, so a display client never double-applies its own broadcast.)
+function tvZoom(factor) {
+  if (isDisplayClient() && canvas?.ready) {
+    const s = canvas.stage;
+    const min = CONFIG.Canvas?.minZoom ?? 0.1, max = CONFIG.Canvas?.maxZoom ?? 3;
+    const scale = Math.max(min, Math.min((s.scale?.x || 1) * factor, max));
+    canvas.animatePan({ x: s.pivot.x, y: s.pivot.y, scale, duration: 250, easing: tvEase });
+  }
+  tvBroadcast({ cmd: "zoom", factor });
+}
 
 // --- TV margin-follow (DM 2026-06-20) ---------------------------------------
 // Keep a moving player-character token at least N grid squares from the screen
@@ -255,6 +278,7 @@ Hooks.once("ready", () => {
     focusParty: focusPartyAll,           // here + the display(s) + exit manual
     toggleTvManual,                      // DM drives the display by panning own view
     tvManualActive: isTvManualActive,
+    tvZoom,                              // zoom the display in/out (factor >1 in, <1 out) — Stream Deck via macro
     resolveExecutorId,
     isExecutor
   };

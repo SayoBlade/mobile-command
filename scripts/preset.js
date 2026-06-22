@@ -61,7 +61,18 @@ export const MIDI_CONFIG_PRESET = {
   // midi 14 dropdown: "none"|"spell"|"item"|"both"; non-strings migrate to
   // "none" on load (midi-qol.js:32313) — booleans here would flap forever.
   "consumeResource": "none",
-  "gmConsumeResource": "none"
+  "gmConsumeResource": "none",
+  // Ammunition confirmation: an ammo-consuming weapon (revolver/bow) pops midi's
+  // "use this ammunition?" dialog when the ammo is auto-selected — confirmAmmunition
+  // getter (midi-qol.js:9764-65) → forces dialog.configure=true (:9489-91), defeating
+  // our {configure:false}. It renders on the headless executor (the GM client) where
+  // the player can't answer, so the attack TIMES OUT (DM-reported revolver/bullets,
+  // 2026-06-21). The executor IS the GM, so gmConfirmAmmunition is the live flag; set
+  // the player one too. midi defaults both false, but a world can flip them — the
+  // preset must guarantee off. (The "ammo required but none on the sheet" case still
+  // warns regardless; that's a weapon-data fix, not this dialog.)
+  "confirmAmmunition": false,
+  "gmConfirmAmmunition": false
 };
 
 // playerSaveTimeout is preset-policed too, but its expected value is a module

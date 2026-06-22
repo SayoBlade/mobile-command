@@ -132,6 +132,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #suppressClick = false; // a long-press fired → swallow the trailing click so the row doesn't also act
   #moveMode = null;       // chosen travel type (walk/fly/swim/climb/burrow); null → effective default
   #movePickerOpen = false; // character card: the travel-type picker is expanded
+  #moveBudget = null;     // last D-pad move readout { text, cls } — persisted so a combat
+                          //   re-render doesn't wipe the counter (it lived only in the DOM)
   #collapsedActionGroups = new Set(); // Actions tab: accordion groups the user/use closed
   #lastCombatantId = null; // track the active combatant to detect "my turn started"
   #charGen = null;        // char-gen workspace: null | { actorId, picking, abilMethod, abil, pool, rolled, assign }
@@ -348,20 +350,24 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return actor?.type === "character" && !actor.items.some(i => i.type === "class");
   }
 
+  // The switcher rides in the char-gen header (start screen AND build workspace) so
+  // a player is never trapped on a blank/char-gen PC: the pickers below back out to
+  // this workspace, and from here Prev/Next returns to their real characters. (Bug
+  // 2026-06-21: a flagged-but-unfinished blank PC routes to the switcher-less
+  // workspace, dead-ending the switcher cycle.)
   #charGenHeaderHTML(actor, sub) {
     const img = actor.img || "icons/svg/mystery-man.svg";
     return `<header class="mc-header mc-cg-header">
       <img class="mc-portrait" src="${img}" alt="">
       <div class="mc-id"><div class="mc-name"><span class="mc-name-text">${foundry.utils.escapeHTML(actor.name)}</span></div>
         <div class="mc-cg-sub">${sub}</div></div>
-    </header>`;
+    </header>${this.#tokenSwitcherHTML()}`;
   }
 
-  // Start screen: blank PC → only Create Character (+ the switcher to move between
-  // owned PCs, some of which may already be built).
+  // Start screen: blank PC → only Create Character (the header carries the switcher
+  // to move between owned PCs, some of which may already be built).
   #charGenStartHTML(actor) {
     return this.#charGenHeaderHTML(actor, "New character")
-      + this.#tokenSwitcherHTML()
       + `<div class="mc-cg-start">
           <i class="fas fa-wand-magic-sparkles mc-cg-bigicon"></i>
           <div class="mc-cg-blurb">This character is blank. Build it together at the table.</div>
@@ -1267,6 +1273,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const next = subs[(i + dir + subs.length) % subs.length];
     if (next.tokenId) { this.#subjectId = next.tokenId; this.#subjectActorId = null; }
     else { this.#subjectActorId = next.actorId; this.#subjectId = null; }
+    this.#moveBudget = null; // the readout was for the previous subject's token
     this.#abandonAction(); // leave any open picker clean when switching subject
     this.render();
   }
@@ -1831,13 +1838,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </button>`;
     };
     const blank = `<span class="mc-dpad-blank"></span>`;
+    // Render the last move readout from #moveBudget (not blank): a combat re-render
+    // (frequent — every updateCombat/updateCombatant) would otherwise reset the note
+    // to empty right after #move set it, so the counter "vanished" mid-turn.
+    const nb = this.#moveBudget;
+    // Readout ABOVE the pad (over the Up key), not below: under the down row it sat
+    // right where the thumb rests during a move, so the DM couldn't see it (2026-06-21).
     return `
+      <div class="${nb?.cls ?? "mc-move-note"}" data-role="move-note">${nb ? foundry.utils.escapeHTML(nb.text) : ""}</div>
       <div class="mc-dpad">
         ${cell(-1, -1)}${cell(0, -1)}${cell(1, -1)}
         ${cell(-1, 0)}${blank}${cell(1, 0)}
         ${cell(-1, 1)}${cell(0, 1)}${cell(1, 1)}
-      </div>
-      <div class="mc-move-note" data-role="move-note"></div>`;
+      </div>`;
   }
 
   // B7 stat editor: roomy row under the header when editing HP/Temp. On-screen
@@ -2070,8 +2083,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #turnHudHTML() {
     const combat = game.combat;
     if (!combat?.started) return "";
+    // "Your turn" = the current combatant is one of MINE (#myCombatants handles both
+    // token-linked NPC copies and actor-linked PC combatants with a null tokenId — a
+    // raw token compare disabled End turn for the latter, DM 2026-06-21).
     const cur = combat.combatant;
-    const isMyTurn = !!cur?.actor && cur.actor.id === this.actor?.id;
+    const isMyTurn = !!cur && this.#myCombatants(combat).some(c => c.id === cur.id);
     const label = isMyTurn ? "Your turn"
       : `Up: ${foundry.utils.escapeHTML(cur?.name ?? "—")}`;
     return `<div class="mc-turnhud ${isMyTurn ? "mc-myturn" : ""}">
@@ -2084,10 +2100,27 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // (combat exists, they're a combatant, initiative not yet rolled) surface a
   // prominent "Roll initiative" prompt. This covers the pre-start roll phase —
   // the Turn HUD above only appears once combat has *started* (DM 2026-06-20).
+  // The combatant(s) for the CURRENT subject. An NPC actor with several tokens in the
+  // encounter shares ONE base actor id, so matching by actor id alone returned every
+  // copy — the GM picked one token and got them all rolling/prompting (DM 2026-06-21:
+  // "2 NPCs roll when I select one"). But PC combatants are often ACTOR-linked with a
+  // null tokenId, so a pure token match wrongly EXCLUDED the player (live: Belnor's
+  // combatant has tokenId=null → End turn disabled + initiative re-spawned a dupe,
+  // 2026-06-21). So: a token-linked combatant matches only its own token (precise for
+  // multi-token NPCs); an actor-linked one (null tokenId) matches by actor.
+  #myCombatants(combat = game.combat) {
+    if (!combat) return [];
+    const tokenId = this.originTokenId;
+    const actorId = this.actor?.id;
+    return combat.combatants.filter(c =>
+      c.tokenId == null ? c.actor?.id === actorId : (tokenId && c.tokenId === tokenId)
+    );
+  }
+
   #initPromptHTML() {
     const combat = game.combat;
     if (!combat) return "";
-    const me = combat.combatants?.find(c => c.actor?.id === this.actor?.id);
+    const me = this.#myCombatants(combat)[0];
     if (!me || me.initiative != null) return ""; // not in this combat, or already rolled
     return `<div class="mc-turnhud mc-myturn mc-init-prompt">
       <span class="mc-turn-label"><i class="fas fa-dice-d20" style="margin-right:6px"></i>Roll initiative</span>
@@ -2107,12 +2140,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       return;
     }
     try {
-      // Roll the actor's EXISTING combatant(s). Calling actor.rollInitiativeDialog()
-      // on a canvas-off phone can ADD a second, token-based combatant alongside the
-      // one already in the tracker → duplicate combatant (one named for the actor, one
-      // for the token) and a double initiative roll. Roll the existing ids instead;
-      // only fall back to the dialog if the actor truly isn't in this combat yet.
-      const mine = game.combat.combatants.filter(c => c.actor?.id === actor.id).map(c => c.id);
+      // Roll the EXISTING combatant for THIS subject token. Calling
+      // actor.rollInitiativeDialog() on a canvas-off phone can ADD a second,
+      // token-based combatant alongside the one already in the tracker → duplicate
+      // combatant and a double roll. And matching by actor id alone rolled every
+      // token of a multi-token NPC (the GM picks one, several roll) — #myCombatants
+      // scopes to the subject token. Only fall back to the dialog if this subject
+      // truly isn't in the encounter yet.
+      const mine = this.#myCombatants().map(c => c.id);
       if (mine.length) await game.combat.rollInitiative(mine);
       else await actor.rollInitiativeDialog();
     } catch (e) {
@@ -2613,6 +2648,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const cur = game.combat?.combatant?.actor?.id ?? null;
     if (cur === this.#lastCombatantId) return;
     this.#lastCombatantId = cur;
+    this.#moveBudget = null; // the executor resets a token's ft when its turn begins → clear the stale readout
     if (!cur || cur === this.actor?.id) this.#collapsedActionGroups.clear();
   }
 
@@ -3176,15 +3212,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   async #move(dx, dy) {
-    const note = this.element?.querySelector('[data-role="move-note"]');
     const res = await rpc.moveToken({ tokenId: this.originTokenId, dxGrid: dx, dyGrid: dy });
-    if (!note) return;
     // Blocked → red reason. In combat on your turn → "used / speed ft" coloured
     // green (within speed) / yellow (within dash) / red (beyond), like the drag
-    // ruler. Out of combat → blank (no turn budget to show).
-    if (!res?.ok) { note.textContent = res?.reason ?? "can't move there"; note.className = "mc-move-note mc-move-red"; return; }
-    if (res.speed) { note.textContent = `${res.used} / ${res.speed} ft`; note.className = `mc-move-note mc-move-${res.color}`; }
-    else { note.textContent = ""; note.className = "mc-move-note"; }
+    // ruler. Out of combat → blank (no turn budget to show). Persist it in
+    // #moveBudget so the next combat re-render keeps the readout (see #moveHTML).
+    if (!res?.ok) this.#moveBudget = { text: res?.reason ?? "can't move there", cls: "mc-move-note mc-move-red" };
+    else if (res.speed) this.#moveBudget = { text: `${res.used} / ${res.speed} ft`, cls: `mc-move-note mc-move-${res.color}` };
+    else this.#moveBudget = null;
+    // Update the note in place so the readout is snappy (no full re-render needed).
+    const note = this.element?.querySelector('[data-role="move-note"]');
+    if (note) { note.textContent = this.#moveBudget?.text ?? ""; note.className = this.#moveBudget?.cls ?? "mc-move-note"; }
   }
 
   async #endTurn() {
