@@ -3,7 +3,8 @@
 
 /* TV clean-canvas (body.mc-clean): hide ALL Foundry UI so the shared display shows
    only the canvas — no sidebar, hotbar, controls, nav, players, logo, popups, menus,
-   notifications, tooltips. The canvas (#board) is explicitly kept. Toggle with the
+   notifications, tooltips. The canvas (#board) AND the GAME PAUSED overlay (#pause)
+   are kept — players at the table should see when the DM pauses. Toggle with the
    "Toggle clean display" keybinding (default: `) to reach settings. The mobile-command
    shell (#mobile-command-shell) is exempt, so a phone is unaffected. */
 body.mc-clean #ui-top, body.mc-clean #ui-left, body.mc-clean #ui-right, body.mc-clean #ui-bottom,
@@ -14,7 +15,7 @@ body.mc-clean #hotbar, body.mc-clean #action-bar, body.mc-clean #macro-list,
 body.mc-clean #players, body.mc-clean #players-active, body.mc-clean #players-inactive,
 body.mc-clean #logo, body.mc-clean #camera-views,
 body.mc-clean #notifications, body.mc-clean #chat-notifications,
-body.mc-clean #pause, body.mc-clean #fps, body.mc-clean #tooltip, body.mc-clean #context-menu,
+body.mc-clean #fps, body.mc-clean #tooltip, body.mc-clean #context-menu,
 /* Third-party HUD overlays that aren't .application windows (Action Pack Enhanced
    renders #ape-app, a bare div appended to the UI — so the .app/.application rule
    and the render-hook HUD-killer both miss it). */
