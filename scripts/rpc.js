@@ -775,14 +775,19 @@ async function handleListLoot({ forActorUuid } = {}) {
   const piles = [];
   for (const t of (canvas.tokens?.placeables ?? [])) {
     try {
-      if (!API.isValidItemPile(t) || !API.isItemPileLootable(t) || API.isItemPileEmpty(t)) continue;
-      if (API.isItemPileMerchant?.(t)) continue; // merchants/vaults aren't simple loot
+      if (!API.isValidItemPile(t)) continue;
+      const merchant = API.isItemPileMerchant?.(t) ?? false;
+      const lootable = API.isItemPileLootable?.(t) ?? false;
+      if (!merchant && !lootable) continue;              // only loot piles or merchant shops
+      if (merchant && API.isItemPileClosed?.(t)) continue; // a closed shop can't be browsed
+      if (!merchant && API.isItemPileEmpty(t)) continue;   // hide empty loot; a shop stays (you can still sell to it)
       let distance = null;
       try { distance = myTok ? Math.round(canvas.grid.measurePath([myTok.center, t.center]).distance) : null; } catch (e) { /* optional */ }
       piles.push({
         uuid: t.document.uuid,
         name: t.name,
         img: t.document.texture?.src || t.actor?.img || null,
+        kind: merchant ? "merchant" : "loot",
         itemCount: (API.getActorItems(t) ?? []).length,
         distance
       });

@@ -1244,19 +1244,25 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // dialog-lift surfaces it). null = not checked yet, [] = checked, none nearby.
   #lootHTML() {
     const loot = this.#nearbyLoot;
-    const rows = (loot ?? []).map(p => `
-      <button class="mc-loot-row" data-action="loot-open" data-uuid="${p.uuid}">
-        <img class="mc-loot-img" src="${p.img || "icons/svg/chest.svg"}" alt="">
-        <span class="mc-loot-name">${foundry.utils.escapeHTML(p.name)}</span>
-        <span class="mc-loot-meta">${p.itemCount} item${p.itemCount === 1 ? "" : "s"}${p.distance != null ? ` · ${p.distance} ft` : ""}</span>
-      </button>`).join("");
+    const rows = (loot ?? []).map(p => {
+      const merchant = p.kind === "merchant";
+      const dist = p.distance != null ? ` · ${p.distance} ft` : "";
+      const meta = merchant ? `Shop${dist}` : `${p.itemCount} item${p.itemCount === 1 ? "" : "s"}${dist}`;
+      const fallbackImg = merchant ? "icons/svg/coins.svg" : "icons/svg/chest.svg";
+      return `
+      <button class="mc-loot-row${merchant ? " mc-loot-shop" : ""}" data-action="loot-open" data-uuid="${p.uuid}">
+        <img class="mc-loot-img" src="${p.img || fallbackImg}" alt="">
+        <span class="mc-loot-name">${merchant ? "🛒 " : ""}${foundry.utils.escapeHTML(p.name)}</span>
+        <span class="mc-loot-meta">${meta}</span>
+      </button>`;
+    }).join("");
     const body = loot == null ? ""
       : loot.length ? `<div class="mc-loot-list">${rows}</div>`
-      : `<div class="mc-loot-empty">No loot nearby.</div>`;
+      : `<div class="mc-loot-empty">No loot or shops nearby.</div>`;
     return `
       <section class="mc-loot">
         <button class="mc-loot-check" data-action="loot-refresh" ${this.#lootBusy ? "disabled" : ""}>
-          ${this.#lootBusy ? "Checking…" : "🎒 Check for loot nearby"}
+          ${this.#lootBusy ? "Checking…" : "🎒 Check for loot & shops nearby"}
         </button>
         ${body}
       </section>`;
