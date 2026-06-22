@@ -917,6 +917,30 @@ body.mc-phone .roll-configuration fieldset {
 .mc-loot-meta { flex: 0 0 auto; font-size: 12px; color: var(--mc-muted); }
 .mc-loot-empty { font-size: 13px; color: var(--mc-muted); padding: 4px 2px; }
 
+/* Shared party journal (Journal tab). */
+.mc-journal { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
+.mc-jn-compose { display: flex; flex-direction: column; gap: 8px; }
+.mc-jn-input {
+  width: 100%; box-sizing: border-box; resize: vertical; min-height: 64px;
+  padding: 10px; border-radius: 10px; background: var(--mc-panel); border: 1px solid var(--mc-edge);
+  color: var(--mc-ink); font-family: inherit; font-size: 15px; line-height: 1.4;
+}
+.mc-jn-input:focus { outline: none; border-color: var(--mc-gold); }
+.mc-jn-post {
+  align-self: flex-end; min-height: 44px; padding: 0 20px; border-radius: 10px;
+  background: var(--mc-primary); border: 1px solid var(--mc-primary-edge);
+  color: var(--mc-ink); font-size: 15px; font-weight: 600;
+}
+.mc-jn-post:active { background: var(--mc-primary-active); }
+.mc-jn-post[disabled] { opacity: 0.55; }
+.mc-jn-list { display: flex; flex-direction: column; gap: 10px; }
+.mc-jn-note { background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px; padding: 10px 12px; }
+.mc-jn-head { font-size: 12px; font-weight: 600; color: var(--mc-gold); margin-bottom: 4px; }
+.mc-jn-body { font-size: 14px; line-height: 1.45; color: var(--mc-ink); word-break: break-word; }
+.mc-jn-body p { margin: 0 0 6px; }
+.mc-jn-body p:last-child { margin-bottom: 0; }
+.mc-jn-empty { font-size: 13px; color: var(--mc-muted); padding: 8px 2px; text-align: center; }
+
 /* Details tab. */
 .mc-detail-sec { margin-bottom: 16px; }
 .mc-detail-row { display: flex; gap: 8px; padding: 9px 2px; border-bottom: 1px solid #23252e; }

@@ -138,6 +138,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #collapsedActionGroups = new Set(); // Actions tab: accordion groups the user/use closed
   #nearbyLoot = null;     // Item Piles loot: null (not checked) | [] (none) | [{uuid,name,img,itemCount,distance}]
   #lootBusy = false;      // a listLoot round-trip is in flight
+  #journalDraft = "";     // party-journal composer text, kept across re-renders so typing isn't wiped
+  #journalBusy = false;   // a partyJournalAdd round-trip is in flight
   #lastCombatantId = null; // track the active combatant to detect "my turn started"
   #charGen = null;        // char-gen workspace: null | { actorId, picking, abilMethod, abil, pool, rolled, assign }
                           //   picking: null|"race"|"background"|"class"|"abilities"
@@ -1184,9 +1186,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#tab === "details") return this.#detailsHTML(actor);
     if (this.#tab === "spells") return this.#spellsHTML(actor);
     if (this.#tab === "equipment") return this.#equipmentHTML(actor);
-    if (this.#tab === "journal") {
-      return `<div class="mc-placeholder">The shared journal composer arrives in Phase 4.</div>`;
-    }
+    if (this.#tab === "journal") return this.#journalHTML();
     return this.#exploreHTML(actor); // "Explore" tab: move pad + the sheet
   }
 
@@ -1287,6 +1287,48 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const res = await rpc.openLoot({ pileUuid, forActorUuid: this.actor?.uuid });
     if (!res?.ok) ui.notifications.warn(`Loot: ${res?.reason ?? "couldn't open that loot"}`);
     // success → Item Piles renders its window on this client; the dialog-lift surfaces it.
+  }
+
+  // Shared party journal (MVP goal, replacing the Phase-4 placeholder): read the
+  // module-owned "Party Journal" entry's notes (newest first) + a composer. Players
+  // OBSERVE the entry (read direct) but can't author on it, so posting routes through
+  // the executor, which creates the page — and the entry itself on first use.
+  #partyJournalEntry() {
+    return game.journal?.find(j => j.getFlag(MODULE_ID, "partyJournal")) ?? null;
+  }
+  #journalHTML() {
+    const entry = this.#partyJournalEntry();
+    const pages = entry ? entry.pages.contents.slice() : [];
+    pages.sort((a, b) => (b.getFlag(MODULE_ID, "ts") ?? 0) - (a.getFlag(MODULE_ID, "ts") ?? 0));
+    const notes = pages.map(p => `
+      <div class="mc-jn-note">
+        <div class="mc-jn-head">${foundry.utils.escapeHTML(p.name)}</div>
+        <div class="mc-jn-body">${p.text?.content ?? ""}</div>
+      </div>`).join("");
+    const list = pages.length ? notes : `<div class="mc-jn-empty">No notes yet — start the party log.</div>`;
+    return `
+      <section class="mc-journal">
+        <div class="mc-jn-compose">
+          <textarea class="mc-jn-input" rows="3" placeholder="Add a note to the party journal…" ${this.#journalBusy ? "disabled" : ""}>${foundry.utils.escapeHTML(this.#journalDraft)}</textarea>
+          <button class="mc-jn-post" data-action="journal-post" ${this.#journalBusy ? "disabled" : ""}>${this.#journalBusy ? "Posting…" : "Post note"}</button>
+        </div>
+        <div class="mc-jn-list">${list}</div>
+      </section>`;
+  }
+  async #postJournalNote() {
+    const live = this.element?.querySelector(".mc-jn-input")?.value;
+    const text = String(live ?? this.#journalDraft).trim();
+    if (!text || this.#journalBusy) return;
+    this.#journalBusy = true; this.render();
+    try {
+      const res = await rpc.partyJournalAdd({ text, authorName: this.actor?.name ?? game.user?.name });
+      if (res?.ok) this.#journalDraft = "";
+      else ui.notifications.warn(`Journal: ${res?.reason ?? "couldn't post that note"}`);
+    } catch (e) {
+      ui.notifications.warn("Journal: couldn't reach the DM client.");
+    } finally {
+      this.#journalBusy = false; this.render();
+    }
   }
 
   // Active-scene tokens the user owns (PC + summons/familiars/wild shape).
@@ -3198,6 +3240,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#refreshLoot();
       case "loot-open":
         return this.#openLoot(el.dataset.uuid);
+      case "journal-post":
+        return this.#postJournalNote();
       case "cond-toggle":
         return actor?.toggleStatusEffect?.(el.dataset.status);
       case "break-conc":
@@ -3378,6 +3422,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ["pointerup", this.#cancelLongPress], ["pointercancel", this.#cancelLongPress],
       ["pointerleave", this.#cancelLongPress], ["contextmenu", this.#onContextMenu],
       ["change", this.#onChange], // currency inputs save on blur/commit
+      ["input", this.#onInput], // keep the journal draft across re-renders without re-rendering
       ["focusin", this.#onFocusIn] // select a coin's value on focus → typing replaces it
     ];
     for (const [type, fn] of pairs) { root.removeEventListener(type, fn); root.addEventListener(type, fn); }
@@ -3825,6 +3870,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   // Currency tap-to-edit: write the new coin amount on blur/Enter. A non-negative
   // integer; the updateActor hook re-renders the row with the saved value.
+  // Live keystrokes in the party-journal composer → stash the draft so the shell's
+  // frequent re-renders (HP/condition changes) don't wipe what the player is typing.
+  // No re-render here — that would steal focus mid-word.
+  #onInput = (ev) => {
+    const t = ev.target;
+    if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-jn-input")) {
+      this.#journalDraft = t.value;
+    }
+  };
+
   #onChange = (ev) => {
     const inp = ev.target;
     // Char-gen name/biography box: commit the field to the actor on blur. data-bio is
@@ -4028,6 +4083,11 @@ export function registerShellHooks() {
   // (renderApplication) so no prompt (reactions, config) hides under the shell.
   Hooks.on("renderApplicationV2", liftDialogAboveShell);
   Hooks.on("renderApplication", liftDialogAboveShell);
+  // Party journal: re-render so a freshly-posted note shows up — for the poster AND
+  // for everyone else watching the Journal tab live. Cheap + rare; harmless off-tab.
+  Hooks.on("createJournalEntryPage", (page) => {
+    if (page?.parent?.getFlag?.(MODULE_ID, "partyJournal")) shellInstance?.render();
+  });
   // Match the controlled actor by id, not object identity: a GM-initiated change
   // can hand us a different document instance (e.g. a synthetic/token actor) than
   // the one our getter returns, and a `===` check would silently drop the render

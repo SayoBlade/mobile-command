@@ -59,6 +59,7 @@ export function initSocket() {
   socket.register("watchdogPing", handleWatchdogPing);
   socket.register("listLoot", handleListLoot);
   socket.register("openLoot", handleOpenLoot);
+  socket.register("partyJournalAdd", handlePartyJournalAdd);
   socket.register("heartbeat", handleHeartbeat);
   console.log(`${MODULE_ID} | socket registered`);
   return socket;
@@ -813,6 +814,41 @@ async function handleOpenLoot({ pileUuid, forActorUuid, requesterId } = {}) {
   }
 }
 
+// --- shared party journal ----------------------------------------------------
+// The phone observes the entry and reads it directly, but players can't author on an
+// entry they only observe — so the executor creates each note's page here, and the
+// entry itself (default OBSERVER so every player can read it) on first use. Flagged
+// so the phone can find it. (Stated MVP goal — write to a shared party journal.)
+async function handlePartyJournalAdd({ text, authorName } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const clean = String(text ?? "").trim();
+  if (!clean) return { ok: false, reason: "empty note" };
+  try {
+    let entry = game.journal.find(j => j.getFlag(MODULE_ID, "partyJournal"));
+    if (!entry) {
+      entry = await JournalEntry.create({
+        name: "Party Journal",
+        ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER },
+        flags: { [MODULE_ID]: { partyJournal: true } }
+      });
+    }
+    if (!entry) return { ok: false, reason: "could not open the party journal" };
+    const ts = Date.now();
+    const author = String(authorName ?? "Someone").slice(0, 60);
+    await entry.createEmbeddedDocuments("JournalEntryPage", [{
+      name: `${author} · ${new Date(ts).toLocaleString()}`,
+      type: "text",
+      title: { show: true, level: 3 },
+      text: { content: `<p>${foundry.utils.escapeHTML(clean)}</p>`, format: 1 },
+      flags: { [MODULE_ID]: { ts, author } }
+    }]);
+    return { ok: true };
+  } catch (e) {
+    console.warn(`${MODULE_ID} | partyJournalAdd failed`, e);
+    return { ok: false, reason: e?.message ?? "could not post the note" };
+  }
+}
+
 // --- phone/DM-facing API (any client) ---------------------------------------
 
 function toExecutor(handler, payload) {
@@ -827,7 +863,8 @@ function toExecutor(handler, payload) {
       attackPreview: handleAttackPreview,
       measure: handleMeasure, targetsList: handleTargetsList,
       previewTargets: handlePreviewTargets, endTurn: handleEndTurn, announceCast: handleAnnounceCast,
-      listLoot: handleListLoot, openLoot: handleOpenLoot
+      listLoot: handleListLoot, openLoot: handleOpenLoot,
+      partyJournalAdd: handlePartyJournalAdd
     };
     return handlers[handler](payload);
   }
@@ -850,6 +887,7 @@ export const api = {
   announceCast: (payload) => toExecutor("announceCast", payload),
   listLoot: (payload = {}) => toExecutor("listLoot", payload),
   openLoot: (payload = {}) => toExecutor("openLoot", payload),
+  partyJournalAdd: (payload = {}) => toExecutor("partyJournalAdd", payload),
   assignTargets: (userId, tokenUuids) =>
     socket
       ? socket.executeAsUser("assignTargets", userId, { tokenUuids, fromName: game.user.name })
