@@ -245,7 +245,7 @@ Hooks.once("ready", () => {
   // TV (display role): canvas-only clean view. mc-display marks the role; mc-clean
   // hides the chrome (toggle with the keybinding to reach settings). Runtime-only —
   // disabling the module just stops adding these classes, so it auto-reverts.
-  if (isDisplayClient()) { document.body.classList.add("mc-display", "mc-clean"); showCleanHint(); }
+  if (isDisplayClient()) { document.body.classList.add("mc-display", "mc-clean"); showCleanHint(); warnDisplayGM(); }
 
   // TV camera remote control: receive DM commands (display clients act), and on the
   // DM side mirror pan/zoom to the display while manual mode is on (throttled — the
@@ -315,6 +315,21 @@ function showCleanHint() {
 function hideCleanHint() {
   clearTimeout(showCleanHint._timer);
   document.getElementById("mc-clean-hint")?.remove();
+}
+
+// A shared display logged into a GM account shows GM vision (through walls, hidden
+// tokens, no fog) — the players' POV is lost. mobile-command can't change the login,
+// but it CAN make the mistake obvious instead of silent (DM/Sqyre hit exactly this:
+// the TV ran on "Michael [GM]"). Persistent, dismissible banner; GM display only.
+function warnDisplayGM() {
+  if (!isDisplayClient() || !game.user.isGM) return;
+  console.warn(`${MODULE_ID} | display is a GM account — it shows GM vision, not the players' view. Use a non-GM account that owns the party.`);
+  if (document.getElementById("mc-display-gm-warn")) return;
+  const warn = document.createElement("div");
+  warn.id = "mc-display-gm-warn";
+  warn.innerHTML = `⚠ This display is on a <b>GM account</b>, so it shows GM vision — through walls, hidden tokens, no fog.<br>Log the screen into a <b>non-GM player account that owns the party</b> to show the players' view. <span class="mc-warn-x">tap to dismiss</span>`;
+  warn.addEventListener("click", () => warn.remove());
+  document.body.appendChild(warn);
 }
 
 function enableSafeAreaInsets() {

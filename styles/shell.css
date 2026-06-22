@@ -43,6 +43,17 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 #mc-clean-hint.mc-fade { opacity: 0; }
 #mc-clean-hint kbd { padding: 1px 7px; margin: 0 2px; border: 1px solid #5a5f6b; border-radius: 4px; background: #2a2d36; font-family: monospace; }
 
+/* GM-account-on-the-display warning (persistent, dismissible). */
+#mc-display-gm-warn {
+  position: fixed; left: 50%; top: 18px; transform: translateX(-50%);
+  z-index: 100001; max-width: min(640px, 92vw); padding: 12px 18px; border-radius: 12px; cursor: pointer;
+  background: rgba(60, 42, 10, 0.97); color: #ffe9c2; border: 1px solid #c8a44d;
+  font-family: "Signika", sans-serif; font-size: 15px; line-height: 1.4; text-align: center;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.6);
+}
+#mc-display-gm-warn b { color: #ffd479; }
+#mc-display-gm-warn .mc-warn-x { display: block; margin-top: 6px; font-size: 12px; opacity: 0.7; }
+
 #mobile-command-shell {
   position: fixed;
   inset: 0;
