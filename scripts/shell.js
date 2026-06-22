@@ -2062,8 +2062,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // CONFIG.statusEffects, active ones highlighted; tap toggles via the
   // document-level actor.toggleStatusEffect (no canvas needed; dnd5e applies
   // riders like unconscious→prone). Concentration is special — shown as a
-  // break button, never a manual add. Exhaustion is on/off here; level
-  // stepping is a logged follow-up.
+  // break button, never a manual add. Exhaustion is leveled (0–6) → a −/value/+
+  // stepper (below), not an on/off toggle.
   #conditionPaletteHTML(actor) {
     const active = actor.statuses;
     const conc = CONFIG.specialStatusEffects?.CONCENTRATING;
