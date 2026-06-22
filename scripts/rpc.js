@@ -557,6 +557,13 @@ async function handleSetMovementAction({ tokenId, action, requesterId }) {
 async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenUuids = [], requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
+  // DISABLED 2026-06-22 (defends against a not-yet-updated phone still calling this):
+  // reading AC5E via activity.rollAttack({create:false}) + a dnd5e.preRollAttackV2
+  // abort does NOT abort a MIDI-wrapped attack — it rolled a REAL second attack live
+  // (DM/Sqyre) + AutoAnimations errored on the phantom roll. NEVER roll here until a
+  // non-rolling AC5E read exists (§14 path #2/#3). Report "normal" → no hint, no roll.
+  return { ok: true, mode: "normal", reasons: [], disabled: true };
+  /* eslint-disable no-unreachable */
   if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
 
   const tokenDoc = game.scenes.active.tokens.get(attackerTokenId);
