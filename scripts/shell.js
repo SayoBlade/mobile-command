@@ -2526,6 +2526,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Summons (#12): route to the DM to place the summoned token(s) rather than
     // auto-resolving silently — the phone has no canvas to drop the token on.
     if (activity.type === "summon") return this.#announceCast(activity, "summon");
+    // GENERIC out-of-RESOURCES safeguard (not ammo-specific): if this activity spends a
+    // limited resource (item uses, activity uses) that's depleted, midi can't auto-
+    // consume on the executor and FORCES a "Consume?" dialog THERE that the phone can't
+    // reach → the action hangs (DM/Sqyre: an empty revolver — its item uses, a resource).
+    // Warn instead of firing into that dead end.
+    const short = (activity.consumption?.targets ?? []).some((t) => {
+      const need = Number(t.value) || 1;
+      const uses = t.type === "itemUses" ? activity.item?.system?.uses
+        : t.type === "activityUses" ? activity.uses : null;
+      return uses && (uses.max ?? 0) > 0 && (uses.value ?? 0) < need;
+    });
+    if (short) {
+      return ui.notifications.warn(`${activity.item?.name ?? "This"} is out of resources — recover it before using it again.`);
+    }
     this.#clearPreview(); // drop any stale preview from a prior action
     const affects = activity.target?.affects ?? {};
     // "selfTarget" = no enemy target needed → skip the picker. Attacks/saves/
@@ -2554,6 +2568,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets, rangeFt, rangeLabel,
       slotOptions, slot: slotOptions[0]?.id ?? null, // default = lowest available slot ≥ base level
       hasAttack: activity.type === "attack",
+      // Whether this activity has any damage to roll — the safeguard against the phone
+      // showing "Roll damage" for an activity midi never parks a damage step for (e.g.
+      // Reload: a utility activity with no damage). DM/Sqyre 2026-06-23.
+      hasDamage: (activity.damage?.parts?.length ?? 0) > 0,
       // Auto-resolve on the executor for anything that ISN'T a player-rolled
       // attack/damage/save/heal (cast/utility/summon/check/enchant/…): those have
       // no damage to park OR spawn an untrackable linked workflow (cast), so the
@@ -2740,8 +2758,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Only in combat: out of combat you often fire several things in a row, and
     // the drawer snapping shut each time is just friction (DM, 2026-06-18).
     if (s.group && this.#inCombat()) this.#collapsedActionGroups.add(s.group);
-    if (!res.needsDamage) {
-      // Resolved without a damage step (a miss, or nothing to roll).
+    if (!res.needsDamage || !s.hasDamage) {
+      // Resolved without a damage step: a miss, nothing to roll, OR — the safeguard —
+      // the executor reported a damage step for an activity that has NO damage to roll
+      // (e.g. Reload). Never prompt "Roll damage" when midi has nothing to ask for; if
+      // a workflow was parked anyway, cancel it so it doesn't orphan on the executor.
+      if (res.needsDamage && res.requestId) { try { await rpc.useActivityCancel({ requestId: res.requestId }); } catch (e) {} }
       this.#actionState = null; this.render();
       if (res.reason) ui.notifications.info(`${s.name}: ${res.reason}`);
       return;
@@ -2866,8 +2888,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#favEditing = !this.#favEditing; return this.render();
       case "fav-toggle":
         return this.#toggleFavorite(el.dataset.favid);
-      case "fav-act":
+      case "fav-act": {
+        // A favorite carries only ONE activity (the "midi action"), so a multi-activity
+        // item (e.g. a revolver: Attack + Reload) was unreachable except its favorited
+        // activity. If the item has other usable activities, open its activity picker
+        // (like the Equipment tab) so all of them — incl. Reload — are reachable.
+        const favAct = fromUuidSync(el.dataset.uuid, { relative: this.actor });
+        const favItem = favAct?.item;
+        if (favItem && this.#itemUsableActivities(favItem).length > 1) {
+          this.#tab = "equipment"; this.#itemPickerId = favItem.id; return this.render();
+        }
         return this.#pickAction(el.dataset.uuid);
+      }
       case "toggle-prep": {
         const item = actor?.items.get(el.dataset.itemId);
         if (!item) return;
