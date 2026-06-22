@@ -97,6 +97,7 @@ function statusHTML() {
   const esc = foundry.utils.escapeHTML;
   const paused = game.paused;
   const pauseBtn = `<button class="mc-dmp-pause ${paused ? "mc-active" : ""}" data-action="pause" title="${paused ? "Resume — players' actions allowed" : "Pause — freeze players' actions"}"><i class="fas fa-${paused ? "play" : "pause"}"></i></button>`;
+  const showBtn = `<button class="mc-dmp-pause" data-action="show-players" title="Show the selected token's image on players' phones"><i class="fas fa-image"></i></button>`;
   const activeScene = game.scenes?.active?.id;
   const players = game.users.filter(u => !u.isGM);
   const chips = players.map(u => {
@@ -104,7 +105,7 @@ function statusHTML() {
     const state = !u.active ? "Offline" : (u.viewedScene === activeScene ? "on the active scene" : "connected — on a different scene");
     return `<span class="mc-dmp-pres ${cls}" title="${esc(playerLabel(u))} — ${state}"><i class="fas fa-circle"></i> ${esc(playerLabel(u))}</span>`;
   }).join("") || `<span class="mc-dmp-pres mc-off">No players</span>`;
-  return `<div class="mc-dmp-status">${pauseBtn}<div class="mc-dmp-pres-row">${chips}</div></div>`;
+  return `<div class="mc-dmp-status">${pauseBtn}${showBtn}<div class="mc-dmp-pres-row">${chips}</div></div>`;
 }
 
 /** Combat control strip — run the encounter from the panel. Pre-start: Roll all +
@@ -190,6 +191,16 @@ async function onClick(ev) {
   if (ev.target.closest('[data-action="pause"]')) {
     game.togglePause(!game.paused, { broadcast: true });
     return render();
+  }
+  if (ev.target.closest('[data-action="show-players"]')) {
+    const tok = canvas.tokens?.controlled?.[0];
+    const img = tok?.document?.texture?.src || tok?.actor?.img;
+    if (!img) { ui.notifications.warn("Select a token — its image will show on players' phones."); return; }
+    // The shell hides native windows, so phones pick this up via shell.js's own
+    // `shareImage` socket listener (mirrors it into the full-screen overlay).
+    game.socket.emit("shareImage", { image: img, title: tok.document?.name || tok.actor?.name || "", showTitle: true });
+    ui.notifications.info("Shown on players' phones.");
+    return;
   }
   const combat = ev.target.closest("[data-combat]");
   if (combat) {

@@ -1455,6 +1455,10 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
   color: var(--mc-muted); font-size: 14px; font-weight: 600;
 }
 .mc-imgpop-tab.mc-on { background: var(--mc-primary); border-color: var(--mc-primary-edge); color: var(--mc-ink); }
+/* DM "Show Players" image routed onto the phone — above the portrait/token popup. */
+.mc-imgpop-shared { z-index: 110; }
+.mc-imgpop-title { color: #fff; font-size: 16px; font-weight: 600; text-align: center; max-width: 92%;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .85); }
 
 /* §11 "Targets set by DM" banner in the target picker. */
 .mc-assigned {

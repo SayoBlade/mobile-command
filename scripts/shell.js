@@ -114,6 +114,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #showLevels = false;  // header: class/level/XP panel (Lvl button) open
   #levelUp = null;      // level-up flow from the Lvl panel: null | { adding, options }
   #imagePopup = null;   // full-screen image popup: null | "profile" | "token"
+  #sharedImage = null;  // DM "Show Players" image routed onto the phone: null | { src, title }
   #assignedTargets = []; // §11: token uuids the DM assigned to this player
   #assignedBy = null;    // DM/user name who assigned them (for the picker banner)
   #subjectId = null;     // §7.1 token switcher: active-scene token id the shell controls
@@ -337,6 +338,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ${this.#tabButton("journal", "fa-feather", "Journal")}
       </nav>
       ${this.#imagePopupHTML(actor)}
+      ${this.#sharedImageHTML()}
       ${this.#savePromptHTML()}`;
   }
 
@@ -1140,6 +1142,24 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <img class="mc-imgpop-img" src="${src}" alt="">
       <div class="mc-imgpop-toggle">${tab("profile", "Portrait")}${tab("token", "Token")}</div>
     </div>`;
+  }
+
+  // DM "Show Players" image, routed onto the phone (the shell hides native windows,
+  // so Foundry's own ImagePopout never reaches a phone). Full-screen, tap ✕ to close.
+  #sharedImageHTML() {
+    const s = this.#sharedImage;
+    if (!s?.src) return "";
+    return `<div class="mc-imgpop mc-imgpop-shared">
+      <button class="mc-imgpop-x" data-action="shared-img-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
+      <img class="mc-imgpop-img" src="${s.src}" alt="">
+      ${s.title ? `<div class="mc-imgpop-title">${foundry.utils.escapeHTML(s.title)}</div>` : ""}
+    </div>`;
+  }
+  // Called from the shareImage socket relay (main.js) when the DM shares an image.
+  showSharedImage(src, title = "") {
+    if (!src) return;
+    this.#sharedImage = { src, title };
+    if (this.rendered) this.render();
   }
 
   #tabButton(id, icon, label) {
@@ -3060,6 +3080,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#imagePopup = el.dataset.which; return this.render();
       case "img-close":
         this.#imagePopup = null; return this.render();
+      case "shared-img-close":
+        this.#sharedImage = null; return this.render();
       case "cond-toggle":
         return actor?.toggleStatusEffect?.(el.dataset.status);
       case "break-conc":
@@ -3427,9 +3449,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (kind === "skill" && data.passive != null) rows.push(["Passive", `${data.passive}`]);
     const list = rows.map(([k, v]) =>
       `<div class="mc-ac-row"><span class="mc-ac-k">${k}</span><span class="mc-ac-v">${foundry.utils.escapeHTML(String(v))}</span></div>`).join("");
+    // Favorite from the check card: a skill/tool favorite is {type, id:<key>} in
+    // dnd5e's system.favorites (the favorites container already renders those types —
+    // this is the missing ADD path on the phone). detail-fav uses favType + favId.
     const card = {
       name: label, glyph: kind === "skill" ? "fa-dice-d20" : "fa-screwdriver-wrench",
-      subtitle: kind === "skill" ? "Skill" : "Tool", favId: null, isFav: false,
+      subtitle: kind === "skill" ? "Skill" : "Tool",
+      favType: kind, favId: key, isFav: this.actor?.system?.hasFavorite?.(key) ?? false,
       skillKey: kind === "skill" ? key : null, toolKey: kind === "tool" ? key : null
     };
     const ledger = `<div class="mc-ac-breakdown">${list}</div>`;
@@ -3922,6 +3948,14 @@ export function registerShellHooks() {
   Hooks.on("mobile-command.assignTargets", (uuids, from) => shellInstance?.noteAssignedTargets(uuids, from));
   // §7.4/§7.6 save/reaction prompt: the executor relays a midi save request here.
   Hooks.on("mobile-command.savePrompt", (payload) => shellInstance?.noteSavePrompt(payload));
+  // "Show Players" image → the phone. The shell hides native windows, so Foundry's
+  // ImagePopout never reaches a phone; mirror the core `shareImage` broadcast into the
+  // shell's full-screen overlay instead (respect an explicit users allowlist).
+  game.socket?.on("shareImage", (data = {}) => {
+    if (!shellInstance || !isPhoneClient()) return;
+    if (Array.isArray(data.users) && data.users.length && !data.users.includes(game.user.id)) return;
+    shellInstance.showSharedImage(data.image, data.showTitle === false ? "" : (data.title || ""));
+  });
   // Turn HUD: re-render on combat turn/round changes and combat start/stop.
   // Also expire DM-assigned targets once the player's turn ends (§11).
   const onCombat = () => {
