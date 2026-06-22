@@ -1090,6 +1090,51 @@ body.mc-theme-arcane #mobile-command-shell {
   --mc-primary: #3a2c52; --mc-primary-edge: #54407a; --mc-primary-active: #463463;
   background: radial-gradient(120% 80% at 50% -10%, #241a33 0%, #14111c 60%);
 }
+/* Animated theme backgrounds (non-default themes only — default stays flat).
+   PERFORMANCE: one pseudo-element per theme, animating ONLY transform or opacity
+   (GPU-composited, no per-frame layout/paint), a single rasterized tiled gradient,
+   no JS/particles. Honors prefers-reduced-motion (motion off → no animation). */
+@media (prefers-reduced-motion: no-preference) {
+  /* Lift real content above the overlay; scoped so the default theme is untouched. */
+  body.mc-theme-slate #mobile-command-shell > *,
+  body.mc-theme-ember #mobile-command-shell > *,
+  body.mc-theme-arcane #mobile-command-shell > * { position: relative; z-index: 1; }
+
+  body.mc-theme-slate #mobile-command-shell::after,
+  body.mc-theme-ember #mobile-command-shell::after,
+  body.mc-theme-arcane #mobile-command-shell::after {
+    content: ""; position: absolute; z-index: 0; pointer-events: none;
+    will-change: transform, opacity;
+  }
+
+  /* Slate — drifting snow: a tiled dot pattern translated exactly one tile (seamless
+     loop). Oversized inset so the translate never reveals an edge. */
+  body.mc-theme-slate #mobile-command-shell::after {
+    inset: -80px;
+    background-image: radial-gradient(rgba(210,228,248,0.40) 1.2px, transparent 1.7px);
+    background-size: 60px 60px; opacity: 0.5;
+    animation: mc-bg-snow 16s linear infinite;
+  }
+  @keyframes mc-bg-snow { from { transform: translate3d(0,0,0); } to { transform: translate3d(10px,60px,0); } }
+
+  /* Ember — minimalist warm glow breathing at the base (opacity only). */
+  body.mc-theme-ember #mobile-command-shell::after {
+    inset: 0;
+    background: radial-gradient(130% 60% at 50% 120%, rgba(224,96,30,0.30), transparent 70%);
+    animation: mc-bg-ember 6.5s ease-in-out infinite;
+  }
+  @keyframes mc-bg-ember { 0%,100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+
+  /* Arcane — faint twinkling motes (opacity only). */
+  body.mc-theme-arcane #mobile-command-shell::after {
+    inset: 0;
+    background-image: radial-gradient(rgba(168,140,255,0.55) 1px, transparent 1.5px);
+    background-size: 46px 46px;
+    animation: mc-bg-twinkle 5.5s ease-in-out infinite;
+  }
+  @keyframes mc-bg-twinkle { 0%,100% { opacity: 0.22; } 50% { opacity: 0.55; } }
+}
+
 /* Theme picker chips (Details tab) */
 .mc-theme-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .mc-theme-opt { flex: 1 1 0; min-width: 64px; min-height: 40px; border-radius: 10px; font-size: 13px; font-weight: 600;
