@@ -3925,7 +3925,11 @@ function liftDialogAboveShell(app) {
   if (isDisplayClient()) { killCombatHUD(app); return; }
   if (!shellInstance?.rendered || app === shellInstance) return;
   if (app.options?.window?.frame === false) return; // skip docked/frameless UI
-  const el = app.element;
+  // V2 apps expose a raw DOM element; legacy V1 dialogs (some midi/dnd5e reaction &
+  // config prompts still are) expose a jQuery wrapper — unwrap both, else a V1 prompt
+  // stays hidden under the shell and the player never sees it (e.g. a reaction times
+  // out unanswered). DM/Sqyre 2026-06-22.
+  const el = app.element instanceof HTMLElement ? app.element : (app.element?.[0] ?? null);
   if (!(el instanceof HTMLElement)) return;
   // Phone clients: suppress third-party combat HUDs (Argon / Enhanced Combat HUD
   // etc.) — they compete with the shell's own Actions tab and route actions
@@ -3962,8 +3966,10 @@ export function maybeAutoOpenShell() {
 
 // Re-render the open shell when the controlled actor changes (HP, conditions…).
 export function registerShellHooks() {
-  // Keep framed dialogs/prompts above the full-screen shell.
+  // Keep framed dialogs/prompts above the full-screen shell — V2 AND legacy V1
+  // (renderApplication) so no prompt (reactions, config) hides under the shell.
   Hooks.on("renderApplicationV2", liftDialogAboveShell);
+  Hooks.on("renderApplication", liftDialogAboveShell);
   // Match the controlled actor by id, not object identity: a GM-initiated change
   // can hand us a different document instance (e.g. a synthetic/token actor) than
   // the one our getter returns, and a `===` check would silently drop the render
