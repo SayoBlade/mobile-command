@@ -60,6 +60,9 @@ export function initSocket() {
   socket.register("listLoot", handleListLoot);
   socket.register("openLoot", handleOpenLoot);
   socket.register("partyJournalAdd", handlePartyJournalAdd);
+  socket.register("wildShapeList", handleWildShapeList);
+  socket.register("wildShapeInto", handleWildShapeInto);
+  socket.register("wildShapeRevert", handleWildShapeRevert);
   socket.register("heartbeat", handleHeartbeat);
   console.log(`${MODULE_ID} | socket registered`);
   return socket;
@@ -855,6 +858,65 @@ async function handlePartyJournalAdd({ text, authorName } = {}) {
   }
 }
 
+// --- Wild Shape (Druid) ------------------------------------------------------
+// Players can't transform (allowPolymorphing is off + actor creation is GM-only), so
+// the executor drives dnd5e's real transform: it lists beasts from the SRD monsters
+// pack, runs Actor#transformInto with the built-in "wildshape" preset (keeps mental/
+// class/feats, merges saves/skills, Moon AC/HP formulas), spends a Wild Shape use, and
+// reverts via Actor#revertOriginalForm. Detection is the `isPolymorphed` getter.
+async function handleWildShapeList({ maxCR } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const pack = game.packs.get("dnd5e.monsters");
+  if (!pack) return { ok: false, reason: "the dnd5e monsters compendium isn't installed on the DM client" };
+  const idx = await pack.getIndex({ fields: ["system.details.type.value", "system.details.cr", "img"] });
+  const cap = Number.isFinite(maxCR) ? maxCR : Infinity;
+  const beasts = idx
+    .filter(e => e.system?.details?.type?.value === "beast" && (e.system?.details?.cr ?? 0) <= cap)
+    .map(e => ({ uuid: e.uuid, name: e.name, img: e.img, cr: e.system?.details?.cr ?? 0 }))
+    .sort((a, b) => a.cr - b.cr || a.name.localeCompare(b.name));
+  return { ok: true, beasts };
+}
+
+async function handleWildShapeInto({ beastUuid, forActorUuid, featUuid } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const actor = forActorUuid ? fromUuidSync(forActorUuid) : null;
+  const beast = beastUuid ? await fromUuid(beastUuid) : null;
+  if (!actor || !beast) return { ok: false, reason: "shape or character not found" };
+  if (actor.isPolymorphed) return { ok: false, reason: `${actor.name} is already shape-changed — revert first` };
+  try {
+    const TS = dnd5e.dataModels.settings.TransformationSetting;
+    const settings = new TS(CONFIG.DND5E.transformation.presets.wildshape.settings);
+    await actor.transformInto(beast, settings, { renderSheet: false });
+    // transformInto doesn't spend the feature's use — do it so the pool tracks.
+    const feat = featUuid ? fromUuidSync(featUuid) : null;
+    const uses = feat?.system?.uses;
+    if (feat && uses && (uses.max ?? 0) > 0) {
+      await feat.update({ "system.uses.spent": Math.min((uses.spent ?? 0) + 1, uses.max) });
+    }
+    return { ok: true, name: beast.name };
+  } catch (e) {
+    console.warn(`${MODULE_ID} | wildShapeInto failed`, e);
+    return { ok: false, reason: e?.message ?? "could not change shape" };
+  }
+}
+
+async function handleWildShapeRevert({ forActorUuid, forTokenId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  // The token now carries the transformed actor; resolve whichever ref the phone sent.
+  let target = forActorUuid ? fromUuidSync(forActorUuid) : null;
+  if (!target?.isPolymorphed && forTokenId) {
+    target = game.scenes.active?.tokens?.get(forTokenId)?.actor ?? target;
+  }
+  if (!target?.isPolymorphed) return { ok: false, reason: "not currently shape-changed" };
+  try {
+    await target.revertOriginalForm({ renderSheet: false });
+    return { ok: true };
+  } catch (e) {
+    console.warn(`${MODULE_ID} | wildShapeRevert failed`, e);
+    return { ok: false, reason: e?.message ?? "could not revert" };
+  }
+}
+
 // --- phone/DM-facing API (any client) ---------------------------------------
 
 function toExecutor(handler, payload) {
@@ -870,7 +932,8 @@ function toExecutor(handler, payload) {
       measure: handleMeasure, targetsList: handleTargetsList,
       previewTargets: handlePreviewTargets, endTurn: handleEndTurn, announceCast: handleAnnounceCast,
       listLoot: handleListLoot, openLoot: handleOpenLoot,
-      partyJournalAdd: handlePartyJournalAdd
+      partyJournalAdd: handlePartyJournalAdd,
+      wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert
     };
     return handlers[handler](payload);
   }
@@ -894,6 +957,9 @@ export const api = {
   listLoot: (payload = {}) => toExecutor("listLoot", payload),
   openLoot: (payload = {}) => toExecutor("openLoot", payload),
   partyJournalAdd: (payload = {}) => toExecutor("partyJournalAdd", payload),
+  wildShapeList: (payload = {}) => toExecutor("wildShapeList", payload),
+  wildShapeInto: (payload = {}) => toExecutor("wildShapeInto", payload),
+  wildShapeRevert: (payload = {}) => toExecutor("wildShapeRevert", payload),
   assignTargets: (userId, tokenUuids) =>
     socket
       ? socket.executeAsUser("assignTargets", userId, { tokenUuids, fromName: game.user.name })

@@ -142,6 +142,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #journalBusy = false;   // a partyJournalAdd round-trip is in flight
   #searchOpen = false;    // magnifying-glass search drawer is open (Spells/Equipment/Actions)
   #searchQuery = "";      // live search text; filtered via DOM toggle (no re-render → keeps focus)
+  #wildShape = null;      // Druid shape browser: null | { open, beasts:null|[], loading }
   #lastCombatantId = null; // track the active combatant to detect "my turn started"
   #charGen = null;        // char-gen workspace: null | { actorId, picking, abilMethod, abil, pool, rolled, assign }
                           //   picking: null|"race"|"background"|"class"|"abilities"
@@ -1185,6 +1186,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#detailCard) return this.#detailCardHTML();
     if (this.#actionState) return this.#targetPickerHTML();
     if (this.#itemPickerId) return this.#itemActivityPickerHTML(actor);
+    if (this.#wildShape?.open) return this.#wildShapeBrowserHTML();
     if (this.#tab === "actions") return this.#actionsHTML(actor);
     if (this.#tab === "details") return this.#detailsHTML(actor);
     if (this.#tab === "spells") return this.#spellsHTML(actor);
@@ -1352,6 +1354,82 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       flags: { [MODULE_ID]: { ts, author } }
     }]);
     return { ok: true };
+  }
+
+  // --- Wild Shape (Druid) ----------------------------------------------------
+  // Players can't transform locally (allowPolymorphing off + actor-create is GM-only),
+  // so the executor runs dnd5e's real transform/revert. Here we surface the entry, the
+  // beast browser, and a revert banner. The shape feature is matched by name.
+  #wildShapeFeat(actor) {
+    return actor?.items?.find(i => i.type === "feat" && /wild\s*shape/i.test(i.name)) ?? null;
+  }
+  #wildShapeBarHTML(actor) {
+    if (actor?.isPolymorphed) {
+      return `<button class="mc-ws-bar mc-ws-revert" data-action="wildshape-revert"><i class="fas fa-rotate-left"></i> Revert to your true form</button>`;
+    }
+    const feat = this.#wildShapeFeat(actor);
+    if (!feat) return "";
+    const u = feat.system?.uses ?? {};
+    const left = (u.max ?? 0) > 0 ? Math.max(0, (u.max ?? 0) - (u.spent ?? 0)) : null;
+    return `<button class="mc-ws-bar mc-ws-open" data-action="wildshape-open"><i class="fas fa-paw"></i> Wild Shape${left != null ? ` <span class="mc-ws-uses">${left}/${u.max}</span>` : ""}</button>`;
+  }
+  #wildShapeCR(cr) {
+    return cr === 0.125 ? "1/8" : cr === 0.25 ? "1/4" : cr === 0.5 ? "1/2" : String(cr);
+  }
+  #wildShapeBrowserHTML() {
+    const ws = this.#wildShape;
+    const beasts = ws?.beasts ?? [];
+    const rows = beasts.map(b => `
+      <button class="mc-ws-row" data-action="wildshape-pick" data-uuid="${b.uuid}" data-search-name="${foundry.utils.escapeHTML(b.name.toLowerCase())}">
+        <img class="mc-ws-img" src="${b.img || "icons/svg/mystery-man.svg"}" alt="">
+        <span class="mc-ws-name">${foundry.utils.escapeHTML(b.name)}</span>
+        <span class="mc-ws-cr">CR ${this.#wildShapeCR(b.cr)}</span>
+      </button>`).join("");
+    const body = ws?.loading ? `<div class="mc-ws-loading">Loading shapes…</div>`
+      : beasts.length ? `<div class="mc-search-group mc-ws-list">${rows}</div>`
+      : `<div class="mc-placeholder">No beast shapes available — is the DM on the active scene?</div>`;
+    return `<div class="mc-ws-head">
+        <button class="mc-ws-back" data-action="wildshape-close" aria-label="Back"><i class="fas fa-chevron-left"></i></button>
+        <span class="mc-section-label">Choose a shape</span>
+        ${this.#searchToggleHTML()}
+      </div>
+      ${this.#searchDrawerHTML()}${body}`;
+  }
+  async #openWildShape() {
+    const actor = this.actor;
+    const lvl = Object.values(actor?.classes ?? {}).find(c => /druid/i.test(c.name))?.system?.levels
+      ?? actor?.system?.details?.level ?? 1;
+    const maxCR = Math.max(1, Math.floor(lvl / 3)); // generous Moon-Druid cap; the DM approves anything beyond
+    this.#wildShape = { open: true, beasts: null, loading: true };
+    this.#searchOpen = false; this.#searchQuery = "";
+    this.render();
+    try {
+      const res = await rpc.wildShapeList({ maxCR });
+      if (!this.#wildShape?.open) return;
+      this.#wildShape.beasts = res?.ok ? (res.beasts ?? []) : [];
+      this.#wildShape.loading = false;
+      if (!res?.ok) ui.notifications.warn(`Wild Shape: ${res?.reason ?? "couldn't load shapes"}`);
+    } catch (e) {
+      if (this.#wildShape) { this.#wildShape.beasts = []; this.#wildShape.loading = false; }
+      ui.notifications.warn("Wild Shape: couldn't reach the DM client.");
+    }
+    this.render();
+  }
+  #closeWildShape() { this.#wildShape = null; this.#searchOpen = false; this.#searchQuery = ""; this.render(); }
+  async #doWildShape(beastUuid) {
+    const actor = this.actor;
+    const feat = this.#wildShapeFeat(actor);
+    const u = feat?.system?.uses;
+    if (u && (u.max ?? 0) > 0 && ((u.max ?? 0) - (u.spent ?? 0)) <= 0) {
+      return ui.notifications.warn(`${actor?.name ?? "You"} has no Wild Shape uses left — rest to recover.`);
+    }
+    const res = await rpc.wildShapeInto({ beastUuid, forActorUuid: actor?.uuid, featUuid: feat?.uuid });
+    if (res?.ok) { this.#closeWildShape(); ui.notifications.info(`Wild-shaped into ${res.name}.`); }
+    else ui.notifications.warn(`Wild Shape: ${res?.reason ?? "couldn't change shape"}`);
+  }
+  async #revertWildShape() {
+    const res = await rpc.wildShapeRevert({ forActorUuid: this.actor?.uuid, forTokenId: this.originTokenId });
+    if (!res?.ok) ui.notifications.warn(`Wild Shape: ${res?.reason ?? "couldn't revert"}`);
   }
 
   // Active-scene tokens the user owns (PC + summons/familiars/wild shape).
@@ -2462,6 +2540,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <span class="mc-section-label">Actions — ${editing ? "tap to favorite" : "tap to use"}</span>
         ${editBtn}${this.#searchToggleHTML()}
       </div>
+      ${this.#wildShapeBarHTML(actor)}
       ${this.#searchDrawerHTML()}
       ${this.#actionEconomyHTML(actor)}
       ${body}`;
@@ -3315,6 +3394,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#openLoot(el.dataset.uuid);
       case "journal-post":
         return this.#postJournalNote();
+      case "wildshape-open":
+        return this.#openWildShape();
+      case "wildshape-close":
+        return this.#closeWildShape();
+      case "wildshape-pick":
+        return this.#doWildShape(el.dataset.uuid);
+      case "wildshape-revert":
+        return this.#revertWildShape();
       case "cond-toggle":
         return actor?.toggleStatusEffect?.(el.dataset.status);
       case "break-conc":
@@ -4163,6 +4250,13 @@ export function registerShellHooks() {
   // for everyone else watching the Journal tab live. Cheap + rare; harmless off-tab.
   Hooks.on("createJournalEntryPage", (page) => {
     if (page?.parent?.getFlag?.(MODULE_ID, "partyJournal")) shellInstance?.render();
+  });
+  // Wild Shape: the executor swaps the controlled token's actor (and back on revert) —
+  // re-render so the phone follows into/out of the beast form. Gated to actor-identity
+  // changes (not movement) on the token we control.
+  Hooks.on("updateToken", (tok, changes = {}) => {
+    if (!shellInstance?.rendered || tok.id !== shellInstance.originTokenId) return;
+    if ("actorId" in changes || "delta" in changes || "actorData" in changes) shellInstance.render();
   });
   // Match the controlled actor by id, not object identity: a GM-initiated change
   // can hand us a different document instance (e.g. a synthetic/token actor) than

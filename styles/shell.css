@@ -947,6 +947,30 @@ body.mc-phone .roll-configuration fieldset {
 .mc-jn-body p:last-child { margin-bottom: 0; }
 .mc-jn-empty { font-size: 13px; color: var(--mc-muted); padding: 8px 2px; text-align: center; }
 
+/* Wild Shape (Druid): entry bar / revert banner + the beast browser. */
+.mc-ws-bar {
+  width: 100%; min-height: 48px; margin: 2px 0 10px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; font-weight: 600;
+}
+.mc-ws-open { background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); }
+.mc-ws-open i { color: var(--mc-gold); }
+.mc-ws-open:active { border-color: var(--mc-gold); }
+.mc-ws-uses { font-size: 12px; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
+.mc-ws-revert { background: rgba(90,46,14,0.55); border: 1px solid var(--mc-gold); color: #ffe9c2; }
+.mc-ws-revert:active { background: rgba(90,46,14,0.75); }
+.mc-ws-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.mc-ws-back { width: 36px; height: 36px; border-radius: 8px; background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); flex: 0 0 auto; }
+.mc-ws-list { display: flex; flex-direction: column; gap: 8px; }
+.mc-ws-row {
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 10px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px; color: var(--mc-ink); text-align: left; width: 100%;
+}
+.mc-ws-row:active { border-color: var(--mc-gold); background: var(--mc-panel-2); }
+.mc-ws-img { width: 38px; height: 38px; border-radius: 6px; object-fit: cover; flex: 0 0 auto; background: var(--mc-panel-2); }
+.mc-ws-name { flex: 1 1 auto; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-ws-cr { flex: 0 0 auto; font-size: 12px; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
+.mc-ws-loading { padding: 16px; text-align: center; color: var(--mc-muted); }
+
 /* Details tab. */
 .mc-detail-sec { margin-bottom: 16px; }
 .mc-detail-row { display: flex; gap: 8px; padding: 9px 2px; border-bottom: 1px solid #23252e; }
