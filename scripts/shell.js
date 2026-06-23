@@ -1255,9 +1255,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const checked = loot != null || doors != null || tiles != null;
     const pileRows = (loot ?? []).map(p => {
       const merchant = p.kind === "merchant";
-      const dist = p.distance != null ? ` · ${p.distance} ft` : "";
-      const meta = merchant ? `Shop${dist}` : `${p.itemCount} item${p.itemCount === 1 ? "" : "s"}${dist}`;
-      const fallbackImg = merchant ? "icons/svg/coins.svg" : "icons/svg/chest.svg";
+      const dist = p.distance != null ? `${p.distance} ft` : "";
+      let meta;
+      if (merchant) { meta = ["Shop", dist].filter(Boolean).join(" · "); }
+      else {
+        const parts = [];
+        if (p.itemCount) parts.push(`${p.itemCount} item${p.itemCount === 1 ? "" : "s"}`);
+        if (p.money) parts.push(foundry.utils.escapeHTML(p.money));
+        if (dist) parts.push(dist);
+        meta = parts.join(" · ") || "empty";
+      }
+      const fallbackImg = merchant ? "icons/svg/coins.svg" : (p.itemCount ? "icons/svg/chest.svg" : "icons/svg/coins.svg");
       return `<button class="mc-loot-row${merchant ? " mc-loot-shop" : ""}" data-action="loot-open" data-uuid="${p.uuid}">
         <img class="mc-loot-img" src="${p.img || fallbackImg}" alt="">
         <span class="mc-loot-name">${merchant ? "🛒 " : ""}${foundry.utils.escapeHTML(p.name)}</span>

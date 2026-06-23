@@ -799,18 +799,25 @@ async function handleListLoot({ forActorUuid } = {}) {
       const lootable = API.isItemPileLootable?.(t) ?? false;
       if (!merchant && !lootable) continue;              // only loot piles or merchant shops
       if (merchant && API.isItemPileClosed?.(t)) continue; // a closed shop can't be browsed
-      if (!merchant && API.isItemPileEmpty(t)) continue;   // hide empty loot; a shop stays (you can still sell to it)
+      // "Empty" must count CURRENCY too — a money-only pile (no items) is still worth
+      // opening; `isItemPileEmpty` only looks at items, which hid it before (DM 2026-06-23).
+      const items = API.getActorItems(t) ?? [];
+      const money = (API.getActorCurrencies?.(t) ?? []).filter(c => (c.quantity ?? 0) > 0);
+      if (!merchant && !items.length && !money.length) continue; // truly empty → skip
       let distance = null;
       try { distance = myTok ? Math.round(canvas.grid.measurePath([myTok.center, t.center]).distance) : null; } catch (e) { /* optional */ }
       // Only reachable loot/shops — adjacent (≤ 5 ft, i.e. standing right next to it).
       // If we can't place the player's token, fall through (can't gate on distance).
       if (distance != null && distance > 5) continue;
+      let moneyLabel = null;
+      if (money.length) { try { moneyLabel = money.map(c => `${c.quantity} ${c.abbreviation ?? c.name ?? ""}`.trim()).join(", "); } catch (e) { moneyLabel = "money"; } }
       piles.push({
         uuid: t.document.uuid,
         name: t.name,
         img: t.document.texture?.src || t.actor?.img || null,
         kind: merchant ? "merchant" : "loot",
-        itemCount: (API.getActorItems(t) ?? []).length,
+        itemCount: items.length,
+        money: moneyLabel,
         distance
       });
     } catch (e) { /* skip a bad pile, keep scanning */ }
