@@ -143,6 +143,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #searchOpen = false;    // magnifying-glass search drawer is open (Spells/Equipment/Actions)
   #searchQuery = "";      // live search text; filtered via DOM toggle (no re-render → keeps focus)
   #wildShape = null;      // Druid shape browser: null | { open, beasts:null|[], loading }
+  #summonConfig = null;   // summon options the player picks before the DM places: null | { uuid, name, slotOptions, slotId, profiles, profileId }
   #lastCombatantId = null; // track the active combatant to detect "my turn started"
   #charGen = null;        // char-gen workspace: null | { actorId, picking, abilMethod, abil, pool, rolled, assign }
                           //   picking: null|"race"|"background"|"class"|"abilities"
@@ -1187,6 +1188,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#actionState) return this.#targetPickerHTML();
     if (this.#itemPickerId) return this.#itemActivityPickerHTML(actor);
     if (this.#wildShape?.open) return this.#wildShapeBrowserHTML();
+    if (this.#summonConfig) return this.#summonConfigHTML();
     if (this.#tab === "actions") return this.#actionsHTML(actor);
     if (this.#tab === "details") return this.#detailsHTML(actor);
     if (this.#tab === "spells") return this.#spellsHTML(actor);
@@ -1371,7 +1373,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!feat) return "";
     const u = feat.system?.uses ?? {};
     const left = (u.max ?? 0) > 0 ? Math.max(0, (u.max ?? 0) - (u.spent ?? 0)) : null;
-    return `<button class="mc-ws-bar mc-ws-open" data-action="wildshape-open"><i class="fas fa-paw"></i> Wild Shape${left != null ? ` <span class="mc-ws-uses">${left}/${u.max}</span>` : ""}</button>`;
+    // Render like a normal action row (the feature's own icon + a sub-line) so it
+    // sits naturally in the Actions list (DM 2026-06-23).
+    return `<button class="mc-action mc-ws-entry" data-action="wildshape-open">
+      <img class="mc-action-icon" src="${feat.img || "icons/svg/pawprint.svg"}" alt="">
+      <span class="mc-action-text">
+        <span class="mc-action-name">Wild Shape</span>
+        <span class="mc-action-sub">${left != null ? `${left} / ${u.max} uses` : "Change shape"}</span>
+      </span>
+    </button>`;
   }
   #wildShapeCR(cr) {
     return cr === 0.125 ? "1/8" : cr === 0.25 ? "1/4" : cr === 0.5 ? "1/2" : String(cr);
@@ -1380,14 +1390,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const ws = this.#wildShape;
     const beasts = ws?.beasts ?? [];
     const rows = beasts.map(b => `
-      <button class="mc-ws-row" data-action="wildshape-pick" data-uuid="${b.uuid}" data-search-name="${foundry.utils.escapeHTML(b.name.toLowerCase())}">
-        <img class="mc-ws-img" src="${b.img || "icons/svg/mystery-man.svg"}" alt="">
-        <span class="mc-ws-name">${foundry.utils.escapeHTML(b.name)}</span>
-        <span class="mc-ws-cr">CR ${this.#wildShapeCR(b.cr)}</span>
+      <button class="mc-action" data-action="wildshape-pick" data-uuid="${b.uuid}" data-search-name="${foundry.utils.escapeHTML(b.name.toLowerCase())}">
+        <img class="mc-action-icon" src="${b.img || "icons/svg/mystery-man.svg"}" alt="">
+        <span class="mc-action-text">
+          <span class="mc-action-name">${foundry.utils.escapeHTML(b.name)}</span>
+          <span class="mc-action-sub">Beast · CR ${this.#wildShapeCR(b.cr)}</span>
+        </span>
       </button>`).join("");
     const body = ws?.loading ? `<div class="mc-ws-loading">Loading shapes…</div>`
-      : beasts.length ? `<div class="mc-search-group mc-ws-list">${rows}</div>`
-      : `<div class="mc-placeholder">No beast shapes available — is the DM on the active scene?</div>`;
+      : beasts.length ? `<div class="mc-search-group mc-actions">${rows}</div>`
+      : `<div class="mc-placeholder">No beast shapes here — make sure the DM's screen has reloaded since the update.</div>`;
     return `<div class="mc-ws-head">
         <button class="mc-ws-back" data-action="wildshape-close" aria-label="Back"><i class="fas fa-chevron-left"></i></button>
         <span class="mc-section-label">Choose a shape</span>
@@ -1411,7 +1423,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (!res?.ok) ui.notifications.warn(`Wild Shape: ${res?.reason ?? "couldn't load shapes"}`);
     } catch (e) {
       if (this.#wildShape) { this.#wildShape.beasts = []; this.#wildShape.loading = false; }
-      ui.notifications.warn("Wild Shape: couldn't reach the DM client.");
+      ui.notifications.warn("Wild Shape: the DM's screen needs to reload since the last update to enable this.");
     }
     this.render();
   }
@@ -1423,12 +1435,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (u && (u.max ?? 0) > 0 && ((u.max ?? 0) - (u.spent ?? 0)) <= 0) {
       return ui.notifications.warn(`${actor?.name ?? "You"} has no Wild Shape uses left — rest to recover.`);
     }
-    const res = await rpc.wildShapeInto({ beastUuid, forActorUuid: actor?.uuid, featUuid: feat?.uuid });
+    let res;
+    try { res = await rpc.wildShapeInto({ beastUuid, forActorUuid: actor?.uuid, featUuid: feat?.uuid }); }
+    catch (e) { return ui.notifications.warn("Wild Shape: the DM's screen needs to reload since the last update."); }
     if (res?.ok) { this.#closeWildShape(); ui.notifications.info(`Wild-shaped into ${res.name}.`); }
     else ui.notifications.warn(`Wild Shape: ${res?.reason ?? "couldn't change shape"}`);
   }
   async #revertWildShape() {
-    const res = await rpc.wildShapeRevert({ forActorUuid: this.actor?.uuid, forTokenId: this.originTokenId });
+    let res;
+    try { res = await rpc.wildShapeRevert({ forActorUuid: this.actor?.uuid, forTokenId: this.originTokenId }); }
+    catch (e) { return ui.notifications.warn("Wild Shape: the DM's screen needs to reload to revert."); }
     if (!res?.ok) ui.notifications.warn(`Wild Shape: ${res?.reason ?? "couldn't revert"}`);
   }
 
@@ -2764,9 +2780,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // AoE push (§11): a no-canvas phone can't place a template, so an area spell
     // asks the DM to place it instead of opening the target picker.
     if (activity.target?.template?.type) return this.#announceCast(activity, "aoe");
-    // Summons (#12): route to the DM to place the summoned token(s) rather than
-    // auto-resolving silently — the phone has no canvas to drop the token on.
-    if (activity.type === "summon") return this.#announceCast(activity, "summon");
+    // Summons (#12): the cast IS the placement and both need the canvas, so the DM
+    // still drops the token — but the player picks the choices FIRST (slot level +
+    // which creature profile), and only the placement hands off (DM 2026-06-23).
+    if (activity.type === "summon") return this.#openSummonConfig(activity);
     // GENERIC out-of-RESOURCES safeguard (not ammo-specific): if this activity spends a
     // limited resource (item uses, activity uses) that's depleted, midi can't auto-
     // consume on the executor and FORCES a "Consume?" dialog THERE that the phone can't
@@ -2839,7 +2856,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // resolves on the executor (caster's slot deducts, saves fan to targets); the
   // phone only announces. Live aiming preview isn't broadcast to the TV — the
   // player guides the DM verbally off the placed result.
-  async #announceCast(activity, kind = "aoe") {
+  async #announceCast(activity, kind = "aoe", extra = {}) {
     const name = activity.item?.name ?? (kind === "summon" ? "summon" : "spell");
     const casterTokenUuid = game.scenes.active?.tokens.get(this.originTokenId)?.uuid ?? null;
     let res;
@@ -2849,7 +2866,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         casterName: this.actor?.name,
         spellName: name,
         kind,
-        casterTokenUuid
+        casterTokenUuid,
+        slotLevel: extra.slotLevel ?? null,  // the player's upcast choice
+        profileId: extra.profileId ?? null   // the player's creature choice
       });
     } catch (e) {
       console.error("mobile-command | announceCast failed", { name, kind, error: e });
@@ -2858,6 +2877,53 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const verb = kind === "summon" ? "summon" : "place";
     if (res?.ok) ui.notifications.info(`Asked the DM to ${verb} ${name}.`);
     else ui.notifications.warn(`${name}: ${res?.reason ?? "could not reach the DM"}`);
+  }
+
+  // Summon options the player picks BEFORE the DM places (slot level + creature
+  // profile). The cast/placement still runs on the DM's canvas, but pre-configured —
+  // so the DM only drops the token instead of also making the player's decisions.
+  async #openSummonConfig(activity) {
+    const slotOptions = this.#spellSlotOptions(activity);
+    // Profiles often have a blank name (the distinction is the linked statblock, e.g.
+    // Summon Beast's Air/Land/Water spirits) — resolve the linked actor's name so the
+    // chips read meaningfully instead of "Creature".
+    const profiles = await Promise.all((activity.profiles ?? []).map(async (p) => {
+      let label = p.name;
+      if (!label && p.uuid) { try { label = (await fromUuid(p.uuid))?.name; } catch (e) { /* keep fallback */ } }
+      return { id: p._id, name: label || "Creature", cr: p.cr, count: p.count };
+    }));
+    this.#summonConfig = {
+      uuid: activity.uuid, name: activity.item?.name ?? "summon",
+      slotOptions, slotId: slotOptions[0]?.id ?? null,
+      profiles, profileId: profiles[0]?.id ?? null
+    };
+    this.render();
+  }
+  #summonConfigHTML() {
+    const sc = this.#summonConfig;
+    const slotRow = sc.slotOptions.length > 1 ? `
+      <div class="mc-section-label">Cast at level</div>
+      <div class="mc-sm-row">${sc.slotOptions.map(o => `
+        <button class="mc-sm-chip ${o.id === sc.slotId ? "mc-on" : ""}" data-action="summon-slot" data-slot="${o.id}">${ordinal(o.level)} <span class="mc-sm-sub">${o.value} left</span></button>`).join("")}</div>` : "";
+    const profRow = sc.profiles.length > 1 ? `
+      <div class="mc-section-label">Creature</div>
+      <div class="mc-sm-row">${sc.profiles.map(p => `
+        <button class="mc-sm-chip ${p.id === sc.profileId ? "mc-on" : ""}" data-action="summon-profile" data-profile="${p.id}">${foundry.utils.escapeHTML(p.name || "Option")}${(p.cr ?? "") !== "" ? ` <span class="mc-sm-sub">CR ${p.cr}</span>` : ""}</button>`).join("")}</div>` : "";
+    const note = (!slotRow && !profRow) ? `<div class="mc-placeholder">Nothing to choose — the DM will place ${foundry.utils.escapeHTML(sc.name)}.</div>` : "";
+    return `<div class="mc-ws-head">
+        <button class="mc-ws-back" data-action="summon-cancel" aria-label="Back"><i class="fas fa-chevron-left"></i></button>
+        <span class="mc-section-label">Summon — ${foundry.utils.escapeHTML(sc.name)}</span>
+      </div>
+      ${slotRow}${profRow}${note}
+      <button class="mc-ws-bar mc-ws-open mc-sm-go" data-action="summon-confirm"><i class="fas fa-paw"></i> Ask the DM to place it</button>`;
+  }
+  async #confirmSummon() {
+    const sc = this.#summonConfig;
+    if (!sc) return;
+    const activity = await fromUuid(sc.uuid);
+    const extra = { slotLevel: sc.slotId, profileId: sc.profileId };
+    this.#summonConfig = null; this.render();
+    if (activity) await this.#announceCast(activity, "summon", extra);
   }
 
   // Save/reaction prompt: the executor relayed a midi save request for one of
@@ -3402,6 +3468,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#doWildShape(el.dataset.uuid);
       case "wildshape-revert":
         return this.#revertWildShape();
+      case "summon-slot":
+        if (this.#summonConfig) this.#summonConfig.slotId = el.dataset.slot;
+        return this.render();
+      case "summon-profile":
+        if (this.#summonConfig) this.#summonConfig.profileId = el.dataset.profile;
+        return this.render();
+      case "summon-cancel":
+        this.#summonConfig = null; return this.render();
+      case "summon-confirm":
+        return this.#confirmSummon();
       case "cond-toggle":
         return actor?.toggleStatusEffect?.(el.dataset.status);
       case "break-conc":

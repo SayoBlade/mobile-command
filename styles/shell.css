@@ -971,6 +971,17 @@ body.mc-phone .roll-configuration fieldset {
 .mc-ws-cr { flex: 0 0 auto; font-size: 12px; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
 .mc-ws-loading { padding: 16px; text-align: center; color: var(--mc-muted); }
 
+/* Summon options picker (slot + creature) the player sets before the DM places. */
+.mc-sm-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.mc-sm-chip {
+  min-height: 42px; padding: 6px 14px; border-radius: 10px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 14px; font-weight: 600;
+}
+.mc-sm-chip.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-sm-sub { font-size: 11px; color: var(--mc-muted); font-weight: 400; margin-left: 4px; }
+.mc-sm-chip.mc-on .mc-sm-sub { color: var(--mc-gold); }
+.mc-sm-go { margin-top: 8px; }
+
 /* Details tab. */
 .mc-detail-sec { margin-bottom: 16px; }
 .mc-detail-row { display: flex; gap: 8px; padding: 9px 2px; border-bottom: 1px solid #23252e; }

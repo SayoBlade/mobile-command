@@ -170,7 +170,7 @@ function handleAssignTargets({ tokenUuids, fromName }) {
 // executor so the caster's slot deducts and saves fan to targets' phones.
 async function handleAnnounceCast(payload) {
   if (!isExecutor()) return { ok: false, stage: "route", reason: "not the DM client" };
-  const { activityUuid, casterName, spellName, casterTokenUuid, kind, requesterId } = payload;
+  const { activityUuid, casterName, spellName, casterTokenUuid, kind, requesterId, slotLevel, profileId } = payload;
   const activity = await fromUuid(activityUuid);
   if (!activity) return { ok: false, stage: "resolve", reason: `activity not found: ${activityUuid}` };
   if (!requesterCanAct(requesterId, activity.item?.actor)) {
@@ -180,6 +180,7 @@ async function handleAnnounceCast(payload) {
   pendingCasts.set(id, {
     id, activityUuid, casterTokenUuid, requesterId, ts: Date.now(),
     kind: kind === "summon" ? "summon" : "aoe", // summon → DM places the summoned token(s)
+    slotLevel: slotLevel ?? null, profileId: profileId ?? null, // the player's pre-picked choices
     casterName: casterName ?? activity.item?.actor?.name ?? "Player",
     spellName: spellName ?? activity.item?.name ?? "spell"
   });
@@ -215,12 +216,24 @@ export async function placeCast(id) {
   // (midi-qol.js:7597). Saves still fan to target owners (playerRollSaves:"chat",
   // unchanged). Auto-targeting under the template comes from the global preset
   // (autoTarget), which only fires for DM-placed templates.
-  await activity.use({
+  // Apply the player's pre-picked choices so the DM only does the placement click,
+  // not the slot/creature decisions. spell.slot upcasts; create.summons + summons.
+  // profile pre-fill the summon dialog. configure:false skips that dialog (the choices
+  // are already made); placement (crosshairs) still runs on the DM's cursor.
+  const usage = {
     midiOptions: {
       autoRollAttack: true, fastForwardAttack: true,
       autoRollDamage: "always", fastForwardDamage: true
     }
-  }, {}, {});
+  };
+  const dialog = {};
+  if (pc.slotLevel) { usage.spell = { slot: pc.slotLevel }; dialog.configure = false; }
+  if (pc.kind === "summon") {
+    usage.create = { summons: true };
+    if (pc.profileId) usage.summons = { profile: pc.profileId };
+    dialog.configure = false;
+  }
+  await activity.use(usage, dialog, {});
   // Don't leave the caster token selected on the executor — the DM rolls the
   // monsters' saves next, and a lingering PC selection slows that (DM 2026-06-17).
   try { canvas.tokens?.releaseAll(); } catch (e) { /* best effort */ }
