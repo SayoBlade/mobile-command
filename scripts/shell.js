@@ -4045,7 +4045,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const a = this.actor; if (!a) return;
     if (!this.#movementModes(a).length) return;
     this.#detailStack = [];
-    this.#detailCard = { name: "Travel", glyph: "fa-person-running", subtitle: "Movement", desc: this.#travelChipsHTML(a), favId: null, isFav: false, kind: "travel" };
+    // Header shows the SELECTED travel type (Walk/Fly/Swim/…) rather than a static
+    // "Movement"; move-mode re-runs this, so it updates as you pick (DM 2026-06-23).
+    const active = this.#activeMoveMode(a);
+    this.#detailCard = { name: "Travel", glyph: "fa-person-running", subtitle: active ? this.#moveModeLabel(active) : "Movement", desc: this.#travelChipsHTML(a), favId: null, isFav: false, kind: "travel" };
     this.render();
   }
   // Biography card (long-press the portrait; tap still opens the image): the
