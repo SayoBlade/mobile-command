@@ -787,6 +787,9 @@ async function handleListLoot({ forActorUuid } = {}) {
       if (!merchant && API.isItemPileEmpty(t)) continue;   // hide empty loot; a shop stays (you can still sell to it)
       let distance = null;
       try { distance = myTok ? Math.round(canvas.grid.measurePath([myTok.center, t.center]).distance) : null; } catch (e) { /* optional */ }
+      // Only reachable loot/shops — adjacent (≤ 5 ft, i.e. standing right next to it).
+      // If we can't place the player's token, fall through (can't gate on distance).
+      if (distance != null && distance > 5) continue;
       piles.push({
         uuid: t.document.uuid,
         name: t.name,
