@@ -988,6 +988,11 @@ body.mc-phone .roll-configuration fieldset {
 .mc-abl-k { font-size: 10px; color: var(--mc-muted); letter-spacing: .04em; }
 .mc-abl-v { font-size: 15px; font-weight: 700; color: var(--mc-ink); }
 .mc-abl-m { font-size: 11px; color: var(--mc-gold); }
+.mc-npc-ab { margin-bottom: 8px; }
+.mc-npc-ab-name { font-size: 13px; font-weight: 700; color: var(--mc-gold); }
+.mc-npc-ab-dmg { font-size: 12px; font-weight: 400; color: var(--mc-muted); }
+.mc-npc-ab-body { font-size: 13px; line-height: 1.4; color: var(--mc-ink); }
+.mc-npc-ab-body p { margin: 2px 0 4px; }
 
 /* Details tab. */
 .mc-detail-sec { margin-bottom: 16px; }

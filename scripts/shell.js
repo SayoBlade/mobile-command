@@ -3807,13 +3807,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const a = sys.abilities?.[k] ?? {};
       return `<div class="mc-abl"><span class="mc-abl-k">${k.toUpperCase()}</span><span class="mc-abl-v">${a.value ?? "—"}</span><span class="mc-abl-m">${a.mod != null ? signed(a.mod) : ""}</span></div>`;
     }).join("");
-    const rawBio = det.biography?.value || "";
-    let bio = "";
-    if (rawBio) {
-      try { const TE = foundry.applications?.ux?.TextEditor?.implementation ?? globalThis.TextEditor; bio = await TE.enrichHTML(rawBio, { relativeTo: actor, secrets: false }); }
-      catch (e) { bio = rawBio; }
-    }
-    const desc = `<div class="mc-abl-row">${abilRow}</div>${bio ? `<div class="mc-check-desc">${bio}</div>` : ""}`;
+    const TE = foundry.applications?.ux?.TextEditor?.implementation ?? globalThis.TextEditor;
+    const enrich = async (html) => { if (!html) return ""; try { return await TE.enrichHTML(html, { relativeTo: actor, secrets: false }); } catch (e) { return html; } };
+    // The creature's traits & actions (its "abilities") — Bite, Multiattack, Pack
+    // Tactics… so the player can judge what the form/summon can actually DO.
+    const abilityItems = actor.items.filter(i => ["feat", "weapon"].includes(i.type));
+    const abilityHtml = (await Promise.all(abilityItems.map(async (i) => {
+      const dmg = i.labels?.damage ? ` <span class="mc-npc-ab-dmg">${foundry.utils.escapeHTML(i.labels.damage)}</span>` : "";
+      const body = await enrich(i.system?.description?.value || "");
+      return `<div class="mc-npc-ab"><div class="mc-npc-ab-name">${foundry.utils.escapeHTML(i.name)}${dmg}</div>${body ? `<div class="mc-npc-ab-body">${body}</div>` : ""}</div>`;
+    }))).join("");
+    const bio = await enrich(det.biography?.value || "");
+    const desc = `<div class="mc-abl-row">${abilRow}</div>`
+      + (abilityHtml ? `<div class="mc-section-label">Traits & Actions</div>${abilityHtml}` : "")
+      + (bio ? `<div class="mc-check-desc">${bio}</div>` : "");
     this.#detailStack = [];
     this.#detailCard = { name: actor.name, img: actor.img || "icons/svg/mystery-man.svg", subtitle, meta, desc, favType: null, favId: null, isFav: false, kind: "actor" };
     this.render();
