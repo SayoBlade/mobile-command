@@ -1365,23 +1365,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #wildShapeFeat(actor) {
     return actor?.items?.find(i => i.type === "feat" && /wild\s*shape/i.test(i.name)) ?? null;
   }
+  // Only the revert banner now — the Wild Shape ENTRY rides the normal Actions list as
+  // a regular row (its "transform" activity, grouped by activation = Bonus action, with
+  // long-press detail), routed to the beast browser in #pickAction (DM 2026-06-23).
   #wildShapeBarHTML(actor) {
     if (actor?.isPolymorphed) {
       return `<button class="mc-ws-bar mc-ws-revert" data-action="wildshape-revert"><i class="fas fa-rotate-left"></i> Revert to your true form</button>`;
     }
-    const feat = this.#wildShapeFeat(actor);
-    if (!feat) return "";
-    const u = feat.system?.uses ?? {};
-    const left = (u.max ?? 0) > 0 ? Math.max(0, (u.max ?? 0) - (u.spent ?? 0)) : null;
-    // Render like a normal action row (the feature's own icon + a sub-line) so it
-    // sits naturally in the Actions list (DM 2026-06-23).
-    return `<button class="mc-action mc-ws-entry" data-action="wildshape-open">
-      <img class="mc-action-icon" src="${feat.img || "icons/svg/pawprint.svg"}" alt="">
-      <span class="mc-action-text">
-        <span class="mc-action-name">Wild Shape</span>
-        <span class="mc-action-sub">${left != null ? `${left} / ${u.max} uses` : "Change shape"}</span>
-      </span>
-    </button>`;
+    return "";
   }
   #wildShapeCR(cr) {
     return cr === 0.125 ? "1/8" : cr === 0.25 ? "1/4" : cr === 0.5 ? "1/2" : String(cr);
@@ -2501,7 +2492,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         // Include features (Action Surge=utility, Second Wind=heal) and item
         // uses, not just weapons/offensive spells. AoE activities are kept too —
         // tapping one announces the cast to the DM (#announceCast), not the picker.
-        if (!["attack", "save", "damage", "utility", "heal"].includes(a.type)) continue;
+        if (!["attack", "save", "damage", "utility", "heal", "transform"].includes(a.type)) continue;
         out.push(a);
       }
     }
@@ -2784,6 +2775,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // still drops the token — but the player picks the choices FIRST (slot level +
     // which creature profile), and only the placement hands off (DM 2026-06-23).
     if (activity.type === "summon") return this.#openSummonConfig(activity);
+    // Wild Shape's only activity is a "transform" — let it ride the normal Actions
+    // list (so it groups + long-presses like any item) but route the tap to the beast
+    // browser instead of running the bare transform.
+    if (activity.type === "transform" && /wild\s*shape/i.test(activity.item?.name ?? "")) return this.#openWildShape();
     // GENERIC out-of-RESOURCES safeguard (not ammo-specific): if this activity spends a
     // limited resource (item uses, activity uses) that's depleted, midi can't auto-
     // consume on the executor and FORCES a "Consume?" dialog THERE that the phone can't
@@ -2884,18 +2879,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // so the DM only drops the token instead of also making the player's decisions.
   async #openSummonConfig(activity) {
     const slotOptions = this.#spellSlotOptions(activity);
-    // Profiles often have a blank name (the distinction is the linked statblock, e.g.
-    // Summon Beast's Air/Land/Water spirits) — resolve the linked actor's name so the
-    // chips read meaningfully instead of "Creature".
+    // Resolve each profile's LINKED STATBLOCK so the options render as normal item
+    // rows (icon + name) and long-press can show the creature's stats — names are
+    // often blank (e.g. Summon Beast's Air/Land/Water spirits live in the linked NPC).
     const profiles = await Promise.all((activity.profiles ?? []).map(async (p) => {
-      let label = p.name;
-      if (!label && p.uuid) { try { label = (await fromUuid(p.uuid))?.name; } catch (e) { /* keep fallback */ } }
-      return { id: p._id, name: label || "Creature", cr: p.cr, count: p.count };
+      let name = p.name, img = null, cr = p.cr, type = "";
+      if (p.uuid) {
+        try { const npc = await fromUuid(p.uuid); if (npc) { name = name || npc.name; img = npc.img; if (cr == null || cr === "") cr = npc.system?.details?.cr; type = npc.system?.details?.type?.value ?? ""; } } catch (e) { /* keep fallbacks */ }
+      }
+      return { id: p._id, name: name || "Creature", img, uuid: p.uuid, cr, type };
     }));
     this.#summonConfig = {
       uuid: activity.uuid, name: activity.item?.name ?? "summon",
-      slotOptions, slotId: slotOptions[0]?.id ?? null,
-      profiles, profileId: profiles[0]?.id ?? null
+      slotOptions, slotId: slotOptions[0]?.id ?? null, profiles
     };
     this.render();
   }
@@ -2905,23 +2901,32 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <div class="mc-section-label">Cast at level</div>
       <div class="mc-sm-row">${sc.slotOptions.map(o => `
         <button class="mc-sm-chip ${o.id === sc.slotId ? "mc-on" : ""}" data-action="summon-slot" data-slot="${o.id}">${ordinal(o.level)} <span class="mc-sm-sub">${o.value} left</span></button>`).join("")}</div>` : "";
-    const profRow = sc.profiles.length > 1 ? `
-      <div class="mc-section-label">Creature</div>
-      <div class="mc-sm-row">${sc.profiles.map(p => `
-        <button class="mc-sm-chip ${p.id === sc.profileId ? "mc-on" : ""}" data-action="summon-profile" data-profile="${p.id}">${foundry.utils.escapeHTML(p.name || "Option")}${(p.cr ?? "") !== "" ? ` <span class="mc-sm-sub">CR ${p.cr}</span>` : ""}</button>`).join("")}</div>` : "";
-    const note = (!slotRow && !profRow) ? `<div class="mc-placeholder">Nothing to choose — the DM will place ${foundry.utils.escapeHTML(sc.name)}.</div>` : "";
+    const creatureSub = (p) => {
+      const bits = [p.type ? p.type.replace(/^\w/, c => c.toUpperCase()) : "", (p.cr ?? "") !== "" ? `CR ${this.#wildShapeCR(p.cr)}` : ""].filter(Boolean);
+      return bits.length ? bits.join(" · ") : "Tap to summon · hold for details";
+    };
+    const body = sc.profiles.length ? `
+      <div class="mc-section-label">Choose a creature</div>
+      <div class="mc-actions">${sc.profiles.map(p => `
+        <button class="mc-action" data-action="summon-pick" data-profile="${p.id}" data-uuid="${p.uuid ?? ""}">
+          <img class="mc-action-icon" src="${p.img || "icons/svg/mystery-man.svg"}" alt="">
+          <span class="mc-action-text">
+            <span class="mc-action-name">${foundry.utils.escapeHTML(p.name)}</span>
+            <span class="mc-action-sub">${creatureSub(p)}</span>
+          </span>
+        </button>`).join("")}</div>`
+      : `<button class="mc-ws-bar mc-ws-open" data-action="summon-pick" data-profile=""><i class="fas fa-paw"></i> Ask the DM to place it</button>`;
     return `<div class="mc-ws-head">
         <button class="mc-ws-back" data-action="summon-cancel" aria-label="Back"><i class="fas fa-chevron-left"></i></button>
         <span class="mc-section-label">Summon — ${foundry.utils.escapeHTML(sc.name)}</span>
       </div>
-      ${slotRow}${profRow}${note}
-      <button class="mc-ws-bar mc-ws-open mc-sm-go" data-action="summon-confirm"><i class="fas fa-paw"></i> Ask the DM to place it</button>`;
+      ${slotRow}${body}`;
   }
-  async #confirmSummon() {
+  async #doSummonPick(profileId) {
     const sc = this.#summonConfig;
     if (!sc) return;
     const activity = await fromUuid(sc.uuid);
-    const extra = { slotLevel: sc.slotId, profileId: sc.profileId };
+    const extra = { slotLevel: sc.slotId, profileId: profileId || null };
     this.#summonConfig = null; this.render();
     if (activity) await this.#announceCast(activity, "summon", extra);
   }
@@ -3471,13 +3476,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "summon-slot":
         if (this.#summonConfig) this.#summonConfig.slotId = el.dataset.slot;
         return this.render();
-      case "summon-profile":
-        if (this.#summonConfig) this.#summonConfig.profileId = el.dataset.profile;
-        return this.render();
       case "summon-cancel":
         this.#summonConfig = null; return this.render();
-      case "summon-confirm":
-        return this.#confirmSummon();
+      case "summon-pick":
+        return this.#doSummonPick(el.dataset.profile);
       case "cond-toggle":
         return actor?.toggleStatusEffect?.(el.dataset.status);
       case "break-conc":
@@ -3752,6 +3754,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       let doc = uuid.startsWith("Compendium.")
         ? await fromUuid(uuid).catch(() => null)
         : fromUuidSync(uuid, { relative: this.actor });
+      // A creature statblock (Wild Shape beast / summon profile) → an informative
+      // creature card, not the empty item card (NPCs keep their text elsewhere).
+      if (doc?.documentName === "Actor") return this.#showActorDetails(doc);
       if (doc?.item) { activity = doc; item = doc.item; } else item = doc;
     }
     else if (itemId) item = this.actor?.items.get(itemId);
@@ -3777,6 +3782,40 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const favId = rel ? (activity ? `${rel}.Activity.${activity.id}` : rel) : null;
     const isFav = favId ? !!this.actor?.system?.hasFavorite?.(favId) : false;
     this.#detailCard = { name: item.name, img: item.img || "icons/svg/item-bag.svg", subtitle: this.#itemSubtitle(item), meta: this.#itemMeta(item), desc, favType, favId, isFav, itemId: item.id, spellPickUuid };
+    this.render();
+  }
+
+  // Informative creature card (long-press a Wild Shape beast / summon profile). NPCs
+  // keep their text in details.biography (not system.description), and the useful info
+  // for "which shape?" is the statline — so show size/type/CR, AC/HP/speed, the six
+  // abilities, then any biography.
+  async #showActorDetails(actor) {
+    const sys = actor.system ?? {};
+    const det = sys.details ?? {};
+    const cr = det.cr;
+    const type = det.type?.value ? det.type.value.replace(/^\w/, c => c.toUpperCase()) : "";
+    const sizeCfg = CONFIG.DND5E?.actorSizes?.[sys.traits?.size];
+    const size = (typeof sizeCfg === "string" ? sizeCfg : sizeCfg?.label) ?? "";
+    const subtitle = [size, type, (cr != null && cr !== "") ? `CR ${this.#wildShapeCR(cr)}` : ""].filter(Boolean).join(" · ");
+    const ac = sys.attributes?.ac?.value;
+    const hp = sys.attributes?.hp?.max;
+    const mv = sys.attributes?.movement ?? {};
+    const speed = ["walk", "fly", "swim", "climb", "burrow"].filter(k => typeof mv[k] === "number" && mv[k] > 0)
+      .map(k => k === "walk" ? `${mv[k]} ft` : `${k} ${mv[k]} ft`).join(", ");
+    const meta = [ac != null ? `AC ${ac}` : "", hp != null ? `HP ${hp}` : "", speed ? `Speed ${speed}` : ""].filter(Boolean).join(" · ");
+    const abilRow = ["str", "dex", "con", "int", "wis", "cha"].map(k => {
+      const a = sys.abilities?.[k] ?? {};
+      return `<div class="mc-abl"><span class="mc-abl-k">${k.toUpperCase()}</span><span class="mc-abl-v">${a.value ?? "—"}</span><span class="mc-abl-m">${a.mod != null ? signed(a.mod) : ""}</span></div>`;
+    }).join("");
+    const rawBio = det.biography?.value || "";
+    let bio = "";
+    if (rawBio) {
+      try { const TE = foundry.applications?.ux?.TextEditor?.implementation ?? globalThis.TextEditor; bio = await TE.enrichHTML(rawBio, { relativeTo: actor, secrets: false }); }
+      catch (e) { bio = rawBio; }
+    }
+    const desc = `<div class="mc-abl-row">${abilRow}</div>${bio ? `<div class="mc-check-desc">${bio}</div>` : ""}`;
+    this.#detailStack = [];
+    this.#detailCard = { name: actor.name, img: actor.img || "icons/svg/mystery-man.svg", subtitle, meta, desc, favType: null, favId: null, isFav: false, kind: "actor" };
     this.render();
   }
   // Compact mechanical stats line for the detail-card head, built from dnd5e's own

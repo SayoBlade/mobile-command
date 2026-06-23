@@ -982,6 +982,13 @@ body.mc-phone .roll-configuration fieldset {
 .mc-sm-chip.mc-on .mc-sm-sub { color: var(--mc-gold); }
 .mc-sm-go { margin-top: 8px; }
 
+/* Creature detail card (long-press a Wild Shape beast / summon profile): the six abilities. */
+.mc-abl-row { display: flex; gap: 6px; margin: 2px 0 10px; }
+.mc-abl { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px; border-radius: 8px; background: var(--mc-panel); border: 1px solid var(--mc-edge); }
+.mc-abl-k { font-size: 10px; color: var(--mc-muted); letter-spacing: .04em; }
+.mc-abl-v { font-size: 15px; font-weight: 700; color: var(--mc-ink); }
+.mc-abl-m { font-size: 11px; color: var(--mc-gold); }
+
 /* Details tab. */
 .mc-detail-sec { margin-bottom: 16px; }
 .mc-detail-row { display: flex; gap: 8px; padding: 9px 2px; border-bottom: 1px solid #23252e; }
