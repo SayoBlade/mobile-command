@@ -3130,6 +3130,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#itemPickerId = null;
     this.#detailCard = null;
     this.#detailStack = [];
+    this.#wildShape = null;    // close the beast browser / summon picker too — otherwise
+    this.#summonConfig = null; // they override the tab content and a tab tap looks stuck
   }
 
   // B9 live target preview: reflect the current selection on the executor's
