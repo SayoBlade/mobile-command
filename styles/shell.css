@@ -919,6 +919,9 @@ body.mc-phone .roll-configuration fieldset {
 .mc-loot-shop { border-left: 3px solid var(--mc-gold); }
 .mc-loot-shop .mc-loot-meta { color: var(--mc-gold); }
 .mc-loot-img { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; flex: 0 0 auto; background: var(--mc-panel-2); }
+.mc-loot-ico { width: 36px; height: 36px; border-radius: 6px; flex: 0 0 auto; background: var(--mc-panel-2); display: flex; align-items: center; justify-content: center; color: var(--mc-gold); font-size: 16px; }
+.mc-loot-locked { opacity: 0.55; }
+.mc-loot-locked .mc-loot-ico { color: var(--mc-muted); }
 .mc-loot-name { flex: 1 1 auto; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-loot-meta { flex: 0 0 auto; font-size: 12px; color: var(--mc-muted); }
 .mc-loot-empty { font-size: 13px; color: var(--mc-muted); padding: 4px 2px; }

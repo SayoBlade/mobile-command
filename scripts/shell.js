@@ -137,7 +137,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
                           //   re-render doesn't wipe the counter (it lived only in the DOM)
   #collapsedActionGroups = new Set(); // Actions tab: accordion groups the user/use closed
   #nearbyLoot = null;     // Item Piles loot: null (not checked) | [] (none) | [{uuid,name,img,itemCount,distance}]
-  #lootBusy = false;      // a listLoot round-trip is in flight
+  #nearbyDoors = null;    // doors within reach: [{id, ds, distance}]
+  #nearbyTiles = null;    // active-tile interactables within reach: [{id, label, distance}]
+  #lootBusy = false;      // a nearby-scan round-trip is in flight
   #journalDraft = "";     // party-journal composer text, kept across re-renders so typing isn't wiped
   #journalBusy = false;   // a partyJournalAdd round-trip is in flight
   #searchOpen = false;    // magnifying-glass search drawer is open (Spells/Equipment/Actions)
@@ -1245,31 +1247,46 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       + this.#abilitiesHTML(actor) + this.#lootHTML(actor) + this.#restsHTML();
   }
 
-  // Item Piles loot: a phone has no canvas to double-click a pile, so the player taps
-  // "Check for loot" → the executor (which has the canvas) lists nearby lootable piles,
-  // and tapping one renders Item Piles' OWN loot window targeted at this phone (the
-  // dialog-lift surfaces it). null = not checked yet, [] = checked, none nearby.
+  // "Check what's nearby": the executor (which has the canvas) lists loot/shops (Item
+  // Piles), doors, and active-tile interactables the player is standing next to, and
+  // operates them on the phone's behalf. null = not checked yet, [] = checked/none.
   #lootHTML() {
-    const loot = this.#nearbyLoot;
-    const rows = (loot ?? []).map(p => {
+    const loot = this.#nearbyLoot, doors = this.#nearbyDoors, tiles = this.#nearbyTiles;
+    const checked = loot != null || doors != null || tiles != null;
+    const pileRows = (loot ?? []).map(p => {
       const merchant = p.kind === "merchant";
       const dist = p.distance != null ? ` · ${p.distance} ft` : "";
       const meta = merchant ? `Shop${dist}` : `${p.itemCount} item${p.itemCount === 1 ? "" : "s"}${dist}`;
       const fallbackImg = merchant ? "icons/svg/coins.svg" : "icons/svg/chest.svg";
-      return `
-      <button class="mc-loot-row${merchant ? " mc-loot-shop" : ""}" data-action="loot-open" data-uuid="${p.uuid}">
+      return `<button class="mc-loot-row${merchant ? " mc-loot-shop" : ""}" data-action="loot-open" data-uuid="${p.uuid}">
         <img class="mc-loot-img" src="${p.img || fallbackImg}" alt="">
         <span class="mc-loot-name">${merchant ? "🛒 " : ""}${foundry.utils.escapeHTML(p.name)}</span>
         <span class="mc-loot-meta">${meta}</span>
       </button>`;
     }).join("");
-    const body = loot == null ? ""
-      : loot.length ? `<div class="mc-loot-list">${rows}</div>`
-      : `<div class="mc-loot-empty">No loot or shops nearby.</div>`;
+    const doorRows = (doors ?? []).map(d => {
+      const locked = d.ds === 2, open = d.ds === 1;
+      const label = locked ? "Door — locked" : open ? "Close door" : "Open door";
+      const icon = locked ? "fa-lock" : open ? "fa-door-open" : "fa-door-closed";
+      return `<button class="mc-loot-row${locked ? " mc-loot-locked" : ""}" ${locked ? "disabled" : `data-action="door-toggle" data-id="${d.id}"`}>
+        <span class="mc-loot-ico"><i class="fas ${icon}"></i></span>
+        <span class="mc-loot-name">${label}</span>
+        <span class="mc-loot-meta">${d.distance} ft</span>
+      </button>`;
+    }).join("");
+    const tileRows = (tiles ?? []).map(t => `<button class="mc-loot-row" data-action="tile-trigger" data-id="${t.id}">
+      <span class="mc-loot-ico"><i class="fas fa-toggle-on"></i></span>
+      <span class="mc-loot-name">${foundry.utils.escapeHTML(t.label)}</span>
+      <span class="mc-loot-meta">${t.distance} ft</span>
+    </button>`).join("");
+    const all = pileRows + doorRows + tileRows;
+    const body = !checked ? ""
+      : all ? `<div class="mc-loot-list">${all}</div>`
+      : `<div class="mc-loot-empty">Nothing nearby to interact with.</div>`;
     return `
       <section class="mc-loot">
         <button class="mc-loot-check" data-action="loot-refresh" ${this.#lootBusy ? "disabled" : ""}>
-          ${this.#lootBusy ? "Checking…" : "🎒 Check for loot & shops nearby"}
+          ${this.#lootBusy ? "Checking…" : "🔍 Check what's nearby"}
         </button>
         ${body}
       </section>`;
@@ -1278,13 +1295,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   async #refreshLoot() {
     if (this.#lootBusy) return;
     this.#lootBusy = true; this.render();
+    const actorUuid = this.actor?.uuid;
     try {
-      const res = await rpc.listLoot({ forActorUuid: this.actor?.uuid });
-      this.#nearbyLoot = res?.ok ? (res.piles ?? []) : [];
-      if (!res?.ok && res?.reason) ui.notifications.warn(`Loot: ${res.reason}`);
-    } catch (e) {
-      this.#nearbyLoot = [];
-      ui.notifications.warn("Loot: couldn't reach the DM client.");
+      const [loot, inter] = await Promise.all([
+        rpc.listLoot({ forActorUuid: actorUuid }).catch(() => ({ ok: false })),
+        rpc.listInteractables({ forActorUuid: actorUuid }).catch(() => ({ ok: false }))
+      ]);
+      this.#nearbyLoot = loot?.ok ? (loot.piles ?? []) : [];
+      this.#nearbyDoors = inter?.ok ? (inter.doors ?? []) : [];
+      this.#nearbyTiles = inter?.ok ? (inter.tiles ?? []) : [];
+      if (!loot?.ok && !inter?.ok) ui.notifications.warn("Nearby: couldn't reach the DM — is its screen reloaded since the update?");
     } finally {
       this.#lootBusy = false; this.render();
     }
@@ -1294,6 +1314,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const res = await rpc.openLoot({ pileUuid, forActorUuid: this.actor?.uuid });
     if (!res?.ok) ui.notifications.warn(`Loot: ${res?.reason ?? "couldn't open that loot"}`);
     // success → Item Piles renders its window on this client; the dialog-lift surfaces it.
+  }
+
+  async #operateInteractable(kind, id) {
+    let res;
+    try { res = await rpc.operateInteractable({ kind, id, forActorUuid: this.actor?.uuid }); }
+    catch (e) { return ui.notifications.warn("Couldn't reach the DM client."); }
+    if (!res?.ok) return ui.notifications.warn(res?.reason ?? "couldn't operate that");
+    this.#refreshLoot(); // re-scan so a door's open/closed state refreshes
   }
 
   // Shared party journal (MVP goal, replacing the Phase-4 placeholder): read the
@@ -3463,6 +3491,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#refreshLoot();
       case "loot-open":
         return this.#openLoot(el.dataset.uuid);
+      case "door-toggle":
+        return this.#operateInteractable("door", el.dataset.id);
+      case "tile-trigger":
+        return this.#operateInteractable("tile", el.dataset.id);
       case "journal-post":
         return this.#postJournalNote();
       case "wildshape-open":

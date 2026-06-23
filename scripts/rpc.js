@@ -59,6 +59,8 @@ export function initSocket() {
   socket.register("watchdogPing", handleWatchdogPing);
   socket.register("listLoot", handleListLoot);
   socket.register("openLoot", handleOpenLoot);
+  socket.register("listInteractables", handleListInteractables);
+  socket.register("operateInteractable", handleOperateInteractable);
   socket.register("partyJournalAdd", handlePartyJournalAdd);
   socket.register("wildShapeList", handleWildShapeList);
   socket.register("wildShapeInto", handleWildShapeInto);
@@ -833,6 +835,76 @@ async function handleOpenLoot({ pileUuid, forActorUuid, requesterId } = {}) {
   }
 }
 
+// --- nearby interactables: doors + active tiles ------------------------------
+// A phone has no canvas, so the executor scans for things the player is standing next
+// to and operates them on their behalf (players can't update walls / fire active tiles
+// themselves). Adjacency = the nearest point is within ~one grid square.
+function nearestPointDistPx(px, py, x0, y0, x1, y1) {
+  const dx = x1 - x0, dy = y1 - y0, len2 = dx * dx + dy * dy;
+  let t = len2 ? ((px - x0) * dx + (py - y0) * dy) / len2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x0 + t * dx), py - (y0 + t * dy));
+}
+function rectDistPx(px, py, x, y, w, h) {
+  const cx = Math.max(x, Math.min(px, x + w)), cy = Math.max(y, Math.min(py, y + h));
+  return Math.hypot(px - cx, py - cy);
+}
+
+async function handleListInteractables({ forActorUuid } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
+  const myTok = forActorUuid ? fromUuidSync(forActorUuid)?.getActiveTokens?.()[0] ?? null : null;
+  if (!myTok) return { ok: true, doors: [], tiles: [] };
+  const grid = canvas.scene.grid, c = myTok.center;
+  const reach = grid.size * 1.1; // ~one square away = "right next to it"
+  const ft = (px) => Math.round((px / grid.size) * grid.distance);
+  const doors = [];
+  for (const w of (canvas.walls?.placeables ?? [])) {
+    const d = w.document;
+    if (d.door !== CONST.WALL_DOOR_TYPES.DOOR) continue; // regular doors only — never reveal SECRET doors
+    const [x0, y0, x1, y1] = d.c;
+    const dist = nearestPointDistPx(c.x, c.y, x0, y0, x1, y1);
+    if (dist > reach) continue;
+    doors.push({ id: d.id, ds: d.ds, distance: ft(dist) });
+  }
+  const tiles = [];
+  if (game.modules.get("monks-active-tiles")?.active) {
+    for (const t of (canvas.tiles?.placeables ?? [])) {
+      const f = t.document.flags?.["monks-active-tiles"];
+      if (!f?.active || !(f.actions?.length)) continue;
+      const trig = Array.isArray(f.trigger) ? f.trigger : [f.trigger];
+      if (!trig.some(m => ["click", "dblclick", "manual"].includes(m))) continue; // only player-operable
+      const d = t.document;
+      const dist = rectDistPx(c.x, c.y, d.x, d.y, d.width, d.height);
+      if (dist > reach) continue;
+      tiles.push({ id: t.id, label: f.name || "Interactable", distance: ft(dist) });
+    }
+  }
+  return { ok: true, doors, tiles };
+}
+
+async function handleOperateInteractable({ kind, id, forActorUuid } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (kind === "door") {
+    const w = canvas.scene?.walls?.get(id);
+    if (!w) return { ok: false, reason: "that door isn't here anymore" };
+    if (w.ds === CONST.WALL_DOOR_STATES.LOCKED) return { ok: false, reason: "that door is locked" };
+    const next = w.ds === CONST.WALL_DOOR_STATES.OPEN ? CONST.WALL_DOOR_STATES.CLOSED : CONST.WALL_DOOR_STATES.OPEN;
+    await w.update({ ds: next });
+    return { ok: true, ds: next };
+  }
+  if (kind === "tile") {
+    const tile = canvas.scene?.tiles?.get(id);
+    if (!tile?.trigger) return { ok: false, reason: "interactables need Monk's Active Tiles enabled" };
+    const tok = forActorUuid ? fromUuidSync(forActorUuid)?.getActiveTokens?.()[0]?.document ?? null : null;
+    try {
+      await tile.trigger({ tokens: tok ? [tok] : [], method: "click", pt: { x: tile.x + tile.width / 2, y: tile.y + tile.height / 2 } });
+      return { ok: true };
+    } catch (e) { return { ok: false, reason: e?.message ?? "couldn't operate it" }; }
+  }
+  return { ok: false, reason: "unknown interactable" };
+}
+
 // --- shared party journal ----------------------------------------------------
 // The phone observes the entry and reads it directly, but players can't author on an
 // entry they only observe — so the executor creates each note's page here, and the
@@ -948,6 +1020,7 @@ function toExecutor(handler, payload) {
       measure: handleMeasure, targetsList: handleTargetsList,
       previewTargets: handlePreviewTargets, endTurn: handleEndTurn, announceCast: handleAnnounceCast,
       listLoot: handleListLoot, openLoot: handleOpenLoot,
+      listInteractables: handleListInteractables, operateInteractable: handleOperateInteractable,
       partyJournalAdd: handlePartyJournalAdd,
       wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert
     };
@@ -972,6 +1045,8 @@ export const api = {
   announceCast: (payload) => toExecutor("announceCast", payload),
   listLoot: (payload = {}) => toExecutor("listLoot", payload),
   openLoot: (payload = {}) => toExecutor("openLoot", payload),
+  listInteractables: (payload = {}) => toExecutor("listInteractables", payload),
+  operateInteractable: (payload = {}) => toExecutor("operateInteractable", payload),
   partyJournalAdd: (payload = {}) => toExecutor("partyJournalAdd", payload),
   wildShapeList: (payload = {}) => toExecutor("wildShapeList", payload),
   wildShapeInto: (payload = {}) => toExecutor("wildShapeInto", payload),
