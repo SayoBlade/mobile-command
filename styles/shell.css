@@ -1648,6 +1648,14 @@ body.mc-theme-arcane #mobile-command-shell {
   box-shadow: 0 -8px 14px -6px rgba(0, 0, 0, .65), 0 3px 6px rgba(0, 0, 0, .6);
 }
 
+.mc-hidden { display: none !important; }
+.mc-spell-search {
+  width: 100%; box-sizing: border-box; min-height: 40px; margin-bottom: 10px;
+  padding: 8px 12px; border-radius: 10px; background: var(--mc-panel); border: 1px solid var(--mc-edge);
+  color: var(--mc-ink); font-family: inherit; font-size: 15px;
+}
+.mc-spell-search:focus { outline: none; border-color: var(--mc-gold); }
+.mc-spell-search::placeholder { color: var(--mc-muted); }
 .mc-spells { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .mc-spell {
   display: flex; align-items: stretch;

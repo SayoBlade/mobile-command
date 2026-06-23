@@ -140,6 +140,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #lootBusy = false;      // a listLoot round-trip is in flight
   #journalDraft = "";     // party-journal composer text, kept across re-renders so typing isn't wiped
   #journalBusy = false;   // a partyJournalAdd round-trip is in flight
+  #spellQuery = "";       // Spells-tab live search; filtered via DOM toggle (no re-render → keeps focus)
   #lastCombatantId = null; // track the active combatant to detect "my turn started"
   #charGen = null;        // char-gen workspace: null | { actorId, picking, abilMethod, abil, pool, rolled, assign }
                           //   picking: null|"race"|"background"|"class"|"abilities"
@@ -235,6 +236,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (scroller && prevTop) scroller.scrollTop = prevTop;
     }
     this.#viewKey = nextKey;
+    if (this.#tab === "spells" && this.#spellQuery) this.#filterSpells(this.#spellQuery); // keep the filter after a re-render
     if (this.#editingField) {
       const inp = content.querySelector(".mc-stat-input");
       if (inp) { inp.focus(); inp.select(); }
@@ -1575,11 +1577,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const isPrep = lvl >= 1 && lvlSpells.some(sp => sp.system.preparation?.mode === "prepared");
       const preparedN = lvlSpells.filter(sp => { const p = sp.system.preparation ?? {}; return p.prepared || p.mode !== "prepared"; }).length;
       const countBadge = `<span class="mc-spell-count">${isPrep ? `${preparedN}/${known}` : known}</span>`;
-      return `<div class="mc-actions-sub mc-spell-sub">${label}${countBadge}${headPips}</div><div class="mc-spells">${rows}</div>`;
+      return `<div class="mc-spell-section"><div class="mc-actions-sub mc-spell-sub">${label}${countBadge}${headPips}</div><div class="mc-spells">${rows}</div></div>`;
     }).join("");
 
+    // Live search appears once the book is big enough to scroll (high-level casters).
+    const search = spellItems.length > 6
+      ? `<input class="mc-spell-search" type="search" placeholder="Search spells…" value="${foundry.utils.escapeHTML(this.#spellQuery)}" aria-label="Search spells">`
+      : "";
     return `<div class="mc-actions-head"><span class="mc-section-label">Spells</span></div>
-      ${cards}${slotsRow}${sections}`;
+      ${cards}${slotsRow}${search}${sections}`;
   }
 
   // Per-class spellcasting cards (ability mod · spell attack · save DC · prepared
@@ -1631,13 +1637,31 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const prepBtn = canPrepare
       ? `<button class="mc-spell-prep ${isPrepared ? "mc-on" : ""}" data-action="toggle-prep" data-item-id="${sp.id}" aria-label="Toggle prepared"><i class="fas fa-book"></i></button>`
       : "";
-    return `<div class="mc-spell ${canPrepare && !isPrepared ? "mc-unprepared" : ""}">
+    return `<div class="mc-spell ${canPrepare && !isPrepared ? "mc-unprepared" : ""}" data-spell-name="${foundry.utils.escapeHTML(sp.name.toLowerCase())}">
       ${open}
         <img class="mc-spell-icon" src="${img}" alt="">
         <span class="mc-spell-name">${foundry.utils.escapeHTML(sp.name)}</span>
       ${close}
       ${prepBtn}
     </div>`;
+  }
+
+  // Live-filter the Spells tab by name via DOM toggling (no re-render → the search box
+  // keeps focus mid-type). Hides non-matching rows and any level section left empty.
+  // Re-applied after each render from _replaceHTML so it survives actor updates.
+  #filterSpells(q) {
+    const root = this.element;
+    if (!root) return;
+    const query = String(q ?? "").trim().toLowerCase();
+    for (const section of root.querySelectorAll(".mc-spell-section")) {
+      let visible = 0;
+      for (const row of section.querySelectorAll(".mc-spell")) {
+        const show = !query || (row.dataset.spellName ?? "").includes(query);
+        row.classList.toggle("mc-hidden", !show);
+        if (show) visible++;
+      }
+      section.classList.toggle("mc-hidden", !!query && visible === 0);
+    }
   }
 
   // Equipment tab: the actor's physical inventory, grouped by type, with
@@ -3897,6 +3921,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const t = ev.target;
     if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-jn-input")) {
       this.#journalDraft = t.value;
+    } else if (t instanceof HTMLInputElement && t.classList.contains("mc-spell-search")) {
+      this.#spellQuery = t.value; // live spell filter — DOM toggle, no re-render
+      this.#filterSpells(t.value);
     }
   };
 
