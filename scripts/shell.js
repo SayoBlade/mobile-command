@@ -140,7 +140,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #lootBusy = false;      // a listLoot round-trip is in flight
   #journalDraft = "";     // party-journal composer text, kept across re-renders so typing isn't wiped
   #journalBusy = false;   // a partyJournalAdd round-trip is in flight
-  #spellQuery = "";       // Spells-tab live search; filtered via DOM toggle (no re-render → keeps focus)
+  #searchOpen = false;    // magnifying-glass search drawer is open (Spells/Equipment/Actions)
+  #searchQuery = "";      // live search text; filtered via DOM toggle (no re-render → keeps focus)
   #lastCombatantId = null; // track the active combatant to detect "my turn started"
   #charGen = null;        // char-gen workspace: null | { actorId, picking, abilMethod, abil, pool, rolled, assign }
                           //   picking: null|"race"|"background"|"class"|"abilities"
@@ -236,7 +237,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (scroller && prevTop) scroller.scrollTop = prevTop;
     }
     this.#viewKey = nextKey;
-    if (this.#tab === "spells" && this.#spellQuery) this.#filterSpells(this.#spellQuery); // keep the filter after a re-render
+    if (this.#searchOpen && this.#searchQuery) this.#applySearch(this.#searchQuery); // keep the filter after a re-render
     if (this.#editingField) {
       const inp = content.querySelector(".mc-stat-input");
       if (inp) { inp.focus(); inp.select(); }
@@ -1577,15 +1578,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const isPrep = lvl >= 1 && lvlSpells.some(sp => sp.system.preparation?.mode === "prepared");
       const preparedN = lvlSpells.filter(sp => { const p = sp.system.preparation ?? {}; return p.prepared || p.mode !== "prepared"; }).length;
       const countBadge = `<span class="mc-spell-count">${isPrep ? `${preparedN}/${known}` : known}</span>`;
-      return `<div class="mc-spell-section"><div class="mc-actions-sub mc-spell-sub">${label}${countBadge}${headPips}</div><div class="mc-spells">${rows}</div></div>`;
+      return `<div class="mc-spell-section mc-search-group"><div class="mc-actions-sub mc-spell-sub">${label}${countBadge}${headPips}</div><div class="mc-spells">${rows}</div></div>`;
     }).join("");
 
-    // Live search appears once the book is big enough to scroll (high-level casters).
-    const search = spellItems.length > 6
-      ? `<input class="mc-spell-search" type="search" placeholder="Search spells…" value="${foundry.utils.escapeHTML(this.#spellQuery)}" aria-label="Search spells">`
-      : "";
-    return `<div class="mc-actions-head"><span class="mc-section-label">Spells</span></div>
-      ${cards}${slotsRow}${search}${sections}`;
+    return `<div class="mc-actions-head"><span class="mc-section-label">Spells</span>${this.#searchToggleHTML()}</div>
+      ${this.#searchDrawerHTML()}${cards}${slotsRow}${sections}`;
   }
 
   // Per-class spellcasting cards (ability mod · spell attack · save DC · prepared
@@ -1637,7 +1634,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const prepBtn = canPrepare
       ? `<button class="mc-spell-prep ${isPrepared ? "mc-on" : ""}" data-action="toggle-prep" data-item-id="${sp.id}" aria-label="Toggle prepared"><i class="fas fa-book"></i></button>`
       : "";
-    return `<div class="mc-spell ${canPrepare && !isPrepared ? "mc-unprepared" : ""}" data-spell-name="${foundry.utils.escapeHTML(sp.name.toLowerCase())}">
+    return `<div class="mc-spell ${canPrepare && !isPrepared ? "mc-unprepared" : ""}" data-search-name="${foundry.utils.escapeHTML(sp.name.toLowerCase())}">
       ${open}
         <img class="mc-spell-icon" src="${img}" alt="">
         <span class="mc-spell-name">${foundry.utils.escapeHTML(sp.name)}</span>
@@ -1646,22 +1643,31 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     </div>`;
   }
 
-  // Live-filter the Spells tab by name via DOM toggling (no re-render → the search box
-  // keeps focus mid-type). Hides non-matching rows and any level section left empty.
-  // Re-applied after each render from _replaceHTML so it survives actor updates.
-  #filterSpells(q) {
+  // Generic live search shared by Spells / Equipment / Actions. Filters by name via
+  // DOM toggling (no re-render → the box keeps focus mid-type): any [data-search-name]
+  // row that doesn't match is hidden, and any .mc-search-group with no visible row is
+  // hidden too. Re-applied from _replaceHTML so it survives actor-driven re-renders.
+  #applySearch(q) {
     const root = this.element;
     if (!root) return;
     const query = String(q ?? "").trim().toLowerCase();
-    for (const section of root.querySelectorAll(".mc-spell-section")) {
-      let visible = 0;
-      for (const row of section.querySelectorAll(".mc-spell")) {
-        const show = !query || (row.dataset.spellName ?? "").includes(query);
-        row.classList.toggle("mc-hidden", !show);
-        if (show) visible++;
-      }
-      section.classList.toggle("mc-hidden", !!query && visible === 0);
+    for (const row of root.querySelectorAll("[data-search-name]")) {
+      row.classList.toggle("mc-hidden", !!query && !(row.dataset.searchName ?? "").includes(query));
     }
+    for (const group of root.querySelectorAll(".mc-search-group")) {
+      const anyVisible = [...group.querySelectorAll("[data-search-name]")].some(r => !r.classList.contains("mc-hidden"));
+      group.classList.toggle("mc-hidden", !!query && !anyVisible);
+    }
+  }
+
+  // Magnifying-glass toggle (sits in a tab header) + the drawer it opens. Used by every
+  // searchable tab so the search is tucked away until wanted (DM 2026-06-23).
+  #searchToggleHTML() {
+    return `<button class="mc-search-toggle ${this.#searchOpen ? "mc-on" : ""}" data-action="search-toggle" aria-label="Search" title="Search"><i class="fas fa-magnifying-glass"></i></button>`;
+  }
+  #searchDrawerHTML() {
+    if (!this.#searchOpen) return "";
+    return `<div class="mc-search-drawer"><input class="mc-search-input" type="search" placeholder="Search…" value="${foundry.utils.escapeHTML(this.#searchQuery)}" aria-label="Search"></div>`;
   }
 
   // Equipment tab: the actor's physical inventory, grouped by type, with
@@ -1692,10 +1698,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     const sections = groups.filter(g => bucket[g.key].length).map(g => {
       const items = bucket[g.key].sort((a, b) => a.name.localeCompare(b.name));
-      return `<div class="mc-actions-sub">${g.label}</div><div class="mc-inv">${this.#inventoryItemsHTML(items)}</div>`;
+      return `<div class="mc-search-group"><div class="mc-actions-sub">${g.label}</div><div class="mc-inv">${this.#inventoryItemsHTML(items)}</div></div>`;
     }).join("");
-    return `<div class="mc-actions-head"><span class="mc-section-label">Equipment</span></div>
-      ${currency}${enc}${sections}`;
+    return `<div class="mc-actions-head"><span class="mc-section-label">Equipment</span>${this.#searchToggleHTML()}</div>
+      ${this.#searchDrawerHTML()}${currency}${enc}${sections}`;
   }
 
   // Encumbrance readout — mirrors Foundry exactly: dnd5e renders/applies nothing
@@ -1762,6 +1768,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   #inventoryRowHTML(item) {
     const sys = item.system ?? {};
+    const searchAttr = `data-search-name="${foundry.utils.escapeHTML(item.name.toLowerCase())}"`;
     const qty = sys.quantity ?? 1;
     const img = item.img || "icons/svg/item-bag.svg";
     const canEquip = "equipped" in sys;
@@ -1783,7 +1790,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (item.type === "container") {
       const opened = this.#openContainers.has(item.id);
       const n = this.actor.items.filter(x => x.system.container === item.id).length;
-      return `<div class="mc-inv-row mc-inv-container ${equipped ? "mc-equipped" : ""}">
+      return `<div class="mc-inv-row mc-inv-container ${equipped ? "mc-equipped" : ""}" ${searchAttr}>
         <div class="mc-inv-main" data-action="container-toggle" data-item-id="${item.id}">
           <img class="mc-inv-icon" src="${img}" alt="">
           <span class="mc-inv-name">${foundry.utils.escapeHTML(item.name)}<span class="mc-inv-qty">${n} item${n === 1 ? "" : "s"}</span></span>
@@ -1811,7 +1818,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         // activity) still carry data-item-id so a long-press opens their details
         // popup — without it the row had no detail target and nothing happened.
         : `<div class="mc-inv-main" data-item-id="${item.id}">`;
-    return `<div class="mc-inv-row ${equipped ? "mc-equipped" : ""}">
+    return `<div class="mc-inv-row ${equipped ? "mc-equipped" : ""}" ${searchAttr}>
       ${open}
         ${iconHTML}
         <span class="mc-inv-name">${foundry.utils.escapeHTML(item.name)}${qty > 1 ? `<span class="mc-inv-qty">×${qty}</span>` : ""}</span>
@@ -2441,19 +2448,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     };
     // Accordion: each group header is a drawer the user can open/close; using an
     // action auto-collapses its drawer (still reopenable). One group → no header.
+    const searching = this.#searchOpen && !!this.#searchQuery.trim(); // a search opens every group
     const body = shown.length <= 1
-      ? `<div class="mc-actions">${rowsFor(shown[0].key)}</div>`
+      ? `<div class="mc-search-group"><div class="mc-actions">${rowsFor(shown[0].key)}</div></div>`
       : shown.map(g => {
-          const collapsed = this.#collapsedActionGroups.has(g.key);
+          const collapsed = this.#collapsedActionGroups.has(g.key) && !searching;
           const header = `<button class="mc-actions-sub mc-econ-${g.key} mc-accordion ${collapsed ? "mc-collapsed" : ""}" data-action="agroup" data-group="${g.key}">
             <span>${g.label}</span><i class="fas fa-chevron-${collapsed ? "right" : "down"}"></i></button>`;
-          return header + (collapsed ? "" : `<div class="mc-actions">${rowsFor(g.key)}</div>`);
+          return `<div class="mc-search-group">${header}${collapsed ? "" : `<div class="mc-actions">${rowsFor(g.key)}</div>`}</div>`;
         }).join("");
     const editBtn = `<button class="mc-fav-edit ${editing ? "mc-on" : ""}" data-action="fav-edit-toggle" title="Add/remove favorites" aria-label="Add or remove favorites"><i class="fas fa-bookmark"></i></button>`;
     return `<div class="mc-actions-head">
         <span class="mc-section-label">Actions — ${editing ? "tap to favorite" : "tap to use"}</span>
-        ${editBtn}
+        ${editBtn}${this.#searchToggleHTML()}
       </div>
+      ${this.#searchDrawerHTML()}
       ${this.#actionEconomyHTML(actor)}
       ${body}`;
   }
@@ -2535,7 +2544,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const showMark = editing || isFav;
     const mark = `<i class="fas fa-bookmark mc-action-fav ${isFav ? "mc-on" : ""} ${showMark ? "" : "mc-ph"}"></i>`;
     const right = `<span class="mc-action-right">${this.#usesBadge(a.item)}${mark}</span>`;
-    return `<button class="mc-action" data-action="${action}" ${data}>
+    const searchName = foundry.utils.escapeHTML(`${a.item.name} ${a.name ?? ""}`.toLowerCase());
+    return `<button class="mc-action" data-action="${action}" ${data} data-search-name="${searchName}">
       <img class="mc-action-icon" src="${icon}" alt="">
       <span class="mc-action-text">
         <span class="mc-action-name">${foundry.utils.escapeHTML(a.item.name)}</span>
@@ -3032,8 +3042,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#applyTheme(); return this.render();
       case "tab":
         this.#tab = el.dataset.tab;
+        this.#searchOpen = false; this.#searchQuery = ""; // each tab's search starts closed/clear
         this.#abandonAction(); // leave the picker clean; cancel any held workflow
         return this.render();
+      case "search-toggle":
+        this.#searchOpen = !this.#searchOpen;
+        if (!this.#searchOpen) this.#searchQuery = "";
+        this.render();
+        if (this.#searchOpen) setTimeout(() => this.element?.querySelector(".mc-search-input")?.focus(), 0);
+        return;
       case "action-pick":
         return this.#pickAction(el.dataset.uuid);
       case "fav-edit-toggle":
@@ -3933,9 +3950,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const t = ev.target;
     if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-jn-input")) {
       this.#journalDraft = t.value;
-    } else if (t instanceof HTMLInputElement && t.classList.contains("mc-spell-search")) {
-      this.#spellQuery = t.value; // live spell filter — DOM toggle, no re-render
-      this.#filterSpells(t.value);
+    } else if (t instanceof HTMLInputElement && t.classList.contains("mc-search-input")) {
+      this.#searchQuery = t.value; // live search filter — DOM toggle, no re-render
+      this.#applySearch(t.value);
     }
   };
 

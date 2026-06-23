@@ -1655,13 +1655,21 @@ body.mc-theme-arcane #mobile-command-shell {
 }
 
 .mc-hidden { display: none !important; }
-.mc-spell-search {
-  width: 100%; box-sizing: border-box; min-height: 40px; margin-bottom: 10px;
-  padding: 8px 12px; border-radius: 10px; background: var(--mc-panel); border: 1px solid var(--mc-edge);
+/* Magnifying-glass search (Spells/Equipment/Actions): a small toggle in the tab
+   header opens a drawer with the live filter input. */
+.mc-search-toggle {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 8px;
+  background: transparent; border: 1px solid transparent; color: var(--mc-muted); font-size: 15px;
+}
+.mc-search-toggle.mc-on { color: var(--mc-gold); border-color: var(--mc-edge); background: var(--mc-panel); }
+.mc-search-drawer { margin: 2px 0 10px; }
+.mc-search-input {
+  width: 100%; box-sizing: border-box; min-height: 42px;
+  padding: 9px 12px; border-radius: 10px; background: var(--mc-panel); border: 1px solid var(--mc-gold);
   color: var(--mc-ink); font-family: inherit; font-size: 15px;
 }
-.mc-spell-search:focus { outline: none; border-color: var(--mc-gold); }
-.mc-spell-search::placeholder { color: var(--mc-muted); }
+.mc-search-input:focus { outline: none; }
+.mc-search-input::placeholder { color: var(--mc-muted); }
 .mc-spells { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .mc-spell {
   display: flex; align-items: stretch;
