@@ -2426,7 +2426,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const bucket = { action: [], bonus: [], reaction: [], free: [], other: [] };
     for (const a of acts) bucket[this.#econGroup(a)].push(a);
     const shown = groups.filter(g => bucket[g.key].length);
-    const rowsFor = (key) => bucket[key].map(a => this.#actionRowHTML(a, actor, editing)).join("");
+    // Within each economy group, list the character's OWN actions (features, class
+    // abilities, spells) first, then the item-derived ones — those duplicate the
+    // Equipment tab, so they go under a "From items" divider (DM 2026-06-23). A
+    // physical item has `quantity`; features/spells don't.
+    const isItemAction = (a) => "quantity" in (a.item?.system ?? {});
+    const rowsFor = (key) => {
+      const list = bucket[key];
+      const own = list.filter(a => !isItemAction(a));
+      const gear = list.filter(a => isItemAction(a));
+      const render = (arr) => arr.map(a => this.#actionRowHTML(a, actor, editing)).join("");
+      if (!own.length || !gear.length) return render(list); // only one kind → no divider
+      return render(own) + `<div class="mc-action-itemhead">From items</div>` + render(gear);
+    };
     // Accordion: each group header is a drawer the user can open/close; using an
     // action auto-collapses its drawer (still reopenable). One group → no header.
     const body = shown.length <= 1

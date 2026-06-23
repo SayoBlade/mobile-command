@@ -239,6 +239,12 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 
 /* --- Actions tab: action list + target picker (combat loop) --- */
 .mc-actions { display: flex; flex-direction: column; gap: 8px; }
+/* "From items" divider inside an economy group — separates a character's own actions
+   from the item-derived ones (which also live in the Equipment tab). */
+.mc-action-itemhead {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--mc-muted);
+  margin: 4px 2px 0; padding-top: 6px; border-top: 1px dashed var(--mc-edge);
+}
 .mc-action {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   width: 100%; padding: 14px 16px;
