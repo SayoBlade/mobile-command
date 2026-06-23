@@ -826,9 +826,15 @@ async function handlePartyJournalAdd({ text, authorName } = {}) {
   try {
     let entry = game.journal.find(j => j.getFlag(MODULE_ID, "partyJournal"));
     if (!entry) {
+      // Default OWNER (not OBSERVER) so every player can append pages to it DIRECTLY
+      // from their phone afterward — only this initial entry creation needs the GM
+      // (top-level JournalEntry creation is role-gated to Trusted+). Drop it into an
+      // existing "Party" folder if the DM made one, for tidiness.
+      const folder = game.folders?.find(f => f.type === "JournalEntry" && f.name === "Party") ?? null;
       entry = await JournalEntry.create({
         name: "Party Journal",
-        ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER },
+        folder: folder?.id ?? null,
+        ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
         flags: { [MODULE_ID]: { partyJournal: true } }
       });
     }

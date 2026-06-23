@@ -1321,14 +1321,34 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!text || this.#journalBusy) return;
     this.#journalBusy = true; this.render();
     try {
-      const res = await rpc.partyJournalAdd({ text, authorName: this.actor?.name ?? game.user?.name });
+      const entry = this.#partyJournalEntry();
+      // If we OWN the shared entry, append the page DIRECTLY — no GM round-trip, and it
+      // works even if the executor is momentarily offline. The executor is only needed
+      // the first time, to CREATE the entry (players can't create top-level journals).
+      const res = entry?.testUserPermission(game.user, "OWNER")
+        ? await this.#addJournalPageDirect(entry, text)
+        : await rpc.partyJournalAdd({ text, authorName: this.actor?.name ?? game.user?.name });
       if (res?.ok) this.#journalDraft = "";
       else ui.notifications.warn(`Journal: ${res?.reason ?? "couldn't post that note"}`);
     } catch (e) {
-      ui.notifications.warn("Journal: couldn't reach the DM client.");
+      console.error("mobile-command | journal post failed", e);
+      ui.notifications.warn("Journal: couldn't post that note.");
     } finally {
       this.#journalBusy = false; this.render();
     }
+  }
+
+  async #addJournalPageDirect(entry, text) {
+    const ts = Date.now();
+    const author = String(this.actor?.name ?? game.user?.name ?? "Someone").slice(0, 60);
+    await entry.createEmbeddedDocuments("JournalEntryPage", [{
+      name: `${author} · ${new Date(ts).toLocaleString()}`,
+      type: "text",
+      title: { show: true, level: 3 },
+      text: { content: `<p>${foundry.utils.escapeHTML(text)}</p>`, format: 1 },
+      flags: { [MODULE_ID]: { ts, author } }
+    }]);
+    return { ok: true };
   }
 
   // Active-scene tokens the user owns (PC + summons/familiars/wild shape).
