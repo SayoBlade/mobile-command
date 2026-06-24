@@ -69,6 +69,17 @@ export function registerSettings() {
     default: true
   });
 
+  // Idea #2: a world art-direction string folded into every player's AI portrait
+  // prompt so generated portraits share the table's look (e.g. "dark and gritty").
+  game.settings.register(MODULE_ID, "portraitStyle", {
+    name: "Campaign visual style (AI portraits)",
+    hint: "Your campaign's art direction, folded into every player's AI portrait prompt so generated images share one look — e.g. \"dark and gritty, muted earthy palette\". Leave blank for none.",
+    scope: "world",
+    config: true,
+    type: String,
+    default: ""
+  });
+
   // Comprehensive snapshots so the module's changes can be reverted/reactivated
   // (Foundry won't revert them on disable). presetBackup = original pre-module state;
   // reactivateSnapshot = the module-active state captured when you revert.

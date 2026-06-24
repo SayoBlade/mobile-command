@@ -91,6 +91,8 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   object-position: top; /* show the head/top; crop the bottom if off-ratio */
   background: #0c0d11;
   border: 1px solid #2c2f3a;
+  /* a ring in the player's own Foundry color — mirrors their token's ring on the map */
+  box-shadow: 0 0 0 2px var(--mc-user, transparent);
 }
 .mc-id { flex: 1 1 auto; min-width: 0; }
 .mc-name {
@@ -358,6 +360,34 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   height: 100%; min-height: 200px;
   color: #6a6d78; font-size: 14px; text-align: center; padding: 24px;
 }
+
+/* --- "no token on this scene" mode --- */
+.mc-notoken {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 34px 18px 24px; text-align: center;
+}
+.mc-nt-badge {
+  width: 66px; height: 66px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 26px;
+  color: var(--mc-user, #c8a44d); background: #14161c;
+  box-shadow: 0 0 0 2px var(--mc-user, #2c2f3a); margin-bottom: 4px;
+}
+.mc-nt-title { font-size: 17px; font-weight: 700; color: #e8e6df; }
+.mc-nt-sub { font-size: 13px; color: #9aa0ab; line-height: 1.5; max-width: 320px; }
+.mc-nt-sub b { color: #c8ccd4; }
+.mc-nt-listhead {
+  margin-top: 16px; align-self: stretch; text-align: left;
+  font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6f7682;
+}
+.mc-nt-list { align-self: stretch; display: flex; flex-direction: column; gap: 8px; }
+.mc-nt-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; min-height: 48px; width: 100%; text-align: left;
+  background: #14161c; border: 1px solid #2c2f3a; border-radius: 10px; color: #e8e6df;
+}
+.mc-nt-img { width: 36px; height: 36px; border-radius: 7px; object-fit: cover; object-position: top; background: #0c0d11; }
+.mc-nt-name { flex: 1 1 auto; min-width: 0; font-weight: 600; }
+.mc-nt-tag { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: #22252e; color: #aeb4bf; }
 
 /* --- bottom tab bar --- */
 .mc-tabs {

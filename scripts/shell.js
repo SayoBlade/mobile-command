@@ -28,6 +28,51 @@ export function isDisplayClient() {
   return game.settings.get(MODULE_ID, "role") === "display";
 }
 
+// Idea #2 — assemble a layered AI image-generation prompt for a character portrait.
+// Layers, in order: (1) a fixed framing+style layer that keeps the result safe for the
+// circular token-ring crop — centred bust, headroom, even margins; (2) the DM's world
+// art-direction; (3) auto-pulled species/class + a standout HIGH ability turned into a
+// visual cue (lows don't read on a face, so they're skipped); (4) the player's own
+// free-text last, so it refines/overrides. Pure + side-effect-free so it's easy to test.
+const PORTRAIT_STAT_LOOK = {
+  str: "powerfully built and muscular",
+  dex: "lean, lithe and quick",
+  con: "sturdy, hardy and robust",
+  int: "with sharp, keenly intelligent eyes",
+  wis: "with a calm, weathered, perceptive gaze",
+  cha: "strikingly handsome with a commanding presence",
+};
+export function buildPortraitPrompt(actor, { freeText = "", dmStyle = "", mode = "portrait" } = {}) {
+  const parts = [];
+  // (1) framing + base style — always present so the result survives the ring crop. The
+  // body/portrait toggle picks the composition; both keep the head clear of the top edge
+  // so a circular token crop never decapitates (full-body keeps the head high, feet low).
+  if (mode === "body") {
+    parts.push("Full-body character illustration showing the entire figure from head to toe, standing and facing the viewer, centred in the frame with even side margins, the head in the upper portion with clear space above it and the feet near the bottom edge, plain dark background, detailed painterly fantasy D&D character illustration.");
+  } else {
+    parts.push("Character portrait, head and shoulders, the subject centred and facing the viewer, their face in the middle of the frame with clear space above the head and an even margin on all sides, plain dark background, detailed painterly fantasy D&D character illustration.");
+  }
+  // (2) the DM's world art-direction
+  if (dmStyle && dmStyle.trim()) parts.push(`Art direction: ${dmStyle.trim()}.`);
+  // (3) auto from the sheet: species, class(es)/subclass, and a standout high ability
+  const race = actor?.items?.find(i => i.type === "race")?.name
+    || actor?.system?.details?.race?.name
+    || (typeof actor?.system?.details?.race === "string" ? actor.system.details.race : "");
+  const classes = (actor?.items?.filter(i => i.type === "class") || []).map(i => i.name);
+  const subclass = actor?.items?.find(i => i.type === "subclass")?.name;
+  const subj = [race, classes.join("/")].filter(Boolean).join(" ");
+  let line = `Subject: ${subj ? `a ${subj}` : "an adventurer"}`;
+  if (subclass) line += ` (${subclass})`;
+  const abil = actor?.system?.abilities || {};
+  let topKey = null, topVal = -Infinity;
+  for (const k of ABILITIES) { const v = abil[k]?.value ?? 0; if (v > topVal) { topVal = v; topKey = k; } }
+  if (topKey && topVal >= 16 && PORTRAIT_STAT_LOOK[topKey]) line += `, ${PORTRAIT_STAT_LOOK[topKey]}`;
+  parts.push(line + ".");
+  // (4) the player's own description last so it refines/overrides (gender, gear, colours)
+  if (freeText && freeText.trim()) parts.push(freeText.trim());
+  return parts.join(" ");
+}
+
 // Third-party combat HUDs (Argon / Enhanced Combat HUD / Action Pack /
 // combat-guidance) that compete with the shell on phones and clutter the TV.
 const COMBAT_HUD_RE = /argon|enhancedcombat|combat-?hud|action-?pack|combat-guidance/;
@@ -181,8 +226,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const assigned = game.user.character;
     if (assigned && inScene.some(t => t.actor?.id === assigned.id)) return assigned;
     if (inScene.length) return inScene[0].actor;
-    // No owned token here: fall back to the assigned / first owned character for
-    // read-only viewing (spatial actions will warn there's no token on this scene).
+    // No owned token on this scene. For a player, prefer a blank/in-build PC (the
+    // switcher lists these) so they land on something actionable instead of being
+    // stranded on a complete off-scene character the switcher won't show — which is
+    // exactly what trapped them on "Multi". With no token AND no blank PC, return
+    // null so the shell shows the "no token on this scene" screen (#noTokenHTML).
+    // The GM/Display client keep the old read-only fallback — not the screen's audience.
+    if (!game.user.isGM && !isDisplayClient()) {
+      return game.actors.find(a => a.isOwner && this.#isCharGenPC(a)) ?? null;
+    }
     return assigned ?? game.actors.find(a => a.type === "character" && a.isOwner) ?? null;
   }
 
@@ -235,6 +287,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     content.innerHTML = typeof result === "string" ? result : "";
     this.#attachListeners(content);
     this.#applyTheme(); // keep the saved theme's body class in sync each render
+    content.style.setProperty("--mc-user", game.user?.color?.css ?? "var(--mc-gold)"); // personal color accent
+    this.#applyMyTokenRing(); // keep my controlled token's ring in my own player color
     if (toast) content.appendChild(toast);
     if (nextKey === prevKey) {
       const scroller = content.querySelector(".mc-content, .mc-cg-scroll");
@@ -248,12 +302,30 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
   }
 
+  // "No player token available" mode: shown when the player has no token on the
+  // active scene and no blank PC to build (get actor() returned null). Explains the
+  // wait clearly and lists any characters they own — tap to view/build — so it isn't
+  // a dead end. Carries the player's colour accent (--mc-user) like the rest of the UI.
+  #noTokenHTML() {
+    const scene = game.scenes?.active?.name ?? "this scene";
+    const chars = game.actors.filter(a => a.type === "character" && a.isOwner);
+    const rows = chars.map(a => `
+      <button class="mc-nt-row" data-action="pick-offscene" data-actor-id="${a.id}">
+        <img class="mc-nt-img" src="${a.img || "icons/svg/mystery-man.svg"}" alt="">
+        <span class="mc-nt-name">${foundry.utils.escapeHTML(a.name)}</span>
+        <span class="mc-nt-tag">${this.#isCharGenPC(a) ? "Build" : "View"}</span>
+      </button>`).join("");
+    return `<div class="mc-notoken">
+      <div class="mc-nt-badge"><i class="fa-solid fa-location-dot"></i></div>
+      <div class="mc-nt-title">No token on this scene</div>
+      <div class="mc-nt-sub">The DM hasn't placed a token for you on <b>${foundry.utils.escapeHTML(scene)}</b> yet. This updates automatically the moment they do.</div>
+      ${rows ? `<div class="mc-nt-listhead">Your characters</div><div class="mc-nt-list">${rows}</div>` : ""}
+    </div>`;
+  }
   #buildHTML() {
     this.syncSubject(); // self-heal a subject stranded by a scene switch
     const actor = this.actor;
-    if (!actor) {
-      return `<div class="mc-placeholder">No owned character found for ${game.user.name}.</div>`;
-    }
+    if (!actor) return this.#noTokenHTML();
     // Char-gen (§7.x): once started, the build workspace replaces the sheet until
     // Finish. A blank PC (no class) that hasn't started offers only "Create
     // Character". Otherwise fall through to the normal sheet.
@@ -2123,6 +2195,35 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     for (const c of [...document.body.classList]) if (c.startsWith("mc-theme-")) document.body.classList.remove(c);
     if (t && t !== "tavern") document.body.classList.add(`mc-theme-${t}`);
   }
+  // Tint the dynamic ring of EVERY token this player owns on the active scene with
+  // their own Foundry color, so they can spot all of theirs (PC + wild-shape + summons)
+  // on a busy shared map — not just whichever one happens to be selected. The player
+  // owns these tokens, so the phone sets them directly; idempotent — only writes when a
+  // token's ring color isn't already theirs, so it's a no-op after the first pass.
+  #applyMyTokenRing() {
+    if (game.user.isGM) return; // player-color rings are a player thing
+    const want = game.user.color?.css;
+    if (!want) return;
+    // The ring BAND thickness is fixed by the dynamic-ring style, so to make the colour
+    // read when zoomed out we also tint the ring BACKGROUND and shrink the subject a
+    // touch — that opens a band-width gap filled with the player colour, so ring + gap
+    // together look like a much thicker coloured ring. SCALE is the tuning knob.
+    const SCALE = 0.8;
+    for (const tok of (game.scenes?.active?.tokens ?? [])) {
+      if (!tok.isOwner) continue;
+      const c = tok.ring?.colors || {};
+      const haveRing = c.ring?.css ?? c.ring ?? null;
+      const haveBg = c.background?.css ?? c.background ?? null;
+      const haveScale = tok.ring?.subject?.scale;
+      if (haveRing === want && haveBg === want && haveScale === SCALE) continue; // already mine — no write, no loop
+      tok.update({
+        "ring.enabled": true,
+        "ring.colors.ring": want,
+        "ring.colors.background": want,
+        "ring.subject.scale": SCALE
+      }).catch(() => { /* best effort */ });
+    }
+  }
   #themeOptionsHTML() {
     const cur = this.#currentTheme();
     const themes = [["tavern", "Tavern", "#c8a44d"], ["slate", "Slate", "#79b8e0"], ["ember", "Ember", "#e2924a"], ["arcane", "Arcane", "#b483e0"]];
@@ -3486,6 +3587,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "level-up-pick": return this.#addMulticlass(el.dataset.uuid);
       case "token-prev": return this.#cycleSubject(-1);
       case "token-next": return this.#cycleSubject(1);
+      case "pick-offscene": // from the no-token screen: peek at / build an owned character
+        this.#subjectActorId = el.dataset.actorId; this.#subjectId = null; return this.render();
       case "set-primary":
         return actor?.update({ "system.attributes.spellcasting": el.dataset.ability });
       case "show-image":
