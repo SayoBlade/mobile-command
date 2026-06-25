@@ -48,9 +48,9 @@ export function buildPortraitPrompt(actor, { freeText = "", dmStyle = "", mode =
   // body/portrait toggle picks the composition; both keep the head clear of the top edge
   // so a circular token crop never decapitates (full-body keeps the head high, feet low).
   if (mode === "body") {
-    parts.push("Full-body character illustration showing the entire figure from head to toe, standing and facing the viewer, centred in the frame with even side margins, the head in the upper portion with clear space above it and the feet near the bottom edge, plain dark background, detailed painterly fantasy D&D character illustration.");
+    parts.push("Square 1:1 full-body character illustration showing the entire figure from head to toe, standing and facing the viewer, centred in the frame with even side margins, the head in the upper portion with clear space above it and the feet near the bottom edge, a simple background in a tone that gently contrasts with the character (subtle, not harsh) so they stay readable at small token sizes, detailed painterly fantasy D&D character illustration.");
   } else {
-    parts.push("Character portrait, head and shoulders, the subject centred and facing the viewer, their face in the middle of the frame with clear space above the head and an even margin on all sides, plain dark background, detailed painterly fantasy D&D character illustration.");
+    parts.push("Square 1:1 character portrait, head and shoulders, the subject centred and facing the viewer, their face in the middle of the frame with clear space above the head and an even margin on all sides, a simple background in a tone that gently contrasts with the character (subtle, not harsh) so they stay readable at small token sizes, detailed painterly fantasy D&D character illustration.");
   }
   // (2) the DM's world art-direction
   if (dmStyle && dmStyle.trim()) parts.push(`Art direction: ${dmStyle.trim()}.`);
@@ -191,6 +191,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #searchQuery = "";      // live search text; filtered via DOM toggle (no re-render → keeps focus)
   #wildShape = null;      // Druid shape browser: null | { open, beasts:null|[], loading }
   #summonConfig = null;   // summon options the player picks before the DM places: null | { uuid, name, slotOptions, slotId, profiles, profileId }
+  #portraitGen = null;    // portrait generator screen: null | { actorId, mode:"portrait"|"body", freeText }
   #lastCombatantId = null; // track the active combatant to detect "my turn started"
   #charGen = null;        // char-gen workspace: null | { actorId, picking, abilMethod, abil, pool, rolled, assign }
                           //   picking: null|"race"|"background"|"class"|"abilities"
@@ -336,6 +337,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     // Wrap char-gen in a scroll container (the shell root is overflow:hidden and
     // these views render outside .mc-content — long pick lists couldn't scroll).
+    // The portrait generator can overlay char-gen too (entry: tap the char-gen
+    // portrait), so NEW characters get it as a build step — not just existing ones
+    // via the sheet. Back (portrait-back) clears it and returns to the build view.
+    if (this.#portraitGen && ((this.#charGen?.actorId === actor.id) || this.#isBlankPC(actor)))
+      return `<div class="mc-cg-scroll">${this.#portraitGenHTML(actor)}</div>`;
     if (this.#charGen?.actorId === actor.id) return `<div class="mc-cg-scroll">${this.#charGenHTML(actor)}</div>`;
     if (this.#isBlankPC(actor)) return `<div class="mc-cg-scroll">${this.#charGenStartHTML(actor)}</div>`;
     const sys = actor.system;
@@ -444,7 +450,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #charGenHeaderHTML(actor, sub) {
     const img = actor.img || "icons/svg/mystery-man.svg";
     return `<header class="mc-header mc-cg-header">
-      <img class="mc-portrait" src="${img}" alt="">
+      <img class="mc-portrait" src="${img}" alt="" data-action="portrait-open" title="Generate a portrait">
       <div class="mc-id"><div class="mc-name"><span class="mc-name-text">${foundry.utils.escapeHTML(actor.name)}</span></div>
         <div class="mc-cg-sub">${sub}</div></div>
     </header>${this.#tokenSwitcherHTML()}`;
@@ -1225,6 +1231,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <button class="mc-imgpop-x" data-action="img-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
       <img class="mc-imgpop-img" src="${src}" alt="">
       <div class="mc-imgpop-toggle">${tab("profile", "Portrait")}${tab("token", "Token")}</div>
+      <button class="mc-imgpop-gen" data-action="portrait-open"><i class="fas fa-wand-magic-sparkles"></i> Generate portrait</button>
     </div>`;
   }
 
@@ -1263,6 +1270,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#itemPickerId) return this.#itemActivityPickerHTML(actor);
     if (this.#wildShape?.open) return this.#wildShapeBrowserHTML();
     if (this.#summonConfig) return this.#summonConfigHTML();
+    if (this.#portraitGen) return this.#portraitGenHTML(actor);
     if (this.#tab === "actions") return this.#actionsHTML(actor);
     if (this.#tab === "details") return this.#detailsHTML(actor);
     if (this.#tab === "spells") return this.#spellsHTML(actor);
@@ -2204,24 +2212,25 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (game.user.isGM) return; // player-color rings are a player thing
     const want = game.user.color?.css;
     if (!want) return;
-    // The ring BAND thickness is fixed by the dynamic-ring style, so to make the colour
-    // read when zoomed out we also tint the ring BACKGROUND and shrink the subject a
-    // touch — that opens a band-width gap filled with the player colour, so ring + gap
-    // together look like a much thicker coloured ring. SCALE is the tuning knob.
-    const SCALE = 0.8;
+    // Only the player's own CHARACTER tokens get the colour — their PC, and a
+    // wild-shape form (which keeps the character actor). NOT summons, NPCs, or Item
+    // Pile stores/loot the player happens to own; strip my colour back off those.
+    // A coloured BAND only (no background fill / no subject shrink) so the art fills
+    // the ring cleanly — a prominent ring wants ring-friendly art (a generated portrait).
     for (const tok of (game.scenes?.active?.tokens ?? [])) {
       if (!tok.isOwner) continue;
       const c = tok.ring?.colors || {};
       const haveRing = c.ring?.css ?? c.ring ?? null;
       const haveBg = c.background?.css ?? c.background ?? null;
       const haveScale = tok.ring?.subject?.scale;
-      if (haveRing === want && haveBg === want && haveScale === SCALE) continue; // already mine — no write, no loop
-      tok.update({
-        "ring.enabled": true,
-        "ring.colors.ring": want,
-        "ring.colors.background": want,
-        "ring.subject.scale": SCALE
-      }).catch(() => { /* best effort */ });
+      let isPile = false; try { isPile = !!game.itempiles?.API?.isValidItemPile?.(tok); } catch (e) { /* not installed */ }
+      const isMine = tok.actor?.type === "character" && !isPile;
+      if (isMine) {
+        if (haveRing === want && haveBg == null && haveScale === 1) continue; // already mine — no write
+        tok.update({ "ring.enabled": true, "ring.colors.ring": want, "ring.colors.background": null, "ring.subject.scale": 1 }).catch(() => {});
+      } else if (haveRing === want) { // a summon/store/NPC I coloured earlier — revert just MY colour, leave the DM's
+        tok.update({ "ring.colors.ring": null, "ring.colors.background": null, "ring.subject.scale": 1 }).catch(() => {});
+      }
     }
   }
   #themeOptionsHTML() {
@@ -2856,6 +2865,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ? `<div class="mc-assigned"><span><i class="fas fa-crosshairs"></i> Targets set by ${foundry.utils.escapeHTML(s.assignedByDM)} (${s.selected.size})</span>
           <button class="mc-assigned-change" data-action="assigned-change">change</button></div>`
       : "";
+    // Out-of-resources warning (the empty-revolver case): clear, persistent, and it does
+    // NOT block — firing below just won't consume (skipConsume). The player's call.
+    const depletedBanner = s.depleted
+      ? `<div class="mc-depleted"><i class="fas fa-triangle-exclamation"></i> Out of charges/ammo — using won't spend any, and it may not behave normally.</div>`
+      : "";
     // Upcast: slot-level chips for leveled spells (badge = slots left at that level).
     const slotRow = (s.slotOptions?.length)
       ? `<div class="mc-slot-row"><span class="mc-slot-label">Cast at</span>${s.slotOptions.map(o =>
@@ -2868,13 +2882,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <span class="mc-picker-title">${foundry.utils.escapeHTML(s.name)}${s.rangeLabel ? `<span class="mc-picker-range">${foundry.utils.escapeHTML(s.rangeLabel)}</span>` : ""}</span>
         ${count}
       </div>
+      ${depletedBanner}
       ${assignedBanner}
       ${slotRow}
       ${s.hasAttack ? `<div class="mc-adv-row">${advBtn("advantage", "Advantage")}${advBtn("normal", "Normal")}${advBtn("disadvantage", "Disadvantage")}</div>` : ""}
       ${recBanner}
       <div class="mc-targets">${body}${selfRow}</div>
-      <button class="mc-fire ${canFire ? "" : "mc-disabled"}" data-action="fire" ${canFire ? "" : "disabled"}>
-        ${s.busy ? "Using…" : "Use"}
+      <button class="mc-fire ${s.depleted ? "mc-fire-warn" : ""} ${canFire ? "" : "mc-disabled"}" data-action="fire" ${canFire ? "" : "disabled"}>
+        ${s.busy ? "Using…" : (s.depleted ? "Use anyway" : "Use")}
       </button>`;
   }
 
@@ -2916,20 +2931,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // list (so it groups + long-presses like any item) but route the tap to the beast
     // browser instead of running the bare transform.
     if (activity.type === "transform" && /wild\s*shape/i.test(activity.item?.name ?? "")) return this.#openWildShape();
-    // GENERIC out-of-RESOURCES safeguard (not ammo-specific): if this activity spends a
-    // limited resource (item uses, activity uses) that's depleted, midi can't auto-
-    // consume on the executor and FORCES a "Consume?" dialog THERE that the phone can't
-    // reach → the action hangs (DM/Sqyre: an empty revolver — its item uses, a resource).
-    // Warn instead of firing into that dead end.
-    const short = (activity.consumption?.targets ?? []).some((t) => {
+    // GENERIC out-of-RESOURCES handling (not ammo-specific): if this activity spends a
+    // limited resource (item/activity uses) that's depleted, midi can't auto-consume on
+    // the executor and would FORCE a "Consume?" dialog THERE the phone can't reach → hang.
+    // Rather than hard-block, flag it: the action screen shows a clear warning and the fire
+    // skips consumption (skipConsume) so midi never opens that dialog — the player can use
+    // it anyway and it's on them (DM 2026-06-25: an empty revolver shouldn't read as a bug).
+    const depleted = (activity.consumption?.targets ?? []).some((t) => {
       const need = Number(t.value) || 1;
       const uses = t.type === "itemUses" ? activity.item?.system?.uses
         : t.type === "activityUses" ? activity.uses : null;
       return uses && (uses.max ?? 0) > 0 && (uses.value ?? 0) < need;
     });
-    if (short) {
-      return ui.notifications.warn(`${activity.item?.name ?? "This"} is out of resources — recover it before using it again.`);
-    }
     this.#clearPreview(); // drop any stale preview from a prior action
     const affects = activity.target?.affects ?? {};
     // "selfTarget" = no enemy target needed → skip the picker. Attacks/saves/
@@ -2958,6 +2971,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets, rangeFt, rangeLabel,
       slotOptions, slot: slotOptions[0]?.id ?? null, // default = lowest available slot ≥ base level
       hasAttack: activity.type === "attack",
+      depleted, // out of item/activity uses → warn + fire WITHOUT consuming (skipConsume), no executor hang
+
       // Whether this activity has any damage to roll — the safeguard against the phone
       // showing "Roll damage" for an activity midi never parks a damage step for (e.g.
       // Reload: a utility activity with no damage). DM/Sqyre 2026-06-23.
@@ -3068,6 +3083,93 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (activity) await this.#announceCast(activity, "summon", extra);
   }
 
+  // Idea #2 (slice 2b) — the portrait generator screen. The body/portrait toggle drives
+  // the framing layer; the free-text box adds the player's own description; the live
+  // preview shows the assembled prompt to copy into an image generator. Upload comes next.
+  #portraitGenHTML(actor) {
+    const pg = this.#portraitGen;
+    let dmStyle = ""; try { dmStyle = game.settings.get(MODULE_ID, "portraitStyle") || ""; } catch (e) { /* old worlds may lack the setting */ }
+    const prompt = buildPortraitPrompt(actor, { freeText: pg.freeText, dmStyle, mode: pg.mode });
+    const seg = (m, label, icon) => `<button class="mc-pg-seg ${pg.mode === m ? "mc-on" : ""}" data-action="portrait-mode" data-mode="${m}"><i class="fas ${icon}"></i> ${label}</button>`;
+    return `<div class="mc-ws-head">
+        <button class="mc-ws-back" data-action="portrait-back" aria-label="Back"><i class="fas fa-chevron-left"></i></button>
+        <span class="mc-section-label">Portrait — ${foundry.utils.escapeHTML(actor.name)}</span>
+      </div>
+      <div class="mc-pg">
+        <div class="mc-pg-label">Composition</div>
+        <div class="mc-pg-segs">${seg("portrait", "Portrait", "fa-user")}${seg("body", "Full body", "fa-person")}</div>
+        <div class="mc-pg-label">Describe your character <span class="mc-pg-hint">gender, build, hair, gear, colours…</span></div>
+        <textarea class="mc-pg-input" rows="3" placeholder="e.g. a stern human woman, long silver braid, weathered green cloak, twin daggers">${foundry.utils.escapeHTML(pg.freeText)}</textarea>
+        <div class="mc-pg-label">Prompt <span class="mc-pg-hint">paste into your image generator</span></div>
+        <div class="mc-pg-preview" data-pg-preview>${foundry.utils.escapeHTML(prompt)}</div>
+        <button class="mc-pg-copy" data-action="portrait-copy"><i class="fas fa-copy"></i> Copy prompt</button>
+        <a class="mc-pg-gemini" href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer"><i class="fas fa-arrow-up-right-from-square"></i> Open Gemini &amp; paste</a>
+        <div class="mc-pg-label">Then upload the image you generated</div>
+        <input type="file" accept="image/*" class="mc-pg-file" hidden>
+        <button class="mc-pg-upload" data-action="portrait-upload"><i class="fas fa-arrow-up-from-bracket"></i> Upload image</button>
+        <div class="mc-pg-note"><i class="fas fa-circle-info"></i> It's resized and set as your portrait; the colour ring turns it into your token.</div>
+      </div>`;
+  }
+  async #copyPortraitPrompt(actor) {
+    if (!this.#portraitGen) return;
+    let dmStyle = ""; try { dmStyle = game.settings.get(MODULE_ID, "portraitStyle") || ""; } catch (e) { /* */ }
+    const live = this.element?.querySelector(".mc-pg-input")?.value; // newest text even if input didn't fire
+    const text = buildPortraitPrompt(actor, { freeText: live ?? this.#portraitGen.freeText, dmStyle, mode: this.#portraitGen.mode });
+    try { await navigator.clipboard.writeText(text); } catch (e) { /* clipboard blocked — the box is selectable */ }
+    const b = this.element?.querySelector(".mc-pg-copy");
+    if (b) { b.innerHTML = '<i class="fas fa-check"></i> Copied'; setTimeout(() => { const b2 = this.element?.querySelector(".mc-pg-copy"); if (b2) b2.innerHTML = '<i class="fas fa-copy"></i> Copy prompt'; }, 1600); }
+  }
+  // Resize the chosen image to <=512px (small upload, sharp token), then hand the data
+  // to the executor — the player can't write files themselves (FILES_UPLOAD is GM-only).
+  async #uploadPortraitFile(file) {
+    if (!file || !this.#portraitGen) return;
+    const actor = this.actor; if (!actor) return;
+    const btn = this.element?.querySelector(".mc-pg-upload");
+    if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading…';
+    const dataUrl = await this.#resizeImage(file, 512);
+    if (!dataUrl) { if (btn) btn.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Could not read that image'; return; }
+    const res = await rpc.portraitUpload({ actorId: actor.id, dataUrl }).catch(e => ({ ok: false, reason: String(e?.message ?? e) }));
+    if (res?.ok) {
+      this.#portraitGen = null; // done → back to the sheet, now showing the new portrait
+      this.render();
+      ui.notifications?.info?.("Portrait set — the ring builds your token from it.");
+    } else if (btn) {
+      btn.innerHTML = `<i class="fas fa-triangle-exclamation"></i> ${foundry.utils.escapeHTML(res?.reason ?? "Upload failed — has the DM's screen reloaded?")}`;
+    }
+  }
+  // Center-square-crop the chosen image to `size` and apply a standard full-size
+  // circular mask, so the token is a clean disc that fills the ring (the colour band
+  // frames it). Output keeps alpha for the transparent corners — webp, else PNG; never
+  // JPEG, which has no alpha and would fill the corners with a solid block.
+  #resizeImage(file, size = 512) {
+    return new Promise(resolve => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const canvas = document.createElement("canvas");
+        canvas.width = size; canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        // Mask to a disc INSIDE the ring band so the colour ring shows around the
+        // character. The art must sit INSIDE the ring's inner rim, not its outer rim.
+        // radius 0.34 → opaqueFrac 0.68 → ~32% margin. Tune here.
+        const r = size * 0.34;
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, r, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        const side = Math.min(img.width, img.height) || 1; // center square crop
+        const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+        let out = null; try { out = canvas.toDataURL("image/webp", 0.92); } catch (e) { /* webp unsupported */ }
+        if (!out || !out.startsWith("data:image/webp")) out = canvas.toDataURL("image/png"); // PNG keeps the transparent corners
+        resolve(out);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
+    });
+  }
+
   // Save/reaction prompt: the executor relayed a midi save request for one of
   // this user's actors. Store it, show the cue, and auto-clear when midi's
   // timeout would have lapsed (so a stale prompt doesn't linger after the
@@ -3153,10 +3255,22 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // (midi-qol.js, removeActionBonusReaction); the shell re-renders on that flag
   // change, so this only owns the drawer state we collapse ourselves.
   noteCombatTurn() {
-    const cur = game.combat?.combatant?.actor?.id ?? null;
+    const combatant = game.combat?.combatant;
+    const cur = combatant?.actor?.id ?? null;
     if (cur === this.#lastCombatantId) return;
     this.#lastCombatantId = cur;
     this.#moveBudget = null; // the executor resets a token's ft when its turn begins → clear the stale readout
+    // Auto-follow the turn: when the new active combatant is a token THIS player owns
+    // (a PC, summon, familiar, wild-shape beast…), switch the controller to it so the
+    // phone is already on the right creature when its turn starts — no manual cycling
+    // (DM request 2026-06-25, esp. for summons/familiars). Phone clients only; only to an
+    // owned token on the active scene; never mid-action (don't yank a parked two-tap).
+    const tok = combatant?.token;
+    if (tok && !game.user.isGM && !isDisplayClient() && !this.#actionState
+        && tok.isOwner && tok.parent?.id === game.scenes?.active?.id && this.#subjectId !== tok.id) {
+      this.#subjectId = tok.id;
+      this.#subjectActorId = null;
+    }
     if (!cur || cur === this.actor?.id) this.#collapsedActionGroups.clear();
   }
 
@@ -3190,7 +3304,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         activityUuid: s.uuid,
         targetUuids: s.selfTarget ? [] : Array.from(s.selected),
         midiOptions,
-        spellSlot: s.slot ?? null // upcast: cast at the chosen slot level
+        spellSlot: s.slot ?? null, // upcast: cast at the chosen slot level
+        skipConsume: !!s.depleted   // out of charges: fire WITHOUT consuming so midi never opens the executor "Consume?" dialog
       }));
     } catch (err) {
       console.error("mobile-command | useActivityStart failed", err);
@@ -3241,6 +3356,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#detailStack = [];
     this.#wildShape = null;    // close the beast browser / summon picker too — otherwise
     this.#summonConfig = null; // they override the tab content and a tab tap looks stuck
+    this.#portraitGen = null;  // close the portrait generator too
   }
 
   // B9 live target preview: reflect the current selection on the executor's
@@ -3625,6 +3741,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#summonConfig = null; return this.render();
       case "summon-pick":
         return this.#doSummonPick(el.dataset.profile);
+      case "portrait-open": // from the image popup: open the portrait generator for this actor
+        this.#imagePopup = null;
+        this.#portraitGen = { actorId: actor?.id, mode: "portrait", freeText: "" };
+        return this.render();
+      case "portrait-mode":
+        if (this.#portraitGen) this.#portraitGen.mode = el.dataset.mode;
+        return this.render();
+      case "portrait-copy":
+        return this.#copyPortraitPrompt(actor);
+      case "portrait-back":
+        this.#portraitGen = null; return this.render();
+      case "portrait-upload": // open the file picker; #onChange handles the chosen file
+        this.element?.querySelector(".mc-pg-file")?.click(); return;
       case "cond-toggle":
         return actor?.toggleStatusEffect?.(el.dataset.status);
       case "break-conc":
@@ -4310,11 +4439,22 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     } else if (t instanceof HTMLInputElement && t.classList.contains("mc-search-input")) {
       this.#searchQuery = t.value; // live search filter — DOM toggle, no re-render
       this.#applySearch(t.value);
+    } else if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-pg-input") && this.#portraitGen) {
+      this.#portraitGen.freeText = t.value; // live prompt preview — DOM update, no re-render (keep focus)
+      let dmStyle = ""; try { dmStyle = game.settings.get(MODULE_ID, "portraitStyle") || ""; } catch (e) { /* */ }
+      const preview = this.element?.querySelector("[data-pg-preview]");
+      const actor = this.actor;
+      if (preview && actor) preview.textContent = buildPortraitPrompt(actor, { freeText: t.value, dmStyle, mode: this.#portraitGen.mode });
     }
   };
 
   #onChange = (ev) => {
     const inp = ev.target;
+    if (inp?.classList?.contains?.("mc-pg-file")) { // chosen generated image → resize + executor upload
+      const file = inp.files?.[0];
+      if (file) this.#uploadPortraitFile(file);
+      return;
+    }
     // Char-gen name/biography box: commit the field to the actor on blur. data-bio is
     // the actor path ("name" → the document name, else a system.details.* path).
     if (inp?.dataset?.bio) {

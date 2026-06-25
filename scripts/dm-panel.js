@@ -23,6 +23,11 @@ function activePlayers() {
  *  "Aslan"/"Multi" for users Player 1/Player 2 (DM 2026-06-22). Only collapse to a
  *  character name when it's unambiguous (exactly one owned). */
 function playerLabel(u) {
+  // Name the CHARACTER this user is playing, not the user: the active combatant if it's
+  // their turn (so the target-assign list names the PC that will actually act), then their
+  // assigned character, then their single owned PC, else the user name as a last resort.
+  const cbActor = game.combat?.combatant?.actor;
+  if (cbActor && currentTurnUserId() === u.id) return cbActor.name;
   if (u.character) return u.character.name;
   const owned = game.actors.filter(a => a.type === "character" && a.testUserPermission(u, "OWNER"));
   return owned.length === 1 ? owned[0].name : u.name;

@@ -62,6 +62,7 @@ export function initSocket() {
   socket.register("listInteractables", handleListInteractables);
   socket.register("operateInteractable", handleOperateInteractable);
   socket.register("partyJournalAdd", handlePartyJournalAdd);
+  socket.register("portraitUpload", handlePortraitUpload);
   socket.register("wildShapeList", handleWildShapeList);
   socket.register("wildShapeInto", handleWildShapeInto);
   socket.register("wildShapeRevert", handleWildShapeRevert);
@@ -375,7 +376,7 @@ async function handleItemUse(payload) {
 // trigger its damage roll on the second tap.
 const parkedWorkflows = new Map();
 
-async function findParkedWorkflow(activityUuid, itemUuid, timeoutMs = 8000) {
+async function findParkedWorkflow(activityUuid, itemUuid, preIds = new Set(), timeoutMs = 8000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     // midi 14 keeps workflows in a Map keyed by id, stored optionally as WeakRefs
@@ -385,17 +386,23 @@ async function findParkedWorkflow(activityUuid, itemUuid, timeoutMs = 8000) {
     // the Map's values and deref. Match by activity uuid, or by item (a scaling
     // spell can cast through a cloned activity whose uuid differs from what we sent).
     const coll = globalThis.MidiQOL?.Workflow?.workflows;
-    const all = (coll instanceof Map ? Array.from(coll.values()) : Object.values(coll ?? {}))
-      .map(w => (w instanceof WeakRef ? w.deref() : w)).filter(Boolean);
-    const wf = all.find(w => w.activity?.uuid === activityUuid
-      || (itemUuid && (w.itemUuid === itemUuid || w.activity?.item?.uuid === itemUuid)));
+    const entries = coll instanceof Map ? [...coll.entries()] : Object.entries(coll ?? {});
+    // Only the workflow created by THIS fire: a FRESH id (not in the pre-fire snapshot).
+    // A prior attack whose damage was never rolled stays parked in the Map; without the
+    // snapshot the finder returned that OLD one and the phone showed its total/hit for the
+    // new attack (DM-reported: every attack "only shows 9s").
+    const fresh = entries
+      .map(([id, w]) => [id, (w instanceof WeakRef ? w.deref() : w)])
+      .filter(([id, w]) => w && !preIds.has(id)
+        && (w.activity?.uuid === activityUuid || (itemUuid && (w.itemUuid === itemUuid || w.activity?.item?.uuid === itemUuid))))
+      .map(([, w]) => w);
+    const wf = fresh[fresh.length - 1]; // most-recent fresh match = the one we just fired
     if (wf) {
       // Parked awaiting a manual damage roll. midi's loop (midi-qol.js:25981) sets
-      // wf.suspended=true and breaks, LEAVING currentAction at WaitForDamageRoll —
-      // so `suspended` is the reliable signal (a no-attack spell like Magic Missile
-      // reaches it the same way an attack does). Gate on damage still pending.
-      const awaitingDamage = (wf.suspended || wf.currentAction === wf.WorkflowState_WaitForDamageRoll)
-        && wf.needsDamage !== false;
+      // wf.suspended=true and breaks, LEAVING currentAction at WaitForDamageRoll — so
+      // `suspended` is the reliable signal (a no-attack spell like Magic Missile reaches
+      // it the same way an attack does). Gate on damage still pending.
+      const awaitingDamage = (wf.suspended || wf.currentAction === wf.WorkflowState_WaitForDamageRoll) && wf.needsDamage !== false;
       if (awaitingDamage) return wf;
       if (wf.currentAction === wf.WorkflowState_Completed || wf.currentAction === wf.WorkflowState_Abort) return null;
     }
@@ -410,7 +417,7 @@ async function findParkedWorkflow(activityUuid, itemUuid, timeoutMs = 8000) {
 // the number that matches chat instead of "—". wf.attackTotal is the field midi
 // populates in this Route-B flow (= the kept roll total); wf.attackRoll.total is
 // preferred when present. Returns null only if neither resolves in time.
-async function resolveAttackTotal(wf, timeoutMs = 3000) {
+async function resolveAttackTotal(wf, timeoutMs = 5000) {
   const read = () => {
     const r = wf.attackRoll?.total;
     if (typeof r === "number") return r;
@@ -429,7 +436,7 @@ async function resolveAttackTotal(wf, timeoutMs = 3000) {
 async function handleItemUseStart(payload) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
-  const { activityUuid, targetUuids = [], midiOptions = {}, spellSlot = null, requesterId } = payload;
+  const { activityUuid, targetUuids = [], midiOptions = {}, spellSlot = null, skipConsume = false, requesterId } = payload;
   const activity = await fromUuid(activityUuid);
   if (!activity) return { ok: false, stage: "resolve", reason: `activity not found: ${activityUuid}` };
   if (!requesterCanAct(requesterId, activity.item?.actor)) {
@@ -444,6 +451,12 @@ async function handleItemUseStart(payload) {
   // `spell.slot`, e.g. "spell3"). Omitted → activity casts at its base level.
   const spellCfg = spellSlot ? { spell: { slot: spellSlot } } : {};
   if (spellSlot) console.debug(`${MODULE_ID} | upcast`, { name: activity.item?.name, slot: spellSlot });
+  // skipConsume (phone fired a depleted item "anyway"): don't consume, so midi never opens
+  // the executor-side "Consume?" dialog the phone can't reach (it would hang). Disable both
+  // dnd5e usage consumption and midi's auto-consume. (DM 2026-06-25 out-of-resources flow.)
+  if (skipConsume) spellCfg.consume = { resources: false, spellSlot: false, action: false };
+  const consumeMode = skipConsume ? "none" : "both";
+  if (skipConsume) console.debug(`${MODULE_ID} | skipConsume`, { name: activity.item?.name });
 
   // "Flat" = a heal whose amount has NO dice (Aid's +5) — only then is there
   // nothing for the player to roll, so it can't park on a damage roll and midi
@@ -464,7 +477,7 @@ async function handleItemUseStart(payload) {
     const { result: workflow, captured } = await captureNotifications(() =>
       MidiQOL.completeActivityUse(activity.uuid, {
         ...spellCfg,
-        midiOptions: { targetUuids, ignoreUserTargets: true, autoRollDamage: "always", fastForwardDamage: true, workflowOptions: { autoConsumeResource: "both" }, ...midiOptions }
+        midiOptions: { targetUuids, ignoreUserTargets: true, autoRollDamage: "always", fastForwardDamage: true, workflowOptions: { autoConsumeResource: consumeMode }, ...midiOptions }
       }, { configure: false }, {})
     );
     if (!workflow || workflow.aborted) {
@@ -473,6 +486,11 @@ async function handleItemUseStart(payload) {
     return { ok: true, needsDamage: false, hasAttack: false, itemName: activity.item?.name ?? null, reason: captured.join("; ") || null };
   }
 
+  // Snapshot existing midi workflow ids so findParkedWorkflow picks the one THIS fire
+  // creates — not a stuck older one left by an attack whose damage was never rolled,
+  // which the finder would otherwise keep returning (the "only shows 9s" stale total).
+  const wfColl = globalThis.MidiQOL?.Workflow?.workflows;
+  const preWfIds = new Set(wfColl instanceof Map ? [...wfColl.keys()] : Object.keys(wfColl ?? {}));
   // Fire attack-only; do NOT await (the workflow parks at WaitForDamageRoll).
   const { captured } = await captureNotifications(async () => {
     MidiQOL.completeActivityUse(activity.uuid, {
@@ -481,14 +499,14 @@ async function handleItemUseStart(payload) {
         targetUuids, ignoreUserTargets: true,
         autoRollAttack: true, fastForwardAttack: true,
         autoRollDamage: "none", fastForwardDamage: false,
-        workflowOptions: { autoConsumeResource: "both" },
+        workflowOptions: { autoConsumeResource: consumeMode },
         ...midiOptions
       }
     }, { configure: false }, {});
     return true;
   });
 
-  const wf = await findParkedWorkflow(activity.uuid, activity.item?.uuid);
+  const wf = await findParkedWorkflow(activity.uuid, activity.item?.uuid, preWfIds);
   // Whether the workflow parked for the two-tap. If false for a damage spell that
   // should let the player roll (e.g. Magic Missile), it resolved without a roll
   // step — that's the bug to chase (DM-reported MM didn't roll damage 2026-06-17).
@@ -554,7 +572,9 @@ function handleItemUseCancel({ requestId }) {
 const turnMove = new Map(); // tokenId -> ft used this turn
 Hooks.on("updateCombat", (combat, changed) => {
   if (!isExecutor()) return;
-  if (("turn" in changed) || ("round" in changed)) turnMove.delete(combat.combatant?.tokenId);
+  // Clear all on any turn/round change — only the active combatant moves at a time, so a
+  // fresh turn = a fresh budget. (Deleting by combatant.tokenId missed tokenless combatants.)
+  if (("turn" in changed) || ("round" in changed)) turnMove.clear();
 });
 Hooks.on("combatStart", () => { if (isExecutor()) turnMove.clear(); });
 Hooks.on("deleteCombat", () => { if (isExecutor()) turnMove.clear(); });
@@ -584,7 +604,11 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
 
   // Movement budget — only while it's this token's turn in active combat (the
   // green/yellow/red cue is a combat concept; out of combat we just move).
-  const onMyTurn = game.combat?.started && game.combat.combatant?.tokenId === tokenId;
+  // It's this token's turn if it's the active combatant. Match by tokenId, but fall back
+  // to the ACTOR — a combatant added by actor (not by dropping its token) has a null
+  // combatant.tokenId, and the budget would otherwise never count its movement.
+  const cb = game.combat?.combatant;
+  const onMyTurn = !!(game.combat?.started && cb && (cb.tokenId === tokenId || (cb.actor?.id && cb.actor.id === tokenDoc.actor?.id)));
   if (!onMyTurn) return { ok: true, x: tokenDoc.x, y: tokenDoc.y };
   let step = canvas.scene.grid.distance; // fallback: one square
   try { step = canvas.grid.measurePath([from, to]).distance ?? step; } catch (e) { /* keep fallback */ }
@@ -672,6 +696,11 @@ async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenU
     } catch (e) { raw = { err: e.message }; }
   });
   const dsnHook = Hooks.on("diceSoNiceRollStart", () => false); // suppress the 3D dice for the throwaway
+  // Block the throwaway's chat card outright (create:false isn't honored on every midi
+  // path) — no card means Automated Animations / DSN never fire on it, AND the executor
+  // isn't stalled animating it right before the real attack (which can push the real
+  // attack's total past resolveAttackTotal's window → the phone's "—"). Scoped to this roll.
+  const cardHook = Hooks.on("preCreateChatMessage", () => false);
   const msgIdsBefore = new Set(game.messages.keys());
   try {
     await activity.rollAttack({}, { configure: false }, { create: false, rollMode: CONST.DICE_ROLL_MODES.BLIND });
@@ -679,6 +708,7 @@ async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenU
   finally {
     Hooks.off("dnd5e.preRollAttackV2", hookId);
     Hooks.off("diceSoNiceRollStart", dsnHook);
+    Hooks.off("preCreateChatMessage", cardHook);
     // create:false isn't honored on every midi path — delete any throwaway card it made.
     for (const m of game.messages.filter((mm) => !msgIdsBefore.has(mm.id))) { try { await m.delete(); } catch (e) {} }
     setTargets(wanted, false);
@@ -953,6 +983,41 @@ async function handlePartyJournalAdd({ text, authorName } = {}) {
   }
 }
 
+// --- AI portrait upload (idea #2) --------------------------------------------
+// Players can't write files (FILES_UPLOAD is GM-only), so the phone sends the
+// resized image data here and the executor saves it to a NON-module dir at the
+// data root (mc-portraits/, Sqyre-safe) and points the actor's portrait + token
+// texture at it. One image serves both; the player-colour ring frames the token.
+async function handlePortraitUpload({ requesterId, actorId, dataUrl } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const actor = game.actors.get(actorId);
+  const requester = game.users.get(requesterId);
+  if (!actor) return { ok: false, reason: "character not found" };
+  if (!requester || !actor.testUserPermission(requester, "OWNER")) return { ok: false, reason: "not your character" };
+  if (!/^data:image\//.test(dataUrl || "")) return { ok: false, reason: "no image data" };
+  const FP = foundry.applications?.apps?.FilePicker?.implementation ?? FilePicker;
+  const dir = "mc-portraits";
+  try { await FP.createDirectory("data", dir); } catch (e) { /* already exists */ }
+  try {
+    const blob = await (await fetch(dataUrl)).blob();
+    const ext = (blob.type || "image/webp").split("/")[1].replace("jpeg", "jpg");
+    const file = new File([blob], `${actor.id}-${Date.now()}.${ext}`, { type: blob.type || "image/webp" });
+    const up = await FP.upload("data", dir, file, {}, { notify: false });
+    const path = up?.path;
+    if (!path) return { ok: false, reason: "upload returned no path" };
+    await actor.update({ img: path, "prototypeToken.texture.src": path, "prototypeToken.ring.enabled": true });
+    for (const scene of game.scenes) {
+      for (const tok of scene.tokens) {
+        if (tok.actorId === actor.id) await tok.update({ "texture.src": path, "ring.enabled": true });
+      }
+    }
+    return { ok: true, path };
+  } catch (e) {
+    console.warn(`${MODULE_ID} | portraitUpload failed`, e);
+    return { ok: false, reason: e?.message ?? "upload failed" };
+  }
+}
+
 // --- Wild Shape (Druid) ------------------------------------------------------
 // Players can't transform (allowPolymorphing is off + actor creation is GM-only), so
 // the executor drives dnd5e's real transform: it lists beasts from the SRD monsters
@@ -1028,7 +1093,7 @@ function toExecutor(handler, payload) {
       previewTargets: handlePreviewTargets, endTurn: handleEndTurn, announceCast: handleAnnounceCast,
       listLoot: handleListLoot, openLoot: handleOpenLoot,
       listInteractables: handleListInteractables, operateInteractable: handleOperateInteractable,
-      partyJournalAdd: handlePartyJournalAdd,
+      partyJournalAdd: handlePartyJournalAdd, portraitUpload: handlePortraitUpload,
       wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert
     };
     return handlers[handler](payload);
@@ -1055,6 +1120,7 @@ export const api = {
   listInteractables: (payload = {}) => toExecutor("listInteractables", payload),
   operateInteractable: (payload = {}) => toExecutor("operateInteractable", payload),
   partyJournalAdd: (payload = {}) => toExecutor("partyJournalAdd", payload),
+  portraitUpload: (payload = {}) => toExecutor("portraitUpload", payload),
   wildShapeList: (payload = {}) => toExecutor("wildShapeList", payload),
   wildShapeInto: (payload = {}) => toExecutor("wildShapeInto", payload),
   wildShapeRevert: (payload = {}) => toExecutor("wildShapeRevert", payload),

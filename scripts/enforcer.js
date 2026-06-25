@@ -161,31 +161,20 @@ function formatValue(v) {
   return typeof v === "string" ? `"${v}"` : String(v);
 }
 
+// Apply-once, then hands-off (DM 2026-06-25): the phone UX needs a specific midi/dnd5e
+// config, so on FIRST activation the mod applies its preset outright (one info toast; your
+// originals are snapshotted first so Revert works). After that it NEVER touches your
+// settings again — change anything you like, even things that break the phone UX
+// (warnings-not-walls); restore the recommended config anytime with "Reactivate Mobile
+// Command", or your pre-module settings with "Remove & revert". This replaces the old
+// per-load drift prompt, which nagged even when the DM had deviated on purpose.
 export async function checkAndPrompt() {
-  const drift = diffPreset();
-  if (!drift.length) {
-    console.log("mobile-command | settings preset verified, no drift");
+  if (!game.user?.isGM) return;
+  if (hasBackup()) {
+    console.log("mobile-command | preset already applied once — not policing; the DM owns their settings.");
     return;
   }
-
-  const rows = drift.map(d =>
-    `<tr><td><code>${d.path}</code></td><td>${formatValue(d.current)}</td><td>${formatValue(d.expected)}</td></tr>`
-  ).join("");
-  const content = `
-    <p><strong>${drift.length}</strong> setting(s) differ from the mobile-command preset (DESIGN.md §D4).
-    The phone UX depends on these — config is product.</p>
-    <table>
-      <thead><tr><th>Setting</th><th>Current</th><th>Preset</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-
-  const apply = await foundry.applications.api.DialogV2.confirm({
-    window: { title: "Mobile Command — settings drift" },
-    content,
-    yes: { label: "Apply preset" },
-    no: { label: "Ignore for now" },
-    modal: false,
-    rejectClose: false
-  });
-  if (apply) await applyPreset(drift);
+  const drift = diffPreset();
+  if (!drift.length) { captureBackup(); return; } // already matches — still snapshot so Revert works
+  await applyPreset(drift); // captureBackup() inside + writes the preset + one info toast
 }

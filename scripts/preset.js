@@ -15,6 +15,16 @@ export const MIDI_CONFIG_PRESET = {
   "gmAutoDamage": "none",
   "autoCheckHit": "all",
   "autoApplyDamage": "yesCard",
+  // Auto-apply a spell/item's ActiveEffects (buffs, conditions) to its targets so a phone
+  // player's cast actually LANDS without the DM applying it by hand — core to self-serve
+  // play (DM 2026-06-25). "applyRemove" = apply on use, auto-remove on expiry (midi's own
+  // automatic-config value). CE-backed spells may also need autoCEEffects if the table
+  // relies on Convenient Effects for the actual effect document.
+  "autoItemEffects": "applyRemove",
+  // Resolve target saves BEFORE the caster rolls damage (SavesFirstWorkflow): each player
+  // handles their part in order — targets save on their phones, then the caster rolls —
+  // instead of damage landing then being retroactively halved (DM 2026-06-25).
+  "savesBeforeDamage": true,
   "autoCheckSaves": "whisper",
   // "letme" is dead in midi 14 — it silently auto-rolls on the player's client.
   // "chat" = whispered request; the player rolls from their own sheet/UI and

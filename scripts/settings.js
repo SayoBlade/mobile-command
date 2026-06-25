@@ -80,6 +80,20 @@ export function registerSettings() {
     default: ""
   });
 
+  // Hide the GM's broadcast cursor on player/display screens (it otherwise glides around
+  // constantly). Pings are untouched — the GM still points by pinging — so they can call
+  // out a spot without a moving cursor. On by default (DM request 2026-06-25). World-scoped
+  // for one consistent behaviour across every viewer; the toggle takes effect on the GM's
+  // next mouse move.
+  game.settings.register(MODULE_ID, "hideGMCursor", {
+    name: "Hide the GM's cursor (keep pings)",
+    hint: "Stops the GM's mouse cursor from gliding across player and display screens. Pings still work, so the GM can point out a location without a constantly-moving cursor. On by default.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
   // Comprehensive snapshots so the module's changes can be reverted/reactivated
   // (Foundry won't revert them on disable). presetBackup = original pre-module state;
   // reactivateSnapshot = the module-active state captured when you revert.

@@ -269,6 +269,7 @@ Hooks.once("ready", () => {
   registerDMPanel(); // DM-assign panel (GM clients only; self-gates)
   registerSaveRelay(); // executor relays midi save requests to phones (self-gates on isExecutor)
   registerDialogWatchdog(); // executor alerts DM + pings phone when an action strands a dialog (self-gates)
+  setupGMCursorHiding(); // hide the GM's broadcast cursor on other screens (keep pings); reads hideGMCursor live
 
   globalThis.MobileCommand = {
     ...api,
@@ -292,6 +293,38 @@ Hooks.once("ready", () => {
 
   console.log(`${MODULE_ID} | ready — executor: ${resolveExecutorId() ?? "none"} (this client: ${isExecutor()})`);
 });
+
+// Hide the GM's broadcast cursor on player/display screens (DM request 2026-06-25): the
+// GM's mouse otherwise glides around constantly. Pings stay fully working — they live on
+// separate ControlsLayer methods (handlePing/drawPing) we never touch — so the GM still
+// points by pinging. Two complementary patches on the layer prototype (applies to every
+// client): drawCursor skips GM cursors at initial draw, and updateCursor passes a NULL
+// position for GM users, which reuses Foundry's own hide-on-null teardown (no reimpl).
+// Both read the setting LIVE, so toggling hideGMCursor takes effect on the GM's next move.
+// The GM's own client is unaffected — it never renders its own broadcast cursor.
+function setupGMCursorHiding() {
+  try {
+    const CL = foundry.canvas?.layers?.ControlsLayer
+      ?? globalThis.ControlsLayer
+      ?? CONFIG.Canvas?.layers?.controls?.layerClass;
+    if (!CL?.prototype || CL.prototype.__mcCursorPatched) return;
+    const hidden = () => { try { return game.settings.get(MODULE_ID, "hideGMCursor"); } catch (e) { return false; } };
+    const origUpdate = CL.prototype.updateCursor;
+    CL.prototype.updateCursor = function (user, position) {
+      if (user?.isGM && hidden()) position = null; // null => Foundry hides that cursor; pings unaffected
+      return origUpdate.call(this, user, position);
+    };
+    const origDraw = CL.prototype.drawCursor;
+    CL.prototype.drawCursor = function (user) {
+      if (user?.isGM && hidden()) return undefined; // never create the GM's cursor display object
+      return origDraw.call(this, user);
+    };
+    CL.prototype.__mcCursorPatched = true;
+    try { canvas?.controls?.drawCursors?.(); } catch (e) {} // re-sync any cursors already on this canvas
+  } catch (e) {
+    console.warn(`${MODULE_ID} | could not patch GM cursor hiding`, e);
+  }
+}
 
 // Clean-display escape-hatch hint: a dismissable pill telling the user how to get
 // the Foundry UI back, so a display-role client (or anyone who toggled clean mode)
@@ -350,9 +383,14 @@ function injectShellStyles() {
 }
 
 function suppressResolutionWarning() {
-  const original = ui.notifications.notify.bind(ui.notifications);
-  ui.notifications.notify = function (message, type, options) {
-    if (typeof message === "string" && message.includes("usable window dimensions")) return null;
-    return original(message, type, options);
-  };
+  const isSizeWarning = (m) => typeof m === "string" && /usable window dimensions/i.test(m);
+  for (const key of ["notify", "warn", "error", "info"]) {
+    const orig = ui.notifications[key]?.bind(ui.notifications);
+    if (!orig) continue;
+    ui.notifications[key] = (message, ...rest) => isSizeWarning(message) ? null : orig(message, ...rest);
+  }
+  // The already-shown permanent one fires before this runs — clear it directly.
+  const sweep = () => document.querySelectorAll("#notifications li, #notifications .notification")
+    .forEach((el) => { if (/usable window dimensions/i.test(el.textContent || "")) el.remove(); });
+  sweep(); setTimeout(sweep, 400); setTimeout(sweep, 1500);
 }
