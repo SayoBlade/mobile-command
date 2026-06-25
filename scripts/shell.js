@@ -1423,11 +1423,22 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const entry = this.#partyJournalEntry();
     const pages = entry ? entry.pages.contents.slice() : [];
     pages.sort((a, b) => (b.getFlag(MODULE_ID, "ts") ?? 0) - (a.getFlag(MODULE_ID, "ts") ?? 0));
-    const notes = pages.map(p => `
+    // Format the date HERE (at render) from the stored timestamp, not from the page name —
+    // the name froze the CREATING device's locale (DM 2026-06-26: a UK phone showed
+    // "26/06/2026, 00:21:43", a US one "6/23/2026, 10:54:12 AM" in the same list). Rendering
+    // from the ts flag with a month-name format makes every note uniform on the viewer's
+    // screen and removes the day/month ambiguity. Old notes lacking the flag keep the name.
+    const fmtDate = (ts) => { try { return new Date(ts).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); } catch (e) { return new Date(ts).toLocaleString(); } };
+    const notes = pages.map(p => {
+      const ts = p.getFlag(MODULE_ID, "ts");
+      const author = p.getFlag(MODULE_ID, "author");
+      const head = (ts && author) ? `${foundry.utils.escapeHTML(author)} · ${fmtDate(ts)}` : foundry.utils.escapeHTML(p.name);
+      return `
       <div class="mc-jn-note">
-        <div class="mc-jn-head">${foundry.utils.escapeHTML(p.name)}</div>
+        <div class="mc-jn-head">${head}</div>
         <div class="mc-jn-body">${p.text?.content ?? ""}</div>
-      </div>`).join("");
+      </div>`;
+    }).join("");
     const list = pages.length ? notes : `<div class="mc-jn-empty">No notes yet — start the party log.</div>`;
     return `
       <section class="mc-journal">
@@ -1465,7 +1476,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const ts = Date.now();
     const author = String(this.actor?.name ?? game.user?.name ?? "Someone").slice(0, 60);
     await entry.createEmbeddedDocuments("JournalEntryPage", [{
-      name: `${author} · ${new Date(ts).toLocaleString()}`,
+      name: `${author} · ${new Date(ts).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`,
       type: "text",
       title: { show: true, level: 3 },
       text: { content: `<p>${foundry.utils.escapeHTML(text)}</p>`, format: 1 },
