@@ -383,14 +383,26 @@ function injectShellStyles() {
 }
 
 function suppressResolutionWarning() {
-  const isSizeWarning = (m) => typeof m === "string" && /usable window dimensions/i.test(m);
+  const RE = /usable window dimensions/i;
+  const isSizeWarning = (m) => typeof m === "string" && RE.test(m);
   for (const key of ["notify", "warn", "error", "info"]) {
     const orig = ui.notifications[key]?.bind(ui.notifications);
     if (!orig) continue;
     ui.notifications[key] = (message, ...rest) => isSizeWarning(message) ? null : orig(message, ...rest);
   }
-  // The already-shown permanent one fires before this runs — clear it directly.
-  const sweep = () => document.querySelectorAll("#notifications li, #notifications .notification")
-    .forEach((el) => { if (/usable window dimensions/i.test(el.textContent || "")) el.remove(); });
+  // The core resolution warning fires during ready (often before this wrapper installs) and
+  // can re-fire on resize, so a one-shot sweep misses it. Sweep now + on a few timers, AND
+  // watch the DOM so it's stripped the instant it (re)appears — covering the early sticky
+  // one and any container/timing the wrapper doesn't intercept.
+  const sweep = () => document.querySelectorAll("#notifications li, .notification, #notifications > *")
+    .forEach((el) => { if (RE.test(el.textContent || "")) el.remove(); });
   sweep(); setTimeout(sweep, 400); setTimeout(sweep, 1500);
+  const list = document.querySelector("#notifications");
+  if (list) { try { new MutationObserver(sweep).observe(list, { childList: true }); } catch (e) {} }
+  try {
+    // Wider safety net while the UI settles, in case the early warning lands elsewhere.
+    const bodyObs = new MutationObserver(sweep);
+    bodyObs.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => bodyObs.disconnect(), 12000);
+  } catch (e) {}
 }
