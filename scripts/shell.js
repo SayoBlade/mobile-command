@@ -3121,14 +3121,45 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <div class="mc-pg-note"><i class="fas fa-circle-info"></i> It's resized and set as your portrait; the colour ring turns it into your token.</div>
       </div>`;
   }
+  // Copy that survives a phone on the LAN over plain HTTP: navigator.clipboard needs a
+  // SECURE context (HTTPS/localhost), which an iPhone hitting the LAN IP doesn't have — so
+  // fall back to the legacy textarea + execCommand path. On the non-secure phone the
+  // navigator.clipboard branch is skipped entirely, so there's NO await before execCommand
+  // and the tap's user gesture is intact (iOS needs that + the explicit Range/selection).
+  async #copyToClipboard(text) {
+    if (navigator.clipboard?.writeText) {
+      try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* fall through to legacy */ }
+    }
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.readOnly = true; // stops iOS popping the keyboard
+      ta.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;";
+      document.body.appendChild(ta);
+      const range = document.createRange();
+      range.selectNodeContents(ta);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      ta.setSelectionRange(0, text.length); // iOS Safari needs the explicit selection range
+      const ok = document.execCommand("copy");
+      sel.removeAllRanges();
+      ta.remove();
+      return ok;
+    } catch (e) { return false; }
+  }
+
   async #copyPortraitPrompt(actor) {
     if (!this.#portraitGen) return;
     let dmStyle = ""; try { dmStyle = game.settings.get(MODULE_ID, "portraitStyle") || ""; } catch (e) { /* */ }
     const live = this.element?.querySelector(".mc-pg-input")?.value; // newest text even if input didn't fire
     const text = buildPortraitPrompt(actor, { freeText: live ?? this.#portraitGen.freeText, dmStyle, mode: this.#portraitGen.mode });
-    try { await navigator.clipboard.writeText(text); } catch (e) { /* clipboard blocked — the box is selectable */ }
+    const ok = await this.#copyToClipboard(text);
     const b = this.element?.querySelector(".mc-pg-copy");
-    if (b) { b.innerHTML = '<i class="fas fa-check"></i> Copied'; setTimeout(() => { const b2 = this.element?.querySelector(".mc-pg-copy"); if (b2) b2.innerHTML = '<i class="fas fa-copy"></i> Copy prompt'; }, 1600); }
+    if (b) {
+      b.innerHTML = ok ? '<i class="fas fa-check"></i> Copied' : '<i class="fas fa-triangle-exclamation"></i> Long-press the prompt to copy';
+      setTimeout(() => { const b2 = this.element?.querySelector(".mc-pg-copy"); if (b2) b2.innerHTML = '<i class="fas fa-copy"></i> Copy prompt'; }, ok ? 1600 : 2800);
+    }
   }
   // Resize the chosen image to <=512px (small upload, sharp token), then hand the data
   // to the executor — the player can't write files themselves (FILES_UPLOAD is GM-only).
