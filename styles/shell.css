@@ -423,6 +423,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   padding: 10px 12px; font: inherit; line-height: 1.4;
 }
 .mc-pg-preview {
+  width: 100%; box-sizing: border-box; resize: none; font-family: inherit; /* it's now a <textarea> */
   background: #0f1115; border: 1px solid #2c2f3a; border-radius: 10px; color: #b9c0cc;
   padding: 10px 12px; font-size: 12px; line-height: 1.5; white-space: pre-wrap; user-select: text; -webkit-user-select: text;
 }

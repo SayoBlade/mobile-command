@@ -3112,7 +3112,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <div class="mc-pg-label">Describe your character <span class="mc-pg-hint">gender, build, hair, gear, colours…</span></div>
         <textarea class="mc-pg-input" rows="3" placeholder="e.g. a stern human woman, long silver braid, weathered green cloak, twin daggers">${foundry.utils.escapeHTML(pg.freeText)}</textarea>
         <div class="mc-pg-label">Prompt <span class="mc-pg-hint">paste into your image generator</span></div>
-        <div class="mc-pg-preview" data-pg-preview>${foundry.utils.escapeHTML(prompt)}</div>
+        <textarea class="mc-pg-preview" data-pg-preview readonly rows="6">${foundry.utils.escapeHTML(prompt)}</textarea>
         <button class="mc-pg-copy" data-action="portrait-copy"><i class="fas fa-copy"></i> Copy prompt</button>
         <a class="mc-pg-gemini" href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer"><i class="fas fa-arrow-up-right-from-square"></i> Open Gemini &amp; paste</a>
         <div class="mc-pg-label">Then upload the image you generated</div>
@@ -3134,7 +3134,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const ta = document.createElement("textarea");
       ta.value = text;
       ta.readOnly = true; // stops iOS popping the keyboard
-      ta.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;";
+      // Off-screen at REAL size + 16px font: iOS Safari refuses to copy from a 0-size /
+      // opacity:0 field (that was the v0.1.59 "copies nothing"). left:-9999px keeps it
+      // invisible while still rendered + selectable.
+      ta.style.cssText = "position:fixed;left:-9999px;top:0;font-size:16px;";
       document.body.appendChild(ta);
       const range = document.createRange();
       range.selectNodeContents(ta);
@@ -3153,7 +3156,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!this.#portraitGen) return;
     let dmStyle = ""; try { dmStyle = game.settings.get(MODULE_ID, "portraitStyle") || ""; } catch (e) { /* */ }
     const live = this.element?.querySelector(".mc-pg-input")?.value; // newest text even if input didn't fire
-    const text = buildPortraitPrompt(actor, { freeText: live ?? this.#portraitGen.freeText, dmStyle, mode: this.#portraitGen.mode });
+    const box = this.element?.querySelector(".mc-pg-preview"); // the live preview textarea = exactly what's shown
+    const text = box?.value ?? buildPortraitPrompt(actor, { freeText: live ?? this.#portraitGen.freeText, dmStyle, mode: this.#portraitGen.mode });
     const ok = await this.#copyToClipboard(text);
     const b = this.element?.querySelector(".mc-pg-copy");
     if (b) {
@@ -4486,7 +4490,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       let dmStyle = ""; try { dmStyle = game.settings.get(MODULE_ID, "portraitStyle") || ""; } catch (e) { /* */ }
       const preview = this.element?.querySelector("[data-pg-preview]");
       const actor = this.actor;
-      if (preview && actor) preview.textContent = buildPortraitPrompt(actor, { freeText: t.value, dmStyle, mode: this.#portraitGen.mode });
+      if (preview && actor) preview.value = buildPortraitPrompt(actor, { freeText: t.value, dmStyle, mode: this.#portraitGen.mode });
     }
   };
 
