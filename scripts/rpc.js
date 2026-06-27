@@ -984,34 +984,45 @@ async function handlePartyJournalAdd({ text, authorName } = {}) {
 }
 
 // --- AI portrait upload (idea #2) --------------------------------------------
-// Players can't write files (FILES_UPLOAD is GM-only), so the phone sends the
-// resized image data here and the executor saves it to a NON-module dir at the
-// data root (mc-portraits/, Sqyre-safe) and points the actor's portrait + token
-// texture at it. One image serves both; the player-colour ring frames the token.
-async function handlePortraitUpload({ requesterId, actorId, dataUrl } = {}) {
+// Players can't write files (FILES_UPLOAD is GM-only), so the phone sends the image data
+// here and the executor saves it to a NON-module dir at the data root (mc-portraits/,
+// Sqyre-safe). Two images now: `tokenUrl` (disc-cropped) drives the token texture + ring,
+// `portraitUrl` (full, uncropped) becomes the actor portrait. An older client sends a single
+// `dataUrl` used for both. DM request 2026-06-26.
+async function handlePortraitUpload({ requesterId, actorId, dataUrl, tokenUrl, portraitUrl } = {}) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
   const actor = game.actors.get(actorId);
   const requester = game.users.get(requesterId);
   if (!actor) return { ok: false, reason: "character not found" };
   if (!requester || !actor.testUserPermission(requester, "OWNER")) return { ok: false, reason: "not your character" };
-  if (!/^data:image\//.test(dataUrl || "")) return { ok: false, reason: "no image data" };
+  const tokenData = tokenUrl || dataUrl;       // disc-cropped → token texture
+  const portraitData = portraitUrl || dataUrl; // full image → actor portrait (falls back to token)
+  if (!/^data:image\//.test(tokenData || "")) return { ok: false, reason: "no image data" };
   const FP = foundry.applications?.apps?.FilePicker?.implementation ?? FilePicker;
   const dir = "mc-portraits";
   try { await FP.createDirectory("data", dir); } catch (e) { /* already exists */ }
-  try {
-    const blob = await (await fetch(dataUrl)).blob();
+  const save = async (data, tag) => {
+    const blob = await (await fetch(data)).blob();
     const ext = (blob.type || "image/webp").split("/")[1].replace("jpeg", "jpg");
-    const file = new File([blob], `${actor.id}-${Date.now()}.${ext}`, { type: blob.type || "image/webp" });
+    const file = new File([blob], `${actor.id}-${tag}-${Date.now()}.${ext}`, { type: blob.type || "image/webp" });
     const up = await FP.upload("data", dir, file, {}, { notify: false });
-    const path = up?.path;
-    if (!path) return { ok: false, reason: "upload returned no path" };
-    await actor.update({ img: path, "prototypeToken.texture.src": path, "prototypeToken.ring.enabled": true });
+    return up?.path || null;
+  };
+  try {
+    const tokenPath = await save(tokenData, "token");
+    if (!tokenPath) return { ok: false, reason: "upload returned no path" };
+    // Save the full portrait separately only when the client sent a distinct one.
+    let portraitPath = tokenPath;
+    if (portraitData && portraitData !== tokenData && /^data:image\//.test(portraitData)) {
+      portraitPath = (await save(portraitData, "portrait")) || tokenPath;
+    }
+    await actor.update({ img: portraitPath, "prototypeToken.texture.src": tokenPath, "prototypeToken.ring.enabled": true });
     for (const scene of game.scenes) {
       for (const tok of scene.tokens) {
-        if (tok.actorId === actor.id) await tok.update({ "texture.src": path, "ring.enabled": true });
+        if (tok.actorId === actor.id) await tok.update({ "texture.src": tokenPath, "ring.enabled": true });
       }
     }
-    return { ok: true, path };
+    return { ok: true, path: tokenPath, portraitPath };
   } catch (e) {
     console.warn(`${MODULE_ID} | portraitUpload failed`, e);
     return { ok: false, reason: e?.message ?? "upload failed" };

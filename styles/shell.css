@@ -1028,8 +1028,8 @@ body.mc-phone .roll-configuration fieldset {
 .mc-jn-post:active { background: var(--mc-primary-active); }
 .mc-jn-post[disabled] { opacity: 0.55; }
 .mc-jn-list { display: flex; flex-direction: column; gap: 10px; }
-.mc-jn-note { background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px; padding: 10px 12px; }
-.mc-jn-head { font-size: 12px; font-weight: 600; color: var(--mc-gold); margin-bottom: 4px; }
+.mc-jn-note { background: var(--mc-panel); border: 1px solid var(--mc-edge); border-left: 3px solid var(--mc-note, var(--mc-edge)); border-radius: 10px; padding: 10px 12px; }
+.mc-jn-head { font-size: 12px; font-weight: 600; color: var(--mc-note, var(--mc-gold)); margin-bottom: 4px; }
 .mc-jn-body { font-size: 14px; line-height: 1.45; color: var(--mc-ink); word-break: break-word; }
 .mc-jn-body p { margin: 0 0 6px; }
 .mc-jn-body p:last-child { margin-bottom: 0; }
@@ -1407,6 +1407,11 @@ body.mc-theme-arcane #mobile-command-shell {
 /* Actions header bar with a right-aligned favorites-edit (bookmark) toggle. */
 .mc-actions-head { position: relative; margin: 6px 0 10px; }
 #mobile-command-shell .mc-actions-head .mc-section-label { margin: 0; padding-right: 46px; }
+/* Equipment header: flex so the carried-weight readout fills the row next to the search icon. */
+.mc-eq-head { display: flex; align-items: center; gap: 8px; }
+#mobile-command-shell .mc-eq-head .mc-section-label { padding-right: 0; flex: 0 0 auto; }
+.mc-eq-weight { margin-left: auto; font-size: 12px; color: var(--mc-muted); white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+.mc-eq-weight i { font-size: 12px; opacity: .85; }
 .mc-fav-edit {
   position: absolute; right: 6px; top: 0; bottom: 0; margin: auto 0;
   width: 36px; height: 26px; border-radius: 7px;

@@ -270,6 +270,9 @@ Hooks.once("ready", () => {
   registerSaveRelay(); // executor relays midi save requests to phones (self-gates on isExecutor)
   registerDialogWatchdog(); // executor alerts DM + pings phone when an action strands a dialog (self-gates)
   setupGMCursorHiding(); // hide the GM's broadcast cursor on other screens (keep pings); reads hideGMCursor live
+  setupDMOmniscientVision(); // keep the DM's canvas omniscient when a token is selected (shared-screen tables)
+  setupDisplayItemPileNames(); // hide item-pile token names on the shared TV (spoiler/clutter)
+  setupAutoOwnNewPCs(); // auto-own new PCs for the display/TV account (opt-in; see displayOwnerUser)
 
   globalThis.MobileCommand = {
     ...api,
@@ -324,6 +327,73 @@ function setupGMCursorHiding() {
   } catch (e) {
     console.warn(`${MODULE_ID} | could not patch GM cursor hiding`, e);
   }
+}
+
+// Keep the DM omniscient on a shared screen (DM request 2026-06-26): controlling a PC token
+// normally renders the DM's canvas from that PC's POV. Patch the Token vision-source test so
+// on the DM's OWN client (a GM, not the display) no token counts as a vision source while
+// dmOmniscientVision is on — the canvas then falls back to the GM's see-everything default.
+// Per-client, so players + the TV/display keep their own (shared) vision. Reads the setting
+// live; the setting's onChange refreshes vision when toggled.
+function setupDMOmniscientVision() {
+  try {
+    const Tk = CONFIG.Token?.objectClass ?? foundry.canvas?.placeables?.Token ?? globalThis.Token;
+    if (!Tk?.prototype || Tk.prototype.__mcOmniVisionPatched) return;
+    const orig = Tk.prototype._isVisionSource;
+    if (typeof orig !== "function") return;
+    Tk.prototype._isVisionSource = function () {
+      if (game.user?.isGM && !isDisplayClient()) {
+        let on = true; try { on = game.settings.get(MODULE_ID, "dmOmniscientVision"); } catch (e) {}
+        if (on) return false; // no token restricts the DM's view → GM sees the whole map
+      }
+      return orig.call(this);
+    };
+    Tk.prototype.__mcOmniVisionPatched = true;
+    try { canvas?.perception?.update({ refreshVision: true, initializeVision: true }); } catch (e) {}
+  } catch (e) {
+    console.warn(`${MODULE_ID} | could not patch DM omniscient vision`, e);
+  }
+}
+
+// Item piles on the shared TV shouldn't show their name — a loot/merchant pile's token name
+// can be a spoiler ("Mimic", "Trapped Chest") or just clutter on the players' screen. Hide the
+// nameplate of any item-pile token, on the display client only (the DM's and players' own
+// canvases are untouched). DM request 2026-06-26.
+function setupDisplayItemPileNames() {
+  if (!isDisplayClient()) return;
+  const hide = (token) => {
+    try {
+      if (!token?.nameplate || !game.itempiles?.API?.isValidItemPile?.(token)) return;
+      token.nameplate.visible = false; // re-applied on every refresh, so it stays hidden
+    } catch (e) { /* item-piles not installed / API shape changed — leave the nameplate */ }
+  };
+  Hooks.on("drawToken", hide);
+  Hooks.on("refreshToken", hide);
+  try { canvas?.tokens?.placeables?.forEach(hide); } catch (e) {}
+}
+
+// Auto-own new player characters for the configured display/TV account (DM 2026-06-27), so the
+// TV picks up their vision without manual ownership. Executor-only writer; opt-in (off until a
+// display account is chosen in settings → displayOwnerUser). Existing characters are handled by
+// that setting's onChange (retroGrantOwnership).
+function setupAutoOwnNewPCs() {
+  // Grant the configured display/TV account OWNER on a player-owned character (idempotent).
+  // `hasPlayerOwner` keeps it to real PCs — not the many test/template "character" actors.
+  const grant = async (actor) => {
+    try {
+      if (!isExecutor() || actor?.type !== "character" || !actor.hasPlayerOwner) return;
+      let targetId = ""; try { targetId = game.settings.get(MODULE_ID, "displayOwnerUser"); } catch (e) {}
+      if (!targetId) return;
+      const user = game.users.get(targetId);
+      if (!user || user.isGM) return;
+      const OWNER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
+      if ((actor.ownership?.[user.id] ?? 0) >= OWNER) return;
+      await actor.update({ [`ownership.${user.id}`]: OWNER });
+    } catch (e) { console.warn(`${MODULE_ID} | auto-own grant failed`, e); }
+  };
+  Hooks.on("createActor", (actor) => grant(actor));
+  // A PC usually gets its player owner AFTER creation, so also react to ownership edits.
+  Hooks.on("updateActor", (actor, changes) => { if (changes?.ownership) grant(actor); });
 }
 
 // Clean-display escape-hatch hint: a dismissable pill telling the user how to get
@@ -389,6 +459,16 @@ function suppressResolutionWarning() {
     const orig = ui.notifications[key]?.bind(ui.notifications);
     if (!orig) continue;
     ui.notifications[key] = (message, ...rest) => isSizeWarning(message) ? null : orig(message, ...rest);
+  }
+  // Foundry ALSO logs the same warning straight to console.error (separate from the toast), so
+  // it leaks into the console even with the toast suppressed — mildly annoying while testing.
+  // Filter just that one message; everything else passes through untouched. (DM 2026-06-27.)
+  for (const key of ["error", "warn"]) {
+    const orig = console[key]?.bind(console);
+    if (!orig || console[key].__mcResFiltered) continue;
+    const wrapped = (...args) => { if (args.some((a) => RE.test(String(a?.message ?? a)))) return; return orig(...args); };
+    wrapped.__mcResFiltered = true;
+    console[key] = wrapped;
   }
   // The core resolution warning fires during ready (often before this wrapper installs) and
   // can re-fire on resize, so a one-shot sweep misses it. Sweep now + on a few timers, AND

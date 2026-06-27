@@ -251,8 +251,9 @@ async function onClick(ev) {
     const img = tok?.document?.texture?.src || tok?.actor?.img;
     if (!img) { ui.notifications.warn("Select a token — its image will show on players' phones."); return; }
     // The shell hides native windows, so phones pick this up via shell.js's own
-    // `shareImage` socket listener (mirrors it into the full-screen overlay).
-    game.socket.emit("shareImage", { image: img, title: tok.document?.name || tok.actor?.name || "", showTitle: true });
+    // `shareImage` socket listener (mirrors it into the full-screen overlay). No name/title:
+    // a token's name can spoil what the image is (a potion labelled "Poison …"). DM 2026-06-26.
+    game.socket.emit("shareImage", { image: img, title: "", showTitle: false });
     ui.notifications.info("Shown on players' phones.");
     return;
   }

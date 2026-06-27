@@ -94,6 +94,35 @@ export function registerSettings() {
     default: true
   });
 
+  // Shared-screen tables: controlling a PC token normally collapses the DM's canvas to that
+  // PC's vision (POV), which is wrong when the players watch a shared TV. On, the DM's OWN
+  // client stays omniscient while a token is selected; players + the TV/display are untouched
+  // (the check is per-client). DM request 2026-06-26. On by default.
+  game.settings.register(MODULE_ID, "dmOmniscientVision", {
+    name: "Keep the DM's vision omniscient (shared-screen tables)",
+    hint: "When the DM selects/controls a player's token, don't shrink the DM's view to that token's point of view — the DM keeps seeing the whole map. Players and the TV/display are unaffected. On by default.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: () => { try { canvas?.perception?.update({ refreshVision: true, initializeVision: true }); } catch (e) {} }
+  });
+
+  // Auto-own new player characters for the shared display/TV account so their vision shows on
+  // the TV without per-actor ownership fiddling (DM 2026-06-27). Stores a user id; "" = off.
+  // The field renders as a player dropdown (renderSettingsConfig below — game.users isn't ready
+  // at registration). Choosing an account also grants it ownership of EXISTING characters
+  // (onChange → retroGrantOwnership, executor-only).
+  game.settings.register(MODULE_ID, "displayOwnerUser", {
+    name: "Auto-own new PCs for (display/TV account)",
+    hint: "Pick your shared TV/display account. Any newly-created player character is automatically given to it as Owner, so the TV shows that character's vision. Choosing an account also grants it ownership of your existing characters. Leave as “none” to turn this off.",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "",
+    onChange: (value) => { if (value) retroGrantOwnership(value); }
+  });
+
   // Comprehensive snapshots so the module's changes can be reverted/reactivated
   // (Foundry won't revert them on disable). presetBackup = original pre-module state;
   // reactivateSnapshot = the module-active state captured when you revert.
@@ -171,6 +200,47 @@ export function registerSettings() {
       console.warn(`${MODULE_ID} | could not inject the revert warning`, e);
     }
   });
+
+  // Upgrade the displayOwnerUser text field to a player dropdown (game.users is ready here, not
+  // at registration). Foundry serialises the <select> by its name, so the value saves normally.
+  Hooks.on("renderSettingsConfig", (app, html) => {
+    try {
+      if (!game.user?.isGM) return;
+      const root = html instanceof HTMLElement ? html : html?.[0];
+      const input = root?.querySelector(`[name="${MODULE_ID}.displayOwnerUser"]`);
+      if (!input || input.tagName !== "INPUT") return;
+      const cur = game.settings.get(MODULE_ID, "displayOwnerUser");
+      const sel = document.createElement("select");
+      sel.name = input.name;
+      sel.innerHTML = `<option value="">— none (auto-own off) —</option>` +
+        game.users.filter((u) => !u.isGM).map((u) => `<option value="${u.id}"${u.id === cur ? " selected" : ""}>${foundry.utils.escapeHTML(u.name)}</option>`).join("");
+      input.replaceWith(sel);
+    } catch (e) {
+      console.warn(`${MODULE_ID} | could not build the display-owner dropdown`, e);
+    }
+  });
+}
+
+// Grant `userId` OWNER on every existing player-character that lacks it — the "fix existing"
+// half of auto-own, run when displayOwnerUser is chosen. Executor-only (one writer; ownership
+// writes are GM-only).
+async function retroGrantOwnership(userId) {
+  try {
+    if (!isExecutor()) return;
+    const user = game.users.get(userId);
+    if (!user || user.isGM) return;
+    const OWNER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
+    let n = 0;
+    for (const actor of game.actors) {
+      if (actor.type !== "character" || !actor.hasPlayerOwner) continue; // real PCs only, not templates/NPCs
+      if ((actor.ownership?.[user.id] ?? 0) >= OWNER) continue;
+      await actor.update({ [`ownership.${user.id}`]: OWNER });
+      n++;
+    }
+    ui.notifications?.info?.(`Mobile Command: gave ${user.name} ownership of ${n} character(s).`);
+  } catch (e) {
+    console.warn(`${MODULE_ID} | retro ownership grant failed`, e);
+  }
 }
 
 export function resolveExecutorId() {

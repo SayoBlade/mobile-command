@@ -356,11 +356,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const totalLevel = sys.details?.level
       || actor.items.filter(i => i.type === "class").reduce((n, c) => n + (c.system.levels || 0), 0);
 
-    // Include toggled conditions (status effects, which often carry NO duration
-    // — temporaryEffects alone misses them, so the chip read "No active
-    // conditions" even with conditions set) alongside temporary effects (Bless).
-    const effects = (actor.effects ?? []).filter(e =>
-      e.active && e.name && (e.isTemporary || e.statuses?.size > 0));
+    // Show every effect Foundry shows ON the character: direct ones (Monstrosity, status
+    // conditions like Prone, temporary buffs like Bless) AND effects TRANSFERRED from items —
+    // Rage / Unarmored Defense / Danger Sense live on their feature item, not actor.effects, so
+    // the old actor.effects read dropped them. appliedEffects is exactly the active set the
+    // sheet shows. DM 2026-06-27: "any effect in the Foundry UI should show up on mobile."
+    const effects = (actor.appliedEffects ?? []).filter(e => e.name);
     // DM request (2026-06-18): surface the action-economy "used" conditions as
     // chips. midi ships visible effects for "Bonus Action used" / "Reaction used"
     // (we no longer exclude them) and styles them as spent (mc-chip-used). The main
@@ -1240,10 +1241,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #sharedImageHTML() {
     const s = this.#sharedImage;
     if (!s?.src) return "";
+    // Image only — never a caption/name. A shared image's name can be a major spoiler
+    // (e.g. a potion image labelled "Poison of Wither"), so MC shows the picture alone.
+    // DM request 2026-06-26.
     return `<div class="mc-imgpop mc-imgpop-shared">
       <button class="mc-imgpop-x" data-action="shared-img-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
       <img class="mc-imgpop-img" src="${s.src}" alt="">
-      ${s.title ? `<div class="mc-imgpop-title">${foundry.utils.escapeHTML(s.title)}</div>` : ""}
     </div>`;
   }
   // Called from the shareImage socket relay (main.js) when the DM shares an image.
@@ -1429,12 +1432,24 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // from the ts flag with a month-name format makes every note uniform on the viewer's
     // screen and removes the day/month ambiguity. Old notes lacking the flag keep the name.
     const fmtDate = (ts) => { try { return new Date(ts).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); } catch (e) { return new Date(ts).toLocaleString(); } };
+    // Tint each note in its poster's player colour (DM 2026-06-27). `author` is the character
+    // name, so map it to the owning player's colour; fall back to a user of that name. The
+    // lookup is live, so old notes colour too and a note tracks the player's current colour.
+    // --mc-note drives the header text + a left accent (see CSS); no colour → the gold default.
+    const colorFor = (author) => {
+      if (!author) return null;
+      const actor = game.actors?.getName?.(author);
+      let user = actor ? game.users?.find?.(u => !u.isGM && actor.testUserPermission(u, "OWNER")) : null;
+      if (!user) user = game.users?.getName?.(author);
+      return user?.color?.css ?? null;
+    };
     const notes = pages.map(p => {
       const ts = p.getFlag(MODULE_ID, "ts");
       const author = p.getFlag(MODULE_ID, "author");
+      const color = colorFor(author);
       const head = (ts && author) ? `${foundry.utils.escapeHTML(author)} · ${fmtDate(ts)}` : foundry.utils.escapeHTML(p.name);
       return `
-      <div class="mc-jn-note">
+      <div class="mc-jn-note"${color ? ` style="--mc-note:${color}"` : ""}>
         <div class="mc-jn-head">${head}</div>
         <div class="mc-jn-body">${p.text?.content ?? ""}</div>
       </div>`;
@@ -1912,8 +1927,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const items = bucket[g.key].sort((a, b) => a.name.localeCompare(b.name));
       return `<div class="mc-search-group"><div class="mc-actions-sub">${g.label}</div><div class="mc-inv">${this.#inventoryItemsHTML(items)}</div></div>`;
     }).join("");
-    return `<div class="mc-actions-head"><span class="mc-section-label">Equipment</span>${this.#searchToggleHTML()}</div>
+    return `<div class="mc-actions-head mc-eq-head"><span class="mc-section-label">Equipment</span>${this.#carriedWeightHTML(actor)}${this.#searchToggleHTML()}</div>
       ${this.#searchDrawerHTML()}${currency}${enc}${sections}`;
+  }
+
+  // Carried weight (current / capacity) for the Equipment header — always shown, since dnd5e
+  // computes value/max even when the encumbrance variant is "none" (the full bar below only
+  // appears when the variant is on). So "those who care" get the number regardless, filling the
+  // header row next to the search icon. DM 2026-06-27.
+  #carriedWeightHTML(actor) {
+    const enc = actor.system?.attributes?.encumbrance;
+    if (enc?.value == null || !enc?.max) return "";
+    let unit = "lb"; try { unit = game.settings.get("dnd5e", "metricWeightUnits") ? "kg" : "lb"; } catch (e) { /* default lb */ }
+    const r = (n) => Math.round((n ?? 0) * 10) / 10;
+    return `<span class="mc-eq-weight" title="Carried weight"><i class="fas fa-weight-hanging"></i> ${r(enc.value)}/${r(enc.max)} ${unit}</span>`;
   }
 
   // Encumbrance readout — mirrors Foundry exactly: dnd5e renders/applies nothing
@@ -3118,38 +3145,52 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <div class="mc-pg-label">Then upload the image you generated</div>
         <input type="file" accept="image/*" class="mc-pg-file" hidden>
         <button class="mc-pg-upload" data-action="portrait-upload"><i class="fas fa-arrow-up-from-bracket"></i> Upload image</button>
-        <div class="mc-pg-note"><i class="fas fa-circle-info"></i> It's resized and set as your portrait; the colour ring turns it into your token.</div>
+        <div class="mc-pg-note"><i class="fas fa-circle-info"></i> The full image becomes your portrait; a cropped disc becomes your ring token.</div>
       </div>`;
   }
-  // Copy that survives a phone on the LAN over plain HTTP: navigator.clipboard needs a
-  // SECURE context (HTTPS/localhost), which an iPhone hitting the LAN IP doesn't have — so
-  // fall back to the legacy textarea + execCommand path. On the non-secure phone the
-  // navigator.clipboard branch is skipped entirely, so there's NO await before execCommand
-  // and the tap's user gesture is intact (iOS needs that + the explicit Range/selection).
+  // Copy that also works on a phone on the LAN over plain HTTP. Two traps:
+  //   1. navigator.clipboard needs a SECURE context; on an iPhone hitting the LAN IP it is
+  //      often PRESENT but rejects — and awaiting it (even just to catch the rejection) burns
+  //      the tap's user gesture, after which execCommand fails too. So run the synchronous
+  //      execCommand path FIRST, in the gesture, with NOTHING awaited before it; the async
+  //      API is only a fallback for the rare desktop context that disabled execCommand.
+  //   2. The actual "copies nothing" bug: selectNodeContents on a <textarea> (or a plain div)
+  //      selects 0 chars, so execCommand copied an empty selection. A contentEditable div with
+  //      the text in textContent selects correctly. (Never iOS- or HTTP-specific.)
+  // Returns { ok, diag }; the diag is logged on failure so a phone we can't devtools into is legible.
   async #copyToClipboard(text) {
-    if (navigator.clipboard?.writeText) {
-      try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* fall through to legacy */ }
-    }
+    const secure = window.isSecureContext;
+    const hasApi = !!navigator.clipboard?.writeText;
+    const value = text ?? "";
+    let execOk = false, execErr = "";
     try {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.readOnly = true; // stops iOS popping the keyboard
-      // Off-screen at REAL size + 16px font: iOS Safari refuses to copy from a 0-size /
-      // opacity:0 field (that was the v0.1.59 "copies nothing"). left:-9999px keeps it
-      // invisible while still rendered + selectable.
-      ta.style.cssText = "position:fixed;left:-9999px;top:0;font-size:16px;";
-      document.body.appendChild(ta);
+      // Copy from a contentEditable DIV with the text in textContent + a DOM Range.
+      // selectNodeContents on a <textarea> (its value is NOT its child nodes) or on a plain
+      // div selects NOTHING — verified 0 chars — which is exactly why it "copied nothing".
+      // A contentEditable div captures the full multi-line text (verified 60/60 + newlines).
+      const el = document.createElement("div");
+      el.textContent = value;
+      el.contentEditable = "true";
+      el.setAttribute("inputmode", "none"); // keep the iOS keyboard from popping
+      el.style.cssText = "position:fixed;left:-9999px;top:0;white-space:pre-wrap;font-size:16px;-webkit-user-select:text;user-select:text;";
+      document.body.appendChild(el);
       const range = document.createRange();
-      range.selectNodeContents(ta);
+      range.selectNodeContents(el);
       const sel = window.getSelection();
       sel.removeAllRanges();
       sel.addRange(range);
-      ta.setSelectionRange(0, text.length); // iOS Safari needs the explicit selection range
-      const ok = document.execCommand("copy");
+      execOk = document.execCommand("copy");
       sel.removeAllRanges();
-      ta.remove();
-      return ok;
-    } catch (e) { return false; }
+      el.remove();
+    } catch (e) { execErr = String(e?.name || e).slice(0, 18); }
+    let diag = `sec=${secure ? 1 : 0} api=${hasApi ? 1 : 0} len=${value.length} exec=${execOk ? 1 : 0}${execErr ? " e=" + execErr : ""}`;
+    if (execOk) return { ok: true, diag };
+    // Only here (execCommand couldn't run) do we await the async API — gesture already spent.
+    if (hasApi) {
+      try { await navigator.clipboard.writeText(value); return { ok: true, diag: diag + " async=1" }; }
+      catch (e) { diag += " async=0"; }
+    }
+    return { ok: false, diag };
   }
 
   async #copyPortraitPrompt(actor) {
@@ -3158,27 +3199,32 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const live = this.element?.querySelector(".mc-pg-input")?.value; // newest text even if input didn't fire
     const box = this.element?.querySelector(".mc-pg-preview"); // the live preview textarea = exactly what's shown
     const text = box?.value ?? buildPortraitPrompt(actor, { freeText: live ?? this.#portraitGen.freeText, dmStyle, mode: this.#portraitGen.mode });
-    const ok = await this.#copyToClipboard(text);
+    const { ok, diag } = await this.#copyToClipboard(text);
+    if (!ok) console.warn(`${MODULE_ID} | portrait prompt copy failed — ${diag}`); // diag kept in the console for next time
     const b = this.element?.querySelector(".mc-pg-copy");
     if (b) {
       b.innerHTML = ok ? '<i class="fas fa-check"></i> Copied' : '<i class="fas fa-triangle-exclamation"></i> Long-press the prompt to copy';
       setTimeout(() => { const b2 = this.element?.querySelector(".mc-pg-copy"); if (b2) b2.innerHTML = '<i class="fas fa-copy"></i> Copy prompt'; }, ok ? 1600 : 2800);
     }
   }
-  // Resize the chosen image to <=512px (small upload, sharp token), then hand the data
-  // to the executor — the player can't write files themselves (FILES_UPLOAD is GM-only).
+  // Two images from the one upload: a disc-cropped 512px token (sharp, ring-framed) and the
+  // FULL uncropped image (≤768px) for the character portrait. Hand both to the executor — the
+  // player can't write files themselves (FILES_UPLOAD is GM-only). DM request 2026-06-26.
   async #uploadPortraitFile(file) {
     if (!file || !this.#portraitGen) return;
     const actor = this.actor; if (!actor) return;
     const btn = this.element?.querySelector(".mc-pg-upload");
     if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading…';
-    const dataUrl = await this.#resizeImage(file, 512);
-    if (!dataUrl) { if (btn) btn.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Could not read that image'; return; }
-    const res = await rpc.portraitUpload({ actorId: actor.id, dataUrl }).catch(e => ({ ok: false, reason: String(e?.message ?? e) }));
+    const [tokenUrl, portraitUrl] = await Promise.all([
+      this.#resizeImage(file, 512), // disc-masked + inset → the token texture
+      this.#resizePlain(file, 768)  // full, uncropped → the actor portrait
+    ]);
+    if (!tokenUrl) { if (btn) btn.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Could not read that image'; return; }
+    const res = await rpc.portraitUpload({ actorId: actor.id, tokenUrl, portraitUrl: portraitUrl || tokenUrl }).catch(e => ({ ok: false, reason: String(e?.message ?? e) }));
     if (res?.ok) {
       this.#portraitGen = null; // done → back to the sheet, now showing the new portrait
       this.render();
-      ui.notifications?.info?.("Portrait set — the ring builds your token from it.");
+      ui.notifications?.info?.("Set — full image as your portrait, cropped disc as your token.");
     } else if (btn) {
       btn.innerHTML = `<i class="fas fa-triangle-exclamation"></i> ${foundry.utils.escapeHTML(res?.reason ?? "Upload failed — has the DM's screen reloaded?")}`;
     }
@@ -3206,9 +3252,36 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ctx.clip();
         const side = Math.min(img.width, img.height) || 1; // center square crop
         const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
-        ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+        // Inset the art to 80% (≈20% smaller), centred, so the character sits well inside the
+        // disc instead of pressing against the ring — AI portraits crop tight to the frame.
+        // DM request 2026-06-26. 0.8·size (410) still fully covers the 0.34r disc (348), no gap.
+        const fill = 0.8, off = (size * (1 - fill)) / 2;
+        ctx.drawImage(img, sx, sy, side, side, off, off, size * fill, size * fill);
         let out = null; try { out = canvas.toDataURL("image/webp", 0.92); } catch (e) { /* webp unsupported */ }
         if (!out || !out.startsWith("data:image/webp")) out = canvas.toDataURL("image/png"); // PNG keeps the transparent corners
+        resolve(out);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
+    });
+  }
+
+  // The FULL image for the character portrait: scaled to fit `maxDim` on the longest side
+  // (never upscaled), NO square crop and NO disc mask — so the sheet shows the whole art, not
+  // the token disc. webp, else JPEG (small upload; the full portrait rarely needs alpha).
+  #resizePlain(file, maxDim = 768) {
+    return new Promise(resolve => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, maxDim / Math.max(img.width || 1, img.height || 1));
+        const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        let out = null; try { out = canvas.toDataURL("image/webp", 0.92); } catch (e) { /* webp unsupported */ }
+        if (!out || !out.startsWith("data:image/webp")) out = canvas.toDataURL("image/jpeg", 0.92);
         resolve(out);
       };
       img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
@@ -3479,6 +3552,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   // Bound once so remove+add is idempotent — prevents handler stacking across
   // re-renders, and re-binds correctly if the root element is recreated.
+  // ApplicationV2's reserved "tab" action fires _onClickTab → changeTab(tab, group) on our
+  // own data-action="tab" nav buttons, but they carry no data-group (we drive tabs ourselves
+  // via #tab). The native call then rejects with "must pass both the tab and tab group
+  // identifier" — an unhandled rejection on EVERY tab switch. Swallow the groupless no-op call.
+  // DM live-test 2026-06-27.
+  changeTab(tab, group, options) {
+    if (!tab || !group) return;
+    return super.changeTab(tab, group, options);
+  }
+
   #onClick = (ev) => {
     if (this.#suppressClick) { this.#suppressClick = false; return; } // swallow the tap after a long-press
     const el = ev.target.closest("[data-action]");
@@ -4246,7 +4329,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // (2) the effect's own description; (3) a plain summary of its stat changes. So
   // every chip is long-pressable, not just standard-5e conditions (DM ask 2026-06-18).
   async #showEffectDetails(effectId) {
-    const e = this.actor?.effects?.get(effectId);
+    // Resolve from appliedEffects too, not just actor.effects — the chips now include effects
+    // TRANSFERRED from items (Rage etc.), which aren't in actor.effects.
+    const e = this.actor?.effects?.get(effectId) ?? this.actor?.appliedEffects?.find((x) => x.id === effectId);
     if (!e) return;
     const refOf = (id) => CONFIG.DND5E?.conditionTypes?.[id]?.reference
       || (CONFIG.statusEffects ?? []).find((s) => s.id === id)?.reference;
@@ -4266,7 +4351,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       desc = "<em>No description.</em>";
     }
     if (this.#detailCard) this.#detailStack.push(this.#detailCard);
-    this.#detailCard = { name: e.name, img: e.img || "icons/svg/aura.svg", subtitle: "Condition", desc, favId: null, isFav: false, removeEffectId: e.id };
+    // Only offer Remove for effects ACTUALLY on the actor — a transferred effect (parent is its
+    // source item) can't be removed from here; you'd toggle the feature itself.
+    const removable = e.parent === this.actor || e.parent?.documentName === "Actor";
+    this.#detailCard = { name: e.name, img: e.img || "icons/svg/aura.svg", subtitle: "Condition", desc, favId: null, isFav: false, removeEffectId: removable ? e.id : null };
     this.render();
   }
   // Condition detail by status id (long-press a palette cell, which may not be on
@@ -4663,6 +4751,23 @@ function liftDialogAboveShell(app) {
   // out unanswered). DM/Sqyre 2026-06-22.
   const el = app.element instanceof HTMLElement ? app.element : (app.element?.[0] ?? null);
   if (!(el instanceof HTMLElement)) return;
+  // DM "Show Players" image: the mod mirrors it into its OWN full-screen overlay
+  // (#sharedImage), so Foundry's native ImagePopout is a redundant SECOND popup stacked over
+  // it on a phone (DM-reported two-over-each-other, 2026-06-26). If the overlay is already up
+  // (the shareImage socket fired) just kill the native one; otherwise (a directly-opened
+  // popout) route its image INTO the overlay first so the player still sees it. Then close it.
+  if (app.constructor?.name === "ImagePopout") {
+    if (!document.querySelector(".mc-imgpop-shared")) {
+      try {
+        const img = el.querySelector("img")?.getAttribute("src") || app.object;
+        const title = app.options?.window?.title ?? app.title ?? "";
+        if (img) shellInstance.showSharedImage(img, typeof title === "string" ? title : "");
+      } catch (e) { /* best effort */ }
+    }
+    el.style.display = "none"; // hide instantly so the duplicate doesn't flash
+    setTimeout(() => { try { app.close(); } catch (e) {} }, 0);
+    return;
+  }
   // Phone clients: suppress third-party combat HUDs (Argon / Enhanced Combat HUD
   // etc.) — they compete with the shell's own Actions tab and route actions
   // outside Route B. The DM client is untouched (its shell isn't rendered). The
