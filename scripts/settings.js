@@ -114,7 +114,7 @@ export function registerSettings() {
   // at registration). Choosing an account also grants it ownership of EXISTING characters
   // (onChange → retroGrantOwnership, executor-only).
   game.settings.register(MODULE_ID, "displayOwnerUser", {
-    name: "Auto-own new PCs for (display/TV account)",
+    name: "Auto-own new PCs for (display/TV account)", // nbsp keeps the parenthetical from wrapping mid-phrase
     hint: "Pick your shared TV/display account. Any newly-created player character is automatically given to it as Owner, so the TV shows that character's vision. Choosing an account also grants it ownership of your existing characters. Leave as “none” to turn this off.",
     scope: "world",
     config: true,

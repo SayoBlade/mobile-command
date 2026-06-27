@@ -3965,6 +3965,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
   async #doRest(kind) {
     const actor = this.actor; if (!actor) return;
+    // A rest updates the actor; if it isn't ours to update (ownership changed under the shell —
+    // the DM was toggling permissions), bail with a clean note instead of letting Foundry throw
+    // a raw "lacks permission to update Actor" error. The shell only navigates to owned actors,
+    // so this is the safety net for an ownership that drops mid-session. DM 2026-06-27.
+    if (!actor.isOwner) { ui.notifications?.warn?.(`You don't have permission to rest ${actor.name}.`); return; }
     const before = this.#restSnapshot(actor);
     let result;
     try { result = await (kind === "long" ? actor.longRest() : actor.shortRest()); }
