@@ -52,26 +52,93 @@ Hooks.once("init", () => {
 // Cinematic ease (0→1) for TV camera moves — a smooth pan/zoom instead of a jump cut.
 const tvEase = (t) => (1 - Math.cos(Math.PI * t)) / 2;
 
-// Pan + zoom the local canvas to fit every (visible) player-character token. Used by
-// the "Frame the party" keybinding and exposed as MobileCommand.frameParty().
+// Shared TV framing constants in scene feet (DM 2026-06-27). Both the "Focus the
+// party" press and the continuous party-follow use these so the resting frame and
+// the corrected frame agree: keep this much empty space outside the party, and
+// never frame tighter than this radius (a clustered party still shows context).
+const TV_PARTY_BUFFER_FT = 40;
+const TV_MIN_RADIUS_FT = 35;
+// On each combat turn the display spotlights the ACTIVE token (DM 2026-06-27): zoom OUT
+// then zoom IN, centred on that token, ending at a TV_COMBAT_RADIUS_FT radius. The pull-
+// back is TV_COMBAT_OUT_FACTOR × the spotlight scale (a wider establishing view).
+const TV_COMBAT_RADIUS_FT = 30;                       // spotlight radius on the active token (was 60 — too wide; the view exceeded the scene so it clamped to scene-centre every turn, DM 2026-06-28)
+const TV_COMBAT_OUT_FACTOR = 0.6;                     // zoom-out factor before the push-in
+const TV_COMBAT_OUT_MS = 600, TV_COMBAT_IN_MS = 900;  // out, then in (~1.5 s total)
+
+// DM-locked TV zoom for the party view (DM 2026-06-27). null = auto (TV_MIN_RADIUS_FT
+// fit; the party framing still zooms OUT past it when the party splits so everyone
+// stays in view); the zoom buttons set it. Used in and out of combat — the combat
+// turn pulse settles back to this same party framing.
+let tvLockedScale = null;
+
+// A zoom-button press locks the party-view zoom.
+function setTvLockedScale(scale) {
+  tvLockedScale = scale;
+}
+
+// Decide the party-framing scale for a bounding box of size (extentW × extentH) px.
+// Locked → hold the DM's zoom but never tighter than the party + buffer fits (so a
+// split party stays in view). Unlocked → auto-fit the party + buffer, floored at the
+// TV_MIN_RADIUS_FT minimum so a clustered party isn't over-zoomed.
+function tvPartyScale(extentW, extentH, buffer, minDim, screenW, screenH) {
+  const minZoom = CONFIG.Canvas?.minZoom ?? 0.1, maxZoom = CONFIG.Canvas?.maxZoom ?? 3;
+  const spreadW = extentW + buffer * 2, spreadH = extentH + buffer * 2;
+  const fitScale = Math.min(screenW / spreadW, screenH / spreadH, maxZoom); // party + buffer fits exactly
+  if (tvLockedScale != null) return Math.max(minZoom, Math.min(tvLockedScale, fitScale));
+  const reqW = Math.max(spreadW, minDim), reqH = Math.max(spreadH, minDim);
+  return Math.max(minZoom, Math.min(screenW / reqW, screenH / reqH, maxZoom));
+}
+
+// The whole-party frame: centroid + target scale over every visible PC token. Used by
+// Focus (centroid only — pure pan) and the combat turn pulse. null when no party.
+function partyFrame() {
+  const toks = (canvas.tokens?.placeables ?? []).filter(
+    (t) => t.actor?.hasPlayerOwner && t.actor?.type === "character" && !t.document?.hidden);
+  if (!toks.length) return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const t of toks) {
+    const w = t.w ?? t.width ?? 0, h = t.h ?? t.height ?? 0;
+    minX = Math.min(minX, t.x); minY = Math.min(minY, t.y);
+    maxX = Math.max(maxX, t.x + w); maxY = Math.max(maxY, t.y + h);
+  }
+  const gridSize = canvas.grid?.size ?? 100, gridDist = canvas.grid?.distance ?? 5;
+  const ftToPx = (ft) => (ft / gridDist) * gridSize;
+  const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
+  const scale = tvPartyScale(maxX - minX, maxY - minY, ftToPx(TV_PARTY_BUFFER_FT), ftToPx(TV_MIN_RADIUS_FT * 2), screenW, screenH);
+  return { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, scale };
+}
+
+// Frame a single token: its centre + the scale that shows `radiusFt` across the smaller
+// screen axis, scene-clamped. Used by the combat spotlight. null when no token.
+function tokenFrame(tokenDoc, radiusFt) {
+  if (!tokenDoc) return null;
+  const gs = canvas.dimensions?.size ?? 100;
+  const gridDist = canvas.dimensions?.distance ?? canvas.grid?.distance ?? 5;
+  const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
+  const minZoom = CONFIG.Canvas?.minZoom ?? 0.1, maxZoom = CONFIG.Canvas?.maxZoom ?? 3;
+  const diam = (radiusFt * 2 / gridDist) * gs;
+  const scale = Math.max(minZoom, Math.min(screenW / diam, screenH / diam, maxZoom));
+  const tw = (tokenDoc.width ?? 1) * gs, th = (tokenDoc.height ?? 1) * gs;
+  let cx = tokenDoc.x + tw / 2, cy = tokenDoc.y + th / 2;
+  const halfW = screenW / scale / 2, halfH = screenH / scale / 2;
+  const r = canvas.dimensions?.sceneRect ?? canvas.dimensions?.rect;
+  if (r) {
+    cx = r.width  <= halfW * 2 ? r.x + r.width  / 2 : Math.min(Math.max(cx, r.x + halfW), r.x + r.width  - halfW);
+    cy = r.height <= halfH * 2 ? r.y + r.height / 2 : Math.min(Math.max(cy, r.y + halfH), r.y + r.height - halfH);
+  }
+  return { cx, cy, scale };
+}
+
+// "Frame the party": centre ONLY — pan to the party centroid and keep the current zoom
+// untouched (DM 2026-06-27: "centre only centres"; the zoom is owned by the zoom buttons
+// + the follow). Keybinding + MobileCommand.frameParty().
 function framePartyTokens() {
   try {
     if (!canvas?.ready) return false;
-    const toks = (canvas.tokens?.placeables ?? []).filter(
-      (t) => t.actor?.hasPlayerOwner && t.actor?.type === "character" && !t.document?.hidden);
-    if (!toks.length) { ui.notifications?.info?.(`${MODULE_ID} | no party tokens on this scene to frame`); return false; }
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const t of toks) {
-      const w = t.w ?? t.width ?? 0, h = t.h ?? t.height ?? 0;
-      minX = Math.min(minX, t.x); minY = Math.min(minY, t.y);
-      maxX = Math.max(maxX, t.x + w); maxY = Math.max(maxY, t.y + h);
-    }
-    const pad = (canvas.grid?.size ?? 100) * 2;
-    const worldW = (maxX - minX) + pad * 2, worldH = (maxY - minY) + pad * 2;
-    const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
-    const fit = Math.min(screenW / worldW, screenH / worldH);
-    const scale = Math.max(0.1, Math.min(fit, CONFIG.Canvas?.maxZoom ?? 3, 1.2)); // never over-zoom a tight group
-    canvas.animatePan({ x: (minX + maxX) / 2, y: (minY + maxY) / 2, scale, duration: 1000, easing: tvEase });
+    const frame = partyFrame();
+    if (!frame) { ui.notifications?.info?.(`${MODULE_ID} | no party tokens on this scene to frame`); return false; }
+    const scale = canvas.stage.scale.x || 1; // pure pan — keep current zoom
+    canvas.animatePan({ x: frame.cx, y: frame.cy, scale, duration: 1000, easing: tvEase });
     return true;
   } catch (e) {
     console.warn(`${MODULE_ID} | framePartyTokens failed`, e);
@@ -99,6 +166,7 @@ function onTvControl(payload) {
     const s = canvas.stage;
     const min = CONFIG.Canvas?.minZoom ?? 0.1, max = CONFIG.Canvas?.maxZoom ?? 3;
     const scale = Math.max(min, Math.min((s.scale?.x || 1) * (payload.factor || 1), max));
+    setTvLockedScale(scale); // zoom overrides the context's radius until reload (DM 2026-06-27)
     canvas.animatePan({ x: s.pivot.x, y: s.pivot.y, scale, duration: 250, easing: tvEase });
   }
   else if (payload.cmd === "pan" && tvManual && canvas?.ready) {
@@ -145,47 +213,86 @@ function tvZoom(factor) {
     const s = canvas.stage;
     const min = CONFIG.Canvas?.minZoom ?? 0.1, max = CONFIG.Canvas?.maxZoom ?? 3;
     const scale = Math.max(min, Math.min((s.scale?.x || 1) * factor, max));
+    setTvLockedScale(scale); // zoom overrides the context's radius until reload (DM 2026-06-27)
     canvas.animatePan({ x: s.pivot.x, y: s.pivot.y, scale, duration: 250, easing: tvEase });
   }
   tvBroadcast({ cmd: "zoom", factor });
 }
 
-// --- TV margin-follow (DM 2026-06-20) ---------------------------------------
-// Keep a moving player-character token at least N grid squares from the screen
-// edge so it never slides off-screen before the camera catches up. A deadzone
-// follow: pan only the minimum needed to pull the token back inside the margin,
-// smoothly. Clamp to the scene so we never overscroll past the map edge — there
-// the token is simply allowed nearer the screen edge ("unless it's the very
-// edge"). Display client only, and yields to manual TV control.
-const TV_EDGE_MARGIN_SQUARES = 3;
+// --- TV party-follow (DM 2026-06-20, whole-party rework 2026-06-27) ----------
+// Keep the ENTIRE party in view at all times, with a TV_PARTY_BUFFER_FT empty
+// margin around the party's bounding box. On every PC step, recompute that box
+// and correct the camera if the buffer is broken: pan the minimum to bring the
+// party + buffer back inside the viewport, and zoom OUT if it no longer fits.
+// As the party regroups it zooms back IN (past a deadzone, so it doesn't hunt),
+// converging on the same frame the "Focus the party" press produces — floored at
+// the TV_MIN_RADIUS_FT minimum. Clamp to the scene so we never overscroll past
+// the map edge (there the party may sit nearer the edge). Display client only,
+// and yields to manual TV control.
+const TV_ZOOM_IN_SLACK = 1.15; // only tighten when the ideal frame is ≥15% closer than now
 
-function tvEdgeFollow(tokenDoc, changes) {
+function tvPartyFollow(tokenDoc, changes) {
   try {
     if (!isDisplayClient() || tvManual || !canvas?.ready) return;
+    if (game.combat?.started) return; // in combat the active-token spotlight takes over
     if (!("x" in changes) && !("y" in changes)) return; // only on movement
     const actor = tokenDoc.actor;
-    if (tokenDoc.hidden || !actor?.hasPlayerOwner || actor.type !== "character") return;
+    if (!actor?.hasPlayerOwner || actor.type !== "character") return; // a PC moved
 
+    // Party bounding box over every visible PC token. The just-moved token's new
+    // position comes from the update doc (robust while the move animates); the
+    // rest from their current document positions.
     const gs = canvas.dimensions?.size ?? 100;
-    const margin = TV_EDGE_MARGIN_SQUARES * gs;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const t of canvas.tokens?.placeables ?? []) {
+      const d = t.document;
+      if (d?.hidden || !t.actor?.hasPlayerOwner || t.actor?.type !== "character") continue;
+      const x = d.id === tokenDoc.id ? tokenDoc.x : d.x;
+      const y = d.id === tokenDoc.id ? tokenDoc.y : d.y;
+      const w = (d.width ?? 1) * gs, h = (d.height ?? 1) * gs;
+      minX = Math.min(minX, x); minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + w); maxY = Math.max(maxY, y + h);
+    }
+    if (!Number.isFinite(minX)) return; // no visible party
+
+    const gridDist = canvas.dimensions?.distance ?? canvas.grid?.distance ?? 5;
+    const buffer = (TV_PARTY_BUFFER_FT / gridDist) * gs;
+    const minDim = (TV_MIN_RADIUS_FT * 2 / gridDist) * gs;
+
+    // The area we want visible: party box + buffer. (For pan deadzone + scene clamp.)
+    const reqW = Math.max((maxX - minX) + buffer * 2, minDim);
+    const reqH = Math.max((maxY - minY) + buffer * 2, minDim);
+    const bx = (minX + maxX) / 2, by = (minY + maxY) / 2; // party centre
+
     const stage = canvas.stage;
-    const scale = stage.scale.x || 1;
     const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
+    const curScale = stage.scale.x || 1;
+    const target = tvPartyScale(maxX - minX, maxY - minY, buffer, minDim, screenW, screenH);
+
+    // Zoom decision. Locked → hold the target (tvPartyScale already zooms out to keep
+    // a split party in view, and it's stable so it won't hunt). Auto → zoom OUT when
+    // the party no longer fits, and tighten back IN only past a deadzone so a
+    // regrouping party settles smoothly instead of hunting on every step.
+    let scale;
+    if (tvLockedScale != null) {
+      scale = target;
+    } else {
+      const fitsNow = screenW / curScale >= reqW && screenH / curScale >= reqH;
+      scale = curScale;
+      if (!fitsNow) scale = target;
+      else if (target > curScale * TV_ZOOM_IN_SLACK) scale = target;
+    }
+
+    // Pan the minimum to keep the whole required rect inside the viewport; if an
+    // axis is fully filled by the rect, just centre the party on it.
     const halfW = screenW / scale / 2, halfH = screenH / scale / 2;
-
-    // Target token centre from the document (robust while the move animates).
-    const tw = (tokenDoc.width ?? 1) * gs, th = (tokenDoc.height ?? 1) * gs;
-    const tx = tokenDoc.x + tw / 2, ty = tokenDoc.y + th / 2;
-
-    // Pan the minimum to bring the token back inside the margin deadzone. If the
-    // viewport is narrower than 2×margin (zoomed in past ~6 squares), just centre.
     let cx = stage.pivot.x, cy = stage.pivot.y;
-    if (halfW <= margin) cx = tx;
-    else if (tx < cx - halfW + margin) cx = tx + halfW - margin;
-    else if (tx > cx + halfW - margin) cx = tx - halfW + margin;
-    if (halfH <= margin) cy = ty;
-    else if (ty < cy - halfH + margin) cy = ty + halfH - margin;
-    else if (ty > cy + halfH - margin) cy = ty - halfH + margin;
+    if (halfW * 2 <= reqW) cx = bx;
+    else { if (minX - buffer < cx - halfW) cx = minX - buffer + halfW;
+           if (maxX + buffer > cx + halfW) cx = maxX + buffer - halfW; }
+    if (halfH * 2 <= reqH) cy = by;
+    else { if (minY - buffer < cy - halfH) cy = minY - buffer + halfH;
+           if (maxY + buffer > cy + halfH) cy = maxY + buffer - halfH; }
 
     // Clamp so the viewport stays within the scene (centre an axis smaller than it).
     const r = canvas.dimensions?.sceneRect ?? canvas.dimensions?.rect;
@@ -194,9 +301,156 @@ function tvEdgeFollow(tokenDoc, changes) {
       cy = r.height <= halfH * 2 ? r.y + r.height / 2 : Math.min(Math.max(cy, r.y + halfH), r.y + r.height - halfH);
     }
 
-    if (Math.abs(cx - stage.pivot.x) < 1 && Math.abs(cy - stage.pivot.y) < 1) return; // already inside
+    const scaleChanged = Math.abs(scale - curScale) / curScale > 0.01;
+    if (!scaleChanged && Math.abs(cx - stage.pivot.x) < 1 && Math.abs(cy - stage.pivot.y) < 1) return; // already framed
     canvas.animatePan({ x: cx, y: cy, scale, duration: 250, easing: tvEase });
   } catch (e) { /* follow is best-effort */ }
+}
+
+// --- TV combat spotlight (DM 2026-06-27) ------------------------------------
+// On each turn change the display zooms OUT then zooms IN onto the ACTIVE token,
+// ending at a TV_COMBAT_RADIUS_FT radius — "zoom in to the new token". Both phases
+// are centred on that token (not the party). Display only, yields to manual TV,
+// sequence-guarded against rapid turns; movement within a turn → tvCombatFollow.
+let _tvCineSeq = 0;
+async function tvCombatTurnPulse() {
+  if (!isDisplayClient() || tvManual || !canvas?.ready) return;
+  if (!game.combat?.started) return;
+  const token = game.combat.combatant?.token;
+  const frame = tokenFrame(token, TV_COMBAT_RADIUS_FT);
+  if (!frame) return;
+  const minZoom = CONFIG.Canvas?.minZoom ?? 0.1;
+  const outScale = Math.max(minZoom, frame.scale * TV_COMBAT_OUT_FACTOR);
+  const seq = ++_tvCineSeq;
+  // Phase 1: pull back (zoom out), centred on the active token.
+  await canvas.animatePan({ x: frame.cx, y: frame.cy, scale: outScale, duration: TV_COMBAT_OUT_MS, easing: tvEase });
+  if (seq !== _tvCineSeq || tvManual) return; // a newer turn (or manual takeover) superseded us
+  // Phase 2: push in to the spotlight, centred on the active token.
+  await canvas.animatePan({ x: frame.cx, y: frame.cy, scale: frame.scale, duration: TV_COMBAT_IN_MS, easing: tvEase });
+}
+
+// The active token moved within its turn → keep it centred at the spotlight zoom.
+function tvCombatFollow(tokenDoc, changes) {
+  try {
+    if (!isDisplayClient() || tvManual || !canvas?.ready) return;
+    if (!("x" in changes) && !("y" in changes)) return; // only on movement
+    const active = game.combat?.combatant?.token;
+    if (!active || active.id !== tokenDoc.id) return;   // only the active combatant
+    const frame = tokenFrame(tokenDoc, TV_COMBAT_RADIUS_FT);
+    if (frame) canvas.animatePan({ x: frame.cx, y: frame.cy, scale: frame.scale, duration: 250, easing: tvEase });
+  } catch (e) { /* follow is best-effort */ }
+}
+
+// Combat POV vision on the TV (DM 2026-06-27, opt-in `combatPovVision`). The actual
+// restriction lives in the `_isVisionSource` patch (setupDMOmniscientVision): on the
+// display, while the feature is on and it's a PC's turn, only the active combatant is a
+// vision source. This just re-evaluates vision so the patch re-runs for the new active
+// token — called on turn change + combat start, and from the setting's onChange. When
+// the feature is off (or NPC turn / no combat) the patch falls through to shared vision,
+// so a plain re-evaluation also restores shared vision when toggled off.
+function refreshCombatVision() {
+  if (!isDisplayClient() || !canvas?.ready) return;
+  let on = false; try { on = game.settings.get(MODULE_ID, "combatPovVision"); } catch (e) {}
+  // Render trigger: the `_isVisionSource` patch already restricts the *eligible* sources,
+  // but Foundry needs a real vision refresh to RE-RENDER the fog from them. control() is
+  // the canonical native path; the patch keeps the restriction even if MCD releases it.
+  try {
+    const active = on && game.combat?.started ? game.combat.combatant?.token?.object : null;
+    const owned = !!active?.actor?.hasPlayerOwner; // PC OR a player-owned summon (e.g. Badger)
+    if (owned && active) active.control({ releaseOthers: true }); // their turn → control it
+    else canvas.tokens?.releaseAll();                             // unowned NPC / off → drop control
+  } catch (e) { /* control best-effort (needs ownership) */ }
+  try { canvas.perception?.update({ initializeVision: true, refreshVision: true, refreshLighting: true }); } catch (e) {}
+  try { canvas.effects?.initializeVisionSources?.(); } catch (e) {} // force a synchronous rebuild if available
+}
+
+// Sync each PC token's vision from its actor's dnd5e senses (DM 2026-06-27, onboarding
+// #11). Fixes the uneven token config that made combat-POV "work for some, not others":
+// a darkvision-30 actor whose token has sight disabled / range 0 is blind on the TV.
+// Sets sight.range + visionMode from darkvision, and detection modes for the special
+// senses (tremorsense/blindsight/truesight) so they detect creatures in their radius.
+// Run by a client that can update the tokens (the GM, or the display via auto-own).
+// Reads installed dnd5e: senses live at system.attributes.senses.ranges.{darkvision,…}.
+async function syncPartyTokenSight() {
+  if (!canvas?.ready) return 0;
+  const haveMode = (id) => id in (CONFIG.Canvas?.detectionModes ?? {});
+  let n = 0, skipped = 0;
+  for (const t of canvas.tokens?.placeables ?? []) {
+    const actor = t.actor;
+    if (!actor?.hasPlayerOwner) continue; // PCs + player-owned summons (both get a POV turn)
+    const r = actor.system?.attributes?.senses?.ranges ?? {};
+    // Some tables type senses into the free-text "Special Senses" box rather than the
+    // numeric fields — parse "tremorsense 30 ft", "blindsight 10", etc. as a fallback.
+    const special = String(actor.system?.attributes?.senses?.special ?? "");
+    const fromSpecial = (name) => { const m = special.match(new RegExp(`${name}\\w*\\s*(\\d+)`, "i")); return m ? Number(m[1]) : 0; };
+    const dark = (Number(r.darkvision) || 0) || fromSpecial("darkvision");
+    const tremor = (Number(r.tremorsense) || 0) || fromSpecial("tremor");
+    const blind = (Number(r.blindsight) || 0) || fromSpecial("blindsight");
+    const truesight = (Number(r.truesight) || 0) || fromSpecial("truesight");
+    // What the token can SEE: darkvision range + greyscale mode; else basic (lit areas only).
+    // Range is what lets a token see in the dark; visionMode is the tint (guard its id).
+    const haveVision = (id) => id in (CONFIG.Canvas?.visionModes ?? {});
+    const visionMode = (dark > 0 && haveVision("darkvision")) ? "darkvision" : "basic";
+    // saturation -1 = greyscale (the classic darkvision look); the mode alone wasn't
+    // desaturating in this build (DM 2026-06-28). Only for darkvision tokens.
+    const sight = { enabled: true, range: dark, visionMode, saturation: dark > 0 ? -1 : 0 };
+    // How it DETECTS: lit areas always, plus each special sense it has. CRITICAL: this
+    // build stores detectionModes as an OBJECT keyed by id (not an array) — an array
+    // write is silently dropped, which is why feelTremor/blindsight never persisted while
+    // basicSight survived (it auto-derives from sight.range). So build a keyed object.
+    // ids vary by build → pick the first candidate that exists.
+    const pick = (...ids) => ids.find((id) => id in (CONFIG.Canvas?.detectionModes ?? {}));
+    const detectionModes = {};
+    const add = (id, range) => { if (id && !(id in detectionModes)) detectionModes[id] = { enabled: true, range }; };
+    add(pick("lightPerception", "basicSight"), null);                 // see lit areas
+    if (dark > 0) add(pick("basicSight", "lightPerception"), dark);   // darkvision range
+    if (tremor > 0) add(pick("feelTremor", "tremorsense", "feeltremor", "senseAll"), tremor);
+    if (blind > 0) add(pick("blindsight", "seeAll", "senseAll"), blind);
+    if (truesight > 0) add(pick("seeAll", "senseAll", "truesight"), truesight);
+    // Per-token log so the DM can see what senses each actor actually carries vs what got
+    // applied. If a sense the DM expects reads 0 here, it's not in senses.ranges (check
+    // senses.special free-text). availableModes shows which detection-mode ids this build has.
+    // Also fix the token name → the actor's name (DM 2026-06-28). PCs were all left as
+    // the generic "Player Character" token name; the GM-side sync has the permission to
+    // rename them, which char-gen can't reliably do from the phone.
+    const update = { sight, detectionModes };
+    const rename = (actor.name && t.document.name !== actor.name) ? actor.name : null;
+    if (rename) update.name = rename;
+    // Per-token log (pre-update name). `rename=` shows what the token will be renamed to.
+    console.log(`${MODULE_ID} | sight-sync ${t.name} → rename=${rename ?? "(no change)"}: ranges={dark:${dark},tremor:${tremor},blind:${blind},true:${truesight}} → range=${dark} mode=${sight.visionMode} detect=[${Object.entries(detectionModes).map(([id, m]) => `${id}:${m.range}`).join(", ")}]`);
+    try { await t.document.update(update); n++; }
+    catch (e) { skipped++; console.warn(`${MODULE_ID} | sight sync failed for ${t.name} (permission?)`, e); }
+  }
+  ui.notifications?.info?.(`${MODULE_ID} | synced token sight on ${n} PC token(s) from senses${skipped ? ` (${skipped} skipped — need ownership)` : ""}`);
+  return n;
+}
+
+// monks-common-display ALSO drives the shared display's camera: its "screen" follow
+// (screen-toggle) re-frames getTokens(screenValue) on every token move with its own
+// square-based padding, and wins the animatePan race — so the TV tracks a single
+// token at MCD's tight zoom instead of mobile-command's whole-party / combat framing
+// (DM live finding 2026-06-27). On OUR display client, neutralise MCD's CAMERA so
+// mobile-command owns pan/zoom, while LEAVING its token control (vision/LOS, the
+// focus-toggle path) intact. Gated on isDisplayClient(), so the camera is always
+// owned by exactly one module — never zero. Runtime-only: a reload restores MCD.
+async function suppressMcdCamera() {
+  try {
+    const mcd = game.modules.get("monks-common-display");
+    if (!mcd?.active) return; // MCD not in play — nothing to do
+    const ns = await import("/modules/monks-common-display/monks-common-display.js");
+    const C = ns?.MonksCommonDisplay;
+    if (!C) { console.warn(`${MODULE_ID} | MCD active but class not importable — TV camera may conflict`); return; }
+    // changeScreen/sceneView frame the camera; canvasPan mirrors the GM's view. All
+    // camera-only — token control (controlToken/changeFocus) is untouched, so vision
+    // still follows the turn. Replace with no-ops on this display client only.
+    let patched = 0;
+    for (const m of ["changeScreen", "sceneView", "canvasPan"]) {
+      if (typeof C[m] === "function") { C[m] = () => {}; patched++; }
+    }
+    console.log(`${MODULE_ID} | suppressed monks-common-display camera (${patched} methods) — mobile-command owns the TV pan/zoom; MCD vision kept`);
+  } catch (e) {
+    console.warn(`${MODULE_ID} | could not suppress MCD camera; TV framing may be overridden`, e);
+  }
 }
 
 Hooks.once("setup", () => {
@@ -245,7 +499,7 @@ Hooks.once("ready", () => {
   // TV (display role): canvas-only clean view. mc-display marks the role; mc-clean
   // hides the chrome (toggle with the keybinding to reach settings). Runtime-only —
   // disabling the module just stops adding these classes, so it auto-reverts.
-  if (isDisplayClient()) { document.body.classList.add("mc-display", "mc-clean"); showCleanHint(); warnDisplayGM(); }
+  if (isDisplayClient()) { document.body.classList.add("mc-display", "mc-clean"); showCleanHint(); warnDisplayGM(); suppressMcdCamera(); }
 
   // TV camera remote control: receive DM commands (display clients act), and on the
   // DM side mirror pan/zoom to the display while manual mode is on (throttled — the
@@ -258,8 +512,29 @@ Hooks.once("ready", () => {
     clearTimeout(_panTimer);
     if (now - _lastPan > 80) send(); else _panTimer = setTimeout(send, 80 - (now - _lastPan));
   });
-  // TV margin-follow: keep moving PCs ≥3 squares inside the screen edge (display only).
-  Hooks.on("updateToken", (tokenDoc, changes) => tvEdgeFollow(tokenDoc, changes));
+  // TV camera follow (display only): in combat keep the ACTIVE token spotlit; out of
+  // combat keep the whole party + 40 ft buffer framed. Each self-gates on combat state.
+  Hooks.on("updateToken", (tokenDoc, changes) => {
+    if (game.combat?.started) tvCombatFollow(tokenDoc, changes);
+    else tvPartyFollow(tokenDoc, changes);
+  });
+  // On turn change / combat start: a zoom-out→zoom-in pulse on the whole party (camera)
+  // + re-point vision (POV) on the active combatant. refreshCombatVision self-gates on
+  // the opt-in setting.
+  Hooks.on("updateCombat", (_combat, changed) => {
+    if ("turn" in changed || "round" in changed) { tvCombatTurnPulse(); refreshCombatVision(); }
+  });
+  Hooks.on("combatStart", () => { tvCombatTurnPulse(); refreshCombatVision(); });
+  // Auto-sync PC token sight from senses at combat start, when the POV feature is on.
+  // Runs on the PRIMARY GM — only a GM can update every token (a player would silently
+  // skip tokens it doesn't own, which is likely why darkvision wasn't applying). Removes
+  // the manual console step so darkvision/tremorsense actually register on the tokens.
+  Hooks.on("combatStart", () => {
+    try {
+      const primaryGM = game.user.isGM && (game.users?.activeGM?.id ?? game.user.id) === game.user.id;
+      if (primaryGM && game.settings.get(MODULE_ID, "combatPovVision")) syncPartyTokenSight();
+    } catch (e) { /* best-effort */ }
+  });
 
   injectShellStyles(); // load CSS via JS so a plain F5 works without re-reading the manifest
   initSocket(); // idempotent fallback in case socketlib.ready raced or didn't fire
@@ -284,6 +559,8 @@ Hooks.once("ready", () => {
     toggleTvManual,                      // DM drives the display by panning own view
     tvManualActive: isTvManualActive,
     tvZoom,                              // zoom the display in/out (factor >1 in, <1 out) — Stream Deck via macro
+    refreshCombatVision,                 // re-apply combat POV vision on the display (settings onChange + manual)
+    syncPartyTokenSight,                 // GM: set each PC token's sight/detection from its dnd5e senses
     resolveExecutorId,
     isExecutor
   };
@@ -329,12 +606,18 @@ function setupGMCursorHiding() {
   }
 }
 
-// Keep the DM omniscient on a shared screen (DM request 2026-06-26): controlling a PC token
-// normally renders the DM's canvas from that PC's POV. Patch the Token vision-source test so
-// on the DM's OWN client (a GM, not the display) no token counts as a vision source while
-// dmOmniscientVision is on — the canvas then falls back to the GM's see-everything default.
-// Per-client, so players + the TV/display keep their own (shared) vision. Reads the setting
-// live; the setting's onChange refreshes vision when toggled.
+// Patch the Token vision-source test for two shared-screen behaviours (both per-client,
+// reading their settings live; the settings' onChange refreshes vision):
+//  (1) DM omniscient (DM request 2026-06-26): on the DM's OWN client (GM, not the
+//      display), no token restricts the view while dmOmniscientVision is on — controlling
+//      a PC normally collapses the GM's canvas to that PC's POV; this keeps the GM seeing
+//      the whole map.
+//  (2) Combat POV on the TV (DM 2026-06-27): on the display, while combatPovVision is on
+//      and it's a PC's turn, ONLY the active combatant's token is a vision source — every
+//      other token contributes nothing, as if the display didn't own them. So the TV shows
+//      just that PC's senses/light. NPC turns (and the feature off) fall through to the
+//      normal shared display vision. This is forced at the vision-source level so it can't
+//      be undone by control()/release races (e.g. monks-common-display's focus toggle).
 function setupDMOmniscientVision() {
   try {
     const Tk = CONFIG.Token?.objectClass ?? foundry.canvas?.placeables?.Token ?? globalThis.Token;
@@ -345,6 +628,18 @@ function setupDMOmniscientVision() {
       if (game.user?.isGM && !isDisplayClient()) {
         let on = true; try { on = game.settings.get(MODULE_ID, "dmOmniscientVision"); } catch (e) {}
         if (on) return false; // no token restricts the DM's view → GM sees the whole map
+      }
+      if (isDisplayClient() && game.combat?.started) {
+        let pov = false; try { pov = game.settings.get(MODULE_ID, "combatPovVision"); } catch (e) {}
+        if (pov) {
+          const active = game.combat.combatant?.token;
+          const owned = active?.actor?.hasPlayerOwner; // PC OR player-owned summon (ally turn)
+          if (owned) {
+            if (this.document?.id !== active.id) return false;        // other tokens: no vision
+            return canvas.visibility?.tokenVision !== false && this.hasSight; // active token sees per its senses
+          }
+          // Unowned NPC (monster) turn → fall through to shared party vision.
+        }
       }
       return orig.call(this);
     };

@@ -108,6 +108,20 @@ export function registerSettings() {
     onChange: () => { try { canvas?.perception?.update({ refreshVision: true, initializeVision: true }); } catch (e) {} }
   });
 
+  // Combat POV vision on the TV (DM 2026-06-27): restrict the shared display to the active
+  // combatant's own vision each turn — a PC sees only what their senses/light reach (a PC
+  // without darkvision is blind in a dark room). NPC turns fall back to shared party vision.
+  // Off by default; needs a dark scene (no global illumination) + token sight synced to senses.
+  game.settings.register(MODULE_ID, "combatPovVision", {
+    name: "Combat: show only the active player's POV on the TV",
+    hint: "During combat the shared display shows just the active player's vision (their darkvision/tremorsense/light) — so a PC with no way to see in the dark is blind without a light source. Enemy turns show the shared party vision instead. Needs a dark scene and each PC's token sight range set from their senses. Off by default.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    onChange: () => { try { globalThis.MobileCommand?.refreshCombatVision?.(); } catch (e) {} }
+  });
+
   // Auto-own new player characters for the shared display/TV account so their vision shows on
   // the TV without per-actor ownership fiddling (DM 2026-06-27). Stores a user id; "" = off.
   // The field renders as a player dropdown (renderSettingsConfig below — game.users isn't ready

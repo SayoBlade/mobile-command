@@ -582,6 +582,19 @@ body.mc-phone .roll-configuration fieldset {
   font-family: "Modesto Condensed", "Signika", sans-serif;
   letter-spacing: .02em;
 }
+/* Editable rename field in the character card title (tap name → edit → Enter). */
+#mobile-command-shell .mc-name-input {
+  background: var(--mc-panel-2, #2a2630);
+  color: var(--mc-ink, #efe9df);
+  border: 1px solid var(--mc-edge, #4a4350);
+  border-radius: 6px;
+  padding: 4px 8px;
+  min-width: 0;
+}
+#mobile-command-shell .mc-name-input:focus {
+  outline: none;
+  border-color: var(--mc-gold, #c9a24a);
+}
 
 #mobile-command-shell .mc-header {
   background: linear-gradient(#26222b, #1c1922);

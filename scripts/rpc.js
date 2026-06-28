@@ -771,6 +771,7 @@ async function handleTargetsList({ forTokenId }) {
       // this must not leak "Doppelganger" when the token shows "Villager".
       name: token.document.name,
       disposition: token.document.disposition,
+      pcOwned: !!token.actor?.hasPlayerOwner, // player-controlled (PC or summon) → ally regardless of disposition
       distanceFt: MidiQOL.computeDistance(origin, token, { wallsBlock: false })
     });
   }

@@ -2875,7 +2875,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     } else {
       body = s.candidates.map(c => {
         const on = s.selected.has(c.uuid);
-        const [cls, label] = c.disposition < 0 ? ["foe", "Foe"]
+        // Player-controlled tokens (PCs + player-owned summons) read as allies even if
+        // their token disposition is hostile/neutral (DM 2026-06-28). Else by disposition.
+        const [cls, label] = c.pcOwned ? ["ally", "Ally"]
+          : c.disposition < 0 ? ["foe", "Foe"]
           : c.disposition > 0 ? ["ally", "Ally"] : ["neutral", "Neutral"];
         // B8 in-range hint: flag a target past the activity's reach (still tappable).
         const far = s.rangeFt != null && Number(c.distanceFt) > s.rangeFt + 0.5;
@@ -4529,9 +4532,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #detailCardHTML() {
     const d = this.#detailCard;
     if (!d) return "";
+    // The character card's title is an editable rename field (tap name → edit → Enter
+    // renames the actor + token + prototype in one go, DM 2026-06-28). Other cards stay
+    // as a static title.
+    const titleHTML = d.kind === "character"
+      ? `<input class="mc-picker-title mc-name-input" type="text" data-bio="name" value="${foundry.utils.escapeHTML(d.name)}" aria-label="Character name" autocomplete="off" enterkeyhint="done" spellcheck="false">`
+      : `<span class="mc-picker-title">${foundry.utils.escapeHTML(d.name)}</span>`;
     return `<div class="mc-picker-head">
         <button class="mc-back mc-picker-x" data-action="detail-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
-        <span class="mc-picker-title">${foundry.utils.escapeHTML(d.name)}</span>
+        ${titleHTML}
         ${d.favId ? `<button class="mc-detail-fav ${d.isFav ? "mc-on" : ""}" data-action="detail-fav" aria-label="${d.isFav ? "Unfavorite" : "Favorite"}" title="${d.isFav ? "Remove from favorites" : "Add to favorites"}"><i class="fas fa-bookmark"></i></button>` : ""}
       </div>
       <div class="mc-detail">
@@ -4557,6 +4566,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Enter = Set absolute; Escape = cancel. The −/+/Set buttons are the
   // primary, keyboard-independent path.
   #onKeydown = (ev) => {
+    if (ev.target.matches?.(".mc-name-input")) {
+      if (ev.key === "Enter") { ev.preventDefault(); ev.target.blur(); }      // commit → #onChange
+      else if (ev.key === "Escape") { this.#closeDetail(); this.render(); }   // cancel rename
+      return;
+    }
     if (ev.target.matches?.(".mc-coin-input")) {
       if (ev.key === "Enter") { ev.preventDefault(); ev.target.blur(); } // commit → #onChange
       return;
@@ -4599,7 +4613,27 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (inp?.dataset?.bio) {
       const path = inp.dataset.bio;
       const val = inp.value;
-      this.actor?.update(path === "name" ? { name: val || "Unnamed Character" } : { [path]: val });
+      if (path === "name") {
+        const name = val || "Unnamed Character";
+        // Set the actor AND the prototype token name (the token name is copied at
+        // placement, so it won't follow the actor otherwise) — DM 2026-06-28: PCs were
+        // all left as the generic "Player Character" token name, breaking POV/targeting.
+        this.actor?.update({ name, "prototypeToken.name": name });
+        // Rename already-placed tokens for this actor too (best-effort; works on the
+        // canvasless phone by walking scene token docs — owned linked tokens only).
+        try {
+          for (const scene of game.scenes ?? []) {
+            for (const td of scene.tokens ?? []) {
+              if (td.actorId === this.actor?.id && td.name !== name) td.update({ name }).catch(() => {});
+            }
+          }
+        } catch (e) { /* best-effort */ }
+        // Keep the open rename card's title in sync (optimistic; the updateActor hook
+        // re-renders with the saved value) so a re-render doesn't flash the old name.
+        if (this.#detailCard?.kind === "character") this.#detailCard.name = name;
+      } else {
+        this.actor?.update({ [path]: val });
+      }
       return;
     }
     // Spell-picker filters (commit on blur/change — no live re-render to keep focus).
