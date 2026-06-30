@@ -535,6 +535,24 @@ Hooks.once("ready", () => {
       if (primaryGM && game.settings.get(MODULE_ID, "combatPovVision")) syncPartyTokenSight();
     } catch (e) { /* best-effort */ }
   });
+  // After any advancement (char-gen build or a level-up), a caster's spell-slot MAX is
+  // raised but the current value stays at 0 — so a freshly built/levelled caster shows
+  // 0 usable slots until a long rest. Top each slot up to its max on the client that ran
+  // the advancement (it owns the actor). Fill UP only — never reduce — so an advancement
+  // taken mid-session can't wipe slots a player already spent.
+  Hooks.on("dnd5e.advancementManagerComplete", (manager) => {
+    try {
+      const actor = manager?.actor;
+      if (!actor?.isOwner) return;
+      const spells = actor.system?.spells; if (!spells) return;
+      const update = {};
+      for (const [key, slot] of Object.entries(spells)) {
+        const max = slot?.max ?? 0;
+        if (max > 0 && (slot.value ?? 0) < max) update[`system.spells.${key}.value`] = max;
+      }
+      if (Object.keys(update).length) actor.update(update).catch(e => console.error(`${MODULE_ID} | spell-slot top-up failed`, e));
+    } catch (e) { console.error(`${MODULE_ID} | spell-slot top-up failed`, e); }
+  });
 
   injectShellStyles(); // load CSS via JS so a plain F5 works without re-reading the manifest
   initSocket(); // idempotent fallback in case socketlib.ready raced or didn't fire
