@@ -227,6 +227,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const assigned = game.user.character;
     if (assigned && inScene.some(t => t.actor?.id === assigned.id)) return assigned;
     if (inScene.length) return inScene[0].actor;
+    // Party Mode (§15): while packed there are no member tokens on-scene, so bind
+    // to the player's own member PC (the actor doc) — the marching-order editor
+    // keys "my character" off the subject. Prefer the assigned PC if it's a member.
+    const packed = this.#partyGroup();
+    if (packed) {
+      const members = packed.system.members.map(m => m.actor).filter(Boolean);
+      const owned = members.find(a => a.id === assigned?.id && a.isOwner) ?? members.find(a => a.isOwner);
+      if (owned) return owned;
+    }
     // No owned token on this scene. For a player, prefer a blank/in-build PC (the
     // switcher lists these) so they land on something actionable instead of being
     // stranded on a complete off-scene character the switcher won't show — which is
@@ -355,6 +364,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // subclass breakdown + XP bar move into the long-press name tooltip later.
     const totalLevel = sys.details?.level
       || actor.items.filter(i => i.type === "class").reduce((n, c) => n + (c.system.levels || 0), 0);
+    // Class (and subclass) icons shown just before the level, à la a class badge
+    // row. Multiclass: each class then its own subclass, primary (highest-level)
+    // class first. Subclass is paired to its class by system.classIdentifier.
+    // Icons come straight off the class/subclass items' img (no hardcoding).
+    const subItems = actor.items.filter(i => i.type === "subclass");
+    const classIcons = actor.items.filter(i => i.type === "class")
+      .sort((a, b) => (b.system.levels || 0) - (a.system.levels || 0) || a.name.localeCompare(b.name))
+      .flatMap(c => {
+        const run = [{ img: c.img, label: `${c.name} ${c.system.levels || 1}`, sub: false }];
+        const sub = subItems.find(s => s.system?.classIdentifier === c.system?.identifier);
+        if (sub) run.push({ img: sub.img, label: sub.name, sub: true });
+        return run;
+      })
+      .map(ic => `<img class="mc-cls-icon${ic.sub ? " mc-subcls-icon" : ""}" src="${foundry.utils.escapeHTML(ic.img || "icons/svg/mystery-man.svg")}" title="${foundry.utils.escapeHTML(ic.label)}" alt="${foundry.utils.escapeHTML(ic.label)}">`)
+      .join("");
 
     // Show every effect Foundry shows ON the character: direct ones (Monstrosity, status
     // conditions like Prone, temporary buffs like Bless) AND effects TRANSFERRED from items —
@@ -397,7 +421,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <header class="mc-header">
         <img class="mc-portrait" src="${img}" alt="" data-action="show-image" data-detail="bio" title="Tap for image · hold for bio">
         <div class="mc-id">
-          <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">Lvl ${totalLevel}</button>` : ""}<span class="mc-name-text" data-action="show-summary" data-detail="bio" title="Tap for summary · hold for bio">${foundry.utils.escapeHTML(actor.name)}</span>
+          <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">${classIcons}<span class="mc-lvl-num">Lvl ${totalLevel}</span></button>` : ""}<span class="mc-name-text" data-action="show-summary" data-detail="bio" title="Tap for summary · hold for bio">${foundry.utils.escapeHTML(actor.name)}</span>
             <button class="mc-insp ${insp ? "mc-insp-on" : ""}" data-action="toggle-insp" title="Inspiration">★</button>
           </div>
           <div class="mc-stats">
@@ -1308,6 +1332,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // may rule otherwise; warnings-not-walls). A reopen chip (#buildHTML) brings
     // it back while still down.
     if (this.#atZeroHP(actor) && !this.#deathSaveDismissed) return this.#deathSaveHTML(actor);
+    // Party Mode: while this player's group is packed, the content collapses to the
+    // shared 3×3 marching-order editor (DESIGN §15), overriding tabs like death saves.
+    const party = this.#partyGroup();
+    if (party) return this.#partyModeHTML(party, actor);
     // An in-progress action/cast overlays the current tab — so casting from the
     // Spells tab (or using a favorite from Explore) stays put instead of jumping.
     if (this.#detailCard) return this.#detailCardHTML();
@@ -1328,6 +1356,111 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // collapses to the death-save panel regardless of the selected tab (§7.4).
   #atZeroHP(actor) {
     return actor?.type === "character" && (actor.system.attributes?.hp?.value ?? 1) <= 0;
+  }
+
+  // Party Mode (DESIGN §15). While a group this player belongs to is packed, the
+  // content collapses to a shared 3×3 marching-order editor. Tapping a cell moves
+  // THIS player's own PC there (anyone can place anywhere — decision #4); "Done"
+  // locks their spot; the DM rotates facing and Disperses. Every change routes
+  // through the executor (rpc.party*) and Foundry's document sync repaints all
+  // phones — no custom relay.
+  #partyGroup() {
+    return game.actors.find(a => a.type === "group"
+      && a.getFlag(MODULE_ID, "packed")
+      && (a.system?.members ?? []).some(m => m.actor?.testUserPermission(game.user, "OWNER"))) ?? null;
+  }
+
+  #partyModeHTML(group, actor) {
+    const formation = group.getFlag(MODULE_ID, "formation") ?? { cells: {}, forward: 0, locked: [] };
+    const members = (group.system?.members ?? []).map(m => m.actor).filter(Boolean);
+    const locked = new Set(formation.locked ?? []);
+    const isGM = game.user.isGM;
+    const myId = actor?.testUserPermission(game.user, "OWNER") ? actor.id : null;
+    const arrows = ["↑", "→", "↓", "←"]; // N E S W
+    const forward = formation.forward ?? 0;
+
+    // occupants per cell (a cell may hold >1 while players sort themselves out)
+    const keyOf = (m) => { const cl = formation.cells?.[m.id]; return cl ? `${cl.r},${cl.c}` : null; };
+    const placedKeys = members.map(keyOf).filter(Boolean);
+    const cellOcc = (r, c) => members.filter(m => keyOf(m) === `${r},${c}`);
+    const allPlaced = members.every(m => formation.cells?.[m.id]);
+    const unique = new Set(placedKeys).size === placedKeys.length;
+    const canDeploy = allPlaced && unique;
+
+    const cell = (r, c) => {
+      const occ = cellOcc(r, c);
+      const primary = occ[0];
+      const mineHere = occ.some(m => m.id === myId);
+      const dupe = occ.length > 1;
+      const isLocked = primary && locked.has(primary.id);
+      const img = primary ? (primary.prototypeToken?.texture?.src || primary.img || "icons/svg/mystery-man.svg") : "";
+      return `<button class="mc-party-cell${primary ? " mc-full" : ""}${mineHere ? " mc-mine" : ""}${dupe ? " mc-dupe" : ""}${isLocked ? " mc-locked" : ""}" data-action="party-cell" data-r="${r}" data-c="${c}">
+        ${primary ? `<img class="mc-party-tok" src="${img}" alt=""><span class="mc-party-nm">${foundry.utils.escapeHTML(primary.name.split(" ")[0])}</span>` : ""}
+        ${dupe ? `<span class="mc-party-badge">${occ.length}</span>` : isLocked ? `<span class="mc-party-lock"><i class="fas fa-lock"></i></span>` : ""}
+      </button>`;
+    };
+    const grid = [0, 1, 2].map(r => `<div class="mc-party-row">${[0, 1, 2].map(c => cell(r, c)).join("")}</div>`).join("");
+
+    const iLocked = myId && locked.has(myId);
+    const iPlaced = myId && !!formation.cells?.[myId];
+    const doneBtn = myId ? `<button class="mc-party-done ${iLocked ? "mc-on" : ""}" data-action="party-done"${iPlaced ? "" : " disabled"}>
+      <i class="fas ${iLocked ? "fa-lock" : "fa-check"}"></i> ${iLocked ? "Locked — tap to change" : "Done"}
+    </button>` : "";
+
+    const dmRow = isGM ? `<div class="mc-party-dm">
+      <button class="mc-party-rot" data-action="party-forward" data-dir="-1" aria-label="Rotate left"><i class="fas fa-rotate-left"></i></button>
+      <span class="mc-party-facing">Facing ${arrows[forward]}</span>
+      <button class="mc-party-rot" data-action="party-forward" data-dir="1" aria-label="Rotate right"><i class="fas fa-rotate-right"></i></button>
+      <button class="mc-party-deploy" data-action="party-disperse"${canDeploy ? "" : " disabled"}><i class="fas fa-people-group"></i> Disperse</button>
+    </div>` : "";
+
+    const hint = !allPlaced ? "Waiting for everyone to take a spot…"
+      : !unique ? "Two characters share a spot — nudge one over."
+      : isGM ? "Everyone's set. Choose facing, then Disperse."
+      : "You're set — waiting on the DM to move out.";
+
+    return `<div class="mc-party">
+      <div class="mc-party-head"><span><i class="fas fa-people-group"></i> Marching order</span><span class="mc-party-fwd">Forward ${arrows[forward]}</span></div>
+      <div class="mc-party-grid">${grid}</div>
+      <div class="mc-party-hint${canDeploy ? " mc-ok" : ""}">${hint}</div>
+      ${doneBtn}${dmRow}
+    </div>`;
+  }
+
+  // Place my own PC in a cell (executor brokers the flag write; the updateActor
+  // hook repaints every phone). Moving clears my lock — I'm rearranging.
+  async #partyPlace(r, c) {
+    const group = this.#partyGroup();
+    const actor = this.actor;
+    if (!group || !actor?.testUserPermission(game.user, "OWNER")) return;
+    const res = await rpc.partySetCell({ groupId: group.id, actorId: actor.id, r, c, lock: false });
+    if (res?.ok === false) ui.notifications?.warn(res.reason ?? "Couldn't move there.");
+  }
+
+  async #partyToggleLock() {
+    const group = this.#partyGroup();
+    const actor = this.actor;
+    if (!group || !actor?.testUserPermission(game.user, "OWNER")) return;
+    const formation = group.getFlag(MODULE_ID, "formation") ?? {};
+    const cell = formation.cells?.[actor.id];
+    if (!cell) return ui.notifications?.warn("Pick a spot first.");
+    const locked = (formation.locked ?? []).includes(actor.id);
+    const res = await rpc.partySetCell({ groupId: group.id, actorId: actor.id, r: cell.r, c: cell.c, lock: !locked });
+    if (res?.ok === false) ui.notifications?.warn(res.reason ?? "Couldn't lock in.");
+  }
+
+  async #partyForward(dir) {
+    const group = this.#partyGroup();
+    if (!group || !game.user.isGM) return;
+    const cur = group.getFlag(MODULE_ID, "formation")?.forward ?? 0;
+    await rpc.partySetForward({ groupId: group.id, forward: cur + dir });
+  }
+
+  async #partyDisperse() {
+    const group = this.#partyGroup();
+    if (!group || !game.user.isGM) return;
+    const res = await rpc.partyDeploy({ groupId: group.id });
+    if (res?.ok === false) ui.notifications?.warn(res.detail ?? res.reason ?? "Couldn't disperse.");
   }
 
   // Death saves (§7.4): 3 success / 3 failure pips + a big Roll button.
@@ -1625,7 +1758,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   // Active-scene tokens the user owns (PC + summons/familiars/wild shape).
   #ownedTokens() {
-    return (game.scenes?.active?.tokens ?? []).filter(t => t.actor?.isOwner);
+    // Never treat a party/group token as a controllable subject — while packed
+    // (Party Mode, §15) the group token is the only owned token on-scene, and the
+    // shell must stay bound to a real character, not the group.
+    return (game.scenes?.active?.tokens ?? []).filter(t => t.actor?.isOwner && t.actor.type !== "group");
   }
 
   // Switchable subjects: every owned token on the active scene, PLUS owned blank
@@ -3875,6 +4011,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "level-up-class": return this.#doLevelUp(el.dataset.classId);
       case "level-up-add": return this.#openMulticlass();
       case "level-up-pick": return this.#addMulticlass(el.dataset.uuid);
+      case "party-cell": return this.#partyPlace(Number(el.dataset.r), Number(el.dataset.c));
+      case "party-done": return this.#partyToggleLock();
+      case "party-forward": return this.#partyForward(Number(el.dataset.dir));
+      case "party-disperse": return this.#partyDisperse();
       case "token-prev": return this.#cycleSubject(-1);
       case "token-next": return this.#cycleSubject(1);
       case "pick-offscene": // from the no-token screen: peek at / build an owned character
@@ -4908,9 +5048,22 @@ export function registerShellHooks() {
     const mine = shellInstance?.actor;
     return !!mine && !!a && a.id === mine.id;
   };
+  // Party Mode (DESIGN §15): the shared marching-order state lives on the GROUP
+  // actor's flags. Re-render when a group this player belongs to changes, so the
+  // 3×3 editor appears on pack, updates live as cells move, and closes on deploy.
+  const inMyParty = (a) => a?.type === "group" &&
+    (a.system?.members ?? []).some(m => m.actor?.testUserPermission?.(game.user, "OWNER"));
   Hooks.on("updateActor", (actor) => {
-    if (shellInstance?.rendered && controlsActor(actor)) shellInstance.render();
+    if (shellInstance?.rendered && (controlsActor(actor) || inMyParty(actor))) shellInstance.render();
   });
+  // Pack deletes member tokens / creates the party token; deploy reverses it —
+  // either way our subject changes, so rebind and repaint.
+  const onPartyToken = (tok) => {
+    if (shellInstance?.rendered &&
+      (tok?.actor?.testUserPermission?.(game.user, "OWNER") || tok?.actor?.type === "group")) shellInstance.render();
+  };
+  Hooks.on("createToken", onPartyToken);
+  Hooks.on("deleteToken", onPartyToken);
   Hooks.on("createActiveEffect", (effect) => {
     if (shellInstance?.rendered && controlsActor(effect.parent)) shellInstance.render();
   });

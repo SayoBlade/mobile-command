@@ -1570,13 +1570,23 @@ body.mc-theme-arcane #mobile-command-shell {
    bluish + a drop shadow so it reads as an inviting button, not flat text. */
 .mc-name-lvl {
   margin-left: 0; font-size: 14px; font-weight: 800; flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 5px;
   color: var(--mc-ink); line-height: 1; white-space: nowrap; letter-spacing: .03em;
   background: linear-gradient(#2a3a52, #213044);
-  border: 1px solid var(--mc-primary-edge); border-radius: 9px; padding: 4px 11px;
+  border: 1px solid var(--mc-primary-edge); border-radius: 9px; padding: 3px 11px 3px 6px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .08);
 }
 .mc-name-lvl.mc-on { border-color: var(--mc-gold); }
 .mc-name-lvl:active { background: linear-gradient(#31435e, #28384e); }
+.mc-lvl-num { flex: 0 0 auto; }
+/* Class/subclass badge icons before the level. Class = rounded square, subclass =
+   gold-ringed circle so the two read as distinct at a glance. Images come straight
+   from the class/subclass items. */
+.mc-cls-icon {
+  width: 22px; height: 22px; flex: 0 0 auto; border-radius: 5px; object-fit: cover;
+  background: rgba(0, 0, 0, .25); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14);
+}
+.mc-subcls-icon { width: 19px; height: 19px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--mc-gold); }
 
 /* Bigger portrait; top-align the name with the top of the image. */
 #mobile-command-shell .mc-portrait { width: 62px; height: 62px; }
@@ -1658,6 +1668,10 @@ body.mc-theme-arcane #mobile-command-shell {
   background: linear-gradient(#26222b, #1c1922); color: #ece5d6;
   border: 1px solid #c8a44d; border-radius: 10px; padding: 10px;
   font-family: "Signika", sans-serif; box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
+  /* The panel grows sections (party grid, casts, targets); never let it run off
+     the screen — scroll inside instead (DM 2026-07-02: Form up rendered at y=1214,
+     below the viewport, because a saved drag position + new sections pushed it off). */
+  max-height: calc(100vh - 24px); overflow-y: auto;
 }
 #mc-dm-panel.mc-show { display: block; }
 /* Drag grip — repositions the panel so it doesn't cover other widgets. */
@@ -2136,3 +2150,78 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-qty { display: flex; align-items: center; gap: 8px; }
 .mc-qty-btn { width: 40px; height: 40px; font-size: 20px; line-height: 1; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-edge); border-radius: 9px; cursor: pointer; }
 .mc-qty-val { min-width: 28px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; }
+
+/* Party Mode — shared 3×3 marching-order editor (DESIGN §15). Big touch cells. */
+.mc-party { padding: 14px 12px 18px; display: flex; flex-direction: column; gap: 12px; }
+.mc-party-head { display: flex; justify-content: space-between; align-items: center; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; font-size: 13px; color: var(--mc-ink); }
+.mc-party-head i { color: var(--mc-gold); margin-right: 6px; }
+.mc-party-fwd, .mc-party-facing { color: var(--mc-muted); font-weight: 700; letter-spacing: .02em; }
+/* CSS grid (rows are display:contents) so each cell is a true SQUARE from the
+   track width — the old flex layout let min-height win and cells rendered wider
+   than tall (DM 2026-07-02: "make them squares, taller, bigger tokens"). */
+.mc-party-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; align-self: center; width: 100%; max-width: 380px; }
+.mc-party-row { display: contents; }
+.mc-party-cell {
+  position: relative; width: 100%; height: auto; aspect-ratio: 1 / 1; /* height:auto beats core button height so the ratio wins */
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  background: linear-gradient(#1b202b, #161a23); border: 1px solid var(--mc-edge); border-radius: 12px;
+  color: var(--mc-muted); cursor: pointer; overflow: hidden;
+}
+.mc-party-cell:active { background: #232a38; }
+.mc-party-cell.mc-full { border-color: var(--mc-primary-edge); }
+.mc-party-cell.mc-mine { border-color: var(--mc-gold); box-shadow: 0 0 0 1px var(--mc-gold) inset, 0 2px 8px rgba(0,0,0,.5); }
+.mc-party-cell.mc-dupe { border-color: #d06060; box-shadow: 0 0 0 1px #d06060 inset; }
+.mc-party-tok { width: 62px; height: 62px; border-radius: 50%; object-fit: cover; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.mc-party-nm { font-size: 11px; font-weight: 700; color: var(--mc-ink); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-party-lock { position: absolute; top: 4px; right: 5px; font-size: 10px; color: var(--mc-gold); }
+.mc-party-badge { position: absolute; top: 3px; right: 4px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: #d06060; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.mc-party-hint { text-align: center; font-size: 12.5px; color: var(--mc-muted); }
+.mc-party-hint.mc-ok { color: #8fca7a; }
+.mc-party-done {
+  width: 100%; padding: 12px; border-radius: 11px; font-weight: 800; font-size: 15px; cursor: pointer;
+  color: var(--mc-ink); background: linear-gradient(#2a3a52, #213044); border: 1px solid var(--mc-primary-edge);
+}
+.mc-party-done.mc-on { color: #1a1206; background: linear-gradient(var(--mc-gold), #b98a1e); border-color: var(--mc-gold); }
+.mc-party-done:disabled { opacity: .5; cursor: default; }
+.mc-party-dm { display: flex; align-items: center; gap: 8px; }
+.mc-party-rot { width: 44px; height: 44px; flex: 0 0 auto; border-radius: 10px; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-edge); cursor: pointer; }
+.mc-party-facing { flex: 1 1 auto; text-align: center; }
+.mc-party-deploy { flex: 0 0 auto; padding: 0 16px; height: 44px; border-radius: 10px; font-weight: 800; color: #1a1206; background: linear-gradient(var(--mc-gold), #b98a1e); border: 1px solid var(--mc-gold); cursor: pointer; }
+.mc-party-deploy:disabled { opacity: .45; cursor: default; filter: grayscale(.4); }
+
+/* DM panel — marching-order mirror (square cells; red = problematic spot at the
+   current group position/facing; gold ring = the member the DM picked up).
+   ⚠️ Literals only, NO var(--mc-*): those variables are scoped to
+   #mobile-command-shell, which doesn't exist on the DM client — var() there is
+   invalid and the gold button rendered as dark-on-dark (DM 2026-07-02). Palette
+   matches the panel's own literals (#c8a44d gold / #ece5d6 ink / #4a4334 edge). */
+.mc-dmp-party { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 100%; max-width: 240px; margin: 4px auto; }
+.mc-dmp-party-row { display: contents; }
+.mc-dmp-party-cell {
+  position: relative; width: 100%; height: auto; aspect-ratio: 1 / 1;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(#1b202b, #161a23); border: 1px solid #4a4334; border-radius: 9px;
+  cursor: pointer; overflow: hidden; padding: 0;
+}
+.mc-dmp-party-cell img { width: 78%; height: 78%; border-radius: 50%; object-fit: cover; }
+.mc-dmp-party-cell.mc-full { border-color: #2f4660; }
+.mc-dmp-party-cell.mc-bad { border-color: #d06060; box-shadow: 0 0 0 1px #d06060 inset; background: linear-gradient(#2b1b1b, #231616); }
+.mc-dmp-party-cell.mc-sel { border-color: #c8a44d; box-shadow: 0 0 0 2px #c8a44d inset; }
+.mc-dmp-party-cell.mc-stack { border-color: #d06060; }
+.mc-dmp-party-badge { position: absolute; top: 2px; right: 3px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: #d06060; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.mc-dmp-party-lock { position: absolute; top: 3px; right: 4px; font-size: 9px; color: #c8a44d; }
+.mc-dmp-party-hint { text-align: center; font-size: 11px; color: #c8a44d; margin: 2px 0; }
+.mc-dmp-party-btns { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+.mc-dmp-party-btns button { height: 34px; border-radius: 8px; border: 1px solid #4a4334; background: #2c2733; color: #ece5d6; cursor: pointer; }
+.mc-dmp-party-btns button:hover { background: #36303f; }
+.mc-dmp-party-btns [data-party="rotl"], .mc-dmp-party-btns [data-party="rotr"] { flex: 0 0 38px; }
+.mc-dmp-party-deploy { flex: 1 1 auto; font-weight: 800; color: #1a1712 !important; background: linear-gradient(#c8a44d, #b98a1e) !important; border-color: #c8a44d !important; }
+.mc-dmp-party-deploy:hover { background: linear-gradient(#d4b35f, #c49a2e) !important; }
+.mc-dmp-party-deploy.mc-warn { color: #fff !important; background: linear-gradient(#c05555, #9c3d3d) !important; border-color: #d06060 !important; }
+/* Combat nudge: the packed group joined the tracker — a fight as a blob makes no
+   sense, so pulse Disperse (nudge, never force; §15.2 decision 6). */
+.mc-dmp-party-deploy.mc-nudge { animation: mc-party-nudge 1.2s ease-in-out infinite; }
+@keyframes mc-party-nudge {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(230, 180, 60, 0); }
+  50% { box-shadow: 0 0 10px 3px rgba(230, 180, 60, .75); }
+}

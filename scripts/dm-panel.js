@@ -1,4 +1,5 @@
-import { api, listPendingCasts, placeCast, dismissCast } from "./rpc.js";
+import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview } from "./rpc.js";
+import { MODULE_ID } from "./preset.js";
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -66,6 +67,22 @@ function applySavedPos(el) {
     }
   } catch (e) { /* ignore bad stored value */ }
 }
+// Keep the whole panel on-screen. Sections come and go (party grid, casts,
+// targets), so a position saved when the panel was short can push the tail —
+// and its buttons — below the viewport (DM 2026-07-02: "Form up" at y=1214 on a
+// smaller screen). Clamp after every render and on window resize.
+function clampPos(el) {
+  const r = el.getBoundingClientRect();
+  if (!r.height) return; // hidden
+  const overBottom = r.bottom - (window.innerHeight - 8);
+  if (overBottom > 0) {
+    el.style.top = `${Math.max(8, r.top - overBottom)}px`;
+    el.style.bottom = "auto";
+  }
+  const overRight = r.right - (window.innerWidth - 8);
+  if (overRight > 0) el.style.left = `${Math.max(8, r.left - overRight)}px`;
+}
+
 function onPointerDown(ev) {
   if (!ev.target.closest(".mc-dmp-drag")) return;
   ev.preventDefault();
@@ -201,6 +218,118 @@ function pendingHTML(pending) {
     <div class="mc-dmp-casts">${rows}</div>`;
 }
 
+// --- Party Mode (DESIGN §15): the DM's live view of the marching-order grid ----
+// Mirrors the phones' 3×3 while a group is packed. Red cell = that spot is
+// problematic at the CURRENT group-token position + facing (wall/occupied/stacked,
+// computed locally — this client has the canvas). The DM can move anyone:
+// click a member to pick them up, click a cell to set them down. Disperse warns
+// on problems and arms into "Disperse anyway" (warnings-not-walls, §11).
+let partySel = null;    // actorId the DM picked up
+let partyForce = false; // "Disperse anyway" armed after a nofit
+
+function packedGroup() {
+  return game.actors.find(a => a.type === "group" && a.getFlag(MODULE_ID, "packed")) ?? null;
+}
+
+/** An unpacked group with members — the "Form up" candidate. Clustering isn't
+ *  pre-checked here; partyPack validates and returns a clear reason on click. */
+function candidateGroup() {
+  return game.actors.find(a => a.type === "group" && !a.getFlag(MODULE_ID, "packed")
+    && (a.system?.members ?? []).some(m => m.actor)) ?? null;
+}
+
+function partyHTML() {
+  const group = packedGroup();
+  if (!group) {
+    partySel = null; partyForce = false;
+    const cand = candidateGroup();
+    if (!cand) return "";
+    return `<div class="mc-dmp-party-btns">
+      <button class="mc-dmp-party-deploy" data-party="pack" data-group="${cand.id}" title="Collapse the clustered party into the ${foundry.utils.escapeHTML(cand.name)} token">
+        <i class="fas fa-people-group"></i> Form up</button>
+    </div>`;
+  }
+  const esc = foundry.utils.escapeHTML;
+  const formation = group.getFlag(MODULE_ID, "formation") ?? { cells: {}, forward: 0, locked: [] };
+  const preview = partyDeployPreview(group.id) ?? [];
+  const badByCell = new Map(preview.filter(p => p.why).map(p => [`${p.r},${p.c}`, p.why]));
+  const members = (group.system?.members ?? []).map(m => m.actor).filter(Boolean);
+  const locked = new Set(formation.locked ?? []);
+  const arrows = ["↑", "→", "↓", "←"];
+  const keyOf = a => { const cl = formation.cells?.[a.id]; return cl ? `${cl.r},${cl.c}` : null; };
+  const rows = [0, 1, 2].map(r => `<div class="mc-dmp-party-row">${[0, 1, 2].map(c => {
+    const occ = members.filter(a => keyOf(a) === `${r},${c}`);
+    const p = occ[0];
+    const bad = badByCell.get(`${r},${c}`);
+    const img = p ? (p.prototypeToken?.texture?.src || p.img || "icons/svg/mystery-man.svg") : "";
+    const cls = ["mc-dmp-party-cell", p && "mc-full", bad && "mc-bad", partySel && p?.id === partySel && "mc-sel", occ.length > 1 && "mc-stack"].filter(Boolean).join(" ");
+    return `<button class="${cls}" data-party-cell="${r},${c}" title="${esc(bad ? `${p?.name ?? "This spot"}: ${bad}` : (p?.name ?? ""))}">
+      ${p ? `<img src="${esc(img)}" alt="">` : ""}
+      ${occ.length > 1 ? `<span class="mc-dmp-party-badge">${occ.length}</span>` : p && locked.has(p.id) ? `<span class="mc-dmp-party-lock"><i class="fas fa-lock"></i></span>` : ""}
+    </button>`;
+  }).join("")}</div>`).join("");
+  return `
+    <div class="mc-dmp-head"><span><i class="fas fa-people-group"></i> Marching order · fwd ${arrows[formation.forward ?? 0]}</span></div>
+    <div class="mc-dmp-party">${rows}</div>
+    ${partySel ? `<div class="mc-dmp-party-hint">Moving ${esc(members.find(a => a.id === partySel)?.name ?? "…")} — tap a square</div>` : ""}
+    <div class="mc-dmp-party-btns">
+      <button data-party="rotl" title="Rotate facing left"><i class="fas fa-rotate-left"></i></button>
+      <button data-party="rotr" title="Rotate facing right"><i class="fas fa-rotate-right"></i></button>
+      <button class="mc-dmp-party-deploy ${partyForce ? "mc-warn" : ""} ${game.combat?.combatants.some(cb => cb.actorId === group.id) ? "mc-nudge" : ""}" data-party="deploy">
+        <i class="fas ${partyForce ? "fa-triangle-exclamation" : "fa-people-arrows"}"></i> ${partyForce ? "Disperse anyway" : "Disperse"}</button>
+    </div>`;
+}
+
+async function onPartyClick(ev) {
+  const actBtn = ev.target.closest("[data-party]");
+  if (actBtn?.dataset.party === "pack") {
+    const res = await api.partyPack({ groupId: actBtn.dataset.group });
+    if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't form up.");
+    return true; // pack's token churn re-renders the panel
+  }
+  const group = packedGroup();
+  if (!group) return false;
+  const cellBtn = ev.target.closest("[data-party-cell]");
+  if (cellBtn) {
+    const [r, c] = cellBtn.dataset.partyCell.split(",").map(Number);
+    const formation = group.getFlag(MODULE_ID, "formation") ?? { cells: {} };
+    const members = (group.system?.members ?? []).map(m => m.actor).filter(Boolean);
+    const occ = members.find(a => { const cl = formation.cells?.[a.id]; return cl && cl.r === r && cl.c === c; });
+    if (!partySel) {
+      if (occ) { partySel = occ.id; render(); }
+      return true;
+    }
+    if (occ?.id === partySel) { partySel = null; render(); return true; } // tap self = put down
+    const res = await api.partySetCell({ groupId: group.id, actorId: partySel, r, c });
+    if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't move them.");
+    partySel = null; partyForce = false; // layout changed → re-judge before forcing
+    return true; // updateActor re-renders
+  }
+  const act = ev.target.closest("[data-party]")?.dataset.party;
+  if (!act) return false;
+  if (act === "rotl" || act === "rotr") {
+    const cur = group.getFlag(MODULE_ID, "formation")?.forward ?? 0;
+    partyForce = false; // facing changed → re-judge
+    await api.partySetForward({ groupId: group.id, forward: cur + (act === "rotr" ? 1 : -1) });
+    return true;
+  }
+  if (act === "deploy") {
+    const res = await api.partyDeploy({ groupId: group.id, force: partyForce });
+    if (res?.ok === false && res.reason === "nofit") {
+      partyForce = !res.blocked?.some(b => b.offMap); // arm unless it's the off-map hard stop
+      ui.notifications.warn(res.detail ?? "The formation doesn't fit here.");
+      render();
+    } else if (res?.ok === false) {
+      ui.notifications.warn(res.reason ?? "Couldn't disperse.");
+    } else {
+      partySel = null; partyForce = false;
+      if (res?.warned?.length) ui.notifications.info(`Dispersed with warnings: ${res.warned.map(w => `${w.name} (${w.why})`).join(", ")} — nudge them as needed.`);
+    }
+    return true;
+  }
+  return false;
+}
+
 /** DM-assign section: target chips + a send button per active player. */
 function assignHTML(targets) {
   const chips = targets.map(t =>
@@ -229,11 +358,14 @@ function render() {
   // top lets the DM drag the panel off other widgets.
   const grip = `<div class="mc-dmp-drag" title="Drag to move"><i class="fas fa-grip-lines"></i></div>`;
   el.innerHTML = grip + statusHTML() + cameraBarHTML() + combatHTML() + quickHpHTML()
+    + partyHTML()
     + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
   el.classList.add("mc-show");
+  clampPos(el);
 }
 
 async function onClick(ev) {
+  if (await onPartyClick(ev)) return;
   const cam = ev.target.closest("[data-cam]");
   if (cam) {
     if (cam.dataset.cam === "focus") globalThis.MobileCommand?.focusParty?.();
@@ -325,5 +457,17 @@ export function registerDMPanel() {
   Hooks.on("mobile-command.pendingCast", () => render());          // a phone announced an AoE cast
   Hooks.on("mobile-command.pendingCastResolved", () => render());  // placed or dismissed
   Hooks.on("mobile-command.tvManualChanged", () => render());      // keep the manual button in sync (keybinding toggles too)
+  // Party Mode: repaint when the marching order changes (group flags), on
+  // pack/unpack (token churn), and when the group token itself moves (the
+  // blocked-cell preview depends on its position).
+  Hooks.on("updateActor", (a) => { if (a?.type === "group") render(); });
+  Hooks.on("createToken", (t) => { if (t?.actor?.type === "group" || packedGroup()) render(); });
+  Hooks.on("deleteToken", (t) => { if (t?.actor?.type === "group" || packedGroup()) render(); });
+  Hooks.on("updateToken", (t, ch) => { if (t?.actor?.type === "group" && ("x" in ch || "y" in ch)) render(); });
+  // Combat nudge: adding/removing the packed group in the tracker toggles the
+  // Disperse pulse (decision §15.2#6 — nudge, never force).
+  Hooks.on("createCombatant", (cb) => { if (cb?.actor?.type === "group") render(); });
+  Hooks.on("deleteCombatant", (cb) => { if (cb?.actor?.type === "group") render(); });
+  window.addEventListener("resize", () => { if (panelEl) clampPos(panelEl); });
   render();
 }

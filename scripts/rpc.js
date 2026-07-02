@@ -66,6 +66,10 @@ export function initSocket() {
   socket.register("wildShapeList", handleWildShapeList);
   socket.register("wildShapeInto", handleWildShapeInto);
   socket.register("wildShapeRevert", handleWildShapeRevert);
+  socket.register("partyPack", handlePartyPack);
+  socket.register("partySetCell", handlePartySetCell);
+  socket.register("partySetForward", handlePartySetForward);
+  socket.register("partyDeploy", handlePartyDeploy);
   socket.register("heartbeat", handleHeartbeat);
   console.log(`${MODULE_ID} | socket registered`);
   return socket;
@@ -1089,6 +1093,184 @@ async function handleWildShapeRevert({ forActorUuid, forTokenId } = {}) {
   }
 }
 
+// --- Party Mode: pack/disperse the native dnd5e group (DESIGN §15) -----------
+// The phone has no canvas, so all token geometry (cluster check, wall/occupancy
+// validation, delete/recreate) runs here on the executor. Shared state lives in a
+// flag on the group actor (flags.mobile-command.{packed, formation}); Foundry's own
+// document sync fans it to every phone/TV via updateActor — no custom relay.
+
+const PARTY_GRID = 3; // 3x3 marching order
+
+function partyMembers(group) {
+  return (group?.system?.members ?? [])
+    .map(m => m.actor).filter(Boolean)
+    .map(actor => ({ actor, token: canvas.scene.tokens.find(t => t.actorId === actor.id) ?? null }));
+}
+
+async function handlePartyPack({ groupId, requesterId }) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM can form up the party" };
+  if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
+  const group = game.actors.get(groupId);
+  if (group?.type !== "group") return { ok: false, reason: "group not found" };
+
+  const mem = partyMembers(group);
+  if (!mem.length) return { ok: false, reason: "the group has no members" };
+  const missing = mem.filter(m => !m.token).map(m => m.actor.name);
+  if (missing.length) return { ok: false, reason: `not on this scene: ${missing.join(", ")}` };
+
+  const g = canvas.scene.grid.size;
+  const cellOf = m => ({ col: Math.round(m.token.x / g), row: Math.round(m.token.y / g) });
+  const cols = mem.map(m => cellOf(m).col), rows = mem.map(m => cellOf(m).row);
+  const minCol = Math.min(...cols), maxCol = Math.max(...cols);
+  const minRow = Math.min(...rows), maxRow = Math.max(...rows);
+  if (maxCol - minCol > PARTY_GRID - 1 || maxRow - minRow > PARTY_GRID - 1)
+    return { ok: false, reason: "party isn't clustered — bring them within a 3×3 first" };
+
+  // Group token = centroid cell = center (1,1) of the 3×3. Pre-fill the formation
+  // from the current layout so the editor opens on where they already stand.
+  const centerCol = Math.round((minCol + maxCol) / 2), centerRow = Math.round((minRow + maxRow) / 2);
+  const cells = {};
+  for (const m of mem) {
+    const { col, row } = cellOf(m);
+    cells[m.actor.id] = {
+      r: Math.min(2, Math.max(0, row - (centerRow - 1))),
+      c: Math.min(2, Math.max(0, col - (centerCol - 1)))
+    };
+  }
+  const snapshot = Object.fromEntries(mem.map(m => [m.actor.id, { x: m.token.x, y: m.token.y }]));
+
+  // Packed vision: the native group token has none (sight disabled), so the TV
+  // would go blind while packed. Give it the party's best sight (§15.1 finding 4).
+  const range = Math.max(0,
+    ...mem.map(m => m.token.sight?.range ?? 0),
+    ...mem.map(m => m.actor.system?.attributes?.senses?.darkvision ?? 0));
+  const patch = {
+    x: centerCol * g, y: centerRow * g, hidden: false,
+    sight: { enabled: true, range },
+    disposition: CONST.TOKEN_DISPOSITIONS.FRIENDLY
+  };
+  let gt = canvas.scene.tokens.find(t => t.actorId === group.id);
+  if (gt) await gt.update(patch, { animate: false });
+  else {
+    const [created] = await canvas.scene.createEmbeddedDocuments("Token", [(await group.getTokenDocument(patch)).toObject()]);
+    gt = created;
+  }
+
+  // Members are linked → delete-and-recreate is lossless (state on the actor).
+  await canvas.scene.deleteEmbeddedDocuments("Token", mem.map(m => m.token.id));
+  await group.update({
+    [`flags.${MODULE_ID}.packed`]: true,
+    [`flags.${MODULE_ID}.formation`]: { cells, forward: 0, locked: [], snapshot }
+  });
+  return { ok: true };
+}
+
+async function handlePartySetCell({ groupId, actorId, r, c, lock, requesterId }) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const group = game.actors.get(groupId);
+  if (group?.type !== "group") return { ok: false, reason: "group not found" };
+  const actor = game.actors.get(actorId);
+  const user = game.users.get(requesterId);
+  // A player may place only their own PC; the DM may place anyone.
+  if (!user?.isGM && !actor?.testUserPermission(user, "OWNER"))
+    return { ok: false, reason: "you can only place your own character" };
+  if (!(r >= 0 && r < 3 && c >= 0 && c < 3)) return { ok: false, reason: "bad cell" };
+  const formation = foundry.utils.deepClone(group.getFlag(MODULE_ID, "formation") ?? { cells: {}, forward: 0, locked: [] });
+  formation.cells[actorId] = { r, c };
+  const locked = new Set(formation.locked ?? []);
+  if (lock === true) locked.add(actorId); else if (lock === false) locked.delete(actorId);
+  formation.locked = [...locked];
+  await group.setFlag(MODULE_ID, "formation", formation);
+  return { ok: true };
+}
+
+// Rotate the party IN the grid (DM 2026-07-02: WYSIWYG — the 3×3 mirrors the
+// map, north-up, and deploy places cells verbatim). Rotation is baked into the
+// members' cells; `forward` is kept only as the cosmetic facing arrow. This also
+// keeps the red blocked-cell preview aligned 1:1 with real landing spots.
+async function handlePartySetForward({ groupId, forward, requesterId }) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM sets the facing" };
+  const group = game.actors.get(groupId);
+  if (group?.type !== "group") return { ok: false, reason: "group not found" };
+  const formation = foundry.utils.deepClone(group.getFlag(MODULE_ID, "formation") ?? { cells: {}, forward: 0, locked: [] });
+  const target = ((Number(forward) % 4) + 4) % 4;
+  const turns = (((target - (formation.forward ?? 0)) % 4) + 4) % 4;
+  for (let i = 0; i < turns; i++) {
+    for (const [id, cell] of Object.entries(formation.cells ?? {})) {
+      formation.cells[id] = { r: cell.c, c: 2 - cell.r }; // 90° clockwise around the center
+    }
+  }
+  formation.forward = target;
+  await group.setFlag(MODULE_ID, "formation", formation);
+  return { ok: true };
+}
+
+// Where each member would land for the current formation + facing, and whether
+// that spot is problematic. Executor-local (needs the canvas + walls); the DM
+// panel renders it as red cells. why:null = clear. Warnings-not-walls (§11): only
+// off-the-map is a hard stop — walls/occupied/stacked are warn-and-deployable.
+export function partyDeployPreview(groupId) {
+  const group = game.actors.get(groupId);
+  if (group?.type !== "group" || !canvas?.ready) return null;
+  const formation = group.getFlag(MODULE_ID, "formation") ?? { cells: {}, forward: 0 };
+  const gt = canvas.scene.tokens.find(t => t.actorId === group.id);
+  if (!gt) return null;
+  const g = canvas.scene.grid.size;
+  const rect = canvas.dimensions.sceneRect;
+  const backend = CONFIG.Canvas.polygonBackends.move;
+  const center = { x: gt.x + g / 2, y: gt.y + g / 2 };
+  const seen = new Map(); // "gx,gy" -> first occupant's name
+  const out = [];
+  for (const actor of (group.system.members ?? []).map(m => m.actor).filter(Boolean)) {
+    const cell = formation.cells?.[actor.id] ?? { r: 1, c: 1 };
+    // Cells are map-space (north-up, rotation baked in by partySetForward), so a
+    // grid cell IS the landing offset — red cells align 1:1 with real spots.
+    const x = gt.x + (cell.c - 1) * g, y = gt.y + (cell.r - 1) * g;
+    const cx = x + g / 2, cy = y + g / 2;
+    const key = `${Math.round(x / g)},${Math.round(y / g)}`;
+    let why = null, offMap = false;
+    if (!rect.contains(cx, cy)) { why = "off the map"; offMap = true; }
+    else if (seen.has(key)) why = `stacked on ${seen.get(key)}`;
+    else if (backend.testCollision(center, { x: cx, y: cy }, { type: "move", mode: "any" })) why = "behind a wall";
+    else if (canvas.scene.tokens.some(t => t.id !== gt.id && t.actorId !== group.id &&
+      Math.round(t.x / g) === Math.round(x / g) && Math.round(t.y / g) === Math.round(y / g))) why = "occupied by another token";
+    if (!seen.has(key)) seen.set(key, actor.name);
+    out.push({ actorId: actor.id, name: actor.name, r: cell.r, c: cell.c, x, y, why, offMap });
+  }
+  return out;
+}
+
+async function handlePartyDeploy({ groupId, force, requesterId }) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM can disperse the party" };
+  if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
+  const group = game.actors.get(groupId);
+  if (group?.type !== "group") return { ok: false, reason: "group not found" };
+  if (!group.getFlag(MODULE_ID, "packed")) return { ok: false, reason: "the party isn't packed" };
+  const gt = canvas.scene.tokens.find(t => t.actorId === group.id);
+  if (!gt) return { ok: false, reason: "the party token is missing" };
+
+  const preview = partyDeployPreview(groupId);
+  if (!preview?.length) return { ok: false, reason: "the group has no members" };
+  // Off-map is the one hard stop (a token outside the scene is unreachable).
+  const offMap = preview.find(p => p.offMap);
+  if (offMap) return { ok: false, reason: "nofit", blocked: preview.filter(p => p.why), detail: `${offMap.name} would land off the map` };
+  // Everything else warns; the DM confirms with force (the panel's "Disperse anyway").
+  const blocked = preview.filter(p => p.why);
+  if (blocked.length && !force) {
+    return { ok: false, reason: "nofit", blocked, detail: `Can't deploy while ${blocked[0].name} is ${blocked[0].why} — move them, or Disperse anyway` };
+  }
+
+  const tds = [];
+  for (const p of preview) tds.push((await game.actors.get(p.actorId).getTokenDocument({ x: p.x, y: p.y })).toObject());
+  await canvas.scene.createEmbeddedDocuments("Token", tds);
+  await canvas.scene.deleteEmbeddedDocuments("Token", [gt.id]);
+  await group.update({ [`flags.${MODULE_ID}.packed`]: false });
+  return { ok: true, warned: blocked.map(b => ({ name: b.name, why: b.why })) };
+}
+
 // --- phone/DM-facing API (any client) ---------------------------------------
 
 function toExecutor(handler, payload) {
@@ -1106,7 +1288,9 @@ function toExecutor(handler, payload) {
       listLoot: handleListLoot, openLoot: handleOpenLoot,
       listInteractables: handleListInteractables, operateInteractable: handleOperateInteractable,
       partyJournalAdd: handlePartyJournalAdd, portraitUpload: handlePortraitUpload,
-      wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert
+      wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert,
+      partyPack: handlePartyPack, partySetCell: handlePartySetCell,
+      partySetForward: handlePartySetForward, partyDeploy: handlePartyDeploy
     };
     return handlers[handler](payload);
   }
@@ -1136,6 +1320,10 @@ export const api = {
   wildShapeList: (payload = {}) => toExecutor("wildShapeList", payload),
   wildShapeInto: (payload = {}) => toExecutor("wildShapeInto", payload),
   wildShapeRevert: (payload = {}) => toExecutor("wildShapeRevert", payload),
+  partyPack: (payload = {}) => toExecutor("partyPack", payload),
+  partySetCell: (payload = {}) => toExecutor("partySetCell", payload),
+  partySetForward: (payload = {}) => toExecutor("partySetForward", payload),
+  partyDeploy: (payload = {}) => toExecutor("partyDeploy", payload),
   assignTargets: (userId, tokenUuids) =>
     socket
       ? socket.executeAsUser("assignTargets", userId, { tokenUuids, fromName: game.user.name })
