@@ -328,7 +328,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#attachListeners(content);
     this.#applyTheme(); // keep the saved theme's body class in sync each render
     content.style.setProperty("--mc-user", game.user?.color?.css ?? "var(--mc-gold)"); // personal color accent
-    this.#applyMyTokenRing(); // keep my controlled token's ring in my own player color
+    try { this.#applyMyTokenRing(); } catch (e) { console.warn(`${MODULE_ID} | ring paint skipped`, e); } // never let a token-visual write break the render
     if (toast) content.appendChild(toast);
     if (nextKey === prevKey) {
       const scroller = content.querySelector(".mc-content, .mc-cg-scroll");
@@ -2732,6 +2732,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // token's ring color isn't already theirs, so it's a no-op after the first pass.
   #applyMyTokenRing() {
     if (game.user.isGM) return; // player-color rings are a player thing
+    // A phone runs in No-Canvas mode (D2), so canvas.ready is false. Writing token
+    // ring visuals from here is (a) pointless — this client draws no canvas — and
+    // (b) harmful: every render's tok.update() fires updateToken/refresh hooks that
+    // canvas-assuming modules (action-pack-enhanced, item-piles) handle by reading
+    // canvas.tokens.controlled, which is undefined without a canvas → a thrown-error
+    // storm that HANGS the tab (worst for a player who owns several PCs — each token
+    // multiplies the writes). Ring colour is applied on the DM/executor + TV clients
+    // (applyPcVisuals / the display overlay), where the canvas actually exists.
+    // 2026-07-04: this was crashing Player-1's phone (owns all 4 PCs).
+    if (!canvas?.ready) return;
     const want = game.user.color?.css;
     if (!want) return;
     // Only the player's own CHARACTER tokens get the colour — their PC, and a

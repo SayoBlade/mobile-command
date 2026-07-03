@@ -81,6 +81,7 @@ export function initSocket() {
   socket.register("colorPick", handleColorPick);
   socket.register("heartbeat", handleHeartbeat);
   registerPartyAutoFacing(); // executor-gated inside the hook
+  registerPlayerColorSync(); // executor repaints a player's token rings on colour change
   console.log(`${MODULE_ID} | socket registered`);
   return socket;
 }
@@ -1366,6 +1367,30 @@ function registerPartyAutoFacing() {
       nf.forward = target;
       a.setFlag(MODULE_ID, "formation", nf);
     } catch (e) { /* facing is best-effort */ }
+  });
+}
+
+// A player changed their colour (via the DM-initiated picker → game.user.update).
+// The phone used to repaint its own token ring on the next render, but that write
+// storm crashed No-Canvas phones (2026-07-04) — so the executor, which HAS the
+// canvas, now owns it: recolour that player's PC token rings when their colour
+// changes. Self-gates on executor + active scene.
+function registerPlayerColorSync() {
+  Hooks.on("updateUser", async (user, changes) => {
+    try {
+      if (!isExecutor() || !("color" in changes)) return;
+      if (!onActiveScene() || !canvas?.ready) return;
+      const mine = (a) => user.character?.id === a.id || a.testUserPermission?.(user, "OWNER");
+      const updates = [];
+      for (const t of canvas.scene.tokens) {
+        const a = t.actor;
+        if (a?.type !== "character" || !a.hasPlayerOwner || !mine(a)) continue;
+        const td = { _id: t.id };
+        applyPcVisuals(td, a);
+        if (td.light || td.ring) updates.push(td);
+      }
+      if (updates.length) await canvas.scene.updateEmbeddedDocuments("Token", updates);
+    } catch (e) { /* cosmetic */ }
   });
 }
 
