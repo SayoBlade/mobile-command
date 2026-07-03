@@ -1,7 +1,7 @@
 import { MODULE_ID } from "./preset.js";
 import { registerSettings, resolveExecutorId, isExecutor } from "./settings.js";
 import { diffPreset, applyPreset, checkAndPrompt, deactivate, reactivate, hasBackup } from "./enforcer.js";
-import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, api } from "./rpc.js";
+import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, api, actorTokenSight } from "./rpc.js";
 import { initPauseGuard } from "./pause-guard.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient, isDisplayClient } from "./shell.js";
 import { registerDMPanel } from "./dm-panel.js";
@@ -409,51 +409,25 @@ function refreshCombatVision() {
 // Reads installed dnd5e: senses live at system.attributes.senses.ranges.{darkvision,…}.
 async function syncPartyTokenSight() {
   if (!canvas?.ready) return 0;
-  const haveMode = (id) => id in (CONFIG.Canvas?.detectionModes ?? {});
   let n = 0, skipped = 0;
   for (const t of canvas.tokens?.placeables ?? []) {
     const actor = t.actor;
     if (!actor?.hasPlayerOwner) continue; // PCs + player-owned summons (both get a POV turn)
-    const r = actor.system?.attributes?.senses?.ranges ?? {};
-    // Some tables type senses into the free-text "Special Senses" box rather than the
-    // numeric fields — parse "tremorsense 30 ft", "blindsight 10", etc. as a fallback.
-    const special = String(actor.system?.attributes?.senses?.special ?? "");
-    const fromSpecial = (name) => { const m = special.match(new RegExp(`${name}\\w*\\s*(\\d+)`, "i")); return m ? Number(m[1]) : 0; };
-    const dark = (Number(r.darkvision) || 0) || fromSpecial("darkvision");
-    const tremor = (Number(r.tremorsense) || 0) || fromSpecial("tremor");
-    const blind = (Number(r.blindsight) || 0) || fromSpecial("blindsight");
-    const truesight = (Number(r.truesight) || 0) || fromSpecial("truesight");
-    // What the token can SEE: darkvision range + greyscale mode; else basic (lit areas only).
-    // Range is what lets a token see in the dark; visionMode is the tint (guard its id).
-    const haveVision = (id) => id in (CONFIG.Canvas?.visionModes ?? {});
-    const visionMode = (dark > 0 && haveVision("darkvision")) ? "darkvision" : "basic";
-    // saturation -1 = greyscale (the classic darkvision look); the mode alone wasn't
-    // desaturating in this build (DM 2026-06-28). Only for darkvision tokens.
-    const sight = { enabled: true, range: dark, visionMode, saturation: dark > 0 ? -1 : 0 };
-    // How it DETECTS: lit areas always, plus each special sense it has. CRITICAL: this
-    // build stores detectionModes as an OBJECT keyed by id (not an array) — an array
-    // write is silently dropped, which is why feelTremor/blindsight never persisted while
-    // basicSight survived (it auto-derives from sight.range). So build a keyed object.
-    // ids vary by build → pick the first candidate that exists.
-    const pick = (...ids) => ids.find((id) => id in (CONFIG.Canvas?.detectionModes ?? {}));
-    const detectionModes = {};
-    const add = (id, range) => { if (id && !(id in detectionModes)) detectionModes[id] = { enabled: true, range }; };
-    add(pick("lightPerception", "basicSight"), null);                 // see lit areas
-    if (dark > 0) add(pick("basicSight", "lightPerception"), dark);   // darkvision range
-    if (tremor > 0) add(pick("feelTremor", "tremorsense", "feeltremor", "senseAll"), tremor);
-    if (blind > 0) add(pick("blindsight", "seeAll", "senseAll"), blind);
-    if (truesight > 0) add(pick("seeAll", "senseAll", "truesight"), truesight);
-    // Per-token log so the DM can see what senses each actor actually carries vs what got
-    // applied. If a sense the DM expects reads 0 here, it's not in senses.ranges (check
-    // senses.special free-text). availableModes shows which detection-mode ids this build has.
+    // Senses → sight/detection now lives in ONE place (rpc.js actorTokenSight) and is
+    // ALSO applied at token creation on deploy/scout-release (2026-07-04: a dispersed
+    // PC kept the prototype's range-0 sight, so darkvision members walked blind until
+    // a combat started and this sync ran). Saturation is DARKVISION_SAT (-0.8) —
+    // supersedes this function's old -1 full-greyscale (DM 2026-07-03: "-0.6 was too
+    // colorful; halfway to full gray").
+    const update = actorTokenSight(actor);
     // Also fix the token name → the actor's name (DM 2026-06-28). PCs were all left as
     // the generic "Player Character" token name; the GM-side sync has the permission to
     // rename them, which char-gen can't reliably do from the phone.
-    const update = { sight, detectionModes };
     const rename = (actor.name && t.document.name !== actor.name) ? actor.name : null;
     if (rename) update.name = rename;
-    // Per-token log (pre-update name). `rename=` shows what the token will be renamed to.
-    console.log(`${MODULE_ID} | sight-sync ${t.name} → rename=${rename ?? "(no change)"}: ranges={dark:${dark},tremor:${tremor},blind:${blind},true:${truesight}} → range=${dark} mode=${sight.visionMode} detect=[${Object.entries(detectionModes).map(([id, m]) => `${id}:${m.range}`).join(", ")}]`);
+    // Per-token log (pre-update name) so the DM can see what got applied. If a sense
+    // the DM expects is missing, it's not in senses.ranges (check senses.special).
+    console.log(`${MODULE_ID} | sight-sync ${t.name} → rename=${rename ?? "(no change)"}: range=${update.sight.range} mode=${update.sight.visionMode} detect=[${Object.entries(update.detectionModes).map(([id, m]) => `${id}:${m.range}`).join(", ")}]`);
     try { await t.document.update(update); n++; }
     catch (e) { skipped++; console.warn(`${MODULE_ID} | sight sync failed for ${t.name} (permission?)`, e); }
   }

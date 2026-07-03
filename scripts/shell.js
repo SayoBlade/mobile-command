@@ -1,5 +1,5 @@
 import { MODULE_ID } from "./preset.js";
-import { api as rpc } from "./rpc.js";
+import { api as rpc, actorTokenSight } from "./rpc.js";
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -693,29 +693,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Sync ONE actor's token sight from its dnd5e senses — the char-gen-finish counterpart
   // to main.js syncPartyTokenSight, but scoped to a single actor, runnable WITHOUT a ready
   // canvas (char-gen runs on the phone) and by the token's OWNER (no GM needed). Uses scene
-  // token DOCS, not canvas placeables. Mirrors the sight + object-form detectionModes logic
-  // (Round 60: detectionModes is an id-keyed object on this build, not an array).
+  // token DOCS, not canvas placeables. The senses→sight computation itself is the shared
+  // actorTokenSight (rpc.js) — one source of truth with deploy/release/combat-sync (2026-07-04).
   async #syncFinishedTokenSight(actor) {
     if (!actor) return;
-    const cfgHas = (id, cfg) => id in (CONFIG.Canvas?.[cfg] ?? {});
-    const r = actor.system?.attributes?.senses?.ranges ?? {};
-    const special = String(actor.system?.attributes?.senses?.special ?? "");
-    const fromSpecial = (name) => { const m = special.match(new RegExp(`${name}\\w*\\s*(\\d+)`, "i")); return m ? Number(m[1]) : 0; };
-    const dark = (Number(r.darkvision) || 0) || fromSpecial("darkvision");
-    const tremor = (Number(r.tremorsense) || 0) || fromSpecial("tremor");
-    const blind = (Number(r.blindsight) || 0) || fromSpecial("blindsight");
-    const truesight = (Number(r.truesight) || 0) || fromSpecial("truesight");
-    const visionMode = (dark > 0 && cfgHas("darkvision", "visionModes")) ? "darkvision" : "basic";
-    const sight = { enabled: true, range: dark, visionMode, saturation: dark > 0 ? -1 : 0 };
-    const pick = (...ids) => ids.find((id) => cfgHas(id, "detectionModes"));
-    const detectionModes = {};
-    const add = (id, range) => { if (id && !(id in detectionModes)) detectionModes[id] = { enabled: true, range }; };
-    add(pick("lightPerception", "basicSight"), null);
-    if (dark > 0) add(pick("basicSight", "lightPerception"), dark);
-    if (tremor > 0) add(pick("feelTremor", "tremorsense", "feeltremor", "senseAll"), tremor);
-    if (blind > 0) add(pick("blindsight", "seeAll", "senseAll"), blind);
-    if (truesight > 0) add(pick("seeAll", "senseAll", "truesight"), truesight);
-    const update = { sight, detectionModes };
+    const update = actorTokenSight(actor);
+    const { sight, detectionModes } = update;
     // Future drops: fix the prototype token so a re-drop is already correct.
     try { await actor.update({ "prototypeToken.sight": sight, "prototypeToken.detectionModes": detectionModes }); }
     catch (e) { console.warn(`${MODULE_ID} | proto sight-sync failed`, e); }

@@ -1135,6 +1135,34 @@ function playerColorFor(actor) {
   return u?.color?.css ?? null;
 }
 
+// Senses → token sight/detection, shared by deploy, scout release and the
+// combat-start sync (2026-07-04: a dispersed PC kept the PROTOTYPE's sight —
+// usually range 0 — so Ember walked blind into the dark on the TV; only the
+// combat-start sync ever applied real senses). Mirrors syncPartyTokenSight:
+// numeric senses.ranges with a "Special Senses" free-text fallback; detection
+// modes are a keyed OBJECT in this build (an array write is silently dropped).
+export function actorTokenSight(actor) {
+  const r = actor?.system?.attributes?.senses?.ranges ?? {};
+  const special = String(actor?.system?.attributes?.senses?.special ?? "");
+  const fromSpecial = (name) => { const m = special.match(new RegExp(`${name}\\w*\\s*(\\d+)`, "i")); return m ? Number(m[1]) : 0; };
+  const dark = (Number(r.darkvision) || 0) || fromSpecial("darkvision");
+  const tremor = (Number(r.tremorsense) || 0) || fromSpecial("tremor");
+  const blind = (Number(r.blindsight) || 0) || fromSpecial("blindsight");
+  const truesight = (Number(r.truesight) || 0) || fromSpecial("truesight");
+  const haveVision = (id) => id in (CONFIG.Canvas?.visionModes ?? {});
+  const visionMode = (dark > 0 && haveVision("darkvision")) ? "darkvision" : "basic";
+  const sight = { enabled: true, range: dark, visionMode, saturation: dark > 0 ? DARKVISION_SAT : 0 };
+  const pick = (...ids) => ids.find((id) => id in (CONFIG.Canvas?.detectionModes ?? {}));
+  const detectionModes = {};
+  const add = (id, range) => { if (id && !(id in detectionModes)) detectionModes[id] = { enabled: true, range }; };
+  add(pick("lightPerception", "basicSight"), null);                 // see lit areas
+  if (dark > 0) add(pick("basicSight", "lightPerception"), dark);   // darkvision range
+  if (tremor > 0) add(pick("feelTremor", "tremorsense", "feeltremor", "senseAll"), tremor);
+  if (blind > 0) add(pick("blindsight", "seeAll", "senseAll"), blind);
+  if (truesight > 0) add(pick("seeAll", "senseAll", "truesight"), truesight);
+  return { sight, detectionModes };
+}
+
 // PC token visuals on (re)creation: native dynamic ring in the ASSIGNED player's
 // color + COLOR_OVER_SUBJECT (tints the portrait too, DM 2026-07-03) + a 0.1ft
 // self-glow so the token keeps color under darkvision ("0.1 is better than
@@ -1480,7 +1508,9 @@ async function handlePartyRelease({ groupId, actorId, requesterId }) {
   }
   if (!spot) spot = { x: gt.x, y: gt.y }; // boxed in: drop on the party square (warnings-not-walls)
   const std = (await actor.getTokenDocument(spot)).toObject();
-  if ((actor.system?.attributes?.senses?.darkvision ?? 0) > 0) std.sight = { ...std.sight, saturation: DARKVISION_SAT };
+  // Real senses, not the prototype's (2026-07-04: scouts were walking blind —
+  // prototype sight is usually range 0, so darkvision never reached the token).
+  Object.assign(std, actorTokenSight(actor));
   applyPcVisuals(std, actor);
   await canvas.scene.createEmbeddedDocuments("Token", [std]);
   formation.released = [...released, actorId];
@@ -1536,9 +1566,11 @@ async function handlePartyDeploy({ groupId, force, requesterId }) {
   for (const p of preview) {
     const a = game.actors.get(p.actorId);
     const td = (await a.getTokenDocument({ x: p.x, y: p.y })).toObject();
-    // Members keep the softened night vision too (DM 2026-07-03: "the individual
-    // members still have zero color") — same -0.6 the packed token gets.
-    if ((a.system?.attributes?.senses?.darkvision ?? 0) > 0) td.sight = { ...td.sight, saturation: DARKVISION_SAT };
+    // Real senses, not the prototype's (2026-07-04: deployed PCs kept prototype
+    // sight — usually range 0 — so darkvision members walked blind in the dark
+    // until a combat started and syncPartyTokenSight ran). Includes the softened
+    // night-vision saturation for darkvision members.
+    Object.assign(td, actorTokenSight(a));
     // Native dynamic-ring player colors (Round 10d): NATIVE ring = perfect
     // sync/scale + stock pulse/width options; -0.6 saturation keeps it legible
     // in the dark. (Custom overlays + glow lights were retired.)
