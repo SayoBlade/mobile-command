@@ -10,9 +10,6 @@ import { MODULE_ID } from "./preset.js";
 
 let panelEl = null;
 
-// Player-colour palette (task #18) — same set the phone's "Your colour" uses.
-const MC_COLOR_PALETTE = ["#d94a3a", "#e0842b", "#e6c229", "#4caf50", "#1fa79a", "#3a86d6", "#8a5cd6", "#d861a8", "#9c6b3f", "#5a6b7a", "#e8e6df", "#2c3e50"];
-
 // Right-side tab dock (DM 2026-07-03, future-proofed for more tools). Icon-only
 // tabs stick out the panel's right edge; a tab opens a same-height flyout box to
 // its right (X or re-click closes). First tool = Rolls.
@@ -359,7 +356,6 @@ function pendingHTML(pending) {
 // on problems and arms into "Disperse anyway" (warnings-not-walls, §11).
 let partySel = null;    // actorId the DM picked up
 let partyForce = false; // "Disperse anyway" armed after a nofit
-let partyOpen = true;   // accordion (DM 2026-07-03: save panel space)
 
 function packedGroup() {
   return game.actors.find(a => a.type === "group" && a.getFlag(MODULE_ID, "packed")) ?? null;
