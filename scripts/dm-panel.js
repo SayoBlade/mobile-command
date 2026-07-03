@@ -199,15 +199,20 @@ function applySavedPos(el) {
 // and its buttons — below the viewport (DM 2026-07-02: "Form up" at y=1214 on a
 // smaller screen). Clamp after every render and on window resize.
 function clampPos(el) {
-  const r = el.getBoundingClientRect();
-  if (!r.height) return; // hidden
-  const overBottom = r.bottom - (window.innerHeight - 8);
-  if (overBottom > 0) {
-    el.style.top = `${Math.max(8, r.top - overBottom)}px`;
-    el.style.bottom = "auto";
-  }
-  const overRight = r.right - (window.innerWidth - 8);
-  if (overRight > 0) el.style.left = `${Math.max(8, r.left - overRight)}px`;
+  // Clamp the COMBINED box — the tab rail and flyout are absolutely-positioned
+  // children that stick out to the right/below and don't count in the panel's own
+  // rect, so an open flyout could run off-screen unreachably. Measure all three and
+  // shift the panel so the whole thing stays on screen (DM 2026-07-03).
+  const elR = el.getBoundingClientRect();
+  if (!elR.height) return; // hidden
+  const rects = [elR, el.querySelector(".mc-dmp-tabrail"), el.querySelector(".mc-dmp-flyout")]
+    .filter(Boolean).map(p => p.getBoundingClientRect ? p.getBoundingClientRect() : p).filter(r => r.height);
+  const bottom = Math.max(...rects.map(r => r.bottom));
+  const right = Math.max(...rects.map(r => r.right));
+  const overBottom = bottom - (window.innerHeight - 8);
+  if (overBottom > 0) { el.style.top = `${Math.max(8, elR.top - overBottom)}px`; el.style.bottom = "auto"; }
+  const overRight = right - (window.innerWidth - 8);
+  if (overRight > 0) el.style.left = `${Math.max(8, elR.left - overRight)}px`;
 }
 
 function onPointerDown(ev) {
