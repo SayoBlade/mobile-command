@@ -57,7 +57,8 @@ const tvEase = (t) => (1 - Math.cos(Math.PI * t)) / 2;
 // the corrected frame agree: keep this much empty space outside the party, and
 // never frame tighter than this radius (a clustered party still shows context).
 const TV_PARTY_BUFFER_FT = 40;
-const TV_MIN_RADIUS_FT = 35;
+const TV_MIN_RADIUS_FT = 26; // default/min party-view radius — ~25% tighter than 35 (DM 2026-07-03)
+const TV_TOKEN_MARGIN_FT = 25; // always keep ≥ this much visible around every party token (DM 2026-07-03)
 // On each combat turn the display spotlights the ACTIVE token (DM 2026-06-27): zoom OUT
 // then zoom IN, centred on that token, ending at a TV_COMBAT_RADIUS_FT radius. The pull-
 // back is TV_COMBAT_OUT_FACTOR × the spotlight scale (a wider establishing view).
@@ -89,11 +90,51 @@ function tvPartyScale(extentW, extentH, buffer, minDim, screenW, screenH) {
   return Math.max(minZoom, Math.min(screenW / reqW, screenH / reqH, maxZoom));
 }
 
+// TV compass (DM 2026-07-03): players sit AROUND the TV facing it from different
+// sides, so "forward ↑" needs an anchor — a static compass pinned top-right that
+// always points map-north (the top of the TV). Plain DOM above the canvas
+// (pointer-events:none), inline SVG: no assets, no canvas work, ~zero cost.
+function mountTvCompass() {
+  if (document.getElementById("mc-tv-compass")) return;
+  const el = document.createElement("div");
+  el.id = "mc-tv-compass";
+  el.innerHTML = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-label="North is up">
+    <circle cx="50" cy="50" r="42" fill="rgba(12,10,6,.55)" stroke="#c8a44d" stroke-width="3"/>
+    <circle cx="50" cy="50" r="34" fill="none" stroke="rgba(200,164,77,.35)" stroke-width="1"/>
+    <g stroke="#c8a44d" stroke-width="3" stroke-linecap="round">
+      <line x1="50" y1="4" x2="50" y2="14"/><line x1="50" y1="86" x2="50" y2="96"/>
+      <line x1="4" y1="50" x2="14" y2="50"/><line x1="86" y1="50" x2="96" y2="50"/>
+    </g>
+    <path d="M50 20 L60 52 L50 46 L40 52 Z" fill="#e6c46a" stroke="#8a6d2a" stroke-width="1.5" opacity="0.8"/>
+    <text x="50" y="36" text-anchor="middle" font-family="serif" font-weight="bold" font-size="15" fill="#f0dfae">N</text>
+  </svg>`;
+  document.body.appendChild(el);
+}
+
+// Interface-layer identity rings + target reticles (#13, Spike 6). Drawn into a
+// PIXI.Graphics on the CONTROLS layer (pings/rulers live there), which renders
+// above lighting/fog and is exempt from vision-mode saturation — so rings keep
+// their player color under darkvision grayscale where token lights/rings cannot
+// (Round 10 finding: a token light can't shrink below the emitter body, so the
+// glow approach always bleeds). Display client only; `tvRings` setting gates it.
+// (Custom TV ring overlay removed, Round 10d: it desynced from movement animation
+// and ignored token scale. Party Mode now colors the NATIVE dnd5e dynamic ring
+// per player instead — applyRingColor in rpc.js — which syncs/scales perfectly
+// and keeps the stock Ring-tab options. Targeting = core's per-user colored pips.)
+
+// A token the TV camera should treat as "the party": a player-owned PC, or the
+// PACKED group token (Party Mode §15 — while packed it IS the party; without
+// this the camera ignores it and the party walks off the display).
+function isPartyActor(actor) {
+  return !!actor && ((actor.hasPlayerOwner && actor.type === "character")
+    || (actor.type === "group" && actor.getFlag?.("mobile-command", "packed")));
+}
+
 // The whole-party frame: centroid + target scale over every visible PC token. Used by
 // Focus (centroid only — pure pan) and the combat turn pulse. null when no party.
 function partyFrame() {
   const toks = (canvas.tokens?.placeables ?? []).filter(
-    (t) => t.actor?.hasPlayerOwner && t.actor?.type === "character" && !t.document?.hidden);
+    (t) => isPartyActor(t.actor) && !t.document?.hidden);
   if (!toks.length) return null;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const t of toks) {
@@ -237,7 +278,7 @@ function tvPartyFollow(tokenDoc, changes) {
     if (game.combat?.started) return; // in combat the active-token spotlight takes over
     if (!("x" in changes) && !("y" in changes)) return; // only on movement
     const actor = tokenDoc.actor;
-    if (!actor?.hasPlayerOwner || actor.type !== "character") return; // a PC moved
+    if (!isPartyActor(actor)) return; // a PC (or the packed party token) moved
 
     // Party bounding box over every visible PC token. The just-moved token's new
     // position comes from the update doc (robust while the move animates); the
@@ -246,7 +287,7 @@ function tvPartyFollow(tokenDoc, changes) {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const t of canvas.tokens?.placeables ?? []) {
       const d = t.document;
-      if (d?.hidden || !t.actor?.hasPlayerOwner || t.actor?.type !== "character") continue;
+      if (d?.hidden || !isPartyActor(t.actor)) continue;
       const x = d.id === tokenDoc.id ? tokenDoc.x : d.x;
       const y = d.id === tokenDoc.id ? tokenDoc.y : d.y;
       const w = (d.width ?? 1) * gs, h = (d.height ?? 1) * gs;
@@ -256,32 +297,26 @@ function tvPartyFollow(tokenDoc, changes) {
     if (!Number.isFinite(minX)) return; // no visible party
 
     const gridDist = canvas.dimensions?.distance ?? canvas.grid?.distance ?? 5;
-    const buffer = (TV_PARTY_BUFFER_FT / gridDist) * gs;
-    const minDim = (TV_MIN_RADIUS_FT * 2 / gridDist) * gs;
-
-    // The area we want visible: party box + buffer. (For pan deadzone + scene clamp.)
-    const reqW = Math.max((maxX - minX) + buffer * 2, minDim);
-    const reqH = Math.max((maxY - minY) + buffer * 2, minDim);
+    // Always keep ≥ TV_TOKEN_MARGIN_FT visible around every token — the required
+    // rect is the party box grown by that margin on each side (used for both the
+    // zoom-out and the pan deadzone). This is the "25ft around each" the DM wants.
+    const margin = (TV_TOKEN_MARGIN_FT / gridDist) * gs;
+    const buffer = margin;
+    const reqW = (maxX - minX) + margin * 2;
+    const reqH = (maxY - minY) + margin * 2;
     const bx = (minX + maxX) / 2, by = (minY + maxY) / 2; // party centre
 
     const stage = canvas.stage;
     const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
-    const curScale = stage.scale.x || 1;
-    const target = tvPartyScale(maxX - minX, maxY - minY, buffer, minDim, screenW, screenH);
+    const minZoom = CONFIG.Canvas?.minZoom ?? 0.1, maxZoom = CONFIG.Canvas?.maxZoom ?? 3;
 
-    // Zoom decision. Locked → hold the target (tvPartyScale already zooms out to keep
-    // a split party in view, and it's stable so it won't hunt). Auto → zoom OUT when
-    // the party no longer fits, and tighten back IN only past a deadzone so a
-    // regrouping party settles smoothly instead of hunting on every step.
-    let scale;
-    if (tvLockedScale != null) {
-      scale = target;
-    } else {
-      const fitsNow = screenW / curScale >= reqW && screenH / curScale >= reqH;
-      scale = curScale;
-      if (!fitsNow) scale = target;
-      else if (target > curScale * TV_ZOOM_IN_SLACK) scale = target;
-    }
+    // Zoom: the scale at which the whole required rect (party + 25ft each) fits.
+    // The DM's locked zoom is a CEILING — hold it while the party is grouped, but
+    // as they SPREAD, `needed` drops below it and the camera zooms OUT to keep
+    // everyone (with their margin) in view; regrouping raises `needed` back above
+    // the lock, returning to the set zoom. No manual zoom → auto-frame at `needed`.
+    const needed = Math.min(screenW / reqW, screenH / reqH, maxZoom);
+    const scale = Math.max(minZoom, tvLockedScale != null ? Math.min(tvLockedScale, needed) : needed);
 
     // Pan the minimum to keep the whole required rect inside the viewport; if an
     // axis is fully filled by the rect, just centre the party on it.
@@ -301,6 +336,7 @@ function tvPartyFollow(tokenDoc, changes) {
       cy = r.height <= halfH * 2 ? r.y + r.height / 2 : Math.min(Math.max(cy, r.y + halfH), r.y + r.height - halfH);
     }
 
+    const curScale = stage.scale.x || 1;
     const scaleChanged = Math.abs(scale - curScale) / curScale > 0.01;
     if (!scaleChanged && Math.abs(cx - stage.pivot.x) < 1 && Math.abs(cy - stage.pivot.y) < 1) return; // already framed
     canvas.animatePan({ x: cx, y: cy, scale, duration: 250, easing: tvEase });
@@ -499,7 +535,14 @@ Hooks.once("ready", () => {
   // TV (display role): canvas-only clean view. mc-display marks the role; mc-clean
   // hides the chrome (toggle with the keybinding to reach settings). Runtime-only —
   // disabling the module just stops adding these classes, so it auto-reverts.
-  if (isDisplayClient()) { document.body.classList.add("mc-display", "mc-clean"); showCleanHint(); warnDisplayGM(); suppressMcdCamera(); }
+  if (isDisplayClient()) {
+    document.body.classList.add("mc-display", "mc-clean"); showCleanHint(); warnDisplayGM(); suppressMcdCamera(); mountTvCompass();
+    // Kill the ORANGE controlled-token borders on the TV: Monk's Common Display
+    // CONTROLS the party tokens to merge vision, and controlled tokens draw an
+    // orange border (CONFIG.Canvas dispositionColors.CONTROLLED). View-only screen
+    // → no borders at all (DM 2026-07-03).
+    Hooks.on("refreshToken", (t) => { try { t.border?.clear?.(); } catch (e) { /* border internals moved */ } });
+  }
 
   // TV camera remote control: receive DM commands (display clients act), and on the
   // DM side mirror pan/zoom to the display while manual mode is on (throttled — the

@@ -14,7 +14,8 @@ export let socket = null;
 export const remoteState = {
   lastHeartbeat: null,
   assignedTargetUuids: [],
-  savePrompt: null
+  savePrompt: null,
+  rollRequest: null
 };
 
 // Executor-side state: area spells the phone has asked the DM to place (AoE push,
@@ -69,8 +70,15 @@ export function initSocket() {
   socket.register("partyPack", handlePartyPack);
   socket.register("partySetCell", handlePartySetCell);
   socket.register("partySetForward", handlePartySetForward);
+  socket.register("partyStage", handlePartyStage);
   socket.register("partyDeploy", handlePartyDeploy);
+  socket.register("partyRelease", handlePartyRelease);
+  socket.register("partyCombine", handlePartyCombine);
+  socket.register("fixPcTokens", handleFixPcTokens);
+  socket.register("requestRolls", handleRequestRolls);
+  socket.register("rollRequest", handleRollRequest);
   socket.register("heartbeat", handleHeartbeat);
+  registerPartyAutoFacing(); // executor-gated inside the hook
   console.log(`${MODULE_ID} | socket registered`);
   return socket;
 }
@@ -591,7 +599,14 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   const tokenDoc = game.scenes.active.tokens.get(tokenId);
   if (!tokenDoc) return { ok: false, stage: "resolve", reason: `token not found: ${tokenId}` };
   if (!requesterCanAct(requesterId, tokenDoc)) {
-    return { ok: false, stage: "permission", reason: "requester does not own the token" };
+    // Party Mode (§15): players don't own the GROUP actor, but any member-owner
+    // may drive the packed party token — out-of-combat travel is a party action
+    // (the original "move the group token out of combat" MVP goal).
+    const ga = tokenDoc.actor;
+    const user = game.users.get(requesterId);
+    const memberOwner = ga?.type === "group" && ga.getFlag(MODULE_ID, "packed")
+      && (ga.system?.members ?? []).some(m => m.actor?.testUserPermission(user, "OWNER"));
+    if (!memberOwner) return { ok: false, stage: "permission", reason: "requester does not own the token" };
   }
 
   const grid = canvas.scene.grid.size;
@@ -599,7 +614,7 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   const to = { x: from.x + dxGrid * grid, y: from.y + dyGrid * grid };
 
   const blocked = CONFIG.Canvas.polygonBackends.move.testCollision(from, to, { type: "move", mode: "any" });
-  if (blocked) return { ok: false, stage: "collision", reason: "a wall blocks that move" };
+  if (blocked) return { ok: false, stage: "collision", reason: "Blocked" };
 
   await tokenDoc.update(
     { x: tokenDoc.x + dxGrid * grid, y: tokenDoc.y + dyGrid * grid },
@@ -1107,6 +1122,86 @@ function partyMembers(group) {
     .map(actor => ({ actor, token: canvas.scene.tokens.find(t => t.actorId === actor.id) ?? null }));
 }
 
+const DARKVISION_SAT = -0.8; // DM 2026-07-03: -0.6 was too colorful; halfway to full gray.
+const RING_COLOR_OVER_SUBJECT = 33; // ENABLED(1) | COLOR_OVER_SUBJECT(32)
+
+// The player color assigned to a PC actor (assigned character first, then owner).
+function playerColorFor(actor) {
+  const u = game.users.find(u => !u.isGM && u.character?.id === actor?.id)
+    ?? game.users.find(u => !u.isGM && actor?.testUserPermission?.(u, "OWNER"));
+  return u?.color?.css ?? null;
+}
+
+// PC token visuals on (re)creation: native dynamic ring in the ASSIGNED player's
+// color + COLOR_OVER_SUBJECT (tints the portrait too, DM 2026-07-03) + a 0.1ft
+// self-glow so the token keeps color under darkvision ("0.1 is better than
+// nothing"). Native ring = exact sync/scale; stock Ring-tab options still apply.
+function applyPcVisuals(td, actor) {
+  try {
+    if (actor?.type !== "character" || !actor.hasPlayerOwner) return;
+    const glow = Number(game.settings.get(MODULE_ID, "tokenGlow")) || 0;
+    if (glow > 0) td.light = { ...td.light, bright: glow, dim: 0 };
+    if (!game.settings.get(MODULE_ID, "ringPlayerColors")) return;
+    const color = playerColorFor(actor);
+    if (!color) return;
+    td.ring = foundry.utils.mergeObject(td.ring ?? {}, {
+      enabled: true,
+      effects: RING_COLOR_OVER_SUBJECT,
+      colors: { ...(td.ring?.colors ?? {}), ring: color }
+    });
+  } catch (e) { /* cosmetic */ }
+}
+
+// Roll request (DM 2026-07-03): the DM's Rolls tool asks a set of actors for an
+// ability check or saving throw; each owner's phone gets a tappable card that
+// rolls it natively (chat + on-screen dice), and the DM reads the results and does
+// the math. Owners offline → the executor rolls for them. Same fan-out as saves.
+async function handleRequestRolls({ rollType, ability, actorIds, requesterId }) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM requests rolls" };
+  const kind = rollType === "check" ? "check" : "save";
+  const label = CONFIG.DND5E?.abilities?.[ability]?.label ?? ability;
+  let sent = 0, auto = 0;
+  for (const id of actorIds ?? []) {
+    const actor = game.actors.get(id);
+    if (!actor) continue;
+    const owners = game.users.filter(u => u.active && !u.isGM && actor.testUserPermission(u, "OWNER"));
+    if (owners.length) {
+      const payload = { actorUuid: actor.uuid, rollType: kind, ability, label, ts: Date.now() };
+      for (const u of owners) socket.executeAsUser("rollRequest", u.id, payload);
+      sent++;
+    } else {
+      try { kind === "check" ? await actor.rollAbilityCheck({ ability }) : await actor.rollSavingThrow({ ability }); auto++; } catch (e) { /* skip */ }
+    }
+  }
+  return { ok: true, sent, auto };
+}
+
+function handleRollRequest(payload) {
+  remoteState.rollRequest = payload ?? null;
+  Hooks.callAll("mobile-command.rollRequest", payload ?? null);
+  return true;
+}
+
+// One-shot: apply current PC visuals (player-color ring + color-over-subject +
+// glow + darkvision saturation) to every PC token already on the active scene so
+// existing tokens catch up without a repack (DM 2026-07-03). GM: MobileCommand.fixPcTokens().
+async function handleFixPcTokens() {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
+  const updates = [];
+  for (const t of canvas.scene.tokens) {
+    const a = t.actor;
+    if (a?.type !== "character" || !a.hasPlayerOwner) continue;
+    const td = { _id: t.id };
+    applyPcVisuals(td, a);
+    if ((a.system?.attributes?.senses?.darkvision ?? 0) > 0) td.sight = { ...(td.sight ?? {}), saturation: DARKVISION_SAT };
+    if (td.light || td.ring || td.sight) updates.push(td);
+  }
+  if (updates.length) await canvas.scene.updateEmbeddedDocuments("Token", updates);
+  return { ok: true, count: updates.length };
+}
+
 async function handlePartyPack({ groupId, requesterId }) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
   if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM can form up the party" };
@@ -1145,9 +1240,17 @@ async function handlePartyPack({ groupId, requesterId }) {
   const range = Math.max(0,
     ...mem.map(m => m.token.sight?.range ?? 0),
     ...mem.map(m => m.actor.system?.attributes?.senses?.darkvision ?? 0));
+  // Honest senses (#10, DM caught full-COLOR vision while packed): if the shared
+  // range comes from darkvision, use the darkvision VISION MODE (grayscale) with
+  // its core defaults — the packed party sees what its members would, no upgrade.
+  const hasDarkvision = mem.some(m => (m.actor.system?.attributes?.senses?.darkvision ?? 0) > 0);
+  const dvDefaults = hasDarkvision ? (CONFIG.Canvas?.visionModes?.darkvision?.vision?.defaults ?? {}) : {};
+  const glow = Number(game.settings.get(MODULE_ID, "tokenGlow")) || 0;
   const patch = {
     x: centerCol * g, y: centerRow * g, hidden: false,
-    sight: { enabled: true, range },
+    // saturation muted (not core's full -1): reads as night vision but keeps color.
+    sight: { enabled: true, range, visionMode: hasDarkvision ? "darkvision" : "basic", ...dvDefaults, ...(hasDarkvision ? { saturation: DARKVISION_SAT } : {}) },
+    ...(glow > 0 ? { light: { bright: glow, dim: 0 } } : {}),
     disposition: CONST.TOKEN_DISPOSITIONS.FRIENDLY
   };
   let gt = canvas.scene.tokens.find(t => t.actorId === group.id);
@@ -1161,7 +1264,7 @@ async function handlePartyPack({ groupId, requesterId }) {
   await canvas.scene.deleteEmbeddedDocuments("Token", mem.map(m => m.token.id));
   await group.update({
     [`flags.${MODULE_ID}.packed`]: true,
-    [`flags.${MODULE_ID}.formation`]: { cells, forward: 0, locked: [], snapshot }
+    [`flags.${MODULE_ID}.formation`]: { cells, forward: 0, locked: [], released: [], snapshot, stage: "arrange" }
   });
   return { ok: true };
 }
@@ -1185,26 +1288,66 @@ async function handlePartySetCell({ groupId, actorId, r, c, lock, requesterId })
   return { ok: true };
 }
 
-// Rotate the party IN the grid (DM 2026-07-02: WYSIWYG — the 3×3 mirrors the
-// map, north-up, and deploy places cells verbatim). Rotation is baked into the
-// members' cells; `forward` is kept only as the cosmetic facing arrow. This also
-// keeps the red blocked-cell preview aligned 1:1 with real landing spots.
+// Rotate the party IN the grid (WYSIWYG — the 3×3 mirrors the map, north-up;
+// deploy places cells verbatim). §15 Round 8/#9: rotation is now the OUTER-RING
+// shift — the 8 cells around the center form a ring and one step = 45°, so
+// diagonal facings are first-class. `forward` is 0..7 (N,NE,E,SE,S,SW,W,NW),
+// display-only. Ring-baking keeps the red-cell preview aligned 1:1.
+const PARTY_RING = [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2], [2, 1], [2, 0], [1, 0]]; // CW from NW
+function ringRotateCells(cells, steps) {
+  const k = ((steps % 8) + 8) % 8;
+  if (!k) return cells;
+  const idx = new Map(PARTY_RING.map(([r, c], i) => [`${r},${c}`, i]));
+  const out = {};
+  for (const [id, cell] of Object.entries(cells ?? {})) {
+    const i = idx.get(`${cell.r},${cell.c}`);
+    if (i === undefined) { out[id] = cell; continue; } // center rides along
+    const [r, c] = PARTY_RING[(i + k) % 8];
+    out[id] = { r, c };
+  }
+  return out;
+}
+
 async function handlePartySetForward({ groupId, forward, requesterId }) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
   if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM sets the facing" };
   const group = game.actors.get(groupId);
   if (group?.type !== "group") return { ok: false, reason: "group not found" };
   const formation = foundry.utils.deepClone(group.getFlag(MODULE_ID, "formation") ?? { cells: {}, forward: 0, locked: [] });
-  const target = ((Number(forward) % 4) + 4) % 4;
-  const turns = (((target - (formation.forward ?? 0)) % 4) + 4) % 4;
-  for (let i = 0; i < turns; i++) {
-    for (const [id, cell] of Object.entries(formation.cells ?? {})) {
-      formation.cells[id] = { r: cell.c, c: 2 - cell.r }; // 90° clockwise around the center
-    }
-  }
+  const target = ((Number(forward) % 8) + 8) % 8;
+  formation.cells = ringRotateCells(formation.cells, target - (formation.forward ?? 0));
   formation.forward = target;
   await group.setFlag(MODULE_ID, "formation", formation);
   return { ok: true };
+}
+
+// Auto-facing (#9): while TRAVELING, every group-token step re-faces the party
+// to its movement direction (all 8 directions) and ring-rotates the formation to
+// match — Disperse then deploys "right" with zero fiddling (fighter in front,
+// facing the way they walked). Executor-only; registered once via initSocket.
+const lastGroupPos = new Map();
+function registerPartyAutoFacing() {
+  Hooks.on("updateToken", (tok, changes) => {
+    try {
+      if (!isExecutor()) return;
+      const a = tok.actor;
+      if (a?.type !== "group" || !a.getFlag(MODULE_ID, "packed")) return;
+      if (!("x" in changes) && !("y" in changes)) return;
+      const prev = lastGroupPos.get(tok.id);
+      lastGroupPos.set(tok.id, { x: tok.x, y: tok.y });
+      if (!prev) return;
+      const f = a.getFlag(MODULE_ID, "formation");
+      if ((f?.stage ?? "arrange") !== "travel") return;
+      const dx = Math.sign(tok.x - prev.x), dy = Math.sign(tok.y - prev.y);
+      const OCT = { "0,-1": 0, "1,-1": 1, "1,0": 2, "1,1": 3, "0,1": 4, "-1,1": 5, "-1,0": 6, "-1,-1": 7 };
+      const target = OCT[`${dx},${dy}`];
+      if (target === undefined || target === (f.forward ?? 0)) return;
+      const nf = foundry.utils.deepClone(f);
+      nf.cells = ringRotateCells(nf.cells, target - (nf.forward ?? 0));
+      nf.forward = target;
+      a.setFlag(MODULE_ID, "formation", nf);
+    } catch (e) { /* facing is best-effort */ }
+  });
 }
 
 // Where each member would land for the current formation + facing, and whether
@@ -1223,7 +1366,9 @@ export function partyDeployPreview(groupId) {
   const center = { x: gt.x + g / 2, y: gt.y + g / 2 };
   const seen = new Map(); // "gx,gy" -> first occupant's name
   const out = [];
+  const releasedIds = new Set(formation.released ?? []);
   for (const actor of (group.system.members ?? []).map(m => m.actor).filter(Boolean)) {
+    if (releasedIds.has(actor.id)) continue; // scouts already have a token on the map
     const cell = formation.cells?.[actor.id] ?? { r: 1, c: 1 };
     // Cells are map-space (north-up, rotation baked in by partySetForward), so a
     // grid cell IS the landing offset — red cells align 1:1 with real spots.
@@ -1240,6 +1385,86 @@ export function partyDeployPreview(groupId) {
     out.push({ actorId: actor.id, name: actor.name, r: cell.r, c: cell.c, x, y, why, offMap });
   }
   return out;
+}
+
+// Packed mode has two stages (DM decision 2026-07-02): "arrange" (players edit the
+// grid, Done-locks; no travel) and "travel" (grid is read-only, the move pad drives
+// the group token). The DM's "Lock in" flips arrange→travel (their ultimate
+// authority over "really done", §15.2#5); "Rearrange" flips back.
+async function handlePartyStage({ groupId, stage, requesterId }) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM changes the party stage" };
+  const group = game.actors.get(groupId);
+  if (group?.type !== "group") return { ok: false, reason: "group not found" };
+  if (!["arrange", "travel"].includes(stage)) return { ok: false, reason: `unknown stage: ${stage}` };
+  const formation = foundry.utils.deepClone(group.getFlag(MODULE_ID, "formation") ?? { cells: {}, forward: 0, locked: [] });
+  formation.stage = stage;
+  await group.setFlag(MODULE_ID, "formation", formation);
+  return { ok: true };
+}
+
+// Scout release/combine (#11, DM 2026-07-03): after Lock in the DM can release a
+// member to their own token ("the thief scouts ahead") without dispersing; when
+// the scout's token is back within 1 square of the party token, Combine reabsorbs
+// them. DM-controlled, single group. Released members are skipped by deploy
+// (their token is already on the map) and their phones revert to the normal PC UI.
+async function handlePartyRelease({ groupId, actorId, requesterId }) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM releases a scout" };
+  if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
+  const group = game.actors.get(groupId);
+  if (group?.type !== "group" || !group.getFlag(MODULE_ID, "packed")) return { ok: false, reason: "the party isn't packed" };
+  const actor = game.actors.get(actorId);
+  if (!actor || !(group.system.members ?? []).some(m => m.actor?.id === actorId)) return { ok: false, reason: "not a member of this party" };
+  const formation = foundry.utils.deepClone(group.getFlag(MODULE_ID, "formation") ?? { cells: {}, forward: 0, locked: [] });
+  const released = new Set(formation.released ?? []);
+  if (released.has(actorId)) return { ok: false, reason: `${actor.name} is already out scouting` };
+  const gt = canvas.scene.tokens.find(t => t.actorId === group.id);
+  if (!gt) return { ok: false, reason: "the party token is missing" };
+  // First free, in-bounds, wall-reachable square around the party; orthogonals first.
+  const g = canvas.scene.grid.size;
+  const rect = canvas.dimensions.sceneRect;
+  const backend = CONFIG.Canvas.polygonBackends.move;
+  const center = { x: gt.x + g / 2, y: gt.y + g / 2 };
+  let spot = null;
+  for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -1]]) {
+    const x = gt.x + dx * g, y = gt.y + dy * g, cx = x + g / 2, cy = y + g / 2;
+    if (!rect.contains(cx, cy)) continue;
+    if (backend.testCollision(center, { x: cx, y: cy }, { type: "move", mode: "any" })) continue;
+    if (canvas.scene.tokens.some(t => Math.round(t.x / g) === Math.round(x / g) && Math.round(t.y / g) === Math.round(y / g))) continue;
+    spot = { x, y }; break;
+  }
+  if (!spot) spot = { x: gt.x, y: gt.y }; // boxed in: drop on the party square (warnings-not-walls)
+  const std = (await actor.getTokenDocument(spot)).toObject();
+  if ((actor.system?.attributes?.senses?.darkvision ?? 0) > 0) std.sight = { ...std.sight, saturation: DARKVISION_SAT };
+  applyPcVisuals(std, actor);
+  await canvas.scene.createEmbeddedDocuments("Token", [std]);
+  formation.released = [...released, actorId];
+  await group.setFlag(MODULE_ID, "formation", formation);
+  return { ok: true };
+}
+
+async function handlePartyCombine({ groupId, actorId, requesterId }) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM combines the party" };
+  if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
+  const group = game.actors.get(groupId);
+  if (group?.type !== "group" || !group.getFlag(MODULE_ID, "packed")) return { ok: false, reason: "the party isn't packed" };
+  const formation = foundry.utils.deepClone(group.getFlag(MODULE_ID, "formation") ?? { cells: {}, forward: 0, locked: [] });
+  const released = new Set(formation.released ?? []);
+  if (!released.has(actorId)) return { ok: false, reason: "they're not out scouting" };
+  const gt = canvas.scene.tokens.find(t => t.actorId === group.id);
+  const tok = canvas.scene.tokens.find(t => t.actorId === actorId);
+  if (gt && tok) {
+    const g = canvas.scene.grid.size;
+    const dist = Math.max(Math.abs(Math.round((tok.x - gt.x) / g)), Math.abs(Math.round((tok.y - gt.y) / g)));
+    if (dist > 1) return { ok: false, reason: `${game.actors.get(actorId)?.name ?? "The scout"} is ${dist} squares away — within 1 to combine` };
+    await canvas.scene.deleteEmbeddedDocuments("Token", [tok.id]);
+  } // token already gone → just reabsorb
+  released.delete(actorId);
+  formation.released = [...released];
+  await group.setFlag(MODULE_ID, "formation", formation);
+  return { ok: true };
 }
 
 async function handlePartyDeploy({ groupId, force, requesterId }) {
@@ -1264,10 +1489,24 @@ async function handlePartyDeploy({ groupId, force, requesterId }) {
   }
 
   const tds = [];
-  for (const p of preview) tds.push((await game.actors.get(p.actorId).getTokenDocument({ x: p.x, y: p.y })).toObject());
+  for (const p of preview) {
+    const a = game.actors.get(p.actorId);
+    const td = (await a.getTokenDocument({ x: p.x, y: p.y })).toObject();
+    // Members keep the softened night vision too (DM 2026-07-03: "the individual
+    // members still have zero color") — same -0.6 the packed token gets.
+    if ((a.system?.attributes?.senses?.darkvision ?? 0) > 0) td.sight = { ...td.sight, saturation: DARKVISION_SAT };
+    // Native dynamic-ring player colors (Round 10d): NATIVE ring = perfect
+    // sync/scale + stock pulse/width options; -0.6 saturation keeps it legible
+    // in the dark. (Custom overlays + glow lights were retired.)
+    applyPcVisuals(td, a);
+    tds.push(td);
+  }
   await canvas.scene.createEmbeddedDocuments("Token", tds);
   await canvas.scene.deleteEmbeddedDocuments("Token", [gt.id]);
-  await group.update({ [`flags.${MODULE_ID}.packed`]: false });
+  await group.update({
+    [`flags.${MODULE_ID}.packed`]: false,
+    [`flags.${MODULE_ID}.formation.released`]: [] // scouts are simply "out" once dispersed
+  });
   return { ok: true, warned: blocked.map(b => ({ name: b.name, why: b.why })) };
 }
 
@@ -1290,7 +1529,10 @@ function toExecutor(handler, payload) {
       partyJournalAdd: handlePartyJournalAdd, portraitUpload: handlePortraitUpload,
       wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert,
       partyPack: handlePartyPack, partySetCell: handlePartySetCell,
-      partySetForward: handlePartySetForward, partyDeploy: handlePartyDeploy
+      partySetForward: handlePartySetForward, partyStage: handlePartyStage,
+      partyDeploy: handlePartyDeploy, partyRelease: handlePartyRelease,
+      partyCombine: handlePartyCombine, fixPcTokens: handleFixPcTokens,
+      requestRolls: handleRequestRolls
     };
     return handlers[handler](payload);
   }
@@ -1323,7 +1565,12 @@ export const api = {
   partyPack: (payload = {}) => toExecutor("partyPack", payload),
   partySetCell: (payload = {}) => toExecutor("partySetCell", payload),
   partySetForward: (payload = {}) => toExecutor("partySetForward", payload),
+  partyStage: (payload = {}) => toExecutor("partyStage", payload),
   partyDeploy: (payload = {}) => toExecutor("partyDeploy", payload),
+  partyRelease: (payload = {}) => toExecutor("partyRelease", payload),
+  partyCombine: (payload = {}) => toExecutor("partyCombine", payload),
+  fixPcTokens: (payload = {}) => toExecutor("fixPcTokens", payload),
+  requestRolls: (payload = {}) => toExecutor("requestRolls", payload),
   assignTargets: (userId, tokenUuids) =>
     socket
       ? socket.executeAsUser("assignTargets", userId, { tokenUuids, fromName: game.user.name })

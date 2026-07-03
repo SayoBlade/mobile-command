@@ -10,6 +10,93 @@ import { MODULE_ID } from "./preset.js";
 
 let panelEl = null;
 
+// Right-side tab dock (DM 2026-07-03, future-proofed for more tools). Icon-only
+// tabs stick out the panel's right edge; a tab opens a same-height flyout box to
+// its right (X or re-click closes). First tool = Rolls.
+let dockTab = null;          // null | "rolls" | "party"
+let dockWasPacked = false;   // auto-open the party tab on pack, close on disperse
+const rollTool = { type: "save", ability: "dex", selected: null, targetsOpen: false };
+
+// Candidate roll targets: packed-group members (grouped) ∪ player-owned character
+// tokens on canvas (loose). Preselect the grouped ones if any, else all.
+function rollTargets() {
+  const out = new Map();
+  for (const g of game.actors.filter(a => a.type === "group" && a.getFlag(MODULE_ID, "packed")))
+    for (const m of (g.system?.members ?? [])) if (m.actor) out.set(m.actor.id, { actor: m.actor, grouped: true });
+  for (const t of canvas.tokens?.placeables ?? []) {
+    const a = t.actor;
+    if (a?.type === "character" && a.hasPlayerOwner && !out.has(a.id)) out.set(a.id, { actor: a, grouped: false });
+  }
+  const arr = [...out.values()];
+  const anyGrouped = arr.some(c => c.grouped);
+  for (const c of arr) c.preselect = anyGrouped ? c.grouped : true;
+  return arr;
+}
+
+function tabRailHTML() {
+  const tab = (id, icon, title, show = true) => show ? `<button class="mc-dmp-tab ${dockTab === id ? "mc-on" : ""}" data-dock="${id}" title="${title}" aria-label="${title}"><i class="fas ${icon}"></i></button>` : "";
+  // When a flyout is open the rail rides its right edge (mc-open); else the panel's.
+  return `<div class="mc-dmp-tabrail ${dockTab ? "mc-open" : ""}">
+    ${tab("party", "fa-border-all", "Party order", !!packedGroup())}
+    ${tab("rolls", "fa-dice-d20", "Request rolls")}
+  </div>`;
+}
+
+function rollsToolHTML() {
+  const esc = foundry.utils.escapeHTML;
+  const cands = rollTargets();
+  if (rollTool.selected == null) rollTool.selected = new Set(cands.filter(c => c.preselect).map(c => c.actor.id));
+  const colorFor = (a) => { const u = game.users.find(u => !u.isGM && u.character?.id === a?.id) ?? game.users.find(u => !u.isGM && a?.testUserPermission?.(u, "OWNER")); return u?.color?.css ?? null; };
+  const abilOpts = Object.entries(CONFIG.DND5E?.abilities ?? {}).map(([k, v]) =>
+    `<option value="${k}" ${rollTool.ability === k ? "selected" : ""}>${esc((v.abbreviation ?? k).toUpperCase())}</option>`).join("");
+  const selCount = cands.filter(c => rollTool.selected.has(c.actor.id)).length;
+  const rows = cands.map(c => {
+    const on = rollTool.selected.has(c.actor.id);
+    const col = c.grouped ? colorFor(c.actor) : null;
+    // A div-row (not a label+checkbox) — a native label double-fires through the
+    // delegated click handler and desyncs the selection. Toggled by class + Set.
+    return `<div class="mc-dmp-rt-row${on ? " mc-on" : ""}${c.grouped ? " mc-grouped" : ""}" data-rt-target="${c.actor.id}">
+      <i class="fas fa-check mc-rt-check"></i>
+      <span${col ? ` style="color:${col}"` : ""}>${esc(c.actor.name)}</span>
+      ${c.grouped ? `<i class="fas fa-people-group" title="In a group"></i>` : ""}
+    </div>`;
+  }).join("");
+  return `
+    <div class="mc-dmp-rt-drops">
+      <select class="mc-rt-type" data-rt="type"><option value="save" ${rollTool.type === "save" ? "selected" : ""}>Save</option><option value="check" ${rollTool.type === "check" ? "selected" : ""}>Check</option></select>
+      <select class="mc-rt-abil" data-rt="ability">${abilOpts}</select>
+    </div>
+    <div class="mc-dmp-rt-forlabel">For…</div>
+    <button class="mc-dmp-rt-forbtn" data-rt-forbtn><span>${selCount} selected</span><i class="fas fa-chevron-${rollTool.targetsOpen ? "up" : "down"}"></i></button>
+    ${rollTool.targetsOpen ? `<div class="mc-dmp-rt-list">${rows || `<div class="mc-dmp-empty">No player tokens.</div>`}</div>` : ""}
+    <button class="mc-dmp-rt-send" data-rt-send><i class="fas fa-paper-plane"></i> Request rolls</button>`;
+}
+
+function flyoutHTML() {
+  let title = "", body = "";
+  if (dockTab === "rolls") { title = "Request rolls"; body = rollsToolHTML(); }
+  else if (dockTab === "party") {
+    const g = packedGroup();
+    const f = g?.getFlag(MODULE_ID, "formation") ?? {};
+    const arr = ["↑", "→", "↓", "←", "↖", "↗", "↘", "↙"]; // display only
+    title = `${(f.stage ?? "arrange") === "arrange" ? "Marching order" : "Traveling"} <i class="fas fa-arrow-up" style="display:inline-block;transform:rotate(${(f.forward ?? 0) * 45}deg)"></i>`;
+    body = partyTabHTML();
+  }
+  return `<div class="mc-dmp-flyout">
+    <div class="mc-dmp-fly-head"><span>${title}</span><button class="mc-dmp-fly-x" data-dock-close aria-label="Close">✕</button></div>
+    <div class="mc-dmp-fly-body">${body}</div>
+  </div>`;
+}
+
+async function sendRolls() {
+  const ids = [...(rollTool.selected ?? [])];
+  if (!ids.length) { ui.notifications.warn("Pick at least one target."); return; }
+  const res = await api.requestRolls({ rollType: rollTool.type, ability: rollTool.ability, actorIds: ids });
+  if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Couldn't request rolls."); return; }
+  const ab = CONFIG.DND5E?.abilities?.[rollTool.ability]?.label ?? rollTool.ability;
+  ui.notifications.info(`Requested ${ab} ${rollTool.type} from ${res.sent} player${res.sent === 1 ? "" : "s"}${res.auto ? ` (auto-rolled ${res.auto})` : ""}.`);
+}
+
 /** Active player users (non-GM). Don't require a formally assigned character —
  * the phone resolves an owned character if none is assigned, and requiring it
  * made the panel show "no players" for unassigned (but connected) users. */
@@ -48,6 +135,7 @@ function ensureEl() {
   panelEl = document.createElement("div");
   panelEl.id = "mc-dm-panel";
   panelEl.addEventListener("click", onClick);
+  panelEl.addEventListener("change", onChange); // Rolls-tool dropdowns
   panelEl.addEventListener("pointerdown", onPointerDown); // drag from the grip handle
   document.body.appendChild(panelEl);
   applySavedPos(panelEl);
@@ -168,7 +256,9 @@ function combatHTML() {
 
 /** Controlled (selected) tokens that have an actor — the quick-HP targets. */
 function controlledWithActors() {
-  return (canvas.tokens?.controlled ?? []).filter((t) => t.actor);
+  // Group actors have no meaningful HP — selecting the party token must not
+  // offer Damage/Heal (DM 2026-07-03: "group damage/heal doesn't make sense").
+  return (canvas.tokens?.controlled ?? []).filter((t) => t.actor && t.actor.type !== "group");
 }
 
 /** Apply an HP delta to an actor (negative = damage, positive = heal). Damage eats
@@ -226,6 +316,7 @@ function pendingHTML(pending) {
 // on problems and arms into "Disperse anyway" (warnings-not-walls, §11).
 let partySel = null;    // actorId the DM picked up
 let partyForce = false; // "Disperse anyway" armed after a nofit
+let partyOpen = true;   // accordion (DM 2026-07-03: save panel space)
 
 function packedGroup() {
   return game.actors.find(a => a.type === "group" && a.getFlag(MODULE_ID, "packed")) ?? null;
@@ -238,17 +329,30 @@ function candidateGroup() {
     && (a.system?.members ?? []).some(m => m.actor)) ?? null;
 }
 
-function partyHTML() {
+// MAIN area (DM 2026-07-03): only Form up / Disperse live here — stable width.
+// The marching-order grid + rotate + lock-in + release/combine moved to the
+// "Party order" dock tab (auto-opens on pack, closes on disperse).
+function partyMainHTML() {
   const group = packedGroup();
   if (!group) {
     partySel = null; partyForce = false;
     const cand = candidateGroup();
-    if (!cand) return "";
-    return `<div class="mc-dmp-party-btns">
+    return cand ? `<div class="mc-dmp-party-btns">
       <button class="mc-dmp-party-deploy" data-party="pack" data-group="${cand.id}" title="Collapse the clustered party into the ${foundry.utils.escapeHTML(cand.name)} token">
-        <i class="fas fa-people-group"></i> Form up</button>
-    </div>`;
+        <i class="fas fa-people-group"></i> Form up</button></div>` : "";
   }
+  const arranging = ((group.getFlag(MODULE_ID, "formation") ?? {}).stage ?? "arrange") === "arrange";
+  if (arranging) return `<button class="mc-dmp-party-mini" data-dock="party"><i class="fas fa-border-all"></i> Packed — arrange & lock in</button>`;
+  return `<div class="mc-dmp-party-btns">
+    <button class="mc-dmp-party-deploy ${partyForce ? "mc-warn" : ""} ${game.combat?.combatants.some(cb => cb.actorId === group.id) ? "mc-nudge" : ""}" data-party="deploy">
+      <i class="fas ${partyForce ? "fa-triangle-exclamation" : "fa-people-arrows"}"></i> ${partyForce ? "Disperse anyway" : "Disperse"}</button></div>`;
+}
+
+// The "Party order" dock tab body — the grid + rotate + lock-in/rearrange +
+// release/combine (no Form up / Disperse — those stay in the main area).
+function partyTabHTML() {
+  const group = packedGroup();
+  if (!group) return `<div class="mc-dmp-empty">Party dispersed.</div>`;
   const esc = foundry.utils.escapeHTML;
   const formation = group.getFlag(MODULE_ID, "formation") ?? { cells: {}, forward: 0, locked: [] };
   const preview = partyDeployPreview(group.id) ?? [];
@@ -257,26 +361,36 @@ function partyHTML() {
   const locked = new Set(formation.locked ?? []);
   const arrows = ["↑", "→", "↓", "←"];
   const keyOf = a => { const cl = formation.cells?.[a.id]; return cl ? `${cl.r},${cl.c}` : null; };
+  const released = new Set(formation.released ?? []);
+  const colorFor = (a) => { const u = game.users.find(u => !u.isGM && u.character?.id === a?.id) ?? game.users.find(u => !u.isGM && a?.testUserPermission?.(u, "OWNER")); return u?.color?.css ?? null; };
   const rows = [0, 1, 2].map(r => `<div class="mc-dmp-party-row">${[0, 1, 2].map(c => {
     const occ = members.filter(a => keyOf(a) === `${r},${c}`);
     const p = occ[0];
     const bad = badByCell.get(`${r},${c}`);
+    const col = p ? colorFor(p) : null; // outline the token in its player's color
     const img = p ? (p.prototypeToken?.texture?.src || p.img || "icons/svg/mystery-man.svg") : "";
-    const cls = ["mc-dmp-party-cell", p && "mc-full", bad && "mc-bad", partySel && p?.id === partySel && "mc-sel", occ.length > 1 && "mc-stack"].filter(Boolean).join(" ");
-    return `<button class="${cls}" data-party-cell="${r},${c}" title="${esc(bad ? `${p?.name ?? "This spot"}: ${bad}` : (p?.name ?? ""))}">
+    const cls = ["mc-dmp-party-cell", p && "mc-full", bad && "mc-bad", partySel && p?.id === partySel && "mc-sel", occ.length > 1 && "mc-stack", p && released.has(p.id) && "mc-away"].filter(Boolean).join(" ");
+    // Empty squares aren't selectable — inert unless a token is picked up (then a drop target).
+    const inert = !p && !partySel;
+    return `<button class="${cls}" data-party-cell="${r},${c}"${inert ? " disabled" : ""}${col ? ` style="border-color:${col}"` : ""} title="${esc(bad ? `${p?.name ?? "This spot"}: ${bad}` : (p?.name ?? ""))}">
       ${p ? `<img src="${esc(img)}" alt="">` : ""}
-      ${occ.length > 1 ? `<span class="mc-dmp-party-badge">${occ.length}</span>` : p && locked.has(p.id) ? `<span class="mc-dmp-party-lock"><i class="fas fa-lock"></i></span>` : ""}
+      ${occ.length > 1 ? `<span class="mc-dmp-party-badge">${occ.length}</span>` : p && released.has(p.id) ? `<span class="mc-dmp-party-lock"><i class="fas fa-binoculars"></i></span>` : p && locked.has(p.id) ? `<span class="mc-dmp-party-lock"><i class="fas fa-lock"></i></span>` : ""}
     </button>`;
   }).join("")}</div>`).join("");
+  const arranging = (formation.stage ?? "arrange") === "arrange";
   return `
-    <div class="mc-dmp-head"><span><i class="fas fa-people-group"></i> Marching order · fwd ${arrows[formation.forward ?? 0]}</span></div>
     <div class="mc-dmp-party">${rows}</div>
-    ${partySel ? `<div class="mc-dmp-party-hint">Moving ${esc(members.find(a => a.id === partySel)?.name ?? "…")} — tap a square</div>` : ""}
+    <div class="mc-dmp-party-hint">${partySel ? `Moving ${esc(members.find(a => a.id === partySel)?.name ?? "…")} — tap a square` : "&nbsp;"}</div>
+    ${partySel && !arranging ? `<div class="mc-dmp-party-btns">
+      ${released.has(partySel)
+        ? `<button data-party="combine" title="Reabsorb the scout (must be within 1 square of the party)"><i class="fas fa-people-arrows"></i> Combine ${esc(members.find(a => a.id === partySel)?.name?.split(" ")[0] ?? "")}</button>`
+        : `<button data-party="release" title="Send them scouting — their token appears next to the party"><i class="fas fa-binoculars"></i> Release ${esc(members.find(a => a.id === partySel)?.name?.split(" ")[0] ?? "")}</button>`}
+    </div>` : ""}
     <div class="mc-dmp-party-btns">
       <button data-party="rotl" title="Rotate facing left"><i class="fas fa-rotate-left"></i></button>
+      <button class="${arranging ? "mc-dmp-party-deploy" : ""}" data-party="stage" data-stage="${arranging ? "travel" : "arrange"}" title="${arranging ? "Lock the order — players get the travel pad" : "Reopen the grid for arranging"}">
+        <i class="fas ${arranging ? "fa-lock" : "fa-pen-to-square"}"></i> ${arranging ? "Lock in" : "Rearrange"}</button>
       <button data-party="rotr" title="Rotate facing right"><i class="fas fa-rotate-right"></i></button>
-      <button class="mc-dmp-party-deploy ${partyForce ? "mc-warn" : ""} ${game.combat?.combatants.some(cb => cb.actorId === group.id) ? "mc-nudge" : ""}" data-party="deploy">
-        <i class="fas ${partyForce ? "fa-triangle-exclamation" : "fa-people-arrows"}"></i> ${partyForce ? "Disperse anyway" : "Disperse"}</button>
     </div>`;
 }
 
@@ -300,6 +414,11 @@ async function onPartyClick(ev) {
       return true;
     }
     if (occ?.id === partySel) { partySel = null; render(); return true; } // tap self = put down
+    if (occ && occ.id !== partySel) {
+      // Target holds another token → SWAP their cells (not stack; DM 2026-07-03).
+      const selCell = formation.cells?.[partySel];
+      if (selCell) await api.partySetCell({ groupId: group.id, actorId: occ.id, r: selCell.r, c: selCell.c });
+    }
     const res = await api.partySetCell({ groupId: group.id, actorId: partySel, r, c });
     if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't move them.");
     partySel = null; partyForce = false; // layout changed → re-judge before forcing
@@ -312,6 +431,21 @@ async function onPartyClick(ev) {
     partyForce = false; // facing changed → re-judge
     await api.partySetForward({ groupId: group.id, forward: cur + (act === "rotr" ? 1 : -1) });
     return true;
+  }
+  if (act === "release" || act === "combine") {
+    if (!partySel) return true;
+    const res = act === "release"
+      ? await api.partyRelease({ groupId: group.id, actorId: partySel })
+      : await api.partyCombine({ groupId: group.id, actorId: partySel });
+    if (res?.ok === false) ui.notifications.warn(res.reason ?? `Couldn't ${act}.`);
+    else partySel = null;
+    return true; // flag change re-renders
+  }
+  if (act === "stage") {
+    const stage = ev.target.closest("[data-party]")?.dataset.stage;
+    const res = await api.partyStage({ groupId: group.id, stage });
+    if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't switch stage.");
+    return true; // updateActor re-renders
   }
   if (act === "deploy") {
     const res = await api.partyDeploy({ groupId: group.id, force: partyForce });
@@ -357,14 +491,43 @@ function render() {
   // no targets); targeting/cast sections grow the panel when relevant. A grip at the
   // top lets the DM drag the panel off other widgets.
   const grip = `<div class="mc-dmp-drag" title="Drag to move"><i class="fas fa-grip-lines"></i></div>`;
-  el.innerHTML = grip + statusHTML() + cameraBarHTML() + combatHTML() + quickHpHTML()
-    + partyHTML()
+  // Party order lives in its own dock tab (auto-open on pack, close on disperse) —
+  // the main area keeps only Form up / Disperse so its width never jumps.
+  const packedNow = !!packedGroup();
+  if (packedNow && !dockWasPacked) dockTab = "party";
+  else if (!packedNow && dockWasPacked && dockTab === "party") dockTab = null;
+  dockWasPacked = packedNow;
+  const main = grip + statusHTML() + cameraBarHTML() + combatHTML() + quickHpHTML()
+    + partyMainHTML()
     + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
+  // Main content scrolls inside; the tab rail + flyout stick out the right edge.
+  el.innerHTML = `<div class="mc-dmp-scroll">${main}</div>${tabRailHTML()}${dockTab ? flyoutHTML() : ""}`;
   el.classList.add("mc-show");
   clampPos(el);
 }
 
+function onChange(ev) {
+  const sel = ev.target.closest("[data-rt]");
+  if (!sel) return;
+  if (sel.dataset.rt === "type") rollTool.type = sel.value;
+  else if (sel.dataset.rt === "ability") rollTool.ability = sel.value;
+  // value persists in the DOM + state; no re-render (keeps the target list scroll)
+}
+
 async function onClick(ev) {
+  // Right-side dock: tab toggle, close, target checkbox, send.
+  const dockBtn = ev.target.closest("[data-dock]");
+  if (dockBtn) { dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }
+  if (ev.target.closest("[data-dock-close]")) { dockTab = null; return render(); }
+  if (ev.target.closest("[data-rt-forbtn]")) { rollTool.targetsOpen = !rollTool.targetsOpen; return render(); }
+  const rtT = ev.target.closest("[data-rt-target]");
+  if (rtT) { // toggle class + Set in place — no re-render (keeps list scroll)
+    const id = rtT.dataset.rtTarget;
+    if (rollTool.selected?.has(id)) { rollTool.selected.delete(id); rtT.classList.remove("mc-on"); }
+    else { rollTool.selected?.add(id); rtT.classList.add("mc-on"); }
+    return;
+  }
+  if (ev.target.closest("[data-rt-send]")) return sendRolls();
   if (await onPartyClick(ev)) return;
   const cam = ev.target.closest("[data-cam]");
   if (cam) {

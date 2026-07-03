@@ -98,6 +98,32 @@ export function registerSettings() {
   // PC's vision (POV), which is wrong when the players watch a shared TV. On, the DM's OWN
   // client stays omniscient while a token is selected; players + the TV/display are untouched
   // (the check is per-client). DM request 2026-06-26. On by default.
+  // Interface-layer ring recolor on the shared display (#13): drawn on the
+  // controls layer (like pings), so it stays player-colored under darkvision
+  // grayscale, dim light, or any vision effect. Targeting uses CORE's native
+  // per-user colored pips (default Foundry behavior) — no custom reticle.
+  // PC token self-glow (DM 2026-07-03: "0.1 is better than nothing"). Lit areas
+  // are exempt from vision-mode grayscale, so a tiny light keeps the token in
+  // color. The radius extends from the token EDGE (the body is the emitter), so
+  // there's a bleed floor ≈ the token's own circle — 0.1 is the practical minimum.
+  game.settings.register(MODULE_ID, "tokenGlow", {
+    name: "PC token glow (ft of bright light)",
+    hint: "Written onto PC tokens + the party token on pack/disperse/release so they keep color under darkvision. Radius is from the token's edge, so ~0.1 is the smallest visible; 0 disables. Applies on the NEXT pack/disperse.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 0.1
+  });
+
+  game.settings.register(MODULE_ID, "ringPlayerColors", {
+    name: "Color PC dynamic rings by player",
+    hint: "On disperse/release, each PC token's native dynamic ring is colored in the ASSIGNED player's color (User Configuration → assign characters). Native = perfect sync/scale, and the Ring tab's width/pulse/'color over subject' options all work. Under night vision the color mutes (−0.6 saturation) but stays legible. PCs only.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
   game.settings.register(MODULE_ID, "dmOmniscientVision", {
     name: "Keep the DM's vision omniscient (shared-screen tables)",
     hint: "When the DM selects/controls a player's token, don't shrink the DM's view to that token's point of view — the DM keeps seeing the whole map. Players and the TV/display are unaffected. On by default.",

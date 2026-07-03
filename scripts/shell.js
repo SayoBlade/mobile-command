@@ -52,6 +52,13 @@ export function buildPortraitPrompt(actor, { freeText = "", dmStyle = "", mode =
   } else {
     parts.push("Square 1:1 character portrait, head and shoulders, the subject centred and facing the viewer, their face in the middle of the frame with clear space above the head and an even margin on all sides, a simple background in a tone that gently contrasts with the character (subtle, not harsh) so they stay readable at small token sizes, detailed painterly fantasy D&D character illustration.");
   }
+  // (1.5) player-color banner (DM 2026-07-03): a soft banner in the owning
+  // player's colour fills the backdrop — augments the token ring so a player
+  // spots their character on the map fast. No insignia (kept generic/reusable).
+  const owner = game.users?.find?.(u => !u.isGM && u.character?.id === actor?.id)
+    ?? game.users?.find?.(u => !u.isGM && actor?.testUserPermission?.(u, "OWNER"));
+  const bannerColor = owner?.color?.css;
+  if (bannerColor) parts.push(`Background: a large cloth banner in the solid colour ${bannerColor}, no insignia or emblem, flowing and rippling softly, filling most of the backdrop behind the subject.`);
   // (2) the DM's world art-direction
   if (dmStyle && dmStyle.trim()) parts.push(`Art direction: ${dmStyle.trim()}.`);
   // (3) auto from the sheet: species, class(es)/subclass, and a standout high ability
@@ -154,7 +161,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #toastTimer = null;
   #actionState = null; // null = action list; object = target-pick/fire sub-view
   #editingField = null; // B7: "hp" | "temp" while that stat is an inline input
-  #favEditing = false;  // Actions tab: bookmark-toggle mode (add/remove favorites)
   #condEditing = false; // header: condition palette (add/remove) open
   #showLevels = false;  // header: class/level/XP panel (Lvl button) open
   #levelUp = null;      // level-up flow from the Lvl panel: null | { adding, options }
@@ -167,6 +173,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #savePrompt = null;    // §7.4/§7.6 incoming save request relayed from the executor
   #savePromptTimer = null;
   #deathSaveDismissed = false; // X'd the death-save panel (DM's call overrides; warnings-not-walls)
+  #partyMoveNote = null;  // party-mode move pad: last wall/refusal readout
+  #partyView = true;      // packed: party tab set (true) vs the normal PC sheet (false)
+  #partyTab = "view";     // party tab: view | order | explore | inventory | journal
+  #wasPacked = false;     // pack-transition latch: jump phones to the order tab once per pack
+  #lastReleased = null;   // scout release-follow: last-seen released member set
+  #rollRequest = null;    // DM roll-request prompt {actorUuid, rollType, ability, label}
+  #journalFilter = "";    // journal: live post filter ("shopke" → matching notes)
   #openContainers = new Set(); // Equipment tab: container item ids currently expanded
   #itemPickerId = null; // Equipment tab: item whose multi-activity picker is open
   #detailCard = null;   // long-press: { name, img, subtitle, desc } of an item shown full-screen
@@ -364,21 +377,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // subclass breakdown + XP bar move into the long-press name tooltip later.
     const totalLevel = sys.details?.level
       || actor.items.filter(i => i.type === "class").reduce((n, c) => n + (c.system.levels || 0), 0);
-    // Class (and subclass) icons shown just before the level, à la a class badge
-    // row. Multiclass: each class then its own subclass, primary (highest-level)
-    // class first. Subclass is paired to its class by system.classIdentifier.
-    // Icons come straight off the class/subclass items' img (no hardcoding).
-    const subItems = actor.items.filter(i => i.type === "subclass");
-    const classIcons = actor.items.filter(i => i.type === "class")
-      .sort((a, b) => (b.system.levels || 0) - (a.system.levels || 0) || a.name.localeCompare(b.name))
-      .flatMap(c => {
-        const run = [{ img: c.img, label: `${c.name} ${c.system.levels || 1}`, sub: false }];
-        const sub = subItems.find(s => s.system?.classIdentifier === c.system?.identifier);
-        if (sub) run.push({ img: sub.img, label: sub.name, sub: true });
-        return run;
-      })
-      .map(ic => `<img class="mc-cls-icon${ic.sub ? " mc-subcls-icon" : ""}" src="${foundry.utils.escapeHTML(ic.img || "icons/svg/mystery-man.svg")}" title="${foundry.utils.escapeHTML(ic.label)}" alt="${foundry.utils.escapeHTML(ic.label)}">`)
-      .join("");
+    const classIcons = this.#classIconsHTML(actor);
 
     // Show every effect Foundry shows ON the character: direct ones (Monstrosity, status
     // conditions like Prone, temporary buffs like Bless) AND effects TRANSFERRED from items —
@@ -421,7 +420,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <header class="mc-header">
         <img class="mc-portrait" src="${img}" alt="" data-action="show-image" data-detail="bio" title="Tap for image · hold for bio">
         <div class="mc-id">
-          <div class="mc-name">${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels">${classIcons}<span class="mc-lvl-num">Lvl ${totalLevel}</span></button>` : ""}<span class="mc-name-text" data-action="show-summary" data-detail="bio" title="Tap for summary · hold for bio">${foundry.utils.escapeHTML(actor.name)}</span>
+          <div class="mc-name">${classIcons ? `<span class="mc-cls-run">${classIcons}</span>` : ""}${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels"><span class="mc-lvl-num">Lvl ${totalLevel}</span></button>` : ""}<span class="mc-name-text" data-action="show-summary" data-detail="bio" title="Tap for summary · hold for bio">${foundry.utils.escapeHTML(actor.name)}</span>
             <button class="mc-insp ${insp ? "mc-insp-on" : ""}" data-action="toggle-insp" title="Inspiration">★</button>
           </div>
           <div class="mc-stats">
@@ -444,17 +443,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#rollStripHTML()}
       ${this.#initPromptHTML()}
       ${this.#turnHudHTML()}
-      <nav class="mc-tabs">
-        ${this.#tabButton("actions", "fa-hand-fist", "Actions")}
-        ${this.#tabButton("details", "fa-user", "Details")}
-        ${this.#tabButton("sheet", "fa-compass", "Explore")}
-        ${this.#tabButton("spells", "fa-wand-sparkles", "Spells")}
-        ${this.#tabButton("equipment", "fa-suitcase", "Equipment")}
-        ${this.#tabButton("journal", "fa-feather", "Journal")}
-      </nav>
+      <nav class="mc-tabs">${this.#tabBarHTML()}</nav>
       ${this.#imagePopupHTML(actor)}
       ${this.#sharedImageHTML()}
-      ${this.#savePromptHTML()}`;
+      ${this.#savePromptHTML()}
+      ${this.#rollRequestHTML()}`;
   }
 
   // ===== Character creation (§7.x) ==========================================
@@ -1326,16 +1319,45 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return `<button class="mc-tab ${this.#tab === id ? "mc-active" : ""}" data-action="tab" data-tab="${id}" title="${label}" aria-label="${label}"><i class="fas ${icon}"></i></button>`;
   }
 
+  // Bottom bar. Packed party view gets its own tab set (Party OS, DESIGN §15
+  // Round 7); "My sheet" flips to the full normal PC UI, which then carries a
+  // "Party" tab to flip back. Unpacked = the classic six.
+  #tabBarHTML() {
+    const packed = this.#partyGroup();
+    const pbtn = (id, icon, label) =>
+      `<button class="mc-tab ${this.#partyTab === id ? "mc-active" : ""}" data-action="ptab" data-ptab="${id}" title="${label}" aria-label="${label}"><i class="fas ${icon}"></i></button>`;
+    if (packed && this.#partyView) {
+      return `${pbtn("view", "fa-people-group", "Party")}
+        ${pbtn("order", "fa-border-all", "Party order")}
+        ${pbtn("explore", "fa-compass", "Exploration")}
+        ${pbtn("inventory", "fa-box-open", "Shared inventory")}
+        ${pbtn("journal", "fa-feather", "Journal")}
+        <button class="mc-tab" data-action="party-view-toggle" data-on="0" title="My sheet" aria-label="My sheet"><i class="fas fa-user"></i></button>`;
+    }
+    return `${this.#tabButton("actions", "fa-hand-fist", "Actions")}
+      ${this.#tabButton("details", "fa-user", "Details")}
+      ${this.#tabButton("sheet", "fa-compass", "Explore")}
+      ${this.#tabButton("spells", "fa-wand-sparkles", "Spells")}
+      ${this.#tabButton("equipment", "fa-suitcase", "Equipment")}
+      ${this.#tabButton("journal", "fa-feather", "Journal")}
+      ${packed ? `<button class="mc-tab mc-tab-party" data-action="party-view-toggle" data-on="1" title="Party" aria-label="Party"><i class="fas fa-people-group"></i></button>` : ""}`;
+  }
+
   #tabContent(actor) {
     if (!this.#atZeroHP(actor)) this.#deathSaveDismissed = false; // back above 0 → re-arm for next time
     // §7.4: collapse to death saves at 0 HP — unless the player X'd it (the DM
     // may rule otherwise; warnings-not-walls). A reopen chip (#buildHTML) brings
     // it back while still down.
     if (this.#atZeroHP(actor) && !this.#deathSaveDismissed) return this.#deathSaveHTML(actor);
-    // Party Mode: while this player's group is packed, the content collapses to the
-    // shared 3×3 marching-order editor (DESIGN §15), overriding tabs like death saves.
+    // Party Mode (§15 Round 7): while packed, the shell offers a party tab set —
+    // but "My sheet" flips back to the FULL normal PC UI (tokenless rolls, items,
+    // feats all work document-level: "roll a group stealth check" happens there).
     const party = this.#partyGroup();
-    if (party) return this.#partyModeHTML(party, actor);
+    // On PACK (transition into packed), pull every member's phone to the order
+    // tab — that's the task at hand (DM 2026-07-03). Unpack re-arms the jump.
+    if (party && !this.#wasPacked) { this.#wasPacked = true; this.#partyView = true; this.#partyTab = "order"; }
+    else if (!party) this.#wasPacked = false;
+    if (party && this.#partyView) return this.#partyContent(party, actor);
     // An in-progress action/cast overlays the current tab — so casting from the
     // Spells tab (or using a favorite from Explore) stays put instead of jumping.
     if (this.#detailCard) return this.#detailCardHTML();
@@ -1358,6 +1380,124 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return actor?.type === "character" && (actor.system.attributes?.hp?.value ?? 1) <= 0;
   }
 
+  // Class (and subclass) icon run for an actor — used by the header (beside the
+  // Lvl button) and the party roster. Multiclass: each class then its paired
+  // subclass (via classIdentifier), primary class first; imgs from the items.
+  #classIconsHTML(actor) {
+    const subItems = actor.items.filter(i => i.type === "subclass");
+    return actor.items.filter(i => i.type === "class")
+      .sort((a, b) => (b.system.levels || 0) - (a.system.levels || 0) || a.name.localeCompare(b.name))
+      .flatMap(c => {
+        const run = [{ img: c.img, label: `${c.name} ${c.system.levels || 1}`, sub: false }];
+        const sub = subItems.find(s => s.system?.classIdentifier === c.system?.identifier);
+        if (sub) run.push({ img: sub.img, label: sub.name, sub: true });
+        return run;
+      })
+      .map(ic => `<img class="mc-cls-icon${ic.sub ? " mc-subcls-icon" : ""}" src="${foundry.utils.escapeHTML(ic.img || "icons/svg/mystery-man.svg")}" title="${foundry.utils.escapeHTML(ic.label)}" alt="${foundry.utils.escapeHTML(ic.label)}">`)
+      .join("");
+  }
+
+  // Facing indicator: one FA arrow rotated to the facing (45° steps after the
+  // ring-rotation upgrade; uniform glyphs — the unicode ←→ rendered differently).
+  #fwdIcon(forward) {
+    return `<i class="fas fa-arrow-up mc-fwd-i" style="transform: rotate(${(forward ?? 0) * 45}deg)"></i>`;
+  }
+
+  // Party OS content router (packed + party view active).
+  #partyContent(group, actor) {
+    if (this.#detailCard) return this.#detailCardHTML(); // long-press cards work here too
+    if (this.#partyTab === "inventory") return this.#partyInventoryHTML(group);
+    if (this.#partyTab === "journal") return this.#journalHTML();
+    if (this.#partyTab === "order") return this.#partyModeHTML(group, actor);
+    if (this.#partyTab === "explore") return this.#partyExploreHTML(group);
+    return this.#partyViewHTML(group);
+  }
+
+  // Exploration tab: travel only — the pad up top (travel pace + group checks
+  // join it, task #11). The order grid lives in its own "Party order" tab.
+  #partyExploreHTML(group) {
+    const formation = group.getFlag(MODULE_ID, "formation") ?? {};
+    const pad = this.#partyPadHTML(group);
+    // Travel pace — dnd5e's own getTravelPace(). "—" means the DM hasn't set the
+    // GROUP's land/water/air speeds on its sheet (they aren't derived from members
+    // — the native sheet's "—" was unset data, not a bug; probed 2026-07-03).
+    let pace = null; try { pace = group.system.getTravelPace?.(); } catch (e) { /* older data */ }
+    const spd = (v) => v ? `${v}` : "—";
+    const paceHTML = `<div class="mc-party-pace">
+      <span class="mc-pace-label"><i class="fas fa-gauge"></i> ${foundry.utils.escapeHTML(pace?.pace?.label ?? "Travel pace")}</span>
+      <span class="mc-pace-spd" title="Land"><i class="fas fa-person-walking"></i> ${spd(pace?.paces?.land)}</span>
+      <span class="mc-pace-spd" title="Water"><i class="fas fa-person-swimming"></i> ${spd(pace?.paces?.water)}</span>
+      <span class="mc-pace-spd" title="Air"><i class="fas fa-feather-pointed"></i> ${spd(pace?.paces?.air)}</span>
+    </div>${!pace?.paces?.land && !pace?.paces?.water && !pace?.paces?.air ? `<div class="mc-pv-note">Speeds unset — the DM fills land/water/air on the Group sheet.</div>` : ""}`;
+    // Group checks roll like ANY roll (DM 2026-07-03): tapping rolls YOUR check via
+    // the native dialog — no broadcast/prompt relay (removed; each player taps their own).
+    // Group checks (#11): everyone rolls their own; the DM averages.
+    const checks = `<div class="mc-party-checks">
+      <button data-action="party-check" data-skill="prc"><i class="fas fa-eye"></i> Perception</button>
+      <button data-action="party-check" data-skill="ste"><i class="fas fa-user-ninja"></i> Stealth</button>
+      <button data-action="party-check" data-skill="sur"><i class="fas fa-tree"></i> Survival</button>
+    </div>`;
+    return `<div class="mc-party">
+      <div class="mc-party-head"><span><i class="fas fa-route"></i> Travel</span><span class="mc-party-fwd">Forward ${this.#fwdIcon(formation.forward)}</span></div>
+      ${pad || `<div class="mc-party-hint">Lock in the marching order (Party order tab) to travel.</div>`}
+      ${paceHTML}
+      <div class="mc-party-pad-head"><i class="fas fa-dice-d20"></i> Group checks</div>
+      ${checks}
+    </div>`;
+  }
+
+  // "Party view": the group card's member roster (AC · speed · HP/HD · the three
+  // passive-sense skills), minus faction standing / group rests (DM 2026-07-03).
+  #partyViewHTML(group) {
+    const esc = foundry.utils.escapeHTML;
+    const rows = (group.system?.members ?? []).map(m => m.actor).filter(Boolean).map(a => {
+      const sys = a.system;
+      const hp = sys.attributes?.hp ?? {};
+      const pct = hp.max ? Math.max(0, Math.min(100, (hp.value / hp.max) * 100)) : 0;
+      const hd = sys.attributes?.hd;
+      const skill = (id, icon, label) => {
+        const s = sys.skills?.[id];
+        return s ? `<span class="mc-pv-skill" title="${label}"><i class="fas ${icon}"></i> ${s.total >= 0 ? "+" : ""}${s.total} <b>(${s.passive})</b></span>` : "";
+      };
+      return `<div class="mc-pv-row">
+        <img class="mc-pv-img" src="${esc(a.img || "icons/svg/mystery-man.svg")}" alt="">
+        <div class="mc-pv-main">
+          <div class="mc-pv-name">${esc(a.name)} <span class="mc-pv-cls">${this.#classIconsHTML(a)}</span></div>
+          <div class="mc-pv-bar"><div class="mc-pv-fill${pct <= 33 ? " mc-low" : ""}" style="width:${pct}%"></div></div>
+          <div class="mc-pv-sub">HP ${hp.value ?? "—"}/${hp.max ?? "—"}${hp.temp ? ` +${hp.temp}` : ""} · HD ${hd?.value ?? "—"}/${hd?.max ?? "—"}</div>
+        </div>
+        <div class="mc-pv-stats">
+          <span class="mc-pv-stat" title="Armor Class"><i class="fas fa-shield"></i> ${sys.attributes?.ac?.value ?? "—"}</span>
+          <span class="mc-pv-stat" title="Speed"><i class="fas fa-person-running"></i> ${sys.attributes?.movement?.walk ?? "—"}</span>
+          <div class="mc-pv-skills">${skill("prc", "fa-eye", "Perception")}${skill("inv", "fa-magnifying-glass", "Investigation")}${skill("ins", "fa-brain", "Insight")}</div>
+        </div>
+      </div>`;
+    }).join("");
+    return `<div class="mc-pv">
+      <div class="mc-pv-head"><i class="fas fa-people-group"></i> ${esc(group.name)}</div>
+      ${rows || `<div class="mc-pv-empty">No members in the group.</div>`}
+    </div>`;
+  }
+
+  // Shared inventory: the GROUP actor's own items (the party stash). v1 is
+  // read-only browse + long-press detail cards; PC↔stash transfers are the v2
+  // "item transfers" feature.
+  #partyInventoryHTML(group) {
+    const esc = foundry.utils.escapeHTML;
+    const items = group.items.filter(i => "quantity" in (i.system ?? {}))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const rows = items.map(i => `<div class="mc-pv-item" data-uuid="${i.uuid}">
+        <img class="mc-pv-item-img" src="${esc(i.img)}" alt="">
+        <span class="mc-pv-item-name">${esc(i.name)}</span>
+        ${(i.system.quantity ?? 1) > 1 ? `<span class="mc-pv-item-qty">×${i.system.quantity}</span>` : ""}
+      </div>`).join("");
+    return `<div class="mc-pv">
+      <div class="mc-pv-head"><i class="fas fa-box-open"></i> Shared inventory</div>
+      ${rows || `<div class="mc-pv-empty">The party stash is empty — the DM can drop items onto the Group sheet.</div>`}
+      <div class="mc-pv-note">Hold an item for details. Moving items in/out is DM-side for now.</div>
+    </div>`;
+  }
+
   // Party Mode (DESIGN §15). While a group this player belongs to is packed, the
   // content collapses to a shared 3×3 marching-order editor. Tapping a cell moves
   // THIS player's own PC there (anyone can place anywhere — decision #4); "Done"
@@ -1365,9 +1505,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // through the executor (rpc.party*) and Foundry's document sync repaints all
   // phones — no custom relay.
   #partyGroup() {
+    // A member RELEASED as a scout (#11) plays normally — their phone leaves party
+    // mode. Only an owned, still-packed member keeps this user in the party UI.
     return game.actors.find(a => a.type === "group"
       && a.getFlag(MODULE_ID, "packed")
-      && (a.system?.members ?? []).some(m => m.actor?.testUserPermission(game.user, "OWNER"))) ?? null;
+      && (a.system?.members ?? []).some(m => m.actor?.testUserPermission(game.user, "OWNER")
+        && !(a.getFlag(MODULE_ID, "formation")?.released ?? []).includes(m.actor.id))) ?? null;
   }
 
   #partyModeHTML(group, actor) {
@@ -1378,6 +1521,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const myId = actor?.testUserPermission(game.user, "OWNER") ? actor.id : null;
     const arrows = ["↑", "→", "↓", "←"]; // N E S W
     const forward = formation.forward ?? 0;
+    // Two-stage packed mode (DM 2026-07-02): "arrange" = grid editing + Done locks;
+    // "travel" (after the DM's Lock in) = read-only grid + the move pad drives.
+    const arranging = (formation.stage ?? "arrange") === "arrange";
 
     // occupants per cell (a cell may hold >1 while players sort themselves out)
     const keyOf = (m) => { const cl = formation.cells?.[m.id]; return cl ? `${cl.r},${cl.c}` : null; };
@@ -1387,16 +1533,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const unique = new Set(placedKeys).size === placedKeys.length;
     const canDeploy = allPlaced && unique;
 
+    const released = new Set(formation.released ?? []);
     const cell = (r, c) => {
       const occ = cellOcc(r, c);
       const primary = occ[0];
       const mineHere = occ.some(m => m.id === myId);
       const dupe = occ.length > 1;
       const isLocked = primary && locked.has(primary.id);
+      const away = primary && released.has(primary.id); // out scouting (#11) — ghosted
       const img = primary ? (primary.prototypeToken?.texture?.src || primary.img || "icons/svg/mystery-man.svg") : "";
-      return `<button class="mc-party-cell${primary ? " mc-full" : ""}${mineHere ? " mc-mine" : ""}${dupe ? " mc-dupe" : ""}${isLocked ? " mc-locked" : ""}" data-action="party-cell" data-r="${r}" data-c="${c}">
+      return `<button class="mc-party-cell${primary ? " mc-full" : ""}${mineHere ? " mc-mine" : ""}${dupe ? " mc-dupe" : ""}${isLocked ? " mc-locked" : ""}${away ? " mc-away" : ""}"${arranging ? ` data-action="party-cell" data-r="${r}" data-c="${c}"` : ""}>
         ${primary ? `<img class="mc-party-tok" src="${img}" alt=""><span class="mc-party-nm">${foundry.utils.escapeHTML(primary.name.split(" ")[0])}</span>` : ""}
-        ${dupe ? `<span class="mc-party-badge">${occ.length}</span>` : isLocked ? `<span class="mc-party-lock"><i class="fas fa-lock"></i></span>` : ""}
+        ${away ? `<span class="mc-party-lock"><i class="fas fa-binoculars"></i></span>` : dupe ? `<span class="mc-party-badge">${occ.length}</span>` : isLocked ? `<span class="mc-party-lock"><i class="fas fa-lock"></i></span>` : ""}
       </button>`;
     };
     const grid = [0, 1, 2].map(r => `<div class="mc-party-row">${[0, 1, 2].map(c => cell(r, c)).join("")}</div>`).join("");
@@ -1407,24 +1555,100 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <i class="fas ${iLocked ? "fa-lock" : "fa-check"}"></i> ${iLocked ? "Locked — tap to change" : "Done"}
     </button>` : "";
 
+    // Stage flow (DM 2026-07-03): you can't disperse an order that isn't locked —
+    // Disperse only exists in TRAVEL, on its own full-width row (4 buttons in one
+    // row overflowed). Arrange's primary action is a gold Lock in.
+    // Rotate buttons FLANK the stage button (DM 2026-07-03).
     const dmRow = isGM ? `<div class="mc-party-dm">
       <button class="mc-party-rot" data-action="party-forward" data-dir="-1" aria-label="Rotate left"><i class="fas fa-rotate-left"></i></button>
-      <span class="mc-party-facing">Facing ${arrows[forward]}</span>
+      <button class="mc-party-stage${arranging ? " mc-primary" : ""}" data-action="party-stage" data-stage="${arranging ? "travel" : "arrange"}"${arranging && !canDeploy ? " disabled" : ""}>
+        <i class="fas ${arranging ? "fa-lock" : "fa-pen-to-square"}"></i> ${arranging ? "Lock in" : "Rearrange"}</button>
       <button class="mc-party-rot" data-action="party-forward" data-dir="1" aria-label="Rotate right"><i class="fas fa-rotate-right"></i></button>
-      <button class="mc-party-deploy" data-action="party-disperse"${canDeploy ? "" : " disabled"}><i class="fas fa-people-group"></i> Disperse</button>
-    </div>` : "";
+    </div>${arranging ? "" : `<button class="mc-party-deploy mc-party-deploy-row" data-action="party-disperse"><i class="fas fa-people-group"></i> Disperse</button>`}` : "";
 
-    const hint = !allPlaced ? "Waiting for everyone to take a spot…"
+    const hint = !arranging
+      ? (isGM ? "Traveling — the pad moves the party. Rearrange to edit the order."
+        : "On the move — drive the party with the pad.")
+      : !allPlaced ? "Waiting for everyone to take a spot…"
       : !unique ? "Two characters share a spot — nudge one over."
-      : isGM ? "Everyone's set. Choose facing, then Disperse."
-      : "You're set — waiting on the DM to move out.";
+      : isGM ? "Everyone's set — Lock in to travel, or Disperse."
+      : "You're set — waiting on the DM to lock in.";
 
     return `<div class="mc-party">
-      <div class="mc-party-head"><span><i class="fas fa-people-group"></i> Marching order</span><span class="mc-party-fwd">Forward ${arrows[forward]}</span></div>
+      <div class="mc-party-head"><span><i class="fas fa-people-group"></i> ${arranging ? "Marching order" : "Marching order (locked)"}</span><span class="mc-party-fwd">Forward ${this.#fwdIcon(forward)}</span></div>
       <div class="mc-party-grid">${grid}</div>
       <div class="mc-party-hint${canDeploy ? " mc-ok" : ""}">${hint}</div>
-      ${doneBtn}${dmRow}
+      ${arranging ? doneBtn : ""}${dmRow}
     </div>`;
+  }
+
+  // Scout release-follow (DM 2026-07-03): when the DM releases a member THIS
+  // player owns, jump their phone to that PC's Explore tab with the released token
+  // selected (e.g. send the wizard's cat to scout). On combine, return to party
+  // view. Called from the group's updateActor hook before re-render.
+  maybeFollowRelease(group) {
+    if (group?.type !== "group") return;
+    const released = new Set(group.getFlag(MODULE_ID, "formation")?.released ?? []);
+    const prev = this.#lastReleased ?? new Set();
+    const mine = (id) => game.actors.get(id)?.testUserPermission(game.user, "OWNER");
+    for (const id of released) {
+      if (prev.has(id) || !mine(id)) continue; // newly released & mine → follow it out
+      const tok = game.scenes?.active?.tokens.find(t => t.actorId === id);
+      if (tok) { this.#subjectId = tok.id; this.#subjectActorId = null; }
+      this.#partyView = false; this.#tab = "sheet";
+    }
+    for (const id of prev) {
+      if (!released.has(id) && mine(id)) this.#partyView = true; // combined back → party view
+    }
+    this.#lastReleased = released;
+  }
+
+  async #partyStage(stage) {
+    const group = this.#partyGroup();
+    if (!group || !game.user.isGM) return;
+    const res = await rpc.partyStage({ groupId: group.id, stage });
+    if (res?.ok === false) ui.notifications?.warn(res.reason ?? "Couldn't switch stage.");
+  }
+
+  // Party travel (§15 / original MVP goal "move the group token out of combat"):
+  // while packed, the party screen carries its own D-pad that steps the GROUP
+  // token. Any member-owner may drive (executor enforces); walls refuse with a
+  // readout, same as the personal pad.
+  #partyPadHTML(group) {
+    // Central travel gate: the pad exists only after the DM's Lock in — every
+    // caller (party explore tab AND the PC sheet's Explore tab) inherits it.
+    if ((group.getFlag(MODULE_ID, "formation")?.stage ?? "arrange") !== "travel") return "";
+    const tok = game.scenes?.active?.tokens.find(t => t.actorId === group.id);
+    if (!tok) return "";
+    const cell = (dx, dy) => {
+      const deg = Math.round(Math.atan2(dx, -dy) * 180 / Math.PI);
+      const ortho = (dx === 0) !== (dy === 0);
+      return `<button class="mc-dpad-btn ${ortho ? "mc-dpad-primary" : ""}" data-action="party-move" data-dx="${dx}" data-dy="${dy}">
+        <i class="fas fa-arrow-up" style="transform: rotate(${deg}deg)"></i>
+      </button>`;
+    };
+    const blank = `<span class="mc-dpad-blank"></span>`;
+    const nb = this.#partyMoveNote;
+    return `
+      <div class="mc-party-pad-head"><i class="fas fa-route"></i> Move the party</div>
+      <div class="${nb?.cls ?? "mc-move-note"}" data-role="party-move-note">${nb ? foundry.utils.escapeHTML(nb.text) : ""}</div>
+      <div class="mc-dpad">
+        ${cell(-1, -1)}${cell(0, -1)}${cell(1, -1)}
+        ${cell(-1, 0)}${blank}${cell(1, 0)}
+        ${cell(-1, 1)}${cell(0, 1)}${cell(1, 1)}
+      </div>`;
+  }
+
+  async #partyMove(dx, dy) {
+    const group = this.#partyGroup();
+    const tok = group && game.scenes?.active?.tokens.find(t => t.actorId === group.id);
+    if (!tok) return;
+    const res = await rpc.moveToken({ tokenId: tok.id, dxGrid: dx, dyGrid: dy });
+    this.#partyMoveNote = res?.ok ? null : { text: res?.ok === false ? "Blocked" : (res?.reason ?? "Blocked"), cls: "mc-move-note mc-move-red" };
+    // Direct DOM update, no re-render (mirrors #doMove): the group token's move
+    // doesn't repaint the shell, and a full render mid-taps would eat the pad.
+    const note = this.element?.querySelector('[data-role="party-move-note"]');
+    if (note) { note.textContent = this.#partyMoveNote?.text ?? ""; note.className = this.#partyMoveNote?.cls ?? "mc-move-note"; }
   }
 
   // Place my own PC in a cell (executor brokers the flag write; the updateActor
@@ -1632,11 +1856,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const list = pages.length ? notes : `<div class="mc-jn-empty">No notes yet — start the party log.</div>`;
     return `
       <section class="mc-journal">
+        <div class="mc-jn-filterrow"><i class="fas fa-magnifying-glass"></i><input class="mc-jn-filter" type="search" placeholder="Filter notes… (e.g. shopke)" value="${foundry.utils.escapeHTML(this.#journalFilter)}"></div>
+        <div class="mc-jn-list">${list}</div>
         <div class="mc-jn-compose">
-          <textarea class="mc-jn-input" rows="3" placeholder="Add a note to the party journal…" ${this.#journalBusy ? "disabled" : ""}>${foundry.utils.escapeHTML(this.#journalDraft)}</textarea>
+          <textarea class="mc-jn-input" rows="2" placeholder="Add a note to the party journal…" ${this.#journalBusy ? "disabled" : ""}>${foundry.utils.escapeHTML(this.#journalDraft)}</textarea>
           <button class="mc-jn-post" data-action="journal-post" ${this.#journalBusy ? "disabled" : ""}>${this.#journalBusy ? "Posting…" : "Post note"}</button>
         </div>
-        <div class="mc-jn-list">${list}</div>
       </section>`;
   }
   async #postJournalNote() {
@@ -2460,7 +2685,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // RPC (executor wall-validates and applies). Out-of-combat group-token
   // binding is a later refinement; this moves the controlled actor's token.
   #moveHTML() {
-    if (!this.originTokenId) return "";
+    // Packed + traveling: the own token is off-canvas, so the PC sheet's Explore
+    // pad drives the PARTY token instead ("move in both", DM 2026-07-03).
+    if (!this.originTokenId) {
+      const party = this.#partyGroup();
+      return party ? this.#partyPadHTML(party) : "";
+    }
     // One Font Awesome arrow, rotated per direction — renders uniformly (the
     // unicode diagonals ↖↗↙↘ get emoji-fied on iOS, which looked inconsistent).
     const cell = (dx, dy) => {
@@ -2810,6 +3040,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     } catch (e) { /* audio context may still be locked */ }
   }
 
+  // Local action feedback (player-pilot idea, DM-approved 2026-07-02): the acting
+  // player's own taps sound + buzz on THEIR phone only (2nd arg false = local, not
+  // broadcast). v1 uses core sounds (CONFIG.sounds — nothing to bundle); swapping in
+  // real weapon/damage SFX packs is a later asset decision. iOS: audio is unlocked
+  // by the very tap that triggers this (§6); vibrate is Android-only (no-op on iOS).
+  #sfx(kind) {
+    if (!isPhoneClient()) return;
+    try {
+      const src = { roll: CONFIG.sounds?.dice, prompt: CONFIG.sounds?.notification }[kind];
+      if (src) foundry.audio.AudioHelper.play({ src, volume: 0.8, autoplay: true, loop: false }, false);
+    } catch (e) { /* audio context may still be locked */ }
+    try { navigator.vibrate?.(kind === "prompt" ? [120, 60, 120] : 30); } catch (e) { /* unsupported */ }
+  }
+
   #abilitiesHTML(actor) {
     const abilities = actor.system.abilities ?? {};
     const abilityGrid = ABILITIES.map(a => {
@@ -2867,7 +3111,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!acts.length) {
       return `<div class="mc-placeholder">No usable actions found.</div>`;
     }
-    const editing = this.#favEditing;
+    // Favorite-mode removed (DM 2026-07-03) — long-press → detail card ★ curates
+    // favorites better than a modal bookmark mode ever did.
+    const editing = false;
     // Group by activation cost: Action / Bonus / Reaction, with everything else
     // (timed/special activations) under Other. Fixed order; empty groups drop.
     const groups = [
@@ -2904,10 +3150,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
             <span>${g.label}</span><i class="fas fa-chevron-${collapsed ? "right" : "down"}"></i></button>`;
           return `<div class="mc-search-group">${header}${collapsed ? "" : `<div class="mc-actions">${rowsFor(g.key)}</div>`}</div>`;
         }).join("");
-    const editBtn = `<button class="mc-fav-edit ${editing ? "mc-on" : ""}" data-action="fav-edit-toggle" title="Add/remove favorites" aria-label="Add or remove favorites"><i class="fas fa-bookmark"></i></button>`;
     return `<div class="mc-actions-head">
-        <span class="mc-section-label">Actions — ${editing ? "tap to favorite" : "tap to use"}</span>
-        ${editBtn}${this.#searchToggleHTML()}
+        <span class="mc-section-label">Actions — tap to use</span>
+        ${this.#searchToggleHTML()}
       </div>
       ${this.#wildShapeBarHTML(actor)}
       ${this.#searchDrawerHTML()}
@@ -3474,9 +3719,29 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // this user's actors. Store it, show the cue, and auto-clear when midi's
   // timeout would have lapsed (so a stale prompt doesn't linger after the
   // auto-roll). A new request replaces the old.
+  // DM roll-request (task #19): the DM's Rolls tool asked THIS player for a check
+  // or save — show a tappable card that rolls it natively (chat + on-screen dice).
+  noteRollRequest(payload) {
+    this.#rollRequest = payload || null;
+    if (payload) this.#sfx("prompt");
+    if (this.rendered) this.render();
+  }
+  #rollRequestHTML() {
+    const p = this.#rollRequest;
+    if (!p) return "";
+    const a = p.actorUuid ? fromUuidSync(p.actorUuid) : this.actor;
+    if (!a?.testUserPermission(game.user, "OWNER")) return "";
+    const verb = p.rollType === "check" ? "check" : "save";
+    return `<div class="mc-gc-bar">
+      <button class="mc-gc-roll" data-action="roll-request"><i class="fas fa-dice-d20"></i> Roll ${foundry.utils.escapeHTML(p.label ?? p.ability)} ${verb}</button>
+      <button class="mc-gc-x" data-action="roll-request-x" aria-label="Dismiss">✕</button>
+    </div>`;
+  }
+
   noteSavePrompt(payload) {
     clearTimeout(this.#savePromptTimer);
     this.#savePrompt = payload || null;
+    if (payload) this.#sfx("prompt"); // off-turn attention cue (§6: player is looking at the TV)
     if (payload?.ttlMs) {
       this.#savePromptTimer = setTimeout(() => {
         this.#savePrompt = null;
@@ -3590,6 +3855,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const s = this.#actionState;
     if (!s || s.busy) return;
     s.busy = true; s.phase = "rolling"; this.render();
+    this.#sfx("roll");
     const midiOptions = {};
     if (s.adv === "advantage") midiOptions.advantage = true;
     if (s.adv === "disadvantage") midiOptions.disadvantage = true;
@@ -3702,6 +3968,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       return;
     }
     s.busy = true; this.render();
+    this.#sfx("roll");
     let res;
     try {
       res = await this.#withTimeout(rpc.useActivityDamage({ requestId: s.requestId }));
@@ -3768,8 +4035,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return;
       case "action-pick":
         return this.#pickAction(el.dataset.uuid);
-      case "fav-edit-toggle":
-        this.#favEditing = !this.#favEditing; return this.render();
       case "fav-toggle":
         return this.#toggleFavorite(el.dataset.favid);
       case "fav-act": {
@@ -4012,6 +4277,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "level-up-add": return this.#openMulticlass();
       case "level-up-pick": return this.#addMulticlass(el.dataset.uuid);
       case "party-cell": return this.#partyPlace(Number(el.dataset.r), Number(el.dataset.c));
+      case "roll-request": {
+        const p = this.#rollRequest; this.#rollRequest = null; this.render();
+        const a = p?.actorUuid ? fromUuidSync(p.actorUuid) : actor;
+        if (p && a) p.rollType === "check" ? a.rollAbilityCheck({ ability: p.ability }) : a.rollSavingThrow({ ability: p.ability });
+        return;
+      }
+      case "roll-request-x": this.#rollRequest = null; return this.render();
+      case "party-move": return this.#partyMove(Number(el.dataset.dx), Number(el.dataset.dy));
+      case "party-stage": return this.#partyStage(el.dataset.stage);
+      case "ptab":
+        this.#partyTab = el.dataset.ptab; return this.render();
+      case "party-check":
+        return actor?.rollSkill({ skill: el.dataset.skill }); // same as any skill roll
+      case "party-view-toggle":
+        this.#partyView = el.dataset.on === "1"; return this.render();
       case "party-done": return this.#partyToggleLock();
       case "party-forward": return this.#partyForward(Number(el.dataset.dir));
       case "party-disperse": return this.#partyDisperse();
@@ -4230,7 +4510,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // green (within speed) / yellow (within dash) / red (beyond), like the drag
     // ruler. Out of combat → blank (no turn budget to show). Persist it in
     // #moveBudget so the next combat re-render keeps the readout (see #moveHTML).
-    if (!res?.ok) this.#moveBudget = { text: res?.reason ?? "can't move there", cls: "mc-move-note mc-move-red" };
+    if (!res?.ok) this.#moveBudget = { text: res?.ok === false ? "Blocked" : (res?.reason ?? "Blocked"), cls: "mc-move-note mc-move-red" };
     else if (res.speed) this.#moveBudget = { text: `${res.used} / ${res.speed} ft`, cls: `mc-move-note mc-move-${res.color}` };
     else this.#moveBudget = null;
     // Update the note in place so the readout is snappy (no full re-render needed).
@@ -4771,6 +5051,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const t = ev.target;
     if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-jn-input")) {
       this.#journalDraft = t.value;
+    } else if (t instanceof HTMLInputElement && t.classList.contains("mc-jn-filter")) {
+      // Journal note filter — pure DOM show/hide (no re-render, keeps focus).
+      this.#journalFilter = t.value;
+      const q = t.value.trim().toLowerCase();
+      this.element?.querySelectorAll(".mc-jn-note").forEach(n => {
+        n.style.display = !q || n.textContent.toLowerCase().includes(q) ? "" : "none";
+      });
     } else if (t instanceof HTMLInputElement && t.classList.contains("mc-search-input")) {
       this.#searchQuery = t.value; // live search filter — DOM toggle, no re-render
       this.#applySearch(t.value);
@@ -5054,7 +5341,9 @@ export function registerShellHooks() {
   const inMyParty = (a) => a?.type === "group" &&
     (a.system?.members ?? []).some(m => m.actor?.testUserPermission?.(game.user, "OWNER"));
   Hooks.on("updateActor", (actor) => {
-    if (shellInstance?.rendered && (controlsActor(actor) || inMyParty(actor))) shellInstance.render();
+    if (!shellInstance?.rendered) return;
+    if (inMyParty(actor)) shellInstance.maybeFollowRelease(actor);
+    if (controlsActor(actor) || inMyParty(actor)) shellInstance.render();
   });
   // Pack deletes member tokens / creates the party token; deploy reverses it —
   // either way our subject changes, so rebind and repaint.
@@ -5095,6 +5384,7 @@ export function registerShellHooks() {
   Hooks.on("mobile-command.assignTargets", (uuids, from) => shellInstance?.noteAssignedTargets(uuids, from));
   // §7.4/§7.6 save/reaction prompt: the executor relays a midi save request here.
   Hooks.on("mobile-command.savePrompt", (payload) => shellInstance?.noteSavePrompt(payload));
+  Hooks.on("mobile-command.rollRequest", (payload) => shellInstance?.noteRollRequest(payload));
   // "Show Players" image → the phone. The shell hides native windows, so Foundry's
   // ImagePopout never reaches a phone; mirror the core `shareImage` broadcast into the
   // shell's full-screen overlay instead (respect an explicit users allowlist).

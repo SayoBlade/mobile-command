@@ -1668,11 +1668,41 @@ body.mc-theme-arcane #mobile-command-shell {
   background: linear-gradient(#26222b, #1c1922); color: #ece5d6;
   border: 1px solid #c8a44d; border-radius: 10px; padding: 10px;
   font-family: "Signika", sans-serif; box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
-  /* The panel grows sections (party grid, casts, targets); never let it run off
-     the screen — scroll inside instead (DM 2026-07-02: Form up rendered at y=1214,
-     below the viewport, because a saved drag position + new sections pushed it off). */
-  max-height: calc(100vh - 24px); overflow-y: auto;
 }
+/* Main content scrolls inside a wrapper so the tab rail + flyout can stick OUT of
+   the panel's right edge without being clipped (DM 2026-07-03 dock). */
+.mc-dmp-scroll { max-height: calc(100vh - 24px); overflow-y: auto; }
+/* Right-edge tab rail — icon-only tabs sticking out. Closed: on the panel's right
+   edge. Open: rides the flyout's right edge (mc-open), so the tab is always on the
+   far-right box (DM 2026-07-03). */
+.mc-dmp-tabrail { position: absolute; left: 100%; top: 10px; display: flex; flex-direction: column; gap: 5px; transition: left .15s ease; }
+.mc-dmp-tabrail.mc-open { left: calc(100% + 226px); }
+.mc-dmp-tab { width: 30px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #ece5d6; background: linear-gradient(#26222b, #1c1922); border: 1px solid #c8a44d; border-left: none; border-radius: 0 9px 9px 0; cursor: pointer; }
+.mc-dmp-tab.mc-on { color: #1a1712; background: #c8a44d; }
+/* Flyout box — same height as the panel, attached to its right edge (tab moves to
+   the flyout's far side). */
+.mc-dmp-flyout { position: absolute; left: calc(100% + 2px); top: 0; bottom: 0; width: 224px; display: flex; flex-direction: column; background: linear-gradient(#26222b, #1c1922); color: #ece5d6; border: 1px solid #c8a44d; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
+.mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid #4a4334; font-weight: 800; }
+.mc-dmp-fly-x { background: none; border: none; color: #a59b86; font-size: 15px; cursor: pointer; }
+.mc-dmp-fly-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.mc-dmp-rt-drops { display: flex; gap: 6px; }
+.mc-dmp-rt-drops select { flex: 0 0 auto; height: 34px; border-radius: 7px; background: #14171f; color: #ece5d6; border: 1px solid #4a4334; padding: 0 8px; }
+.mc-rt-type { min-width: 76px; } .mc-rt-abil { min-width: 66px; }
+.mc-dmp-rt-forlabel { color: #a59b86; font-weight: 700; font-size: 12px; }
+/* Targets multiselect — a dropdown trigger + a collapsible checklist (keeps the
+   flyout WIDTH fixed; only grows vertically inside the scroll). */
+.mc-dmp-rt-forbtn { display: flex; align-items: center; justify-content: space-between; height: 34px; padding: 0 10px; border-radius: 7px; background: #14171f; color: #ece5d6; border: 1px solid #4a4334; cursor: pointer; }
+/* Packed main-area button — opens the Party order tab. */
+.mc-dmp-party-mini { width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 9px; background: #221f16; color: #c8a44d; border: 1px solid #6b5a2a; cursor: pointer; font-weight: 700; }
+.mc-dmp-rt-list { display: flex; flex-direction: column; gap: 3px; }
+.mc-dmp-rt-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; background: #1b202b; border: 1px solid #2f3640; cursor: pointer; font-size: 13px; }
+.mc-dmp-rt-row span { flex: 1 1 auto; }
+.mc-rt-check { color: #c8a44d; opacity: 0; width: 14px; }
+.mc-dmp-rt-row.mc-on { border-color: #c8a44d; }
+.mc-dmp-rt-row.mc-on .mc-rt-check { opacity: 1; }
+.mc-dmp-rt-row.mc-grouped { background: #221f16; }
+.mc-dmp-rt-send { height: 40px; border-radius: 9px; font-weight: 800; color: #1a1712; background: linear-gradient(#c8a44d, #b98a1e); border: 1px solid #c8a44d; cursor: pointer; }
+.mc-dmp-empty { color: #a59b86; font-size: 12px; text-align: center; padding: 8px; }
 #mc-dm-panel.mc-show { display: block; }
 /* Drag grip — repositions the panel so it doesn't cover other widgets. */
 .mc-dmp-drag { display: flex; align-items: center; justify-content: center; height: 16px; margin: -4px -4px 6px; color: #8a7f63; cursor: move; touch-action: none; }
@@ -2188,6 +2218,85 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-party-facing { flex: 1 1 auto; text-align: center; }
 .mc-party-deploy { flex: 0 0 auto; padding: 0 16px; height: 44px; border-radius: 10px; font-weight: 800; color: #1a1206; background: linear-gradient(var(--mc-gold), #b98a1e); border: 1px solid var(--mc-gold); cursor: pointer; }
 .mc-party-deploy:disabled { opacity: .45; cursor: default; filter: grayscale(.4); }
+.mc-party-stage { flex: 1 1 auto; height: 44px; border-radius: 10px; font-weight: 700; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-primary-edge); cursor: pointer; white-space: nowrap; }
+/* Arrange's primary action: Lock in reads as THE button (gold); disabled until
+   every occupied cell is unique + everyone is placed. */
+.mc-party-stage.mc-primary { color: #1a1206; background: linear-gradient(var(--mc-gold), #b98a1e); border-color: var(--mc-gold); font-weight: 800; }
+.mc-party-stage:disabled { opacity: .45; cursor: default; filter: grayscale(.4); }
+/* Travel-only Disperse on its own full-width row (4 buttons in one row overflowed). */
+.mc-party-deploy-row { width: 100%; flex: none; }
+/* Party travel pad (reuses the explore D-pad classes) */
+.mc-party-pad-head { margin: 0 0 -6px; text-align: center; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--mc-muted); }
+/* Class icons now sit OUTSIDE the Lvl button, in the name row (DM 2026-07-03). */
+.mc-cls-run { display: inline-flex; align-items: center; gap: 4px; margin: 0 2px; flex: 0 0 auto; }
+/* Facing arrow: one FA glyph rotated in 45° steps — uniform across directions. */
+.mc-fwd-i { display: inline-block; transition: transform .25s ease; }
+.mc-pv-cls { display: inline-flex; gap: 3px; vertical-align: middle; }
+.mc-pv-cls .mc-cls-icon { width: 17px; height: 17px; }
+.mc-pv-cls .mc-subcls-icon { width: 15px; height: 15px; }
+/* Journal frame (DM 2026-07-03): posts scroll in their own pane; the composer is
+   STUCK to the bottom in its own frame; a live filter sits on top. */
+.mc-content:has(> .mc-journal) { overflow: hidden; display: flex; flex-direction: column; }
+.mc-journal { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; gap: 8px; }
+.mc-jn-filterrow { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 12px 0; color: var(--mc-muted); }
+.mc-jn-filter { flex: 1 1 auto; height: 38px; border-radius: 9px; background: #14171f; border: 1px solid var(--mc-edge); color: var(--mc-ink); padding: 0 10px; font-size: 14px; }
+.mc-jn-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 12px; }
+.mc-jn-compose { flex: 0 0 auto; border-top: 1px solid var(--mc-edge); background: rgba(10, 12, 17, .92); padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px)); }
+/* TV compass — fixed top-right on the display client, hovering above the map;
+   never intercepts input. North = the top of the TV, anchoring "forward ↑". */
+#mc-tv-compass { position: fixed; bottom: 60px; right: 60px; width: 46px; height: 46px; z-index: 60; pointer-events: none; opacity: .9; filter: drop-shadow(0 3px 8px rgba(0,0,0,.6)); }
+/* Reserve the move readout's line height so "Blocked"/"12/30 ft" appearing never
+   shifts the pad below it (DM 2026-07-03: avoid layout jumps from small text). */
+.mc-move-note { min-height: 1.2em; }
+/* Scout (#11): released member — ghosted cell with binoculars. */
+.mc-party-cell.mc-away, .mc-dmp-party-cell.mc-away { opacity: .45; border-style: dashed; }
+.mc-party-cell.mc-away .mc-party-lock { color: var(--mc-muted); }
+/* Group-check prompt bar (above the tab bar, like the save prompt). */
+.mc-gc-bar { position: fixed; left: 10px; right: 10px; bottom: 74px; z-index: 10001; display: flex; gap: 8px; }
+.mc-gc-roll { flex: 1 1 auto; height: 52px; border-radius: 12px; font-weight: 800; font-size: 15px; color: #1a1206; background: linear-gradient(var(--mc-gold), #b98a1e); border: 1px solid var(--mc-gold); cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.55); }
+.mc-gc-x { flex: 0 0 46px; height: 52px; border-radius: 12px; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-edge); cursor: pointer; }
+/* Travel pace + group checks on the exploration tab. */
+.mc-party-pace { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--mc-edge); border-radius: 11px; background: linear-gradient(#1b202b, #161a23); }
+.mc-pace-label { flex: 1 1 auto; font-weight: 800; color: var(--mc-ink); }
+.mc-pace-label i { color: var(--mc-gold); margin-right: 5px; }
+.mc-pace-spd { color: var(--mc-muted); font-weight: 700; font-variant-numeric: tabular-nums; }
+.mc-party-checks { display: flex; gap: 8px; }
+.mc-party-checks button { flex: 1 1 0; height: 46px; border-radius: 11px; font-weight: 700; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-primary-edge); cursor: pointer; }
+.mc-party-checks button i { margin-right: 4px; color: var(--mc-gold); }
+.mc-party .mc-dpad { align-self: center; }
+
+/* Party OS (§15 Round 7) — Party view roster + shared inventory */
+.mc-pv { padding: 14px 12px 18px; display: flex; flex-direction: column; gap: 10px; }
+.mc-pv-head { font-weight: 800; letter-spacing: .04em; text-transform: uppercase; font-size: 13px; color: var(--mc-ink); }
+.mc-pv-head i { color: var(--mc-gold); margin-right: 6px; }
+.mc-pv-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px;
+  background: linear-gradient(#1b202b, #161a23); border: 1px solid var(--mc-edge); border-radius: 12px;
+}
+.mc-pv-img { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; object-position: top; flex: 0 0 auto; }
+.mc-pv-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.mc-pv-name { font-weight: 800; color: var(--mc-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-pv-bar { height: 7px; border-radius: 4px; background: #101319; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); }
+.mc-pv-fill { height: 100%; background: linear-gradient(#69b05c, #4c8a42); }
+.mc-pv-fill.mc-low { background: linear-gradient(#c05555, #9c3d3d); }
+.mc-pv-sub { font-size: 11.5px; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
+.mc-pv-stats { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.mc-pv-stat { font-size: 13px; font-weight: 700; color: var(--mc-ink); }
+.mc-pv-stat i { color: var(--mc-muted); font-size: 11px; margin-right: 2px; }
+.mc-pv-skills { display: flex; gap: 7px; }
+.mc-pv-skill { font-size: 10.5px; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
+.mc-pv-skill i { font-size: 9.5px; }
+.mc-pv-skill b { color: var(--mc-ink); }
+.mc-pv-empty, .mc-pv-note { text-align: center; font-size: 12px; color: var(--mc-muted); }
+.mc-pv-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+  background: linear-gradient(#1b202b, #161a23); border: 1px solid var(--mc-edge); border-radius: 10px;
+}
+.mc-pv-item-img { width: 34px; height: 34px; border-radius: 7px; object-fit: cover; flex: 0 0 auto; }
+.mc-pv-item-name { flex: 1 1 auto; min-width: 0; color: var(--mc-ink); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-pv-item-qty { flex: 0 0 auto; color: var(--mc-muted); font-weight: 700; font-variant-numeric: tabular-nums; }
+/* The "Party" return tab on the normal bar gets a gold tint so it stands out. */
+.mc-tab-party i { color: var(--mc-gold); }
 
 /* DM panel — marching-order mirror (square cells; red = problematic spot at the
    current group position/facing; gold ring = the member the DM picked up).
@@ -2210,11 +2319,14 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-dmp-party-cell.mc-stack { border-color: #d06060; }
 .mc-dmp-party-badge { position: absolute; top: 2px; right: 3px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: #d06060; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 .mc-dmp-party-lock { position: absolute; top: 3px; right: 4px; font-size: 9px; color: #c8a44d; }
-.mc-dmp-party-hint { text-align: center; font-size: 11px; color: #c8a44d; margin: 2px 0; }
+.mc-dmp-party-hint { text-align: center; font-size: 11px; color: #c8a44d; margin: 2px 0; min-height: 1.1em; }
 .mc-dmp-party-btns { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
 .mc-dmp-party-btns button { height: 34px; border-radius: 8px; border: 1px solid #4a4334; background: #2c2733; color: #ece5d6; cursor: pointer; }
 .mc-dmp-party-btns button:hover { background: #36303f; }
 .mc-dmp-party-btns [data-party="rotl"], .mc-dmp-party-btns [data-party="rotr"] { flex: 0 0 38px; }
+.mc-dmp-party-btns [data-party="stage"] { flex: 1 1 auto; font-weight: 700; white-space: nowrap; }
+.mc-dmp-party-head { cursor: pointer; user-select: none; }
+.mc-dmp-party-head:hover { color: #c8a44d; }
 .mc-dmp-party-deploy { flex: 1 1 auto; font-weight: 800; color: #1a1712 !important; background: linear-gradient(#c8a44d, #b98a1e) !important; border-color: #c8a44d !important; }
 .mc-dmp-party-deploy:hover { background: linear-gradient(#d4b35f, #c49a2e) !important; }
 .mc-dmp-party-deploy.mc-warn { color: #fff !important; background: linear-gradient(#c05555, #9c3d3d) !important; border-color: #d06060 !important; }
