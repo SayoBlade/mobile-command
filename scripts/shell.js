@@ -195,6 +195,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #lastReleased = null;   // scout release-follow: last-seen released member set
   #rollRequest = null;    // DM roll-request prompt {actorUuid, rollType, ability, label}
   #colorPickOpen = false; // DM-triggered colour-picker overlay is showing
+  #partySelf = null;      // marching-order: the owned member the player picked up
   #journalFilter = "";    // journal: live post filter ("shopke" → matching notes)
   #openContainers = new Set(); // Equipment tab: container item ids currently expanded
   #itemPickerId = null; // Equipment tab: item whose multi-activity picker is open
@@ -1537,12 +1538,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const members = (group.system?.members ?? []).map(m => m.actor).filter(Boolean);
     const locked = new Set(formation.locked ?? []);
     const isGM = game.user.isGM;
-    const myId = actor?.testUserPermission(game.user, "OWNER") ? actor.id : null;
+    // "Mine" is EVERY group member this player owns (PC + pet + familiar…), not just
+    // the active subject — so one player can arrange all their tokens (DM 2026-07-03).
+    const mine = members.filter(m => m.testUserPermission(game.user, "OWNER"));
+    const myIds = new Set(mine.map(m => m.id));
     const arrows = ["↑", "→", "↓", "←"]; // N E S W
     const forward = formation.forward ?? 0;
     // Two-stage packed mode (DM 2026-07-02): "arrange" = grid editing + Done locks;
     // "travel" (after the DM's Lock in) = read-only grid + the move pad drives.
     const arranging = (formation.stage ?? "arrange") === "arrange";
+    if (!arranging && this.#partySelf) this.#partySelf = null; // can't carry into travel
+    const picked = this.#partySelf && myIds.has(this.#partySelf) ? this.#partySelf : (this.#partySelf = null);
 
     // occupants per cell (a cell may hold >1 while players sort themselves out)
     const keyOf = (m) => { const cl = formation.cells?.[m.id]; return cl ? `${cl.r},${cl.c}` : null; };
@@ -1556,22 +1562,25 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const cell = (r, c) => {
       const occ = cellOcc(r, c);
       const primary = occ[0];
-      const mineHere = occ.some(m => m.id === myId);
+      const mineHere = occ.some(m => myIds.has(m.id));
+      const pickedHere = picked && occ.some(m => m.id === picked);
       const dupe = occ.length > 1;
       const isLocked = primary && locked.has(primary.id);
       const away = primary && released.has(primary.id); // out scouting (#11) — ghosted
       const img = primary ? (primary.prototypeToken?.texture?.src || primary.img || "icons/svg/mystery-man.svg") : "";
-      return `<button class="mc-party-cell${primary ? " mc-full" : ""}${mineHere ? " mc-mine" : ""}${dupe ? " mc-dupe" : ""}${isLocked ? " mc-locked" : ""}${away ? " mc-away" : ""}"${arranging ? ` data-action="party-cell" data-r="${r}" data-c="${c}"` : ""}>
+      return `<button class="mc-party-cell${primary ? " mc-full" : ""}${mineHere ? " mc-mine" : ""}${pickedHere ? " mc-picked" : ""}${dupe ? " mc-dupe" : ""}${isLocked ? " mc-locked" : ""}${away ? " mc-away" : ""}"${arranging ? ` data-action="party-cell" data-r="${r}" data-c="${c}"` : ""}>
         ${primary ? `<img class="mc-party-tok" src="${img}" alt=""><span class="mc-party-nm">${foundry.utils.escapeHTML(primary.name.split(" ")[0])}</span>` : ""}
         ${away ? `<span class="mc-party-lock"><i class="fas fa-binoculars"></i></span>` : dupe ? `<span class="mc-party-badge">${occ.length}</span>` : isLocked ? `<span class="mc-party-lock"><i class="fas fa-lock"></i></span>` : ""}
       </button>`;
     };
     const grid = [0, 1, 2].map(r => `<div class="mc-party-row">${[0, 1, 2].map(c => cell(r, c)).join("")}</div>`).join("");
 
-    const iLocked = myId && locked.has(myId);
-    const iPlaced = myId && !!formation.cells?.[myId];
-    const doneBtn = myId ? `<button class="mc-party-done ${iLocked ? "mc-on" : ""}" data-action="party-done"${iPlaced ? "" : " disabled"}>
-      <i class="fas ${iLocked ? "fa-lock" : "fa-check"}"></i> ${iLocked ? "Locked — tap to change" : "Done"}
+    // Done locks EVERY token this player owns; enabled once they're all placed.
+    const iLocked = mine.length > 0 && mine.every(m => locked.has(m.id));
+    const iPlaced = mine.length > 0 && mine.every(m => !!formation.cells?.[m.id]);
+    const doneLabel = iLocked ? "Locked — tap to change" : mine.length > 1 ? "Done — lock my tokens" : "Done";
+    const doneBtn = mine.length ? `<button class="mc-party-done ${iLocked ? "mc-on" : ""}" data-action="party-done"${iPlaced ? "" : " disabled"}>
+      <i class="fas ${iLocked ? "fa-lock" : "fa-check"}"></i> ${doneLabel}
     </button>` : "";
 
     // Stage flow (DM 2026-07-03): you can't disperse an order that isn't locked —
@@ -1585,9 +1594,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <button class="mc-party-rot" data-action="party-forward" data-dir="1" aria-label="Rotate right"><i class="fas fa-rotate-right"></i></button>
     </div>${arranging ? "" : `<button class="mc-party-deploy mc-party-deploy-row" data-action="party-disperse"><i class="fas fa-people-group"></i> Disperse</button>`}` : "";
 
+    const pickedName = picked ? (members.find(m => m.id === picked)?.name.split(" ")[0] ?? "token") : null;
     const hint = !arranging
       ? (isGM ? "Traveling — the pad moves the party. Rearrange to edit the order."
         : "On the move — drive the party with the pad.")
+      : picked ? `Moving ${pickedName} — tap a square (tap it again to drop).`
+      : mine.length > 1 ? "Tap one of your tokens, then tap where it should go."
       : !allPlaced ? "Waiting for everyone to take a spot…"
       : !unique ? "Two characters share a spot — nudge one over."
       : isGM ? "Everyone's set — Lock in to travel, or Disperse."
@@ -1670,26 +1682,60 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (note) { note.textContent = this.#partyMoveNote?.text ?? ""; note.className = this.#partyMoveNote?.cls ?? "mc-move-note"; }
   }
 
-  // Place my own PC in a cell (executor brokers the flag write; the updateActor
-  // hook repaints every phone). Moving clears my lock — I'm rearranging.
+  // Marching-order tap handler. The executor brokers every flag write; the
+  // updateActor hook repaints all phones. Players who own several members (PC + pet)
+  // pick a token up, then drop it — one-tap "move" is kept for the common
+  // single-token case. Moving clears the lock: you're rearranging (DM 2026-07-03).
   async #partyPlace(r, c) {
     const group = this.#partyGroup();
-    const actor = this.actor;
-    if (!group || !actor?.testUserPermission(game.user, "OWNER")) return;
-    const res = await rpc.partySetCell({ groupId: group.id, actorId: actor.id, r, c, lock: false });
+    if (!group) return;
+    const formation = group.getFlag(MODULE_ID, "formation") ?? { cells: {} };
+    const members = (group.system?.members ?? []).map(m => m.actor).filter(Boolean);
+    const mine = members.filter(m => m.testUserPermission(game.user, "OWNER"));
+    if (!mine.length) return;
+    const mineIds = new Set(mine.map(m => m.id));
+    const occ = members.filter(m => { const cl = formation.cells?.[m.id]; return cl && cl.r === r && cl.c === c; });
+    const mineHere = occ.find(m => mineIds.has(m.id));
+
+    if (!this.#partySelf) {
+      if (mineHere) { this.#partySelf = mineHere.id; return this.render(); } // pick up
+      if (mine.length === 1) return this.#partyMove(group, mine[0].id, r, c);   // one-tap
+      ui.notifications?.info("Tap one of your tokens first, then a square.");
+      return;
+    }
+    // carrying a token
+    if (mineHere?.id === this.#partySelf) { this.#partySelf = null; return this.render(); } // drop in place
+    // swap if another of MY tokens sits on the target
+    const other = occ.find(m => mineIds.has(m.id) && m.id !== this.#partySelf);
+    const selCell = formation.cells?.[this.#partySelf];
+    if (other && selCell) await this.#partyMove(group, other.id, selCell.r, selCell.c);
+    await this.#partyMove(group, this.#partySelf, r, c);
+    this.#partySelf = null;
+    this.render();
+  }
+
+  async #partyMove(group, actorId, r, c) {
+    const res = await rpc.partySetCell({ groupId: group.id, actorId, r, c, lock: false });
     if (res?.ok === false) ui.notifications?.warn(res.reason ?? "Couldn't move there.");
   }
 
   async #partyToggleLock() {
     const group = this.#partyGroup();
-    const actor = this.actor;
-    if (!group || !actor?.testUserPermission(game.user, "OWNER")) return;
+    if (!group) return;
+    const members = (group.system?.members ?? []).map(m => m.actor).filter(Boolean);
+    const mine = members.filter(m => m.testUserPermission(game.user, "OWNER"));
+    if (!mine.length) return;
     const formation = group.getFlag(MODULE_ID, "formation") ?? {};
-    const cell = formation.cells?.[actor.id];
-    if (!cell) return ui.notifications?.warn("Pick a spot first.");
-    const locked = (formation.locked ?? []).includes(actor.id);
-    const res = await rpc.partySetCell({ groupId: group.id, actorId: actor.id, r: cell.r, c: cell.c, lock: !locked });
-    if (res?.ok === false) ui.notifications?.warn(res.reason ?? "Couldn't lock in.");
+    const placed = mine.filter(m => formation.cells?.[m.id]);
+    if (placed.length < mine.length) return ui.notifications?.warn("Place all your tokens first.");
+    // Toggle as a group: unlock if every one is locked, otherwise lock them all.
+    const lockedSet = new Set(formation.locked ?? []);
+    const lock = !mine.every(m => lockedSet.has(m.id));
+    for (const m of placed) {
+      const cell = formation.cells[m.id];
+      const res = await rpc.partySetCell({ groupId: group.id, actorId: m.id, r: cell.r, c: cell.c, lock });
+      if (res?.ok === false) { ui.notifications?.warn(res.reason ?? "Couldn't lock in."); break; }
+    }
   }
 
   async #partyForward(dir) {

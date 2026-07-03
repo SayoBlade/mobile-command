@@ -2239,6 +2239,10 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-party-cell.mc-full { border-color: var(--mc-primary-edge); }
 .mc-party-cell.mc-mine { border-color: var(--mc-gold); box-shadow: 0 0 0 1px var(--mc-gold) inset, 0 2px 8px rgba(0,0,0,.5); }
 .mc-party-cell.mc-dupe { border-color: #d06060; box-shadow: 0 0 0 1px #d06060 inset; }
+/* Picked up (carrying this token, waiting for a destination) — lifted & pulsing. */
+.mc-party-cell.mc-picked { border-color: var(--mc-gold); box-shadow: 0 0 0 2px var(--mc-gold) inset, 0 0 12px rgba(224,180,74,.6); transform: translateY(-2px) scale(1.03); z-index: 2; animation: mc-picked-pulse 1.1s ease-in-out infinite; }
+.mc-party-cell.mc-picked .mc-party-tok { box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 0 8px rgba(224,180,74,.5); }
+@keyframes mc-picked-pulse { 0%,100% { box-shadow: 0 0 0 2px var(--mc-gold) inset, 0 0 10px rgba(224,180,74,.45); } 50% { box-shadow: 0 0 0 2px var(--mc-gold) inset, 0 0 16px rgba(224,180,74,.75); } }
 .mc-party-tok { width: 62px; height: 62px; border-radius: 50%; object-fit: cover; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
 .mc-party-nm { font-size: 11px; font-weight: 700; color: var(--mc-ink); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-party-lock { position: absolute; top: 4px; right: 5px; font-size: 10px; color: var(--mc-gold); }
