@@ -8,6 +8,9 @@ import { api as rpc } from "./rpc.js";
 // HP editing, inventory, spell prep, item use (Route B) come in later phases.
 
 const ABILITIES = ["str", "dex", "con", "int", "wis", "cha"];
+// Mobile-friendly player-colour palette (task #18). Distinct, table-legible hues;
+// the same set the DM's Player-colours tab uses.
+const MC_COLOR_PALETTE = ["#d94a3a", "#e0842b", "#e6c229", "#4caf50", "#1fa79a", "#3a86d6", "#8a5cd6", "#d861a8", "#9c6b3f", "#5a6b7a", "#e8e6df", "#2c3e50"];
 // 5e point-buy (PHB 2014 & 2024): 27-point budget, scores 8–15.
 const PB_COST = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
 const PB_BUDGET = 27;
@@ -191,6 +194,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #wasPacked = false;     // pack-transition latch: jump phones to the order tab once per pack
   #lastReleased = null;   // scout release-follow: last-seen released member set
   #rollRequest = null;    // DM roll-request prompt {actorUuid, rollType, ability, label}
+  #colorPickOpen = false; // DM-triggered colour-picker overlay is showing
   #journalFilter = "";    // journal: live post filter ("shopke" → matching notes)
   #openContainers = new Set(); // Equipment tab: container item ids currently expanded
   #itemPickerId = null; // Equipment tab: item whose multi-activity picker is open
@@ -459,7 +463,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#imagePopupHTML(actor)}
       ${this.#sharedImageHTML()}
       ${this.#savePromptHTML()}
-      ${this.#rollRequestHTML()}`;
+      ${this.#rollRequestHTML()}
+      ${this.#colorPickOpen ? this.#colorPickHTML() : ""}`;
   }
 
   // ===== Character creation (§7.x) ==========================================
@@ -2648,6 +2653,22 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <button class="mc-leave" data-action="exit"><i class="fas fa-right-from-bracket"></i> Leave Mobile Command</button>
       <button class="mc-logout" data-action="logout"><i class="fas fa-power-off"></i> Log out</button>`;
   }
+  // Colour pick (task #18) — a full-screen overlay the DM triggers (Players tab →
+  // palette) so a player picks their own colour; there's no standing colour UI, so
+  // players can only change it when the DM initiates. Colour drives rings/banners/
+  // target pips/journal tint.
+  #colorPickHTML() {
+    const cur = (game.user.color?.css ?? game.user.color ?? "").toLowerCase();
+    const sw = MC_COLOR_PALETTE.map(c => `<button class="mc-color-sw ${cur === c.toLowerCase() ? "mc-on" : ""}" data-action="my-color" data-color="${c}" style="background:${c}" aria-label="${c}"></button>`).join("");
+    return `<div class="mc-colorpick">
+      <div class="mc-colorpick-card">
+        <div class="mc-colorpick-title">Pick your colour</div>
+        <div class="mc-color-grid">${sw}</div>
+        <button class="mc-colorpick-done" data-action="color-pick-done">Done</button>
+      </div>
+    </div>`;
+  }
+
   // Theme picker (Details). Choice is per-device (localStorage), applied as a body
   // class that re-tints the shell's CSS vars; "tavern" is the default (no class).
   #currentTheme() {
@@ -3745,6 +3766,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (payload) this.#sfx("prompt");
     if (this.rendered) this.render();
   }
+  openColorPick() { this.#colorPickOpen = true; this.#sfx("prompt"); if (this.rendered) this.render(); }
   #rollRequestHTML() {
     const p = this.#rollRequest;
     if (!p) return "";
@@ -4041,6 +4063,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "set-theme":
         try { window.localStorage.setItem("mc-theme", el.dataset.theme); } catch (e) { /* private mode */ }
         this.#applyTheme(); return this.render();
+      case "my-color":
+        return game.user.update({ color: el.dataset.color }).then(() => this.render());
+      case "color-pick-done":
+        this.#colorPickOpen = false; return this.render();
       case "tab":
         this.#tab = el.dataset.tab;
         this.#searchOpen = false; this.#searchQuery = ""; // each tab's search starts closed/clear
@@ -5405,6 +5431,10 @@ export function registerShellHooks() {
   // the next picker (ControllerShell.noteAssignedTargets).
   Hooks.on("mobile-command.assignTargets", (uuids, from) => shellInstance?.noteAssignedTargets(uuids, from));
   // §7.4/§7.6 save/reaction prompt: the executor relays a midi save request here.
+  // Colour pick (task #18): the DM triggered a colour pick for THIS player → show
+  // the full-screen picker overlay. Colour changes persist on the User doc (across
+  // sessions), so a pick is a one-time thing the DM initiates from the Players tab.
+  Hooks.on("mobile-command.colorPick", () => { if (shellInstance) { shellInstance.openColorPick(); } });
   Hooks.on("mobile-command.savePrompt", (payload) => shellInstance?.noteSavePrompt(payload));
   Hooks.on("mobile-command.rollRequest", (payload) => shellInstance?.noteRollRequest(payload));
   // "Show Players" image → the phone. The shell hides native windows, so Foundry's

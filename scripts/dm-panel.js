@@ -10,11 +10,15 @@ import { MODULE_ID } from "./preset.js";
 
 let panelEl = null;
 
+// Player-colour palette (task #18) — same set the phone's "Your colour" uses.
+const MC_COLOR_PALETTE = ["#d94a3a", "#e0842b", "#e6c229", "#4caf50", "#1fa79a", "#3a86d6", "#8a5cd6", "#d861a8", "#9c6b3f", "#5a6b7a", "#e8e6df", "#2c3e50"];
+
 // Right-side tab dock (DM 2026-07-03, future-proofed for more tools). Icon-only
 // tabs stick out the panel's right edge; a tab opens a same-height flyout box to
 // its right (X or re-click closes). First tool = Rolls.
-let dockTab = null;          // null | "rolls" | "party"
+let dockTab = null;          // null | "rolls" | "party" | "tokens"
 let dockWasPacked = false;   // auto-open the party tab on pack, close on disperse
+let tokensPlayer = "";       // owned-tokens: which player's tokens are shown
 const rollTool = { type: "save", ability: "dex", selected: null, targetsOpen: false };
 
 // Candidate roll targets: packed-group members (grouped) ∪ player-owned character
@@ -39,6 +43,7 @@ function tabRailHTML() {
   return `<div class="mc-dmp-tabrail ${dockTab ? "mc-open" : ""}">
     ${tab("party", "fa-border-all", "Party order", !!packedGroup())}
     ${tab("rolls", "fa-dice-d20", "Request rolls")}
+    ${tab("tokens", "fa-users", "Players")}
   </div>`;
 }
 
@@ -61,20 +66,55 @@ function rollsToolHTML() {
       ${c.grouped ? `<i class="fas fa-people-group" title="In a group"></i>` : ""}
     </div>`;
   }).join("");
+  // All three controls on one line; the target picker is a real dropdown that
+  // overflows the flyout frame (absolute overlay) — DM 2026-07-03.
   return `
-    <div class="mc-dmp-rt-drops">
+    <div class="mc-dmp-rt-top">
       <select class="mc-rt-type" data-rt="type"><option value="save" ${rollTool.type === "save" ? "selected" : ""}>Save</option><option value="check" ${rollTool.type === "check" ? "selected" : ""}>Check</option></select>
       <select class="mc-rt-abil" data-rt="ability">${abilOpts}</select>
+      <div class="mc-rt-multi">
+        <button class="mc-dmp-rt-forbtn" data-rt-forbtn title="Choose who rolls"><i class="fas fa-users"></i> ${selCount} <i class="fas fa-chevron-${rollTool.targetsOpen ? "up" : "down"}"></i></button>
+        ${rollTool.targetsOpen ? `<div class="mc-dmp-rt-list">${rows || `<div class="mc-dmp-empty">No player tokens.</div>`}</div>` : ""}
+      </div>
     </div>
-    <div class="mc-dmp-rt-forlabel">For…</div>
-    <button class="mc-dmp-rt-forbtn" data-rt-forbtn><span>${selCount} selected</span><i class="fas fa-chevron-${rollTool.targetsOpen ? "up" : "down"}"></i></button>
-    ${rollTool.targetsOpen ? `<div class="mc-dmp-rt-list">${rows || `<div class="mc-dmp-empty">No player tokens.</div>`}</div>` : ""}
     <button class="mc-dmp-rt-send" data-rt-send><i class="fas fa-paper-plane"></i> Request rolls</button>`;
+}
+
+// Owned tokens (task #18): each non-GM, non-TV player's owned actors as draggable
+// thumbnails. Drag → the canvas spawns a token natively (we set Actor drag data);
+// double-click → open the sheet. For familiars, summons, wildshape forms, pets,
+// extra PCs — quick out-of-combat placement.
+// Compact for the common case (4–6 players × 1–2 tokens): pick a player from a
+// dropdown, see their tokens in a 2-row grid that scrolls HORIZONTALLY, sorted
+// highest-level first. No tall stacked sections; horizontal scroll handles a
+// heavy player. (DM 2026-07-03.)
+function tokLevel(a) { return a.system?.details?.level ?? a.system?.details?.cr ?? 0; }
+function ownedTokensHTML() {
+  const esc = foundry.utils.escapeHTML;
+  let tvId = ""; try { tvId = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
+  const players = game.users.filter(u => !u.isGM && u.id !== tvId);
+  if (!players.length) return `<div class="mc-dmp-empty">No players.</div>`;
+  if (!tokensPlayer || !players.some(u => u.id === tokensPlayer)) tokensPlayer = players[0].id;
+  const u = game.users.get(tokensPlayer);
+  const opts = players.map(p => `<option value="${p.id}" ${p.id === tokensPlayer ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+  const owned = game.actors.filter(a => a.type !== "group" && a.testUserPermission(u, "OWNER"))
+    .sort((a, b) => tokLevel(b) - tokLevel(a) || a.name.localeCompare(b.name)); // highest level first
+  const items = owned.map(a => `<div class="mc-dmp-tok" draggable="true" data-drag-actor="${a.uuid}" data-sheet-actor="${a.id}" title="${esc(a.name)}${tokLevel(a) ? ` · lvl ${tokLevel(a)}` : ""} — drag to the map · double-click for sheet">
+    <img src="${esc(a.prototypeToken?.texture?.src || a.img || "icons/svg/mystery-man.svg")}" alt="">
+    <span>${esc(a.name)}</span>
+  </div>`).join("");
+  return `
+    <div class="mc-dmp-tok-top">
+      <select class="mc-dmp-tok-player" data-tok-player style="border-color:${u.color?.css ?? "#4a4334"}">${opts}</select>
+      <button class="mc-dmp-tok-palette" data-color-pick="${u.id}" title="Let ${esc(u.name)} pick their colour on their phone"><i class="fas fa-palette" style="color:${u.color?.css ?? "#c8a44d"}"></i></button>
+    </div>
+    <div class="mc-dmp-tok-grid">${items || `<div class="mc-dmp-empty">No tokens for this player.</div>`}</div>`;
 }
 
 function flyoutHTML() {
   let title = "", body = "";
   if (dockTab === "rolls") { title = "Request rolls"; body = rollsToolHTML(); }
+  else if (dockTab === "tokens") { title = "Players"; body = ownedTokensHTML(); }
   else if (dockTab === "party") {
     const g = packedGroup();
     const f = g?.getFlag(MODULE_ID, "formation") ?? {};
@@ -82,8 +122,8 @@ function flyoutHTML() {
     title = `${(f.stage ?? "arrange") === "arrange" ? "Marching order" : "Traveling"} <i class="fas fa-arrow-up" style="display:inline-block;transform:rotate(${(f.forward ?? 0) * 45}deg)"></i>`;
     body = partyTabHTML();
   }
-  return `<div class="mc-dmp-flyout">
-    <div class="mc-dmp-fly-head"><span>${title}</span><button class="mc-dmp-fly-x" data-dock-close aria-label="Close">✕</button></div>
+  return `<div class="mc-dmp-flyout mc-fly-${dockTab}">
+    <div class="mc-dmp-fly-head" title="Drag to move"><span>${title}</span><button class="mc-dmp-fly-x" data-dock-close aria-label="Close">✕</button></div>
     <div class="mc-dmp-fly-body">${body}</div>
   </div>`;
 }
@@ -135,7 +175,9 @@ function ensureEl() {
   panelEl = document.createElement("div");
   panelEl.id = "mc-dm-panel";
   panelEl.addEventListener("click", onClick);
-  panelEl.addEventListener("change", onChange); // Rolls-tool dropdowns
+  panelEl.addEventListener("change", onChange); // Rolls-tool dropdowns + token player
+  panelEl.addEventListener("dragstart", onTokenDragStart); // Owned-tokens → canvas
+  panelEl.addEventListener("dblclick", onTokenDblClick);   // Owned-tokens → sheet
   panelEl.addEventListener("pointerdown", onPointerDown); // drag from the grip handle
   document.body.appendChild(panelEl);
   applySavedPos(panelEl);
@@ -172,7 +214,8 @@ function clampPos(el) {
 }
 
 function onPointerDown(ev) {
-  if (!ev.target.closest(".mc-dmp-drag")) return;
+  if (ev.target.closest("button, select, input")) return; // controls act, don't drag
+  if (!ev.target.closest(".mc-dmp-drag, .mc-dmp-fly-head, .mc-dmp-head")) return; // grip or any header
   ev.preventDefault();
   const rect = panelEl.getBoundingClientRect();
   const offX = ev.clientX - rect.left, offY = ev.clientY - rect.top;
@@ -342,7 +385,7 @@ function partyMainHTML() {
         <i class="fas fa-people-group"></i> Form up</button></div>` : "";
   }
   const arranging = ((group.getFlag(MODULE_ID, "formation") ?? {}).stage ?? "arrange") === "arrange";
-  if (arranging) return `<button class="mc-dmp-party-mini" data-dock="party"><i class="fas fa-border-all"></i> Packed — arrange & lock in</button>`;
+  if (arranging) return `<button class="mc-dmp-party-mini" data-dock="party"><i class="fas fa-border-all"></i> Arrange &amp; lock in</button>`;
   return `<div class="mc-dmp-party-btns">
     <button class="mc-dmp-party-deploy ${partyForce ? "mc-warn" : ""} ${game.combat?.combatants.some(cb => cb.actorId === group.id) ? "mc-nudge" : ""}" data-party="deploy">
       <i class="fas ${partyForce ? "fa-triangle-exclamation" : "fa-people-arrows"}"></i> ${partyForce ? "Disperse anyway" : "Disperse"}</button></div>`;
@@ -506,7 +549,24 @@ function render() {
   clampPos(el);
 }
 
+// Owned-tokens grid: set Foundry Actor drag data so a drop on the canvas spawns a
+// token natively (no custom drop handler needed — the DM client has the canvas).
+function onTokenDragStart(ev) {
+  const item = ev.target.closest("[data-drag-actor]");
+  if (!item) return;
+  const a = fromUuidSync(item.dataset.dragActor);
+  if (!a) return;
+  try { ev.dataTransfer.setData("text/plain", JSON.stringify(a.toDragData())); ev.dataTransfer.effectAllowed = "copy"; } catch (e) { /* */ }
+}
+function onTokenDblClick(ev) {
+  const item = ev.target.closest("[data-sheet-actor]");
+  if (!item) return;
+  game.actors.get(item.dataset.sheetActor)?.sheet?.render(true);
+}
+
 function onChange(ev) {
+  const player = ev.target.closest("[data-tok-player]");
+  if (player) { tokensPlayer = player.value; return render(); } // owned-tokens player switch
   const sel = ev.target.closest("[data-rt]");
   if (!sel) return;
   if (sel.dataset.rt === "type") rollTool.type = sel.value;
@@ -520,6 +580,14 @@ async function onClick(ev) {
   if (dockBtn) { dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }
   if (ev.target.closest("[data-dock-close]")) { dockTab = null; return render(); }
   if (ev.target.closest("[data-rt-forbtn]")) { rollTool.targetsOpen = !rollTool.targetsOpen; return render(); }
+  const cp = ev.target.closest("[data-color-pick]");
+  if (cp) { // DM initiates: push the colour picker to that player's phone
+    const uid = cp.dataset.colorPick;
+    const res = await api.requestColorPick({ userId: uid });
+    if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't reach that player.");
+    else ui.notifications.info(`Asked ${game.users.get(uid)?.name ?? "the player"} to pick a colour.`);
+    return;
+  }
   const rtT = ev.target.closest("[data-rt-target]");
   if (rtT) { // toggle class + Set in place — no re-render (keeps list scroll)
     const id = rtT.dataset.rtTarget;

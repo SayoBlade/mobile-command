@@ -1314,6 +1314,14 @@ body.mc-theme-arcane #mobile-command-shell {
 }
 
 /* Theme picker chips (Details tab) */
+/* Player colour picker (task #18) — full-screen overlay the DM triggers. */
+.mc-color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.mc-color-sw { aspect-ratio: 1 / 1; height: auto; border-radius: 50%; border: 2px solid rgba(255,255,255,.12); cursor: pointer; }
+.mc-color-sw.mc-on { border-color: #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.5), 0 0 0 4px #fff; }
+.mc-colorpick { position: fixed; inset: 0; z-index: 10002; display: flex; align-items: center; justify-content: center; background: rgba(6, 8, 12, .72); padding: 20px; }
+.mc-colorpick-card { width: 100%; max-width: 340px; background: var(--mc-panel, #1c1922); border: 1px solid var(--mc-gold); border-radius: 16px; padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
+.mc-colorpick-title { font-weight: 800; font-size: 17px; text-align: center; margin-bottom: 16px; color: var(--mc-ink); }
+.mc-colorpick-done { width: 100%; margin-top: 18px; height: 48px; border-radius: 12px; font-weight: 800; font-size: 15px; color: #1a1206; background: linear-gradient(var(--mc-gold), #b98a1e); border: 1px solid var(--mc-gold); cursor: pointer; }
 .mc-theme-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
 /* height (not min-height) + flex centring + nowrap = every chip is exactly 40px on any
    width/browser, so the selected one can't read as taller and the other three "shorter". */
@@ -1664,34 +1672,59 @@ body.mc-theme-arcane #mobile-command-shell {
    ============================================================ */
 #mc-dm-panel {
   position: fixed; left: 12px; bottom: 110px; z-index: 70;
-  width: 232px; display: none;
+  width: 232px; display: none; box-sizing: border-box;
+  /* Shared minimum for the panel AND its flyout (≈ the main box's height with a
+     player selected) so the two boxes match and neither is over-tall (DM 2026-07-03). */
+  --mc-dmp-min-h: 268px; min-height: var(--mc-dmp-min-h);
   background: linear-gradient(#26222b, #1c1922); color: #ece5d6;
   border: 1px solid #c8a44d; border-radius: 10px; padding: 10px;
   font-family: "Signika", sans-serif; box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
 }
 /* Main content scrolls inside a wrapper so the tab rail + flyout can stick OUT of
    the panel's right edge without being clipped (DM 2026-07-03 dock). */
-.mc-dmp-scroll { max-height: calc(100vh - 24px); overflow-y: auto; }
+.mc-dmp-scroll { max-height: calc(100vh - 24px); overflow-y: auto; overflow-x: hidden; }
 /* Right-edge tab rail — icon-only tabs sticking out. Closed: on the panel's right
    edge. Open: rides the flyout's right edge (mc-open), so the tab is always on the
    far-right box (DM 2026-07-03). */
 .mc-dmp-tabrail { position: absolute; left: 100%; top: 10px; display: flex; flex-direction: column; gap: 5px; transition: left .15s ease; }
-.mc-dmp-tabrail.mc-open { left: calc(100% + 226px); }
+.mc-dmp-tabrail.mc-open { left: calc(100% + 242px); }
 .mc-dmp-tab { width: 30px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #ece5d6; background: linear-gradient(#26222b, #1c1922); border: 1px solid #c8a44d; border-left: none; border-radius: 0 9px 9px 0; cursor: pointer; }
 .mc-dmp-tab.mc-on { color: #1a1712; background: #c8a44d; }
-/* Flyout box — same height as the panel, attached to its right edge (tab moves to
-   the flyout's far side). */
-.mc-dmp-flyout { position: absolute; left: calc(100% + 2px); top: 0; bottom: 0; width: 224px; display: flex; flex-direction: column; background: linear-gradient(#26222b, #1c1922); color: #ece5d6; border: 1px solid #c8a44d; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
-.mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid #4a4334; font-weight: 800; }
+/* Flyout box — attached to the panel's right; taller minimum, no h-scroll, and
+   overflow visible so the targets dropdown can escape the frame (DM 2026-07-03). */
+.mc-dmp-flyout { position: absolute; left: calc(100% + 2px); top: 0; width: 240px; min-height: var(--mc-dmp-min-h, 268px); max-height: calc(100vh - 24px); display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(#26222b, #1c1922); color: #ece5d6; border: 1px solid #c8a44d; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
+/* Rolls tab only: let the targets dropdown escape the box. Other tabs clip so the
+   body scrolls (tokens grid can be long — DM 2026-07-03). */
+.mc-dmp-flyout.mc-fly-rolls { overflow: visible; }
+.mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px; border-bottom: 1px solid #4a4334; font-weight: 800; border-radius: 10px 10px 0 0; }
 .mc-dmp-fly-x { background: none; border: none; color: #a59b86; font-size: 15px; cursor: pointer; }
-.mc-dmp-fly-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-.mc-dmp-rt-drops { display: flex; gap: 6px; }
-.mc-dmp-rt-drops select { flex: 0 0 auto; height: 34px; border-radius: 7px; background: #14171f; color: #ece5d6; border: 1px solid #4a4334; padding: 0 8px; }
-.mc-rt-type { min-width: 76px; } .mc-rt-abil { min-width: 66px; }
-.mc-dmp-rt-forlabel { color: #a59b86; font-weight: 700; font-size: 12px; }
-/* Targets multiselect — a dropdown trigger + a collapsible checklist (keeps the
-   flyout WIDTH fixed; only grows vertically inside the scroll). */
-.mc-dmp-rt-forbtn { display: flex; align-items: center; justify-content: space-between; height: 34px; padding: 0 10px; border-radius: 7px; background: #14171f; color: #ece5d6; border: 1px solid #4a4334; cursor: pointer; }
+.mc-dmp-fly-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+/* Rolls tab only: let the targets dropdown escape the frame (short content). */
+.mc-dmp-flyout.mc-fly-rolls .mc-dmp-fly-body { overflow: visible; }
+/* Owned tokens — a player dropdown + a 2-row grid that scrolls HORIZONTALLY
+   (compact for the common 4–6 players × 1–2 tokens; horizontal scroll for a heavy
+   player). Sorted highest-level first. */
+.mc-dmp-tok-player { width: 100%; height: 30px; border-radius: 7px; background: #14171f; color: #ece5d6; border: 1px solid #4a4334; padding: 0 8px; font-weight: 700; }
+.mc-dmp-tok-grid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); grid-auto-columns: 74px; gap: 6px; overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
+.mc-dmp-tok { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px; border-radius: 8px; background: #1b202b; border: 1px solid #2f3640; cursor: grab; }
+.mc-dmp-tok:hover { border-color: #c8a44d; }
+.mc-dmp-tok:active { cursor: grabbing; }
+.mc-dmp-tok img { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; pointer-events: none; }
+.mc-dmp-tok span { font-size: 10px; line-height: 1.1; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ece5d6; pointer-events: none; }
+/* Players tab: dropdown + a palette button that asks the player to pick a colour. */
+.mc-dmp-tok-top { display: flex; gap: 6px; align-items: stretch; }
+.mc-dmp-tok-player { flex: 1 1 auto; min-width: 0; }
+.mc-dmp-tok-palette { flex: 0 0 34px; height: 30px; border-radius: 7px; background: #14171f; border: 1px solid #4a4334; cursor: pointer; }
+.mc-dmp-tok-palette:hover { border-color: #c8a44d; }
+/* Rolls tool: all three controls on one short line at the top (explicit widths so
+   they always fit the 240px flyout — no spill). */
+.mc-dmp-rt-top { display: flex; gap: 6px; align-items: stretch; }
+.mc-dmp-rt-top select { height: 27px; border-radius: 7px; background: #14171f; color: #ece5d6; border: 1px solid #4a4334; padding: 0 4px; font-size: 12px; }
+.mc-rt-type { flex: 0 0 64px; } .mc-rt-abil { flex: 0 0 58px; }
+.mc-rt-multi { position: relative; flex: 1 1 auto; min-width: 0; }
+.mc-dmp-rt-forbtn { width: 100%; height: 27px; display: flex; align-items: center; justify-content: center; gap: 5px; border-radius: 7px; background: #14171f; color: #ece5d6; border: 1px solid #4a4334; cursor: pointer; white-space: nowrap; font-size: 12px; }
+/* The real dropdown — absolute overlay that overflows the flyout frame. */
+.mc-dmp-rt-list { position: absolute; top: calc(100% + 4px); right: 0; min-width: 170px; z-index: 40; max-height: 300px; overflow-y: auto; padding: 4px; background: #20222b; border: 1px solid #c8a44d; border-radius: 9px; box-shadow: 0 10px 28px rgba(0,0,0,.6); }
 /* Packed main-area button — opens the Party order tab. */
 .mc-dmp-party-mini { width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 9px; background: #221f16; color: #c8a44d; border: 1px solid #6b5a2a; cursor: pointer; font-weight: 700; }
 .mc-dmp-rt-list { display: flex; flex-direction: column; gap: 3px; }
@@ -1707,6 +1740,11 @@ body.mc-theme-arcane #mobile-command-shell {
 /* Drag grip — repositions the panel so it doesn't cover other widgets. */
 .mc-dmp-drag { display: flex; align-items: center; justify-content: center; height: 16px; margin: -4px -4px 6px; color: #8a7f63; cursor: move; touch-action: none; }
 .mc-dmp-drag:hover { color: #c8a44d; }
+/* Headers double as drag handles — shorter, a distinct tint, and a hover
+   highlight to hint you can grab them (DM 2026-07-03). */
+.mc-dmp-fly-head, .mc-dmp-head { cursor: move; touch-action: none; background: #221f16; }
+.mc-dmp-head { padding: 4px 8px; margin-bottom: 6px; border-radius: 6px; }
+.mc-dmp-fly-head:hover, .mc-dmp-head:hover { background: #322c1c; color: #e6c46a; }
 /* Status row: pause toggle + per-player presence lights. */
 .mc-dmp-status { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
 .mc-dmp-pause { flex: none; width: 32px; height: 32px; border-radius: 8px; background: #2c2733; border: 1px solid #4a4334; color: #ece5d6; cursor: pointer; }
@@ -2182,7 +2220,7 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-qty-val { min-width: 28px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; }
 
 /* Party Mode — shared 3×3 marching-order editor (DESIGN §15). Big touch cells. */
-.mc-party { padding: 14px 12px 18px; display: flex; flex-direction: column; gap: 12px; }
+.mc-party { padding: 14px 12px 16px; display: flex; flex-direction: column; gap: 10px; }
 .mc-party-head { display: flex; justify-content: space-between; align-items: center; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; font-size: 13px; color: var(--mc-ink); }
 .mc-party-head i { color: var(--mc-gold); margin-right: 6px; }
 .mc-party-fwd, .mc-party-facing { color: var(--mc-muted); font-weight: 700; letter-spacing: .02em; }
@@ -2205,7 +2243,9 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-party-nm { font-size: 11px; font-weight: 700; color: var(--mc-ink); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-party-lock { position: absolute; top: 4px; right: 5px; font-size: 10px; color: var(--mc-gold); }
 .mc-party-badge { position: absolute; top: 3px; right: 4px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: #d06060; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
-.mc-party-hint { text-align: center; font-size: 12.5px; color: var(--mc-muted); }
+/* Tuck the hint into the surrounding gaps so the buttons sit close to the grid,
+   matching the header→grid spacing (DM 2026-07-03). */
+.mc-party-hint { text-align: center; font-size: 12.5px; color: var(--mc-muted); margin: -4px 0; }
 .mc-party-hint.mc-ok { color: #8fca7a; }
 .mc-party-done {
   width: 100%; padding: 12px; border-radius: 11px; font-weight: 800; font-size: 15px; cursor: pointer;

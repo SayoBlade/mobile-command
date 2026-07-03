@@ -77,6 +77,8 @@ export function initSocket() {
   socket.register("fixPcTokens", handleFixPcTokens);
   socket.register("requestRolls", handleRequestRolls);
   socket.register("rollRequest", handleRollRequest);
+  socket.register("requestColorPick", handleRequestColorPick);
+  socket.register("colorPick", handleColorPick);
   socket.register("heartbeat", handleHeartbeat);
   registerPartyAutoFacing(); // executor-gated inside the hook
   console.log(`${MODULE_ID} | socket registered`);
@@ -1183,6 +1185,23 @@ function handleRollRequest(payload) {
   return true;
 }
 
+// Colour pick (task #18): the DM taps the palette by a player in the Players tab →
+// that player's phone shows a full-screen colour picker (replaces its UI). Only
+// DM-initiated, so there's no standing "change your colour" for players to abuse.
+async function handleRequestColorPick({ userId, requesterId }) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM starts a colour pick" };
+  const target = game.users.get(userId);
+  if (!target) return { ok: false, reason: "unknown player" };
+  if (!target.active) return { ok: false, reason: `${target.name} isn't connected` };
+  socket.executeAsUser("colorPick", userId, { ts: Date.now() });
+  return { ok: true };
+}
+function handleColorPick() {
+  Hooks.callAll("mobile-command.colorPick");
+  return true;
+}
+
 // One-shot: apply current PC visuals (player-color ring + color-over-subject +
 // glow + darkvision saturation) to every PC token already on the active scene so
 // existing tokens catch up without a repack (DM 2026-07-03). GM: MobileCommand.fixPcTokens().
@@ -1532,7 +1551,7 @@ function toExecutor(handler, payload) {
       partySetForward: handlePartySetForward, partyStage: handlePartyStage,
       partyDeploy: handlePartyDeploy, partyRelease: handlePartyRelease,
       partyCombine: handlePartyCombine, fixPcTokens: handleFixPcTokens,
-      requestRolls: handleRequestRolls
+      requestRolls: handleRequestRolls, requestColorPick: handleRequestColorPick
     };
     return handlers[handler](payload);
   }
@@ -1571,6 +1590,7 @@ export const api = {
   partyCombine: (payload = {}) => toExecutor("partyCombine", payload),
   fixPcTokens: (payload = {}) => toExecutor("fixPcTokens", payload),
   requestRolls: (payload = {}) => toExecutor("requestRolls", payload),
+  requestColorPick: (payload = {}) => toExecutor("requestColorPick", payload),
   assignTargets: (userId, tokenUuids) =>
     socket
       ? socket.executeAsUser("assignTargets", userId, { tokenUuids, fromName: game.user.name })
