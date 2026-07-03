@@ -1699,7 +1699,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
     if (!this.#partySelf) {
       if (mineHere) { this.#partySelf = mineHere.id; return this.render(); } // pick up
-      if (mine.length === 1) return this.#partyMove(group, mine[0].id, r, c);   // one-tap
+      if (mine.length === 1) return this.#partyGridMove(group, mine[0].id, r, c);   // one-tap
       ui.notifications?.info("Tap one of your tokens first, then a square.");
       return;
     }
@@ -1708,13 +1708,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // swap if another of MY tokens sits on the target
     const other = occ.find(m => mineIds.has(m.id) && m.id !== this.#partySelf);
     const selCell = formation.cells?.[this.#partySelf];
-    if (other && selCell) await this.#partyMove(group, other.id, selCell.r, selCell.c);
-    await this.#partyMove(group, this.#partySelf, r, c);
+    if (other && selCell) await this.#partyGridMove(group, other.id, selCell.r, selCell.c);
+    await this.#partyGridMove(group, this.#partySelf, r, c);
     this.#partySelf = null;
     this.render();
   }
 
-  async #partyMove(group, actorId, r, c) {
+  // NOTE: #partyGridMove (grid-cell write), NOT #partyMove — that name is taken by
+  // the travel pad above. A duplicate private name is a SyntaxError that killed the
+  // WHOLE module 0.1.68–0.1.69 (no settings, no shell, phones fell back to native
+  // Foundry). Syntax-check shell.js before shipping (2026-07-04).
+  async #partyGridMove(group, actorId, r, c) {
     const res = await rpc.partySetCell({ groupId: group.id, actorId, r, c, lock: false });
     if (res?.ok === false) ui.notifications?.warn(res.reason ?? "Couldn't move there.");
   }
