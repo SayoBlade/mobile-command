@@ -59,6 +59,18 @@ export function buildPortraitPrompt(actor, { freeText = "", dmStyle = "", mode =
     ?? game.users?.find?.(u => !u.isGM && actor?.testUserPermission?.(u, "OWNER"));
   const bannerColor = owner?.color?.css;
   if (bannerColor) parts.push(`Background: a large cloth banner in the solid colour ${bannerColor}, no insignia or emblem, flowing and rippling softly, filling most of the backdrop behind the subject.`);
+  // Group portrait (task #12): seed the subject from the party's members and return.
+  if (actor?.type === "group") {
+    if (dmStyle && dmStyle.trim()) parts.push(`Art direction: ${dmStyle.trim()}.`);
+    const descs = (actor.system?.members ?? []).map(m => m.actor).filter(Boolean).map(a => {
+      const r = a.items?.find(i => i.type === "race")?.name || (typeof a.system?.details?.race === "string" ? a.system.details.race : "");
+      const c = (a.items?.filter(i => i.type === "class") || []).map(i => i.name).join("/");
+      return [r, c].filter(Boolean).join(" ") || "adventurer";
+    });
+    parts.push(`Subject: an adventuring party group portrait — ${descs.length ? descs.join(", ") : "a band of heroes"} — standing together as a group.`);
+    if (freeText && freeText.trim()) parts.push(freeText.trim());
+    return parts.join(" ");
+  }
   // (2) the DM's world art-direction
   if (dmStyle && dmStyle.trim()) parts.push(`Art direction: ${dmStyle.trim()}.`);
   // (3) auto from the sheet: species, class(es)/subclass, and a standout high ability
@@ -1365,7 +1377,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#itemPickerId) return this.#itemActivityPickerHTML(actor);
     if (this.#wildShape?.open) return this.#wildShapeBrowserHTML();
     if (this.#summonConfig) return this.#summonConfigHTML();
-    if (this.#portraitGen) return this.#portraitGenHTML(actor);
+    if (this.#portraitGen) return this.#portraitGenHTML();
     if (this.#tab === "actions") return this.#actionsHTML(actor);
     if (this.#tab === "details") return this.#detailsHTML(actor);
     if (this.#tab === "spells") return this.#spellsHTML(actor);
@@ -1406,6 +1418,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Party OS content router (packed + party view active).
   #partyContent(group, actor) {
     if (this.#detailCard) return this.#detailCardHTML(); // long-press cards work here too
+    if (this.#portraitGen) return this.#portraitGenHTML(); // group portrait (task #12)
     if (this.#partyTab === "inventory") return this.#partyInventoryHTML(group);
     if (this.#partyTab === "journal") return this.#journalHTML();
     if (this.#partyTab === "order") return this.#partyModeHTML(group, actor);
@@ -1476,6 +1489,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return `<div class="mc-pv">
       <div class="mc-pv-head"><i class="fas fa-people-group"></i> ${esc(group.name)}</div>
       ${rows || `<div class="mc-pv-empty">No members in the group.</div>`}
+      <button class="mc-pv-portrait" data-action="group-portrait" data-group-id="${group.id}"><i class="fas fa-wand-magic-sparkles"></i> Group portrait</button>
     </div>`;
   }
 
@@ -3550,8 +3564,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Idea #2 (slice 2b) — the portrait generator screen. The body/portrait toggle drives
   // the framing layer; the free-text box adds the player's own description; the live
   // preview shows the assembled prompt to copy into an image generator. Upload comes next.
-  #portraitGenHTML(actor) {
+  // The actor a portrait is being generated FOR — the group actor for a group
+  // portrait (task #12), else the current subject.
+  #portraitActor() { return game.actors.get(this.#portraitGen?.actorId) ?? this.actor; }
+  #portraitGenHTML() {
     const pg = this.#portraitGen;
+    const actor = this.#portraitActor();
     let dmStyle = ""; try { dmStyle = game.settings.get(MODULE_ID, "portraitStyle") || ""; } catch (e) { /* old worlds may lack the setting */ }
     const prompt = buildPortraitPrompt(actor, { freeText: pg.freeText, dmStyle, mode: pg.mode });
     const seg = (m, label, icon) => `<button class="mc-pg-seg ${pg.mode === m ? "mc-on" : ""}" data-action="portrait-mode" data-mode="${m}"><i class="fas ${icon}"></i> ${label}</button>`;
@@ -3619,8 +3637,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return { ok: false, diag };
   }
 
-  async #copyPortraitPrompt(actor) {
+  async #copyPortraitPrompt() {
     if (!this.#portraitGen) return;
+    const actor = this.#portraitActor();
     let dmStyle = ""; try { dmStyle = game.settings.get(MODULE_ID, "portraitStyle") || ""; } catch (e) { /* */ }
     const live = this.element?.querySelector(".mc-pg-input")?.value; // newest text even if input didn't fire
     const box = this.element?.querySelector(".mc-pg-preview"); // the live preview textarea = exactly what's shown
@@ -3638,7 +3657,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // player can't write files themselves (FILES_UPLOAD is GM-only). DM request 2026-06-26.
   async #uploadPortraitFile(file) {
     if (!file || !this.#portraitGen) return;
-    const actor = this.actor; if (!actor) return;
+    const actor = this.#portraitActor(); if (!actor) return;
     const btn = this.element?.querySelector(".mc-pg-upload");
     if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading…';
     const [tokenUrl, portraitUrl] = await Promise.all([
@@ -4339,11 +4358,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#imagePopup = null;
         this.#portraitGen = { actorId: actor?.id, mode: "portrait", freeText: "" };
         return this.render();
+      case "group-portrait": // party view: portrait for the GROUP actor (task #12)
+        this.#portraitGen = { actorId: el.dataset.groupId, mode: "body", freeText: "" };
+        return this.render();
       case "portrait-mode":
         if (this.#portraitGen) this.#portraitGen.mode = el.dataset.mode;
         return this.render();
       case "portrait-copy":
-        return this.#copyPortraitPrompt(actor);
+        return this.#copyPortraitPrompt();
       case "portrait-back":
         this.#portraitGen = null; return this.render();
       case "portrait-upload": // open the file picker; #onChange handles the chosen file
@@ -5065,7 +5087,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       this.#portraitGen.freeText = t.value; // live prompt preview — DOM update, no re-render (keep focus)
       let dmStyle = ""; try { dmStyle = game.settings.get(MODULE_ID, "portraitStyle") || ""; } catch (e) { /* */ }
       const preview = this.element?.querySelector("[data-pg-preview]");
-      const actor = this.actor;
+      const actor = this.#portraitActor();
       if (preview && actor) preview.value = buildPortraitPrompt(actor, { freeText: t.value, dmStyle, mode: this.#portraitGen.mode });
     }
   };

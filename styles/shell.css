@@ -2297,6 +2297,8 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-pv-item-qty { flex: 0 0 auto; color: var(--mc-muted); font-weight: 700; font-variant-numeric: tabular-nums; }
 /* The "Party" return tab on the normal bar gets a gold tint so it stands out. */
 .mc-tab-party i { color: var(--mc-gold); }
+.mc-pv-portrait { margin-top: 4px; height: 44px; border-radius: 11px; font-weight: 700; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-primary-edge); cursor: pointer; }
+.mc-pv-portrait i { color: var(--mc-gold); margin-right: 6px; }
 
 /* DM panel — marching-order mirror (square cells; red = problematic spot at the
    current group position/facing; gold ring = the member the DM picked up).
