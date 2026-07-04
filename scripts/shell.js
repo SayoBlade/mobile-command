@@ -1777,13 +1777,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // (Init/Hit Dice · D-pad · Speed/Prof), the favorites container, the ability
   // roll grid, and rest buttons.
   #exploreHTML(actor) {
-    return this.#tokenSwitcherHTML() + this.#moveRowHTML(actor) + this.#favoritesHTML(actor)
-      + this.#abilitiesHTML(actor) + this.#lootHTML(actor) + this.#restsHTML();
+    // The interactables list sits right under the movement row — its trigger is
+    // the Use hand in the D-pad centre, so the list appears "under the button".
+    return this.#tokenSwitcherHTML() + this.#moveRowHTML(actor) + this.#lootHTML()
+      + this.#favoritesHTML(actor) + this.#abilitiesHTML(actor) + this.#restsHTML();
   }
 
-  // "Check what's nearby": the executor (which has the canvas) lists loot/shops (Item
-  // Piles), doors, and active-tile interactables the player is standing next to, and
-  // operates them on the phone's behalf. null = not checked yet, [] = checked/none.
+  // Use pick list: the executor (which has the canvas) lists loot/shops (Item
+  // Piles), doors, and active-tile interactables the player is standing next to,
+  // and operates them on the phone's behalf. Triggered by the D-pad Use hand.
   #lootHTML() {
     const loot = this.#nearbyLoot, doors = this.#nearbyDoors, tiles = this.#nearbyTiles;
     const checked = loot != null || doors != null || tiles != null;
@@ -1822,34 +1824,60 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <span class="mc-loot-meta">${t.distance} ft</span>
     </button>`).join("");
     const all = pileRows + doorRows + tileRows;
-    const body = !checked ? ""
-      : all ? `<div class="mc-loot-list">${all}</div>`
-      : `<div class="mc-loot-empty">Nothing nearby to interact with.</div>`;
-    return `
-      <section class="mc-loot">
-        <button class="mc-loot-check" data-action="loot-refresh" ${this.#lootBusy ? "disabled" : ""}>
-          ${this.#lootBusy ? "Checking…" : "🔍 Check what's nearby"}
-        </button>
-        ${body}
-      </section>`;
+    // List-only section (Use rework, DM 2026-07-04): shown ONLY when Use found
+    // MORE than one interactable — a single hit is operated directly, none shows
+    // a note over the pad. The rows keep their existing form.
+    if (!checked || !all) return "";
+    return `<section class="mc-loot"><div class="mc-loot-list">${all}</div></section>`;
   }
 
-  async #refreshLoot() {
+  // Clear the Use list (after an interaction, or when nothing is around).
+  #clearNearby() { this.#nearbyLoot = null; this.#nearbyDoors = null; this.#nearbyTiles = null; }
+
+  // A small readout over the pad — same slot as the move budget, so Use feedback
+  // ("Nothing nearby to use.", "The door is locked.") appears where the eye already is.
+  #useNote(text) {
+    this.#moveBudget = text ? { text, cls: "mc-move-note" } : null;
+    const note = this.element?.querySelector('[data-role="move-note"]');
+    if (note) { note.textContent = text ?? ""; note.className = "mc-move-note"; }
+  }
+
+  // "Use" (DM 2026-07-04, replaces "Check what's nearby"): the hand in the D-pad
+  // centre. Scan the adjacent squares via the executor; ONE hit → operate it
+  // immediately (doors open, piles/shops open, tiles trigger), SEVERAL → list them
+  // under the pad in the usual rows, NONE → just a note. One tap to use the world.
+  async #useNearby() {
     if (this.#lootBusy) return;
     this.#lootBusy = true; this.render();
     const actorUuid = this.actor?.uuid;
+    let piles = [], doors = [], tiles = [], reached = false;
     try {
       const [loot, inter] = await Promise.all([
         rpc.listLoot({ forActorUuid: actorUuid }).catch(() => ({ ok: false })),
         rpc.listInteractables({ forActorUuid: actorUuid }).catch(() => ({ ok: false }))
       ]);
-      this.#nearbyLoot = loot?.ok ? (loot.piles ?? []) : [];
-      this.#nearbyDoors = inter?.ok ? (inter.doors ?? []) : [];
-      this.#nearbyTiles = inter?.ok ? (inter.tiles ?? []) : [];
-      if (!loot?.ok && !inter?.ok) ui.notifications.warn("Nearby: couldn't reach the DM — is its screen reloaded since the update?");
+      reached = !!(loot?.ok || inter?.ok);
+      piles = loot?.ok ? (loot.piles ?? []) : [];
+      doors = inter?.ok ? (inter.doors ?? []) : [];
+      tiles = inter?.ok ? (inter.tiles ?? []) : [];
     } finally {
-      this.#lootBusy = false; this.render();
+      this.#lootBusy = false;
     }
+    if (!reached) { this.render(); return ui.notifications.warn("Use: couldn't reach the DM — is its screen reloaded since the update?"); }
+    const total = piles.length + doors.length + tiles.length;
+    if (total === 0) { this.#clearNearby(); this.render(); return this.#useNote("Nothing nearby to use."); }
+    if (total === 1) { // operate the single hit directly — no list step
+      this.#clearNearby(); this.render(); this.#useNote("");
+      if (piles.length) return this.#openLoot(piles[0].uuid);
+      if (doors.length) {
+        if (doors[0].ds === 2) return this.#useNote("The door is locked.");
+        return this.#operateInteractable("door", doors[0].id);
+      }
+      return this.#operateInteractable("tile", tiles[0].id);
+    }
+    // several → show the pick list under the pad
+    this.#nearbyLoot = piles; this.#nearbyDoors = doors; this.#nearbyTiles = tiles;
+    this.render();
   }
 
   async #openLoot(pileUuid) {
@@ -1863,7 +1891,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     try { res = await rpc.operateInteractable({ kind, id, forActorUuid: this.actor?.uuid }); }
     catch (e) { return ui.notifications.warn("Couldn't reach the DM client."); }
     if (!res?.ok) return ui.notifications.warn(res?.reason ?? "couldn't operate that");
-    this.#refreshLoot(); // re-scan so a door's open/closed state refreshes
+    // Use rework: the pick list collapses after acting — tap Use again for a fresh
+    // scan (replaces the old auto re-scan, which kept a stale-feeling list open).
+    this.#clearNearby(); this.render();
   }
 
   // Shared party journal (MVP goal, replacing the Phase-4 placeholder): read the
@@ -2780,7 +2810,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <i class="fas fa-arrow-up" style="transform: rotate(${deg}deg)"></i>
       </button>`;
     };
-    const blank = `<span class="mc-dpad-blank"></span>`;
+    // D-pad centre = the USE hand (DM 2026-07-04): stand next to a door/pile/
+    // lever and tap — one hit operates directly, several list under the pad.
+    // Replaces the old "Check what's nearby" button further down the tab.
+    const use = `<button class="mc-dpad-btn mc-dpad-use" data-action="use-nearby" ${this.#lootBusy ? "disabled" : ""} aria-label="Use" title="Use">
+      <i class="fas ${this.#lootBusy ? "fa-hourglass-half" : "fa-hand-pointer"}"></i>
+    </button>`;
     // Render the last move readout from #moveBudget (not blank): a combat re-render
     // (frequent — every updateCombat/updateCombatant) would otherwise reset the note
     // to empty right after #move set it, so the counter "vanished" mid-turn.
@@ -2791,7 +2826,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <div class="${nb?.cls ?? "mc-move-note"}" data-role="move-note">${nb ? foundry.utils.escapeHTML(nb.text) : ""}</div>
       <div class="mc-dpad">
         ${cell(-1, -1)}${cell(0, -1)}${cell(1, -1)}
-        ${cell(-1, 0)}${blank}${cell(1, 0)}
+        ${cell(-1, 0)}${use}${cell(1, 0)}
         ${cell(-1, 1)}${cell(0, 1)}${cell(1, 1)}
       </div>`;
   }
@@ -4398,8 +4433,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#imagePopup = null; return this.render();
       case "shared-img-close":
         this.#sharedImage = null; return this.render();
-      case "loot-refresh":
-        return this.#refreshLoot();
+      case "use-nearby":
+        return this.#useNearby();
       case "loot-open":
         return this.#openLoot(el.dataset.uuid);
       case "door-toggle":

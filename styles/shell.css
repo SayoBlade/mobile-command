@@ -998,16 +998,14 @@ body.mc-phone .roll-configuration fieldset {
 .mc-rest:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
 .mc-rest i { color: var(--mc-gold); }
 
-/* Item Piles loot (Explore tab). */
+/* Use pick list (Explore tab; opened by the D-pad Use hand). */
 .mc-loot { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
-.mc-loot-check {
-  min-height: 48px; width: 100%;
-  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
-  color: var(--mc-ink); font-size: 14px; font-weight: 600;
-}
-.mc-loot-check:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
-.mc-loot-check[disabled] { opacity: 0.6; }
 .mc-loot-list { display: flex; flex-direction: column; gap: 8px; }
+/* The Use hand in the D-pad centre — gold so it reads as "interact", not "move". */
+.mc-dpad-use { color: var(--mc-gold); }
+.mc-dpad-use i { font-size: 20px; }
+.mc-dpad-use:active { border-color: var(--mc-gold); }
+.mc-dpad-use[disabled] { opacity: 0.6; }
 .mc-loot-row {
   display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 10px;
   background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
@@ -1022,7 +1020,6 @@ body.mc-phone .roll-configuration fieldset {
 .mc-loot-locked .mc-loot-ico { color: var(--mc-muted); }
 .mc-loot-name { flex: 1 1 auto; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-loot-meta { flex: 0 0 auto; font-size: 12px; color: var(--mc-muted); }
-.mc-loot-empty { font-size: 13px; color: var(--mc-muted); padding: 4px 2px; }
 
 /* Shared party journal (Journal tab). */
 .mc-journal { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
