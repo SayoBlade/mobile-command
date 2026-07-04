@@ -1001,9 +1001,17 @@ body.mc-phone .roll-configuration fieldset {
 /* Use pick list (Explore tab; opened by the D-pad Use hand). */
 .mc-loot { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .mc-loot-list { display: flex; flex-direction: column; gap: 8px; }
-/* The Use hand in the D-pad centre — gold so it reads as "interact", not "move". */
+/* The Use button in the D-pad centre — gold so it reads as "interact", not "move".
+   Icon = Foundry core icons/svg/lever.svg, tinted via mask so it takes --mc-gold.
+   The ../../../ walks modules/mobile-command/styles/ up to the web root, so a
+   route-prefixed host still resolves. (Fallback icon: dnd5e statuses/grappled.svg.) */
 .mc-dpad-use { color: var(--mc-gold); }
-.mc-dpad-use i { font-size: 22px; color: var(--mc-gold) !important; }
+.mc-dpad-use i { font-size: 22px; color: var(--mc-gold) !important; } /* busy hourglass */
+.mc-use-ico {
+  width: 28px; height: 28px; display: inline-block; background: var(--mc-gold);
+  -webkit-mask: url("../../../icons/svg/lever.svg") center / contain no-repeat;
+  mask: url("../../../icons/svg/lever.svg") center / contain no-repeat;
+}
 .mc-dpad-use:active { border-color: var(--mc-gold); }
 .mc-dpad-use[disabled] { opacity: 0.6; }
 .mc-loot-row {
@@ -1382,14 +1390,19 @@ body.mc-theme-arcane #mobile-command-shell {
   height: 56px; min-height: 0; width: 64px; padding: 6px 4px;
 }
 /* The D-pad fits between the stat columns on a narrow phone — but bigger and
-   airier than the old 52/6 (DM 2026-07-04). */
+   airier than the old 52/6 (DM 2026-07-04, sized up twice: 52→56→60). */
 .mc-move-row .mc-dpad {
-  grid-template-columns: repeat(3, 56px); grid-auto-rows: 56px;
-  gap: 9px; max-width: none;
+  grid-template-columns: repeat(3, 60px); grid-auto-rows: 60px;
+  gap: 10px; max-width: none;
 }
 .mc-move-row .mc-dpad-btn,
-.mc-move-row .mc-dpad-blank { width: 56px; height: 56px; }
-.mc-move-row .mc-dpad-btn i { font-size: 20px; }
+.mc-move-row .mc-dpad-blank { width: 60px; height: 60px; }
+.mc-move-row .mc-dpad-btn i { font-size: 22px; }
+/* 360px-class Androids: 60px cells + 64px stats overflow by ~4px — step down. */
+@media (max-width: 369px) {
+  .mc-move-row .mc-dpad { grid-template-columns: repeat(3, 55px); grid-auto-rows: 55px; gap: 8px; }
+  .mc-move-row .mc-dpad-btn, .mc-move-row .mc-dpad-blank { width: 55px; height: 55px; }
+}
 
 /* Favorites container — single column so a favorited thing renders with the same
    full-width row + info as in its source tab (Actions/Spells/Equipment), for

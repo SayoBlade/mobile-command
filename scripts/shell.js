@@ -2813,11 +2813,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // D-pad centre = the USE hand (DM 2026-07-04): stand next to a door/pile/
     // lever and tap — one hit operates directly, several list under the pad.
     // Replaces the old "Check what's nearby" button further down the tab.
-    // Icon: fa-hand (solid open palm) — the classic RPG "interact" hand. The
-    // pointer-glove read as a cartoon cursor (DM 2026-07-04); fallback candidate
-    // if this one misses too: fa-hand-back-fist (the grapple hand).
+    // Icon: Foundry's OWN lever (icons/svg/lever.svg — the core interact/switch
+    // glyph, game-icons style like every map icon). FA hands all read wrong on a
+    // phone (pointer = cartoon glove, palm = emoji; DM 2026-07-04). Tinted gold
+    // via CSS mask. Fallback if the lever misses: dnd5e's grappled.svg.
     const use = `<button class="mc-dpad-btn mc-dpad-use" data-action="use-nearby" ${this.#lootBusy ? "disabled" : ""} aria-label="Use" title="Use">
-      <i class="fas ${this.#lootBusy ? "fa-hourglass-half" : "fa-hand"}"></i>
+      ${this.#lootBusy ? `<i class="fas fa-hourglass-half"></i>` : `<span class="mc-use-ico"></span>`}
     </button>`;
     // Render the last move readout from #moveBudget (not blank): a combat re-render
     // (frequent — every updateCombat/updateCombatant) would otherwise reset the note
