@@ -1865,7 +1865,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     if (!reached) { this.render(); return ui.notifications.warn("Use: couldn't reach the DM — is its screen reloaded since the update?"); }
     const total = piles.length + doors.length + tiles.length;
-    if (total === 0) { this.#clearNearby(); this.render(); return this.#useNote("Nothing nearby to use."); }
+    if (total === 0) { this.#clearNearby(); this.render(); return this.#useNote("Nothing to use."); }
     if (total === 1) { // operate the single hit directly — no list step
       this.#clearNearby(); this.render(); this.#useNote("");
       if (piles.length) return this.#openLoot(piles[0].uuid);
@@ -2813,8 +2813,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // D-pad centre = the USE hand (DM 2026-07-04): stand next to a door/pile/
     // lever and tap — one hit operates directly, several list under the pad.
     // Replaces the old "Check what's nearby" button further down the tab.
+    // Icon: fa-hand (solid open palm) — the classic RPG "interact" hand. The
+    // pointer-glove read as a cartoon cursor (DM 2026-07-04); fallback candidate
+    // if this one misses too: fa-hand-back-fist (the grapple hand).
     const use = `<button class="mc-dpad-btn mc-dpad-use" data-action="use-nearby" ${this.#lootBusy ? "disabled" : ""} aria-label="Use" title="Use">
-      <i class="fas ${this.#lootBusy ? "fa-hourglass-half" : "fa-hand-pointer"}"></i>
+      <i class="fas ${this.#lootBusy ? "fa-hourglass-half" : "fa-hand"}"></i>
     </button>`;
     // Render the last move readout from #moveBudget (not blank): a combat re-render
     // (frequent — every updateCombat/updateCombatant) would otherwise reset the note
