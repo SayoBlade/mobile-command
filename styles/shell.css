@@ -550,6 +550,18 @@ body.mc-phone .roll-configuration fieldset {
   margin-bottom: 10px;
 }
 
+/* --- Item Piles merchant on a phone (DM 2026-07-04): hide the big portrait.
+   The left pane also hard-floors at min-width:250px (svelte-scoped rule), which
+   would keep hogging the width even with the image gone — so relax the pane too,
+   or the wares get ~140px on a 390px screen. !important beats the svelte-scoped
+   specificity and survives Item Piles updates. Description text stays. */
+body.mc-phone .merchant-left-pane .merchant-img { display: none !important; }
+body.mc-phone .merchant-left-pane {
+  min-width: 0 !important;
+  max-width: 130px !important;
+  flex-basis: 26% !important;
+}
+
 /* ============================================================
    L&F pass (B5) — dark-fantasy "character sheet" theme + the new
    header stats, inspiration, move pad, and turn HUD. Appended so
