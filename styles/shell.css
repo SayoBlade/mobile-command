@@ -1001,19 +1001,12 @@ body.mc-phone .roll-configuration fieldset {
 /* Use pick list (Explore tab; opened by the D-pad Use hand). */
 .mc-loot { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .mc-loot-list { display: flex; flex-direction: column; gap: 8px; }
-/* The Use button in the D-pad centre. It wears the abilities "Check" button's
+/* The Use button in the D-pad centre. Icon is fa-hand-fist (same as the Actions
+   tab — Use is the out-of-combat sibling). It wears the abilities "Check" button's
    fill (#2a2d38 / #3a3e4c, foreground #e8e8ec) so it's distinct from the darker
-   arrow keys without shouting like the old gold (DM 2026-07-04).
-   Icon = Foundry core icons/svg/lever.svg, tinted via CSS mask. The ../../../
-   walks modules/mobile-command/styles/ up to the web root so a route-prefixed
-   host still resolves. (Fallback icon: dnd5e statuses/grappled.svg.) */
+   arrow keys, and from the Actions tab, without shouting like the old gold. */
 .mc-dpad-use { background: #2a2d38; border-color: #3a3e4c; }
-.mc-dpad-use i { font-size: 22px; color: #e8e8ec !important; } /* busy hourglass */
-.mc-use-ico {
-  width: 30px; height: 30px; display: inline-block; background: #e8e8ec;
-  -webkit-mask: url("../../../icons/svg/lever.svg") center / contain no-repeat;
-  mask: url("../../../icons/svg/lever.svg") center / contain no-repeat;
-}
+.mc-dpad-use i { font-size: 23px; color: #e8e8ec !important; }
 .mc-dpad-use:active { background: #3a4250; border-color: var(--mc-gold); }
 .mc-dpad-use[disabled] { opacity: 0.6; }
 .mc-loot-row {
