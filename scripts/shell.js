@@ -217,6 +217,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #lootBusy = false;      // a nearby-scan round-trip is in flight
   #journalDraft = "";     // party-journal composer text, kept across re-renders so typing isn't wiped
   #journalBusy = false;   // a partyJournalAdd round-trip is in flight
+  #bioOpen = false;       // biography editor overlay (long-press the portrait/name)
+  #bioEditing = false;    // biography: read+search (false) vs edit textarea (true)
+  #bioDraft = "";         // biography composer text, kept across re-renders
+  #bioFilter = "";        // biography read-mode search
+  #bioBusy = false;       // a biography save is in flight
   #searchOpen = false;    // magnifying-glass search drawer is open (Spells/Equipment/Actions)
   #searchQuery = "";      // live search text; filtered via DOM toggle (no re-render → keeps focus)
   #wildShape = null;      // Druid shape browser: null | { open, beasts:null|[], loading }
@@ -413,8 +418,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Every effect-backed chip is long-pressable for its detail (#showEffectDetails
     // picks rules reference → own description → change summary). The synthetic
     // "Action used" chip has no backing effect, so it isn't pressable.
+    // Tap OR long-press opens the condition detail (DM 2026-07-04: "a tap should
+    // open the condition too") — data-action for the tap, data-detail for the hold.
     const condsHTML = effects.map(e =>
-      `<span class="mc-chip${isEconEffect(e) ? " mc-chip-used" : ""}" data-detail="cond" data-effect-id="${e.id}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}</span>`
+      `<span class="mc-chip mc-chip-tap${isEconEffect(e) ? " mc-chip-used" : ""}" data-action="cond-open" data-detail="cond" data-effect-id="${e.id}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}</span>`
     ).join("");
     const condHTML = (actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
 
@@ -1358,6 +1365,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // tab — that's the task at hand (DM 2026-07-03). Unpack re-arms the jump.
     if (party && !this.#wasPacked) { this.#wasPacked = true; this.#partyView = true; this.#partyTab = "order"; }
     else if (!party) this.#wasPacked = false;
+    // Biography editor overlays everything (opened from the header, packed or not).
+    if (this.#bioOpen) return this.#bioHTML(actor);
     if (party && this.#partyView) return this.#partyContent(party, actor);
     // An in-progress action/cast overlays the current tab — so casting from the
     // Spells tab (or using a favorite from Explore) stays put instead of jumping.
@@ -4152,6 +4161,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "tab":
         this.#tab = el.dataset.tab;
         this.#searchOpen = false; this.#searchQuery = ""; // each tab's search starts closed/clear
+        this.#bioOpen = false; this.#bioEditing = false;  // leave the biography overlay
         this.#abandonAction(); // leave the picker clean; cancel any held workflow
         return this.render();
       case "search-toggle":
@@ -4394,6 +4404,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#adjAbility(el.dataset.abil, -1);
       case "char-gen-abil-apply":
         return this.#applyAbilities();
+      case "cond-open":
+        return this.#showEffectDetails(el.dataset.effectId);
       case "cond-edit":
         this.#condEditing = !this.#condEditing; return this.render();
       case "toggle-levels":
@@ -4447,6 +4459,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#operateInteractable("tile", el.dataset.id);
       case "journal-post":
         return this.#postJournalNote();
+      case "bio-close":
+        this.#bioOpen = false; this.#bioEditing = false; return this.render();
+      case "bio-edit":
+        this.#bioEditing = true;
+        this.#bioDraft = this.#htmlToText(this.actor?.system?.details?.biography?.value || this.actor?.system?.details?.biography?.public || "");
+        return this.render();
+      case "bio-cancel":
+        this.#bioEditing = false; return this.render();
+      case "bio-save":
+        return this.#saveBio();
       case "wildshape-open":
         return this.#openWildShape();
       case "wildshape-close":
@@ -5017,20 +5039,80 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#detailCard = { name: "Travel", glyph: "fa-person-running", subtitle: active ? this.#moveModeLabel(active) : "Movement", desc: this.#travelChipsHTML(a), favId: null, isFav: false, kind: "travel" };
     this.render();
   }
-  // Biography card (long-press the portrait; tap still opens the image): the
-  // actor's (enriched) biography. Public bio falls back to the GM bio.
-  async #showBioDetails() {
-    const a = this.actor; if (!a) return;
-    const bio = a.system?.details?.biography ?? {};
-    const raw = bio.value || bio.public || "";
-    let desc = raw;
-    try {
-      const TE = foundry.applications?.ux?.TextEditor?.implementation ?? globalThis.TextEditor;
-      desc = await TE.enrichHTML(raw, { relativeTo: a, secrets: false });
-    } catch (e) { /* keep raw */ }
+  // Biography editor (long-press the portrait/name; tap the portrait still opens the
+  // image). Opens the read+search view; the player can Edit and save plain text back
+  // to the PC's own biography field — same rhythm as the party journal (DM 2026-07-04).
+  #showBioDetails() {
+    if (!this.actor) return;
     this.#detailStack = [];
-    this.#detailCard = { name: a.name, img: a.img || "icons/svg/mystery-man.svg", subtitle: "Biography", desc: desc || "<em>No biography.</em>", favId: null, isFav: false };
+    this.#detailCard = null;
+    this.#bioOpen = true; this.#bioEditing = false; this.#bioFilter = "";
     this.render();
+  }
+
+  // Strip Foundry's stored bio HTML to plain text (block tags → line breaks) — the
+  // editor is formatting-free (DM 2026-07-04: "no need for formatting").
+  #htmlToText(html) {
+    if (!html) return "";
+    return String(html)
+      .replace(/<\s*br\s*\/?>/gi, "\n")
+      .replace(/<\/\s*(p|div|li|h[1-6]|tr)\s*>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">").replace(/&quot;/gi, '"').replace(/&#3?9;/gi, "'")
+      .replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  // Biography view: read-with-search by default, an editable plain-text textarea in
+  // edit mode. Reuses the journal's frame (filter row + list + composer footer).
+  #bioHTML(actor) {
+    const bio = actor?.system?.details?.biography ?? {};
+    const plain = this.#htmlToText(bio.value || bio.public || "");
+    const canEdit = !!actor?.isOwner;
+    const paras = plain.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
+    const readBody = paras.length
+      ? paras.map(p => `<p class="mc-bio-para">${foundry.utils.escapeHTML(p).replace(/\n/g, "<br>")}</p>`).join("")
+      : `<div class="mc-jn-empty">${canEdit ? "No biography yet — tap Edit to write one." : "No biography."}</div>`;
+    const body = this.#bioEditing
+      ? `<textarea class="mc-bio-edit" rows="10" placeholder="Write ${foundry.utils.escapeHTML((actor?.name ?? "your character") + "'s")} story…" ${this.#bioBusy ? "disabled" : ""}>${foundry.utils.escapeHTML(this.#bioDraft)}</textarea>`
+      : `<div class="mc-bio-read">${readBody}</div>`;
+    const foot = this.#bioEditing
+      ? `<div class="mc-bio-foot">
+          <button class="mc-jn-post" data-action="bio-save" ${this.#bioBusy ? "disabled" : ""}>${this.#bioBusy ? "Saving…" : "Save biography"}</button>
+          <button class="mc-bio-cancel" data-action="bio-cancel" ${this.#bioBusy ? "disabled" : ""}>Cancel</button>
+        </div>`
+      : (canEdit ? `<button class="mc-jn-post" data-action="bio-edit"><i class="fas fa-feather"></i> Edit biography</button>` : "");
+    return `<div class="mc-picker-head">
+        <button class="mc-back mc-picker-x" data-action="bio-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
+        <span class="mc-picker-title">${foundry.utils.escapeHTML(actor?.name ?? "Biography")}</span>
+      </div>
+      <section class="mc-journal mc-bio-view">
+        ${this.#bioEditing ? "" : `<div class="mc-jn-filterrow"><i class="fas fa-magnifying-glass"></i><input class="mc-bio-filter" type="search" placeholder="Search the biography…" value="${foundry.utils.escapeHTML(this.#bioFilter)}"></div>`}
+        <div class="mc-jn-list">${body}</div>
+        ${foot ? `<div class="mc-jn-compose">${foot}</div>` : ""}
+      </section>`;
+  }
+
+  async #saveBio() {
+    if (this.#bioBusy) return;
+    const actor = this.actor; if (!actor) return;
+    const live = this.element?.querySelector(".mc-bio-edit")?.value;
+    const text = String(live ?? this.#bioDraft);
+    this.#bioBusy = true; this.render();
+    try {
+      // Plain text → simple <p> paragraphs (blank line splits; single newlines → <br>).
+      // No rich formatting, but it still renders sanely on Foundry's own sheet.
+      const html = text.trim()
+        ? text.trim().split(/\n{2,}/).map(par => `<p>${foundry.utils.escapeHTML(par.trim()).replace(/\n/g, "<br>")}</p>`).join("")
+        : "";
+      await actor.update({ "system.details.biography.value": html });
+      this.#bioEditing = false;
+    } catch (e) {
+      console.error("mobile-command | bio save failed", e);
+      ui.notifications.warn("Biography: couldn't save (do you own this character?).");
+    } finally {
+      this.#bioBusy = false; this.render();
+    }
   }
   // Character summary card (long-press the name): level/race/class line, an
   // ability-score grid (modifier + score, save-proficient abilities flagged),
@@ -5181,6 +5263,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const t = ev.target;
     if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-jn-input")) {
       this.#journalDraft = t.value;
+    } else if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-bio-edit")) {
+      this.#bioDraft = t.value; // keep the bio draft across re-renders (no focus steal)
+    } else if (t instanceof HTMLInputElement && t.classList.contains("mc-bio-filter")) {
+      // Biography search — DOM show/hide of paragraphs (no re-render, keeps focus).
+      this.#bioFilter = t.value;
+      const q = t.value.trim().toLowerCase();
+      this.element?.querySelectorAll(".mc-bio-para").forEach(n => {
+        n.style.display = !q || n.textContent.toLowerCase().includes(q) ? "" : "none";
+      });
     } else if (t instanceof HTMLInputElement && t.classList.contains("mc-jn-filter")) {
       // Journal note filter — pure DOM show/hide (no re-render, keeps focus).
       this.#journalFilter = t.value;
