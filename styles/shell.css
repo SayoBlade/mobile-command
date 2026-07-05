@@ -1904,6 +1904,22 @@ body.mc-theme-arcane #mobile-command-shell {
 }
 .mc-logout:active { background: var(--mc-panel-2); }
 .mc-logout i { margin-right: 6px; }
+/* Full screen (above Leave/Log out) — Android/desktop toggles for real; iPhone
+   shows the Add-to-Home-Screen how-to (no Fullscreen API there). */
+.mc-fullscreen {
+  width: 100%; min-height: 46px; margin-top: 14px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
+  color: var(--mc-ink); font-size: 14px; font-weight: 600;
+}
+.mc-fullscreen:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
+.mc-fullscreen[disabled] { color: var(--mc-muted); }
+.mc-fullscreen i { margin-right: 6px; color: var(--mc-gold); }
+/* Step lock: blocks the shell under any lifted dialog (advancement popups etc.).
+   z is set inline to one below the newest dialog. */
+#mc-shell-backdrop {
+  position: fixed; inset: 0; background: rgba(8, 9, 12, 0.55);
+  -webkit-backdrop-filter: blur(1.5px); backdrop-filter: blur(1.5px);
+}
 
 /* Targeting: keep the Use / Roll-damage button pinned to the bottom of the
    scroll area so a long target list never pushes it out of view. */

@@ -373,6 +373,18 @@ function candidateGroup() {
     && (a.system?.members ?? []).some(m => m.actor)) ?? null;
 }
 
+/** Unique player-owned character actors with a token on the active scene —
+ *  the natural party members for the one-tap group populate. */
+function scenePartyActors() {
+  const seen = new Set(), out = [];
+  for (const t of game.scenes?.active?.tokens ?? []) {
+    const a = t.actor;
+    if (a?.type !== "character" || !a.hasPlayerOwner || seen.has(a.id)) continue;
+    seen.add(a.id); out.push(a);
+  }
+  return out;
+}
+
 // MAIN area (DM 2026-07-03): only Form up / Disperse live here — stable width.
 // The marching-order grid + rotate + lock-in + release/combine moved to the
 // "Party order" dock tab (auto-opens on pack, closes on disperse).
@@ -381,9 +393,19 @@ function partyMainHTML() {
   if (!group) {
     partySel = null; partyForce = false;
     const cand = candidateGroup();
-    return cand ? `<div class="mc-dmp-party-btns">
+    if (cand) return `<div class="mc-dmp-party-btns">
       <button class="mc-dmp-party-deploy" data-party="pack" data-group="${cand.id}" title="Collapse the clustered party into the ${foundry.utils.escapeHTML(cand.name)} token">
-        <i class="fas fa-people-group"></i> Form up</button></div>` : "";
+        <i class="fas fa-people-group"></i> Form up</button></div>`;
+    // No usable group → say WHY instead of rendering nothing (playtest 2026-07-05:
+    // an empty group meant no Form up, no hint, and a very confused DM). One tap
+    // adds the scene's player-owned PCs as members (or creates the group first).
+    const scenePCs = scenePartyActors();
+    if (!scenePCs.length) return ""; // nothing sensible to offer yet
+    const emptyGroup = game.actors.find(a => a.type === "group" && !(a.system?.members ?? []).some(m => m.actor));
+    return `<div class="mc-dmp-party-btns">
+      <button class="mc-dmp-party-deploy mc-dmp-party-setup" data-party="populate" ${emptyGroup ? `data-group="${emptyGroup.id}"` : ""}
+        title="${emptyGroup ? `Add them to ${foundry.utils.escapeHTML(emptyGroup.name)} (it has no members yet)` : "Create a group actor with these PCs as members"}">
+        <i class="fas fa-user-plus"></i> ${emptyGroup ? `Add ${scenePCs.length} PCs to ${foundry.utils.escapeHTML(emptyGroup.name)}` : `Create party (${scenePCs.length} PCs)`}</button></div>`;
   }
   const arranging = ((group.getFlag(MODULE_ID, "formation") ?? {}).stage ?? "arrange") === "arrange";
   if (arranging) return `<button class="mc-dmp-party-mini" data-dock="party"><i class="fas fa-border-all"></i> Arrange &amp; lock in</button>`;
@@ -444,6 +466,23 @@ async function onPartyClick(ev) {
     const res = await api.partyPack({ groupId: actBtn.dataset.group });
     if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't form up.");
     return true; // pack's token churn re-renders the panel
+  }
+  // One-tap party setup (playtest 2026-07-05): fill an empty group with the scene's
+  // PCs — or create the group first. GM client → direct document writes.
+  if (actBtn?.dataset.party === "populate") {
+    try {
+      const pcs = scenePartyActors();
+      if (!pcs.length) return true;
+      let g = actBtn.dataset.group ? game.actors.get(actBtn.dataset.group) : null;
+      g ??= await Actor.implementation.create({ name: "The Party", type: "group" });
+      for (const a of pcs) await g.system.addMember(a); // idempotent per dnd5e (skips existing)
+      ui.notifications.info(`${g.name}: ${pcs.map(a => a.name.split(" ")[0]).join(", ")} added — Form up is ready.`);
+    } catch (e) {
+      console.error(`${MODULE_ID} | party populate failed`, e);
+      ui.notifications.warn(`Couldn't set up the party: ${e.message}`);
+    }
+    render();
+    return true;
   }
   const group = packedGroup();
   if (!group) return false;

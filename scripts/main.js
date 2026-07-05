@@ -497,6 +497,14 @@ Hooks.once("ready", () => {
     suppressResolutionWarning();
     document.body.classList.add("mc-phone"); // scopes phone-only CSS (e.g. roll-dialog spacing)
     enableSafeAreaInsets(); // so env(safe-area-inset-*) is non-zero on iOS (B1 tab clearance)
+    // iPhone has NO Fullscreen API — "Add to Home Screen" is the fullscreen there.
+    // These metas make that home-screen launch chromeless (standalone). Android
+    // gets the real fullscreen toggle in the shell (Details → Go full screen).
+    for (const [name, content] of [["apple-mobile-web-app-capable", "yes"], ["mobile-web-app-capable", "yes"], ["apple-mobile-web-app-status-bar-style", "black-translucent"]]) {
+      if (!document.head.querySelector(`meta[name="${name}"]`)) {
+        const m = document.createElement("meta"); m.name = name; m.content = content; document.head.appendChild(m);
+      }
+    }
     // Players can't reach the chat roll-mode dropdown from the shell, so pin their
     // default to PUBLIC — every roll then shows on the shared TV (and in chat).
     try {

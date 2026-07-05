@@ -233,6 +233,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
                           //   abilMethod: "pointbuy"|"array"|"roll"; abil = point-buy scores;
                           //   pool = active array/roll values; rolled = last 4d6 roll; assign = ability→pool index
   #charGenOptions = null; // compendium entries for the current picking type (null = loading)
+  #cgBusy = false;        // char-gen step in flight — swallow repeat taps (Yaniv's triple grant, 2026-07-05)
   #charGenSpellOptions = null; // {cantrips:[], leveled:[]} for the spell-pick step (null = loading)
   #diceTrayOpen = false; // header D20: contextless dice-tray panel open
   #dtrayPool = {};       // dice tray: {faces: count}, e.g. {20:2, 6:1}
@@ -751,17 +752,23 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // dnd5e commits the item, and the createItem hook re-renders this workspace.
   async #charGenAdd(uuid) {
     const actor = this.actor; if (!actor) return;
-    const item = await fromUuid(uuid);
-    this.#charGen.picking = null; this.#charGenOptions = null;
-    this.render();
-    if (!item) return ui.notifications.warn("That option couldn't load.");
+    // In-flight lock: a double-tap here opens TWO advancement managers → duplicate
+    // class/species items (playtest 2026-07-05). One at a time; unlocks in finally.
+    if (this.#cgBusy) return;
+    this.#cgBusy = true;
     try {
+      const item = await fromUuid(uuid);
+      this.#charGen.picking = null; this.#charGenOptions = null;
+      this.render();
+      if (!item) return ui.notifications.warn("That option couldn't load.");
       const AM = dnd5e.applications?.advancement?.AdvancementManager ?? dnd5e.documents?.advancement?.AdvancementManager;
       if (!AM) throw new Error("AdvancementManager unavailable");
       AM.forNewItem(actor, item.toObject()).render(true);
     } catch (e) {
       console.error("mobile-command | char-gen add failed", e);
-      ui.notifications.warn(`Couldn't add ${item.name} — see console.`);
+      ui.notifications.warn("Couldn't add that option — see console.");
+    } finally {
+      this.#cgBusy = false;
     }
   }
 
@@ -1065,6 +1072,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
   async #applyEquip(actor) {
     const eq = this.#charGen?.equip; if (!actor || !eq) return;
+    // In-flight lock (Yaniv's triple-tap, 2026-07-05): the grant awaits compendium
+    // loads BEFORE the "already granted" flag lands, so rapid taps each fired a full
+    // grant → three copies of everything. Repeat taps are swallowed until it settles.
+    if (this.#cgBusy) return;
+    this.#cgBusy = true;
+    try {
+      await this.#applyEquipInner(actor, eq);
+    } finally {
+      this.#cgBusy = false;
+    }
+  }
+  async #applyEquipInner(actor, eq) {
     const want = [...eq.plan.auto.map(i => ({ uuid: i.uuid, count: i.count }))];
     let gold = eq.plan.autoGold || 0;
     eq.plan.choices.forEach((ch, ci) => {
@@ -2722,8 +2741,40 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <div class="mc-section-label">Theme</div>
         <div class="mc-theme-row">${this.#themeOptionsHTML()}</div>
       </div>
+      ${this.#fullscreenBtnHTML()}
       <button class="mc-leave" data-action="exit"><i class="fas fa-right-from-bracket"></i> Leave Mobile Command</button>
       <button class="mc-logout" data-action="logout"><i class="fas fa-power-off"></i> Log out</button>`;
+  }
+
+  // Full screen (playtest 2026-07-05: testers played with the browser chrome eating
+  // a third of the screen and no idea how to hide it). Android/desktop Chrome has
+  // the real Fullscreen API. iPhone Safari has NONE — there the honest path is
+  // "Add to Home Screen" (standalone launch = chromeless), so the button becomes a
+  // how-to hint. Already-standalone → the button congratulates and does nothing.
+  #fullscreenBtnHTML() {
+    if (navigator.standalone === true) {
+      return `<button class="mc-fullscreen" disabled><i class="fas fa-expand"></i> Full screen (installed app) ✓</button>`;
+    }
+    const fsOn = !!document.fullscreenElement;
+    const label = document.fullscreenEnabled
+      ? (fsOn ? "Exit full screen" : "Go full screen")
+      : "Full screen — how to";
+    return `<button class="mc-fullscreen" data-action="fullscreen"><i class="fas ${fsOn ? "fa-compress" : "fa-expand"}"></i> ${label}</button>`;
+  }
+
+  async #toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) { await document.exitFullscreen(); }
+      else if (document.fullscreenEnabled && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        // iPhone Safari: no Fullscreen API at all — Add to Home Screen IS fullscreen.
+        return ui.notifications.info("iPhone: tap Share → “Add to Home Screen”, then open Mobile Command from that icon — it launches full screen.", { permanent: true });
+      }
+    } catch (e) {
+      ui.notifications.warn("Couldn't switch full screen — your browser may block it.");
+    }
+    this.render();
   }
   // Colour pick (task #18) — a full-screen overlay the DM triggers (Players tab →
   // palette) so a player picks their own colour; there's no standing colour UI, so
@@ -4150,6 +4201,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const actor = this.actor;
     switch (action) {
       case "exit": return this.#confirmExit();
+      case "fullscreen": return this.#toggleFullscreen();
       case "logout": return game.logOut?.(); // temp: switching Foundry users on a phone is painful
       case "set-theme":
         try { window.localStorage.setItem("mc-theme", el.dataset.theme); } catch (e) { /* private mode */ }
@@ -5511,6 +5563,28 @@ function liftDialogAboveShell(app) {
   const AppV2 = foundry.applications.api.ApplicationV2;
   AppV2._maxZ = Math.max(AppV2._maxZ + 1, SHELL_Z + 2);
   el.style.zIndex = String(AppV2._maxZ);
+  // Step lock (playtest 2026-07-05): while ANY lifted dialog is open, a backdrop
+  // blocks the shell underneath — players were tapping onward mid-advancement
+  // ("the fact you can keep going after one opens is horrible"). The backdrop sits
+  // one z below the newest dialog; it clears when the last lifted dialog closes.
+  liftedApps.add(app.id ?? app.appId ?? app);
+  ensureShellBackdrop(Number(el.style.zIndex) - 1);
+}
+
+// --- lifted-dialog step lock ------------------------------------------------
+const liftedApps = new Set();
+function ensureShellBackdrop(z) {
+  let bd = document.getElementById("mc-shell-backdrop");
+  if (!bd) {
+    bd = document.createElement("div");
+    bd.id = "mc-shell-backdrop";
+    document.body.appendChild(bd);
+  }
+  bd.style.zIndex = String(z);
+}
+function releaseShellBackdrop(app) {
+  if (!liftedApps.delete(app?.id ?? app?.appId ?? app)) return;
+  if (liftedApps.size === 0) document.getElementById("mc-shell-backdrop")?.remove();
 }
 
 export function openShell() {
@@ -5541,6 +5615,13 @@ export function registerShellHooks() {
   Hooks.on("createJournalEntryPage", (page) => {
     if (page?.parent?.getFlag?.(MODULE_ID, "partyJournal")) shellInstance?.render();
   });
+  // Keep the fullscreen button's label honest when the browser flips state
+  // (its own gesture, Esc, the rotate-out-of-fullscreen Android quirk…).
+  document.addEventListener("fullscreenchange", () => { if (shellInstance?.rendered) shellInstance.render(); });
+  // Step lock teardown: drop the backdrop when the last lifted dialog closes
+  // (V2 and legacy V1 apps both lift, so both close paths release).
+  Hooks.on("closeApplicationV2", releaseShellBackdrop);
+  Hooks.on("closeApplication", releaseShellBackdrop);
   // Wild Shape: the executor swaps the controlled token's actor (and back on revert) —
   // re-render so the phone follows into/out of the beast form. Gated to actor-identity
   // changes (not movement) on the token we control.
