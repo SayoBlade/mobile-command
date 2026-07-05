@@ -3474,6 +3474,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     </button>`;
   }
 
+  // Total target INSTANCES (a row can hold several — Magic Missile darts).
+  #targetTotal(s) {
+    let n = 0;
+    for (const u of s.selected) n += s.counts?.[u] ?? 1;
+    return n;
+  }
+
   #targetPickerHTML() {
     const s = this.#actionState;
 
@@ -3531,9 +3538,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           : c.disposition > 0 ? ["ally", "Ally"] : ["neutral", "Neutral"];
         // B8 in-range hint: flag a target past the activity's reach (still tappable).
         const far = s.rangeFt != null && Number(c.distanceFt) > s.rangeFt + 0.5;
+        // Multi-instance stepper (Magic Missile darts): a SELECTED row on a count>1
+        // activity grows "− [n] +" so several instances can land on one target.
+        const n = s.counts?.[c.uuid] ?? 1;
+        const stepper = (on && s.maxTargets > 1)
+          ? `<span class="mc-tstep-wrap">
+              <span class="mc-tstep" role="button" data-action="target-dec" data-uuid="${c.uuid}" aria-label="One fewer">−</span>
+              <span class="mc-tstep-n">${n}</span>
+              <span class="mc-tstep ${this.#targetTotal(s) >= s.maxTargets ? "mc-tstep-max" : ""}" role="button" data-action="target-inc" data-uuid="${c.uuid}" aria-label="One more">+</span>
+            </span>`
+          : "";
         return `<button class="mc-target ${on ? "mc-target-on" : ""} ${far ? "mc-target-far" : ""}" data-action="target-toggle" data-uuid="${c.uuid}">
           <span class="mc-target-name">${foundry.utils.escapeHTML(c.name)}</span>
           <span class="mc-target-right">
+            ${stepper}
             <span class="mc-disp mc-${cls}">${label}</span>
             <span class="mc-target-dist ${far ? "mc-far" : ""}">${Math.round(c.distanceFt)} ft</span>
           </span>
@@ -3549,7 +3567,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           <span class="mc-target-right"><span class="mc-disp mc-self">Self</span></span>
         </button>`
       : "";
-    const count = s.selfTarget ? "" : `<span class="mc-target-count">${s.selected.size}/${s.maxTargets}</span>`;
+    const count = s.selfTarget ? "" : `<span class="mc-target-count">${this.#targetTotal(s)}/${s.maxTargets}</span>`;
     const canFire = s.selfTarget || s.selected.size > 0;
     const assignedBanner = s.assignedByDM
       ? `<div class="mc-assigned"><span><i class="fas fa-crosshairs"></i> Targets set by ${foundry.utils.escapeHTML(s.assignedByDM)} (${s.selected.size})</span>
@@ -3674,7 +3692,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // applies the effect + consumes resources instead of orphaning a roll card.
       autoResolve: !["attack", "damage", "save", "heal"].includes(activity.type),
       group: this.#econGroup(activity),
-      candidates: selfTarget ? [] : null, selected: new Set(assigned), adv: "normal",
+      candidates: selfTarget ? [] : null, selected: new Set(assigned), counts: {}, adv: "normal",
       assignedByDM: assigned.length ? this.#assignedBy : null,
       busy: false, phase: "pick", requestId: null, hit: null, attackTotal: null,
       targetError: null, recommendation: null, recPending: false };
@@ -4098,9 +4116,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (s.autoResolve) { midiOptions.autoRollDamage = "always"; midiOptions.fastForwardDamage = true; }
     let res;
     try {
+      // Multi-instance targets ride as DUPLICATE uuids (Magic Missile: [A, A, B] =
+      // two darts on A, one on B). The executor targets the unique set and applies
+      // per-instance damage for the extras.
+      const expanded = s.selfTarget ? [] : Array.from(s.selected).flatMap(u => Array(Math.max(1, s.counts?.[u] ?? 1)).fill(u));
       res = await this.#withTimeout(rpc.useActivityStart({
         activityUuid: s.uuid,
-        targetUuids: s.selfTarget ? [] : Array.from(s.selected),
+        targetUuids: expanded,
         midiOptions,
         spellSlot: s.slot ?? null, // upcast: cast at the chosen slot level
         skipConsume: !!s.depleted   // out of charges: fire WITHOUT consuming so midi never opens the executor "Consume?" dialog
@@ -4408,11 +4430,29 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         const s = this.#actionState;
         if (!s) return;
         const uuid = el.dataset.uuid;
-        if (s.selected.has(uuid)) s.selected.delete(uuid);
-        else if (s.selected.size < s.maxTargets) s.selected.add(uuid);
-        else if (s.maxTargets === 1) { s.selected.clear(); s.selected.add(uuid); } // single-target: tap to swap
+        if (s.selected.has(uuid)) { s.selected.delete(uuid); delete s.counts[uuid]; }
+        else if (this.#targetTotal(s) < s.maxTargets) { s.selected.add(uuid); s.counts[uuid] = 1; }
+        else if (s.maxTargets === 1) { s.selected.clear(); s.counts = {}; s.selected.add(uuid); s.counts[uuid] = 1; } // single-target: tap to swap
         this.#pushPreview(); // B9: commit the target to the canvas/TV on tap
         this.#refreshAttackPreview(); // §14: ask the executor for AC5E's recommendation
+        return this.render();
+      }
+      // Multi-instance targets (Magic Missile darts — DM 2026-07-05: "a − [1] + at
+      // the end of the target after selecting"): bump/drop instances on a selected
+      // row; total instances across rows caps at the activity's target count.
+      case "target-inc": {
+        const s = this.#actionState;
+        if (!s?.selected.has(el.dataset.uuid)) return;
+        if (this.#targetTotal(s) < s.maxTargets) s.counts[el.dataset.uuid] = (s.counts[el.dataset.uuid] ?? 1) + 1;
+        return this.render();
+      }
+      case "target-dec": {
+        const s = this.#actionState;
+        const uuid = el.dataset.uuid;
+        if (!s?.selected.has(uuid)) return;
+        const n = (s.counts[uuid] ?? 1) - 1;
+        if (n <= 0) { s.selected.delete(uuid); delete s.counts[uuid]; this.#pushPreview(); }
+        else s.counts[uuid] = n;
         return this.render();
       }
       case "assigned-change":

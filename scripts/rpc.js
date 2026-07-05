@@ -462,6 +462,14 @@ async function handleItemUseStart(payload) {
   markPhoneAction(activity.item?.name, requesterId); // dialog watchdog: arm for this action
 
   const hasAttack = activity.type === "attack";
+  // Multi-instance targets (Magic Missile darts, DM 2026-07-05): the phone sends
+  // DUPLICATE uuids ([A, A, B] = two darts on A). midi's target set dedupes, so the
+  // workflow runs on the UNIQUE targets; the duplicate counts are remembered and
+  // applied as extra damage instances after the damage roll (handleItemUseDamage).
+  const instanceCount = {};
+  for (const u of targetUuids) instanceCount[u] = (instanceCount[u] ?? 0) + 1;
+  const uniqueTargets = Object.keys(instanceCount);
+  const extraInstances = Object.fromEntries(Object.entries(instanceCount).filter(([, n]) => n > 1).map(([u, n]) => [u, n - 1]));
   // Upcast: cast at the slot level the phone chose (dnd5e usage config field
   // `spell.slot`, e.g. "spell3"). Omitted → activity casts at its base level.
   const spellCfg = spellSlot ? { spell: { slot: spellSlot } } : {};
@@ -492,7 +500,7 @@ async function handleItemUseStart(payload) {
     const { result: workflow, captured } = await captureNotifications(() =>
       MidiQOL.completeActivityUse(activity.uuid, {
         ...spellCfg,
-        midiOptions: { targetUuids, ignoreUserTargets: true, autoRollDamage: "always", fastForwardDamage: true, workflowOptions: { autoConsumeResource: consumeMode }, ...midiOptions }
+        midiOptions: { targetUuids: uniqueTargets, ignoreUserTargets: true, autoRollDamage: "always", fastForwardDamage: true, workflowOptions: { autoConsumeResource: consumeMode }, ...midiOptions }
       }, { configure: false }, {})
     );
     if (!workflow || workflow.aborted) {
@@ -511,7 +519,7 @@ async function handleItemUseStart(payload) {
     MidiQOL.completeActivityUse(activity.uuid, {
       ...spellCfg,
       midiOptions: {
-        targetUuids, ignoreUserTargets: true,
+        targetUuids: uniqueTargets, ignoreUserTargets: true,
         autoRollAttack: true, fastForwardAttack: true,
         autoRollDamage: "none", fastForwardDamage: false,
         workflowOptions: { autoConsumeResource: consumeMode },
@@ -532,6 +540,7 @@ async function handleItemUseStart(payload) {
       itemName: activity.item?.name ?? null, reason: captured.join("; ") || null };
   }
   const requestId = foundry.utils.randomID();
+  if (Object.keys(extraInstances).length) wf.mcExtraInstances = extraInstances; // darts beyond the first per target
   parkedWorkflows.set(requestId, wf);
   // The attack total can lag the park by a tick (see resolveAttackTotal) — wait for
   // the real d20 result so the phone shows the number that matches chat, never
@@ -563,7 +572,36 @@ async function handleItemUseDamage({ requestId }) {
     if (wf.damageTotal == null) {
       console.warn(`${MODULE_ID} | rollDamage produced no total`, { item: wf.item?.name, actor: wf.actor?.name, captured });
     }
-    return { ok: true, damageTotal: wf.damageTotal ?? null, reason: captured.join("; ") || null };
+    // Multi-instance targets (Magic Missile darts, DM 2026-07-05): midi applied the
+    // damage once per UNIQUE target; each duplicate the phone sent gets a fresh roll
+    // of the same formula applied directly (applyDamage → calculateDamage, so
+    // resistances still count). A GM-whispered line keeps the math auditable.
+    let extraTotal = 0;
+    try {
+      const extras = wf.mcExtraInstances ?? {};
+      const lines = [];
+      const type = wf.damageDetail?.[0]?.type ?? wf.defaultDamageType ?? "";
+      const formula = wf.damageRolls?.[0]?.formula ?? null;
+      for (const [uuid, n] of Object.entries(extras)) {
+        const td = await fromUuid(uuid);
+        const target = td?.actor;
+        if (!target) continue;
+        for (let i = 0; i < n; i++) {
+          let total = wf.damageTotal ?? 0;
+          if (formula) { const r = await (new Roll(formula, wf.actor?.getRollData() ?? {})).evaluate(); total = r.total; }
+          await target.applyDamage([{ value: total, type }]);
+          extraTotal += total;
+          lines.push(`${td.name} ${total}`);
+        }
+      }
+      if (lines.length) {
+        ChatMessage.create({
+          content: `<b>${wf.item?.name ?? "Attack"}</b> — extra instance${lines.length > 1 ? "s" : ""}: ${lines.join(", ")}`,
+          whisper: ChatMessage.getWhisperRecipients("GM").map(u => u.id)
+        }).catch(() => {});
+      }
+    } catch (e) { console.warn(`${MODULE_ID} | extra-instance damage failed`, e); }
+    return { ok: true, damageTotal: (wf.damageTotal ?? null) == null ? null : wf.damageTotal + extraTotal, reason: captured.join("; ") || null };
   } catch (e) {
     // Names the actor/item + logs the error — a corrupted PC (e.g. invalid item
     // types from a disabled content module → DAE prep failures) throws here, which
