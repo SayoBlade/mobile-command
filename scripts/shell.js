@@ -5785,6 +5785,14 @@ export function registerShellHooks() {
     // DIAGNOSTIC (remove once #3 verified): confirm the create hook reaches the
     // phone when a DM adds an item, and whether it matched the controlled actor.
     console.debug("mobile-command | createItem", { item: item?.name, parent: item?.parent?.name, matched: controlsActor(item?.parent), rendered: !!shellInstance?.rendered });
+    // "Did I actually get it?" (playtest 2026-07-05: Item Piles purchases landed
+    // silently — "לא נראה שזה קנה לך"). Any item arriving on the controlled actor
+    // gets a visible confirmation, EXCEPT during char-gen (grants would spam a
+    // dozen toasts). Covers shop buys, loot takes, and DM-given items alike.
+    if (shellInstance?.rendered && controlsActor(item?.parent) && !item.parent.getFlag(MODULE_ID, "charGen")) {
+      const qty = item.system?.quantity > 1 ? ` ×${item.system.quantity}` : "";
+      ui.notifications.info(`${item.name}${qty} added to ${item.parent.name}'s inventory.`);
+    }
     onItem(item);
   });
   Hooks.on("deleteItem", onItem);
