@@ -711,6 +711,14 @@ body.mc-phone .merchant-left-pane {
 .mc-cg-row-val { margin-left: auto; color: var(--mc-muted); font-size: 14px; max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-cg-done .mc-cg-row-val { color: #8fe0a0; }
 .mc-cg-check { color: #5bbf6a; }
+/* Redo-choices chip on a done row — reopens the item's advancement wizard. */
+.mc-cg-redo {
+  flex: 0 0 auto; width: 40px; height: 40px; margin-left: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); border-radius: 9px;
+  color: var(--mc-muted); font-size: 14px;
+}
+.mc-cg-redo:active { border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-cg-finish { display: flex; align-items: center; justify-content: center; gap: 8px; width: calc(100% - 28px); margin: 6px 14px 16px;
   min-height: 50px; border-radius: 12px; font-size: 16px; font-weight: 800; background: #243042; border: 1px solid #2f5d8a; color: var(--mc-ink); }
 .mc-cg-finish:active { background: #2c3d54; }

@@ -521,10 +521,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#charGen?.picking) return this.#charGenPickerHTML(actor);
     const row = (label, type, icon) => {
       const item = actor.items.find(i => i.type === type);
+      // Redo chip (playtest 2026-07-05): a CANCELLED advancement wizard never
+      // re-offered itself — the item sat on the sheet with its choices unapplied and
+      // no way back in (Tomo's empty sheet). ⟳ re-runs the item's advancement flow
+      // via dnd5e's own forModifyChoices, so skipped/cancelled steps are recoverable.
+      const redo = item ? `<span class="mc-cg-redo" role="button" data-action="char-gen-redo" data-item-id="${item.id}" title="Redo the choices for ${foundry.utils.escapeHTML(item.name)}"><i class="fas fa-rotate-left"></i></span>` : "";
       return `<button class="mc-cg-row ${item ? "mc-cg-done" : ""}" data-action="char-gen-pick" data-cgtype="${type}">
         <i class="fas ${icon} mc-cg-row-ico"></i>
         <span class="mc-cg-row-label">${label}</span>
         <span class="mc-cg-row-val">${item ? foundry.utils.escapeHTML(item.name) : "Choose…"}</span>
+        ${redo}
         <i class="fas ${item ? "fa-check mc-cg-check" : "fa-chevron-right"}"></i>
       </button>`;
     };
@@ -785,6 +791,31 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     } catch (e) {
       console.error("mobile-command | char-gen add failed", e);
       ui.notifications.warn("Couldn't add that option — see console.");
+    } finally {
+      this.#cgBusy = false;
+    }
+  }
+
+  // Re-run an owned item's advancement flow (species/background/class) so a
+  // cancelled or skipped wizard is recoverable — dnd5e's own "Modify Choices"
+  // path, lifted onto the phone. Class advancements start at level 1; species/
+  // background live at level 0 in dnd5e's byLevel model.
+  async #charGenRedo(itemId) {
+    const actor = this.actor; if (!actor) return;
+    if (this.#cgBusy) return;
+    this.#cgBusy = true;
+    try {
+      const item = actor.items.get(itemId);
+      if (!item) return;
+      const AM = dnd5e.applications?.advancement?.AdvancementManager ?? dnd5e.documents?.advancement?.AdvancementManager;
+      if (!AM) throw new Error("AdvancementManager unavailable");
+      const level = item.type === "class" ? 1 : 0;
+      const manager = AM.forModifyChoices(actor, item.id, level);
+      if (manager.steps?.length) manager.render(true);
+      else ui.notifications.info(`${item.name} has no choices to redo.`);
+    } catch (e) {
+      console.error("mobile-command | advancement redo failed", e);
+      ui.notifications.warn("Couldn't reopen those choices — see console.");
     } finally {
       this.#cgBusy = false;
     }
@@ -4446,6 +4477,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "char-gen-bio-toggle":
         if (this.#charGen) { this.#charGen.bioOpen = !this.#charGen.bioOpen; this.render(); }
         return;
+      case "char-gen-redo":
+        return this.#charGenRedo(el.dataset.itemId);
       case "char-gen-spells":
         return this.#charGenSpells();
       case "char-gen-spell-toggle":
