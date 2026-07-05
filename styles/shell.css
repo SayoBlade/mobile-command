@@ -1180,13 +1180,30 @@ body.mc-phone .mc-phone-dialog {
   position: fixed !important;
   left: 0 !important; right: 0 !important; top: auto !important; bottom: 0 !important;
   width: 100% !important; max-width: 100% !important;
-  height: auto !important; max-height: 92vh !important;
+  height: auto !important; max-height: 88vh !important; max-height: 88dvh !important;
   border-radius: 16px 16px 0 0 !important;
   display: flex !important; flex-direction: column !important;
 }
 body.mc-phone .mc-phone-dialog .window-content {
   flex: 1 1 auto; overflow-y: auto; max-height: none; -webkit-overflow-scrolling: touch;
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+/* The sheet's action row must never scroll out of reach (playtest 2026-07-05:
+   the advancement wizard's Continue was below the fold — "אני לא יכול לגעת על
+   הכפתור"). Any footer inside the scrolling content pins to the sheet bottom. */
+body.mc-phone .mc-phone-dialog .window-content footer,
+body.mc-phone .mc-phone-dialog .window-content .form-footer,
+body.mc-phone .mc-phone-dialog .window-content .dialog-buttons {
+  position: sticky; bottom: 0; z-index: 3;
+  background: var(--mc-panel, #1d1a20);
+  padding-top: 8px; padding-bottom: 4px;
+  box-shadow: 0 -6px 12px rgba(0, 0, 0, .45);
+}
+/* dnd5e's advancement wizard on a phone: kill its fixed inner heights so the
+   step content flows inside the sheet's scroll instead of clipping. */
+body.mc-phone .mc-phone-dialog.advancement.manager .window-content > section,
+body.mc-phone .mc-phone-dialog.advancement.manager .window-content .step {
+  max-height: none !important; height: auto !important;
 }
 body.mc-phone .mc-phone-dialog .window-header { flex: 0 0 auto; }
 body.mc-phone .mc-phone-dialog .window-title { font-size: 16px; }
