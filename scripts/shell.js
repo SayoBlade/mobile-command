@@ -696,6 +696,24 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // was still blank (sight range 0 / basic), so its darkvision never reached the token
     // and it looked blind on the TV. Fire-and-forget — never blocks Finish.
     if (actor) this.#syncFinishedTokenSight(actor).catch((e) => console.warn(`${MODULE_ID} | finish sight-sync failed`, e));
+    // Every character creation ends "rested" (DM 2026-07-05: fresh casters had zero
+    // spell slots — "you need to rest to get slots after CC"). Try a silent long rest
+    // (recovers uses/HD properly) — but dnd5e's allowRests=false world setting makes a
+    // PLAYER's rest silently refuse (initiateRest, dnd5e.mjs:38142), so follow with a
+    // direct fill-UP of HP + slots, which an owner may always write. Fill-up only —
+    // never reduces anything, so a mid-session re-finish can't wipe spent resources.
+    if (actor) this.#finishTopUp(actor).catch((e) => console.warn(`${MODULE_ID} | finish top-up failed`, e));
+  }
+
+  async #finishTopUp(actor) {
+    try { await actor.longRest({ dialog: false, chat: false }); } catch (e) { /* permission-gated world */ }
+    const update = {};
+    const hp = actor.system?.attributes?.hp;
+    if (hp && (hp.value ?? 0) < (hp.max ?? 0)) update["system.attributes.hp.value"] = hp.max;
+    for (const [key, slot] of Object.entries(actor.system?.spells ?? {})) {
+      if ((slot?.max ?? 0) > 0 && (slot.value ?? 0) < slot.max) update[`system.spells.${key}.value`] = slot.max;
+    }
+    if (Object.keys(update).length) await actor.update(update);
   }
 
   // Sync ONE actor's token sight from its dnd5e senses — the char-gen-finish counterpart
