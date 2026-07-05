@@ -2200,6 +2200,8 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-ac-row .mc-ac-v { color: var(--mc-muted); font-variant-numeric: tabular-nums; }
 .mc-ac-total { border-bottom: none; margin-top: 2px; font-weight: 700; }
 .mc-ac-total .mc-ac-k, .mc-ac-total .mc-ac-v { color: var(--mc-gold); font-size: 16px; }
+.mc-ac-fx { margin-top: 8px; font-size: 13px; color: var(--mc-muted); }
+.mc-ac-fx-label { color: var(--mc-ink); font-weight: 600; }
 /* Skill/tool reference description appended under the stat ledger. */
 .mc-check-desc { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--mc-edge); font-size: 14px; line-height: 1.5; color: var(--mc-ink); }
 .mc-check-desc p { margin: 0 0 8px; }

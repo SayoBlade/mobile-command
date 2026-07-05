@@ -5027,21 +5027,43 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // total. Calc-agnostic: shows whatever components the prepared `ac` carries.
   #showACDetails() {
     this.#detailStack = []; // tap-entry → a clean top-level card
-    const ac = this.actor?.system?.attributes?.ac ?? {};
+    const actor = this.actor;
+    const ac = actor?.system?.attributes?.ac ?? {};
     const sign = (n) => (n >= 0 ? `+${n}` : `${n}`);
     const rows = [];
-    const baseLabel = ac.equippedArmor?.name || ac.label || "Base";
-    const baseVal = ac.calc === "flat" ? (ac.flat ?? ac.value ?? 10) : (ac.armor ?? 10);
-    rows.push([baseLabel, `${baseVal}`]);
-    if (ac.dex) rows.push(["Dexterity", sign(ac.dex)]);
-    if (ac.shield) rows.push(["Shield", sign(ac.shield)]);
-    if (ac.bonus) rows.push(["Bonus", sign(ac.bonus)]);
-    if (ac.cover) rows.push(["Cover", sign(ac.cover)]);
+    // Mirror dnd5e's prepareArmorClass semantics (playtest 2026-07-05: Mage Armor
+    // was invisible here — the old card assumed the "default" calc, and dnd5e even
+    // NULLS ac.label when no armor is equipped):
+    //  - flat: value IS ac.flat, nothing else applies
+    //  - default: armor item (ac.armor) + capped Dex, then shield/bonus/cover
+    //  - any other calc (mage/natural/custom/…): ac.base is the formula result and
+    //    already owns its own Dex — show it under the calc's name, no Dex row.
+    const calcLabel = CONFIG.DND5E?.armorClasses?.[ac.calc]?.label;
+    if (ac.calc === "flat") {
+      rows.push([calcLabel || "Flat", `${ac.flat ?? ac.value ?? 10}`]);
+    } else if (ac.calc === "default") {
+      rows.push([ac.equippedArmor?.name || "Unarmored", `${ac.armor ?? 10}`]);
+      if (ac.dex) rows.push(["Dexterity", sign(ac.dex)]);
+    } else {
+      rows.push([calcLabel || "Formula", `${ac.base ?? ac.value ?? 10}`]);
+    }
+    if (ac.calc !== "flat") {
+      if (ac.shield) rows.push(["Shield", sign(ac.shield)]);
+      if (ac.bonus) rows.push(["Bonus", sign(ac.bonus)]);
+      if (ac.cover) rows.push(["Cover", sign(ac.cover)]);
+    }
     const list = rows.map(([l, v]) =>
       `<div class="mc-ac-row"><span class="mc-ac-k">${foundry.utils.escapeHTML(String(l))}</span><span class="mc-ac-v">${v}</span></div>`).join("");
+    // Name the ACTIVE EFFECTS behind the numbers (Mage Armor's calc swap, Shield's
+    // +5 bonus…) so the player sees WHY, not just the sum.
+    const acEffects = (actor?.appliedEffects ?? []).filter(e =>
+      e.changes?.some(c => c.key?.includes("attributes.ac")));
+    const fxList = acEffects.length
+      ? `<div class="mc-ac-fx"><span class="mc-ac-fx-label">From effects:</span> ${acEffects.map(e => foundry.utils.escapeHTML(e.name)).join(", ")}</div>`
+      : "";
     const desc = `<div class="mc-ac-breakdown">${list}
-      <div class="mc-ac-row mc-ac-total"><span class="mc-ac-k">Total</span><span class="mc-ac-v">${ac.value ?? "—"}</span></div></div>`;
-    this.#detailCard = { name: "Armor Class", glyph: "fa-shield-halved", subtitle: ac.label || "", desc, favId: null, isFav: false, kind: "ac" };
+      <div class="mc-ac-row mc-ac-total"><span class="mc-ac-k">Total</span><span class="mc-ac-v">${ac.value ?? "—"}</span></div>${fxList}</div>`;
+    this.#detailCard = { name: "Armor Class", glyph: "fa-shield-halved", subtitle: ac.label || calcLabel || "", desc, favId: null, isFav: false, kind: "ac" };
     this.render();
   }
   // Skill/tool check card (long-press a row; tap still rolls): governing ability,
