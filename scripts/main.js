@@ -500,6 +500,17 @@ Hooks.once("ready", () => {
     suppressResolutionWarning();
     document.body.classList.add("mc-phone"); // scopes phone-only CSS (e.g. roll-dialog spacing)
     enableSafeAreaInsets(); // so env(safe-area-inset-*) is non-zero on iOS (B1 tab clearance)
+    // Canvas-less phones must not run Sequencer's CANVAS effects: they construct
+    // PlaceableObjects against a canvas that doesn't exist and throw ("You must
+    // provide an embedded Document instance…" — the Shield-reaction error,
+    // FINDINGS 2026-07-05 B3). effectsEnabled is client-scoped, so flipping it
+    // here sticks per-browser; sounds stay on (phones play their own SFX).
+    try {
+      if (game.modules.get("sequencer")?.active && game.settings.get("sequencer", "effectsEnabled")) {
+        game.settings.set("sequencer", "effectsEnabled", false);
+        console.log(`${MODULE_ID} | phone client — Sequencer canvas effects disabled (no canvas here; takes effect next reload)`);
+      }
+    } catch (e) { /* sequencer absent or its setting key moved */ }
     // iPhone has NO Fullscreen API — "Add to Home Screen" is the fullscreen there.
     // These metas make that home-screen launch chromeless (standalone). Android
     // gets the real fullscreen toggle in the shell (Details → Go full screen).
