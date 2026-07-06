@@ -2464,6 +2464,9 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-dmp-party-head { cursor: pointer; user-select: none; }
 .mc-dmp-party-head:hover { color: #c8a44d; }
 .mc-dmp-party-deploy { flex: 1 1 auto; font-weight: 800; color: #1a1712 !important; background: linear-gradient(#c8a44d, #b98a1e) !important; border-color: #c8a44d !important; }
+/* Stale group: the scene's PCs aren't all members → offer a rebuild beside Form up. */
+.mc-dmp-party-rebuild { flex: 0 0 38px; color: #d8b45a !important; }
+.mc-dmp-party-rebuild:hover { border-color: #c8a44d !important; }
 .mc-dmp-party-deploy:hover { background: linear-gradient(#d4b35f, #c49a2e) !important; }
 .mc-dmp-party-deploy.mc-warn { color: #fff !important; background: linear-gradient(#c05555, #9c3d3d) !important; border-color: #d06060 !important; }
 /* Combat nudge: the packed group joined the tracker — a fight as a blob makes no

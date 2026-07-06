@@ -393,9 +393,20 @@ function partyMainHTML() {
   if (!group) {
     partySel = null; partyForce = false;
     const cand = candidateGroup();
-    if (cand) return `<div class="mc-dmp-party-btns">
+    if (cand) {
+      // Stale-membership guard (playtest 2026-07-05: the group still held the OLD
+      // test party — "איפה הגרוק שלי"): if the scene's PCs aren't all members,
+      // offer a rebuild next to Form up instead of letting pack fail cryptically.
+      const scenePCs = scenePartyActors();
+      const memberIds = new Set((cand.system?.members ?? []).map(m => m.actor?.id).filter(Boolean));
+      const stale = scenePCs.length > 0 && scenePCs.some(a => !memberIds.has(a.id));
+      const rebuild = stale ? `<button class="mc-dmp-party-rebuild" data-party="rebuild" data-group="${cand.id}"
+        title="${foundry.utils.escapeHTML(cand.name)}'s members don't match this scene's PCs — replace them with the ${scenePCs.length} PCs here">
+        <i class="fas fa-arrows-rotate"></i></button>` : "";
+      return `<div class="mc-dmp-party-btns">
       <button class="mc-dmp-party-deploy" data-party="pack" data-group="${cand.id}" title="Collapse the clustered party into the ${foundry.utils.escapeHTML(cand.name)} token">
-        <i class="fas fa-people-group"></i> Form up</button></div>`;
+        <i class="fas fa-people-group"></i> Form up</button>${rebuild}</div>`;
+    }
     // No usable group → say WHY instead of rendering nothing (playtest 2026-07-05:
     // an empty group meant no Form up, no hint, and a very confused DM). One tap
     // adds the scene's player-owned PCs as members (or creates the group first).
@@ -466,6 +477,27 @@ async function onPartyClick(ev) {
     const res = await api.partyPack({ groupId: actBtn.dataset.group });
     if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't form up.");
     return true; // pack's token churn re-renders the panel
+  }
+  // Rebuild a STALE group's membership from the scene's PCs (confirm-gated — it
+  // replaces the member list, e.g. the old test party the DM forgot about).
+  if (actBtn?.dataset.party === "rebuild") {
+    try {
+      const g = game.actors.get(actBtn.dataset.group);
+      const pcs = scenePartyActors();
+      if (!g || !pcs.length) return true;
+      const yes = await foundry.applications.api.DialogV2.confirm({
+        window: { title: "Rebuild party" },
+        content: `<p>Replace <b>${foundry.utils.escapeHTML(g.name)}</b>'s members with this scene's ${pcs.length} player characters?<br><em>${pcs.map(a => foundry.utils.escapeHTML(a.name.split(" ")[0])).join(", ")}</em></p>`
+      }).catch(() => false);
+      if (!yes) return true;
+      await g.update({ "system.members": pcs.map(a => ({ actor: a.id })) });
+      ui.notifications.info(`${g.name}: members rebuilt — Form up is ready.`);
+    } catch (e) {
+      console.error(`${MODULE_ID} | party rebuild failed`, e);
+      ui.notifications.warn(`Couldn't rebuild the party: ${e.message}`);
+    }
+    render();
+    return true;
   }
   // One-tap party setup (playtest 2026-07-05): fill an empty group with the scene's
   // PCs — or create the group first. GM client → direct document writes.
