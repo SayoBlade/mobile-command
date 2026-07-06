@@ -5,9 +5,11 @@ import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, 
 import { initPauseGuard } from "./pause-guard.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient, isDisplayClient } from "./shell.js";
 import { registerDMPanel } from "./dm-panel.js";
+import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 
 Hooks.once("init", () => {
   registerSettings();
+  registerSceneTransitions(); // zoom in/out entries in CONFIG.Canvas.sceneTransitions (scene config + teleport pickers)
   // TV clean-canvas toggle (DM 2026-06-19): hide ALL Foundry UI so the shared
   // display shows only the canvas. Auto-on for the "display" role; this keybinding
   // toggles it back so the DM can reach settings on the display client (escape hatch).
@@ -591,6 +593,7 @@ Hooks.once("ready", () => {
   setupDMOmniscientVision(); // keep the DM's canvas omniscient when a token is selected (shared-screen tables)
   setupDisplayItemPileNames(); // hide item-pile token names on the shared TV (spoiler/clutter)
   setupAutoOwnNewPCs(); // auto-own new PCs for the display/TV account (opt-in; see displayOwnerUser)
+  registerPartyTeleportActivation(); // party token teleports to a new scene → activate it (TV follows; primary-GM-gated)
 
   globalThis.MobileCommand = {
     ...api,

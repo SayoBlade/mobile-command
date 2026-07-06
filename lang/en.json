@@ -14,5 +14,7 @@
   "MOBILECOMMAND.SaveTimeout.Name": "Expected save prompt timeout (seconds)",
   "MOBILECOMMAND.SaveTimeout.Hint": "The midi-qol playerSaveTimeout value the Settings Enforcer polices. Tune to what feels right at the table (DESIGN.md Q4).",
   "MOBILECOMMAND.EnforcerAutoPrompt.Name": "Check settings preset on startup",
-  "MOBILECOMMAND.EnforcerAutoPrompt.Hint": "On world ready, GM clients compare live settings to the canonical preset (DESIGN.md D4) and offer a one-click fix when they drift."
+  "MOBILECOMMAND.EnforcerAutoPrompt.Hint": "On world ready, GM clients compare live settings to the canonical preset (DESIGN.md D4) and offer a one-click fix when they drift.",
+  "MOBILECOMMAND.Transition.ZoomIn": "Zoom In (Mobile Command)",
+  "MOBILECOMMAND.Transition.ZoomOut": "Zoom Out (Mobile Command)"
 }

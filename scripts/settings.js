@@ -163,6 +163,18 @@ export function registerSettings() {
     onChange: (value) => { if (value) retroGrantOwnership(value); }
   });
 
+  // Party-teleport follow-through: when the packed party token arrives on a new
+  // scene (core Teleport Token region behavior / DM drag), the executor activates
+  // that scene so the TV + every phone transitions together (transitions.js).
+  game.settings.register(MODULE_ID, "partyTeleportActivates", {
+    name: "Activate scene when the party travels to it",
+    hint: "When the packed party token teleports or moves to another scene, make that scene active so the shared display and phones follow — the destination scene's transition animation plays for everyone.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
   // Comprehensive snapshots so the module's changes can be reverted/reactivated
   // (Foundry won't revert them on disable). presetBackup = original pre-module state;
   // reactivateSnapshot = the module-active state captured when you revert.
