@@ -6,6 +6,7 @@ import { initPauseGuard } from "./pause-guard.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient, isDisplayClient } from "./shell.js";
 import { registerDMPanel } from "./dm-panel.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
+import { registerAoO } from "./aoo.js";
 
 Hooks.once("init", () => {
   registerSettings();
@@ -594,6 +595,7 @@ Hooks.once("ready", () => {
   setupDisplayItemPileNames(); // hide item-pile token names on the shared TV (spoiler/clutter)
   setupAutoOwnNewPCs(); // auto-own new PCs for the display/TV account (opt-in; see displayOwnerUser)
   registerPartyTeleportActivation(); // party token teleports to a new scene → activate it (TV follows; primary-GM-gated)
+  registerAoO(); // opportunity-attack movement watcher (executor-gated inside; see aoo.js)
 
   globalThis.MobileCommand = {
     ...api,

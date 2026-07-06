@@ -79,6 +79,7 @@ export function initSocket() {
   socket.register("rollRequest", handleRollRequest);
   socket.register("requestColorPick", handleRequestColorPick);
   socket.register("colorPick", handleColorPick);
+  socket.register("aooPrompt", handleAoOPromptClient);
   socket.register("heartbeat", handleHeartbeat);
   registerPartyAutoFacing(); // executor-gated inside the hook
   registerPlayerColorSync(); // executor repaints a player's token rings on colour change
@@ -1267,6 +1268,17 @@ async function handleRequestColorPick({ userId, requesterId }) {
 function handleColorPick() {
   Hooks.callAll("mobile-command.colorPick");
   return true;
+}
+
+// Opportunity-attack prompt (aoo.js → the attacker's phone): same relay shape as
+// save/roll requests — the shell renders a tappable card.
+function handleAoOPromptClient(payload) {
+  Hooks.callAll("mobile-command.aooPrompt", payload ?? null);
+  return true;
+}
+export function aooPromptUser(userId, payload) {
+  try { return socket?.executeAsUser("aooPrompt", userId, payload); }
+  catch (e) { console.warn(`${MODULE_ID} | aooPromptUser failed`, e); return null; }
 }
 
 // One-shot: apply current PC visuals (player-color ring + color-over-subject +

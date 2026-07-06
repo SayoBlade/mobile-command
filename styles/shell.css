@@ -867,6 +867,9 @@ body.mc-phone .merchant-right-pane { padding-left: 0 !important; }
   padding: 12px 14px; border-bottom: 1px solid var(--mc-edge); flex: 0 0 auto;
 }
 .mc-saveprompt-title { font-size: 16px; font-weight: 700; color: var(--mc-gold); }
+/* Opportunity-attack variant — reaction violet (matches the RE economy color). */
+.mc-saveprompt.mc-aoo { border-top-color: #8a6fd8; }
+.mc-saveprompt.mc-aoo .mc-saveprompt-title { color: #b39df1; }
 .mc-saveprompt-x {
   min-width: 40px; min-height: 40px;
   background: none; border: none; color: var(--mc-muted); font-size: 17px; line-height: 1; cursor: pointer;

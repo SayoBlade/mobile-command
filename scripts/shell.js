@@ -194,6 +194,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #wasPacked = false;     // pack-transition latch: jump phones to the order tab once per pack
   #lastReleased = null;   // scout release-follow: last-seen released member set
   #rollRequest = null;    // DM roll-request prompt {actorUuid, rollType, ability, label}
+  #aooPrompt = null;      // opportunity-attack prompt {activityUuid, targetUuid, attackerName, moverName, ttlMs}
+  #aooTimer = null;
   #colorPickOpen = false; // DM-triggered colour-picker overlay is showing
   #partySelf = null;      // marching-order: the owned member the player picked up
   #journalFilter = "";    // journal: live post filter ("shopke" → matching notes)
@@ -473,6 +475,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#sharedImageHTML()}
       ${this.#savePromptHTML()}
       ${this.#rollRequestHTML()}
+      ${this.#aooPromptHTML()}
       ${this.#colorPickOpen ? this.#colorPickHTML() : ""}`;
   }
 
@@ -1352,6 +1355,39 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <div class="mc-saveprompt-btns">${btns}</div>
       </div>
     </div>`;
+  }
+
+  // Opportunity-attack prompt (aoo.js watcher → this phone): an enemy is walking
+  // out of this player's reach. Attack = the normal two-tap attack flow with the
+  // mover PRE-TARGETED (assigned-targets path); midi charges the reaction on roll.
+  #aooPromptHTML() {
+    const p = this.#aooPrompt;
+    if (!p) return "";
+    return `<div class="mc-saveprompt mc-aoo">
+      <div class="mc-saveprompt-bar">
+        <span class="mc-saveprompt-title"><i class="fas fa-bolt"></i> Opportunity attack!</span>
+        <button class="mc-saveprompt-x" data-action="aoo-dismiss" aria-label="Close"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="mc-saveprompt-body">
+        <div class="mc-saveprompt-sub">${foundry.utils.escapeHTML(p.moverName ?? "An enemy")} is escaping ${foundry.utils.escapeHTML(p.attackerName ?? "your")}'s reach</div>
+        <div class="mc-saveprompt-btns">
+          <button class="mc-save-roll" data-action="aoo-attack">Attack with ${foundry.utils.escapeHTML(p.weaponName || "your weapon")}</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  noteAoOPrompt(payload) {
+    clearTimeout(this.#aooTimer);
+    this.#aooPrompt = payload || null;
+    if (payload) this.#sfx("prompt"); // off-turn attention cue — eyes are on the TV
+    if (payload?.ttlMs) {
+      this.#aooTimer = setTimeout(() => {
+        this.#aooPrompt = null;
+        if (this.rendered) this.render();
+      }, payload.ttlMs);
+    }
+    if (this.rendered) this.render();
   }
 
   // Full-screen image popup (tap the portrait): toggles between the actor's
@@ -4566,6 +4602,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return;
       }
       case "roll-request-x": this.#rollRequest = null; return this.render();
+      case "aoo-attack": {
+        const p = this.#aooPrompt;
+        if (!p) return;
+        clearTimeout(this.#aooTimer);
+        this.#aooPrompt = null;
+        // Pre-target the escaping enemy via the assigned-targets path — the picker
+        // opens with them selected; Use → the normal attack → damage two-tap.
+        this.#assignedTargets = [p.targetUuid];
+        this.#assignedBy = "Opportunity";
+        return this.#pickAction(p.activityUuid);
+      }
+      case "aoo-dismiss":
+        clearTimeout(this.#aooTimer);
+        this.#aooPrompt = null; return this.render();
       case "party-move": return this.#partyMove(Number(el.dataset.dx), Number(el.dataset.dy));
       case "party-stage": return this.#partyStage(el.dataset.stage);
       case "ptab":
@@ -5812,6 +5862,7 @@ export function registerShellHooks() {
   Hooks.on("mobile-command.colorPick", () => { if (shellInstance) { shellInstance.openColorPick(); } });
   Hooks.on("mobile-command.savePrompt", (payload) => shellInstance?.noteSavePrompt(payload));
   Hooks.on("mobile-command.rollRequest", (payload) => shellInstance?.noteRollRequest(payload));
+  Hooks.on("mobile-command.aooPrompt", (payload) => shellInstance?.noteAoOPrompt(payload));
   // "Show Players" image → the phone. The shell hides native windows, so Foundry's
   // ImagePopout never reaches a phone; mirror the core `shareImage` broadcast into the
   // shell's full-screen overlay instead (respect an explicit users allowlist).

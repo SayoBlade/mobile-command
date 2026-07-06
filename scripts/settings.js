@@ -163,6 +163,27 @@ export function registerSettings() {
     onChange: (value) => { if (value) retroGrantOwnership(value); }
   });
 
+  // In-house opportunity attacks (aoo.js): the executor watches combat movement
+  // for leave-reach events. Player attackers get a phone prompt; NPC attackers
+  // follow aooNpcMode. midi's recordAOO (D4 preset) charges the reaction.
+  game.settings.register(MODULE_ID, "aooEnabled", {
+    name: "Opportunity attacks: watch movement in combat",
+    hint: "When a combatant leaves an enemy's melee reach, prompt the enemy's owner for an opportunity attack (players on their phone, NPCs per the setting below). Only runs during combat.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+  game.settings.register(MODULE_ID, "aooNpcMode", {
+    name: "Opportunity attacks: NPC behavior",
+    hint: "What happens when an NPC could take an opportunity attack: ask the DM, roll it automatically, or ignore NPCs (players still get prompts).",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "prompt",
+    choices: { prompt: "Ask the DM", auto: "Roll automatically", off: "NPCs don't react" }
+  });
+
   // Party-teleport follow-through: when the packed party token arrives on a new
   // scene (core Teleport Token region behavior / DM drag), the executor activates
   // that scene so the TV + every phone transitions together (transitions.js).
