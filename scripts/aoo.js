@@ -40,18 +40,25 @@ function gridDistance(a, b) {
   return canvas.grid.measurePath([a, b]).distance; // honors the table's diagonal rule
 }
 
-// The attacker's best melee option: largest-reach equipped weapon attack activity.
+// The attacker's best melee option: largest-reach weapon attack activity.
 // Melee activities carry range.reach; ranged carry value/long — that's the filter.
+// EQUIPPED weapons win; if none is equipped, fall back to any carried melee weapon
+// (char-gen grants arrive unequipped — Grukk's whole arsenal read equipped=false and
+// the DM's test silently found "no weapon", 2026-07-06). Warnings-not-walls: offer
+// the OA with the best carried blade and let the owner decline.
 function meleeReachActivity(actor) {
   let best = null;
   for (const item of actor.items) {
     if (item.type !== "weapon") continue;
-    if (item.system?.equipped === false) continue;
+    const equipped = item.system?.equipped !== false;
     for (const act of item.system.activities ?? []) {
       if (act.type !== "attack") continue;
       const reach = Number(act.range?.reach);
       if (!Number.isFinite(reach) || reach <= 0) continue;
-      if (!best || reach > best.reach) best = { activity: act, reach };
+      const better = !best
+        || (equipped && !best.equipped)                    // equipped beats unequipped
+        || (equipped === best.equipped && reach > best.reach); // then longer reach
+      if (better) best = { activity: act, reach, equipped };
     }
   }
   return best;
