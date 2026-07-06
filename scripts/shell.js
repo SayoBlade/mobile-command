@@ -1145,10 +1145,27 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       else if (o.kind === "gold") gold += o.gold || 0;
       else if (o.kind === "category" && eq.catUuid[ci]) want.push({ uuid: eq.catUuid[ci], count: 1 });
     });
+    // Auto-equip the grant (2026-07-07): grants used to arrive UNEQUIPPED, so a
+    // fresh PC had no equipped armor (wrong AC) and no equipped weapon (invisible
+    // to the AoO watcher — Grukk's whole arsenal read equipped=false). Weapons all
+    // equip; the FIRST body armor and FIRST shield equip unless one is already
+    // worn (dnd5e warns on doubled armor).
+    const BODY_ARMOR = ["light", "medium", "heavy"];
+    const wearing = (kinds) => actor.itemTypes.equipment.some(e =>
+      e.system?.equipped && kinds.includes(e.system?.type?.value));
+    let hasArmor = wearing(BODY_ARMOR), hasShield = wearing(["shield"]);
+    const autoEquip = (data) => {
+      if (data.type === "weapon") { data.system.equipped = true; return; }
+      if (data.type !== "equipment") return;
+      const kind = data.system?.type?.value;
+      if (BODY_ARMOR.includes(kind) && !hasArmor) { data.system.equipped = true; hasArmor = true; }
+      else if (kind === "shield" && !hasShield) { data.system.equipped = true; hasShield = true; }
+    };
     const toAdd = [], names = [];
     for (const w of want) {
       const doc = await fromUuid(w.uuid); if (!doc) continue;
       const data = doc.toObject();
+      autoEquip(data);
       if (w.count > 1 && "quantity" in (data.system ?? {})) data.system.quantity = w.count;
       toAdd.push(data);
       names.push(w.count > 1 ? `${doc.name} ×${w.count}` : doc.name);
