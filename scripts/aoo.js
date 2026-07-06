@@ -106,14 +106,19 @@ async function dispatchAoO(attackerToken, moverDoc, activity) {
   };
   console.log(`${MODULE_ID} | AoO: ${moverDoc.name} leaves ${attackerToken.name}'s reach (${activity.item?.name})`);
 
-  // Player-owned attacker → the phone card.
-  const owners = game.users.filter(u => u.active && !u.isGM && actor.testUserPermission(u, "OWNER"));
+  // Player-owned attacker → the phone card. EXCLUDE the shared TV/display account:
+  // it auto-owns every PC (displayOwnerUser), so it was swallowing the prompt on a
+  // client with no shell (DM solo-test 2026-07-06: "nothing happened" — the card
+  // went to the TV). No phone-capable owner online → fall through to the DM path.
+  const displayUser = game.settings.get(MODULE_ID, "displayOwnerUser") || null;
+  const owners = game.users.filter(u => u.active && !u.isGM && u.id !== displayUser
+    && actor.testUserPermission(u, "OWNER"));
   if (owners.length) {
     for (const u of owners) aooPromptUser(u.id, payload);
     return;
   }
 
-  // NPC attacker → DM policy.
+  // NPC attacker — or a PC with no player at the table → DM policy.
   const mode = game.settings.get(MODULE_ID, "aooNpcMode");
   if (mode === "off") return;
   if (mode === "prompt") {
