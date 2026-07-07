@@ -5802,26 +5802,41 @@ function liftDialogAboveShell(app) {
   el.style.zIndex = String(AppV2._maxZ);
   // Step lock (playtest 2026-07-05): while ANY lifted dialog is open, a backdrop
   // blocks the shell underneath — players were tapping onward mid-advancement
-  // ("the fact you can keep going after one opens is horrible"). The backdrop sits
-  // one z below the newest dialog; it clears when the last lifted dialog closes.
-  liftedApps.add(app.id ?? app.appId ?? app);
-  ensureShellBackdrop(Number(el.style.zIndex) - 1);
+  // ("the fact you can keep going after one opens is horrible").
+  liftedApps.set(app.id ?? app.appId ?? app, { app, el });
+  syncShellBackdrop();
 }
 
 // --- lifted-dialog step lock ------------------------------------------------
-const liftedApps = new Set();
-function ensureShellBackdrop(z) {
-  let bd = document.getElementById("mc-shell-backdrop");
+// Self-validating (DM 2026-07-07: the backdrop blurred the POPUP TOO and once
+// leaked over the User Config, locking the client). The old version trusted a
+// single "newest dialog z − 1" and a close-hook to clean up — a re-render that
+// bumped z, or a close that never fired our hook, left the backdrop above the
+// dialog or orphaned. Now: track {app, el}, PRUNE anything no longer rendered,
+// and place the backdrop at (LOWEST live dialog z) − 1 so no dialog is ever
+// behind it. Clicking the backdrop re-validates — a leaked one dies on tap.
+const liftedApps = new Map();
+function syncShellBackdrop() {
+  for (const [key, v] of liftedApps) {
+    const alive = v.el?.isConnected && v.app?.rendered !== false;
+    if (!alive) liftedApps.delete(key);
+  }
+  const bdExisting = document.getElementById("mc-shell-backdrop");
+  if (liftedApps.size === 0) { bdExisting?.remove(); return; }
+  const zs = [...liftedApps.values()].map(v => Number(v.el?.style?.zIndex)).filter(Number.isFinite);
+  const z = (zs.length ? Math.min(...zs) : SHELL_Z + 2) - 1;
+  let bd = bdExisting;
   if (!bd) {
     bd = document.createElement("div");
     bd.id = "mc-shell-backdrop";
+    bd.addEventListener("pointerdown", () => syncShellBackdrop()); // leaked? one tap clears it
     document.body.appendChild(bd);
   }
   bd.style.zIndex = String(z);
 }
 function releaseShellBackdrop(app) {
-  if (!liftedApps.delete(app?.id ?? app?.appId ?? app)) return;
-  if (liftedApps.size === 0) document.getElementById("mc-shell-backdrop")?.remove();
+  liftedApps.delete(app?.id ?? app?.appId ?? app);
+  syncShellBackdrop();
 }
 
 export function openShell() {
