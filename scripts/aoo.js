@@ -129,17 +129,28 @@ async function dispatchAoO(attackerToken, moverDoc, activity) {
   const mode = game.settings.get(MODULE_ID, "aooNpcMode");
   if (mode === "off") return;
   if (mode === "prompt") {
-    const yes = await foundry.applications.api.DialogV2.confirm({
-      window: { title: "Opportunity attack" },
-      content: `<p><b>${foundry.utils.escapeHTML(moverDoc.name)}</b> is leaving <b>${foundry.utils.escapeHTML(attackerToken.name)}</b>'s reach.<br>Take the opportunity attack with ${foundry.utils.escapeHTML(activity.item?.name ?? "its weapon")}?</p>`,
-      modal: false
-    }).catch(() => false);
-    if (!yes) return;
+    // Non-modal by design (DM 2026-07-07: a dialog interrupts whatever the DM is
+    // doing) — a chip in the DM panel's reaction widget, expiring with the window.
+    Hooks.callAll("mobile-command.dmReaction", {
+      id: foundry.utils.randomID(),
+      kind: "aoo",
+      label: `${attackerToken.name} ⚔ ${moverDoc.name}`,
+      weapon: activity.item?.name ?? "weapon",
+      activityUuid: activity.uuid,
+      targetUuid: moverDoc.uuid,
+      expiresAt: Date.now() + payload.ttlMs
+    });
+    return;
   }
-  // Fire the NPC's attack fully fast-forwarded (midi charges the reaction via recordAOO).
-  await MidiQOL.completeActivityUse(activity.uuid, {
+  await fireAoO(activity.uuid, moverDoc.uuid);
+}
+
+// Fire an opportunity attack fully fast-forwarded (midi charges the reaction via
+// recordAOO). Shared by the auto mode and the DM panel's reaction-widget chip.
+export async function fireAoO(activityUuid, targetUuid) {
+  await MidiQOL.completeActivityUse(activityUuid, {
     midiOptions: {
-      targetUuids: [moverDoc.uuid], ignoreUserTargets: true,
+      targetUuids: [targetUuid], ignoreUserTargets: true,
       autoRollAttack: true, fastForwardAttack: true,
       autoRollDamage: "always", fastForwardDamage: true,
       workflowOptions: { autoConsumeResource: "both" }

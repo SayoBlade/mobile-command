@@ -155,7 +155,16 @@ export function registerReactionNotifier() {
       const names = [...new Set(acts.map(a => a?.item?.name).filter(Boolean))].slice(0, 3).join(", ");
       const user = game.users.find(u => u.active && !u.isGM && u.character?.id === actor.id)
         ?? game.users.find(u => u.active && !u.isGM && actor.testUserPermission?.(u, "OWNER"));
-      ui.notifications.info(`⚡ ${actor.name} has a reaction window${names ? ` (${names})` : ""}${user ? ` — waiting on ${user.name}` : ""}`);
+      // Passive chip in the DM panel's reaction widget (DM 2026-07-07) — non-modal
+      // awareness of the player's reaction window; expires with midi's timeout.
+      const timeout = game.settings.get("midi-qol", "ConfigSettings")?.reactionTimeout ?? 30;
+      Hooks.callAll("mobile-command.dmReaction", {
+        id: foundry.utils.randomID(),
+        kind: "window",
+        label: `${actor.name}${user ? ` · ${user.name}` : ""}`,
+        weapon: names,
+        expiresAt: Date.now() + Math.max(5, timeout) * 1000
+      });
     } catch (e) { /* awareness only — never disturb the workflow */ }
   });
 }

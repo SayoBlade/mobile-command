@@ -1,4 +1,5 @@
 import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview } from "./rpc.js";
+import { fireAoO } from "./aoo.js";
 import { MODULE_ID } from "./preset.js";
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
@@ -16,6 +17,7 @@ let panelEl = null;
 let dockTab = null;          // null | "rolls" | "party" | "tokens"
 let dockWasPacked = false;   // auto-open the party tab on pack, close on disperse
 let tokensPlayer = "";       // owned-tokens: which player's tokens are shown
+let dmReactions = [];        // reaction widget: live chips {id, kind:"aoo"|"window", label, weapon, activityUuid?, targetUuid?, expiresAt}
 const rollTool = { type: "save", ability: "dex", selected: null, targetsOpen: false };
 
 // Candidate roll targets: packed-group members (grouped) ∪ player-owned character
@@ -373,13 +375,19 @@ function candidateGroup() {
     && (a.system?.members ?? []).some(m => m.actor)) ?? null;
 }
 
-/** Unique player-owned character actors with a token on the active scene —
- *  the natural party members for the one-tap group populate. */
+/** Unique player-owned actors with a friendly token on the active scene — the
+ *  natural party members for the one-tap populate/rebuild. Includes summons and
+ *  pets (any player-owned FRIENDLY token, not just type "character") so a druid's
+ *  24-hour beast can travel with the pack (DM 2026-07-07); Item Piles stores and
+ *  group actors are excluded. */
 function scenePartyActors() {
   const seen = new Set(), out = [];
   for (const t of game.scenes?.active?.tokens ?? []) {
     const a = t.actor;
-    if (a?.type !== "character" || !a.hasPlayerOwner || seen.has(a.id)) continue;
+    if (!a || a.type === "group" || seen.has(a.id)) continue;
+    if (!a.hasPlayerOwner) continue;
+    if (t.disposition !== CONST.TOKEN_DISPOSITIONS.FRIENDLY) continue;
+    if (a.flags?.["item-piles"]) continue;
     seen.add(a.id); out.push(a);
   }
   return out;
@@ -388,6 +396,26 @@ function scenePartyActors() {
 // MAIN area (DM 2026-07-03): only Form up / Disperse live here — stable width.
 // The marching-order grid + rotate + lock-in + release/combine moved to the
 // "Party order" dock tab (auto-opens on pack, closes on disperse).
+// Reaction widget (DM 2026-07-07): non-modal chips instead of dialogs/toasts.
+// "aoo" chips are ACTIONABLE (an NPC could take an opportunity attack — ⚔ fires
+// it, ✕ declines); "window" chips are passive awareness that a PLAYER is deciding
+// a reaction on their phone. Every chip expires with its reaction window.
+function reactionsHTML() {
+  const now = Date.now();
+  dmReactions = dmReactions.filter(r => r.expiresAt > now);
+  if (!dmReactions.length) return "";
+  const chips = dmReactions.map(r => r.kind === "aoo"
+    ? `<div class="mc-dmp-react mc-dmp-react-aoo">
+        <span class="mc-dmp-react-txt"><i class="fas fa-bolt"></i> ${foundry.utils.escapeHTML(r.label)}</span>
+        <button data-dmreact-fire="${r.id}" title="Take the opportunity attack (${foundry.utils.escapeHTML(r.weapon)})"><i class="fas fa-hand-fist"></i></button>
+        <button data-dmreact-x="${r.id}" title="Let them go"><i class="fas fa-xmark"></i></button>
+      </div>`
+    : `<div class="mc-dmp-react mc-dmp-react-win">
+        <span class="mc-dmp-react-txt"><i class="fas fa-hourglass-half"></i> ${foundry.utils.escapeHTML(r.label)}${r.weapon ? ` — ${foundry.utils.escapeHTML(r.weapon)}` : ""}</span>
+      </div>`);
+  return `<div class="mc-dmp-reactions">${chips.join("")}</div>`;
+}
+
 function partyMainHTML() {
   const group = packedGroup();
   if (!group) {
@@ -399,9 +427,13 @@ function partyMainHTML() {
       // offer a rebuild next to Form up instead of letting pack fail cryptically.
       const scenePCs = scenePartyActors();
       const memberIds = new Set((cand.system?.members ?? []).map(m => m.actor?.id).filter(Boolean));
-      const stale = scenePCs.length > 0 && scenePCs.some(a => !memberIds.has(a.id));
+      // Stale in EITHER direction: a party-worthy token isn't a member (new PC,
+      // fresh summon), or a member has no token here (unsummoned beast, old party).
+      const sceneActorIds = new Set((game.scenes.active?.tokens ?? []).map(t => t.actor?.id).filter(Boolean));
+      const memberGone = (cand.system?.members ?? []).some(m => m.actor && !sceneActorIds.has(m.actor.id));
+      const stale = (scenePCs.length > 0 && scenePCs.some(a => !memberIds.has(a.id))) || memberGone;
       const rebuild = stale ? `<button class="mc-dmp-party-rebuild" data-party="rebuild" data-group="${cand.id}"
-        title="${foundry.utils.escapeHTML(cand.name)}'s members don't match this scene's PCs — replace them with the ${scenePCs.length} PCs here">
+        title="${foundry.utils.escapeHTML(cand.name)}'s members don't match this scene — rebuild from the ${scenePCs.length} party tokens here">
         <i class="fas fa-arrows-rotate"></i></button>` : "";
       return `<div class="mc-dmp-party-btns">
       <button class="mc-dmp-party-deploy" data-party="pack" data-group="${cand.id}" title="Collapse the clustered party into the ${foundry.utils.escapeHTML(cand.name)} token">
@@ -612,7 +644,7 @@ function render() {
   if (packedNow && !dockWasPacked) dockTab = "party";
   else if (!packedNow && dockWasPacked && dockTab === "party") dockTab = null;
   dockWasPacked = packedNow;
-  const main = grip + statusHTML() + cameraBarHTML() + combatHTML() + quickHpHTML()
+  const main = grip + statusHTML() + cameraBarHTML() + reactionsHTML() + combatHTML() + quickHpHTML()
     + partyMainHTML()
     + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
   // Main content scrolls inside; the tab rail + flyout stick out the right edge.
@@ -647,6 +679,20 @@ function onChange(ev) {
 }
 
 async function onClick(ev) {
+  // Reaction widget: fire the NPC opportunity attack, or let them go.
+  const rFire = ev.target.closest("[data-dmreact-fire]");
+  if (rFire) {
+    const entry = dmReactions.find(r => r.id === rFire.dataset.dmreactFire);
+    dmReactions = dmReactions.filter(r => r.id !== rFire.dataset.dmreactFire);
+    render();
+    if (entry) {
+      try { await fireAoO(entry.activityUuid, entry.targetUuid); }
+      catch (e) { console.error(`${MODULE_ID} | reaction-widget AoO failed`, e); ui.notifications.warn("Couldn't fire the opportunity attack — see console."); }
+    }
+    return;
+  }
+  const rX = ev.target.closest("[data-dmreact-x]");
+  if (rX) { dmReactions = dmReactions.filter(r => r.id !== rX.dataset.dmreactX); return render(); }
   // Right-side dock: tab toggle, close, target checkbox, send.
   const dockBtn = ev.target.closest("[data-dock]");
   if (dockBtn) { dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }
@@ -757,6 +803,14 @@ export function registerDMPanel() {
   Hooks.on("pauseGame", () => render());                           // pause toggle ↔ panel button
   Hooks.on("userConnected", () => render());                       // presence: connect/disconnect
   Hooks.on("updateUser", () => render());                          // presence: a player changed scene (viewedScene)
+  Hooks.on("mobile-command.dmReaction", (entry) => {               // reaction widget chips (aoo.js + rpc.js)
+    dmReactions.push(entry);
+    render();
+    setTimeout(() => { // expire with the reaction window; filter also runs at render
+      dmReactions = dmReactions.filter(r => r.id !== entry.id);
+      render();
+    }, Math.max(1000, entry.expiresAt - Date.now()));
+  });
   Hooks.on("mobile-command.pendingCast", () => render());          // a phone announced an AoE cast
   Hooks.on("mobile-command.pendingCastResolved", () => render());  // placed or dismissed
   Hooks.on("mobile-command.tvManualChanged", () => render());      // keep the manual button in sync (keybinding toggles too)
