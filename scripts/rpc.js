@@ -136,6 +136,30 @@ function handleWatchdogPing({ name, title } = {}) {
 // Executor-side relay: midi fires preTargetSave on the workflow client (the
 // executor) right before it queues each target's save. We forward a structured
 // prompt to that target's active owners. Registered once on ready.
+// DM awareness of reaction windows (DM 2026-07-07: "reaction notifications for
+// the DM too… without getting too distracting"). midi fires ReactionFilter on the
+// workflow client (the executor) right before prompting the owner — surface a
+// plain auto-dismissing toast naming who's deciding and with what. Non-modal, no
+// sound, never blocks; debounced per actor so the double-filter call doesn't spam.
+const reactionToastAt = new Map(); // actorId -> ts
+export function registerReactionNotifier() {
+  Hooks.on("midi-qol.ReactionFilter", (reactions, _options, _triggerType, list) => {
+    try {
+      if (!isExecutor()) return;
+      const acts = (list?.length ? list : reactions) ?? [];
+      const actor = acts[0]?.item?.actor;
+      if (!actor) return;
+      const last = reactionToastAt.get(actor.id) ?? 0;
+      if (Date.now() - last < 3000) return;
+      reactionToastAt.set(actor.id, Date.now());
+      const names = [...new Set(acts.map(a => a?.item?.name).filter(Boolean))].slice(0, 3).join(", ");
+      const user = game.users.find(u => u.active && !u.isGM && u.character?.id === actor.id)
+        ?? game.users.find(u => u.active && !u.isGM && actor.testUserPermission?.(u, "OWNER"));
+      ui.notifications.info(`⚡ ${actor.name} has a reaction window${names ? ` (${names})` : ""}${user ? ` — waiting on ${user.name}` : ""}`);
+    } catch (e) { /* awareness only — never disturb the workflow */ }
+  });
+}
+
 export function registerSaveRelay() {
   Hooks.on("midi-qol.preTargetSave", (target, workflow, saveDetails) => {
     try {

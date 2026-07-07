@@ -1,7 +1,7 @@
 import { MODULE_ID } from "./preset.js";
 import { registerSettings, resolveExecutorId, isExecutor } from "./settings.js";
 import { diffPreset, applyPreset, checkAndPrompt, deactivate, reactivate, hasBackup } from "./enforcer.js";
-import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, api, actorTokenSight } from "./rpc.js";
+import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, registerReactionNotifier, api, actorTokenSight } from "./rpc.js";
 import { initPauseGuard } from "./pause-guard.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient, isDisplayClient } from "./shell.js";
 import { registerDMPanel } from "./dm-panel.js";
@@ -600,6 +600,7 @@ Hooks.once("ready", () => {
   registerShellHooks();
   registerDMPanel(); // DM-assign panel (GM clients only; self-gates)
   registerSaveRelay(); // executor relays midi save requests to phones (self-gates on isExecutor)
+  registerReactionNotifier(); // DM toast when a player gets a reaction window (self-gates)
   registerDialogWatchdog(); // executor alerts DM + pings phone when an action strands a dialog (self-gates)
   setupGMCursorHiding(); // hide the GM's broadcast cursor on other screens (keep pings); reads hideGMCursor live
   setupDMOmniscientVision(); // keep the DM's canvas omniscient when a token is selected (shared-screen tables)

@@ -747,6 +747,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // was still blank (sight range 0 / basic), so its darkvision never reached the token
     // and it looked blind on the TV. Fire-and-forget — never blocks Finish.
     if (actor) this.#syncFinishedTokenSight(actor).catch((e) => console.warn(`${MODULE_ID} | finish sight-sync failed`, e));
+    // Claim the finished PC as THIS user's assigned character (2026-07-07): midi
+    // routes save/reaction prompts to "the active user whose CHARACTER is this
+    // actor" FIRST — without the assignment, the first active player-OWNER wins,
+    // and the TV account (which auto-owns every PC) can swallow the prompt (the
+    // Shield-didn't-reach-mobile report). Players may set their own character;
+    // never overrides an existing assignment.
+    if (actor && !game.user.isGM && !game.user.character) {
+      game.user.update({ character: actor.id }).catch((e) => console.warn(`${MODULE_ID} | character self-assign failed`, e));
+    }
     // Every character creation ends "rested" (DM 2026-07-05: fresh casters had zero
     // spell slots — "you need to rest to get slots after CC"). Try a silent long rest
     // (recovers uses/HD properly) — but dnd5e's allowRests=false world setting makes a
