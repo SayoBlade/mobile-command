@@ -5800,11 +5800,19 @@ function liftDialogAboveShell(app) {
   const AppV2 = foundry.applications.api.ApplicationV2;
   AppV2._maxZ = Math.max(AppV2._maxZ + 1, SHELL_Z + 2);
   el.style.zIndex = String(AppV2._maxZ);
+  // AppV2 re-applies its CACHED position.zIndex after render/position updates —
+  // which silently dropped the dialog back to the backdrop's level (the z-TIE
+  // behind "the popup itself is blurred", DM 2026-07-07). Write our z into the
+  // position object too, so core re-applies OUR value instead of the stale one.
+  try { if (app.position && "zIndex" in app.position) app.position.zIndex = AppV2._maxZ; } catch (e) { /* V1 app */ }
   // Step lock (playtest 2026-07-05): while ANY lifted dialog is open, a backdrop
   // blocks the shell underneath — players were tapping onward mid-advancement
   // ("the fact you can keep going after one opens is horrible").
   liftedApps.set(app.id ?? app.appId ?? app, { app, el });
   syncShellBackdrop();
+  // Core may finish its own position pass a tick later — re-sync so the backdrop
+  // re-reads the dialogs' SETTLED z values.
+  setTimeout(syncShellBackdrop, 150);
 }
 
 // --- lifted-dialog step lock ------------------------------------------------
