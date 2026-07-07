@@ -1645,8 +1645,10 @@ body.mc-theme-arcane #mobile-command-shell {
    ============================================================ */
 .mc-slots { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
 .mc-slot {
-  display: inline-flex; align-items: baseline; gap: 5px;
-  padding: 5px 10px; border-radius: 999px;
+  /* center, not baseline: pips have no text baseline, so they sagged low and
+     crowded the pill's right edge (DM screenshot 2026-07-07). */
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px;
   background: var(--mc-panel); border: 1px solid var(--mc-edge);
 }
 .mc-slot-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--mc-muted); }
@@ -2508,6 +2510,22 @@ body.mc-theme-arcane #mobile-command-shell {
 /* Stale group: the scene's PCs aren't all members → offer a rebuild beside Form up. */
 .mc-dmp-party-rebuild { flex: 0 0 38px; color: #d8b45a !important; }
 .mc-dmp-party-rebuild:hover { border-color: #c8a44d !important; }
+/* Reaction widget: non-modal chips in the DM panel. aoo = actionable (violet,
+   fist fires the OA, x declines); window = passive "a player is deciding". */
+.mc-dmp-reactions { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+.mc-dmp-react {
+  display: flex; align-items: center; gap: 6px; padding: 5px 8px;
+  border-radius: 8px; background: #241f2e; border: 1px solid #4a3f66; font-size: 12px; color: #ece5d6;
+}
+.mc-dmp-react-aoo { border-left: 3px solid #8a6fd8; }
+.mc-dmp-react-win { border-left: 3px solid #4a3f66; opacity: .85; }
+.mc-dmp-react-txt { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-dmp-react-txt i { color: #b39df1; margin-right: 4px; }
+.mc-dmp-react button {
+  flex: 0 0 30px; height: 28px; border-radius: 7px; cursor: pointer;
+  background: #2c2733; border: 1px solid #4a3f66; color: #b39df1;
+}
+.mc-dmp-react button:hover { border-color: #8a6fd8; background: #362f47; }
 .mc-dmp-party-deploy:hover { background: linear-gradient(#d4b35f, #c49a2e) !important; }
 .mc-dmp-party-deploy.mc-warn { color: #fff !important; background: linear-gradient(#c05555, #9c3d3d) !important; border-color: #d06060 !important; }
 /* Combat nudge: the packed group joined the tracker — a fight as a blob makes no
