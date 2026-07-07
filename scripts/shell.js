@@ -197,6 +197,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #aooPrompt = null;      // opportunity-attack prompt {activityUuid, targetUuid, attackerName, moverName, ttlMs}
   #aooTimer = null;
   #colorPickOpen = false; // DM-triggered colour-picker overlay is showing
+  #onboardOpen = null;    // first-run welcome overlay: null = unresolved, true/false = show/hide
   #partySelf = null;      // marching-order: the owned member the player picked up
   #journalFilter = "";    // journal: live post filter ("shopke" → matching notes)
   #openContainers = new Set(); // Equipment tab: container item ids currently expanded
@@ -476,7 +477,48 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#savePromptHTML()}
       ${this.#rollRequestHTML()}
       ${this.#aooPromptHTML()}
-      ${this.#colorPickOpen ? this.#colorPickHTML() : ""}`;
+      ${this.#colorPickOpen ? this.#colorPickHTML() : ""}
+      ${this.#onboardHTML()}`;
+  }
+
+  // First-run welcome (playtest 2026-07-05: testers never found fullscreen and
+  // didn't know the gestures). Shows ONCE per device (localStorage flag), and can
+  // be reopened from Details ("Show the welcome tips"). Deliberately three beats:
+  // fullscreen (the working button / iOS how-to), the three gestures, go play.
+  #onboardHTML() {
+    if (this.#onboardOpen === null) {
+      try { this.#onboardOpen = window.localStorage.getItem("mc-onboarded") !== "1"; }
+      catch (e) { this.#onboardOpen = false; } // private mode: never nag every load
+    }
+    if (!this.#onboardOpen) return "";
+    const standalone = navigator.standalone === true;
+    const fsStep = standalone
+      ? `<div class="mc-ob-note">✓ You're running as an app — already full screen.</div>`
+      : document.fullscreenEnabled
+        ? `<button class="mc-ob-fs" data-action="fullscreen"><i class="fas ${document.fullscreenElement ? "fa-compress" : "fa-expand"}"></i> ${document.fullscreenElement ? "✓ Full screen — tap to exit" : "Go full screen"}</button>`
+        : `<div class="mc-ob-note"><b>iPhone:</b> tap Safari's <i class="fas fa-arrow-up-from-bracket"></i> Share button → <b>Add to Home Screen</b>, then open Mobile Command from that icon — it runs full screen like an app.</div>`;
+    return `<div class="mc-onboard">
+      <div class="mc-ob-card">
+        <div class="mc-ob-title">Welcome to the table</div>
+        <div class="mc-ob-step">
+          <div class="mc-ob-head"><span class="mc-ob-n">1</span> Make it big</div>
+          ${fsStep}
+        </div>
+        <div class="mc-ob-step">
+          <div class="mc-ob-head"><span class="mc-ob-n">2</span> Three moves</div>
+          <div class="mc-ob-gestures">
+            <div class="mc-ob-g"><i class="fas fa-hand-point-up"></i><span><b>Tap</b> a thing to do it</span></div>
+            <div class="mc-ob-g"><i class="fas fa-hand-holding"></i><span><b>Hold</b> a thing to read about it</span></div>
+            <div class="mc-ob-g"><i class="fas fa-hand-fist"></i><span>The <b>hand</b> in the move pad uses doors, loot &amp; levers next to you</span></div>
+          </div>
+        </div>
+        <div class="mc-ob-step">
+          <div class="mc-ob-head"><span class="mc-ob-n">3</span> Eyes on the TV</div>
+          <div class="mc-ob-note">The map lives on the shared screen — your phone is your character. Prompts (saves, reactions) pop up here when it's your moment.</div>
+        </div>
+        <button class="mc-ob-done" data-action="onboard-done"><i class="fas fa-dice-d20"></i> Let's play</button>
+      </div>
+    </div>`;
   }
 
   // ===== Character creation (§7.x) ==========================================
@@ -2844,6 +2886,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <div class="mc-theme-row">${this.#themeOptionsHTML()}</div>
       </div>
       ${this.#fullscreenBtnHTML()}
+      <button class="mc-ob-reopen" data-action="onboard-open"><i class="fas fa-circle-question"></i> Show the welcome tips</button>
       <button class="mc-leave" data-action="exit"><i class="fas fa-right-from-bracket"></i> Leave Mobile Command</button>
       <button class="mc-logout" data-action="logout"><i class="fas fa-power-off"></i> Log out</button>`;
   }
@@ -4326,6 +4369,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     switch (action) {
       case "exit": return this.#confirmExit();
       case "fullscreen": return this.#toggleFullscreen();
+      case "onboard-done":
+        try { window.localStorage.setItem("mc-onboarded", "1"); } catch (e) { /* private mode */ }
+        this.#onboardOpen = false; return this.render();
+      case "onboard-open":
+        this.#onboardOpen = true; return this.render();
       case "logout": return game.logOut?.(); // temp: switching Foundry users on a phone is painful
       case "set-theme":
         try { window.localStorage.setItem("mc-theme", el.dataset.theme); } catch (e) { /* private mode */ }
