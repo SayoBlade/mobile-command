@@ -435,9 +435,12 @@ function partyMainHTML() {
       const rebuild = stale ? `<button class="mc-dmp-party-rebuild" data-party="rebuild" data-group="${cand.id}"
         title="${foundry.utils.escapeHTML(cand.name)}'s members don't match this scene — rebuild from the ${scenePCs.length} party tokens here">
         <i class="fas fa-arrows-rotate"></i></button>` : "";
+      const roster = `<button class="mc-dmp-party-rebuild" data-party="roster" data-group="${cand.id}"
+        title="Choose who's in ${foundry.utils.escapeHTML(cand.name)} — pick members from a checklist">
+        <i class="fas fa-list-check"></i></button>`;
       return `<div class="mc-dmp-party-btns">
       <button class="mc-dmp-party-deploy" data-party="pack" data-group="${cand.id}" title="Collapse the clustered party into the ${foundry.utils.escapeHTML(cand.name)} token">
-        <i class="fas fa-people-group"></i> Form up</button>${rebuild}</div>`;
+        <i class="fas fa-people-group"></i> Form up</button>${rebuild}${roster}</div>`;
     }
     // No usable group → say WHY instead of rendering nothing (playtest 2026-07-05:
     // an empty group meant no Form up, no hint, and a very confused DM). One tap
@@ -448,7 +451,10 @@ function partyMainHTML() {
     return `<div class="mc-dmp-party-btns">
       <button class="mc-dmp-party-deploy mc-dmp-party-setup" data-party="populate" ${emptyGroup ? `data-group="${emptyGroup.id}"` : ""}
         title="${emptyGroup ? `Add them to ${foundry.utils.escapeHTML(emptyGroup.name)} (it has no members yet)` : "Create a group actor with these PCs as members"}">
-        <i class="fas fa-user-plus"></i> ${emptyGroup ? `Add ${scenePCs.length} PCs to ${foundry.utils.escapeHTML(emptyGroup.name)}` : `Create party (${scenePCs.length} PCs)`}</button></div>`;
+        <i class="fas fa-user-plus"></i> ${emptyGroup ? `Add ${scenePCs.length} PCs to ${foundry.utils.escapeHTML(emptyGroup.name)}` : `Create party (${scenePCs.length} PCs)`}</button>
+      <button class="mc-dmp-party-rebuild" data-party="roster" ${emptyGroup ? `data-group="${emptyGroup.id}"` : ""}
+        title="Choose members from a checklist instead of taking everyone">
+        <i class="fas fa-list-check"></i></button></div>`;
   }
   const arranging = ((group.getFlag(MODULE_ID, "formation") ?? {}).stage ?? "arrange") === "arrange";
   if (arranging) return `<button class="mc-dmp-party-mini" data-dock="party"><i class="fas fa-border-all"></i> Arrange &amp; lock in</button>`;
@@ -527,6 +533,47 @@ async function onPartyClick(ev) {
     } catch (e) {
       console.error(`${MODULE_ID} | party rebuild failed`, e);
       ui.notifications.warn(`Couldn't rebuild the party: ${e.message}`);
+    }
+    render();
+    return true;
+  }
+  // Checklist party setup (DM 2026-07-08: "a quick flow and a slow one with a
+  // checklist of who to add") — same writes as populate/rebuild, but the DM picks
+  // members one by one. Scene PCs come pre-checked; existing members with no token
+  // on this scene are listed UNchecked, so dropping them is a visible choice
+  // (the quick rebuild would drop them silently).
+  if (actBtn?.dataset.party === "roster") {
+    try {
+      const g = actBtn.dataset.group ? game.actors.get(actBtn.dataset.group) : null;
+      const pcs = scenePartyActors();
+      const memberIds = new Set((g?.system?.members ?? []).map(m => m.actor?.id).filter(Boolean));
+      const offScene = (g?.system?.members ?? []).map(m => m.actor)
+        .filter(a => a && !pcs.some(p => p.id === a.id));
+      if (!pcs.length && !offScene.length) return true;
+      const esc = foundry.utils.escapeHTML;
+      const row = (a, checked, note) => `<label class="mc-dmp-roster-row">
+        <input type="checkbox" name="member" value="${a.id}" ${checked ? "checked" : ""}>
+        <img src="${esc(a.img)}" alt=""><span>${esc(a.name)}</span>${note ? `<em>${note}</em>` : ""}</label>`;
+      const picked = await foundry.applications.api.DialogV2.wait({
+        window: { title: g ? `${g.name} — choose members` : "Create party — choose members" },
+        content: `<div class="mc-dmp-roster">
+          ${pcs.map(a => row(a, memberIds.size ? memberIds.has(a.id) : true)).join("")}
+          ${offScene.map(a => row(a, false, "not on this scene")).join("")}</div>`,
+        buttons: [
+          { action: "ok", label: "Set members", icon: "fas fa-users", default: true,
+            callback: (_ev, button) => [...button.form.querySelectorAll('input[name="member"]:checked')].map(i => i.value) },
+          { action: "cancel", label: "Cancel" }
+        ]
+      }).catch(() => null);
+      if (!Array.isArray(picked)) return true; // cancelled / closed
+      let group = g;
+      group ??= await Actor.implementation.create({ name: "The Party", type: "group" });
+      await group.update({ "system.members": picked.map(id => ({ actor: id })) });
+      const names = picked.map(id => game.actors.get(id)?.name?.split(" ")[0]).filter(Boolean);
+      ui.notifications.info(`${group.name}: ${names.length ? names.join(", ") : "no members"} — ${names.length ? "Form up is ready." : "the group is empty."}`);
+    } catch (e) {
+      console.error(`${MODULE_ID} | party roster failed`, e);
+      ui.notifications.warn(`Couldn't set the party members: ${e.message}`);
     }
     render();
     return true;
@@ -818,8 +865,11 @@ export function registerDMPanel() {
   // pack/unpack (token churn), and when the group token itself moves (the
   // blocked-cell preview depends on its position).
   Hooks.on("updateActor", (a) => { if (a?.type === "group") render(); });
-  Hooks.on("createToken", (t) => { if (t?.actor?.type === "group" || packedGroup()) render(); });
-  Hooks.on("deleteToken", (t) => { if (t?.actor?.type === "group" || packedGroup()) render(); });
+  // Player-owned tokens count too: the Create party / rebuild buttons key off the
+  // scene's PC tokens, so placing or removing one must refresh the party section
+  // (2026-07-08: placed two fresh PCs and the button never appeared).
+  Hooks.on("createToken", (t) => { if (t?.actor?.type === "group" || t?.actor?.hasPlayerOwner || packedGroup()) render(); });
+  Hooks.on("deleteToken", (t) => { if (t?.actor?.type === "group" || t?.actor?.hasPlayerOwner || packedGroup()) render(); });
   Hooks.on("updateToken", (t, ch) => { if (t?.actor?.type === "group" && ("x" in ch || "y" in ch)) render(); });
   // Combat nudge: adding/removing the packed group in the tracker toggles the
   // Disperse pulse (decision §15.2#6 — nudge, never force).

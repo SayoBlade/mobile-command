@@ -2510,6 +2510,18 @@ body.mc-theme-arcane #mobile-command-shell {
 /* Stale group: the scene's PCs aren't all members → offer a rebuild beside Form up. */
 .mc-dmp-party-rebuild { flex: 0 0 38px; color: #d8b45a !important; }
 .mc-dmp-party-rebuild:hover { border-color: #c8a44d !important; }
+/* Membership checklist (the "slow flow"): one row per candidate in the DialogV2.
+   Rows are full-width tap targets — the label toggles the checkbox. */
+.mc-dmp-roster { display: flex; flex-direction: column; gap: 2px; max-height: 55vh; overflow-y: auto; }
+.mc-dmp-roster-row {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 8px;
+  border-radius: 8px; cursor: pointer;
+}
+.mc-dmp-roster-row:hover { background: rgba(200, 164, 77, 0.12); }
+.mc-dmp-roster-row input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; }
+.mc-dmp-roster-row img { width: 30px; height: 30px; border-radius: 50%; border: none; object-fit: cover; flex: 0 0 30px; }
+.mc-dmp-roster-row span { flex: 1 1 auto; font-weight: 600; }
+.mc-dmp-roster-row em { font-size: 11px; opacity: 0.65; white-space: nowrap; }
 /* Reaction widget: non-modal chips in the DM panel. aoo = actionable (violet,
    fist fires the OA, x declines); window = passive "a player is deciding". */
 .mc-dmp-reactions { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
