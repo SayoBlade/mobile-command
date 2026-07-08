@@ -201,6 +201,12 @@ function ensureEl() {
   panelEl.addEventListener("dragstart", onTokenDragStart); // Owned-tokens → canvas
   panelEl.addEventListener("dblclick", onTokenDblClick);   // Owned-tokens → sheet
   panelEl.addEventListener("pointerdown", onPointerDown); // drag from the grip handle
+  // Outside-click closes any open transient dropdown (DM 2026-07-09: "clicking
+  // outside the dropdown should close it"). The selection is already live in
+  // rollTool.selected as each row is tapped, so closing just tidies the overlay
+  // — nothing to save on the way out. Capture phase + a "is it inside the
+  // dropdown?" guard so a click ON the toggle/rows still works normally.
+  document.addEventListener("pointerdown", onOutsidePointerDown, true);
   document.body.appendChild(panelEl);
   applySavedPos(panelEl);
   return panelEl;
@@ -238,6 +244,21 @@ function clampPos(el) {
   if (overBottom > 0) { el.style.top = `${Math.max(8, elR.top - overBottom)}px`; el.style.bottom = "auto"; }
   const overRight = right - (window.innerWidth - 8);
   if (overRight > 0) el.style.left = `${Math.max(8, elR.left - overRight)}px`;
+}
+
+// Outside-click closes open transient dropdowns. Each entry: the state flag that
+// makes a dropdown visible + the selector for the region a click may land in
+// without closing it (the toggle button and the list itself). Extend as more
+// dropdowns appear ("and all others" — DM 2026-07-09).
+const OUTSIDE_DISMISS = [
+  { open: () => rollTool.targetsOpen, within: ".mc-rt-multi", close: () => { rollTool.targetsOpen = false; } }
+];
+function onOutsidePointerDown(ev) {
+  let changed = false;
+  for (const d of OUTSIDE_DISMISS) {
+    if (d.open() && !ev.target.closest(d.within)) { d.close(); changed = true; }
+  }
+  if (changed) render();
 }
 
 function onPointerDown(ev) {
