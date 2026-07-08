@@ -437,6 +437,41 @@ function reactionsHTML() {
   return `<div class="mc-dmp-reactions">${chips.join("")}</div>`;
 }
 
+// §17.3 split-party awareness: PCs whose only token sits on a NON-active scene
+// (ran ahead through a teleporter / left behind). Their phones show the paused
+// overlay; the DM gets one chip per scene with a one-tap Activate — the ONLY
+// automatic thing here is the awareness (DM 2026-07-08: the DM alone moves the
+// active scene).
+function splitPartyHTML() {
+  const active = game.scenes.active;
+  if (!active) return "";
+  // Scope to the CURRENT party — group members + users' assigned characters —
+  // not every player-owned PC in the world (first live run surfaced years of
+  // demo PCs stranded on retired scenes as permanent chips).
+  const party = new Set();
+  for (const g of game.actors.filter(a => a.type === "group"))
+    for (const m of (g.system?.members ?? [])) if (m.actor) party.add(m.actor.id);
+  for (const u of game.users) if (!u.isGM && u.character) party.add(u.character.id);
+  const onActive = new Set([...active.tokens].map(t => t.actorId).filter(Boolean));
+  const byScene = new Map();
+  for (const scene of game.scenes) {
+    if (scene === active) continue;
+    for (const t of scene.tokens) {
+      const a = t.actor;
+      if (!a || a.type !== "character" || !party.has(a.id) || onActive.has(a.id)) continue;
+      if (!byScene.has(scene.id)) byScene.set(scene.id, { scene, names: new Set() });
+      byScene.get(scene.id).names.add(a.name);
+    }
+  }
+  if (!byScene.size) return "";
+  const esc = foundry.utils.escapeHTML;
+  const chips = [...byScene.values()].map(({ scene, names }) => `<div class="mc-dmp-react mc-dmp-split">
+      <span class="mc-dmp-react-txt"><i class="fas fa-person-hiking"></i> ${names.size} PC${names.size > 1 ? "s" : ""} on ${esc(scene.name)} (${esc([...names].map(n => n.split(" ")[0]).join(", "))})</span>
+      <button data-activate-scene="${scene.id}" title="Activate ${esc(scene.name)} — the split PCs play, everyone else's phone pauses"><i class="fas fa-tv"></i></button>
+    </div>`);
+  return `<div class="mc-dmp-reactions">${chips.join("")}</div>`;
+}
+
 function partyMainHTML() {
   const group = packedGroup();
   if (!group) {
@@ -716,7 +751,7 @@ function render() {
   if (packedNow && !dockWasPacked) dockTab = "party";
   else if (!packedNow && dockWasPacked && dockTab === "party") dockTab = null;
   dockWasPacked = packedNow;
-  const main = grip + statusHTML() + cameraBarHTML() + reactionsHTML() + combatHTML() + quickHpHTML()
+  const main = grip + statusHTML() + cameraBarHTML() + reactionsHTML() + splitPartyHTML() + combatHTML() + quickHpHTML()
     + partyMainHTML()
     + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
   // Main content scrolls inside; the tab rail + flyout stick out the right edge.
@@ -788,6 +823,12 @@ async function onClick(ev) {
   if (ev.target.closest("[data-rt-send]")) return sendRolls();
   if (ev.target.closest("[data-preflight-run]")) {
     await runPreflight();
+    return render();
+  }
+  const actScene = ev.target.closest("[data-activate-scene]");
+  if (actScene) {
+    const scene = game.scenes.get(actScene.dataset.activateScene);
+    if (scene) await scene.activate();
     return render();
   }
   const pfFix = ev.target.closest("[data-preflight-fix]");
@@ -887,6 +928,7 @@ export function registerDMPanel() {
   Hooks.on("deleteCombat", () => render());                        // combat ended → drop the strip
   Hooks.on("combatStart", () => render());
   Hooks.on("pauseGame", () => render());                           // pause toggle ↔ panel button
+  Hooks.on("updateScene", (_s, ch) => { if ("active" in ch) render(); }); // split-party chips follow activation
   Hooks.on("userConnected", () => render());                       // presence: connect/disconnect
   Hooks.on("updateUser", () => render());                          // presence: a player changed scene (viewedScene)
   Hooks.on("mobile-command.dmReaction", (entry) => {               // reaction widget chips (aoo.js + rpc.js)

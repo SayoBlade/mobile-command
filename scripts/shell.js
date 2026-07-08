@@ -197,6 +197,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #aooPrompt = null;      // opportunity-attack prompt {activityUuid, targetUuid, attackerName, moverName, ttlMs}
   #aooTimer = null;
   #colorPickOpen = false; // DM-triggered colour-picker overlay is showing
+  #pausedDismissed = null; // §17.3 split-scene overlay: "activeId:hereId" the player browsed past
   #onboardOpen = null;    // first-run welcome overlay: null = unresolved, true/false = show/hide
   #partySelf = null;      // marching-order: the owned member the player picked up
   #journalFilter = "";    // journal: live post filter ("shopke" → matching notes)
@@ -373,8 +374,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
   #buildHTML() {
     this.syncSubject(); // self-heal a subject stranded by a scene switch
+    // §17.3: the paused overlay must ride EVERY branch — when the PC's token is on
+    // a non-active scene the shell rebinds to some off-scene actor and renders the
+    // no-token/blank-PC screens (live 2026-07-08: the traveler's phone offered to
+    // build the spare blank instead of saying "wait"). Computed once, prefixed to
+    // each early return; the normal sheet includes it in its own template.
+    const paused = this.#pausedHTML();
     const actor = this.actor;
-    if (!actor) return this.#noTokenHTML();
+    if (!actor) return paused + this.#noTokenHTML();
     // Char-gen (§7.x): once started, the build workspace replaces the sheet until
     // Finish. A blank PC (no class) that hasn't started offers only "Create
     // Character". Otherwise fall through to the normal sheet.
@@ -391,7 +398,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#portraitGen && ((this.#charGen?.actorId === actor.id) || this.#isBlankPC(actor)))
       return `<div class="mc-cg-scroll">${this.#portraitGenHTML(actor)}</div>`;
     if (this.#charGen?.actorId === actor.id) return `<div class="mc-cg-scroll">${this.#charGenHTML(actor)}</div>`;
-    if (this.#isBlankPC(actor)) return `<div class="mc-cg-scroll">${this.#charGenStartHTML(actor)}</div>`;
+    if (this.#isBlankPC(actor)) return paused + `<div class="mc-cg-scroll">${this.#charGenStartHTML(actor)}</div>`;
     const sys = actor.system;
     const hp = sys.attributes?.hp ?? {};
     const pct = hp.max ? (hp.value / hp.max) : 1;
@@ -478,7 +485,44 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#rollRequestHTML()}
       ${this.#aooPromptHTML()}
       ${this.#colorPickOpen ? this.#colorPickHTML() : ""}
+      ${this.#pausedHTML()}
       ${this.#onboardHTML()}`;
+  }
+
+  // §17.3 (DM 2026-07-08): ONE shared screen, the DM alone picks the active scene.
+  // A phone whose PC is on a DIFFERENT scene than the active one (ran ahead through
+  // a teleporter — or left behind while a scout plays) waits behind this overlay
+  // instead of poking a board it can't act on (the executor is active-scene-bound).
+  // "Browse my sheet anyway" dismisses until either scene changes; the overlay
+  // returns on the next split. Char-gen and packed party are exempt (no/soft token).
+  #pausedState() {
+    if (this.#charGen) return null;
+    const active = game.scenes.active;
+    if (!active) return null;
+    const actor = game.user.character ?? this.actor;
+    if (!actor || actor.type !== "character") return null;
+    if (active.tokens.some(t => t.actorId === actor.id)) return null; // on the action scene
+    const here = game.scenes.find(s => s !== active && s.tokens.some(t => t.actorId === actor.id));
+    if (!here) return null; // no token anywhere (char-gen/limbo) — not a split
+    // packed party: the PC rides inside the group token, not their own — exempt
+    const packed = game.actors.some(a => a.type === "group" && a.getFlag("mobile-command", "packed")
+      && (a.system?.members ?? []).some(m => m.actor?.id === actor.id));
+    if (packed) return null;
+    return { key: `${active.id}:${here.id}`, hereName: here.name, activeName: active.name };
+  }
+  #pausedHTML() {
+    const st = this.#pausedState();
+    if (!st || this.#pausedDismissed === st.key) return "";
+    return `<div class="mc-paused">
+      <div class="mc-paused-card">
+        <i class="fas fa-hourglass-half mc-paused-ico"></i>
+        <div class="mc-paused-title">Waiting for the party</div>
+        <div class="mc-paused-sub">You're on <b>${foundry.utils.escapeHTML(st.hereName)}</b> — the action is on
+          <b>${foundry.utils.escapeHTML(st.activeName)}</b>. The DM will bring the scene to you.</div>
+        <button class="mc-paused-browse" data-action="paused-dismiss" data-key="${foundry.utils.escapeHTML(st.key)}">
+          <i class="fas fa-book-open"></i> Browse my sheet anyway</button>
+      </div>
+    </div>`;
   }
 
   // First-run welcome (playtest 2026-07-05: testers never found fullscreen and
@@ -4751,6 +4795,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "party-disperse": return this.#partyDisperse();
       case "token-prev": return this.#cycleSubject(-1);
       case "token-next": return this.#cycleSubject(1);
+      case "paused-dismiss":
+        this.#pausedDismissed = el.dataset.key; return this.render();
       case "follow-toggle": {
         // #onClick is NOT async — no await here (a bare await was the v0.1.68-style
         // SyntaxError all over again; the syntax gate caught it pre-ship).
