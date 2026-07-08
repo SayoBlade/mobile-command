@@ -794,14 +794,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const prepared = scale["spells-known"] == null && scale["max-prepared"] != null;
     const knownSpells = num(scale["spells-known"]) || num(scale["max-prepared"]);
     if (!knownCantrips && !knownSpells) return null; // not a list caster we can scope
+    // Highest castable level: leveled slots AND pact slots (a warlock has ONLY
+    // system.spells.pact — the old spellN-only scan read maxLevel 0 and emptied
+    // the leveled list entirely; DM 2026-07-09 "new warlock, nothing I can cast").
+    const pact = cls.system.spellcasting.progression === "pact";
     const maxLevel = Math.max(0, ...Object.entries(actor.system.spells ?? {})
-      .filter(([k, v]) => /^spell\d/.test(k) && v?.max > 0).map(([k]) => Number(k.replace("spell", ""))));
+      .filter(([k, v]) => (/^spell\d/.test(k) || k === "pact") && v?.max > 0)
+      .map(([k, v]) => k === "pact" ? Number(v.level ?? 1) : Number(k.replace("spell", ""))));
     let haveCantrips = 0, haveSpells = 0;
     for (const s of actor.items) {
       if (s.type !== "spell") continue;
       if ((s.system?.level ?? 0) === 0) haveCantrips++; else haveSpells++;
     }
-    return { classId: id, maxLevel, knownCantrips, knownSpells, haveCantrips, haveSpells, prepared };
+    return { classId: id, maxLevel, knownCantrips, knownSpells, haveCantrips, haveSpells, prepared, pact };
   }
 
   // Compendium chooser for the current pick type (null options = still loading).
@@ -1141,13 +1146,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (!yes) return;
     }
     const haveNames = new Set(actor.items.filter(i => i.type === "spell").map(i => i.name));
+    // A pact caster's leveled spells must be preparation.mode "pact" — they cast
+    // from pact slots. "prepared" on a warlock = uncastable (no leveled slots at
+    // all; DM 2026-07-09 "new warlock, nothing I can cast").
+    const levMode = si.pact ? "pact" : "prepared";
     const toAdd = [];
     for (const s of [...opts.cantrips, ...opts.leveled]) {
       if (!sel.has(s.uuid) || haveNames.has(s.name)) continue; // add-only (no removal)
       const doc = await fromUuid(s.uuid);
       if (!doc) continue;
       const data = doc.toObject();
-      foundry.utils.setProperty(data, "system.preparation.mode", "prepared");
+      const mode = (data.system?.level ?? 0) > 0 ? levMode : "prepared";
+      foundry.utils.setProperty(data, "system.preparation.mode", mode);
       foundry.utils.setProperty(data, "system.preparation.prepared", true);
       toAdd.push(data);
     }
@@ -1155,13 +1165,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const created = toAdd.length ? await actor.createEmbeddedDocuments("Item", toAdd) : [];
       // dnd5e resets preparation.prepared to false on create; a known caster's
       // leveled spells must be prepared to be castable (cantrips auto-become mode
-      // "always" and are fine). Re-prepare the leveled ones in a follow-up update.
+      // "always", pact spells are always-prepared by mode). Re-prepare in a
+      // follow-up update where it didn't stick.
       const reprep = created
-        .filter(i => (i.system?.level ?? 0) > 0 && i.system?.preparation?.mode === "prepared" && !i.system.preparation.prepared)
+        .filter(i => (i.system?.level ?? 0) > 0 && ["prepared", "pact"].includes(i.system?.preparation?.mode) && !i.system.preparation.prepared)
         .map(i => ({ _id: i.id, "system.preparation.prepared": true }));
       if (reprep.length) await actor.updateEmbeddedDocuments("Item", reprep);
     } catch (e) { return ui.notifications.warn(`Couldn't add spells: ${e.message}`); }
-    cg.picking = null; this.#charGenSpellOptions = null;
+    if (cg.learn) this.#charGen = null; // post-creation "Learn spells" → back to the sheet, not the workspace
+    else cg.picking = null;
+    this.#charGenSpellOptions = null;
     this.render();
     ui.notifications.info(toAdd.length ? `Learned ${toAdd.length} spell${toAdd.length > 1 ? "s" : ""}.` : "No new spells added.");
   }
@@ -2619,8 +2632,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       return `<div class="mc-spell-section mc-search-group"><div class="mc-actions-sub mc-spell-sub">${label}${countBadge}${headPips}</div><div class="mc-spells">${rows}</div></div>`;
     }).join("");
 
+    // Post-creation learning (DM 2026-07-09): dnd5e's level-up grants no spell
+    // picks for list casters, so the spellbook offers the class-list picker any
+    // time — counters show known vs the class cap; warnings, not walls.
+    const learnBtn = this.#charGenSpellInfo(actor)
+      ? `<button class="mc-learn-spells" data-action="learn-spells"><i class="fas fa-book-medical"></i> Learn spells (class list)</button>`
+      : "";
     return `<div class="mc-actions-head"><span class="mc-section-label">Spells</span>${this.#searchToggleHTML()}</div>
-      ${this.#searchDrawerHTML()}${cards}${slotsRow}${sections}`;
+      ${this.#searchDrawerHTML()}${cards}${slotsRow}${sections}${learnBtn}`;
   }
 
   // Per-class spellcasting cards (ability mod · spell attack · save DC · prepared
@@ -4785,7 +4804,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#charGenAdd(el.dataset.uuid);
       case "char-gen-pick-back":
         if (this.#charGen) {
-          if (this.#charGen.equip?.catOpen != null) { this.#charGen.equip.catOpen = null; this.#charGen.equip.catOptions = null; }
+          if (this.#charGen.learn) { this.#charGen = null; this.#charGenSpellOptions = null; } // post-creation Learn spells → back to the sheet
+          else if (this.#charGen.equip?.catOpen != null) { this.#charGen.equip.catOpen = null; this.#charGen.equip.catOptions = null; }
           else { this.#charGen.picking = null; this.#charGenOptions = null; this.#charGenSpellOptions = null; this.#charGen.equip = null; }
           this.render();
         }
@@ -4801,6 +4821,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#charGenRedo(el.dataset.itemId);
       case "char-gen-spells":
         return this.#charGenSpells();
+      case "learn-spells": {
+        // Post-creation spell learning (DM 2026-07-09: "what happens on level up?"
+        // — dnd5e's advancement grants NO spell picks for list casters, so leveled
+        // PCs had no phone path to new spells). Reuses the char-gen picker in
+        // "learn" mode: apply/back exit to the sheet, never the build workspace.
+        if (!this.actor) return;
+        this.#charGen = { actorId: this.actor.id, learn: true };
+        return this.#charGenSpells();
+      }
       case "char-gen-spell-toggle":
         return this.#toggleSpellSel(el.dataset.uuid);
       case "spell-pick-detail-toggle":

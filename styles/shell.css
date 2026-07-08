@@ -1612,6 +1612,12 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-tokensw-btn:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
 /* Follow toggle: paw lights gold while the player's other tokens copy their moves. */
 .mc-follow-on { color: #1a1712; background: linear-gradient(#c8a44d, #b98a1e); border-color: var(--mc-gold); }
+/* Learn spells (Spells tab): full-width entry into the class-list picker. */
+.mc-learn-spells {
+  width: 100%; min-height: 46px; margin-top: 10px; border-radius: 10px;
+  font-weight: 700; font-size: 14px; color: var(--mc-ink);
+  background: var(--mc-panel-2, #262230); border: 1px dashed var(--mc-gold, #c8a44d);
+}
 /* Active-character star: dim = tap to make this PC your primary; gold = it already is. */
 .mc-tokensw-star { color: #8a8578; }
 .mc-tokensw-star.mc-on { color: #1a1712; background: linear-gradient(#c8a44d, #b98a1e); border-color: var(--mc-gold); }

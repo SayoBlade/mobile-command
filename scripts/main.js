@@ -601,6 +601,15 @@ Hooks.once("ready", () => {
   registerShellHooks();
   registerDMPanel(); // DM-assign panel (GM clients only; self-gates)
   maybePromptDmWizard(); // §16.3 first-run setup offer (GM only; once per world)
+  // TRACER (2026-07-09): Player 2's assigned character silently flipped to another
+  // owned PC twice; no module writer matches. Log every user.character change with
+  // the originating client's stack so the next drift names its caller. Remove once
+  // the culprit is found.
+  Hooks.on("preUpdateUser", (user, changes) => {
+    if (!("character" in changes)) return;
+    console.warn(`${MODULE_ID} | user.character changing: ${user.name} → ${game.actors.get(changes.character)?.name ?? changes.character}`,
+      new Error("origin stack").stack);
+  });
   registerSaveRelay(); // executor relays midi save requests to phones (self-gates on isExecutor)
   registerReactionNotifier(); // DM toast when a player gets a reaction window (self-gates)
   registerDialogWatchdog(); // executor alerts DM + pings phone when an action strands a dialog (self-gates)
