@@ -1597,6 +1597,9 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-tokensw-btn:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
 /* Follow toggle: paw lights gold while the player's other tokens copy their moves. */
 .mc-follow-on { color: #1a1712; background: linear-gradient(#c8a44d, #b98a1e); border-color: var(--mc-gold); }
+/* Active-character star: dim = tap to make this PC your primary; gold = it already is. */
+.mc-tokensw-star { color: #8a8578; }
+.mc-tokensw-star.mc-on { color: #1a1712; background: linear-gradient(#c8a44d, #b98a1e); border-color: var(--mc-gold); }
 .mc-tokensw-name {
   min-width: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 15px; font-weight: 700; color: var(--mc-gold);
