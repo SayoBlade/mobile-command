@@ -1468,6 +1468,9 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-dmp-react-scribe { background: #2a2418; border-color: #6b5a2e; }
 .mc-dmp-react-scribe em { font-size: 11px; opacity: .75; font-style: normal; }
 .mc-dmp-react-scribe button { min-width: 30px; height: 26px; border-radius: 6px; }
+/* Summon-control chip: spectral tint, ✓ grants the player the summon. */
+.mc-dmp-react-summon { background: #1c2530; border-color: #3c5a72; }
+.mc-dmp-react-summon button { min-width: 30px; height: 26px; border-radius: 6px; }
 .mc-colorpick-card { width: 100%; max-width: 340px; background: var(--mc-panel, #1c1922); border: 1px solid var(--mc-gold); border-radius: 16px; padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
 .mc-colorpick-title { font-weight: 800; font-size: 17px; text-align: center; margin-bottom: 16px; color: var(--mc-ink); }
 .mc-colorpick-done { width: 100%; margin-top: 18px; height: 48px; border-radius: 12px; font-weight: 800; font-size: 15px; color: #1a1206; background: linear-gradient(var(--mc-gold), #b98a1e); border: 1px solid var(--mc-gold); cursor: pointer; }

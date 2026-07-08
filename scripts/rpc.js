@@ -1469,6 +1469,41 @@ function handleScribeResult({ ok, spellName, reason }) {
   else ui.notifications.warn(reason || `The DM declined scribing ${spellName}.`);
 }
 
+// Summon control (DM 2026-07-09: "summoned an unseen servant... now I can't
+// control the servant"). Summons run on the EXECUTOR as GM, so dnd5e's spawned
+// actor never gets player ownership. Executor watcher: a created token whose
+// actor carries flags.dnd5e.summon resolves its origin item → summoner actor →
+// that PC's player; if the player can't already control the summon, raise a
+// DM-GATED chip (the DM's explicit ask: "put a DM gate in the flow") — ✓ grants
+// OWNER on the summon's world actor (covers all its tokens; the phone's token
+// switcher picks it up on the ownership change), ✕ leaves it DM-driven.
+export function registerSummonOwnership() {
+  Hooks.on("createToken", (tokenDoc) => {
+    try {
+      if (!isExecutor()) return;
+      const summonFlag = tokenDoc.actor?.flags?.dnd5e?.summon;
+      if (!summonFlag?.origin) return;
+      const originItem = fromUuidSync(summonFlag.origin);
+      const summoner = originItem?.actor ?? originItem?.parent;
+      if (!summoner || summoner.type !== "character") return;
+      const displayUser = game.settings.get(MODULE_ID, "displayOwnerUser") || null;
+      const player = game.users.find(u => !u.isGM && u.id !== displayUser && u.character?.id === summoner.id)
+        ?? game.users.find(u => u.active && !u.isGM && u.id !== displayUser && summoner.testUserPermission(u, "OWNER"));
+      if (!player) return; // NPC summoner / no player at the table — stays DM-driven
+      const baseActor = game.actors.get(tokenDoc.actorId);
+      if (!baseActor || baseActor.testUserPermission(player, "OWNER")) return; // already theirs
+      Hooks.callAll("mobile-command.dmReaction", {
+        id: foundry.utils.randomID(),
+        kind: "summon",
+        label: `${summoner.name.split(" ")[0]} summoned ${tokenDoc.name} — give ${player.name} control?`,
+        actorId: baseActor.id,
+        userId: player.id,
+        expiresAt: Date.now() + 10 * 60 * 1000
+      });
+    } catch (e) { console.warn(`${MODULE_ID} | summon-ownership watcher failed`, e); }
+  });
+}
+
 // §17.4 guard duty: a player toggles their own PC in/out of a watch row.
 // State lives on the GROUP actor's `night` flag (updateActor propagates to every
 // client, same channel as the marching-order formation). Multi-duty is allowed

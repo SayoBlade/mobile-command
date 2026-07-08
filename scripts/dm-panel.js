@@ -460,6 +460,12 @@ function reactionsHTML() {
         <button data-dmscribe-ok="${r.id}" title="Approve — the spell lands unprepared, the scroll is spent (cost is yours to collect)"><i class="fas fa-check"></i></button>
         <button data-dmscribe-x="${r.id}" title="Decline — nothing changes"><i class="fas fa-xmark"></i></button>
       </div>`
+    : r.kind === "summon"
+    ? `<div class="mc-dmp-react mc-dmp-react-summon">
+        <span class="mc-dmp-react-txt"><i class="fas fa-ghost"></i> ${foundry.utils.escapeHTML(r.label)}</span>
+        <button data-dmsummon-ok="${r.id}" title="Grant control — the summon appears in their phone's token switcher"><i class="fas fa-check"></i></button>
+        <button data-dmsummon-x="${r.id}" title="Keep it DM-driven"><i class="fas fa-xmark"></i></button>
+      </div>`
     : `<div class="mc-dmp-react mc-dmp-react-win">
         <span class="mc-dmp-react-txt"><i class="fas fa-hourglass-half"></i> ${foundry.utils.escapeHTML(r.label)}${r.weapon ? ` — ${foundry.utils.escapeHTML(r.weapon)}` : ""}</span>
       </div>`);
@@ -1063,6 +1069,24 @@ async function onClick(ev) {
     if (entry) scribeResultToUser(entry.userId, { ok: false, spellName: entry.label });
     return;
   }
+  // Summon control (2026-07-09): ✓ grants the summoner's player OWNER on the
+  // summoned world actor — their phone's switcher picks it up on the ownership
+  // change; ✕ keeps the summon DM-driven.
+  const smOk = ev.target.closest("[data-dmsummon-ok]");
+  if (smOk) {
+    const entry = dmReactions.find(r => r.id === smOk.dataset.dmsummonOk);
+    dmReactions = dmReactions.filter(r => r.id !== smOk.dataset.dmsummonOk);
+    render();
+    if (entry) {
+      try {
+        await game.actors.get(entry.actorId)?.update({ [`ownership.${entry.userId}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER });
+        ui.notifications.info(`${game.users.get(entry.userId)?.name ?? "The player"} now controls ${game.actors.get(entry.actorId)?.name ?? "the summon"}.`);
+      } catch (e) { console.error(`${MODULE_ID} | summon grant failed`, e); ui.notifications.warn(`Couldn't grant control: ${e.message}`); }
+    }
+    return;
+  }
+  const smNo = ev.target.closest("[data-dmsummon-x]");
+  if (smNo) { dmReactions = dmReactions.filter(r => r.id !== smNo.dataset.dmsummonX); return render(); }
   // Right-side dock: tab toggle, close, target checkbox, send.
   const dockBtn = ev.target.closest("[data-dock]");
   if (dockBtn) { dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }
@@ -1201,6 +1225,9 @@ export function registerDMPanel() {
   Hooks.on("userConnected", () => render());                       // presence: connect/disconnect
   Hooks.on("updateUser", () => render());                          // presence: a player changed scene (viewedScene)
   Hooks.on("mobile-command.dmReaction", (entry) => {               // reaction widget chips (aoo.js + rpc.js)
+    // A multi-token summon (pack of wolves) creates one token per creature —
+    // one chip per (summoned actor, player) is enough; the grant covers them all.
+    if (entry.kind === "summon" && dmReactions.some(r => r.kind === "summon" && r.actorId === entry.actorId && r.userId === entry.userId)) return;
     dmReactions.push(entry);
     render();
     setTimeout(() => { // expire with the reaction window; filter also runs at render
