@@ -696,6 +696,28 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
     { animate: false }
   );
 
+  // Follow (DM 2026-07-08): the player's OTHER owned tokens on the scene repeat
+  // the move (familiar trails the PC). v1 is all-or-none per player (user flag
+  // followAll, toggled on the phone beside the token switcher). Each follower is
+  // wall-checked from its OWN position and skips silently when blocked
+  // (warnings-not-walls); followers never touch the mover's movement budget and
+  // still provoke AoOs like any move. Group tokens neither follow nor lead
+  // (packed members already ride inside).
+  try {
+    const user = game.users.get(requesterId);
+    if (user?.getFlag(MODULE_ID, "followAll") && tokenDoc.actor?.type !== "group") {
+      for (const t of game.scenes.active.tokens) {
+        if (t.id === tokenDoc.id || !t.actor) continue;
+        if (t.actor.type === "group" || t.actor.flags?.["item-piles"]) continue;
+        if (!t.actor.testUserPermission(user, "OWNER")) continue;
+        const fFrom = t.object?.center ?? { x: t.x, y: t.y };
+        const fTo = { x: fFrom.x + dxGrid * grid, y: fFrom.y + dyGrid * grid };
+        if (CONFIG.Canvas.polygonBackends.move.testCollision(fFrom, fTo, { type: "move", mode: "any" })) continue;
+        await t.update({ x: t.x + dxGrid * grid, y: t.y + dyGrid * grid }, { animate: false });
+      }
+    }
+  } catch (e) { console.warn(`${MODULE_ID} | follow failed`, e); }
+
   // Movement budget — only while it's this token's turn in active combat (the
   // green/yellow/red cue is a combat concept; out of combat we just move).
   // It's this token's turn if it's the active combatant. Match by tokenId, but fall back

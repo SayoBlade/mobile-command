@@ -2308,10 +2308,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // a switch obvious even when two tokens share an actor or look alike.
     const i = this.#currentSubjectIndex(subs);
     const label = subs[i]?.name ?? this.actor?.name ?? "—";
+    // Follow (DM 2026-07-08): with 2+ owned tokens, a paw toggle beside the
+    // switcher — while on, the player's OTHER owned tokens repeat every pad move
+    // (familiar trails the PC). v1 all-or-none; the executor reads the user flag.
+    const following = !!game.user.getFlag("mobile-command", "followAll");
     return `<div class="mc-tokensw">
       <button class="mc-tokensw-btn" data-action="token-prev" aria-label="Previous token"><i class="fas fa-chevron-left"></i></button>
       <span class="mc-tokensw-name">${foundry.utils.escapeHTML(label)} <span class="mc-tokensw-count">${i + 1}/${subs.length}</span></span>
       <button class="mc-tokensw-btn" data-action="token-next" aria-label="Next token"><i class="fas fa-chevron-right"></i></button>
+      <button class="mc-tokensw-btn mc-follow ${following ? "mc-follow-on" : ""}" data-action="follow-toggle"
+        title="${following ? "Following: your other tokens copy this one's moves" : "Follow: have your other tokens copy this one's moves"}"
+        aria-label="Toggle follow"><i class="fas fa-paw"></i></button>
     </div>`;
   }
 
@@ -4744,6 +4751,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "party-disperse": return this.#partyDisperse();
       case "token-prev": return this.#cycleSubject(-1);
       case "token-next": return this.#cycleSubject(1);
+      case "follow-toggle": {
+        // #onClick is NOT async — no await here (a bare await was the v0.1.68-style
+        // SyntaxError all over again; the syntax gate caught it pre-ship).
+        const on = !game.user.getFlag("mobile-command", "followAll");
+        game.user.setFlag("mobile-command", "followAll", on)
+          .then(() => { if (this.rendered) this.render(); })
+          .catch(e => console.warn("mobile-command | follow flag", e));
+        ui.notifications.info(on ? "Your other tokens will follow your moves." : "Follow off.");
+        return;
+      }
       case "pick-offscene": // from the no-token screen: peek at / build an owned character
         this.#subjectActorId = el.dataset.actorId; this.#subjectId = null; return this.render();
       case "set-primary":

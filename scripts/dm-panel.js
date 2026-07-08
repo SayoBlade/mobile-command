@@ -549,33 +549,20 @@ async function onPartyClick(ev) {
       const memberIds = new Set((g?.system?.members ?? []).map(m => m.actor?.id).filter(Boolean));
       const offScene = (g?.system?.members ?? []).map(m => m.actor)
         .filter(a => a && !pcs.some(p => p.id === a.id));
-      // NEAR-MISSES with the reason (DM 2026-07-08: a player-owned friendly beast
-      // "just didn't show" — the filter was silent). A token that fails exactly one
-      // of the two party-worthiness rules is listed greyed with why, so the fix
-      // (grant OWNER / flip the token to Friendly) is self-evident. Failing both =
-      // an ordinary monster, stays hidden.
-      const nearMiss = [];
-      const seenIds = new Set([...pcs.map(a => a.id), ...offScene.map(a => a.id)]);
-      for (const t of game.scenes.active?.tokens ?? []) {
-        const a = t.actor;
-        if (!a || a.type === "group" || a.flags?.["item-piles"] || seenIds.has(a.id)) continue;
-        const friendly = t.disposition === CONST.TOKEN_DISPOSITIONS.FRIENDLY;
-        const owned = a.hasPlayerOwner;
-        if (owned === friendly) continue; // both true is a pc (already in), both false is a monster
-        seenIds.add(a.id);
-        nearMiss.push({ a, reason: owned ? "token not Friendly" : "no player owner" });
-      }
-      if (!pcs.length && !offScene.length && !nearMiss.length) return true;
+      // Near-miss reason rows tried and DROPPED (DM 2026-07-08: "could get long in
+      // scenes with many friendly NPCs") — the two rules a missing token fails are
+      // documented instead: explicit player OWNER permission + token disposition
+      // Friendly.
+      if (!pcs.length && !offScene.length) return true;
       const esc = foundry.utils.escapeHTML;
-      const row = (a, checked, note, disabled) => `<label class="mc-dmp-roster-row ${disabled ? "mc-dmp-roster-off" : ""}">
-        <input type="checkbox" name="member" value="${a.id}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}>
+      const row = (a, checked, note) => `<label class="mc-dmp-roster-row">
+        <input type="checkbox" name="member" value="${a.id}" ${checked ? "checked" : ""}>
         <img src="${esc(a.img)}" alt=""><span>${esc(a.name)}</span>${note ? `<em>${note}</em>` : ""}</label>`;
       const picked = await foundry.applications.api.DialogV2.wait({
         window: { title: g ? `${g.name} — choose members` : "Create party — choose members" },
         content: `<div class="mc-dmp-roster">
           ${pcs.map(a => row(a, memberIds.size ? memberIds.has(a.id) : true)).join("")}
-          ${offScene.map(a => row(a, false, "not on this scene")).join("")}
-          ${nearMiss.map(n => row(n.a, false, n.reason, true)).join("")}</div>`,
+          ${offScene.map(a => row(a, false, "not on this scene")).join("")}</div>`,
         buttons: [
           { action: "ok", label: "Set members", icon: "fas fa-users", default: true,
             callback: (_ev, button) => [...button.form.querySelectorAll('input[name="member"]:checked')].map(i => i.value) },

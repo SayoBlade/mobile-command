@@ -1547,6 +1547,8 @@ body.mc-theme-arcane #mobile-command-shell {
   box-shadow: 0 3px 6px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
 }
 .mc-tokensw-btn:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
+/* Follow toggle: paw lights gold while the player's other tokens copy their moves. */
+.mc-follow-on { color: #1a1712; background: linear-gradient(#c8a44d, #b98a1e); border-color: var(--mc-gold); }
 .mc-tokensw-name {
   min-width: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 15px; font-weight: 700; color: var(--mc-gold);
@@ -2522,10 +2524,6 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-dmp-roster-row img { width: 30px; height: 30px; border-radius: 50%; border: none; object-fit: cover; flex: 0 0 30px; }
 .mc-dmp-roster-row span { flex: 1 1 auto; font-weight: 600; }
 .mc-dmp-roster-row em { font-size: 11px; opacity: 0.65; white-space: nowrap; }
-/* Near-miss rows: on the scene but not party-worthy — greyed, reason shown, not pickable. */
-.mc-dmp-roster-off { opacity: 0.45; cursor: default; }
-.mc-dmp-roster-off:hover { background: none; }
-.mc-dmp-roster-off em { color: #d8b45a; opacity: 1; }
 /* Reaction widget: non-modal chips in the DM panel. aoo = actionable (violet,
    fist fires the OA, x declines); window = passive "a player is deciding". */
 .mc-dmp-reactions { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
