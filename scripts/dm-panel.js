@@ -603,6 +603,16 @@ function nightHTML() {
     </div></div>`;
 }
 
+// dnd5e's Sleeping condition drags Unconscious + its Incapacitated/Prone riders,
+// and the night ambush adds Surprised. dnd5e SHOULD cascade-remove the riders
+// when Sleeping is toggled off, but it doesn't reliably (DM 2026-07-09: "after
+// the long rest the PCs are still Prone"), so waking explicitly strips the whole
+// cluster.
+const SLEEP_CLUSTER = ["sleeping", "unconscious", "incapacitated", "prone", "surprised"];
+async function wakeActor(a) {
+  for (const s of SLEEP_CLUSTER) if (a.statuses.has(s)) await a.toggleStatusEffect(s, { active: false });
+}
+
 // On-duty PCs wake, everyone else sleeps (marker only — the DM taps any chip off
 // to wake someone, and non-sleeper races are exactly that manual toggle).
 async function applyWatchSleep(group) {
@@ -610,12 +620,13 @@ async function applyWatchSleep(group) {
   const onDuty = new Set(night?.watches?.[night.watch] ?? []);
   for (const a of nightMembers(group)) {
     const shouldSleep = !onDuty.has(a.id);
-    if (a.statuses.has("sleeping") !== shouldSleep) await a.toggleStatusEffect("sleeping", { active: shouldSleep });
+    if (shouldSleep && !a.statuses.has("sleeping")) await a.toggleStatusEffect("sleeping", { active: true });
+    else if (!shouldSleep && a.statuses.has("sleeping")) await wakeActor(a); // clear the rider cluster too
   }
 }
 
 async function clearNightSleep(group) {
-  for (const a of nightMembers(group)) if (a.statuses.has("sleeping")) await a.toggleStatusEffect("sleeping", { active: false });
+  for (const a of nightMembers(group)) await wakeActor(a);
 }
 
 async function nightLongRestPrompt(group) {
