@@ -2522,6 +2522,10 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-dmp-roster-row img { width: 30px; height: 30px; border-radius: 50%; border: none; object-fit: cover; flex: 0 0 30px; }
 .mc-dmp-roster-row span { flex: 1 1 auto; font-weight: 600; }
 .mc-dmp-roster-row em { font-size: 11px; opacity: 0.65; white-space: nowrap; }
+/* Near-miss rows: on the scene but not party-worthy — greyed, reason shown, not pickable. */
+.mc-dmp-roster-off { opacity: 0.45; cursor: default; }
+.mc-dmp-roster-off:hover { background: none; }
+.mc-dmp-roster-off em { color: #d8b45a; opacity: 1; }
 /* Reaction widget: non-modal chips in the DM panel. aoo = actionable (violet,
    fist fires the OA, x declines); window = passive "a player is deciding". */
 .mc-dmp-reactions { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
