@@ -553,12 +553,18 @@ function nightHTML() {
       <i class="fas fa-moon"></i> Start the night</button></div>`;
   }
   const first = id => game.actors.get(id)?.name?.split(" ")[0] ?? "?";
+  // The DM can set anyone's watches (they initiate + own guard duty). A member row
+  // per PC with three watch chips; tap toggles that PC on/off that watch. Works in
+  // BOTH stages — during the night, editing re-applies who's asleep.
+  const editor = `<div class="mc-dmp-night-edit">${nightMembers(group).map(a => {
+    const chips = [1, 2, 3].map(w => `<button class="mc-dmp-nw ${(night.watches?.[w] ?? []).includes(a.id) ? "mc-on" : ""}"
+        data-night="dm-toggle" data-group="${group.id}" data-actor="${a.id}" data-watch="${w}" title="${["1st", "2nd", "3rd"][w - 1]} watch">${w}</button>`).join("");
+    return `<div class="mc-dmp-nw-row"><span title="${esc(a.name)}">${esc(a.name.split(" ")[0])}</span><span class="mc-dmp-nw-chips">${chips}</span></div>`;
+  }).join("")}</div>`;
   if (night.stage === "assign") {
-    const rows = [1, 2, 3].map(w => `<div class="mc-dmp-night-row"><b>${["1st", "2nd", "3rd"][w - 1]}</b>
-        <span>${(night.watches?.[w] ?? []).map(first).join(", ") || "—"}</span></div>`).join("");
     const anyone = [1, 2, 3].some(w => (night.watches?.[w] ?? []).length);
-    return `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Watches — players placing</div>
-      ${rows}
+    return `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Watches — players placing (you can edit)</div>
+      ${editor}
       <div class="mc-dmp-party-btns">
         <button class="mc-dmp-party-deploy" data-night="lock" data-group="${group.id}" ${anyone ? "" : "disabled"}
           title="Lock the watch order — the night begins at 1st watch"><i class="fas fa-lock"></i> Lock in</button>
@@ -570,6 +576,7 @@ function nightHTML() {
       title="${(night.watches?.[w] ?? []).map(first).join(", ") || "nobody"} on duty">${w}</button>`).join("");
   const duty = (night.watches?.[night.watch] ?? []).map(first).join(", ") || "nobody";
   return `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Night — watch ${night.watch} (${esc(duty)})</div>
+    ${editor}
     <div class="mc-dmp-party-btns">${steps}
       <button class="mc-dmp-party-deploy" data-night="end" data-group="${group.id}" title="Morning comes — offer the long rest"><i class="fas fa-sun"></i> End night</button>
     </div></div>`;
@@ -620,8 +627,21 @@ async function onNightClick(ev) {
             { action: "cancel", label: "Cancel" }
           ]
         }).catch(() => null);
-        if (res === "board") await group.setFlag(MODULE_ID, "night", { stage: "assign", watch: 0, watches: { 1: [], 2: [], 3: [] } });
+        // A fresh session id per night re-arms every phone's "browse my sheet"
+        // dismissal (2026-07-09: a dismissed board stayed hidden across a restart).
+        if (res === "board") await group.setFlag(MODULE_ID, "night", { id: foundry.utils.randomID(), stage: "assign", watch: 0, watches: { 1: [], 2: [], 3: [] } });
         else if (res === "skip") await nightLongRestPrompt(group);
+        break;
+      }
+      case "dm-toggle": {
+        const night = foundry.utils.deepClone(group.getFlag(MODULE_ID, "night"));
+        if (!night) break;
+        const w = Number(btn.dataset.watch);
+        const row = new Set(night.watches?.[w] ?? []);
+        if (row.has(btn.dataset.actor)) row.delete(btn.dataset.actor); else row.add(btn.dataset.actor);
+        night.watches = { ...(night.watches ?? {}), [w]: [...row] };
+        await group.setFlag(MODULE_ID, "night", night);
+        if (night.stage === "watch") await applyWatchSleep(group); // mid-night edit → re-sleep
         break;
       }
       case "lock": {

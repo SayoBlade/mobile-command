@@ -531,9 +531,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!info) return "";
     const esc = foundry.utils.escapeHTML;
     const { group, night, me } = info;
+    // Keys carry the night's session id so a NEW night (or a restarted one)
+    // re-arms the overlay even if the player browsed past the last one
+    // (2026-07-09: a dismissed board stayed hidden across a DM restart). While
+    // dismissed but the night's still live, a small floating pill re-opens it —
+    // "browse my sheet" is a peek, not a one-way exit.
+    const sid = night.id ?? "n";
     if (night.stage === "assign") {
-      const key = "assign";
-      if (this.#nightDismissed === key) return "";
+      const key = `assign:${sid}`;
+      if (this.#nightDismissed === key)
+        return `<button class="mc-night-reopen" data-action="night-reopen"><i class="fas fa-moon"></i> Watches</button>`;
       const first = id => game.actors.get(id)?.name?.split(" ")[0] ?? "?";
       const rows = [1, 2, 3].map(w => {
         const ids = night.watches?.[w] ?? [];
@@ -556,8 +563,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (night.stage === "watch") {
       const onDuty = (night.watches?.[night.watch] ?? []).includes(me.id);
       if (onDuty) return "";
-      const key = `watch:${night.watch}`;
-      if (this.#nightDismissed === key) return "";
+      const key = `watch:${sid}:${night.watch}`;
+      if (this.#nightDismissed === key)
+        return `<button class="mc-night-reopen" data-action="night-reopen"><i class="fas fa-bed"></i> Zzz</button>`;
       return `<div class="mc-paused"><div class="mc-paused-card">
         <i class="fas fa-bed mc-paused-ico" style="animation:none"></i>
         <div class="mc-paused-title">Zzz…</div>
@@ -4856,6 +4864,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#pausedDismissed = el.dataset.key; return this.render();
       case "night-dismiss":
         this.#nightDismissed = el.dataset.key; return this.render();
+      case "night-reopen":
+        this.#nightDismissed = null; return this.render();
       case "scroll-scribe":
         rpc.scribeRequest({ actorId: this.actor?.id, itemId: el.dataset.itemId, requesterId: game.user.id })
           .then(res => {

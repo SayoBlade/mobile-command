@@ -1428,6 +1428,22 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-night-row span { flex: 1 1 auto; min-width: 0; opacity: .8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-night-row.mc-on { border-color: var(--mc-gold); }
 .mc-night-row.mc-on i { color: var(--mc-gold); }
+/* Floating re-open pill: shown while the night is live but the player browsed
+   past the board/Zzz card — a peek shouldn't be a one-way exit. */
+.mc-night-reopen {
+  position: fixed; right: 12px; bottom: 76px; z-index: 9998;
+  display: flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 999px;
+  font-size: 13px; font-weight: 700; color: #1a1712;
+  background: linear-gradient(var(--mc-gold, #c8a44d), #b98a1e); border: 1px solid var(--mc-gold, #c8a44d);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .5);
+}
+/* DM panel: per-member watch editor (name + 1/2/3 chips). */
+.mc-dmp-night-edit { display: flex; flex-direction: column; gap: 3px; margin: 4px 0; }
+.mc-dmp-nw-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+.mc-dmp-nw-row > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-dmp-nw-chips { display: flex; gap: 4px; flex: 0 0 auto; }
+.mc-dmp-nw { width: 26px; height: 26px; border-radius: 6px; font-weight: 800; font-size: 11px; opacity: .55; }
+.mc-dmp-nw.mc-on { opacity: 1; color: #1a1712; background: linear-gradient(#c8a44d, #b98a1e); border-color: #c8a44d; }
 .mc-dmp-night-box { margin: 6px 0; padding: 6px 8px; border-radius: 8px; background: #20222c; border: 1px solid #333743; }
 .mc-dmp-night-row { display: flex; gap: 8px; font-size: 12px; padding: 3px 2px; }
 .mc-dmp-night-row b { flex: 0 0 28px; color: #d8b45a; }
