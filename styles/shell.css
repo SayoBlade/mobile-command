@@ -567,6 +567,21 @@ body.mc-phone .roll-configuration fieldset {
 body.mc-phone .merchant-left-pane { display: none !important; }
 body.mc-phone .merchant-right-pane { padding-left: 0 !important; }
 
+/* --- Item Piles LOOT window on a phone (DM 2026-07-09). Two fixes:
+   (1) Scroll: the items list ships a fixed max-height:500px and the app doesn't
+       bound to the viewport, so lower items + the take/close buttons fall off a
+       short phone screen. Cap the window-content and the list to dvh and give
+       BOTH their own scroll (belt + suspenders — works regardless of the svelte
+       flex nesting).
+   (2) Recipient dropdown: Item Piles lists EVERY owned linked actor as a loot
+       recipient (dist: game.actors.filter(isOwner) — not scene-filtered), so a
+       phone player sees PCs who aren't even here. On a phone you play one PC, so
+       loot binds to your active character (we already pass it as inspectingTarget)
+       and the picker is hidden — no more off-scene recipients. */
+body.mc-phone .item-piles-app .window-content { max-height: 88dvh !important; overflow-y: auto !important; }
+body.mc-phone .item-piles-items-list { max-height: 50dvh !important; overflow-y: auto !important; }
+body.mc-phone .item-piles-actor-container { display: none !important; }
+
 /* ============================================================
    L&F pass (B5) — dark-fantasy "character sheet" theme + the new
    header stats, inspiration, move pad, and turn HUD. Appended so
