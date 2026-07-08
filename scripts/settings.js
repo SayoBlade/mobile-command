@@ -163,6 +163,15 @@ export function registerSettings() {
     onChange: (value) => { if (value) retroGrantOwnership(value); }
   });
 
+  // §16.3 DM first-run wizard: true once the DM finished (or dismissed) the
+  // guided setup. Hidden — the wizard flips it; reopen lives on the Preflight tab.
+  game.settings.register(MODULE_ID, "dmOnboarded", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false
+  });
+
   // In-house opportunity attacks (aoo.js): the executor watches combat movement
   // for leave-reach events. Player attackers get a phone prompt; NPC attackers
   // follow aooNpcMode. midi's recordAOO (D4 preset) charges the reaction.

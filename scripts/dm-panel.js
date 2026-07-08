@@ -2,6 +2,7 @@ import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview } fro
 import { fireAoO } from "./aoo.js";
 import { MODULE_ID } from "./preset.js";
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
+import { runDmWizard } from "./dm-wizard.js";
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -63,7 +64,8 @@ function preflightHTML() {
     </div>`).join("");
   const stamp = preflightRunAt ? preflightRunAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
   return `${rows}
-    <button class="mc-dmp-preflight-run" data-preflight-run><i class="fas fa-rotate"></i> Run again${stamp ? ` <span class="mc-dmp-pf-stamp">(last ${stamp})</span>` : ""}</button>`;
+    <button class="mc-dmp-preflight-run" data-preflight-run><i class="fas fa-rotate"></i> Run again${stamp ? ` <span class="mc-dmp-pf-stamp">(last ${stamp})</span>` : ""}</button>
+    <button class="mc-dmp-preflight-run" data-dm-wizard><i class="fas fa-hat-wizard"></i> Setup wizard</button>`;
 }
 
 function rollsToolHTML() {
@@ -824,6 +826,10 @@ async function onClick(ev) {
   if (ev.target.closest("[data-preflight-run]")) {
     await runPreflight();
     return render();
+  }
+  if (ev.target.closest("[data-dm-wizard]")) {
+    runDmWizard().then(() => render()).catch(e => console.error(`${MODULE_ID} | wizard failed`, e));
+    return;
   }
   const actScene = ev.target.closest("[data-activate-scene]");
   if (actScene) {

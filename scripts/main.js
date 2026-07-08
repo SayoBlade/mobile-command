@@ -5,6 +5,7 @@ import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, 
 import { initPauseGuard } from "./pause-guard.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient, isDisplayClient } from "./shell.js";
 import { registerDMPanel } from "./dm-panel.js";
+import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerAoO } from "./aoo.js";
 
@@ -599,6 +600,7 @@ Hooks.once("ready", () => {
   startHeartbeat();
   registerShellHooks();
   registerDMPanel(); // DM-assign panel (GM clients only; self-gates)
+  maybePromptDmWizard(); // §16.3 first-run setup offer (GM only; once per world)
   registerSaveRelay(); // executor relays midi save requests to phones (self-gates on isExecutor)
   registerReactionNotifier(); // DM toast when a player gets a reaction window (self-gates)
   registerDialogWatchdog(); // executor alerts DM + pings phone when an action strands a dialog (self-gates)
