@@ -1,6 +1,7 @@
 import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview } from "./rpc.js";
 import { fireAoO } from "./aoo.js";
 import { MODULE_ID } from "./preset.js";
+import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -37,13 +38,32 @@ function rollTargets() {
 }
 
 function tabRailHTML() {
-  const tab = (id, icon, title, show = true) => show ? `<button class="mc-dmp-tab ${dockTab === id ? "mc-on" : ""}" data-dock="${id}" title="${title}" aria-label="${title}"><i class="fas ${icon}"></i></button>` : "";
+  const tab = (id, icon, title, show = true, badge = 0) => show ? `<button class="mc-dmp-tab ${dockTab === id ? "mc-on" : ""}" data-dock="${id}" title="${title}" aria-label="${title}"><i class="fas ${icon}"></i>${badge ? `<span class="mc-dmp-tab-badge">${badge}</span>` : ""}</button>` : "";
   // When a flyout is open the rail rides its right edge (mc-open); else the panel's.
   return `<div class="mc-dmp-tabrail ${dockTab ? "mc-open" : ""}">
     ${tab("party", "fa-border-all", "Party order", !!packedGroup())}
     ${tab("rolls", "fa-dice-d20", "Request rolls")}
     ${tab("tokens", "fa-users", "Players")}
+    ${tab("preflight", "fa-clipboard-check", "Session preflight", true, preflightFailCount())}
   </div>`;
+}
+
+// Preflight tab (§16): one row per check — status dot, label, detail, and the
+// check's own one-tap fix where a safe remedy exists. Never auto-fixes.
+function preflightHTML() {
+  const results = preflightResults;
+  if (!results) return `<div class="mc-dmp-empty">Not run yet.</div>
+    <button class="mc-dmp-preflight-run" data-preflight-run><i class="fas fa-rotate"></i> Run checks</button>`;
+  const esc = foundry.utils.escapeHTML;
+  const icon = { ok: "fa-circle-check", warn: "fa-triangle-exclamation", fail: "fa-circle-xmark" };
+  const rows = results.map(c => `<div class="mc-dmp-pf mc-dmp-pf-${c.status}">
+      <i class="fas ${icon[c.status] ?? "fa-circle-question"} mc-dmp-pf-ico"></i>
+      <div class="mc-dmp-pf-text"><b>${esc(c.label)}</b><span>${esc(c.detail ?? "")}</span></div>
+      ${c.fix ? `<button class="mc-dmp-pf-fix" data-preflight-fix="${c.id}">${esc(c.fix.label)}</button>` : ""}
+    </div>`).join("");
+  const stamp = preflightRunAt ? preflightRunAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+  return `${rows}
+    <button class="mc-dmp-preflight-run" data-preflight-run><i class="fas fa-rotate"></i> Run again${stamp ? ` <span class="mc-dmp-pf-stamp">(last ${stamp})</span>` : ""}</button>`;
 }
 
 function rollsToolHTML() {
@@ -114,6 +134,7 @@ function flyoutHTML() {
   let title = "", body = "";
   if (dockTab === "rolls") { title = "Request rolls"; body = rollsToolHTML(); }
   else if (dockTab === "tokens") { title = "Players"; body = ownedTokensHTML(); }
+  else if (dockTab === "preflight") { title = "Session preflight"; body = preflightHTML(); }
   else if (dockTab === "party") {
     const g = packedGroup();
     const f = g?.getFlag(MODULE_ID, "formation") ?? {};
@@ -765,6 +786,17 @@ async function onClick(ev) {
     return;
   }
   if (ev.target.closest("[data-rt-send]")) return sendRolls();
+  if (ev.target.closest("[data-preflight-run]")) {
+    await runPreflight();
+    return render();
+  }
+  const pfFix = ev.target.closest("[data-preflight-fix]");
+  if (pfFix) {
+    pfFix.disabled = true;
+    try { await runPreflightFix(pfFix.dataset.preflightFix); }
+    catch (e) { console.error(`${MODULE_ID} | preflight fix failed`, e); ui.notifications.warn(`Fix failed: ${e.message}`); }
+    return render();
+  }
   if (await onPartyClick(ev)) return;
   const cam = ev.target.closest("[data-cam]");
   if (cam) {
@@ -846,6 +878,9 @@ async function onClick(ev) {
 /** DM/executor client only — the TV is player-role, phones have no canvas targets. */
 export function registerDMPanel() {
   if (!game.user.isGM) return;
+  // Preflight auto-run (§16): one pass shortly after the canvas settles so the
+  // tab badge shows real fails without the DM opening it. Never auto-fixes.
+  setTimeout(() => { runPreflight().then(() => render()).catch(e => console.warn(`${MODULE_ID} | preflight auto-run failed`, e)); }, 4000);
   Hooks.on("targetToken", () => render());
   Hooks.on("controlToken", () => render());                        // quick-HP: selection changed
   Hooks.on("updateCombat", () => render());

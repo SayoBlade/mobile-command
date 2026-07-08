@@ -2524,6 +2524,31 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-dmp-roster-row img { width: 30px; height: 30px; border-radius: 50%; border: none; object-fit: cover; flex: 0 0 30px; }
 .mc-dmp-roster-row span { flex: 1 1 auto; font-weight: 600; }
 .mc-dmp-roster-row em { font-size: 11px; opacity: 0.65; white-space: nowrap; }
+/* Session preflight tab (§16): status rows + fail badge on the rail icon. */
+.mc-dmp-tab { position: relative; }
+.mc-dmp-tab-badge {
+  position: absolute; top: -4px; right: -4px; min-width: 15px; height: 15px; padding: 0 3px;
+  border-radius: 8px; background: #a33c3c; color: #fff; font-size: 10px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; pointer-events: none;
+}
+.mc-dmp-pf {
+  display: flex; align-items: flex-start; gap: 8px; padding: 7px 8px; margin-bottom: 4px;
+  border-radius: 8px; background: #23262f; border: 1px solid #333743; font-size: 12px;
+}
+.mc-dmp-pf-ico { margin-top: 2px; }
+.mc-dmp-pf-ok .mc-dmp-pf-ico { color: #6fae6f; }
+.mc-dmp-pf-warn .mc-dmp-pf-ico { color: #d8b45a; }
+.mc-dmp-pf-fail { border-color: #7a3a3a; }
+.mc-dmp-pf-fail .mc-dmp-pf-ico { color: #d06060; }
+.mc-dmp-pf-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mc-dmp-pf-text b { color: #ece5d6; }
+.mc-dmp-pf-text span { opacity: 0.8; line-height: 1.35; }
+.mc-dmp-pf-fix {
+  flex: 0 0 auto; align-self: center; padding: 5px 9px; border-radius: 7px; font-size: 11px; font-weight: 700;
+  color: #1a1712; background: linear-gradient(#c8a44d, #b98a1e); border: 1px solid #c8a44d; white-space: nowrap;
+}
+.mc-dmp-preflight-run { width: 100%; margin-top: 4px; padding: 7px; border-radius: 8px; font-weight: 700; }
+.mc-dmp-pf-stamp { font-weight: 400; opacity: 0.6; font-size: 11px; }
 /* Reaction widget: non-modal chips in the DM panel. aoo = actionable (violet,
    fist fires the OA, x declines); window = passive "a player is deciding". */
 .mc-dmp-reactions { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
