@@ -1449,11 +1449,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!p) return "";
     return `<div class="mc-saveprompt mc-aoo">
       <div class="mc-saveprompt-bar">
-        <span class="mc-saveprompt-title"><i class="fas fa-bolt"></i> Opportunity attack!</span>
+        <span class="mc-saveprompt-title"><i class="fas fa-bolt"></i> ${foundry.utils.escapeHTML(p.title || "Opportunity attack!")}</span>
         <button class="mc-saveprompt-x" data-action="aoo-dismiss" aria-label="Close"><i class="fas fa-xmark"></i></button>
       </div>
       <div class="mc-saveprompt-body">
-        <div class="mc-saveprompt-sub">${foundry.utils.escapeHTML(p.moverName ?? "An enemy")} is escaping ${foundry.utils.escapeHTML(p.attackerName ?? "your")}'s reach</div>
+        <div class="mc-saveprompt-sub">${foundry.utils.escapeHTML(p.reason || `${p.moverName ?? "An enemy"} is escaping ${p.attackerName ?? "your"}'s reach`)}</div>
         <div class="mc-saveprompt-btns">
           <button class="mc-save-roll" data-action="aoo-attack">Attack with ${foundry.utils.escapeHTML(p.weaponName || "your weapon")}</button>
         </div>
