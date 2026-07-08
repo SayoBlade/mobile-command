@@ -69,6 +69,7 @@ export function initSocket() {
   socket.register("wildShapeRevert", handleWildShapeRevert);
   socket.register("partyPack", handlePartyPack);
   socket.register("partySetCell", handlePartySetCell);
+  socket.register("nightToggle", handleNightToggle);
   socket.register("partySetForward", handlePartySetForward);
   socket.register("partyStage", handlePartyStage);
   socket.register("partyDeploy", handlePartyDeploy);
@@ -1422,6 +1423,28 @@ async function handlePartyPack({ groupId, requesterId }) {
   return { ok: true };
 }
 
+// §17.4 guard duty: a player toggles their own PC in/out of a watch row.
+// State lives on the GROUP actor's `night` flag (updateActor propagates to every
+// client, same channel as the marching-order formation). Multi-duty is allowed
+// (DM sign-off) — a PC may stand any subset of the three watches.
+async function handleNightToggle({ groupId, actorId, watch, requesterId }) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const group = game.actors.get(groupId);
+  if (group?.type !== "group") return { ok: false, reason: "group not found" };
+  const night = foundry.utils.deepClone(group.getFlag(MODULE_ID, "night") ?? null);
+  if (!night || night.stage !== "assign") return { ok: false, reason: "the watch board isn't open" };
+  const actor = game.actors.get(actorId);
+  const user = game.users.get(requesterId);
+  if (!user?.isGM && !actor?.testUserPermission(user, "OWNER"))
+    return { ok: false, reason: "you can only place your own character" };
+  if (![1, 2, 3].includes(watch)) return { ok: false, reason: "bad watch" };
+  const row = new Set(night.watches?.[watch] ?? []);
+  if (row.has(actorId)) row.delete(actorId); else row.add(actorId);
+  night.watches = { ...(night.watches ?? {}), [watch]: [...row] };
+  await group.setFlag(MODULE_ID, "night", night);
+  return { ok: true };
+}
+
 async function handlePartySetCell({ groupId, actorId, r, c, lock, requesterId }) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
   const group = game.actors.get(groupId);
@@ -1710,6 +1733,7 @@ function toExecutor(handler, payload) {
       partyJournalAdd: handlePartyJournalAdd, portraitUpload: handlePortraitUpload,
       wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert,
       partyPack: handlePartyPack, partySetCell: handlePartySetCell,
+      nightToggle: handleNightToggle,
       partySetForward: handlePartySetForward, partyStage: handlePartyStage,
       partyDeploy: handlePartyDeploy, partyRelease: handlePartyRelease,
       partyCombine: handlePartyCombine, fixPcTokens: handleFixPcTokens,
@@ -1745,6 +1769,7 @@ export const api = {
   wildShapeRevert: (payload = {}) => toExecutor("wildShapeRevert", payload),
   partyPack: (payload = {}) => toExecutor("partyPack", payload),
   partySetCell: (payload = {}) => toExecutor("partySetCell", payload),
+  nightToggle: (payload = {}) => toExecutor("nightToggle", payload),
   partySetForward: (payload = {}) => toExecutor("partySetForward", payload),
   partyStage: (payload = {}) => toExecutor("partyStage", payload),
   partyDeploy: (payload = {}) => toExecutor("partyDeploy", payload),

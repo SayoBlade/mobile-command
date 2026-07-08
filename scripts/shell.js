@@ -198,6 +198,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #aooTimer = null;
   #colorPickOpen = false; // DM-triggered colour-picker overlay is showing
   #pausedDismissed = null; // §17.3 split-scene overlay: "activeId:hereId" the player browsed past
+  #nightDismissed = null;  // §17.4 night overlays: "assign" | "watch:N" the player browsed past
   #onboardOpen = null;    // first-run welcome overlay: null = unresolved, true/false = show/hide
   #partySelf = null;      // marching-order: the owned member the player picked up
   #journalFilter = "";    // journal: live post filter ("shopke" → matching notes)
@@ -379,7 +380,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // no-token/blank-PC screens (live 2026-07-08: the traveler's phone offered to
     // build the spare blank instead of saying "wait"). Computed once, prefixed to
     // each early return; the normal sheet includes it in its own template.
-    const paused = this.#pausedHTML();
+    const paused = this.#pausedHTML() || this.#nightOverlayHTML();
     const actor = this.actor;
     if (!actor) return paused + this.#noTokenHTML();
     // Char-gen (§7.x): once started, the build workspace replaces the sheet until
@@ -485,7 +486,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#rollRequestHTML()}
       ${this.#aooPromptHTML()}
       ${this.#colorPickOpen ? this.#colorPickHTML() : ""}
-      ${this.#pausedHTML()}
+      ${this.#pausedHTML() || this.#nightOverlayHTML()}
       ${this.#onboardHTML()}`;
   }
 
@@ -509,6 +510,62 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       && (a.system?.members ?? []).some(m => m.actor?.id === actor.id));
     if (packed) return null;
     return { key: `${active.id}:${here.id}`, hereName: here.name, activeName: active.name };
+  }
+  // §17.4 guard duty: my party group's night flag drives two phone overlays —
+  // the WATCH BOARD while assigning (tap a row to stand that watch, multi-duty
+  // allowed) and the Zzz card while the current watch doesn't include me.
+  // Both carry the same "Browse my sheet" escape as the paused overlay.
+  #nightInfo() {
+    const me = game.user.character ?? this.actor;
+    if (!me || me.type !== "character") return null;
+    for (const g of game.actors.filter(a => a.type === "group")) {
+      const night = g.getFlag("mobile-command", "night");
+      if (!night) continue;
+      if (!(g.system?.members ?? []).some(m => m.actor?.id === me.id)) continue;
+      return { group: g, night, me };
+    }
+    return null;
+  }
+  #nightOverlayHTML() {
+    const info = this.#nightInfo();
+    if (!info) return "";
+    const esc = foundry.utils.escapeHTML;
+    const { group, night, me } = info;
+    if (night.stage === "assign") {
+      const key = "assign";
+      if (this.#nightDismissed === key) return "";
+      const first = id => game.actors.get(id)?.name?.split(" ")[0] ?? "?";
+      const rows = [1, 2, 3].map(w => {
+        const ids = night.watches?.[w] ?? [];
+        const mine = ids.includes(me.id);
+        const others = ids.filter(id => id !== me.id).map(first).join(", ");
+        return `<button class="mc-night-row ${mine ? "mc-on" : ""}" data-action="night-toggle" data-watch="${w}" data-group="${group.id}">
+          <b>${["1st", "2nd", "3rd"][w - 1]} watch</b>
+          <span>${mine ? "You" : ""}${mine && others ? ", " : ""}${esc(others)}${!mine && !others ? "—" : ""}</span>
+          <i class="fas ${mine ? "fa-circle-check" : "fa-circle"}"></i>
+        </button>`;
+      }).join("");
+      return `<div class="mc-paused"><div class="mc-paused-card">
+        <i class="fas fa-moon mc-paused-ico" style="animation:none"></i>
+        <div class="mc-paused-title">Setting the watches</div>
+        <div class="mc-paused-sub">Tap the watches <b>${esc(me.name.split(" ")[0])}</b> will stand. You can take more than one — or none and sleep through.</div>
+        <div class="mc-night-rows">${rows}</div>
+        <button class="mc-paused-browse" data-action="night-dismiss" data-key="${key}"><i class="fas fa-book-open"></i> Browse my sheet</button>
+      </div></div>`;
+    }
+    if (night.stage === "watch") {
+      const onDuty = (night.watches?.[night.watch] ?? []).includes(me.id);
+      if (onDuty) return "";
+      const key = `watch:${night.watch}`;
+      if (this.#nightDismissed === key) return "";
+      return `<div class="mc-paused"><div class="mc-paused-card">
+        <i class="fas fa-bed mc-paused-ico" style="animation:none"></i>
+        <div class="mc-paused-title">Zzz…</div>
+        <div class="mc-paused-sub">Watch ${night.watch} — <b>${esc(me.name.split(" ")[0])}</b> is asleep. The DM will wake you if the night turns loud.</div>
+        <button class="mc-paused-browse" data-action="night-dismiss" data-key="${key}"><i class="fas fa-book-open"></i> Browse my sheet</button>
+      </div></div>`;
+    }
+    return "";
   }
   #pausedHTML() {
     const st = this.#pausedState();
@@ -4797,6 +4854,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "token-next": return this.#cycleSubject(1);
       case "paused-dismiss":
         this.#pausedDismissed = el.dataset.key; return this.render();
+      case "night-dismiss":
+        this.#nightDismissed = el.dataset.key; return this.render();
+      case "night-toggle": {
+        const me = game.user.character ?? this.actor;
+        rpc.nightToggle({ groupId: el.dataset.group, actorId: me?.id, watch: Number(el.dataset.watch), requesterId: game.user.id })
+          .then(res => { if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't set that watch."); })
+          .catch(e => console.warn("mobile-command | nightToggle", e));
+        return; // the group flag update re-renders every member phone
+      }
       case "follow-toggle": {
         // #onClick is NOT async — no await here (a bare await was the v0.1.68-style
         // SyntaxError all over again; the syntax gate caught it pre-ship).

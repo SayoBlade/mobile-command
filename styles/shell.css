@@ -1417,6 +1417,22 @@ body.mc-theme-arcane #mobile-command-shell {
 /* DM panel: split-party chip (rides the reaction-chip look, hiking icon + activate). */
 .mc-dmp-split { background: #1f2a24; border-color: #3d5c49; }
 .mc-dmp-split button { min-width: 30px; height: 26px; border-radius: 6px; }
+/* §17.4 night watches: phone board rows + DM panel night box. */
+.mc-night-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.mc-night-row {
+  display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 12px;
+  border-radius: 10px; background: var(--mc-panel-2, #262230); border: 1px solid var(--mc-edge, #3a3547);
+  color: var(--mc-ink); font-size: 14px; text-align: left;
+}
+.mc-night-row b { flex: 0 0 auto; }
+.mc-night-row span { flex: 1 1 auto; min-width: 0; opacity: .8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-night-row.mc-on { border-color: var(--mc-gold); }
+.mc-night-row.mc-on i { color: var(--mc-gold); }
+.mc-dmp-night-box { margin: 6px 0; padding: 6px 8px; border-radius: 8px; background: #20222c; border: 1px solid #333743; }
+.mc-dmp-night-row { display: flex; gap: 8px; font-size: 12px; padding: 3px 2px; }
+.mc-dmp-night-row b { flex: 0 0 28px; color: #d8b45a; }
+.mc-dmp-night-step { flex: 0 0 34px; height: 30px; border-radius: 7px; font-weight: 800; }
+.mc-dmp-night-step.mc-on { color: #1a1712; background: linear-gradient(#c8a44d, #b98a1e); border-color: #c8a44d; }
 .mc-colorpick-card { width: 100%; max-width: 340px; background: var(--mc-panel, #1c1922); border: 1px solid var(--mc-gold); border-radius: 16px; padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
 .mc-colorpick-title { font-weight: 800; font-size: 17px; text-align: center; margin-bottom: 16px; color: var(--mc-ink); }
 .mc-colorpick-done { width: 100%; margin-top: 18px; height: 48px; border-radius: 12px; font-weight: 800; font-size: 15px; color: #1a1206; background: linear-gradient(var(--mc-gold), #b98a1e); border: 1px solid var(--mc-gold); cursor: pointer; }

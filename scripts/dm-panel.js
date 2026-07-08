@@ -521,6 +521,162 @@ function partyMainHTML() {
       <i class="fas ${partyForce ? "fa-triangle-exclamation" : "fa-people-arrows"}"></i> ${partyForce ? "Disperse anyway" : "Disperse"}</button></div>`;
 }
 
+// §17.4 guard duty (DM-initiated, signed off 2026-07-08). Night state lives on
+// the group actor's `night` flag: { stage: "assign"|"watch", watch: 1..3,
+// watches: {1:[actorIds],2:[],3:[]} }. Zzz = the core "sleep" status as a pure
+// visual marker (no mechanics until an encounter); conditions only on the
+// encounter-start OFFER. No race logic — the DM taps individuals awake.
+function nightGroup() {
+  return game.actors.find(a => a.type === "group" && a.getFlag(MODULE_ID, "night"))
+    ?? game.actors.find(a => a.type === "group" && (a.system?.members ?? []).some(m => m.actor));
+}
+
+function nightMembers(group) {
+  return (group?.system?.members ?? []).map(m => m.actor).filter(a => a && a.type === "character");
+}
+
+function nightHTML() {
+  const group = nightGroup();
+  if (!group) return "";
+  const esc = foundry.utils.escapeHTML;
+  const night = group.getFlag(MODULE_ID, "night");
+  if (!night) {
+    if (!nightMembers(group).length) return "";
+    return `<div class="mc-dmp-party-btns"><button class="mc-dmp-party-deploy mc-dmp-night" data-night="start" data-group="${group.id}"
+      title="Make camp: send the watch board to the phones, or skip straight to the morning">
+      <i class="fas fa-moon"></i> Start the night</button></div>`;
+  }
+  const first = id => game.actors.get(id)?.name?.split(" ")[0] ?? "?";
+  if (night.stage === "assign") {
+    const rows = [1, 2, 3].map(w => `<div class="mc-dmp-night-row"><b>${["1st", "2nd", "3rd"][w - 1]}</b>
+        <span>${(night.watches?.[w] ?? []).map(first).join(", ") || "—"}</span></div>`).join("");
+    const anyone = [1, 2, 3].some(w => (night.watches?.[w] ?? []).length);
+    return `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Watches — players placing</div>
+      ${rows}
+      <div class="mc-dmp-party-btns">
+        <button class="mc-dmp-party-deploy" data-night="lock" data-group="${group.id}" ${anyone ? "" : "disabled"}
+          title="Lock the watch order — the night begins at 1st watch"><i class="fas fa-lock"></i> Lock in</button>
+        <button class="mc-dmp-party-rebuild" data-night="cancel" data-group="${group.id}" title="Call off the night"><i class="fas fa-xmark"></i></button>
+      </div></div>`;
+  }
+  // stage "watch"
+  const steps = [1, 2, 3].map(w => `<button class="mc-dmp-night-step ${night.watch === w ? "mc-on" : ""}" data-night="watch" data-watch="${w}" data-group="${group.id}"
+      title="${(night.watches?.[w] ?? []).map(first).join(", ") || "nobody"} on duty">${w}</button>`).join("");
+  const duty = (night.watches?.[night.watch] ?? []).map(first).join(", ") || "nobody";
+  return `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Night — watch ${night.watch} (${esc(duty)})</div>
+    <div class="mc-dmp-party-btns">${steps}
+      <button class="mc-dmp-party-deploy" data-night="end" data-group="${group.id}" title="Morning comes — offer the long rest"><i class="fas fa-sun"></i> End night</button>
+    </div></div>`;
+}
+
+// On-duty PCs wake, everyone else sleeps (marker only — the DM taps any chip off
+// to wake someone, and non-sleeper races are exactly that manual toggle).
+async function applyWatchSleep(group) {
+  const night = group.getFlag(MODULE_ID, "night");
+  const onDuty = new Set(night?.watches?.[night.watch] ?? []);
+  for (const a of nightMembers(group)) {
+    const shouldSleep = !onDuty.has(a.id);
+    if (a.statuses.has("sleeping") !== shouldSleep) await a.toggleStatusEffect("sleeping", { active: shouldSleep });
+  }
+}
+
+async function clearNightSleep(group) {
+  for (const a of nightMembers(group)) if (a.statuses.has("sleeping")) await a.toggleStatusEffect("sleeping", { active: false });
+}
+
+async function nightLongRestPrompt(group) {
+  const yes = await foundry.applications.api.DialogV2.confirm({
+    window: { title: "Morning" },
+    content: `<p>Night passes — grant the party a <b>long rest</b>?</p>`
+  }).catch(() => false);
+  if (!yes) return;
+  for (const a of nightMembers(group)) {
+    try { await a.longRest({ dialog: false, chat: false }); } catch (e) { console.warn(`${MODULE_ID} | rest failed for ${a.name}`, e); }
+  }
+  ui.notifications.info(`${group.name}: long rest granted.`);
+}
+
+async function onNightClick(ev) {
+  const btn = ev.target.closest("[data-night]");
+  if (!btn) return false;
+  const group = game.actors.get(btn.dataset.group);
+  if (!group) return true;
+  const D = foundry.applications.api.DialogV2;
+  try {
+    switch (btn.dataset.night) {
+      case "start": {
+        const res = await D.wait({
+          window: { title: "Start the night" },
+          content: `<p>Send the <b>watch board</b> to the phones (three watches, players place themselves) — or skip guard duty and go straight to the morning?</p>`,
+          buttons: [
+            { action: "board", label: "Watch board", icon: "fas fa-moon", default: true },
+            { action: "skip", label: "Skip guard duty", icon: "fas fa-forward" },
+            { action: "cancel", label: "Cancel" }
+          ]
+        }).catch(() => null);
+        if (res === "board") await group.setFlag(MODULE_ID, "night", { stage: "assign", watch: 0, watches: { 1: [], 2: [], 3: [] } });
+        else if (res === "skip") await nightLongRestPrompt(group);
+        break;
+      }
+      case "lock": {
+        const night = foundry.utils.deepClone(group.getFlag(MODULE_ID, "night"));
+        night.stage = "watch"; night.watch = 1;
+        await group.setFlag(MODULE_ID, "night", night);
+        await applyWatchSleep(group);
+        break;
+      }
+      case "watch": {
+        const night = foundry.utils.deepClone(group.getFlag(MODULE_ID, "night"));
+        night.watch = Number(btn.dataset.watch);
+        await group.setFlag(MODULE_ID, "night", night);
+        await applyWatchSleep(group);
+        break;
+      }
+      case "cancel":
+        await group.unsetFlag(MODULE_ID, "night");
+        await clearNightSleep(group);
+        break;
+      case "end":
+        await clearNightSleep(group);
+        await group.unsetFlag(MODULE_ID, "night");
+        await nightLongRestPrompt(group);
+        break;
+    }
+  } catch (e) {
+    console.error(`${MODULE_ID} | night action failed`, e);
+    ui.notifications.warn(`Night action failed: ${e.message}`);
+  }
+  render();
+  return true;
+}
+
+// Encounter during the night: OFFER the ambush mechanics (never auto). dnd5e's
+// Sleeping condition ALREADY carries the full 2024 sleep rules (unconscious +
+// prone/incapacitated riders — found live 2026-07-08), so the sleepers are
+// mechanically down from the moment the watch marks them; the only additive
+// piece at combat start is SURPRISED = initiative at disadvantage (2024).
+// Waking someone = the DM (or damage/an ally's action) removes Sleeping — the
+// riders leave with it.
+function registerNightEncounterOffer() {
+  Hooks.on("combatStart", async () => {
+    if (!game.user.isGM) return;
+    const group = game.actors.find(a => a.type === "group" && a.getFlag(MODULE_ID, "night")?.stage === "watch");
+    if (!group) return;
+    const sleepers = nightMembers(group).filter(a => a.statuses.has("sleeping"));
+    if (!sleepers.length) return;
+    if (!CONFIG.statusEffects.some(s => s.id === "surprised")) return;
+    const yes = await foundry.applications.api.DialogV2.confirm({
+      window: { title: "Night ambush" },
+      content: `<p>${sleepers.length} PC${sleepers.length > 1 ? "s are" : " is"} asleep (${foundry.utils.escapeHTML(sleepers.map(a => a.name.split(" ")[0]).join(", "))}) — already Unconscious from the Sleeping condition.</p>
+        <p>Also mark them <b>Surprised</b> (initiative at disadvantage)?</p>`
+    }).catch(() => false);
+    if (!yes) return;
+    for (const a of sleepers) {
+      if (!a.statuses.has("surprised")) await a.toggleStatusEffect("surprised", { active: true });
+    }
+  });
+}
+
 // The "Party order" dock tab body — the grid + rotate + lock-in/rearrange +
 // release/combine (no Form up / Disperse — those stay in the main area).
 function partyTabHTML() {
@@ -754,7 +910,7 @@ function render() {
   else if (!packedNow && dockWasPacked && dockTab === "party") dockTab = null;
   dockWasPacked = packedNow;
   const main = grip + statusHTML() + cameraBarHTML() + reactionsHTML() + splitPartyHTML() + combatHTML() + quickHpHTML()
-    + partyMainHTML()
+    + partyMainHTML() + nightHTML()
     + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
   // Main content scrolls inside; the tab rail + flyout stick out the right edge.
   el.innerHTML = `<div class="mc-dmp-scroll">${main}</div>${tabRailHTML()}${dockTab ? flyoutHTML() : ""}`;
@@ -844,6 +1000,7 @@ async function onClick(ev) {
     catch (e) { console.error(`${MODULE_ID} | preflight fix failed`, e); ui.notifications.warn(`Fix failed: ${e.message}`); }
     return render();
   }
+  if (await onNightClick(ev)) return;
   if (await onPartyClick(ev)) return;
   const cam = ev.target.closest("[data-cam]");
   if (cam) {
@@ -928,6 +1085,7 @@ export function registerDMPanel() {
   // Preflight auto-run (§16): one pass shortly after the canvas settles so the
   // tab badge shows real fails without the DM opening it. Never auto-fixes.
   setTimeout(() => { runPreflight().then(() => render()).catch(e => console.warn(`${MODULE_ID} | preflight auto-run failed`, e)); }, 4000);
+  registerNightEncounterOffer(); // §17.4: ambush during a watch → offer Unconscious+Surprised
   Hooks.on("targetToken", () => render());
   Hooks.on("controlToken", () => render());                        // quick-HP: selection changed
   Hooks.on("updateCombat", () => render());
