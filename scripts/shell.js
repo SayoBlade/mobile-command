@@ -1015,6 +1015,22 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const cg = this.#charGen; if (!actor || !cg) return;
     const sel = cg.spellSel ?? new Set();
     const opts = this.#charGenSpellOptions ?? { cantrips: [], leveled: [] };
+    // Over-cap picks stay ALLOWED (warnings, not walls — the DM may permit them),
+    // but an ACCIDENTAL over-pick shouldn't slip through on one tap (live 2026-07-08:
+    // 4/2 leveled picks stood unnoticed) — confirm before granting past a cap.
+    const si = this.#charGenSpellInfo(actor) ?? {};
+    const selCant = opts.cantrips.filter(s => sel.has(s.uuid)).length;
+    const selLev = opts.leveled.filter(s => sel.has(s.uuid)).length;
+    const over = [];
+    if (Number.isFinite(si.knownCantrips) && selCant > si.knownCantrips) over.push(`${selCant} of ${si.knownCantrips} cantrips`);
+    if (Number.isFinite(si.knownSpells) && selLev > si.knownSpells) over.push(`${selLev} of ${si.knownSpells} spells`);
+    if (over.length) {
+      const yes = await foundry.applications.api.DialogV2.confirm({
+        window: { title: "More than the class allows" },
+        content: `<p>You picked <b>${over.join(" and ")}</b> — over your class limit. Add them anyway? (Your DM may not allow it.)</p>`
+      }).catch(() => false);
+      if (!yes) return;
+    }
     const haveNames = new Set(actor.items.filter(i => i.type === "spell").map(i => i.name));
     const toAdd = [];
     for (const s of [...opts.cantrips, ...opts.leveled]) {
@@ -3770,6 +3786,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const assigned = (!selfTarget && this.#assignedTargets.length)
       ? this.#assignedTargets.slice(0, maxTargets) : [];
     const slotOptions = this.#spellSlotOptions(activity); // upcast picker (leveled spells)
+    // Upcast target scaling (DM 2026-07-08): dnd5e marks scalable target counts
+    // with affects.scalar (Magic Missile: count 3, scalar) — the convention is one
+    // more per slot level above base, so the stepper cap must follow the picked slot.
+    const baseSpellLevel = activity.item?.system?.level ?? 0;
+    const targetsScale = !!affects.scalar && slotOptions.length > 0;
     // In-range badge (B8): the activity's max reach in feet (melee reach / normal /
     // long), but only when it's a plain distance in the scene's units — used to flag
     // out-of-range targets in the picker (a hint, not a wall: still selectable).
@@ -3783,6 +3804,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const rangeLabel = activity.item?.labels?.range || activity.item?.labels?.reach || null;
     this.#actionState = { uuid, name: activity.item.name, selfTarget, maxTargets, rangeFt, rangeLabel,
       slotOptions, slot: slotOptions[0]?.id ?? null, // default = lowest available slot ≥ base level
+      targetsScale, baseSpellLevel, baseMaxTargets: maxTargets, // upcast grows the target cap live
       hasAttack: activity.type === "attack",
       depleted, // out of item/activity uses → warn + fire WITHOUT consuming (skipConsume), no executor hang
 
@@ -4533,9 +4555,28 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "adv":
         if (this.#actionState) { this.#actionState.adv = el.dataset.mode; this.render(); }
         return;
-      case "slot-pick": // upcast: choose the spell-slot level to cast at
-        if (this.#actionState) { this.#actionState.slot = el.dataset.slot; this.render(); }
-        return;
+      case "slot-pick": { // upcast: choose the spell-slot level to cast at
+        const s = this.#actionState;
+        if (!s) return;
+        s.slot = el.dataset.slot;
+        if (s.targetsScale) {
+          // scalar target counts follow the slot: +1 per level above base (Magic
+          // Missile darts). Re-picking a LOWER slot can strand instances — trim
+          // extra instances first, then whole targets, until back under the cap.
+          const lvl = s.slotOptions.find(o => o.id === s.slot)?.level ?? s.baseSpellLevel;
+          s.maxTargets = s.baseMaxTargets + Math.max(0, lvl - s.baseSpellLevel);
+          while (this.#targetTotal(s) > s.maxTargets) {
+            const over = [...s.selected].find(u => (s.counts[u] ?? 1) > 1);
+            if (over) s.counts[over] = (s.counts[over] ?? 1) - 1;
+            else {
+              const last = [...s.selected].pop();
+              if (last === undefined) break;
+              s.selected.delete(last); delete s.counts[last];
+            }
+          }
+        }
+        return this.render();
+      }
       case "target-toggle": {
         const s = this.#actionState;
         if (!s) return;
