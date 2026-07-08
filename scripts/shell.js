@@ -2434,13 +2434,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         title="${isMain ? "Your active character — save & reaction popups come here" : "Play as this one — make it your active character (popups route here)"}"
         aria-label="Set active character"><i class="fas fa-star"></i></button>` : "";
     return `<div class="mc-tokensw">
+      <button class="mc-tokensw-btn mc-follow ${following ? "mc-follow-on" : ""}" data-action="follow-toggle"
+        title="${following ? "Following: your other tokens copy this one's moves" : "Follow: have your other tokens copy this one's moves"}"
+        aria-label="Toggle follow"><i class="fas fa-paw"></i></button>
       <button class="mc-tokensw-btn" data-action="token-prev" aria-label="Previous token"><i class="fas fa-chevron-left"></i></button>
       <span class="mc-tokensw-name">${foundry.utils.escapeHTML(label)} <span class="mc-tokensw-count">${i + 1}/${subs.length}</span></span>
       <button class="mc-tokensw-btn" data-action="token-next" aria-label="Next token"><i class="fas fa-chevron-right"></i></button>
       ${star}
-      <button class="mc-tokensw-btn mc-follow ${following ? "mc-follow-on" : ""}" data-action="follow-toggle"
-        title="${following ? "Following: your other tokens copy this one's moves" : "Follow: have your other tokens copy this one's moves"}"
-        aria-label="Toggle follow"><i class="fas fa-paw"></i></button>
     </div>`;
   }
 
