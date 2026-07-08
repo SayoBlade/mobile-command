@@ -1,4 +1,4 @@
-import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview } from "./rpc.js";
+import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser } from "./rpc.js";
 import { fireAoO } from "./aoo.js";
 import { MODULE_ID } from "./preset.js";
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
@@ -433,6 +433,12 @@ function reactionsHTML() {
         <button data-dmreact-fire="${r.id}" title="Take the opportunity attack (${foundry.utils.escapeHTML(r.weapon)})"><i class="fas fa-hand-fist"></i></button>
         <button data-dmreact-x="${r.id}" title="Let them go"><i class="fas fa-xmark"></i></button>
       </div>`
+    : r.kind === "scribe"
+    ? `<div class="mc-dmp-react mc-dmp-react-scribe">
+        <span class="mc-dmp-react-txt"><i class="fas fa-feather-pointed"></i> ${foundry.utils.escapeHTML(r.label)}<br><em>suggested: ${foundry.utils.escapeHTML(r.cost)}</em></span>
+        <button data-dmscribe-ok="${r.id}" title="Approve — the spell lands unprepared, the scroll is spent (cost is yours to collect)"><i class="fas fa-check"></i></button>
+        <button data-dmscribe-x="${r.id}" title="Decline — nothing changes"><i class="fas fa-xmark"></i></button>
+      </div>`
     : `<div class="mc-dmp-react mc-dmp-react-win">
         <span class="mc-dmp-react-txt"><i class="fas fa-hourglass-half"></i> ${foundry.utils.escapeHTML(r.label)}${r.weapon ? ` — ${foundry.utils.escapeHTML(r.weapon)}` : ""}</span>
       </div>`);
@@ -648,6 +654,32 @@ async function onNightClick(ev) {
   }
   render();
   return true;
+}
+
+// §17.1 the approve itself (GM client): copy the spell in unprepared, consume
+// the scroll (the DM-approved game mechanic), post the suggested cost — never
+// deduct (DM 2026-07-08) — and tell the player.
+async function approveScribe(entry) {
+  const actor = game.actors.get(entry.actorId);
+  const spell = await fromUuid(entry.spellUuid);
+  if (!actor || !spell) throw new Error("the actor or spell is gone");
+  const scroll = actor.items.get(entry.itemId);
+  const data = spell.toObject();
+  foundry.utils.setProperty(data, "system.preparation.mode", "prepared");
+  foundry.utils.setProperty(data, "system.preparation.prepared", false);
+  const [created] = await actor.createEmbeddedDocuments("Item", [data]);
+  if (created?.system?.preparation?.prepared) await created.update({ "system.preparation.prepared": false });
+  if (scroll) {
+    const q = scroll.system?.quantity ?? 1;
+    if (q > 1) await scroll.update({ "system.quantity": q - 1 });
+    else await scroll.delete();
+  }
+  await ChatMessage.create({
+    speaker: { alias: "Scribing" },
+    content: `<p><b>${foundry.utils.escapeHTML(actor.name)}</b> copies <b>${foundry.utils.escapeHTML(spell.name)}</b> into their spellbook. The scroll crumbles.</p>
+      <p><em>Suggested cost: ${foundry.utils.escapeHTML(entry.cost)} — DM adjudicates.</em></p>`
+  });
+  scribeResultToUser(entry.userId, { ok: true, spellName: spell.name });
 }
 
 // Encounter during the night: OFFER the ambush mechanics (never auto). dnd5e's
@@ -958,6 +990,27 @@ async function onClick(ev) {
   }
   const rX = ev.target.closest("[data-dmreact-x]");
   if (rX) { dmReactions = dmReactions.filter(r => r.id !== rX.dataset.dmreactX); return render(); }
+  // §17.1 scribe request: ✓ = spell into the book (unprepared) + scroll consumed
+  // + suggested-cost chat card; ✕ = nothing changes. Either way the player hears.
+  const sOk = ev.target.closest("[data-dmscribe-ok]");
+  if (sOk) {
+    const entry = dmReactions.find(r => r.id === sOk.dataset.dmscribeOk);
+    dmReactions = dmReactions.filter(r => r.id !== sOk.dataset.dmscribeOk);
+    render();
+    if (entry) {
+      try { await approveScribe(entry); }
+      catch (e) { console.error(`${MODULE_ID} | scribe approve failed`, e); ui.notifications.warn(`Scribe failed: ${e.message}`); }
+    }
+    return;
+  }
+  const sNo = ev.target.closest("[data-dmscribe-x]");
+  if (sNo) {
+    const entry = dmReactions.find(r => r.id === sNo.dataset.dmscribeX);
+    dmReactions = dmReactions.filter(r => r.id !== sNo.dataset.dmscribeX);
+    render();
+    if (entry) scribeResultToUser(entry.userId, { ok: false, spellName: entry.label });
+    return;
+  }
   // Right-side dock: tab toggle, close, target checkbox, send.
   const dockBtn = ev.target.closest("[data-dock]");
   if (dockBtn) { dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }

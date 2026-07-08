@@ -70,6 +70,8 @@ export function initSocket() {
   socket.register("partyPack", handlePartyPack);
   socket.register("partySetCell", handlePartySetCell);
   socket.register("nightToggle", handleNightToggle);
+  socket.register("scribeRequest", handleScribeRequest);
+  socket.register("scribeResult", handleScribeResult);
   socket.register("partySetForward", handlePartySetForward);
   socket.register("partyStage", handlePartyStage);
   socket.register("partyDeploy", handlePartyDeploy);
@@ -1423,6 +1425,50 @@ async function handlePartyPack({ groupId, requesterId }) {
   return { ok: true };
 }
 
+// §17.1 scribe-from-scroll: the phone ASKS; the DM panel chip decides. The
+// executor validates and raises a long-lived reaction-widget chip (10 min, not
+// a 30s combat window) carrying everything the approve needs. Suggested cost =
+// 2 hours + 50 gp per spell level (2024 PHB) — SUGGESTED only, never deducted
+// (DM 2026-07-08).
+async function handleScribeRequest({ actorId, itemId, requesterId }) {
+  const refused = requireExecutor("preflight");
+  if (refused) return refused;
+  const actor = game.actors.get(actorId);
+  const user = game.users.get(requesterId);
+  if (!actor || !user) return { ok: false, reason: "actor or user not found" };
+  if (!user.isGM && !actor.testUserPermission(user, "OWNER")) return { ok: false, reason: "you don't own that character" };
+  const item = actor.items.get(itemId);
+  if (!item || item.type !== "consumable" || item.system?.type?.value !== "scroll")
+    return { ok: false, reason: "that isn't a spell scroll" };
+  if (!actor.items.some(i => i.type === "class" && (i.system?.identifier === "wizard" || /^wizard$/i.test(i.name))))
+    return { ok: false, reason: "only a wizard can copy scrolls into a spellbook" };
+  const castAct = [...(item.system.activities ?? [])].find(a => a.type === "cast" && a.spell?.uuid);
+  const spell = castAct ? await fromUuid(castAct.spell.uuid).catch(() => null) : null;
+  if (spell?.type !== "spell" || (spell.system?.level ?? 0) < 1) return { ok: false, reason: "the scroll's spell can't be resolved" };
+  if (actor.items.some(i => i.type === "spell" && i.name === spell.name)) return { ok: false, reason: `${actor.name} already knows ${spell.name}` };
+  const lvl = spell.system.level;
+  Hooks.callAll("mobile-command.dmReaction", {
+    id: foundry.utils.randomID(),
+    kind: "scribe",
+    label: `${actor.name.split(" ")[0]} wants to scribe ${spell.name} (L${lvl})`,
+    cost: `${2 * lvl}h & ${50 * lvl} gp`,
+    actorId, itemId, spellUuid: spell.uuid, userId: requesterId,
+    expiresAt: Date.now() + 10 * 60 * 1000
+  });
+  return { ok: true };
+}
+
+// Approve/decline lands back on the player's phone as a toast.
+export function scribeResultToUser(userId, payload) {
+  const u = game.users.get(userId);
+  if (!u?.active || !socket) return;
+  socket.executeAsUser("scribeResult", userId, payload).catch(() => {});
+}
+function handleScribeResult({ ok, spellName, reason }) {
+  if (ok) ui.notifications.info(`The DM approved — ${spellName} is in your spellbook (unprepared). The scroll is spent.`);
+  else ui.notifications.warn(reason || `The DM declined scribing ${spellName}.`);
+}
+
 // §17.4 guard duty: a player toggles their own PC in/out of a watch row.
 // State lives on the GROUP actor's `night` flag (updateActor propagates to every
 // client, same channel as the marching-order formation). Multi-duty is allowed
@@ -1733,7 +1779,7 @@ function toExecutor(handler, payload) {
       partyJournalAdd: handlePartyJournalAdd, portraitUpload: handlePortraitUpload,
       wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert,
       partyPack: handlePartyPack, partySetCell: handlePartySetCell,
-      nightToggle: handleNightToggle,
+      nightToggle: handleNightToggle, scribeRequest: handleScribeRequest,
       partySetForward: handlePartySetForward, partyStage: handlePartyStage,
       partyDeploy: handlePartyDeploy, partyRelease: handlePartyRelease,
       partyCombine: handlePartyCombine, fixPcTokens: handleFixPcTokens,
@@ -1770,6 +1816,7 @@ export const api = {
   partyPack: (payload = {}) => toExecutor("partyPack", payload),
   partySetCell: (payload = {}) => toExecutor("partySetCell", payload),
   nightToggle: (payload = {}) => toExecutor("nightToggle", payload),
+  scribeRequest: (payload = {}) => toExecutor("scribeRequest", payload),
   partySetForward: (payload = {}) => toExecutor("partySetForward", payload),
   partyStage: (payload = {}) => toExecutor("partyStage", payload),
   partyDeploy: (payload = {}) => toExecutor("partyDeploy", payload),

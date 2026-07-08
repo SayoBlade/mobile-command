@@ -4856,6 +4856,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#pausedDismissed = el.dataset.key; return this.render();
       case "night-dismiss":
         this.#nightDismissed = el.dataset.key; return this.render();
+      case "scroll-scribe":
+        rpc.scribeRequest({ actorId: this.actor?.id, itemId: el.dataset.itemId, requesterId: game.user.id })
+          .then(res => {
+            if (res?.ok === false) ui.notifications.warn(res.reason ?? "The request couldn't be sent.");
+            else ui.notifications.info("Sent to the DM — you'll hear back.");
+          })
+          .catch(e => { console.warn("mobile-command | scribeRequest", e); ui.notifications.warn("The DM's client isn't reachable."); });
+        return;
       case "night-toggle": {
         const me = game.user.character ?? this.actor;
         rpc.nightToggle({ groupId: el.dataset.group, actorId: me?.id, watch: Number(el.dataset.watch), requesterId: game.user.id })
@@ -5243,7 +5251,27 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const favType = activity ? "activity" : "item";
     const favId = rel ? (activity ? `${rel}.Activity.${activity.id}` : rel) : null;
     const isFav = favId ? !!this.actor?.system?.hasFavorite?.(favId) : false;
-    this.#detailCard = { name: item.name, img: item.img || "icons/svg/item-bag.svg", subtitle: this.#itemSubtitle(item), meta: this.#itemMeta(item), desc, favType, favId, isFav, itemId: item.id, spellPickUuid };
+    // §17.1 scribe-from-scroll (DM-GATED, signed off 2026-07-08): a wizard holding
+    // a spell scroll may ASK to copy it into their spellbook — the button sends a
+    // request; the DM's panel chip approves (spell added unprepared + scroll
+    // consumed + suggested cost posted) or declines (nothing changes). Offered
+    // when: the scroll is owned by this actor, the actor has a wizard class, the
+    // scroll's cast activity resolves to a leveled spell the book doesn't know.
+    let scribe = null;
+    try {
+      const owned = item.parent === this.actor;
+      const isScroll = item.type === "consumable" && (sys.type?.value === "scroll");
+      const isWizard = this.actor?.items.some(i => i.type === "class" && (i.system?.identifier === "wizard" || /^wizard$/i.test(i.name)));
+      if (owned && isScroll && isWizard) {
+        const castAct = [...(sys.activities ?? [])].find(a => a.type === "cast" && a.spell?.uuid);
+        const spell = castAct ? await fromUuid(castAct.spell.uuid).catch(() => null) : null;
+        if (spell?.type === "spell" && (spell.system?.level ?? 0) > 0
+          && !this.actor.items.some(i => i.type === "spell" && i.name === spell.name)) {
+          scribe = { itemId: item.id, spellName: spell.name, level: spell.system.level };
+        }
+      }
+    } catch (e) { /* no scribe button on any resolution hiccup */ }
+    this.#detailCard = { name: item.name, img: item.img || "icons/svg/item-bag.svg", subtitle: this.#itemSubtitle(item), meta: this.#itemMeta(item), desc, favType, favId, isFav, itemId: item.id, spellPickUuid, scribe };
     this.render();
   }
 
@@ -5691,6 +5719,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           return `<button class="mc-spellpickbtn ${on ? "mc-on" : ""}" data-action="spell-pick-detail-toggle" data-uuid="${d.spellPickUuid}">
             <i class="fas ${on ? "fa-circle-minus" : "fa-circle-plus"}"></i> ${on ? "Remove from character" : "Add to character"}</button>`;
         })() : ""}
+        ${d.scribe ? `<button class="mc-spellpickbtn" data-action="scroll-scribe" data-item-id="${d.scribe.itemId}">
+          <i class="fas fa-feather-pointed"></i> Ask the DM: scribe ${foundry.utils.escapeHTML(d.scribe.spellName)} into spellbook</button>` : ""}
         ${d.removeEffectId ? `<button class="mc-detail-remove" data-action="effect-remove" data-effect-id="${d.removeEffectId}"><i class="fas fa-circle-xmark"></i> Remove condition</button>` : ""}
       </div>`;
   }
