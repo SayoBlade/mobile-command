@@ -72,6 +72,11 @@ export function initSocket() {
   socket.register("nightToggle", handleNightToggle);
   socket.register("scribeRequest", handleScribeRequest);
   socket.register("scribeResult", handleScribeResult);
+  socket.register("placementStart", handlePlacementStart);
+  socket.register("placementNudge", handlePlacementNudge);
+  socket.register("placementRotate", handlePlacementRotate);
+  socket.register("placementConfirm", handlePlacementConfirm);
+  socket.register("placementCancel", handlePlacementCancel);
   socket.register("partySetForward", handlePartySetForward);
   socket.register("partyStage", handlePartyStage);
   socket.register("partyDeploy", handlePartyDeploy);
@@ -293,6 +298,228 @@ export async function placeCast(id) {
   // monsters' saves next, and a lingering PC selection slows that (DM 2026-06-17).
   try { canvas.tokens?.releaseAll(); } catch (e) { /* best effort */ }
   return { ok: true };
+}
+
+// ===== Player-placed spell templates & teleports (§Round 33, built 2026-07-10) =====
+// A no-canvas phone can't drop a template, but the EXECUTOR has the canvas and the
+// TV shows it — so a "placement session" runs a real MeasuredTemplate (AoE) or a
+// ghost circle (teleport destination) on the executor, the phone D-pad nudges/
+// rotates it, the TV is the live aim preview, and Confirm resolves natively:
+//   - ranged AoE (fireball/stinking cloud): circle nudges within range → save/damage
+//     on tokens under it (dnd5e's own placement suppressed via create.measuredTemplate:false)
+//   - self AoE (cone/line — breath weapon, cone of cold, lightning bolt): origin sits
+//     on the caster, only the DIRECTION rotates
+//   - teleport (misty step, dimension door): a marker nudges within range → the caster
+//     token moves there (teleport:true, wall-bypassing); range is a HARD gate on confirm
+// One session at a time (executor-global). Everything is cleaned on confirm/cancel.
+let placement = null; // { activityUuid, casterTokenId, mode, aim, templateId, rangeFt, slotLevel, requesterId }
+
+function tplTypeFor(dtype) {
+  if (["cone"].includes(dtype)) return "cone";
+  if (["line", "ray", "wall"].includes(dtype)) return "ray";
+  if (["cube", "square", "rect"].includes(dtype)) return "rect";
+  return "circle"; // sphere / radius / circle
+}
+function casterPlayerColor(actor) {
+  const u = game.users.find(x => !x.isGM && x.character?.id === actor?.id)
+    ?? game.users.find(x => !x.isGM && actor?.testUserPermission?.(x, "OWNER"));
+  return u?.color?.css ?? u?.color ?? "#c8a44d";
+}
+function placementRangeFt(activity) {
+  const r = activity.range ?? activity.item?.system?.range ?? {};
+  const v = Math.max(Number(r.value) || 0, Number(r.reach) || 0);
+  return (r.units === "self" || !v) ? 0 : v; // 0 = self-origin (cones/lines) or unbounded
+}
+function distFt(a, b) {
+  try { return canvas.grid.measurePath([a, b]).distance; } catch (e) { return 0; }
+}
+
+// This world's stack rescales a created MeasuredTemplate's `distance` by
+// gridSize/100 (260px grid → 2.6×), so a 20 ft fireball would draw as 52 ft and
+// midi would target that bigger area. Probe the factor ONCE per scene and divide
+// our intended distance by it so the rendered template is the right size. On a
+// normal 100px scene the factor is 1 (no-op). Cached per scene id.
+const _tplFactor = new Map();
+async function templateDistanceFactor() {
+  const sid = canvas.scene?.id; if (!sid) return 1;
+  if (_tplFactor.has(sid)) return _tplFactor.get(sid);
+  let factor = 1;
+  try {
+    const [probe] = await canvas.scene.createEmbeddedDocuments("MeasuredTemplate", [{ t: "circle", x: 0, y: 0, distance: 20, hidden: true, flags: { [MODULE_ID]: { probe: true } } }]);
+    const stored = canvas.scene.templates.get(probe.id)?.distance ?? 20;
+    factor = stored > 0 ? stored / 20 : 1;
+    await canvas.scene.deleteEmbeddedDocuments("MeasuredTemplate", [probe.id]);
+  } catch (e) { factor = 1; }
+  if (!Number.isFinite(factor) || factor <= 0) factor = 1;
+  _tplFactor.set(sid, factor);
+  return factor;
+}
+
+async function clearPlacement() {
+  const p = placement; placement = null;
+  if (p?.templateId) { try { await canvas.scene.deleteEmbeddedDocuments("MeasuredTemplate", [p.templateId]); } catch (e) { /* gone */ } }
+}
+
+async function handlePlacementStart({ activityUuid, casterTokenUuid, mode, slotLevel, requesterId }) {
+  const refused = requireExecutor("placement"); if (refused) return refused;
+  if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
+  const activity = await fromUuid(activityUuid);
+  if (!activity) return { ok: false, reason: "spell not found" };
+  if (!requesterCanAct(requesterId, activity.item?.actor)) return { ok: false, reason: "not your spell" };
+  const casterTok = casterTokenUuid ? fromUuidSync(casterTokenUuid)?.object : null;
+  if (!casterTok) return { ok: false, reason: "no caster token on this scene" };
+  await clearPlacement();
+  const origin = casterTok.center;
+  const rangeFt = placementRangeFt(activity);
+  const color = casterPlayerColor(activity.item?.actor);
+  const gridDist = canvas.scene.grid.distance; // ft per square
+  const gridSize = canvas.scene.grid.size;     // px per square
+  const factor = await templateDistanceFactor(); // compensate this stack's distance rescale
+  let templateData, kind;
+  if (mode === "teleport") {
+    kind = "teleport";
+    templateData = { t: "circle", x: origin.x, y: origin.y, distance: Math.max(gridDist / 2, 2.5) / factor,
+      direction: 0, fillColor: color, borderColor: color, texture: "", flags: { [MODULE_ID]: { placement: true } } };
+  } else {
+    const tpl = activity.target?.template ?? {};
+    const t = tplTypeFor(tpl.type);
+    const selfOrigin = rangeFt === 0; // cones/lines start at the caster
+    kind = selfOrigin ? "self-aoe" : "ranged-aoe";
+    templateData = {
+      t, x: origin.x, y: origin.y, direction: 0,
+      distance: (Number(tpl.size) || gridDist) / factor,
+      fillColor: color, borderColor: color,
+      flags: { [MODULE_ID]: { placement: true } }
+    };
+    if (t === "cone") templateData.angle = CONFIG.MeasuredTemplate?.defaults?.angle ?? 53.13;
+    if (t === "ray") templateData.width = (Number(tpl.width) || 5) / factor;
+  }
+  let created;
+  try { [created] = await canvas.scene.createEmbeddedDocuments("MeasuredTemplate", [templateData]); }
+  catch (e) { return { ok: false, reason: `couldn't draw the preview: ${e.message}` }; }
+  // tplData is the recreate template (this stack blocks x/y/direction UPDATES to a
+  // MeasuredTemplate — Automated Animations/Sequencer wrap them — but CREATE at any
+  // position works, so nudge/rotate delete+recreate off this base, 2026-07-10).
+  placement = { activityUuid, casterTokenId: casterTok.id, mode, kind, templateId: created.id,
+    tplData: templateData, rangeFt, slotLevel: slotLevel ?? null, requesterId, origin, gridDist, gridSize };
+  try { await canvas.animatePan({ x: origin.x, y: origin.y, duration: 250 }); } catch (e) { /* best effort */ }
+  return { ok: true, kind, rangeFt, spellName: activity.item?.name ?? "spell" };
+}
+
+function placementReadout() {
+  const p = placement; if (!p) return { ok: false, reason: "no active placement" };
+  const caster = canvas.tokens.get(p.casterTokenId);
+  const from = caster?.center ?? p.origin;
+  const d = Math.round(distFt(from, { x: p.tplData.x, y: p.tplData.y }));
+  const inRange = p.rangeFt === 0 || d <= p.rangeFt + 0.5;
+  return { ok: true, kind: p.kind, distFt: d, rangeFt: p.rangeFt, inRange, direction: Math.round(p.tplData.direction) };
+}
+
+// Delete + recreate the preview at the session's current tplData (updates are
+// blocked on this stack; create is not). Keeps exactly one preview visible.
+async function replacePreview() {
+  const p = placement; if (!p) return;
+  const oldId = p.templateId;
+  try {
+    const [created] = await canvas.scene.createEmbeddedDocuments("MeasuredTemplate", [p.tplData]);
+    p.templateId = created.id;
+  } catch (e) { console.warn(`${MODULE_ID} | preview recreate`, e); return; }
+  if (oldId) { try { await canvas.scene.deleteEmbeddedDocuments("MeasuredTemplate", [oldId]); } catch (e) { /* gone */ } }
+}
+
+async function handlePlacementNudge({ dx, dy }) {
+  const refused = requireExecutor("placement"); if (refused) return refused;
+  const p = placement; if (!p) return { ok: false, reason: "no active placement" };
+  if (p.kind === "self-aoe") return { ok: false, reason: "this spell rotates, it doesn't move" };
+  p.tplData = { ...p.tplData, x: p.tplData.x + (Number(dx) || 0) * p.gridSize, y: p.tplData.y + (Number(dy) || 0) * p.gridSize };
+  await replacePreview();
+  return placementReadout();
+}
+
+async function handlePlacementRotate({ deg }) {
+  const refused = requireExecutor("placement"); if (refused) return refused;
+  const p = placement; if (!p) return { ok: false, reason: "no active placement" };
+  p.tplData = { ...p.tplData, direction: ((Number(p.tplData.direction) || 0) + (Number(deg) || 0) + 360) % 360 };
+  await replacePreview();
+  return placementReadout();
+}
+
+async function handlePlacementCancel() {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  await clearPlacement();
+  return { ok: true };
+}
+
+// Tokens under the placed template. midi's own computeTargetsFromTemplates is the
+// authoritative detector (matches its autoTarget) and works on this stack where the
+// raw PIXI shape reads null; falls back to a circle-radius geometry check.
+function tokensUnderTemplate(tplDoc) {
+  try {
+    if (globalThis.MidiQOL?.computeTargetsFromTemplates) {
+      const r = MidiQOL.computeTargetsFromTemplates([tplDoc]);
+      const set = r instanceof Set ? [...r] : (Array.isArray(r) ? r : []);
+      const toks = set.map(x => x?.object ?? x).filter(t => t?.actor);
+      if (toks.length) return toks;
+    }
+  } catch (e) { console.warn(`${MODULE_ID} | midi template targets failed`, e); }
+  // Fallback: circle radius (px = distance_ft / gridDistance * gridSize).
+  const radiusPx = (Number(tplDoc.distance) || 0) / (canvas.scene.grid.distance || 5) * (canvas.scene.grid.size || 100);
+  const out = [];
+  for (const t of canvas.tokens.placeables) {
+    if (!t.actor) continue;
+    const dx = t.center.x - tplDoc.x, dy = t.center.y - tplDoc.y;
+    if (Math.hypot(dx, dy) <= radiusPx + (canvas.scene.grid.size || 100) / 2) out.push(t);
+  }
+  return out;
+}
+
+async function handlePlacementConfirm() {
+  const refused = requireExecutor("placement"); if (refused) return refused;
+  const p = placement; if (!p) return { ok: false, reason: "no active placement" };
+  const activity = await fromUuid(p.activityUuid);
+  const tpl = canvas.scene.templates.get(p.templateId);
+  if (!activity || !tpl) { await clearPlacement(); return { ok: false, reason: "the spell or preview is gone" }; }
+  const caster = canvas.tokens.get(p.casterTokenId);
+  const rd = placementReadout();
+
+  if (p.mode === "teleport") {
+    if (rd.ok && !rd.inRange) return { ok: false, reason: `too far — ${rd.distFt} ft of ${rd.rangeFt} ft` };
+    // Consume the slot / post the card, then move the caster to the marker.
+    // Auto-roll keys live in workflowOptions (midi ignores them at the top level —
+    // same trap the fireAoO fix hit, Round 32).
+    const usage = { midiOptions: { workflowOptions: { autoRollAttack: true, fastForwardAttack: true, autoRollDamage: "always", fastForwardDamage: true, autoConsumeResource: "both" } } };
+    if (p.slotLevel) usage.spell = { slot: p.slotLevel };
+    try { await activity.use(usage, { configure: false }, {}); } catch (e) { console.warn(`${MODULE_ID} | teleport cast`, e); }
+    const grid = canvas.scene.grid;
+    // The marker's x,y is the aim ORIGIN; a token's x,y is its top-left — offset by
+    // half the token so it lands centred on the marker.
+    const tw = (caster?.document.width ?? 1) * grid.size, th = (caster?.document.height ?? 1) * grid.size;
+    try { await caster?.document.update({ x: p.tplData.x - tw / 2, y: p.tplData.y - th / 2 }, { teleport: true }); }
+    catch (e) { await clearPlacement(); return { ok: false, reason: `couldn't move: ${e.message}` }; }
+    await clearPlacement();
+    return { ok: true, mode: "teleport" };
+  }
+
+  // AoE: keep the template on the scene (it IS the area / lingering cloud), target
+  // the tokens under it, and run the activity with dnd5e's OWN template placement
+  // suppressed. Use activity.use (NOT completeActivityUse): activity.use honours
+  // create.measuredTemplate:false in _finalizeUsage, so midi doesn't park at
+  // AwaitTemplate; completeActivityUse ignored it (2026-07-10). Targets are set on
+  // the executor's own user (midi reads game.user.targets when we don't fight it).
+  placement = null; // keep the committed template on the map — it's the player's aim
+  // AoE resolution: the player has AIMED the template on the TV (the hard part —
+  // done). midi hard-awaits its OWN template for an area spell and its parked
+  // workflow isn't reliably reachable to feed programmatically on this build, so
+  // rather than hang, we keep the aimed template, PRE-TARGET the tokens under it on
+  // the executor, and hand off to the DM to resolve the save/damage (one tap on the
+  // spell card, targets already set). Full auto-resolve = a later midi-integration
+  // pass. Fire-and-forget the cast so its card appears; never await/park.
+  const targets = tokensUnderTemplate(tpl);
+  try { game.user.updateTokenTargets(targets.map(t => t.id)); } catch (e) { /* best effort */ }
+  const usage = { midiOptions: { workflowOptions: { autoRollAttack: true, fastForwardAttack: true, autoRollDamage: "always", fastForwardDamage: true, autoConsumeResource: "both" } } };
+  if (p.slotLevel) usage.spell = { slot: p.slotLevel };
+  activity.use(usage, { configure: false }, {}).catch(e => console.warn(`${MODULE_ID} | AoE cast`, e));
+  return { ok: true, mode: "aoe", targets: targets.length, dmResolves: true };
 }
 
 // --- executor-side helpers -------------------------------------------------
@@ -1815,6 +2042,9 @@ function toExecutor(handler, payload) {
       wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert,
       partyPack: handlePartyPack, partySetCell: handlePartySetCell,
       nightToggle: handleNightToggle, scribeRequest: handleScribeRequest,
+      placementStart: handlePlacementStart, placementNudge: handlePlacementNudge,
+      placementRotate: handlePlacementRotate, placementConfirm: handlePlacementConfirm,
+      placementCancel: handlePlacementCancel,
       partySetForward: handlePartySetForward, partyStage: handlePartyStage,
       partyDeploy: handlePartyDeploy, partyRelease: handlePartyRelease,
       partyCombine: handlePartyCombine, fixPcTokens: handleFixPcTokens,
@@ -1852,6 +2082,11 @@ export const api = {
   partySetCell: (payload = {}) => toExecutor("partySetCell", payload),
   nightToggle: (payload = {}) => toExecutor("nightToggle", payload),
   scribeRequest: (payload = {}) => toExecutor("scribeRequest", payload),
+  placementStart: (payload = {}) => toExecutor("placementStart", payload),
+  placementNudge: (payload = {}) => toExecutor("placementNudge", payload),
+  placementRotate: (payload = {}) => toExecutor("placementRotate", payload),
+  placementConfirm: (payload = {}) => toExecutor("placementConfirm", payload),
+  placementCancel: (payload = {}) => toExecutor("placementCancel", payload),
   partySetForward: (payload = {}) => toExecutor("partySetForward", payload),
   partyStage: (payload = {}) => toExecutor("partyStage", payload),
   partyDeploy: (payload = {}) => toExecutor("partyDeploy", payload),

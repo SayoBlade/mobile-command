@@ -199,6 +199,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #colorPickOpen = false; // DM-triggered colour-picker overlay is showing
   #pausedDismissed = null; // §17.3 split-scene overlay: "activeId:hereId" the player browsed past
   #nightDismissed = null;  // §17.4 night overlays: "assign" | "watch:N" the player browsed past
+  #placement = null;       // Round 33: active spell placement session { mode, kind, spellName, rangeFt, distFt, inRange, direction, activityUuid, busy }
   #onboardOpen = null;    // first-run welcome overlay: null = unresolved, true/false = show/hide
   #partySelf = null;      // marching-order: the owned member the player picked up
   #journalFilter = "";    // journal: live post filter ("shopke" → matching notes)
@@ -486,6 +487,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#rollRequestHTML()}
       ${this.#aooPromptHTML()}
       ${this.#colorPickOpen ? this.#colorPickHTML() : ""}
+      ${this.#placementHTML()}
       ${this.#pausedHTML() || this.#nightOverlayHTML()}
       ${this.#onboardHTML()}`;
   }
@@ -3897,9 +3899,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       name: activity.item?.name, type: activity.type,
       template: activity.target?.template?.type ?? null, affects: activity.target?.affects?.type ?? null
     });
-    // AoE push (§11): a no-canvas phone can't place a template, so an area spell
-    // asks the DM to place it instead of opening the target picker.
-    if (activity.target?.template?.type) return this.#announceCast(activity, "aoe");
+    // Player-placed AoE (Round 33): aim the template yourself on the TV via the
+    // executor. Falls back to the DM-place announce if a placement session can't
+    // start (no canvas on the DM screen, etc.).
+    if (activity.target?.template?.type) return this.#startPlacement(activity, "aoe");
+    // Teleport spells (misty step / dimension door / thunder step …): no template,
+    // but the caster MOVES — aim the destination the same way.
+    if (this.#isTeleportSpell(activity)) return this.#startPlacement(activity, "teleport");
     // Summons (#12): the cast IS the placement and both need the canvas, so the DM
     // still drops the token — but the player picks the choices FIRST (slot level +
     // which creature profile), and only the placement hands off (DM 2026-06-23).
@@ -3986,6 +3992,74 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // resolves on the executor (caster's slot deducts, saves fan to targets); the
   // phone only announces. Live aiming preview isn't broadcast to the TV — the
   // player guides the DM verbally off the placed result.
+  // Standard teleport spells — no template, but the caster relocates. dnd5e doesn't
+  // automate the move, so we offer aim-a-destination for the common ones.
+  #applyPlacementReadout(r) {
+    if (!this.#placement || !r?.ok) return;
+    this.#placement.distFt = r.distFt ?? this.#placement.distFt;
+    this.#placement.inRange = r.inRange ?? this.#placement.inRange;
+    if (r.direction != null) this.#placement.direction = r.direction;
+    if (this.rendered) this.render();
+  }
+  #isTeleportSpell(activity) {
+    const n = (activity.item?.name ?? "");
+    return /\b(teleport|misty step|dimension door|thunder step|word of recall|far step|tree stride|steel wind strike|transposition|transport via)\b/i.test(n);
+  }
+
+  // Round 33: open a placement session. The executor drops a live preview on the TV;
+  // the phone D-pad nudges/rotates it; Confirm resolves. Falls back to the DM-place
+  // announce for AoE if the session can't start.
+  async #startPlacement(activity, mode) {
+    const casterTokenUuid = game.scenes.active?.tokens.get(this.originTokenId)?.uuid ?? null;
+    if (!casterTokenUuid) {
+      if (mode === "aoe") return this.#announceCast(activity, "aoe");
+      return ui.notifications.warn("No token on the map to cast from.");
+    }
+    this.#abandonAction();
+    let res;
+    try { res = await rpc.placementStart({ activityUuid: activity.uuid, casterTokenUuid, mode, requesterId: game.user.id }); }
+    catch (e) { console.warn("mobile-command | placementStart", e); res = { ok: false }; }
+    if (!res?.ok) {
+      if (mode === "aoe") return this.#announceCast(activity, "aoe"); // graceful fallback
+      return ui.notifications.warn(`Couldn't aim: ${res?.reason ?? "the DM screen isn't ready"}`);
+    }
+    this.#placement = { mode, kind: res.kind, spellName: res.spellName ?? activity.item?.name ?? "spell",
+      rangeFt: res.rangeFt, distFt: 0, inRange: true, direction: 0, activityUuid: activity.uuid, busy: false };
+    this.#sfx("tap");
+    this.render();
+  }
+  #placementHTML() {
+    const p = this.#placement; if (!p) return "";
+    const esc = foundry.utils.escapeHTML;
+    const canNudge = p.kind !== "self-aoe";
+    const rot = p.kind === "self-aoe" || p.mode === "aoe"; // cones/lines rotate; circles can too (no harm)
+    const arrow = (dx, dy, deg) => `<button class="mc-place-btn" data-action="place-nudge" data-dx="${dx}" data-dy="${dy}" ${canNudge ? "" : "disabled"}>
+      <i class="fas fa-arrow-up" style="transform:rotate(${deg}deg)"></i></button>`;
+    const blank = `<span class="mc-place-blank"></span>`;
+    const pad = canNudge ? `<div class="mc-place-pad">
+      ${blank}${arrow(0, -1, 0)}${blank}
+      ${arrow(-1, 0, 270)}<span class="mc-place-mid"><i class="fas ${p.mode === "teleport" ? "fa-person-walking-arrow-right" : "fa-crosshairs"}"></i></span>${arrow(1, 0, 90)}
+      ${blank}${arrow(0, 1, 180)}${blank}
+    </div>` : `<div class="mc-place-conenote"><i class="fas fa-fire"></i> Aim with the rotate buttons</div>`;
+    const rotRow = rot ? `<div class="mc-place-rot">
+      <button class="mc-place-btn" data-action="place-rotate" data-deg="-15" title="Rotate left"><i class="fas fa-rotate-left"></i></button>
+      <span class="mc-place-dir">${Math.round(p.direction)}°</span>
+      <button class="mc-place-btn" data-action="place-rotate" data-deg="15" title="Rotate right"><i class="fas fa-rotate-right"></i></button>
+    </div>` : "";
+    const range = p.rangeFt > 0
+      ? `<div class="mc-place-range ${p.inRange ? "" : "mc-place-far"}">${p.distFt} ft ${p.inRange ? "" : "— TOO FAR"} <span class="mc-place-max">/ ${p.rangeFt} ft</span></div>`
+      : `<div class="mc-place-range">from you</div>`;
+    return `<div class="mc-paused mc-place-overlay"><div class="mc-paused-card mc-place-card">
+      <div class="mc-place-title"><i class="fas fa-wand-magic-sparkles"></i> Aim ${esc(p.spellName)}</div>
+      <div class="mc-place-sub">Watch the TV — move it into place, then Cast.</div>
+      ${range}${pad}${rotRow}
+      <div class="mc-place-actions">
+        <button class="mc-place-cancel" data-action="place-cancel"><i class="fas fa-xmark"></i> Cancel</button>
+        <button class="mc-place-confirm ${p.inRange ? "" : "mc-warn"}" data-action="place-confirm"><i class="fas fa-check"></i> ${p.mode === "teleport" ? "Teleport" : "Cast"}</button>
+      </div>
+    </div></div>`;
+  }
+
   async #announceCast(activity, kind = "aoe", extra = {}) {
     const name = activity.item?.name ?? (kind === "summon" ? "summon" : "spell");
     const casterTokenUuid = game.scenes.active?.tokens.get(this.originTokenId)?.uuid ?? null;
@@ -4908,6 +4982,39 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#nightDismissed = el.dataset.key; return this.render();
       case "night-reopen":
         this.#nightDismissed = null; return this.render();
+      case "place-nudge": {
+        const p = this.#placement; if (!p || p.busy) return;
+        p.busy = true;
+        rpc.placementNudge({ dx: Number(el.dataset.dx), dy: Number(el.dataset.dy) })
+          .then(r => this.#applyPlacementReadout(r)).catch(e => console.warn("mobile-command | nudge", e))
+          .finally(() => { if (this.#placement) this.#placement.busy = false; });
+        return;
+      }
+      case "place-rotate": {
+        const p = this.#placement; if (!p || p.busy) return;
+        p.busy = true;
+        rpc.placementRotate({ deg: Number(el.dataset.deg) })
+          .then(r => this.#applyPlacementReadout(r)).catch(e => console.warn("mobile-command | rotate", e))
+          .finally(() => { if (this.#placement) this.#placement.busy = false; });
+        return;
+      }
+      case "place-cancel": {
+        this.#placement = null; this.render();
+        rpc.placementCancel().catch(e => console.warn("mobile-command | place-cancel", e));
+        return;
+      }
+      case "place-confirm": {
+        const p = this.#placement; if (!p || p.busy) return;
+        p.busy = true; this.render();
+        rpc.placementConfirm()
+          .then(r => {
+            this.#placement = null; this.render();
+            if (r?.ok) { this.#sfx("damage"); ui.notifications.info(p.mode === "teleport" ? "Teleported." : r.dmResolves ? `${p.spellName} aimed — the DM will resolve it (${r.targets ?? 0} in the area).` : `${p.spellName} cast${r.targets ? ` — ${r.targets} in the area` : ""}.`); }
+            else ui.notifications.warn(r?.reason ?? "Couldn't finish the cast.");
+          })
+          .catch(e => { console.warn("mobile-command | place-confirm", e); this.#placement = null; this.render(); ui.notifications.warn("The DM screen didn't respond."); });
+        return;
+      }
       case "set-active-pc": {
         const id = el.dataset.actorId;
         if (game.user.character?.id === id) return; // already active

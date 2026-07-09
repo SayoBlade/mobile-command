@@ -1615,6 +1615,31 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-tokensw-btn:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
 /* Follow toggle: paw lights gold while the player's other tokens copy their moves. */
 .mc-follow-on { color: #1a1712; background: linear-gradient(#c8a44d, #b98a1e); border-color: var(--mc-gold); }
+/* Round 33: spell-placement overlay — aim a template/teleport from the phone
+   while the TV shows the live preview. D-pad + rotate + range + Cast/Cancel. */
+.mc-place-card { max-width: 320px; }
+.mc-place-title { font-weight: 800; font-size: 17px; color: var(--mc-gold, #c8a44d); margin-bottom: 4px; }
+.mc-place-sub { font-size: 13px; opacity: .8; color: var(--mc-ink); margin-bottom: 12px; }
+.mc-place-range { font-size: 15px; font-weight: 700; color: var(--mc-ink); margin-bottom: 10px; }
+.mc-place-range.mc-place-far { color: #d06060; }
+.mc-place-range .mc-place-max { font-weight: 400; opacity: .6; }
+.mc-place-pad { display: grid; grid-template-columns: repeat(3, 56px); grid-gap: 6px; justify-content: center; margin: 4px auto 10px; }
+.mc-place-blank { width: 56px; height: 56px; }
+.mc-place-btn {
+  width: 56px; height: 56px; border-radius: 12px; font-size: 18px;
+  background: var(--mc-panel-2, #262230); border: 1px solid var(--mc-edge, #3a3547); color: var(--mc-ink);
+}
+.mc-place-btn:active { background: var(--mc-panel, #1c1922); border-color: var(--mc-gold); }
+.mc-place-btn[disabled] { opacity: .3; }
+.mc-place-mid { width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; color: var(--mc-gold); font-size: 20px; }
+.mc-place-conenote { font-size: 13px; opacity: .8; margin: 8px 0; }
+.mc-place-rot { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 12px; }
+.mc-place-dir { font-weight: 700; min-width: 44px; color: var(--mc-gold); }
+.mc-place-actions { display: flex; gap: 10px; }
+.mc-place-cancel, .mc-place-confirm { flex: 1 1 0; height: 48px; border-radius: 12px; font-weight: 800; font-size: 15px; }
+.mc-place-cancel { background: var(--mc-panel-2, #262230); border: 1px solid var(--mc-edge, #3a3547); color: var(--mc-ink); }
+.mc-place-confirm { background: linear-gradient(#4a8c4a, #2f6b2f); border: 1px solid #4a8c4a; color: #fff; }
+.mc-place-confirm.mc-warn { background: linear-gradient(#a37a2e, #8a5f1e); border-color: #c8a44d; }
 /* Learn spells (Spells tab): full-width entry into the class-list picker. */
 .mc-learn-spells {
   width: 100%; min-height: 46px; margin-top: 10px; border-radius: 10px;
