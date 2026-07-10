@@ -2825,17 +2825,71 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }).join("");
   }
 
-  #currencyHTML(actor) {
-    const cur = actor.system?.currency;
-    if (!cur) return "";
-    // Drop electrum (ep) from the row — rarely used, and it lets the remaining
-    // four coins sit on one line (DM 2026-06-18). The ep value is untouched, just hidden.
-    const order = Object.keys(CONFIG.DND5E?.currencies ?? { pp: 1, gp: 1, sp: 1, cp: 1 }).filter(k => k !== "ep");
-    // Tap-to-edit: each coin is a numeric input (mobile numpad); writes the new
-    // amount to system.currency.<k> on blur/Enter (#onChange). DM 2026-06-18.
-    const chips = order.map(k =>
-      `<label class="mc-coin mc-coin-${k}"><input class="mc-coin-input" type="number" inputmode="numeric" min="0" step="1" data-coin="${k}" value="${cur[k] ?? 0}" aria-label="${k}"><span class="mc-coin-label">${k}</span></label>`).join("");
-    return `<div class="mc-currency">${chips}</div>`;
+  // Shared coin icon: dnd5e ships these (systems/dnd5e/icons/currency/*.webp) and Item
+  // Piles just reuses them, so they're available with or without IP. Prefer the system's
+  // configured icon; fall back to the file path (DM 2026-07-10).
+  #coinIconSrc(k) {
+    const files = { pp: "platinum", gp: "gold", ep: "electrum", sp: "silver", cp: "copper" };
+    return CONFIG.DND5E?.currencies?.[k]?.icon || `systems/dnd5e/icons/currency/${files[k] ?? "gold"}.webp`;
+  }
+
+  // ONE money element — looks the same editable or not (DM 2026-07-10 goal). All
+  // denominations, the dnd5e coin icons, comma-formatted amounts. Each coin HUGS its
+  // own number (no equal-width split) so populated coins get the room, and a coin whose
+  // amount is 0 collapses to just its icon (DM 2026-07-10). Editable = tap-to-edit input
+  // (inventory: tap an empty coin's icon → the input opens; commit on blur → currency.<k>);
+  // read-only = static spans (store: an empty coin is inert, a tap does nothing).
+  #currencyRowHTML(actor, { editable = false } = {}) {
+    const cur = actor?.system?.currency ?? {};
+    const order = Object.keys(CONFIG.DND5E?.currencies ?? { pp: 1, gp: 1, ep: 1, sp: 1, cp: 1 });
+    const fmt = (n) => Math.max(0, Math.floor(Number(n) || 0)).toLocaleString("en-US");
+    const coins = order.map(k => {
+      const n = Math.max(0, Math.floor(Number(cur[k]) || 0));
+      const empty = n === 0;
+      const text = fmt(n);
+      const cls = `mc-coin mc-coin-${k}${empty ? " mc-coin-empty" : ""}`;
+      const icon = `<img class="mc-coin-icon" src="${this.#coinIconSrc(k)}" alt="${k}" title="${k.toUpperCase()}">`;
+      if (editable) {
+        // Populated coins get an inline width that hugs their digits; empty coins carry no
+        // width (CSS collapses the input to 0) until the label is tapped and focus opens it.
+        const w = empty ? "" : ` style="width:${(text.length + 0.5).toFixed(1)}ch"`;
+        const val = empty ? "" : text;
+        return `<label class="${cls}">${icon}<input class="mc-coin-input" type="text" inputmode="numeric" data-coin="${k}" value="${val}" placeholder="0" aria-label="${k}"${w}></label>`;
+      }
+      // Read-only: no tabindex (a store tap does nothing); empty = icon only.
+      const amt = empty ? "" : `<span class="mc-coin-amount">${text}</span>`;
+      return `<span class="${cls}">${icon}${amt}</span>`;
+    }).join("");
+    return `<div class="mc-currency">${coins}</div>`;
+  }
+
+  // Size a coin input to hug its digits (empty + unfocused → 0 width, i.e. icon only).
+  #sizeCoinInput(inp) {
+    if (!inp?.classList?.contains?.("mc-coin-input")) return;
+    const raw = String(inp.value).replace(/[^0-9]/g, "");
+    const focused = document.activeElement === inp;
+    if (!raw && !focused) { inp.style.width = "0px"; return; }
+    const shown = raw ? Number(raw).toLocaleString("en-US") : "0";
+    inp.style.width = (shown.length + 0.5).toFixed(1) + "ch";
+  }
+
+  #currencyHTML(actor) { return actor?.system?.currency ? this.#currencyRowHTML(actor, { editable: true }) : ""; }
+
+  // The store's currency counter (buyer wallet) — the SAME row, read-only, in a footer bar.
+  #merchantWalletHTML(actor) { return `<div class="mc-mwallet">${this.#currencyRowHTML(actor, { editable: false })}</div>`; }
+
+  // Inject/refresh our wallet into a merchant sheet element. Idempotent (removes any prior),
+  // so it can run on each merchant render and on the buyer's currency change.
+  injectMerchantWallet(el) {
+    try {
+      const actor = this.actor;
+      if (!el || !actor) return;
+      // IP's own held-only wallet lives in `.merchant-bottom-row` (alongside the
+      // redundant "Shopping as X" line) — that whole row is hidden in CSS. Here we
+      // just append our all-denomination counter built from the PC's system.currency.
+      el.querySelector(".mc-mwallet")?.remove();
+      el.insertAdjacentHTML("beforeend", this.#merchantWalletHTML(actor));
+    } catch (e) { /* best effort */ }
   }
 
   #inventoryRowHTML(item) {
@@ -5299,7 +5353,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ["pointerleave", this.#cancelLongPress], ["contextmenu", this.#onContextMenu],
       ["change", this.#onChange], // currency inputs save on blur/commit
       ["input", this.#onInput], // keep the journal draft across re-renders without re-rendering
-      ["focusin", this.#onFocusIn] // select a coin's value on focus → typing replaces it
+      ["focusin", this.#onFocusIn], // select a coin's value on focus → typing replaces it
+      ["focusout", this.#onFocusOut] // re-collapse an empty coin's input on blur
     ];
     for (const [type, fn] of pairs) { root.removeEventListener(type, fn); root.addEventListener(type, fn); }
     // Capture-phase so it beats Foundry's content-link handler AND the bubble #onClick.
@@ -5945,6 +6000,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const preview = this.element?.querySelector("[data-pg-preview]");
       const actor = this.#portraitActor();
       if (preview && actor) preview.value = buildPortraitPrompt(actor, { freeText: t.value, dmStyle, mode: this.#portraitGen.mode });
+    } else if (t instanceof HTMLInputElement && t.classList.contains("mc-coin-input")) {
+      this.#sizeCoinInput(t); // grow/shrink the field to hug the digits as they type
     }
   };
 
@@ -5992,12 +6049,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     if (!inp?.classList?.contains?.("mc-coin-input")) return;
     const k = inp.dataset.coin;
-    const v = Math.max(0, Math.floor(Number(inp.value) || 0));
+    // Strip commas / any non-digits (the field is type=text so it can show "12,345").
+    const v = Math.max(0, Math.floor(Number(String(inp.value).replace(/[^0-9]/g, "")) || 0));
     if (k) this.actor?.update({ [`system.currency.${k}`]: v });
   };
-  // Select a coin's current amount on focus so typing replaces it (no manual clear).
+  // Select a coin's current amount on focus so typing replaces it (no manual clear), and
+  // open an empty coin's collapsed input so there's room to type.
   #onFocusIn = (ev) => {
-    if (ev.target?.classList?.contains?.("mc-coin-input")) ev.target.select?.();
+    if (ev.target?.classList?.contains?.("mc-coin-input")) { ev.target.select?.(); this.#sizeCoinInput(ev.target); }
+  };
+  // Re-collapse an empty coin's input when it loses focus (a no-op blur won't re-render).
+  #onFocusOut = (ev) => {
+    if (ev.target?.classList?.contains?.("mc-coin-input")) this.#sizeCoinInput(ev.target);
   };
 
   // --- roll-result surface (read-only) -------------------------------------
@@ -6247,6 +6310,16 @@ export function registerShellHooks() {
   // (renderApplication) so no prompt (reactions, config) hides under the shell.
   Hooks.on("renderApplicationV2", liftDialogAboveShell);
   Hooks.on("renderApplication", liftDialogAboveShell);
+  // Merchant wallet: swap IP's held-only currency bar for our all-denomination counter
+  // (dnd5e coin icons) on render, and refresh it when the buyer's currency changes.
+  Hooks.on("renderApplication", (app) => {
+    const el = app?.element instanceof HTMLElement ? app.element : app?.element?.[0];
+    if (el?.classList?.contains?.("item-piles-merchant-sheet")) setTimeout(() => shellInstance?.injectMerchantWallet(el), 120);
+  });
+  Hooks.on("updateActor", (actor, changes) => {
+    if (actor !== shellInstance?.actor || !foundry.utils.hasProperty(changes, "system.currency")) return;
+    for (const m of document.querySelectorAll(".item-piles-merchant-sheet")) shellInstance.injectMerchantWallet(m);
+  });
   // Party journal: re-render so a freshly-posted note shows up — for the poster AND
   // for everyone else watching the Journal tab live. Cheap + rare; harmless off-tab.
   Hooks.on("createJournalEntryPage", (page) => {
