@@ -205,6 +205,19 @@ export function registerSettings() {
     default: true
   });
 
+  // Auto-loot (DESIGN §7.6): when an NPC token dies, the executor turns it into an Item
+  // Piles loot pile so players can loot it from the phone with the flow we already built.
+  // Off by default (opt-in); needs Item Piles installed. Skips PCs, linked tokens, tokens
+  // already piles, and tokens the DM flags no-loot.
+  game.settings.register(MODULE_ID, "autoLootNpcs", {
+    name: "Auto-loot: dead NPCs become lootable piles",
+    hint: "When an NPC token drops to 0 HP (or is marked Defeated) during play, automatically turn it into an Item Piles loot pile so players can loot its gear from their phones. Requires the Item Piles module. Player characters are never converted.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false
+  });
+
   // Comprehensive snapshots so the module's changes can be reverted/reactivated
   // (Foundry won't revert them on disable). presetBackup = original pre-module state;
   // reactivateSnapshot = the module-active state captured when you revert.

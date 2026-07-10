@@ -91,6 +91,7 @@ export function initSocket() {
   socket.register("heartbeat", handleHeartbeat);
   registerPartyAutoFacing(); // executor-gated inside the hook
   registerPlayerColorSync(); // executor repaints a player's token rings on colour change
+  registerAutoLoot(); // executor turns dead NPCs into loot piles (opt-in, needs Item Piles)
   console.log(`${MODULE_ID} | socket registered`);
   return socket;
 }
@@ -1870,6 +1871,63 @@ function registerPlayerColorSync() {
       }
       if (updates.length) await canvas.scene.updateEmbeddedDocuments("Token", updates);
     } catch (e) { /* cosmetic */ }
+  });
+}
+
+// --- Auto-loot: dead NPC → Item Piles loot pile (DESIGN §7.6) --------------------
+// Executor-gated. When an NPC token hits 0 HP (or is marked Defeated) and the DM has
+// opted in, convert it into a lootable pile so players can loot it from the phone with the
+// flow we already built. Idempotent (IP's isValidItemPile guard + an in-flight set); PCs,
+// linked tokens (converting one would nuke every token of that actor), tokens already piles,
+// and DM-flagged no-loot tokens are all skipped. No-op unless Item Piles is installed.
+const autoLootInFlight = new Set();
+function itemPilesReady() {
+  return !!(game.modules.get("item-piles")?.active && game.itempiles?.API);
+}
+async function maybeAutoLoot(actor) {
+  let uuid = null;
+  try {
+    if (!isExecutor()) return;
+    if (!game.settings.get(MODULE_ID, "autoLootNpcs")) return;
+    if (!itemPilesReady()) return;
+    if (actor?.type !== "npc") return;                       // never a PC / group / vehicle
+    // Resolve the placed token: unlinked NPCs carry their own token; linked ones may have
+    // several on the active scene — only auto-loot UNLINKED corpses (see header).
+    const tokenDoc = actor.token ?? actor.getActiveTokens?.(false, true)?.[0] ?? null;
+    if (!tokenDoc || tokenDoc.isLinked) return;
+    uuid = tokenDoc.uuid;
+    if (autoLootInFlight.has(uuid)) return;
+    if (tokenDoc.getFlag(MODULE_ID, "noLoot")) return;       // DM opted this corpse out
+    const API = game.itempiles.API;
+    if (API.isValidItemPile(tokenDoc)) return;               // already a pile — nothing to do
+    autoLootInFlight.add(uuid);
+    // Keep the corpse's own name + art so it still reads as "the goblin you just killed"
+    // rather than IP's default treasure-bag icon.
+    await API.turnTokensIntoItemPiles(tokenDoc, {
+      pileSettings: { type: "pile", deleteWhenEmpty: false },
+      tokenSettings: {
+        name: tokenDoc.name,
+        texture: { src: tokenDoc.texture?.src, scaleX: tokenDoc.texture?.scaleX, scaleY: tokenDoc.texture?.scaleY }
+      }
+    });
+    ui.notifications?.info(`${tokenDoc.name} is now lootable.`);
+  } catch (e) {
+    console.warn(`${MODULE_ID} | auto-loot failed`, e);
+  } finally {
+    if (uuid) autoLootInFlight.delete(uuid);
+  }
+}
+function registerAutoLoot() {
+  // Death by HP: unlinked NPC actor updates carry the hp change on the token's actor.
+  Hooks.on("updateActor", (actor, changes) => {
+    const hp = foundry.utils.getProperty(changes, "system.attributes.hp.value");
+    if (hp === undefined || hp === null || hp > 0) return;
+    maybeAutoLoot(actor);
+  });
+  // Death by "Defeated" flag (DM marks the combatant dead without zeroing HP).
+  Hooks.on("updateCombatant", (combatant, changes) => {
+    if (changes?.defeated !== true) return;
+    if (combatant?.actor) maybeAutoLoot(combatant.actor);
   });
 }
 
