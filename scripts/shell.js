@@ -230,6 +230,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #bioBusy = false;       // a biography save is in flight
   #searchOpen = false;    // magnifying-glass search drawer is open (Spells/Equipment/Actions)
   #searchQuery = "";      // live search text; filtered via DOM toggle (no re-render → keeps focus)
+  #newItemOpen = false;   // Equipment tab: the inline "+ New item" name field is open
   #wildShape = null;      // Druid shape browser: null | { open, beasts:null|[], loading }
   #summonConfig = null;   // summon options the player picks before the DM places: null | { uuid, name, slotOptions, slotId, profiles, profileId }
   #portraitGen = null;    // portrait generator screen: null | { actorId, mode:"portrait"|"body", freeText }
@@ -2724,36 +2725,29 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
   // "+ New item" — a deliberate create/name flow for flavour items (DM 2026-07-10, DESIGN
   // §7.6): a player picks up "a few crystal shards" and wants them in their bag, no mechanics.
-  // Only for an actor the player owns; the dnd5e item editor stays off the phone.
+  // Only for an actor the player owns. It toggles an INLINE name field in the shell (not a
+  // popup — a bottom-sheet dialog fights the mobile keyboard: it hides under it, then jumps
+  // over it on focus; DM 2026-07-11). Mirrors the in-shell character-name rename.
   #newItemBtnHTML() {
     if (!this.actor?.isOwner) return "";
-    return `<button class="mc-eq-new" data-action="new-item" aria-label="New item" title="Create a new item"><i class="fas fa-plus"></i></button>`;
+    return `<button class="mc-eq-new ${this.#newItemOpen ? "mc-on" : ""}" data-action="new-item" aria-label="New item" title="Create a new item"><i class="fas fa-plus"></i></button>`;
   }
-  // Prompt for a name, then create a blank "loot" item on the actor. Loot has a quantity
-  // and no mechanics — exactly the "few crystal shards" case. The player (or DM) can flesh
-  // it out later from a desktop; we intentionally don't open the full item editor here.
-  async #createFlavorItem() {
+  // The inline name field, shown under the Equipment header while #newItemOpen. Enter (or
+  // blur with text) creates a blank "loot" item; Escape or an empty blur cancels.
+  #newItemInputHTML() {
+    if (!this.#newItemOpen || !this.actor?.isOwner) return "";
+    return `<div class="mc-newitem-row">
+      <input class="mc-newitem-input" type="text" placeholder="New item name…" autocomplete="off" enterkeyhint="done" spellcheck="false" aria-label="New item name">
+    </div>`;
+  }
+  // Create a blank "loot" item (quantity, no mechanics — the "few crystal shards" case). The
+  // player or DM can flesh it out later from a desktop; we never open the full item editor.
+  async #addFlavorItem(name) {
     const actor = this.actor;
-    if (!actor?.isOwner) return;
-    const D = foundry.applications.api.DialogV2;
-    let name;
-    try {
-      name = await D.wait({
-        window: { title: "New item" },
-        // autofocus opens the phone keyboard as the dialog renders (no render-hook needed).
-        content: `<input type="text" name="mc-new-item-name" placeholder="Item name" autocomplete="off" enterkeyhint="done" autofocus style="width:100%">`,
-        buttons: [
-          { action: "create", label: "Create", icon: "fas fa-plus", default: true,
-            callback: (ev, button, dialog) => dialog.element.querySelector('[name="mc-new-item-name"]')?.value?.trim() ?? "" },
-          { action: "cancel", label: "Cancel", icon: "fas fa-xmark" }
-        ]
-      });
-    } catch (e) { return; } // dismissed (X / Esc)
-    if (!name || name === "cancel") return;
+    if (!actor?.isOwner || !name) return;
     try {
       await actor.createEmbeddedDocuments("Item", [{ name, type: "loot", system: { quantity: 1 } }]);
-      // The createItem hook re-renders the shell AND fires the "added to inventory" toast,
-      // so we don't notify again here.
+      // The createItem hook re-renders the shell AND fires the "added to inventory" toast.
     } catch (e) {
       console.warn(`${MODULE_ID} | create flavour item failed`, e);
       ui.notifications?.warn("Couldn't create the item.");
@@ -2788,14 +2782,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const enc = this.#encumbranceHTML(actor);
     if (!physical.length) {
       return `<div class="mc-actions-head mc-eq-head"><span class="mc-section-label">Equipment</span>${this.#newItemBtnHTML()}</div>
-        ${currency}${enc}<div class="mc-placeholder">No items carried.</div>`;
+        ${this.#newItemInputHTML()}${currency}${enc}<div class="mc-placeholder">No items carried.</div>`;
     }
     const sections = groups.filter(g => bucket[g.key].length).map(g => {
       const items = bucket[g.key].sort((a, b) => a.name.localeCompare(b.name));
       return `<div class="mc-search-group"><div class="mc-actions-sub">${g.label}</div><div class="mc-inv">${this.#inventoryItemsHTML(items)}</div></div>`;
     }).join("");
     return `<div class="mc-actions-head mc-eq-head"><span class="mc-section-label">Equipment</span>${this.#carriedWeightHTML(actor)}${this.#newItemBtnHTML()}${this.#searchToggleHTML()}</div>
-      ${this.#searchDrawerHTML()}${currency}${enc}${sections}`;
+      ${this.#newItemInputHTML()}${this.#searchDrawerHTML()}${currency}${enc}${sections}`;
   }
 
   // Carried weight (current / capacity) for the Equipment header — always shown, since dnd5e
@@ -4727,6 +4721,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "tab":
         this.#tab = el.dataset.tab;
         this.#searchOpen = false; this.#searchQuery = ""; // each tab's search starts closed/clear
+        this.#newItemOpen = false;                        // close the inline new-item field
         this.#bioOpen = false; this.#bioEditing = false;  // leave the biography overlay
         this.#abandonAction(); // leave the picker clean; cancel any held workflow
         return this.render();
@@ -4737,7 +4732,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         if (this.#searchOpen) setTimeout(() => this.element?.querySelector(".mc-search-input")?.focus(), 0);
         return;
       case "new-item":
-        return this.#createFlavorItem();
+        this.#newItemOpen = !this.#newItemOpen;
+        this.render();
+        if (this.#newItemOpen) setTimeout(() => this.element?.querySelector(".mc-newitem-input")?.focus(), 0);
+        return;
       case "action-pick":
         return this.#pickAction(el.dataset.uuid);
       case "fav-toggle":
@@ -5997,6 +5995,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (ev.key === "Enter") { ev.preventDefault(); ev.target.blur(); } // commit → #onChange
       return;
     }
+    if (ev.target.matches?.(".mc-newitem-input")) {
+      if (ev.key === "Enter") { ev.preventDefault(); ev.target.blur(); }        // commit → #onChange
+      else if (ev.key === "Escape") { this.#newItemOpen = false; this.render(); } // cancel
+      return;
+    }
     if (!ev.target.matches?.(".mc-stat-input")) return;
     if (ev.key === "Enter") { ev.preventDefault(); this.#applyStat(0); }
     else if (ev.key === "Escape") { this.#editingField = null; this.render(); }
@@ -6082,6 +6085,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     if (inp?.classList?.contains?.("mc-spellfilter-school") && this.#charGen) {
       (this.#charGen.spellFilter ??= {}).school = inp.value; return this.render();
+    }
+    // Inline "+ New item": commit on blur/Enter. Empty → just close the field.
+    if (inp?.classList?.contains?.("mc-newitem-input")) {
+      const name = (inp.value || "").trim();
+      this.#newItemOpen = false;
+      this.render();
+      if (name) this.#addFlavorItem(name);
+      return;
     }
     if (!inp?.classList?.contains?.("mc-coin-input")) return;
     const k = inp.dataset.coin;
