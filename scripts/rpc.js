@@ -1106,10 +1106,18 @@ async function handleTargetsList({ forTokenId }) {
   if (!origin) return { ok: false, stage: "resolve", reason: `token not found: ${forTokenId}` };
 
   const candidates = [];
+  const excluded = []; // diagnostic: why each placeable was dropped from the picker
   for (const token of canvas.tokens.placeables) {
-    if (token === origin || !token.actor) continue;
-    if (token.document.hidden) continue;
-    if (!MidiQOL.canSense(origin, token)) continue;
+    if (token === origin) continue;
+    if (!token.actor) { excluded.push({ name: token.document.name, why: "no-actor" }); continue; }
+    if (token.document.hidden) { excluded.push({ name: token.document.name, why: "hidden" }); continue; }
+    if (!MidiQOL.canSense(origin, token)) {
+      excluded.push({
+        name: token.document.name, why: "canSense=false",
+        distanceFt: Math.round(MidiQOL.computeDistance(origin, token, { wallsBlock: false }))
+      });
+      continue;
+    }
     candidates.push({
       tokenId: token.id,
       uuid: token.document.uuid,
@@ -1122,6 +1130,11 @@ async function handleTargetsList({ forTokenId }) {
     });
   }
   candidates.sort((a, b) => a.distanceFt - b.distanceFt);
+  // Diagnostic (DM console): which tokens the picker dropped and why. canSense=false
+  // means origin genuinely can't see it (walls/darkness/no vision) — the usual reason
+  // a visible-to-the-DM enemy never reaches a player's picker.
+  console.debug(`mobile-command | targets for ${origin.document.name}: ${candidates.length} shown` +
+    (excluded.length ? ` | dropped: ${excluded.map(e => `${e.name}(${e.why}${e.distanceFt != null ? ` @${e.distanceFt}ft` : ""})`).join(", ")}` : ""));
   return { ok: true, forTokenId, candidates };
 }
 
@@ -1187,7 +1200,9 @@ async function handleListLoot({ forActorUuid } = {}) {
       // If we can't place the player's token, fall through (can't gate on distance).
       if (distance != null && distance > 5) continue;
       let moneyLabel = null;
-      if (money.length) { try { moneyLabel = money.map(c => `${c.quantity} ${c.abbreviation ?? c.name ?? ""}`.trim()).join(", "); } catch (e) { moneyLabel = "money"; } }
+      // Item Piles' currency `abbreviation` is a template like "{#}PP" where {#} is the
+      // amount — substitute it (else the raw "{#}" leaks into the phone's money line).
+      if (money.length) { try { moneyLabel = money.map(c => { const abbr = String(c.abbreviation ?? c.name ?? ""); return (abbr.includes("{#}") ? abbr.replace("{#}", c.quantity) : `${c.quantity} ${abbr}`).trim(); }).join(", "); } catch (e) { moneyLabel = "money"; } }
       piles.push({
         uuid: t.document.uuid,
         name: t.name,

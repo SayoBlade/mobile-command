@@ -816,7 +816,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const type = this.#charGen.picking;
     const label = { race: "Species", background: "Background", class: "Class" }[type] ?? type;
     const head = `<div class="mc-picker-head">
-        <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+        <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-xmark"></i></button>
         <span class="mc-picker-title">Choose ${label}</span>
       </div>`;
     if (this.#charGenOptions === null) return head + `<div class="mc-target-note">Loading ${label.toLowerCase()}…</div>`;
@@ -1078,7 +1078,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #spellPickerHTML(actor) {
     const si = this.#charGenSpellInfo(actor) ?? { knownCantrips: 0, knownSpells: 0 };
     const head = `<div class="mc-picker-head">
-        <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+        <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-xmark"></i></button>
         <span class="mc-picker-title">Choose spells</span>
       </div>`;
     if (this.#charGenSpellOptions === null) return head + `<div class="mc-target-note">Loading the ${si.classId ?? "class"} spell list…</div>`;
@@ -1222,7 +1222,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const eq = this.#charGen?.equip;
     const srcLabel = eq?.source === "background" ? "Background" : "Class";
     const head = `<div class="mc-picker-head">
-        <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+        <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-xmark"></i></button>
         <span class="mc-picker-title">${srcLabel} equipment</span>
       </div>`;
     if (!eq) return head + `<div class="mc-target-note">No starting equipment.</div>`;
@@ -1481,7 +1481,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const seg = (m, label) =>
       `<button class="mc-abil-seg ${method === m ? "mc-on" : ""}" data-action="abil-method" data-method="${m}">${label}</button>`;
     const head = `<div class="mc-picker-head">
-        <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+        <button class="mc-back mc-picker-x" data-action="char-gen-pick-back" aria-label="Back"><i class="fas fa-xmark"></i></button>
         <span class="mc-picker-title">Ability scores</span>
       </div>
       <div class="mc-abil-method">${seg("pointbuy", "Point buy")}${seg("array", "Standard array")}${seg("roll", "Roll")}</div>`;
@@ -2125,7 +2125,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const fallbackImg = merchant ? "icons/svg/coins.svg" : (p.itemCount ? "icons/svg/chest.svg" : "icons/svg/coins.svg");
       return `<button class="mc-loot-row${merchant ? " mc-loot-shop" : ""}" data-action="loot-open" data-uuid="${p.uuid}">
         <img class="mc-loot-img" src="${p.img || fallbackImg}" alt="">
-        <span class="mc-loot-name">${merchant ? "🛒 " : ""}${foundry.utils.escapeHTML(p.name)}</span>
+        <span class="mc-loot-name">${foundry.utils.escapeHTML(p.name)}</span>
         <span class="mc-loot-meta">${meta}</span>
       </button>`;
     }).join("");
@@ -2577,7 +2577,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   #restsHTML() {
-    return `<div class="mc-rests">
+    return `<div class="mc-section-label">Rest</div>
+    <div class="mc-rests">
       <button class="mc-rest" data-action="short-rest"><i class="fas fa-mug-hot"></i> Short Rest</button>
       <button class="mc-rest" data-action="long-rest"><i class="fas fa-campground"></i> Long Rest</button>
     </div>`;
@@ -3340,7 +3341,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const classes = actor.items.filter(i => i.type === "class");
     const head = `<div class="mc-cond-panel-head">
         <span>Level up</span>
-        <button class="mc-cond-close" data-action="level-up-back" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
+        <button class="mc-cond-close" data-action="level-up-back" aria-label="Back"><i class="fas fa-xmark"></i></button>
       </div>`;
     if (lu.adding) {
       if (lu.options === null) return `<div class="mc-levels-panel">${head}<div class="mc-target-note">Loading classes…</div></div>`;
@@ -6164,6 +6165,15 @@ function liftDialogAboveShell(app) {
   // bottom-sheet (CSS .mc-phone-dialog) — the native popups are tiny/unusable
   // on a phone. The dialog's own header X handles close.
   el.classList.add("mc-phone-dialog");
+  // TyphonJS apps (Item Piles loot/merchant/trade) are draggable/resizable by their
+  // header — on a phone that just knocks the pinned bottom-sheet out of place (DM
+  // 2026-07-10: "I can drag the popup up and down"). `reactive.draggable/resizable`
+  // are live property stores, so flipping them off here removes the drag behavior;
+  // non-TJS dialogs have no `.reactive` and are skipped. The CSS also resets any
+  // transform a prior drag left behind so the sheet snaps back to the bottom.
+  try {
+    if (app.reactive) { app.reactive.draggable = false; app.reactive.resizable = false; }
+  } catch (e) { /* not a TJS app */ }
   const AppV2 = foundry.applications.api.ApplicationV2;
   AppV2._maxZ = Math.max(AppV2._maxZ + 1, SHELL_Z + 2);
   el.style.zIndex = String(AppV2._maxZ);

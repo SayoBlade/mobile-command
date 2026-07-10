@@ -332,6 +332,18 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 .mc-tstep-n { min-width: 22px; text-align: center; font-size: 15px; font-weight: 800; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
 .mc-target-dist { font-size: 12px; color: #9a9da8; font-variant-numeric: tabular-nums; }
 .mc-target-dist.mc-far { color: #e8857a; font-weight: 700; }
+
+/* Names ALWAYS crop with … when a row carries trailing metadata (type / distance / qty)
+   so that metadata never gets pushed off (DM 2026-07-10). The name takes the flexible
+   column (flex:1 + min-width:0 — the bit that lets a flex/grid child shrink below its
+   text); the trailing meta never shrinks. Mirrors .mc-inv-name, which already did this. */
+#mobile-command-shell .mc-action-text { flex: 1 1 auto; min-width: 0; }
+#mobile-command-shell .mc-action-name,
+#mobile-command-shell .mc-target-name {
+  min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#mobile-command-shell .mc-target-name { flex: 1 1 auto; }
+#mobile-command-shell .mc-target-right { flex: 0 0 auto; }
 .mc-disp {
   font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
   padding: 2px 7px; border-radius: 8px;
@@ -566,21 +578,292 @@ body.mc-phone .roll-configuration fieldset {
    beats the svelte-scoped specificity and survives Item Piles updates. */
 body.mc-phone .merchant-left-pane { display: none !important; }
 body.mc-phone .merchant-right-pane { padding-left: 0 !important; }
+/* Store: drop the shopping-cart glyph from the buy control — the "Buy" label alone reads
+   cleaner and matches our text-button style (DM 2026-07-10). */
+body.mc-phone .item-piles-app .fa-shopping-cart { display: none !important; }
+/* Merchant: the big "{name}" heading (.merchant-name, 2em) + its divider are redundant —
+   the window title already reads "Merchant: {name}" (DM 2026-07-10). Hide the name and
+   drop the top-bar's bottom divider. */
+body.mc-phone .item-piles-app .merchant-name { display: none !important; }
+body.mc-phone .item-piles-app .merchant-top-bar {
+  border-bottom: 0 !important; padding-bottom: 0 !important; margin-bottom: 0 !important; min-height: 0 !important;
+}
+/* Sell button: drop its coin-hand icon too (matches removing Buy's cart). */
+body.mc-phone .item-piles-app .fa-hand-holding-usd { display: none !important; }
+/* Merchant search + dropdowns → our default control look (uniform 44px height, dark
+   panel, rounded, edge border, gold focus) instead of raw IP/dnd5e styling (DM 2026-07-10). */
+body.mc-phone .item-piles-app input[type="text"],
+body.mc-phone .item-piles-app input[type="search"],
+body.mc-phone .item-piles-app select {
+  height: 44px !important; box-sizing: border-box !important;
+  background: #16141a !important; color: var(--mc-ink) !important;
+  border: 1px solid var(--mc-edge) !important; border-radius: 10px !important; padding: 8px 12px !important;
+}
+body.mc-phone .item-piles-app input[type="text"]:focus,
+body.mc-phone .item-piles-app input[type="search"]:focus,
+body.mc-phone .item-piles-app select:focus { border-color: var(--mc-gold) !important; outline: none; }
 
-/* --- Item Piles LOOT window on a phone (DM 2026-07-09). Two fixes:
-   (1) Scroll: the items list ships a fixed max-height:500px and the app doesn't
-       bound to the viewport, so lower items + the take/close buttons fall off a
-       short phone screen. Cap the window-content and the list to dvh and give
-       BOTH their own scroll (belt + suspenders — works regardless of the svelte
-       flex nesting).
-   (2) Recipient dropdown: Item Piles lists EVERY owned linked actor as a loot
-       recipient (dist: game.actors.filter(isOwner) — not scene-filtered), so a
-       phone player sees PCs who aren't even here. On a phone you play one PC, so
-       loot binds to your active character (we already pass it as inspectingTarget)
-       and the picker is hidden — no more off-scene recipients. */
-body.mc-phone .item-piles-app .window-content { max-height: 88dvh !important; overflow-y: auto !important; }
-body.mc-phone .item-piles-items-list { max-height: 50dvh !important; overflow-y: auto !important; }
+/* No horizontal scroll on either merchant tab — clip overflow at every container level
+   (DM 2026-07-10). */
+body.mc-phone .item-piles-merchant-sheet,
+body.mc-phone .item-piles-merchant-sheet .item-pile-merchant-content,
+body.mc-phone .item-piles-merchant-sheet .merchant-right-pane,
+body.mc-phone .item-piles-merchant-sheet .merchant-tabbed-center,
+body.mc-phone .item-piles-merchant-sheet .item-piles-sections,
+body.mc-phone .item-piles-merchant-sheet .item-piles-items-list,
+body.mc-phone .item-piles-merchant-sheet .item-piles-item-row {
+  overflow-x: hidden !important; max-width: 100% !important;
+}
+
+/* Merchant Buy/Sell items → stacked flex CARDS. The list is a CSS grid
+   (.item-piles-items-list, display:grid) whose rows (.item-piles-item-row) are
+   display:contents — so the shared .item-piles-item-row card styling had no box to paint.
+   Convert the list to a flex column and the rows to flex boxes; the card bg/border/shadow
+   + 46px icon rules then render. Buy link (.sidebar-buttons .item-piles-clickable-link) →
+   Save-blue button. Scoped to the merchant so loot is untouched (DM 2026-07-10). */
+body.mc-phone .item-piles-merchant-sheet .item-piles-items-list {
+  display: flex !important; flex-direction: column !important; gap: 8px !important;
+  align-items: stretch !important; height: auto !important; /* was centered + fixed-height grid */
+}
+body.mc-phone .item-piles-merchant-sheet .item-piles-item-row {
+  display: flex !important; align-items: center !important; width: 100% !important;
+  justify-content: flex-start !important; gap: 8px !important;
+}
+body.mc-phone .item-piles-merchant-sheet .item-piles-item-row:empty { display: none !important; } /* kill empty grid ghosts */
+body.mc-phone .item-piles-merchant-sheet .item-piles-item-row > * {
+  flex: 0 0 auto !important; min-width: 0 !important; justify-content: flex-end !important;
+}
+body.mc-phone .item-piles-merchant-sheet .item-piles-item-row > *:first-child {
+  flex: 1 1 auto !important; min-width: 0 !important; overflow: hidden !important;
+  display: flex !important; align-items: center !important; gap: 10px !important; justify-content: flex-start !important;
+}
+/* Crop the name (was wrapping) — nowrap the whole first-cell subtree and ellipsize the
+   name element (the non-icon child), whatever its class is. */
+body.mc-phone .item-piles-merchant-sheet .item-piles-item-row > *:first-child * { white-space: nowrap !important; }
+body.mc-phone .item-piles-merchant-sheet .item-piles-item-row > *:first-child > *:not([class*="img"]) {
+  flex: 1 1 auto !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important;
+}
+/* Type-group header (.item-piles-item-list-header) is display:contents with several cells
+   (type name + column labels Quan/Rarity/Price) — in our flex column those labels stacked
+   vertically → the big gap under the header. Make it a block showing ONLY the type name. */
+body.mc-phone .item-piles-merchant-sheet .item-piles-item-list-header { display: block !important; }
+body.mc-phone .item-piles-merchant-sheet .item-piles-item-list-header > *:not(:first-child) { display: none !important; }
+body.mc-phone .item-piles-merchant-sheet .sidebar-buttons .item-piles-clickable-link {
+  display: inline-flex !important; align-items: center !important; justify-content: center !important;
+  background: var(--mc-primary) !important; border: 1px solid var(--mc-primary-edge) !important;
+  color: #fff !important; border-radius: 9px !important; padding: 8px 12px !important;
+  min-height: 36px !important; font-weight: 600 !important;
+}
+/* Consistent, tight meta columns (DM 2026-07-10). Drop EMPTY cells (the rarity cell for
+   items with no rarity was the extra room between qty and price). Give the price a
+   consistent right-aligned min-width sized for the common case (~"99,999GP"), growing only
+   for rarer longer prices — so the price/Buy group anchors consistently on the right. */
+body.mc-phone .item-piles-merchant-sheet .item-piles-item-row > *:empty { display: none !important; }
+body.mc-phone .item-piles-merchant-sheet .item-piles-item-row .price-container {
+  min-width: 7ch !important; justify-content: flex-end !important; text-align: right !important;
+}
+
+/* Store: KILL the cream zebra striping (#e5e5d6/#f8f8e7) — unreadable on our dark theme
+   ("no need for zebra list", DM 2026-07-10). Neutralise both the nth-child backgrounds
+   and the --item-piles-*-color vars so rows go transparent (panel shows through) and the
+   light text becomes legible. */
+body.mc-phone .item-piles-app { --item-piles-even-color: transparent; --item-piles-odd-color: transparent; }
+body.mc-phone .item-piles-app .item-piles-even-color:nth-child(even),
+body.mc-phone .item-piles-app .item-piles-even-color:nth-child(odd),
+body.mc-phone .item-piles-app .item-piles-odd-color:nth-child(even),
+body.mc-phone .item-piles-app .item-piles-odd-color:nth-child(odd),
+body.mc-phone .item-piles-app .item-piles-child-even-color > *,
+body.mc-phone .item-piles-app .item-piles-child-odd-color > * {
+  background-color: transparent !important;
+}
+/* Store rows → cards like loot (DM chose 2026-07-10). The store is a CONFIGURABLE column
+   grid whose rows use display:contents — convert the grid to a stacked flex column and
+   each row-wrapper into a flex card. First pass: card + icon + cropped name + Save-blue
+   Buy; the middle cells (qty/rarity/price) flow to the right for now, refined once seen. */
+body.mc-phone .item-piles-app .item-pile-column-grid {
+  display: flex !important; flex-direction: column !important; gap: 8px !important;
+}
+body.mc-phone .item-piles-app .item-piles-grid-row-wrapper {
+  display: flex !important; align-items: center !important; gap: 10px !important;
+  background: #20222b !important; border: 1px solid #313542 !important; border-radius: 10px !important;
+  padding: 8px 10px !important; box-shadow: 0 1.5px 2px rgba(0, 0, 0, .45) !important;
+}
+/* First row is the column-label header — unneeded once it's cards under a type heading. */
+body.mc-phone .item-piles-app .item-piles-grid-row-wrapper:first-of-type { display: none !important; }
+/* Name cell: take the slack and crop; everything else sizes to content and sits right. */
+body.mc-phone .item-piles-app .item-piles-merchant-first-label {
+  flex: 1 1 auto !important; min-width: 0 !important; justify-content: flex-start !important;
+  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;
+}
+body.mc-phone .item-piles-app .item-piles-grid-row-wrapper > div { flex: 0 0 auto !important; }
+/* Buy → shell Save-blue button. */
+body.mc-phone .item-piles-app .item-piles-grid-row-wrapper button {
+  flex: 0 0 auto !important; min-height: 40px !important; border-radius: 9px !important;
+  font-weight: 600 !important; color: #fff !important;
+  background: var(--mc-primary) !important; border: 1px solid var(--mc-primary-edge) !important;
+}
+
+/* --- Item Piles on a phone (DM 2026-07-09, revised 2026-07-10). Three fixes:
+   (1) SCROLL (the big one). IP's inspect/loot view is a <main class="item-piles-flexcol">
+       holding a self-scrolling `.item-piles-items-list` PLUS a separate currencies
+       block + take/close buttons. The <main> itself never scrolled, and the items-list
+       ate a fixed slice — so on a short phone the currencies + buttons fell off the
+       bottom with no way to reach them (playtest 2026-07-10 screenshot: Electrum's
+       Take clipped at the edge). Fix: cap the <main> to the viewport and let IT be the
+       single scroll; neutralize the inner items-list's own cap/scroll so items +
+       currencies + buttons form ONE scrollable column. Merchant uses a different
+       container (`.item-piles-sections`) — bound + scroll that too.
+   (2) "Inspecting as X / Change" line: on a phone you play one PC (recipient is fixed
+       via inspectingTarget), so naming it and — worse — offering to switch actors is
+       pure noise. It's a classless <div style="…flex: 0 1 auto; height: 27px">; the
+       "Change" link only appears when the account owns >1 actor. Hide the whole line.
+   (3) Recipient dropdown (`.item-piles-actor-container`) stays hidden — same reason. */
+/* Runtime DOM (probed 2026-07-10): .window-app(mc-phone-dialog, flex column, bounded
+   to 88dvh) › HEADER.window-header › SECTION.window-content › MAIN › item-drop-container
+   › {items-list, FOOTER.sheet-footer with Take-All/Close}. The <main> carries NO stable
+   class at runtime, so scroll at the .window-content (the TJS ApplicationShell <section>)
+   level: give it min-height:0 so it can shrink inside the bounded sheet, and overflow-y
+   so a tall pile's currencies + the footer buttons stay reachable. (An earlier version
+   set overflow:hidden here and tried to scroll a non-existent main.item-piles-flexcol —
+   that KILLED the scroll; this is the corrected chain.) */
+/* Pin the sheet: reset any translate a header-drag left behind (drag is also
+   disabled in JS at lift time) so it can't sit anywhere but the bottom. */
+body.mc-phone .item-piles-app.mc-phone-dialog { transform: none !important; }
+body.mc-phone .item-piles-app .window-content {
+  flex: 1 1 auto !important; min-height: 0 !important; max-height: none !important;
+  overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch;
+  /* The sticky footer carries its own safe-area clearance (below); drop the generic
+     window-content bottom padding here so the two don't stack into a double gap. */
+  padding-bottom: 0 !important;
+}
+/* Merchant uses its own scroll container (a tab-body section) — bound + scroll it too. */
+body.mc-phone .item-piles-app .item-piles-sections { min-height: 0 !important; overflow-y: auto !important; }
+/* Hide the "inspecting as X / Change" line (classless <div style="…height: 27px">) and
+   the recipient panel: a phone plays one PC, so the recipient is fixed (inspectingTarget)
+   and switching is the shell selector's job — see the note above. */
+body.mc-phone .item-piles-app div[style*="flex: 0 1 auto"][style*="height: 27px"] { display: none !important; }
 body.mc-phone .item-piles-actor-container { display: none !important; }
+
+/* Header: IP's close control is <a.header-button.close><i.fa-xmark/><span>Close</span></a>.
+   Drop the "Close" word so it's just an X like every other close in the system; the
+   shared .mc-phone-dialog header skin already gives the bar its panel colour, the gold
+   Signika title, and the muted→gold X (all theme-aware). */
+body.mc-phone .item-piles-app .header-button.close > span { display: none !important; }
+/* Center the X both inside its own button AND within the header row (TJS left it
+   top-aligned against the title — DM 2026-07-10). */
+body.mc-phone .item-piles-app .window-header { align-items: center !important; }
+body.mc-phone .item-piles-app .header-button.close {
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  align-self: center !important;
+  min-width: 44px; min-height: 40px; gap: 0 !important; margin: 0 !important;
+}
+body.mc-phone .item-piles-app .header-button.close > i { font-size: 18px !important; margin: 0 !important; line-height: 1 !important; }
+
+/* Long names → one line + ellipsis (probed 2026-07-10). Runtime row (it's flex, not
+   grid): DIV.item-piles-item-row(flexrow, WRAPS) › DIV(classless wrapper) ›
+   {.item-piles-img-container, .item-piles-name › .item-piles-name-container ›
+   P.item-piles-clickable-link}. A very long name ("Bonze's Bokken, Wind Ripper Longsword
+   (Legendary)") made the classless wrapper expand to full width and the row WRAP the
+   qty/Take onto a second line. Fix the whole chain: row never wraps; the wrapper + name
+   shrink (min-width:0) so the <p> ellipsizes; the icon never shrinks. */
+body.mc-phone .item-piles-app .item-piles-item-row { flex-wrap: nowrap !important; }
+body.mc-phone .item-piles-app .item-piles-item-row > div:first-child {
+  flex: 1 1 auto !important; min-width: 0 !important; overflow: hidden !important;
+}
+body.mc-phone .item-piles-app .item-piles-img-container { flex: 0 0 auto !important; }
+body.mc-phone .item-piles-app .item-piles-name { display: flex !important; min-width: 0 !important; overflow: hidden !important; }
+body.mc-phone .item-piles-app .item-piles-name-container {
+  flex: 1 1 auto !important; min-width: 0 !important; width: 100% !important;
+}
+body.mc-phone .item-piles-app .item-piles-name-container > p {
+  flex: 1 1 auto !important; min-width: 0 !important; margin: 0 !important;
+  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;
+}
+/* "(xN)" is redundant with the "/ N" max later in the row — remove it (DM 2026-07-10). */
+body.mc-phone .item-piles-app .item-piles-small-text { display: none !important; }
+
+/* Long-press on an item row spawns a phantom drag ghost (rows are draggable="true" for
+   desktop drag-to-inventory) that does nothing on a phone (DM 2026-07-10). Kill the
+   native drag + the iOS long-press callout/selection so a press is inert; a normal TAP
+   still opens the item via .item-piles-clickable-link's own handler. */
+body.mc-phone .item-piles-app .item-piles-item-row,
+body.mc-phone .item-piles-app [draggable="true"] {
+  -webkit-user-drag: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important; user-select: none !important;
+}
+/* Qty input to ~5 digits; the read-only "/ max" keeps room for ~8 (wild money rewards).
+   CRUCIAL: the quantity CONTAINER ships flex:1 (grows) in the loot view, so it grabbed
+   the row's spare width and the name (the only shrinkable item) collapsed to 0 — the
+   name literally vanished. Pin the qty container to content width so the leftover space
+   goes to the name instead. */
+body.mc-phone .item-piles-app .item-piles-quantity-container { flex: 0 0 auto !important; }
+body.mc-phone .item-piles-app .item-piles-quantity-input-container { min-width: 0 !important; flex: 0 0 auto !important; }
+body.mc-phone .item-piles-app .item-piles-quantity-input-container input,
+body.mc-phone .item-piles-app .item-piles-quantity-container input[type="number"] {
+  width: 5ch !important; min-width: 0 !important; text-align: right;
+}
+/* Footer button row (DM 2026-07-10): (a) equal button HEIGHT so their bottoms line up a
+   uniform distance from the screen edge — align-items:stretch; (b) equal WIDTH + even
+   spacing — flex:1 on each; (c) icons stay vertically CENTERED even when a label wraps to
+   two lines ("Split currency / 2 ways") — the button is a centered flexbox. iOS home-bar
+   clearance lives here (exactly env, no double gap with the scroll container above). */
+body.mc-phone .item-piles-app .sheet-footer {
+  display: flex !important; align-items: stretch !important; gap: 8px !important;
+  padding: 8px 8px calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
+}
+body.mc-phone .item-piles-app .sheet-footer > button {
+  flex: 1 1 0 !important; min-width: 0 !important; margin: 0 !important;
+  display: flex !important; align-items: center !important; justify-content: center !important;
+  gap: 8px !important; text-align: center !important; line-height: 1.2 !important; min-height: 50px !important;
+}
+/* "Config Update" (fa-save) opens the pile's CONFIGURATION editor (container/merchant/
+   sharing rules) — a GM/setup tool with no purpose for a phone player looting; it only
+   appears because the shared-table account has owner authority on the pile. Hide it —
+   fa-save is unique to it in the footer (Split=fa-handshake, Leave=its own). DM 2026-07-10. */
+body.mc-phone .item-piles-app .sheet-footer > button:has(i.fa-save) { display: none !important; }
+
+/* Item Piles rows → native shell item cards (.mc-action) — "keep all items looking like
+   items" (DESIGN §7.6, DM 2026-07-10, adopted). Card #20222b + 1px #313542 + radius 10 +
+   soft shadow; 46px rounded icon (.mc-action-icon); 15px/600 ink name; Save-blue Take.
+   Item rows AND currency rows; icon/name ride shared classes so both match. */
+body.mc-phone .item-piles-app .item-piles-item-row,
+body.mc-phone .item-piles-app .item-piles-currency-list > div:not(.item-piles-vertical-divider) {
+  background: #20222b !important;
+  border: 1px solid #313542 !important;
+  border-radius: 10px !important;
+  padding: 8px 10px !important;
+  margin: 0 8px 8px !important;
+  box-shadow: 0 1.5px 2px rgba(0, 0, 0, .45) !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+body.mc-phone .item-piles-app .item-piles-item-row:active { background: #2a2d38 !important; }
+/* Icon → .mc-action-icon (46px, rounded, edge border, dark bg). */
+body.mc-phone .item-piles-app .item-piles-img-container {
+  width: 46px !important; height: 46px !important; flex: 0 0 auto !important;
+  border-radius: 7px !important; border: 1px solid var(--mc-edge) !important;
+  background: #0c0d11 !important; overflow: hidden !important; padding: 0 !important;
+}
+body.mc-phone .item-piles-app .item-piles-img {
+  width: 100% !important; height: 100% !important; object-fit: cover !important; border: none !important;
+}
+/* Name → .mc-action-name. */
+body.mc-phone .item-piles-app .item-piles-name-container > p {
+  font-size: 15px !important; font-weight: 600 !important; color: #e8e8ec !important;
+}
+/* Take → shell Save-blue button. */
+body.mc-phone .item-piles-app .item-piles-item-take-button,
+body.mc-phone .item-piles-app .item-piles-currency-take-button {
+  background: var(--mc-primary) !important; border: 1px solid var(--mc-primary-edge) !important;
+  color: #fff !important; border-radius: 9px !important; min-height: 40px !important;
+  font-weight: 600 !important; box-shadow: 0 1.5px 2px rgba(0, 0, 0, .45) !important;
+}
+body.mc-phone .item-piles-app .item-piles-item-take-button:active,
+body.mc-phone .item-piles-app .item-piles-currency-take-button:active { background: var(--mc-primary-active) !important; }
+/* Cards separate themselves — drop IP's inter-row divider lines. */
+body.mc-phone .item-piles-app .item-piles-items-list hr,
+body.mc-phone .item-piles-app .item-piles-item-list hr { display: none !important; }
 
 /* ============================================================
    L&F pass (B5) — dark-fantasy "character sheet" theme + the new
@@ -761,10 +1044,14 @@ body.mc-phone .item-piles-actor-container { display: none !important; }
 .mc-spellpick .mc-spell-icon { flex: 0 0 auto; }
 /* Spell-picker filter bar (search + school), like the compendium browser */
 .mc-spellfilter-bar { display: flex; gap: 8px; padding: 4px 14px 8px; }
-.mc-spellfilter-q { flex: 1 1 auto; min-width: 0; min-height: 40px; padding: 8px 12px; border-radius: 10px;
+/* Input + dropdown share ONE explicit height so they line up (a native <select> renders
+   shorter than an <input> at the same min-height — DM 2026-07-10). --mc-control-h is the
+   default control height for shell inputs/selects; reuse it for future filter pairs. */
+#mobile-command-shell { --mc-control-h: 44px; }
+.mc-spellfilter-q { flex: 1 1 auto; min-width: 0; height: var(--mc-control-h); padding: 8px 12px; border-radius: 10px;
   background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 14px; }
-.mc-spellfilter-school { flex: 0 0 auto; max-width: 44%; min-height: 40px; padding: 8px 10px; border-radius: 10px;
-  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 13px; }
+.mc-spellfilter-school { flex: 0 0 auto; max-width: 44%; height: var(--mc-control-h); padding: 8px 10px; border-radius: 10px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 14px; }
 /* Add/Remove button in the long-pressed spell detail card (green add / red remove) */
 .mc-spellpickbtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 46px;
   margin-top: 14px; padding: 10px; font-size: 14px; font-weight: 700; border-radius: 10px; cursor: pointer;
@@ -1052,20 +1339,28 @@ body.mc-phone .item-piles-actor-container { display: none !important; }
 .mc-dpad-use i { font-size: 23px; color: #e8e8ec !important; }
 .mc-dpad-use:active { background: #3a4250; border-color: var(--mc-gold); }
 .mc-dpad-use[disabled] { opacity: 0.6; }
+/* Interactive-item rows (nearby piles / shops / doors / tiles) match the shell's own
+   .mc-action item cards — "keep all items looking like items" (DM 2026-07-10). Card
+   #20222b + edge border + radius 10 + soft shadow; 46px rounded icon; 15px/600 name. */
 .mc-loot-row {
-  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 10px;
-  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
-  color: var(--mc-ink); text-align: left; width: 100%;
+  display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 14px;
+  background: #20222b; border: 1px solid #313542; border-left: 3px solid var(--mc-gold); border-radius: 10px;
+  color: #e8e8ec; text-align: left; width: 100%;
+  box-shadow: 0 1.5px 2px rgba(0, 0, 0, .45);
 }
-.mc-loot-row:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
-.mc-loot-shop { border-left: 3px solid var(--mc-gold); }
-.mc-loot-shop .mc-loot-meta { color: var(--mc-gold); }
-.mc-loot-img { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; flex: 0 0 auto; background: var(--mc-panel-2); }
-.mc-loot-ico { width: 36px; height: 36px; border-radius: 6px; flex: 0 0 auto; background: var(--mc-panel-2); display: flex; align-items: center; justify-content: center; color: var(--mc-gold); font-size: 16px; }
+.mc-loot-row:active { background: #2a2d38; }
+/* Gold left trim + gold meta are the interaction look — consistent for ALL rows
+   (pile, shop, door, tile), not merchant-only (DM 2026-07-10). */
+.mc-loot-img, .mc-loot-ico {
+  width: 46px; height: 46px; border-radius: 7px; flex: 0 0 auto;
+  border: 1px solid var(--mc-edge); background: #0c0d11;
+}
+.mc-loot-img { object-fit: cover; }
+.mc-loot-ico { display: flex; align-items: center; justify-content: center; color: var(--mc-gold); font-size: 18px; }
 .mc-loot-locked { opacity: 0.55; }
 .mc-loot-locked .mc-loot-ico { color: var(--mc-muted); }
-.mc-loot-name { flex: 1 1 auto; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mc-loot-meta { flex: 0 0 auto; font-size: 12px; color: var(--mc-muted); }
+.mc-loot-name { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-loot-meta { flex: 0 0 auto; font-size: 12px; color: var(--mc-gold); }
 
 /* Shared party journal (Journal tab). */
 .mc-journal { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
@@ -1228,6 +1523,188 @@ body.mc-phone .mc-phone-dialog .window-title { font-size: 16px; }
 body.mc-phone .mc-phone-dialog .window-header button,
 body.mc-phone .mc-phone-dialog .header-control { min-width: 40px; min-height: 40px; font-size: 17px; }
 body.mc-phone .mc-phone-dialog button { min-height: 44px; }
+
+/* ============================================================
+   Unified skin for lifted foreign dialogs (§7.6). Every popup opened
+   over the shell already gets .mc-phone-dialog (bottom-sheet frame) via
+   liftDialogAboveShell. This layer skins the CONTENT so roll-config,
+   midi prompts, and Item Piles read as the same app.
+
+   Two parts:
+   (a) Token mirror — dialogs are body-children (siblings of the shell),
+       so they inherit NONE of #mobile-command-shell's --mc-* tokens. We
+       redeclare them on .mc-phone-dialog and re-tint per theme (but WITHOUT
+       the shell's radial background — a sheet wants a flat panel).
+   (b) Structural skin — mapped onto the classes every Foundry Application
+       shares (.window-*, buttons, form fields). Per-module quirks stay as
+       their own patches. !important beats dnd5e2 + svelte-scoped CSS.
+   ============================================================ */
+body.mc-phone .mc-phone-dialog {
+  --mc-ink: #ece5d6; --mc-muted: #a59b86; --mc-gold: #c8a44d; --mc-crimson: #9b3b34;
+  --mc-panel: #211f24; --mc-panel-2: #2a272e; --mc-edge: #3b3640;
+  --mc-primary: #243042; --mc-primary-edge: #2f4660; --mc-primary-active: #2d3d52; --mc-burgundy: #782e22;
+}
+body.mc-theme-slate.mc-phone .mc-phone-dialog {
+  --mc-gold: #79b8e0; --mc-panel: #1d2330; --mc-panel-2: #262d3c; --mc-edge: #36404f;
+  --mc-primary: #2a3a52; --mc-primary-edge: #3a5374; --mc-primary-active: #34496a;
+}
+body.mc-theme-ember.mc-phone .mc-phone-dialog {
+  --mc-gold: #e2924a; --mc-panel: #251c1a; --mc-panel-2: #2f2421; --mc-edge: #463530;
+  --mc-primary: #4a2b22; --mc-primary-edge: #6a4030; --mc-primary-active: #5c3527;
+}
+body.mc-theme-arcane.mc-phone .mc-phone-dialog {
+  --mc-gold: #b483e0; --mc-panel: #221c2e; --mc-panel-2: #2b2439; --mc-edge: #3e3550;
+  --mc-primary: #3a2c52; --mc-primary-edge: #54407a; --mc-primary-active: #463463;
+}
+
+/* (b) Structural skin. */
+body.mc-phone .mc-phone-dialog {
+  background: var(--mc-panel) !important;
+  border-top: 2px solid var(--mc-gold) !important;
+  color: var(--mc-ink) !important;
+  font-family: "Signika", sans-serif;
+}
+body.mc-phone .mc-phone-dialog.mc-aoo,
+body.mc-phone .mc-phone-dialog.reaction { border-top-color: #8a6fd8 !important; }
+
+body.mc-phone .mc-phone-dialog .window-header {
+  background: var(--mc-panel-2) !important;
+  border-bottom: 1px solid var(--mc-edge) !important;
+}
+body.mc-phone .mc-phone-dialog .window-title {
+  color: var(--mc-gold) !important; font-weight: 700;
+  font-family: "Signika", sans-serif !important; /* app font, not the module's own */
+}
+body.mc-phone .mc-phone-dialog .window-content {
+  background: var(--mc-panel) !important;
+  color: var(--mc-ink) !important;
+}
+
+/* Text + structure. */
+body.mc-phone .mc-phone-dialog h1,
+body.mc-phone .mc-phone-dialog h2,
+body.mc-phone .mc-phone-dialog h3,
+body.mc-phone .mc-phone-dialog h4,
+body.mc-phone .mc-phone-dialog legend {
+  color: var(--mc-ink) !important;
+  border-color: var(--mc-edge) !important;
+}
+body.mc-phone .mc-phone-dialog label,
+body.mc-phone .mc-phone-dialog .hint,
+body.mc-phone .mc-phone-dialog .notes,
+body.mc-phone .mc-phone-dialog p.notes { color: var(--mc-muted) !important; }
+body.mc-phone .mc-phone-dialog a,
+body.mc-phone .mc-phone-dialog a.content-link { color: var(--mc-gold) !important; }
+body.mc-phone .mc-phone-dialog fieldset { border: 1px solid var(--mc-edge) !important; }
+
+/* Form fields — dark, inset, edge-bordered. */
+body.mc-phone .mc-phone-dialog input,
+body.mc-phone .mc-phone-dialog select,
+body.mc-phone .mc-phone-dialog textarea {
+  background: #16141a !important;
+  color: var(--mc-ink) !important;
+  border: 1px solid var(--mc-edge) !important;
+}
+body.mc-phone .mc-phone-dialog input:focus,
+body.mc-phone .mc-phone-dialog select:focus,
+body.mc-phone .mc-phone-dialog textarea:focus { border-color: var(--mc-gold) !important; outline: none; }
+
+/* Buttons — neutral panel by default; primary/submit take the Save blue. */
+body.mc-phone .mc-phone-dialog button {
+  background: var(--mc-panel-2) !important;
+  border: 1px solid var(--mc-edge) !important;
+  color: var(--mc-ink) !important;
+}
+body.mc-phone .mc-phone-dialog button:hover { border-color: var(--mc-gold) !important; }
+body.mc-phone .mc-phone-dialog button:active { background: #34313a !important; }
+body.mc-phone .mc-phone-dialog button[type="submit"],
+body.mc-phone .mc-phone-dialog button.default,
+body.mc-phone .mc-phone-dialog button[data-action="ok"],
+body.mc-phone .mc-phone-dialog button[data-button="ok"],
+body.mc-phone .mc-phone-dialog .dialog-button.default {
+  background: var(--mc-primary) !important;
+  border-color: var(--mc-primary-edge) !important;
+  color: #fff !important;
+}
+body.mc-phone .mc-phone-dialog button[type="submit"]:active,
+body.mc-phone .mc-phone-dialog button.default:active { background: var(--mc-primary-active) !important; }
+/* dnd5e roll dialog: Advantage / Disadvantage take the shell's own semantic tints
+   (the .mc-adv-on green/red); Normal stays the primary default. All three are
+   type=submit, so these data-action overrides must FOLLOW the submit rule to win. */
+body.mc-phone .mc-phone-dialog button[data-action="advantage"] {
+  background: #234a30 !important; border-color: #3f8a52 !important; color: #cdeed4 !important;
+}
+body.mc-phone .mc-phone-dialog button[data-action="disadvantage"] {
+  background: #4a2727 !important; border-color: #8a3f3a !important; color: #f2c4be !important;
+}
+/* Header controls (the X) stay minimal — don't inherit the panel button look. Covers
+   <button> (dnd5e/core) AND <a class="header-button"> (TyphonJS / Item Piles). Matches
+   the system's other close Xs (.mc-picker-x): muted, gold on press. Theme-aware. */
+body.mc-phone .mc-phone-dialog .window-header button,
+body.mc-phone .mc-phone-dialog .header-control,
+body.mc-phone .mc-phone-dialog .window-header .header-button {
+  background: transparent !important;
+  border: none !important;
+  color: var(--mc-muted) !important;
+}
+body.mc-phone .mc-phone-dialog .window-header button:hover,
+body.mc-phone .mc-phone-dialog .window-header button:active,
+body.mc-phone .mc-phone-dialog .header-control:hover,
+body.mc-phone .mc-phone-dialog .header-control:active,
+body.mc-phone .mc-phone-dialog .window-header .header-button:hover,
+body.mc-phone .mc-phone-dialog .window-header .header-button:active { color: var(--mc-gold) !important; }
+
+/* RULE (DM 2026-07-10): strip GM/dev header affordances from EVERY lifted popup —
+   they do nothing for a phone player. Covers the ⋮ header-controls menu
+   (data-action=toggleControls), copy-UUID (fa-passport / data-action=copyUuid), and
+   copy-document-id. Foundry AppV2 + dnd5e + any module that follows the header-control
+   convention. */
+body.mc-phone .mc-phone-dialog [data-action="toggleControls"],
+body.mc-phone .mc-phone-dialog [data-action="copyUuid"],
+body.mc-phone .mc-phone-dialog [data-action="copyDocumentId"],
+body.mc-phone .mc-phone-dialog .header-control.fa-passport,
+body.mc-phone .mc-phone-dialog .header-control.fa-ellipsis-vertical { display: none !important; }
+
+/* Document SHEETS (item/actor) opened over the shell pin to FULL height regardless of
+   content, so switching tabs (Description/Details/Activities/Effects) doesn't resize the
+   sheet and shuffle the tab bar (DM 2026-07-10). Scoped to .sheet so non-sheet dialogs
+   (rolls, rests, confirms) keep sizing to their content. window-content already flexes +
+   scrolls (mc-phone-dialog base), so a short tab just leaves empty space below. */
+body.mc-phone .mc-phone-dialog.sheet:not(.item-piles-app) {
+  height: 88dvh !important; top: auto !important; bottom: 0 !important;
+}
+/* Item Piles ALSO carries a .sheet class, but it wants to stay content-height pinned to
+   the bottom (mc-phone-dialog base) so its footer sits just above the home bar with no
+   wasteful gap — hence the :not() above (DM 2026-07-10). */
+/* EXCEPT the MERCHANT (item-piles-merchant-sheet): it has Buy/Sell TABS, so content-height
+   makes the popup resize when you switch tabs. Pin it to full height (like the tabbed item
+   sheets) so it stays put (DM 2026-07-10). */
+body.mc-phone .mc-phone-dialog.item-piles-merchant-sheet {
+  height: 88dvh !important; top: auto !important; bottom: 0 !important;
+}
+
+/* Foundry ITEM sheets on a phone (players): strip the tab bar and show ONLY Description —
+   players read items, they don't edit Details/Activities/Effects (DM 2026-07-10). Scoped
+   to phone clients, so the DM (not a phone client) keeps the full tabbed sheet. Item Piles
+   has no standalone .item class, so it's untouched. */
+body.mc-phone .mc-phone-dialog.sheet.item nav.tabs { display: none !important; }
+body.mc-phone .mc-phone-dialog.sheet.item section.tab[data-group="primary"]:not([data-tab="description"]) { display: none !important; }
+body.mc-phone .mc-phone-dialog.sheet.item section.tab[data-tab="description"] { display: flex !important; flex-direction: column !important; }
+
+/* Popup tabs (merchant Buy/Sell, any lifted tabbed sheet): active indicator → GOLD,
+   matching our own tabs — Foundry/dnd5e/IP default is a crimson underline (DM 2026-07-10).
+   Covers the underline whether it's a border, an inset shadow, or an ::after bar. */
+body.mc-phone .mc-phone-dialog .tabs .item,
+body.mc-phone .mc-phone-dialog nav.tabs a { color: var(--mc-muted) !important; }
+body.mc-phone .mc-phone-dialog .tabs .item.active,
+body.mc-phone .mc-phone-dialog nav.tabs a.active,
+body.mc-phone .mc-phone-dialog .item-piles-tab.active {
+  color: var(--mc-gold) !important;
+  border-bottom-color: var(--mc-gold) !important;
+  box-shadow: inset 0 -2px 0 var(--mc-gold) !important;
+}
+body.mc-phone .mc-phone-dialog .tabs .item.active::after,
+body.mc-phone .mc-phone-dialog nav.tabs a.active::after { background-color: var(--mc-gold) !important; }
 
 /* Adv / Normal / Dis — green and red tints (stronger when selected). */
 .mc-adv[data-mode="advantage"] { background: #1b2a20; border-color: #2f5d39; }
