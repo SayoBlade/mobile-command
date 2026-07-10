@@ -1,4 +1,4 @@
-import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser } from "./rpc.js";
+import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState } from "./rpc.js";
 import { fireAoO } from "./aoo.js";
 import { MODULE_ID } from "./preset.js";
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
@@ -53,8 +53,10 @@ function tabRailHTML() {
 // check's own one-tap fix where a safe remedy exists. Never auto-fixes.
 function preflightHTML() {
   const results = preflightResults;
-  if (!results) return `<div class="mc-dmp-empty">Not run yet.</div>
-    <button class="mc-dmp-preflight-run" data-preflight-run><i class="fas fa-rotate"></i> Run checks</button>`;
+  // The check rows scroll in .mc-dmp-pf-list; the run/setup buttons stay pinned in
+  // .mc-dmp-pf-foot so the box keeps the panel's height (DM 2026-07-10).
+  if (!results) return `<div class="mc-dmp-pf-list"><div class="mc-dmp-empty">Not run yet.</div></div>
+    <div class="mc-dmp-pf-foot"><button class="mc-btn mc-save mc-dmp-preflight-run" data-preflight-run><i class="fas fa-rotate"></i> Run checks</button></div>`;
   const esc = foundry.utils.escapeHTML;
   const icon = { ok: "fa-circle-check", warn: "fa-triangle-exclamation", fail: "fa-circle-xmark" };
   const rows = results.map(c => `<div class="mc-dmp-pf mc-dmp-pf-${c.status}">
@@ -63,9 +65,11 @@ function preflightHTML() {
       ${c.fix ? `<button class="mc-dmp-pf-fix" data-preflight-fix="${c.id}">${esc(c.fix.label)}</button>` : ""}
     </div>`).join("");
   const stamp = preflightRunAt ? preflightRunAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
-  return `${rows}
-    <button class="mc-dmp-preflight-run" data-preflight-run><i class="fas fa-rotate"></i> Run again${stamp ? ` <span class="mc-dmp-pf-stamp">(last ${stamp})</span>` : ""}</button>
-    <button class="mc-dmp-preflight-run" data-dm-wizard><i class="fas fa-hat-wizard"></i> Setup wizard</button>`;
+  return `<div class="mc-dmp-pf-list">${rows}</div>
+    <div class="mc-dmp-pf-foot">
+      <button class="mc-btn mc-dmp-preflight-run" data-dm-wizard><i class="fas fa-hat-wizard"></i> Setup</button>
+      <button class="mc-btn mc-save mc-dmp-preflight-run" data-preflight-run><i class="fas fa-rotate"></i> Run again${stamp ? ` <span class="mc-dmp-pf-stamp">${stamp}</span>` : ""}</button>
+    </div>`;
 }
 
 function rollsToolHTML() {
@@ -98,7 +102,7 @@ function rollsToolHTML() {
         ${rollTool.targetsOpen ? `<div class="mc-dmp-rt-list">${rows || `<div class="mc-dmp-empty">No player tokens.</div>`}</div>` : ""}
       </div>
     </div>
-    <button class="mc-dmp-rt-send" data-rt-send><i class="fas fa-paper-plane"></i> Request rolls</button>`;
+    <button class="mc-btn mc-save mc-dmp-rt-send" data-rt-send><i class="fas fa-paper-plane"></i> Request rolls</button>`;
 }
 
 // Owned tokens (task #18): each non-GM, non-TV player's owned actors as draggable
@@ -263,7 +267,7 @@ function onOutsidePointerDown(ev) {
 
 function onPointerDown(ev) {
   if (ev.target.closest("button, select, input")) return; // controls act, don't drag
-  if (!ev.target.closest(".mc-dmp-drag, .mc-dmp-fly-head, .mc-dmp-head")) return; // grip or any header
+  if (!ev.target.closest(".mc-dmp-phead, .mc-dmp-fly-head, .mc-dmp-head")) return; // panel header, flyout header, or any section head
   ev.preventDefault();
   const rect = panelEl.getBoundingClientRect();
   const offX = ev.clientX - rect.left, offY = ev.clientY - rect.top;
@@ -299,6 +303,14 @@ function cameraBarHTML() {
 /** Top status row: a pause toggle (the pause-guard freezes player actions) + a
  *  per-player presence light — green = present (on the active scene OR a canvasless
  *  phone), amber = a desktop client viewing a DIFFERENT scene, gray = offline. */
+// Compact "away for" readout: 45s, 2m, 1h12m.
+function fmtAway(secs) {
+  if (secs < 60) return `${secs}s`;
+  const m = Math.floor(secs / 60);
+  if (m < 60) return `${m}m`;
+  return `${Math.floor(m / 60)}h${m % 60}m`;
+}
+
 function statusHTML() {
   const esc = foundry.utils.escapeHTML;
   const paused = game.paused;
@@ -306,6 +318,11 @@ function statusHTML() {
   const showBtn = `<button class="mc-dmp-pause" data-action="show-players" title="Show the selected token's image on players' phones"><i class="fas fa-image"></i></button>`;
   const activeScene = game.scenes?.active?.id;
   const players = game.users.filter(u => !u.isGM);
+  // Away-timer threshold (§7.8): seconds a phone may stay backgrounded before its dot
+  // escalates to red. 0 = red the moment the app is backgrounded.
+  let awayThreshold = 90;
+  try { awayThreshold = Number(game.settings.get(MODULE_ID, "awayThresholdSeconds")); } catch (e) { /* default */ }
+  if (!Number.isFinite(awayThreshold) || awayThreshold < 0) awayThreshold = 90;
   const chips = players.map(u => {
     // A phone client is canvasless (D2) so its viewedScene is null — that's "present
     // at the table via the shell", NOT "off on another scene". Only an active client
@@ -316,6 +333,13 @@ function statusHTML() {
     else if (u.viewedScene === activeScene) { cls = "mc-on"; state = "on the active scene"; }
     else if (u.viewedScene == null) { cls = "mc-on"; state = "connected (phone)"; }
     else { cls = "mc-amber"; state = "connected — on a different scene"; }
+    // Red escalation: a CONNECTED player whose app has been backgrounded longer than the
+    // threshold. Layers over green/amber; offline stays gray (u.active already false).
+    const pres = presenceState.get(u.id);
+    if (u.active && pres?.hidden) {
+      const secs = Math.max(0, Math.floor((Date.now() - pres.since) / 1000));
+      if (secs >= awayThreshold) { cls = "mc-red"; state = `away ${fmtAway(secs)}`; }
+    }
     return `<span class="mc-dmp-pres ${cls}" title="${esc(playerLabel(u))} — ${state}"><i class="fas fa-circle"></i> ${esc(playerLabel(u))}</span>`;
   }).join("") || `<span class="mc-dmp-pres mc-off">No players</span>`;
   return `<div class="mc-dmp-status">${pauseBtn}${showBtn}<div class="mc-dmp-pres-row">${chips}</div></div>`;
@@ -781,17 +805,17 @@ function partyTabHTML() {
   const arrows = ["↑", "→", "↓", "←"];
   const keyOf = a => { const cl = formation.cells?.[a.id]; return cl ? `${cl.r},${cl.c}` : null; };
   const released = new Set(formation.released ?? []);
-  const colorFor = (a) => { const u = game.users.find(u => !u.isGM && u.character?.id === a?.id) ?? game.users.find(u => !u.isGM && a?.testUserPermission?.(u, "OWNER")); return u?.color?.css ?? null; };
   const rows = [0, 1, 2].map(r => `<div class="mc-dmp-party-row">${[0, 1, 2].map(c => {
     const occ = members.filter(a => keyOf(a) === `${r},${c}`);
     const p = occ[0];
     const bad = badByCell.get(`${r},${c}`);
-    const col = p ? colorFor(p) : null; // outline the token in its player's color
     const img = p ? (p.prototypeToken?.texture?.src || p.img || "icons/svg/mystery-man.svg") : "";
+    // No player-colour outline (DM 2026-07-10): the token wears a circular ring —
+    // neutral when placed, gold when selected (.mc-sel) — like the TV token rings.
     const cls = ["mc-dmp-party-cell", p && "mc-full", bad && "mc-bad", partySel && p?.id === partySel && "mc-sel", occ.length > 1 && "mc-stack", p && released.has(p.id) && "mc-away"].filter(Boolean).join(" ");
     // Empty squares aren't selectable — inert unless a token is picked up (then a drop target).
     const inert = !p && !partySel;
-    return `<button class="${cls}" data-party-cell="${r},${c}"${inert ? " disabled" : ""}${col ? ` style="border-color:${col}"` : ""} title="${esc(bad ? `${p?.name ?? "This spot"}: ${bad}` : (p?.name ?? ""))}">
+    return `<button class="${cls}" data-party-cell="${r},${c}"${inert ? " disabled" : ""} title="${esc(bad ? `${p?.name ?? "This spot"}: ${bad}` : (p?.name ?? ""))}">
       ${p ? `<img src="${esc(img)}" alt="">` : ""}
       ${occ.length > 1 ? `<span class="mc-dmp-party-badge">${occ.length}</span>` : p && released.has(p.id) ? `<span class="mc-dmp-party-lock"><i class="fas fa-binoculars"></i></span>` : p && locked.has(p.id) ? `<span class="mc-dmp-party-lock"><i class="fas fa-lock"></i></span>` : ""}
     </button>`;
@@ -911,20 +935,16 @@ async function onPartyClick(ev) {
     const formation = group.getFlag(MODULE_ID, "formation") ?? { cells: {} };
     const members = (group.system?.members ?? []).map(m => m.actor).filter(Boolean);
     const occ = members.find(a => { const cl = formation.cells?.[a.id]; return cl && cl.r === r && cl.c === c; });
-    if (!partySel) {
-      if (occ) { partySel = occ.id; render(); }
-      return true;
-    }
-    if (occ?.id === partySel) { partySel = null; render(); return true; } // tap self = put down
-    if (occ && occ.id !== partySel) {
-      // Target holds another token → SWAP their cells (not stack; DM 2026-07-03).
-      const selCell = formation.cells?.[partySel];
-      if (selCell) await api.partySetCell({ groupId: group.id, actorId: occ.id, r: selCell.r, c: selCell.c });
-    }
+    // A click on ANY token (re)selects it — or deselects if it's already selected.
+    // Empty cells are inert unless a token is already picked up (DM 2026-07-10).
+    if (occ) { partySel = occ.id === partySel ? null : occ.id; render(); return true; }
+    if (!partySel) return true; // empty square + nothing picked up → do nothing
+    // Move the selected token here and KEEP it selected, so the highlight stays and
+    // the next click keeps moving the same token (sticky selection, DM 2026-07-10).
     const res = await api.partySetCell({ groupId: group.id, actorId: partySel, r, c });
-    if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't move them.");
-    partySel = null; partyForce = false; // layout changed → re-judge before forcing
-    return true; // updateActor re-renders
+    if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Couldn't move them."); return true; }
+    partyForce = false; // layout changed → re-judge before forcing
+    return true; // updateActor re-renders; partySel persists (sticky highlight)
   }
   const act = ev.target.closest("[data-party]")?.dataset.party;
   if (!act) return false;
@@ -990,16 +1010,17 @@ function render() {
   const targets = Array.from(game.user.targets ?? []);
   const pending = listPendingCasts();
   // The camera bar is always present (the DM needs TV control out of combat, with
-  // no targets); targeting/cast sections grow the panel when relevant. A grip at the
-  // top lets the DM drag the panel off other widgets.
-  const grip = `<div class="mc-dmp-drag" title="Drag to move"><i class="fas fa-grip-lines"></i></div>`;
+  // no targets); targeting/cast sections grow the panel when relevant. A draggable
+  // header bar (mirrors the flyout's) tops the panel and moves it — replaces the bare
+  // ≡ grip now that the panel has the width (DM 2026-07-10).
+  const header = `<div class="mc-dmp-phead" title="Drag to move"><span class="mc-dmp-phead-title">Mobile Command</span><i class="fas fa-grip-lines mc-dmp-phead-grip"></i></div>`;
   // Party order lives in its own dock tab (auto-open on pack, close on disperse) —
   // the main area keeps only Form up / Disperse so its width never jumps.
   const packedNow = !!packedGroup();
   if (packedNow && !dockWasPacked) dockTab = "party";
   else if (!packedNow && dockWasPacked && dockTab === "party") dockTab = null;
   dockWasPacked = packedNow;
-  const main = grip + statusHTML() + cameraBarHTML() + reactionsHTML() + splitPartyHTML() + combatHTML() + quickHpHTML()
+  const main = header + statusHTML() + cameraBarHTML() + reactionsHTML() + splitPartyHTML() + combatHTML() + quickHpHTML()
     + partyMainHTML() + nightHTML()
     + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
   // Main content scrolls inside; the tab rail + flyout stick out the right edge.
@@ -1224,6 +1245,17 @@ export function registerDMPanel() {
   Hooks.on("updateScene", (_s, ch) => { if ("active" in ch) render(); }); // split-party chips follow activation
   Hooks.on("userConnected", () => render());                       // presence: connect/disconnect
   Hooks.on("updateUser", () => render());                          // presence: a player changed scene (viewedScene)
+  Hooks.on("mobile-command.presence", () => render());             // away-timer: a phone reported fg/bg
+  // Away-timer tick: the red escalation crosses the threshold with no event to fire it, so
+  // while any player is backgrounded, re-render every 5s to update the "away Ns" readout and
+  // flip to red once the threshold passes. Idle (no one backgrounded) → no timer running.
+  let awayTimer = null;
+  const awayTick = () => {
+    const anyHidden = [...presenceState.values()].some(p => p?.hidden);
+    if (anyHidden && !awayTimer) awayTimer = setInterval(() => { render(); awayTick(); }, 5000);
+    else if (!anyHidden && awayTimer) { clearInterval(awayTimer); awayTimer = null; }
+  };
+  Hooks.on("mobile-command.presence", awayTick);
   Hooks.on("mobile-command.dmReaction", (entry) => {               // reaction widget chips (aoo.js + rpc.js)
     // A multi-token summon (pack of wolves) creates one token per creature —
     // one chip per (summoned actor, player) is enough; the grant covers them all.

@@ -1543,6 +1543,15 @@ body.mc-phone .mc-phone-dialog.advancement.manager .window-content > section,
 body.mc-phone .mc-phone-dialog.advancement.manager .window-content .step {
   max-height: none !important; height: auto !important;
 }
+/* No jarring reflow (DESIGN §7.6, DM 2026-07-10): the HP advancement step swaps its roll
+   input + dice button for a static average number when "Take Average" is ticked — dnd5e 5.3
+   REMOVES those nodes from the DOM on re-render (not display:none), so the row would collapse
+   and everything below (the Take Average toggle) would jump up. Reserve the row's height so
+   the toggle stays put whether you're rolling or averaging. .breakdown.split-group is present
+   in both states; the dice button sets the tall state (~44px min-height on a phone). */
+body.mc-phone .mc-phone-dialog .advancement.flow .breakdown.split-group {
+  min-height: 48px; align-items: center;
+}
 body.mc-phone .mc-phone-dialog .window-header { flex: 0 0 auto; }
 body.mc-phone .mc-phone-dialog .window-title { font-size: 16px; }
 body.mc-phone .mc-phone-dialog .window-header button,
@@ -1689,6 +1698,24 @@ body.mc-phone .mc-phone-dialog [data-action="copyUuid"],
 body.mc-phone .mc-phone-dialog [data-action="copyDocumentId"],
 body.mc-phone .mc-phone-dialog .header-control.fa-passport,
 body.mc-phone .mc-phone-dialog .header-control.fa-ellipsis-vertical { display: none !important; }
+
+/* UNIVERSAL EXIT (DM 2026-07-10): every lifted popup gets ONE injected close X
+   (.mc-dialog-close, added in liftDialogAboveShell → app.close()) pinned top-right — some
+   sheets (e.g. a JournalEntrySheet reached from the level-up subclass link) render no close
+   of their own and trap the player. Hide each app's NATIVE header close so there's exactly
+   one, always in the same place. Our button has no data-action=close, so it's not caught. */
+body.mc-phone .mc-phone-dialog .window-header [data-action="close"],
+body.mc-phone .mc-phone-dialog .window-header a.header-button.close,
+body.mc-phone .mc-phone-dialog .window-header .header-control[data-action="close"] { display: none !important; }
+body.mc-phone .mc-phone-dialog > .mc-dialog-close {
+  position: absolute; top: 0; right: 0; z-index: 10;
+  width: 44px; height: 44px; padding: 0; margin: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent !important; border: none !important;
+  color: var(--mc-muted) !important; font-size: 20px; line-height: 1; cursor: pointer;
+}
+body.mc-phone .mc-phone-dialog > .mc-dialog-close:hover,
+body.mc-phone .mc-phone-dialog > .mc-dialog-close:active { color: var(--mc-gold) !important; }
 
 /* Document SHEETS (item/actor) opened over the shell pin to FULL height regardless of
    content, so switching tabs (Description/Details/Activities/Effects) doesn't resize the
@@ -2387,7 +2414,9 @@ body.mc-theme-arcane #mobile-command-shell {
      player selected) so the two boxes match and neither is over-tall (DM 2026-07-03). */
   --mc-dmp-min-h: 268px; min-height: var(--mc-dmp-min-h);
   background: linear-gradient(#26222b, #1c1922); color: #ece5d6;
-  border: 1px solid #c8a44d; border-radius: 10px; padding: 10px;
+  /* Muted outline (was gold #c8a44d) — the gold was too dominant; gold now lives
+     only in accents/selected states (DM 2026-07-10). Matches the flyout. */
+  border: 1px solid #4a4334; border-radius: 7px; padding: 10px;
   font-family: "Signika", sans-serif; box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
 }
 /* Main content scrolls inside a wrapper so the tab rail + flyout can stick OUT of
@@ -2397,16 +2426,23 @@ body.mc-theme-arcane #mobile-command-shell {
    edge. Open: rides the flyout's right edge (mc-open), so the tab is always on the
    far-right box (DM 2026-07-03). */
 .mc-dmp-tabrail { position: absolute; left: 100%; top: 10px; display: flex; flex-direction: column; gap: 5px; transition: left .15s ease; }
-.mc-dmp-tabrail.mc-open { left: calc(100% + 242px); }
-.mc-dmp-tab { width: 30px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #ece5d6; background: linear-gradient(#26222b, #1c1922); border: 1px solid #c8a44d; border-left: none; border-radius: 0 9px 9px 0; cursor: pointer; }
+.mc-dmp-tabrail.mc-open { left: calc(100% + 302px); }
+.mc-dmp-tab { width: 30px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #ece5d6; background: linear-gradient(#26222b, #1c1922); border: 1px solid #4a4334; border-left: none; border-radius: 0 6px 6px 0; cursor: pointer; }
 .mc-dmp-tab.mc-on { color: #1a1712; background: #c8a44d; }
-/* Flyout box — attached to the panel's right; taller minimum, no h-scroll, and
-   overflow visible so the targets dropdown can escape the frame (DM 2026-07-03). */
-.mc-dmp-flyout { position: absolute; left: calc(100% + 2px); top: 0; width: 240px; min-height: var(--mc-dmp-min-h, 268px); max-height: calc(100vh - 24px); display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(#26222b, #1c1922); color: #ece5d6; border: 1px solid #c8a44d; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
+/* Flyout box — attached to the panel's right; matches the PANEL's own height
+   (top:0/bottom:0 stretch to the positioned panel) so the two boxes stay level and
+   tall content scrolls inside rather than ballooning the box (DM 2026-07-10). Wider
+   (300) and a MUTED outline (#4a4334, not gold) so the second screen reads as
+   secondary chrome, not a second primary panel (DM 2026-07-10). */
+.mc-dmp-flyout { position: absolute; left: calc(100% + 2px); top: 0; bottom: 0; width: 300px; min-height: var(--mc-dmp-min-h, 268px); max-height: calc(100vh - 24px); display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(#26222b, #1c1922); color: #ece5d6; border: 1px solid #4a4334; border-radius: 7px; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
 /* Rolls tab only: let the targets dropdown escape the box. Other tabs clip so the
    body scrolls (tokens grid can be long — DM 2026-07-03). */
 .mc-dmp-flyout.mc-fly-rolls { overflow: visible; }
-.mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px; border-bottom: 1px solid #4a4334; font-weight: 800; border-radius: 10px 10px 0 0; }
+/* Party tab: let the box grow to fit the square grid + controls instead of being
+   pinned to the panel's height (which forced a scrollbar). Still bounded by
+   min/max-height, top-aligned with the panel (DM 2026-07-10). */
+.mc-dmp-flyout.mc-fly-party { bottom: auto; }
+.mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px; border-bottom: 1px solid #4a4334; font-size: 15px; font-weight: 800; border-radius: 6px 6px 0 0; }
 .mc-dmp-fly-x { background: none; border: none; color: #a59b86; font-size: 15px; cursor: pointer; }
 .mc-dmp-fly-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 /* Rolls tab only: let the targets dropdown escape the frame (short content). */
@@ -2436,7 +2472,11 @@ body.mc-theme-arcane #mobile-command-shell {
 /* The real dropdown — absolute overlay that overflows the flyout frame. */
 .mc-dmp-rt-list { position: absolute; top: calc(100% + 4px); right: 0; min-width: 170px; z-index: 40; max-height: 300px; overflow-y: auto; padding: 4px; background: #20222b; border: 1px solid #c8a44d; border-radius: 9px; box-shadow: 0 10px 28px rgba(0,0,0,.6); }
 /* Packed main-area button — opens the Party order tab. */
-.mc-dmp-party-mini { width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 9px; background: #221f16; color: #c8a44d; border: 1px solid #6b5a2a; cursor: pointer; font-weight: 700; }
+/* Same box as .mc-dmp-party-deploy (34px, r8) so "Arrange & lock in" and "Start the
+   night" are the SAME size — one button size for the panel's CTAs (DM 2026-07-10). */
+.mc-dmp-party-mini { width: 100%; height: 34px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; background: #243042; color: #ece5d6; border: 1px solid #2f4660; cursor: pointer;
+  box-shadow: 0 3px 6px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.05); }
+.mc-dmp-party-mini:hover { background: #2a3a52; }
 .mc-dmp-rt-list { display: flex; flex-direction: column; gap: 3px; }
 .mc-dmp-rt-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; background: #1b202b; border: 1px solid #2f3640; cursor: pointer; font-size: 13px; }
 .mc-dmp-rt-row span { flex: 1 1 auto; }
@@ -2444,12 +2484,25 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-dmp-rt-row.mc-on { border-color: #c8a44d; }
 .mc-dmp-rt-row.mc-on .mc-rt-check { opacity: 1; }
 .mc-dmp-rt-row.mc-grouped { background: #221f16; }
-.mc-dmp-rt-send { height: 40px; border-radius: 9px; font-weight: 800; color: #1a1712; background: linear-gradient(#c8a44d, #b98a1e); border: 1px solid #c8a44d; cursor: pointer; }
+/* Request rolls = the rolls tab's primary CTA — reuses .mc-btn.mc-save (the phone's
+   Save button). Pin it to the bottom of the column and stop .mc-btn's flex:1 from
+   stretching its height (DM 2026-07-10). */
+.mc-dmp-rt-send { flex: 0 0 auto; margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .mc-dmp-empty { color: #a59b86; font-size: 12px; text-align: center; padding: 8px; }
 #mc-dm-panel.mc-show { display: block; }
-/* Drag grip — repositions the panel so it doesn't cover other widgets. */
-.mc-dmp-drag { display: flex; align-items: center; justify-content: center; height: 16px; margin: -4px -4px 6px; color: #8a7f63; cursor: move; touch-action: none; }
-.mc-dmp-drag:hover { color: #c8a44d; }
+/* Panel header bar — mirrors the flyout header; the whole bar drags the panel
+   (replaces the old ≡ grip now that the panel has the width — DM 2026-07-10).
+   Negative margins cancel the panel's 10px padding so it sits flush to the top and
+   sides with rounded top corners. */
+.mc-dmp-phead { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: -10px -10px 8px; padding: 5px 10px; background: #221f16;
+  border-bottom: 1px solid #4a4334; border-radius: 6px 6px 0 0;
+  font-size: 15px; font-weight: 800; color: #ece5d6; cursor: move; touch-action: none; }
+.mc-dmp-phead:hover { background: #322c1c; color: #e6c46a; }
+/* Title inherits the DM-side default header size (no explicit size) so it matches
+   the flyout header 1:1 — was pinned to 13px and read too small (DM 2026-07-10).
+   The grip stays its own muted colour on hover, exactly like the flyout's ✕. */
+.mc-dmp-phead-grip { color: #8a7f63; }
 /* Headers double as drag handles — shorter, a distinct tint, and a hover
    highlight to hint you can grab them (DM 2026-07-03). */
 .mc-dmp-fly-head, .mc-dmp-head { cursor: move; touch-action: none; background: #221f16; }
@@ -2467,6 +2520,11 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-dmp-pres.mc-amber i { color: #d6a93e; }
 .mc-dmp-pres.mc-off { color: #8a8478; }
 .mc-dmp-pres.mc-off i { color: #6a6458; }
+/* Away-timer escalation (§7.8): backgrounded past the threshold → red dot + bright label,
+   a soft pulse so it catches the DM's eye without being obnoxious. */
+.mc-dmp-pres.mc-red { color: #f0a19a; }
+.mc-dmp-pres.mc-red i { color: #e2584a; animation: mc-away-pulse 1.6s ease-in-out infinite; }
+@keyframes mc-away-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 /* Combat control strip. */
 .mc-dmp-combat { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
 .mc-dmp-turn { font-size: 12px; font-weight: 700; color: #c8a44d; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
@@ -2626,6 +2684,13 @@ body.mc-theme-arcane #mobile-command-shell {
   background: transparent; border: 1px solid transparent; color: var(--mc-muted); font-size: 15px;
 }
 .mc-search-toggle.mc-on { color: var(--mc-gold); border-color: var(--mc-edge); background: var(--mc-panel); }
+/* "+ New item" in the Equipment header — mirrors the search toggle. margin-left:auto pins it
+   right when the carried-weight readout (which also claims the auto) is absent. */
+.mc-eq-new {
+  flex: 0 0 auto; margin-left: auto; width: 34px; height: 34px; border-radius: 8px;
+  background: transparent; border: 1px solid transparent; color: var(--mc-muted); font-size: 15px;
+}
+.mc-eq-new:hover, .mc-eq-new:active { color: var(--mc-gold); border-color: var(--mc-edge); background: var(--mc-panel); }
 .mc-search-drawer { margin: 2px 0 10px; }
 .mc-search-input {
   width: 100%; box-sizing: border-box; min-height: 42px;
@@ -2984,14 +3049,21 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   color: var(--mc-muted); cursor: pointer; overflow: hidden;
 }
 .mc-party-cell:active { background: #232a38; }
-.mc-party-cell.mc-full { border-color: var(--mc-primary-edge); }
-.mc-party-cell.mc-mine { border-color: var(--mc-gold); box-shadow: 0 0 0 1px var(--mc-gold) inset, 0 2px 8px rgba(0,0,0,.5); }
+/* Occupancy/selection is a CIRCULAR ring on the token (like the TV token rings),
+   not a coloured square: neutral when placed, gold for my tokens, thick gold + glow
+   when picked up. The square stays neutral (DM 2026-07-10). */
+.mc-party-cell.mc-full { border-color: var(--mc-edge); }
+.mc-party-cell.mc-mine { border-color: var(--mc-edge); box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+.mc-party-cell.mc-mine .mc-party-tok { box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 0 0 2px var(--mc-gold); }
 .mc-party-cell.mc-dupe { border-color: #d06060; box-shadow: 0 0 0 1px #d06060 inset; }
-/* Picked up (carrying this token, waiting for a destination) — lifted & pulsing. */
-.mc-party-cell.mc-picked { border-color: var(--mc-gold); box-shadow: 0 0 0 2px var(--mc-gold) inset, 0 0 12px rgba(224,180,74,.6); transform: translateY(-2px) scale(1.03); z-index: 2; animation: mc-picked-pulse 1.1s ease-in-out infinite; }
-.mc-party-cell.mc-picked .mc-party-tok { box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 0 8px rgba(224,180,74,.5); }
-@keyframes mc-picked-pulse { 0%,100% { box-shadow: 0 0 0 2px var(--mc-gold) inset, 0 0 10px rgba(224,180,74,.45); } 50% { box-shadow: 0 0 0 2px var(--mc-gold) inset, 0 0 16px rgba(224,180,74,.75); } }
-.mc-party-tok { width: 62px; height: 62px; border-radius: 50%; object-fit: cover; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+/* Someone else's token — dim it so it reads as "not yours / disabled" while you
+   arrange your own (DM 2026-07-10). .mc-away already dims, so exclude it. */
+.mc-party-cell.mc-full:not(.mc-mine):not(.mc-away) { opacity: .5; }
+/* Picked up (carrying this token, waiting for a destination) — lifted, the ring pulses. */
+.mc-party-cell.mc-picked { border-color: var(--mc-edge); box-shadow: 0 4px 12px rgba(0,0,0,.55); transform: translateY(-2px) scale(1.03); z-index: 2; }
+.mc-party-cell.mc-picked .mc-party-tok { box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 0 0 3px var(--mc-gold), 0 0 10px rgba(224,180,74,.6); animation: mc-picked-pulse 1.1s ease-in-out infinite; }
+@keyframes mc-picked-pulse { 0%,100% { box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 0 0 3px var(--mc-gold), 0 0 8px rgba(224,180,74,.45); } 50% { box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 0 0 3px var(--mc-gold), 0 0 16px rgba(224,180,74,.8); } }
+.mc-party-tok { width: 62px; height: 62px; border-radius: 50%; object-fit: cover; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 0 0 2px var(--mc-edge); }
 .mc-party-nm { font-size: 11px; font-weight: 700; color: var(--mc-ink); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-party-lock { position: absolute; top: 4px; right: 5px; font-size: 10px; color: var(--mc-gold); }
 .mc-party-badge { position: absolute; top: 3px; right: 4px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: #d06060; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
@@ -3117,7 +3189,10 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
    #mobile-command-shell, which doesn't exist on the DM client — var() there is
    invalid and the gold button rendered as dark-on-dark (DM 2026-07-02). Palette
    matches the panel's own literals (#c8a44d gold / #ece5d6 ink / #4a4334 edge). */
-.mc-dmp-party { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 100%; max-width: 240px; margin: 4px auto; }
+/* Fill the wider (300px) flyout so the cells are as large as the box allows —
+   was capped at 240 from the old 240px flyout, which wasted the sides and made
+   the tokens small (DM 2026-07-10). Cells stay square (aspect-ratio on the cell). */
+.mc-dmp-party { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; max-width: 288px; margin: 4px auto; }
 .mc-dmp-party-row { display: contents; }
 .mc-dmp-party-cell {
   position: relative; width: 100%; height: auto; aspect-ratio: 1 / 1;
@@ -3125,24 +3200,36 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   background: linear-gradient(#1b202b, #161a23); border: 1px solid #4a4334; border-radius: 9px;
   cursor: pointer; overflow: hidden; padding: 0;
 }
-.mc-dmp-party-cell img { width: 78%; height: 78%; border-radius: 50%; object-fit: cover; }
-.mc-dmp-party-cell.mc-full { border-color: #2f4660; }
+/* The token wears a CIRCULAR ring (like the TV token rings), not a coloured square:
+   neutral when placed, gold when selected. The square stays neutral (DM 2026-07-10). */
+.mc-dmp-party-cell img { width: 78%; height: 78%; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px #5a5344; }
+.mc-dmp-party-cell.mc-full { border-color: #4a4334; }
+.mc-dmp-party-cell.mc-sel { border-color: #4a4334; }
+.mc-dmp-party-cell.mc-sel img { box-shadow: 0 0 0 3px #c8a44d, 0 0 7px rgba(200,164,77,.5); }
 .mc-dmp-party-cell.mc-bad { border-color: #d06060; box-shadow: 0 0 0 1px #d06060 inset; background: linear-gradient(#2b1b1b, #231616); }
-.mc-dmp-party-cell.mc-sel { border-color: #c8a44d; box-shadow: 0 0 0 2px #c8a44d inset; }
 .mc-dmp-party-cell.mc-stack { border-color: #d06060; }
+/* Empty squares are inert unless a token is picked up — no pointer, no tap feedback. */
+.mc-dmp-party-cell:disabled { cursor: default; }
 .mc-dmp-party-badge { position: absolute; top: 2px; right: 3px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: #d06060; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 .mc-dmp-party-lock { position: absolute; top: 3px; right: 4px; font-size: 9px; color: #c8a44d; }
 .mc-dmp-party-hint { text-align: center; font-size: 11px; color: #c8a44d; margin: 2px 0; min-height: 1.1em; }
 .mc-dmp-party-btns { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
-.mc-dmp-party-btns button { height: 34px; border-radius: 8px; border: 1px solid #4a4334; background: #2c2733; color: #ece5d6; cursor: pointer; }
-.mc-dmp-party-btns button:hover { background: #36303f; }
+/* Secondary buttons match the shell's .mc-btn (Check) look — cool neutral card
+   (DM 2026-07-10, was warm #2c2733). */
+.mc-dmp-party-btns button { height: 34px; border-radius: 8px; border: 1px solid #3a3e4c; background: #2a2d38; color: #ece5d6; cursor: pointer;
+  box-shadow: 0 3px 6px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.05); }
+.mc-dmp-party-btns button:hover { background: #333743; }
 .mc-dmp-party-btns [data-party="rotl"], .mc-dmp-party-btns [data-party="rotr"] { flex: 0 0 38px; }
 .mc-dmp-party-btns [data-party="stage"] { flex: 1 1 auto; font-weight: 700; white-space: nowrap; }
 .mc-dmp-party-head { cursor: pointer; user-select: none; }
 .mc-dmp-party-head:hover { color: #c8a44d; }
-.mc-dmp-party-deploy { flex: 1 1 auto; font-weight: 800; color: #1a1712 !important; background: linear-gradient(#c8a44d, #b98a1e) !important; border-color: #c8a44d !important; }
+/* Primary buttons (Form up / Start the night / Disperse) now the shell's Save-blue
+   .mc-btn.mc-save look instead of the gold gradient (DM 2026-07-10 "I want the
+   button in the main screen too"). The .mc-warn danger variant stays red below. */
+.mc-dmp-party-deploy { flex: 1 1 auto; font-weight: 700; color: #ece5d6 !important; background: #243042 !important; border-color: #2f4660 !important; }
+.mc-dmp-party-deploy:active { background: #2d3d52 !important; border-color: #c8a44d !important; }
 /* Stale group: the scene's PCs aren't all members → offer a rebuild beside Form up. */
-.mc-dmp-party-rebuild { flex: 0 0 38px; color: #d8b45a !important; }
+.mc-dmp-party-rebuild { flex: 0 0 38px; color: #ece5d6 !important; }
 .mc-dmp-party-rebuild:hover { border-color: #c8a44d !important; }
 /* Membership checklist (the "slow flow"): one row per candidate in the DialogV2.
    Rows are full-width tap targets — the label toggles the checkbox. */
@@ -3179,7 +3266,42 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   flex: 0 0 auto; align-self: center; padding: 5px 9px; border-radius: 7px; font-size: 11px; font-weight: 700;
   color: #1a1712; background: linear-gradient(#c8a44d, #b98a1e); border: 1px solid #c8a44d; white-space: nowrap;
 }
-.mc-dmp-preflight-run { width: 100%; margin-top: 4px; padding: 7px; border-radius: 8px; font-weight: 700; }
+/* Preflight rows scroll in their own region so the box keeps the panel's height;
+   the run/setup buttons stay PINNED below in a footer (DM 2026-07-10). The list
+   flexes to fill and scrolls; the footer never shrinks. */
+/* Nudge the scrollbar off the row content and into the middle of the right gutter:
+   -4 margin pulls the list 4px further right (scrollbar ~6px from the border, was
+   10) and 6px padding insets the rows so they don't butt the scrollbar — ~6px each
+   side, so it reads centered in the visual padding (DM 2026-07-10). */
+.mc-dmp-pf-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; margin-right: -4px; padding-right: 6px; }
+.mc-dmp-pf-foot { flex: 0 0 auto; display: flex; gap: 6px; padding-top: 8px; margin-top: 2px; border-top: 1px solid #333743; }
+/* Footer buttons REUSE the shell's .mc-btn / .mc-btn.mc-save — the phone's Check
+   (secondary) / Save (primary) buttons — so they share identical look & feel and
+   stay in sync (DM 2026-07-10). Our class only adds layout: icon centering + an
+   ellipsis for the long "Run again" label. .mc-btn supplies flex:1/padding/
+   colours/shadow; the primary gets .mc-save too. */
+.mc-dmp-preflight-run { display: flex; align-items: center; justify-content: center; gap: 6px;
+  min-width: 0; padding-left: 12px; padding-right: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Run again is the primary — give it the room; Setup is compact, just its content
+   (DM 2026-07-10). */
+.mc-dmp-pf-foot [data-preflight-run] { flex: 1 1 auto; }
+.mc-dmp-pf-foot [data-dm-wizard] { flex: 0 0 auto; }
+/* The phone scopes .mc-btn's raised look (44px, drop+inset shadow, save active
+   state) to #mobile-command-shell — the panel isn't in it, so mirror that here so
+   the reused Check/Save buttons feel identical (DM 2026-07-10). */
+#mc-dm-panel .mc-btn { min-height: 40px; box-shadow: 0 3px 6px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.05); }
+#mc-dm-panel .mc-btn.mc-save:active { background: #2d3d52; border-color: #c8a44d; }
+/* Unified button typography across the DM panel — ONE font/size/weight for every
+   text action button so the panel and flyout read as one system (DM 2026-07-10).
+   Icon-only buttons (tabs, camera, pause) are excluded so their glyph sizing is
+   untouched. */
+#mc-dm-panel .mc-btn,
+#mc-dm-panel .mc-dmp-party-deploy,
+#mc-dm-panel .mc-dmp-party-mini,
+#mc-dm-panel .mc-dmp-party-btns button,
+#mc-dm-panel .mc-dmp-combatbtns button {
+  font-family: "Signika", sans-serif; font-size: 13px; font-weight: 600;
+}
 .mc-dmp-pf-stamp { font-weight: 400; opacity: 0.6; font-size: 11px; }
 /* Reaction widget: non-modal chips in the DM panel. aoo = actionable (violet,
    fist fires the OA, x declines); window = passive "a player is deciding". */
@@ -3197,7 +3319,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   background: #2c2733; border: 1px solid #4a3f66; color: #b39df1;
 }
 .mc-dmp-react button:hover { border-color: #8a6fd8; background: #362f47; }
-.mc-dmp-party-deploy:hover { background: linear-gradient(#d4b35f, #c49a2e) !important; }
+.mc-dmp-party-deploy:hover { background: #2a3a52 !important; }
 .mc-dmp-party-deploy.mc-warn { color: #fff !important; background: linear-gradient(#c05555, #9c3d3d) !important; border-color: #d06060 !important; }
 /* Combat nudge: the packed group joined the tracker — a fight as a blob makes no
    sense, so pulse Disperse (nudge, never force; §15.2 decision 6). */
