@@ -1595,10 +1595,25 @@ body.mc-phone .mc-phone-dialog.reaction { border-top-color: #8a6fd8 !important; 
 body.mc-phone .mc-phone-dialog .window-header {
   background: var(--mc-panel-2) !important;
   border-bottom: 1px solid var(--mc-edge) !important;
+  align-items: center !important;   /* vertically centre the title in the header bar (DM 2026-07-11) */
+  flex-wrap: nowrap !important;      /* keep title + close on one row, don't drop the title low */
 }
 body.mc-phone .mc-phone-dialog .window-title {
   color: var(--mc-gold) !important; font-weight: 700;
   font-family: "Signika", sans-serif !important; /* app font, not the module's own */
+  align-self: center !important; margin-top: 0 !important; margin-bottom: 0 !important; line-height: 1.2 !important;
+}
+/* Scale-value advancement (e.g. "Max Pact Magic Spells: 3 → 4"): dnd5e prints the change
+   as an emoji arrow (U+27A1, blue on iOS). Swap it for a gold text arrow and centre the row
+   (DM 2026-07-11). The row div is the one directly holding .arrow. */
+body.mc-phone .mc-phone-dialog .advancement.flow div:has(> .arrow) {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+}
+body.mc-phone .mc-phone-dialog .advancement.flow .arrow {
+  font-size: 0 !important; line-height: 1; color: var(--mc-gold) !important;
+}
+body.mc-phone .mc-phone-dialog .advancement.flow .arrow::after {
+  content: "\2192"; font-size: 22px; /* → text arrow, not the emoji */
 }
 body.mc-phone .mc-phone-dialog .window-content {
   background: var(--mc-panel) !important;
