@@ -1738,17 +1738,23 @@ body.mc-phone .mc-phone-dialog.item-piles-merchant-sheet {
    players read items, they don't edit Details/Activities/Effects (DM 2026-07-10). Scoped
    to phone clients, so the DM (not a phone client) keeps the full tabbed sheet. Item Piles
    has no standalone .item class, so it's untouched. */
-body.mc-phone .mc-phone-dialog.sheet.item nav.tabs { display: none !important; }
-body.mc-phone .mc-phone-dialog.sheet.item section.tab[data-group="primary"]:not([data-tab="description"]) { display: none !important; }
-body.mc-phone .mc-phone-dialog.sheet.item section.tab[data-tab="description"] { display: flex !important; flex-direction: column !important; }
+/* EXCEPTION (DM 2026-07-11): item sheets that carry an Advancement tab — class, subclass,
+   background, species, feats-with-advancement — keep their FULL native tabbed sheet so the
+   player can read what each level grants (feats, skills, spells). Detected by the presence
+   of `section.advancement.tab`. The DM asked to return ALL tabs for these and trim later, so
+   these sheets are exempt from BOTH the tab-strip AND the edit-chrome strip below. */
+body.mc-phone .mc-phone-dialog.sheet.item:not(:has(section.advancement.tab)) nav.tabs { display: none !important; }
+body.mc-phone .mc-phone-dialog.sheet.item:not(:has(section.advancement.tab)) section.tab[data-group="primary"]:not([data-tab="description"]) { display: none !important; }
+body.mc-phone .mc-phone-dialog.sheet.item:not(:has(section.advancement.tab)) section.tab[data-tab="description"] { display: flex !important; flex-direction: column !important; }
 /* Item sheets on a phone (players): strip the edit chrome — the mode toggle (edit/play
    slider) + the sound/effects/AC header controls — leaving only the close X. Items are
    view-only for players; the deliberate create/name flow is a separate future feature
-   (DESIGN §7.6, DM 2026-07-10). Keeps the close (data-action=close / fa-xmark). */
-body.mc-phone .mc-phone-dialog.sheet.item slide-toggle { display: none !important; }
-body.mc-phone .mc-phone-dialog.sheet.item .window-header button:not([data-action="close"]):not(.fa-xmark),
-body.mc-phone .mc-phone-dialog.sheet.item .window-header a.header-control:not([data-action="close"]):not(.fa-xmark),
-body.mc-phone .mc-phone-dialog.sheet.item .window-header .header-control:not([data-action="close"]):not(.fa-xmark) {
+   (DESIGN §7.6, DM 2026-07-10). Keeps the close (data-action=close / fa-xmark). Skips the
+   advancement-bearing sheets (above) so their tabs + controls stay usable. */
+body.mc-phone .mc-phone-dialog.sheet.item:not(:has(section.advancement.tab)) slide-toggle { display: none !important; }
+body.mc-phone .mc-phone-dialog.sheet.item:not(:has(section.advancement.tab)) .window-header button:not([data-action="close"]):not(.fa-xmark),
+body.mc-phone .mc-phone-dialog.sheet.item:not(:has(section.advancement.tab)) .window-header a.header-control:not([data-action="close"]):not(.fa-xmark),
+body.mc-phone .mc-phone-dialog.sheet.item:not(:has(section.advancement.tab)) .window-header .header-control:not([data-action="close"]):not(.fa-xmark) {
   display: none !important;
 }
 
