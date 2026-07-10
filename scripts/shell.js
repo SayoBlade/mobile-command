@@ -1,5 +1,5 @@
 import { MODULE_ID } from "./preset.js";
-import { api as rpc, actorTokenSight, reportPresence } from "./rpc.js";
+import { api as rpc, actorTokenSight } from "./rpc.js";
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -230,7 +230,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #bioBusy = false;       // a biography save is in flight
   #searchOpen = false;    // magnifying-glass search drawer is open (Spells/Equipment/Actions)
   #searchQuery = "";      // live search text; filtered via DOM toggle (no re-render → keeps focus)
-  #newItemOpen = false;   // Equipment tab: the inline "+ New item" name field is open
   #wildShape = null;      // Druid shape browser: null | { open, beasts:null|[], loading }
   #summonConfig = null;   // summon options the player picks before the DM places: null | { uuid, name, slotOptions, slotId, profiles, profileId }
   #portraitGen = null;    // portrait generator screen: null | { actorId, mode:"portrait"|"body", freeText }
@@ -2002,18 +2001,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const occ = members.filter(m => { const cl = formation.cells?.[m.id]; return cl && cl.r === r && cl.c === c; });
     const mineHere = occ.find(m => mineIds.has(m.id));
 
-    // A click on one of MY tokens (re)selects it — or deselects if already selected.
-    // Empty/other cells: place the selected token there and KEEP it selected (sticky
-    // highlight) so the next click keeps moving it. No swap — clicking another of my
-    // tokens just switches the selection to it (2026-07-10).
-    if (mineHere) { this.#partySelf = mineHere.id === this.#partySelf ? null : mineHere.id; return this.render(); }
     if (!this.#partySelf) {
+      if (mineHere) { this.#partySelf = mineHere.id; return this.render(); } // pick up
       if (mine.length === 1) return this.#partyGridMove(group, mine[0].id, r, c);   // one-tap
       ui.notifications?.info("Tap one of your tokens first, then a square.");
       return;
     }
+    // carrying a token
+    if (mineHere?.id === this.#partySelf) { this.#partySelf = null; return this.render(); } // drop in place
+    // swap if another of MY tokens sits on the target
+    const other = occ.find(m => mineIds.has(m.id) && m.id !== this.#partySelf);
+    const selCell = formation.cells?.[this.#partySelf];
+    if (other && selCell) await this.#partyGridMove(group, other.id, selCell.r, selCell.c);
     await this.#partyGridMove(group, this.#partySelf, r, c);
-    this.render(); // #partySelf persists (sticky highlight)
+    this.#partySelf = null;
+    this.render();
   }
 
   // NOTE: #partyGridMove (grid-cell write), NOT #partyMove — that name is taken by
@@ -2723,36 +2725,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #searchToggleHTML() {
     return `<button class="mc-search-toggle ${this.#searchOpen ? "mc-on" : ""}" data-action="search-toggle" aria-label="Search" title="Search"><i class="fas fa-magnifying-glass"></i></button>`;
   }
-  // "+ New item" — a deliberate create/name flow for flavour items (DM 2026-07-10, DESIGN
-  // §7.6): a player picks up "a few crystal shards" and wants them in their bag, no mechanics.
-  // Only for an actor the player owns. It toggles an INLINE name field in the shell (not a
-  // popup — a bottom-sheet dialog fights the mobile keyboard: it hides under it, then jumps
-  // over it on focus; DM 2026-07-11). Mirrors the in-shell character-name rename.
-  #newItemBtnHTML() {
-    if (!this.actor?.isOwner) return "";
-    return `<button class="mc-eq-new ${this.#newItemOpen ? "mc-on" : ""}" data-action="new-item" aria-label="New item" title="Create a new item"><i class="fas fa-plus"></i></button>`;
-  }
-  // The inline name field, shown under the Equipment header while #newItemOpen. Enter (or
-  // blur with text) creates a blank "loot" item; Escape or an empty blur cancels.
-  #newItemInputHTML() {
-    if (!this.#newItemOpen || !this.actor?.isOwner) return "";
-    return `<div class="mc-newitem-row">
-      <input class="mc-newitem-input" type="text" placeholder="New item name…" autocomplete="off" enterkeyhint="done" spellcheck="false" aria-label="New item name">
-    </div>`;
-  }
-  // Create a blank "loot" item (quantity, no mechanics — the "few crystal shards" case). The
-  // player or DM can flesh it out later from a desktop; we never open the full item editor.
-  async #addFlavorItem(name) {
-    const actor = this.actor;
-    if (!actor?.isOwner || !name) return;
-    try {
-      await actor.createEmbeddedDocuments("Item", [{ name, type: "loot", system: { quantity: 1 } }]);
-      // The createItem hook re-renders the shell AND fires the "added to inventory" toast.
-    } catch (e) {
-      console.warn(`${MODULE_ID} | create flavour item failed`, e);
-      ui.notifications?.warn("Couldn't create the item.");
-    }
-  }
   #searchDrawerHTML() {
     if (!this.#searchOpen) return "";
     return `<div class="mc-search-drawer"><input class="mc-search-input" type="search" placeholder="Search…" value="${foundry.utils.escapeHTML(this.#searchQuery)}" aria-label="Search"></div>`;
@@ -2781,15 +2753,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const currency = this.#currencyHTML(actor);
     const enc = this.#encumbranceHTML(actor);
     if (!physical.length) {
-      return `<div class="mc-actions-head mc-eq-head"><span class="mc-section-label">Equipment</span>${this.#newItemBtnHTML()}</div>
-        ${this.#newItemInputHTML()}${currency}${enc}<div class="mc-placeholder">No items carried.</div>`;
+      return `<div class="mc-actions-head"><span class="mc-section-label">Equipment</span></div>
+        ${currency}${enc}<div class="mc-placeholder">No items carried.</div>`;
     }
     const sections = groups.filter(g => bucket[g.key].length).map(g => {
       const items = bucket[g.key].sort((a, b) => a.name.localeCompare(b.name));
       return `<div class="mc-search-group"><div class="mc-actions-sub">${g.label}</div><div class="mc-inv">${this.#inventoryItemsHTML(items)}</div></div>`;
     }).join("");
-    return `<div class="mc-actions-head mc-eq-head"><span class="mc-section-label">Equipment</span>${this.#carriedWeightHTML(actor)}${this.#newItemBtnHTML()}${this.#searchToggleHTML()}</div>
-      ${this.#newItemInputHTML()}${this.#searchDrawerHTML()}${currency}${enc}${sections}`;
+    return `<div class="mc-actions-head mc-eq-head"><span class="mc-section-label">Equipment</span>${this.#carriedWeightHTML(actor)}${this.#searchToggleHTML()}</div>
+      ${this.#searchDrawerHTML()}${currency}${enc}${sections}`;
   }
 
   // Carried weight (current / capacity) for the Equipment header — always shown, since dnd5e
@@ -4721,7 +4693,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "tab":
         this.#tab = el.dataset.tab;
         this.#searchOpen = false; this.#searchQuery = ""; // each tab's search starts closed/clear
-        this.#newItemOpen = false;                        // close the inline new-item field
         this.#bioOpen = false; this.#bioEditing = false;  // leave the biography overlay
         this.#abandonAction(); // leave the picker clean; cancel any held workflow
         return this.render();
@@ -4730,11 +4701,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         if (!this.#searchOpen) this.#searchQuery = "";
         this.render();
         if (this.#searchOpen) setTimeout(() => this.element?.querySelector(".mc-search-input")?.focus(), 0);
-        return;
-      case "new-item":
-        this.#newItemOpen = !this.#newItemOpen;
-        this.render();
-        if (this.#newItemOpen) setTimeout(() => this.element?.querySelector(".mc-newitem-input")?.focus(), 0);
         return;
       case "action-pick":
         return this.#pickAction(el.dataset.uuid);
@@ -5995,11 +5961,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (ev.key === "Enter") { ev.preventDefault(); ev.target.blur(); } // commit → #onChange
       return;
     }
-    if (ev.target.matches?.(".mc-newitem-input")) {
-      if (ev.key === "Enter") { ev.preventDefault(); ev.target.blur(); }        // commit → #onChange
-      else if (ev.key === "Escape") { this.#newItemOpen = false; this.render(); } // cancel
-      return;
-    }
     if (!ev.target.matches?.(".mc-stat-input")) return;
     if (ev.key === "Enter") { ev.preventDefault(); this.#applyStat(0); }
     else if (ev.key === "Escape") { this.#editingField = null; this.render(); }
@@ -6085,14 +6046,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     if (inp?.classList?.contains?.("mc-spellfilter-school") && this.#charGen) {
       (this.#charGen.spellFilter ??= {}).school = inp.value; return this.render();
-    }
-    // Inline "+ New item": commit on blur/Enter. Empty → just close the field.
-    if (inp?.classList?.contains?.("mc-newitem-input")) {
-      const name = (inp.value || "").trim();
-      this.#newItemOpen = false;
-      this.render();
-      if (name) this.#addFlavorItem(name);
-      return;
     }
     if (!inp?.classList?.contains?.("mc-coin-input")) return;
     const k = inp.dataset.coin;
@@ -6235,29 +6188,6 @@ let shellInstance = null;
 // thus excluded by the frame check.
 const SHELL_Z = 9999;
 
-// Guaranteed close affordance for a lifted popup: append a single top-right X wired to
-// app.close() (with an el.remove() fallback for the rare app that lacks close()). Idempotent
-// — skips if we've already added one. Native header closes are hidden in CSS so this is the
-// only X (DM 2026-07-10: "we still need an exit strategy for all popups").
-function ensureDialogClose(app, el) {
-  try {
-    if (el.querySelector(":scope > .mc-dialog-close")) return;
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "mc-dialog-close";
-    btn.setAttribute("aria-label", "Close");
-    btn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-    btn.addEventListener("click", (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      try {
-        if (typeof app?.close === "function") app.close();
-        else el.remove();
-      } catch (e) { try { el.remove(); } catch (_) { /* gone already */ } }
-    });
-    el.appendChild(btn);
-  } catch (e) { /* best effort — never let this throw and abort the lift */ }
-}
-
 function liftDialogAboveShell(app) {
   // Display (TV) clients have no shell, but still suppress the combat HUDs so the
   // shared map view stays clean (they pop on turn changes — DM-reported 2026-06-16).
@@ -6298,11 +6228,6 @@ function liftDialogAboveShell(app) {
   // bottom-sheet (CSS .mc-phone-dialog) — the native popups are tiny/unusable
   // on a phone. The dialog's own header X handles close.
   el.classList.add("mc-phone-dialog");
-  // UNIVERSAL EXIT (DM 2026-07-10): some sheets render no visible close of their own
-  // (a JournalEntrySheet reached from the level-up subclass link trapped a player). Inject
-  // ONE guaranteed X, wired to app.close(), on every lifted popup; native header closes are
-  // hidden in CSS so there's exactly one, always top-right. Re-runs each render (idempotent).
-  ensureDialogClose(app, el);
   // TyphonJS apps (Item Piles loot/merchant/trade) are draggable/resizable by their
   // header — on a phone that just knocks the pinned bottom-sheet out of place (DM
   // 2026-07-10: "I can drag the popup up and down"). `reactive.draggable/resizable`
@@ -6543,13 +6468,8 @@ export function registerShellHooks() {
   // refocus during combat so it catches up to the current turn. (A full state
   // re-fetch on socket reconnect is the larger §7.8 item.)
   document.addEventListener("visibilitychange", () => {
-    // Away-timer (§7.8): tell the DM panel whether this phone is backgrounded.
-    reportPresence(document.visibilityState === "hidden");
     if (document.visibilityState === "visible" && shellInstance?.rendered && game.combat?.started) {
       shellInstance.render();
     }
   });
-  // Report an initial "present" baseline once the socket is up, so a player who opens the
-  // app and never backgrounds is explicitly tracked as here.
-  Hooks.once("ready", () => setTimeout(() => reportPresence(document.visibilityState === "hidden"), 3000));
 }
