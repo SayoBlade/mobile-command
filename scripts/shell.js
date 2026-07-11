@@ -3751,10 +3751,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // sheet isn't "counting" actions when it doesn't matter (DM, 2026-06-18).
     if (!econ.inCombat) return null;
     const g = this.#econGroup(activity);
-    const labels = { action: "ACT", bonus: "BA", reaction: "RE", free: "FREE" };
-    if (!labels[g]) return null; // "other" (timed/rest) → no badge
-    // Free has no economy cost → always lit; the rest dim once used (in combat).
-    const on = g === "free" ? true : (!econ.inCombat || econ[g]);
+    // Every economy group carries a badge so a row is never left blank (visual consistency,
+    // DM 2026-07-11): timed/rest activations now read "OTR" (light gray) like the others.
+    const labels = { action: "ACT", bonus: "BA", reaction: "RE", free: "FREE", other: "OTR" };
+    if (!labels[g]) return null;
+    // Free / other have no economy cost → always lit; the rest dim once used (in combat).
+    const on = (g === "free" || g === "other") ? true : (!econ.inCombat || econ[g]);
     return { type: g, label: labels[g], on };
   }
 

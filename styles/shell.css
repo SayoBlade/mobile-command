@@ -2885,7 +2885,8 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-econ-bonus { --c: #6fcf7d; }    /* Bonus    — green  */
 .mc-econ-reaction { --c: #b58cf0; } /* Reaction — violet */
 .mc-econ-free { --c: #d9a441; }     /* Free     — amber  */
-.mc-actions-sub.mc-econ-other { color: var(--mc-muted); } /* Other — muted */
+.mc-econ-other { --c: #b8b2a6; }    /* Other    — light gray (OTR badge, DM 2026-07-11) */
+.mc-actions-sub.mc-econ-other { color: var(--mc-muted); } /* Other group header — muted */
 
 /* ACT / BA / RE availability strip on the Actions tab (combat only). */
 .mc-econ { display: flex; gap: 8px; margin: 0 0 12px; }
