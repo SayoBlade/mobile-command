@@ -2009,6 +2009,18 @@ async function maybeAutoLoot(actor) {
         texture: { src: tokenDoc.texture?.src, scaleX: tokenDoc.texture?.scaleX, scaleY: tokenDoc.texture?.scaleY }
       }
     });
+    // Mark the corpse DEAD so it reads as a body, not just a lootable pile (DM 2026-07-11):
+    // the Defeated/dead status as an OVERLAY draws the skull OVER the token without hiding it,
+    // and flagging the combatant Defeated shows it in the tracker too. Both best-effort.
+    try {
+      const deadId = CONFIG.specialStatusEffects?.DEFEATED ?? "dead";
+      const corpse = tokenDoc.actor;
+      if (corpse?.toggleStatusEffect && !corpse.statuses?.has?.(deadId)) {
+        await corpse.toggleStatusEffect(deadId, { active: true, overlay: true });
+      }
+      const cbt = game.combat?.combatants?.find(c => c.tokenId === tokenDoc.id);
+      if (cbt && !cbt.defeated) await cbt.update({ defeated: true });
+    } catch (e) { console.warn(`${MODULE_ID} | mark-dead failed`, e); }
     ui.notifications?.info(`${tokenDoc.name} is now lootable.`);
   } catch (e) {
     console.warn(`${MODULE_ID} | auto-loot failed`, e);
