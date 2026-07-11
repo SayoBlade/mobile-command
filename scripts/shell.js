@@ -6346,27 +6346,8 @@ function liftDialogAboveShell(app) {
   // bottom-sheet (CSS .mc-phone-dialog) — the native popups are tiny/unusable
   // on a phone. The dialog's own header X handles close.
   el.classList.add("mc-phone-dialog");
-  // Surgical exit (DM 2026-07-11): the SRD class/subclass reference JournalEntrySheet renders
-  // no visible close on a phone and traps the player ("it's specifically this type of journal
-  // that's the problem"). Give journal sheets — and ONLY journal sheets — a guaranteed top-right
-  // X wired to app.close(). We deliberately do NOT touch other popups: the broad v0.1.108
-  // "close on everything + hide native closes" broke the advancement manager's titles and was
-  // reverted. Idempotent (re-runs each render; skips if the X is already there).
-  const isJournal = /^JournalEntry/.test(app.document?.documentName ?? "")
-    || /Journal/.test(app.constructor?.name ?? "")
-    || el.classList.contains("journal-sheet") || el.classList.contains("journal-entry");
-  if (isJournal && !el.querySelector(":scope > .mc-dialog-close")) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "mc-dialog-close";
-    btn.setAttribute("aria-label", "Close");
-    btn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-    btn.addEventListener("click", (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      try { app.close(); } catch (e) { try { el.remove(); } catch (_) { /* gone */ } }
-    });
-    el.appendChild(btn);
-  }
+  // (Journal close X is handled by the dedicated ensureJournalClose hook, which runs even
+  // when this lift early-returns for a frameless reference journal — DM 2026-07-11.)
   // TyphonJS apps (Item Piles loot/merchant/trade) are draggable/resizable by their
   // header — on a phone that just knocks the pinned bottom-sheet out of place (DM
   // 2026-07-10: "I can drag the popup up and down"). `reactive.draggable/resizable`
@@ -6449,6 +6430,36 @@ export function registerShellHooks() {
   // (renderApplication) so no prompt (reactions, config) hides under the shell.
   Hooks.on("renderApplicationV2", liftDialogAboveShell);
   Hooks.on("renderApplication", liftDialogAboveShell);
+  // Guaranteed close X for journal sheets on a phone (DM 2026-07-11): the SRD class/subclass
+  // reference journal renders no visible close and traps the player. This runs on EVERY app
+  // render (independent of liftDialogAboveShell, which early-returns for a frameless journal
+  // before it could inject) — detects journals, self-styles the button, idempotent.
+  const ensureJournalClose = (app) => {
+    try {
+      if (!document.body.classList.contains("mc-phone")) return;
+      const el = app?.element instanceof HTMLElement ? app.element : app?.element?.[0];
+      if (!(el instanceof HTMLElement)) return;
+      const docName = app.document?.documentName ?? app.object?.documentName ?? "";
+      const isJournal = /^JournalEntry/.test(docName) || /Journal/.test(app.constructor?.name ?? "")
+        || el.classList.contains("journal-sheet") || el.classList.contains("journal-entry")
+        || el.classList.contains("journal-entry-page") || !!el.querySelector(".journal-entry-content, .journal-sheet, .pages");
+      if (!isJournal) return;
+      if (el.querySelector(":scope > .mc-journal-close")) return;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "mc-journal-close";
+      btn.setAttribute("aria-label", "Close");
+      btn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      btn.addEventListener("click", (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        try { app.close(); } catch (e) { try { el.remove(); } catch (_) { /* gone */ } }
+      });
+      if (getComputedStyle(el).position === "static") el.style.position = "relative";
+      el.appendChild(btn);
+    } catch (e) { /* best effort */ }
+  };
+  Hooks.on("renderApplicationV2", ensureJournalClose);
+  Hooks.on("renderApplication", ensureJournalClose);
   // Merchant wallet: swap IP's held-only currency bar for our all-denomination counter
   // (dnd5e coin icons) on render, and refresh it when the buyer's currency changes.
   Hooks.on("renderApplication", (app) => {
