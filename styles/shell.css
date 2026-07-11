@@ -2519,6 +2519,8 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-rt-usericon { flex: 0 0 auto; font-size: 16px; width: 18px; text-align: center; }
 .mc-rt-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-rt-dist { flex: 0 0 auto; font-size: 11px; color: #9a9da8; font-variant-numeric: tabular-nums; }
+.mc-rt-dist.mc-in { color: #6fcf7d; }   /* within the anchor's weapon range */
+.mc-rt-dist.mc-out { color: #d68b7f; }  /* out of range */
 .mc-rt-tick { flex: 0 0 auto; color: #c8a44d; opacity: .22; width: 15px; text-align: center; }
 .mc-dmp-rt-row.mc-on { border-color: #c8a44d; background: #221f16; }
 .mc-dmp-rt-row.mc-on .mc-rt-tick { opacity: 1; }

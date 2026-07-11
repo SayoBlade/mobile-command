@@ -52,6 +52,22 @@ function gridDist(from, to) {
     return canvas.grid.measurePath([from.center, to.center])?.distance ?? null;
   } catch (e) { return null; }
 }
+// The anchor token's longest attack range — max over its equipped weapons of (melee reach,
+// ranged long/normal). A simple in-range hint for the DM's attack targeting (no LoS/cover).
+// Null = the anchor has no weapons (→ show distance only). DM 2026-07-12.
+function anchorRange(anchor) {
+  const actor = anchor?.actor;
+  if (!actor) return null;
+  let max = 0;
+  for (const it of actor.items ?? []) {
+    if (it.type !== "weapon" || it.system?.equipped === false) continue; // NPCs often omit `equipped`
+    const r = it.system?.range ?? {};
+    const melee = Number(r.reach) || 5;
+    const ranged = Number(r.long) || Number(r.value) || 0;
+    max = Math.max(max, melee, ranged);
+  }
+  return max || null;
+}
 
 function tabRailHTML() {
   const tab = (id, icon, title, show = true, badge = 0) => show ? `<button class="mc-dmp-tab ${dockTab === id ? "mc-on" : ""}" data-dock="${id}" title="${title}" aria-label="${title}"><i class="fas ${icon}"></i>${badge ? `<span class="mc-dmp-tab-badge">${badge}</span>` : ""}</button>` : "";
@@ -96,6 +112,7 @@ function rollsToolHTML() {
   // without hover+T) AND toggles it into the roll — one control for "who rolls" + targeting.
   const anchor = dmAnchorToken();
   const units = canvas.scene?.grid?.units || "ft";
+  const reach = anchorRange(anchor); // the anchor's longest weapon range, for the in-range hint
   const enriched = cands.map(c => {
     const tok = tokenForActor(c.actor);
     const dist = (anchor && tok) ? gridDist(anchor, tok) : null;
@@ -105,9 +122,12 @@ function rollsToolHTML() {
   const rows = enriched.map(c => {
     const on = rollTool.selected.has(c.actor.id);
     const targeted = !!c.tok?.targeted?.has?.(game.user);
-    const dist = c.dist == null ? "" : `<span class="mc-rt-dist">${Math.round(c.dist)} ${esc(units)}</span>`;
-    // A <button> row: colour-coded user icon, name, distance, and a target/roll tick.
-    return `<button class="mc-dmp-rt-row${on ? " mc-on" : ""}${targeted ? " mc-targeted" : ""}" data-rt-target="${c.actor.id}" title="Tap: target ${esc(c.actor.name)} + toggle for the roll">
+    // In range = within the anchor's longest weapon range (null when unknown → neutral).
+    const inRange = (c.dist != null && reach != null) ? c.dist <= reach : null;
+    const distCls = inRange === true ? " mc-in" : inRange === false ? " mc-out" : "";
+    const dist = c.dist == null ? "" : `<span class="mc-rt-dist${distCls}">${Math.round(c.dist)} ${esc(units)}</span>`;
+    // A <button> row: colour-coded user icon, name, distance (green in range / red out), tick.
+    return `<button class="mc-dmp-rt-row${on ? " mc-on" : ""}${targeted ? " mc-targeted" : ""}" data-rt-target="${c.actor.id}" title="Tap: target ${esc(c.actor.name)} + toggle for the roll${reach != null && c.dist != null ? ` (${inRange ? "in" : "out of"} range)` : ""}">
       <i class="fas fa-circle-user mc-rt-usericon" style="color:${colorFor(c.actor)}"></i>
       <span class="mc-rt-name">${esc(c.actor.name)}</span>
       ${dist}
