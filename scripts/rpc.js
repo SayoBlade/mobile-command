@@ -30,6 +30,27 @@ export function dismissCast(id) {
   return true;
 }
 
+// Away-timer presence (DESIGN §7.8): each phone reports foreground/background via
+// reportPresence(); every client stores the latest per user, but only the DM panel reads it.
+// `since` is stamped with the RECEIVER's clock when the hidden state flips, so elapsed "away"
+// time is skew-free (we don't trust the sender's timestamp).
+export const presenceState = new Map(); // userId -> { hidden: boolean, since: epoch-ms }
+function handlePresence({ userId, hidden } = {}) {
+  if (!userId) return;
+  const prev = presenceState.get(userId);
+  const since = (prev && prev.hidden === !!hidden) ? prev.since : Date.now();
+  presenceState.set(userId, { hidden: !!hidden, since });
+  Hooks.callAll("mobile-command.presence", { userId });
+}
+// Phone → others: report whether the app is backgrounded. GM (not tracked) and missing socket
+// are no-ops. Broadcast to others so whichever client runs the DM panel gets it.
+export function reportPresence(hidden) {
+  try {
+    if (game.user?.isGM || !socket) return;
+    socket.executeForOthers("presence", { userId: game.user.id, hidden: !!hidden });
+  } catch (e) { /* best effort */ }
+}
+
 let heartbeatTimer = null;
 
 export function initSocket() {
@@ -91,6 +112,10 @@ export function initSocket() {
   socket.register("aooPrompt", handleAoOPromptClient);
   socket.register("reactionPrompt", handleReactionPrompt); // reaction relay → owner's phone
   socket.register("damageTaken", handleDamageTaken); // incoming-damage relay → owner's phone
+  socket.register("presence", handlePresence); // away-timer: phones report fg/bg
+  // A player who disconnects clears their away state (read as gray/offline via u.active, not
+  // stale-red). Runs on every client; harmless where there's no DM panel.
+  Hooks.on("userConnected", (user, connected) => { if (!connected) presenceState.delete(user.id); });
   socket.register("heartbeat", handleHeartbeat);
   registerPartyAutoFacing(); // executor-gated inside the hook
   registerPlayerColorSync(); // executor repaints a player's token rings on colour change

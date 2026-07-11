@@ -1,4 +1,4 @@
-import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser } from "./rpc.js";
+import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState } from "./rpc.js";
 import { fireAoO } from "./aoo.js";
 import { MODULE_ID } from "./preset.js";
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
@@ -321,6 +321,14 @@ function cameraBarHTML() {
 /** Top status row: a pause toggle (the pause-guard freezes player actions) + a
  *  per-player presence light — green = present (on the active scene OR a canvasless
  *  phone), amber = a desktop client viewing a DIFFERENT scene, gray = offline. */
+// Compact "away for" readout: 45s, 2m, 1h12m.
+function fmtAway(secs) {
+  if (secs < 60) return `${secs}s`;
+  const m = Math.floor(secs / 60);
+  if (m < 60) return `${m}m`;
+  return `${Math.floor(m / 60)}h${m % 60}m`;
+}
+
 function statusHTML() {
   const esc = foundry.utils.escapeHTML;
   const paused = game.paused;
@@ -328,6 +336,10 @@ function statusHTML() {
   const showBtn = `<button class="mc-dmp-pause" data-action="show-players" title="Show the selected token's image on players' phones"><i class="fas fa-image"></i></button>`;
   const activeScene = game.scenes?.active?.id;
   const players = game.users.filter(u => !u.isGM);
+  // Away-timer threshold (§7.8): seconds a phone may stay backgrounded before its dot goes red.
+  let awayThreshold = 90;
+  try { awayThreshold = Number(game.settings.get(MODULE_ID, "awayThresholdSeconds")); } catch (e) { /* default */ }
+  if (!Number.isFinite(awayThreshold) || awayThreshold < 0) awayThreshold = 90;
   const chips = players.map(u => {
     // A phone client is canvasless (D2) so its viewedScene is null — that's "present
     // at the table via the shell", NOT "off on another scene". Only an active client
@@ -338,6 +350,12 @@ function statusHTML() {
     else if (u.viewedScene === activeScene) { cls = "mc-on"; state = "on the active scene"; }
     else if (u.viewedScene == null) { cls = "mc-on"; state = "connected (phone)"; }
     else { cls = "mc-amber"; state = "connected — on a different scene"; }
+    // Red escalation: a CONNECTED player whose app has been backgrounded ≥ the threshold.
+    const pres = presenceState.get(u.id);
+    if (u.active && pres?.hidden) {
+      const secs = Math.max(0, Math.floor((Date.now() - pres.since) / 1000));
+      if (secs >= awayThreshold) { cls = "mc-red"; state = `away ${fmtAway(secs)}`; }
+    }
     return `<span class="mc-dmp-pres ${cls}" title="${esc(playerLabel(u))} — ${state}"><i class="fas fa-circle"></i> ${esc(playerLabel(u))}</span>`;
   }).join("") || `<span class="mc-dmp-pres mc-off">No players</span>`;
   return `<div class="mc-dmp-status">${pauseBtn}${showBtn}<div class="mc-dmp-pres-row">${chips}</div></div>`;
@@ -1252,6 +1270,17 @@ export function registerDMPanel() {
   Hooks.on("updateScene", (_s, ch) => { if ("active" in ch) render(); }); // split-party chips follow activation
   Hooks.on("userConnected", () => render());                       // presence: connect/disconnect
   Hooks.on("updateUser", () => render());                          // presence: a player changed scene (viewedScene)
+  Hooks.on("mobile-command.presence", () => render());             // away-timer: a phone reported fg/bg
+  // Away-timer tick: the red escalation crosses the threshold with no event to fire it, so
+  // while any player is backgrounded, re-render every 5s to update "away Ns" and flip to red.
+  // Idle (nobody backgrounded) → no timer runs.
+  let awayTimer = null;
+  const awayTick = () => {
+    const anyHidden = [...presenceState.values()].some(p => p?.hidden);
+    if (anyHidden && !awayTimer) awayTimer = setInterval(() => { render(); awayTick(); }, 5000);
+    else if (!anyHidden && awayTimer) { clearInterval(awayTimer); awayTimer = null; }
+  };
+  Hooks.on("mobile-command.presence", awayTick);
   Hooks.on("mobile-command.dmReaction", (entry) => {               // reaction widget chips (aoo.js + rpc.js)
     // A multi-token summon (pack of wolves) creates one token per creature —
     // one chip per (summoned actor, player) is enough; the grant covers them all.

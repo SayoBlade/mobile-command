@@ -218,6 +218,17 @@ export function registerSettings() {
     default: false
   });
 
+  // Away-timer escalation (DESIGN §7.8): flip a player's presence dot to RED once their phone
+  // has been backgrounded/away longer than this many seconds. 0 = escalate immediately.
+  game.settings.register(MODULE_ID, "awayThresholdSeconds", {
+    name: "Away alert: seconds before a player reads as “away”",
+    hint: "If a player backgrounds the app (or their phone sleeps) for longer than this many seconds during play, their presence dot on the DM panel turns red. Default 90. Set 0 to flag them the moment they leave the app.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 90
+  });
+
   // Comprehensive snapshots so the module's changes can be reverted/reactivated
   // (Foundry won't revert them on disable). presetBackup = original pre-module state;
   // reactivateSnapshot = the module-active state captured when you revert.

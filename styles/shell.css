@@ -2546,6 +2546,10 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-dmp-pres.mc-amber i { color: #d6a93e; }
 .mc-dmp-pres.mc-off { color: #8a8478; }
 .mc-dmp-pres.mc-off i { color: #6a6458; }
+/* Away-timer escalation (§7.8): backgrounded past the threshold → red pulsing dot + label. */
+.mc-dmp-pres.mc-red { color: #f0a19a; }
+.mc-dmp-pres.mc-red i { color: #e2584a; animation: mc-away-pulse 1.6s ease-in-out infinite; }
+@keyframes mc-away-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 /* Combat control strip. */
 .mc-dmp-combat { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
 .mc-dmp-turn { font-size: 12px; font-weight: 700; color: #c8a44d; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }

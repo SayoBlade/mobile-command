@@ -1,5 +1,5 @@
 import { MODULE_ID } from "./preset.js";
-import { api as rpc, actorTokenSight } from "./rpc.js";
+import { api as rpc, actorTokenSight, reportPresence } from "./rpc.js";
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -6664,8 +6664,12 @@ export function registerShellHooks() {
   // refocus during combat so it catches up to the current turn. (A full state
   // re-fetch on socket reconnect is the larger §7.8 item.)
   document.addEventListener("visibilitychange", () => {
+    // Away-timer (§7.8): tell the DM panel whether this phone is backgrounded.
+    reportPresence(document.visibilityState === "hidden");
     if (document.visibilityState === "visible" && shellInstance?.rendered && game.combat?.started) {
       shellInstance.render();
     }
   });
+  // Report an initial "present" baseline once the socket is up.
+  Hooks.once("ready", () => setTimeout(() => reportPresence(document.visibilityState === "hidden"), 3000));
 }
