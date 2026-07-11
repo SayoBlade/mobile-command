@@ -1593,7 +1593,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const btns = (r.reactions ?? []).map(rx =>
       `<button class="mc-save-roll mc-react-opt" data-action="reaction-pick" data-uuid="${rx.uuid}" data-self="${rx.selfTarget ? "1" : ""}">
         <img class="mc-react-img" src="${rx.img}" alt="">
-        <span>${foundry.utils.escapeHTML(rx.itemName && rx.itemName !== rx.name ? `${rx.itemName}: ${rx.name}` : (rx.itemName || rx.name))}</span>
+        <span>${foundry.utils.escapeHTML(rx.itemName && rx.itemName !== rx.name ? `${rx.itemName}: ${this.#stripMidi(rx.name)}` : (rx.itemName || this.#stripMidi(rx.name)))}</span>
       </button>`).join("");
     return `<div class="mc-saveprompt mc-reaction">
       <div class="mc-saveprompt-bar">
@@ -3046,7 +3046,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       return `<button class="mc-action" data-action="action-pick" data-uuid="${a.uuid}">
         <img class="mc-action-icon" src="${a.item?.img || item.img}" alt="">
         <span class="mc-action-text">
-          <span class="mc-action-name">${foundry.utils.escapeHTML(a.name ?? a.type)}</span>
+          <span class="mc-action-name">${foundry.utils.escapeHTML(this.#stripMidi(a.name ?? a.type))}</span>
           <span class="mc-action-sub">${foundry.utils.escapeHTML(item.name)}</span>
         </span>
         ${right}
@@ -3845,8 +3845,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return `<span class="mc-pips-num ${(u.value ?? 0) === 0 ? "mc-spent" : ""}">${u.value ?? 0}/${u.max}</span>`;
   }
 
+  // Hide the word "midi" from activity-derived labels — players were confused by
+  // "Midi Use" / "Midi Attack" (DM 2026-07-11). Falls back to the original if stripping
+  // would leave nothing.
+  #stripMidi(s) {
+    const cleaned = String(s ?? "").replace(/\bmidi[\s-]*/gi, "").trim();
+    return cleaned || String(s ?? "");
+  }
   #actionRowHTML(a, actor, editing) {
-    const sub = a.item.name === a.name ? a.type : a.name;
+    const sub = this.#stripMidi(a.item.name === a.name ? a.type : a.name);
     const icon = a.item.img || a.img || "icons/svg/upgrade.svg";
     const favId = `${a.item.getRelativeUUID(actor)}.Activity.${a.id}`;
     const isFav = actor.system.hasFavorite?.(favId) ?? false;
