@@ -2239,6 +2239,10 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-tokensw-count { font-size: 12px; font-weight: 600; color: var(--mc-ink-dim, #a59b86); }
 /* Right-side group on action rows: limited-use counter + favorite bookmark. */
 .mc-action-right { margin-left: auto; flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+/* Info-item cards (race/background/feat/feature on the Details tab) — a standard .mc-action
+   card with a muted "open" chevron on the right (DM 2026-07-11). */
+.mc-info-item .mc-info-chev { color: var(--mc-muted); font-size: 13px; opacity: .7; }
+.mc-info-item:active .mc-info-chev { color: var(--mc-gold); opacity: 1; }
 .mc-uses {
   font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums;
   color: var(--mc-gold); padding: 2px 7px; border-radius: 6px;

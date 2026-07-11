@@ -3055,6 +3055,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <div class="mc-actions">${rows}</div>`;
   }
 
+  // A standard "info item" card (race/species, background, feat, feature) — icon + name
+  // (+ optional subtitle), tap OR hold to open its description card. Same look + behaviour as
+  // the Actions/Equipment item rows, for a consistent design language (DM 2026-07-11).
+  #infoItemRowHTML(item, subtitle = "") {
+    const icon = item.img || "icons/svg/upgrade.svg";
+    return `<button class="mc-action mc-info-item" data-action="item-detail" data-item-id="${item.id}" title="Tap or hold to read">
+      <img class="mc-action-icon" src="${icon}" alt="">
+      <span class="mc-action-text">
+        <span class="mc-action-name">${foundry.utils.escapeHTML(item.name)}</span>
+        ${subtitle ? `<span class="mc-action-sub">${foundry.utils.escapeHTML(subtitle)}</span>` : ""}
+      </span>
+      <span class="mc-action-right"><i class="fas fa-chevron-right mc-info-chev"></i></span>
+    </button>`;
+  }
+
   // Details tab: read-only character info. Tooltips / long-press detail cards
   // are a later refinement (logged); proficiency/language labels are best-effort
   // raw keys for now.
@@ -3115,18 +3130,25 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const row = (k, v) => (v && v.length)
       ? `<div class="mc-detail-row"><span class="mc-detail-key">${k}</span><span class="mc-detail-val">${foundry.utils.escapeHTML(v.join(", "))}</span></div>`
       : "";
-    // Item-backed row: each value is long-pressable for the item's description
-    // (same #detailTargetFor → #showDetails path as inventory rows). Used for
-    // race/background, whose items carry real descriptions (DM: long-press "all
-    // the stuff in the character info area").
-    const itemRow = (k, items) => items.length
-      ? `<div class="mc-detail-row"><span class="mc-detail-key">${k}</span><span class="mc-detail-val">${items.map(i => `<span class="mc-detail-link" data-item-id="${i.id}">${foundry.utils.escapeHTML(i.name)}</span>`).join(", ")}</span></div>`
-      : "";
+    // Race/species, Background, and Feats/Features all render as standard item cards
+    // (icon + name, tap/hold to open) for a consistent design language (DM 2026-07-11).
     const raceItems = actor.items.filter(i => i.type === "race" || i.type === "species");
     const bgItems = actor.items.filter(i => i.type === "background");
     const featItems = actor.items.filter(i => i.type === "feat");
-    const featChips = featItems.length
-      ? `<div class="mc-section-label">Feats &amp; Features</div><div class="mc-feat-chips">${featItems.map(i => `<span class="mc-feat-chip" data-item-id="${i.id}">${foundry.utils.escapeHTML(i.name)}</span>`).join("")}</div>`
+    // Creature type (system.details.type) — carried as the species card's subtitle, or its
+    // own row when there's no species item.
+    const td = sys.details?.type ?? {};
+    const ctKey = td.value ?? "";
+    const ctBase = ctKey ? (CONFIG.DND5E?.creatureTypes?.[ctKey]?.label ?? (ctKey.titleCase?.() ?? ctKey)) : (td.custom || "");
+    const creatureType = ctBase ? `${ctBase}${td.subtype ? ` (${td.subtype})` : ""}` : "";
+    // Feature-type label (Class Feature, Feat, …) for a card subtitle when dnd5e provides one.
+    const featSub = (i) => { const t = i.system?.type?.value; return t ? (CONFIG.DND5E?.featureTypes?.[t]?.label ?? "") : ""; };
+    const bioCards = [
+      ...raceItems.map((i, n) => this.#infoItemRowHTML(i, (n === 0 && creatureType) ? creatureType : "Species")),
+      ...bgItems.map(i => this.#infoItemRowHTML(i, "Background"))
+    ].join("");
+    const featCards = featItems.length
+      ? `<div class="mc-section-label">Feats &amp; Features</div><div class="mc-actions">${featItems.map(i => this.#infoItemRowHTML(i, featSub(i))).join("")}</div>`
       : "";
     // Defenses, split into the dnd5e categories (DM 2026-06-19): resistances (dr),
     // damage immunities (di), condition immunities (ci — condition labels, not
@@ -3161,9 +3183,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <div class="mc-section-label">Skills</div>
       <div class="mc-skillrows">${skillRows}</div>
       ${toolsBlock}
+      <div class="mc-section-label">Character</div>
+      ${bioCards ? `<div class="mc-actions">${bioCards}</div>` : ""}
       <div class="mc-detail-sec">
-        ${itemRow("Race", raceItems)}
-        ${itemRow("Background", bgItems)}
+        ${!raceItems.length && creatureType ? row("Type", [creatureType]) : ""}
         ${row("Senses", senseList)}
       </div>
       <div class="mc-detail-sec">
@@ -3173,7 +3196,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ${row("Armor", traitLabels("traits.armorProf", "armorProf"))}
       </div>
       ${defenseSec}
-      ${featChips}
+      ${featCards}
       <div class="mc-detail-sec">
         <div class="mc-section-label">Theme</div>
         <div class="mc-theme-row">${this.#themeOptionsHTML()}</div>
@@ -4782,6 +4805,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return;
       case "action-pick":
         return this.#pickAction(el.dataset.uuid);
+      case "item-detail": {
+        const it = actor?.items.get(el.dataset.itemId);
+        if (it?.system) this.#showDetails(it);
+        return;
+      }
       case "fav-toggle":
         return this.#toggleFavorite(el.dataset.favid);
       case "fav-act": {
