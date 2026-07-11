@@ -1246,6 +1246,9 @@ body.mc-phone .item-piles-app .item-piles-item-list hr { display: none !importan
 }
 .mc-react-opt:active { background: #362e52; }
 .mc-react-img { width: 30px; height: 30px; border-radius: 6px; object-fit: cover; flex: 0 0 auto; }
+.mc-react-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-react-info { flex: 0 0 auto; width: 34px; display: flex; align-items: center; justify-content: center; color: #b39df1; opacity: .85; font-size: 17px; }
+.mc-react-info:active { opacity: 1; color: #d3c3ff; }
 .mc-event-chip.mc-event-reaction { border-color: #4a3f6e; background: #241f33; color: #c3b3ee; }
 
 /* ============================================================

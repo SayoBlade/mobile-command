@@ -1591,9 +1591,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!r) return "";
     const who = r.attackerName ? `from ${foundry.utils.escapeHTML(r.attackerName)}` : "";
     const btns = (r.reactions ?? []).map(rx =>
-      `<button class="mc-save-roll mc-react-opt" data-action="reaction-pick" data-uuid="${rx.uuid}" data-self="${rx.selfTarget ? "1" : ""}">
+      `<button class="mc-save-roll mc-react-opt" data-action="reaction-pick" data-uuid="${rx.uuid}" data-self="${rx.selfTarget ? "1" : ""}" title="Tap to react · ⓘ to read">
         <img class="mc-react-img" src="${rx.img}" alt="">
-        <span>${foundry.utils.escapeHTML(rx.itemName && rx.itemName !== rx.name ? `${rx.itemName}: ${this.#stripMidi(rx.name)}` : (rx.itemName || this.#stripMidi(rx.name)))}</span>
+        <span class="mc-react-label">${foundry.utils.escapeHTML(rx.itemName && rx.itemName !== rx.name ? `${rx.itemName}: ${this.#stripMidi(rx.name)}` : (rx.itemName || this.#stripMidi(rx.name)))}</span>
+        <span class="mc-react-info" data-action="reaction-info" data-uuid="${rx.uuid}" aria-label="What does this do?"><i class="fas fa-circle-info"></i></span>
       </button>`).join("");
     return `<div class="mc-saveprompt mc-reaction">
       <div class="mc-saveprompt-bar">
@@ -1601,35 +1602,30 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <button class="mc-saveprompt-x" data-action="reaction-dismiss" aria-label="Close"><i class="fas fa-xmark"></i></button>
       </div>
       <div class="mc-saveprompt-body">
+        <div class="mc-saveprompt-sub">Tap a reaction to use it · ⓘ to read what it does</div>
         <div class="mc-saveprompt-btns mc-react-btns">${btns}</div>
       </div>
     </div>`;
   }
 
-  // Fire the chosen reaction on the executor: the attacker is the target (unless the
-  // reaction is self-targeted, e.g. Shield), isReaction spends the reaction + slot, and midi
-  // rolls the damage + fans the reaction's own save to the attacker. Reuses the proven
-  // useActivity/handleItemUse path — same as a normal action, just pre-targeted.
-  async #useReaction(uuid, selfTarget) {
-    const r = this.#reactionPrompt;
+  // Fire the chosen reaction through the NORMAL cast flow — exactly like casting the spell
+  // from the Actions tab, and like the opportunity-attack prompt (aoo-attack). We pre-target
+  // the attacker via the assigned-targets path, then hand off to #pickAction, so the PLAYER
+  // rolls their own dice (the damage two-tap) and the reaction's own save (e.g. Hellish
+  // Rebuke's Dex save) relays to the TARGET's owner via the save relay. Auto-running a fixed
+  // flow instead (the old useActivity path) guessed wrong — it prompted the player to roll the
+  // target's save and never offered the damage roll (DM 2026-07-11). Letting midi/the normal
+  // flow drive means we don't reimplement what each of 200+ reactions needs.
+  #useReaction(uuid, selfTarget) {
     clearTimeout(this.#reactionTimer);
+    const r = this.#reactionPrompt;
     this.#reactionPrompt = null;
-    this.render();
-    if (!uuid) return;
-    const chosen = (r?.reactions ?? []).find(x => x.uuid === uuid);
-    const label = chosen ? (chosen.itemName || chosen.name) : "Reaction";
-    try {
-      const res = await rpc.useActivity({
-        activityUuid: uuid,
-        targetUuids: (selfTarget || !r?.attackerTokenUuid) ? [] : [r.attackerTokenUuid],
-        midiOptions: { isReaction: true, workflowOptions: { targetConfirmation: "none" } }
-      });
-      if (res?.ok === false) ui.notifications?.warn(`Reaction failed: ${res.reason ?? "unknown"}`);
-      else this.#pushEvent({ kind: "reaction", text: `Reacted: ${label}` });
-    } catch (e) {
-      console.warn(`${MODULE_ID} | useReaction failed`, e);
-      ui.notifications?.warn("Reaction failed.");
+    if (!uuid) return this.render();
+    if (!selfTarget && r?.attackerTokenUuid) {
+      this.#assignedTargets = [r.attackerTokenUuid];
+      this.#assignedBy = "Reaction";
     }
+    return this.#pickAction(uuid); // normal cast flow: player's rolls + save relay
   }
 
   // Opportunity-attack prompt (aoo.js watcher → this phone): an enemy is walking
@@ -5296,6 +5292,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#clearSavePrompt(); return this.render();
       case "reaction-pick":
         return this.#useReaction(el.dataset.uuid, el.dataset.self === "1");
+      case "reaction-info":
+        return this.#triggerDetail(el); // open the reaction's description card (same as long-press)
       case "reaction-dismiss":
         clearTimeout(this.#reactionTimer);
         this.#reactionPrompt = null; return this.render();
