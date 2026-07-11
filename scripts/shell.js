@@ -6507,31 +6507,12 @@ export function registerShellHooks() {
     if (inMyParty(actor)) shellInstance.maybeFollowRelease(actor);
     if (controlsActor(actor) || inMyParty(actor)) shellInstance.render();
   });
-  // Combat feedback (DM 2026-07-11): surface incoming damage on the controlled PC as a
-  // bottom event chip + transient popup. preUpdate still holds the pre-update HP; the delta
-  // (incl. temp HP) is the damage. Skips the player's OWN HP edits (userId === self) so
-  // tapping the HP editor doesn't read as damage. Runs on the phone (it owns the actor).
-  const hpBefore = new Map();
-  Hooks.on("preUpdateActor", (actor, changes) => {
-    if (!shellInstance || !foundry.utils.hasProperty(changes, "system.attributes.hp")) return;
-    const h = actor.system?.attributes?.hp;
-    hpBefore.set(actor.id, { hp: h?.value ?? 0, temp: h?.temp ?? 0 });
-  });
-  Hooks.on("updateActor", (actor, changes, options, userId) => {
-    const before = hpBefore.get(actor.id);
-    if (before === undefined) return;
-    hpBefore.delete(actor.id);
-    if (!shellInstance?.rendered || userId === game.user.id) return; // my own edit ≠ incoming damage
-    if (!controlsActor(actor)) return;
-    const inCombat = !!game.combat?.started && game.combat.combatants.some(c => c.actor?.id === actor.id);
-    if (!inCombat) return;
-    const h = actor.system?.attributes?.hp;
-    const dmg = (before.hp - (h?.value ?? 0)) + (before.temp - (h?.temp ?? 0));
-    if (dmg <= 0) return; // healing / temp gain
-    // Attacker = the current NPC combatant (their turn), when there is one.
-    const c = game.combat?.combatant;
-    const src = (c && c.actor && c.actor.id !== actor.id && c.actor.type !== "character") ? c.name : "";
-    shellInstance.noteDamage(dmg, src);
+  // Combat feedback (DM 2026-07-11): incoming damage on the controlled PC → bottom event chip
+  // + transient popup. Detection lives on the EXECUTOR (rpc.js registerDamageRelay) because
+  // preUpdateActor only fires on the client that APPLIES the damage, not on the phone; the
+  // executor relays "damageTaken" here. Gate to the currently-controlled actor.
+  Hooks.on("mobile-command.damageTaken", (p) => {
+    if (shellInstance?.rendered && p && shellInstance.actor?.id === p.actorId) shellInstance.noteDamage(p.amount, p.source);
   });
   Hooks.on("deleteCombat", () => shellInstance?.clearCombatEvents()); // combat over → clear the event chips
   // Pack deletes member tokens / creates the party token; deploy reverses it —

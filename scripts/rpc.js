@@ -90,11 +90,13 @@ export function initSocket() {
   socket.register("colorPick", handleColorPick);
   socket.register("aooPrompt", handleAoOPromptClient);
   socket.register("reactionPrompt", handleReactionPrompt); // reaction relay → owner's phone
+  socket.register("damageTaken", handleDamageTaken); // incoming-damage relay → owner's phone
   socket.register("heartbeat", handleHeartbeat);
   registerPartyAutoFacing(); // executor-gated inside the hook
   registerPlayerColorSync(); // executor repaints a player's token rings on colour change
   registerAutoLoot(); // executor turns dead NPCs into loot piles (opt-in, needs Item Piles)
   registerReactionRelay(); // executor relays midi reaction prompts to the owner's phone
+  registerDamageRelay(); // executor relays incoming PC damage to the owner's phone (combat chips)
   console.log(`${MODULE_ID} | socket registered`);
   return socket;
 }
@@ -246,6 +248,35 @@ export function registerReactionRelay() {
 function handleReactionPrompt(payload) {
   remoteState.reactionPrompt = payload;
   Hooks.callAll("mobile-command.reactionPrompt", payload);
+  return true;
+}
+
+// Incoming-damage relay (DM 2026-07-11): the combat-event chip/popup needs to know when the
+// controlled PC takes damage — but `preUpdateActor` only fires on the client that APPLIES the
+// damage (the executor/GM via midi), NOT on the phone. So compute the HP delta HERE (old from
+// the actor, new from the change) and relay it to the owner's phone. Combat only.
+export function registerDamageRelay() {
+  Hooks.on("preUpdateActor", (actor, changes) => {
+    try {
+      if (!isExecutor() || !socket) return;
+      if (!actor?.hasPlayerOwner) return;
+      if (!foundry.utils.hasProperty(changes, "system.attributes.hp")) return;
+      if (!game.combat?.started || !game.combat.combatants.some(c => c.actor?.id === actor.id)) return;
+      const oldH = actor.system?.attributes?.hp ?? {};
+      const newVal = foundry.utils.getProperty(changes, "system.attributes.hp.value");
+      const newTemp = foundry.utils.getProperty(changes, "system.attributes.hp.temp");
+      const dmg = ((oldH.value ?? 0) - (newVal ?? oldH.value ?? 0)) + ((oldH.temp ?? 0) - (newTemp ?? oldH.temp ?? 0));
+      if (dmg <= 0) return; // healing / temp gain
+      const c = game.combat?.combatant;
+      const src = (c && c.actor && c.actor.id !== actor.id && c.actor.type !== "character") ? c.name : "";
+      const owners = game.users.filter(u => u.active && !u.isGM && actor.testUserPermission(u, "OWNER"));
+      for (const u of owners) socket.executeAsUser("damageTaken", u.id, { actorId: actor.id, amount: dmg, source: src, ts: Date.now() });
+      console.debug(`${MODULE_ID} | damage relay`, { actor: actor.name, dmg, src, owners: owners.map(u => u.name) });
+    } catch (e) { console.warn(`${MODULE_ID} | damage relay failed`, e); }
+  });
+}
+function handleDamageTaken(payload) {
+  Hooks.callAll("mobile-command.damageTaken", payload);
   return true;
 }
 
