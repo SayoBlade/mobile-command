@@ -15,7 +15,8 @@ export const remoteState = {
   lastHeartbeat: null,
   assignedTargetUuids: [],
   savePrompt: null,
-  rollRequest: null
+  rollRequest: null,
+  reactionPrompt: null
 };
 
 // Executor-side state: area spells the phone has asked the DM to place (AoE push,
@@ -88,10 +89,12 @@ export function initSocket() {
   socket.register("requestColorPick", handleRequestColorPick);
   socket.register("colorPick", handleColorPick);
   socket.register("aooPrompt", handleAoOPromptClient);
+  socket.register("reactionPrompt", handleReactionPrompt); // reaction relay → owner's phone
   socket.register("heartbeat", handleHeartbeat);
   registerPartyAutoFacing(); // executor-gated inside the hook
   registerPlayerColorSync(); // executor repaints a player's token rings on colour change
   registerAutoLoot(); // executor turns dead NPCs into loot piles (opt-in, needs Item Piles)
+  registerReactionRelay(); // executor relays midi reaction prompts to the owner's phone
   console.log(`${MODULE_ID} | socket registered`);
   return socket;
 }
@@ -176,6 +179,61 @@ export function registerReactionNotifier() {
       });
     } catch (e) { /* awareness only — never disturb the workflow */ }
   });
+}
+
+// Reaction relay (DESIGN §9, DM 2026-07-11): midi's native reaction dialog is dispatched to
+// the OWNER's client (`executeAsUser("chooseReactions", …)`) and rendered there — dead on a
+// canvasless phone (Hellish Rebuke tapped, nothing happened). Mirror the save relay: on the
+// executor, catch midi's `midi-qol.ReactionFilter` (fires in `doReactions` BEFORE the socket
+// hop), relay the available reactions to the owner's phone as a tappable chooser, and RETURN
+// FALSE to suppress midi's native path. The phone's tap runs the reaction through the proven
+// `useActivity`/`handleItemUse` executor path with the attacker pre-targeted (so the reaction's
+// own save — e.g. Hellish Rebuke's Dex save — fans to the attacker) and `isReaction:true` (so
+// the reaction economy + slot are consumed). Post-hoc reactions (damage/hit responses) are the
+// target; pre-attack reactions (Shield) have timing caveats — see DESIGN.
+export function registerReactionRelay() {
+  Hooks.on("midi-qol.ReactionFilter", (reactions, options, triggerType, _reactionActivityList) => {
+    try {
+      if (!isExecutor() || !socket) return;
+      const list = Array.isArray(reactions) ? reactions : [];
+      const reactor = list[0]?.item?.actor ?? list[0]?.actor;
+      if (!reactor || !list.length) return;
+      // Which phone owns the reacting actor? Prefer midi's own resolver.
+      const owner = (typeof MidiQOL?.playerForActor === "function" ? MidiQOL.playerForActor(reactor) : null)
+        ?? game.users.find(u => u.active && !u.isGM && reactor.testUserPermission?.(u, "OWNER"));
+      if (!owner || owner.isGM || !owner.active) return; // GM/offline owner → leave midi's native path alone
+      const wf = options?.workflow;
+      const attackerTokenUuid = wf?.tokenUuid ?? wf?.token?.document?.uuid ?? wf?.token?.uuid ?? null;
+      const attackerName = wf?.token?.name ?? wf?.actor?.name ?? "";
+      const reactionsOut = list.map(a => ({
+        uuid: a.uuid,
+        name: a.name ?? a.actionName ?? "Reaction",
+        itemName: a.item?.name ?? "",
+        img: a.item?.img ?? a.img ?? "icons/svg/upgrade.svg",
+        selfTarget: (a.target?.affects?.type ?? a.item?.system?.target?.affects?.type) === "self"
+      }));
+      const timeout = MidiQOL?.configSettings?.().reactionTimeout ?? 30;
+      socket.executeAsUser("reactionPrompt", owner.id, {
+        reactorUuid: reactor.uuid,
+        attackerTokenUuid, attackerName,
+        triggerType: triggerType ?? "",
+        spellName: wf?.item?.name ?? "",
+        reactions: reactionsOut,
+        ttlMs: Math.max(5, timeout) * 1000,
+        ts: Date.now()
+      });
+      console.debug(`${MODULE_ID} | reaction relay → ${owner.name}`, { reactor: reactor.name, count: reactionsOut.length, triggerType });
+      return false; // suppress midi's native dialog; the phone chooser drives execution
+    } catch (e) {
+      console.warn(`${MODULE_ID} | reaction relay failed`, e);
+      // On error, DON'T return false — let midi fall back to its native path.
+    }
+  });
+}
+function handleReactionPrompt(payload) {
+  remoteState.reactionPrompt = payload;
+  Hooks.callAll("mobile-command.reactionPrompt", payload);
+  return true;
 }
 
 export function registerSaveRelay() {

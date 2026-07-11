@@ -1235,6 +1235,18 @@ body.mc-phone .item-piles-app .item-piles-item-list hr { display: none !importan
   background: var(--mc-crimson); border: 1px solid #7a2d27; color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;
 }
 .mc-save-roll:active { background: #b14a40; }
+/* Reaction chooser (§9): violet accent (matches the reaction economy), one button per
+   available reaction with its icon + name, stacked full-width. DM 2026-07-11. */
+.mc-saveprompt.mc-reaction { border-top-color: #8a6fd8; }
+.mc-saveprompt.mc-reaction .mc-saveprompt-title { color: #b39df1; }
+.mc-react-btns { flex-direction: column; }
+.mc-react-opt {
+  display: flex; align-items: center; gap: 10px; justify-content: flex-start;
+  background: #2a2440; border-color: #4a3f6e; text-align: left;
+}
+.mc-react-opt:active { background: #362e52; }
+.mc-react-img { width: 30px; height: 30px; border-radius: 6px; object-fit: cover; flex: 0 0 auto; }
+.mc-event-chip.mc-event-reaction { border-color: #4a3f6e; background: #241f33; color: #c3b3ee; }
 
 /* ============================================================
    Round-2 tweaks (2026-06-14): move pad into Explore, bigger/closer

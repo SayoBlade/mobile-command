@@ -189,6 +189,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #subjectActorId = null; // tokenless subject (a blank PC mid-creation, no token yet)
   #savePrompt = null;    // §7.4/§7.6 incoming save request relayed from the executor
   #savePromptTimer = null;
+  #reactionPrompt = null; // §9 incoming reaction chooser relayed from the executor
+  #reactionTimer = null;
   #deathSaveDismissed = false; // X'd the death-save panel (DM's call overrides; warnings-not-walls)
   #partyMoveNote = null;  // party-mode move pad: last wall/refusal readout
   #partyView = true;      // packed: party tab set (true) vs the normal PC sheet (false)
@@ -487,6 +489,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#imagePopupHTML(actor)}
       ${this.#sharedImageHTML()}
       ${this.#savePromptHTML()}
+      ${this.#reactionPromptHTML()}
       ${this.#rollRequestHTML()}
       ${this.#aooPromptHTML()}
       ${this.#colorPickOpen ? this.#colorPickHTML() : ""}
@@ -1566,6 +1569,67 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <div class="mc-saveprompt-btns">${btns}</div>
       </div>
     </div>`;
+  }
+
+  // Reaction chooser (§9): the executor relayed midi's reaction window here because midi's
+  // own dialog is dead on the canvasless phone. Each option fires that reaction on the
+  // executor (rpc.useActivity) with the attacker pre-targeted + isReaction — so the slot is
+  // spent, the damage rolls, and the reaction's own save fans to the attacker (DM 2026-07-11).
+  noteReactionPrompt(payload) {
+    clearTimeout(this.#reactionTimer);
+    this.#reactionPrompt = (payload?.reactions?.length ? payload : null);
+    if (this.#reactionPrompt) {
+      this.#sfx("prompt");
+      if (payload.ttlMs) {
+        this.#reactionTimer = setTimeout(() => { this.#reactionPrompt = null; if (this.rendered) this.render(); }, payload.ttlMs);
+      }
+    }
+    if (this.rendered) this.render();
+  }
+  #reactionPromptHTML() {
+    const r = this.#reactionPrompt;
+    if (!r) return "";
+    const who = r.attackerName ? `from ${foundry.utils.escapeHTML(r.attackerName)}` : "";
+    const btns = (r.reactions ?? []).map(rx =>
+      `<button class="mc-save-roll mc-react-opt" data-action="reaction-pick" data-uuid="${rx.uuid}" data-self="${rx.selfTarget ? "1" : ""}">
+        <img class="mc-react-img" src="${rx.img}" alt="">
+        <span>${foundry.utils.escapeHTML(rx.itemName && rx.itemName !== rx.name ? `${rx.itemName}: ${rx.name}` : (rx.itemName || rx.name))}</span>
+      </button>`).join("");
+    return `<div class="mc-saveprompt mc-reaction">
+      <div class="mc-saveprompt-bar">
+        <span class="mc-saveprompt-title"><i class="fas fa-bolt"></i> Reaction ${who}</span>
+        <button class="mc-saveprompt-x" data-action="reaction-dismiss" aria-label="Close"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="mc-saveprompt-body">
+        <div class="mc-saveprompt-btns mc-react-btns">${btns}</div>
+      </div>
+    </div>`;
+  }
+
+  // Fire the chosen reaction on the executor: the attacker is the target (unless the
+  // reaction is self-targeted, e.g. Shield), isReaction spends the reaction + slot, and midi
+  // rolls the damage + fans the reaction's own save to the attacker. Reuses the proven
+  // useActivity/handleItemUse path — same as a normal action, just pre-targeted.
+  async #useReaction(uuid, selfTarget) {
+    const r = this.#reactionPrompt;
+    clearTimeout(this.#reactionTimer);
+    this.#reactionPrompt = null;
+    this.render();
+    if (!uuid) return;
+    const chosen = (r?.reactions ?? []).find(x => x.uuid === uuid);
+    const label = chosen ? (chosen.itemName || chosen.name) : "Reaction";
+    try {
+      const res = await rpc.useActivity({
+        activityUuid: uuid,
+        targetUuids: (selfTarget || !r?.attackerTokenUuid) ? [] : [r.attackerTokenUuid],
+        midiOptions: { isReaction: true, workflowOptions: { targetConfirmation: "none" } }
+      });
+      if (res?.ok === false) ui.notifications?.warn(`Reaction failed: ${res.reason ?? "unknown"}`);
+      else this.#pushEvent({ kind: "reaction", text: `Reacted: ${label}` });
+    } catch (e) {
+      console.warn(`${MODULE_ID} | useReaction failed`, e);
+      ui.notifications?.warn("Reaction failed.");
+    }
   }
 
   // Opportunity-attack prompt (aoo.js watcher → this phone): an enemy is walking
@@ -5223,6 +5287,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#rollSavePrompt(el.dataset.ability); return;
       case "save-prompt-dismiss":
         this.#clearSavePrompt(); return this.render();
+      case "reaction-pick":
+        return this.#useReaction(el.dataset.uuid, el.dataset.self === "1");
+      case "reaction-dismiss":
+        clearTimeout(this.#reactionTimer);
+        this.#reactionPrompt = null; return this.render();
       case "short-rest":
         return this.#doRest("short");
       case "long-rest":
@@ -6218,6 +6287,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   _onClose(options) {
     this.#abandonAction(); // cancel any held workflow if the shell closes mid-flow
     clearTimeout(this.#toastTimer);
+    clearTimeout(this.#reactionTimer);
+    this.#reactionPrompt = null;
     this.#toastEl = null;
     this.#recentRolls = [];
     this.#combatEvents = [];
@@ -6503,6 +6574,7 @@ export function registerShellHooks() {
   // sessions), so a pick is a one-time thing the DM initiates from the Players tab.
   Hooks.on("mobile-command.colorPick", () => { if (shellInstance) { shellInstance.openColorPick(); } });
   Hooks.on("mobile-command.savePrompt", (payload) => shellInstance?.noteSavePrompt(payload));
+  Hooks.on("mobile-command.reactionPrompt", (payload) => shellInstance?.noteReactionPrompt(payload));
   Hooks.on("mobile-command.rollRequest", (payload) => shellInstance?.noteRollRequest(payload));
   Hooks.on("mobile-command.aooPrompt", (payload) => shellInstance?.noteAoOPrompt(payload));
   // "Show Players" image → the phone. The shell hides native windows, so Foundry's
