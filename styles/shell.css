@@ -510,6 +510,23 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 .mc-roll-pill.nat20 .mc-roll-pill-total { color: #6fcf7d; }
 .mc-roll-pill.nat1  .mc-roll-pill-total { color: #e2584a; }
 
+/* Combat-event chips (DM 2026-07-11): incoming damage + required saves, newest-first, just
+   above the roll strip. Damage = red-tinted, save = amber-tinted; newest is brighter. */
+.mc-event-strip {
+  display: flex; flex: 0 0 auto; gap: 8px;
+  padding: 8px 12px; background: #16171d; border-top: 1px solid #2c2f3a;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.mc-event-strip::-webkit-scrollbar { display: none; }
+.mc-event-chip {
+  flex: 0 0 auto; max-width: 72vw; padding: 6px 12px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border: 1px solid #313542; background: #20222b; color: #c9c3b8;
+}
+.mc-event-chip.mc-event-damage { border-color: #5c2f2c; background: #241a1a; color: #f0a097; }
+.mc-event-chip.mc-event-save   { border-color: #5c4a2c; background: #241f16; color: #e2c07a; }
+.mc-event-chip.mc-latest { box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+
 /* transient toast: floats above the strip, fades out, tap to dismiss */
 .mc-roll-toast {
   position: absolute;
@@ -547,6 +564,11 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 .mc-roll-toast.nat20 .mc-roll-toast-total { color: #6fcf7d; }
 .mc-roll-toast.nat1 { border-color: #5c2f2c; }
 .mc-roll-toast.nat1 .mc-roll-toast-total { color: #e2584a; }
+/* Combat-event toasts (damage taken / save required) — DM 2026-07-11. */
+.mc-roll-toast.mc-toast-damage { border-color: #7a3630; }
+.mc-roll-toast.mc-toast-damage .mc-roll-toast-total { color: #f0776a; }
+.mc-roll-toast.mc-toast-save { border-color: #7a5f30; }
+.mc-roll-toast.mc-toast-save .mc-roll-toast-total { color: #e2c07a; }
 .mc-roll-tag {
   display: inline-block; margin-top: 4px;
   padding: 2px 7px; border-radius: 8px;

@@ -18,6 +18,7 @@ const PB_BUDGET = 27;
 const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
 const ROLL_HISTORY_MAX = 6;   // recent-rolls strip cap (newest-first)
 const ROLL_TOAST_MS = 4500;   // transient roll toast lifetime (ms)
+const COMBAT_EVENT_MAX = 4;   // combat-event chip strip cap (damage taken / saves required)
 
 export function isPhoneClient() {
   const role = game.settings.get(MODULE_ID, "role");
@@ -172,6 +173,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   #tab = "sheet";
   #recentRolls = [];   // newest-first cache backing the recent-rolls strip
+  #combatEvents = [];  // newest-first combat events (damage taken, save required) → bottom chips
   #toastEl = null;     // transient roll toast; overlay node kept across re-renders
   #toastTimer = null;
   #actionState = null; // null = action list; object = target-pick/fire sub-view
@@ -477,6 +479,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#atZeroHP(actor) && this.#deathSaveDismissed
         ? `<button class="mc-death-reopen" data-action="death-reopen"><i class="fas fa-skull"></i> At 0 HP — death saves</button>` : ""}
       <main class="mc-content">${this.#tabContent(actor)}</main>
+      ${this.#eventStripHTML()}
       ${this.#rollStripHTML()}
       ${this.#initPromptHTML()}
       ${this.#turnHudHTML()}
@@ -4396,6 +4399,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   noteSavePrompt(payload) {
     clearTimeout(this.#savePromptTimer);
+    // Log the required save as a bottom event chip (the save-prompt card is the popup).
+    if (payload && this.#savePrompt?.actorUuid !== payload.actorUuid) {
+      const abil = payload.abilities?.[0];
+      const label = CONFIG.DND5E?.abilities?.[abil]?.label ?? (abil ? abil.toUpperCase() : "");
+      this.#pushEvent({ kind: "save", text: `${payload.dc ? `DC ${payload.dc} ` : ""}${label} save`.trim() });
+    }
     this.#savePrompt = payload || null;
     if (payload) this.#sfx("prompt"); // off-turn attention cue (§6: player is looking at the TV)
     if (payload?.ttlMs) {
@@ -6118,6 +6127,39 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return `<div class="mc-roll-strip"${this.#recentRolls.length ? "" : " hidden"}>${this.#stripPills()}</div>`;
   }
 
+  // Combat events (DM 2026-07-11): incoming damage + required saves surface as passive
+  // chips at the bottom ("12 damage from Goblin", "DC 15 Dexterity save"), newest-first.
+  // Damage also fires a transient popup (the save has its own prompt card). Cleared when
+  // combat ends and on close. Detection lives in registerShellHooks (preUpdate/updateActor).
+  #pushEvent(evt) {
+    this.#combatEvents.unshift({ id: foundry.utils.randomID(), ...evt });
+    if (this.#combatEvents.length > COMBAT_EVENT_MAX) this.#combatEvents.length = COMBAT_EVENT_MAX;
+    this.#refreshEvents();
+  }
+  noteDamage(amount, source) {
+    const text = source ? `${amount} damage from ${source}` : `${amount} damage`;
+    this.#pushEvent({ kind: "damage", text });
+    this.#showToast({ total: amount, label: source ? `Damage from ${source}` : "Damage taken", formula: "", outcome: "", kind: "damage" });
+  }
+  clearCombatEvents() {
+    if (!this.#combatEvents.length) return;
+    this.#combatEvents = [];
+    this.#refreshEvents();
+  }
+  #eventStripHTML() {
+    return `<div class="mc-event-strip"${this.#combatEvents.length ? "" : " hidden"}>${this.#eventChips()}</div>`;
+  }
+  #eventChips() {
+    return this.#combatEvents.map((e, i) => `
+      <span class="mc-event-chip mc-event-${e.kind} ${i === 0 ? "mc-latest" : ""}">${foundry.utils.escapeHTML(e.text)}</span>`).join("");
+  }
+  #refreshEvents() {
+    const strip = this.element?.querySelector(".mc-event-strip");
+    if (!strip) return;
+    strip.innerHTML = this.#eventChips();
+    strip.hidden = this.#combatEvents.length === 0;
+  }
+
   #stripPills() {
     return this.#recentRolls.map((r, i) => `
       <div class="mc-roll-pill ${r.outcome} ${i === 0 ? "mc-latest" : ""}">
@@ -6152,8 +6194,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const toast = this.#ensureToast();
     const tag = entry.outcome === "nat20" ? "Natural 20"
       : entry.outcome === "nat1" ? "Natural 1" : "";
-    toast.classList.remove("nat20", "nat1");
+    toast.classList.remove("nat20", "nat1", "mc-toast-damage", "mc-toast-save");
     if (entry.outcome) toast.classList.add(entry.outcome);
+    if (entry.kind === "damage") toast.classList.add("mc-toast-damage");
+    else if (entry.kind === "save") toast.classList.add("mc-toast-save");
     toast.innerHTML = `
       <div class="mc-roll-toast-total">${entry.total}</div>
       <div class="mc-roll-toast-meta">
@@ -6176,6 +6220,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     clearTimeout(this.#toastTimer);
     this.#toastEl = null;
     this.#recentRolls = [];
+    this.#combatEvents = [];
     super._onClose(options);
   }
 }
@@ -6380,6 +6425,33 @@ export function registerShellHooks() {
     if (inMyParty(actor)) shellInstance.maybeFollowRelease(actor);
     if (controlsActor(actor) || inMyParty(actor)) shellInstance.render();
   });
+  // Combat feedback (DM 2026-07-11): surface incoming damage on the controlled PC as a
+  // bottom event chip + transient popup. preUpdate still holds the pre-update HP; the delta
+  // (incl. temp HP) is the damage. Skips the player's OWN HP edits (userId === self) so
+  // tapping the HP editor doesn't read as damage. Runs on the phone (it owns the actor).
+  const hpBefore = new Map();
+  Hooks.on("preUpdateActor", (actor, changes) => {
+    if (!shellInstance || !foundry.utils.hasProperty(changes, "system.attributes.hp")) return;
+    const h = actor.system?.attributes?.hp;
+    hpBefore.set(actor.id, { hp: h?.value ?? 0, temp: h?.temp ?? 0 });
+  });
+  Hooks.on("updateActor", (actor, changes, options, userId) => {
+    const before = hpBefore.get(actor.id);
+    if (before === undefined) return;
+    hpBefore.delete(actor.id);
+    if (!shellInstance?.rendered || userId === game.user.id) return; // my own edit ≠ incoming damage
+    if (!controlsActor(actor)) return;
+    const inCombat = !!game.combat?.started && game.combat.combatants.some(c => c.actor?.id === actor.id);
+    if (!inCombat) return;
+    const h = actor.system?.attributes?.hp;
+    const dmg = (before.hp - (h?.value ?? 0)) + (before.temp - (h?.temp ?? 0));
+    if (dmg <= 0) return; // healing / temp gain
+    // Attacker = the current NPC combatant (their turn), when there is one.
+    const c = game.combat?.combatant;
+    const src = (c && c.actor && c.actor.id !== actor.id && c.actor.type !== "character") ? c.name : "";
+    shellInstance.noteDamage(dmg, src);
+  });
+  Hooks.on("deleteCombat", () => shellInstance?.clearCombatEvents()); // combat over → clear the event chips
   // Pack deletes member tokens / creates the party token; deploy reverses it —
   // either way our subject changes, so rebind and repaint.
   const onPartyToken = (tok) => {
