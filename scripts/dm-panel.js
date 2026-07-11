@@ -38,6 +38,21 @@ function rollTargets() {
   return arr;
 }
 
+// The token we measure distances FROM (DM 2026-07-11): the DM's selected token, else the
+// active combatant's — so during an NPC's turn the player list shows range from the attacker.
+function dmAnchorToken() {
+  return canvas.tokens?.controlled?.[0] ?? game.combat?.combatant?.token?.object ?? null;
+}
+function tokenForActor(actor) {
+  return canvas.tokens?.placeables.find(t => t.actor?.id === actor?.id) ?? null;
+}
+function gridDist(from, to) {
+  try {
+    if (!from || !to || from === to) return null;
+    return canvas.grid.measurePath([from.center, to.center])?.distance ?? null;
+  } catch (e) { return null; }
+}
+
 function tabRailHTML() {
   const tab = (id, icon, title, show = true, badge = 0) => show ? `<button class="mc-dmp-tab ${dockTab === id ? "mc-on" : ""}" data-dock="${id}" title="${title}" aria-label="${title}"><i class="fas ${icon}"></i>${badge ? `<span class="mc-dmp-tab-badge">${badge}</span>` : ""}</button>` : "";
   // When a flyout is open the rail rides its right edge (mc-open); else the panel's.
@@ -72,33 +87,40 @@ function rollsToolHTML() {
   const esc = foundry.utils.escapeHTML;
   const cands = rollTargets();
   if (rollTool.selected == null) rollTool.selected = new Set(cands.filter(c => c.preselect).map(c => c.actor.id));
-  const colorFor = (a) => { const u = game.users.find(u => !u.isGM && u.character?.id === a?.id) ?? game.users.find(u => !u.isGM && a?.testUserPermission?.(u, "OWNER")); return u?.color?.css ?? null; };
+  const colorFor = (a) => { const u = game.users.find(u => !u.isGM && u.character?.id === a?.id) ?? game.users.find(u => !u.isGM && a?.testUserPermission?.(u, "OWNER")); return u?.color?.css ?? "#c8a44d"; };
   const abilOpts = Object.entries(CONFIG.DND5E?.abilities ?? {}).map(([k, v]) =>
     `<option value="${k}" ${rollTool.ability === k ? "selected" : ""}>${esc((v.abbreviation ?? k).toUpperCase())}</option>`).join("");
-  const selCount = cands.filter(c => rollTool.selected.has(c.actor.id)).length;
-  const rows = cands.map(c => {
+  // Player-token button list (DM 2026-07-11): each row is a player-controlled token with a
+  // user icon in the player's colour + the distance from the DM's selected/attacking token,
+  // sorted closest-first. Tapping TARGETS that token on the canvas (so the DM can attack it
+  // without hover+T) AND toggles it into the roll — one control for "who rolls" + targeting.
+  const anchor = dmAnchorToken();
+  const units = canvas.scene?.grid?.units || "ft";
+  const enriched = cands.map(c => {
+    const tok = tokenForActor(c.actor);
+    const dist = (anchor && tok) ? gridDist(anchor, tok) : null;
+    return { ...c, tok, dist };
+  }).sort((a, b) => (a.dist ?? Infinity) - (b.dist ?? Infinity) || a.actor.name.localeCompare(b.actor.name));
+  const selCount = enriched.filter(c => rollTool.selected.has(c.actor.id)).length;
+  const rows = enriched.map(c => {
     const on = rollTool.selected.has(c.actor.id);
-    const col = c.grouped ? colorFor(c.actor) : null;
-    // A div-row (not a label+checkbox) — a native label double-fires through the
-    // delegated click handler and desyncs the selection. Toggled by class + Set.
-    return `<div class="mc-dmp-rt-row${on ? " mc-on" : ""}${c.grouped ? " mc-grouped" : ""}" data-rt-target="${c.actor.id}">
-      <i class="fas fa-check mc-rt-check"></i>
-      <span${col ? ` style="color:${col}"` : ""}>${esc(c.actor.name)}</span>
-      ${c.grouped ? `<i class="fas fa-people-group" title="In a group"></i>` : ""}
-    </div>`;
+    const targeted = !!c.tok?.targeted?.has?.(game.user);
+    const dist = c.dist == null ? "" : `<span class="mc-rt-dist">${Math.round(c.dist)} ${esc(units)}</span>`;
+    // A <button> row: colour-coded user icon, name, distance, and a target/roll tick.
+    return `<button class="mc-dmp-rt-row${on ? " mc-on" : ""}${targeted ? " mc-targeted" : ""}" data-rt-target="${c.actor.id}" title="Tap: target ${esc(c.actor.name)} + toggle for the roll">
+      <i class="fas fa-circle-user mc-rt-usericon" style="color:${colorFor(c.actor)}"></i>
+      <span class="mc-rt-name">${esc(c.actor.name)}</span>
+      ${dist}
+      <i class="fas fa-crosshairs mc-rt-tick"></i>
+    </button>`;
   }).join("");
-  // All three controls on one line; the target picker is a real dropdown that
-  // overflows the flyout frame (absolute overlay) — DM 2026-07-03.
   return `
     <div class="mc-dmp-rt-top">
       <select class="mc-rt-type" data-rt="type"><option value="save" ${rollTool.type === "save" ? "selected" : ""}>Save</option><option value="check" ${rollTool.type === "check" ? "selected" : ""}>Check</option></select>
       <select class="mc-rt-abil" data-rt="ability">${abilOpts}</select>
-      <div class="mc-rt-multi">
-        <button class="mc-dmp-rt-forbtn" data-rt-forbtn title="Choose who rolls"><i class="fas fa-users"></i> ${selCount} <i class="fas fa-chevron-${rollTool.targetsOpen ? "up" : "down"}"></i></button>
-        ${rollTool.targetsOpen ? `<div class="mc-dmp-rt-list">${rows || `<div class="mc-dmp-empty">No player tokens.</div>`}</div>` : ""}
-      </div>
     </div>
-    <button class="mc-dmp-rt-send" data-rt-send><i class="fas fa-paper-plane"></i> Request rolls</button>`;
+    <div class="mc-dmp-rt-scroll">${rows || `<div class="mc-dmp-empty">No player tokens.</div>`}</div>
+    <button class="mc-dmp-rt-send" data-rt-send${selCount ? "" : " disabled"}><i class="fas fa-paper-plane"></i> Request ${rollTool.type} from ${selCount}</button>`;
 }
 
 // Owned tokens (task #18): each non-GM, non-TV player's owned actors as draggable
@@ -1101,10 +1123,14 @@ async function onClick(ev) {
     return;
   }
   const rtT = ev.target.closest("[data-rt-target]");
-  if (rtT) { // toggle class + Set in place — no re-render (keeps list scroll)
+  if (rtT) {
     const id = rtT.dataset.rtTarget;
-    if (rollTool.selected?.has(id)) { rollTool.selected.delete(id); rtT.classList.remove("mc-on"); }
-    else { rollTool.selected?.add(id); rtT.classList.add("mc-on"); }
+    const nowOn = !rollTool.selected?.has(id);
+    if (nowOn) rollTool.selected?.add(id); else rollTool.selected?.delete(id);
+    // Also target the token on the canvas — visual confirmation + the DM's attack target.
+    const tok = canvas.tokens?.placeables.find(t => t.actor?.id === id);
+    if (tok) tok.setTarget(nowOn, { releaseOthers: false }); // → targetToken hook re-renders the list
+    else render(); // off-canvas actor (packed group member) → reflect the selection
     return;
   }
   if (ev.target.closest("[data-rt-send]")) return sendRolls();
@@ -1217,6 +1243,8 @@ export function registerDMPanel() {
   registerNightEncounterOffer(); // §17.4: ambush during a watch → offer Unconscious+Surprised
   Hooks.on("targetToken", () => render());
   Hooks.on("controlToken", () => render());                        // quick-HP: selection changed
+  // Keep the rolls-tab distances fresh as tokens move (only while that flyout is open).
+  Hooks.on("updateToken", (_t, ch) => { if (dockTab === "rolls" && ("x" in ch || "y" in ch)) render(); });
   Hooks.on("updateCombat", () => render());
   Hooks.on("deleteCombat", () => render());                        // combat ended → drop the strip
   Hooks.on("combatStart", () => render());

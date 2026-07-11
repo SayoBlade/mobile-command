@@ -2513,12 +2513,16 @@ body.mc-theme-arcane #mobile-command-shell {
 /* Packed main-area button — opens the Party order tab. */
 .mc-dmp-party-mini { width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 9px; background: #221f16; color: #c8a44d; border: 1px solid #6b5a2a; cursor: pointer; font-weight: 700; }
 .mc-dmp-rt-list { display: flex; flex-direction: column; gap: 3px; }
-.mc-dmp-rt-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; background: #1b202b; border: 1px solid #2f3640; cursor: pointer; font-size: 13px; }
-.mc-dmp-rt-row span { flex: 1 1 auto; }
-.mc-rt-check { color: #c8a44d; opacity: 0; width: 14px; }
-.mc-dmp-rt-row.mc-on { border-color: #c8a44d; }
-.mc-dmp-rt-row.mc-on .mc-rt-check { opacity: 1; }
-.mc-dmp-rt-row.mc-grouped { background: #221f16; }
+/* Inline scrollable player-token target list (DM 2026-07-11). */
+.mc-dmp-rt-scroll { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow-y: auto; padding: 2px; }
+.mc-dmp-rt-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 9px; border-radius: 8px; background: #1b202b; border: 1px solid #2f3640; cursor: pointer; font-size: 13px; color: #ece5d6; text-align: left; }
+.mc-rt-usericon { flex: 0 0 auto; font-size: 16px; width: 18px; text-align: center; }
+.mc-rt-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-rt-dist { flex: 0 0 auto; font-size: 11px; color: #9a9da8; font-variant-numeric: tabular-nums; }
+.mc-rt-tick { flex: 0 0 auto; color: #c8a44d; opacity: .22; width: 15px; text-align: center; }
+.mc-dmp-rt-row.mc-on { border-color: #c8a44d; background: #221f16; }
+.mc-dmp-rt-row.mc-on .mc-rt-tick { opacity: 1; }
+.mc-dmp-rt-row.mc-targeted { box-shadow: inset 0 0 0 1px #c8a44d; }
 .mc-dmp-rt-send { height: 40px; border-radius: 9px; font-weight: 800; color: #1a1712; background: linear-gradient(#c8a44d, #b98a1e); border: 1px solid #c8a44d; cursor: pointer; }
 .mc-dmp-empty { color: #a59b86; font-size: 12px; text-align: center; padding: 8px; }
 #mc-dm-panel.mc-show { display: block; }
