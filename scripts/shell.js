@@ -3135,12 +3135,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const raceItems = actor.items.filter(i => i.type === "race" || i.type === "species");
     const bgItems = actor.items.filter(i => i.type === "background");
     const featItems = actor.items.filter(i => i.type === "feat");
-    // Creature type (system.details.type) — carried as the species card's subtitle, or its
-    // own row when there's no species item.
+    // Creature type — carried as the species card's subtitle, or its own row when there's no
+    // species item. The actor's system.details.type is often empty on a PC (old/homebrew
+    // character), so fall back to the SPECIES ITEM's own type (dnd5e's RaceData defaults it to
+    // "humanoid"), which is populated whenever there's a species item.
     const td = sys.details?.type ?? {};
-    const ctKey = td.value ?? "";
-    const ctBase = ctKey ? (CONFIG.DND5E?.creatureTypes?.[ctKey]?.label ?? (ctKey.titleCase?.() ?? ctKey)) : (td.custom || "");
-    const creatureType = ctBase ? `${ctBase}${td.subtype ? ` (${td.subtype})` : ""}` : "";
+    const speciesType = raceItems[0]?.system?.type ?? {};
+    const ctKey = td.value || speciesType.value || "";
+    const ctBase = ctKey ? (CONFIG.DND5E?.creatureTypes?.[ctKey]?.label ?? (ctKey.titleCase?.() ?? ctKey)) : (td.custom || speciesType.custom || "");
+    const ctSub = td.subtype || speciesType.subtype || "";
+    const creatureType = ctBase ? `${ctBase}${ctSub ? ` (${ctSub})` : ""}` : "";
     // Feature-type label (Class Feature, Feat, …) for a card subtitle when dnd5e provides one.
     const featSub = (i) => { const t = i.system?.type?.value; return t ? (CONFIG.DND5E?.featureTypes?.[t]?.label ?? "") : ""; };
     const bioCards = [
