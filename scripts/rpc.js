@@ -192,16 +192,19 @@ export function registerReactionNotifier() {
 // the reaction economy + slot are consumed). Post-hoc reactions (damage/hit responses) are the
 // target; pre-attack reactions (Shield) have timing caveats — see DESIGN.
 export function registerReactionRelay() {
-  Hooks.on("midi-qol.ReactionFilter", (reactions, options, triggerType, _reactionActivityList) => {
+  Hooks.on("midi-qol.ReactionFilter", async (reactions, options, triggerType, _reactionActivityList) => {
     try {
       if (!isExecutor() || !socket) return;
       const list = Array.isArray(reactions) ? reactions : [];
       const reactor = list[0]?.item?.actor ?? list[0]?.actor;
-      if (!reactor || !list.length) return;
+      if (!reactor || !list.length) { console.debug(`${MODULE_ID} | reaction relay: no reactor/list`, { reactor: reactor?.name, count: list.length }); return; }
       // Which phone owns the reacting actor? Prefer midi's own resolver.
       const owner = (typeof MidiQOL?.playerForActor === "function" ? MidiQOL.playerForActor(reactor) : null)
         ?? game.users.find(u => u.active && !u.isGM && reactor.testUserPermission?.(u, "OWNER"));
-      if (!owner || owner.isGM || !owner.active) return; // GM/offline owner → leave midi's native path alone
+      if (!owner || owner.isGM || !owner.active) {
+        console.debug(`${MODULE_ID} | reaction relay: no active phone owner for ${reactor.name} — leaving midi's native path`, { owner: owner?.name, isGM: owner?.isGM, active: owner?.active });
+        return; // GM/offline owner → leave midi's native path alone
+      }
       const wf = options?.workflow;
       const attackerTokenUuid = wf?.tokenUuid ?? wf?.token?.document?.uuid ?? wf?.token?.uuid ?? null;
       const attackerName = wf?.token?.name ?? wf?.actor?.name ?? "";
@@ -213,17 +216,27 @@ export function registerReactionRelay() {
         selfTarget: (a.target?.affects?.type ?? a.item?.system?.target?.affects?.type) === "self"
       }));
       const timeout = MidiQOL?.configSettings?.().reactionTimeout ?? 30;
-      socket.executeAsUser("reactionPrompt", owner.id, {
-        reactorUuid: reactor.uuid,
-        attackerTokenUuid, attackerName,
-        triggerType: triggerType ?? "",
-        spellName: wf?.item?.name ?? "",
-        reactions: reactionsOut,
-        ttlMs: Math.max(5, timeout) * 1000,
-        ts: Date.now()
-      });
-      console.debug(`${MODULE_ID} | reaction relay → ${owner.name}`, { reactor: reactor.name, count: reactionsOut.length, triggerType });
-      return false; // suppress midi's native dialog; the phone chooser drives execution
+      console.debug(`${MODULE_ID} | reaction relay → ${owner.name}`, { reactor: reactor.name, count: reactionsOut.length, triggerType, attacker: attackerName });
+      // ONLY suppress midi's native dialog if the phone actually ACKNOWLEDGES the relay
+      // (handleReactionPrompt returns true). A stale/unreachable phone → executeAsUser
+      // rejects → we DON'T suppress → midi falls back to its native dialog. Prevents the
+      // "suppressed with nothing to show" dead end (DM 2026-07-11).
+      let delivered = false;
+      try {
+        delivered = await socket.executeAsUser("reactionPrompt", owner.id, {
+          reactorUuid: reactor.uuid,
+          attackerTokenUuid, attackerName,
+          triggerType: triggerType ?? "",
+          spellName: wf?.item?.name ?? "",
+          reactions: reactionsOut,
+          ttlMs: Math.max(5, timeout) * 1000,
+          ts: Date.now()
+        });
+      } catch (e) {
+        console.warn(`${MODULE_ID} | reaction relay: phone didn't ACK (stale/offline?) — falling back to midi native`, e);
+      }
+      if (delivered) return false; // phone rendered the chooser → suppress midi's dead dialog
+      // else: fall through → let midi try its native path (better a visible popup than nothing)
     } catch (e) {
       console.warn(`${MODULE_ID} | reaction relay failed`, e);
       // On error, DON'T return false — let midi fall back to its native path.
