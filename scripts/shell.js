@@ -191,6 +191,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #savePromptTimer = null;
   #reactionPrompt = null; // §9 incoming reaction chooser relayed from the executor
   #reactionTimer = null;
+  #reactionFiring = false; // transient: the next #pickAction is firing a reaction (→ isReaction)
   #deathSaveDismissed = false; // X'd the death-save panel (DM's call overrides; warnings-not-walls)
   #partyMoveNote = null;  // party-mode move pad: last wall/refusal readout
   #partyView = true;      // packed: party tab set (true) vs the normal PC sheet (false)
@@ -1626,6 +1627,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       this.#assignedTargets = [r.attackerTokenUuid];
       this.#assignedBy = "Reaction";
     }
+    this.#reactionFiring = true; // so #fireAction passes isReaction → midi consumes the reaction
     return this.#pickAction(uuid); // normal cast flow: player's rolls + save relay
   }
 
@@ -4071,6 +4073,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   async #pickAction(uuid) {
     this.#itemPickerId = null; // leaving any multi-activity picker
+    const isReaction = this.#reactionFiring; this.#reactionFiring = false; // consume the one-shot flag
     const activity = await fromUuid(uuid);
     if (!activity) {
       console.debug("mobile-command | pickAction: activity not found", { uuid });
@@ -4153,6 +4156,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // two-tap scan can't follow them — running to completion on the executor
       // applies the effect + consumes resources instead of orphaning a roll card.
       autoResolve: !["attack", "damage", "save", "heal"].includes(activity.type),
+      isReaction, // fired from the reaction chooser → tell midi to consume the reaction economy
       group: this.#econGroup(activity),
       candidates: selfTarget ? [] : null, selected: new Set(assigned), counts: {}, adv: "normal",
       assignedByDM: assigned.length ? this.#assignedBy : null,
@@ -4650,6 +4654,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // completion, applying the effect + consuming resources in one tap, instead of
     // orphaning an untrackable roll card (the cast/Staff-of-Healing footgun).
     if (s.autoResolve) { midiOptions.autoRollDamage = "always"; midiOptions.fastForwardDamage = true; }
+    if (s.isReaction) midiOptions.isReaction = true; // consume the reaction (economy correctness, §9)
     let res;
     try {
       // Multi-instance targets ride as DUPLICATE uuids (Magic Missile: [A, A, B] =
