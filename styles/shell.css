@@ -2709,6 +2709,21 @@ body.mc-theme-arcane #mobile-command-shell {
   background: transparent; border: 1px solid transparent; color: var(--mc-muted); font-size: 15px;
 }
 .mc-search-toggle.mc-on { color: var(--mc-gold); border-color: var(--mc-edge); background: var(--mc-panel); }
+/* "+ New item" in the Equipment header — mirrors the search toggle. margin-left:auto pins it
+   right when the carried-weight readout (which also claims the auto) is absent. */
+.mc-eq-new {
+  flex: 0 0 auto; margin-left: auto; width: 34px; height: 34px; border-radius: 8px;
+  background: transparent; border: 1px solid transparent; color: var(--mc-muted); font-size: 15px;
+}
+.mc-eq-new:hover, .mc-eq-new:active, .mc-eq-new.mc-on { color: var(--mc-gold); border-color: var(--mc-edge); background: var(--mc-panel); }
+/* Inline "+ New item" name field — matches the search input; no popup, so the mobile keyboard
+   behaves (DM 2026-07-11). Enter/blur commits, Escape cancels. */
+.mc-newitem-row { margin: 2px 0 10px; }
+.mc-newitem-input {
+  width: 100%; box-sizing: border-box; min-height: 42px;
+  padding: 9px 12px; border-radius: 10px; background: var(--mc-panel); border: 1px solid var(--mc-gold);
+  color: var(--mc-ink); font-family: inherit; font-size: 15px;
+}
 .mc-search-drawer { margin: 2px 0 10px; }
 .mc-search-input {
   width: 100%; box-sizing: border-box; min-height: 42px;
