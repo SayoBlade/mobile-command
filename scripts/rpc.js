@@ -2059,20 +2059,21 @@ async function maybeAutoLoot(actor) {
         texture: { src: tokenDoc.texture?.src, scaleX: tokenDoc.texture?.scaleX, scaleY: tokenDoc.texture?.scaleY }
       }
     });
-    // Dead marker: the RELIABLE path is flagging the combatant Defeated → Foundry draws the
-    // native skull overlay + tracker mark. (The status-effect overlay is flaky across configs
-    // and was the likely "not the dead icon" culprit — keep it only as a best-effort extra.)
-    // Then re-assert hidden:false in case a "dead → hide" automation re-hid it. Attacking a
-    // corpse is nonsensical, so it's also dropped from the attack picker (see isDeadCorpse).
+    // Dead marker + remove from combat (DM 2026-07-12: "when NPCs die, also remove them from
+    // combat" — a corpse doesn't need a turn). Apply the dead skull as an OVERLAY FIRST (it lives
+    // on the token, so it survives removal from the tracker — flagging the combatant Defeated
+    // would lose the skull when we delete the combatant), then DELETE the combatant. Re-assert
+    // hidden:false in case a "dead → hide" automation ran. Attacking a corpse is nonsensical, so
+    // it's also dropped from the attack picker (see isDeadCorpse).
     try {
-      const cbt = game.combat?.combatants?.find(c => c.tokenId === tokenDoc.id);
-      if (cbt && !cbt.defeated) await cbt.update({ defeated: true });
       const deadId = CONFIG.specialStatusEffects?.DEFEATED ?? "dead";
       if (tokenDoc.actor?.toggleStatusEffect && !tokenDoc.actor.statuses?.has?.(deadId)) {
         await tokenDoc.actor.toggleStatusEffect(deadId, { active: true, overlay: true });
       }
+      const cbt = game.combat?.combatants?.find(c => c.tokenId === tokenDoc.id);
+      if (cbt) await cbt.delete();
       if (tokenDoc.hidden) await tokenDoc.update({ hidden: false });
-    } catch (e) { console.warn(`${MODULE_ID} | mark-dead failed`, e); }
+    } catch (e) { console.warn(`${MODULE_ID} | mark-dead-remove failed`, e); }
     ui.notifications?.info(`${corpseName} is now lootable.`);
   } catch (e) {
     console.warn(`${MODULE_ID} | auto-loot failed`, e);
