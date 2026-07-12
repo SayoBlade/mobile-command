@@ -1,4 +1,4 @@
-import { MODULE_ID } from "./preset.js";
+import { MODULE_ID, DOWNTIME_ACTIVITIES, DOWNTIME_LABEL } from "./preset.js";
 import { api as rpc, actorTokenSight, reportPresence } from "./rpc.js";
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
@@ -236,6 +236,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #searchOpen = false;    // magnifying-glass search drawer is open (Spells/Equipment/Actions)
   #searchQuery = "";      // live search text; filtered via DOM toggle (no re-render → keeps focus)
   #newItemOpen = false;   // Equipment tab: the inline "+ New item" name field is open
+  #downtimeDraft = null;  // §17: this player's local downtime picks {locked, items:[...]}
+  #downtimeWindowId = null; // the windowId the draft was loaded for (reset on a new window)
   #wildShape = null;      // Druid shape browser: null | { open, beasts:null|[], loading }
   #summonConfig = null;   // summon options the player picks before the DM places: null | { uuid, name, slotOptions, slotId, profiles, profileId }
   #portraitGen = null;    // portrait generator screen: null | { actorId, mode:"portrait"|"body", freeText }
@@ -482,6 +484,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#diceTrayOpen ? this.#diceTrayHTML() : ""}
       ${this.#atZeroHP(actor) && this.#deathSaveDismissed
         ? `<button class="mc-death-reopen" data-action="death-reopen"><i class="fas fa-skull"></i> At 0 HP — death saves</button>` : ""}
+      ${this.#downtimeBoardHTML(actor)}
       <main class="mc-content">${this.#tabContent(actor)}</main>
       ${this.#eventStripHTML()}
       ${this.#rollStripHTML()}
@@ -2820,6 +2823,87 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #searchDrawerHTML() {
     if (!this.#searchOpen) return "";
     return `<div class="mc-search-drawer"><input class="mc-search-input" type="search" placeholder="Search…" value="${foundry.utils.escapeHTML(this.#searchQuery)}" aria-label="Search"></div>`;
+  }
+
+  // ── §17 Downtime (player side) ───────────────────────────────────────────
+  // The DM opens a window worth N days; the player spends day-points on catalog
+  // activities (or a free-text custom intent), writes what they're going for,
+  // then Locks in. DCs/prices are DM-only and never appear here. Picks relay to
+  // the executor (rpc.downtimePick) which writes the shared `downtime` setting.
+  #downtimeState() {
+    try { return game.settings.get(MODULE_ID, "downtime"); } catch { return null; }
+  }
+
+  // The player's working copy of their picks, initialised from the shared setting
+  // once per window (windowId). Blur-committed inputs mean re-renders never lose text.
+  #downtimeDraftFor(dt, actor) {
+    if (this.#downtimeWindowId !== dt.windowId) {
+      const saved = dt.picks?.[actor.id];
+      this.#downtimeDraft = saved ? foundry.utils.deepClone(saved) : { locked: false, items: [] };
+      this.#downtimeWindowId = dt.windowId;
+    }
+    if (!Array.isArray(this.#downtimeDraft.items)) this.#downtimeDraft.items = [];
+    return this.#downtimeDraft;
+  }
+
+  #sendDowntime(actor) {
+    rpc.downtimePick({ actorId: actor.id, entry: foundry.utils.deepClone(this.#downtimeDraft) })
+      .catch(err => console.warn("mobile-command | downtime pick relay failed", err));
+  }
+
+  #downtimeBoardHTML(actor) {
+    const dt = this.#downtimeState();
+    if (!dt?.open || !actor || actor.type !== "character") return "";
+    const draft = this.#downtimeDraftFor(dt, actor);
+    const items = draft.items;
+    const spent = items.reduce((n, i) => n + (Number(i.days) || 0), 0);
+    const left = dt.days - spent;
+    const esc = foundry.utils.escapeHTML;
+    const where = dt.place ? ` in ${esc(dt.place)}` : "";
+    const budget = `<span class="mc-dt-budget ${left < 0 ? "mc-over" : ""}">${spent}/${dt.days}d</span>`;
+
+    const rows = items.map((it, idx) => {
+      const icon = DOWNTIME_ACTIVITIES.find(a => a.key === it.kind)?.icon || "fa-feather";
+      const name = it.kind === "custom" ? "Custom" : (DOWNTIME_LABEL[it.kind] || it.kind);
+      const ph = it.kind === "custom" ? "Describe what you'll do…" : "What are you going for? (optional)";
+      return `<div class="mc-dt-row" data-idx="${idx}">
+        <div class="mc-dt-row-top">
+          <i class="fas ${icon}"></i><span class="mc-dt-name">${esc(name)}</span>
+          <div class="mc-dt-days">
+            <button class="mc-dt-step" data-action="dt-day" data-idx="${idx}" data-delta="-1" aria-label="Fewer days">−</button>
+            <span class="mc-dt-dayn">${Number(it.days) || 1}d</span>
+            <button class="mc-dt-step" data-action="dt-day" data-idx="${idx}" data-delta="1" aria-label="More days">+</button>
+          </div>
+          <button class="mc-dt-rm" data-action="dt-remove" data-idx="${idx}" aria-label="Remove">✕</button>
+        </div>
+        <input class="mc-dt-intent" data-idx="${idx}" type="text" placeholder="${ph}" value="${esc(it.intent || "")}">
+      </div>`;
+    }).join("");
+
+    if (draft.locked) {
+      const summary = items.length
+        ? items.map(it => `<div class="mc-dt-locked-row"><span class="mc-dt-dayn">${Number(it.days) || 1}d</span> ${esc(it.kind === "custom" ? (it.intent || "Custom") : DOWNTIME_LABEL[it.kind] || it.kind)}</div>`).join("")
+        : `<div class="mc-dt-empty">Nothing planned.</div>`;
+      return `<section class="mc-dt-board mc-locked">
+        <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime — ${dt.days} day${dt.days === 1 ? "" : "s"}${where} ${budget}</div>
+        <div class="mc-dt-lockednote"><i class="fas fa-lock"></i> Locked in — waiting for the DM.</div>
+        ${summary}
+        <button class="mc-dt-editbtn" data-action="dt-unlock"><i class="fas fa-pen"></i> Edit</button>
+      </section>`;
+    }
+
+    const catalog = DOWNTIME_ACTIVITIES.map(a =>
+      `<button class="mc-dt-add" data-action="dt-add" data-kind="${a.key}"><i class="fas ${a.icon}"></i> ${esc(a.label)}</button>`
+    ).join("");
+
+    return `<section class="mc-dt-board">
+      <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime — ${dt.days} day${dt.days === 1 ? "" : "s"}${where} ${budget}</div>
+      ${items.length ? rows : `<div class="mc-dt-empty">You have ${dt.days} day${dt.days === 1 ? "" : "s"}. Add what you'll do below.</div>`}
+      <div class="mc-dt-catalog">${catalog}</div>
+      <button class="mc-dt-lockbtn" data-action="dt-lock" ${left < 0 ? "disabled" : ""}>
+        <i class="fas fa-lock"></i> Lock in${left < 0 ? ` (${-left}d over)` : ""}
+      </button>
+    </section>`;
   }
 
   // Equipment tab: the actor's physical inventory, grouped by type, with
@@ -5371,6 +5455,37 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#doRest("short");
       case "long-rest":
         return this.#doRest("long");
+      case "dt-add": {                                  // §17: add a downtime activity
+        const dt = this.#downtimeState(); if (!dt?.open) return;
+        const draft = this.#downtimeDraftFor(dt, this.actor);
+        draft.items.push({ kind: el.dataset.kind, days: 1, intent: "" });
+        this.#sendDowntime(this.actor); return this.render();
+      }
+      case "dt-remove": {
+        const dt = this.#downtimeState(); if (!dt?.open) return;
+        const draft = this.#downtimeDraftFor(dt, this.actor);
+        draft.items.splice(Number(el.dataset.idx), 1);
+        this.#sendDowntime(this.actor); return this.render();
+      }
+      case "dt-day": {
+        const dt = this.#downtimeState(); if (!dt?.open) return;
+        const draft = this.#downtimeDraftFor(dt, this.actor);
+        const it = draft.items[Number(el.dataset.idx)]; if (!it) return;
+        it.days = Math.max(1, (Number(it.days) || 1) + Number(el.dataset.delta));
+        this.#sendDowntime(this.actor); return this.render();
+      }
+      case "dt-lock": {
+        const dt = this.#downtimeState(); if (!dt?.open) return;
+        const draft = this.#downtimeDraftFor(dt, this.actor);
+        draft.locked = true;
+        this.#sendDowntime(this.actor); return this.render();
+      }
+      case "dt-unlock": {
+        const dt = this.#downtimeState(); if (!dt?.open) return;
+        const draft = this.#downtimeDraftFor(dt, this.actor);
+        draft.locked = false;
+        this.#sendDowntime(this.actor); return this.render();
+      }
     }
   };
 
@@ -6167,6 +6282,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   #onChange = (ev) => {
     const inp = ev.target;
+    if (inp?.classList?.contains?.("mc-dt-intent")) { // §17: downtime intent, commit on blur
+      const dt = this.#downtimeState(); if (!dt?.open) return;
+      const draft = this.#downtimeDraftFor(dt, this.actor);
+      const it = draft.items[Number(inp.dataset.idx)];
+      if (it) { it.intent = inp.value; this.#sendDowntime(this.actor); }
+      return;
+    }
     if (inp?.classList?.contains?.("mc-pg-file")) { // chosen generated image → resize + executor upload
       const file = inp.files?.[0];
       if (file) this.#uploadPortraitFile(file);
@@ -6603,6 +6725,13 @@ export function registerShellHooks() {
     if (shellInstance?.rendered && p && shellInstance.actor?.id === p.actorId) shellInstance.noteDamage(p.amount, p.source);
   });
   Hooks.on("deleteCombat", () => shellInstance?.clearCombatEvents()); // combat over → clear the event chips
+  // §17 Downtime: repaint the board when the DM opens/closes a window (or a pick relays back).
+  // Skip while an intent field is focused so another player's relayed pick can't wipe mid-typing.
+  Hooks.on("updateSetting", (s) => {
+    if (s?.key !== `${MODULE_ID}.downtime` || !shellInstance?.rendered) return;
+    if (document.activeElement?.classList?.contains?.("mc-dt-intent")) return;
+    shellInstance.render();
+  });
   // Pack deletes member tokens / creates the party token; deploy reverses it —
   // either way our subject changes, so rebind and repaint.
   const onPartyToken = (tok) => {

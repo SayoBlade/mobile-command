@@ -229,6 +229,15 @@ export function registerSettings() {
     default: 90
   });
 
+  // Downtime (§17): the shared state of an open downtime window + each PC's activity picks.
+  // Hidden setting (GM writes directly; players relay picks via the executor). Projects/goals
+  // (long-term ticked goals) are added in a later slice. Player-side is invisible unless a
+  // window is open, so a DM who never opens one shows nothing to players.
+  game.settings.register(MODULE_ID, "downtime", {
+    scope: "world", config: false, type: Object,
+    default: { open: false, days: 0, windowId: "", place: "", picks: {} }
+  });
+
   // Comprehensive snapshots so the module's changes can be reverted/reactivated
   // (Foundry won't revert them on disable). presetBackup = original pre-module state;
   // reactivateSnapshot = the module-active state captured when you revert.

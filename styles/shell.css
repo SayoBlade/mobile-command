@@ -3307,3 +3307,91 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   0%, 100% { box-shadow: 0 0 0 0 rgba(230, 180, 60, 0); }
   50% { box-shadow: 0 0 10px 3px rgba(230, 180, 60, .75); }
 }
+
+/* ── §17 Downtime — player board (top of the sheet when a window is open) ── */
+.mc-dt-board {
+  margin: 6px 8px 0; padding: 10px; border-radius: 12px;
+  background: linear-gradient(#1c2330, #171b24);
+  border: 1px solid #35507a; box-shadow: inset 0 0 0 1px rgba(90, 140, 210, .12);
+}
+.mc-dt-board.mc-locked { border-color: #3a6b4a; }
+.mc-dt-head {
+  display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 14px;
+  color: #cfe0f5; margin-bottom: 8px;
+}
+.mc-dt-head i { color: #6fa0e0; }
+.mc-dt-budget {
+  margin-left: auto; font-size: 12px; font-weight: 700; color: #8fb6ee;
+  background: #12202f; border: 1px solid #35507a; border-radius: 999px; padding: 2px 9px;
+  font-variant-numeric: tabular-nums;
+}
+.mc-dt-budget.mc-over { color: #ffb4a8; border-color: #7a3a35; background: #2a1614; }
+.mc-dt-empty { font-size: 12px; color: var(--mc-muted); padding: 6px 2px; }
+.mc-dt-row { padding: 7px 0; border-top: 1px solid #253347; }
+.mc-dt-row:first-of-type { border-top: none; }
+.mc-dt-row-top { display: flex; align-items: center; gap: 8px; }
+.mc-dt-row-top > i { color: #7fa8dd; width: 16px; text-align: center; }
+.mc-dt-name { font-size: 13px; font-weight: 700; color: var(--mc-ink); flex: 1 1 auto; }
+.mc-dt-days { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.mc-dt-step {
+  min-width: 32px; height: 32px; border-radius: 8px; font-size: 18px; font-weight: 800; line-height: 1;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: #9fc0ee; cursor: pointer;
+}
+.mc-dt-step:active { border-color: #6fa0e0; color: #cfe0f5; }
+.mc-dt-dayn { min-width: 30px; text-align: center; font-size: 13px; font-weight: 800; color: #9fc0ee; font-variant-numeric: tabular-nums; }
+.mc-dt-rm {
+  flex: 0 0 auto; min-width: 32px; height: 32px; border-radius: 8px; font-size: 13px;
+  background: transparent; border: 1px solid var(--mc-edge); color: var(--mc-muted); cursor: pointer;
+}
+.mc-dt-rm:active { border-color: #7a3a35; color: #ffb4a8; }
+.mc-dt-intent {
+  width: 100%; box-sizing: border-box; margin-top: 6px; padding: 8px 10px; min-height: 38px;
+  border-radius: 8px; background: var(--mc-panel); border: 1px solid var(--mc-edge);
+  color: var(--mc-ink); font-size: 13px;
+}
+.mc-dt-catalog { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+.mc-dt-add {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 11px;
+  border-radius: 999px; background: #17202e; border: 1px solid #35507a; color: #bcd3f2;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.mc-dt-add:active { background: #1f2c3e; border-color: #6fa0e0; }
+.mc-dt-add i { color: #6fa0e0; }
+.mc-dt-lockbtn {
+  width: 100%; margin-top: 8px; min-height: 44px; border-radius: 10px; cursor: pointer;
+  font-size: 14px; font-weight: 800; color: #10221a;
+  background: linear-gradient(#5cc98a, #34a869); border: 1px solid #5cc98a;
+}
+.mc-dt-lockbtn:disabled { background: #2a2f38; border-color: var(--mc-edge); color: var(--mc-muted); cursor: default; }
+.mc-dt-lockednote { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #8fd6a8; margin-bottom: 6px; }
+.mc-dt-locked-row { font-size: 13px; color: var(--mc-ink); padding: 3px 0; }
+.mc-dt-locked-row .mc-dt-dayn { display: inline-block; color: #8fd6a8; margin-right: 4px; }
+.mc-dt-editbtn {
+  width: 100%; margin-top: 8px; min-height: 40px; border-radius: 10px; cursor: pointer;
+  font-size: 13px; font-weight: 700; color: #cfe0f5; background: var(--mc-panel-2); border: 1px solid var(--mc-edge);
+}
+
+/* ── §17 Downtime — DM panel (per-player tabs, grayed until locked) ── */
+.mc-dt-panel { display: flex; flex-direction: column; gap: 8px; }
+.mc-dt-hint { font-size: 12px; color: var(--mc-muted); margin: 0; }
+.mc-dt-setuprow { display: flex; flex-direction: column; gap: 6px; }
+.mc-dt-daysrow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #ece5d6; }
+.mc-dt-days-in { width: 70px; padding: 6px 8px; border-radius: 8px; background: #1a1c24; border: 1px solid #3a3f4c; color: #ece5d6; font-size: 14px; }
+.mc-dt-place-in { padding: 6px 8px; border-radius: 8px; background: #1a1c24; border: 1px solid #3a3f4c; color: #ece5d6; font-size: 13px; }
+.mc-dt-openhead { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #ece5d6; }
+.mc-dt-openhead > span { flex: 1 1 auto; }
+.mc-dt-close-btn { flex: 0 0 auto; min-width: 34px; height: 30px; border-radius: 8px; cursor: pointer; background: #2c2733; border: 1px solid #4a3f66; color: #d0b0b0; }
+.mc-dt-players { display: flex; flex-direction: column; gap: 6px; }
+.mc-dt-player { padding: 7px 9px; border-radius: 9px; background: #1a1c24; border: 1px solid #3a3f4c; }
+.mc-dt-player.mc-pending { opacity: .55; }
+.mc-dt-player.mc-locked { opacity: 1; border-color: #3a6b4a; }
+.mc-dt-player-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.mc-dt-player-head .mc-dt-name { font-weight: 700; color: #ece5d6; flex: 1 1 auto; }
+.mc-dt-spent { font-size: 11px; color: #8fb6ee; font-variant-numeric: tabular-nums; }
+.mc-dt-considering { font-size: 11px; color: var(--mc-muted); font-style: italic; }
+.mc-dt-lock { color: #6ec98a; }
+.mc-dt-item { margin-top: 4px; font-size: 12px; color: #d8d2c4; }
+.mc-dt-item-label { font-weight: 600; }
+.mc-dt-item-days { color: #8fb6ee; margin-left: 6px; font-variant-numeric: tabular-nums; }
+.mc-dt-item-intent { font-size: 11px; color: var(--mc-muted); font-style: italic; margin-top: 1px; }
+.mc-dt-panel .mc-dt-empty { font-size: 11px; }

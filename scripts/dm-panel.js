@@ -1,6 +1,6 @@
 import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState } from "./rpc.js";
 import { fireAoO } from "./aoo.js";
-import { MODULE_ID } from "./preset.js";
+import { MODULE_ID, DOWNTIME_LABEL } from "./preset.js";
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
 import { runDmWizard } from "./dm-wizard.js";
 
@@ -76,8 +76,55 @@ function tabRailHTML() {
     ${tab("party", "fa-border-all", "Party order", !!packedGroup())}
     ${tab("rolls", "fa-dice-d20", "Request rolls")}
     ${tab("tokens", "fa-users", "Players")}
+    ${tab("downtime", "fa-hourglass-half", "Downtime", true, downtimeOpen() ? "•" : 0)}
     ${tab("preflight", "fa-clipboard-check", "Session preflight", true, preflightFailCount())}
   </div>`;
+}
+
+function downtimeState() { try { return game.settings.get(MODULE_ID, "downtime") ?? {}; } catch (e) { return {}; } }
+function downtimeOpen() { return !!downtimeState().open; }
+
+// Downtime tab (§17): the DM opens a window with a day budget; each PC allocates day-points on
+// activities (+ free-text intent) and locks in. This slice shows the window controls + a
+// read-only view of everyone's picks (grayed until locked). Roll-requests + the goal/Project
+// engine + DM-only DC/cost suggestions come in the next slice.
+function downtimeHTML() {
+  const esc = foundry.utils.escapeHTML;
+  const dt = downtimeState();
+  if (!dt.open) {
+    return `<div class="mc-dt-panel mc-dt-setup">
+      <p class="mc-dt-hint">Open a downtime window. Each player spends day-points on activities you approve — you drive the rolls and rewards.</p>
+      <div class="mc-dt-setuprow">
+        <label class="mc-dt-daysrow">Days <input type="number" class="mc-dt-days-in" min="1" max="365" value="3" data-dt-days></label>
+        <input type="text" class="mc-dt-place-in" placeholder="Where? (optional — e.g. Neverwinter)" data-dt-place>
+      </div>
+      <button class="mc-dmp-rt-send" data-dt-open><i class="fas fa-hourglass-start"></i> Open downtime</button>
+    </div>`;
+  }
+  const players = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const rows = players.map(a => {
+    const pick = dt.picks?.[a.id] ?? { locked: false, items: [] };
+    const items = pick.items ?? [];
+    const spent = items.reduce((n, i) => n + (Number(i.days) || 0), 0);
+    const itemsHTML = items.length
+      ? items.map(i => `<div class="mc-dt-item">
+          <span class="mc-dt-item-label">${esc(i.kind === "custom" ? (i.label || "Custom") : (DOWNTIME_LABEL[i.kind] ?? i.kind))}</span>
+          <span class="mc-dt-item-days">${Number(i.days) || 0}d</span>
+          ${i.intent ? `<div class="mc-dt-item-intent">“${esc(i.intent)}”</div>` : ""}
+        </div>`).join("")
+      : `<div class="mc-dt-empty">— no picks yet —</div>`;
+    return `<div class="mc-dt-player ${pick.locked ? "mc-locked" : "mc-pending"}">
+      <div class="mc-dt-player-head"><span class="mc-dt-name">${esc(a.name)}</span>
+        <span class="mc-dt-spent">${spent}/${dt.days}d</span>
+        ${pick.locked ? '<i class="fas fa-lock mc-dt-lock" title="Locked in"></i>' : '<span class="mc-dt-considering">considering…</span>'}</div>
+      ${itemsHTML}
+    </div>`;
+  }).join("") || `<div class="mc-dmp-empty">No player characters.</div>`;
+  return `<div class="mc-dt-panel">
+    <div class="mc-dt-openhead"><span><b>Downtime</b> — ${dt.days} day${dt.days === 1 ? "" : "s"}${dt.place ? ` · ${esc(dt.place)}` : ""}</span>
+      <button class="mc-dt-close-btn" data-dt-close title="Close the window"><i class="fas fa-hourglass-end"></i></button></div>
+    <div class="mc-dt-players">${rows}</div>`;
 }
 
 // Preflight tab (§16): one row per check — status dot, label, detail, and the
@@ -178,6 +225,7 @@ function flyoutHTML() {
   let title = "", body = "";
   if (dockTab === "rolls") { title = "Request rolls"; body = rollsToolHTML(); }
   else if (dockTab === "tokens") { title = "Players"; body = ownedTokensHTML(); }
+  else if (dockTab === "downtime") { title = "Downtime"; body = downtimeHTML(); }
   else if (dockTab === "preflight") { title = "Session preflight"; body = preflightHTML(); }
   else if (dockTab === "party") {
     const g = packedGroup();
@@ -1172,6 +1220,19 @@ async function onClick(ev) {
     return;
   }
   if (ev.target.closest("[data-rt-send]")) return sendRolls();
+  if (ev.target.closest("[data-dt-open]")) { // §17: open a downtime window
+    const root = ev.target.closest(".mc-dt-panel");
+    const days = Math.max(1, Math.min(365, parseInt(root?.querySelector("[data-dt-days]")?.value) || 3));
+    const place = (root?.querySelector("[data-dt-place]")?.value || "").trim();
+    await game.settings.set(MODULE_ID, "downtime", { open: true, days, windowId: foundry.utils.randomID(), place, picks: {} });
+    return render();
+  }
+  if (ev.target.closest("[data-dt-close]")) {
+    const dt = foundry.utils.deepClone(game.settings.get(MODULE_ID, "downtime") ?? {});
+    dt.open = false;
+    await game.settings.set(MODULE_ID, "downtime", dt);
+    return render();
+  }
   if (ev.target.closest("[data-preflight-run]")) {
     await runPreflight();
     return render();
@@ -1291,6 +1352,7 @@ export function registerDMPanel() {
   Hooks.on("userConnected", () => render());                       // presence: connect/disconnect
   Hooks.on("updateUser", () => render());                          // presence: a player changed scene (viewedScene)
   Hooks.on("mobile-command.presence", () => render());             // away-timer: a phone reported fg/bg
+  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.downtime`) render(); }); // §17: a player picked
   // Away-timer tick: the red escalation crosses the threshold with no event to fire it, so
   // while any player is backgrounded, re-render every 5s to update "away Ns" and flip to red.
   // Idle (nobody backgrounded) → no timer runs.

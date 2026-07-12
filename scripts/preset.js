@@ -104,3 +104,19 @@ export function midiPresetEntries() {
   const expectedTimeout = game.settings.get(MODULE_ID, SAVE_TIMEOUT_SETTING);
   return { ...MIDI_CONFIG_PRESET, "playerSaveTimeout": expectedTimeout };
 }
+
+// Downtime activity catalog (§17.5). Player-facing labels only — NO DCs/costs are ever shown
+// to players (the DM sees the official suggestions privately). "custom" lets a player describe
+// anything. Gamble is deliberately excluded (kills RP). Days are the unit; a "workweek" ≈ 5 days.
+export const DOWNTIME_ACTIVITIES = [
+  { key: "work", label: "Work / Practice a profession", icon: "fa-hammer" },
+  { key: "research", label: "Research a topic", icon: "fa-book-open-reader" },
+  { key: "craft", label: "Craft an item", icon: "fa-screwdriver-wrench" },
+  { key: "scribe", label: "Scribe / learn a spell", icon: "fa-scroll" },
+  { key: "recuperate", label: "Recuperate", icon: "fa-bed-pulse" },
+  { key: "train", label: "Train / Learn", icon: "fa-dumbbell" },
+  { key: "teach", label: "Teach someone", icon: "fa-chalkboard-user" },
+  { key: "perform", label: "Perform / Create art", icon: "fa-masks-theater" },
+  { key: "custom", label: "Custom…", icon: "fa-feather" }
+];
+export const DOWNTIME_LABEL = Object.fromEntries(DOWNTIME_ACTIVITIES.map(a => [a.key, a.label]));

@@ -113,6 +113,7 @@ export function initSocket() {
   socket.register("reactionPrompt", handleReactionPrompt); // reaction relay → owner's phone
   socket.register("damageTaken", handleDamageTaken); // incoming-damage relay → owner's phone
   socket.register("presence", handlePresence); // away-timer: phones report fg/bg
+  socket.register("downtimePick", handleDowntimePick); // §17: player relays their downtime picks
   // A player who disconnects clears their away state (read as gray/offline via u.active, not
   // stale-red). Runs on every client; harmless where there's no DM panel.
   Hooks.on("userConnected", (user, connected) => { if (!connected) presenceState.delete(user.id); });
@@ -300,6 +301,22 @@ export function registerDamageRelay() {
 function handleDamageTaken(payload) {
   Hooks.callAll("mobile-command.damageTaken", payload);
   return true;
+}
+
+// Downtime (§17): a player can't write the world `downtime` setting, so their activity picks
+// come here (executor, a GM) which merges them in. The setting update re-renders every client.
+async function handleDowntimePick(payload) {
+  if (!isExecutor()) return { ok: false, stage: "route", reason: "not the DM client" };
+  const { actorId, entry, requesterId } = payload;
+  if (!actorId) return { ok: false, stage: "validate", reason: "no actor" };
+  const actor = game.actors.get(actorId);
+  if (actor && !requesterCanAct(requesterId, actor)) return { ok: false, stage: "permission", reason: "not your character" };
+  const dt = foundry.utils.deepClone(game.settings.get(MODULE_ID, "downtime") ?? {});
+  if (!dt.open) return { ok: false, stage: "state", reason: "no downtime window is open" };
+  dt.picks = dt.picks ?? {};
+  dt.picks[actorId] = entry ?? { locked: false, items: [] };
+  await game.settings.set(MODULE_ID, "downtime", dt);
+  return { ok: true };
 }
 
 export function registerSaveRelay() {
@@ -2285,7 +2302,8 @@ function toExecutor(handler, payload) {
       partySetForward: handlePartySetForward, partyStage: handlePartyStage,
       partyDeploy: handlePartyDeploy, partyRelease: handlePartyRelease,
       partyCombine: handlePartyCombine, fixPcTokens: handleFixPcTokens,
-      requestRolls: handleRequestRolls, requestColorPick: handleRequestColorPick
+      requestRolls: handleRequestRolls, requestColorPick: handleRequestColorPick,
+      downtimePick: handleDowntimePick
     };
     return handlers[handler](payload);
   }
@@ -2332,6 +2350,7 @@ export const api = {
   fixPcTokens: (payload = {}) => toExecutor("fixPcTokens", payload),
   requestRolls: (payload = {}) => toExecutor("requestRolls", payload),
   requestColorPick: (payload = {}) => toExecutor("requestColorPick", payload),
+  downtimePick: (payload = {}) => toExecutor("downtimePick", payload),
   assignTargets: (userId, tokenUuids) =>
     socket
       ? socket.executeAsUser("assignTargets", userId, { tokenUuids, fromName: game.user.name })
