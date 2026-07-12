@@ -218,6 +218,19 @@ export function registerSettings() {
     default: false
   });
 
+  // Mark dead NPCs (DM 2026-07-12): when an NPC dies, put a skull OVERLAY on its token, keep the
+  // token VISIBLE (so it shows on the shared TV, not just the DM), and drop it from the combat
+  // tracker. Document-level — the overlay syncs to every client, unlike a per-client blood splatter.
+  // On by default; independent of auto-loot (that's the separate Item Piles opt-in above).
+  game.settings.register(MODULE_ID, "markDeadNpcs", {
+    name: "Mark dead NPCs with a skull",
+    hint: "When an NPC drops to 0 HP (or is marked Defeated), place a skull marker over its token, keep the token visible on the shared display, and remove it from the combat tracker. The skull is a token status, so it appears on every screen. Turn off if you handle dead tokens yourself.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
   // Away-timer escalation (DESIGN §7.8): flip a player's presence dot to RED once their phone
   // has been backgrounded/away longer than this many seconds. 0 = escalate immediately.
   game.settings.register(MODULE_ID, "awayThresholdSeconds", {

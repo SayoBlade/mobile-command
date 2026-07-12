@@ -2048,22 +2048,75 @@ const autoLootInFlight = new Set();
 function itemPilesReady() {
   return !!(game.modules.get("item-piles")?.active && game.itempiles?.API);
 }
+
+// The visible "this NPC is dead" marker, applied to a placed token document. Shared by the
+// standalone dead-marking path AND the auto-loot tail so they never diverge:
+//   1. a skull OVERLAY (the big centred marker, not a corner icon) — it's a token/actor status,
+//      so it renders on EVERY client, including the shared-display TV (a per-client blood splatter
+//      does not; DM 2026-07-12: "blood shows on DM but not TV");
+//   2. force the token VISIBLE — a hidden corpse shows on no player screen, so the skull would be
+//      invisible on the TV; we counteract any "dead → hide" automation here;
+//   3. drop it from the combat tracker (a corpse doesn't take turns; DM 2026-07-12).
+// Idempotent: the skull is only toggled on if not already present.
+async function applyDeadMarker(tokenDoc) {
+  if (!tokenDoc) return;
+  const deadId = CONFIG.specialStatusEffects?.DEFEATED ?? "dead";
+  if (tokenDoc.actor?.toggleStatusEffect && !tokenDoc.actor.statuses?.has?.(deadId)) {
+    await tokenDoc.actor.toggleStatusEffect(deadId, { active: true, overlay: true });
+  }
+  const cbt = game.combat?.combatants?.find(c => c.tokenId === tokenDoc.id);
+  if (cbt) await cbt.delete();
+  // Diagnostic (per "instrument the failing step"): record whether the corpse arrived hidden so a
+  // still-hidden-on-TV report tells us a later automation re-hides it (vs. us never running).
+  if (tokenDoc.hidden) {
+    console.debug(`${MODULE_ID} | dead marker: token "${tokenDoc.name}" was hidden — forcing visible for the TV`);
+    await tokenDoc.update({ hidden: false });
+  }
+}
+
+// Standalone dead-marking (no Item Piles / loot required). Resolves the placed token for a dead
+// NPC actor and applies the visible marker. Executor-gated; a no-op for non-NPCs.
+async function markNpcDead(actor) {
+  try {
+    if (!isExecutor() || actor?.type !== "npc") return;
+    const tokenDoc = actor.token ?? actor.getActiveTokens?.(false, true)?.[0] ?? null;
+    await applyDeadMarker(tokenDoc);
+  } catch (e) { console.warn(`${MODULE_ID} | mark-dead failed`, e); }
+}
+
+// Router for NPC death (0 HP or Defeated). Auto-loot (opt-in, needs Item Piles) both converts the
+// corpse to a pile AND marks it dead at its tail; if auto-loot is off, we still drop the visible
+// skull when markDeadNpcs is on (default). Either way a dead NPC is unmistakable on every screen.
+async function handleNpcDeath(actor) {
+  if (!isExecutor() || actor?.type !== "npc") return;
+  let handled = false;
+  if (game.settings.get(MODULE_ID, "autoLootNpcs") && itemPilesReady()) {
+    handled = await maybeAutoLoot(actor);   // converts + marks; false if it wasn't pileable
+  }
+  if (!handled && game.settings.get(MODULE_ID, "markDeadNpcs")) {
+    await markNpcDead(actor);               // plain visible skull (no loot / linked boss / IP absent)
+  }
+}
 async function maybeAutoLoot(actor) {
+  // Returns true when this corpse has been handled (converted+marked, already a pile, or in-flight)
+  // so the caller can skip the standalone marker; false when it wasn't pileable (linked / no-loot /
+  // no token) and should still get a plain dead skull via markNpcDead.
   let uuid = null;
   try {
-    if (!isExecutor()) return;
-    if (!game.settings.get(MODULE_ID, "autoLootNpcs")) return;
-    if (!itemPilesReady()) return;
-    if (actor?.type !== "npc") return;                       // never a PC / group / vehicle
+    if (!isExecutor()) return false;
+    if (!game.settings.get(MODULE_ID, "autoLootNpcs")) return false;
+    if (!itemPilesReady()) return false;
+    if (actor?.type !== "npc") return false;                 // never a PC / group / vehicle
     // Resolve the placed token: unlinked NPCs carry their own token; linked ones may have
     // several on the active scene — only auto-loot UNLINKED corpses (see header).
     const tokenDoc = actor.token ?? actor.getActiveTokens?.(false, true)?.[0] ?? null;
-    if (!tokenDoc || tokenDoc.isLinked) return;
+    if (!tokenDoc) return false;
+    if (tokenDoc.isLinked) return false;                     // linked boss → mark dead, don't pile
     uuid = tokenDoc.uuid;
-    if (autoLootInFlight.has(uuid)) return;
-    if (tokenDoc.getFlag(MODULE_ID, "noLoot")) return;       // DM opted this corpse out
+    if (autoLootInFlight.has(uuid)) return true;             // another pass is already handling it
+    if (tokenDoc.getFlag(MODULE_ID, "noLoot")) return false; // DM opted out of looting → still mark
     const API = game.itempiles.API;
-    if (API.isValidItemPile(tokenDoc)) return;               // already a pile — nothing to do
+    if (API.isValidItemPile(tokenDoc)) return true;          // already a pile — already handled
     autoLootInFlight.add(uuid);
     const corpseName = tokenDoc.name;
     // Keep the corpse's own art (not IP's treasure-bag icon), label it "(dead)", and force it
@@ -2076,39 +2129,32 @@ async function maybeAutoLoot(actor) {
         texture: { src: tokenDoc.texture?.src, scaleX: tokenDoc.texture?.scaleX, scaleY: tokenDoc.texture?.scaleY }
       }
     });
-    // Dead marker + remove from combat (DM 2026-07-12: "when NPCs die, also remove them from
-    // combat" — a corpse doesn't need a turn). Apply the dead skull as an OVERLAY FIRST (it lives
-    // on the token, so it survives removal from the tracker — flagging the combatant Defeated
-    // would lose the skull when we delete the combatant), then DELETE the combatant. Re-assert
-    // hidden:false in case a "dead → hide" automation ran. Attacking a corpse is nonsensical, so
-    // it's also dropped from the attack picker (see isDeadCorpse).
-    try {
-      const deadId = CONFIG.specialStatusEffects?.DEFEATED ?? "dead";
-      if (tokenDoc.actor?.toggleStatusEffect && !tokenDoc.actor.statuses?.has?.(deadId)) {
-        await tokenDoc.actor.toggleStatusEffect(deadId, { active: true, overlay: true });
-      }
-      const cbt = game.combat?.combatants?.find(c => c.tokenId === tokenDoc.id);
-      if (cbt) await cbt.delete();
-      if (tokenDoc.hidden) await tokenDoc.update({ hidden: false });
-    } catch (e) { console.warn(`${MODULE_ID} | mark-dead-remove failed`, e); }
+    // Visible dead marker + remove from combat (shared with the standalone path). Attacking a
+    // corpse is nonsensical, so it's also dropped from the attack picker (see isDeadCorpse).
+    try { await applyDeadMarker(tokenDoc); }
+    catch (e) { console.warn(`${MODULE_ID} | mark-dead-remove failed`, e); }
     ui.notifications?.info(`${corpseName} is now lootable.`);
+    return true;
   } catch (e) {
     console.warn(`${MODULE_ID} | auto-loot failed`, e);
+    return false;                                            // fall back to the plain dead marker
   } finally {
     if (uuid) autoLootInFlight.delete(uuid);
   }
 }
 function registerAutoLoot() {
-  // Death by HP: unlinked NPC actor updates carry the hp change on the token's actor.
+  // Death by HP: NPC actor updates carry the hp change (on an unlinked token's synthetic actor,
+  // or the base actor). Route through handleNpcDeath so the visible skull lands even with auto-loot
+  // off / Item Piles absent — the marker is no longer bundled inside the loot feature.
   Hooks.on("updateActor", (actor, changes) => {
     const hp = foundry.utils.getProperty(changes, "system.attributes.hp.value");
     if (hp === undefined || hp === null || hp > 0) return;
-    maybeAutoLoot(actor);
+    handleNpcDeath(actor);
   });
   // Death by "Defeated" flag (DM marks the combatant dead without zeroing HP).
   Hooks.on("updateCombatant", (combatant, changes) => {
     if (changes?.defeated !== true) return;
-    if (combatant?.actor) maybeAutoLoot(combatant.actor);
+    if (combatant?.actor) handleNpcDeath(combatant.actor);
   });
 }
 
