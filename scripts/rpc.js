@@ -1172,6 +1172,12 @@ async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenU
   // isn't stalled animating it right before the real attack (which can push the real
   // attack's total past resolveAttackTotal's window → the phone's "—"). Scoped to this roll.
   const cardHook = Hooks.on("preCreateChatMessage", () => false);
+  // Automated Animations plays a "test swing" (JB2A) on the throwaway roll because it hooks
+  // dnd5e.rollAttackV2 directly (not just the card) — DM 2026-07-12. Stub its single play entry
+  // (AutomatedAnimations.PlayAnimation) for the duration of this roll only; restored in finally.
+  const AA = globalThis.AutomatedAnimations;
+  const savedAAPlay = (AA && typeof AA.PlayAnimation === "function") ? AA.PlayAnimation : null;
+  if (savedAAPlay) AA.PlayAnimation = async () => {};
   const msgIdsBefore = new Set(game.messages.keys());
   try {
     await activity.rollAttack({}, { configure: false }, { create: false, rollMode: CONST.DICE_ROLL_MODES.BLIND });
@@ -1180,6 +1186,7 @@ async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenU
     Hooks.off("dnd5e.preRollAttackV2", hookId);
     Hooks.off("diceSoNiceRollStart", dsnHook);
     Hooks.off("preCreateChatMessage", cardHook);
+    if (savedAAPlay) AA.PlayAnimation = savedAAPlay; // restore Automated Animations
     // create:false isn't honored on every midi path — delete any throwaway card it made.
     for (const m of game.messages.filter((mm) => !msgIdsBefore.has(mm.id))) { try { await m.delete(); } catch (e) {} }
     setTargets(wanted, false);
@@ -1222,6 +1229,21 @@ async function handleMeasure({ fromTokenId, toTokenId }) {
   return { ok: true, distanceFt: MidiQOL.computeDistance(a, b, { wallsBlock: false }) };
 }
 
+// A dead corpse / loot pile isn't a valid attack target (DM 2026-07-12: a lootable "Goblin 2"
+// kept showing up in the attack picker). True for an Item Piles pile, a Defeated combatant, the
+// dead status, or an NPC at 0 HP.
+function isDeadCorpse(token) {
+  try {
+    const a = token?.actor;
+    if (!a) return false;
+    if (game.itempiles?.API?.isValidItemPile?.(token.document ?? token)) return true;
+    const deadId = CONFIG.specialStatusEffects?.DEFEATED ?? "dead";
+    if (a.statuses?.has?.(deadId)) return true;
+    if (game.combat?.combatants?.find(c => c.tokenId === token.id)?.defeated) return true;
+    if (a.type === "npc" && (a.system?.attributes?.hp?.value ?? 1) <= 0) return true;
+    return false;
+  } catch (e) { return false; }
+}
 async function handleTargetsList({ forTokenId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
@@ -1236,6 +1258,7 @@ async function handleTargetsList({ forTokenId }) {
     if (token === origin) continue;
     if (!token.actor) { excluded.push({ name: token.document.name, why: "no-actor" }); continue; }
     if (token.document.hidden) { excluded.push({ name: token.document.name, why: "hidden" }); continue; }
+    if (isDeadCorpse(token)) { excluded.push({ name: token.document.name, why: "dead/pile" }); continue; }
     if (!MidiQOL.canSense(origin, token)) {
       excluded.push({
         name: token.document.name, why: "canSense=false",
@@ -2025,28 +2048,32 @@ async function maybeAutoLoot(actor) {
     const API = game.itempiles.API;
     if (API.isValidItemPile(tokenDoc)) return;               // already a pile — nothing to do
     autoLootInFlight.add(uuid);
-    // Keep the corpse's own name + art so it still reads as "the goblin you just killed"
-    // rather than IP's default treasure-bag icon.
+    const corpseName = tokenDoc.name;
+    // Keep the corpse's own art (not IP's treasure-bag icon), label it "(dead)", and force it
+    // VISIBLE — the pile was rendering hidden (DM 2026-07-12: "the body is hidden").
     await API.turnTokensIntoItemPiles(tokenDoc, {
       pileSettings: { type: "pile", deleteWhenEmpty: false },
       tokenSettings: {
-        name: tokenDoc.name,
+        name: `${corpseName} (dead)`,
+        hidden: false,
         texture: { src: tokenDoc.texture?.src, scaleX: tokenDoc.texture?.scaleX, scaleY: tokenDoc.texture?.scaleY }
       }
     });
-    // Mark the corpse DEAD so it reads as a body, not just a lootable pile (DM 2026-07-11):
-    // the Defeated/dead status as an OVERLAY draws the skull OVER the token without hiding it,
-    // and flagging the combatant Defeated shows it in the tracker too. Both best-effort.
+    // Dead marker: the RELIABLE path is flagging the combatant Defeated → Foundry draws the
+    // native skull overlay + tracker mark. (The status-effect overlay is flaky across configs
+    // and was the likely "not the dead icon" culprit — keep it only as a best-effort extra.)
+    // Then re-assert hidden:false in case a "dead → hide" automation re-hid it. Attacking a
+    // corpse is nonsensical, so it's also dropped from the attack picker (see isDeadCorpse).
     try {
-      const deadId = CONFIG.specialStatusEffects?.DEFEATED ?? "dead";
-      const corpse = tokenDoc.actor;
-      if (corpse?.toggleStatusEffect && !corpse.statuses?.has?.(deadId)) {
-        await corpse.toggleStatusEffect(deadId, { active: true, overlay: true });
-      }
       const cbt = game.combat?.combatants?.find(c => c.tokenId === tokenDoc.id);
       if (cbt && !cbt.defeated) await cbt.update({ defeated: true });
+      const deadId = CONFIG.specialStatusEffects?.DEFEATED ?? "dead";
+      if (tokenDoc.actor?.toggleStatusEffect && !tokenDoc.actor.statuses?.has?.(deadId)) {
+        await tokenDoc.actor.toggleStatusEffect(deadId, { active: true, overlay: true });
+      }
+      if (tokenDoc.hidden) await tokenDoc.update({ hidden: false });
     } catch (e) { console.warn(`${MODULE_ID} | mark-dead failed`, e); }
-    ui.notifications?.info(`${tokenDoc.name} is now lootable.`);
+    ui.notifications?.info(`${corpseName} is now lootable.`);
   } catch (e) {
     console.warn(`${MODULE_ID} | auto-loot failed`, e);
   } finally {
