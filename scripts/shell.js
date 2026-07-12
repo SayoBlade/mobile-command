@@ -2859,7 +2859,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const spent = items.reduce((n, i) => n + (Number(i.days) || 0), 0);
     const left = dt.days - spent;
     const esc = foundry.utils.escapeHTML;
-    const where = dt.place ? ` in ${esc(dt.place)}` : "";
     const budget = `<span class="mc-dt-budget ${left < 0 ? "mc-over" : ""}">${spent}/${dt.days}d</span>`;
 
     const rows = items.map((it, idx) => {
@@ -2885,7 +2884,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ? items.map(it => `<div class="mc-dt-locked-row"><span class="mc-dt-dayn">${Number(it.days) || 1}d</span> ${esc(it.kind === "custom" ? (it.intent || "Custom") : DOWNTIME_LABEL[it.kind] || it.kind)}</div>`).join("")
         : `<div class="mc-dt-empty">Nothing planned.</div>`;
       return `<section class="mc-dt-board mc-locked">
-        <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime — ${dt.days} day${dt.days === 1 ? "" : "s"}${where} ${budget}</div>
+        <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime — ${dt.days} day${dt.days === 1 ? "" : "s"} ${budget}</div>
         <div class="mc-dt-lockednote"><i class="fas fa-lock"></i> Locked in — waiting for the DM.</div>
         ${summary}
         <button class="mc-dt-editbtn" data-action="dt-unlock"><i class="fas fa-pen"></i> Edit</button>
@@ -2897,7 +2896,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     ).join("");
 
     return `<section class="mc-dt-board">
-      <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime — ${dt.days} day${dt.days === 1 ? "" : "s"}${where} ${budget}</div>
+      <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime — ${dt.days} day${dt.days === 1 ? "" : "s"} ${budget}</div>
       ${items.length ? rows : `<div class="mc-dt-empty">You have ${dt.days} day${dt.days === 1 ? "" : "s"}. Add what you'll do below.</div>`}
       <div class="mc-dt-catalog">${catalog}</div>
       <button class="mc-dt-lockbtn" data-action="dt-lock" ${left < 0 ? "disabled" : ""}>

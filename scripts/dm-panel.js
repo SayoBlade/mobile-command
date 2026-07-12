@@ -95,8 +95,7 @@ function downtimeHTML() {
     return `<div class="mc-dt-panel mc-dt-setup">
       <p class="mc-dt-hint">Open a downtime window. Each player spends day-points on activities you approve — you drive the rolls and rewards.</p>
       <div class="mc-dt-setuprow">
-        <label class="mc-dt-daysrow">Days <input type="number" class="mc-dt-days-in" min="1" max="365" value="3" data-dt-days></label>
-        <input type="text" class="mc-dt-place-in" placeholder="Where? (optional — e.g. Neverwinter)" data-dt-place>
+        <label class="mc-dt-daysrow">Days for the group <input type="number" class="mc-dt-days-in" min="1" max="365" value="3" data-dt-days></label>
       </div>
       <button class="mc-dmp-rt-send" data-dt-open><i class="fas fa-hourglass-start"></i> Open downtime</button>
     </div>`;
@@ -122,7 +121,7 @@ function downtimeHTML() {
     </div>`;
   }).join("") || `<div class="mc-dmp-empty">No player characters.</div>`;
   return `<div class="mc-dt-panel">
-    <div class="mc-dt-openhead"><span><b>Downtime</b> — ${dt.days} day${dt.days === 1 ? "" : "s"}${dt.place ? ` · ${esc(dt.place)}` : ""}</span>
+    <div class="mc-dt-openhead"><span><b>Downtime</b> — ${dt.days} day${dt.days === 1 ? "" : "s"}</span>
       <button class="mc-dt-close-btn" data-dt-close title="Close the window"><i class="fas fa-hourglass-end"></i></button></div>
     <div class="mc-dt-players">${rows}</div>`;
 }
@@ -1220,11 +1219,10 @@ async function onClick(ev) {
     return;
   }
   if (ev.target.closest("[data-rt-send]")) return sendRolls();
-  if (ev.target.closest("[data-dt-open]")) { // §17: open a downtime window
+  if (ev.target.closest("[data-dt-open]")) { // §17: open a downtime window (DM sets the group's day budget)
     const root = ev.target.closest(".mc-dt-panel");
     const days = Math.max(1, Math.min(365, parseInt(root?.querySelector("[data-dt-days]")?.value) || 3));
-    const place = (root?.querySelector("[data-dt-place]")?.value || "").trim();
-    await game.settings.set(MODULE_ID, "downtime", { open: true, days, windowId: foundry.utils.randomID(), place, picks: {} });
+    await game.settings.set(MODULE_ID, "downtime", { open: true, days, windowId: foundry.utils.randomID(), picks: {} });
     return render();
   }
   if (ev.target.closest("[data-dt-close]")) {

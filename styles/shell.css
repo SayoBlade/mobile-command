@@ -3377,7 +3377,6 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-setuprow { display: flex; flex-direction: column; gap: 6px; }
 .mc-dt-daysrow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #ece5d6; }
 .mc-dt-days-in { width: 70px; padding: 6px 8px; border-radius: 8px; background: #1a1c24; border: 1px solid #3a3f4c; color: #ece5d6; font-size: 14px; }
-.mc-dt-place-in { padding: 6px 8px; border-radius: 8px; background: #1a1c24; border: 1px solid #3a3f4c; color: #ece5d6; font-size: 13px; }
 .mc-dt-openhead { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #ece5d6; }
 .mc-dt-openhead > span { flex: 1 1 auto; }
 .mc-dt-close-btn { flex: 0 0 auto; min-width: 34px; height: 30px; border-radius: 8px; cursor: pointer; background: #2c2733; border: 1px solid #4a3f66; color: #d0b0b0; }
