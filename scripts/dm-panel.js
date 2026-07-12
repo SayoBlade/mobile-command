@@ -156,7 +156,26 @@ function downtimeHTML() {
     </div>`;
   }).join("") || `<div class="mc-dmp-empty">No player characters.</div>`;
 
-  return `<div class="mc-dt-panel">${head}<div class="mc-dt-players">${rows}</div></div>`;
+  // Rests are the montage's heartbeat, so the party-rest controls live here as the tab's main
+  // flow buttons (DM 2026-07-13). Each rests every player character at once.
+  const restRow = `<div class="mc-dt-restrow">
+    <button class="mc-dt-rest" data-dt-rest="short"><i class="fas fa-mug-hot"></i> Short rest</button>
+    <button class="mc-dt-rest" data-dt-rest="long"><i class="fas fa-campground"></i> Long rest</button>
+  </div>`;
+  return `<div class="mc-dt-panel">${head}${restRow}<div class="mc-dt-players">${rows}</div></div>`;
+}
+
+// Rest every player character at once (the DM's montage rest). Dialog-suppressed so it doesn't
+// pop a rest dialog per PC on the DM client; a long rest fully restores, a short rest recovers
+// short-rest resources.
+async function restParty(kind) {
+  const pcs = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner);
+  let n = 0;
+  for (const a of pcs) {
+    try { await (kind === "long" ? a.longRest({ dialog: false }) : a.shortRest({ dialog: false })); n++; }
+    catch (e) { console.warn(`${MODULE_ID} | party rest failed for ${a.name}`, e); }
+  }
+  ui.notifications?.info(`${kind === "long" ? "Long" : "Short"} rest — ${n} character${n === 1 ? "" : "s"} rested.`);
 }
 
 // Preflight tab (§16): one row per check — status dot, label, detail, and the
@@ -266,9 +285,10 @@ function flyoutHTML() {
     title = `${(f.stage ?? "arrange") === "arrange" ? "Marching order" : "Traveling"} <i class="fas fa-arrow-up" style="display:inline-block;transform:rotate(${(f.forward ?? 0) * 45}deg)"></i>`;
     body = partyTabHTML();
   }
-  return `<div class="mc-dmp-flyout mc-fly-${dockTab}">
+  return `<div class="mc-dmp-flyout mc-fly-${dockTab}" style="max-height:${flyMaxH}px;min-height:${Math.min(flyMaxH, FLY_MIN_H)}px">
     <div class="mc-dmp-fly-head" title="Drag to move"><span>${title}</span><button class="mc-dmp-fly-x" data-dock-close aria-label="Close">✕</button></div>
     <div class="mc-dmp-fly-body">${body}</div>
+    <div class="mc-dmp-fly-resize" data-fly-resize title="Drag to resize"><i class="fas fa-grip-lines"></i></div>
   </div>`;
 }
 
@@ -337,6 +357,13 @@ function ensureEl() {
 // Draggable so it doesn't cover other widgets (DM 2026-06-19). Position is saved
 // per-browser in localStorage and re-applied on load.
 const POS_KEY = "mc-dm-panel-pos";
+// §17.7/UX: the flyout ("second screen") is a right-side panel whose height forces clampPos to
+// shove the whole floating panel up — so opening a tall tab hides the primary and needs a
+// re-drag (DM 2026-07-13). Cap the flyout height (drag the bottom grabber to set it); the body
+// scrolls inside, so no tab ever grows past this and jostles the panel. Persisted per client.
+const FLY_KEY = "mc-dm-panel-flyH";
+const FLY_MIN_H = 150; // enough for a tab's main flow buttons (e.g. the two rest buttons)
+let flyMaxH = (() => { try { return parseInt(window.localStorage.getItem(FLY_KEY), 10) || 360; } catch (e) { return 360; } })();
 function applySavedPos(el) {
   try {
     const pos = JSON.parse(window.localStorage.getItem(POS_KEY) || "null");
@@ -383,7 +410,30 @@ function onOutsidePointerDown(ev) {
   if (changed) render();
 }
 
+// Drag the flyout's bottom grabber to set its max height. Live-updates the element during the
+// drag (no re-render, so it's smooth), clamps to [FLY_MIN_H, viewport], persists on release, then
+// re-clamps the panel so the new size stays on screen.
+function startFlyResize(ev) {
+  ev.preventDefault(); ev.stopPropagation();
+  const fly = panelEl?.querySelector(".mc-dmp-flyout");
+  if (!fly) return;
+  const startY = ev.clientY, startH = fly.getBoundingClientRect().height;
+  const move = (e) => {
+    flyMaxH = Math.round(Math.max(FLY_MIN_H, Math.min(window.innerHeight - 24, startH + (e.clientY - startY))));
+    fly.style.maxHeight = `${flyMaxH}px`;
+  };
+  const up = () => {
+    document.removeEventListener("pointermove", move);
+    document.removeEventListener("pointerup", up);
+    try { window.localStorage.setItem(FLY_KEY, String(flyMaxH)); } catch (e) { /* ignore */ }
+    clampPos(panelEl);
+  };
+  document.addEventListener("pointermove", move);
+  document.addEventListener("pointerup", up);
+}
+
 function onPointerDown(ev) {
+  if (ev.target.closest("[data-fly-resize]")) return startFlyResize(ev); // resize the flyout height
   if (ev.target.closest("button, select, input")) return; // controls act, don't drag
   if (!ev.target.closest(".mc-dmp-drag, .mc-dmp-fly-head, .mc-dmp-head")) return; // grip or any header
   ev.preventDefault();
@@ -1268,6 +1318,8 @@ async function onClick(ev) {
     }
     const rm = ev.target.closest("[data-dt-remove]");
     if (rm) { await api.downtime({ op: "removeActivity", actorId: rm.dataset.actor, id: rm.dataset.dtRemove }); return; }
+    const rest = ev.target.closest("[data-dt-rest]");
+    if (rest) { await restParty(rest.dataset.dtRest); return; }
   }
   if (ev.target.closest("[data-preflight-run]")) {
     await runPreflight();

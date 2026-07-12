@@ -2486,6 +2486,17 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-dmp-fly-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 /* Rolls tab only: let the targets dropdown escape the frame (short content). */
 .mc-dmp-flyout.mc-fly-rolls .mc-dmp-fly-body { overflow: visible; }
+/* Drag grabber to set the flyout's height cap (so a tall tab scrolls instead of shoving the panel). */
+.mc-dmp-fly-resize { flex: 0 0 auto; height: 14px; display: flex; align-items: center; justify-content: center;
+  cursor: ns-resize; touch-action: none; color: #6b6250; background: #221f16; border-top: 1px solid #3a3423; border-radius: 0 0 10px 10px; }
+.mc-dmp-fly-resize:hover { color: #e6c46a; }
+.mc-dmp-fly-resize i { font-size: 10px; pointer-events: none; }
+/* Downtime tab: party-rest buttons as the tab's main flow row. */
+.mc-dt-restrow { display: flex; gap: 6px; margin-bottom: 8px; }
+.mc-dt-rest { flex: 1 1 0; min-height: 40px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700;
+  color: #ece5d6; background: #1a1c24; border: 1px solid #3a3f4c; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.mc-dt-rest:hover { border-color: #c8a44d; color: #e6c46a; }
+.mc-dt-rest i { color: #c8a44d; }
 /* Owned tokens — a player dropdown + a 2-row grid that scrolls HORIZONTALLY
    (compact for the common 4–6 players × 1–2 tokens; horizontal scroll for a heavy
    player). Sorted highest-level first. */
