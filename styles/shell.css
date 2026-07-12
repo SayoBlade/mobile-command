@@ -3376,6 +3376,32 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   font-size: 13px; font-weight: 700; color: #cfe0f5; background: var(--mc-panel-2); border: 1px solid var(--mc-edge);
 }
 
+/* §17.7 player board v2 — named Activities */
+.mc-dt-count { min-width: 20px; padding: 0 6px; border-radius: 999px; background: #17202e; border: 1px solid #35507a;
+  color: #8fb6ee; font-size: 11px; font-weight: 700; }
+.mc-dt-prow { margin-top: 6px; padding: 8px 10px; border-radius: 9px; background: var(--mc-panel); border: 1px solid var(--mc-edge); }
+.mc-dt-prow.mc-done { opacity: .65; }
+.mc-dt-prow-top { display: flex; align-items: center; gap: 8px; }
+.mc-dt-prow-name { flex: 1 1 auto; font-size: 14px; font-weight: 700; color: var(--mc-ink); }
+.mc-dt-prow-rm { flex: 0 0 auto; min-width: 32px; height: 30px; border-radius: 7px; cursor: pointer;
+  background: transparent; border: 1px solid var(--mc-edge); color: var(--mc-muted); font-size: 12px; }
+.mc-dt-prow-rm:active { border-color: #7a3a35; color: #ffb4a8; }
+.mc-dt-prow-plan { font-size: 12px; color: var(--mc-muted); font-style: italic; margin-top: 3px; }
+.mc-dt-prow-note { font-size: 12px; color: #8fb6ee; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.mc-dt-prow-done { font-size: 12px; color: #8fd6a8; margin-top: 4px; }
+.mc-dt-prow-done i { margin-right: 4px; }
+.mc-dt-addbtn { width: 100%; margin-top: 8px; min-height: 44px; border-radius: 10px; cursor: pointer;
+  font-size: 14px; font-weight: 700; color: #bcd3f2; background: #17202e; border: 1px dashed #35507a; }
+.mc-dt-addbtn:active { background: #1f2c3e; }
+.mc-dt-newform { margin-top: 8px; padding: 10px; border-radius: 10px; background: #14161c; border: 1px solid #35507a; }
+.mc-dt-new-name, .mc-dt-new-plan { width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 9px 10px; min-height: 40px;
+  border-radius: 8px; background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 14px; }
+.mc-dt-newbtns { display: flex; gap: 6px; }
+.mc-dt-new-cancel { flex: 0 0 auto; min-height: 40px; padding: 0 14px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; color: var(--mc-muted); background: var(--mc-panel-2); border: 1px solid var(--mc-edge); }
+.mc-dt-new-save { flex: 1 1 auto; min-height: 40px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 800;
+  color: #10221a; background: linear-gradient(#5cc98a, #34a869); border: 1px solid #5cc98a; }
+
 /* ── §17 Downtime — DM panel (per-player tabs, grayed until locked) ── */
 .mc-dt-panel { display: flex; flex-direction: column; gap: 8px; }
 .mc-dt-hint { font-size: 12px; color: var(--mc-muted); margin: 0; }
@@ -3399,3 +3425,35 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-item-days { color: #8fb6ee; margin-left: 6px; font-variant-numeric: tabular-nums; }
 .mc-dt-item-intent { font-size: 11px; color: var(--mc-muted); font-style: italic; margin-top: 1px; }
 .mc-dt-panel .mc-dt-empty { font-size: 11px; }
+
+/* §17.7 downtime v2 — DM tab */
+.mc-dt-sizes { display: flex; gap: 6px; }
+.mc-dt-sizes .mc-dmp-rt-send { flex: 1 1 0; }
+.mc-dt-divider { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--mc-muted);
+  margin: 8px 0 2px; padding-top: 6px; border-top: 1px dashed #3a3f4c; }
+.mc-dt-player.mc-here { border-color: #4a6b8a; }
+.mc-dt-gearbtn { flex: 0 0 auto; min-width: 30px; height: 28px; border-radius: 7px; cursor: pointer;
+  background: transparent; border: 1px solid transparent; color: var(--mc-muted); }
+.mc-dt-gearbtn.mc-on, .mc-dt-gearbtn:hover { color: #cfe0f5; border-color: #3a3f4c; background: #1a1c24; }
+.mc-dt-gearpanel { margin: 4px 0 6px; padding: 8px; border-radius: 8px; background: #14161c; border: 1px solid #2a2f3a; }
+.mc-dt-gearrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: #d8d2c4; margin-bottom: 6px; }
+.mc-dt-step-grp { display: flex; align-items: center; gap: 2px; }
+.mc-dt-toggle { min-width: 40px; height: 28px; border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 700;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
+.mc-dt-toggle.mc-on { background: #23402c; border-color: #3a6b4a; color: #8fd6a8; }
+.mc-dt-gearhint { font-size: 11px; color: var(--mc-muted); margin: 2px 0 0; }
+.mc-dt-act { margin-top: 5px; padding: 7px 9px; border-radius: 8px; background: #1a1c24; border: 1px solid #2f3440; border-left: 3px solid #4a3f66; }
+.mc-dt-act.mc-shown { border-left-color: #4a6b8a; }
+.mc-dt-act.mc-done { border-left-color: #3a6b4a; opacity: .7; }
+.mc-dt-act-top { display: flex; align-items: center; gap: 8px; }
+.mc-dt-act-name { flex: 1 1 auto; font-size: 13px; font-weight: 700; color: #ece5d6; }
+.mc-dt-act-rm { flex: 0 0 auto; min-width: 28px; height: 26px; border-radius: 6px; cursor: pointer;
+  background: transparent; border: 1px solid var(--mc-edge); color: var(--mc-muted); font-size: 12px; }
+.mc-dt-act-rm:hover { border-color: #7a3a35; color: #ffb4a8; }
+.mc-dt-act-plan { font-size: 12px; color: var(--mc-muted); font-style: italic; margin-top: 2px; }
+.mc-dt-act-rule { font-size: 11px; color: #8fb6ee; margin-top: 3px; }
+.mc-dt-act-rule em { color: var(--mc-muted); }
+.mc-dt-prog { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+.mc-dt-prog-head { font-size: 11px; font-weight: 700; color: #9fc0ee; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mc-dt-bar { flex: 1 1 auto; height: 6px; border-radius: 3px; background: #23262f; overflow: hidden; }
+.mc-dt-bar > span { display: block; height: 100%; background: linear-gradient(90deg, #4a6b8a, #6fa0e0); }

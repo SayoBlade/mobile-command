@@ -1,6 +1,7 @@
 import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState } from "./rpc.js";
 import { fireAoO } from "./aoo.js";
-import { MODULE_ID, DOWNTIME_LABEL } from "./preset.js";
+import { MODULE_ID } from "./preset.js";
+import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
 import { runDmWizard } from "./dm-wizard.js";
 
@@ -81,49 +82,81 @@ function tabRailHTML() {
   </div>`;
 }
 
-function downtimeState() { try { return game.settings.get(MODULE_ID, "downtime") ?? {}; } catch (e) { return {}; } }
-function downtimeOpen() { return !!downtimeState().open; }
+let dtGearFor = null; // §17.7: actorId whose per-character gear panel is expanded (DM-local)
+function downtimeState() { try { return DT.normalizeState(game.settings.get(MODULE_ID, "downtimeState")); } catch (e) { return DT.normalizeState({}); } }
+function downtimeOpen() { return !!downtimeState().window?.open; }
 
-// Downtime tab (§17): the DM opens a window with a day budget; each PC allocates day-points on
-// activities (+ free-text intent) and locks in. This slice shows the window controls + a
-// read-only view of everyone's picks (grayed until locked). Roll-requests + the goal/Project
-// engine + DM-only DC/cost suggestions come in the next slice.
+// Downtime tab (§17.7 redesign): the DM calls downtime (short = a slice, long = a day+); each PC
+// picks or names an Activity on their phone, the DM attaches a Rule and pushes rolls as the scene
+// reaches them. This slice: window control, the per-PC list (in-scene first, then a divider), the
+// per-character gear settings, and a read view of each PC's Activities. The Rule-authoring form,
+// push-rolls, and per-Activity edits arrive with the player create-flow in the next slice.
+function dtProgressBar(act) {
+  if (!act.rule || !act.progress) return "";
+  const s = DT.progressSummary(act.rule, act.progress);
+  const bar = s.ratio != null
+    ? `<div class="mc-dt-bar"><span style="width:${Math.round(s.ratio * 100)}%"></span></div>` : "";
+  return `<div class="mc-dt-prog"><span class="mc-dt-prog-head">${foundry.utils.escapeHTML(s.headline)}</span>${bar}</div>`;
+}
 function downtimeHTML() {
   const esc = foundry.utils.escapeHTML;
-  const dt = downtimeState();
-  if (!dt.open) {
-    return `<div class="mc-dt-panel mc-dt-setup">
-      <p class="mc-dt-hint">Open a downtime window. Each player spends day-points on activities you approve — you drive the rolls and rewards.</p>
-      <div class="mc-dt-setuprow">
-        <label class="mc-dt-daysrow">Days for the group <input type="number" class="mc-dt-days-in" min="1" max="365" value="3" data-dt-days></label>
-      </div>
-      <button class="mc-dmp-rt-send" data-dt-open><i class="fas fa-hourglass-start"></i> Open downtime</button>
-    </div>`;
-  }
+  const st = downtimeState();
+  const win = st.window;
+  const head = win?.open
+    ? `<div class="mc-dt-openhead"><span><b>Downtime</b> — ${win.size === "long" ? "a day or more" : "a short slice"}</span>
+        <button class="mc-dt-close-btn" data-dt-end title="End downtime for everyone"><i class="fas fa-hourglass-end"></i> End</button></div>`
+    : `<div class="mc-dt-setup">
+        <p class="mc-dt-hint">Call downtime. Players pick or name an activity on their phones; you set the rule and push rolls as the scene reaches them.</p>
+        <div class="mc-dt-sizes">
+          <button class="mc-dmp-rt-send" data-dt-open="short"><i class="fas fa-hourglass-half"></i> Short — a slice</button>
+          <button class="mc-dmp-rt-send" data-dt-open="long"><i class="fas fa-hourglass-start"></i> Long — a day+</button>
+        </div></div>`;
+
+  // Per-PC list: in-scene tokens first, then a divider, then off-scene PCs.
+  const inScene = new Set((canvas?.tokens?.placeables ?? []).map(t => t.actor?.id).filter(Boolean));
   const players = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner)
-    .sort((a, b) => a.name.localeCompare(b.name));
-  const rows = players.map(a => {
-    const pick = dt.picks?.[a.id] ?? { locked: false, items: [] };
-    const items = pick.items ?? [];
-    const spent = items.reduce((n, i) => n + (Number(i.days) || 0), 0);
-    const itemsHTML = items.length
-      ? items.map(i => `<div class="mc-dt-item">
-          <span class="mc-dt-item-label">${esc(i.kind === "custom" ? (i.label || "Custom") : (DOWNTIME_LABEL[i.kind] ?? i.kind))}</span>
-          <span class="mc-dt-item-days">${Number(i.days) || 0}d</span>
-          ${i.intent ? `<div class="mc-dt-item-intent">“${esc(i.intent)}”</div>` : ""}
+    .sort((a, b) => (inScene.has(b.id) - inScene.has(a.id)) || a.name.localeCompare(b.name));
+
+  let dividerInserted = false;
+  const rows = players.map((a, idx) => {
+    const here = inScene.has(a.id);
+    const divider = (!here && !dividerInserted && idx > 0) ? (dividerInserted = true, `<div class="mc-dt-divider">not in the scene</div>`) : "";
+    const acts = DT.listActivities(st, a.id);
+    const gear = DT.getActorSettings(st, a.id);
+    const actsHTML = acts.length
+      ? acts.map(act => `<div class="mc-dt-act ${act.status === "complete" ? "mc-done" : ""} ${act.visible ? "mc-shown" : "mc-hidden"}">
+          <div class="mc-dt-act-top">
+            <span class="mc-dt-act-name">${esc(act.name)}</span>
+            <button class="mc-dt-act-rm" data-dt-remove="${act.id}" data-actor="${a.id}" title="Remove from ${esc(a.name)}'s list">✕</button>
+          </div>
+          ${act.plan ? `<div class="mc-dt-act-plan">“${esc(act.plan)}”</div>` : ""}
+          <div class="mc-dt-act-rule">${act.rule ? esc(DT.describeRule(act.rule)) : "<em>No rule yet</em>"}</div>
+          ${dtProgressBar(act)}
         </div>`).join("")
-      : `<div class="mc-dt-empty">— no picks yet —</div>`;
-    return `<div class="mc-dt-player ${pick.locked ? "mc-locked" : "mc-pending"}">
-      <div class="mc-dt-player-head"><span class="mc-dt-name">${esc(a.name)}</span>
-        <span class="mc-dt-spent">${spent}/${dt.days}d</span>
-        ${pick.locked ? '<i class="fas fa-lock mc-dt-lock" title="Locked in"></i>' : '<span class="mc-dt-considering">considering…</span>'}</div>
-      ${itemsHTML}
+      : `<div class="mc-dt-empty">— no activities yet —</div>`;
+    const gearOpen = dtGearFor === a.id;
+    const gearHTML = gearOpen ? `<div class="mc-dt-gearpanel">
+        <div class="mc-dt-gearrow"><span>Extra activities per beat</span>
+          <span class="mc-dt-step-grp">
+            <button class="mc-dt-step" data-dt-gear="bonus" data-actor="${a.id}" data-delta="-1">−</button>
+            <span class="mc-dt-dayn">+${gear.bonusActivities}</span>
+            <button class="mc-dt-step" data-dt-gear="bonus" data-actor="${a.id}" data-delta="1">+</button>
+          </span></div>
+        <div class="mc-dt-gearrow"><span>Show rules to this player by default</span>
+          <button class="mc-dt-toggle ${gear.showMechanicsByDefault ? "mc-on" : ""}" data-dt-gear="crunch" data-actor="${a.id}">${gear.showMechanicsByDefault ? "On" : "Off"}</button></div>
+        <p class="mc-dt-gearhint">For a character who barely sleeps (a race trait or an undocumented ability), let them run more than one activity a night.</p>
+      </div>` : "";
+    return `${divider}<div class="mc-dt-player ${here ? "mc-here" : ""}">
+      <div class="mc-dt-player-head">
+        <span class="mc-dt-name">${esc(a.name)}</span>
+        <button class="mc-dt-gearbtn ${gearOpen ? "mc-on" : ""}" data-dt-geartoggle="${a.id}" title="Per-character settings"><i class="fas fa-gear"></i></button>
+      </div>
+      ${gearHTML}
+      ${actsHTML}
     </div>`;
   }).join("") || `<div class="mc-dmp-empty">No player characters.</div>`;
-  return `<div class="mc-dt-panel">
-    <div class="mc-dt-openhead"><span><b>Downtime</b> — ${dt.days} day${dt.days === 1 ? "" : "s"}</span>
-      <button class="mc-dt-close-btn" data-dt-close title="End downtime for everyone"><i class="fas fa-hourglass-end"></i> End downtime</button></div>
-    <div class="mc-dt-players">${rows}</div>`;
+
+  return `<div class="mc-dt-panel">${head}<div class="mc-dt-players">${rows}</div></div>`;
 }
 
 // Preflight tab (§16): one row per check — status dot, label, detail, and the
@@ -1219,17 +1252,22 @@ async function onClick(ev) {
     return;
   }
   if (ev.target.closest("[data-rt-send]")) return sendRolls();
-  if (ev.target.closest("[data-dt-open]")) { // §17: open a downtime window (DM sets the group's day budget)
-    const root = ev.target.closest(".mc-dt-panel");
-    const days = Math.max(1, Math.min(365, parseInt(root?.querySelector("[data-dt-days]")?.value) || 3));
-    await game.settings.set(MODULE_ID, "downtime", { open: true, days, windowId: foundry.utils.randomID(), picks: {} });
-    return render();
-  }
-  if (ev.target.closest("[data-dt-close]")) {
-    const dt = foundry.utils.deepClone(game.settings.get(MODULE_ID, "downtime") ?? {});
-    dt.open = false;
-    await game.settings.set(MODULE_ID, "downtime", dt);
-    return render();
+  { // §17.7 downtime v2 — all writes route through the executor op dispatcher (api.downtime).
+    const openBtn = ev.target.closest("[data-dt-open]");
+    if (openBtn) { await api.downtime({ op: "openWindow", size: openBtn.dataset.dtOpen }); return; }
+    if (ev.target.closest("[data-dt-end]")) { await api.downtime({ op: "closeWindow" }); return; }
+    const gearToggle = ev.target.closest("[data-dt-geartoggle]");
+    if (gearToggle) { dtGearFor = dtGearFor === gearToggle.dataset.dtGeartoggle ? null : gearToggle.dataset.dtGeartoggle; return render(); }
+    const gear = ev.target.closest("[data-dt-gear]");
+    if (gear) {
+      const actorId = gear.dataset.actor;
+      const cur = DT.getActorSettings(downtimeState(), actorId);
+      if (gear.dataset.dtGear === "bonus") await api.downtime({ op: "setActorSetting", actorId, key: "bonusActivities", value: Math.max(0, cur.bonusActivities + Number(gear.dataset.delta)) });
+      else if (gear.dataset.dtGear === "crunch") await api.downtime({ op: "setActorSetting", actorId, key: "showMechanicsByDefault", value: !cur.showMechanicsByDefault });
+      return;
+    }
+    const rm = ev.target.closest("[data-dt-remove]");
+    if (rm) { await api.downtime({ op: "removeActivity", actorId: rm.dataset.actor, id: rm.dataset.dtRemove }); return; }
   }
   if (ev.target.closest("[data-preflight-run]")) {
     await runPreflight();
@@ -1350,7 +1388,7 @@ export function registerDMPanel() {
   Hooks.on("userConnected", () => render());                       // presence: connect/disconnect
   Hooks.on("updateUser", () => render());                          // presence: a player changed scene (viewedScene)
   Hooks.on("mobile-command.presence", () => render());             // away-timer: a phone reported fg/bg
-  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.downtime`) render(); }); // §17: a player picked
+  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.downtimeState`) render(); }); // §17.7: activities/window changed
   // Away-timer tick: the red escalation crosses the threshold with no event to fire it, so
   // while any player is backgrounded, re-render every 5s to update "away Ns" and flip to red.
   // Idle (nobody backgrounded) → no timer runs.
