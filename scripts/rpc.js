@@ -1,5 +1,6 @@
 import { MODULE_ID } from "./preset.js";
 import { resolveExecutorId, isExecutor } from "./settings.js";
+import * as DT from "./downtime.js"; // §17.7 downtime data model + Rule engine (pure, unit-tested)
 
 // §5 Service RPC contract, Phase 1 subset, running on the executor client
 // (§2.1: the DM Screen GM client). All Spike 3 findings are baked in:
@@ -113,7 +114,8 @@ export function initSocket() {
   socket.register("reactionPrompt", handleReactionPrompt); // reaction relay → owner's phone
   socket.register("damageTaken", handleDamageTaken); // incoming-damage relay → owner's phone
   socket.register("presence", handlePresence); // away-timer: phones report fg/bg
-  socket.register("downtimePick", handleDowntimePick); // §17: player relays their downtime picks
+  socket.register("downtimePick", handleDowntimePick); // §17: player relays their downtime picks (legacy Phase-1a)
+  socket.register("downtimeOp", handleDowntimeOp);      // §17.7: downtime v2 op dispatcher
   // A player who disconnects clears their away state (read as gray/offline via u.active, not
   // stale-red). Runs on every client; harmless where there's no DM panel.
   Hooks.on("userConnected", (user, connected) => { if (!connected) presenceState.delete(user.id); });
@@ -316,6 +318,38 @@ async function handleDowntimePick(payload) {
   dt.picks = dt.picks ?? {};
   dt.picks[actorId] = entry ?? { locked: false, items: [] };
   await game.settings.set(MODULE_ID, "downtime", dt);
+  return { ok: true };
+}
+
+// Downtime v2 (§17.7): one executor handler dispatching on `op`, driving the pure transforms in
+// downtime.js and writing the shared `downtimeState` setting (the single source of truth; its
+// update re-renders every client). Players may only touch THEIR OWN character's Activities
+// (create/edit/remove/roll); the DM (GM) authors Rules, adjusts progress, toggles visibility,
+// opens/closes the window, and sets the per-character gear settings.
+const DT_PLAYER_OPS = new Set(["upsertActivity", "removeActivity", "applyAttempt"]);
+async function handleDowntimeOp(payload = {}) {
+  if (!isExecutor()) return { ok: false, stage: "route", reason: "not the DM client" };
+  const { op, actorId, requesterId } = payload;
+  const isGM = !!game.users.get(requesterId)?.isGM;
+  if (!isGM) {
+    if (!DT_PLAYER_OPS.has(op)) return { ok: false, stage: "permission", reason: "DM only" };
+    const actor = game.actors.get(actorId);
+    if (!actor || !requesterCanAct(requesterId, actor)) return { ok: false, stage: "permission", reason: "not your character" };
+  }
+  let state = DT.normalizeState(game.settings.get(MODULE_ID, "downtimeState"));
+  switch (op) {
+    case "upsertActivity": state = DT.upsertActivity(state, actorId, payload.activity); break;
+    case "removeActivity": state = DT.removeActivity(state, actorId, payload.id); break;
+    case "setRule": state = DT.setRule(state, actorId, payload.id, payload.rule); break;
+    case "applyAttempt": state = DT.applyAttemptTo(state, actorId, payload.id, payload.outcome ?? null); break;
+    case "adjustProgress": state = DT.adjustActivity(state, actorId, payload.id, payload.delta); break;
+    case "setVisible": state = DT.setVisible(state, actorId, payload.id, payload.visible); break;
+    case "openWindow": state = DT.openWindow(state, payload.size, foundry.utils.randomID()); break;
+    case "closeWindow": state = DT.closeWindow(state); break;
+    case "setActorSetting": state = DT.setActorSetting(state, actorId, payload.key, payload.value); break;
+    default: return { ok: false, stage: "validate", reason: `unknown downtime op: ${op}` };
+  }
+  await game.settings.set(MODULE_ID, "downtimeState", state);
   return { ok: true };
 }
 
@@ -2349,7 +2383,7 @@ function toExecutor(handler, payload) {
       partyDeploy: handlePartyDeploy, partyRelease: handlePartyRelease,
       partyCombine: handlePartyCombine, fixPcTokens: handleFixPcTokens,
       requestRolls: handleRequestRolls, requestColorPick: handleRequestColorPick,
-      downtimePick: handleDowntimePick
+      downtimePick: handleDowntimePick, downtimeOp: handleDowntimeOp
     };
     return handlers[handler](payload);
   }
@@ -2397,6 +2431,10 @@ export const api = {
   requestRolls: (payload = {}) => toExecutor("requestRolls", payload),
   requestColorPick: (payload = {}) => toExecutor("requestColorPick", payload),
   downtimePick: (payload = {}) => toExecutor("downtimePick", payload),
+  // §17.7 downtime v2: one entry, dispatched by payload.op (see handleDowntimeOp). The DM panel
+  // (a GM = the executor) can call these directly, but routing through the executor keeps writes
+  // to `downtimeState` serialized on one client.
+  downtime: (payload = {}) => toExecutor("downtimeOp", payload),
   assignTargets: (userId, tokenUuids) =>
     socket
       ? socket.executeAsUser("assignTargets", userId, { tokenUuids, fromName: game.user.name })
