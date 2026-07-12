@@ -246,9 +246,20 @@ export function registerSettings() {
   // Hidden setting (GM writes directly; players relay picks via the executor). Projects/goals
   // (long-term ticked goals) are added in a later slice. Player-side is invisible unless a
   // window is open, so a DM who never opens one shows nothing to players.
+  // NOTE: this is the Phase-1a "day-budget" shape, retired by the §17.7 redesign — kept
+  // registered so the old board doesn't error mid-rebuild; superseded by `downtimeState`.
   game.settings.register(MODULE_ID, "downtime", {
     scope: "world", config: false, type: Object,
     default: { open: false, days: 0, windowId: "", picks: {} }
+  });
+
+  // Downtime v2 (§17.7 redesign): persistent per-PC Activities, each with a DM-authored Rule
+  // (the "formula"), plus the current window {open,size,id}. Shape + all transforms live in
+  // scripts/downtime.js (pure, unit-tested). GM writes directly; players relay create/name/pick
+  // through the executor. Activities persist across windows; the window just gates the board.
+  game.settings.register(MODULE_ID, "downtimeState", {
+    scope: "world", config: false, type: Object,
+    default: { window: null, activities: {} }
   });
 
   // Comprehensive snapshots so the module's changes can be reverted/reactivated
