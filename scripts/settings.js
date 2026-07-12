@@ -259,7 +259,7 @@ export function registerSettings() {
   // through the executor. Activities persist across windows; the window just gates the board.
   game.settings.register(MODULE_ID, "downtimeState", {
     scope: "world", config: false, type: Object,
-    default: { window: null, activities: {} }
+    default: { window: null, activities: {}, actorSettings: {} }
   });
 
   // Comprehensive snapshots so the module's changes can be reverted/reactivated

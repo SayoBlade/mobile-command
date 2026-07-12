@@ -43,8 +43,24 @@ export function defaultRule(type = "roll", kind = "freestyle") {
 function blankRoll() {
   // Exactly one of ability/skill/save/tool identifies the d20 flavour; `formula` (raw
   // dice like "1d20+5") overrides all of them when set. null everywhere = the DM will
-  // narrate the roll / it's a no-roll tally.
-  return { ability: null, skill: null, save: null, tool: null, formula: null };
+  // narrate the roll / it's a no-roll tally. `label` is the UI-resolved display noun
+  // ("Dexterity", "Acrobatics", "Thieves' Tools") the DM's client fills from CONFIG so
+  // this pure module never needs the dnd5e label tables.
+  return { ability: null, skill: null, save: null, tool: null, formula: null, label: null };
+}
+const ABILITY_NAMES = { str: "Strength", dex: "Dexterity", con: "Constitution", int: "Intelligence", wis: "Wisdom", cha: "Charisma" };
+function article(word) { return /^[aeiou]/i.test(String(word || "")) ? "an" : "a"; }
+// The plain noun for a roll ("Dexterity", "Acrobatics", "Constitution", "Smith's Tools",
+// "2d6") — no "check"/"save" suffix (the caller adds it). Prefers the UI-resolved label.
+export function rollFlavor(roll) {
+  if (!roll) return "a check";
+  if (roll.label) return roll.label;
+  if (roll.formula) return roll.formula;
+  if (roll.ability) return ABILITY_NAMES[roll.ability] || String(roll.ability).toUpperCase();
+  if (roll.skill) return String(roll.skill).toUpperCase();
+  if (roll.save) return ABILITY_NAMES[roll.save] || String(roll.save).toUpperCase();
+  if (roll.tool) return roll.tool;
+  return "a check";
 }
 
 // Fresh progress for a newly-activated Rule. `dc` is copied so a "roll" type can shift its
@@ -160,12 +176,38 @@ export function describeRule(rule) {
 }
 export function rollLabel(roll) {
   if (!roll) return "a roll";
+  if (roll.label) return roll.label;
   if (roll.formula) return roll.formula;
   if (roll.skill) return `${String(roll.skill).toUpperCase()} (skill)`;
   if (roll.save) return `${String(roll.save).toUpperCase()} save`;
   if (roll.tool) return `${roll.tool} check`;
   if (roll.ability) return `${String(roll.ability).toUpperCase()} check`;
   return "a roll";
+}
+
+// What the PLAYER sees for a Rule, honouring the DM's per-Activity `visible` toggle. Same
+// Rule, two faces (DM 2026-07-13): hidden → a bare "Roll a Dexterity check" button (no
+// numbers); shown → "Roll a DC 50 Dexterity check" + a note ("−1 DC each miss" / "18/150").
+// Returns { button, note }; button is null when the Rule advances with no player roll (a
+// no-roll tally the DM ticks). The DM always sees the full mechanics via describeRule().
+export function playerRuleView(rule, progress, visible) {
+  if (!rule) return { button: null, note: "" };
+  if (!needsRoll(rule)) return { button: null, note: visible ? progressSummary(rule, progress).headline : "" };
+  const flavor = rollFlavor(rule.roll);
+  const dc = rule.type === "roll" ? (progress?.dc ?? rule.dc) : rule.dc;
+  let button;
+  if (rule.roll?.formula) button = visible && dc != null ? `Roll ${flavor} vs DC ${dc}` : `Roll ${flavor}`;
+  else {
+    const kind = rule.roll?.save ? "save" : "check";
+    // "a DC …" always (D reads as a consonant); otherwise a/an by the flavour word.
+    button = (visible && dc != null) ? `Roll a DC ${dc} ${flavor} ${kind}` : `Roll ${article(flavor)} ${flavor} ${kind}`;
+  }
+  let note = "";
+  if (visible) {
+    if (rule.type === "roll" && Number(rule.autoShift)) note = `${rule.autoShift < 0 ? "−" : "+"}${Math.abs(rule.autoShift)} DC each miss`;
+    else if (rule.type !== "roll") note = progressSummary(rule, progress).headline;
+  }
+  return { button, note };
 }
 
 // ── Preset suggestions (pure data; the UI seeds these into a Rule the DM can tweak) ──
@@ -213,8 +255,30 @@ export function normalizeState(raw) {
   const s = raw && typeof raw === "object" ? raw : {};
   return {
     window: s.window && typeof s.window === "object" ? { open: !!s.window.open, size: s.window.size === "long" ? "long" : "short", id: String(s.window.id || "") } : null,
-    activities: s.activities && typeof s.activities === "object" ? s.activities : {}
+    activities: s.activities && typeof s.activities === "object" ? s.activities : {},
+    actorSettings: s.actorSettings && typeof s.actorSettings === "object" ? s.actorSettings : {}
   };
+}
+
+// Per-character gear settings — rare, hidden behind a gear icon (DM 2026-07-13). `bonusActivities`
+// is the "doesn't sleep" case (a race trait or undocumented backstory ability): extra Activities
+// this PC may pursue per beat beyond the base. `showMechanicsByDefault` seeds the DM's show/hide
+// toggle when authoring a Rule for this PC (a per-player crunch preference).
+export const ACTOR_SETTINGS_DEFAULT = { bonusActivities: 0, showMechanicsByDefault: false };
+export const WINDOW_SLOTS = { short: 1, long: 1 }; // base Activities per beat by window size (soft guide; DM dictates)
+export function getActorSettings(state, actorId) {
+  return { ...ACTOR_SETTINGS_DEFAULT, ...(normalizeState(state).actorSettings[actorId] || {}) };
+}
+export function setActorSetting(state, actorId, key, value) {
+  const s = normalizeState(state);
+  const cur = { ...ACTOR_SETTINGS_DEFAULT, ...(s.actorSettings[actorId] || {}) };
+  cur[key] = value;
+  return { ...s, actorSettings: { ...s.actorSettings, [actorId]: cur } };
+}
+// Soft guide for how many Activities a PC can juggle in a beat: base (by size) + the gear bonus.
+export function slotsFor(size, settings) {
+  const base = WINDOW_SLOTS[size === "long" ? "long" : "short"];
+  return base + Math.max(0, Number(settings?.bonusActivities) || 0);
 }
 export function listActivities(state, actorId) {
   return (normalizeState(state).activities[actorId] || []).slice();
