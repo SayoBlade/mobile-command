@@ -238,6 +238,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #newItemOpen = false;   // Equipment tab: the inline "+ New item" name field is open
   #downtimeDraft = null;  // §17: this player's local downtime picks {locked, items:[...]}
   #downtimeWindowId = null; // the windowId the draft was loaded for (reset on a new window)
+  #downtimeCollapsed = false; // player minimised the board back to a one-line bar (still in the window)
   #wildShape = null;      // Druid shape browser: null | { open, beasts:null|[], loading }
   #summonConfig = null;   // summon options the player picks before the DM places: null | { uuid, name, slotOptions, slotId, profiles, profileId }
   #portraitGen = null;    // portrait generator screen: null | { actorId, mode:"portrait"|"body", freeText }
@@ -2864,6 +2865,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const left = dt.days - spent;
     const esc = foundry.utils.escapeHTML;
     const budget = `<span class="mc-dt-budget ${left < 0 ? "mc-over" : ""}">${spent}/${dt.days}d</span>`;
+    // Collapse control: the board sits above the sheet, so give the player a way back to their
+    // character without ending the window (only the DM ends downtime). Collapsed = a one-line bar.
+    const chevron = `<button class="mc-dt-collapse" data-action="dt-collapse" aria-label="${this.#downtimeCollapsed ? "Expand downtime" : "Minimise downtime"}"><i class="fas fa-chevron-${this.#downtimeCollapsed ? "down" : "up"}"></i></button>`;
+    if (this.#downtimeCollapsed) {
+      return `<section class="mc-dt-board mc-dt-mini">
+        <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime ${budget}${draft.locked ? ' <i class="fas fa-lock mc-dt-minilock"></i>' : ""} ${chevron}</div>
+      </section>`;
+    }
 
     const rows = items.map((it, idx) => {
       const icon = DOWNTIME_ACTIVITIES.find(a => a.key === it.kind)?.icon || "fa-feather";
@@ -2888,7 +2897,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ? items.map(it => `<div class="mc-dt-locked-row"><span class="mc-dt-dayn">${Number(it.days) || 1}d</span> ${esc(it.kind === "custom" ? (it.intent || "Custom") : DOWNTIME_LABEL[it.kind] || it.kind)}</div>`).join("")
         : `<div class="mc-dt-empty">Nothing planned.</div>`;
       return `<section class="mc-dt-board mc-locked">
-        <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime — ${dt.days} day${dt.days === 1 ? "" : "s"} ${budget}</div>
+        <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime — ${dt.days} day${dt.days === 1 ? "" : "s"} ${budget} ${chevron}</div>
         <div class="mc-dt-lockednote"><i class="fas fa-lock"></i> Locked in — waiting for the DM.</div>
         ${summary}
         <button class="mc-dt-editbtn" data-action="dt-unlock"><i class="fas fa-pen"></i> Edit</button>
@@ -2900,7 +2909,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     ).join("");
 
     return `<section class="mc-dt-board">
-      <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime — ${dt.days} day${dt.days === 1 ? "" : "s"} ${budget}</div>
+      <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime — ${dt.days} day${dt.days === 1 ? "" : "s"} ${budget} ${chevron}</div>
       ${items.length ? rows : `<div class="mc-dt-empty">You have ${dt.days} day${dt.days === 1 ? "" : "s"}. Add what you'll do below.</div>`}
       <div class="mc-dt-catalog">${catalog}</div>
       <button class="mc-dt-lockbtn" data-action="dt-lock" ${left < 0 ? "disabled" : ""}>
@@ -5458,6 +5467,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#doRest("short");
       case "long-rest":
         return this.#doRest("long");
+      case "dt-collapse":                               // §17: minimise/restore the board (not an exit)
+        this.#downtimeCollapsed = !this.#downtimeCollapsed; return this.render();
       case "dt-add": {                                  // §17: add a downtime activity
         const dt = this.#downtimeState(); if (!dt?.open || !this.actor) return;
         const draft = this.#downtimeDraftFor(dt, this.actor);

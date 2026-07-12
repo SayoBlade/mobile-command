@@ -122,7 +122,7 @@ function downtimeHTML() {
   }).join("") || `<div class="mc-dmp-empty">No player characters.</div>`;
   return `<div class="mc-dt-panel">
     <div class="mc-dt-openhead"><span><b>Downtime</b> — ${dt.days} day${dt.days === 1 ? "" : "s"}</span>
-      <button class="mc-dt-close-btn" data-dt-close title="Close the window"><i class="fas fa-hourglass-end"></i></button></div>
+      <button class="mc-dt-close-btn" data-dt-close title="End downtime for everyone"><i class="fas fa-hourglass-end"></i> End downtime</button></div>
     <div class="mc-dt-players">${rows}</div>`;
 }
 

@@ -3326,6 +3326,11 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   font-variant-numeric: tabular-nums;
 }
 .mc-dt-budget.mc-over { color: #ffb4a8; border-color: #7a3a35; background: #2a1614; }
+.mc-dt-collapse { margin-left: 6px; min-width: 30px; height: 28px; border-radius: 7px; cursor: pointer;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: #9fc0ee; }
+.mc-dt-board.mc-dt-mini { padding: 7px 10px; }
+.mc-dt-board.mc-dt-mini .mc-dt-head { margin-bottom: 0; }
+.mc-dt-minilock { color: #8fd6a8; margin-left: 2px; }
 .mc-dt-empty { font-size: 12px; color: var(--mc-muted); padding: 6px 2px; }
 .mc-dt-row { padding: 7px 0; border-top: 1px solid #253347; }
 .mc-dt-row:first-of-type { border-top: none; }
