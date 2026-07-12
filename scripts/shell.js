@@ -2835,12 +2835,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   // The player's working copy of their picks, initialised from the shared setting
-  // once per window (windowId). Blur-committed inputs mean re-renders never lose text.
+  // once per window+actor. Keyed on BOTH windowId and actor.id: this phone can switch
+  // controlled character (Follow / char selector), and the draft must reload for the
+  // new PC rather than showing the previous PC's picks. Blur-committed inputs mean
+  // re-renders never lose text.
   #downtimeDraftFor(dt, actor) {
-    if (this.#downtimeWindowId !== dt.windowId) {
+    const key = `${dt.windowId}:${actor.id}`;
+    if (this.#downtimeWindowId !== key) {
       const saved = dt.picks?.[actor.id];
       this.#downtimeDraft = saved ? foundry.utils.deepClone(saved) : { locked: false, items: [] };
-      this.#downtimeWindowId = dt.windowId;
+      this.#downtimeWindowId = key;
     }
     if (!Array.isArray(this.#downtimeDraft.items)) this.#downtimeDraft.items = [];
     return this.#downtimeDraft;
@@ -5455,32 +5459,32 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "long-rest":
         return this.#doRest("long");
       case "dt-add": {                                  // §17: add a downtime activity
-        const dt = this.#downtimeState(); if (!dt?.open) return;
+        const dt = this.#downtimeState(); if (!dt?.open || !this.actor) return;
         const draft = this.#downtimeDraftFor(dt, this.actor);
         draft.items.push({ kind: el.dataset.kind, days: 1, intent: "" });
         this.#sendDowntime(this.actor); return this.render();
       }
       case "dt-remove": {
-        const dt = this.#downtimeState(); if (!dt?.open) return;
+        const dt = this.#downtimeState(); if (!dt?.open || !this.actor) return;
         const draft = this.#downtimeDraftFor(dt, this.actor);
         draft.items.splice(Number(el.dataset.idx), 1);
         this.#sendDowntime(this.actor); return this.render();
       }
       case "dt-day": {
-        const dt = this.#downtimeState(); if (!dt?.open) return;
+        const dt = this.#downtimeState(); if (!dt?.open || !this.actor) return;
         const draft = this.#downtimeDraftFor(dt, this.actor);
         const it = draft.items[Number(el.dataset.idx)]; if (!it) return;
         it.days = Math.max(1, (Number(it.days) || 1) + Number(el.dataset.delta));
         this.#sendDowntime(this.actor); return this.render();
       }
       case "dt-lock": {
-        const dt = this.#downtimeState(); if (!dt?.open) return;
+        const dt = this.#downtimeState(); if (!dt?.open || !this.actor) return;
         const draft = this.#downtimeDraftFor(dt, this.actor);
         draft.locked = true;
         this.#sendDowntime(this.actor); return this.render();
       }
       case "dt-unlock": {
-        const dt = this.#downtimeState(); if (!dt?.open) return;
+        const dt = this.#downtimeState(); if (!dt?.open || !this.actor) return;
         const draft = this.#downtimeDraftFor(dt, this.actor);
         draft.locked = false;
         this.#sendDowntime(this.actor); return this.render();
@@ -6282,7 +6286,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #onChange = (ev) => {
     const inp = ev.target;
     if (inp?.classList?.contains?.("mc-dt-intent")) { // §17: downtime intent, commit on blur
-      const dt = this.#downtimeState(); if (!dt?.open) return;
+      const dt = this.#downtimeState(); if (!dt?.open || !this.actor) return;
       const draft = this.#downtimeDraftFor(dt, this.actor);
       const it = draft.items[Number(inp.dataset.idx)];
       if (it) { it.intent = inp.value; this.#sendDowntime(this.actor); }
