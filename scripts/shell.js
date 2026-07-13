@@ -2877,21 +2877,30 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>`;
     }).join("");
 
-    // Pick from the DM's catalog (players don't free-create — the DM decides the names).
+    const locked = DT.isLocked(st, actor.id);
+    // Pick from the DM's catalog (players don't free-create — the DM decides the names), then Lock
+    // in so the DM knows you're committed. Locking hides the picker; Edit reopens it.
     const templates = DT.listTemplates(st);
-    const adder = this.#dtPickOpen
-      ? `<div class="mc-dt-picklist">
-          ${templates.length
-            ? templates.map(t => `<button class="mc-dt-pickbtn" data-action="dt-pick" data-id="${t.id}">${esc(t.name)}</button>`).join("")
-            : `<div class="mc-dt-empty">Nothing on offer yet — ask the DM.</div>`}
-          <button class="mc-dt-new-cancel" data-action="dt-pick-close">Close</button>
-        </div>`
-      : `<button class="mc-dt-addbtn" data-action="dt-pick-open"><i class="fas fa-plus"></i> Pick an activity</button>`;
+    let footer;
+    if (locked) {
+      footer = `<div class="mc-dt-lockednote"><i class="fas fa-lock"></i> Locked in — the DM will run it.</div>
+        <button class="mc-dt-editbtn" data-action="dt-unlock"><i class="fas fa-pen"></i> Edit</button>`;
+    } else {
+      const adder = this.#dtPickOpen
+        ? `<div class="mc-dt-picklist">
+            ${templates.length
+              ? templates.map(t => `<button class="mc-dt-pickbtn" data-action="dt-pick" data-id="${t.id}">${esc(t.name)}</button>`).join("")
+              : `<div class="mc-dt-empty">Nothing on offer yet — ask the DM.</div>`}
+            <button class="mc-dt-new-cancel" data-action="dt-pick-close">Close</button>
+          </div>`
+        : `<button class="mc-dt-addbtn" data-action="dt-pick-open"><i class="fas fa-plus"></i> Pick an activity</button>`;
+      footer = `${adder}${acts.length ? `<button class="mc-dt-lockbtn" data-action="dt-lock"><i class="fas fa-lock"></i> Lock in</button>` : ""}`;
+    }
 
-    return `<section class="mc-dt-board">
+    return `<section class="mc-dt-board ${locked ? "mc-locked" : ""}">
       <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime ${chevron}</div>
       ${acts.length ? rows : `<div class="mc-dt-empty">Pick what you'll do below — the DM handles the rest.</div>`}
-      ${adder}
+      ${footer}
     </section>`;
   }
 
@@ -5446,6 +5455,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#doRest("long");
       case "dt-collapse":                               // §17.7: minimise/restore the board (not an exit)
         this.#downtimeCollapsed = !this.#downtimeCollapsed; return this.render();
+      case "dt-lock":                                   // commit my picks so the DM knows
+        if (!this.actor) return;
+        rpc.downtime({ op: "setLock", actorId: this.actor.id, on: true }).catch(err => console.warn("mobile-command | downtime lock failed", err));
+        return;
+      case "dt-unlock":
+        if (!this.actor) return;
+        rpc.downtime({ op: "setLock", actorId: this.actor.id, on: false }).catch(err => console.warn("mobile-command | downtime unlock failed", err));
+        return;
       case "dt-pick-open":                              // open the catalog pick-list
         this.#dtPickOpen = true; return this.render();
       case "dt-pick-close":

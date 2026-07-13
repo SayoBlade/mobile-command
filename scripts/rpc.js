@@ -326,7 +326,7 @@ async function handleDowntimePick(payload) {
 // update re-renders every client). Players may only touch THEIR OWN character's Activities
 // (create/edit/remove/roll); the DM (GM) authors Rules, adjusts progress, toggles visibility,
 // opens/closes the window, and sets the per-character gear settings.
-const DT_PLAYER_OPS = new Set(["upsertActivity", "removeActivity", "applyAttempt", "pickTemplate"]);
+const DT_PLAYER_OPS = new Set(["upsertActivity", "removeActivity", "applyAttempt", "pickTemplate", "setLock"]);
 async function handleDowntimeOp(payload = {}) {
   if (!isExecutor()) return { ok: false, stage: "route", reason: "not the DM client" };
   const { op, actorId, requesterId } = payload;
@@ -363,6 +363,7 @@ async function handleDowntimeOp(payload = {}) {
     case "setTemplateNote": state = DT.setTemplateNote(state, payload.id, payload.note); break;
     case "pickTemplate": state = DT.pickTemplate(state, actorId, payload.templateId, requesterId); break;
     case "seedTemplates": state = DT.seedTemplates(state, requesterId); break;
+    case "setLock": state = DT.setLock(state, actorId, payload.on); break;
     default: return { ok: false, stage: "validate", reason: `unknown downtime op: ${op}` };
   }
   await game.settings.set(MODULE_ID, "downtimeState", state);

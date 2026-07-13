@@ -3430,7 +3430,11 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-openhead > span { flex: 1 1 auto; }
 .mc-dt-close-btn { flex: 0 0 auto; min-width: 34px; height: 30px; border-radius: 8px; cursor: pointer; background: #2c2733; border: 1px solid #4a3f66; color: #d0b0b0; }
 .mc-dt-players { display: flex; flex-direction: column; gap: 6px; }
-.mc-dt-player { padding: 7px 9px; border-radius: 9px; background: #1a1c24; border: 1px solid #3a3f4c; }
+.mc-dt-player { padding: 7px 9px; border-radius: 9px; background: #1a1c24; border: 1px solid #3a3f4c; border-left-width: 3px; }
+.mc-dt-lockbadge { flex: 0 0 auto; padding: 3px 9px; border-radius: 999px; cursor: pointer; font-size: 10px; font-weight: 700;
+  background: transparent; border: 1px solid var(--mc-edge); white-space: nowrap; }
+.mc-dt-lockbadge.mc-considering { color: var(--mc-muted); font-style: italic; }
+.mc-dt-lockbadge.mc-locked { color: #8fd6a8; border-color: #3a6b4a; background: #16241b; }
 .mc-dt-player.mc-pending { opacity: .55; }
 .mc-dt-player.mc-locked { opacity: 1; border-color: #3a6b4a; }
 .mc-dt-player-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }

@@ -292,9 +292,17 @@ export function normalizeState(raw) {
     window: s.window && typeof s.window === "object" ? { open: !!s.window.open, size: s.window.size === "long" ? "long" : "short", id: String(s.window.id || "") } : null,
     templates: Array.isArray(s.templates) ? s.templates : [],
     activities: s.activities && typeof s.activities === "object" ? s.activities : {},
-    actorSettings: s.actorSettings && typeof s.actorSettings === "object" ? s.actorSettings : {}
+    actorSettings: s.actorSettings && typeof s.actorSettings === "object" ? s.actorSettings : {},
+    locks: s.locks && typeof s.locks === "object" ? s.locks : {}
   };
 }
+// Per-PC lock-in: the player commits their picks for this window; the DM watches them go from
+// "considering" to "locked in" before running rolls. Cleared when a new window opens.
+export function setLock(state, actorId, on) {
+  const s = normalizeState(state);
+  return { ...s, locks: { ...s.locks, [actorId]: !!on } };
+}
+export function isLocked(state, actorId) { return !!normalizeState(state).locks[actorId]; }
 
 // ── Catalog of DM-authored templates (§17.7 redesign, DM 2026-07-13) ─────────────────────────
 // The DM names an activity and gives it a Rule; it becomes a reusable Template. Players PICK a
@@ -430,7 +438,7 @@ export function setVisible(state, actorId, id, visible) {
 }
 export function openWindow(state, size, id) {
   const s = normalizeState(state);
-  return { ...s, window: { open: true, size: size === "long" ? "long" : "short", id: String(id || randId()) } };
+  return { ...s, window: { open: true, size: size === "long" ? "long" : "short", id: String(id || randId()) }, locks: {} };
 }
 export function closeWindow(state) {
   const s = normalizeState(state);

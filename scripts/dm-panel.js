@@ -107,6 +107,11 @@ function dtProgressBar(act) {
     ? `<div class="mc-dt-bar"><span style="width:${Math.round(s.ratio * 100)}%"></span></div>` : "";
   return `<div class="mc-dt-prog"><span class="mc-dt-prog-head">${foundry.utils.escapeHTML(s.headline)}</span>${bar}</div>`;
 }
+// The player colour for a PC (their user's colour), for tinting the roster — falls back to gold.
+function pcColor(a) {
+  const u = game.users.find(u => !u.isGM && u.character?.id === a?.id) ?? game.users.find(u => !u.isGM && a?.testUserPermission?.(u, "OWNER"));
+  return u?.color?.css ?? "#c8a44d";
+}
 // The DM-authored catalog: named activities + rules + DM-only notes. Players pick from these.
 function catalogHTML(st) {
   const esc = foundry.utils.escapeHTML;
@@ -146,9 +151,9 @@ function downtimeHTML() {
   const win = st.window;
   const head = win?.open
     ? `<div class="mc-dt-openhead"><span><b>Downtime open</b> — ${win.size === "long" ? "a day or more" : "a few hours"}</span>
-        <button class="mc-dt-close-btn" data-dt-end title="End downtime for everyone"><i class="fas fa-hourglass-end"></i> End</button></div>`
+        <button class="mc-dt-close-btn" data-dt-end title="Close the downtime window — this does NOT advance time"><i class="fas fa-xmark"></i> Close</button></div>`
     : `<div class="mc-dt-setup">
-        <p class="mc-dt-hint">Start downtime, then your players name what they want to do on their phones. You set each one's rule and push the rolls.</p>
+        <p class="mc-dt-hint">Start downtime, then your players pick what they want to do on their phones. You set each one's rule and push the rolls.</p>
         <div class="mc-dt-sizes">
           <button class="mc-dt-openbtn" data-dt-open="short"><b>Start a short downtime</b><small>a watch, an evening, a few hours</small></button>
           <button class="mc-dt-openbtn" data-dt-open="long"><b>Start a long downtime</b><small>a day, or several days in a hub</small></button>
@@ -219,9 +224,17 @@ function downtimeHTML() {
       ? `<div class="mc-dt-givebox"><div class="mc-dt-give-head">Give a task to ${esc(a.name)}:</div>${giveList}
           <button class="mc-dt-add-cancel" data-dt-give="${a.id}">Close</button></div>`
       : `<button class="mc-dt-addtask" data-dt-give="${a.id}"><i class="fas fa-hand-holding-hand"></i> Give a task</button>`;
-    return `<div class="mc-dt-player mc-here">
+    const color = pcColor(a);
+    const locked = DT.isLocked(st, a.id);
+    const hasActs = acts.length > 0;
+    // Lock badge doubles as the DM's override: tap to lock/unlock this PC (players also lock from
+    // their phone). Grey "considering" until locked (DM 2026-07-13: "know what players are doing
+    // prior to committing").
+    const lockBadge = `<button class="mc-dt-lockbadge ${locked ? "mc-locked" : "mc-considering"}" data-dt-lock="${a.id}" data-on="${locked ? "0" : "1"}" title="${locked ? "Locked in — tap to reopen" : (hasActs ? "Tap to lock in for this player" : "No activities picked yet")}">${locked ? '<i class="fas fa-lock"></i> Locked in' : "considering…"}</button>`;
+    return `<div class="mc-dt-player mc-here ${locked ? "mc-islocked" : ""}" style="border-left-color:${color}">
       <div class="mc-dt-player-head">
-        <span class="mc-dt-name">${esc(a.name)}</span>
+        <span class="mc-dt-name" style="color:${color}">${esc(a.name)}</span>
+        ${lockBadge}
         <button class="mc-dt-gearbtn ${gearOpen ? "mc-on" : ""}" data-dt-geartoggle="${a.id}" title="Per-character settings"><i class="fas fa-gear"></i></button>
       </div>
       ${gearHTML}
@@ -239,8 +252,9 @@ function downtimeHTML() {
       <button class="mc-dt-rest" data-dt-rest="long"><i class="fas fa-campground"></i> Long</button>
     </div>
   </div>` : "";
+  // "Who's doing what" on top (the DM's live view), the authoring catalog below (DM 2026-07-13).
   const roster = win?.open ? `<div class="mc-dt-cat-head mc-dt-roster-head"><span>Who's doing what</span></div><div class="mc-dt-players">${rows}</div>` : "";
-  return `<div class="mc-dt-panel">${head}${catalogHTML(st)}${roster}${restRow}</div>`;
+  return `<div class="mc-dt-panel">${head}${roster}${catalogHTML(st)}${restRow}</div>`;
 }
 
 // Rest every player character at once (the DM's montage rest). Dialog-suppressed so it doesn't
@@ -1510,8 +1524,15 @@ function render() {
   // the bottom edge (DM 2026-07-13).
   const pTop = el.getBoundingClientRect().top || parseInt(el.style.top, 10) || 0;
   flyUp = pTop > window.innerHeight * 0.5;
+  // Preserve scroll across the innerHTML rebuild — background hooks re-render often, and losing
+  // the flyout/main scroll to the top mid-interaction is maddening (DM 2026-07-13: "the scroll bar
+  // jumps to the top").
+  const flyTop = el.querySelector(".mc-dmp-fly-body")?.scrollTop ?? 0;
+  const mainTop = el.querySelector(".mc-dmp-scroll")?.scrollTop ?? 0;
   // Main content scrolls inside; the tab rail + flyout stick out the right edge.
   el.innerHTML = `<div class="mc-dmp-scroll">${main}</div>${tabRailHTML()}${dockTab ? flyoutHTML() : ""}`;
+  const fb = el.querySelector(".mc-dmp-fly-body"); if (fb && flyTop) fb.scrollTop = flyTop;
+  const ms = el.querySelector(".mc-dmp-scroll"); if (ms && mainTop) ms.scrollTop = mainTop;
   el.classList.add("mc-show");
   clampPos(el);
 }
@@ -1704,6 +1725,8 @@ async function onClick(ev) {
     if (give) { dtGiveFor = dtGiveFor === give.dataset.dtGive ? null : give.dataset.dtGive; return render(); }
     const gpick = ev.target.closest("[data-dt-give-pick]");
     if (gpick) { dtGiveFor = null; await api.downtime({ op: "pickTemplate", actorId: gpick.dataset.actor, templateId: gpick.dataset.dtGivePick }); return; }
+    const lock = ev.target.closest("[data-dt-lock]");
+    if (lock) { await api.downtime({ op: "setLock", actorId: lock.dataset.dtLock, on: lock.dataset.on === "1" }); return; }
     // ── Authoring-form controls (activity OR template) ──────────────────────
     if (dtRuleDraft) {
       const preset = ev.target.closest("[data-rule-preset]");
