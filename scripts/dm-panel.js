@@ -107,13 +107,13 @@ function downtimeHTML() {
   const st = downtimeState();
   const win = st.window;
   const head = win?.open
-    ? `<div class="mc-dt-openhead"><span><b>Downtime</b> — ${win.size === "long" ? "a day or more" : "a short slice"}</span>
+    ? `<div class="mc-dt-openhead"><span><b>Downtime open</b> — ${win.size === "long" ? "a day or more" : "a few hours"}</span>
         <button class="mc-dt-close-btn" data-dt-end title="End downtime for everyone"><i class="fas fa-hourglass-end"></i> End</button></div>`
     : `<div class="mc-dt-setup">
-        <p class="mc-dt-hint">Call downtime. Players pick or name an activity on their phones; you set the rule and push rolls as the scene reaches them.</p>
+        <p class="mc-dt-hint">Start downtime, then your players name what they want to do on their phones. You set each one's rule and push the rolls.</p>
         <div class="mc-dt-sizes">
-          <button class="mc-dmp-rt-send" data-dt-open="short"><i class="fas fa-hourglass-half"></i> Short — a slice</button>
-          <button class="mc-dmp-rt-send" data-dt-open="long"><i class="fas fa-hourglass-start"></i> Long — a day+</button>
+          <button class="mc-dt-openbtn" data-dt-open="short"><b>Start a short downtime</b><small>a watch, an evening, a few hours</small></button>
+          <button class="mc-dt-openbtn" data-dt-open="long"><b>Start a long downtime</b><small>a day, or several days in a hub</small></button>
         </div></div>`;
 
   // Per-PC list: in-scene tokens first, then a divider, then off-scene PCs.
@@ -143,20 +143,25 @@ function downtimeHTML() {
             ? `<button class="mc-dt-push ${act.pending ? "mc-waiting" : ""}" data-dt-push="${act.id}" data-actor="${a.id}" data-on="${act.pending ? "0" : "1"}"><i class="fas fa-dice-d20"></i> ${act.pending ? "Waiting…" : "Push roll"}</button>`
             : `<button class="mc-dt-push" data-dt-tick="${act.id}" data-actor="${a.id}"><i class="fas fa-plus"></i> Tick +${Number(act.rule.perTick) || 1}</button>`)
           : "";
-        return `<div class="mc-dt-act ${act.status === "complete" ? "mc-done" : ""} ${act.visible ? "mc-shown" : "mc-hidden"}">
+        // Body by state: editing → the form; has a rule → summary + progress + controls (incl. a
+        // small Edit); no rule → a clear "Set the rule" call-to-action (the DM's next step).
+        let bodyHTML;
+        if (editing) bodyHTML = ruleFormHTML(a.id, act);
+        else if (hasRule) bodyHTML = `
+          <div class="mc-dt-act-rule">${esc(DT.describeRule(act.rule))}${act.visible ? ' <i class="fas fa-eye mc-dt-eye" title="The player can see this rule"></i>' : ""}</div>
+          <div class="mc-dt-act-progline">${dtProgressBar(act)}</div>
+          <div class="mc-dt-act-ctl">${push}${adj}<button class="mc-dt-act-edit" data-dt-editrule="${act.id}" data-actor="${a.id}"><i class="fas fa-pen"></i> Edit</button></div>`;
+        else bodyHTML = `<button class="mc-dt-setrule" data-dt-editrule="${act.id}" data-actor="${a.id}"><i class="fas fa-wand-magic-sparkles"></i> Set the rule</button>`;
+        return `<div class="mc-dt-act ${act.status === "complete" ? "mc-done" : ""} ${act.visible ? "mc-shown" : "mc-hidden"} ${!hasRule ? "mc-norule" : ""}">
           <div class="mc-dt-act-top">
             <span class="mc-dt-act-name">${esc(act.name)}</span>
-            <button class="mc-dt-act-edit ${editing ? "mc-on" : ""}" data-dt-editrule="${act.id}" data-actor="${a.id}" title="${hasRule ? "Edit" : "Set"} the rule"><i class="fas fa-${hasRule ? "pen" : "wand-magic-sparkles"}"></i></button>
             <button class="mc-dt-act-rm" data-dt-remove="${act.id}" data-actor="${a.id}" title="Remove from ${esc(a.name)}'s list">✕</button>
           </div>
           ${act.plan ? `<div class="mc-dt-act-plan">“${esc(act.plan)}”</div>` : ""}
-          <div class="mc-dt-act-rule">${hasRule ? esc(DT.describeRule(act.rule)) : "<em>No rule yet</em>"}${act.visible ? ' <i class="fas fa-eye mc-dt-eye" title="Player can see this"></i>' : ""}</div>
-          <div class="mc-dt-act-progline">${dtProgressBar(act)}</div>
-          ${live ? `<div class="mc-dt-act-ctl">${push}${adj}</div>` : ""}
-          ${editing ? ruleFormHTML(a.id, act) : ""}
+          ${bodyHTML}
         </div>`;
       }).join("")
-      : `<div class="mc-dt-empty">— no activities yet —</div>`;
+      : `<div class="mc-dt-empty">${st.window?.open ? `Waiting for ${esc(a.name)} to add an activity on their phone…` : "No activities."}</div>`;
     const gearOpen = dtGearFor === a.id;
     const gearHTML = gearOpen ? `<div class="mc-dt-gearpanel">
         <div class="mc-dt-gearrow"><span>Extra activities per beat</span>
@@ -179,13 +184,16 @@ function downtimeHTML() {
     </div>`;
   }).join("") || `<div class="mc-dmp-empty">No player characters.</div>`;
 
-  // Rests are the montage's heartbeat, so the party-rest controls live here as the tab's main
-  // flow buttons (DM 2026-07-13). Each rests every player character at once.
-  const restRow = `<div class="mc-dt-restrow">
-    <button class="mc-dt-rest" data-dt-rest="short"><i class="fas fa-mug-hot"></i> Short rest</button>
-    <button class="mc-dt-rest" data-dt-rest="long"><i class="fas fa-campground"></i> Long rest</button>
-  </div>`;
-  return `<div class="mc-dt-panel">${head}${restRow}<div class="mc-dt-players">${rows}</div></div>`;
+  // Party-rest utility. Labelled + tucked below the roster so its Short/Long doesn't read as
+  // paired with the downtime duration above (DM 2026-07-13: "short activity goes with short rest").
+  const restRow = win?.open ? `<div class="mc-dt-restgroup">
+    <span class="mc-dt-restlabel">Rest the whole party</span>
+    <div class="mc-dt-restrow">
+      <button class="mc-dt-rest" data-dt-rest="short"><i class="fas fa-mug-hot"></i> Short</button>
+      <button class="mc-dt-rest" data-dt-rest="long"><i class="fas fa-campground"></i> Long</button>
+    </div>
+  </div>` : "";
+  return `<div class="mc-dt-panel">${head}<div class="mc-dt-players">${rows}</div>${restRow}</div>`;
 }
 
 // Rest every player character at once (the DM's montage rest). Dialog-suppressed so it doesn't
