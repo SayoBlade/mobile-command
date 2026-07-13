@@ -2129,7 +2129,11 @@ async function applyDeadMarker(tokenDoc) {
     // self-diagnosing: hidden flag, alpha, whether Item Piles converted it, and conditions.
     const isPile = (() => { try { return game.itempiles?.API?.isValidItemPile?.(td) ?? "n/a"; } catch (e) { return "err"; } })();
     const src = String(td.texture?.src ?? "").split("/").pop(); // just the filename
-    const msg = `dead marker (${phase}): "${td.name}" hidden=${td.hidden} alpha=${td.alpha} isPile=${isPile} img=${src} statuses=[${[...(td.actor?.statuses ?? [])].join(",")}]`;
+    // The RENDERED token (canvas placeable) — if its alpha/visibility differs from the document,
+    // a module is fading/hiding it at the canvas level (a filter), which document updates can't fix.
+    const ph = (() => { try { return canvas?.tokens?.get(td.id); } catch (e) { return null; } })();
+    const rendered = ph ? `vis=${ph.visible} rAlpha=${(ph.mesh?.alpha ?? ph.alpha)?.toFixed?.(2)}` : "vis=? (no placeable)";
+    const msg = `dead marker (${phase}): "${td.name}" hidden=${td.hidden} docAlpha=${td.alpha} ${rendered} isPile=${isPile} img=${src} statuses=[${[...(td.actor?.statuses ?? [])].join(",")}]`;
     console.log(`${MODULE_ID} | ${msg}`);
     if (notify) ui.notifications?.warn(msg); // surface it to the DM without needing the console
     const fix = {};
