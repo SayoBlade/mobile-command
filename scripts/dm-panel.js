@@ -92,7 +92,7 @@ function downtimeOpen() { return !!downtimeState().window?.open; }
 
 // Downtime tab (§17.7 redesign): the DM calls downtime (short = a slice, long = a day+); each PC
 // picks or names an Activity on their phone, the DM attaches a Rule and pushes rolls as the scene
-// reaches them. This slice: window control, the per-PC list (in-scene first, then a divider), the
+// reaches them. This slice: window control, the per-PC list (in-scene characters only), the
 // per-character gear settings, and a read view of each PC's Activities. The Rule-authoring form,
 // push-rolls, and per-Activity edits arrive with the player create-flow in the next slice.
 function dtProgressBar(act) {
@@ -116,15 +116,12 @@ function downtimeHTML() {
           <button class="mc-dt-openbtn" data-dt-open="long"><b>Start a long downtime</b><small>a day, or several days in a hub</small></button>
         </div></div>`;
 
-  // Per-PC list: in-scene tokens first, then a divider, then off-scene PCs.
-  const inScene = new Set((canvas?.tokens?.placeables ?? []).map(t => t.actor?.id).filter(Boolean));
-  const players = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner)
-    .sort((a, b) => (inScene.has(b.id) - inScene.has(a.id)) || a.name.localeCompare(b.name));
+  // Only characters who are IN the scene — off-scene PCs are hidden here and excluded from the
+  // party rest (DM 2026-07-13: "hide out of scene characters… I don't see the use case").
+  const players = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner && inSceneActorIds().has(a.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-  let dividerInserted = false;
-  const rows = players.map((a, idx) => {
-    const here = inScene.has(a.id);
-    const divider = (!here && !dividerInserted && idx > 0) ? (dividerInserted = true, `<div class="mc-dt-divider">not in the scene</div>`) : "";
+  const rows = players.map((a) => {
     const acts = DT.listActivities(st, a.id);
     const gear = DT.getActorSettings(st, a.id);
     const actsHTML = acts.length
@@ -174,7 +171,7 @@ function downtimeHTML() {
           <button class="mc-dt-toggle ${gear.showMechanicsByDefault ? "mc-on" : ""}" data-dt-gear="crunch" data-actor="${a.id}">${gear.showMechanicsByDefault ? "On" : "Off"}</button></div>
         <p class="mc-dt-gearhint">For a character who barely sleeps (a race trait or an undocumented ability), let them run more than one activity a night.</p>
       </div>` : "";
-    return `${divider}<div class="mc-dt-player ${here ? "mc-here" : ""}">
+    return `<div class="mc-dt-player mc-here">
       <div class="mc-dt-player-head">
         <span class="mc-dt-name">${esc(a.name)}</span>
         <button class="mc-dt-gearbtn ${gearOpen ? "mc-on" : ""}" data-dt-geartoggle="${a.id}" title="Per-character settings"><i class="fas fa-gear"></i></button>
@@ -182,7 +179,7 @@ function downtimeHTML() {
       ${gearHTML}
       ${actsHTML}
     </div>`;
-  }).join("") || `<div class="mc-dmp-empty">No player characters.</div>`;
+  }).join("") || `<div class="mc-dmp-empty">No player characters in the scene.</div>`;
 
   // Party-rest utility. Labelled + tucked below the roster so its Short/Long doesn't read as
   // paired with the downtime duration above (DM 2026-07-13: "short activity goes with short rest").
@@ -199,8 +196,13 @@ function downtimeHTML() {
 // Rest every player character at once (the DM's montage rest). Dialog-suppressed so it doesn't
 // pop a rest dialog per PC on the DM client; a long rest fully restores, a short rest recovers
 // short-rest resources.
+// Actor ids with a token on the currently-viewed scene (the "in the scene" party).
+function inSceneActorIds() {
+  return new Set((canvas?.tokens?.placeables ?? []).map(t => t.actor?.id).filter(Boolean));
+}
 async function restParty(kind) {
-  const pcs = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner);
+  const here = inSceneActorIds();
+  const pcs = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner && here.has(a.id));
   let n = 0;
   for (const a of pcs) {
     try { await (kind === "long" ? a.longRest({ dialog: false }) : a.shortRest({ dialog: false })); n++; }
@@ -215,8 +217,10 @@ async function restParty(kind) {
 // player). One read-modify-write over the shared state. Runs on the executor (a GM).
 async function advanceRestGoals() {
   let state = DT.normalizeState(game.settings.get(MODULE_ID, "downtimeState"));
+  const here = inSceneActorIds();
   let touched = 0;
   for (const [actorId, acts] of Object.entries(state.activities)) {
+    if (!here.has(actorId)) continue; // only the party that actually rested
     for (const act of acts) {
       if (act.status === "complete" || !act.rule || act.rule.tickSource !== "rest") continue;
       state = DT.needsRoll(act.rule) ? DT.setPending(state, actorId, act.id, true) : DT.applyAttemptTo(state, actorId, act.id, null);
