@@ -334,6 +334,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   _replaceHTML(result, content) {
+    // Don't swap innerHTML while the player is typing a new downtime activity — a background
+    // re-render (HP/condition/combat) would wipe the half-typed name so "Add" saved nothing
+    // (DM 2026-07-13: "the task disappears"). The current DOM (value + focus) is kept; the next
+    // render after the field blurs repaints normally.
+    const ae = document.activeElement;
+    if (ae && (ae.classList?.contains("mc-dt-new-name") || ae.classList?.contains("mc-dt-new-plan"))) return;
     // Detach the live toast first so the innerHTML swap doesn't destroy an
     // in-flight roll toast on an unrelated re-render (e.g. an HP/condition
     // update). The recent-rolls strip is rebuilt from #recentRolls below.

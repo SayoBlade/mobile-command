@@ -1434,6 +1434,13 @@ function assignHTML(targets) {
 
 function render() {
   const el = ensureEl();
+  // Don't rebuild the panel while the DM is typing in a downtime form — background hooks
+  // (presence 5s, combat, targeting) re-render often, and rebuilding innerHTML would wipe the
+  // half-typed task name so "Add" saved nothing (DM 2026-07-13: "the task disappears"). The next
+  // event after the field blurs repaints normally.
+  const ae = document.activeElement;
+  if (ae && el.contains(ae) && (ae.tagName === "INPUT" || ae.tagName === "SELECT" || ae.tagName === "TEXTAREA")
+      && (ae.closest(".mc-dt-addform") || ae.closest(".mc-rf"))) return;
   const targets = Array.from(game.user.targets ?? []);
   const pending = listPendingCasts();
   // The camera bar is always present (the DM needs TV control out of combat, with

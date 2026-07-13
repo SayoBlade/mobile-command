@@ -360,9 +360,12 @@ export function closeWindow(state) {
 }
 
 // Local id generator (avoids foundry.utils.randomID so the module stays framework-free /
-// Node-testable). Not cryptographic — collision-safe enough for per-actor activity lists.
+// Node-testable). A per-load random prefix makes ids unique ACROSS clients — otherwise a
+// DM-created and a player-created Activity both started at "a1x…" and the upsert silently
+// replaced one with the other (DM 2026-07-13: activities disappearing).
 let _seq = 0;
+const _idBase = Math.floor(Math.random() * 2176782336).toString(36); // 36^6
 function randId() {
   _seq = (_seq + 1) % 1e6;
-  return "a" + _seq.toString(36) + "x" + (_seq * 2654435761 % 1e9).toString(36);
+  return "a" + _idBase + "-" + _seq.toString(36);
 }
