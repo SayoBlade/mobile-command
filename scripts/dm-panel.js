@@ -1434,12 +1434,12 @@ function assignHTML(targets) {
 
 function render() {
   const el = ensureEl();
-  // Don't rebuild the panel while the DM is typing in a downtime form — background hooks
-  // (presence 5s, combat, targeting) re-render often, and rebuilding innerHTML would wipe the
-  // half-typed task name so "Add" saved nothing (DM 2026-07-13: "the task disappears"). The next
-  // event after the field blurs repaints normally.
+  // Don't rebuild the panel while the DM is typing in a downtime TEXT field — background hooks
+  // (presence 5s, combat, targeting) re-render often and would wipe the half-typed value (DM
+  // 2026-07-13: "the task disappears"). Only text/number inputs need this; SELECTs must NOT be
+  // guarded, or the rule form's own Kind/Roll dropdowns can't drive a re-render ("can't set rules").
   const ae = document.activeElement;
-  if (ae && el.contains(ae) && (ae.tagName === "INPUT" || ae.tagName === "SELECT" || ae.tagName === "TEXTAREA")
+  if (ae && el.contains(ae) && ae.tagName === "INPUT" && /^(text|number|search|)$/.test(ae.type || "")
       && (ae.closest(".mc-dt-addform") || ae.closest(".mc-rf"))) return;
   const targets = Array.from(game.user.targets ?? []);
   const pending = listPendingCasts();
