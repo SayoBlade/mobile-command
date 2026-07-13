@@ -83,6 +83,10 @@ function tabRailHTML() {
 }
 
 let dtGearFor = null; // §17.7: actorId whose per-character gear panel is expanded (DM-local)
+let dtRuleFor = null; // activityId whose Rule-authoring form is open
+let dtRuleActor = null; // that activity's actorId
+let dtRuleDraft = null; // the working Rule being authored (see downtime.js)
+let dtRuleVisible = false; // whether Activate will show the Rule to the player
 function downtimeState() { try { return DT.normalizeState(game.settings.get(MODULE_ID, "downtimeState")); } catch (e) { return DT.normalizeState({}); } }
 function downtimeOpen() { return !!downtimeState().window?.open; }
 
@@ -124,15 +128,26 @@ function downtimeHTML() {
     const acts = DT.listActivities(st, a.id);
     const gear = DT.getActorSettings(st, a.id);
     const actsHTML = acts.length
-      ? acts.map(act => `<div class="mc-dt-act ${act.status === "complete" ? "mc-done" : ""} ${act.visible ? "mc-shown" : "mc-hidden"}">
+      ? acts.map(act => {
+        const editing = dtRuleFor === act.id;
+        const hasRule = !!act.rule;
+        const adj = hasRule && act.status !== "complete"
+          ? `<div class="mc-dt-adj">
+              <button data-dt-adjust="-1" data-actor="${a.id}" data-id="${act.id}" title="Set back">−</button>
+              <button data-dt-adjust="1" data-actor="${a.id}" data-id="${act.id}" title="Nudge forward">+</button>
+            </div>` : "";
+        return `<div class="mc-dt-act ${act.status === "complete" ? "mc-done" : ""} ${act.visible ? "mc-shown" : "mc-hidden"}">
           <div class="mc-dt-act-top">
             <span class="mc-dt-act-name">${esc(act.name)}</span>
+            <button class="mc-dt-act-edit ${editing ? "mc-on" : ""}" data-dt-editrule="${act.id}" data-actor="${a.id}" title="${hasRule ? "Edit" : "Set"} the rule"><i class="fas fa-${hasRule ? "pen" : "wand-magic-sparkles"}"></i></button>
             <button class="mc-dt-act-rm" data-dt-remove="${act.id}" data-actor="${a.id}" title="Remove from ${esc(a.name)}'s list">✕</button>
           </div>
           ${act.plan ? `<div class="mc-dt-act-plan">“${esc(act.plan)}”</div>` : ""}
-          <div class="mc-dt-act-rule">${act.rule ? esc(DT.describeRule(act.rule)) : "<em>No rule yet</em>"}</div>
-          ${dtProgressBar(act)}
-        </div>`).join("")
+          <div class="mc-dt-act-rule">${hasRule ? esc(DT.describeRule(act.rule)) : "<em>No rule yet</em>"}${act.visible ? ' <i class="fas fa-eye mc-dt-eye" title="Player can see this"></i>' : ""}</div>
+          <div class="mc-dt-act-progline">${dtProgressBar(act)}${adj}</div>
+          ${editing ? ruleFormHTML(a.id, act) : ""}
+        </div>`;
+      }).join("")
       : `<div class="mc-dt-empty">— no activities yet —</div>`;
     const gearOpen = dtGearFor === a.id;
     const gearHTML = gearOpen ? `<div class="mc-dt-gearpanel">
@@ -176,6 +191,136 @@ async function restParty(kind) {
     catch (e) { console.warn(`${MODULE_ID} | party rest failed for ${a.name}`, e); }
   }
   ui.notifications?.info(`${kind === "long" ? "Long" : "Short"} rest — ${n} character${n === 1 ? "" : "s"} rested.`);
+}
+
+// ── §17.7 Rule authoring form (the DM builds the "formula") ──────────────────
+function abilLabel(k) { return CONFIG.DND5E?.abilities?.[k]?.label || String(k || "").toUpperCase(); }
+function skillLabel(k) { return CONFIG.DND5E?.skills?.[k]?.label || String(k || "").toUpperCase(); }
+function abilityOptions(sel) {
+  return Object.keys(CONFIG.DND5E?.abilities ?? {}).map(k => `<option value="${k}" ${k === sel ? "selected" : ""}>${foundry.utils.escapeHTML(abilLabel(k))}</option>`).join("");
+}
+function skillOptions(sel) {
+  return Object.keys(CONFIG.DND5E?.skills ?? {}).map(k => `<option value="${k}" ${k === sel ? "selected" : ""}>${foundry.utils.escapeHTML(skillLabel(k))}</option>`).join("");
+}
+function tickOptions(sel) {
+  return [["attempt", "each attempt"], ["day", "day"], ["rest", "long rest"], ["slice", "short slice"]]
+    .map(([k, l]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${l}</option>`).join("");
+}
+function rollSpec(o) { return { ability: null, skill: null, save: null, tool: null, formula: null, label: null, ...o }; }
+function rollKindOf(roll) {
+  if (!roll) return "ability";
+  if (roll.formula) return "custom";
+  if (roll.save) return "save";
+  if (roll.skill) return "skill";
+  return "ability";
+}
+function rollFlavorEmpty(roll) { return !roll || (!roll.ability && !roll.skill && !roll.save && !roll.formula); }
+// A roll-needing Rule with no flavour set yet (fresh default, or carried over from a no-roll tally)
+// gets a sensible default so the picker + describeRule aren't blank.
+function seedRollIfNeeded() { if (dtRuleDraft && DT.needsRoll(dtRuleDraft) && rollFlavorEmpty(dtRuleDraft.roll)) setRollKind("ability"); }
+// Reset the draft's roll spec to a fresh flavour of the chosen kind (with a UI-resolved label).
+function setRollKind(kind) {
+  const r = dtRuleDraft; if (!r) return;
+  if (kind === "save") r.roll = rollSpec({ save: "con", label: abilLabel("con") });
+  else if (kind === "skill") r.roll = rollSpec({ skill: "acr", label: skillLabel("acr") });
+  else if (kind === "custom") r.roll = rollSpec({ formula: "1d20" });
+  else r.roll = rollSpec({ ability: "dex", label: abilLabel("dex") });
+}
+
+function ruleFormHTML(actorId, act) {
+  const esc = foundry.utils.escapeHTML;
+  const r = dtRuleDraft || DT.defaultRule();
+  const kind = rollKindOf(r.roll);
+  const needsRoll = r.type === "roll" || (r.type === "cumulative" && r.gainMode !== "fixed") || (r.type === "tally" && r.requireRoll);
+  const rollPicker = needsRoll ? `
+    <label class="mc-rf-row">Roll <select data-rule="rollkind">
+      <option value="ability" ${kind === "ability" ? "selected" : ""}>Ability check</option>
+      <option value="save" ${kind === "save" ? "selected" : ""}>Saving throw</option>
+      <option value="skill" ${kind === "skill" ? "selected" : ""}>Skill</option>
+      <option value="custom" ${kind === "custom" ? "selected" : ""}>Custom dice</option>
+    </select></label>
+    ${kind === "ability" ? `<label class="mc-rf-row">Ability <select data-rule="rollability">${abilityOptions(r.roll?.ability || "dex")}</select></label>` : ""}
+    ${kind === "save" ? `<label class="mc-rf-row">Save <select data-rule="rollability">${abilityOptions(r.roll?.save || "con")}</select></label>` : ""}
+    ${kind === "skill" ? `<label class="mc-rf-row">Skill <select data-rule="rollskill">${skillOptions(r.roll?.skill || "acr")}</select></label>` : ""}
+    ${kind === "custom" ? `<label class="mc-rf-row">Dice <input type="text" data-rule="rollformula" value="${esc(r.roll?.formula || "1d20")}" placeholder="1d20+5"></label>` : ""}` : "";
+
+  let fields = "";
+  if (r.type === "roll") fields = `
+    <label class="mc-rf-row">DC <input type="number" data-rule="dc" value="${r.dc}"></label>
+    <label class="mc-rf-row">DC each miss <input type="number" data-rule="autoshift" value="${r.autoShift}" title="Negative lowers the DC each attempt, e.g. -2"></label>
+    <label class="mc-rf-row">Stop at DC <input type="number" data-rule="floor" value="${r.autoShiftFloor ?? ""}" placeholder="none"></label>`;
+  else if (r.type === "tally") fields = `
+    <label class="mc-rf-row">Target <input type="number" data-rule="target" value="${r.target}"></label>
+    <label class="mc-rf-row">Each <select data-rule="tick">${tickOptions(r.tickSource)}</select></label>
+    <label class="mc-rf-row">Adds <input type="number" data-rule="pertick" value="${r.perTick}"></label>
+    <button class="mc-rf-toggle ${r.requireRoll ? "mc-on" : ""}" data-rule-toggle="requireroll">${r.requireRoll ? "Requires a successful roll" : "No roll — just ticks"}</button>
+    ${r.requireRoll ? `<label class="mc-rf-row">DC <input type="number" data-rule="dc" value="${r.dc}"></label>` : ""}`;
+  else if (r.type === "cumulative") fields = `
+    <label class="mc-rf-row">Target <input type="number" data-rule="target" value="${r.target}"></label>
+    <label class="mc-rf-row">Each adds <select data-rule="gainmode">
+      <option value="total" ${r.gainMode === "total" ? "selected" : ""}>the roll total</option>
+      <option value="margin" ${r.gainMode === "margin" ? "selected" : ""}>the margin over DC</option>
+      <option value="fixed" ${r.gainMode === "fixed" ? "selected" : ""}>a fixed amount</option>
+    </select></label>
+    ${r.gainMode === "fixed" ? `<label class="mc-rf-row">Amount <input type="number" data-rule="pertick" value="${r.perTick}"></label>` : ""}
+    ${r.gainMode === "margin" ? `<label class="mc-rf-row">DC <input type="number" data-rule="dc" value="${r.dc}"></label>` : ""}
+    <label class="mc-rf-row">Min per attempt <input type="number" data-rule="mingain" value="${r.minGain}"></label>
+    <button class="mc-rf-toggle ${r.critBonus ? "mc-on" : ""}" data-rule-toggle="crit">${r.critBonus ? "Nat 20 = bonus progress" : "No crit bonus"}</button>`;
+
+  return `<div class="mc-rf">
+    <div class="mc-rf-presets"><span>Preset</span>
+      <button class="mc-rf-preset ${r.kind === "freestyle" ? "mc-on" : ""}" data-rule-preset="freestyle">Freestyle</button>
+      <button class="mc-rf-preset ${r.kind === "scribe" ? "mc-on" : ""}" data-rule-preset="scribe">Scribe</button>
+      <button class="mc-rf-preset ${r.kind === "craft" ? "mc-on" : ""}" data-rule-preset="craft">Craft</button>
+    </div>
+    <label class="mc-rf-row">Kind <select data-rule="type">
+      <option value="roll" ${r.type === "roll" ? "selected" : ""}>Just a roll</option>
+      <option value="tally" ${r.type === "tally" ? "selected" : ""}>Tally to a target</option>
+      <option value="cumulative" ${r.type === "cumulative" ? "selected" : ""}>Cumulative points</option>
+    </select></label>
+    ${rollPicker}${fields}
+    <label class="mc-rf-row">Reward <input type="text" data-rule="reward" value="${esc(r.reward || "")}" placeholder="e.g. +1 STR, Scroll of Fireball"></label>
+    <button class="mc-rf-toggle ${dtRuleVisible ? "mc-on" : ""}" data-rule-toggle="visible">${dtRuleVisible ? "Player sees the rule" : "Rule hidden from the player"}</button>
+    <div class="mc-rf-preview"><i class="fas fa-flask"></i> ${esc(DT.describeRule(r))}</div>
+    <div class="mc-rf-actions">
+      <button class="mc-rf-cancel" data-rule-cancel>Cancel</button>
+      <button class="mc-rf-activate" data-rule-activate>Activate</button>
+    </div>
+  </div>`;
+}
+
+// Apply one authoring-form field into the working draft. Only layout-changing selects re-render
+// (text/number inputs update silently on blur so a following Activate click isn't swallowed).
+function applyRuleField(field, value) {
+  const r = dtRuleDraft; if (!r) return;
+  let reRender = false;
+  switch (field) {
+    case "type": { const nr = DT.defaultRule(value, r.kind); nr.reward = r.reward; nr.roll = r.roll; dtRuleDraft = nr; seedRollIfNeeded(); reRender = true; break; }
+    case "rollkind": setRollKind(value); reRender = true; break;
+    case "rollability": r.roll = rollKindOf(r.roll) === "save" ? rollSpec({ save: value, label: abilLabel(value) }) : rollSpec({ ability: value, label: abilLabel(value) }); break;
+    case "rollskill": r.roll = rollSpec({ skill: value, label: skillLabel(value) }); break;
+    case "rollformula": r.roll = rollSpec({ formula: value }); break;
+    case "dc": r.dc = Number(value) || 0; break;
+    case "autoshift": r.autoShift = Number(value) || 0; break;
+    case "floor": r.autoShiftFloor = value === "" ? null : Number(value); break;
+    case "target": r.target = Number(value) || 0; break;
+    case "tick": r.tickSource = value; break;
+    case "pertick": r.perTick = Number(value) || 0; break;
+    case "mingain": r.minGain = Number(value) || 0; break;
+    case "gainmode": r.gainMode = value; seedRollIfNeeded(); reRender = true; break;
+    case "reward": r.reward = value; break;
+  }
+  if (reRender) render();
+}
+
+// Preset chips seed sensible defaults. Scribe/craft use the pure suggesters (a per-day tally);
+// the real owned-scroll / tool-proficiency pickers that set the exact target land in the next
+// slice — for now the DM edits the seeded target. Freestyle just clears the preset tag.
+function applyRulePreset(kind) {
+  const cur = dtRuleDraft || DT.defaultRule();
+  if (kind === "scribe") { const s = DT.scribeScrollSuggest(3); if (cur.reward) s.rule.reward = cur.reward; dtRuleDraft = s.rule; }
+  else if (kind === "craft") { const c = DT.craftSuggest(50); if (cur.reward) c.rule.reward = cur.reward; dtRuleDraft = c.rule; }
+  else { cur.kind = "freestyle"; dtRuleDraft = cur; }
 }
 
 // Preflight tab (§16): one row per check — status dot, label, detail, and the
@@ -1214,6 +1359,8 @@ function onTokenDblClick(ev) {
 }
 
 function onChange(ev) {
+  const rf = ev.target.closest("[data-rule]");
+  if (rf) return applyRuleField(rf.dataset.rule, rf.value); // §17.7 Rule-authoring form field
   const player = ev.target.closest("[data-tok-player]");
   if (player) { tokensPlayer = player.value; return render(); } // owned-tokens player switch
   const sel = ev.target.closest("[data-rt]");
@@ -1320,6 +1467,43 @@ async function onClick(ev) {
     if (rm) { await api.downtime({ op: "removeActivity", actorId: rm.dataset.actor, id: rm.dataset.dtRemove }); return; }
     const rest = ev.target.closest("[data-dt-rest]");
     if (rest) { await restParty(rest.dataset.dtRest); return; }
+    // Progress nudge (the DM adjusts anytime): −/+ moves the count (or the roll DC).
+    const adj = ev.target.closest("[data-dt-adjust]");
+    if (adj) { await api.downtime({ op: "adjustProgress", actorId: adj.dataset.actor, id: adj.dataset.id, delta: Number(adj.dataset.dtAdjust) }); return; }
+    // Open/close the Rule-authoring form for an Activity.
+    const edit = ev.target.closest("[data-dt-editrule]");
+    if (edit) {
+      const id = edit.dataset.dtEditrule;
+      if (dtRuleFor === id) { dtRuleFor = null; dtRuleDraft = null; return render(); }
+      const st = downtimeState();
+      const act = DT.listActivities(st, edit.dataset.actor).find(a => a.id === id);
+      dtRuleFor = id; dtRuleActor = edit.dataset.actor;
+      dtRuleDraft = act?.rule ? foundry.utils.deepClone(act.rule) : DT.defaultRule("roll", "freestyle");
+      dtRuleVisible = act?.visible ?? DT.getActorSettings(st, edit.dataset.actor).showMechanicsByDefault;
+      seedRollIfNeeded();
+      return render();
+    }
+    // Authoring-form controls (only meaningful while a form is open).
+    if (dtRuleDraft) {
+      const preset = ev.target.closest("[data-rule-preset]");
+      if (preset) { applyRulePreset(preset.dataset.rulePreset); return render(); }
+      const tog = ev.target.closest("[data-rule-toggle]");
+      if (tog) {
+        const k = tog.dataset.ruleToggle;
+        if (k === "visible") dtRuleVisible = !dtRuleVisible;
+        else if (k === "requireroll") { dtRuleDraft.requireRoll = !dtRuleDraft.requireRoll; seedRollIfNeeded(); }
+        else if (k === "crit") dtRuleDraft.critBonus = !dtRuleDraft.critBonus;
+        return render();
+      }
+      if (ev.target.closest("[data-rule-cancel]")) { dtRuleFor = null; dtRuleDraft = null; return render(); }
+      if (ev.target.closest("[data-rule-activate]")) {
+        const actorId = dtRuleActor, id = dtRuleFor, rule = dtRuleDraft, visible = dtRuleVisible;
+        dtRuleFor = null; dtRuleDraft = null; render();
+        await api.downtime({ op: "setRule", actorId, id, rule });
+        await api.downtime({ op: "setVisible", actorId, id, visible });
+        return;
+      }
+    }
   }
   if (ev.target.closest("[data-preflight-run]")) {
     await runPreflight();
