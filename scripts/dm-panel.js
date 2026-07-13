@@ -83,6 +83,7 @@ function tabRailHTML() {
 }
 
 let dtGearFor = null; // §17.7: actorId whose per-character gear panel is expanded (DM-local)
+let dtAddFor = null; // actorId whose DM-side "add a task" inline form is open
 let dtRuleFor = null; // activityId whose Rule-authoring form is open
 let dtRuleActor = null; // that activity's actorId
 let dtRuleDraft = null; // the working Rule being authored (see downtime.js)
@@ -171,6 +172,17 @@ function downtimeHTML() {
           <button class="mc-dt-toggle ${gear.showMechanicsByDefault ? "mc-on" : ""}" data-dt-gear="crunch" data-actor="${a.id}">${gear.showMechanicsByDefault ? "On" : "Off"}</button></div>
         <p class="mc-dt-gearhint">For a character who barely sleeps (a race trait or an undocumented ability), let them run more than one activity a night.</p>
       </div>` : "";
+    // The DM can add a task directly (no need to wait for the player to name one).
+    const adder = dtAddFor === a.id
+      ? `<div class="mc-dt-addform">
+          <input class="mc-dt-addname" type="text" placeholder="Task — e.g. Nightly pushups" maxlength="80">
+          <input class="mc-dt-addplan" type="text" placeholder="Notes / plan (optional)" maxlength="200">
+          <div class="mc-dt-addbtns">
+            <button class="mc-dt-add-cancel" data-dt-add-cancel>Cancel</button>
+            <button class="mc-dt-add-save" data-dt-add-save data-actor="${a.id}">Add</button>
+          </div>
+        </div>`
+      : `<button class="mc-dt-addtask" data-dt-add-open="${a.id}"><i class="fas fa-plus"></i> Add a task</button>`;
     return `<div class="mc-dt-player mc-here">
       <div class="mc-dt-player-head">
         <span class="mc-dt-name">${esc(a.name)}</span>
@@ -178,6 +190,7 @@ function downtimeHTML() {
       </div>
       ${gearHTML}
       ${actsHTML}
+      ${adder}
     </div>`;
   }).join("") || `<div class="mc-dmp-empty">No player characters in the scene.</div>`;
 
@@ -1569,6 +1582,20 @@ async function onClick(ev) {
     }
     const rm = ev.target.closest("[data-dt-remove]");
     if (rm) { await api.downtime({ op: "removeActivity", actorId: rm.dataset.actor, id: rm.dataset.dtRemove }); return; }
+    // DM-side add-a-task.
+    const addOpen = ev.target.closest("[data-dt-add-open]");
+    if (addOpen) { dtAddFor = dtAddFor === addOpen.dataset.dtAddOpen ? null : addOpen.dataset.dtAddOpen; render(); setTimeout(() => panelEl?.querySelector(".mc-dt-addname")?.focus(), 0); return; }
+    if (ev.target.closest("[data-dt-add-cancel]")) { dtAddFor = null; return render(); }
+    const addSave = ev.target.closest("[data-dt-add-save]");
+    if (addSave) {
+      const root = addSave.closest(".mc-dt-addform");
+      const name = (root?.querySelector(".mc-dt-addname")?.value || "").trim();
+      const plan = (root?.querySelector(".mc-dt-addplan")?.value || "").trim();
+      dtAddFor = null;
+      if (name) await api.downtime({ op: "upsertActivity", actorId: addSave.dataset.actor, activity: DT.newActivity(name, plan, game.user.id) });
+      else render();
+      return;
+    }
     const rest = ev.target.closest("[data-dt-rest]");
     if (rest) { await restParty(rest.dataset.dtRest); return; }
     // Progress nudge (the DM adjusts anytime): −/+ moves the count (or the roll DC).

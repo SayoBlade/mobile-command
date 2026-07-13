@@ -3459,6 +3459,18 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* Party-rest utility, tucked below the roster with its own label. */
 .mc-dt-restgroup { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #3a3f4c; }
 .mc-dt-restlabel { display: block; font-size: 11px; color: var(--mc-muted); margin-bottom: 4px; }
+/* DM-side "Add a task" per player. */
+.mc-dt-addtask { width: 100%; margin-top: 6px; min-height: 32px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 700;
+  color: #bcd3f2; background: transparent; border: 1px dashed #35507a; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.mc-dt-addtask:hover { background: #17202e; border-color: #6fa0e0; }
+.mc-dt-addform { margin-top: 6px; padding: 8px; border-radius: 8px; background: #14161c; border: 1px solid #35507a; }
+.mc-dt-addname, .mc-dt-addplan { width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 7px 9px; min-height: 34px;
+  border-radius: 7px; background: #1a1c24; border: 1px solid #3a3f4c; color: #ece5d6; font-size: 13px; }
+.mc-dt-addbtns { display: flex; gap: 6px; }
+.mc-dt-add-cancel { flex: 0 0 auto; min-height: 34px; padding: 0 12px; border-radius: 7px; cursor: pointer; font-size: 12px;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
+.mc-dt-add-save { flex: 1 1 auto; min-height: 34px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 800;
+  color: #10221a; background: linear-gradient(#5cc98a, #34a869); border: 1px solid #5cc98a; }
 .mc-dt-divider { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--mc-muted);
   margin: 8px 0 2px; padding-top: 6px; border-top: 1px dashed #3a3f4c; }
 .mc-dt-player.mc-here { border-color: #4a6b8a; }
