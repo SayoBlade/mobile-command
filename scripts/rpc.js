@@ -2188,22 +2188,36 @@ async function maybeAutoLoot(actor) {
     const API = game.itempiles.API;
     if (API.isValidItemPile(tokenDoc)) return true;          // already a pile — already handled
     autoLootInFlight.add(uuid);
+    // Capture the corpse's own look BEFORE conversion. Item Piles re-skins & renames the pile
+    // token after its loot (DM 2026-07-13: the pile showed as "Studded Leather Armor" and looked
+    // gone — hidden=false/alpha=1, so it wasn't hidden, it was disguised). We restore this after.
     const corpseName = tokenDoc.name;
-    // Keep the corpse's own art (not IP's treasure-bag icon), label it "(dead)", and force it
-    // VISIBLE — the pile was rendering hidden (DM 2026-07-12: "the body is hidden").
+    const look = {
+      src: tokenDoc.texture?.src, sx: tokenDoc.texture?.scaleX, sy: tokenDoc.texture?.scaleY,
+      w: tokenDoc.width, h: tokenDoc.height
+    };
     await API.turnTokensIntoItemPiles(tokenDoc, {
       pileSettings: { type: "pile", deleteWhenEmpty: false },
-      tokenSettings: {
-        name: `${corpseName} (dead)`,
-        hidden: false,
-        texture: { src: tokenDoc.texture?.src, scaleX: tokenDoc.texture?.scaleX, scaleY: tokenDoc.texture?.scaleY }
-      }
+      tokenSettings: { name: `${corpseName} (dead)`, hidden: false }
     });
+    // Restore the corpse's own art/name/size (IP overrides tokenSettings), now AND after a beat in
+    // case IP re-skins asynchronously. Keeps it reading as the dead NPC while still being lootable.
+    const restoreLook = async () => {
+      try {
+        await tokenDoc.update({
+          name: `${corpseName} (dead)`, hidden: false, alpha: 1,
+          "texture.src": look.src, "texture.scaleX": look.sx, "texture.scaleY": look.sy,
+          width: look.w, height: look.h
+        });
+      } catch (e) { console.warn(`${MODULE_ID} | corpse look restore failed`, e); }
+    };
+    await restoreLook();
+    setTimeout(() => restoreLook().catch(() => {}), 600);
     // Visible dead marker + remove from combat (shared with the standalone path). Attacking a
     // corpse is nonsensical, so it's also dropped from the attack picker (see isDeadCorpse).
     try { await applyDeadMarker(tokenDoc); }
     catch (e) { console.warn(`${MODULE_ID} | mark-dead-remove failed`, e); }
-    ui.notifications?.info(`${corpseName} is now lootable.`);
+    ui.notifications?.info(`${corpseName} is now a lootable corpse.`);
     return true;
   } catch (e) {
     console.warn(`${MODULE_ID} | auto-loot failed`, e);
