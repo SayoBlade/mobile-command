@@ -264,8 +264,14 @@ function ruleFormHTML(actorId, act) {
     </select></label>
     ${r.gainMode === "fixed" ? `<label class="mc-rf-row">Amount <input type="number" data-rule="pertick" value="${r.perTick}"></label>` : ""}
     ${r.gainMode === "margin" ? `<label class="mc-rf-row">DC <input type="number" data-rule="dc" value="${r.dc}"></label>` : ""}
-    <label class="mc-rf-row">Min per attempt <input type="number" data-rule="mingain" value="${r.minGain}"></label>
-    <button class="mc-rf-toggle ${r.critBonus ? "mc-on" : ""}" data-rule-toggle="crit">${r.critBonus ? "Nat 20 = bonus progress" : "No crit bonus"}</button>`;
+    <label class="mc-rf-row">Min per attempt <input type="number" data-rule="mingain" value="${r.minGain}"></label>`;
+
+  // d20-luck toggles — only when the Rule actually rolls (DM 2026-07-13). Any extra fallout
+  // (a crit costing more materials, etc.) is the DM's call, not automated.
+  const luck = needsRoll ? `<div class="mc-rf-luck">
+    <button class="mc-rf-toggle ${r.critBonus ? "mc-on" : ""}" data-rule-toggle="crit">Double on 20</button>
+    <button class="mc-rf-toggle ${r.fumbleZero ? "mc-on" : ""}" data-rule-toggle="fumble">None on 1</button>
+  </div>` : "";
 
   return `<div class="mc-rf">
     <div class="mc-rf-presets"><span>Preset</span>
@@ -278,7 +284,7 @@ function ruleFormHTML(actorId, act) {
       <option value="tally" ${r.type === "tally" ? "selected" : ""}>Tally to a target</option>
       <option value="cumulative" ${r.type === "cumulative" ? "selected" : ""}>Cumulative points</option>
     </select></label>
-    ${rollPicker}${fields}
+    ${rollPicker}${fields}${luck}
     <label class="mc-rf-row">Reward <input type="text" data-rule="reward" value="${esc(r.reward || "")}" placeholder="e.g. +1 STR, Scroll of Fireball"></label>
     <button class="mc-rf-toggle ${dtRuleVisible ? "mc-on" : ""}" data-rule-toggle="visible">${dtRuleVisible ? "Player sees the rule" : "Rule hidden from the player"}</button>
     <div class="mc-rf-preview"><i class="fas fa-flask"></i> ${esc(DT.describeRule(r))}</div>
@@ -1493,6 +1499,7 @@ async function onClick(ev) {
         if (k === "visible") dtRuleVisible = !dtRuleVisible;
         else if (k === "requireroll") { dtRuleDraft.requireRoll = !dtRuleDraft.requireRoll; seedRollIfNeeded(); }
         else if (k === "crit") dtRuleDraft.critBonus = !dtRuleDraft.critBonus;
+        else if (k === "fumble") dtRuleDraft.fumbleZero = !dtRuleDraft.fumbleZero;
         return render();
       }
       if (ev.target.closest("[data-rule-cancel]")) { dtRuleFor = null; dtRuleDraft = null; return render(); }

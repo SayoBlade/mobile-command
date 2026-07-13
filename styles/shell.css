@@ -3491,6 +3491,8 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-rf-toggle { min-height: 34px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 700;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
 .mc-rf-toggle.mc-on { background: #1f2c3e; border-color: #6fa0e0; color: #cfe0f5; }
+.mc-rf-luck { display: flex; gap: 6px; }
+.mc-rf-luck .mc-rf-toggle { flex: 1 1 0; }
 .mc-rf-preview { font-size: 11px; color: #8fb6ee; padding: 6px 8px; border-radius: 7px; background: #10141b; border: 1px solid #2a2f3a; }
 .mc-rf-preview i { margin-right: 4px; }
 .mc-rf-actions { display: flex; gap: 6px; margin-top: 2px; }

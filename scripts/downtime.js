@@ -89,25 +89,31 @@ export function applyAttempt(rule, progress, outcome = null) {
   p.attempts = (Number(p.attempts) || 0) + 1;
 
   if (rule.type === "roll") {
-    const success = total >= p.dc;
-    if (success) { p.done = true; return { progress: p, completed: true, delta: 0, note: `Success vs DC ${p.dc} (rolled ${total}).` }; }
+    // "Double on 20" → a nat 20 always succeeds; "None on 1" → a nat 1 always misses.
+    const critHit = rule.critBonus && nat === 20;
+    const critMiss = rule.fumbleZero && nat === 1;
+    const success = critHit || (!critMiss && total >= p.dc);
+    if (success) { p.done = true; return { progress: p, completed: true, delta: 0, note: critHit ? `Nat 20 — success!` : `Success vs DC ${p.dc} (rolled ${total}).` }; }
     // Miss → shift the working DC by autoShift (negative lowers), clamped at the floor.
     const shift = Number(rule.autoShift) || 0;
     let dc = p.dc + shift;
     if (rule.autoShiftFloor != null) dc = shift < 0 ? Math.max(rule.autoShiftFloor, dc) : Math.min(rule.autoShiftFloor, dc);
     p.dc = dc;
-    return { progress: p, completed: false, delta: 0, note: shift ? `Missed (rolled ${total}). DC now ${dc}.` : `Missed vs DC ${p.dc} (rolled ${total}).` };
+    const missWhy = critMiss ? "Nat 1 — miss" : `Missed (rolled ${total})`;
+    return { progress: p, completed: false, delta: 0, note: shift ? `${missWhy}. DC now ${dc}.` : `${missWhy} vs DC ${p.dc}.` };
   }
 
   if (rule.type === "tally") {
+    let gain = Number(rule.perTick) || 1;
     if (rule.requireRoll) {
-      const success = total >= Number(rule.dc || 0);
-      if (!success) return { progress: p, completed: false, delta: 0, note: `No progress (rolled ${total} vs DC ${rule.dc}).` };
+      if (rule.fumbleZero && nat === 1) return { progress: p, completed: false, delta: 0, note: `Nat 1 — no progress.` };
+      if (total < Number(rule.dc || 0)) return { progress: p, completed: false, delta: 0, note: `No progress (rolled ${total} vs DC ${rule.dc}).` };
+      if (rule.critBonus && nat === 20) gain *= 2; // "Double on 20"
     }
-    const gain = Number(rule.perTick) || 1;
     p.count = Math.min(Number(rule.target) || 0, (Number(p.count) || 0) + gain);
     p.done = p.count >= (Number(rule.target) || 0);
-    return { progress: p, completed: p.done, delta: gain, note: `+${gain} → ${p.count}/${rule.target}${p.done ? " — complete!" : ""}` };
+    const critNote = rule.requireRoll && rule.critBonus && nat === 20 ? " (nat 20 ×2)" : "";
+    return { progress: p, completed: p.done, delta: gain, note: `+${gain}${critNote} → ${p.count}/${rule.target}${p.done ? " — complete!" : ""}` };
   }
 
   if (rule.type === "cumulative") {
@@ -115,12 +121,16 @@ export function applyAttempt(rule, progress, outcome = null) {
     if (rule.gainMode === "total") base = total;
     else if (rule.gainMode === "margin") base = total - Number(rule.dc || 0);
     else base = Number(rule.perTick) || 1;
-    let gain = Math.max(Number(rule.minGain ?? 1), base); // never zero — always forward
-    if (rule.critBonus && nat === 20) gain += Math.max(Number(rule.minGain ?? 1), base); // crit = a bonus tick's worth
+    let gain;
+    if (rule.fumbleZero && nat === 1) gain = 0; // "None on 1" — overrides the min-forward floor
+    else {
+      gain = Math.max(Number(rule.minGain ?? 1), base); // never zero — always forward
+      if (rule.critBonus && nat === 20) gain += Math.max(Number(rule.minGain ?? 1), base); // "Double on 20"
+    }
     p.count = Math.min(Number(rule.target) || 0, (Number(p.count) || 0) + gain);
     p.done = p.count >= (Number(rule.target) || 0);
-    const critNote = rule.critBonus && nat === 20 ? " (crit!)" : "";
-    return { progress: p, completed: p.done, delta: gain, note: `+${gain}${critNote} → ${p.count}/${rule.target}${p.done ? " — complete!" : ""}` };
+    const luckNote = (rule.fumbleZero && nat === 1) ? " (nat 1)" : (rule.critBonus && nat === 20) ? " (nat 20 ×2)" : "";
+    return { progress: p, completed: p.done, delta: gain, note: `+${gain}${luckNote} → ${p.count}/${rule.target}${p.done ? " — complete!" : ""}` };
   }
 
   return { progress: p, completed: false, delta: 0, note: "No rule." };
@@ -155,6 +165,14 @@ export function progressSummary(rule, progress) {
   return { headline: `${count}/${target}`, detail: `${progress.attempts} attempt${progress.attempts === 1 ? "" : "s"}`, ratio: target > 0 ? Math.max(0, Math.min(1, count / target)) : null };
 }
 
+// The "double on 20 / none on 1" d20-luck suffix, shown only when the Rule involves a roll.
+function luckSuffix(rule) {
+  if (!needsRoll(rule)) return "";
+  const parts = [];
+  if (rule.critBonus) parts.push("×2 on 20");
+  if (rule.fumbleZero) parts.push("0 on 1");
+  return parts.length ? ` · ${parts.join(", ")}` : "";
+}
 // A one-line DM-facing description of the Rule's mechanics (for the authoring/summary view).
 export function describeRule(rule) {
   if (!rule) return "No rule yet";
@@ -162,15 +180,15 @@ export function describeRule(rule) {
   if (rule.type === "roll") {
     const shift = Number(rule.autoShift) || 0;
     const shiftTxt = shift ? `, ${shift < 0 ? "−" : "+"}${Math.abs(shift)} DC each try` : "";
-    return `${r} vs DC ${rule.dc}${shiftTxt}`;
+    return `${r} vs DC ${rule.dc}${shiftTxt}${luckSuffix(rule)}`;
   }
   if (rule.type === "tally") {
     const gate = rule.requireRoll ? ` on ${r} vs DC ${rule.dc}` : "";
-    return `Tally to ${rule.target}, +${rule.perTick} per ${rule.tickSource}${gate}`;
+    return `Tally to ${rule.target}, +${rule.perTick} per ${rule.tickSource}${gate}${luckSuffix(rule)}`;
   }
   if (rule.type === "cumulative") {
     const g = rule.gainMode === "total" ? `${r} total` : rule.gainMode === "margin" ? `${r} margin over DC ${rule.dc}` : `+${rule.perTick}`;
-    return `Cumulative to ${rule.target}, add ${g} per ${rule.tickSource} (min ${rule.minGain ?? 1}${rule.critBonus ? ", crit bonus" : ""})`;
+    return `Cumulative to ${rule.target}, add ${g} per ${rule.tickSource} (min ${rule.minGain ?? 1})${luckSuffix(rule)}`;
   }
   return "Unknown rule";
 }
