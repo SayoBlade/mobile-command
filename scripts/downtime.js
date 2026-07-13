@@ -290,9 +290,50 @@ export function normalizeState(raw) {
   const s = raw && typeof raw === "object" ? raw : {};
   return {
     window: s.window && typeof s.window === "object" ? { open: !!s.window.open, size: s.window.size === "long" ? "long" : "short", id: String(s.window.id || "") } : null,
+    templates: Array.isArray(s.templates) ? s.templates : [],
     activities: s.activities && typeof s.activities === "object" ? s.activities : {},
     actorSettings: s.actorSettings && typeof s.actorSettings === "object" ? s.actorSettings : {}
   };
+}
+
+// ── Catalog of DM-authored templates (§17.7 redesign, DM 2026-07-13) ─────────────────────────
+// The DM names an activity and gives it a Rule; it becomes a reusable Template. Players PICK a
+// template (they don't free-create), which copies it into their own list as an independent
+// instance with its own progress. The `note` is DM-only (balancing reminders, gold/time) and is
+// never rendered player-side.
+export function listTemplates(state) { return normalizeState(state).templates.slice(); }
+export function newTemplate(name, createdBy = "") {
+  return { id: randId(), name: String(name || "Untitled").slice(0, 80), note: "", rule: null, seed: false, createdBy };
+}
+export function upsertTemplate(state, template) {
+  const s = normalizeState(state);
+  const list = s.templates.slice();
+  const i = list.findIndex(t => t.id === template.id);
+  if (i >= 0) list[i] = template; else list.push(template);
+  return { ...s, templates: list };
+}
+export function removeTemplate(state, id) {
+  const s = normalizeState(state);
+  return { ...s, templates: s.templates.filter(t => t.id !== id) };
+}
+function mapTemplate(state, id, fn) {
+  const s = normalizeState(state);
+  return { ...s, templates: s.templates.map(t => (t.id === id ? fn({ ...t }) : t)) };
+}
+export function setTemplateRule(state, id, rule) { return mapTemplate(state, id, t => ({ ...t, rule })); }
+export function setTemplateNote(state, id, note) { return mapTemplate(state, id, t => ({ ...t, note: String(note || "") })); }
+// A player (or the DM) picks a template → an independent instance is added to that actor's list.
+export function pickTemplate(state, actorId, templateId, createdBy = "") {
+  const s = normalizeState(state);
+  const tmpl = s.templates.find(t => t.id === templateId);
+  if (!tmpl) return s;
+  const rule = tmpl.rule ? JSON.parse(JSON.stringify(tmpl.rule)) : null;
+  const inst = {
+    id: randId(), name: tmpl.name, note: tmpl.note || "", rule,
+    progress: rule ? initProgress(rule) : null, visible: false, status: "active",
+    reward: rule?.reward || "", createdBy, pending: false, templateId
+  };
+  return upsertActivity(s, actorId, inst);
 }
 
 // Per-character gear settings — rare, hidden behind a gear icon (DM 2026-07-13). `bonusActivities`
