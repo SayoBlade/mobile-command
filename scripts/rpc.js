@@ -341,7 +341,17 @@ async function handleDowntimeOp(payload = {}) {
     case "upsertActivity": state = DT.upsertActivity(state, actorId, payload.activity); break;
     case "removeActivity": state = DT.removeActivity(state, actorId, payload.id); break;
     case "setRule": state = DT.setRule(state, actorId, payload.id, payload.rule); break;
-    case "applyAttempt": state = DT.applyAttemptTo(state, actorId, payload.id, payload.outcome ?? null); break;
+    case "pushRoll": state = DT.setPending(state, actorId, payload.id, payload.on); break;
+    case "applyAttempt": {
+      // Surface the roll's result to the DM as a toast (the pure transform discards the note).
+      const act = DT.listActivities(state, actorId).find(a => a.id === payload.id);
+      if (act?.rule && act?.progress) {
+        const res = DT.applyAttempt(act.rule, act.progress, payload.outcome ?? null);
+        ui.notifications?.info(`${game.actors.get(actorId)?.name ?? "PC"} — ${act.name}: ${res.note}`);
+      }
+      state = DT.applyAttemptTo(state, actorId, payload.id, payload.outcome ?? null);
+      break;
+    }
     case "adjustProgress": state = DT.adjustActivity(state, actorId, payload.id, payload.delta); break;
     case "setVisible": state = DT.setVisible(state, actorId, payload.id, payload.visible); break;
     case "openWindow": state = DT.openWindow(state, payload.size, foundry.utils.randomID()); break;

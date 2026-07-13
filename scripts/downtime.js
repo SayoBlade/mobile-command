@@ -303,7 +303,7 @@ export function listActivities(state, actorId) {
 }
 export function newActivity(name, plan, createdBy = "") {
   return { id: randId(), name: String(name || "Untitled").slice(0, 80), plan: String(plan || "").slice(0, 500),
-    rule: null, progress: null, visible: false, status: "active", reward: "", createdBy };
+    rule: null, progress: null, visible: false, status: "active", reward: "", createdBy, pending: false };
 }
 // Insert or replace an Activity by id (immutably) and return the new state.
 export function upsertActivity(state, actorId, activity) {
@@ -327,12 +327,17 @@ function mapActivity(state, actorId, id, fn) {
 export function setRule(state, actorId, id, rule) {
   return mapActivity(state, actorId, id, a => ({ ...a, rule, progress: initProgress(rule), status: "active" }));
 }
-// Push an attempt outcome (or null) through the Activity's Rule.
+// DM push-roll: flag an Activity as awaiting the player's roll (the player's board then shows the
+// roll button). Cleared automatically once an attempt is applied.
+export function setPending(state, actorId, id, on) {
+  return mapActivity(state, actorId, id, a => ({ ...a, pending: !!on }));
+}
+// Push an attempt outcome (or null) through the Activity's Rule; clears any pending push.
 export function applyAttemptTo(state, actorId, id, outcome) {
   return mapActivity(state, actorId, id, a => {
     if (!a.rule || !a.progress) return a;
     const res = applyAttempt(a.rule, a.progress, outcome);
-    return { ...a, progress: res.progress, status: res.completed ? "complete" : a.status };
+    return { ...a, progress: res.progress, pending: false, status: res.completed ? "complete" : a.status };
   });
 }
 export function adjustActivity(state, actorId, id, delta) {

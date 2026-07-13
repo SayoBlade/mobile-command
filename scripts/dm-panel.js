@@ -131,11 +131,18 @@ function downtimeHTML() {
       ? acts.map(act => {
         const editing = dtRuleFor === act.id;
         const hasRule = !!act.rule;
-        const adj = hasRule && act.status !== "complete"
+        const live = hasRule && act.status !== "complete";
+        const adj = live
           ? `<div class="mc-dt-adj">
               <button data-dt-adjust="-1" data-actor="${a.id}" data-id="${act.id}" title="Set back">−</button>
               <button data-dt-adjust="1" data-actor="${a.id}" data-id="${act.id}" title="Nudge forward">+</button>
             </div>` : "";
+        // Push a roll to the player (roll rules), or tick it yourself (no-roll rules).
+        const push = live
+          ? (DT.needsRoll(act.rule)
+            ? `<button class="mc-dt-push ${act.pending ? "mc-waiting" : ""}" data-dt-push="${act.id}" data-actor="${a.id}" data-on="${act.pending ? "0" : "1"}"><i class="fas fa-dice-d20"></i> ${act.pending ? "Waiting…" : "Push roll"}</button>`
+            : `<button class="mc-dt-push" data-dt-tick="${act.id}" data-actor="${a.id}"><i class="fas fa-plus"></i> Tick +${Number(act.rule.perTick) || 1}</button>`)
+          : "";
         return `<div class="mc-dt-act ${act.status === "complete" ? "mc-done" : ""} ${act.visible ? "mc-shown" : "mc-hidden"}">
           <div class="mc-dt-act-top">
             <span class="mc-dt-act-name">${esc(act.name)}</span>
@@ -144,7 +151,8 @@ function downtimeHTML() {
           </div>
           ${act.plan ? `<div class="mc-dt-act-plan">“${esc(act.plan)}”</div>` : ""}
           <div class="mc-dt-act-rule">${hasRule ? esc(DT.describeRule(act.rule)) : "<em>No rule yet</em>"}${act.visible ? ' <i class="fas fa-eye mc-dt-eye" title="Player can see this"></i>' : ""}</div>
-          <div class="mc-dt-act-progline">${dtProgressBar(act)}${adj}</div>
+          <div class="mc-dt-act-progline">${dtProgressBar(act)}</div>
+          ${live ? `<div class="mc-dt-act-ctl">${push}${adj}</div>` : ""}
           ${editing ? ruleFormHTML(a.id, act) : ""}
         </div>`;
       }).join("")
@@ -1476,6 +1484,10 @@ async function onClick(ev) {
     // Progress nudge (the DM adjusts anytime): −/+ moves the count (or the roll DC).
     const adj = ev.target.closest("[data-dt-adjust]");
     if (adj) { await api.downtime({ op: "adjustProgress", actorId: adj.dataset.actor, id: adj.dataset.id, delta: Number(adj.dataset.dtAdjust) }); return; }
+    const push = ev.target.closest("[data-dt-push]");
+    if (push) { await api.downtime({ op: "pushRoll", actorId: push.dataset.actor, id: push.dataset.dtPush, on: push.dataset.on === "1" }); return; }
+    const tick = ev.target.closest("[data-dt-tick]");
+    if (tick) { await api.downtime({ op: "applyAttempt", actorId: tick.dataset.actor, id: tick.dataset.dtTick, outcome: null }); return; }
     // Open/close the Rule-authoring form for an Activity.
     const edit = ev.target.closest("[data-dt-editrule]");
     if (edit) {

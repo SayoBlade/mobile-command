@@ -2850,10 +2850,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
     const rows = acts.map(a => {
       const done = a.status === "complete";
-      // A visible Activity shows its progress/vibe; a hidden one shows only the name + plan.
+      // A pushed roll shows the (visibility-aware) roll button; otherwise a visible Activity shows
+      // its progress/vibe and a hidden one shows only the name + plan.
       let mech = "";
       if (done) mech = `<div class="mc-dt-prow-done"><i class="fas fa-check"></i> Complete</div>`;
-      else if (a.rule && a.visible) {
+      else if (a.pending && a.rule && DT.needsRoll(a.rule)) {
+        const view = DT.playerRuleView(a.rule, a.progress, a.visible);
+        mech = `<button class="mc-dt-rollbtn" data-action="dt-roll" data-id="${a.id}"><i class="fas fa-dice-d20"></i> ${esc(view.button || "Roll")}</button>`;
+      } else if (a.rule && a.visible) {
         const view = DT.playerRuleView(a.rule, a.progress, true);
         if (view.note) mech = `<div class="mc-dt-prow-note">${esc(view.note)}</div>`;
       }
@@ -5456,8 +5460,37 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         rpc.downtime({ op: "removeActivity", actorId: this.actor.id, id: el.dataset.id })
           .catch(err => console.warn("mobile-command | downtime remove failed", err));
         return;
+      case "dt-roll": {                                 // the DM pushed a roll — roll it, relay the outcome
+        if (!this.actor) return;
+        const st = this.#dtState();
+        const act = DT.listActivities(st, this.actor.id).find(x => x.id === el.dataset.id);
+        if (act) this.#downtimeRoll(act);
+        return;
+      }
     }
   };
+
+  // Roll a pushed downtime attempt via the dnd5e document methods (they render their dialog
+  // locally, so this works on the canvasless phone), read the total + natural d20 (for the
+  // luck toggles), and relay the outcome to the executor which applies it to the Activity.
+  async #downtimeRoll(act) {
+    const actor = this.actor; if (!actor || !act?.rule) return;
+    const r = act.rule.roll || {};
+    let result;
+    try {
+      if (r.formula) { result = await new Roll(r.formula).evaluate(); await result.toMessage({ flavor: act.name, speaker: ChatMessage.getSpeaker({ actor }) }); }
+      else if (r.skill) result = await actor.rollSkill({ skill: r.skill });
+      else if (r.save) result = await actor.rollSavingThrow({ ability: r.save });
+      else if (r.ability) result = await actor.rollAbilityCheck({ ability: r.ability });
+      else { result = await new Roll("1d20").evaluate(); await result.toMessage({ flavor: act.name, speaker: ChatMessage.getSpeaker({ actor }) }); }
+    } catch (e) { return; } // dialog error
+    const roll = Array.isArray(result) ? result[0] : result;
+    if (!roll) return; // dialog cancelled
+    const d20 = roll.dice?.find(d => d.faces === 20);
+    const nat = d20?.results?.find(x => x.active)?.result ?? null;
+    rpc.downtime({ op: "applyAttempt", actorId: actor.id, id: act.id, outcome: { total: roll.total, nat } })
+      .catch(err => console.warn("mobile-command | downtime roll relay failed", err));
+  }
 
   // Run a rest, then show a card of what it recovered (HP, hit dice, spell slots,
   // item charges, exhaustion). Diffs the actor before/after rather than parsing
