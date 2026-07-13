@@ -238,7 +238,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #searchQuery = "";      // live search text; filtered via DOM toggle (no re-render → keeps focus)
   #newItemOpen = false;   // Equipment tab: the inline "+ New item" name field is open
   #downtimeCollapsed = false; // player minimised the board back to a one-line bar (still in the window)
-  #dtNewOpen = false;     // §17.7: the inline "New activity" name/plan form is open
+  #dtPickOpen = false;    // §17.7: the "Pick an activity" catalog list is open
   #wildShape = null;      // Druid shape browser: null | { open, beasts:null|[], loading }
   #summonConfig = null;   // summon options the player picks before the DM places: null | { uuid, name, slotOptions, slotId, profiles, profileId }
   #portraitGen = null;    // portrait generator screen: null | { actorId, mode:"portrait"|"body", freeText }
@@ -2867,30 +2867,30 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         const view = DT.playerRuleView(a.rule, a.progress, true);
         if (view.note) mech = `<div class="mc-dt-prow-note">${esc(view.note)}</div>`;
       }
+      // No plan/note shown player-side — the DM's note is private.
       return `<div class="mc-dt-prow ${done ? "mc-done" : ""}">
         <div class="mc-dt-prow-top">
           <span class="mc-dt-prow-name">${esc(a.name)}</span>
           <button class="mc-dt-prow-rm" data-action="dt-remove" data-id="${a.id}" aria-label="Remove">✕</button>
         </div>
-        ${a.plan ? `<div class="mc-dt-prow-plan">${esc(a.plan)}</div>` : ""}
         ${mech}
       </div>`;
     }).join("");
 
-    const adder = this.#dtNewOpen
-      ? `<div class="mc-dt-newform">
-          <input class="mc-dt-new-name" type="text" placeholder="Name it — e.g. Learn Elvish" maxlength="80">
-          <input class="mc-dt-new-plan" type="text" placeholder="Your plan? (optional)" maxlength="200">
-          <div class="mc-dt-newbtns">
-            <button class="mc-dt-new-cancel" data-action="dt-new-cancel">Cancel</button>
-            <button class="mc-dt-new-save" data-action="dt-new-save">Add</button>
-          </div>
+    // Pick from the DM's catalog (players don't free-create — the DM decides the names).
+    const templates = DT.listTemplates(st);
+    const adder = this.#dtPickOpen
+      ? `<div class="mc-dt-picklist">
+          ${templates.length
+            ? templates.map(t => `<button class="mc-dt-pickbtn" data-action="dt-pick" data-id="${t.id}">${esc(t.name)}</button>`).join("")
+            : `<div class="mc-dt-empty">Nothing on offer yet — ask the DM.</div>`}
+          <button class="mc-dt-new-cancel" data-action="dt-pick-close">Close</button>
         </div>`
-      : `<button class="mc-dt-addbtn" data-action="dt-new"><i class="fas fa-plus"></i> New activity</button>`;
+      : `<button class="mc-dt-addbtn" data-action="dt-pick-open"><i class="fas fa-plus"></i> Pick an activity</button>`;
 
     return `<section class="mc-dt-board">
       <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime ${chevron}</div>
-      ${acts.length ? rows : `<div class="mc-dt-empty">What do you want to do? Add an activity — the DM sorts out the rest.</div>`}
+      ${acts.length ? rows : `<div class="mc-dt-empty">Pick what you'll do below — the DM handles the rest.</div>`}
       ${adder}
     </section>`;
   }
@@ -5446,20 +5446,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#doRest("long");
       case "dt-collapse":                               // §17.7: minimise/restore the board (not an exit)
         this.#downtimeCollapsed = !this.#downtimeCollapsed; return this.render();
-      case "dt-new":                                    // open the inline new-activity form
-        this.#dtNewOpen = true; this.render();
-        setTimeout(() => this.element?.querySelector(".mc-dt-new-name")?.focus(), 0); return;
-      case "dt-new-cancel":
-        this.#dtNewOpen = false; return this.render();
-      case "dt-new-save": {                             // name a new Activity → relay to the executor
+      case "dt-pick-open":                              // open the catalog pick-list
+        this.#dtPickOpen = true; return this.render();
+      case "dt-pick-close":
+        this.#dtPickOpen = false; return this.render();
+      case "dt-pick": {                                 // pick a DM template → my own instance
         if (!this.actor) return;
-        const root = el.closest(".mc-dt-newform");
-        const name = (root?.querySelector(".mc-dt-new-name")?.value || "").trim();
-        const plan = (root?.querySelector(".mc-dt-new-plan")?.value || "").trim();
-        if (!name) return; // need at least a name
-        rpc.downtime({ op: "upsertActivity", actorId: this.actor.id, activity: DT.newActivity(name, plan, game.user.id) })
-          .catch(err => console.warn("mobile-command | downtime upsert failed", err));
-        this.#dtNewOpen = false; return this.render();
+        rpc.downtime({ op: "pickTemplate", actorId: this.actor.id, templateId: el.dataset.id })
+          .catch(err => console.warn("mobile-command | downtime pick failed", err));
+        this.#dtPickOpen = false; return this.render();
       }
       case "dt-remove":                                 // drop one of my own Activities
         if (!this.actor) return;

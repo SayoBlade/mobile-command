@@ -322,6 +322,26 @@ function mapTemplate(state, id, fn) {
 }
 export function setTemplateRule(state, id, rule) { return mapTemplate(state, id, t => ({ ...t, rule })); }
 export function setTemplateNote(state, id, note) { return mapTemplate(state, id, t => ({ ...t, note: String(note || "") })); }
+// Seed a few example templates the DM can edit/delete (a starting point, per DM 2026-07-13).
+// Skips names that already exist so it's safe to call again.
+export function seedTemplates(state, createdBy = "") {
+  let s = normalizeState(state);
+  const athl = { ability: null, skill: "ath", save: null, tool: null, formula: null, label: "Athletics" };
+  const mk = (name, note, build) => { const t = newTemplate(name, createdBy); t.note = note; t.rule = build(); t.seed = true; return t; };
+  const examples = [
+    mk("Scribe a spell", "Pick the spell on the player's sheet; XGE sets the time/gp — charge it or not, your call.",
+      () => { const r = defaultRule("tally", "scribe"); r.tickSource = "day"; r.reward = "The finished scroll"; return r; }),
+    mk("Teaching to use a Sword", "On a success, grant the student advantage on their next Learning roll (apply by hand).",
+      () => { const r = defaultRule("roll"); r.dc = 15; r.roll = { ...athl }; return r; }),
+    mk("Learning to use a Sword", "A group activity — pair with a teacher for advantage.",
+      () => { const r = defaultRule("roll"); r.dc = 50; r.autoShift = -1; r.nat20 = "double"; r.nat1 = "zero"; r.roll = { ...athl }; r.reward = "Sword proficiency"; return r; }),
+    mk("Nightly pushups", "Reward +1 STR at 100; a per-rest tally, no roll.",
+      () => { const r = defaultRule("tally"); r.target = 100; r.tickSource = "rest"; r.perTick = 1; r.requireRoll = false; r.reward = "+1 STR"; return r; })
+  ];
+  for (const t of examples) if (!s.templates.some(x => x.name === t.name)) s = upsertTemplate(s, t);
+  return s;
+}
+
 // A player (or the DM) picks a template → an independent instance is added to that actor's list.
 export function pickTemplate(state, actorId, templateId, createdBy = "") {
   const s = normalizeState(state);

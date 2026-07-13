@@ -362,6 +362,7 @@ async function handleDowntimeOp(payload = {}) {
     case "setTemplateRule": state = DT.setTemplateRule(state, payload.id, payload.rule); break;
     case "setTemplateNote": state = DT.setTemplateNote(state, payload.id, payload.note); break;
     case "pickTemplate": state = DT.pickTemplate(state, actorId, payload.templateId, requesterId); break;
+    case "seedTemplates": state = DT.seedTemplates(state, requesterId); break;
     default: return { ok: false, stage: "validate", reason: `unknown downtime op: ${op}` };
   }
   await game.settings.set(MODULE_ID, "downtimeState", state);

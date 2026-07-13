@@ -84,10 +84,14 @@ function tabRailHTML() {
 
 let dtGearFor = null; // §17.7: actorId whose per-character gear panel is expanded (DM-local)
 let dtAddFor = null; // actorId whose DM-side "add a task" inline form is open
-let dtRuleFor = null; // activityId whose Rule-authoring form is open
-let dtRuleActor = null; // that activity's actorId
+let dtRuleFor = null; // id whose Rule-authoring form is open (an activity id, or a template id)
+let dtRuleActor = null; // that activity's actorId (null when editing a template)
+let dtRuleIsTemplate = false; // the open form is authoring a catalog template, not a PC's instance
 let dtRuleDraft = null; // the working Rule being authored (see downtime.js)
-let dtRuleVisible = false; // whether Activate will show the Rule to the player
+let dtRuleVisible = false; // whether Activate will show the Rule to the player (instances only)
+let dtRuleNote = ""; // the template's DM-only note being authored
+let dtNewTmplOpen = false; // the catalog "+ New activity" name field is open
+let dtGiveFor = null; // actorId whose "give a task" template picker is open
 function downtimeState() { try { return DT.normalizeState(game.settings.get(MODULE_ID, "downtimeState")); } catch (e) { return DT.normalizeState({}); } }
 function downtimeOpen() { return !!downtimeState().window?.open; }
 
@@ -102,6 +106,39 @@ function dtProgressBar(act) {
   const bar = s.ratio != null
     ? `<div class="mc-dt-bar"><span style="width:${Math.round(s.ratio * 100)}%"></span></div>` : "";
   return `<div class="mc-dt-prog"><span class="mc-dt-prog-head">${foundry.utils.escapeHTML(s.headline)}</span>${bar}</div>`;
+}
+// The DM-authored catalog: named activities + rules + DM-only notes. Players pick from these.
+function catalogHTML(st) {
+  const esc = foundry.utils.escapeHTML;
+  const templates = DT.listTemplates(st);
+  const rows = templates.map(t => {
+    const editing = dtRuleIsTemplate && dtRuleFor === t.id;
+    const hasRule = !!t.rule;
+    let body;
+    if (editing) body = ruleFormHTML(null, t);
+    else if (hasRule) body = `<div class="mc-dt-act-rule">${esc(DT.describeRule(t.rule))}</div>
+      ${t.note ? `<div class="mc-dt-note"><i class="fas fa-note-sticky"></i> ${esc(t.note)}</div>` : ""}
+      <button class="mc-dt-act-edit" data-dt-tmpl-edit="${t.id}"><i class="fas fa-pen"></i> Edit</button>`;
+    else body = `<button class="mc-dt-setrule" data-dt-tmpl-edit="${t.id}"><i class="fas fa-wand-magic-sparkles"></i> Set the rule</button>`;
+    return `<div class="mc-dt-tmpl ${!hasRule ? "mc-norule" : ""}">
+      <div class="mc-dt-act-top">
+        <span class="mc-dt-act-name">${esc(t.name)}</span>
+        <button class="mc-dt-act-rm" data-dt-tmpl-rm="${t.id}" title="Delete this activity">✕</button>
+      </div>
+      ${body}
+    </div>`;
+  }).join("");
+  const adder = dtNewTmplOpen
+    ? `<div class="mc-dt-tmplform">
+        <input class="mc-dt-tmplname" type="text" placeholder="Activity name — e.g. Learning a Sword" maxlength="80">
+        <div class="mc-dt-addbtns"><button class="mc-dt-add-cancel" data-dt-tmpl-cancel>Cancel</button><button class="mc-dt-add-save" data-dt-tmpl-save>Add</button></div>
+      </div>`
+    : `<button class="mc-dt-addtask" data-dt-tmpl-new><i class="fas fa-plus"></i> New activity</button>`;
+  const seed = !templates.length && !dtNewTmplOpen ? `<button class="mc-dt-seedbtn" data-dt-seed><i class="fas fa-wand-sparkles"></i> Add a few examples</button>` : "";
+  return `<div class="mc-dt-catalog">
+    <div class="mc-dt-cat-head"><span>Activities</span><span class="mc-dt-cat-hint">players pick from these</span></div>
+    ${rows}${adder}${seed}
+  </div>`;
 }
 function downtimeHTML() {
   const esc = foundry.utils.escapeHTML;
@@ -172,17 +209,16 @@ function downtimeHTML() {
           <button class="mc-dt-toggle ${gear.showMechanicsByDefault ? "mc-on" : ""}" data-dt-gear="crunch" data-actor="${a.id}">${gear.showMechanicsByDefault ? "On" : "Off"}</button></div>
         <p class="mc-dt-gearhint">For a character who barely sleeps (a race trait or an undocumented ability), let them run more than one activity a night.</p>
       </div>` : "";
-    // The DM can add a task directly (no need to wait for the player to name one).
-    const adder = dtAddFor === a.id
-      ? `<div class="mc-dt-addform">
-          <input class="mc-dt-addname" type="text" placeholder="Task — e.g. Nightly pushups" maxlength="80">
-          <input class="mc-dt-addplan" type="text" placeholder="Notes / plan (optional)" maxlength="200">
-          <div class="mc-dt-addbtns">
-            <button class="mc-dt-add-cancel" data-dt-add-cancel>Cancel</button>
-            <button class="mc-dt-add-save" data-dt-add-save data-actor="${a.id}">Add</button>
-          </div>
-        </div>`
-      : `<button class="mc-dt-addtask" data-dt-add-open="${a.id}"><i class="fas fa-plus"></i> Add a task</button>`;
+    // The DM can hand a PC a task straight from the catalog (no need to wait for the player).
+    const giving = dtGiveFor === a.id;
+    const giveList = giving
+      ? (DT.listTemplates(st).map(t => `<button class="mc-dt-givepick" data-dt-give-pick="${t.id}" data-actor="${a.id}">${esc(t.name)}</button>`).join("")
+        || `<div class="mc-dt-empty">No activities yet — add one under “Activities” above.</div>`)
+      : "";
+    const adder = giving
+      ? `<div class="mc-dt-givebox"><div class="mc-dt-give-head">Give a task to ${esc(a.name)}:</div>${giveList}
+          <button class="mc-dt-add-cancel" data-dt-give="${a.id}">Close</button></div>`
+      : `<button class="mc-dt-addtask" data-dt-give="${a.id}"><i class="fas fa-hand-holding-hand"></i> Give a task</button>`;
     return `<div class="mc-dt-player mc-here">
       <div class="mc-dt-player-head">
         <span class="mc-dt-name">${esc(a.name)}</span>
@@ -203,7 +239,8 @@ function downtimeHTML() {
       <button class="mc-dt-rest" data-dt-rest="long"><i class="fas fa-campground"></i> Long</button>
     </div>
   </div>` : "";
-  return `<div class="mc-dt-panel">${head}<div class="mc-dt-players">${rows}</div>${restRow}</div>`;
+  const roster = win?.open ? `<div class="mc-dt-cat-head mc-dt-roster-head"><span>Who's doing what</span></div><div class="mc-dt-players">${rows}</div>` : "";
+  return `<div class="mc-dt-panel">${head}${catalogHTML(st)}${roster}${restRow}</div>`;
 }
 
 // Rest every player character at once (the DM's montage rest). Dialog-suppressed so it doesn't
@@ -382,11 +419,13 @@ function ruleFormHTML(actorId, act) {
     </select></label>
     ${rollPicker}${fields}${luck}
     <label class="mc-rf-row">Reward <input type="text" data-rule="reward" value="${esc(r.reward || "")}" placeholder="e.g. +1 STR, Scroll of Fireball"></label>
-    <button class="mc-rf-toggle ${dtRuleVisible ? "mc-on" : ""}" data-rule-toggle="visible">${dtRuleVisible ? "Player sees the rule" : "Rule hidden from the player"}</button>
+    ${dtRuleIsTemplate
+      ? `<label class="mc-rf-notewrap">DM-only note<textarea class="mc-rf-notebox" data-rule="note" placeholder="Private — balancing, gold/time, reminders (players never see this)">${esc(dtRuleNote)}</textarea></label>`
+      : `<button class="mc-rf-toggle ${dtRuleVisible ? "mc-on" : ""}" data-rule-toggle="visible">${dtRuleVisible ? "Player sees the rule" : "Rule hidden from the player"}</button>`}
     <div class="mc-rf-preview"><i class="fas fa-flask"></i> ${esc(DT.describeRule(r))}</div>
     <div class="mc-rf-actions">
       <button class="mc-rf-cancel" data-rule-cancel>Cancel</button>
-      <button class="mc-rf-activate" data-rule-activate>Activate</button>
+      <button class="mc-rf-activate" data-rule-activate>${dtRuleIsTemplate ? "Save" : "Activate"}</button>
     </div>
   </div>`;
 }
@@ -413,6 +452,7 @@ function applyRuleField(field, value) {
     case "nat20": r.nat20 = value; reRender = true; break;
     case "nat1": r.nat1 = value; reRender = true; break;
     case "reward": r.reward = value; break;
+    case "note": dtRuleNote = value; break;
     case "scribespell": {
       const sp = value && game.actors.get(dtRuleActor)?.items?.get(value);
       if (sp) { const sug = DT.scribeScrollSuggest(sp.system?.level ?? 0, sp.name); dtRuleDraft = sug.rule; dtRuleDraft._spellId = value; }
@@ -1448,8 +1488,8 @@ function render() {
   // 2026-07-13: "the task disappears"). Only text/number inputs need this; SELECTs must NOT be
   // guarded, or the rule form's own Kind/Roll dropdowns can't drive a re-render ("can't set rules").
   const ae = document.activeElement;
-  if (ae && el.contains(ae) && ae.tagName === "INPUT" && /^(text|number|search|)$/.test(ae.type || "")
-      && (ae.closest(".mc-dt-addform") || ae.closest(".mc-rf"))) return;
+  if (ae && el.contains(ae) && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA") && /^(text|number|search|textarea|)$/.test(ae.type || "textarea")
+      && (ae.closest(".mc-dt-addform") || ae.closest(".mc-dt-tmplform") || ae.closest(".mc-rf"))) return;
   const targets = Array.from(game.user.targets ?? []);
   const pending = listPendingCasts();
   // The camera bar is always present (the DM needs TV control out of combat, with
@@ -1621,20 +1661,50 @@ async function onClick(ev) {
     if (push) { await api.downtime({ op: "pushRoll", actorId: push.dataset.actor, id: push.dataset.dtPush, on: push.dataset.on === "1" }); return; }
     const tick = ev.target.closest("[data-dt-tick]");
     if (tick) { await api.downtime({ op: "applyAttempt", actorId: tick.dataset.actor, id: tick.dataset.dtTick, outcome: null }); return; }
-    // Open/close the Rule-authoring form for an Activity.
+    // Open/close the Rule-authoring form for an Activity instance.
     const edit = ev.target.closest("[data-dt-editrule]");
     if (edit) {
       const id = edit.dataset.dtEditrule;
-      if (dtRuleFor === id) { dtRuleFor = null; dtRuleDraft = null; return render(); }
+      if (dtRuleFor === id && !dtRuleIsTemplate) { dtRuleFor = null; dtRuleDraft = null; return render(); }
       const st = downtimeState();
       const act = DT.listActivities(st, edit.dataset.actor).find(a => a.id === id);
-      dtRuleFor = id; dtRuleActor = edit.dataset.actor;
+      dtRuleFor = id; dtRuleActor = edit.dataset.actor; dtRuleIsTemplate = false;
       dtRuleDraft = act?.rule ? foundry.utils.deepClone(act.rule) : DT.defaultRule("roll", "freestyle");
       dtRuleVisible = act?.visible ?? DT.getActorSettings(st, edit.dataset.actor).showMechanicsByDefault;
       seedRollIfNeeded();
       return render();
     }
-    // Authoring-form controls (only meaningful while a form is open).
+    // ── Catalog (templates) ────────────────────────────────────────────────
+    if (ev.target.closest("[data-dt-tmpl-new]")) { dtNewTmplOpen = !dtNewTmplOpen; render(); setTimeout(() => panelEl?.querySelector(".mc-dt-tmplname")?.focus(), 0); return; }
+    if (ev.target.closest("[data-dt-tmpl-cancel]")) { dtNewTmplOpen = false; return render(); }
+    const tsave = ev.target.closest("[data-dt-tmpl-save]");
+    if (tsave) {
+      const name = (tsave.closest(".mc-dt-tmplform")?.querySelector(".mc-dt-tmplname")?.value || "").trim();
+      dtNewTmplOpen = false;
+      if (name) await api.downtime({ op: "upsertTemplate", template: DT.newTemplate(name, game.user.id) });
+      else render();
+      return;
+    }
+    const tedit = ev.target.closest("[data-dt-tmpl-edit]");
+    if (tedit) {
+      const id = tedit.dataset.dtTmplEdit;
+      if (dtRuleFor === id && dtRuleIsTemplate) { dtRuleFor = null; dtRuleDraft = null; dtRuleIsTemplate = false; return render(); }
+      const t = DT.listTemplates(downtimeState()).find(x => x.id === id);
+      dtRuleFor = id; dtRuleActor = null; dtRuleIsTemplate = true;
+      dtRuleDraft = t?.rule ? foundry.utils.deepClone(t.rule) : DT.defaultRule("roll", "freestyle");
+      dtRuleNote = t?.note || "";
+      seedRollIfNeeded();
+      return render();
+    }
+    const trm = ev.target.closest("[data-dt-tmpl-rm]");
+    if (trm) { await api.downtime({ op: "removeTemplate", id: trm.dataset.dtTmplRm }); return; }
+    if (ev.target.closest("[data-dt-seed]")) { await api.downtime({ op: "seedTemplates" }); return; }
+    // Give a task: assign a template to a PC directly.
+    const give = ev.target.closest("[data-dt-give]");
+    if (give) { dtGiveFor = dtGiveFor === give.dataset.dtGive ? null : give.dataset.dtGive; return render(); }
+    const gpick = ev.target.closest("[data-dt-give-pick]");
+    if (gpick) { dtGiveFor = null; await api.downtime({ op: "pickTemplate", actorId: gpick.dataset.actor, templateId: gpick.dataset.dtGivePick }); return; }
+    // ── Authoring-form controls (activity OR template) ──────────────────────
     if (dtRuleDraft) {
       const preset = ev.target.closest("[data-rule-preset]");
       if (preset) { applyRulePreset(preset.dataset.rulePreset); return render(); }
@@ -1645,12 +1715,12 @@ async function onClick(ev) {
         else if (k === "requireroll") { dtRuleDraft.requireRoll = !dtRuleDraft.requireRoll; seedRollIfNeeded(); }
         return render();
       }
-      if (ev.target.closest("[data-rule-cancel]")) { dtRuleFor = null; dtRuleDraft = null; return render(); }
+      if (ev.target.closest("[data-rule-cancel]")) { dtRuleFor = null; dtRuleDraft = null; dtRuleIsTemplate = false; return render(); }
       if (ev.target.closest("[data-rule-activate]")) {
-        const actorId = dtRuleActor, id = dtRuleFor, rule = dtRuleDraft, visible = dtRuleVisible;
-        dtRuleFor = null; dtRuleDraft = null; render();
-        await api.downtime({ op: "setRule", actorId, id, rule });
-        await api.downtime({ op: "setVisible", actorId, id, visible });
+        const actorId = dtRuleActor, id = dtRuleFor, rule = dtRuleDraft, visible = dtRuleVisible, isT = dtRuleIsTemplate, note = dtRuleNote;
+        dtRuleFor = null; dtRuleDraft = null; dtRuleIsTemplate = false; render();
+        if (isT) { await api.downtime({ op: "setTemplateRule", id, rule }); await api.downtime({ op: "setTemplateNote", id, note }); }
+        else { await api.downtime({ op: "setRule", actorId, id, rule }); await api.downtime({ op: "setVisible", actorId, id, visible }); }
         return;
       }
     }
