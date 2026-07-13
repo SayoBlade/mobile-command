@@ -2127,7 +2127,8 @@ async function applyDeadMarker(tokenDoc) {
     // Dump every mechanism that could make a corpse invisible so a "still invisible" report is
     // self-diagnosing: hidden flag, alpha, whether Item Piles converted it, and conditions.
     const isPile = (() => { try { return game.itempiles?.API?.isValidItemPile?.(td) ?? "n/a"; } catch (e) { return "err"; } })();
-    const msg = `dead marker (${phase}): "${td.name}" hidden=${td.hidden} alpha=${td.alpha} isPile=${isPile} statuses=[${[...(td.actor?.statuses ?? [])].join(",")}]`;
+    const src = String(td.texture?.src ?? "").split("/").pop(); // just the filename
+    const msg = `dead marker (${phase}): "${td.name}" hidden=${td.hidden} alpha=${td.alpha} isPile=${isPile} img=${src} statuses=[${[...(td.actor?.statuses ?? [])].join(",")}]`;
     console.log(`${MODULE_ID} | ${msg}`);
     if (notify) ui.notifications?.warn(msg); // surface it to the DM without needing the console
     const fix = {};
@@ -2213,6 +2214,7 @@ async function maybeAutoLoot(actor) {
     };
     await restoreLook();
     setTimeout(() => restoreLook().catch(() => {}), 600);
+    setTimeout(() => restoreLook().catch(() => {}), 2000); // beat a slower gore/death re-skin
     // Visible dead marker + remove from combat (shared with the standalone path). Attacking a
     // corpse is nonsensical, so it's also dropped from the attack picker (see isDeadCorpse).
     try { await applyDeadMarker(tokenDoc); }
