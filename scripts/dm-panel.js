@@ -198,7 +198,25 @@ async function restParty(kind) {
     try { await (kind === "long" ? a.longRest({ dialog: false }) : a.shortRest({ dialog: false })); n++; }
     catch (e) { console.warn(`${MODULE_ID} | party rest failed for ${a.name}`, e); }
   }
-  ui.notifications?.info(`${kind === "long" ? "Long" : "Short"} rest — ${n} character${n === 1 ? "" : "s"} rested.`);
+  const advanced = kind === "long" ? await advanceRestGoals() : 0;
+  ui.notifications?.info(`${kind === "long" ? "Long" : "Short"} rest — ${n} character${n === 1 ? "" : "s"} rested${advanced ? `, ${advanced} nightly goal${advanced === 1 ? "" : "s"} advanced` : ""}.`);
+}
+
+// Long-rest reminder woven into the montage: a long rest advances every "per rest" downtime
+// goal at once (a no-roll tally like nightly pushups ticks; a roll-gated one gets pushed to the
+// player). One read-modify-write over the shared state. Runs on the executor (a GM).
+async function advanceRestGoals() {
+  let state = DT.normalizeState(game.settings.get(MODULE_ID, "downtimeState"));
+  let touched = 0;
+  for (const [actorId, acts] of Object.entries(state.activities)) {
+    for (const act of acts) {
+      if (act.status === "complete" || !act.rule || act.rule.tickSource !== "rest") continue;
+      state = DT.needsRoll(act.rule) ? DT.setPending(state, actorId, act.id, true) : DT.applyAttemptTo(state, actorId, act.id, null);
+      touched++;
+    }
+  }
+  if (touched) await game.settings.set(MODULE_ID, "downtimeState", state);
+  return touched;
 }
 
 // ── §17.7 Rule authoring form (the DM builds the "formula") ──────────────────
@@ -213,6 +231,33 @@ function skillOptions(sel) {
 function tickOptions(sel) {
   return [["attempt", "each attempt"], ["day", "day"], ["rest", "long rest"], ["slice", "short slice"]]
     .map(([k, l]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${l}</option>`).join("");
+}
+// Scribe picker: the PC's actual spells, low level first (the source a scroll is scribed from).
+function actorSpellOptions(actor, sel) {
+  let spells = [];
+  try { spells = (actor?.items ?? []).filter(i => i.type === "spell").sort((a, b) => (a.system?.level ?? 0) - (b.system?.level ?? 0) || a.name.localeCompare(b.name)); } catch (e) { /* */ }
+  const opts = spells.map(s => `<option value="${s.id}" ${s.id === sel ? "selected" : ""}>${foundry.utils.escapeHTML(s.name)} (${(s.system?.level ?? 0) === 0 ? "cantrip" : "lvl " + s.system.level})</option>`).join("");
+  return `<option value="">— pick a spell —</option>${opts}`;
+}
+// Craft picker: the PC's tool proficiencies, highest check bonus first (DM 2026-07-13).
+function toolLabel(key) {
+  try { return CONFIG.DND5E?.tools?.[key]?.label || globalThis.dnd5e?.documents?.Trait?.keyLabel?.(key, { trait: "tool" }) || key; }
+  catch (e) { return key; }
+}
+function toolBonus(actor, t) {
+  try {
+    if (Number.isFinite(t?.total)) return Math.round(t.total);
+    const pb = actor.system?.attributes?.prof ?? 0;
+    const mult = t?.value ?? t?.prof?.multiplier ?? 0;
+    const mod = actor.system?.abilities?.[t?.ability]?.mod ?? 0;
+    return Math.round(mult * pb + mod);
+  } catch (e) { return 0; }
+}
+function actorToolOptions(actor, sel) {
+  let entries = [];
+  try { entries = Object.entries(actor?.system?.tools ?? {}).map(([k, t]) => ({ key: k, bonus: toolBonus(actor, t), label: toolLabel(k) })).sort((a, b) => b.bonus - a.bonus || a.label.localeCompare(b.label)); } catch (e) { /* */ }
+  const opts = entries.map(e => `<option value="${e.key}" ${e.key === sel ? "selected" : ""}>${foundry.utils.escapeHTML(e.label)}${e.bonus ? ` (+${e.bonus})` : ""}</option>`).join("");
+  return entries.length ? `<option value="">— pick a tool —</option>${opts}` : `<option value="">— no tool proficiencies —</option>`;
 }
 function rollSpec(o) { return { ability: null, skill: null, save: null, tool: null, formula: null, label: null, ...o }; }
 function rollKindOf(roll) {
@@ -239,6 +284,16 @@ function ruleFormHTML(actorId, act) {
   const esc = foundry.utils.escapeHTML;
   const r = dtRuleDraft || DT.defaultRule();
   const kind = rollKindOf(r.roll);
+  const actor = game.actors.get(actorId);
+  // Scribe/craft draw from the sheet: pick a real spell (auto-fills days/gp) or a real tool.
+  let seeder = "";
+  if (r.kind === "scribe") {
+    let note = "";
+    try { const sp = r._spellId && actor?.items?.get(r._spellId); if (sp) { const sug = DT.scribeScrollSuggest(sp.system?.level ?? 0); note = `<div class="mc-rf-note">≈ ${sug.days} day${sug.days === 1 ? "" : "s"} · ${sug.gp} gp materials (your call whether to charge it)</div>`; } } catch (e) { /* */ }
+    seeder = `<label class="mc-rf-row">Spell <select data-rule="scribespell">${actorSpellOptions(actor, r._spellId)}</select></label>${note}`;
+  } else if (r.kind === "craft") {
+    seeder = `<label class="mc-rf-row">Tool <select data-rule="crafttool">${actorToolOptions(actor, r.roll?.tool)}</select></label>`;
+  }
   const needsRoll = r.type === "roll" || (r.type === "cumulative" && r.gainMode !== "fixed") || (r.type === "tally" && r.requireRoll);
   const rollPicker = needsRoll ? `
     <label class="mc-rf-row">Roll <select data-rule="rollkind">
@@ -287,6 +342,7 @@ function ruleFormHTML(actorId, act) {
       <button class="mc-rf-preset ${r.kind === "scribe" ? "mc-on" : ""}" data-rule-preset="scribe">Scribe</button>
       <button class="mc-rf-preset ${r.kind === "craft" ? "mc-on" : ""}" data-rule-preset="craft">Craft</button>
     </div>
+    ${seeder}
     <label class="mc-rf-row">Kind <select data-rule="type">
       <option value="roll" ${r.type === "roll" ? "selected" : ""}>Just a roll</option>
       <option value="tally" ${r.type === "tally" ? "selected" : ""}>Tally to a target</option>
@@ -323,6 +379,12 @@ function applyRuleField(field, value) {
     case "mingain": r.minGain = Number(value) || 0; break;
     case "gainmode": r.gainMode = value; seedRollIfNeeded(); reRender = true; break;
     case "reward": r.reward = value; break;
+    case "scribespell": {
+      const sp = value && game.actors.get(dtRuleActor)?.items?.get(value);
+      if (sp) { const sug = DT.scribeScrollSuggest(sp.system?.level ?? 0, sp.name); dtRuleDraft = sug.rule; dtRuleDraft._spellId = value; }
+      reRender = true; break;
+    }
+    case "crafttool": { if (value) { r.roll = rollSpec({ tool: value, label: toolLabel(value) }); r.kind = "craft"; } reRender = true; break; }
   }
   if (reRender) render();
 }
@@ -332,8 +394,8 @@ function applyRuleField(field, value) {
 // slice — for now the DM edits the seeded target. Freestyle just clears the preset tag.
 function applyRulePreset(kind) {
   const cur = dtRuleDraft || DT.defaultRule();
-  if (kind === "scribe") { const s = DT.scribeScrollSuggest(3); if (cur.reward) s.rule.reward = cur.reward; dtRuleDraft = s.rule; }
-  else if (kind === "craft") { const c = DT.craftSuggest(50); if (cur.reward) c.rule.reward = cur.reward; dtRuleDraft = c.rule; }
+  if (kind === "scribe") { const nr = DT.defaultRule("tally", "scribe"); nr.tickSource = "day"; nr.requireRoll = false; nr.reward = cur.reward || "The finished scroll"; dtRuleDraft = nr; }
+  else if (kind === "craft") { const nr = DT.defaultRule("tally", "craft"); nr.tickSource = "day"; nr.requireRoll = false; nr.reward = cur.reward || "The finished item"; dtRuleDraft = nr; }
   else { cur.kind = "freestyle"; dtRuleDraft = cur; }
 }
 
