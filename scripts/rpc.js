@@ -2117,11 +2117,17 @@ async function applyDeadMarker(tokenDoc) {
   const uuid = tokenDoc.uuid;
   const forceVisible = async (phase) => {
     const td = (typeof fromUuidSync === "function" ? fromUuidSync(uuid) : null) ?? tokenDoc;
-    console.log(`${MODULE_ID} | dead marker (${phase}): "${td?.name}" hidden=${td?.hidden}`);
-    if (td?.hidden) await td.update({ hidden: false });
+    if (!td) { console.log(`${MODULE_ID} | dead marker (${phase}): token gone (uuid ${uuid})`); return; }
+    // Dump every mechanism that could make a corpse invisible so a "still invisible" report is
+    // self-diagnosing: the hidden flag, alpha, whether Item Piles converted it, and conditions.
+    const isPile = (() => { try { return game.itempiles?.API?.isValidItemPile?.(td) ?? "n/a"; } catch (e) { return "err"; } })();
+    console.log(`${MODULE_ID} | dead marker (${phase}): "${td.name}" hidden=${td.hidden} alpha=${td.alpha} isPile=${isPile} statuses=[${[...(td.actor?.statuses ?? [])].join(",")}]`);
+    if (td.hidden) await td.update({ hidden: false });
+    if (Number(td.alpha) === 0) await td.update({ alpha: 1 }); // a gore/death module may have faded it out
   };
   await forceVisible("apply");
-  setTimeout(() => forceVisible("recheck").catch(() => {}), 400);
+  setTimeout(() => forceVisible("recheck-400").catch(() => {}), 400);
+  setTimeout(() => forceVisible("recheck-1500").catch(() => {}), 1500);
 }
 
 // Standalone dead-marking (no Item Piles / loot required). Resolves the placed token for a dead
