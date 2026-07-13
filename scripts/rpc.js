@@ -2120,19 +2120,23 @@ async function applyDeadMarker(tokenDoc) {
   // hidden) would no-op on a not-yet-hidden token and the corpse would end up invisible
   // (DM 2026-07-13: "players see nothing"). Re-fetch by uuid so the delayed pass sees fresh state.
   const uuid = tokenDoc.uuid;
-  const forceVisible = async (phase) => {
+  const forceVisible = async (phase, notify) => {
     const td = (typeof fromUuidSync === "function" ? fromUuidSync(uuid) : null) ?? tokenDoc;
-    if (!td) { console.log(`${MODULE_ID} | dead marker (${phase}): token gone (uuid ${uuid})`); return; }
+    if (!td) { const m = `dead marker (${phase}): token GONE (deleted) uuid ${uuid}`; console.log(`${MODULE_ID} | ${m}`); if (notify) ui.notifications?.warn(m); return; }
     // Dump every mechanism that could make a corpse invisible so a "still invisible" report is
-    // self-diagnosing: the hidden flag, alpha, whether Item Piles converted it, and conditions.
+    // self-diagnosing: hidden flag, alpha, whether Item Piles converted it, and conditions.
     const isPile = (() => { try { return game.itempiles?.API?.isValidItemPile?.(td) ?? "n/a"; } catch (e) { return "err"; } })();
-    console.log(`${MODULE_ID} | dead marker (${phase}): "${td.name}" hidden=${td.hidden} alpha=${td.alpha} isPile=${isPile} statuses=[${[...(td.actor?.statuses ?? [])].join(",")}]`);
-    if (td.hidden) await td.update({ hidden: false });
-    if (Number(td.alpha) === 0) await td.update({ alpha: 1 }); // a gore/death module may have faded it out
+    const msg = `dead marker (${phase}): "${td.name}" hidden=${td.hidden} alpha=${td.alpha} isPile=${isPile} statuses=[${[...(td.actor?.statuses ?? [])].join(",")}]`;
+    console.log(`${MODULE_ID} | ${msg}`);
+    if (notify) ui.notifications?.warn(msg); // surface it to the DM without needing the console
+    const fix = {};
+    if (td.hidden) fix.hidden = false;
+    if (Number(td.alpha) < 1) fix.alpha = 1; // a gore/death module may have faded it out
+    if (Object.keys(fix).length) await td.update(fix);
   };
-  await forceVisible("apply");
-  setTimeout(() => forceVisible("recheck-400").catch(() => {}), 400);
-  setTimeout(() => forceVisible("recheck-1500").catch(() => {}), 1500);
+  await forceVisible("apply", false);
+  setTimeout(() => forceVisible("recheck-400", false).catch(() => {}), 400);
+  setTimeout(() => forceVisible("recheck-1500", true).catch(() => {}), 1500); // toast the final state
 }
 
 // Standalone dead-marking (no Item Piles / loot required). Resolves the placed token for a dead
@@ -2150,7 +2154,10 @@ async function markNpcDead(actor) {
 // skull when markDeadNpcs is on (default). Either way a dead NPC is unmistakable on every screen.
 async function handleNpcDeath(actor) {
   if (!isExecutor() || actor?.type !== "npc") return;
-  console.log(`${MODULE_ID} | NPC death: ${actor?.name} · autoLoot=${game.settings.get(MODULE_ID, "autoLootNpcs")} · markDead=${game.settings.get(MODULE_ID, "markDeadNpcs")}`);
+  const al = game.settings.get(MODULE_ID, "autoLootNpcs"), md = game.settings.get(MODULE_ID, "markDeadNpcs");
+  const m = `NPC death: ${actor?.name} · autoLoot=${al} · markDead=${md}`;
+  console.log(`${MODULE_ID} | ${m}`);
+  ui.notifications?.info(m); // if you DON'T see this toast on a kill, the death handler isn't firing
   let handled = false;
   if (game.settings.get(MODULE_ID, "autoLootNpcs") && itemPilesReady()) {
     handled = await maybeAutoLoot(actor);   // converts + marks; false if it wasn't pileable
