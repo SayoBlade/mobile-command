@@ -2491,6 +2491,9 @@ body.mc-theme-arcane #mobile-command-shell {
   cursor: ns-resize; touch-action: none; color: #6b6250; background: #221f16; border-top: 1px solid #3a3423; border-radius: 0 0 10px 10px; }
 .mc-dmp-fly-resize:hover { color: #e6c46a; }
 .mc-dmp-fly-resize i { font-size: 10px; pointer-events: none; }
+/* Grow upward: anchor the flyout to the panel's bottom and move the grabber to the top edge. */
+.mc-dmp-flyout.mc-fly-up { top: auto; bottom: 0; }
+.mc-fly-up .mc-dmp-fly-resize { border-top: none; border-bottom: 1px solid #3a3423; border-radius: 10px 10px 0 0; }
 /* Downtime tab: party-rest buttons as the tab's main flow row. */
 .mc-dt-restrow { display: flex; gap: 6px; margin-bottom: 8px; }
 .mc-dt-rest { flex: 1 1 0; min-height: 40px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700;

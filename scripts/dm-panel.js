@@ -506,10 +506,14 @@ function flyoutHTML() {
     title = `${(f.stage ?? "arrange") === "arrange" ? "Marching order" : "Traveling"} <i class="fas fa-arrow-up" style="display:inline-block;transform:rotate(${(f.forward ?? 0) * 45}deg)"></i>`;
     body = partyTabHTML();
   }
-  return `<div class="mc-dmp-flyout mc-fly-${dockTab}" style="max-height:${flyMaxH}px;min-height:${Math.min(flyMaxH, FLY_MIN_H)}px">
-    <div class="mc-dmp-fly-head" title="Drag to move"><span>${title}</span><button class="mc-dmp-fly-x" data-dock-close aria-label="Close">✕</button></div>
+  // The resize grabber sits on the FREE edge — the bottom when growing down, the top when growing
+  // up — so dragging it always enlarges toward open space.
+  const grab = `<div class="mc-dmp-fly-resize" data-fly-resize title="Drag to resize"><i class="fas fa-grip-lines"></i></div>`;
+  const head = `<div class="mc-dmp-fly-head" title="Drag to move"><span>${title}</span><button class="mc-dmp-fly-x" data-dock-close aria-label="Close">✕</button></div>`;
+  return `<div class="mc-dmp-flyout mc-fly-${dockTab}${flyUp ? " mc-fly-up" : ""}" style="max-height:${flyMaxH}px;min-height:${Math.min(flyMaxH, FLY_MIN_H)}px">
+    ${flyUp ? grab : ""}${head}
     <div class="mc-dmp-fly-body">${body}</div>
-    <div class="mc-dmp-fly-resize" data-fly-resize title="Drag to resize"><i class="fas fa-grip-lines"></i></div>
+    ${flyUp ? "" : grab}
   </div>`;
 }
 
@@ -585,6 +589,7 @@ const POS_KEY = "mc-dm-panel-pos";
 const FLY_KEY = "mc-dm-panel-flyH";
 const FLY_MIN_H = 150; // enough for a tab's main flow buttons (e.g. the two rest buttons)
 let flyMaxH = (() => { try { return parseInt(window.localStorage.getItem(FLY_KEY), 10) || 360; } catch (e) { return 360; } })();
+let flyUp = false; // grow the flyout upward (anchored to the panel's bottom) when the panel sits low
 function applySavedPos(el) {
   try {
     const pos = JSON.parse(window.localStorage.getItem(POS_KEY) || "null");
@@ -610,8 +615,12 @@ function clampPos(el) {
     .filter(Boolean).map(p => p.getBoundingClientRect ? p.getBoundingClientRect() : p).filter(r => r.height);
   const bottom = Math.max(...rects.map(r => r.bottom));
   const right = Math.max(...rects.map(r => r.right));
+  const top = Math.min(...rects.map(r => r.top));
   const overBottom = bottom - (window.innerHeight - 8);
   if (overBottom > 0) { el.style.top = `${Math.max(8, elR.top - overBottom)}px`; el.style.bottom = "auto"; }
+  // An upward-growing flyout can run off the TOP — shift the panel down to keep it on screen.
+  const overTop = 8 - top;
+  if (overTop > 0) { el.style.top = `${elR.top + overTop}px`; el.style.bottom = "auto"; }
   const overRight = right - (window.innerWidth - 8);
   if (overRight > 0) el.style.left = `${Math.max(8, elR.left - overRight)}px`;
 }
@@ -639,9 +648,11 @@ function startFlyResize(ev) {
   const fly = panelEl?.querySelector(".mc-dmp-flyout");
   if (!fly) return;
   const startY = ev.clientY, startH = fly.getBoundingClientRect().height;
+  const dir = flyUp ? -1 : 1; // growing up → dragging the top grabber UP (dy<0) enlarges
   const move = (e) => {
-    flyMaxH = Math.round(Math.max(FLY_MIN_H, Math.min(window.innerHeight - 24, startH + (e.clientY - startY))));
+    flyMaxH = Math.round(Math.max(FLY_MIN_H, Math.min(window.innerHeight - 24, startH + dir * (e.clientY - startY))));
     fly.style.maxHeight = `${flyMaxH}px`;
+    fly.style.minHeight = `${Math.min(flyMaxH, FLY_MIN_H)}px`;
   };
   const up = () => {
     document.removeEventListener("pointermove", move);
@@ -1413,6 +1424,11 @@ function render() {
   const main = grip + statusHTML() + cameraBarHTML() + reactionsHTML() + splitPartyHTML() + combatHTML() + quickHpHTML()
     + partyMainHTML() + nightHTML()
     + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
+  // Grow the flyout UP (anchored to the panel's bottom) when the panel sits in the lower half of
+  // the screen, so a bottom-docked panel's second window opens into visible space instead of off
+  // the bottom edge (DM 2026-07-13).
+  const pTop = el.getBoundingClientRect().top || parseInt(el.style.top, 10) || 0;
+  flyUp = pTop > window.innerHeight * 0.5;
   // Main content scrolls inside; the tab rail + flyout stick out the right edge.
   el.innerHTML = `<div class="mc-dmp-scroll">${main}</div>${tabRailHTML()}${dockTab ? flyoutHTML() : ""}`;
   el.classList.add("mc-show");
