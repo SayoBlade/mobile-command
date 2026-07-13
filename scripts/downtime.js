@@ -33,13 +33,21 @@ export const WINDOW_SIZES = ["short", "long"];                   // short = a sl
 
 // A blank Rule of the given type. `kind` is just an authoring hint (drives which preset
 // seeded the defaults); the engine only branches on `type`.
+// nat20: "none" | "succeed" (auto-success) | "double" (double the DC step / gain)
+// nat1:  "none" | "fail" (auto-miss)      | "zero"   (no DC step / no gain)
+// The DM chooses per rule — auto-succeeding a DC 100 on a 1-in-20 makes no sense, but doubling
+// the learning step does; for a simple check, auto-succeed is fine (DM 2026-07-13).
 export function defaultRule(type = "roll", kind = "freestyle") {
-  const base = { type, kind, reward: "", roll: blankRoll() };
+  const base = { type, kind, reward: "", roll: blankRoll(), nat20: "none", nat1: "none" };
   if (type === "roll") return { ...base, dc: 15, autoShift: 0, autoShiftFloor: null };
   if (type === "tally") return { ...base, target: 10, tickSource: "day", perTick: 1, requireRoll: false, dc: 15 };
-  if (type === "cumulative") return { ...base, target: 100, tickSource: "attempt", gainMode: "total", perTick: 5, minGain: 1, critBonus: true, dc: 10 };
+  if (type === "cumulative") return { ...base, target: 100, tickSource: "attempt", gainMode: "total", perTick: 5, minGain: 1, nat20: "double", dc: 10 };
   return base;
 }
+// Read the nat-20 / nat-1 mode, falling back to the old critBonus/fumbleZero booleans so rules
+// authored before v0.1.156 still behave.
+function nat20Mode(rule) { return rule?.nat20 ?? (rule?.critBonus ? (rule.type === "roll" ? "succeed" : "double") : "none"); }
+function nat1Mode(rule) { return rule?.nat1 ?? (rule?.fumbleZero ? (rule.type === "roll" ? "fail" : "zero") : "none"); }
 function blankRoll() {
   // Exactly one of ability/skill/save/tool identifies the d20 flavour; `formula` (raw
   // dice like "1d20+5") overrides all of them when set. null everywhere = the DM will
@@ -89,30 +97,35 @@ export function applyAttempt(rule, progress, outcome = null) {
   p.attempts = (Number(p.attempts) || 0) + 1;
 
   if (rule.type === "roll") {
-    // "Double on 20" → a nat 20 always succeeds; "None on 1" → a nat 1 always misses.
-    const critHit = rule.critBonus && nat === 20;
-    const critMiss = rule.fumbleZero && nat === 1;
-    const success = critHit || (!critMiss && total >= p.dc);
-    if (success) { p.done = true; return { progress: p, completed: true, delta: 0, note: critHit ? `Nat 20 — success!` : `Success vs DC ${p.dc} (rolled ${total}).` }; }
-    // Miss → shift the working DC by autoShift (negative lowers), clamped at the floor.
-    const shift = Number(rule.autoShift) || 0;
-    let dc = p.dc + shift;
-    if (rule.autoShiftFloor != null) dc = shift < 0 ? Math.max(rule.autoShiftFloor, dc) : Math.min(rule.autoShiftFloor, dc);
+    const n20 = nat20Mode(rule), n1 = nat1Mode(rule);
+    const autoSucceed = n20 === "succeed" && nat === 20;
+    const autoMiss = n1 === "fail" && nat === 1;
+    const success = autoSucceed || (!autoMiss && total >= p.dc);
+    if (success) { p.done = true; return { progress: p, completed: true, delta: 0, note: autoSucceed ? `Nat 20 — success!` : `Success vs DC ${p.dc} (rolled ${total}).` }; }
+    // Miss → shift the working DC. nat 20 "double" doubles the step (learns faster); nat 1 "zero"
+    // wastes the night (no step). Clamp at the floor.
+    let step = Number(rule.autoShift) || 0;
+    if (n20 === "double" && nat === 20) step *= 2;
+    if (n1 === "zero" && nat === 1) step = 0;
+    let dc = p.dc + step;
+    if (rule.autoShiftFloor != null) dc = step < 0 ? Math.max(rule.autoShiftFloor, dc) : (step > 0 ? Math.min(rule.autoShiftFloor, dc) : dc);
     p.dc = dc;
-    const missWhy = critMiss ? "Nat 1 — miss" : `Missed (rolled ${total})`;
-    return { progress: p, completed: false, delta: 0, note: shift ? `${missWhy}. DC now ${dc}.` : `${missWhy} vs DC ${p.dc}.` };
+    const why = autoMiss ? "Nat 1 — miss" : `Missed (rolled ${total})`;
+    const luck = (n20 === "double" && nat === 20) ? " (nat 20 ×2 step)" : (n1 === "zero" && nat === 1) ? " (nat 1 — no step)" : "";
+    return { progress: p, completed: false, delta: 0, note: step ? `${why}${luck}. DC now ${dc}.` : `${why}${luck} vs DC ${p.dc}.` };
   }
 
   if (rule.type === "tally") {
     let gain = Number(rule.perTick) || 1;
+    let critNote = "";
     if (rule.requireRoll) {
-      if (rule.fumbleZero && nat === 1) return { progress: p, completed: false, delta: 0, note: `Nat 1 — no progress.` };
+      const n20 = nat20Mode(rule), n1 = nat1Mode(rule);
+      if ((n1 === "zero" || n1 === "fail") && nat === 1) return { progress: p, completed: false, delta: 0, note: `Nat 1 — no progress.` };
       if (total < Number(rule.dc || 0)) return { progress: p, completed: false, delta: 0, note: `No progress (rolled ${total} vs DC ${rule.dc}).` };
-      if (rule.critBonus && nat === 20) gain *= 2; // "Double on 20"
+      if ((n20 === "double" || n20 === "succeed") && nat === 20) { gain *= 2; critNote = " (nat 20 ×2)"; }
     }
     p.count = Math.min(Number(rule.target) || 0, (Number(p.count) || 0) + gain);
     p.done = p.count >= (Number(rule.target) || 0);
-    const critNote = rule.requireRoll && rule.critBonus && nat === 20 ? " (nat 20 ×2)" : "";
     return { progress: p, completed: p.done, delta: gain, note: `+${gain}${critNote} → ${p.count}/${rule.target}${p.done ? " — complete!" : ""}` };
   }
 
@@ -121,15 +134,16 @@ export function applyAttempt(rule, progress, outcome = null) {
     if (rule.gainMode === "total") base = total;
     else if (rule.gainMode === "margin") base = total - Number(rule.dc || 0);
     else base = Number(rule.perTick) || 1;
+    const n20 = nat20Mode(rule), n1 = nat1Mode(rule);
     let gain;
-    if (rule.fumbleZero && nat === 1) gain = 0; // "None on 1" — overrides the min-forward floor
+    if ((n1 === "zero" || n1 === "fail") && nat === 1) gain = 0; // nat 1 — overrides the min-forward floor
     else {
       gain = Math.max(Number(rule.minGain ?? 1), base); // never zero — always forward
-      if (rule.critBonus && nat === 20) gain += Math.max(Number(rule.minGain ?? 1), base); // "Double on 20"
+      if ((n20 === "double" || n20 === "succeed") && nat === 20) gain += Math.max(Number(rule.minGain ?? 1), base);
     }
     p.count = Math.min(Number(rule.target) || 0, (Number(p.count) || 0) + gain);
     p.done = p.count >= (Number(rule.target) || 0);
-    const luckNote = (rule.fumbleZero && nat === 1) ? " (nat 1)" : (rule.critBonus && nat === 20) ? " (nat 20 ×2)" : "";
+    const luckNote = ((n1 === "zero" || n1 === "fail") && nat === 1) ? " (nat 1)" : ((n20 === "double" || n20 === "succeed") && nat === 20) ? " (nat 20 ×2)" : "";
     return { progress: p, completed: p.done, delta: gain, note: `+${gain}${luckNote} → ${p.count}/${rule.target}${p.done ? " — complete!" : ""}` };
   }
 
@@ -165,12 +179,15 @@ export function progressSummary(rule, progress) {
   return { headline: `${count}/${target}`, detail: `${progress.attempts} attempt${progress.attempts === 1 ? "" : "s"}`, ratio: target > 0 ? Math.max(0, Math.min(1, count / target)) : null };
 }
 
-// The "double on 20 / none on 1" d20-luck suffix, shown only when the Rule involves a roll.
+// The nat-20 / nat-1 luck suffix, shown only when the Rule involves a roll.
 function luckSuffix(rule) {
   if (!needsRoll(rule)) return "";
+  const n20 = nat20Mode(rule), n1 = nat1Mode(rule);
   const parts = [];
-  if (rule.critBonus) parts.push("×2 on 20");
-  if (rule.fumbleZero) parts.push("0 on 1");
+  if (n20 === "succeed") parts.push("20 wins");
+  else if (n20 === "double") parts.push("×2 on 20");
+  if (n1 === "fail") parts.push("1 fails");
+  else if (n1 === "zero") parts.push("0 on 1");
   return parts.length ? ` · ${parts.join(", ")}` : "";
 }
 // A one-line DM-facing description of the Rule's mechanics (for the authoring/summary view).

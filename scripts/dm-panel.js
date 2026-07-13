@@ -257,6 +257,7 @@ function tickOptions(sel) {
   return [["attempt", "each attempt"], ["day", "day"], ["rest", "long rest"], ["slice", "short slice"]]
     .map(([k, l]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${l}</option>`).join("");
 }
+function optList(pairs, sel) { return pairs.map(([v, l]) => `<option value="${v}" ${v === sel ? "selected" : ""}>${l}</option>`).join(""); }
 // Scribe picker: the PC's actual spells, low level first (the source a scroll is scribed from).
 function actorSpellOptions(actor, sel) {
   let spells = [];
@@ -354,12 +355,18 @@ function ruleFormHTML(actorId, act) {
     ${r.gainMode === "margin" ? `<label class="mc-rf-row">DC <input type="number" data-rule="dc" value="${r.dc}"></label>` : ""}
     <label class="mc-rf-row">Min per attempt <input type="number" data-rule="mingain" value="${r.minGain}"></label>`;
 
-  // d20-luck toggles — only when the Rule actually rolls (DM 2026-07-13). Any extra fallout
-  // (a crit costing more materials, etc.) is the DM's call, not automated.
-  const luck = needsRoll ? `<div class="mc-rf-luck">
-    <button class="mc-rf-toggle ${r.critBonus ? "mc-on" : ""}" data-rule-toggle="crit">Double on 20</button>
-    <button class="mc-rf-toggle ${r.fumbleZero ? "mc-on" : ""}" data-rule-toggle="fumble">None on 1</button>
-  </div>` : "";
+  // Per-rule nat-20 / nat-1 choice — only when the Rule actually rolls. For a descending-DC rule
+  // the DM usually wants "double the step" (not an auto-win on a DC 100); for a plain check,
+  // "auto-succeed" (DM 2026-07-13). Options differ by type.
+  const n20opts = r.type === "roll"
+    ? [["none", "—"], ["succeed", "auto-succeed"], ["double", "double the DC step"]]
+    : [["none", "—"], ["double", "double the gain"]];
+  const n1opts = r.type === "roll"
+    ? [["none", "—"], ["fail", "auto-miss"], ["zero", "no DC step"]]
+    : [["none", "—"], ["zero", "no gain"]];
+  const luck = needsRoll ? `
+    <label class="mc-rf-row">On a nat 20 <select data-rule="nat20">${optList(n20opts, r.nat20 ?? "none")}</select></label>
+    <label class="mc-rf-row">On a nat 1 <select data-rule="nat1">${optList(n1opts, r.nat1 ?? "none")}</select></label>` : "";
 
   return `<div class="mc-rf">
     <div class="mc-rf-presets"><span>Preset</span>
@@ -403,6 +410,8 @@ function applyRuleField(field, value) {
     case "pertick": r.perTick = Number(value) || 0; break;
     case "mingain": r.minGain = Number(value) || 0; break;
     case "gainmode": r.gainMode = value; seedRollIfNeeded(); reRender = true; break;
+    case "nat20": r.nat20 = value; reRender = true; break;
+    case "nat1": r.nat1 = value; reRender = true; break;
     case "reward": r.reward = value; break;
     case "scribespell": {
       const sp = value && game.actors.get(dtRuleActor)?.items?.get(value);
@@ -1634,8 +1643,6 @@ async function onClick(ev) {
         const k = tog.dataset.ruleToggle;
         if (k === "visible") dtRuleVisible = !dtRuleVisible;
         else if (k === "requireroll") { dtRuleDraft.requireRoll = !dtRuleDraft.requireRoll; seedRollIfNeeded(); }
-        else if (k === "crit") dtRuleDraft.critBonus = !dtRuleDraft.critBonus;
-        else if (k === "fumble") dtRuleDraft.fumbleZero = !dtRuleDraft.fumbleZero;
         return render();
       }
       if (ev.target.closest("[data-rule-cancel]")) { dtRuleFor = null; dtRuleDraft = null; return render(); }
