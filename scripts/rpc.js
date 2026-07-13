@@ -2110,12 +2110,18 @@ async function applyDeadMarker(tokenDoc) {
   }
   const cbt = game.combat?.combatants?.find(c => c.tokenId === tokenDoc.id);
   if (cbt) await cbt.delete();
-  // Diagnostic (per "instrument the failing step"): record whether the corpse arrived hidden so a
-  // still-hidden-on-TV report tells us a later automation re-hides it (vs. us never running).
-  if (tokenDoc.hidden) {
-    console.debug(`${MODULE_ID} | dead marker: token "${tokenDoc.name}" was hidden — forcing visible for the TV`);
-    await tokenDoc.update({ hidden: false });
-  }
+  // Force the corpse VISIBLE so the skull shows on player/TV screens. Do it NOW and again after a
+  // beat: some death automations set hidden:true AFTER us, so a single check (only if currently
+  // hidden) would no-op on a not-yet-hidden token and the corpse would end up invisible
+  // (DM 2026-07-13: "players see nothing"). Re-fetch by uuid so the delayed pass sees fresh state.
+  const uuid = tokenDoc.uuid;
+  const forceVisible = async (phase) => {
+    const td = (typeof fromUuidSync === "function" ? fromUuidSync(uuid) : null) ?? tokenDoc;
+    console.log(`${MODULE_ID} | dead marker (${phase}): "${td?.name}" hidden=${td?.hidden}`);
+    if (td?.hidden) await td.update({ hidden: false });
+  };
+  await forceVisible("apply");
+  setTimeout(() => forceVisible("recheck").catch(() => {}), 400);
 }
 
 // Standalone dead-marking (no Item Piles / loot required). Resolves the placed token for a dead
@@ -2133,6 +2139,7 @@ async function markNpcDead(actor) {
 // skull when markDeadNpcs is on (default). Either way a dead NPC is unmistakable on every screen.
 async function handleNpcDeath(actor) {
   if (!isExecutor() || actor?.type !== "npc") return;
+  console.log(`${MODULE_ID} | NPC death: ${actor?.name} · autoLoot=${game.settings.get(MODULE_ID, "autoLootNpcs")} · markDead=${game.settings.get(MODULE_ID, "markDeadNpcs")}`);
   let handled = false;
   if (game.settings.get(MODULE_ID, "autoLootNpcs") && itemPilesReady()) {
     handled = await maybeAutoLoot(actor);   // converts + marks; false if it wasn't pileable
