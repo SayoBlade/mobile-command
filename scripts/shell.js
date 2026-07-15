@@ -238,7 +238,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #searchQuery = "";      // live search text; filtered via DOM toggle (no re-render → keeps focus)
   #newItemOpen = false;   // Equipment tab: the inline "+ New item" name field is open
   #downtimeCollapsed = false; // player minimised the board back to a one-line bar (still in the window)
-  #dtPickOpen = false;    // §17.7: the "Pick an activity" catalog list is open
   #wildShape = null;      // Druid shape browser: null | { open, beasts:null|[], loading }
   #summonConfig = null;   // summon options the player picks before the DM places: null | { uuid, name, slotOptions, slotId, profiles, profileId }
   #portraitGen = null;    // portrait generator screen: null | { actorId, mode:"portrait"|"body", freeText }
@@ -2854,53 +2853,49 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </section>`;
     }
 
-    const rows = acts.map(a => {
-      const done = a.status === "complete";
-      // A pushed roll shows the (visibility-aware) roll button; otherwise a visible Activity shows
-      // its progress/vibe and a hidden one shows only the name + plan.
-      let mech = "";
-      if (done) mech = `<div class="mc-dt-prow-done"><i class="fas fa-check"></i> Complete</div>`;
-      else if (a.pending && a.rule && DT.needsRoll(a.rule)) {
-        const view = DT.playerRuleView(a.rule, a.progress, a.visible);
-        mech = `<button class="mc-dt-rollbtn" data-action="dt-roll" data-id="${a.id}"><i class="fas fa-dice-d20"></i> ${esc(view.button || "Roll")}</button>`;
-      } else if (a.rule && a.visible) {
-        const view = DT.playerRuleView(a.rule, a.progress, true);
-        if (view.note) mech = `<div class="mc-dt-prow-note">${esc(view.note)}</div>`;
-      }
-      // No plan/note shown player-side — the DM's note is private.
-      return `<div class="mc-dt-prow ${done ? "mc-done" : ""}">
-        <div class="mc-dt-prow-top">
-          <span class="mc-dt-prow-name">${esc(a.name)}</span>
-          <button class="mc-dt-prow-rm" data-action="dt-remove" data-id="${a.id}" aria-label="Remove">✕</button>
-        </div>
-        ${mech}
-      </div>`;
-    }).join("");
-
-    const locked = DT.isLocked(st, actor.id);
-    // Pick from the DM's catalog (players don't free-create — the DM decides the names), then Lock
-    // in so the DM knows you're committed. Locking hides the picker; Edit reopens it.
+    // ONE activity per downtime, chosen from a dropdown (DM 2026-07-14). No player lock-in — the
+    // choice reaches the DM the moment it's made; the DM starts activities when the table agrees.
+    const started = DT.isStarted(st);
     const templates = DT.listTemplates(st);
-    let footer;
-    if (locked) {
-      footer = `<div class="mc-dt-lockednote"><i class="fas fa-lock"></i> Locked in — the DM will run it.</div>
-        <button class="mc-dt-editbtn" data-action="dt-unlock"><i class="fas fa-pen"></i> Edit</button>`;
-    } else {
-      const adder = this.#dtPickOpen
-        ? `<div class="mc-dt-picklist">
-            ${templates.length
-              ? templates.map(t => `<button class="mc-dt-pickbtn" data-action="dt-pick" data-id="${t.id}">${esc(t.name)}</button>`).join("")
-              : `<div class="mc-dt-empty">Nothing on offer yet — ask the DM.</div>`}
-            <button class="mc-dt-new-cancel" data-action="dt-pick-close">Close</button>
-          </div>`
-        : `<button class="mc-dt-addbtn" data-action="dt-pick-open"><i class="fas fa-plus"></i> Pick an activity</button>`;
-      footer = `${adder}${acts.length ? `<button class="mc-dt-lockbtn" data-action="dt-lock"><i class="fas fa-lock"></i> Lock in</button>` : ""}`;
+    const selId = DT.selectedActivityId(st, actor.id);
+    const sel = DT.selectedActivity(st, actor.id);
+    const selTmpl = sel?.templateId ?? "";
+    const picker = `<label class="mc-dt-picklabel">What are you doing?
+      <select class="mc-dt-select" data-dt-select ${started ? "disabled" : ""}>
+        <option value="" ${selTmpl ? "" : "selected"}>— choose an activity —</option>
+        ${templates.map(t => `<option value="${t.id}" ${t.id === selTmpl ? "selected" : ""}>${esc(t.name)}</option>`).join("")}
+      </select></label>
+      ${templates.length ? "" : `<div class="mc-dt-empty">Nothing on offer yet — ask the DM.</div>`}`;
+
+    // The chosen activity: its progress (numbers only if the DM shows the rule) and, once started,
+    // the roll button when the DM pushes one.
+    let body = "";
+    if (sel) {
+      const done = sel.status === "complete";
+      let mech = "";
+      if (done) mech = `<div class="mc-dt-prow-done"><i class="fas fa-check"></i> Complete${sel.reward ? ` — ${esc(sel.reward)}` : ""}</div>`;
+      else if (sel.pending && sel.rule && DT.needsRoll(sel.rule)) {
+        const view = DT.playerRuleView(sel.rule, sel.progress, sel.visible);
+        mech = `<button class="mc-dt-rollbtn" data-action="dt-roll" data-id="${sel.id}"><i class="fas fa-dice-d20"></i> ${esc(view.button || "Roll")}</button>`;
+      } else if (started) mech = `<div class="mc-dt-prow-note">Under way — the DM will call for rolls.</div>`;
+      // Progress: a bar always (so there's something to watch), numbers only when the DM shows it.
+      let prog = "";
+      if (sel.rule && sel.progress) {
+        const s = DT.progressSummary(sel.rule, sel.progress);
+        const bar = s.ratio != null ? `<div class="mc-dt-bar"><span style="width:${Math.round(s.ratio * 100)}%"></span></div>` : "";
+        const head = sel.visible ? esc(s.headline) : (s.ratio != null ? `${Math.round(s.ratio * 100)}%` : `${sel.progress.attempts} tried`);
+        prog = `<div class="mc-dt-prog"><span class="mc-dt-prog-head">${head}</span>${bar}</div>`;
+      }
+      body = `<div class="mc-dt-prow ${done ? "mc-done" : ""}">
+        <div class="mc-dt-prow-top"><span class="mc-dt-prow-name">${esc(sel.name)}</span></div>
+        ${prog}${mech}
+      </div>`;
     }
 
-    return `<section class="mc-dt-board ${locked ? "mc-locked" : ""}">
-      <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime ${chevron}</div>
-      ${acts.length ? rows : `<div class="mc-dt-empty">Pick what you'll do below — the DM handles the rest.</div>`}
-      ${footer}
+    return `<section class="mc-dt-board ${started ? "mc-started" : ""}">
+      <div class="mc-dt-head"><i class="fas fa-hourglass-half"></i> Downtime${started ? ` <span class="mc-dt-count">under way</span>` : ""} ${chevron}</div>
+      ${started ? "" : picker}
+      ${body || (started ? `<div class="mc-dt-empty">You sat this one out.</div>` : "")}
     </section>`;
   }
 
@@ -5455,24 +5450,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#doRest("long");
       case "dt-collapse":                               // §17.7: minimise/restore the board (not an exit)
         this.#downtimeCollapsed = !this.#downtimeCollapsed; return this.render();
-      case "dt-lock":                                   // commit my picks so the DM knows
-        if (!this.actor) return;
-        rpc.downtime({ op: "setLock", actorId: this.actor.id, on: true }).catch(err => console.warn("mobile-command | downtime lock failed", err));
-        return;
-      case "dt-unlock":
-        if (!this.actor) return;
-        rpc.downtime({ op: "setLock", actorId: this.actor.id, on: false }).catch(err => console.warn("mobile-command | downtime unlock failed", err));
-        return;
-      case "dt-pick-open":                              // open the catalog pick-list
-        this.#dtPickOpen = true; return this.render();
-      case "dt-pick-close":
-        this.#dtPickOpen = false; return this.render();
-      case "dt-pick": {                                 // pick a DM template → my own instance
-        if (!this.actor) return;
-        rpc.downtime({ op: "pickTemplate", actorId: this.actor.id, templateId: el.dataset.id })
-          .catch(err => console.warn("mobile-command | downtime pick failed", err));
-        this.#dtPickOpen = false; return this.render();
-      }
       case "dt-remove":                                 // drop one of my own Activities
         if (!this.actor) return;
         rpc.downtime({ op: "removeActivity", actorId: this.actor.id, id: el.dataset.id })
@@ -6303,6 +6280,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   #onChange = (ev) => {
     const inp = ev.target;
+    if (inp?.dataset?.dtSelect !== undefined) { // §17.7: my one downtime activity → straight to the DM
+      if (this.actor) rpc.downtime({ op: "selectActivity", actorId: this.actor.id, templateId: inp.value || null })
+        .catch(err => console.warn("mobile-command | downtime select failed", err));
+      return;
+    }
     if (inp?.classList?.contains?.("mc-pg-file")) { // chosen generated image → resize + executor upload
       const file = inp.files?.[0];
       if (file) this.#uploadPortraitFile(file);

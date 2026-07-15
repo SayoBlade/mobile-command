@@ -164,44 +164,41 @@ function downtimeHTML() {
   const players = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner && inSceneActorIds().has(a.id))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const started = DT.isStarted(st);
   const rows = players.map((a) => {
-    const acts = DT.listActivities(st, a.id);
+    const act = DT.selectedActivity(st, a.id); // ONE activity per PC per downtime
     const gear = DT.getActorSettings(st, a.id);
-    const actsHTML = acts.length
-      ? acts.map(act => {
-        const editing = dtRuleFor === act.id;
-        const hasRule = !!act.rule;
-        const live = hasRule && act.status !== "complete";
-        const adj = live
-          ? `<div class="mc-dt-adj">
-              <button data-dt-adjust="-1" data-actor="${a.id}" data-id="${act.id}" title="Set back">−</button>
-              <button data-dt-adjust="1" data-actor="${a.id}" data-id="${act.id}" title="Nudge forward">+</button>
-            </div>` : "";
-        // Push a roll to the player (roll rules), or tick it yourself (no-roll rules).
-        const push = live
-          ? (DT.needsRoll(act.rule)
-            ? `<button class="mc-dt-push ${act.pending ? "mc-waiting" : ""}" data-dt-push="${act.id}" data-actor="${a.id}" data-on="${act.pending ? "0" : "1"}"><i class="fas fa-dice-d20"></i> ${act.pending ? "Waiting…" : "Push roll"}</button>`
-            : `<button class="mc-dt-push" data-dt-tick="${act.id}" data-actor="${a.id}"><i class="fas fa-plus"></i> Tick +${Number(act.rule.perTick) || 1}</button>`)
-          : "";
-        // Body by state: editing → the form; has a rule → summary + progress + controls (incl. a
-        // small Edit); no rule → a clear "Set the rule" call-to-action (the DM's next step).
-        let bodyHTML;
-        if (editing) bodyHTML = ruleFormHTML(a.id, act);
-        else if (hasRule) bodyHTML = `
-          <div class="mc-dt-act-rule">${esc(DT.describeRule(act.rule))}${act.visible ? ' <i class="fas fa-eye mc-dt-eye" title="The player can see this rule"></i>' : ""}</div>
-          <div class="mc-dt-act-progline">${dtProgressBar(act)}</div>
-          <div class="mc-dt-act-ctl">${push}${adj}<button class="mc-dt-act-edit" data-dt-editrule="${act.id}" data-actor="${a.id}"><i class="fas fa-pen"></i> Edit</button></div>`;
-        else bodyHTML = `<button class="mc-dt-setrule" data-dt-editrule="${act.id}" data-actor="${a.id}"><i class="fas fa-wand-magic-sparkles"></i> Set the rule</button>`;
-        return `<div class="mc-dt-act ${act.status === "complete" ? "mc-done" : ""} ${act.visible ? "mc-shown" : "mc-hidden"} ${!hasRule ? "mc-norule" : ""}">
-          <div class="mc-dt-act-top">
-            <span class="mc-dt-act-name">${esc(act.name)}</span>
-            <button class="mc-dt-act-rm" data-dt-remove="${act.id}" data-actor="${a.id}" title="Remove from ${esc(a.name)}'s list">✕</button>
-          </div>
-          ${act.plan ? `<div class="mc-dt-act-plan">“${esc(act.plan)}”</div>` : ""}
-          ${bodyHTML}
-        </div>`;
-      }).join("")
-      : `<div class="mc-dt-empty">${st.window?.open ? `Waiting for ${esc(a.name)} to add an activity on their phone…` : "No activities."}</div>`;
+    let actsHTML;
+    if (!act) {
+      actsHTML = `<div class="mc-dt-empty">${win?.open ? `Hasn't chosen yet…` : "Nothing selected."}</div>`;
+    } else {
+      const editing = dtRuleFor === act.id && !dtRuleIsTemplate;
+      const hasRule = !!act.rule;
+      const live = hasRule && act.status !== "complete";
+      const adj = live
+        ? `<div class="mc-dt-adj">
+            <button data-dt-adjust="-1" data-actor="${a.id}" data-id="${act.id}" title="Set back">−</button>
+            <button data-dt-adjust="1" data-actor="${a.id}" data-id="${act.id}" title="Nudge forward">+</button>
+          </div>` : "";
+      // Rolls only once you've started activities: push one (roll rules) or tick it (no-roll).
+      const push = live && started
+        ? (DT.needsRoll(act.rule)
+          ? `<button class="mc-dt-push ${act.pending ? "mc-waiting" : ""}" data-dt-push="${act.id}" data-actor="${a.id}" data-on="${act.pending ? "0" : "1"}"><i class="fas fa-dice-d20"></i> ${act.pending ? "Waiting…" : "Push roll"}</button>`
+          : `<button class="mc-dt-push" data-dt-tick="${act.id}" data-actor="${a.id}"><i class="fas fa-plus"></i> Tick +${Number(act.rule.perTick) || 1}</button>`)
+        : "";
+      let bodyHTML;
+      if (editing) bodyHTML = ruleFormHTML(a.id, act);
+      else if (hasRule) bodyHTML = `
+        <div class="mc-dt-act-rule">${esc(DT.describeRule(act.rule))}${act.visible ? ' <i class="fas fa-eye mc-dt-eye" title="The player can see this rule"></i>' : ""}</div>
+        <div class="mc-dt-act-progline">${dtProgressBar(act)}</div>
+        <div class="mc-dt-act-ctl">${push}${adj}<button class="mc-dt-act-edit" data-dt-editrule="${act.id}" data-actor="${a.id}"><i class="fas fa-pen"></i> Edit</button></div>`;
+      else bodyHTML = `<button class="mc-dt-setrule" data-dt-editrule="${act.id}" data-actor="${a.id}"><i class="fas fa-wand-magic-sparkles"></i> Set the rule</button>`;
+      actsHTML = `<div class="mc-dt-act ${act.status === "complete" ? "mc-done" : ""} ${act.visible ? "mc-shown" : "mc-hidden"} ${!hasRule ? "mc-norule" : ""}">
+        <div class="mc-dt-act-top"><span class="mc-dt-act-name">${esc(act.name)}</span></div>
+        ${act.note ? `<div class="mc-dt-note"><i class="fas fa-note-sticky"></i> ${esc(act.note)}</div>` : ""}
+        ${bodyHTML}
+      </div>`;
+    }
     const gearOpen = dtGearFor === a.id;
     const gearHTML = gearOpen ? `<div class="mc-dt-gearpanel">
         <div class="mc-dt-gearrow"><span>Extra activities per beat</span>
@@ -225,21 +222,15 @@ function downtimeHTML() {
           <button class="mc-dt-add-cancel" data-dt-give="${a.id}">Close</button></div>`
       : `<button class="mc-dt-addtask" data-dt-give="${a.id}"><i class="fas fa-hand-holding-hand"></i> Give a task</button>`;
     const color = pcColor(a);
-    const locked = DT.isLocked(st, a.id);
-    const hasActs = acts.length > 0;
-    // Lock badge doubles as the DM's override: tap to lock/unlock this PC (players also lock from
-    // their phone). Grey "considering" until locked (DM 2026-07-13: "know what players are doing
-    // prior to committing").
-    const lockBadge = `<button class="mc-dt-lockbadge ${locked ? "mc-locked" : "mc-considering"}" data-dt-lock="${a.id}" data-on="${locked ? "0" : "1"}" title="${locked ? "Locked in — tap to reopen" : (hasActs ? "Tap to lock in for this player" : "No activities picked yet")}">${locked ? '<i class="fas fa-lock"></i> Locked in' : "considering…"}</button>`;
-    return `<div class="mc-dt-player mc-here ${locked ? "mc-islocked" : ""}" style="border-left-color:${color}">
+    return `<div class="mc-dt-player mc-here" style="border-left-color:${color}">
       <div class="mc-dt-player-head">
+        <i class="fas fa-circle-user mc-dt-usericon" style="color:${color}"></i>
         <span class="mc-dt-name" style="color:${color}">${esc(a.name)}</span>
-        ${lockBadge}
         <button class="mc-dt-gearbtn ${gearOpen ? "mc-on" : ""}" data-dt-geartoggle="${a.id}" title="Per-character settings"><i class="fas fa-gear"></i></button>
       </div>
       ${gearHTML}
       ${actsHTML}
-      ${adder}
+      ${started ? "" : adder}
     </div>`;
   }).join("") || `<div class="mc-dmp-empty">No player characters in the scene.</div>`;
 
@@ -252,8 +243,18 @@ function downtimeHTML() {
       <button class="mc-dt-rest" data-dt-rest="long"><i class="fas fa-campground"></i> Long</button>
     </div>
   </div>` : "";
+  // The DM commits, not the players: everyone's choice lands here live, you talk it over, then you
+  // Start — which pushes the first rolls (DM 2026-07-14: "DM locks in… players get the prompts").
+  const anySel = players.some(a => DT.selectedActivityId(st, a.id));
+  const startBar = win?.open
+    ? (started
+      ? `<div class="mc-dt-startbar"><span><i class="fas fa-play"></i> Activities under way</span>
+          <button class="mc-dt-reopen" data-dt-start="0" title="Let players change their pick again">Reopen choices</button></div>`
+      : `<button class="mc-dt-startbtn" data-dt-start="1" ${anySel ? "" : "disabled"}>
+          <i class="fas fa-play"></i> ${anySel ? "Start activities" : "Start activities — nobody's chosen yet"}</button>`)
+    : "";
   // "Who's doing what" on top (the DM's live view), the authoring catalog below (DM 2026-07-13).
-  const roster = win?.open ? `<div class="mc-dt-cat-head mc-dt-roster-head"><span>Who's doing what</span></div><div class="mc-dt-players">${rows}</div>` : "";
+  const roster = win?.open ? `<div class="mc-dt-cat-head mc-dt-roster-head"><span>Who's doing what</span></div><div class="mc-dt-players">${rows}</div>${startBar}` : "";
   return `<div class="mc-dt-panel">${head}${roster}${catalogHTML(st)}${restRow}</div>`;
 }
 
@@ -1723,10 +1724,11 @@ async function onClick(ev) {
     // Give a task: assign a template to a PC directly.
     const give = ev.target.closest("[data-dt-give]");
     if (give) { dtGiveFor = dtGiveFor === give.dataset.dtGive ? null : give.dataset.dtGive; return render(); }
+    // "Give a task" sets that PC's ONE selection (same op the player's dropdown uses).
     const gpick = ev.target.closest("[data-dt-give-pick]");
-    if (gpick) { dtGiveFor = null; await api.downtime({ op: "pickTemplate", actorId: gpick.dataset.actor, templateId: gpick.dataset.dtGivePick }); return; }
-    const lock = ev.target.closest("[data-dt-lock]");
-    if (lock) { await api.downtime({ op: "setLock", actorId: lock.dataset.dtLock, on: lock.dataset.on === "1" }); return; }
+    if (gpick) { dtGiveFor = null; await api.downtime({ op: "selectActivity", actorId: gpick.dataset.actor, templateId: gpick.dataset.dtGivePick }); return; }
+    const start = ev.target.closest("[data-dt-start]");
+    if (start) { await api.downtime({ op: "startActivities", on: start.dataset.dtStart === "1" }); return; }
     // ── Authoring-form controls (activity OR template) ──────────────────────
     if (dtRuleDraft) {
       const preset = ev.target.closest("[data-rule-preset]");

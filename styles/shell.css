@@ -3448,6 +3448,23 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-item-intent { font-size: 11px; color: var(--mc-muted); font-style: italic; margin-top: 1px; }
 .mc-dt-panel .mc-dt-empty { font-size: 11px; }
 
+/* §17.7 downtime — DM "Start activities" (the DM commits, not the players) */
+.mc-dt-startbtn { width: 100%; margin-top: 8px; min-height: 38px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 800; color: #1a1712; background: linear-gradient(#c8a44d, #b98a1e); border: 1px solid #c8a44d;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.mc-dt-startbtn:disabled { background: #23262f; border-color: #3a3f4c; color: var(--mc-muted); cursor: default; }
+.mc-dt-startbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px;
+  padding: 7px 10px; border-radius: 8px; background: #221f16; border: 1px solid #7a5a1e; color: #e6c46a; font-size: 12px; font-weight: 700; }
+.mc-dt-reopen { flex: 0 0 auto; padding: 0 9px; height: 26px; border-radius: 6px; cursor: pointer; font-size: 11px;
+  color: var(--mc-muted); background: transparent; border: 1px solid #4a4334; }
+.mc-dt-reopen:hover { color: #e6c46a; border-color: #7a5a1e; }
+.mc-dt-usericon { flex: 0 0 auto; font-size: 12px; }
+/* player: the single activity dropdown */
+.mc-dt-picklabel { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; font-size: 12px; color: var(--mc-muted); }
+.mc-dt-select { width: 100%; box-sizing: border-box; min-height: 44px; padding: 8px 10px; border-radius: 9px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 15px; font-weight: 600; }
+.mc-dt-select:disabled { opacity: .7; }
+
 /* §17.7 downtime — DM catalog + templates */
 .mc-dt-catalog { margin-bottom: 8px; }
 .mc-dt-cat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px;

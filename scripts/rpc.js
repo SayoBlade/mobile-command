@@ -326,7 +326,7 @@ async function handleDowntimePick(payload) {
 // update re-renders every client). Players may only touch THEIR OWN character's Activities
 // (create/edit/remove/roll); the DM (GM) authors Rules, adjusts progress, toggles visibility,
 // opens/closes the window, and sets the per-character gear settings.
-const DT_PLAYER_OPS = new Set(["upsertActivity", "removeActivity", "applyAttempt", "pickTemplate", "setLock"]);
+const DT_PLAYER_OPS = new Set(["upsertActivity", "removeActivity", "applyAttempt", "pickTemplate", "selectActivity"]);
 async function handleDowntimeOp(payload = {}) {
   if (!isExecutor()) return { ok: false, stage: "route", reason: "not the DM client" };
   const { op, actorId, requesterId } = payload;
@@ -363,7 +363,20 @@ async function handleDowntimeOp(payload = {}) {
     case "setTemplateNote": state = DT.setTemplateNote(state, payload.id, payload.note); break;
     case "pickTemplate": state = DT.pickTemplate(state, actorId, payload.templateId, requesterId); break;
     case "seedTemplates": state = DT.seedTemplates(state, requesterId); break;
-    case "setLock": state = DT.setLock(state, actorId, payload.on); break;
+    case "selectActivity": state = DT.selectActivity(state, actorId, payload.templateId || null); break;
+    case "startActivities": {
+      state = DT.startActivities(state, payload.on !== false);
+      // Starting pushes a roll to every selected activity that needs one — "the players get the
+      // prompts for the rolls" (DM 2026-07-14). No-roll tallies wait for the DM's Tick.
+      if (payload.on !== false) {
+        for (const [aid, actId] of Object.entries(state.selection ?? {})) {
+          if (!actId) continue;
+          const act = DT.listActivities(state, aid).find(a => a.id === actId);
+          if (act?.rule && act.status !== "complete" && DT.needsRoll(act.rule)) state = DT.setPending(state, aid, actId, true);
+        }
+      }
+      break;
+    }
     default: return { ok: false, stage: "validate", reason: `unknown downtime op: ${op}` };
   }
   await game.settings.set(MODULE_ID, "downtimeState", state);

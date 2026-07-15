@@ -288,21 +288,43 @@ export function craftSuggest(itemValueGp, toolKey = null, itemName = "") {
 
 export function normalizeState(raw) {
   const s = raw && typeof raw === "object" ? raw : {};
+  const w = s.window && typeof s.window === "object"
+    ? { open: !!s.window.open, size: s.window.size === "long" ? "long" : "short", id: String(s.window.id || ""), started: !!s.window.started }
+    : null;
   return {
-    window: s.window && typeof s.window === "object" ? { open: !!s.window.open, size: s.window.size === "long" ? "long" : "short", id: String(s.window.id || "") } : null,
+    window: w,
     templates: Array.isArray(s.templates) ? s.templates : [],
     activities: s.activities && typeof s.activities === "object" ? s.activities : {},
     actorSettings: s.actorSettings && typeof s.actorSettings === "object" ? s.actorSettings : {},
-    locks: s.locks && typeof s.locks === "object" ? s.locks : {}
+    selection: s.selection && typeof s.selection === "object" ? s.selection : {}
   };
 }
-// Per-PC lock-in: the player commits their picks for this window; the DM watches them go from
-// "considering" to "locked in" before running rolls. Cleared when a new window opens.
-export function setLock(state, actorId, on) {
-  const s = normalizeState(state);
-  return { ...s, locks: { ...s.locks, [actorId]: !!on } };
+
+// ── One activity per player, per downtime (DM 2026-07-14 simplification) ─────────────────────
+// The player picks ONE activity from a dropdown; it shows on the DM's screen immediately (no
+// player lock-in — the DM sees the choice, they talk it over, then the DM hits "Start activities").
+// Picking REUSES an existing instance of the same template when the player has one, so a long-term
+// goal (100 nights of pushups) keeps its progress across windows instead of restarting.
+export function selectActivity(state, actorId, templateId) {
+  let s = normalizeState(state);
+  if (!templateId) return { ...s, selection: { ...s.selection, [actorId]: null } }; // "— nothing —"
+  const existing = (s.activities[actorId] || []).find(a => a.templateId === templateId && a.status !== "complete");
+  if (existing) return { ...s, selection: { ...s.selection, [actorId]: existing.id } };
+  s = pickTemplate(s, actorId, templateId, "");
+  const made = (s.activities[actorId] || []).filter(a => a.templateId === templateId).pop();
+  return { ...s, selection: { ...s.selection, [actorId]: made?.id ?? null } };
 }
-export function isLocked(state, actorId) { return !!normalizeState(state).locks[actorId]; }
+export function selectedActivityId(state, actorId) { return normalizeState(state).selection[actorId] ?? null; }
+export function selectedActivity(state, actorId) {
+  const id = selectedActivityId(state, actorId);
+  return id ? (normalizeState(state).activities[actorId] || []).find(a => a.id === id) ?? null : null;
+}
+// The DM commits the table's choices; rolls only fire once activities have started.
+export function startActivities(state, on = true) {
+  const s = normalizeState(state);
+  return s.window ? { ...s, window: { ...s.window, started: !!on } } : s;
+}
+export function isStarted(state) { return !!normalizeState(state).window?.started; }
 
 // ── Catalog of DM-authored templates (§17.7 redesign, DM 2026-07-13) ─────────────────────────
 // The DM names an activity and gives it a Rule; it becomes a reusable Template. Players PICK a
@@ -438,7 +460,8 @@ export function setVisible(state, actorId, id, visible) {
 }
 export function openWindow(state, size, id) {
   const s = normalizeState(state);
-  return { ...s, window: { open: true, size: size === "long" ? "long" : "short", id: String(id || randId()) }, locks: {} };
+  // A fresh window starts un-started with nobody selected; instances (and their progress) persist.
+  return { ...s, window: { open: true, size: size === "long" ? "long" : "short", id: String(id || randId()), started: false }, selection: {} };
 }
 export function closeWindow(state) {
   const s = normalizeState(state);
