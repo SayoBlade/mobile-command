@@ -193,7 +193,10 @@ function downtimeHTML() {
         <div class="mc-dt-act-progline">${dtProgressBar(act)}</div>
         <div class="mc-dt-act-ctl">${push}${adj}<button class="mc-dt-act-edit" data-dt-editrule="${act.id}" data-actor="${a.id}"><i class="fas fa-pen"></i> Edit</button></div>`;
       else bodyHTML = `<button class="mc-dt-setrule" data-dt-editrule="${act.id}" data-actor="${a.id}"><i class="fas fa-wand-magic-sparkles"></i> Set the rule</button>`;
-      actsHTML = `<div class="mc-dt-act ${act.status === "complete" ? "mc-done" : ""} ${act.visible ? "mc-shown" : "mc-hidden"} ${!hasRule ? "mc-norule" : ""}">
+      // NB: never use the bare "mc-hidden"/"mc-shown" names here — ".mc-hidden" is the shell's
+      // search-filter utility (display:none !important), which silently hid EVERY activity card on
+      // the DM panel, since visible:false is the default (DM 2026-07-14: "nothing to do").
+      actsHTML = `<div class="mc-dt-act ${act.status === "complete" ? "mc-done" : ""} ${act.visible ? "mc-dt-shown" : "mc-dt-veiled"} ${!hasRule ? "mc-norule" : ""}">
         <div class="mc-dt-act-top"><span class="mc-dt-act-name">${esc(act.name)}</span></div>
         ${act.note ? `<div class="mc-dt-note"><i class="fas fa-note-sticky"></i> ${esc(act.note)}</div>` : ""}
         ${bodyHTML}

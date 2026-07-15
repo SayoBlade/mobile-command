@@ -3537,7 +3537,8 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-toggle.mc-on { background: #23402c; border-color: #3a6b4a; color: #8fd6a8; }
 .mc-dt-gearhint { font-size: 11px; color: var(--mc-muted); margin: 2px 0 0; }
 .mc-dt-act { margin-top: 5px; padding: 7px 9px; border-radius: 8px; background: #1a1c24; border: 1px solid #2f3440; border-left: 3px solid #4a3f66; }
-.mc-dt-act.mc-shown { border-left-color: #4a4334; }
+/* "mc-dt-shown" (NOT "mc-shown"/"mc-hidden" — ".mc-hidden" is the search filter's display:none). */
+.mc-dt-act.mc-dt-shown { border-left-color: #4a4334; }
 .mc-dt-act.mc-done { border-left-color: #3a6b4a; opacity: .7; }
 .mc-dt-act-top { display: flex; align-items: center; gap: 8px; }
 .mc-dt-act-name { flex: 1 1 auto; font-size: 13px; font-weight: 700; color: #ece5d6; }
