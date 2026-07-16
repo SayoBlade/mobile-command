@@ -3477,11 +3477,17 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* §17.7 downtime — accordion drawers (collapse the tall DM window) */
 .mc-dt-drawer { margin-bottom: 8px; }
 .mc-dt-drawer-head { display: flex; align-items: center; gap: 6px; }
-.mc-dt-drawer-toggle { flex: 1 1 auto; display: inline-flex; align-items: center; gap: 7px; text-align: left;
+/* Title left, chevron right + muted (DM 2026-07-16). */
+.mc-dt-drawer-toggle { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: space-between; gap: 7px; text-align: left;
   padding: 5px 4px; background: transparent; border: none; cursor: pointer;
   font-size: 12px; font-weight: 800; color: #ece5d6; border-bottom: 1px solid #3a3f4c; }
-.mc-dt-drawer-toggle i { width: 10px; color: #c8a44d; font-size: 11px; }
+.mc-dt-drawer-toggle i { flex: 0 0 auto; color: #6b6250; font-size: 10px; }
 .mc-dt-drawer-toggle:hover { color: #e6c46a; }
+.mc-dt-drawer-toggle:hover i { color: #c8a44d; }
+/* Cost — both sides see it; the shortfall (DM-only) turns it red. */
+.mc-dt-cost { font-size: 11px; color: #c8a44d; margin-top: 4px; }
+.mc-dt-cost i { margin-right: 4px; }
+.mc-dt-cost.mc-short { color: #ffb4a8; }
 .mc-dt-drawer-body { padding-top: 6px; }
 
 /* §17.7 downtime — DM catalog + templates */

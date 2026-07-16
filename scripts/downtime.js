@@ -38,7 +38,7 @@ export const WINDOW_SIZES = ["short", "long"];                   // short = a sl
 // The DM chooses per rule — auto-succeeding a DC 100 on a 1-in-20 makes no sense, but doubling
 // the learning step does; for a simple check, auto-succeed is fine (DM 2026-07-13).
 export function defaultRule(type = "roll", kind = "freestyle") {
-  const base = { type, kind, reward: "", roll: blankRoll(), nat20: "none", nat1: "none" };
+  const base = { type, kind, reward: "", cost: 0, roll: blankRoll(), nat20: "none", nat1: "none" };
   if (type === "roll") return { ...base, dc: 15, autoShift: 0, autoShiftFloor: null };
   if (type === "tally") return { ...base, target: 10, tickSource: "day", perTick: 1, requireRoll: false, dc: 15 };
   if (type === "cumulative") return { ...base, target: 100, tickSource: "attempt", gainMode: "total", perTick: 5, minGain: 1, nat20: "double", dc: 10 };
@@ -155,7 +155,9 @@ export function applyAttempt(rule, progress, outcome = null) {
 export function adjustProgress(rule, progress, delta) {
   const p = { ...progress };
   const d = Number(delta) || 0;
-  if (rule.type === "roll") { p.dc = p.dc + d; return p; }
+  // Nudging a finished "roll" reopens it — the DM's undo for a tick that completed it too early
+  // (DM 2026-07-16). Tally/cumulative reopen naturally once the count drops back under target.
+  if (rule.type === "roll") { p.dc = p.dc + d; if (d) p.done = false; return p; }
   p.count = Math.max(0, Math.min(Number(rule.target) || 0, (Number(p.count) || 0) + d));
   p.done = p.count >= (Number(rule.target) || 0);
   return p;
@@ -245,6 +247,39 @@ export function playerRuleView(rule, progress, visible) {
   return { button, note };
 }
 
+// ── Cost (gp) — shown to BOTH sides; the shortfall warning is DM-only (DM 2026-07-16) ──────
+// A Rule's `cost` is a plain gp number (0 = free). We compare it to the PC's purse and, when they
+// can't cover it, hand the DM a readable shortfall ("40 gp and 5 sp"). We never touch their money —
+// paying is the DM's call, same as everything else here.
+export const COIN_IN_GP = { pp: 10, gp: 1, ep: 0.5, sp: 0.1, cp: 0.01 };
+export function purseInGp(currency) {
+  let t = 0;
+  for (const [k, mult] of Object.entries(COIN_IN_GP)) t += (Number(currency?.[k]) || 0) * mult;
+  return Math.round(t * 100) / 100;
+}
+// Break a gp amount into coins and read it back naturally: "40 gp and 5 sp", "1 gp, 2 sp and 3 cp".
+export function formatCoins(gp) {
+  let cp = Math.round((Number(gp) || 0) * 100);
+  if (cp <= 0) return "0 gp";
+  const g = Math.floor(cp / 100); cp -= g * 100;
+  const s = Math.floor(cp / 10); cp -= s * 10;
+  const parts = [];
+  if (g) parts.push(`${g} gp`);
+  if (s) parts.push(`${s} sp`);
+  if (cp) parts.push(`${cp} cp`);
+  if (parts.length === 1) return parts[0];
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+// null when the Rule is free; otherwise what it costs, whether they can cover it, and by how much
+// they're short.
+export function costCheck(rule, currency) {
+  const cost = Number(rule?.cost) || 0;
+  if (cost <= 0) return null;
+  const have = purseInGp(currency);
+  const short = Math.round((cost - have) * 100) / 100;
+  return { cost, costText: formatCoins(cost), have, canAfford: short <= 0, short: Math.max(0, short), shortText: formatCoins(Math.max(0, short)) };
+}
+
 // ── Preset suggestions (pure data; the UI seeds these into a Rule the DM can tweak) ──
 
 // XanatharsGuide spell-scroll scribing: time (days) + cost (gp) by spell level. The natural
@@ -262,6 +297,7 @@ export function scribeScrollSuggest(level, spellName = "") {
   const rule = defaultRule("tally", "scribe");
   rule.target = t.days; rule.tickSource = "day"; rule.perTick = 1; rule.requireRoll = false;
   rule.reward = spellName ? `Scroll of ${spellName}` : "The finished scroll";
+  rule.cost = t.gp; // materials — both sides see it; the DM decides whether to actually charge it
   return { days: t.days, gp: t.gp, level: lvl, rule };
 }
 
@@ -274,6 +310,7 @@ export function learnSpellSuggest(level, spellName = "") {
   const rule = defaultRule("tally", "learn");
   rule.target = lvl; rule.tickSource = "slice"; rule.perTick = 1; rule.requireRoll = false;
   rule.reward = spellName ? `${spellName} in your spellbook` : "The spell in your spellbook";
+  rule.cost = 50 * lvl; // PHB: 50 gp per spell level
   rule._level = lvl;
   return { level: lvl, hours: 2 * lvl, gp: 50 * lvl, rule };
 }
@@ -288,6 +325,7 @@ export function craftSuggest(itemValueGp, toolKey = null, itemName = "") {
   rule.target = days; rule.tickSource = "day"; rule.perTick = 1; rule.requireRoll = false;
   if (toolKey) rule.roll = { ...blankRoll(), tool: toolKey };
   rule.reward = itemName ? itemName : "The finished item";
+  rule.cost = Math.floor(value / 2); // PHB: materials are half the market value
   return { days, gpMaterials: Math.floor(value / 2), rule };
 }
 

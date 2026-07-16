@@ -118,9 +118,10 @@ function pcColor(a) {
 let dtDrawers = { roster: true, catalog: true };
 function dtDrawer(key, title, headerExtra, body) {
   const open = dtDrawers[key] !== false;
+  // Title left, chevron right (DM 2026-07-16) — a leading chevron read as centred/odd.
   return `<div class="mc-dt-drawer ${open ? "mc-open" : ""}">
     <div class="mc-dt-drawer-head">
-      <button class="mc-dt-drawer-toggle" data-dt-drawer="${key}"><i class="fas fa-chevron-${open ? "down" : "right"}"></i> ${title}</button>
+      <button class="mc-dt-drawer-toggle" data-dt-drawer="${key}"><span>${title}</span><i class="fas fa-chevron-${open ? "down" : "right"}"></i></button>
       ${headerExtra || ""}
     </div>
     ${open ? `<div class="mc-dt-drawer-body">${body}</div>` : ""}
@@ -189,9 +190,11 @@ function downtimeHTML() {
       const editing = dtRuleFor === act.id && !dtRuleIsTemplate;
       const hasRule = !!act.rule;
       const live = hasRule && act.status !== "complete";
-      const adj = live
+      // ± stays available even once COMPLETE so a tick that finished it too early can be undone
+      // (DM 2026-07-16: "if the DM clicks + let them hit − to un-complete").
+      const adj = hasRule
         ? `<div class="mc-dt-adj">
-            <button data-dt-adjust="-1" data-actor="${a.id}" data-id="${act.id}" title="Set back">−</button>
+            <button data-dt-adjust="-1" data-actor="${a.id}" data-id="${act.id}" title="${act.status === "complete" ? "Undo — reopen this activity" : "Set back"}">−</button>
             <button data-dt-adjust="1" data-actor="${a.id}" data-id="${act.id}" title="Nudge forward">+</button>
           </div>` : "";
       // Rolls only once you've started activities: push one (roll rules) or tick it (no-roll).
@@ -200,10 +203,16 @@ function downtimeHTML() {
           ? `<button class="mc-dt-push ${act.pending ? "mc-waiting" : ""}" data-dt-push="${act.id}" data-actor="${a.id}" data-on="${act.pending ? "0" : "1"}"><i class="fas fa-dice-d20"></i> ${act.pending ? "Waiting…" : "Push roll"}</button>`
           : `<button class="mc-dt-push" data-dt-tick="${act.id}" data-actor="${a.id}"><i class="fas fa-plus"></i> Tick +${Number(act.rule.perTick) || 1}</button>`)
         : "";
+      // Cost: both sides see it; only the DM is told when the PC can't cover it. Nothing is deducted.
+      const cc = hasRule ? DT.costCheck(act.rule, a.system?.currency) : null;
+      const costHTML = cc
+        ? `<div class="mc-dt-cost ${cc.canAfford ? "" : "mc-short"}"><i class="fas fa-coins"></i> ${esc(cc.costText)}${cc.canAfford ? "" : ` — ${esc(a.name)} is missing ${esc(cc.shortText)}`}</div>`
+        : "";
       let bodyHTML;
       if (editing) bodyHTML = ruleFormHTML(a.id, act);
       else if (hasRule) bodyHTML = `
         <div class="mc-dt-act-rule">${esc(DT.describeRule(act.rule))}${act.visible ? ' <i class="fas fa-eye mc-dt-eye" title="The player can see this rule"></i>' : ""}</div>
+        ${costHTML}
         <div class="mc-dt-act-progline">${dtProgressBar(act)}</div>
         <div class="mc-dt-act-ctl">${push}${adj}<button class="mc-dt-act-edit" data-dt-editrule="${act.id}" data-actor="${a.id}"><i class="fas fa-pen"></i> Edit</button></div>`;
       else bodyHTML = `<button class="mc-dt-setrule" data-dt-editrule="${act.id}" data-actor="${a.id}"><i class="fas fa-wand-magic-sparkles"></i> Set the rule</button>`;
@@ -239,10 +248,12 @@ function downtimeHTML() {
           <button class="mc-dt-add-cancel" data-dt-give="${a.id}">Close</button></div>`
       : `<button class="mc-dt-addtask" data-dt-give="${a.id}"><i class="fas fa-hand-holding-hand"></i> Give a task</button>`;
     const color = pcColor(a);
+    // Name stays INK; only the token icon + the card's rail carry the player colour — matching the
+    // Request-rolls list, since some player colours are unreadable on this background (DM 2026-07-16).
     return `<div class="mc-dt-player mc-here" style="border-left-color:${color}">
       <div class="mc-dt-player-head">
         <i class="fas fa-circle-user mc-dt-usericon" style="color:${color}"></i>
-        <span class="mc-dt-name" style="color:${color}">${esc(a.name)}</span>
+        <span class="mc-dt-name">${esc(a.name)}</span>
         <button class="mc-dt-gearbtn ${gearOpen ? "mc-on" : ""}" data-dt-geartoggle="${a.id}" title="Per-character settings"><i class="fas fa-gear"></i></button>
       </div>
       ${gearHTML}
@@ -472,6 +483,7 @@ function ruleFormHTML(actorId, act) {
     ${rollSec}
     <div class="mc-rf-sec">
       <label class="mc-rf-row">Reward <input type="text" data-rule="reward" value="${esc(r.reward || "")}" placeholder="e.g. +1 STR, Scroll of Fireball"></label>
+      <label class="mc-rf-row" title="Both you and the player see this; you're warned if they can't cover it. Nothing is deducted automatically.">Cost (gp) <input type="number" data-rule="cost" value="${Number(r.cost) || 0}" min="0"></label>
       ${dtRuleIsTemplate
         ? `<label class="mc-rf-notewrap">DM-only note<textarea class="mc-rf-notebox" data-rule="note" placeholder="Private — balancing, gold/time, reminders (players never see this)">${esc(dtRuleNote)}</textarea></label>`
         : `<button class="mc-rf-toggle ${dtRuleVisible ? "mc-on" : ""}" data-rule-toggle="visible">${dtRuleVisible ? "Player sees the rule" : "Rule hidden from the player"}</button>`}
@@ -514,7 +526,8 @@ function applyRuleField(field, value) {
     }
     case "crafttool": { if (value) { r.roll = rollSpec({ tool: value, label: toolLabel(value) }); r.kind = "craft"; } reRender = true; break; }
     // Level drives the target (2h ≈ one short slice per level) + the derived hours/gp note.
-    case "learnlevel": { const lvl = Math.max(1, Math.min(9, Number(value) || 1)); r._level = lvl; r.target = lvl; reRender = true; break; }
+    case "learnlevel": { const lvl = Math.max(1, Math.min(9, Number(value) || 1)); r._level = lvl; r.target = lvl; r.cost = 50 * lvl; reRender = true; break; }
+    case "cost": r.cost = Math.max(0, Number(value) || 0); break;
   }
   if (reRender) render();
 }
@@ -1770,7 +1783,12 @@ async function onClick(ev) {
     const gpick = ev.target.closest("[data-dt-give-pick]");
     if (gpick) { dtGiveFor = null; await api.downtime({ op: "selectActivity", actorId: gpick.dataset.actor, templateId: gpick.dataset.dtGivePick }); return; }
     const start = ev.target.closest("[data-dt-start]");
-    if (start) { await api.downtime({ op: "startActivities", on: start.dataset.dtStart === "1" }); return; }
+    if (start) {
+      const on = start.dataset.dtStart === "1";
+      if (on) dtDrawers.catalog = false; // authoring's done — get the catalog out of the way (DM 2026-07-16)
+      await api.downtime({ op: "startActivities", on });
+      return;
+    }
     const drawer = ev.target.closest("[data-dt-drawer]");
     if (drawer) { const k = drawer.dataset.dtDrawer; dtDrawers[k] = dtDrawers[k] === false; return render(); }
     // ── Authoring-form controls (activity OR template) ──────────────────────

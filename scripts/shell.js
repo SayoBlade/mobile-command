@@ -2886,9 +2886,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         const head = sel.visible ? esc(s.headline) : (s.ratio != null ? `${Math.round(s.ratio * 100)}%` : `${sel.progress.attempts} tried`);
         prog = `<div class="mc-dt-prog"><span class="mc-dt-prog-head">${head}</span>${bar}</div>`;
       }
+      // The cost is shown to the player too (DM 2026-07-16) — but never the "can't afford" warning;
+      // that's the DM's to raise. Nothing is deducted automatically.
+      const cc = sel.rule ? DT.costCheck(sel.rule, actor.system?.currency) : null;
+      const cost = cc ? `<div class="mc-dt-cost"><i class="fas fa-coins"></i> Costs ${esc(cc.costText)}</div>` : "";
       body = `<div class="mc-dt-prow ${done ? "mc-done" : ""}">
         <div class="mc-dt-prow-top"><span class="mc-dt-prow-name">${esc(sel.name)}</span></div>
-        ${prog}${mech}
+        ${cost}${prog}${mech}
       </div>`;
     }
 
