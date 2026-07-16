@@ -36,7 +36,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 #mc-clean-hint {
   position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
   z-index: 100000; padding: 10px 18px; border-radius: 999px; cursor: pointer;
-  background: rgba(18, 19, 24, 0.94); color: #e8e8ec; border: 1px solid #3a3f4b;
+  background: rgba(18, 19, 24, 0.94); color: var(--mc-ink); border: 1px solid var(--mc-edge);
   font-family: "Signika", sans-serif; font-size: 14px; box-shadow: 0 4px 18px rgba(0,0,0,0.55);
   opacity: 1; transition: opacity 0.8s ease;
 }
@@ -69,7 +69,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   display: flex;
   flex-direction: column;
   background: #14151a;
-  color: #e8e8ec;
+  color: var(--mc-ink);
   font-family: "Signika", sans-serif;
   -webkit-user-select: none;
   user-select: none;
@@ -124,7 +124,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   flex: 0 0 auto;
   width: 34px; height: 34px;
   border: 1px solid #2c2f3a; border-radius: 8px;
-  background: #25272f; color: #9a9da8;
+  background: var(--mc-panel-2); color: #9a9da8;
   font-size: 16px; line-height: 1;
 }
 
@@ -132,7 +132,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 .mc-hp-step {
   width: 26px; height: 26px;
   border: 1px solid #3a3e4c; border-radius: 7px;
-  background: #2a2d38; color: #e8e8ec;
+  background: var(--mc-panel-2); color: var(--mc-ink);
   font-size: 18px; line-height: 1; font-weight: 700;
 }
 .mc-hp-step:active { background: #3a4250; }
@@ -146,8 +146,8 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 .mc-hp-input {
   flex: 1 1 auto; min-width: 0;
   padding: 9px 12px;
-  background: #0c0d11; color: #e8e8ec;
-  border: 1px solid #313542; border-radius: 8px;
+  background: #0c0d11; color: var(--mc-ink);
+  border: 1px solid var(--mc-edge); border-radius: 8px;
   font-size: 15px; font-variant-numeric: tabular-nums;
 }
 .mc-hp-edit .mc-btn { flex: 0 0 auto; padding: 9px 16px; }
@@ -164,10 +164,10 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 }
 .mc-chip {
   font-size: 12px; padding: 3px 9px;
-  background: #2a2d38; border: 1px solid #3a3e4c; border-radius: 12px;
-  color: #cfd2db;
+  background: var(--mc-panel-2); border: 1px solid #3a3e4c; border-radius: 12px;
+  color: var(--mc-ink);
 }
-.mc-chip.mc-none { color: #6a6d78; border-style: dashed; }
+.mc-chip.mc-none { color: var(--mc-muted); border-style: dashed; }
 /* Action-economy "used"/spent chips (Action / Bonus Action / Reaction used) — */
 /* muted + dashed so a spent resource reads differently from an active buff. */
 .mc-chip-used { color: #9a9da8; border-style: dashed; }
@@ -216,7 +216,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 .mc-skill {
   flex: 1 1 0;
   padding: 10px 6px;
-  background: #20222b; border: 1px solid #313542; border-radius: 10px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
   text-align: center;
 }
 .mc-skill .mc-skill-name { font-size: 12px; color: #b9bcc7; }
@@ -227,7 +227,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
 }
 .mc-ability {
-  background: #20222b; border: 1px solid #313542; border-radius: 12px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 12px;
   padding: 10px;
 }
 .mc-ability-top {
@@ -241,7 +241,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   flex: 1 1 0;
   padding: 10px 0;
   border-radius: 8px; border: 1px solid #3a3e4c;
-  background: #2a2d38; color: #e8e8ec;
+  background: var(--mc-panel-2); color: var(--mc-ink);
   font-size: 13px; font-weight: 600;
 }
 .mc-btn:active { background: #3a4250; }
@@ -258,10 +258,10 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 .mc-action {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   width: 100%; padding: 14px 16px;
-  background: #20222b; border: 1px solid #313542; border-radius: 10px;
-  color: #e8e8ec; text-align: left;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
+  color: var(--mc-ink); text-align: left;
 }
-.mc-action:active { background: #2a2d38; }
+.mc-action:active { background: var(--mc-panel-2); }
 .mc-action-name { font-size: 15px; font-weight: 600; }
 .mc-action-sub { font-size: 12px; color: #9a9da8; text-transform: capitalize; }
 
@@ -272,26 +272,26 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 .mc-back { background: none; border: none; color: #5db4e6; font-size: 14px; padding: 4px 0; }
 .mc-picker-title { flex: 1 1 auto; font-size: 16px; font-weight: 600; }
 .mc-picker-range { margin-left: 8px; font-size: 11px; font-weight: 600; color: #9a9da8;
-  padding: 2px 7px; border-radius: 7px; background: #20222b; border: 1px solid #313542; white-space: nowrap; }
+  padding: 2px 7px; border-radius: 7px; background: var(--mc-panel); border: 1px solid var(--mc-edge); white-space: nowrap; }
 .mc-target-count { font-size: 13px; color: #9a9da8; font-variant-numeric: tabular-nums; }
 
 .mc-adv-row { display: flex; gap: 8px; margin-bottom: 12px; }
 .mc-adv {
   flex: 1 1 0; padding: 11px 0;
-  background: #20222b; border: 1px solid #313542; border-radius: 9px;
-  color: #cfd2db; font-size: 13px; font-weight: 600;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 9px;
+  color: var(--mc-ink); font-size: 13px; font-weight: 600;
 }
-.mc-adv-on { background: #243042; border-color: #2f5d8a; color: #e8e8ec; }
+.mc-adv-on { background: #243042; border-color: #2f5d8a; color: var(--mc-ink); }
 
 /* Upcast slot-level chips (the "Cast at" row); the small badge = slots left. */
 .mc-slot-row { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
 .mc-slot-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--mc-muted); margin-right: 2px; }
 .mc-slot {
   position: relative; min-width: 44px; min-height: 40px; padding: 6px 10px;
-  background: #20222b; border: 1px solid #313542; border-radius: 9px;
-  color: #cfd2db; font-size: 14px; font-weight: 700;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 9px;
+  color: var(--mc-ink); font-size: 14px; font-weight: 700;
 }
-.mc-slot-on { background: #2a2d38; border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-slot-on { background: var(--mc-panel-2); border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-slot-n {
   position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px;
   padding: 0 4px; border-radius: 8px; background: var(--mc-panel-2); border: 1px solid var(--mc-edge);
@@ -301,7 +301,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 /* AC5E recommendation (§14): a star on the suggested adv/dis button + a reasons banner. */
 .mc-adv-rec { box-shadow: inset 0 0 0 1px var(--mc-gold); }
 .mc-adv-rec-star { font-size: 9px; color: var(--mc-gold); margin-left: 2px; vertical-align: 1px; }
-.mc-rec { margin: -4px 0 12px; padding: 8px 10px; border-radius: 9px; font-size: 12px; background: #1a1c24; border: 1px solid var(--mc-edge); }
+.mc-rec { margin: -4px 0 12px; padding: 8px 10px; border-radius: 9px; font-size: 12px; background: var(--mc-sunken); border: 1px solid var(--mc-edge); }
 .mc-rec-pending { color: var(--mc-muted); }
 .mc-rec-advantage { border-color: #3f8a52; }
 .mc-rec-disadvantage { border-color: #8a3f3a; }
@@ -317,8 +317,8 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 .mc-target {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 13px 16px;
-  background: #20222b; border: 1px solid #313542; border-radius: 10px;
-  color: #e8e8ec; text-align: left;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
+  color: var(--mc-ink); text-align: left;
 }
 .mc-target-on { border-color: #5db4e6; box-shadow: inset 0 0 0 1px #243042; }
 .mc-target-name { font-size: 15px; }
@@ -358,16 +358,16 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 }
 .mc-disp.mc-foe { background: #2f1d1c; color: #e8a59d; }
 .mc-disp.mc-ally { background: #1c2f22; color: #8fe0a0; }
-.mc-disp.mc-neutral { background: #25272f; color: #b9bcc7; }
+.mc-disp.mc-neutral { background: var(--mc-panel-2); color: #b9bcc7; }
 .mc-target-note { color: #9a9da8; font-size: 13px; padding: 12px 2px; }
 
 .mc-fire {
   width: 100%; padding: 15px 0;
   background: #2a4634; border: 1px solid #2f5d39; border-radius: 12px;
-  color: #e8e8ec; font-size: 16px; font-weight: 700;
+  color: var(--mc-ink); font-size: 16px; font-weight: 700;
 }
 .mc-fire:active { background: #335640; }
-.mc-fire.mc-disabled { background: #20222b; border-color: #313542; color: #6a6d78; }
+.mc-fire.mc-disabled { background: var(--mc-panel); border-color: var(--mc-edge); color: var(--mc-muted); }
 .mc-roll-damage { background: #3a2526; border-color: #5c2f2c; }
 .mc-roll-damage:active { background: #4a2f30; }
 
@@ -387,7 +387,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 .mc-attack-result {
   display: flex; align-items: baseline; gap: 12px;
   padding: 16px; margin-bottom: 14px;
-  background: #20222b; border: 1px solid #313542; border-radius: 12px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 12px;
 }
 .mc-attack-total { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .mc-attack-label { font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: #9a9da8; }
@@ -400,7 +400,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 .mc-placeholder {
   display: flex; align-items: center; justify-content: center;
   height: 100%; min-height: 200px;
-  color: #6a6d78; font-size: 14px; text-align: center; padding: 24px;
+  color: var(--mc-muted); font-size: 14px; text-align: center; padding: 24px;
 }
 
 /* --- "no token on this scene" mode --- */
@@ -484,7 +484,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   text-align: center; font-size: 12px; font-weight: 600;
   color: #81869a; background: none; border: none;
 }
-.mc-tab.mc-active { color: #e8e8ec; box-shadow: inset 0 2px 0 #5db4e6; }
+.mc-tab.mc-active { color: var(--mc-ink); box-shadow: inset 0 2px 0 #5db4e6; }
 
 /* --- roll-result surface (read-only): recent-rolls strip + transient toast ---
    The shell covers Foundry's native chat, so the player's own roll outcomes are
@@ -504,12 +504,12 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   display: flex; align-items: baseline; gap: 7px;
   max-width: 62vw;
   padding: 6px 11px;
-  background: #20222b; border: 1px solid #313542; border-radius: 999px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 999px;
 }
 .mc-roll-pill.mc-latest { border-color: #2f4660; box-shadow: inset 0 0 0 1px #243042; }
 .mc-roll-pill-total {
   font-size: 16px; font-weight: 800; line-height: 1;
-  font-variant-numeric: tabular-nums; color: #e8e8ec;
+  font-variant-numeric: tabular-nums; color: var(--mc-ink);
 }
 .mc-roll-pill-label {
   font-size: 11px; color: #9a9da8;
@@ -529,7 +529,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 .mc-event-chip {
   flex: 0 0 auto; max-width: 72vw; padding: 6px 12px; border-radius: 999px;
   font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  border: 1px solid #313542; background: #20222b; color: #c9c3b8;
+  border: 1px solid var(--mc-edge); background: var(--mc-panel); color: var(--mc-ink);
 }
 .mc-event-chip.mc-event-damage { border-color: #5c2f2c; background: #241a1a; color: #f0a097; }
 .mc-event-chip.mc-event-save   { border-color: #5c4a2c; background: #241f16; color: #e2c07a; }
@@ -557,11 +557,11 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 .mc-roll-toast-total {
   flex: 0 0 auto;
   font-size: 40px; font-weight: 800; line-height: 1;
-  font-variant-numeric: tabular-nums; color: #e8e8ec;
+  font-variant-numeric: tabular-nums; color: var(--mc-ink);
 }
 .mc-roll-toast-meta { min-width: 0; }
 .mc-roll-toast-label {
-  font-size: 14px; font-weight: 600; color: #e8e8ec;
+  font-size: 14px; font-weight: 600; color: var(--mc-ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mc-roll-toast-formula {
@@ -581,7 +581,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   display: inline-block; margin-top: 4px;
   padding: 2px 7px; border-radius: 8px;
   font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
-  background: #25272f; color: #cfd2db;
+  background: var(--mc-panel-2); color: var(--mc-ink);
 }
 .mc-roll-toast.nat20 .mc-roll-tag { background: #1c2f22; color: #8fe0a0; }
 .mc-roll-toast.nat1  .mc-roll-tag { background: #2f1d1c; color: #f0a097; }
@@ -740,7 +740,7 @@ body.mc-phone .item-piles-app .item-pile-column-grid {
 }
 body.mc-phone .item-piles-app .item-piles-grid-row-wrapper {
   display: flex !important; align-items: center !important; gap: 10px !important;
-  background: #20222b !important; border: 1px solid #313542 !important; border-radius: 10px !important;
+  background: var(--mc-panel) !important; border: 1px solid var(--mc-edge) !important; border-radius: 10px !important;
   padding: 8px 10px !important; box-shadow: 0 1.5px 2px rgba(0, 0, 0, .45) !important;
 }
 /* First row is the column-label header — unneeded once it's cards under a type heading. */
@@ -879,13 +879,13 @@ body.mc-phone .item-piles-app .sheet-footer > button {
 body.mc-phone .item-piles-app .sheet-footer > button:has(i.fa-save) { display: none !important; }
 
 /* Item Piles rows → native shell item cards (.mc-action) — "keep all items looking like
-   items" (DESIGN §7.6, DM 2026-07-10, adopted). Card #20222b + 1px #313542 + radius 10 +
+   items" (DESIGN §7.6, DM 2026-07-10, adopted). Card var(--mc-panel) + 1px var(--mc-edge) + radius 10 +
    soft shadow; 46px rounded icon (.mc-action-icon); 15px/600 ink name; Save-blue Take.
    Item rows AND currency rows; icon/name ride shared classes so both match. */
 body.mc-phone .item-piles-app .item-piles-item-row,
 body.mc-phone .item-piles-app .item-piles-currency-list > div:not(.item-piles-vertical-divider) {
-  background: #20222b !important;
-  border: 1px solid #313542 !important;
+  background: var(--mc-panel) !important;
+  border: 1px solid var(--mc-edge) !important;
   border-radius: 10px !important;
   padding: 8px 10px !important;
   margin: 0 8px 8px !important;
@@ -893,7 +893,7 @@ body.mc-phone .item-piles-app .item-piles-currency-list > div:not(.item-piles-ve
   gap: 10px !important;
   align-items: center !important;
 }
-body.mc-phone .item-piles-app .item-piles-item-row:active { background: #2a2d38 !important; }
+body.mc-phone .item-piles-app .item-piles-item-row:active { background: var(--mc-panel-2) !important; }
 /* Icon → .mc-action-icon (46px, rounded, edge border, dark bg). */
 body.mc-phone .item-piles-app .item-piles-img-container {
   width: 46px !important; height: 46px !important; flex: 0 0 auto !important;
@@ -905,7 +905,7 @@ body.mc-phone .item-piles-app .item-piles-img {
 }
 /* Name → .mc-action-name. */
 body.mc-phone .item-piles-app .item-piles-name-container > p {
-  font-size: 15px !important; font-weight: 600 !important; color: #e8e8ec !important;
+  font-size: 15px !important; font-weight: 600 !important; color: var(--mc-ink) !important;
 }
 /* Take → shell Save-blue button. */
 body.mc-phone .item-piles-app .item-piles-item-take-button,
@@ -941,6 +941,7 @@ body {
   --mc-panel: #211f24;
   --mc-panel-2: #2a272e;
   --mc-edge: #3b3640;
+  --mc-sunken: #17151b;   /* recessed strips/wells — a step BELOW panel */
 }
 #mobile-command-shell {
   background: radial-gradient(120% 80% at 50% -10%, #221c28 0%, #16141a 60%);
@@ -1385,7 +1386,7 @@ body {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 34px; padding: 3px 8px;
   font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums;
-  color: #aeb4c0; background: #1a1c22;
+  color: var(--mc-ink); background: var(--mc-sunken);
   border: 1px solid #4a4f5c; border-radius: 7px;
 }
 
@@ -1397,12 +1398,12 @@ body {
 .mc-estat {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   padding: 10px 4px; min-height: 56px;
-  background: #20222b; border: 1px solid #313542; border-radius: 10px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
 }
 .mc-estat-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--mc-muted); }
 .mc-estat-val { font-size: 18px; font-weight: 800; color: var(--mc-ink); font-variant-numeric: tabular-nums; }
 .mc-estat.mc-tappable:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
-.mc-estat.mc-gray .mc-estat-val { color: #aeb4c0; }
+.mc-estat.mc-gray .mc-estat-val { color: var(--mc-ink); }
 
 /* Rest buttons at the bottom of Explore. */
 .mc-rests { display: flex; gap: 10px; margin-top: 8px; }
@@ -1419,22 +1420,22 @@ body {
 .mc-loot-list { display: flex; flex-direction: column; gap: 8px; }
 /* The Use button in the D-pad centre. Icon is fa-hand-fist (same as the Actions
    tab — Use is the out-of-combat sibling). It wears the abilities "Check" button's
-   fill (#2a2d38 / #3a3e4c, foreground #e8e8ec) so it's distinct from the darker
+   fill (var(--mc-panel-2) / #3a3e4c, foreground var(--mc-ink)) so it's distinct from the darker
    arrow keys, and from the Actions tab, without shouting like the old gold. */
-.mc-dpad-use { background: #2a2d38; border-color: #3a3e4c; }
-.mc-dpad-use i { font-size: 23px; color: #e8e8ec !important; }
+.mc-dpad-use { background: var(--mc-panel-2); border-color: #3a3e4c; }
+.mc-dpad-use i { font-size: 23px; color: var(--mc-ink) !important; }
 .mc-dpad-use:active { background: #3a4250; border-color: var(--mc-gold); }
 .mc-dpad-use[disabled] { opacity: 0.6; }
 /* Interactive-item rows (nearby piles / shops / doors / tiles) match the shell's own
    .mc-action item cards — "keep all items looking like items" (DM 2026-07-10). Card
-   #20222b + edge border + radius 10 + soft shadow; 46px rounded icon; 15px/600 name. */
+   var(--mc-panel) + edge border + radius 10 + soft shadow; 46px rounded icon; 15px/600 name. */
 .mc-loot-row {
   display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 14px;
-  background: #20222b; border: 1px solid #313542; border-left: 3px solid var(--mc-gold); border-radius: 10px;
-  color: #e8e8ec; text-align: left; width: 100%;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-left: 3px solid var(--mc-gold); border-radius: 10px;
+  color: var(--mc-ink); text-align: left; width: 100%;
   box-shadow: 0 1.5px 2px rgba(0, 0, 0, .45);
 }
-.mc-loot-row:active { background: #2a2d38; }
+.mc-loot-row:active { background: var(--mc-panel-2); }
 /* Gold left trim + gold meta are the interaction look — consistent for ALL rows
    (pile, shop, door, tile), not merchant-only (DM 2026-07-10). */
 .mc-loot-img, .mc-loot-ico {
@@ -1528,13 +1529,13 @@ body {
 .mc-detail-link { border-bottom: 1px dotted #4a4f5e; }
 .mc-detail-xp {
   display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px;
-  padding: 12px 14px; background: #20222b; border: 1px solid #313542; border-radius: 10px;
+  padding: 12px 14px; background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
 }
 .mc-detail-level { font-size: 22px; font-weight: 800; color: var(--mc-gold); }
 .mc-detail-xpbar { flex: 1 1 auto; }
 .mc-detail-xpnum { font-size: 12px; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
 .mc-feat-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.mc-feat-chip { font-size: 12px; padding: 4px 9px; background: #20222b; border: 1px solid #313542; border-radius: 12px; color: #cfd2db; }
+.mc-feat-chip { font-size: 12px; padding: 4px 9px; background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 12px; color: var(--mc-ink); }
 
 /* ============================================================
    Round-5 (2026-06-14): icon-only tab bar, Details skills list with
@@ -1549,7 +1550,7 @@ body {
 .mc-skillrow {
   display: flex; align-items: center; gap: 10px;
   width: 100%; min-height: 46px; padding: 8px 12px;
-  background: #20222b; border: 1px solid #313542; border-radius: 9px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 9px;
   color: var(--mc-ink); text-align: left;
 }
 .mc-skillrow:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
@@ -1835,7 +1836,7 @@ body.mc-phone .mc-phone-dialog nav.tabs a.active::after { background-color: var(
 #mobile-command-shell .mc-insp { width: 30px; height: 30px; font-size: 15px; align-self: center; }
 
 /* Self target option (gray). */
-.mc-disp.mc-self { background: #25272f; color: #b9bcc7; }
+.mc-disp.mc-self { background: var(--mc-panel-2); color: #b9bcc7; }
 
 /* Picker close X (replaces "Back"). Ordered to the far right of the header — an
    X reads as "close", which conventionally sits top-right (DM 2026-06-18). The
@@ -1851,13 +1852,13 @@ body.mc-phone .mc-phone-dialog nav.tabs a.active::after { background-color: var(
    ============================================================ */
 
 /* Adv / Normal / Dis + Use — same neutral background; meaning via text color. */
-#mobile-command-shell .mc-adv { background: #20222b; border-color: #313542; }
+#mobile-command-shell .mc-adv { background: var(--mc-panel); border-color: var(--mc-edge); }
 #mobile-command-shell .mc-adv[data-mode="advantage"] { color: #8fe0a0; }
 #mobile-command-shell .mc-adv[data-mode="normal"] { color: #ffffff; }
 #mobile-command-shell .mc-adv[data-mode="disadvantage"] { color: #f0a8a0; }
-#mobile-command-shell .mc-adv.mc-adv-on { background: #2a2d38; border-color: var(--mc-gold); }
-#mobile-command-shell .mc-fire { background: #20222b; border-color: #313542; color: #e8e8ec; }
-#mobile-command-shell .mc-fire:active { background: #2a2d38; }
+#mobile-command-shell .mc-adv.mc-adv-on { background: var(--mc-panel-2); border-color: var(--mc-gold); }
+#mobile-command-shell .mc-fire { background: var(--mc-panel); border-color: var(--mc-edge); color: var(--mc-ink); }
+#mobile-command-shell .mc-fire:active { background: var(--mc-panel-2); }
 #mobile-command-shell .mc-fire.mc-roll-damage { color: #f0b8b2; }
 
 /* Subtle shadow under interactive controls; none on gray info (speed/prof/AC). */
@@ -1924,6 +1925,7 @@ body {
    background. Nothing else. If a theme needs a new rule, it wants a new token instead.
    Bars may carry a repeating pattern: keep it faint — it sits under white title text. */
 body.mc-theme-slate {
+  --mc-sunken: #141924;
   --mc-font-title: "Allrounder Monument";
   --mc-gold: #79b8e0; --mc-panel: #1d2330; --mc-panel-2: #262d3c; --mc-edge: #36404f;
   --mc-primary: #2a3a52; --mc-primary-edge: #3a5374; --mc-primary-active: #34496a;
@@ -1931,6 +1933,7 @@ body.mc-theme-slate {
   --mc-bar-top: #2f4660; --mc-bar-bot: #1f3044; --mc-bar-edge: #16222f;
 }
 body.mc-theme-ember {
+  --mc-sunken: #1a1310;
   --mc-font-title: "Granville";
   --mc-gold: #e2924a; --mc-panel: #251c1a; --mc-panel-2: #2f2421; --mc-edge: #463530;
   --mc-primary: #4a2b22; --mc-primary-edge: #6a4030; --mc-primary-active: #5c3527;
@@ -1938,6 +1941,7 @@ body.mc-theme-ember {
   --mc-bar-top: #7a3a1e; --mc-bar-bot: #52240f; --mc-bar-edge: #3d1a0b;
 }
 body.mc-theme-arcane {
+  --mc-sunken: #17131f;
   --mc-font-title: "Amiri";
   --mc-gold: #b483e0; --mc-panel: #221c2e; --mc-panel-2: #2b2439; --mc-edge: #3e3550;
   --mc-primary: #3a2c52; --mc-primary-edge: #54407a; --mc-primary-active: #463463;
@@ -1949,6 +1953,7 @@ body.mc-theme-arcane {
 
 /* Flame: yellow-orange, flame licks on the bars. */
 body.mc-theme-flame {
+  --mc-sunken: #1d1509;
   --mc-font-title: "OptimusPrinceps";
   --mc-gold: #f0a52e; --mc-panel: #2a1f12; --mc-panel-2: #362818; --mc-edge: #4d3a1f;
   --mc-primary: #5a3a12; --mc-primary-edge: #7d5219; --mc-primary-active: #6b4515;
@@ -1961,6 +1966,7 @@ body.mc-theme-flame {
 
 /* Frost: cold blue, snowflakes in a lighter blue. */
 body.mc-theme-frost {
+  --mc-sunken: #0f171d;
   --mc-font-title: "Titillium";
   --mc-gold: #8fd3f4; --mc-panel: #16222b; --mc-panel-2: #1e2f3b; --mc-edge: #2f4655;
   --mc-primary: #1f4459; --mc-primary-edge: #2f6480; --mc-primary-active: #275470;
@@ -1971,6 +1977,7 @@ body.mc-theme-frost {
 
 /* Clockwork: gunmetal grey, gears. */
 body.mc-theme-clockwork {
+  --mc-sunken: #15171a;
   --mc-font-title: "Bruno Ace";
   --mc-gold: #9aa3ad; --mc-panel: #1e2024; --mc-panel-2: #282b30; --mc-edge: #3d4249;
   --mc-primary: #33383f; --mc-primary-edge: #4b525b; --mc-primary-active: #3e444c;
@@ -1981,6 +1988,7 @@ body.mc-theme-clockwork {
 
 /* Tide: deep teal, waves. */
 body.mc-theme-tide {
+  --mc-sunken: #0d1a1f;
   --mc-font-title: "Average";
   --mc-gold: #45c4b0; --mc-panel: #13232a; --mc-panel-2: #1b3038; --mc-edge: #2b4a54;
   --mc-primary: #1b4048; --mc-primary-edge: #2a606c; --mc-primary-active: #235058;
@@ -1991,6 +1999,7 @@ body.mc-theme-tide {
 
 /* Verdant: deep green, leaves. */
 body.mc-theme-verdant {
+  --mc-sunken: #0f1a12;
   --mc-font-title: "Gilda";
   --mc-gold: #6fbf73; --mc-panel: #16241a; --mc-panel-2: #1f3124; --mc-edge: #32483a;
   --mc-primary: #1f4029; --mc-primary-edge: #2f5d3c; --mc-primary-active: #274e33;
@@ -2072,7 +2081,7 @@ body.mc-theme-tide #mobile-command-shell { background: radial-gradient(120% 80% 
 .mc-ob-note { font-size: 14px; line-height: 1.5; color: var(--mc-muted); }
 .mc-ob-note b, .mc-ob-note i { color: var(--mc-ink); }
 .mc-ob-fs {
-  min-height: 48px; border-radius: 10px; background: var(--mc-panel-2, #262230);
+  min-height: 48px; border-radius: 10px; background: var(--mc-panel-2);
   border: 1px solid var(--mc-gold); color: var(--mc-ink); font-size: 15px; font-weight: 700;
 }
 .mc-ob-fs:active { background: var(--mc-cta-top); color: var(--mc-cta-ink); }
@@ -2102,7 +2111,7 @@ body.mc-theme-tide #mobile-command-shell { background: radial-gradient(120% 80% 
 .mc-paused-title { font-weight: 800; font-size: 18px; color: var(--mc-ink); margin-bottom: 8px; }
 .mc-paused-sub { font-size: 14px; line-height: 1.5; color: var(--mc-ink); opacity: .85; margin-bottom: 18px; }
 .mc-paused-sub b { color: var(--mc-gold); }
-.mc-paused-browse { width: 100%; height: 48px; border-radius: 12px; font-weight: 700; font-size: 14px; color: var(--mc-ink); background: var(--mc-panel-2, #262230); border: 1px solid var(--mc-edge, #3a3547); }
+.mc-paused-browse { width: 100%; height: 48px; border-radius: 12px; font-weight: 700; font-size: 14px; color: var(--mc-ink); background: var(--mc-panel-2); border: 1px solid var(--mc-edge); }
 /* DM panel: split-party chip (rides the reaction-chip look, hiking icon + activate). */
 .mc-dmp-split { background: #1f2a24; border-color: #3d5c49; }
 .mc-dmp-split button { min-width: 30px; height: 26px; border-radius: 6px; }
@@ -2110,7 +2119,7 @@ body.mc-theme-tide #mobile-command-shell { background: radial-gradient(120% 80% 
 .mc-night-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .mc-night-row {
   display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 12px;
-  border-radius: 10px; background: var(--mc-panel-2, #262230); border: 1px solid var(--mc-edge, #3a3547);
+  border-radius: 10px; background: var(--mc-panel-2); border: 1px solid var(--mc-edge);
   color: var(--mc-ink); font-size: 14px; text-align: left;
 }
 .mc-night-row b { flex: 0 0 auto; }
@@ -2398,7 +2407,7 @@ body.mc-theme-verdant .mc-frame { /* vine + leaf */
 /* Round 33: spell-placement overlay — aim a template/teleport from the phone
    while the TV shows the live preview. D-pad + rotate + range + Cast/Cancel. */
 .mc-place-card { max-width: 320px; }
-.mc-place-title { font-weight: 800; font-size: 17px; color: var(--mc-gold, #c8a44d); margin-bottom: 4px; }
+.mc-place-title { font-weight: 800; font-size: 17px; color: var(--mc-gold); margin-bottom: 4px; }
 .mc-place-sub { font-size: 13px; opacity: .8; color: var(--mc-ink); margin-bottom: 12px; }
 .mc-place-range { font-size: 15px; font-weight: 700; color: var(--mc-ink); margin-bottom: 10px; }
 .mc-place-range.mc-place-far { color: #d06060; }
@@ -2407,7 +2416,7 @@ body.mc-theme-verdant .mc-frame { /* vine + leaf */
 .mc-place-blank { width: 56px; height: 56px; }
 .mc-place-btn {
   width: 56px; height: 56px; border-radius: 12px; font-size: 18px;
-  background: var(--mc-panel-2, #262230); border: 1px solid var(--mc-edge, #3a3547); color: var(--mc-ink);
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink);
 }
 .mc-place-btn:active { background: var(--mc-panel, #1c1922); border-color: var(--mc-gold); }
 .mc-place-btn[disabled] { opacity: .3; }
@@ -2417,14 +2426,14 @@ body.mc-theme-verdant .mc-frame { /* vine + leaf */
 .mc-place-dir { font-weight: 700; min-width: 44px; color: var(--mc-gold); }
 .mc-place-actions { display: flex; gap: 10px; }
 .mc-place-cancel, .mc-place-confirm { flex: 1 1 0; height: 48px; border-radius: 12px; font-weight: 800; font-size: 15px; }
-.mc-place-cancel { background: var(--mc-panel-2, #262230); border: 1px solid var(--mc-edge, #3a3547); color: var(--mc-ink); }
+.mc-place-cancel { background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink); }
 .mc-place-confirm { background: linear-gradient(#4a8c4a, #2f6b2f); border: 1px solid #4a8c4a; color: #fff; }
 .mc-place-confirm.mc-warn { background: linear-gradient(#a37a2e, #8a5f1e); border-color: #c8a44d; }
 /* Learn spells (Spells tab): full-width entry into the class-list picker. */
 .mc-learn-spells {
   width: 100%; min-height: 46px; margin-top: 10px; border-radius: 10px;
   font-weight: 700; font-size: 14px; color: var(--mc-ink);
-  background: var(--mc-panel-2, #262230); border: 1px dashed var(--mc-gold, #c8a44d);
+  background: var(--mc-panel-2); border: 1px dashed var(--mc-gold);
 }
 /* Active-character star: dim = tap to make this PC your primary; gold = it already is. */
 .mc-tokensw-star { color: #8a8578; }
@@ -2706,7 +2715,7 @@ body.mc-theme-verdant .mc-frame { /* vine + leaf */
 /* Downtime tab: party-rest buttons as the tab's main flow row. */
 .mc-dt-restrow { display: flex; gap: 6px; margin-bottom: 8px; }
 .mc-dt-rest { flex: 1 1 0; min-height: 40px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700;
-  color: #ece5d6; background: #1a1c24; border: 1px solid #3a3f4c; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  color: #ece5d6; background: var(--mc-sunken); border: 1px solid var(--mc-edge); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .mc-dt-rest:hover { border-color: #c8a44d; color: #e6c46a; }
 .mc-dt-rest i { color: #c8a44d; }
 /* Owned tokens — a player dropdown + a 2-row grid that scrolls HORIZONTALLY
@@ -2732,7 +2741,7 @@ body.mc-theme-verdant .mc-frame { /* vine + leaf */
 .mc-rt-multi { position: relative; flex: 1 1 auto; min-width: 0; }
 .mc-dmp-rt-forbtn { width: 100%; height: 27px; display: flex; align-items: center; justify-content: center; gap: 5px; border-radius: 7px; background: #14171f; color: #ece5d6; border: 1px solid #4a4334; cursor: pointer; white-space: nowrap; font-size: 12px; }
 /* The real dropdown — absolute overlay that overflows the flyout frame. */
-.mc-dmp-rt-list { position: absolute; top: calc(100% + 4px); right: 0; min-width: 170px; z-index: 40; max-height: 300px; overflow-y: auto; padding: 4px; background: #20222b; border: 1px solid #c8a44d; border-radius: 9px; box-shadow: 0 10px 28px rgba(0,0,0,.6); }
+.mc-dmp-rt-list { position: absolute; top: calc(100% + 4px); right: 0; min-width: 170px; z-index: 40; max-height: 300px; overflow-y: auto; padding: 4px; background: var(--mc-panel); border: 1px solid #c8a44d; border-radius: 9px; box-shadow: 0 10px 28px rgba(0,0,0,.6); }
 /* Packed main-area button — opens the Party order tab. */
 .mc-dmp-party-mini { width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 9px; background: #221f16; color: #c8a44d; border: 1px solid #6b5a2a; cursor: pointer; font-weight: 700; }
 .mc-dmp-rt-list { display: flex; flex-direction: column; gap: 3px; }
@@ -3279,14 +3288,14 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-detail-remove:active { background: rgba(180, 60, 60, 0.24); }
 /* Detail-card action footer (Use/Cast/Learn/Roll/Equip/Attune + quantity/Drop). */
 .mc-detail-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.mc-detail-act { flex: 1 1 auto; min-width: 88px; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 12px; font: inherit; font-size: 14px; font-weight: 600; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-edge); border-radius: 10px; cursor: pointer; }
+.mc-detail-act { flex: 1 1 auto; min-width: 88px; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 12px; font: inherit; font-size: 14px; font-weight: 600; color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px; cursor: pointer; }
 .mc-detail-act.mc-act-primary { color: var(--mc-cta-ink); background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border-color: var(--mc-cta-edge); }
 .mc-detail-act.mc-on { color: var(--mc-gold); border-color: var(--mc-gold); }
 .mc-detail-act.mc-act-danger { flex: 1 1 100%; color: #f1b0b0; background: rgba(180, 60, 60, 0.12); border-color: rgba(200, 80, 80, 0.5); }
 .mc-detail-act.mc-act-danger.mc-armed { color: #fff; background: rgba(180, 60, 60, 0.55); }
 .mc-detail-qtyrow { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
 .mc-qty { display: flex; align-items: center; gap: 8px; }
-.mc-qty-btn { width: 40px; height: 40px; font-size: 20px; line-height: 1; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-edge); border-radius: 9px; cursor: pointer; }
+.mc-qty-btn { width: 40px; height: 40px; font-size: 20px; line-height: 1; color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 9px; cursor: pointer; }
 .mc-qty-val { min-width: 28px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; }
 
 /* Party Mode — shared 3×3 marching-order editor (DESIGN §15). Big touch cells. */
@@ -3328,11 +3337,11 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-party-done.mc-on { color: var(--mc-cta-ink); background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border-color: var(--mc-cta-edge); }
 .mc-party-done:disabled { opacity: .5; cursor: default; }
 .mc-party-dm { display: flex; align-items: center; gap: 8px; }
-.mc-party-rot { width: 44px; height: 44px; flex: 0 0 auto; border-radius: 10px; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-edge); cursor: pointer; }
+.mc-party-rot { width: 44px; height: 44px; flex: 0 0 auto; border-radius: 10px; color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-edge); cursor: pointer; }
 .mc-party-facing { flex: 1 1 auto; text-align: center; }
 .mc-party-deploy { flex: 0 0 auto; padding: 0 16px; height: 44px; border-radius: 10px; font-weight: 800; color: var(--mc-cta-ink); background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border: 1px solid var(--mc-cta-edge); cursor: pointer; }
 .mc-party-deploy:disabled { opacity: .45; cursor: default; filter: grayscale(.4); }
-.mc-party-stage { flex: 1 1 auto; height: 44px; border-radius: 10px; font-weight: 700; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-primary-edge); cursor: pointer; white-space: nowrap; }
+.mc-party-stage { flex: 1 1 auto; height: 44px; border-radius: 10px; font-weight: 700; color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-primary-edge); cursor: pointer; white-space: nowrap; }
 /* Arrange's primary action: Lock in reads as THE button (gold); disabled until
    every occupied cell is unique + everyone is placed. */
 .mc-party-stage.mc-primary { color: var(--mc-cta-ink); background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border-color: var(--mc-cta-edge); font-weight: 800; }
@@ -3387,14 +3396,14 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* Group-check prompt bar (above the tab bar, like the save prompt). */
 .mc-gc-bar { position: fixed; left: 10px; right: 10px; bottom: 74px; z-index: 10001; display: flex; gap: 8px; }
 .mc-gc-roll { flex: 1 1 auto; height: 52px; border-radius: 12px; font-weight: 800; font-size: 15px; color: var(--mc-cta-ink); background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border: 1px solid var(--mc-cta-edge); cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.55); }
-.mc-gc-x { flex: 0 0 46px; height: 52px; border-radius: 12px; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-edge); cursor: pointer; }
+.mc-gc-x { flex: 0 0 46px; height: 52px; border-radius: 12px; color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-edge); cursor: pointer; }
 /* Travel pace + group checks on the exploration tab. */
 .mc-party-pace { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--mc-edge); border-radius: 11px; background: linear-gradient(#1b202b, #161a23); }
 .mc-pace-label { flex: 1 1 auto; font-weight: 800; color: var(--mc-ink); }
 .mc-pace-label i { color: var(--mc-gold); margin-right: 5px; }
 .mc-pace-spd { color: var(--mc-muted); font-weight: 700; font-variant-numeric: tabular-nums; }
 .mc-party-checks { display: flex; gap: 8px; }
-.mc-party-checks button { flex: 1 1 0; height: 46px; border-radius: 11px; font-weight: 700; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-primary-edge); cursor: pointer; }
+.mc-party-checks button { flex: 1 1 0; height: 46px; border-radius: 11px; font-weight: 700; color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-primary-edge); cursor: pointer; }
 .mc-party-checks button i { margin-right: 4px; color: var(--mc-gold); }
 .mc-party .mc-dpad { align-self: center; }
 
@@ -3430,7 +3439,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-pv-item-qty { flex: 0 0 auto; color: var(--mc-muted); font-weight: 700; font-variant-numeric: tabular-nums; }
 /* The "Party" return tab on the normal bar gets a gold tint so it stands out. */
 .mc-tab-party i { color: var(--mc-gold); }
-.mc-pv-portrait { margin-top: 4px; height: 44px; border-radius: 11px; font-weight: 700; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-primary-edge); cursor: pointer; }
+.mc-pv-portrait { margin-top: 4px; height: 44px; border-radius: 11px; font-weight: 700; color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-primary-edge); cursor: pointer; }
 .mc-pv-portrait i { color: var(--mc-gold); margin-right: 6px; }
 
 /* DM panel — marching-order mirror (square cells; red = problematic spot at the
@@ -3633,12 +3642,12 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-hint { font-size: 12px; color: var(--mc-muted); margin: 0; }
 .mc-dt-setuprow { display: flex; flex-direction: column; gap: 6px; }
 .mc-dt-daysrow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #ece5d6; }
-.mc-dt-days-in { width: 70px; padding: 6px 8px; border-radius: 8px; background: #1a1c24; border: 1px solid #3a3f4c; color: #ece5d6; font-size: 14px; }
+.mc-dt-days-in { width: 70px; padding: 6px 8px; border-radius: 8px; background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: #ece5d6; font-size: 14px; }
 .mc-dt-openhead { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #ece5d6; }
 .mc-dt-openhead > span { flex: 1 1 auto; }
 .mc-dt-close-btn { flex: 0 0 auto; min-width: 34px; height: 30px; border-radius: 8px; cursor: pointer; background: #2c2733; border: 1px solid #4a3f66; color: #d0b0b0; }
 .mc-dt-players { display: flex; flex-direction: column; gap: 6px; }
-.mc-dt-player { padding: 7px 9px; border-radius: 9px; background: #1a1c24; border: 1px solid #3a3f4c; border-left-width: 3px; }
+.mc-dt-player { padding: 7px 9px; border-radius: 9px; background: var(--mc-sunken); border: 1px solid var(--mc-edge); border-left-width: 3px; }
 .mc-dt-lockbadge { flex: 0 0 auto; padding: 3px 9px; border-radius: 999px; cursor: pointer; font-size: 10px; font-weight: 700;
   background: transparent; border: 1px solid var(--mc-edge); white-space: nowrap; }
 .mc-dt-lockbadge.mc-considering { color: var(--mc-muted); font-style: italic; }
@@ -3660,7 +3669,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-startbtn { width: 100%; margin-top: 8px; min-height: 38px; border-radius: 8px; cursor: pointer;
   font-size: 13px; font-weight: 800; color: var(--mc-cta-ink); background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border: 1px solid var(--mc-cta-edge);
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-.mc-dt-startbtn:disabled { background: #23262f; border-color: #3a3f4c; color: var(--mc-muted); cursor: default; }
+.mc-dt-startbtn:disabled { background: #23262f; border-color: var(--mc-edge); color: var(--mc-muted); cursor: default; }
 .mc-dt-startbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px;
   padding: 7px 10px; border-radius: 8px; background: #221f16; border: 1px solid #7a5a1e; color: #e6c46a; font-size: 12px; font-weight: 700; }
 .mc-dt-reopen { flex: 0 0 auto; padding: 0 9px; height: 26px; border-radius: 6px; cursor: pointer; font-size: 11px;
@@ -3687,7 +3696,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* Title left, chevron right + muted (DM 2026-07-16). */
 .mc-dt-drawer-toggle { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: space-between; gap: 7px; text-align: left;
   padding: 5px 4px; background: transparent; border: none; cursor: pointer;
-  font-size: 12px; font-weight: 800; color: #ece5d6; border-bottom: 1px solid #3a3f4c; }
+  font-size: 12px; font-weight: 800; color: #ece5d6; border-bottom: 1px solid var(--mc-edge); }
 .mc-dt-drawer-toggle i { flex: 0 0 auto; color: #6b6250; font-size: 10px; }
 .mc-dt-drawer-toggle:hover { color: #e6c46a; }
 .mc-dt-drawer-toggle:hover i { color: #c8a44d; }
@@ -3702,14 +3711,14 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-cat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
   font-size: 12px; font-weight: 800; color: #ece5d6; margin: 6px 0 5px; }
 .mc-dt-cat-hint { font-size: 10px; font-weight: 400; color: var(--mc-muted); }
-.mc-dt-roster-head { border-top: 1px dashed #3a3f4c; padding-top: 8px; margin-top: 10px; }
-.mc-dt-tmpl { margin-top: 5px; padding: 7px 9px; border-radius: 8px; background: #1a1c24; border: 1px solid #2f3440; border-left: 3px solid #4a4334; }
+.mc-dt-roster-head { border-top: 1px dashed var(--mc-edge); padding-top: 8px; margin-top: 10px; }
+.mc-dt-tmpl { margin-top: 5px; padding: 7px 9px; border-radius: 8px; background: var(--mc-sunken); border: 1px solid #2f3440; border-left: 3px solid #4a4334; }
 .mc-dt-tmpl.mc-norule { border-left-color: #c8a44d; }
 .mc-dt-note { font-size: 11px; color: #c8a44d; margin-top: 4px; }
 .mc-dt-note i { margin-right: 4px; }
 .mc-dt-tmplform { margin-top: 6px; padding: 8px; border-radius: 8px; background: #14161c; border: 1px solid #4a4334; }
 .mc-dt-tmplname { width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 7px 9px; min-height: 34px;
-  border-radius: 7px; background: #1a1c24; border: 1px solid #3a3f4c; color: #ece5d6; font-size: 13px; }
+  border-radius: 7px; background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: #ece5d6; font-size: 13px; }
 .mc-dt-seedbtn { width: 100%; margin-top: 6px; min-height: 34px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 700;
   color: #c8a44d; background: transparent; border: 1px dashed #7a5a1e; }
 .mc-dt-seedbtn:hover { background: #221f16; }
@@ -3720,7 +3729,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-givepick:hover { background: #2a2418; border-color: #c8a44d; }
 .mc-rf-notewrap { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #d8d2c4; }
 .mc-rf-notebox { width: 100%; box-sizing: border-box; min-height: 48px; padding: 7px 9px; border-radius: 7px; resize: vertical;
-  background: #1a1c24; border: 1px solid #7a5a1e; color: #ece5d6; font-size: 12px; }
+  background: var(--mc-sunken); border: 1px solid #7a5a1e; color: #ece5d6; font-size: 12px; }
 /* player pick-list */
 .mc-dt-picklist { margin-top: 8px; padding: 8px; border-radius: 10px; background: #14161c; border: 1px solid #4a4334; display: flex; flex-direction: column; gap: 6px; }
 .mc-dt-pickbtn { min-height: 42px; border-radius: 9px; cursor: pointer; font-size: 14px; font-weight: 700; text-align: left; padding: 0 12px;
@@ -3730,7 +3739,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* §17.7 downtime v2 — DM tab */
 .mc-dt-sizes { display: flex; gap: 6px; }
 .mc-dt-openbtn { flex: 1 1 0; min-height: 40px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700;
-  color: #ece5d6; background: #1a1c24; border: 1px solid #3a3f4c; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  color: #ece5d6; background: var(--mc-sunken); border: 1px solid var(--mc-edge); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .mc-dt-openbtn:hover { border-color: #c8a44d; color: #e6c46a; }
 .mc-dt-openbtn i { color: #c8a44d; }
 .mc-dt-sizehint { font-size: 11px; color: var(--mc-muted); margin: 6px 0 0; text-align: center; }
@@ -3743,7 +3752,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-setrule:hover { background: #322c1c; }
 .mc-dt-act.mc-norule { border-left-color: #c8a44d; } /* gold rail = needs a rule */
 /* Party-rest utility, tucked below the roster with its own label. */
-.mc-dt-restgroup { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #3a3f4c; }
+.mc-dt-restgroup { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--mc-edge); }
 .mc-dt-restlabel { display: block; font-size: 11px; color: var(--mc-muted); margin-bottom: 4px; }
 /* DM-side "Add a task" per player. */
 .mc-dt-addtask { width: 100%; margin-top: 6px; min-height: 32px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 700;
@@ -3751,14 +3760,14 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-addtask:hover { background: #2a2418; border-color: #c8a44d; }
 .mc-dt-addform { margin-top: 6px; padding: 8px; border-radius: 8px; background: #14161c; border: 1px solid #4a4334; }
 .mc-dt-addname, .mc-dt-addplan { width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 7px 9px; min-height: 34px;
-  border-radius: 7px; background: #1a1c24; border: 1px solid #3a3f4c; color: #ece5d6; font-size: 13px; }
+  border-radius: 7px; background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: #ece5d6; font-size: 13px; }
 .mc-dt-addbtns { display: flex; gap: 6px; }
 .mc-dt-add-cancel { flex: 0 0 auto; min-height: 34px; padding: 0 12px; border-radius: 7px; cursor: pointer; font-size: 12px;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
 .mc-dt-add-save { flex: 1 1 auto; min-height: 34px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 800;
   color: #10221a; background: linear-gradient(#5cc98a, #34a869); border: 1px solid #5cc98a; }
 .mc-dt-divider { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--mc-muted);
-  margin: 8px 0 2px; padding-top: 6px; border-top: 1px dashed #3a3f4c; }
+  margin: 8px 0 2px; padding-top: 6px; border-top: 1px dashed var(--mc-edge); }
 .mc-dt-player.mc-here { border-color: #4a4334; }
 .mc-dt-gearbtn { flex: 0 0 auto; min-width: 18px; width: 18px; height: 18px; padding: 0; border-radius: 4px; cursor: pointer;
   background: transparent; border: none; color: #565b66; font-size: 11px; opacity: .65; }
@@ -3771,7 +3780,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
 .mc-dt-toggle.mc-on { background: #23402c; border-color: #3a6b4a; color: #8fd6a8; }
 .mc-dt-gearhint { font-size: 11px; color: var(--mc-muted); margin: 2px 0 0; }
-.mc-dt-act { margin-top: 5px; padding: 7px 9px; border-radius: 8px; background: #1a1c24; border: 1px solid #2f3440; border-left: 3px solid #3a3f4c; }
+.mc-dt-act { margin-top: 5px; padding: 7px 9px; border-radius: 8px; background: var(--mc-sunken); border: 1px solid #2f3440; border-left: 3px solid var(--mc-edge); }
 /* "mc-dt-shown" (NOT "mc-shown"/"mc-hidden" — ".mc-hidden" is the search filter's display:none). */
 .mc-dt-act.mc-dt-shown { border-left-color: #4a4334; }
 .mc-dt-act.mc-done { border-left-color: #3a6b4a; opacity: .7; }
@@ -3809,7 +3818,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-rf-preset.mc-on { background: #2a2418; border-color: #c8a44d; color: #ece5d6; }
 .mc-rf-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: #d8d2c4; }
 .mc-rf-row select, .mc-rf-row input { flex: 0 0 auto; max-width: 62%; padding: 6px 8px; border-radius: 7px;
-  background: #1a1c24; border: 1px solid #3a3f4c; color: #ece5d6; font-size: 13px; }
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: #ece5d6; font-size: 13px; }
 .mc-rf-row input[type="number"] { width: 74px; }
 .mc-rf-row input[type="text"] { width: 60%; }
 /* Grouped sections + 2-across rows so the builder reads top-to-bottom (DM 2026-07-16). */

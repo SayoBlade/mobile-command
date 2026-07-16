@@ -22,19 +22,34 @@ component must **earn** its existence by carrying meaning — not by being new.
 
 ## 2. Colour
 
-### 2.1 The palette
+### 2.1 The palette — tokens, never hexes
 
-| Token | Hex | Use |
-|---|---|---|
-| **Gold** | `#c8a44d` | The brand. Primary actions, active state, section labels, progress. |
-| Gold bright | `#e6c46a` | Hover/emphasis on gold. |
-| Gold deep | `#b98a1e` | The dark end of a gold gradient. |
-| Ink | `#ece5d6` | **All names and primary text.** |
-| Ink dim | `#d8d2c4` | Secondary text, form labels. |
-| Muted | `var(--mc-muted)` | Hints, placeholders, disabled, inactive chevrons. |
-| Panel | `#14161c` / `#1a1c24` | Surfaces (deep → raised). |
-| Panel-2 | `var(--mc-panel-2)` | Secondary button fill. |
-| Edge | `#3a3f4c` / `#4a4334` | Borders (neutral / gold-tinted). |
+**Write `var(--mc-*)`. Never paste a hex into a rule.** A literal is a colour that cannot be
+themed, and it will sit there staying grey while everything around it re-tints.
+
+| Token | Use |
+|---|---|
+| `--mc-gold` | The **accent**. Active state, marks, edges, progress. Never a button fill (§4.2). |
+| `--mc-ink` | **All names and primary text.** |
+| `--mc-muted` | Hints, placeholders, disabled, inactive chevrons. |
+| `--mc-panel` | The standard surface: cards, rows, controls at rest. |
+| `--mc-panel-2` | Raised/pressed surface, secondary button fill. |
+| `--mc-sunken` | Recessed strips and wells — a step *below* panel. |
+| `--mc-edge` | Borders. |
+| `--mc-primary*` | The "Save" blue family (D-pad, Use, rests). |
+| `--mc-cta-*` | The one committing button (§4.2). |
+| `--mc-bar-*` | Section title bars (§11.2). |
+| `--mc-font-title` | Display face for titles (§11.3). |
+
+Every one is themed. Hexes belong in **exactly two places**: the token definitions on `body`, and
+the theme blocks that override them.
+
+> **This cost us a full re-audit (2026-07-17).** A whole *parallel slate palette* — `#20222b`
+> surfaces, `#313542` edges, `#2a2d38`, `#3a3f4c`, `#e8e8ec` ink — had been pasted at **134 sites**
+> alongside the tokens. Tokenized things re-tinted per theme; the literals stayed blue-grey forever,
+> so INIT/HIT DICE/SPEED/PROF sat cold and grey inside a warm Flame screen. The DM's words: *"I
+> don't like the fact that some items change colors and some are always gray."* Nobody chose that —
+> it accreted one paste at a time. **A hex in a rule is a bug.**
 
 ### 2.2 Semantic accents — these and no others
 
@@ -52,6 +67,11 @@ you reach for blue, you want gold.
 
 > **A colour is either BRAND (gold), STATE (green/red), IDENTITY (player colour), or SURFACE.
 > Never invent a fifth meaning.**
+
+**Surfaces are themed; semantics are not.** A card, a border, a control at rest all follow the
+theme. HP-green, damage-red, reaction-violet and the action-economy accents stay put in every
+theme — they carry *meaning*, and a player must read them the same way on every phone at the
+table. If it means something, it doesn't move; if it's just a surface, it must.
 
 ---
 
