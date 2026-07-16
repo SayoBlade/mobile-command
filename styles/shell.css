@@ -947,16 +947,24 @@ body {
   color: var(--mc-ink);
   padding-top: env(safe-area-inset-top, 0px);
 }
+/* TITLES — the display face. A theme may swap this (--mc-font-title) and may be extravagant
+   here, because these are short, large, and nothing depends on reading a digit correctly.
+   NOTHING else moves: body copy, and above all NUMBERS, stay on the faces below (DM 2026-07-17:
+   "anything except titles ... is easy to read"). */
 #mobile-command-shell .mc-name,
 #mobile-command-shell .mc-section-label,
+#mobile-command-shell .mc-turn-label,
+#mobile-command-shell .mc-picker-title {
+  font-family: var(--mc-font-title), "Modesto Condensed", "Signika", sans-serif;
+  letter-spacing: .02em;
+}
+/* NUMBERS + tab labels — never themed. A stat you misread is a bug, not a style. */
 #mobile-command-shell .mc-stat-val,
 #mobile-command-shell .mc-ability-mod,
 #mobile-command-shell .mc-ability-abbr,
 #mobile-command-shell .mc-tab,
-#mobile-command-shell .mc-turn-label,
 #mobile-command-shell .mc-attack-total,
-#mobile-command-shell .mc-roll-toast-total,
-#mobile-command-shell .mc-picker-title {
+#mobile-command-shell .mc-roll-toast-total {
   font-family: "Modesto Condensed", "Signika", sans-serif;
   letter-spacing: .02em;
 }
@@ -1900,6 +1908,10 @@ body {
   --mc-bar-edge: #4a1c15;
   --mc-bar-pat: none;
 
+  /* Display face for TITLES only. Every value here is a Foundry CORE font
+     (CONFIG.fontDefinitions), so it is present on every client with nothing to load. */
+  --mc-font-title: "Modesto Condensed";
+
   /* CTA — the one recipe for a committing button (Let's play, Roll, Deploy, Use).
      Was linear-gradient(--mc-gold, #b98a1e) hardcoded at ~9 call sites; the DM read
      that as "way too dominant" twice, and it fought --mc-primary for the same job.
@@ -1919,18 +1931,21 @@ body {
    background. Nothing else. If a theme needs a new rule, it wants a new token instead.
    Bars may carry a repeating pattern: keep it faint — it sits under white title text. */
 body.mc-theme-slate {
+  --mc-font-title: "Allrounder Monument";
   --mc-gold: #79b8e0; --mc-panel: #1d2330; --mc-panel-2: #262d3c; --mc-edge: #36404f;
   --mc-primary: #2a3a52; --mc-primary-edge: #3a5374; --mc-primary-active: #34496a;
   --mc-cta-top: #2f5f86; --mc-cta-bot: #1f4059; --mc-cta-edge: #4076a3; --mc-cta-ink: #e6f1f9;
   --mc-bar-top: #2f4660; --mc-bar-bot: #1f3044; --mc-bar-edge: #16222f;
 }
 body.mc-theme-ember {
+  --mc-font-title: "Granville";
   --mc-gold: #e2924a; --mc-panel: #251c1a; --mc-panel-2: #2f2421; --mc-edge: #463530;
   --mc-primary: #4a2b22; --mc-primary-edge: #6a4030; --mc-primary-active: #5c3527;
   --mc-cta-top: #9a4526; --mc-cta-bot: #6b2c15; --mc-cta-edge: #b25732; --mc-cta-ink: #fbeade;
   --mc-bar-top: #7a3a1e; --mc-bar-bot: #52240f; --mc-bar-edge: #3d1a0b;
 }
 body.mc-theme-arcane {
+  --mc-font-title: "Amiri";
   --mc-gold: #b483e0; --mc-panel: #221c2e; --mc-panel-2: #2b2439; --mc-edge: #3e3550;
   --mc-primary: #3a2c52; --mc-primary-edge: #54407a; --mc-primary-active: #463463;
   --mc-cta-top: #5b3d8a; --mc-cta-bot: #3d2860; --mc-cta-edge: #7451ab; --mc-cta-ink: #f0e8fa;
@@ -1941,41 +1956,45 @@ body.mc-theme-arcane {
 
 /* Flame: yellow-orange, flame licks on the bars. */
 body.mc-theme-flame {
+  --mc-font-title: "OptimusPrinceps";
   --mc-gold: #f0a52e; --mc-panel: #2a1f12; --mc-panel-2: #362818; --mc-edge: #4d3a1f;
   --mc-primary: #5a3a12; --mc-primary-edge: #7d5219; --mc-primary-active: #6b4515;
   --mc-cta-top: #c9701a; --mc-cta-bot: #8f4708; --mc-cta-edge: #e08a2b; --mc-cta-ink: #fff3e0;
   --mc-bar-top: #b4611a; --mc-bar-bot: #7c3a06; --mc-bar-edge: #5c2a04;
   /* The same silhouette as the corner ornament, cropped tight — the earlier motif had an
      inner curl that closed into an arch at bar size and read as a row of beads. */
-  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='19' height='19' viewBox='3.2 3 17.6 19'><path d='M4 17c0-6 4-10 10-13-2.6 3.4-3.6 6-3.6 8.2 0 1.8 1 3 2.6 3 1.3 0 2.2-.9 2.2-2.2 0-1.2-.8-1.8-.8-2.8 1.8 1.2 3 3 3 5.4 0 3.4-2.8 6-6.2 6C7.6 21.6 4 19.8 4 17z' fill='rgba(255,224,160,0.20)'/></svg>");
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='38' height='19' viewBox='-5.2 3 34 19'><path d='M4 17c0-6 4-10 10-13-2.6 3.4-3.6 6-3.6 8.2 0 1.8 1 3 2.6 3 1.3 0 2.2-.9 2.2-2.2 0-1.2-.8-1.8-.8-2.8 1.8 1.2 3 3 3 5.4 0 3.4-2.8 6-6.2 6C7.6 21.6 4 19.8 4 17z' fill='rgba(255,224,160,0.07)'/></svg>");
 }
 
 /* Frost: cold blue, snowflakes in a lighter blue. */
 body.mc-theme-frost {
+  --mc-font-title: "Titillium";
   --mc-gold: #8fd3f4; --mc-panel: #16222b; --mc-panel-2: #1e2f3b; --mc-edge: #2f4655;
   --mc-primary: #1f4459; --mc-primary-edge: #2f6480; --mc-primary-active: #275470;
   --mc-cta-top: #2b7ba8; --mc-cta-bot: #185f80; --mc-cta-edge: #47a0cc; --mc-cta-ink: #eaf7ff;
   --mc-bar-top: #2a6d95; --mc-bar-bot: #174a63; --mc-bar-edge: #103548;
-  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><g fill='none' stroke='rgba(200,240,255,0.30)' stroke-width='1.1' stroke-linecap='round'><path d='M11 3v16M3.5 7l15 8M18.5 7l-15 8'/><path d='M11 6.5l-2-2M11 6.5l2-2M11 15.5l-2 2M11 15.5l2 2'/></g></svg>");
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='22' viewBox='-9 0 40 22'><g fill='none' stroke='rgba(200,240,255,0.13)' stroke-width='1.1' stroke-linecap='round'><path d='M11 3v16M3.5 7l15 8M18.5 7l-15 8'/><path d='M11 6.5l-2-2M11 6.5l2-2M11 15.5l-2 2M11 15.5l2 2'/></g></svg>");
 }
 
 /* Clockwork: gunmetal grey, gears. */
 body.mc-theme-clockwork {
+  --mc-font-title: "Bruno Ace";
   --mc-gold: #9aa3ad; --mc-panel: #1e2024; --mc-panel-2: #282b30; --mc-edge: #3d4249;
   --mc-primary: #33383f; --mc-primary-edge: #4b525b; --mc-primary-active: #3e444c;
   --mc-cta-top: #5c646e; --mc-cta-bot: #3a4048; --mc-cta-edge: #79828d; --mc-cta-ink: #f0f2f4;
   --mc-bar-top: #4a515a; --mc-bar-bot: #2f343b; --mc-bar-edge: #22262b;
-  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='rgba(220,230,240,0.22)' stroke-width='1.2'><circle cx='12' cy='12' r='3.4'/><circle cx='12' cy='12' r='6.4' stroke-dasharray='2 2.8'/></g></svg>");
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='24' viewBox='-10 0 44 24'><g fill='none' stroke='rgba(220,230,240,0.11)' stroke-width='1.2'><circle cx='12' cy='12' r='3.4'/><circle cx='12' cy='12' r='6.4' stroke-dasharray='2 2.8'/></g></svg>");
 }
 
 /* Verdant: deep green, leaves. */
 body.mc-theme-verdant {
+  --mc-font-title: "Gilda";
   --mc-gold: #6fbf73; --mc-panel: #16241a; --mc-panel-2: #1f3124; --mc-edge: #32483a;
   --mc-primary: #1f4029; --mc-primary-edge: #2f5d3c; --mc-primary-active: #274e33;
   --mc-cta-top: #2f7a3f; --mc-cta-bot: #1c4d27; --mc-cta-edge: #46a058; --mc-cta-ink: #ecfbee;
   --mc-bar-top: #2c6b3a; --mc-bar-bot: #17482a; --mc-bar-edge: #103021;
   /* The corner leaf, cropped tight — the previous motif thinned into diagonal hatching. */
-  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='17' height='18' viewBox='1.4 1.4 15.2 16.2'><path d='M2 2c0 9 5 15 14 15C16 8 11 2 2 2z' fill='rgba(205,255,210,0.18)'/></svg>");
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='18' viewBox='-6.9 1.4 32 16.2'><path d='M2 2c0 9 5 15 14 15C16 8 11 2 2 2z' fill='rgba(205,255,210,0.09)'/></svg>");
 }
 
 /* Shell backgrounds — the one per-theme rule that is NOT a token. */
@@ -2196,7 +2215,14 @@ body.mc-theme-verdant #mobile-command-shell { background: radial-gradient(120% 8
    ============================================================ */
 .mc-frame {
   --mc-frame: var(--mc-burgundy, #782e22);
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M1 8c0-4 3-7 7-7h6v2H9c-3.5 0-6 2.5-6 6v5H1V8z M6 13c0-3 2-5 5-5h3v2h-2.5C9 10 8 11 8 13v3H6v-3z M14 5c1.7 0 3 1.3 3 3s-1.3 3-3 3-3-1.3-3-3 1.3-3 3-3z m0 2c-.6 0-1 .4-1 1s.4 1 1 1 1-.4 1-1-.4-1-1-1z' fill='black'/></svg>");
+  /* TWO mask layers, composited: a SKELETON every theme shares + a per-theme MOTIF.
+     The skeleton is the elaborate part the DM asked for (2026-07-17: "more elaborate,
+     using outlines and lines") and it's drawn once — a heavy L-bracket hugging both
+     edges, a lighter parallel rule inside it, and a spiral volute terminating each arm.
+     That structure is the common language of a printed corner ornament; the motif just
+     says which theme it is. A theme overrides --mc-frame-orn ONLY. */
+  --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M3 33V10.5A7.5 7.5 0 0 1 10.5 3H33' stroke-width='2.9'/><path d='M11 40V15a4 4 0 0 1 4-4h25' stroke-width='1.4'/><path d='M40 11c3.7 0 5.8 1.9 5.8 4.6 0 2.3-1.7 4-3.8 4-1.8 0-3-1.2-3-2.7 0-1.3.9-2.2 2-2.2' stroke-width='1.4'/><path d='M11 40c0 3.7 1.9 5.8 4.6 5.8 2.3 0 4-1.7 4-3.8 0-1.8-1.2-3-2.7-3-1.3 0-2.2.9-2.2 2' stroke-width='1.4'/></g></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round'><circle cx='23' cy='23' r='4.6'/><path d='M23 13.5v4.2M23 28.2v4.2M13.5 23h4.2M28.2 23h4.2'/></g></svg>");
   /* 26px read as a rounding error; 3x is the size the DM asked for (2026-07-17), inset
      so the art doesn't sit welded into the corner. Tune both HERE — the mirrors follow. */
   --mc-frame-c-size: 78px;
@@ -2208,7 +2234,10 @@ body.mc-theme-verdant #mobile-command-shell { background: radial-gradient(120% 8
   position: absolute; pointer-events: none;
   width: var(--mc-frame-c-size); height: var(--mc-frame-c-size);
   background-color: var(--mc-frame);
-  -webkit-mask-image: var(--mc-frame-orn); mask-image: var(--mc-frame-orn);
+  /* skeleton + motif, added together into one mask. */
+  -webkit-mask-image: var(--mc-frame-skel), var(--mc-frame-orn);
+  mask-image: var(--mc-frame-skel), var(--mc-frame-orn);
+  -webkit-mask-composite: source-over; mask-composite: add;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
   -webkit-mask-size: contain; mask-size: contain;
 }
@@ -2221,31 +2250,31 @@ body.mc-theme-verdant #mobile-command-shell { background: radial-gradient(120% 8
 /* Per-theme corner art. */
 body.mc-theme-slate .mc-frame { /* angular / geometric */
   --mc-frame: #3a5374;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M1 1h14v2H3v12H1V1z M6 6h9v2H8v7H6V6z M11 11h4v2h-4v-2z' fill='black'/></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.7'><rect x='16.5' y='16.5' width='13' height='13'/><rect x='20.5' y='20.5' width='5' height='5'/><path d='M29.5 16.5L34 12M16.5 29.5L12 34' stroke-linecap='round'/></g></svg>");
 }
 body.mc-theme-ember .mc-frame { /* flame curl */
   --mc-frame: #6a4030;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M2 15C2 7 7 2 15 2c-4 3-6 6-6 9 0 2 1 3 3 3 1.5 0 2.5-1 2.5-2.5S13 9 12 9c2-2 5-1 5 2 0 3-3 5-6 5-5 0-9-1-9 -1z' fill='black'/></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><path d='M23 12.5c1.3 3.6 3.9 5.1 3.9 8.5 0 2.5-1.9 4.4-4.3 4.4-2 0-3.4-1.4-3.4-3.2 0-1.7 1.3-2.7 1.3-4.4-2.6 1.7-4.3 4.3-4.3 7.5 0 4.7 3.9 8.1 8.6 8.1' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'/></svg>");
 }
 body.mc-theme-arcane .mc-frame { /* rune star */
   --mc-frame: #54407a;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M8 1l1.8 4.2L14 7l-4.2 1.8L8 13l-1.8-4.2L2 7l4.2-1.8L8 1z M16 12l1 2.3 2.3 1-2.3 1-1 2.3-1-2.3-2.3-1 2.3-1 1-2.3z' fill='black'/></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round'><path d='M23 13l2.6 6.1 6.4 1.9-6.4 1.9L23 29l-2.6-6.1L14 21l6.4-1.9L23 13z'/><circle cx='23' cy='21' r='1.5'/><path d='M31 31l1.2 2.8 2.8 1.2-2.8 1.2L31 39l-1.2-2.8L27 35l2.8-1.2L31 31z'/></g></svg>");
 }
 body.mc-theme-flame .mc-frame { /* twin flame licks */
   --mc-frame: #b4611a;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M4 17c0-6 4-10 10-13-2.6 3.4-3.6 6-3.6 8.2 0 1.8 1 3 2.6 3 1.3 0 2.2-.9 2.2-2.2 0-1.2-.8-1.8-.8-2.8 1.8 1.2 3 3 3 5.4 0 3.4-2.8 6-6.2 6C7.6 21.6 4 19.8 4 17z' fill='black'/><path d='M3 24c2-1.6 4.6-2.4 7.6-2.4' stroke='black' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='2' stroke-linecap='round'><path d='M22 12c1.2 3.4 3.7 4.9 3.7 8.1 0 2.4-1.8 4.2-4.1 4.2-1.9 0-3.2-1.3-3.2-3.1 0-1.6 1.2-2.6 1.2-4.2-2.5 1.6-4.1 4.1-4.1 7.2 0 4.5 3.7 7.7 8.2 7.7'/><path d='M28.5 27c.8 2 2.4 2.9 2.4 4.9 0 1.7-1.3 3-3 3' stroke-width='1.5'/></g></svg>");
 }
 body.mc-theme-frost .mc-frame { /* a six-arm flake, plus a small one trailing off the corner */
   --mc-frame: #2f6480;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><g stroke='black' stroke-width='1.7' stroke-linecap='round' fill='none'><path d='M11 2v18M3.2 6.5L18.8 15.5M3.2 15.5L18.8 6.5'/><path d='M11 6L8.2 3.2M11 6l2.8-2.8M11 16l-2.8 2.8M11 16l2.8 2.8'/><path d='M6.7 8.5L2.9 9.5M6.7 13.5L2.9 12.5M15.3 8.5l3.8 1M15.3 13.5l3.8-1'/></g><g stroke='black' stroke-width='1.3' stroke-linecap='round' fill='none'><path d='M25 20v9M21.1 22.2l7.8 4.6M21.1 26.8l7.8-4.6'/></g></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'><path d='M23 12.5v21M13.9 17.8l18.2 10.4M13.9 28.2l18.2-10.4'/><path d='M23 17.5l-3-3M23 17.5l3-3M23 28.5l-3 3M23 28.5l3 3'/><path d='M18.1 20.4l-4.1-1.1M18.1 25.6l-4.1 1.1M27.9 20.4l4.1-1.1M27.9 25.6l4.1 1.1'/></g></svg>");
 }
 body.mc-theme-clockwork .mc-frame { /* gear + spoke */
   --mc-frame: #4b525b;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><g fill='none' stroke='black'><circle cx='9' cy='9' r='3.2' stroke-width='1.8'/><circle cx='9' cy='9' r='6.4' stroke-width='2.4' stroke-dasharray='2.2 2.6'/><path d='M15 15l8 8' stroke-width='1.6' stroke-linecap='round'/><circle cx='24' cy='24' r='2' stroke-width='1.4'/></g></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><circle cx='23' cy='23' r='3.6' stroke-width='1.7'/><circle cx='23' cy='23' r='7.4' stroke-width='2.7' stroke-dasharray='2.6 3'/><path d='M28.5 28.5L35 35' stroke-width='1.6' stroke-linecap='round'/><circle cx='36.5' cy='36.5' r='2.4' stroke-width='1.5'/></g></svg>");
 }
 body.mc-theme-verdant .mc-frame { /* vine + leaf */
   --mc-frame: #2f5d3c;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M2 2c0 9 5 15 14 15C16 8 11 2 2 2z' fill='black'/><path d='M16 17c3.4 0 6 2.6 6 6' stroke='black' stroke-width='1.8' fill='none' stroke-linecap='round'/><circle cx='24' cy='25' r='1.8' fill='black'/></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g><path d='M14 32c0-8.8 6.6-15.4 15.4-15.4 0 8.8-6.6 15.4-15.4 15.4z' fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='round'/><path d='M14 32L29.4 16.6' stroke='black' stroke-width='1.3' stroke-linecap='round'/><path d='M29 33c3.7 0 6.6 2.9 6.6 6.6' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'/></g></svg>");
 }
 
 .mc-move-row {

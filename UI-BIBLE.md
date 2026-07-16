@@ -310,6 +310,14 @@ must not change any hit target.
   plus a hairline rule. Draw **one** shape; let the transforms do the rest.
 - Ornaments are **SVG masks** filled by a CSS variable, never baked-colour images — that's what lets
   a theme recolour them.
+- **Skeleton + motif, composited.** The ornament is TWO mask layers added together
+  (`mask-composite: add`): a `--mc-frame-skel` every theme shares, and a `--mc-frame-orn` motif per
+  theme. The skeleton carries the craft — a heavy **L-bracket hugging both edges**, a **lighter
+  parallel rule** inside it, and a **spiral volute** terminating each arm. That's the common grammar
+  of a printed corner ornament, and drawing it once means a new theme is *one motif*, not a fresh
+  ornament. Motifs sit at the elbow on the shared 64-unit grid.
+- **Draw with lines, not blobs.** Outlines and strokes at ornament scale; a filled silhouette reads
+  as a sticker (DM 2026-07-17: "more elaborate, using outlines and lines").
 - **Every theme ships its own corner art and frame colour** (tavern scroll-curl · slate angular ·
   ember flame-curl · arcane rune-star · flame licks · frost snowflake · clockwork gear · verdant leaf).
 - Frame colour is the **burgundy** family, not the accent gold: at frame scale the gold read as
@@ -329,7 +337,25 @@ three times over; each theme had to be written three times, and they drifted —
 silently never got the CTA tokens, and the DM panel, unable to see any token, hardcoded hexes.
 
 Theme tokens: `--mc-gold` (accent) · `--mc-panel/-2` · `--mc-edge` · `--mc-primary*` · `--mc-cta-*`
-· `--mc-bar-*`.
+· `--mc-bar-*` · `--mc-font-title` · `--mc-frame-orn`.
+
+### 11.3 Fonts — extravagant titles, boring numbers
+
+A theme may swap **`--mc-font-title`**, and may be as characterful as it likes there: titles are
+short, large, and nothing depends on reading one exactly (tavern Modesto Condensed · slate
+Allrounder Monument · ember Granville · arcane Amiri · flame OptimusPrinceps · frost Titillium ·
+clockwork Bruno Ace · verdant Gilda).
+
+**Numbers are never themed.** Stat values, ability mods, attack/roll totals and tab labels stay on
+Modesto Condensed in every theme. *A stat you misread is a bug, not a style* — the whole app exists
+to be glanced at mid-combat (DM 2026-07-17: "anything except titles … is easy to read"). Body copy
+stays on the UI face too; only the display group moves.
+
+**Use Foundry CORE fonts only** — the 18 in `CONFIG.fontDefinitions` (Amiri, Bruno Ace, Modesto
+Condensed, Signika, Roboto/Condensed/Slab, Titillium, Allrounder Monument, Gilda, Average, Granville,
+OptimusPrinceps, …). They're on every client with nothing to load and no licence to chase. Fonts you
+see in `document.fonts` come from other modules and the system — **not** available on a player's
+phone. Check the config, don't trust the loaded list.
 
 ### 11.2 Bar patterns
 
