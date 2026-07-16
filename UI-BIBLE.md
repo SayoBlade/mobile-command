@@ -127,6 +127,10 @@ sizes/gaps inside one group is a bug, not a style (DM 2026-07-16, profile tab).
 - **A row of peers stretches equally** (`flex: 1 1 0`), never `auto` widths that make one wider
   because its label is longer.
 - **Icon-only buttons are square** (44×44 phone / 26×26 DM). Never a rectangle with a lone glyph.
+  - *Swatch-row exception:* in a row that **divides the full width** (the theme picker), each tile
+    fills its track and may be a rounded rect. The tile is a **plate**, not a glyph — the round dot
+    on it is what you read, and forcing squares leaves a ragged tail of dead space instead of an
+    even row (DM 2026-07-17: "fill the row nicely … spread evenly dynamically").
 - **Hug vs stretch:** a **chip that labels something** (Lvl 2, a count badge) hugs its text with
   **symmetric padding** — lopsided padding reads as a layout bug (DM 2026-07-16: the Lvl chip had
   11px right vs 6px left). A **control** in a row stretches with its peers.

@@ -3336,10 +3336,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <div class="mc-section-label">Theme</div>
         <div class="mc-theme-row">${this.#themeOptionsHTML()}</div>
       </div>
-      ${this.#fullscreenBtnHTML()}
-      <button class="mc-ob-reopen" data-action="onboard-open"><i class="fas fa-circle-question"></i> Show the welcome tips</button>
-      <button class="mc-leave" data-action="exit"><i class="fas fa-right-from-bracket"></i> Leave Mobile Command</button>
-      <button class="mc-logout" data-action="logout"><i class="fas fa-power-off"></i> Log out</button>`;
+      <div class="mc-profile-acts">
+        ${this.#fullscreenBtnHTML()}
+        <button class="mc-profile-act" data-action="onboard-open"><i class="fas fa-circle-question"></i> Show the welcome tips</button>
+        <button class="mc-profile-act mc-act-exit" data-action="exit"><i class="fas fa-right-from-bracket"></i> Leave Mobile Command</button>
+        <button class="mc-profile-act mc-act-exit" data-action="logout"><i class="fas fa-power-off"></i> Log out</button>
+      </div>`;
   }
 
   // Full screen (playtest 2026-07-05: testers played with the browser chrome eating
@@ -3349,13 +3351,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // how-to hint. Already-standalone → the button congratulates and does nothing.
   #fullscreenBtnHTML() {
     if (navigator.standalone === true) {
-      return `<button class="mc-fullscreen" disabled><i class="fas fa-expand"></i> Full screen (installed app) ✓</button>`;
+      return `<button class="mc-profile-act" disabled><i class="fas fa-expand"></i> Full screen (installed app) ✓</button>`;
     }
     const fsOn = !!document.fullscreenElement;
     const label = document.fullscreenEnabled
       ? (fsOn ? "Exit full screen" : "Go full screen")
       : "Full screen — how to";
-    return `<button class="mc-fullscreen" data-action="fullscreen"><i class="fas ${fsOn ? "fa-compress" : "fa-expand"}"></i> ${label}</button>`;
+    return `<button class="mc-profile-act" data-action="fullscreen"><i class="fas ${fsOn ? "fa-compress" : "fa-expand"}"></i> ${label}</button>`;
   }
 
   async #toggleFullscreen() {
@@ -3451,7 +3453,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ["flame", "Flame", "#f0a52e"],
       ["frost", "Frost", "#8fd3f4"],
       ["clockwork", "Clockwork", "#9aa3ad"],
-      ["verdant", "Verdant", "#6fbf73"]
+      ["verdant", "Verdant", "#6fbf73"],
+      ["tide", "Tide", "#45c4b0"]
     ];
     return themes.map(([id, label, sw]) =>
       `<button class="mc-theme-opt ${cur === id ? "mc-on" : ""}" data-action="set-theme" data-theme="${id}" title="${label}" aria-label="${label}" aria-pressed="${cur === id}"><span class="mc-theme-sw" style="background:${sw}"></span></button>`).join("");

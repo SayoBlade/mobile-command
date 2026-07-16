@@ -1844,13 +1844,6 @@ body.mc-phone .mc-phone-dialog nav.tabs a.active::after { background-color: var(
 .mc-picker-x:active { color: var(--mc-gold); }
 
 /* Relocated Leave/close button at the bottom of Details. */
-.mc-leave {
-  width: 100%; min-height: 46px; margin-top: 18px;
-  background: #3a2526; border: 1px solid #5c2f2c; border-radius: 10px;
-  color: #f0b8b2; font-size: 14px; font-weight: 600;
-}
-.mc-leave:active { background: #4a2f30; }
-.mc-leave i { margin-right: 6px; }
 
 /* ============================================================
    Round-7 (2026-06-14): uniform adv/Use buttons (colored text),
@@ -1869,7 +1862,7 @@ body.mc-phone .mc-phone-dialog nav.tabs a.active::after { background-color: var(
 
 /* Subtle shadow under interactive controls; none on gray info (speed/prof/AC). */
 .mc-action, .mc-skill, .mc-skillrow, .mc-btn, .mc-adv, .mc-fire, .mc-rest,
-.mc-dpad-btn, .mc-target, .mc-estat.mc-tappable, .mc-insp, .mc-leave {
+.mc-dpad-btn, .mc-target, .mc-estat.mc-tappable, .mc-insp {
   box-shadow: 0 1.5px 2px rgba(0, 0, 0, .45);
 }
 .mc-estat.mc-gray, .mc-ac-frame { box-shadow: none; }
@@ -1986,6 +1979,16 @@ body.mc-theme-clockwork {
   --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='24' viewBox='-10 0 44 24'><g fill='none' stroke='rgba(220,230,240,0.11)' stroke-width='1.2'><circle cx='12' cy='12' r='3.4'/><circle cx='12' cy='12' r='6.4' stroke-dasharray='2 2.8'/></g></svg>");
 }
 
+/* Tide: deep teal, waves. */
+body.mc-theme-tide {
+  --mc-font-title: "Average";
+  --mc-gold: #45c4b0; --mc-panel: #13232a; --mc-panel-2: #1b3038; --mc-edge: #2b4a54;
+  --mc-primary: #1b4048; --mc-primary-edge: #2a606c; --mc-primary-active: #235058;
+  --mc-cta-top: #1f7a76; --mc-cta-bot: #114f4d; --mc-cta-edge: #2fa39c; --mc-cta-ink: #e8fbf8;
+  --mc-bar-top: #1d6b6a; --mc-bar-bot: #0f4746; --mc-bar-edge: #0a3130;
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='20' viewBox='-11 0 44 20'><path d='M-12 13c3.5 0 3.5-4 7-4s3.5 4 7 4 3.5-4 7-4 3.5 4 7 4 3.5-4 7-4 3.5 4 7 4' fill='none' stroke='rgba(190,255,248,0.12)' stroke-width='1.6' stroke-linecap='round'/></svg>");
+}
+
 /* Verdant: deep green, leaves. */
 body.mc-theme-verdant {
   --mc-font-title: "Gilda";
@@ -2005,6 +2008,7 @@ body.mc-theme-flame #mobile-command-shell { background: radial-gradient(120% 80%
 body.mc-theme-frost #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #172a36 0%, #0d161d 60%); }
 body.mc-theme-clockwork #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #24272c 0%, #131518 60%); }
 body.mc-theme-verdant #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #172a1c 0%, #0d160f 60%); }
+body.mc-theme-tide #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #15282f 0%, #0b1418 60%); }
 /* Animated theme backgrounds (non-default themes only — default stays flat).
    PERFORMANCE: one pseudo-element per theme, animating ONLY transform or opacity
    (GPU-composited, no per-frame layout/paint), a single rasterized tiled gradient,
@@ -2084,13 +2088,6 @@ body.mc-theme-verdant #mobile-command-shell { background: radial-gradient(120% 8
 .mc-ob-done:active { filter: brightness(1.1); }
 .mc-ob-done i { margin-right: 8px; }
 /* Reopen link in Details (above Leave/Log out). */
-.mc-ob-reopen {
-  width: 100%; min-height: 46px; margin-top: 10px;
-  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
-  color: var(--mc-muted); font-size: 14px; font-weight: 600;
-}
-.mc-ob-reopen:active { border-color: var(--mc-gold); }
-.mc-ob-reopen i { margin-right: 6px; }
 
 /* Player colour picker (task #18) — full-screen overlay the DM triggers. */
 .mc-color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
@@ -2151,11 +2148,35 @@ body.mc-theme-verdant #mobile-command-shell { background: radial-gradient(120% 8
 .mc-colorpick-card { width: 100%; max-width: 340px; background: var(--mc-panel, #1c1922); border: 1px solid var(--mc-gold); border-radius: 16px; padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
 .mc-colorpick-title { font-weight: 800; font-size: 17px; text-align: center; margin-bottom: 16px; color: var(--mc-ink); }
 .mc-colorpick-done { width: 100%; margin-top: 18px; height: 48px; border-radius: 12px; font-weight: 800; font-size: 15px; color: var(--mc-cta-ink); background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border: 1px solid var(--mc-cta-edge); cursor: pointer; }
-.mc-theme-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-/* Swatches only — no names (DM 2026-07-17). Icon-only ⇒ SQUARE and 44px, per UI-BIBLE §4.1;
-   fixed size (not flex: 1 1 0) so the row reads as a palette of equal dots however many
-   themes exist, instead of chips that re-stretch each time one is added. */
-.mc-theme-opt { flex: 0 0 auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+/* Profile actions (Details tab): ONE group, ONE style. These four buttons had three different
+   looks (gold icon + ink · muted · red) and four different margins (14/10/18/10) — the 18px on
+   Leave was the "weird space in the middle" (DM 2026-07-17: "there's still too many styles").
+   Peers in a group are identical (UI-BIBLE 4.1); the container owns the spacing, not margins. */
+.mc-profile-acts { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.mc-profile-act {
+  width: 100%; min-height: 46px; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
+  color: var(--mc-ink); font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.mc-profile-act i { color: var(--mc-muted); margin: 0; }
+.mc-profile-act:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
+.mc-profile-act[disabled] { color: var(--mc-muted); cursor: default; }
+/* Destructive = same at rest, red ONLY on press (UI-BIBLE 4). A leave/log-out button that
+   sits there glowing red reads as an error, and it's the one thing you must not fat-finger. */
+.mc-profile-act.mc-act-exit:active { background: #4a2f30; border-color: #5c2f2c; color: #f0b8b2; }
+.mc-profile-act.mc-act-exit:active i { color: #f0b8b2; }
+
+/* Swatches only — no names (DM 2026-07-17). A GRID that divides the row evenly: every dot is the
+   same width, they fill the width with no ragged tail, and adding a theme just re-divides it —
+   no magic numbers to retune (DM: "spread evenly dynamically"). auto-fit + minmax wraps to a
+   second even row on a narrow phone instead of overflowing. */
+.mc-theme-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(38px, 1fr)); gap: 8px; align-items: center; }
+/* Each swatch FILLS its track (UI-BIBLE §4.1, swatch-row exception): the tile is a plate the dot
+   sits on, so it may be a rounded rect rather than a square — that's what lets the row divide
+   evenly with no ragged tail. The dot itself stays round, which is the part you actually read.
+   (No aspect-ratio: with a grid track + width:100% it's a cyclic size and the browser drops it.) */
+.mc-theme-opt { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: center;
   border-radius: 10px; cursor: pointer;
   background: var(--mc-panel); border: 1px solid var(--mc-edge); }
 .mc-theme-opt.mc-on { border-color: var(--mc-gold); }
@@ -2196,9 +2217,6 @@ body.mc-theme-verdant #mobile-command-shell { background: radial-gradient(120% 8
 #mobile-command-shell .mc-estat.mc-tappable,
 #mobile-command-shell .mc-fav,
 #mobile-command-shell .mc-insp,
-#mobile-command-shell .mc-leave {
-  box-shadow: 0 3px 6px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
-}
 #mobile-command-shell .mc-estat.mc-gray,
 #mobile-command-shell .mc-ac-frame { box-shadow: none; }
 
@@ -2221,7 +2239,7 @@ body.mc-theme-verdant #mobile-command-shell { background: radial-gradient(120% 8
      edges, a lighter parallel rule inside it, and a spiral volute terminating each arm.
      That structure is the common language of a printed corner ornament; the motif just
      says which theme it is. A theme overrides --mc-frame-orn ONLY. */
-  --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M3 33V10.5A7.5 7.5 0 0 1 10.5 3H33' stroke-width='2.9'/><path d='M11 40V15a4 4 0 0 1 4-4h25' stroke-width='1.4'/><path d='M40 11c3.7 0 5.8 1.9 5.8 4.6 0 2.3-1.7 4-3.8 4-1.8 0-3-1.2-3-2.7 0-1.3.9-2.2 2-2.2' stroke-width='1.4'/><path d='M11 40c0 3.7 1.9 5.8 4.6 5.8 2.3 0 4-1.7 4-3.8 0-1.8-1.2-3-2.7-3-1.3 0-2.2.9-2.2 2' stroke-width='1.4'/></g></svg>");
+  --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M3 33.5V29.2' stroke-width='0.9'/><path d='M3 29.4V24.2' stroke-width='1.5'/><path d='M3 24.4V18.2' stroke-width='2.1'/><path d='M3 18.4V12.2' stroke-width='2.6'/><path d='M3 12.4V10.5A7.5 7.5 0 0 1 10.5 3H12.4' stroke-width='3'/><path d='M12.2 3H18.4' stroke-width='2.6'/><path d='M18.2 3H24.4' stroke-width='2.1'/><path d='M24.2 3H29.4' stroke-width='1.5'/><path d='M29.2 3H33.5' stroke-width='0.9'/><path d='M11 40V33' stroke-width='1'/><path d='M11 33.2V22' stroke-width='1.5'/><path d='M11 22.2V15A4 4 0 0 1 15 11H22' stroke-width='1.5'/><path d='M21.8 11H33' stroke-width='1.5'/><path d='M32.8 11H40' stroke-width='1'/><path d='M40 11c3.7 0 5.8 1.9 5.8 4.6' stroke-width='1.2'/><path d='M45.8 15.6c0 2.3-1.7 4-3.8 4' stroke-width='0.9'/><path d='M42 19.6c-1.8 0-3-1.2-3-2.7 0-1.3.9-2.2 2-2.2' stroke-width='0.65'/><path d='M11 40c0 3.7 1.9 5.8 4.6 5.8' stroke-width='1.2'/><path d='M15.6 45.8c2.3 0 4-1.7 4-3.8' stroke-width='0.9'/><path d='M19.6 42c0-1.8-1.2-3-2.7-3-1.3 0-2.2.9-2.2 2' stroke-width='0.65'/></g></svg>");
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round'><circle cx='23' cy='23' r='4.6'/><path d='M23 13.5v4.2M23 28.2v4.2M13.5 23h4.2M28.2 23h4.2'/></g></svg>");
   /* 26px read as a rounding error; 3x is the size the DM asked for (2026-07-17), inset
      so the art doesn't sit welded into the corner. Tune both HERE — the mirrors follow. */
@@ -2271,6 +2289,10 @@ body.mc-theme-frost .mc-frame { /* a six-arm flake, plus a small one trailing of
 body.mc-theme-clockwork .mc-frame { /* gear + spoke */
   --mc-frame: #4b525b;
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><circle cx='23' cy='23' r='3.6' stroke-width='1.7'/><circle cx='23' cy='23' r='7.4' stroke-width='2.7' stroke-dasharray='2.6 3'/><path d='M28.5 28.5L35 35' stroke-width='1.6' stroke-linecap='round'/><circle cx='36.5' cy='36.5' r='2.4' stroke-width='1.5'/></g></svg>");
+}
+body.mc-theme-tide .mc-frame { /* cresting wave */
+  --mc-frame: #2a606c;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M13 30c0-9.4 7.6-17 17-17-5.6 2.6-9 6.6-9 11.2 0 3 2.1 5.1 4.9 5.1 2.4 0 4.1-1.7 4.1-4 0-1.9-1.3-3.2-3-3.2' stroke-width='2.2'/><path d='M12 36c3 0 3-3 6-3s3 3 6 3 3-3 6-3 3 3 6 3' stroke-width='1.5'/></g></svg>");
 }
 body.mc-theme-verdant .mc-frame { /* vine + leaf */
   --mc-frame: #2f5d3c;
@@ -2873,23 +2895,8 @@ body.mc-theme-verdant .mc-frame { /* vine + leaf */
 
 /* Temporary "Log out" button (under Leave MC) — switching Foundry users on a
    phone is painful, so give players a one-tap logout to the join screen. */
-.mc-logout {
-  width: 100%; min-height: 46px; margin-top: 10px;
-  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
-  color: var(--mc-muted); font-size: 14px; font-weight: 600;
-}
-.mc-logout:active { background: var(--mc-panel-2); }
-.mc-logout i { margin-right: 6px; }
 /* Full screen (above Leave/Log out) — Android/desktop toggles for real; iPhone
    shows the Add-to-Home-Screen how-to (no Fullscreen API there). */
-.mc-fullscreen {
-  width: 100%; min-height: 46px; margin-top: 14px;
-  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 10px;
-  color: var(--mc-ink); font-size: 14px; font-weight: 600;
-}
-.mc-fullscreen:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
-.mc-fullscreen[disabled] { color: var(--mc-muted); }
-.mc-fullscreen i { margin-right: 6px; color: var(--mc-gold); }
 /* Step lock: blocks the shell under any lifted dialog (advancement popups etc.).
    z is set inline to one below the newest dialog. */
 #mc-shell-backdrop {
