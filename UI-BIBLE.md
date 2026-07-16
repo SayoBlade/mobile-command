@@ -354,9 +354,13 @@ must not change any hit target.
 - **Double outline reads better than one line.** Two concentric strokes with the detail *between*
   them (the artificer's gear: two rings, dashed teeth between, a hub) look drawn rather than
   clip-arted. The DM asked for this by name.
-- Frame colour is the **burgundy** family, not the accent gold: at frame scale the gold read as
-  harsh and the outline as distracting (DM 2026-07-16). Decoration should sit *behind* the content,
-  not compete with it.
+- **The ornament is GILDING — real gold (`--mc-gilt`) in every theme**, the one thing all 18 share:
+  gilt on leather, whatever colour the leather is dyed (DM 2026-07-17).
+  *(This supersedes the 2026-07-16 rule "frame is burgundy, never gold". That was written against a
+  chunky 26px ornament, where a gold block read as harsh. The same colour as fine tapered line-art
+  at 78px reads as gilt. The rule was right about the weight, wrong about the hue — when a rule
+  gets overturned, record what actually changed.)*
+- Decoration still sits *behind* the content, never competing with it.
 - Corners are `--mc-frame-c-size` (78px) inset by `--mc-frame-c-pad`. Tune the vars, not the four
   mirrors. At 26px the art read as a rounding error (DM 2026-07-17: "around three times larger").
 
@@ -370,8 +374,22 @@ lifted dialogs (which are body-children and inherit nothing from the shell). It 
 three times over; each theme had to be written three times, and they drifted — the dialog copies
 silently never got the CTA tokens, and the DM panel, unable to see any token, hardcoded hexes.
 
-Theme tokens: `--mc-gold` (accent) · `--mc-panel/-2` · `--mc-edge` · `--mc-primary*` · `--mc-cta-*`
-· `--mc-bar-*` · `--mc-font-title` · `--mc-frame-orn`.
+Theme tokens: `--mc-gold` (accent) · `--mc-panel/-2` · `--mc-edge` · `--mc-sunken` · `--mc-primary*`
+· `--mc-cta-*` · `--mc-bar-*` · `--mc-font-title` · `--mc-frame-orn` · `--mc-round`.
+
+**A theme may mix two hues.** The *material* hue (surfaces, edges, background, title bars) and the
+*button* hue (`--mc-primary*`, `--mc-cta-*`) are separate — the DM's brief: *"druid can have green
+titles and brown buttons"*. Mixing is what stops 18 themes reading as 18 tints of one idea. The
+generator takes both (`ramp(material_hue, sat, dot, button_hue, button_sat, round)`).
+
+**A theme may set its own roundness.** `--mc-round` multiplies **every** px radius in the app
+(`calc(10px * var(--mc-round, 1))`), so a theme can be machined-square (barbarian `0.25`) or
+pillowy (monk `1.9`) with one number. **Circles (`50%`) and pills (`999px`) never scale** — those
+are *shape*, not styling; a dot that stops being round is a bug.
+
+> Themes are **generated from one table** (`tools/gen_themes.py`), not hand-written. The 13 class
+> palettes derive every shade from their hues by formula, so they stay consistent and retune in one
+> place. Edit the table and re-run; never hand-edit a generated block.
 
 ### 11.3 Fonts — extravagant titles, boring numbers
 

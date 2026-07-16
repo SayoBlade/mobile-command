@@ -11,15 +11,25 @@ def hx(h, s, l):
     r, g, b = colorsys.hls_to_rgb(h / 360.0, l / 100.0, s / 100.0)
     return "#%02x%02x%02x" % (round(r * 255), round(g * 255), round(b * 255))
 
-def ramp(h, s, dot):
-    return dict(gold=dot,
+def ramp(h, s, dot, hb=None, sb=None, round=1.0):
+    """A palette from a hue.
+
+    h/s  = the MATERIAL hue: surfaces, edges, background, and the title bars.
+    hb/sb = the BUTTON hue (defaults to the material). Splitting them is what lets a theme mix —
+            the DM's example: druid = green titles, brown buttons (2026-07-17).
+    round = corner roundness multiplier; every px radius is calc(N * var(--mc-round)).
+    """
+    hb = h if hb is None else hb
+    sb = s if sb is None else sb
+    return dict(gold=dot, round=round,
         panel=hx(h, s*0.35, 12), panel2=hx(h, s*0.35, 17), edge=hx(h, s*0.30, 27), sunken=hx(h, s*0.35, 8),
-        primary=hx(h, s*0.45, 22), primary_edge=hx(h, s*0.45, 33), primary_active=hx(h, s*0.45, 27),
-        cta_top=hx(h, s*0.60, 34), cta_bot=hx(h, s*0.60, 21), cta_edge=hx(h, s*0.60, 45), cta_ink=hx(h, s*0.50, 95),
+        primary=hx(hb, sb*0.45, 22), primary_edge=hx(hb, sb*0.45, 33), primary_active=hx(hb, sb*0.45, 27),
+        cta_top=hx(hb, sb*0.60, 34), cta_bot=hx(hb, sb*0.60, 21), cta_edge=hx(hb, sb*0.60, 45), cta_ink=hx(hb, sb*0.50, 95),
         bar_top=hx(h, s*0.60, 29), bar_bot=hx(h, s*0.60, 19), bar_edge=hx(h, s*0.60, 13),
-        frame=hx(h, s*0.45, 33), bg1=hx(h, s*0.40, 14), bg2=hx(h, s*0.40, 7))
+        bg1=hx(h, s*0.40, 14), bg2=hx(h, s*0.40, 7))
 
 def hand(**kw):
+    kw.setdefault('round', 1.0)
     return kw
 
 Q = chr(39)   # single quote, kept out of the literals below for sanity
@@ -65,24 +75,24 @@ P['druid'] = pat(36, 18, "-6.9 1.4 32 16.2", "<path d='M2 2c0 9 5 15 14 15C16 8 
 # key, label, dot, title font, palette, background animation
 THEMES = [
     ('tavern', 'Tavern', '#c8a44d', '"Modesto Condensed"', None, None),
-    ('slate', 'Slate', '#79b8e0', '"Signika"', hand(gold='#79b8e0', panel='#1d2330', panel2='#262d3c', edge='#36404f', sunken='#141924', primary='#2a3a52', primary_edge='#3a5374', primary_active='#34496a', cta_top='#2f5f86', cta_bot='#1f4059', cta_edge='#4076a3', cta_ink='#e6f1f9', bar_top='#2f4660', bar_bot='#1f3044', bar_edge='#16222f', frame='#3a5374', bg1='#1c2433', bg2='#11151c'), 'snow'),
-    ('frost', 'Frost', '#8fd3f4', '"Titillium"', hand(gold='#8fd3f4', panel='#16222b', panel2='#1e2f3b', edge='#2f4655', sunken='#0f171d', primary='#1f4459', primary_edge='#2f6480', primary_active='#275470', cta_top='#2b7ba8', cta_bot='#185f80', cta_edge='#47a0cc', cta_ink='#eaf7ff', bar_top='#2a6d95', bar_bot='#174a63', bar_edge='#103548', frame='#2f6480', bg1='#172a36', bg2='#0d161d'), None),
-    ('flame', 'Flame', '#f0a52e', '"OptimusPrinceps"', hand(gold='#f0a52e', panel='#2a1f12', panel2='#362818', edge='#4d3a1f', sunken='#1d1509', primary='#5a3a12', primary_edge='#7d5219', primary_active='#6b4515', cta_top='#c9701a', cta_bot='#8f4708', cta_edge='#e08a2b', cta_ink='#fff3e0', bar_top='#b4611a', bar_bot='#7c3a06', bar_edge='#5c2a04', frame='#b4611a', bg1='#33230f', bg2='#1a1208'), None),
-    ('tide', 'Tide', '#45c4b0', '"Average"', hand(gold='#45c4b0', panel='#13232a', panel2='#1b3038', edge='#2b4a54', sunken='#0d1a1f', primary='#1b4048', primary_edge='#2a606c', primary_active='#235058', cta_top='#1f7a76', cta_bot='#114f4d', cta_edge='#2fa39c', cta_ink='#e8fbf8', bar_top='#1d6b6a', bar_bot='#0f4746', bar_edge='#0a3130', frame='#2a606c', bg1='#15282f', bg2='#0b1418'), None),
+    ('slate', 'Slate', '#79b8e0', '"Signika"', hand(round=0.8, gold='#79b8e0', panel='#1d2330', panel2='#262d3c', edge='#36404f', sunken='#141924', primary='#2a3a52', primary_edge='#3a5374', primary_active='#34496a', cta_top='#2f5f86', cta_bot='#1f4059', cta_edge='#4076a3', cta_ink='#e6f1f9', bar_top='#2f4660', bar_bot='#1f3044', bar_edge='#16222f', frame='#3a5374', bg1='#1c2433', bg2='#11151c'), 'snow'),
+    ('frost', 'Frost', '#8fd3f4', '"Titillium"', hand(round=1.4, gold='#8fd3f4', panel='#16222b', panel2='#1e2f3b', edge='#2f4655', sunken='#0f171d', primary='#1f4459', primary_edge='#2f6480', primary_active='#275470', cta_top='#2b7ba8', cta_bot='#185f80', cta_edge='#47a0cc', cta_ink='#eaf7ff', bar_top='#2a6d95', bar_bot='#174a63', bar_edge='#103548', frame='#2f6480', bg1='#172a36', bg2='#0d161d'), None),
+    ('flame', 'Flame', '#f0a52e', '"OptimusPrinceps"', hand(round=1.0, gold='#f0a52e', panel='#2a1f12', panel2='#362818', edge='#4d3a1f', sunken='#1d1509', primary='#5a3a12', primary_edge='#7d5219', primary_active='#6b4515', cta_top='#c9701a', cta_bot='#8f4708', cta_edge='#e08a2b', cta_ink='#fff3e0', bar_top='#b4611a', bar_bot='#7c3a06', bar_edge='#5c2a04', frame='#b4611a', bg1='#33230f', bg2='#1a1208'), None),
+    ('tide', 'Tide', '#45c4b0', '"Average"', hand(round=1.5, gold='#45c4b0', panel='#13232a', panel2='#1b3038', edge='#2b4a54', sunken='#0d1a1f', primary='#1b4048', primary_edge='#2a606c', primary_active='#235058', cta_top='#1f7a76', cta_bot='#114f4d', cta_edge='#2fa39c', cta_ink='#e8fbf8', bar_top='#1d6b6a', bar_bot='#0f4746', bar_edge='#0a3130', frame='#2a606c', bg1='#15282f', bg2='#0b1418'), None),
     # --- the thirteen dnd5e classes ---
-    ('artificer', 'Artificer', '#c98b3c', '"Bruno Ace"', ramp(32, 55, '#c98b3c'), None),
-    ('barbarian', 'Barbarian', '#c0483a', '"Allrounder Monument"', ramp(6, 55, '#c0483a'), None),
-    ('bard', 'Bard', '#d76ba8', '"Gilda"', ramp(330, 48, '#d76ba8'), None),
-    ('cleric', 'Cleric', '#e0d3a0', '"OptimusPrinceps"', ramp(45, 38, '#e0d3a0'), None),
-    ('druid', 'Druid', '#6fbf73', '"Average"', ramp(110, 38, '#6fbf73'), None),
-    ('fighter', 'Fighter', '#93a3b8', '"Roboto Slab"', ramp(210, 18, '#93a3b8'), None),
-    ('monk', 'Monk', '#52c2a5', '"Amiri"', ramp(165, 40, '#52c2a5'), None),
-    ('paladin', 'Paladin', '#7f9fe0', '"Granville"', ramp(225, 45, '#7f9fe0'), None),
-    ('ranger', 'Ranger', '#9fbf5f', '"Roboto Condensed"', ramp(85, 35, '#9fbf5f'), None),
-    ('rogue', 'Rogue', '#9b8fb5', '"Titillium"', ramp(270, 20, '#9b8fb5'), None),
-    ('sorcerer', 'Sorcerer', '#e2703a', '"Amiri"', ramp(18, 62, '#e2703a'), 'glow'),
-    ('warlock', 'Warlock', '#b06fe0', '"Gilda"', ramp(285, 45, '#b06fe0'), 'twinkle'),
-    ('wizard', 'Wizard', '#7f8fe0', '"Granville"', ramp(245, 45, '#7f8fe0'), None),
+    ('artificer', 'Artificer', '#c98b3c', '"Bruno Ace"', ramp(32, 55, '#c98b3c', 210, 22, 0.45), None),
+    ('barbarian', 'Barbarian', '#c0483a', '"Allrounder Monument"', ramp(6, 55, '#c0483a', 28, 45, 0.25), None),
+    ('bard', 'Bard', '#d76ba8', '"Gilda"', ramp(330, 48, '#d76ba8', 265, 40, 1.7), None),
+    ('cleric', 'Cleric', '#e0d3a0', '"OptimusPrinceps"', ramp(45, 38, '#e0d3a0', 220, 35, 1.2), None),
+    ('druid', 'Druid', '#6fbf73', '"Average"', ramp(110, 38, '#6fbf73', 28, 42, 1.6), None),
+    ('fighter', 'Fighter', '#93a3b8', '"Roboto Slab"', ramp(210, 18, '#93a3b8', 8, 40, 0.5), None),
+    ('monk', 'Monk', '#52c2a5', '"Amiri"', ramp(165, 40, '#52c2a5', 38, 40, 1.9), None),
+    ('paladin', 'Paladin', '#7f9fe0', '"Granville"', ramp(225, 45, '#7f9fe0', 45, 50, 1.0), None),
+    ('ranger', 'Ranger', '#9fbf5f', '"Roboto Condensed"', ramp(85, 35, '#9fbf5f', 25, 40, 1.3), None),
+    ('rogue', 'Rogue', '#9b8fb5', '"Titillium"', ramp(270, 20, '#9b8fb5', 150, 30, 0.7), None),
+    ('sorcerer', 'Sorcerer', '#e2703a', '"Amiri"', ramp(18, 62, '#e2703a', 320, 45, 1.4), 'glow'),
+    ('warlock', 'Warlock', '#b06fe0', '"Gilda"', ramp(285, 45, '#b06fe0', 130, 40, 1.1), 'twinkle'),
+    ('wizard', 'Wizard', '#7f8fe0', '"Granville"', ramp(245, 45, '#7f8fe0', 45, 45, 1.0), None),
 ]
 
 def tokens_block(k, font, p):
@@ -92,15 +102,22 @@ def tokens_block(k, font, p):
             "  --mc-gold: %s; --mc-panel: %s; --mc-panel-2: %s; --mc-edge: %s; --mc-sunken: %s;\n"
             "  --mc-primary: %s; --mc-primary-edge: %s; --mc-primary-active: %s;\n"
             "  --mc-cta-top: %s; --mc-cta-bot: %s; --mc-cta-edge: %s; --mc-cta-ink: %s;\n"
-            "  --mc-bar-top: %s; --mc-bar-bot: %s; --mc-bar-edge: %s;%s\n"
+            "  --mc-bar-top: %s; --mc-bar-bot: %s; --mc-bar-edge: %s;\n"
+            "  --mc-round: %s;%s\n"
             "}\n" % (k, font, p['gold'], p['panel'], p['panel2'], p['edge'], p['sunken'],
                      p['primary'], p['primary_edge'], p['primary_active'],
                      p['cta_top'], p['cta_bot'], p['cta_edge'], p['cta_ink'],
-                     p['bar_top'], p['bar_bot'], p['bar_edge'], barpat))
+                     p['bar_top'], p['bar_bot'], p['bar_edge'], p['round'], barpat))
 
 def frame_block(k, p):
-    return ("body.mc-theme-%s .mc-frame {\n  --mc-frame: %s;\n  --mc-frame-orn: %s\n}\n"
-            % (k, p['frame'], svg(M[k])))
+    """Motif only — the ornament is GILDING now.
+
+    Real gold in every theme (DM 2026-07-17: "use gold for the corner art"), set once on the base
+    .mc-frame rule. This supersedes the 2026-07-16 "frame is burgundy, not gold" note: that was
+    written against a chunky 26px ornament, where gold read as harsh. As fine tapered line-art at
+    78px it reads as gilt on leather, and it's the one thing every theme now shares.
+    """
+    return ("body.mc-theme-%s .mc-frame {\n  --mc-frame-orn: %s\n}\n" % (k, svg(M[k])))
 
 toks, bgs, frames = [], [], []
 for k, label, dot, font, p, anim in THEMES:
