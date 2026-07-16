@@ -3447,7 +3447,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // accessible name, so nothing is lost to a screen reader or a long-press.
     const themes = [
       ["tavern", "Tavern", "#c8a44d"],
-      ["slate", "Slate", "#79b8e0"],
+      ["gothic", "Gothic", "#b8434a"],
       ["frost", "Frost", "#8fd3f4"],
       ["flame", "Flame", "#f0a52e"],
       ["tide", "Tide", "#45c4b0"],

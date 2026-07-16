@@ -403,7 +403,21 @@ three times over; each theme had to be written three times, and they drifted —
 silently never got the CTA tokens, and the DM panel, unable to see any token, hardcoded hexes.
 
 Theme tokens: `--mc-gold` (accent) · `--mc-panel/-2` · `--mc-edge` · `--mc-sunken` · `--mc-primary*`
-· `--mc-cta-*` · `--mc-bar-*` · `--mc-font-title` · `--mc-frame-orn` · `--mc-round`.
+· `--mc-cta-*` · `--mc-bar-*` · `--mc-font-title` · `--mc-title-case/-track` · `--mc-frame-orn/-skel`
+· `--mc-frame-a` · `--mc-round` · `--mc-bar-angle`.
+
+**Every axis is a knob, and a theme should turn several.** 18 tints of one idea is not 18 themes.
+The axes: two hues (material + button) · edge hue · roundness · bar angle · ornament family ·
+ornament opacity · title face · title casing.
+
+| Axis | Token | Example |
+|---|---|---|
+| Material vs button hue | `--mc-bar-*` vs `--mc-cta-*` | druid: green bars, brown buttons |
+| **Edge hue** | `--mc-edge` | barbarian: brass outline on blood; rogue: poison-green on shadow |
+| Roundness | `--mc-round` | barbarian `0.25` (machined) · monk `1.9` (pillowy) |
+| **Bar angle** | `--mc-bar-angle` | 120°–180°; raking light beats a flat wash |
+| **Ornament opacity** | `--mc-frame-a` | tide `0.38` — one theme must *whisper* |
+| Title face + casing | `--mc-font-title`, `--mc-title-case` | gothic: blackletter, sentence case |
 
 **A theme may mix two hues.** The *material* hue (surfaces, edges, background, title bars) and the
 *button* hue (`--mc-primary*`, `--mc-cta-*`) are separate — the DM's brief: *"druid can have green
@@ -432,11 +446,25 @@ Modesto Condensed in every theme. *A stat you misread is a bug, not a style* —
 to be glanced at mid-combat (DM 2026-07-17: "anything except titles … is easy to read"). Body copy
 stays on the UI face too; only the display group moves.
 
-**Use Foundry CORE fonts only** — the 18 in `CONFIG.fontDefinitions` (Amiri, Bruno Ace, Modesto
-Condensed, Signika, Roboto/Condensed/Slab, Titillium, Allrounder Monument, Gilda, Average, Granville,
-OptimusPrinceps, …). They're on every client with nothing to load and no licence to chase. Fonts you
-see in `document.fonts` come from other modules and the system — **not** available on a player's
-phone. Check the config, don't trust the loaded list.
+**Core faces, or a BUNDLED one — never a system font.** Foundry's 18 core faces
+(`CONFIG.fontDefinitions`) are all Latin *text* faces: no blackletter, no mincho. Where a theme
+needs a real voice we ship the font ourselves under **SIL OFL** (`fonts/`, ~114KB for six; see
+`fonts/README.md` for per-font copyright, which the licence requires):
+
+| Face | Theme | Why |
+|---|---|---|
+| UnifrakturMaguntia | gothic | blackletter |
+| Grenze Gotisch | warlock | lighter blackletter |
+| Shippori Mincho | monk | Japanese-styled Latin |
+| Cinzel | cleric, paladin | Roman inscriptional |
+| Metamorphous | barbarian, ranger | carved |
+| Orbitron | artificer | techno |
+
+Fonts you see in `document.fonts` come from the system and other modules — **not** on a player's
+phone. Check `CONFIG.fontDefinitions`, or bundle it.
+
+**Casing belongs to the face.** Gothic's `FAVORITES` in blackletter caps was pure noise, so
+`--mc-title-case` lets a face demand sentence case. *Extravagant is fine; unreadable is not.*
 
 ### 11.2 Bar patterns
 

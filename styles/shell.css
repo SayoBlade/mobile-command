@@ -933,6 +933,25 @@ body.mc-phone .item-piles-app .item-piles-item-list hr { display: none !importan
    new theme meant writing the palette 3x, and they drifted (the dialog copies never got the CTA
    tokens at all). Themes override these on body.mc-theme-*; nothing redeclares them on a root.
    Add a token HERE. */
+/* ============================================================
+   Bundled title faces (SIL OFL 1.1 — see fonts/README.md for per-font copyright).
+   Foundry's 18 core faces are all Latin TEXT faces: no blackletter, no mincho. These exist so a
+   theme's title can actually have a voice (UI-BIBLE §11.3). Titles only — never body, never
+   numbers. Latin subsets, ~114KB for all six. Refetch: python tools/fetch_fonts.py
+   ============================================================ */
+@font-face { font-family: 'UnifrakturMaguntia'; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url('../fonts/UnifrakturMaguntia.woff2') format('woff2'); }   /* blackletter — gothic */
+@font-face { font-family: 'GrenzeGotisch'; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url('../fonts/GrenzeGotisch.woff2') format('woff2'); }        /* lighter blackletter — warlock */
+@font-face { font-family: 'ShipporiMincho'; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url('../fonts/ShipporiMincho.woff2') format('woff2'); }       /* mincho — monk */
+@font-face { font-family: 'Cinzel'; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url('../fonts/Cinzel.woff2') format('woff2'); }               /* Roman caps — cleric, paladin */
+@font-face { font-family: 'Metamorphous'; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url('../fonts/Metamorphous.woff2') format('woff2'); }         /* carved — barbarian */
+@font-face { font-family: 'Orbitron'; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url('../fonts/Orbitron.woff2') format('woff2'); }             /* techno — artificer */
+
 body {
   --mc-ink: #ece5d6;
   --mc-muted: #a59b86;
@@ -948,6 +967,10 @@ body {
      pills (999px) are SHAPE, not styling, and don't scale (DM 2026-07-17: "play around with
      rounded corners a bit between themes"). */
   --mc-round: 1;
+  --mc-bar-angle: 180deg;   /* title-bar gradient angle; themes rake it */
+  --mc-frame-a: 1;          /* corner-ornament opacity */
+  --mc-title-case: uppercase;
+  --mc-title-track: .06em;
 }
 #mobile-command-shell {
   background: radial-gradient(120% 80% at 50% -10%, #221c28 0%, #16141a 60%);
@@ -1960,14 +1983,17 @@ body {
    Default is Tavern (no body class). ===== */
 
 
-body.mc-theme-slate {
-  --mc-font-title: "Signika";
-  --mc-gold: #79b8e0; --mc-panel: #1d2330; --mc-panel-2: #262d3c; --mc-edge: #36404f; --mc-sunken: #141924;
-  --mc-primary: #2a3a52; --mc-primary-edge: #3a5374; --mc-primary-active: #34496a;
-  --mc-cta-top: #2f5f86; --mc-cta-bot: #1f4059; --mc-cta-edge: #4076a3; --mc-cta-ink: #e6f1f9;
-  --mc-cta-top-rgb: 47, 95, 134; --mc-cta-bot-rgb: 31, 64, 89;
-  --mc-bar-top: #2f4660; --mc-bar-bot: #1f3044; --mc-bar-edge: #16222f;
-  --mc-round: 0.8;
+
+
+body.mc-theme-gothic {
+  --mc-font-title: "UnifrakturMaguntia";
+  --mc-gold: #b8434a; --mc-panel: #1c1a1b; --mc-panel-2: #262223; --mc-edge: #4a2f33; --mc-sunken: #121011;
+  --mc-primary: #3a2124; --mc-primary-edge: #5e3339; --mc-primary-active: #4a292d;
+  --mc-cta-top: #8e2f38; --mc-cta-bot: #5a1d23; --mc-cta-edge: #c04a55; --mc-cta-ink: #fbeaec;
+  --mc-cta-top-rgb: 142, 47, 56; --mc-cta-bot-rgb: 90, 29, 35;
+  --mc-bar-top: #4e2429; --mc-bar-bot: #2a1418; --mc-bar-edge: #7a2f38;
+  --mc-round: 0.3; --mc-bar-angle: 165deg; --mc-frame-a: 1.0;
+  --mc-title-case: none; --mc-title-track: .01em;
 }
 body.mc-theme-frost {
   --mc-font-title: "Titillium";
@@ -1976,7 +2002,8 @@ body.mc-theme-frost {
   --mc-cta-top: #2b7ba8; --mc-cta-bot: #185f80; --mc-cta-edge: #47a0cc; --mc-cta-ink: #eaf7ff;
   --mc-cta-top-rgb: 43, 123, 168; --mc-cta-bot-rgb: 24, 95, 128;
   --mc-bar-top: #2a6d95; --mc-bar-bot: #174a63; --mc-bar-edge: #103548;
-  --mc-round: 1.4;
+  --mc-round: 1.4; --mc-bar-angle: 180deg; --mc-frame-a: 1.0;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
   --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='22' viewBox='-9 0 40 22'><g fill='none' stroke='rgba(200,240,255,0.13)' stroke-width='1.1' stroke-linecap='round'><path d='M11 3v16M3.5 7l15 8M18.5 7l-15 8'/><path d='M11 6.5l-2-2M11 6.5l2-2M11 15.5l-2 2M11 15.5l2 2'/></g></svg>");
 }
 body.mc-theme-flame {
@@ -1986,7 +2013,8 @@ body.mc-theme-flame {
   --mc-cta-top: #c9701a; --mc-cta-bot: #8f4708; --mc-cta-edge: #e08a2b; --mc-cta-ink: #fff3e0;
   --mc-cta-top-rgb: 201, 112, 26; --mc-cta-bot-rgb: 143, 71, 8;
   --mc-bar-top: #b4611a; --mc-bar-bot: #7c3a06; --mc-bar-edge: #5c2a04;
-  --mc-round: 1.0;
+  --mc-round: 1.0; --mc-bar-angle: 180deg; --mc-frame-a: 1.0;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
   --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='38' height='19' viewBox='-5.2 3 34 19'><path d='M4 17c0-6 4-10 10-13-2.6 3.4-3.6 6-3.6 8.2 0 1.8 1 3 2.6 3 1.3 0 2.2-.9 2.2-2.2 0-1.2-.8-1.8-.8-2.8 1.8 1.2 3 3 3 5.4 0 3.4-2.8 6-6.2 6C7.6 21.6 4 19.8 4 17z' fill='rgba(255,224,160,0.07)'/></svg>");
 }
 body.mc-theme-tide {
@@ -1996,131 +2024,145 @@ body.mc-theme-tide {
   --mc-cta-top: #1f7a76; --mc-cta-bot: #114f4d; --mc-cta-edge: #2fa39c; --mc-cta-ink: #e8fbf8;
   --mc-cta-top-rgb: 31, 122, 118; --mc-cta-bot-rgb: 17, 79, 77;
   --mc-bar-top: #1d6b6a; --mc-bar-bot: #0f4746; --mc-bar-edge: #0a3130;
-  --mc-round: 1.5;
+  --mc-round: 1.5; --mc-bar-angle: 170deg; --mc-frame-a: 0.38;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
   --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='20' viewBox='-11 0 44 20'><path d='M-12 13c3.5 0 3.5-4 7-4s3.5 4 7 4 3.5-4 7-4 3.5 4 7 4 3.5-4 7-4 3.5 4 7 4' fill='none' stroke='rgba(190,255,248,0.12)' stroke-width='1.6' stroke-linecap='round'/></svg>");
 }
 body.mc-theme-artificer {
-  --mc-font-title: "Bruno Ace";
-  --mc-gold: #c98b3c; --mc-panel: #241f19; --mc-panel-2: #342c23; --mc-edge: #504639; --mc-sunken: #181510;
+  --mc-font-title: Orbitron;
+  --mc-gold: #c98b3c; --mc-panel: #241f19; --mc-panel-2: #342c23; --mc-edge: #394750; --mc-sunken: #181510;
   --mc-primary: #33383e; --mc-primary-edge: #4c545c; --mc-primary-active: #3e454c;
   --mc-cta-top: #4b5762; --mc-cta-bot: #2e363d; --mc-cta-edge: #647382; --mc-cta-ink: #f1f2f4;
   --mc-cta-top-rgb: 75, 87, 98; --mc-cta-bot-rgb: 46, 54, 61;
   --mc-bar-top: #624c32; --mc-bar-bot: #403220; --mc-bar-edge: #2c2216;
-  --mc-round: 0.45;
+  --mc-round: 0.45; --mc-bar-angle: 150deg; --mc-frame-a: 1.0;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
   --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='24' viewBox='-10 0 44 24'><g fill='none' stroke='rgba(255,225,180,0.11)' stroke-width='1.2'><circle cx='12' cy='12' r='3.4'/><circle cx='12' cy='12' r='6.4' stroke-dasharray='2 2.8'/></g></svg>");
 }
 body.mc-theme-barbarian {
-  --mc-font-title: "Allrounder Monument";
-  --mc-gold: #c0483a; --mc-panel: #241a19; --mc-panel-2: #342523; --mc-edge: #503c39; --mc-sunken: #181110;
+  --mc-font-title: Metamorphous;
+  --mc-gold: #c0483a; --mc-panel: #241a19; --mc-panel-2: #342523; --mc-edge: #504639; --mc-sunken: #181110;
   --mc-primary: #43372d; --mc-primary-edge: #655343; --mc-primary-active: #534437;
   --mc-cta-top: #6e553f; --mc-cta-bot: #443527; --mc-cta-edge: #927154; --mc-cta-ink: #f5f2ef;
   --mc-cta-top-rgb: 110, 85, 63; --mc-cta-bot-rgb: 68, 53, 39;
   --mc-bar-top: #623632; --mc-bar-bot: #402420; --mc-bar-edge: #2c1816;
-  --mc-round: 0.25;
+  --mc-round: 0.25; --mc-bar-angle: 170deg; --mc-frame-a: 1.0;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
 }
 body.mc-theme-bard {
-  --mc-font-title: "Gilda";
-  --mc-gold: #d76ba8; --mc-panel: #24191f; --mc-panel-2: #33242b; --mc-edge: #4f3b45; --mc-sunken: #181114;
+  --mc-font-title: Gilda;
+  --mc-gold: #d76ba8; --mc-panel: #24191f; --mc-panel-2: #33242b; --mc-edge: #433b4f; --mc-sunken: #181114;
   --mc-primary: #362e42; --mc-primary-edge: #524563; --mc-primary-active: #433851;
   --mc-cta-top: #53426c; --mc-cta-bot: #332942; --mc-cta-edge: #6e578e; --mc-cta-ink: #f2f0f5;
   --mc-cta-top-rgb: 83, 66, 108; --mc-cta-bot-rgb: 51, 41, 66;
   --mc-bar-top: #5f354a; --mc-bar-bot: #3e2230; --mc-bar-edge: #2b1821;
-  --mc-round: 1.7;
+  --mc-round: 1.7; --mc-bar-angle: 135deg; --mc-frame-a: 1.0;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
 }
 body.mc-theme-cleric {
-  --mc-font-title: "OptimusPrinceps";
+  --mc-font-title: Cinzel;
   --mc-gold: #e0d3a0; --mc-panel: #23211b; --mc-panel-2: #312e26; --mc-edge: #4d493d; --mc-sunken: #171612;
   --mc-primary: #2f3541; --mc-primary-edge: #475061; --mc-primary-active: #3a4150;
   --mc-cta-top: #445169; --mc-cta-bot: #2a3241; --mc-cta-edge: #5b6b8b; --mc-cta-ink: #f0f2f4;
   --mc-cta-top-rgb: 68, 81, 105; --mc-cta-bot-rgb: 42, 50, 65;
   --mc-bar-top: #5b5239; --mc-bar-bot: #3b3625; --mc-bar-edge: #29251a;
-  --mc-round: 1.2;
+  --mc-round: 1.2; --mc-bar-angle: 180deg; --mc-frame-a: 1.0;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
 }
 body.mc-theme-druid {
-  --mc-font-title: "Average";
-  --mc-gold: #6fbf73; --mc-panel: #1c231b; --mc-panel-2: #283126; --mc-edge: #404d3d; --mc-sunken: #131712;
+  --mc-font-title: Average;
+  --mc-gold: #6fbf73; --mc-panel: #1c231b; --mc-panel-2: #283126; --mc-edge: #4d453d; --mc-sunken: #131712;
   --mc-primary: #43372d; --mc-primary-edge: #645344; --mc-primary-active: #524438;
   --mc-cta-top: #6d5541; --mc-cta-bot: #433528; --mc-cta-edge: #907156; --mc-cta-ink: #f5f2f0;
   --mc-cta-top-rgb: 109, 85, 65; --mc-cta-bot-rgb: 67, 53, 40;
   --mc-bar-top: #3f5b39; --mc-bar-bot: #293b25; --mc-bar-edge: #1c291a;
-  --mc-round: 1.6;
+  --mc-round: 1.6; --mc-bar-angle: 160deg; --mc-frame-a: 1.0;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
   --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='18' viewBox='-6.9 1.4 32 16.2'><path d='M2 2c0 9 5 15 14 15C16 8 11 2 2 2z' fill='rgba(205,255,210,0.09)'/></svg>");
 }
 body.mc-theme-fighter {
-  --mc-font-title: "Roboto Slab";
-  --mc-gold: #93a3b8; --mc-panel: #1d1f21; --mc-panel-2: #292b2e; --mc-edge: #414549; --mc-sunken: #131416;
+  --mc-font-title: Allrounder Monument;
+  --mc-gold: #93a3b8; --mc-panel: #1d1f21; --mc-panel-2: #292b2e; --mc-edge: #494241; --mc-sunken: #131416;
   --mc-primary: #42312e; --mc-primary-edge: #634945; --mc-primary-active: #513c38;
   --mc-cta-top: #6c4742; --mc-cta-bot: #422c29; --mc-cta-edge: #8e5f57; --mc-cta-ink: #f5f0f0;
   --mc-cta-top-rgb: 108, 71, 66; --mc-cta-bot-rgb: 66, 44, 41;
   --mc-bar-top: #424a52; --mc-bar-bot: #2b3036; --mc-bar-edge: #1e2125;
-  --mc-round: 0.5;
+  --mc-round: 0.5; --mc-bar-angle: 155deg; --mc-frame-a: 1.0;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
 }
 body.mc-theme-monk {
-  --mc-font-title: "Amiri";
+  --mc-font-title: ShipporiMincho;
   --mc-gold: #52c2a5; --mc-panel: #1a2321; --mc-panel-2: #25312e; --mc-edge: #3d4d49; --mc-sunken: #121716;
   --mc-primary: #423b2e; --mc-primary-edge: #635845; --mc-primary-active: #514838;
   --mc-cta-top: #6c5c42; --mc-cta-bot: #423929; --mc-cta-edge: #8e7a57; --mc-cta-ink: #f5f3f0;
   --mc-cta-top-rgb: 108, 92, 66; --mc-cta-bot-rgb: 66, 57, 41;
   --mc-bar-top: #385c53; --mc-bar-bot: #253c36; --mc-bar-edge: #192925;
-  --mc-round: 1.9;
+  --mc-round: 1.9; --mc-bar-angle: 120deg; --mc-frame-a: 1.0;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
 }
 body.mc-theme-paladin {
-  --mc-font-title: "Granville";
-  --mc-gold: #7f9fe0; --mc-panel: #1a1c23; --mc-panel-2: #252832; --mc-edge: #3c404e; --mc-sunken: #111318;
+  --mc-font-title: Cinzel;
+  --mc-gold: #7f9fe0; --mc-panel: #1a1c23; --mc-panel-2: #252832; --mc-edge: #4e493c; --mc-sunken: #111318;
   --mc-primary: #453e2b; --mc-primary-edge: #675e41; --mc-primary-active: #544d35;
   --mc-cta-top: #71643d; --mc-cta-bot: #463e25; --mc-cta-edge: #958450; --mc-cta-ink: #f5f4ef;
   --mc-cta-top-rgb: 113, 100, 61; --mc-cta-bot-rgb: 70, 62, 37;
   --mc-bar-top: #36405e; --mc-bar-bot: #232a3e; --mc-bar-edge: #181d2a;
-  --mc-round: 1.0;
+  --mc-round: 1.0; --mc-bar-angle: 145deg; --mc-frame-a: 1.0;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
 }
 body.mc-theme-ranger {
-  --mc-font-title: "Roboto Condensed";
+  --mc-font-title: Metamorphous;
   --mc-gold: #9fbf5f; --mc-panel: #1f221b; --mc-panel-2: #2c3126; --mc-edge: #464c3e; --mc-sunken: #151712;
   --mc-primary: #42362e; --mc-primary-edge: #635245; --mc-primary-active: #514338;
   --mc-cta-top: #6c5342; --mc-cta-bot: #423329; --mc-cta-edge: #8e6e57; --mc-cta-ink: #f5f2f0;
   --mc-cta-top-rgb: 108, 83, 66; --mc-cta-bot-rgb: 66, 51, 41;
   --mc-bar-top: #4d593a; --mc-bar-bot: #323b26; --mc-bar-edge: #22281a;
-  --mc-round: 1.3;
+  --mc-round: 1.3; --mc-bar-angle: 165deg; --mc-frame-a: 1.0;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
 }
 body.mc-theme-rogue {
-  --mc-font-title: "Titillium";
-  --mc-gold: #9b8fb5; --mc-panel: #1f1c21; --mc-panel-2: #2b282e; --mc-edge: #454149; --mc-sunken: #141316;
+  --mc-font-title: Allrounder Monument;
+  --mc-gold: #9b8fb5; --mc-panel: #1f1c21; --mc-panel-2: #2b282e; --mc-edge: #414945; --mc-sunken: #141316;
   --mc-primary: #314038; --mc-primary-edge: #496054; --mc-primary-active: #3c4e45;
   --mc-cta-top: #476657; --mc-cta-bot: #2c3f36; --mc-cta-edge: #5e8773; --mc-cta-ink: #f0f4f2;
   --mc-cta-top-rgb: 71, 102, 87; --mc-cta-bot-rgb: 44, 63, 54;
   --mc-bar-top: #4a4153; --mc-bar-bot: #302b36; --mc-bar-edge: #211d25;
-  --mc-round: 0.7;
+  --mc-round: 0.7; --mc-bar-angle: 140deg; --mc-frame-a: 1.0;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
 }
 body.mc-theme-sorcerer {
-  --mc-font-title: "Amiri";
-  --mc-gold: #e2703a; --mc-panel: #251c18; --mc-panel-2: #352822; --mc-edge: #524038; --mc-sunken: #191310;
+  --mc-font-title: Amiri;
+  --mc-gold: #e2703a; --mc-panel: #251c18; --mc-panel-2: #352822; --mc-edge: #523849; --mc-sunken: #191310;
   --mc-primary: #432d3c; --mc-primary-edge: #65435a; --mc-primary-active: #533749;
   --mc-cta-top: #6e3f5f; --mc-cta-bot: #44273a; --mc-cta-edge: #92547d; --mc-cta-ink: #f5eff3;
   --mc-cta-top-rgb: 110, 63, 95; --mc-cta-bot-rgb: 68, 39, 58;
   --mc-bar-top: #653f2e; --mc-bar-bot: #42291e; --mc-bar-edge: #2d1c15;
-  --mc-round: 1.4;
+  --mc-round: 1.4; --mc-bar-angle: 130deg; --mc-frame-a: 1.0;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
 }
 body.mc-theme-warlock {
-  --mc-font-title: "Gilda";
-  --mc-gold: #b06fe0; --mc-panel: #211a23; --mc-panel-2: #2f2532; --mc-edge: #493c4e; --mc-sunken: #161118;
+  --mc-font-title: GrenzeGotisch;
+  --mc-gold: #b06fe0; --mc-panel: #211a23; --mc-panel-2: #2f2532; --mc-edge: #3c4e3f; --mc-sunken: #161118;
   --mc-primary: #2e4231; --mc-primary-edge: #45634a; --mc-primary-active: #38513d;
   --mc-cta-top: #426c49; --mc-cta-bot: #29422d; --mc-cta-edge: #578e60; --mc-cta-ink: #f0f5f1;
   --mc-cta-top-rgb: 66, 108, 73; --mc-cta-bot-rgb: 41, 66, 45;
   --mc-bar-top: #54365e; --mc-bar-bot: #37233e; --mc-bar-edge: #26182a;
-  --mc-round: 1.1;
+  --mc-round: 1.1; --mc-bar-angle: 125deg; --mc-frame-a: 1.0;
+  --mc-title-case: none; --mc-title-track: .01em;
 }
 body.mc-theme-wizard {
-  --mc-font-title: "Granville";
-  --mc-gold: #7f8fe0; --mc-panel: #1b1a23; --mc-panel-2: #262532; --mc-edge: #3d3c4e; --mc-sunken: #121118;
+  --mc-font-title: Bruno Ace;
+  --mc-gold: #7f8fe0; --mc-panel: #1b1a23; --mc-panel-2: #262532; --mc-edge: #4e493c; --mc-sunken: #121118;
   --mc-primary: #433e2d; --mc-primary-edge: #655d43; --mc-primary-active: #534c37;
   --mc-cta-top: #6e623f; --mc-cta-bot: #443d27; --mc-cta-edge: #928254; --mc-cta-ink: #f5f4ef;
   --mc-cta-top-rgb: 110, 98, 63; --mc-cta-bot-rgb: 68, 61, 39;
   --mc-bar-top: #39365e; --mc-bar-bot: #26233e; --mc-bar-edge: #1a182a;
-  --mc-round: 1.0;
+  --mc-round: 1.0; --mc-bar-angle: 150deg; --mc-frame-a: 1.0;
+  --mc-title-case: uppercase; --mc-title-track: .06em;
 }
 
 /* Shell backgrounds — the one per-theme rule that is NOT a token. */
-body.mc-theme-slate #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #1c2433 0%, #11151c 60%); }
+body.mc-theme-gothic #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #211d1e 0%, #0f0d0e 60%); }
 body.mc-theme-frost #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #172a36 0%, #0d161d 60%); }
 body.mc-theme-flame #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #33230f 0%, #1a1208 60%); }
 body.mc-theme-tide #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #15282f 0%, #0b1418 60%); }
@@ -2141,26 +2183,28 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 /* Shell backgrounds — the one per-theme rule that is NOT a token. */
 
 /* Shell backgrounds — the one per-theme rule that is NOT a token. */
+
+/* Shell backgrounds — the one per-theme rule that is NOT a token. */
 /* Animated theme backgrounds (non-default themes only — default stays flat).
    PERFORMANCE: one pseudo-element per theme, animating ONLY transform or opacity
    (GPU-composited, no per-frame layout/paint), a single rasterized tiled gradient,
    no JS/particles. Honors prefers-reduced-motion (motion off → no animation). */
 @media (prefers-reduced-motion: no-preference) {
   /* Lift real content above the overlay; scoped so the default theme is untouched. */
-  body.mc-theme-slate #mobile-command-shell > *,
+  body.mc-theme-frost #mobile-command-shell > *,
   body.mc-theme-sorcerer #mobile-command-shell > *,
   body.mc-theme-warlock #mobile-command-shell > * { position: relative; z-index: 1; }
 
-  body.mc-theme-slate #mobile-command-shell::after,
+  body.mc-theme-frost #mobile-command-shell::after,
   body.mc-theme-sorcerer #mobile-command-shell::after,
   body.mc-theme-warlock #mobile-command-shell::after {
     content: ""; position: absolute; z-index: 0; pointer-events: none;
     will-change: transform, opacity;
   }
 
-  /* Slate — drifting snow: a tiled dot pattern translated exactly one tile (seamless
+  /* Frost — drifting snow: a tiled dot pattern translated exactly one tile (seamless
      loop). Oversized inset so the translate never reveals an edge. */
-  body.mc-theme-slate #mobile-command-shell::after {
+  body.mc-theme-frost #mobile-command-shell::after {
     inset: -80px;
     background-image: radial-gradient(rgba(210,228,248,0.40) 1.2px, transparent 1.7px);
     background-size: 60px 60px; opacity: 0.5;
@@ -2319,7 +2363,7 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
    TINY, maybe forget the circle, and make bigger, thicker icons in the theme color"). A badge
    inside a 30px dot was ~20px of hairline art and unreadable; dropping the disc buys the icon the
    whole tile. It's a MASK, so the inline background-COLOR from #themeOptionsHTML paints it. */
-.mc-theme-sw { display: block; width: 86%; max-width: 40px; aspect-ratio: 1; border: none; border-radius: 0;
+.mc-theme-sw { display: block; width: 96%; max-width: 46px; aspect-ratio: 1; border: none; border-radius: 0;
   -webkit-mask-image: var(--mc-sw-ico); mask-image: var(--mc-sw-ico);
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
   -webkit-mask-position: center; mask-position: center;
@@ -2327,24 +2371,24 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 /* Unselected themes sit back a little so the chosen one reads at a glance (§5). */
 .mc-theme-opt .mc-theme-sw { opacity: .72; }
 .mc-theme-opt.mc-on .mc-theme-sw { opacity: 1; }
-.mc-theme-opt[data-theme="artificer"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='3'/><circle cx='12' cy='12' r='7' stroke-dasharray='2.2 2.6'/></g></svg>"); }
-.mc-theme-opt[data-theme="barbarian"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M6 19L18 7'/><path d='M18 7c1.8-2 4.6-2.2 6.2-.4' /><path d='M15 4.5c2.6-.6 5 .4 6 2.5-2.2 1.6-5 1.4-7-.5z'/><path d='M6.5 12.5c-2 2.2-2 5.2-.2 7 2-1.6 3-4.2 2.4-6.4z'/></g></svg>"); }
-.mc-theme-opt[data-theme="bard"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'><path d='M9 20c-2.6-2.6-2-6.8 1.4-9.6C13.8 7.6 18 7.2 20 9.6'/><path d='M12 16.5c0-3.4 2.6-6 6-6.6'/><path d='M14.5 19c0-4.2 3-7.6 7-8.2'/></g></svg>"); }
-.mc-theme-opt[data-theme="cleric"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='3.4'/><path d='M12 3v3.4M12 17.6V21M3 12h3.4M17.6 12H21M5.6 5.6l2.4 2.4M16 16l2.4 2.4M18.4 5.6L16 8M8 16l-2.4 2.4'/></g></svg>"); }
-.mc-theme-opt[data-theme="druid"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M4 20c0-7.7 6.3-14 14-14 0 7.7-6.3 14-14 14z'/><path d='M4.5 19.5C8.5 15.5 13.5 10.5 17.5 6.5'/></g></svg>"); }
-.mc-theme-opt[data-theme="fighter"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3l2.4 3.6v9.6h-4.8V6.6z'/><path d='M9.6 16.2h4.8'/><path d='M12 16.2V21'/><path d='M8.4 18.4h7.2'/></g></svg>"); }
-.mc-theme-opt[data-theme="flame"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3c1.2 3.4 3.6 4.8 3.6 8 0 2.3-1.8 4.1-4 4.1-1.9 0-3.2-1.3-3.2-3 0-1.6 1.2-2.6 1.2-4.2C7.2 9.5 5.6 12 5.6 15c0 3.9 2.9 6 6.4 6s6.4-2.4 6.4-6.4C18.4 9.4 14.6 6.5 12 3z'/></g></svg>"); }
-.mc-theme-opt[data-theme="frost"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9'/><path d='M12 6.6L9.6 4.2M12 6.6l2.4-2.4M12 17.4l-2.4 2.4M12 17.4l2.4 2.4'/></g></svg>"); }
-.mc-theme-opt[data-theme="monk"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21c-4.4 0-8-3.2-8-7.2 2.7 1.3 4.8 1.5 8 1.5s5.3-.2 8-1.5c0 4-3.6 7.2-8 7.2z'/><path d='M12 15.3c-2.3-2.6-2.3-6.2 0-8.8 2.3 2.6 2.3 6.2 0 8.8z'/><path d='M12 15.3c-3-1.3-5.3-3.6-6.2-6.6 3 .5 5.3 2.3 6.2 6.6z'/><path d='M12 15.3c3-1.3 5.3-3.6 6.2-6.6-3 .5-5.3 2.3-6.2 6.6z'/></g></svg>"); }
-.mc-theme-opt[data-theme="paladin"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3.5c2.7 1.8 5.4 2.3 8 2.3 0 7.2-2.7 12.6-8 15.7C6.7 18.4 4 13 4 5.8c2.6 0 5.3-.5 8-2.3z'/><path d='M12 8v8M8.4 11.6h7.2'/></g></svg>"); }
-.mc-theme-opt[data-theme="ranger"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'><path d='M5 20c0-8.3 6.7-15 15-15'/><path d='M5 20C11.7 18.3 18.3 11.7 20 5'/><path d='M8.4 16.6l8-8'/><path d='M16.4 8.6l-1-2.6 2.6 1'/></g></svg>"); }
-.mc-theme-opt[data-theme="rogue"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M5 19l7-7'/><path d='M12 12c1.9-2 4.6-5.5 6.4-8-2.5 1.8-6 4.5-8 6.4'/><path d='M8.6 13.4l3 3'/></g></svg>"); }
-.mc-theme-opt[data-theme="slate"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 4l8 8-8 8-8-8z'/><path d='M12 8.5l3.5 3.5-3.5 3.5-3.5-3.5z'/></g></svg>"); }
-.mc-theme-opt[data-theme="sorcerer"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21c-4 0-7.2-3.2-7.2-7.2 0-4.8 4-7.5 7.2-11.3 3.2 3.8 7.2 6.5 7.2 11.3 0 4-3.2 7.2-7.2 7.2z'/><path d='M12 17.4c-1.9 0-3.4-1.5-3.4-3.3 0-2.2 1.8-3.3 3.4-5.2 1.6 1.9 3.4 3 3.4 5.2 0 1.8-1.5 3.3-3.4 3.3z'/></g></svg>"); }
-.mc-theme-opt[data-theme="tavern"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M7 7h8v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z'/><path d='M15 9h2.5a1.5 1.5 0 0 1 0 5H15'/><path d='M7 10h8'/></g></svg>"); }
-.mc-theme-opt[data-theme="tide"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'><path d='M3 9c2.2 0 2.2-2.4 4.5-2.4S12 9 14.2 9s2.3-2.4 4.5-2.4S21 9 21 9'/><path d='M3 14c2.2 0 2.2-2.4 4.5-2.4S12 14 14.2 14s2.3-2.4 4.5-2.4S21 14 21 14'/><path d='M3 19c2.2 0 2.2-2.4 4.5-2.4S12 19 14.2 19s2.3-2.4 4.5-2.4S21 19 21 19'/></g></svg>"); }
-.mc-theme-opt[data-theme="warlock"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M2.5 12c3.4-4.5 6.1-6.8 9.5-6.8s6.1 2.3 9.5 6.8c-3.4 4.5-6.1 6.8-9.5 6.8S5.9 16.5 2.5 12z'/><circle cx='12' cy='12' r='2.6'/></g></svg>"); }
-.mc-theme-opt[data-theme="wizard"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'><path d='M5 19L16 8'/><path d='M16 8l3-3'/><path d='M18 3.2l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z'/><path d='M6.5 8l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4L4.5 10l1.4-.6z'/></g></svg>"); }
+.mc-theme-opt[data-theme="artificer"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='3.4'/><circle cx='12' cy='12' r='7.6' stroke-dasharray='3 3.4'/></g></svg>"); }
+.mc-theme-opt[data-theme="barbarian"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3.5v17'/><path d='M12 12L6.5 6M12 12l5.5-6'/></g></svg>"); }
+.mc-theme-opt[data-theme="bard"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M8 21c-3-3-2-8 2-11.5S18.5 6 21 8.5'/><path d='M12.5 18.5c0-4 3-7 7-7.5'/></g></svg>"); }
+.mc-theme-opt[data-theme="cleric"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M7 4h10v3.5a5 5 0 0 1-10 0z'/><path d='M12 12.5V19'/><path d='M7.5 19h9'/></g></svg>"); }
+.mc-theme-opt[data-theme="druid"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'><path d='M4 21C4 12 11 5 20 5c0 9-7 16-16 16z'/><path d='M4.5 20.5C9 16 14.5 10.5 19 6'/></g></svg>"); }
+.mc-theme-opt[data-theme="fighter"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'><path d='M4 20L16 8M16 8l4-5-5 4'/><path d='M20 20L8 8M8 8L4 3l1 5'/></g></svg>"); }
+.mc-theme-opt[data-theme="flame"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2.5c1.4 4 4.2 5.6 4.2 9.2 0 2.6-2 4.6-4.4 4.6-2.1 0-3.5-1.4-3.5-3.2 0-1.8 1.3-2.8 1.3-4.6C6.6 10.4 4.8 13 4.8 16.2c0 3.9 3.2 5.8 7.2 5.8s7.2-2.4 7.2-6.6c0-5.4-4.4-8.6-7.2-12.9z'/></g></svg>"); }
+.mc-theme-opt[data-theme="frost"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2.5v19M4 7l16 9.5M4 16.5L20 7'/><path d='M12 7L8.6 3.6M12 7l3.4-3.4M12 17l-3.4 3.4M12 17l3.4 3.4'/></g></svg>"); }
+.mc-theme-opt[data-theme="gothic"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2.5L19 11v10.5H5V11z'/><circle cx='12' cy='11.5' r='3.4'/><path d='M9 21.5v-4a3 3 0 0 1 6 0v4'/></g></svg>"); }
+.mc-theme-opt[data-theme="monk"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21c-4.4 0-8-3.4-8-7.6 2.6 1.3 4.8 1.5 8 1.5s5.4-.2 8-1.5c0 4.2-3.6 7.6-8 7.6z'/><path d='M12 14.8c-2.4-2.8-2.4-6.6 0-9.4 2.4 2.8 2.4 6.6 0 9.4z'/></g></svg>"); }
+.mc-theme-opt[data-theme="paladin"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='4.4'/><path d='M12 2v3.4M12 18.6V22M2 12h3.4M18.6 12H22M5 5l2.4 2.4M16.6 16.6L19 19M19 5l-2.4 2.4M7.4 16.6L5 19'/></g></svg>"); }
+.mc-theme-opt[data-theme="ranger"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M4 20c0-8.8 7.2-16 16-16'/><path d='M4 20L20 4'/><path d='M20 4l-5.5 1 1 5.5'/></g></svg>"); }
+.mc-theme-opt[data-theme="rogue"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M4 20l8-8'/><path d='M12 12l8-8'/><path d='M20 4l-1 5-4-1z'/><path d='M8 14l2 2'/></g></svg>"); }
+.mc-theme-opt[data-theme="sorcerer"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21.5c-4.2 0-7.6-3.4-7.6-7.6 0-5 4.2-7.9 7.6-11.9 3.4 4 7.6 6.9 7.6 11.9 0 4.2-3.4 7.6-7.6 7.6z'/><path d='M12 17.6c-2 0-3.6-1.6-3.6-3.5 0-2.3 1.9-3.5 3.6-5.5 1.7 2 3.6 3.2 3.6 5.5 0 1.9-1.6 3.5-3.6 3.5z'/></g></svg>"); }
+.mc-theme-opt[data-theme="tavern"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><path d='M6 7h9v11a2.5 2.5 0 0 1-2.5 2.5h-4A2.5 2.5 0 0 1 6 18z'/><path d='M15 10h2.5a2.5 2.5 0 0 1 0 5H15'/><path d='M6 11h9'/></g></svg>"); }
+.mc-theme-opt[data-theme="tide"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 8.5c2.2 0 2.2-2.6 4.5-2.6S12 8.5 14.2 8.5s2.3-2.6 4.5-2.6S21 8.5 21 8.5'/><path d='M3 14c2.2 0 2.2-2.6 4.5-2.6S12 14 14.2 14s2.3-2.6 4.5-2.6S21 14 21 14'/><path d='M3 19.5c2.2 0 2.2-2.6 4.5-2.6S12 19.5 14.2 19.5s2.3-2.6 4.5-2.6S21 19.5 21 19.5'/></g></svg>"); }
+.mc-theme-opt[data-theme="warlock"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'><path d='M2.5 12c3.4-4.6 6.1-6.9 9.5-6.9s6.1 2.3 9.5 6.9c-3.4 4.6-6.1 6.9-9.5 6.9S5.9 16.6 2.5 12z'/><circle cx='12' cy='12' r='2.8'/></g></svg>"); }
+.mc-theme-opt[data-theme="wizard"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'><path d='M4 20L15 9'/><path d='M17.5 6.5l2 2'/><path d='M18.5 2.5l1.2 2.8 2.8 1.2-2.8 1.2-1.2 2.8-1.2-2.8L14.5 6.5l2.8-1.2z'/></g></svg>"); }
 
 /* A line-art badge inside each colour dot — sword for fighter, shield+cross for paladin,
    wand for wizard (DM 2026-07-17). Dark ink so it reads on any dot colour. */
@@ -2421,6 +2465,9 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-frame-c {
   position: absolute; pointer-events: none;
   width: var(--mc-frame-c-size); height: var(--mc-frame-c-size);
+  /* A theme may dial its ornament back to a whisper (DM 2026-07-17: "at least one that has less
+     prominent corner art" — tide is 0.38). Decoration should never be the loudest thing. */
+  opacity: var(--mc-frame-a, 1);
   background-color: var(--mc-frame);
   /* skeleton + motif, added together into one mask. */
   -webkit-mask-image: var(--mc-frame-skel), var(--mc-frame-orn);
@@ -2438,27 +2485,27 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 /* Corner-art SKELETON per theme. FIVE families (deco / nouveau / japanese / heraldic /
    scroll), not one — a single shared skeleton made every corner the same drawing with a
    different pin in it (DM 2026-07-17). Generated: tools/gen_frames.py. */
-body.mc-theme-artificer .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 40V3h37' stroke-width='3'/><path d='M8.5 45V8.5h37' stroke-width='1.5'/><path d='M13 49.5V13h6.5' stroke-width='1.2'/><path d='M49.5 13H43' stroke-width='1.2'/><path d='M14 32A18 18 0 0 0 32 14' stroke-width='1'/><path d='M14 26A12 12 0 0 0 26 14' stroke-width='1.4'/><g stroke-linecap='round'><path d='M14 19v9' stroke-width='1.6'/><path d='M16.9 18.3L20.4 26.4' stroke-width='1.3'/><path d='M19.5 19.5L23.2 23.2' stroke-width='1.6'/><path d='M18.3 16.9L26.4 20.4' stroke-width='1.3'/><path d='M19 14h9' stroke-width='1.6'/></g></g></svg>"); }
-body.mc-theme-barbarian .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter'><path d='M3 38V7.5L7.5 3H38' stroke-width='2.8'/><path d='M9 44V11L11 9H44' stroke-width='1.3'/><g stroke-width='1.2'><circle cx='19' cy='19' r='3.6'/><circle cx='26.5' cy='19' r='3.6'/><circle cx='19' cy='26.5' r='3.6'/></g><path d='M38 3l4 4-4 4' stroke-width='1.3'/><path d='M3 38l4 4 4-4' stroke-width='1.3'/></g></svg>"); }
-body.mc-theme-bard .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M5.5 50 C4.2 40 5.4 30 9.6 22' stroke-width='2.8'/><path d='M9.6 22 C13.4 14.6 20 8.8 28.5 6' stroke-width='2.1'/><path d='M28.5 6 C34.5 4 40 3.6 46 4.4' stroke-width='1.3'/><path d='M46 4.4 C50.4 5 52.6 7.6 52 11 C51.6 13.4 49.6 15 47.4 14.6' stroke-width='0.9'/><path d='M12.4 17.6 C13.2 24 14.4 29.6 17.6 34.6' stroke-width='1.3'/><path d='M17.6 34.6 C20.4 39 19.6 43.4 16 44.6 C13.4 45.4 11.4 43.8 11.6 41.6 C11.8 40 13.2 39 14.6 39.4' stroke-width='0.9'/><path d='M7.4 33 C10 30.4 13.6 30 16.4 31.6' stroke-width='1'/><path d='M16.4 31.6 C18.6 33 19.2 35.6 18 37.6' stroke-width='0.8'/></g></svg>"); }
-body.mc-theme-cleric .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter'><path d='M3 38V7.5L7.5 3H38' stroke-width='2.8'/><path d='M9 44V11L11 9H44' stroke-width='1.3'/><g stroke-width='1.2'><circle cx='19' cy='19' r='3.6'/><circle cx='26.5' cy='19' r='3.6'/><circle cx='19' cy='26.5' r='3.6'/></g><path d='M38 3l4 4-4 4' stroke-width='1.3'/><path d='M3 38l4 4 4-4' stroke-width='1.3'/></g></svg>"); }
-body.mc-theme-druid .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M5.5 50 C4.2 40 5.4 30 9.6 22' stroke-width='2.8'/><path d='M9.6 22 C13.4 14.6 20 8.8 28.5 6' stroke-width='2.1'/><path d='M28.5 6 C34.5 4 40 3.6 46 4.4' stroke-width='1.3'/><path d='M46 4.4 C50.4 5 52.6 7.6 52 11 C51.6 13.4 49.6 15 47.4 14.6' stroke-width='0.9'/><path d='M12.4 17.6 C13.2 24 14.4 29.6 17.6 34.6' stroke-width='1.3'/><path d='M17.6 34.6 C20.4 39 19.6 43.4 16 44.6 C13.4 45.4 11.4 43.8 11.6 41.6 C11.8 40 13.2 39 14.6 39.4' stroke-width='0.9'/><path d='M7.4 33 C10 30.4 13.6 30 16.4 31.6' stroke-width='1'/><path d='M16.4 31.6 C18.6 33 19.2 35.6 18 37.6' stroke-width='0.8'/></g></svg>"); }
-body.mc-theme-fighter .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 40V3h37' stroke-width='3'/><path d='M8.5 45V8.5h37' stroke-width='1.5'/><path d='M13 49.5V13h6.5' stroke-width='1.2'/><path d='M49.5 13H43' stroke-width='1.2'/><path d='M14 32A18 18 0 0 0 32 14' stroke-width='1'/><path d='M14 26A12 12 0 0 0 26 14' stroke-width='1.4'/><g stroke-linecap='round'><path d='M14 19v9' stroke-width='1.6'/><path d='M16.9 18.3L20.4 26.4' stroke-width='1.3'/><path d='M19.5 19.5L23.2 23.2' stroke-width='1.6'/><path d='M18.3 16.9L26.4 20.4' stroke-width='1.3'/><path d='M19 14h9' stroke-width='1.6'/></g></g></svg>"); }
+body.mc-theme-artificer .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 40V3h37' stroke-width='3'/><path d='M8.5 45V8.5h37' stroke-width='1.5'/><path d='M13 49.5V13h6.5' stroke-width='1.2'/><path d='M49.5 13H43' stroke-width='1.2'/><path d='M14 32A18 18 0 0 0 32 14' stroke-width='1'/><path d='M14 26A12 12 0 0 0 26 14' stroke-width='1.4'/><g stroke-linecap='round'><path d='M14 19v9' stroke-width='1.6'/><path d='M16.9 18.3L20.4 26.4' stroke-width='1.3'/><path d='M19.5 19.5L23.2 23.2' stroke-width='1.6'/><path d='M18.3 16.9L26.4 20.4' stroke-width='1.3'/><path d='M19 14h9' stroke-width='1.6'/></g><g stroke-linecap='butt' stroke-width='0.9'><path d='M14 34v6'/><path d='M20.1 32.1l4.3 4.3'/><path d='M34 14h6'/><path d='M32.1 20.1l4.3 4.3'/></g><g stroke-width='1'><path d='M3 44h4v-4M3 52h8v-8'/><path d='M44 3v4h-4M52 3v8h-8'/></g></g></svg>"); }
+body.mc-theme-barbarian .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter'><path d='M3 38V7.5L7.5 3H38' stroke-width='2.8'/><path d='M9 44V11L11 9H44' stroke-width='1.3'/><g stroke-width='1.2'><circle cx='19' cy='19' r='3.6'/><circle cx='26.5' cy='19' r='3.6'/><circle cx='19' cy='26.5' r='3.6'/></g><path d='M38 3l4 4-4 4' stroke-width='1.3'/><path d='M3 38l4 4 4-4' stroke-width='1.3'/><g stroke-width='1' stroke-linecap='round'><path d='M14 15l4-4 4 4M24 15l4-4 4 4M34 15l4-4 4 4'/><path d='M15 14l-4 4 4 4M15 24l-4 4 4 4M15 34l-4 4 4 4'/></g><g stroke-width='1.4' stroke-linecap='round'><path d='M7 7h.1M12 4h.1M4 12h.1'/></g></g></svg>"); }
+body.mc-theme-bard .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M5.5 50 C4.2 40 5.4 30 9.6 22' stroke-width='2.8'/><path d='M9.6 22 C13.4 14.6 20 8.8 28.5 6' stroke-width='2.1'/><path d='M28.5 6 C34.5 4 40 3.6 46 4.4' stroke-width='1.3'/><path d='M46 4.4 C50.4 5 52.6 7.6 52 11 C51.6 13.4 49.6 15 47.4 14.6' stroke-width='0.9'/><path d='M12.4 17.6 C13.2 24 14.4 29.6 17.6 34.6' stroke-width='1.3'/><path d='M17.6 34.6 C20.4 39 19.6 43.4 16 44.6 C13.4 45.4 11.4 43.8 11.6 41.6 C11.8 40 13.2 39 14.6 39.4' stroke-width='0.9'/><path d='M7.4 33 C10 30.4 13.6 30 16.4 31.6' stroke-width='1'/><path d='M16.4 31.6 C18.6 33 19.2 35.6 18 37.6' stroke-width='0.8'/><g stroke-width='0.9'><path d='M6.6 46 C3.4 45.2 2.4 42 4.4 39.6 C6 37.6 9 37.8 10.2 40'/><path d='M10.2 40 C12.6 38.4 15.6 39.6 16 42.4 C16.4 45 14.2 47.2 11.4 46.8'/></g><path d='M20 8.6 C24.4 5.2 30.6 4.2 36 5.6 C31.6 9.6 25.4 10.8 20 8.6z' stroke-width='0.9'/></g></svg>"); }
+body.mc-theme-cleric .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter'><path d='M3 38V7.5L7.5 3H38' stroke-width='2.8'/><path d='M9 44V11L11 9H44' stroke-width='1.3'/><g stroke-width='1.2'><circle cx='19' cy='19' r='3.6'/><circle cx='26.5' cy='19' r='3.6'/><circle cx='19' cy='26.5' r='3.6'/></g><path d='M38 3l4 4-4 4' stroke-width='1.3'/><path d='M3 38l4 4 4-4' stroke-width='1.3'/><g stroke-width='1' stroke-linecap='round'><path d='M14 15l4-4 4 4M24 15l4-4 4 4M34 15l4-4 4 4'/><path d='M15 14l-4 4 4 4M15 24l-4 4 4 4M15 34l-4 4 4 4'/></g><g stroke-width='1.4' stroke-linecap='round'><path d='M7 7h.1M12 4h.1M4 12h.1'/></g></g></svg>"); }
+body.mc-theme-druid .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M5.5 50 C4.2 40 5.4 30 9.6 22' stroke-width='2.8'/><path d='M9.6 22 C13.4 14.6 20 8.8 28.5 6' stroke-width='2.1'/><path d='M28.5 6 C34.5 4 40 3.6 46 4.4' stroke-width='1.3'/><path d='M46 4.4 C50.4 5 52.6 7.6 52 11 C51.6 13.4 49.6 15 47.4 14.6' stroke-width='0.9'/><path d='M12.4 17.6 C13.2 24 14.4 29.6 17.6 34.6' stroke-width='1.3'/><path d='M17.6 34.6 C20.4 39 19.6 43.4 16 44.6 C13.4 45.4 11.4 43.8 11.6 41.6 C11.8 40 13.2 39 14.6 39.4' stroke-width='0.9'/><path d='M7.4 33 C10 30.4 13.6 30 16.4 31.6' stroke-width='1'/><path d='M16.4 31.6 C18.6 33 19.2 35.6 18 37.6' stroke-width='0.8'/><g stroke-width='0.9'><path d='M6.6 46 C3.4 45.2 2.4 42 4.4 39.6 C6 37.6 9 37.8 10.2 40'/><path d='M10.2 40 C12.6 38.4 15.6 39.6 16 42.4 C16.4 45 14.2 47.2 11.4 46.8'/></g><path d='M20 8.6 C24.4 5.2 30.6 4.2 36 5.6 C31.6 9.6 25.4 10.8 20 8.6z' stroke-width='0.9'/></g></svg>"); }
+body.mc-theme-fighter .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 40V3h37' stroke-width='3'/><path d='M8.5 45V8.5h37' stroke-width='1.5'/><path d='M13 49.5V13h6.5' stroke-width='1.2'/><path d='M49.5 13H43' stroke-width='1.2'/><path d='M14 32A18 18 0 0 0 32 14' stroke-width='1'/><path d='M14 26A12 12 0 0 0 26 14' stroke-width='1.4'/><g stroke-linecap='round'><path d='M14 19v9' stroke-width='1.6'/><path d='M16.9 18.3L20.4 26.4' stroke-width='1.3'/><path d='M19.5 19.5L23.2 23.2' stroke-width='1.6'/><path d='M18.3 16.9L26.4 20.4' stroke-width='1.3'/><path d='M19 14h9' stroke-width='1.6'/></g><g stroke-linecap='butt' stroke-width='0.9'><path d='M14 34v6'/><path d='M20.1 32.1l4.3 4.3'/><path d='M34 14h6'/><path d='M32.1 20.1l4.3 4.3'/></g><g stroke-width='1'><path d='M3 44h4v-4M3 52h8v-8'/><path d='M44 3v4h-4M52 3v8h-8'/></g></g></svg>"); }
 body.mc-theme-flame .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M4.6 39.5 C3.7 34 3.5 29.6 4.1 25.4' stroke-width='0.9'/><path d='M4.1 25.4 C4.8 20.6 6.5 16.2 9.4 12.4' stroke-width='1.8'/><path d='M9.4 12.4 C12.6 8.4 16.9 5.7 21.6 4.5' stroke-width='3'/><path d='M21.6 4.5 C26 3.4 30.6 3.4 35.2 4.1' stroke-width='1.8'/><path d='M35.2 4.1 C37.8 4.5 40 4.9 42 5.4' stroke-width='0.9'/><path d='M13.2 43 C12.3 37.6 12.6 32.8 14.1 28.6' stroke-width='1'/><path d='M14.1 28.6 C15.7 24 18.4 20.1 22.2 17.2' stroke-width='1.5'/><path d='M22.2 17.2 C26.2 14.1 30.9 12.5 35.8 12.2' stroke-width='1.5'/><path d='M35.8 12.2 C38.4 12.1 40.9 12.3 43.2 12.7' stroke-width='1'/><path d='M43.2 12.7 C46.9 13.4 49 15.9 48.8 19' stroke-width='1.2'/><path d='M48.8 19 C48.6 21.5 46.8 23.2 44.6 23' stroke-width='0.9'/><path d='M44.6 23 C42.7 22.8 41.5 21.4 41.7 19.8 C41.8 18.6 42.8 17.7 44 17.8' stroke-width='0.65'/><path d='M13.2 43 C13.9 46.7 16.4 48.8 19.5 48.6' stroke-width='1.2'/><path d='M19.5 48.6 C22 48.4 23.7 46.6 23.5 44.4' stroke-width='0.9'/><path d='M23.5 44.4 C23.3 42.5 21.9 41.3 20.3 41.5 C19.1 41.6 18.2 42.6 18.3 43.8' stroke-width='0.65'/></g></svg>"); }
-body.mc-theme-frost .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M3 12A9 9 0 0 1 12 3' stroke-width='2.4'/><path d='M3 20A17 17 0 0 1 20 3' stroke-width='1.7'/><path d='M3 27A24 24 0 0 1 27 3' stroke-width='1.4'/><path d='M3 34A31 31 0 0 1 34 3' stroke-width='1.1'/><g stroke-width='0.9' transform='translate(13,34) scale(0.62)'><path d='M0 -9V9M-7.8 -4.5L7.8 4.5M-7.8 4.5L7.8 -4.5'/><path d='M0 -9L-7.8 -4.5L-7.8 4.5L0 9L7.8 4.5L7.8 -4.5Z'/><path d='M0 0L-7.8 -4.5M0 0L7.8 -4.5M0 0L-7.8 4.5M0 0L7.8 4.5'/></g></g></svg>"); }
-body.mc-theme-monk .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M3 12A9 9 0 0 1 12 3' stroke-width='2.4'/><path d='M3 20A17 17 0 0 1 20 3' stroke-width='1.7'/><path d='M3 27A24 24 0 0 1 27 3' stroke-width='1.4'/><path d='M3 34A31 31 0 0 1 34 3' stroke-width='1.1'/><g stroke-width='0.9' transform='translate(13,34) scale(0.62)'><path d='M0 -9V9M-7.8 -4.5L7.8 4.5M-7.8 4.5L7.8 -4.5'/><path d='M0 -9L-7.8 -4.5L-7.8 4.5L0 9L7.8 4.5L7.8 -4.5Z'/><path d='M0 0L-7.8 -4.5M0 0L7.8 -4.5M0 0L-7.8 4.5M0 0L7.8 4.5'/></g></g></svg>"); }
-body.mc-theme-paladin .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter'><path d='M3 38V7.5L7.5 3H38' stroke-width='2.8'/><path d='M9 44V11L11 9H44' stroke-width='1.3'/><g stroke-width='1.2'><circle cx='19' cy='19' r='3.6'/><circle cx='26.5' cy='19' r='3.6'/><circle cx='19' cy='26.5' r='3.6'/></g><path d='M38 3l4 4-4 4' stroke-width='1.3'/><path d='M3 38l4 4 4-4' stroke-width='1.3'/></g></svg>"); }
-body.mc-theme-ranger .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M5.5 50 C4.2 40 5.4 30 9.6 22' stroke-width='2.8'/><path d='M9.6 22 C13.4 14.6 20 8.8 28.5 6' stroke-width='2.1'/><path d='M28.5 6 C34.5 4 40 3.6 46 4.4' stroke-width='1.3'/><path d='M46 4.4 C50.4 5 52.6 7.6 52 11 C51.6 13.4 49.6 15 47.4 14.6' stroke-width='0.9'/><path d='M12.4 17.6 C13.2 24 14.4 29.6 17.6 34.6' stroke-width='1.3'/><path d='M17.6 34.6 C20.4 39 19.6 43.4 16 44.6 C13.4 45.4 11.4 43.8 11.6 41.6 C11.8 40 13.2 39 14.6 39.4' stroke-width='0.9'/><path d='M7.4 33 C10 30.4 13.6 30 16.4 31.6' stroke-width='1'/><path d='M16.4 31.6 C18.6 33 19.2 35.6 18 37.6' stroke-width='0.8'/></g></svg>"); }
-body.mc-theme-rogue .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 40V3h37' stroke-width='3'/><path d='M8.5 45V8.5h37' stroke-width='1.5'/><path d='M13 49.5V13h6.5' stroke-width='1.2'/><path d='M49.5 13H43' stroke-width='1.2'/><path d='M14 32A18 18 0 0 0 32 14' stroke-width='1'/><path d='M14 26A12 12 0 0 0 26 14' stroke-width='1.4'/><g stroke-linecap='round'><path d='M14 19v9' stroke-width='1.6'/><path d='M16.9 18.3L20.4 26.4' stroke-width='1.3'/><path d='M19.5 19.5L23.2 23.2' stroke-width='1.6'/><path d='M18.3 16.9L26.4 20.4' stroke-width='1.3'/><path d='M19 14h9' stroke-width='1.6'/></g></g></svg>"); }
-body.mc-theme-slate .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 40V3h37' stroke-width='3'/><path d='M8.5 45V8.5h37' stroke-width='1.5'/><path d='M13 49.5V13h6.5' stroke-width='1.2'/><path d='M49.5 13H43' stroke-width='1.2'/><path d='M14 32A18 18 0 0 0 32 14' stroke-width='1'/><path d='M14 26A12 12 0 0 0 26 14' stroke-width='1.4'/><g stroke-linecap='round'><path d='M14 19v9' stroke-width='1.6'/><path d='M16.9 18.3L20.4 26.4' stroke-width='1.3'/><path d='M19.5 19.5L23.2 23.2' stroke-width='1.6'/><path d='M18.3 16.9L26.4 20.4' stroke-width='1.3'/><path d='M19 14h9' stroke-width='1.6'/></g></g></svg>"); }
-body.mc-theme-sorcerer .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M5.5 50 C4.2 40 5.4 30 9.6 22' stroke-width='2.8'/><path d='M9.6 22 C13.4 14.6 20 8.8 28.5 6' stroke-width='2.1'/><path d='M28.5 6 C34.5 4 40 3.6 46 4.4' stroke-width='1.3'/><path d='M46 4.4 C50.4 5 52.6 7.6 52 11 C51.6 13.4 49.6 15 47.4 14.6' stroke-width='0.9'/><path d='M12.4 17.6 C13.2 24 14.4 29.6 17.6 34.6' stroke-width='1.3'/><path d='M17.6 34.6 C20.4 39 19.6 43.4 16 44.6 C13.4 45.4 11.4 43.8 11.6 41.6 C11.8 40 13.2 39 14.6 39.4' stroke-width='0.9'/><path d='M7.4 33 C10 30.4 13.6 30 16.4 31.6' stroke-width='1'/><path d='M16.4 31.6 C18.6 33 19.2 35.6 18 37.6' stroke-width='0.8'/></g></svg>"); }
-body.mc-theme-tide .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M3 12A9 9 0 0 1 12 3' stroke-width='2.4'/><path d='M3 20A17 17 0 0 1 20 3' stroke-width='1.7'/><path d='M3 27A24 24 0 0 1 27 3' stroke-width='1.4'/><path d='M3 34A31 31 0 0 1 34 3' stroke-width='1.1'/><g stroke-width='0.9' transform='translate(13,34) scale(0.62)'><path d='M0 -9V9M-7.8 -4.5L7.8 4.5M-7.8 4.5L7.8 -4.5'/><path d='M0 -9L-7.8 -4.5L-7.8 4.5L0 9L7.8 4.5L7.8 -4.5Z'/><path d='M0 0L-7.8 -4.5M0 0L7.8 -4.5M0 0L-7.8 4.5M0 0L7.8 4.5'/></g></g></svg>"); }
-body.mc-theme-warlock .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter'><path d='M3 38V7.5L7.5 3H38' stroke-width='2.8'/><path d='M9 44V11L11 9H44' stroke-width='1.3'/><g stroke-width='1.2'><circle cx='19' cy='19' r='3.6'/><circle cx='26.5' cy='19' r='3.6'/><circle cx='19' cy='26.5' r='3.6'/></g><path d='M38 3l4 4-4 4' stroke-width='1.3'/><path d='M3 38l4 4 4-4' stroke-width='1.3'/></g></svg>"); }
-body.mc-theme-wizard .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 40V3h37' stroke-width='3'/><path d='M8.5 45V8.5h37' stroke-width='1.5'/><path d='M13 49.5V13h6.5' stroke-width='1.2'/><path d='M49.5 13H43' stroke-width='1.2'/><path d='M14 32A18 18 0 0 0 32 14' stroke-width='1'/><path d='M14 26A12 12 0 0 0 26 14' stroke-width='1.4'/><g stroke-linecap='round'><path d='M14 19v9' stroke-width='1.6'/><path d='M16.9 18.3L20.4 26.4' stroke-width='1.3'/><path d='M19.5 19.5L23.2 23.2' stroke-width='1.6'/><path d='M18.3 16.9L26.4 20.4' stroke-width='1.3'/><path d='M19 14h9' stroke-width='1.6'/></g></g></svg>"); }
+body.mc-theme-frost .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M3 12A9 9 0 0 1 12 3' stroke-width='2.4'/><path d='M3 20A17 17 0 0 1 20 3' stroke-width='1.7'/><path d='M3 27A24 24 0 0 1 27 3' stroke-width='1.4'/><path d='M3 34A31 31 0 0 1 34 3' stroke-width='1.1'/><g stroke-width='0.9' transform='translate(13,34) scale(0.62)'><path d='M0 -9V9M-7.8 -4.5L7.8 4.5M-7.8 4.5L7.8 -4.5'/><path d='M0 -9L-7.8 -4.5L-7.8 4.5L0 9L7.8 4.5L7.8 -4.5Z'/><path d='M0 0L-7.8 -4.5M0 0L7.8 -4.5M0 0L-7.8 4.5M0 0L7.8 4.5'/></g><g stroke-width='0.8'><path d='M3 41A38 38 0 0 1 41 3'/><path d='M3 48A45 45 0 0 1 48 3'/></g><g stroke-width='1.1'><path d='M40 6.5h14'/><path d='M44.5 4.5v4M49.5 4.5v4'/><path d='M46 11c2.6 0 4.6 1.6 5.6 4' stroke-linecap='round'/></g></g></svg>"); }
+body.mc-theme-gothic .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter' stroke-linecap='butt'><path d='M3 46V16L14 3' stroke-width='3'/><path d='M9.5 50V19L18.5 8' stroke-width='1.4'/><path d='M14 3L25 14' stroke-width='3'/><path d='M18.5 8L27.5 17' stroke-width='1.4'/><g stroke-width='1.1'><circle cx='13.5' cy='17.5' r='2.6'/><circle cx='19' cy='23' r='2.6'/><path d='M11 20L16.4 25.4' stroke-linecap='round'/></g><g stroke-width='1.2' stroke-linecap='round'><path d='M6 34c2.6 0 4-1.4 4-4'/><path d='M6 26c2.6 0 4-1.4 4-4'/><path d='M30 7c0 2.6 1.4 4 4 4'/><path d='M38 7c0 2.6 1.4 4 4 4'/></g><path d='M3 46l3 5 3-5' stroke-width='1.4'/><path d='M46 3l5 3-5 3' stroke-width='1.4'/></g></svg>"); }
+body.mc-theme-monk .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M3 12A9 9 0 0 1 12 3' stroke-width='2.4'/><path d='M3 20A17 17 0 0 1 20 3' stroke-width='1.7'/><path d='M3 27A24 24 0 0 1 27 3' stroke-width='1.4'/><path d='M3 34A31 31 0 0 1 34 3' stroke-width='1.1'/><g stroke-width='0.9' transform='translate(13,34) scale(0.62)'><path d='M0 -9V9M-7.8 -4.5L7.8 4.5M-7.8 4.5L7.8 -4.5'/><path d='M0 -9L-7.8 -4.5L-7.8 4.5L0 9L7.8 4.5L7.8 -4.5Z'/><path d='M0 0L-7.8 -4.5M0 0L7.8 -4.5M0 0L-7.8 4.5M0 0L7.8 4.5'/></g><g stroke-width='0.8'><path d='M3 41A38 38 0 0 1 41 3'/><path d='M3 48A45 45 0 0 1 48 3'/></g><g stroke-width='1.1'><path d='M40 6.5h14'/><path d='M44.5 4.5v4M49.5 4.5v4'/><path d='M46 11c2.6 0 4.6 1.6 5.6 4' stroke-linecap='round'/></g></g></svg>"); }
+body.mc-theme-paladin .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter'><path d='M3 38V7.5L7.5 3H38' stroke-width='2.8'/><path d='M9 44V11L11 9H44' stroke-width='1.3'/><g stroke-width='1.2'><circle cx='19' cy='19' r='3.6'/><circle cx='26.5' cy='19' r='3.6'/><circle cx='19' cy='26.5' r='3.6'/></g><path d='M38 3l4 4-4 4' stroke-width='1.3'/><path d='M3 38l4 4 4-4' stroke-width='1.3'/><g stroke-width='1' stroke-linecap='round'><path d='M14 15l4-4 4 4M24 15l4-4 4 4M34 15l4-4 4 4'/><path d='M15 14l-4 4 4 4M15 24l-4 4 4 4M15 34l-4 4 4 4'/></g><g stroke-width='1.4' stroke-linecap='round'><path d='M7 7h.1M12 4h.1M4 12h.1'/></g></g></svg>"); }
+body.mc-theme-ranger .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M5.5 50 C4.2 40 5.4 30 9.6 22' stroke-width='2.8'/><path d='M9.6 22 C13.4 14.6 20 8.8 28.5 6' stroke-width='2.1'/><path d='M28.5 6 C34.5 4 40 3.6 46 4.4' stroke-width='1.3'/><path d='M46 4.4 C50.4 5 52.6 7.6 52 11 C51.6 13.4 49.6 15 47.4 14.6' stroke-width='0.9'/><path d='M12.4 17.6 C13.2 24 14.4 29.6 17.6 34.6' stroke-width='1.3'/><path d='M17.6 34.6 C20.4 39 19.6 43.4 16 44.6 C13.4 45.4 11.4 43.8 11.6 41.6 C11.8 40 13.2 39 14.6 39.4' stroke-width='0.9'/><path d='M7.4 33 C10 30.4 13.6 30 16.4 31.6' stroke-width='1'/><path d='M16.4 31.6 C18.6 33 19.2 35.6 18 37.6' stroke-width='0.8'/><g stroke-width='0.9'><path d='M6.6 46 C3.4 45.2 2.4 42 4.4 39.6 C6 37.6 9 37.8 10.2 40'/><path d='M10.2 40 C12.6 38.4 15.6 39.6 16 42.4 C16.4 45 14.2 47.2 11.4 46.8'/></g><path d='M20 8.6 C24.4 5.2 30.6 4.2 36 5.6 C31.6 9.6 25.4 10.8 20 8.6z' stroke-width='0.9'/></g></svg>"); }
+body.mc-theme-rogue .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 40V3h37' stroke-width='3'/><path d='M8.5 45V8.5h37' stroke-width='1.5'/><path d='M13 49.5V13h6.5' stroke-width='1.2'/><path d='M49.5 13H43' stroke-width='1.2'/><path d='M14 32A18 18 0 0 0 32 14' stroke-width='1'/><path d='M14 26A12 12 0 0 0 26 14' stroke-width='1.4'/><g stroke-linecap='round'><path d='M14 19v9' stroke-width='1.6'/><path d='M16.9 18.3L20.4 26.4' stroke-width='1.3'/><path d='M19.5 19.5L23.2 23.2' stroke-width='1.6'/><path d='M18.3 16.9L26.4 20.4' stroke-width='1.3'/><path d='M19 14h9' stroke-width='1.6'/></g><g stroke-linecap='butt' stroke-width='0.9'><path d='M14 34v6'/><path d='M20.1 32.1l4.3 4.3'/><path d='M34 14h6'/><path d='M32.1 20.1l4.3 4.3'/></g><g stroke-width='1'><path d='M3 44h4v-4M3 52h8v-8'/><path d='M44 3v4h-4M52 3v8h-8'/></g></g></svg>"); }
+body.mc-theme-sorcerer .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M5.5 50 C4.2 40 5.4 30 9.6 22' stroke-width='2.8'/><path d='M9.6 22 C13.4 14.6 20 8.8 28.5 6' stroke-width='2.1'/><path d='M28.5 6 C34.5 4 40 3.6 46 4.4' stroke-width='1.3'/><path d='M46 4.4 C50.4 5 52.6 7.6 52 11 C51.6 13.4 49.6 15 47.4 14.6' stroke-width='0.9'/><path d='M12.4 17.6 C13.2 24 14.4 29.6 17.6 34.6' stroke-width='1.3'/><path d='M17.6 34.6 C20.4 39 19.6 43.4 16 44.6 C13.4 45.4 11.4 43.8 11.6 41.6 C11.8 40 13.2 39 14.6 39.4' stroke-width='0.9'/><path d='M7.4 33 C10 30.4 13.6 30 16.4 31.6' stroke-width='1'/><path d='M16.4 31.6 C18.6 33 19.2 35.6 18 37.6' stroke-width='0.8'/><g stroke-width='0.9'><path d='M6.6 46 C3.4 45.2 2.4 42 4.4 39.6 C6 37.6 9 37.8 10.2 40'/><path d='M10.2 40 C12.6 38.4 15.6 39.6 16 42.4 C16.4 45 14.2 47.2 11.4 46.8'/></g><path d='M20 8.6 C24.4 5.2 30.6 4.2 36 5.6 C31.6 9.6 25.4 10.8 20 8.6z' stroke-width='0.9'/></g></svg>"); }
+body.mc-theme-tide .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M3 12A9 9 0 0 1 12 3' stroke-width='2.4'/><path d='M3 20A17 17 0 0 1 20 3' stroke-width='1.7'/><path d='M3 27A24 24 0 0 1 27 3' stroke-width='1.4'/><path d='M3 34A31 31 0 0 1 34 3' stroke-width='1.1'/><g stroke-width='0.9' transform='translate(13,34) scale(0.62)'><path d='M0 -9V9M-7.8 -4.5L7.8 4.5M-7.8 4.5L7.8 -4.5'/><path d='M0 -9L-7.8 -4.5L-7.8 4.5L0 9L7.8 4.5L7.8 -4.5Z'/><path d='M0 0L-7.8 -4.5M0 0L7.8 -4.5M0 0L-7.8 4.5M0 0L7.8 4.5'/></g><g stroke-width='0.8'><path d='M3 41A38 38 0 0 1 41 3'/><path d='M3 48A45 45 0 0 1 48 3'/></g><g stroke-width='1.1'><path d='M40 6.5h14'/><path d='M44.5 4.5v4M49.5 4.5v4'/><path d='M46 11c2.6 0 4.6 1.6 5.6 4' stroke-linecap='round'/></g></g></svg>"); }
+body.mc-theme-warlock .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter'><path d='M3 38V7.5L7.5 3H38' stroke-width='2.8'/><path d='M9 44V11L11 9H44' stroke-width='1.3'/><g stroke-width='1.2'><circle cx='19' cy='19' r='3.6'/><circle cx='26.5' cy='19' r='3.6'/><circle cx='19' cy='26.5' r='3.6'/></g><path d='M38 3l4 4-4 4' stroke-width='1.3'/><path d='M3 38l4 4 4-4' stroke-width='1.3'/><g stroke-width='1' stroke-linecap='round'><path d='M14 15l4-4 4 4M24 15l4-4 4 4M34 15l4-4 4 4'/><path d='M15 14l-4 4 4 4M15 24l-4 4 4 4M15 34l-4 4 4 4'/></g><g stroke-width='1.4' stroke-linecap='round'><path d='M7 7h.1M12 4h.1M4 12h.1'/></g></g></svg>"); }
+body.mc-theme-wizard .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 40V3h37' stroke-width='3'/><path d='M8.5 45V8.5h37' stroke-width='1.5'/><path d='M13 49.5V13h6.5' stroke-width='1.2'/><path d='M49.5 13H43' stroke-width='1.2'/><path d='M14 32A18 18 0 0 0 32 14' stroke-width='1'/><path d='M14 26A12 12 0 0 0 26 14' stroke-width='1.4'/><g stroke-linecap='round'><path d='M14 19v9' stroke-width='1.6'/><path d='M16.9 18.3L20.4 26.4' stroke-width='1.3'/><path d='M19.5 19.5L23.2 23.2' stroke-width='1.6'/><path d='M18.3 16.9L26.4 20.4' stroke-width='1.3'/><path d='M19 14h9' stroke-width='1.6'/></g><g stroke-linecap='butt' stroke-width='0.9'><path d='M14 34v6'/><path d='M20.1 32.1l4.3 4.3'/><path d='M34 14h6'/><path d='M32.1 20.1l4.3 4.3'/></g><g stroke-width='1'><path d='M3 44h4v-4M3 52h8v-8'/><path d='M44 3v4h-4M52 3v8h-8'/></g></g></svg>"); }
 
 /* Per-theme corner motif — sits in the slot the skeletons keep clear. */
-body.mc-theme-slate .mc-frame {
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.6'><rect x='19' y='19' width='12' height='12' rx='2.4'/><rect x='22.6' y='22.6' width='4.8' height='4.8' rx='1.2'/></g></svg>");
+body.mc-theme-gothic .mc-frame {
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M25 12l9 11v14H16V23z' stroke-width='1.4'/><circle cx='25' cy='24' r='6.6' stroke-width='1.6'/><circle cx='25' cy='24' r='2.4' stroke-width='1.2'/><path d='M25 17.4v13.2M18.4 24h13.2M20.3 19.3l9.4 9.4M29.7 19.3l-9.4 9.4' stroke-width='0.9'/><path d='M20 37V31a5 5 0 0 1 10 0v6' stroke-width='1.2'/></g></svg>");
 }
 body.mc-theme-frost .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'><path d='M25 15v20M16.4 20l17.2 10M16.4 30l17.2-10'/><path d='M25 19.6l-2.8-2.8M25 19.6l2.8-2.8M25 30.4l-2.8 2.8M25 30.4l2.8 2.8'/><path d='M20.4 22.6l-3.9-1M20.4 27.4l-3.9 1M29.6 22.6l3.9-1M29.6 27.4l3.9 1'/></g></svg>");
@@ -2473,25 +2520,25 @@ body.mc-theme-artificer .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><circle cx='25' cy='25' r='8.8' stroke-width='1.3'/><circle cx='25' cy='25' r='6.2' stroke-width='1.3'/><circle cx='25' cy='25' r='7.5' stroke-width='2.6' stroke-dasharray='2.3 3.1'/><circle cx='25' cy='25' r='3' stroke-width='1.5'/></g></svg>");
 }
 body.mc-theme-barbarian .mc-frame {
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M19.5 32.5L30.5 21.5'/><path d='M30.5 21.5c2.4-2.8 6.4-3 8.8-.4-2.6 2.6-6.4 2.8-8.8.4z'/><path d='M19.5 32.5c-2.4 2.8-6.4 3-8.8.4 2.6-2.6 6.4-2.8 8.8-.4z'/></g></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M17 13.5h16v23H17z' stroke-width='1.2'/><path d='M25 17.4v15.2' stroke-width='2.4'/><path d='M25 24.6L19.6 18.4M25 24.6l5.4-6.2' stroke-width='2.4'/><path d='M25 17.4l-3.6 3.8M25 17.4l3.6 3.8' stroke-width='1.6'/><path d='M20 34.4h10' stroke-width='1.2'/></g></svg>");
 }
 body.mc-theme-bard .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M19.5 32.5c-3.2-3.2-2.4-8.6 1.8-12.2 4.2-3.6 9.4-3.8 12-.8' stroke-width='1.8'/><path d='M23.5 28.5c0-4.4 3.4-7.8 7.8-8.4' stroke-width='1.1'/><path d='M26.5 31.5c0-5.4 4-9.8 9-10.4' stroke-width='1.1'/></g></svg>");
 }
 body.mc-theme-cleric .mc-frame {
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><circle cx='25' cy='25' r='4' stroke-width='1.8'/><path d='M25 15.6v3.6M25 30.8v3.6M15.6 25h3.6M30.8 25h3.6' stroke-width='1.4'/><path d='M18.4 18.4l2.6 2.6M29 29l2.6 2.6M31.6 18.4L29 21M21 29l-2.6 2.6' stroke-width='1.2'/></g></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M17 14h16v5.5a8 8 0 0 1-16 0z' stroke-width='1.6'/><path d='M25 27.5V35' stroke-width='1.8'/><path d='M19.5 35.5h11' stroke-width='1.6'/><path d='M21 17.5c2.6 1.4 5.4 1.4 8 0' stroke-width='1'/></g></svg>");
 }
 body.mc-theme-druid .mc-frame {
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M16 34c0-9.4 7.6-17 17-17 0 9.4-7.6 17-17 17z' stroke-width='1.8' stroke-linejoin='round'/><path d='M16.5 33.5C21.5 28.5 27.5 22.5 32.5 17.5' stroke-width='1.1'/></g></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M15.5 35.5c3.5-9 9.5-15.5 19-19' stroke-width='1.6'/><path d='M22 29c-2.5-3.5-1.5-8 2.5-10.5 1.5 4.5.5 8.5-2.5 10.5z' stroke-width='1.5'/><path d='M27.5 23.5c-1-4 1.5-7.8 6-8.6.2 4.6-2.2 7.8-6 8.6z' stroke-width='1.5'/><path d='M19.5 32.5c-4-.5-6.6-3.6-6.4-7.8 4 1.2 6.2 4 6.4 7.8z' stroke-width='1.5'/></g></svg>");
 }
 body.mc-theme-fighter .mc-frame {
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M25 14.8c3.2 2.2 6.4 2.8 9.4 2.8 0 8.4-3.2 14.8-9.4 18.4-6.2-3.6-9.4-10-9.4-18.4 3 0 6.2-.6 9.4-2.8z' stroke-width='1.8'/><path d='M20.2 24.4c2.6 0 3.9 1.6 4.8 3 .9-1.4 2.2-3 4.8-3' stroke-width='1.3'/></g></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M15 35L31 19' stroke-width='2'/><path d='M31 19l4-6-6 4' stroke-width='1.6'/><path d='M35 35L19 19' stroke-width='2'/><path d='M19 19l-4-6 6 4' stroke-width='1.6'/><path d='M17.6 32.4l4-4M32.4 32.4l-4-4' stroke-width='1.3'/></g></svg>");
 }
 body.mc-theme-monk .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'><path d='M25 34.5c-5.2 0-9.4-3.8-9.4-8.4 3.2 1.5 5.6 1.7 9.4 1.7s6.2-.2 9.4-1.7c0 4.6-4.2 8.4-9.4 8.4z'/><path d='M25 27.6c-2.7-3.1-2.7-7.3 0-10.4 2.7 3.1 2.7 7.3 0 10.4z'/><path d='M25 27.6c-3.5-1.5-6.2-4.2-7.3-7.7 3.5.6 6.2 2.7 7.3 7.7z'/><path d='M25 27.6c3.5-1.5 6.2-4.2 7.3-7.7-3.5.6-6.2 2.7-7.3 7.7z'/></g></svg>");
 }
 body.mc-theme-paladin .mc-frame {
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M25 14.6c3.2 2.2 6.4 2.8 9.6 2.8 0 8.6-3.2 15-9.6 18.6-6.4-3.6-9.6-10-9.6-18.6 3.2 0 6.4-.6 9.6-2.8z' stroke-width='1.8'/><path d='M25 20v10.4M20.6 24.4h8.8' stroke-width='1.5'/></g></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><circle cx='25' cy='25' r='5' stroke-width='1.8'/><circle cx='25' cy='25' r='7.4' stroke-width='1'/><path d='M25 12.6v4.6M25 32.8v4.6M12.6 25h4.6M32.8 25h4.6' stroke-width='1.8'/><path d='M16.2 16.2l3.3 3.3M30.5 30.5l3.3 3.3M33.8 16.2l-3.3 3.3M19.5 30.5l-3.3 3.3' stroke-width='1.5'/><path d='M20.2 13.4l1.8 4.3M28 32.3l1.8 4.3M13.4 29.8l4.3-1.8M32.3 22l4.3-1.8' stroke-width='1'/></g></svg>");
 }
 body.mc-theme-ranger .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M16.5 34.5c0-10 8-18 18-18' stroke-width='2.2'/><path d='M16.5 34.5c8-2 16-10 18-18' stroke-width='1'/><path d='M20.5 31.5l9.6-9.6' stroke-width='1.4'/><path d='M30.1 21.9l-1.2-3.2 3.2 1.2' stroke-width='1.2' stroke-linejoin='round'/></g></svg>");
@@ -2508,6 +2555,8 @@ body.mc-theme-warlock .mc-frame {
 body.mc-theme-wizard .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='round'><path d='M25 15l2.7 6.3 6.3 1.9-6.3 1.9L25 31.4l-2.7-6.3-6.3-1.9 6.3-1.9L25 15z' stroke-width='1.6'/><path d='M33.6 31.6c-2.5 0-4.5-2-4.5-4.5' stroke-width='1.2' stroke-linecap='round'/></g></svg>");
 }
+
+/* Per-theme corner motif — sits in the slot the skeletons keep clear. */
 
 /* Per-theme corner motif — the shared skeleton does the structure (UI-BIBLE 11). */
 /* Per-theme corner art. */
@@ -2665,7 +2714,11 @@ body.mc-theme-wizard .mc-frame {
    gears, leaves) via --mc-bar-pat. The pattern sits UNDER the title text — keep it faint. */
 #mobile-command-shell .mc-section-label {
   display: block;
-  background-image: var(--mc-bar-pat, none), linear-gradient(var(--mc-bar-top), var(--mc-bar-bot));
+  /* Casing is the FACE's business. Blackletter capitals are famously illegible — gothic's
+     "FAVORITES" came out as noise — so a theme whose face demands sentence case says so
+     (--mc-title-case: none). Extravagant is fine; unreadable is not (UI-BIBLE §11.3). */
+  text-transform: var(--mc-title-case, uppercase);
+  background-image: var(--mc-bar-pat, none), linear-gradient(var(--mc-bar-angle, 180deg), var(--mc-bar-top), var(--mc-bar-bot));
   /* The tile scales to the bar's HEIGHT and repeats only across it. Left to tile freely, an
      18px motif wrapped to a cropped second row on a 26px bar and read as a string of beads. */
   background-repeat: repeat-x, no-repeat;
@@ -2675,7 +2728,7 @@ body.mc-theme-wizard .mc-frame {
   margin: 6px 0 10px; padding: 5px 10px;
   border: 1px solid var(--mc-bar-edge); border-radius: calc(5px * var(--mc-round, 1));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
-  letter-spacing: .06em;
+  letter-spacing: var(--mc-title-track, .06em);
 }
 
 /* ============================================================
