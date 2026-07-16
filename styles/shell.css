@@ -3415,10 +3415,11 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   font-size: 13px; color: var(--mc-muted); background: var(--mc-panel-2); border: 1px solid var(--mc-edge); }
 .mc-dt-new-save { flex: 1 1 auto; min-height: 40px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 800;
   color: #10221a; background: linear-gradient(#5cc98a, #34a869); border: 1px solid #5cc98a; }
-.mc-dt-rollbtn { width: 100%; margin-top: 6px; min-height: 44px; border-radius: 9px; cursor: pointer; font-size: 14px; font-weight: 800;
-  color: #1a1712; background: linear-gradient(#6fb0ee, #b98a1e); border: 1px solid #6fb0ee;
+.mc-dt-rollbtn { width: 100%; margin-top: 8px; min-height: 46px; border-radius: 9px; cursor: pointer; font-size: 15px; font-weight: 800;
+  color: #1a1712; background: linear-gradient(#e0c063, #c8a44d); border: 1px solid #d9b95a;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-.mc-dt-rollbtn:active { filter: brightness(1.08); }
+.mc-dt-rollbtn:active { filter: brightness(1.06); }
+.mc-dt-rollbtn i { color: #6b520f; }
 
 /* ── §17 Downtime — DM panel (per-player tabs, grayed until locked) ── */
 .mc-dt-panel { display: flex; flex-direction: column; gap: 8px; }
@@ -3496,12 +3497,15 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-pickbtn:active { background: #2a2418; border-color: #c8a44d; }
 
 /* §17.7 downtime v2 — DM tab */
-.mc-dt-sizes { display: flex; flex-direction: column; gap: 8px; }
-.mc-dt-openbtn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border-radius: 10px; cursor: pointer;
-  background: #1a1712; border: 1px solid #4a4334; color: #ece5d6; text-align: left; width: 100%; }
-.mc-dt-openbtn:hover { background: #2a2418; border-color: #c8a44d; }
-.mc-dt-openbtn b { font-size: 14px; font-weight: 800; }
-.mc-dt-openbtn small { font-size: 11px; color: var(--mc-muted); }
+.mc-dt-sizes { display: flex; gap: 6px; }
+.mc-dt-openbtn { flex: 1 1 0; min-height: 40px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700;
+  color: #ece5d6; background: #1a1c24; border: 1px solid #3a3f4c; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.mc-dt-openbtn:hover { border-color: #c8a44d; color: #e6c46a; }
+.mc-dt-openbtn i { color: #c8a44d; }
+.mc-dt-sizehint { font-size: 11px; color: var(--mc-muted); margin: 6px 0 0; text-align: center; }
+.mc-dt-newbtn { padding: 0 10px; height: 26px; border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 700;
+  color: #cfe0f5; background: #17202e; border: 1px solid #35507a; display: inline-flex; align-items: center; gap: 5px; }
+.mc-dt-newbtn:hover, .mc-dt-newbtn.mc-on { border-color: #6fa0e0; background: #1f2c3e; }
 /* "Set the rule" — the DM's clear next step on a player-created activity. */
 .mc-dt-setrule { width: 100%; margin-top: 6px; min-height: 38px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700;
   color: #ece5d6; background: #2a2418; border: 1px solid #c8a44d; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }

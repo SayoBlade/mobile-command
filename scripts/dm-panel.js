@@ -138,11 +138,12 @@ function catalogHTML(st) {
         <input class="mc-dt-tmplname" type="text" placeholder="Activity name — e.g. Learning a Sword" maxlength="80">
         <div class="mc-dt-addbtns"><button class="mc-dt-add-cancel" data-dt-tmpl-cancel>Cancel</button><button class="mc-dt-add-save" data-dt-tmpl-save>Add</button></div>
       </div>`
-    : `<button class="mc-dt-addtask" data-dt-tmpl-new><i class="fas fa-plus"></i> New activity</button>`;
+    : "";
   const seed = !templates.length && !dtNewTmplOpen ? `<button class="mc-dt-seedbtn" data-dt-seed><i class="fas fa-wand-sparkles"></i> Add a few examples</button>` : "";
   return `<div class="mc-dt-catalog">
-    <div class="mc-dt-cat-head"><span>Activities</span><span class="mc-dt-cat-hint">players pick from these</span></div>
-    ${rows}${adder}${seed}
+    <div class="mc-dt-cat-head"><span>Activities</span>
+      <button class="mc-dt-newbtn ${dtNewTmplOpen ? "mc-on" : ""}" data-dt-tmpl-new><i class="fas fa-plus"></i> New</button></div>
+    ${adder}${rows}${seed}
   </div>`;
 }
 function downtimeHTML() {
@@ -153,11 +154,11 @@ function downtimeHTML() {
     ? `<div class="mc-dt-openhead"><span><b>Downtime open</b> — ${win.size === "long" ? "a day or more" : "a few hours"}</span>
         <button class="mc-dt-close-btn" data-dt-end title="Close the downtime window — this does NOT advance time"><i class="fas fa-xmark"></i> Close</button></div>`
     : `<div class="mc-dt-setup">
-        <p class="mc-dt-hint">Start downtime, then your players pick what they want to do on their phones. You set each one's rule and push the rolls.</p>
         <div class="mc-dt-sizes">
-          <button class="mc-dt-openbtn" data-dt-open="short"><b>Start a short downtime</b><small>a watch, an evening, a few hours</small></button>
-          <button class="mc-dt-openbtn" data-dt-open="long"><b>Start a long downtime</b><small>a day, or several days in a hub</small></button>
-        </div></div>`;
+          <button class="mc-dt-openbtn" data-dt-open="short"><i class="fas fa-hourglass-half"></i> Short downtime</button>
+          <button class="mc-dt-openbtn" data-dt-open="long"><i class="fas fa-hourglass-start"></i> Long downtime</button>
+        </div>
+        <p class="mc-dt-sizehint">Short — a watch or an evening · Long — a day or more in a hub</p></div>`;
 
   // Only characters who are IN the scene — off-scene PCs are hidden here and excluded from the
   // party rest (DM 2026-07-13: "hide out of scene characters… I don't see the use case").
