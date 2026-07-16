@@ -2113,6 +2113,29 @@ function itemPilesReady() {
   return !!(game.modules.get("item-piles")?.active && game.itempiles?.API);
 }
 
+// Item-filter list for a corpse pile: Item Piles' own filters PLUS a natural-weapon exclusion at
+// the path dnd5e 5.x actually uses (DM 2026-07-16: "don't allow looting natural weapons").
+// Why we override: IP ships a `system.weaponType: natural` filter, but that's the dnd5e-3.x path —
+// on 5.3.3 the weapon type moved to `system.type.value`, so IP's filter matches nothing and every
+// Bite/Claw/Rend lands in the pile (verified live: system.weaponType=null, system.type.value=natural).
+// We keep IP's configured filters and append ours, so the DM's own settings still apply.
+// NB: `overrideItemFilters` REPLACES the global list (item-piles.js: `pileData?.overrideItemFilters
+// ? cleanItemFilters(pileData.overrideItemFilters) : cleanItemFilters(API.ITEM_FILTERS)`), so we
+// must carry the DM's own filters over rather than send ours alone.
+function corpseItemFilters() {
+  let base = [];
+  try { base = foundry.utils.deepClone(game.itempiles?.API?.ITEM_FILTERS ?? game.settings.get("item-piles", "itemFilters") ?? []); }
+  catch (e) { /* fall through to ours alone */ }
+  if (!Array.isArray(base)) base = [];
+  const path = "system.type.value";
+  const existing = base.find(f => f?.path === path);
+  if (existing) {
+    const parts = String(existing.filters || "").split(",").map(s => s.trim()).filter(Boolean);
+    if (!parts.includes("natural")) { parts.push("natural"); existing.filters = parts.join(","); }
+  } else base.push({ path, filters: "natural" });
+  return base;
+}
+
 // The visible "this NPC is dead" marker, applied to a placed token document. Shared by the
 // standalone dead-marking path AND the auto-loot tail so they never diverge:
 //   1. a skull OVERLAY (the big centred marker, not a corner icon) — it's a token/actor status,
@@ -2201,7 +2224,7 @@ async function maybeAutoLoot(actor) {
       w: tokenDoc.width, h: tokenDoc.height
     };
     await API.turnTokensIntoItemPiles(tokenDoc, {
-      pileSettings: { type: "pile", deleteWhenEmpty: false },
+      pileSettings: { type: "pile", deleteWhenEmpty: false, overrideItemFilters: corpseItemFilters() },
       tokenSettings: { name: `${corpseName} (dead)`, hidden: false }
     });
     // Restore the corpse's own art/name/size (IP overrides tokenSettings), now AND after a beat in
