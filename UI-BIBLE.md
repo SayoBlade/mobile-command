@@ -365,10 +365,14 @@ must not change any hit target.
   twinkle), ember→sorcerer (keeps the glow).
 - **Taper with stepped segments + round caps** — SVG strokes can't taper natively. Thin at the free
   ends, heaviest into the elbow.
-- **The swatch carries a badge.** Each theme's colour dot holds a line-art icon of what it *is* —
-  sword for fighter, shield+cross for paladin, wand for wizard, lotus for monk (DM 2026-07-17).
-  Dark ink (`rgba(0,0,0,.62)`) so it reads on any dot colour. The colour arrives as
-  `background-color` — never the `background` shorthand, which erases the badge.
+- **The swatch IS the icon.** Each theme's tile is a line-art icon of what it *is* — sword for
+  fighter, shield+cross for paladin, wand for wizard, lotus for monk — drawn big and heavy in the
+  theme's own colour (DM 2026-07-17). There is **no coloured disc**: a badge inside a 30px dot was
+  ~20px of hairline art and unreadable. Dropping the disc buys the icon the whole tile.
+  It's a `mask-image`, so the inline `background-color` paints it — never the `background`
+  shorthand, which erases the mask.
+
+> **An icon inside a swatch is two things fighting for one 44px tile.** Make the icon the swatch.
 - **Double outline reads better than one line.** Two concentric strokes with the detail *between*
   them (the artificer's gear: two rings, dashed teeth between, a hub) look drawn rather than
   clip-arted. The DM asked for this by name.

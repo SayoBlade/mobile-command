@@ -139,8 +139,8 @@ FAMILY = {
 # ---------------------------------------------------------------- swatch icons
 # A tiny line-art badge inside each colour dot (DM: "sword for fighter, shield with cross for
 # paladin, wand for mage"). 24-grid, dark ink so it reads on any dot colour.
-INK = "rgba(0,0,0,0.62)"
-def ico(body, w="1.6"):
+INK = "black"   # a MASK: alpha is what matters, so full black = fully painted
+def ico(body, w="2.2"):
     return ("url(\"data:image/svg+xml;utf8,<svg xmlns=%shttp://www.w3.org/2000/svg%s "
             "viewBox=%s0 0 24 24%s><g fill=%snone%s stroke=%s%s%s stroke-width=%s%s%s "
             "stroke-linecap=%sround%s stroke-linejoin=%sround%s>%s</g></svg>\")"
@@ -181,7 +181,7 @@ def main():
     # swatch icons
     icos = []
     for k in sorted(ICON):
-        icos.append('.mc-theme-opt[data-theme="%s"] .mc-theme-sw { background-image: %s; }\n' % (k, ICON[k]))
+        icos.append('.mc-theme-opt[data-theme="%s"] .mc-theme-sw { --mc-sw-ico: %s; }\n' % (k, ICON[k]))
     io.open(os.path.join(out, "gen_icons.css"), "w", encoding="utf-8", newline="").write("".join(icos))
     # tavern keeps the scroll family as the base skeleton
     io.open(os.path.join(out, "gen_base_skel.txt"), "w", encoding="utf-8", newline="").write(
