@@ -54,6 +54,14 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 #mc-display-gm-warn b { color: #ffd479; }
 #mc-display-gm-warn .mc-warn-x { display: block; margin-top: 6px; font-size: 12px; opacity: 0.7; }
 
+/* 1px player-colour outline around the whole app (UI-BIBLE §3). It's an overlay, NOT an inset
+   shadow: full-bleed panels (conditions, detail cards) have opaque backgrounds and painted straight
+   over an inset border, breaking the line (DM 2026-07-17: "continue the outline over the conditions
+   region"). Drawn above everything, click-through. */
+#mobile-command-shell::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 100000;
+  border: 1px solid var(--mc-user, transparent);
+}
 #mobile-command-shell {
   position: fixed;
   inset: 0;
@@ -62,9 +70,6 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   flex-direction: column;
   background: #14151a;
   color: #e8e8ec;
-  /* 1px player-colour outline around the whole app (UI-BIBLE §3) — inset so it costs no layout.
-     The one place a player colour is allowed to bound the app. */
-  box-shadow: inset 0 0 0 1px var(--mc-user, transparent);
   font-family: "Signika", sans-serif;
   -webkit-user-select: none;
   user-select: none;
@@ -995,7 +1000,7 @@ body.mc-phone .item-piles-app .item-piles-item-list hr { display: none !importan
   background: #1a1820; border: 1px solid var(--mc-edge);
   color: #4a4654; font-size: 17px; line-height: 1;
 }
-.mc-insp-on { color: #1a1410; background: var(--mc-gold); border-color: var(--mc-gold); }
+.mc-insp-on { color: var(--mc-gold); background: var(--mc-panel-2); border-color: var(--mc-gold); } /* toggle-on: outline, not fill (UI-BIBLE §4.2) */
 
 /* Inspiration rides the name row (right-aligned via its own margin-left:auto);
    the dice-tray D20 rides the stats row, pushed right and vertically centered
@@ -1008,7 +1013,7 @@ body.mc-phone .item-piles-app .item-piles-item-list hr { display: none !importan
   font-size: 15px; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.mc-dtray-btn.mc-on { color: #1a1410; background: var(--mc-gold); border-color: var(--mc-gold); }
+.mc-dtray-btn.mc-on { color: var(--mc-gold); background: var(--mc-panel-2); border-color: var(--mc-gold); } /* toggle-on: outline, not fill (UI-BIBLE §4.2) */
 .mc-dtray-btn:active { background: #2a2730; }
 
 /* Dice tray panel (contextless rolls). Posts a public roll so it shows on the TV
@@ -2225,7 +2230,7 @@ body.mc-theme-arcane .mc-frame { /* rune star */
   background: rgba(0, 0, 0, .22); border: 1px solid rgba(0, 0, 0, .3);
   color: var(--mc-ink); font-size: 14px; line-height: 1;
 }
-.mc-fav-edit.mc-on { background: var(--mc-gold); border-color: var(--mc-gold); color: #1a1410; }
+.mc-fav-edit.mc-on { background: var(--mc-panel-2); border-color: var(--mc-gold); color: var(--mc-gold); } /* toggle-on: outline, not fill (UI-BIBLE §4.2) */
 /* Per-row bookmark: gold when favorited, faint outline otherwise. */
 .mc-action-fav { flex: 0 0 auto; font-size: 15px; color: var(--mc-edge); }
 .mc-action-fav.mc-on { color: var(--mc-gold); }
@@ -2315,7 +2320,9 @@ body.mc-theme-arcane .mc-frame { /* rune star */
   background: rgba(0, 0, 0, .22); border: 1px solid var(--mc-edge);
   color: var(--mc-ink); font-size: 12px; line-height: 1;
 }
-.mc-cond-manage.mc-on { background: var(--mc-gold); border-color: var(--mc-gold); color: #1a1410; }
+/* ON = gold outline + gold glyph, NOT a gold fill. A filled toggle reads as the view's primary and
+   dominates (DM 2026-07-17: "the yellow buttons… way too dominant"). See UI-BIBLE §4.2. */
+.mc-cond-manage.mc-on { background: var(--mc-panel-2); border-color: var(--mc-gold); color: var(--mc-gold); }
 
 .mc-cond-panel {
   flex: 0 0 auto;
@@ -2787,11 +2794,12 @@ body.mc-theme-arcane .mc-frame { /* rune star */
 .mc-search-drawer { display: flex; align-items: center; gap: 8px; margin: 10px 0 10px; }
 /* Equipment's search sits on its own row — its header already has weight + new-item. */
 .mc-eq-searchrow { display: flex; margin: 10px 0 10px; }
+/* A marker, not a control — search is always open, so the glass just labels the field. */
 .mc-search-ico {
-  flex: 0 0 auto; width: 42px; height: 42px; border-radius: 10px; cursor: pointer;
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; border-radius: 10px;
   background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-muted);
 }
-.mc-search-ico:active { color: var(--mc-ink); }
 .mc-search-input {
   flex: 1 1 auto; min-width: 0; box-sizing: border-box; min-height: 42px;
   padding: 9px 12px; border-radius: 10px; background: var(--mc-panel); border: 1px solid var(--mc-edge);
@@ -3045,10 +3053,14 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 
 /* Long-press details card: icon + subtitle, then the item's Foundry description
    (enriched HTML). Lives in the scrollable content area below the picker head. */
-.mc-detail { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 16px; }
+/* A detail card is a READING surface — err large (UI-BIBLE §10). Without a floor it collapsed to
+   the height of its text: a condition with no description rendered a ~109px stub that read like a
+   toast (DM 2026-07-17). min-height gives every card presence; rich cards still grow past it.
+   Icon/glyph up 50% (56→84, 26→39) per the same note. */
+.mc-detail { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 16px; min-height: 55vh; }
 .mc-detail-head { display: flex; align-items: center; gap: 12px; }
-.mc-detail-icon { width: 56px; height: 56px; flex: 0 0 auto; border-radius: 9px; object-fit: cover; object-position: top; border: 1px solid var(--mc-edge); background: #0c0d11; }
-.mc-detail-glyph { display: flex; align-items: center; justify-content: center; color: var(--mc-gold); font-size: 26px; }
+.mc-detail-icon { width: 84px; height: 84px; flex: 0 0 auto; border-radius: 9px; object-fit: cover; object-position: top; border: 1px solid var(--mc-edge); background: #0c0d11; }
+.mc-detail-glyph { display: flex; align-items: center; justify-content: center; color: var(--mc-gold); font-size: 39px; }
 .mc-detail-headtext { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mc-detail-sub { color: var(--mc-muted); font-size: 13px; text-transform: capitalize; }
 /* Mechanical stats line (spell time/range/components, weapon damage/properties…). */

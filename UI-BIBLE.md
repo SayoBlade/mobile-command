@@ -131,6 +131,26 @@ sizes/gaps inside one group is a bug, not a style (DM 2026-07-16, profile tab).
   **symmetric padding** — lopsided padding reads as a layout bug (DM 2026-07-16: the Lvl chip had
   11px right vs 6px left). A **control** in a row stretches with its peers.
 
+### 4.2 A toggle is not a primary — gold fill is rationed
+
+**A solid gold fill means "this is THE action". Nothing else may wear it.**
+
+An active toggle is **gold outline + gold glyph on a dark fill** — never a gold block:
+
+```css
+/* ON */ background: var(--mc-panel-2); border-color: var(--mc-gold); color: var(--mc-gold);
+```
+
+Why: toggle-on states (inspiration, dice tray, favourites-edit, add-condition) all used a solid gold
+fill, so every toggle looked like the view's primary and the screen shouted (DM 2026-07-17: *"the
+yellow buttons… way too dominant"*). Gold is the **loudest** thing we own — spend it once per view.
+
+**Small non-button indicators** (spell-slot pips, proficiency dots, an encumbrance bar) may keep a
+gold fill: they're marks, not controls, and read as data. If it can be pressed, it follows the rule
+above.
+
+> Ration test: count the solid-gold objects on screen. More than one? All but the primary are wrong.
+
 ---
 
 ## 5. Marking state

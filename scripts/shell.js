@@ -484,12 +484,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           </div>
         </div>
       </header>
-      ${this.#showLevels ? this.#levelsHTML(actor) : ""}
+      ${this.#showLevels && !this.#detailCard ? this.#levelsHTML(actor) : ""}
       ${this.#statEditorHTML(hp)}
       <div class="mc-conditions">${condHTML}
         <button class="mc-cond-manage ${this.#condEditing ? "mc-on" : ""}" data-action="cond-edit" aria-label="Manage conditions" title="Add or remove conditions"><i class="fas fa-plus"></i></button>
       </div>
-      ${this.#condEditing ? this.#conditionPaletteHTML(actor) : ""}
+      ${this.#condEditing && !this.#detailCard ? this.#conditionPaletteHTML(actor) : ""}
       ${this.#diceTrayOpen ? this.#diceTrayHTML() : ""}
       ${this.#atZeroHP(actor) && this.#deathSaveDismissed
         ? `<button class="mc-death-reopen" data-action="death-reopen"><i class="fas fa-skull"></i> At 0 HP — death saves</button>` : ""}
@@ -2807,12 +2807,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   // Magnifying-glass toggle (sits in a tab header) + the drawer it opens. Used by every
   // searchable tab so the search is tucked away until wanted (DM 2026-06-23).
-  #searchToggleHTML() {
-    // Hidden while open — the drawer carries its own magnifier, so only ONE ever shows and the
-    // pattern is always [🔍][Search…] on one row (UI-BIBLE §6).
-    if (this.#searchOpen) return "";
-    return `<button class="mc-search-toggle" data-action="search-toggle" aria-label="Search" title="Search"><i class="fas fa-magnifying-glass"></i></button>`;
-  }
+  // Search is always open now (DM 2026-07-17: "search can just stay open") — no toggle at all, so
+  // there's nothing to hunt for and nothing to hide. The row is just [🔍][Search…] (UI-BIBLE §6.2).
+  #searchToggleHTML() { return ""; }
   // "+ New item" — a deliberate create/name flow for flavour items (DESIGN §7.6): a player
   // picks up "a few crystal shards" and wants them in their bag, no mechanics. Owner-only.
   // Toggles an INLINE name field in the shell (not a popup — a bottom-sheet dialog fights the
@@ -2839,11 +2836,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ui.notifications?.warn("Couldn't create the item.");
     }
   }
+  // Always on — [🔍][Search…] on one row, the magnifier now purely a marker (UI-BIBLE §6.2).
   #searchDrawerHTML() {
-    if (!this.#searchOpen) return "";
-    // [🔍][Search…] on ONE row (UI-BIBLE §6) — the icon doubles as the close.
     return `<div class="mc-search-drawer">
-      <button class="mc-search-ico" data-action="search-toggle" aria-label="Close search" title="Close search"><i class="fas fa-magnifying-glass"></i></button>
+      <span class="mc-search-ico" aria-hidden="true"><i class="fas fa-magnifying-glass"></i></span>
       <input class="mc-search-input" type="search" placeholder="Search…" value="${foundry.utils.escapeHTML(this.#searchQuery)}" aria-label="Search">
     </div>`;
   }
@@ -2952,7 +2948,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }).join("");
     // Search gets its OWN row here — the header already carries weight + new-item (UI-BIBLE §6.2).
     return `<div class="mc-actions-head mc-eq-head"><span class="mc-section-label">Equipment</span>${this.#carriedWeightHTML(actor)}${this.#newItemBtnHTML()}</div>
-      ${this.#searchOpen ? "" : `<div class="mc-eq-searchrow">${this.#searchToggleHTML()}</div>`}
       ${this.#newItemInputHTML()}${this.#searchDrawerHTML()}${currency}${enc}${sections}`;
   }
 
