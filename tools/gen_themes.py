@@ -33,6 +33,8 @@ def hand(**kw):
     return kw
 
 Q = chr(39)   # single quote, kept out of the literals below for sanity
+# Motifs are authored around (25,25); the slot is (30,30) at ~0.78 scale.
+SLOT = "<g transform='translate(30,30) scale(0.78) translate(-25,-25)'>%s</g>"
 def svg(body):
     return ("url(\"data:image/svg+xml;utf8,<svg xmlns=%shttp://www.w3.org/2000/svg%s "
             "viewBox=%s0 0 64 64%s>%s</svg>\");" % (Q, Q, Q, Q, body))
@@ -111,6 +113,11 @@ def tokens_block(k, font, p):
 
 def frame_block(k, p):
     """Motif only — the ornament is GILDING now.
+
+    The motif is drawn around (25,25) but LIVES in the slot at (30,30) r~7 (see gen_frames.py):
+    the transform moves and shrinks it there. Skeletons are built to keep out of that circle —
+    designing the two halves independently is what had seigaiha arcs slicing through the monk's
+    lotus.
 
     Real gold in every theme (DM 2026-07-17: "use gold for the corner art"), set once on the base
     .mc-frame rule. This supersedes the 2026-07-16 "frame is burgundy, not gold" note: that was

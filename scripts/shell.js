@@ -3466,7 +3466,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ["wizard", "Wizard", "#7f8fe0"]
     ];
     return themes.map(([id, label, sw]) =>
-      `<button class="mc-theme-opt ${cur === id ? "mc-on" : ""}" data-action="set-theme" data-theme="${id}" title="${label}" aria-label="${label}" aria-pressed="${cur === id}"><span class="mc-theme-sw" style="background:${sw}"></span></button>`).join("");
+      `<button class="mc-theme-opt ${cur === id ? "mc-on" : ""}" data-action="set-theme" data-theme="${id}" title="${label}" aria-label="${label}" aria-pressed="${cur === id}"><span class="mc-theme-sw" style="background-color:${sw}"></span></button>`).join("");
   }
 
   // Move pad (§7.4): D-pad steps the player's own token via the move.request

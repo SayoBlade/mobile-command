@@ -335,11 +335,26 @@ must not change any hit target.
 - Ornaments are **SVG masks** filled by a CSS variable, never baked-colour images — that's what lets
   a theme recolour them.
 - **Skeleton + motif, composited.** The ornament is TWO mask layers added together
-  (`mask-composite: add`): a `--mc-frame-skel` every theme shares, and a `--mc-frame-orn` motif per
-  theme. The skeleton carries the craft — a heavy **L-bracket hugging both edges**, a **lighter
-  parallel rule** inside it, and a **spiral volute** terminating each arm. That's the common grammar
-  of a printed corner ornament, and drawing it once means a new theme is *one motif*, not a fresh
-  ornament. Motifs sit at the elbow on the shared 64-unit grid.
+  (`mask-composite: add`): a `--mc-frame-skel` and a per-theme `--mc-frame-orn` motif.
+- **FIVE skeleton families, not one.** One shared skeleton made all 18 corners *the same drawing
+  with a different pin in the middle* (DM 2026-07-17: "too many corner arts are just a curved line
+  with a curved line in it — I don't want them all the same"). Each family follows the real style's
+  grammar, researched rather than invented:
+
+  | Family | Grammar | Themes |
+  |---|---|---|
+  | **deco** | Nested stepped Ls + a quarter sunburst fan over concentric arcs. Straight, stepped, strictly symmetric — Chrysler-building chevrons. | slate, artificer, fighter, rogue, wizard |
+  | **nouveau** | The **asymmetric whiplash** S-curve with a tendril and a bud. *Asymmetry is exactly what separates Art Nouveau from baroque scrollwork* — never mirror it. | druid, bard, ranger, sorcerer |
+  | **japanese** | **Seigaiha** (concentric quarter-arc waves) + an off-diagonal **asanoha** hemp-leaf star. Deliberately off-balance. | monk, tide, frost |
+  | **heraldic** | Mitred arms, trefoil cusp, pointed finials. Architectural and tight. | paladin, cleric, barbarian, warlock |
+  | **scroll** | The ogee bracket with volutes (the original). | tavern, flame |
+
+- **THE MOTIF SLOT.** The motif lives at **(30,30) r≈7** on the 64-grid, and a skeleton must stay
+  OUT of a circle at (30,30) r=9. Design the two halves *together*: the first cut had seigaiha arcs
+  and an asanoha star drawn straight through the monk's lotus, because they were drawn apart.
+- **Straight lines are allowed — monotony isn't.** "Avoid straight lines" meant *don't hold one
+  heading forever*. Deco is straight lines and it's right (DM 2026-07-17: "when I said avoid
+  straight lines I didn't mean ANY lines"). Match the line to the style.
 - **Draw with lines, not blobs.** Outlines and strokes at ornament scale; a filled silhouette reads
   as a sticker (DM 2026-07-17: "more elaborate, using outlines and lines").
 - **Every theme ships its own corner motif and frame colour.** 18 themes: 5 generic (tavern, slate,
@@ -348,9 +363,12 @@ must not change any hit target.
   character* (DM 2026-07-17). The flavour themes that duplicated a class were folded into it rather
   than deleted: clockwork→artificer (gear), verdant→druid (leaf), arcane→warlock (keeps the
   twinkle), ember→sorcerer (keeps the glow).
-- **No long straight runs.** Every arm of the bracket is a cubic that never holds a heading; a
-  straight rule reads as a border, not an ornament (DM 2026-07-17: "avoid straight lines for too
-  long"). Taper with stepped segments + round caps — SVG strokes can't taper natively.
+- **Taper with stepped segments + round caps** — SVG strokes can't taper natively. Thin at the free
+  ends, heaviest into the elbow.
+- **The swatch carries a badge.** Each theme's colour dot holds a line-art icon of what it *is* —
+  sword for fighter, shield+cross for paladin, wand for wizard, lotus for monk (DM 2026-07-17).
+  Dark ink (`rgba(0,0,0,.62)`) so it reads on any dot colour. The colour arrives as
+  `background-color` — never the `background` shorthand, which erases the badge.
 - **Double outline reads better than one line.** Two concentric strokes with the detail *between*
   them (the artificer's gear: two rings, dashed teeth between, a hub) look drawn rather than
   clip-arted. The DM asked for this by name.
