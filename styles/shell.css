@@ -927,10 +927,13 @@ body.mc-phone .item-piles-app .item-piles-item-list hr { display: none !importan
    strip/toast/picker styles. Display font is dnd5e's bundled
    'Modesto Condensed' (loaded globally by the system).
    ============================================================ */
-/* The palette lives on BOTH roots. It used to be scoped to #mobile-command-shell alone, so the
-   DM panel could not see a single token and hardcoded #c8a44d/#1a1712 literals at ~9 sites —
-   that is why the two windows drifted apart. One palette, two roots, no literals. */
-#mobile-command-shell, #mc-dm-panel {
+/* ONE palette, on <body>, inherited by every root: the shell, the DM panel, and lifted dialogs
+   (body-children, so they inherit nothing FROM the shell). It used to be declared three times —
+   shell, DM panel (hardcoded hexes, it couldn't see a token), and .mc-phone-dialog — so every
+   new theme meant writing the palette 3x, and they drifted (the dialog copies never got the CTA
+   tokens at all). Themes override these on body.mc-theme-*; nothing redeclares them on a root.
+   Add a token HERE. */
+body {
   --mc-ink: #ece5d6;
   --mc-muted: #a59b86;
   --mc-gold: #c8a44d;
@@ -1614,23 +1617,9 @@ body.mc-phone .mc-phone-dialog button { min-height: 44px; }
        shares (.window-*, buttons, form fields). Per-module quirks stay as
        their own patches. !important beats dnd5e2 + svelte-scoped CSS.
    ============================================================ */
-body.mc-phone .mc-phone-dialog {
-  --mc-ink: #ece5d6; --mc-muted: #a59b86; --mc-gold: #c8a44d; --mc-crimson: #9b3b34;
-  --mc-panel: #211f24; --mc-panel-2: #2a272e; --mc-edge: #3b3640;
-  --mc-primary: #243042; --mc-primary-edge: #2f4660; --mc-primary-active: #2d3d52; --mc-burgundy: #782e22;
-}
-body.mc-theme-slate.mc-phone .mc-phone-dialog {
-  --mc-gold: #79b8e0; --mc-panel: #1d2330; --mc-panel-2: #262d3c; --mc-edge: #36404f;
-  --mc-primary: #2a3a52; --mc-primary-edge: #3a5374; --mc-primary-active: #34496a;
-}
-body.mc-theme-ember.mc-phone .mc-phone-dialog {
-  --mc-gold: #e2924a; --mc-panel: #251c1a; --mc-panel-2: #2f2421; --mc-edge: #463530;
-  --mc-primary: #4a2b22; --mc-primary-edge: #6a4030; --mc-primary-active: #5c3527;
-}
-body.mc-theme-arcane.mc-phone .mc-phone-dialog {
-  --mc-gold: #b483e0; --mc-panel: #221c2e; --mc-panel-2: #2b2439; --mc-edge: #3e3550;
-  --mc-primary: #3a2c52; --mc-primary-edge: #54407a; --mc-primary-active: #463463;
-}
+/* (a) Token mirror — DELETED 2026-07-17. Dialogs inherit the palette from <body> like every
+   other root now, so there is nothing to mirror and nothing to keep in sync. This block was
+   the reason a theme had to be written twice. */
 
 /* (b) Structural skin. */
 body.mc-phone .mc-phone-dialog {
@@ -1898,11 +1887,18 @@ body.mc-phone .mc-phone-dialog nav.tabs a.active::after { background-color: var(
    container, Actions favorites toggle, burgundy section titles.
    ============================================================ */
 
-#mobile-command-shell, #mc-dm-panel {
+body {
   --mc-primary: #243042;        /* the "Save" blue, now the primary action color */
   --mc-primary-edge: #2f4660;
   --mc-primary-active: #2d3d52;
   --mc-burgundy: #782e22;       /* dnd5e character-sheet header burgundy */
+
+  /* Section title bar — themes re-tint it and may lay a pattern over the gradient
+     (flame licks, snowflakes, gears). --mc-bar-pat is a repeating SVG or `none`. */
+  --mc-bar-top: var(--mc-burgundy);
+  --mc-bar-bot: #5e231a;
+  --mc-bar-edge: #4a1c15;
+  --mc-bar-pat: none;
 
   /* CTA — the one recipe for a committing button (Let's play, Roll, Deploy, Use).
      Was linear-gradient(--mc-gold, #b98a1e) hardcoded at ~9 call sites; the DM read
@@ -1919,24 +1915,77 @@ body.mc-phone .mc-phone-dialog nav.tabs a.active::after { background-color: var(
    Each variant just re-tints the accent (--mc-gold), the panels, and the shell
    background — text stays light and the semantic HP-green/damage-red are untouched.
    "Tavern" is the default (no body class). */
-body.mc-theme-slate #mobile-command-shell {
+/* A theme is a PALETTE on <body> (inherited by shell + DM panel + dialogs) and a shell
+   background. Nothing else. If a theme needs a new rule, it wants a new token instead.
+   Bars may carry a repeating pattern: keep it faint — it sits under white title text. */
+body.mc-theme-slate {
   --mc-gold: #79b8e0; --mc-panel: #1d2330; --mc-panel-2: #262d3c; --mc-edge: #36404f;
   --mc-primary: #2a3a52; --mc-primary-edge: #3a5374; --mc-primary-active: #34496a;
   --mc-cta-top: #2f5f86; --mc-cta-bot: #1f4059; --mc-cta-edge: #4076a3; --mc-cta-ink: #e6f1f9;
-  background: radial-gradient(120% 80% at 50% -10%, #1c2433 0%, #11151c 60%);
+  --mc-bar-top: #2f4660; --mc-bar-bot: #1f3044; --mc-bar-edge: #16222f;
 }
-body.mc-theme-ember #mobile-command-shell {
+body.mc-theme-ember {
   --mc-gold: #e2924a; --mc-panel: #251c1a; --mc-panel-2: #2f2421; --mc-edge: #463530;
   --mc-primary: #4a2b22; --mc-primary-edge: #6a4030; --mc-primary-active: #5c3527;
   --mc-cta-top: #9a4526; --mc-cta-bot: #6b2c15; --mc-cta-edge: #b25732; --mc-cta-ink: #fbeade;
-  background: radial-gradient(120% 80% at 50% -10%, #2a1d17 0%, #16110e 60%);
+  --mc-bar-top: #7a3a1e; --mc-bar-bot: #52240f; --mc-bar-edge: #3d1a0b;
 }
-body.mc-theme-arcane #mobile-command-shell {
+body.mc-theme-arcane {
   --mc-gold: #b483e0; --mc-panel: #221c2e; --mc-panel-2: #2b2439; --mc-edge: #3e3550;
   --mc-primary: #3a2c52; --mc-primary-edge: #54407a; --mc-primary-active: #463463;
   --mc-cta-top: #5b3d8a; --mc-cta-bot: #3d2860; --mc-cta-edge: #7451ab; --mc-cta-ink: #f0e8fa;
-  background: radial-gradient(120% 80% at 50% -10%, #241a33 0%, #14111c 60%);
+  --mc-bar-top: #4a3370; --mc-bar-bot: #31214d; --mc-bar-edge: #241838;
 }
+
+/* --- Themes with a patterned bar (DM 2026-07-17) --- */
+
+/* Flame: yellow-orange, flame licks on the bars. */
+body.mc-theme-flame {
+  --mc-gold: #f0a52e; --mc-panel: #2a1f12; --mc-panel-2: #362818; --mc-edge: #4d3a1f;
+  --mc-primary: #5a3a12; --mc-primary-edge: #7d5219; --mc-primary-active: #6b4515;
+  --mc-cta-top: #c9701a; --mc-cta-bot: #8f4708; --mc-cta-edge: #e08a2b; --mc-cta-ink: #fff3e0;
+  --mc-bar-top: #b4611a; --mc-bar-bot: #7c3a06; --mc-bar-edge: #5c2a04;
+  /* The same silhouette as the corner ornament, cropped tight — the earlier motif had an
+     inner curl that closed into an arch at bar size and read as a row of beads. */
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='19' height='19' viewBox='3.2 3 17.6 19'><path d='M4 17c0-6 4-10 10-13-2.6 3.4-3.6 6-3.6 8.2 0 1.8 1 3 2.6 3 1.3 0 2.2-.9 2.2-2.2 0-1.2-.8-1.8-.8-2.8 1.8 1.2 3 3 3 5.4 0 3.4-2.8 6-6.2 6C7.6 21.6 4 19.8 4 17z' fill='rgba(255,224,160,0.20)'/></svg>");
+}
+
+/* Frost: cold blue, snowflakes in a lighter blue. */
+body.mc-theme-frost {
+  --mc-gold: #8fd3f4; --mc-panel: #16222b; --mc-panel-2: #1e2f3b; --mc-edge: #2f4655;
+  --mc-primary: #1f4459; --mc-primary-edge: #2f6480; --mc-primary-active: #275470;
+  --mc-cta-top: #2b7ba8; --mc-cta-bot: #185f80; --mc-cta-edge: #47a0cc; --mc-cta-ink: #eaf7ff;
+  --mc-bar-top: #2a6d95; --mc-bar-bot: #174a63; --mc-bar-edge: #103548;
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><g fill='none' stroke='rgba(200,240,255,0.30)' stroke-width='1.1' stroke-linecap='round'><path d='M11 3v16M3.5 7l15 8M18.5 7l-15 8'/><path d='M11 6.5l-2-2M11 6.5l2-2M11 15.5l-2 2M11 15.5l2 2'/></g></svg>");
+}
+
+/* Clockwork: gunmetal grey, gears. */
+body.mc-theme-clockwork {
+  --mc-gold: #9aa3ad; --mc-panel: #1e2024; --mc-panel-2: #282b30; --mc-edge: #3d4249;
+  --mc-primary: #33383f; --mc-primary-edge: #4b525b; --mc-primary-active: #3e444c;
+  --mc-cta-top: #5c646e; --mc-cta-bot: #3a4048; --mc-cta-edge: #79828d; --mc-cta-ink: #f0f2f4;
+  --mc-bar-top: #4a515a; --mc-bar-bot: #2f343b; --mc-bar-edge: #22262b;
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><g fill='none' stroke='rgba(220,230,240,0.22)' stroke-width='1.2'><circle cx='12' cy='12' r='3.4'/><circle cx='12' cy='12' r='6.4' stroke-dasharray='2 2.8'/></g></svg>");
+}
+
+/* Verdant: deep green, leaves. */
+body.mc-theme-verdant {
+  --mc-gold: #6fbf73; --mc-panel: #16241a; --mc-panel-2: #1f3124; --mc-edge: #32483a;
+  --mc-primary: #1f4029; --mc-primary-edge: #2f5d3c; --mc-primary-active: #274e33;
+  --mc-cta-top: #2f7a3f; --mc-cta-bot: #1c4d27; --mc-cta-edge: #46a058; --mc-cta-ink: #ecfbee;
+  --mc-bar-top: #2c6b3a; --mc-bar-bot: #17482a; --mc-bar-edge: #103021;
+  /* The corner leaf, cropped tight — the previous motif thinned into diagonal hatching. */
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='17' height='18' viewBox='1.4 1.4 15.2 16.2'><path d='M2 2c0 9 5 15 14 15C16 8 11 2 2 2z' fill='rgba(205,255,210,0.18)'/></svg>");
+}
+
+/* Shell backgrounds — the one per-theme rule that is NOT a token. */
+body.mc-theme-slate #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #1c2433 0%, #11151c 60%); }
+body.mc-theme-ember #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #2a1d17 0%, #16110e 60%); }
+body.mc-theme-arcane #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #241a33 0%, #14111c 60%); }
+body.mc-theme-flame #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #33230f 0%, #1a1208 60%); }
+body.mc-theme-frost #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #172a36 0%, #0d161d 60%); }
+body.mc-theme-clockwork #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #24272c 0%, #131518 60%); }
+body.mc-theme-verdant #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #172a1c 0%, #0d160f 60%); }
 /* Animated theme backgrounds (non-default themes only — default stays flat).
    PERFORMANCE: one pseudo-element per theme, animating ONLY transform or opacity
    (GPU-composited, no per-frame layout/paint), a single rasterized tiled gradient,
@@ -2082,15 +2131,18 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-dmp-react-summon button { min-width: 30px; height: 26px; border-radius: 6px; }
 .mc-colorpick-card { width: 100%; max-width: 340px; background: var(--mc-panel, #1c1922); border: 1px solid var(--mc-gold); border-radius: 16px; padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
 .mc-colorpick-title { font-weight: 800; font-size: 17px; text-align: center; margin-bottom: 16px; color: var(--mc-ink); }
-.mc-colorpick-done { width: 100%; margin-top: 18px; height: 48px; border-radius: 12px; font-weight: 800; font-size: 15px; color: #1a1206; background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border: 1px solid var(--mc-cta-edge); cursor: pointer; }
-.mc-theme-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
-/* height (not min-height) + flex centring + nowrap = every chip is exactly 40px on any
-   width/browser, so the selected one can't read as taller and the other three "shorter". */
-.mc-theme-opt { flex: 1 1 0; min-width: 64px; height: 40px; display: flex; align-items: center; justify-content: center; white-space: nowrap;
-  border-radius: 10px; font-size: 13px; font-weight: 600;
-  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
-.mc-theme-opt.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); }
-.mc-theme-sw { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(255,255,255,.25); }
+.mc-colorpick-done { width: 100%; margin-top: 18px; height: 48px; border-radius: 12px; font-weight: 800; font-size: 15px; color: var(--mc-cta-ink); background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border: 1px solid var(--mc-cta-edge); cursor: pointer; }
+.mc-theme-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* Swatches only — no names (DM 2026-07-17). Icon-only ⇒ SQUARE and 44px, per UI-BIBLE §4.1;
+   fixed size (not flex: 1 1 0) so the row reads as a palette of equal dots however many
+   themes exist, instead of chips that re-stretch each time one is added. */
+.mc-theme-opt { flex: 0 0 auto; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; cursor: pointer;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); }
+.mc-theme-opt.mc-on { border-color: var(--mc-gold); }
+.mc-theme-sw { display: block; width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(255,255,255,.25); }
+/* The selected dot wears the ring — the only state marking a dot can carry (§5). */
+.mc-theme-opt.mc-on .mc-theme-sw { box-shadow: 0 0 0 2px var(--mc-panel), 0 0 0 3.5px var(--mc-gold); }
 
 /* Primary (blue) buttons — Save (already), Use (not the red Roll-damage /
    disabled states), rests, and the orthogonal D-pad arrows. Check buttons,
@@ -2145,21 +2197,27 @@ body.mc-theme-arcane #mobile-command-shell {
 .mc-frame {
   --mc-frame: var(--mc-burgundy, #782e22);
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M1 8c0-4 3-7 7-7h6v2H9c-3.5 0-6 2.5-6 6v5H1V8z M6 13c0-3 2-5 5-5h3v2h-2.5C9 10 8 11 8 13v3H6v-3z M14 5c1.7 0 3 1.3 3 3s-1.3 3-3 3-3-1.3-3-3 1.3-3 3-3z m0 2c-.6 0-1 .4-1 1s.4 1 1 1 1-.4 1-1-.4-1-1-1z' fill='black'/></svg>");
+  /* 26px read as a rounding error; 3x is the size the DM asked for (2026-07-17), inset
+     so the art doesn't sit welded into the corner. Tune both HERE — the mirrors follow. */
+  --mc-frame-c-size: 78px;
+  --mc-frame-c-pad: 7px;
   position: relative; padding: 14px 6px; margin: 6px 0 14px;
   border-top: 1px solid var(--mc-frame); border-bottom: 1px solid var(--mc-frame);
 }
 .mc-frame-c {
-  position: absolute; width: 26px; height: 26px; pointer-events: none;
+  position: absolute; pointer-events: none;
+  width: var(--mc-frame-c-size); height: var(--mc-frame-c-size);
   background-color: var(--mc-frame);
   -webkit-mask-image: var(--mc-frame-orn); mask-image: var(--mc-frame-orn);
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
   -webkit-mask-size: contain; mask-size: contain;
 }
-/* One shape, mirrored — that's the whole trick. */
-.mc-frame-c.mc-tl { top: -1px; left: 0; }
-.mc-frame-c.mc-tr { top: -1px; right: 0; transform: scaleX(-1); }
-.mc-frame-c.mc-bl { bottom: -1px; left: 0; transform: scaleY(-1); }
-.mc-frame-c.mc-br { bottom: -1px; right: 0; transform: scale(-1, -1); }
+/* One shape, mirrored — that's the whole trick. Transform-origin stays centred, so the
+   mirrored copies land in their own corners without re-offsetting each one. */
+.mc-frame-c.mc-tl { top: var(--mc-frame-c-pad); left: var(--mc-frame-c-pad); }
+.mc-frame-c.mc-tr { top: var(--mc-frame-c-pad); right: var(--mc-frame-c-pad); transform: scaleX(-1); }
+.mc-frame-c.mc-bl { bottom: var(--mc-frame-c-pad); left: var(--mc-frame-c-pad); transform: scaleY(-1); }
+.mc-frame-c.mc-br { bottom: var(--mc-frame-c-pad); right: var(--mc-frame-c-pad); transform: scale(-1, -1); }
 /* Per-theme corner art. */
 body.mc-theme-slate .mc-frame { /* angular / geometric */
   --mc-frame: #3a5374;
@@ -2172,6 +2230,22 @@ body.mc-theme-ember .mc-frame { /* flame curl */
 body.mc-theme-arcane .mc-frame { /* rune star */
   --mc-frame: #54407a;
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M8 1l1.8 4.2L14 7l-4.2 1.8L8 13l-1.8-4.2L2 7l4.2-1.8L8 1z M16 12l1 2.3 2.3 1-2.3 1-1 2.3-1-2.3-2.3-1 2.3-1 1-2.3z' fill='black'/></svg>");
+}
+body.mc-theme-flame .mc-frame { /* twin flame licks */
+  --mc-frame: #b4611a;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M4 17c0-6 4-10 10-13-2.6 3.4-3.6 6-3.6 8.2 0 1.8 1 3 2.6 3 1.3 0 2.2-.9 2.2-2.2 0-1.2-.8-1.8-.8-2.8 1.8 1.2 3 3 3 5.4 0 3.4-2.8 6-6.2 6C7.6 21.6 4 19.8 4 17z' fill='black'/><path d='M3 24c2-1.6 4.6-2.4 7.6-2.4' stroke='black' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");
+}
+body.mc-theme-frost .mc-frame { /* a six-arm flake, plus a small one trailing off the corner */
+  --mc-frame: #2f6480;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><g stroke='black' stroke-width='1.7' stroke-linecap='round' fill='none'><path d='M11 2v18M3.2 6.5L18.8 15.5M3.2 15.5L18.8 6.5'/><path d='M11 6L8.2 3.2M11 6l2.8-2.8M11 16l-2.8 2.8M11 16l2.8 2.8'/><path d='M6.7 8.5L2.9 9.5M6.7 13.5L2.9 12.5M15.3 8.5l3.8 1M15.3 13.5l3.8-1'/></g><g stroke='black' stroke-width='1.3' stroke-linecap='round' fill='none'><path d='M25 20v9M21.1 22.2l7.8 4.6M21.1 26.8l7.8-4.6'/></g></svg>");
+}
+body.mc-theme-clockwork .mc-frame { /* gear + spoke */
+  --mc-frame: #4b525b;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><g fill='none' stroke='black'><circle cx='9' cy='9' r='3.2' stroke-width='1.8'/><circle cx='9' cy='9' r='6.4' stroke-width='2.4' stroke-dasharray='2.2 2.6'/><path d='M15 15l8 8' stroke-width='1.6' stroke-linecap='round'/><circle cx='24' cy='24' r='2' stroke-width='1.4'/></g></svg>");
+}
+body.mc-theme-verdant .mc-frame { /* vine + leaf */
+  --mc-frame: #2f5d3c;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M2 2c0 9 5 15 14 15C16 8 11 2 2 2z' fill='black'/><path d='M16 17c3.4 0 6 2.6 6 6' stroke='black' stroke-width='1.8' fill='none' stroke-linecap='round'/><circle cx='24' cy='25' r='1.8' fill='black'/></svg>");
 }
 
 .mc-move-row {
@@ -2322,13 +2396,20 @@ body.mc-theme-arcane .mc-frame { /* rune star */
 }
 .mc-uses.mc-spent { color: #e2584a; border-color: #5c2f2c; }
 
-/* Section titles: a burgundy banner echoing the dnd5e character sheet. */
+/* Section titles: a banner echoing the dnd5e character sheet. Burgundy by default; themes
+   re-tint it and may lay a repeating pattern over the gradient (flame licks, snowflakes,
+   gears, leaves) via --mc-bar-pat. The pattern sits UNDER the title text — keep it faint. */
 #mobile-command-shell .mc-section-label {
   display: block;
-  background: linear-gradient(var(--mc-burgundy), #5e231a);
+  background-image: var(--mc-bar-pat, none), linear-gradient(var(--mc-bar-top), var(--mc-bar-bot));
+  /* The tile scales to the bar's HEIGHT and repeats only across it. Left to tile freely, an
+     18px motif wrapped to a cropped second row on a 26px bar and read as a string of beads. */
+  background-repeat: repeat-x, no-repeat;
+  background-position: center, 0 0;
+  background-size: auto 100%, auto;
   color: var(--mc-ink);
   margin: 6px 0 10px; padding: 5px 10px;
-  border: 1px solid #4a1c15; border-radius: 5px;
+  border: 1px solid var(--mc-bar-edge); border-radius: 5px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
   letter-spacing: .06em;
 }
@@ -2551,7 +2632,10 @@ body.mc-theme-arcane .mc-frame { /* rune star */
 .mc-dmp-tab.mc-on { color: #1a1712; background: #c8a44d; }
 /* Flyout box — attached to the panel's right; taller minimum, no h-scroll, and
    overflow visible so the targets dropdown can escape the frame (DM 2026-07-03). */
-.mc-dmp-flyout { position: absolute; left: calc(100% + 2px); top: 0; width: 240px; min-height: var(--mc-dmp-min-h, 268px); max-height: calc(100vh - 24px); display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(#26222b, #1c1922); color: #ece5d6; border: 1px solid #c8a44d; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
+/* min-height:100% — the flyout is absolutely positioned inside the panel, so 100% IS the main
+   window's current height. The primary sets the secondary's minimum, live, with no JS measuring
+   (DM 2026-07-17). Do not re-add an inline min-height; it beats this rule. */
+.mc-dmp-flyout { position: absolute; left: calc(100% + 2px); top: 0; width: 240px; min-height: 100%; max-height: calc(100vh - 24px); display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(#26222b, #1c1922); color: #ece5d6; border: 1px solid #c8a44d; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
 /* Rolls tab only: let the targets dropdown escape the box. Other tabs clip so the
    body scrolls (tokens grid can be long — DM 2026-07-03). */
 .mc-dmp-flyout.mc-fly-rolls { overflow: visible; }
@@ -2792,13 +2876,7 @@ body.mc-theme-arcane .mc-frame { /* rune star */
 }
 
 .mc-hidden { display: none !important; }
-/* Magnifying-glass search (Spells/Equipment/Actions): a small toggle in the tab
-   header opens a drawer with the live filter input. */
-.mc-search-toggle {
-  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 8px;
-  background: transparent; border: 1px solid transparent; color: var(--mc-muted); font-size: 15px;
-}
-.mc-search-toggle.mc-on { color: var(--mc-gold); border-color: var(--mc-edge); background: var(--mc-panel); }
+/* (.mc-search-toggle removed 2026-07-17 — search is always open, nothing renders it.) */
 /* "+ New item" in the Equipment header — mirrors the search toggle. margin-left:auto pins it
    right when the carried-weight readout (which also claims the auto) is absent. */
 .mc-eq-new {
@@ -2814,22 +2892,26 @@ body.mc-theme-arcane .mc-frame { /* rune star */
   padding: 9px 12px; border-radius: 10px; background: var(--mc-panel); border: 1px solid var(--mc-gold);
   color: var(--mc-ink); font-family: inherit; font-size: 15px;
 }
-/* [🔍][Search…] on one row, clear of the title bar above (UI-BIBLE §6). */
-.mc-search-drawer { display: flex; align-items: center; gap: 8px; margin: 10px 0 10px; }
+/* ONE field: the glass lives INSIDE the input's box, not beside it (UI-BIBLE §6.2).
+   It used to be a 42px panel with its own border, which read as a button the DM kept
+   trying to press — "no need for the search button, it doesn't do anything" (2026-07-17).
+   The row IS the field: it owns the border and the focus ring. */
+.mc-search-drawer {
+  display: flex; align-items: center; gap: 8px; margin: 10px 0 10px;
+  box-sizing: border-box; min-height: 42px; padding: 0 12px; border-radius: 10px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge);
+}
+.mc-search-drawer:focus-within { border-color: var(--mc-gold); }
 /* Equipment's search sits on its own row — its header already has weight + new-item. */
 .mc-eq-searchrow { display: flex; margin: 10px 0 10px; }
-/* A marker, not a control — search is always open, so the glass just labels the field. */
-.mc-search-ico {
-  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
-  width: 42px; height: 42px; border-radius: 10px;
-  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-muted);
-}
+.mc-eq-searchrow .mc-search-drawer { flex: 1 1 auto; margin: 0; }
+/* A marker, not a control: no box, no border, no tap target. */
+.mc-search-ico { flex: 0 0 auto; display: inline-flex; align-items: center; color: var(--mc-muted); }
 .mc-search-input {
-  flex: 1 1 auto; min-width: 0; box-sizing: border-box; min-height: 42px;
-  padding: 9px 12px; border-radius: 10px; background: var(--mc-panel); border: 1px solid var(--mc-edge);
-  color: var(--mc-ink); font-family: inherit; font-size: 15px;
+  flex: 1 1 auto; min-width: 0; box-sizing: border-box; min-height: 40px; padding: 0;
+  background: none; border: none; color: var(--mc-ink); font-family: inherit; font-size: 15px;
 }
-.mc-search-input:focus { outline: none; border-color: var(--mc-gold); }
+.mc-search-input:focus { outline: none; }
 .mc-search-input::placeholder { color: var(--mc-muted); }
 .mc-spells { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .mc-spell {
@@ -3207,17 +3289,17 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   width: 100%; padding: 12px; border-radius: 11px; font-weight: 800; font-size: 15px; cursor: pointer;
   color: var(--mc-ink); background: linear-gradient(#2a3a52, #213044); border: 1px solid var(--mc-primary-edge);
 }
-.mc-party-done.mc-on { color: #1a1206; background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border-color: var(--mc-cta-edge); }
+.mc-party-done.mc-on { color: var(--mc-cta-ink); background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border-color: var(--mc-cta-edge); }
 .mc-party-done:disabled { opacity: .5; cursor: default; }
 .mc-party-dm { display: flex; align-items: center; gap: 8px; }
 .mc-party-rot { width: 44px; height: 44px; flex: 0 0 auto; border-radius: 10px; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-edge); cursor: pointer; }
 .mc-party-facing { flex: 1 1 auto; text-align: center; }
-.mc-party-deploy { flex: 0 0 auto; padding: 0 16px; height: 44px; border-radius: 10px; font-weight: 800; color: #1a1206; background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border: 1px solid var(--mc-cta-edge); cursor: pointer; }
+.mc-party-deploy { flex: 0 0 auto; padding: 0 16px; height: 44px; border-radius: 10px; font-weight: 800; color: var(--mc-cta-ink); background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border: 1px solid var(--mc-cta-edge); cursor: pointer; }
 .mc-party-deploy:disabled { opacity: .45; cursor: default; filter: grayscale(.4); }
 .mc-party-stage { flex: 1 1 auto; height: 44px; border-radius: 10px; font-weight: 700; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-primary-edge); cursor: pointer; white-space: nowrap; }
 /* Arrange's primary action: Lock in reads as THE button (gold); disabled until
    every occupied cell is unique + everyone is placed. */
-.mc-party-stage.mc-primary { color: #1a1206; background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border-color: var(--mc-cta-edge); font-weight: 800; }
+.mc-party-stage.mc-primary { color: var(--mc-cta-ink); background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border-color: var(--mc-cta-edge); font-weight: 800; }
 .mc-party-stage:disabled { opacity: .45; cursor: default; filter: grayscale(.4); }
 /* Travel-only Disperse on its own full-width row (4 buttons in one row overflowed). */
 .mc-party-deploy-row { width: 100%; flex: none; }
@@ -3268,7 +3350,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-party-cell.mc-away .mc-party-lock { color: var(--mc-muted); }
 /* Group-check prompt bar (above the tab bar, like the save prompt). */
 .mc-gc-bar { position: fixed; left: 10px; right: 10px; bottom: 74px; z-index: 10001; display: flex; gap: 8px; }
-.mc-gc-roll { flex: 1 1 auto; height: 52px; border-radius: 12px; font-weight: 800; font-size: 15px; color: #1a1206; background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border: 1px solid var(--mc-cta-edge); cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.55); }
+.mc-gc-roll { flex: 1 1 auto; height: 52px; border-radius: 12px; font-weight: 800; font-size: 15px; color: var(--mc-cta-ink); background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot)); border: 1px solid var(--mc-cta-edge); cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.55); }
 .mc-gc-x { flex: 0 0 46px; height: 52px; border-radius: 12px; color: var(--mc-ink); background: #20222b; border: 1px solid var(--mc-edge); cursor: pointer; }
 /* Travel pace + group checks on the exploration tab. */
 .mc-party-pace { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--mc-edge); border-radius: 11px; background: linear-gradient(#1b202b, #161a23); }

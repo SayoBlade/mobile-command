@@ -3440,9 +3440,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
   #themeOptionsHTML() {
     const cur = this.#currentTheme();
-    const themes = [["tavern", "Tavern", "#c8a44d"], ["slate", "Slate", "#79b8e0"], ["ember", "Ember", "#e2924a"], ["arcane", "Arcane", "#b483e0"]];
+    // Dots, no names (DM 2026-07-17): the swatch IS the label — you pick a theme by looking at
+    // it, and 8 names wrapped to three cluttered rows. The name survives as the tooltip and the
+    // accessible name, so nothing is lost to a screen reader or a long-press.
+    const themes = [
+      ["tavern", "Tavern", "#c8a44d"],
+      ["slate", "Slate", "#79b8e0"],
+      ["ember", "Ember", "#e2924a"],
+      ["arcane", "Arcane", "#b483e0"],
+      ["flame", "Flame", "#f0a52e"],
+      ["frost", "Frost", "#8fd3f4"],
+      ["clockwork", "Clockwork", "#9aa3ad"],
+      ["verdant", "Verdant", "#6fbf73"]
+    ];
     return themes.map(([id, label, sw]) =>
-      `<button class="mc-theme-opt ${cur === id ? "mc-on" : ""}" data-action="set-theme" data-theme="${id}"><span class="mc-theme-sw" style="background:${sw}"></span>${label}</button>`).join("");
+      `<button class="mc-theme-opt ${cur === id ? "mc-on" : ""}" data-action="set-theme" data-theme="${id}" title="${label}" aria-label="${label}" aria-pressed="${cur === id}"><span class="mc-theme-sw" style="background:${sw}"></span></button>`).join("");
   }
 
   // Move pad (§7.4): D-pad steps the player's own token via the move.request

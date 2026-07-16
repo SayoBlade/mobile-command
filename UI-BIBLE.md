@@ -310,11 +310,37 @@ must not change any hit target.
   plus a hairline rule. Draw **one** shape; let the transforms do the rest.
 - Ornaments are **SVG masks** filled by a CSS variable, never baked-colour images — that's what lets
   a theme recolour them.
-- **Every theme ships its own corner art and frame colour** (default scroll-curl · slate angular ·
-  ember flame-curl · arcane rune-star).
+- **Every theme ships its own corner art and frame colour** (tavern scroll-curl · slate angular ·
+  ember flame-curl · arcane rune-star · flame licks · frost snowflake · clockwork gear · verdant leaf).
 - Frame colour is the **burgundy** family, not the accent gold: at frame scale the gold read as
   harsh and the outline as distracting (DM 2026-07-16). Decoration should sit *behind* the content,
   not compete with it.
+- Corners are `--mc-frame-c-size` (78px) inset by `--mc-frame-c-pad`. Tune the vars, not the four
+  mirrors. At 26px the art read as a rounding error (DM 2026-07-17: "around three times larger").
+
+### 11.1 A theme is a palette, not a pile of rules
+
+**A theme may set tokens on `body.mc-theme-*` and one shell background. Nothing else.** If a theme
+needs its own rule, it wants a **new token** instead.
+
+The palette lives on **`body`** so it inherits into all three roots — the shell, the DM panel, and
+lifted dialogs (which are body-children and inherit nothing from the shell). It was once declared
+three times over; each theme had to be written three times, and they drifted — the dialog copies
+silently never got the CTA tokens, and the DM panel, unable to see any token, hardcoded hexes.
+
+Theme tokens: `--mc-gold` (accent) · `--mc-panel/-2` · `--mc-edge` · `--mc-primary*` · `--mc-cta-*`
+· `--mc-bar-*`.
+
+### 11.2 Bar patterns
+
+Section title bars may carry a repeating motif via `--mc-bar-pat` (flame licks, snowflakes, gears,
+leaves). Three rules, each learned the hard way:
+
+1. **Faint.** It sits under white title text. ~0.2 alpha.
+2. **Scale to the bar, repeat across it** (`background-size: auto 100%`, `repeat-x`). Free tiling
+   wrapped an 18px motif into a cropped second row on a 26px bar — it read as a string of beads.
+3. **Reuse the corner silhouette.** A motif drawn small enough to tile loses its inner detail and
+   becomes hatching. The shape that reads at 78px, cropped tight, reads at 26px too.
 
 > Rule of thumb: if you notice the frame before the buttons, the frame is too loud.
 

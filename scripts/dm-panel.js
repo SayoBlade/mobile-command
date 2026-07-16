@@ -654,7 +654,10 @@ function flyoutHTML() {
   // up — so dragging it always enlarges toward open space.
   const grab = `<div class="mc-dmp-fly-resize" data-fly-resize title="Drag to resize"><i class="fas fa-grip-lines"></i></div>`;
   const head = `<div class="mc-dmp-fly-head" title="Drag to move"><span>${title}</span><button class="mc-dmp-fly-x" data-dock-close aria-label="Close">✕</button></div>`;
-  return `<div class="mc-dmp-flyout mc-fly-${dockTab}${flyUp ? " mc-fly-up" : ""}" style="max-height:${flyMaxH}px;min-height:${Math.min(flyMaxH, FLY_MIN_H)}px">
+  // No inline min-height: the floor is CSS `min-height:100%` = the main window's height, so the
+  // second screen can never be dragged shorter than the primary (DM 2026-07-17). An inline
+  // min-height here is what defeated that — it always beat the stylesheet.
+  return `<div class="mc-dmp-flyout mc-fly-${dockTab}${flyUp ? " mc-fly-up" : ""}" style="max-height:${Math.max(flyMaxH, flyMinH())}px">
     ${flyUp ? grab : ""}${head}
     <div class="mc-dmp-fly-body">${body}</div>
     ${flyUp ? "" : grab}
@@ -731,7 +734,15 @@ const POS_KEY = "mc-dm-panel-pos";
 // re-drag (DM 2026-07-13). Cap the flyout height (drag the bottom grabber to set it); the body
 // scrolls inside, so no tab ever grows past this and jostles the panel. Persisted per client.
 const FLY_KEY = "mc-dm-panel-flyH";
-const FLY_MIN_H = 150; // enough for a tab's main flow buttons (e.g. the two rest buttons)
+// The MAIN window sets the floor for the second screen: a flyout shorter than the panel it hangs
+// off reads as broken (DM 2026-07-17: "i can still drag the secondary window under the primary").
+// CSS `min-height:100%` is the live enforcement; this measures the same height for the drag clamp
+// and the persisted value. Falls back to a sane floor before the panel is on screen.
+const FLY_MIN_FALLBACK = 150; // enough for a tab's main flow buttons (e.g. the two rest buttons)
+function flyMinH() {
+  const h = Math.round(panelEl?.getBoundingClientRect().height ?? 0);
+  return Math.min(Math.max(h || FLY_MIN_FALLBACK, FLY_MIN_FALLBACK), window.innerHeight - 24);
+}
 let flyMaxH = (() => { try { return parseInt(window.localStorage.getItem(FLY_KEY), 10) || 360; } catch (e) { return 360; } })();
 let flyUp = false; // grow the flyout upward (anchored to the panel's bottom) when the panel sits low
 function applySavedPos(el) {
@@ -785,7 +796,7 @@ function onOutsidePointerDown(ev) {
 }
 
 // Drag the flyout's bottom grabber to set its max height. Live-updates the element during the
-// drag (no re-render, so it's smooth), clamps to [FLY_MIN_H, viewport], persists on release, then
+// drag (no re-render, so it's smooth), clamps to [flyMinH(), viewport], persists on release, then
 // re-clamps the panel so the new size stays on screen.
 function startFlyResize(ev) {
   ev.preventDefault(); ev.stopPropagation();
@@ -793,10 +804,10 @@ function startFlyResize(ev) {
   if (!fly) return;
   const startY = ev.clientY, startH = fly.getBoundingClientRect().height;
   const dir = flyUp ? -1 : 1; // growing up → dragging the top grabber UP (dy<0) enlarges
+  const floor = flyMinH(); // the main window's height — measured once, it can't change mid-drag
   const move = (e) => {
-    flyMaxH = Math.round(Math.max(FLY_MIN_H, Math.min(window.innerHeight - 24, startH + dir * (e.clientY - startY))));
+    flyMaxH = Math.round(Math.max(floor, Math.min(window.innerHeight - 24, startH + dir * (e.clientY - startY))));
     fly.style.maxHeight = `${flyMaxH}px`;
-    fly.style.minHeight = `${Math.min(flyMaxH, FLY_MIN_H)}px`;
   };
   const up = () => {
     document.removeEventListener("pointermove", move);
