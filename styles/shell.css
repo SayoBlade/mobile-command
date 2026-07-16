@@ -3581,6 +3581,14 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   background: #1a1c24; border: 1px solid #3a3f4c; color: #ece5d6; font-size: 13px; }
 .mc-rf-row input[type="number"] { width: 74px; }
 .mc-rf-row input[type="text"] { width: 60%; }
+/* Grouped sections + 2-across rows so the builder reads top-to-bottom (DM 2026-07-16). */
+.mc-rf-kind select { font-weight: 700; }
+.mc-rf-sec { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 8px; background: #191b22; border: 1px solid #2a2f3a; }
+.mc-rf-seclabel { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: #c8a44d; font-weight: 800; }
+.mc-rf-2up { display: flex; gap: 8px; }
+.mc-rf-2up .mc-rf-row { flex: 1 1 0; min-width: 0; justify-content: space-between; }
+.mc-rf-2up .mc-rf-row select, .mc-rf-2up .mc-rf-row input { max-width: none; }
+.mc-rf-2up .mc-rf-row input[type="number"] { width: 56px; }
 .mc-rf-toggle { min-height: 34px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 700;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
 .mc-rf-toggle.mc-on { background: #2a2418; border-color: #c8a44d; color: #ece5d6; }

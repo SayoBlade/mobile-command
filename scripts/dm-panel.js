@@ -389,40 +389,51 @@ function ruleFormHTML(actorId, act) {
     ${kind === "skill" ? `<label class="mc-rf-row">Skill <select data-rule="rollskill">${skillOptions(r.roll?.skill || "acr")}</select></label>` : ""}
     ${kind === "custom" ? `<label class="mc-rf-row">Dice <input type="text" data-rule="rollformula" value="${esc(r.roll?.formula || "1d20")}" placeholder="1d20+5"></label>` : ""}` : "";
 
-  let fields = "";
-  if (r.type === "roll") fields = `
-    <label class="mc-rf-row">DC <input type="number" data-rule="dc" value="${r.dc}"></label>
-    <label class="mc-rf-row">DC each miss <input type="number" data-rule="autoshift" value="${r.autoShift}" title="Negative lowers the DC each attempt, e.g. -2"></label>
-    <label class="mc-rf-row">Stop at DC <input type="number" data-rule="floor" value="${r.autoShiftFloor ?? ""}" placeholder="none"></label>`;
-  else if (r.type === "tally") fields = `
-    <label class="mc-rf-row">Target <input type="number" data-rule="target" value="${r.target}"></label>
+  // PROGRESS group — how a tally/cumulative fills toward its target. (A "just a roll" has none.)
+  let progress = "";
+  if (r.type === "tally") progress = `
+    <div class="mc-rf-2up">
+      <label class="mc-rf-row">Target <input type="number" data-rule="target" value="${r.target}"></label>
+      <label class="mc-rf-row">Adds <input type="number" data-rule="pertick" value="${r.perTick}"></label>
+    </div>
     <label class="mc-rf-row">Each <select data-rule="tick">${tickOptions(r.tickSource)}</select></label>
-    <label class="mc-rf-row">Adds <input type="number" data-rule="pertick" value="${r.perTick}"></label>
-    <button class="mc-rf-toggle ${r.requireRoll ? "mc-on" : ""}" data-rule-toggle="requireroll">${r.requireRoll ? "Requires a successful roll" : "No roll — just ticks"}</button>
-    ${r.requireRoll ? `<label class="mc-rf-row">DC <input type="number" data-rule="dc" value="${r.dc}"></label>` : ""}`;
-  else if (r.type === "cumulative") fields = `
+    <button class="mc-rf-toggle ${r.requireRoll ? "mc-on" : ""}" data-rule-toggle="requireroll">${r.requireRoll ? "Needs a successful roll" : "No roll — just ticks"}</button>`;
+  else if (r.type === "cumulative") progress = `
     <label class="mc-rf-row">Target <input type="number" data-rule="target" value="${r.target}"></label>
-    <label class="mc-rf-row">Each adds <select data-rule="gainmode">
-      <option value="total" ${r.gainMode === "total" ? "selected" : ""}>the roll total</option>
-      <option value="margin" ${r.gainMode === "margin" ? "selected" : ""}>the margin over DC</option>
-      <option value="fixed" ${r.gainMode === "fixed" ? "selected" : ""}>a fixed amount</option>
-    </select></label>
-    ${r.gainMode === "fixed" ? `<label class="mc-rf-row">Amount <input type="number" data-rule="pertick" value="${r.perTick}"></label>` : ""}
-    ${r.gainMode === "margin" ? `<label class="mc-rf-row">DC <input type="number" data-rule="dc" value="${r.dc}"></label>` : ""}
-    <label class="mc-rf-row">Min per attempt <input type="number" data-rule="mingain" value="${r.minGain}"></label>`;
+    <div class="mc-rf-2up">
+      <label class="mc-rf-row">Each adds <select data-rule="gainmode">
+        <option value="total" ${r.gainMode === "total" ? "selected" : ""}>the roll total</option>
+        <option value="margin" ${r.gainMode === "margin" ? "selected" : ""}>the margin over DC</option>
+        <option value="fixed" ${r.gainMode === "fixed" ? "selected" : ""}>a fixed amount</option>
+      </select></label>
+      <label class="mc-rf-row">Min <input type="number" data-rule="mingain" value="${r.minGain}"></label>
+    </div>
+    ${r.gainMode === "fixed" ? `<label class="mc-rf-row">Amount <input type="number" data-rule="pertick" value="${r.perTick}"></label>` : ""}`;
 
-  // Per-rule nat-20 / nat-1 choice — only when the Rule actually rolls. For a descending-DC rule
-  // the DM usually wants "double the step" (not an auto-win on a DC 100); for a plain check,
-  // "auto-succeed" (DM 2026-07-13). Options differ by type.
+  // The roll-target fields sit WITH the roll: a "just a roll" gets DC + descending options; a
+  // margin/roll-gated rule just needs its DC.
+  let rollDC = "";
+  if (r.type === "roll") rollDC = `
+    <div class="mc-rf-2up">
+      <label class="mc-rf-row">DC <input type="number" data-rule="dc" value="${r.dc}"></label>
+      <label class="mc-rf-row" title="Negative lowers the DC each attempt, e.g. -2">−DC / miss <input type="number" data-rule="autoshift" value="${r.autoShift}"></label>
+    </div>
+    ${Number(r.autoShift) ? `<label class="mc-rf-row">Stop at DC <input type="number" data-rule="floor" value="${r.autoShiftFloor ?? ""}" placeholder="none"></label>` : ""}`;
+  else if (r.gainMode === "margin" || r.requireRoll) rollDC = `<label class="mc-rf-row">DC <input type="number" data-rule="dc" value="${r.dc}"></label>`;
+
+  // Per-rule nat-20 / nat-1 choice — only when the Rule rolls (options differ by type).
   const n20opts = r.type === "roll"
     ? [["none", "—"], ["succeed", "auto-succeed"], ["double", "double the DC step"]]
     : [["none", "—"], ["double", "double the gain"]];
   const n1opts = r.type === "roll"
     ? [["none", "—"], ["fail", "auto-miss"], ["zero", "no DC step"]]
     : [["none", "—"], ["zero", "no gain"]];
-  const luck = needsRoll ? `
-    <label class="mc-rf-row">On a nat 20 <select data-rule="nat20">${optList(n20opts, r.nat20 ?? "none")}</select></label>
-    <label class="mc-rf-row">On a nat 1 <select data-rule="nat1">${optList(n1opts, r.nat1 ?? "none")}</select></label>` : "";
+  const luck = needsRoll ? `<div class="mc-rf-2up">
+    <label class="mc-rf-row">Nat 20 <select data-rule="nat20">${optList(n20opts, r.nat20 ?? "none")}</select></label>
+    <label class="mc-rf-row">Nat 1 <select data-rule="nat1">${optList(n1opts, r.nat1 ?? "none")}</select></label></div>` : "";
+
+  const progressSec = progress ? `<div class="mc-rf-sec"><div class="mc-rf-seclabel">Progress</div>${progress}</div>` : "";
+  const rollSec = needsRoll ? `<div class="mc-rf-sec"><div class="mc-rf-seclabel">The roll</div>${rollPicker}${rollDC}${luck}</div>` : "";
 
   return `<div class="mc-rf">
     <div class="mc-rf-presets"><span>Preset</span>
@@ -430,17 +441,20 @@ function ruleFormHTML(actorId, act) {
       <button class="mc-rf-preset ${r.kind === "scribe" ? "mc-on" : ""}" data-rule-preset="scribe">Scribe</button>
       <button class="mc-rf-preset ${r.kind === "craft" ? "mc-on" : ""}" data-rule-preset="craft">Craft</button>
     </div>
-    ${seeder}
-    <label class="mc-rf-row">Kind <select data-rule="type">
-      <option value="roll" ${r.type === "roll" ? "selected" : ""}>Just a roll</option>
-      <option value="tally" ${r.type === "tally" ? "selected" : ""}>Tally to a target</option>
-      <option value="cumulative" ${r.type === "cumulative" ? "selected" : ""}>Cumulative points</option>
+    <label class="mc-rf-row mc-rf-kind">This is <select data-rule="type">
+      <option value="roll" ${r.type === "roll" ? "selected" : ""}>a single roll</option>
+      <option value="tally" ${r.type === "tally" ? "selected" : ""}>a tally to a target</option>
+      <option value="cumulative" ${r.type === "cumulative" ? "selected" : ""}>cumulative points</option>
     </select></label>
-    ${rollPicker}${fields}${luck}
-    <label class="mc-rf-row">Reward <input type="text" data-rule="reward" value="${esc(r.reward || "")}" placeholder="e.g. +1 STR, Scroll of Fireball"></label>
-    ${dtRuleIsTemplate
-      ? `<label class="mc-rf-notewrap">DM-only note<textarea class="mc-rf-notebox" data-rule="note" placeholder="Private — balancing, gold/time, reminders (players never see this)">${esc(dtRuleNote)}</textarea></label>`
-      : `<button class="mc-rf-toggle ${dtRuleVisible ? "mc-on" : ""}" data-rule-toggle="visible">${dtRuleVisible ? "Player sees the rule" : "Rule hidden from the player"}</button>`}
+    ${seeder}
+    ${progressSec}
+    ${rollSec}
+    <div class="mc-rf-sec">
+      <label class="mc-rf-row">Reward <input type="text" data-rule="reward" value="${esc(r.reward || "")}" placeholder="e.g. +1 STR, Scroll of Fireball"></label>
+      ${dtRuleIsTemplate
+        ? `<label class="mc-rf-notewrap">DM-only note<textarea class="mc-rf-notebox" data-rule="note" placeholder="Private — balancing, gold/time, reminders (players never see this)">${esc(dtRuleNote)}</textarea></label>`
+        : `<button class="mc-rf-toggle ${dtRuleVisible ? "mc-on" : ""}" data-rule-toggle="visible">${dtRuleVisible ? "Player sees the rule" : "Rule hidden from the player"}</button>`}
+    </div>
     <div class="mc-rf-preview"><i class="fas fa-flask"></i> ${esc(DT.describeRule(r))}</div>
     <div class="mc-rf-actions">
       <button class="mc-rf-cancel" data-rule-cancel>Cancel</button>
