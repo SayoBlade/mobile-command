@@ -112,6 +112,23 @@ function pcColor(a) {
   const u = game.users.find(u => !u.isGM && u.character?.id === a?.id) ?? game.users.find(u => !u.isGM && a?.testUserPermission?.(u, "OWNER"));
   return u?.color?.css ?? "#c8a44d";
 }
+// Collapsible "drawer" so the tall downtime window can be tidied (DM 2026-07-14: "drawers like a
+// multi-open accordion"). Multi-open — each section toggles independently. `headerExtra` (e.g. the
+// catalog's "+ New") sits beside the toggle and is NOT part of the toggle button.
+let dtDrawers = { roster: true, catalog: true };
+function dtDrawer(key, title, headerExtra, body) {
+  const open = dtDrawers[key] !== false;
+  return `<div class="mc-dt-drawer ${open ? "mc-open" : ""}">
+    <div class="mc-dt-drawer-head">
+      <button class="mc-dt-drawer-toggle" data-dt-drawer="${key}"><i class="fas fa-chevron-${open ? "down" : "right"}"></i> ${title}</button>
+      ${headerExtra || ""}
+    </div>
+    ${open ? `<div class="mc-dt-drawer-body">${body}</div>` : ""}
+  </div>`;
+}
+function catalogNewBtn() {
+  return `<button class="mc-dt-newbtn ${dtNewTmplOpen ? "mc-on" : ""}" data-dt-tmpl-new><i class="fas fa-plus"></i> New</button>`;
+}
 // The DM-authored catalog: named activities + rules + DM-only notes. Players pick from these.
 function catalogHTML(st) {
   const esc = foundry.utils.escapeHTML;
@@ -140,11 +157,7 @@ function catalogHTML(st) {
       </div>`
     : "";
   const seed = !templates.length && !dtNewTmplOpen ? `<button class="mc-dt-seedbtn" data-dt-seed><i class="fas fa-wand-sparkles"></i> Add a few examples</button>` : "";
-  return `<div class="mc-dt-catalog">
-    <div class="mc-dt-cat-head"><span>Activities</span>
-      <button class="mc-dt-newbtn ${dtNewTmplOpen ? "mc-on" : ""}" data-dt-tmpl-new><i class="fas fa-plus"></i> New</button></div>
-    ${adder}${rows}${seed}
-  </div>`;
+  return `${adder}${rows}${seed}`; // body only — the "Activities" header + "New" live in the drawer
 }
 function downtimeHTML() {
   const esc = foundry.utils.escapeHTML;
@@ -257,9 +270,10 @@ function downtimeHTML() {
       : `<button class="mc-dt-startbtn" data-dt-start="1" ${anySel ? "" : "disabled"}>
           <i class="fas fa-play"></i> ${anySel ? "Start activities" : "Start activities — nobody's chosen yet"}</button>`)
     : "";
-  // "Who's doing what" on top (the DM's live view), the authoring catalog below (DM 2026-07-13).
-  const roster = win?.open ? `<div class="mc-dt-cat-head mc-dt-roster-head"><span>Who's doing what</span></div><div class="mc-dt-players">${rows}</div>${startBar}` : "";
-  return `<div class="mc-dt-panel">${head}${roster}${catalogHTML(st)}${restRow}</div>`;
+  // Two accordion drawers: the live roster on top, the authoring catalog below.
+  const rosterDrawer = win?.open ? dtDrawer("roster", "Who's doing what", "", `<div class="mc-dt-players">${rows}</div>${startBar}`) : "";
+  const catalogDrawer = dtDrawer("catalog", "Activities", catalogNewBtn(), catalogHTML(st));
+  return `<div class="mc-dt-panel">${head}${rosterDrawer}${catalogDrawer}${restRow}</div>`;
 }
 
 // Rest every player character at once (the DM's montage rest). Dialog-suppressed so it doesn't
@@ -1715,7 +1729,7 @@ async function onClick(ev) {
       return render();
     }
     // ── Catalog (templates) ────────────────────────────────────────────────
-    if (ev.target.closest("[data-dt-tmpl-new]")) { dtNewTmplOpen = !dtNewTmplOpen; render(); setTimeout(() => panelEl?.querySelector(".mc-dt-tmplname")?.focus(), 0); return; }
+    if (ev.target.closest("[data-dt-tmpl-new]")) { dtNewTmplOpen = !dtNewTmplOpen; if (dtNewTmplOpen) dtDrawers.catalog = true; render(); setTimeout(() => panelEl?.querySelector(".mc-dt-tmplname")?.focus(), 0); return; }
     if (ev.target.closest("[data-dt-tmpl-cancel]")) { dtNewTmplOpen = false; return render(); }
     const tsave = ev.target.closest("[data-dt-tmpl-save]");
     if (tsave) {
@@ -1747,6 +1761,8 @@ async function onClick(ev) {
     if (gpick) { dtGiveFor = null; await api.downtime({ op: "selectActivity", actorId: gpick.dataset.actor, templateId: gpick.dataset.dtGivePick }); return; }
     const start = ev.target.closest("[data-dt-start]");
     if (start) { await api.downtime({ op: "startActivities", on: start.dataset.dtStart === "1" }); return; }
+    const drawer = ev.target.closest("[data-dt-drawer]");
+    if (drawer) { const k = drawer.dataset.dtDrawer; dtDrawers[k] = dtDrawers[k] === false; return render(); }
     // ── Authoring-form controls (activity OR template) ──────────────────────
     if (dtRuleDraft) {
       const preset = ev.target.closest("[data-rule-preset]");

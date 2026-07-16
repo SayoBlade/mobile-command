@@ -3466,6 +3466,16 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 15px; font-weight: 600; }
 .mc-dt-select:disabled { opacity: .7; }
 
+/* §17.7 downtime — accordion drawers (collapse the tall DM window) */
+.mc-dt-drawer { margin-bottom: 8px; }
+.mc-dt-drawer-head { display: flex; align-items: center; gap: 6px; }
+.mc-dt-drawer-toggle { flex: 1 1 auto; display: inline-flex; align-items: center; gap: 7px; text-align: left;
+  padding: 5px 4px; background: transparent; border: none; cursor: pointer;
+  font-size: 12px; font-weight: 800; color: #ece5d6; border-bottom: 1px solid #3a3f4c; }
+.mc-dt-drawer-toggle i { width: 10px; color: #c8a44d; font-size: 11px; }
+.mc-dt-drawer-toggle:hover { color: #e6c46a; }
+.mc-dt-drawer-body { padding-top: 6px; }
+
 /* §17.7 downtime — DM catalog + templates */
 .mc-dt-catalog { margin-bottom: 8px; }
 .mc-dt-cat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
