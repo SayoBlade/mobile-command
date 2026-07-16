@@ -354,6 +354,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#attachListeners(content);
     this.#applyTheme(); // keep the saved theme's body class in sync each render
     content.style.setProperty("--mc-user", game.user?.color?.css ?? "var(--mc-gold)"); // personal color accent
+    // Also on the shell ROOT so the app's 1px player-colour outline can read it (UI-BIBLE §3):
+    // a glance tells you whose phone you're holding.
+    this.element?.style?.setProperty("--mc-user", game.user?.color?.css ?? "var(--mc-gold)");
     try { this.#applyMyTokenRing(); } catch (e) { console.warn(`${MODULE_ID} | ring paint skipped`, e); } // never let a token-visual write break the render
     if (toast) content.appendChild(toast);
     if (nextKey === prevKey) {
@@ -2947,7 +2950,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const items = bucket[g.key].sort((a, b) => a.name.localeCompare(b.name));
       return `<div class="mc-search-group"><div class="mc-actions-sub">${g.label}</div><div class="mc-inv">${this.#inventoryItemsHTML(items)}</div></div>`;
     }).join("");
-    return `<div class="mc-actions-head mc-eq-head"><span class="mc-section-label">Equipment</span>${this.#carriedWeightHTML(actor)}${this.#newItemBtnHTML()}${this.#searchToggleHTML()}</div>
+    // Search gets its OWN row here — the header already carries weight + new-item (UI-BIBLE §6.2).
+    return `<div class="mc-actions-head mc-eq-head"><span class="mc-section-label">Equipment</span>${this.#carriedWeightHTML(actor)}${this.#newItemBtnHTML()}</div>
+      ${this.#searchOpen ? "" : `<div class="mc-eq-searchrow">${this.#searchToggleHTML()}</div>`}
       ${this.#newItemInputHTML()}${this.#searchDrawerHTML()}${currency}${enc}${sections}`;
   }
 

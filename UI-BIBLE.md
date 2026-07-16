@@ -73,6 +73,20 @@ Identity is carried by **the token icon and the container**, never the text:
 
 This matches Request-rolls, which was right first; downtime was brought in line (v0.1.174).
 
+**The convention is `(token icon) Name` and it holds everywhere a creature is named** — rosters,
+the DM's selected-token title, downtime, request-rolls.
+
+| Who | Icon | Icon colour | Name |
+|---|---|---|---|
+| **PC** | `fa-circle-user` | that player's colour | ink |
+| **NPC / monster** | `fa-dragon` | the **DM's** colour | ink |
+
+An NPC has no player, so it carries the DM's colour and a **different icon** — the icon says *what
+kind of thing this is*, the colour says *whose it is* (DM 2026-07-16).
+
+**The phone wears its player's colour as a 1px outline** around the whole shell — the one place a
+player colour is allowed to bound the app, so a glance tells you whose phone you're holding.
+
 ---
 
 ## 4. Buttons — the hierarchy
@@ -82,19 +96,40 @@ Exactly four levels. Pick by **consequence**, not by how much you want it notice
 | Level | Look | Use | Example |
 |---|---|---|---|
 | **Primary** | Gold gradient fill (`linear-gradient(#c8a44d,#b98a1e)`), dark ink text, bold | The **one** action that advances the flow. **Max one per view.** | Start activities · Form up |
-| **Secondary** | Transparent/panel fill, `1px` edge, ink text | Real but non-committal actions | Edit · Give a task · Rest Short/Long |
+| **Secondary** | Panel fill, `1px` edge, ink text | Real but non-committal actions | Edit · Give a task · Rest Short/Long |
 | **Tertiary** | No border, muted text, icon-led | Options that shouldn't compete | Cancel · Reopen choices · drawer chevrons |
 | **Destructive** | Transparent; **red only on hover/active** | Delete/remove | ✕ on a card |
+
+**Request buttons** (`Check` · `Save` · `Roll a…`) are a **secondary** pair: they're offered
+constantly and must never shout. Same size, same fill, side by side, equal width. A request button
+says what you'll roll — and, only when the DM has un-hidden the rule, its DC (§7).
 
 **Close/dismiss** is always **`✕`**, tertiary, top-right. Never an hourglass, never a word, never
 primary — a close button that looks important gets pressed by accident (DM 2026-07-13: "End" with an
 hourglass read as "end the day and pass time").
 
-**Call-to-action:** when the DM's next step is unambiguous, say it in words on a **secondary+**
-button (`✨ Set the rule`), not an icon. Icon-only buttons get missed — that exact mistake made the
-DM think the panel was dead (v0.1.149).
+**Call-to-action:** when the next step is unambiguous, say it in words on a **secondary+** button
+(`✨ Set the rule`), not an icon. Icon-only buttons get missed — that exact mistake made the DM think
+the panel was dead (v0.1.149).
 
 **Disabled** states explain themselves: `Start activities — nobody's chosen yet`, not a dead button.
+
+### 4.1 Button geometry — the rule that stops "arranged badly"
+
+Buttons **in the same group are identical**: same height, same corner radius, same gap. Differing
+sizes/gaps inside one group is a bug, not a style (DM 2026-07-16, profile tab).
+
+| Surface | Height | Radius | Gap |
+|---|---|---|---|
+| Phone (touch) | **44px** min (40px only inside a dense form row) | 9–10px | **8px** |
+| DM panel (mouse) | 26–34px | 7–8px | 6px |
+
+- **A row of peers stretches equally** (`flex: 1 1 0`), never `auto` widths that make one wider
+  because its label is longer.
+- **Icon-only buttons are square** (44×44 phone / 26×26 DM). Never a rectangle with a lone glyph.
+- **Hug vs stretch:** a **chip that labels something** (Lvl 2, a count badge) hugs its text with
+  **symmetric padding** — lopsided padding reads as a layout bug (DM 2026-07-16: the Lvl chip had
+  11px right vs 6px left). A **control** in a row stretches with its peers.
 
 ---
 
@@ -118,12 +153,42 @@ licence.
 - **Touch targets ≥ 44px** on the phone. The DM panel may go to 26–34px (mouse).
 - **Text inputs go inline in the shell**, never in a lifted popup — popups fight the mobile keyboard.
 - **Drawers**: title **left**, chevron **right** and muted. Multi-open; each toggles independently.
-  Collapse what the DM has finished with (the catalog auto-collapses on Start).
+  Collapse what the user has finished with (the catalog auto-collapses on Start).
 - **Grouped forms**: sections with a gold uppercase micro-label (`PROGRESS`, `THE ROLL`); pair short
   number fields 2-across. A flat column of rows is a wall — group it.
 - **Section label**: 10px, uppercase, `letter-spacing .07em`, gold, weight 800.
 - The DM panel's second window is **height-capped and drag-resizable**, and grows **up** when the
-  panel sits low. It must never shove the primary panel.
+  panel sits low. It must never shove the primary panel, and **the primary panel's height is the
+  second window's minimum** — a floating tab smaller than its parent reads as broken.
+
+### 6.1 A header must never look like an item
+
+A drawer/section header and a list item **must differ in height by ≥8px**. They were 48px vs a 46px
+action row and read as a broken item (DM 2026-07-16).
+
+| Element | Height |
+|---|---|
+| Action/list item (phone) | 46–48px |
+| **Drawer header** | **~36px** |
+| Section label bar | ~28px |
+
+### 6.2 Search — one pattern, everywhere
+
+Search is always **`[🔍] [Search…]` on ONE row**. Never a magnifier in the header with the field on
+the next line (DM 2026-07-16: "they currently have a line break between them").
+
+- Closed → a lone 🔍 toggle in the header.
+- Open → the header toggle **hides**; the row shows `[🔍][input]`, and that icon closes it. Only one
+  magnifier is ever visible.
+- The row clears the title bar above it (**≥10px**), and **gets its own row** — it never shares with
+  other controls (Equipment).
+- The field's idle border is **neutral**; gold only on `:focus`.
+
+### 6.3 Don't jump
+
+Adding/removing an element must not shove everything else. If a layout change is unavoidable,
+**animate it** (the drawer transition is the reference). A silent jump reads as a bug
+(DM 2026-07-16).
 
 ---
 
@@ -133,6 +198,20 @@ licence.
 - Say the **consequence**, not the mechanism: "Rest the whole party", not "Execute rest".
 - **Explanations live outside buttons** — a button is a verb; put the "a watch, an evening, a few
   hours" underneath as a hint, not inside the label.
+
+### 7.1 No explanations in titles — ever
+
+**A title names the thing. It never teaches.** (DM 2026-07-16.)
+
+| ❌ Was | ✅ Is |
+|---|---|
+| `Abilities — tap Check or Save` | `Abilities` |
+| `Actions — tap to use` | `Actions` |
+| `Conditions — tap to toggle, hold for details` | `Conditions` |
+
+If an interaction genuinely isn't discoverable, **fix the affordance** — don't caption it. The
+buttons already say "Check"/"Save"; a title repeating that is noise that ages badly and eats the
+width a real control could use.
 - **Never leak DM-only numbers** into player copy. The same rule renders two ways:
   - hidden → `Roll an Athletics check`
   - shown → `Roll a DC 50 Athletics check`
@@ -167,7 +246,44 @@ adjective (`mc-hidden`).
 
 ---
 
-## 10. Checklist before you ship UI
+## 10. Popups — one thing, one shape
+
+Two shapes only, and a given interaction picks **one** and keeps it:
+
+| Shape | Use | Notes |
+|---|---|---|
+| **Toast** (transient strip) | An *event* you may ignore — damage taken, a reaction offer | Auto-dismisses; never carries the only copy of information |
+| **Card** (full popup) | *Details you asked for* — hold-for-info, an image, a summary | Closable ✕ top-right; big enough to actually read |
+
+**The same gesture must give the same shape every time.** A hold that shows a toast in one state and
+a full card in another is a bug (DM 2026-07-16: holding a condition gave a toaster while the palette
+was open, but the full card once it was closed). Pick the **card** for hold-for-details — the user
+asked for it, so give them the readable thing — and **never render both** (dedupe).
+
+Detail cards are **reading surfaces**: err large. A cramped card is worse than no card.
+
+---
+
+## 11. Decoration & theming
+
+Decoration is allowed **at the frame, never in the content**. It must be `pointer-events: none` and
+must not change any hit target.
+
+- **The frame** = one corner ornament **mirrored** into four corners (`scaleX`/`scaleY`/`scale(-1,-1)`)
+  plus a hairline rule. Draw **one** shape; let the transforms do the rest.
+- Ornaments are **SVG masks** filled by a CSS variable, never baked-colour images — that's what lets
+  a theme recolour them.
+- **Every theme ships its own corner art and frame colour** (default scroll-curl · slate angular ·
+  ember flame-curl · arcane rune-star).
+- Frame colour is the **burgundy** family, not the accent gold: at frame scale the gold read as
+  harsh and the outline as distracting (DM 2026-07-16). Decoration should sit *behind* the content,
+  not compete with it.
+
+> Rule of thumb: if you notice the frame before the buttons, the frame is too loud.
+
+---
+
+## 12. Checklist before you ship UI
 
 1. Any colour outside §2? Justify it or drop it.
 2. Exactly one primary button in this view?
