@@ -2569,15 +2569,22 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       return `<${tag} class="mc-estat ${cls}"${attr}>
         <span class="mc-estat-label">${label}</span><span class="mc-estat-val">${val}</span></${tag}>`;
     };
-    return `<div class="mc-move-row">
-      <div class="mc-estat-col">
-        ${estat("mc-tappable", "roll-init", "Init", initStr)}
-        ${estat("mc-tappable", "roll-hd", "Hit Dice", hdStr)}
-      </div>
-      <div class="mc-dpad-wrap">${this.#moveHTML()}</div>
-      <div class="mc-estat-col">
-        ${estat("mc-gray mc-tappable", "speed-picker", "Speed", speed)}
-        ${estat("mc-gray", "", "Prof", prof)}
+    // The "main screen" frame (DM 2026-07-16, experimental): one corner ornament mirrored into all
+    // four corners + a rule above/below. The ornament is a mask, so it takes --mc-frame from the
+    // theme (UI-BIBLE §11) — each theme ships its own corner art.
+    return `<div class="mc-frame">
+      <span class="mc-frame-c mc-tl"></span><span class="mc-frame-c mc-tr"></span>
+      <span class="mc-frame-c mc-bl"></span><span class="mc-frame-c mc-br"></span>
+      <div class="mc-move-row">
+        <div class="mc-estat-col">
+          ${estat("mc-tappable", "roll-init", "Init", initStr)}
+          ${estat("mc-tappable", "roll-hd", "Hit Dice", hdStr)}
+        </div>
+        <div class="mc-dpad-wrap">${this.#moveHTML()}</div>
+        <div class="mc-estat-col">
+          ${estat("mc-gray mc-tappable", "speed-picker", "Speed", speed)}
+          ${estat("mc-gray", "", "Prof", prof)}
+        </div>
       </div>
     </div>`;
   }
@@ -2798,7 +2805,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Magnifying-glass toggle (sits in a tab header) + the drawer it opens. Used by every
   // searchable tab so the search is tucked away until wanted (DM 2026-06-23).
   #searchToggleHTML() {
-    return `<button class="mc-search-toggle ${this.#searchOpen ? "mc-on" : ""}" data-action="search-toggle" aria-label="Search" title="Search"><i class="fas fa-magnifying-glass"></i></button>`;
+    // Hidden while open — the drawer carries its own magnifier, so only ONE ever shows and the
+    // pattern is always [🔍][Search…] on one row (UI-BIBLE §6).
+    if (this.#searchOpen) return "";
+    return `<button class="mc-search-toggle" data-action="search-toggle" aria-label="Search" title="Search"><i class="fas fa-magnifying-glass"></i></button>`;
   }
   // "+ New item" — a deliberate create/name flow for flavour items (DESIGN §7.6): a player
   // picks up "a few crystal shards" and wants them in their bag, no mechanics. Owner-only.
@@ -2828,7 +2838,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
   #searchDrawerHTML() {
     if (!this.#searchOpen) return "";
-    return `<div class="mc-search-drawer"><input class="mc-search-input" type="search" placeholder="Search…" value="${foundry.utils.escapeHTML(this.#searchQuery)}" aria-label="Search"></div>`;
+    // [🔍][Search…] on ONE row (UI-BIBLE §6) — the icon doubles as the close.
+    return `<div class="mc-search-drawer">
+      <button class="mc-search-ico" data-action="search-toggle" aria-label="Close search" title="Close search"><i class="fas fa-magnifying-glass"></i></button>
+      <input class="mc-search-input" type="search" placeholder="Search…" value="${foundry.utils.escapeHTML(this.#searchQuery)}" aria-label="Search">
+    </div>`;
   }
 
   // ── §17.7 Downtime (player side, v2) ─────────────────────────────────────
@@ -3686,7 +3700,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     </div>`;
     return `<div class="mc-cond-panel">
       <div class="mc-cond-panel-head">
-        <span>Conditions — tap to toggle, hold for details</span>
+        <span>Conditions</span>
         <button class="mc-cond-close" data-action="cond-edit" aria-label="Close"><i class="fas fa-xmark"></i></button>
       </div>
       ${breakRow}
@@ -3824,7 +3838,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }).join("");
 
     return `
-      <div class="mc-section-label">Abilities — tap Check or Save</div>
+      <div class="mc-section-label">Abilities</div>
       <div class="mc-abilities">${abilityGrid}</div>`;
   }
 
@@ -3903,7 +3917,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           return `<div class="mc-search-group">${header}${collapsed ? "" : `<div class="mc-actions">${rowsFor(g.key)}</div>`}</div>`;
         }).join("");
     return `<div class="mc-actions-head">
-        <span class="mc-section-label">Actions — tap to use</span>
+        <span class="mc-section-label">Actions</span>
         ${this.#searchToggleHTML()}
       </div>
       ${this.#wildShapeBarHTML(actor)}
