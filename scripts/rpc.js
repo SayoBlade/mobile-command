@@ -2130,33 +2130,22 @@ async function applyDeadMarker(tokenDoc) {
   }
   const cbt = game.combat?.combatants?.find(c => c.tokenId === tokenDoc.id);
   if (cbt) await cbt.delete();
-  // Force the corpse VISIBLE so the skull shows on player/TV screens. Do it NOW and again after a
-  // beat: some death automations set hidden:true AFTER us, so a single check (only if currently
-  // hidden) would no-op on a not-yet-hidden token and the corpse would end up invisible
-  // (DM 2026-07-13: "players see nothing"). Re-fetch by uuid so the delayed pass sees fresh state.
+  // Force the corpse's DOCUMENT visible (hidden:false, full alpha) now and again after a beat, in
+  // case a death automation hides it just after us. NB: a canvas-level fade from a gore module
+  // (Monk's Bloodsplats, `bloodsplat-opacity` + `remove-overlay`, triggered by our `dead` status —
+  // diagnosed live 2026-07-14) is NOT a document flag and can't be fixed here; that's a setting in
+  // that module. This just guarantees our side is correct.
   const uuid = tokenDoc.uuid;
-  const forceVisible = async (phase, notify) => {
+  const forceVisible = async () => {
     const td = (typeof fromUuidSync === "function" ? fromUuidSync(uuid) : null) ?? tokenDoc;
-    if (!td) { const m = `dead marker (${phase}): token GONE (deleted) uuid ${uuid}`; console.log(`${MODULE_ID} | ${m}`); if (notify) ui.notifications?.warn(m); return; }
-    // Dump every mechanism that could make a corpse invisible so a "still invisible" report is
-    // self-diagnosing: hidden flag, alpha, whether Item Piles converted it, and conditions.
-    const isPile = (() => { try { return game.itempiles?.API?.isValidItemPile?.(td) ?? "n/a"; } catch (e) { return "err"; } })();
-    const src = String(td.texture?.src ?? "").split("/").pop(); // just the filename
-    // The RENDERED token (canvas placeable) — if its alpha/visibility differs from the document,
-    // a module is fading/hiding it at the canvas level (a filter), which document updates can't fix.
-    const ph = (() => { try { return canvas?.tokens?.get(td.id); } catch (e) { return null; } })();
-    const rendered = ph ? `vis=${ph.visible} rAlpha=${(ph.mesh?.alpha ?? ph.alpha)?.toFixed?.(2)}` : "vis=? (no placeable)";
-    const msg = `dead marker (${phase}): "${td.name}" hidden=${td.hidden} docAlpha=${td.alpha} ${rendered} isPile=${isPile} img=${src} statuses=[${[...(td.actor?.statuses ?? [])].join(",")}]`;
-    console.log(`${MODULE_ID} | ${msg}`);
-    if (notify) ui.notifications?.warn(msg); // surface it to the DM without needing the console
+    if (!td) return;
     const fix = {};
     if (td.hidden) fix.hidden = false;
-    if (Number(td.alpha) < 1) fix.alpha = 1; // a gore/death module may have faded it out
+    if (Number(td.alpha) < 1) fix.alpha = 1;
     if (Object.keys(fix).length) await td.update(fix);
   };
-  await forceVisible("apply", false);
-  setTimeout(() => forceVisible("recheck-400", false).catch(() => {}), 400);
-  setTimeout(() => forceVisible("recheck-1500", true).catch(() => {}), 1500); // toast the final state
+  await forceVisible();
+  setTimeout(() => forceVisible().catch(() => {}), 1500);
 }
 
 // Standalone dead-marking (no Item Piles / loot required). Resolves the placed token for a dead
@@ -2174,10 +2163,6 @@ async function markNpcDead(actor) {
 // skull when markDeadNpcs is on (default). Either way a dead NPC is unmistakable on every screen.
 async function handleNpcDeath(actor) {
   if (!isExecutor() || actor?.type !== "npc") return;
-  const al = game.settings.get(MODULE_ID, "autoLootNpcs"), md = game.settings.get(MODULE_ID, "markDeadNpcs");
-  const m = `NPC death: ${actor?.name} · autoLoot=${al} · markDead=${md}`;
-  console.log(`${MODULE_ID} | ${m}`);
-  ui.notifications?.info(m); // if you DON'T see this toast on a kill, the death handler isn't firing
   let handled = false;
   if (game.settings.get(MODULE_ID, "autoLootNpcs") && itemPilesReady()) {
     handled = await maybeAutoLoot(actor);   // converts + marks; false if it wasn't pileable
