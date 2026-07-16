@@ -371,10 +371,17 @@ must not change any hit target.
   twinkle), ember→sorcerer (keeps the glow).
 - **Taper with stepped segments + round caps** — SVG strokes can't taper natively. Thin at the free
   ends, heaviest into the elbow.
-- **The swatch IS the icon.** Each theme's tile is a line-art icon of what it *is* — sword for
-  fighter, shield+cross for paladin, wand for wizard, lotus for monk — drawn big and heavy in the
-  theme's own colour (DM 2026-07-17). There is **no coloured disc**: a badge inside a 30px dot was
-  ~20px of hairline art and unreadable. Dropping the disc buys the icon the whole tile.
+- **The swatch IS the icon, and a class's icon is its WEAPON.** You read a class off what it
+  fights with, faster than off any symbol (DM 2026-07-17): sword (fighter) · two crossed daggers
+  (rogue) · battle axe (barbarian) · shield+cross (paladin) · gun (artificer) · wand (wizard) ·
+  wooden staff (druid) · bow (ranger) · mace (cleric) · lute (bard) · fist (monk). Where a class
+  *has* no weapon, its power is the weapon: the sorcerer's innate flame, the warlock's pact eye.
+  Drawn big and heavy in the theme's own colour. There is **no coloured disc**: a badge inside a
+  30px dot was ~20px of hairline art and unreadable. Dropping the disc buys the icon the whole tile.
+- **Icon = weapon, corner motif = meaning.** They're allowed to differ, and should: paladin's
+  swatch is a shield, its corner is a sunburst. Two chances to say what a theme is.
+- **No two icons may share a silhouette.** Cleric and paladin were both a circle-with-rays and read
+  as one icon; cleric became a chalice, then a mace. Check the SET, not each icon alone.
   It's a `mask-image`, so the inline `background-color` paints it — never the `background`
   shorthand, which erases the mask.
 

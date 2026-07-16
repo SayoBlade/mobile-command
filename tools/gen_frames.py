@@ -203,26 +203,28 @@ def ico(body, w="2.6"):
             % (Q, Q, Q, Q, Q, Q, Q, INK, Q, Q, w, Q, Q, Q, Q, Q, body))
 
 ICON = {
- # Redrawn 2026-07-17: "Icons are TINY... I can hardly make out 1/4 of them". These render ~40px,
- # so DETAIL IS THE ENEMY: one unmistakable silhouette, 2-4 strokes, nothing finer than 2.2.
+ # A class reads fastest as its WEAPON (DM 2026-07-17: "a good way to show classes is with favorite
+ # weapon"). These render ~44px, so: one silhouette, 2-4 strokes, nothing finer than 2.2.
+ # The corner MOTIF stays symbolic (rune, sunburst, leafy spray) — icon = weapon, motif = meaning.
  'tavern':    ico("<path d='M6 7h9v11a2.5 2.5 0 0 1-2.5 2.5h-4A2.5 2.5 0 0 1 6 18z'/><path d='M15 10h2.5a2.5 2.5 0 0 1 0 5H15'/><path d='M6 11h9'/>"),  # tankard
  'gothic':    ico("<path d='M12 2.5L19 11v10.5H5V11z'/><circle cx='12' cy='11.5' r='3.4'/><path d='M9 21.5v-4a3 3 0 0 1 6 0v4'/>", "2.2"),  # arch + rose window
  'frost':     ico("<path d='M12 2.5v19M4 7l16 9.5M4 16.5L20 7'/><path d='M12 7L8.6 3.6M12 7l3.4-3.4M12 17l-3.4 3.4M12 17l3.4 3.4'/>", "2.2"),  # snowflake
  'flame':     ico("<path d='M12 2.5c1.4 4 4.2 5.6 4.2 9.2 0 2.6-2 4.6-4.4 4.6-2.1 0-3.5-1.4-3.5-3.2 0-1.8 1.3-2.8 1.3-4.6C6.6 10.4 4.8 13 4.8 16.2c0 3.9 3.2 5.8 7.2 5.8s7.2-2.4 7.2-6.6c0-5.4-4.4-8.6-7.2-12.9z'/>"),  # flame
  'tide':      ico("<path d='M3 8.5c2.2 0 2.2-2.6 4.5-2.6S12 8.5 14.2 8.5s2.3-2.6 4.5-2.6S21 8.5 21 8.5'/><path d='M3 14c2.2 0 2.2-2.6 4.5-2.6S12 14 14.2 14s2.3-2.6 4.5-2.6S21 14 21 14'/><path d='M3 19.5c2.2 0 2.2-2.6 4.5-2.6S12 19.5 14.2 19.5s2.3-2.6 4.5-2.6S21 19.5 21 19.5'/>", "2.2"),  # waves
- 'artificer': ico("<circle cx='12' cy='12' r='3.4'/><circle cx='12' cy='12' r='7.6' stroke-dasharray='3 3.4'/>", "2.4"),  # gear
- 'barbarian': ico("<path d='M12 3.5v17'/><path d='M12 12L6.5 6M12 12l5.5-6'/>", "2.8"),  # Nordic bind-rune (Algiz)
- 'bard':      ico("<path d='M8 21c-3-3-2-8 2-11.5S18.5 6 21 8.5'/><path d='M12.5 18.5c0-4 3-7 7-7.5'/>", "2.4"),  # harp
- 'cleric':    ico("<path d='M7 4h10v3.5a5 5 0 0 1-10 0z'/><path d='M12 12.5V19'/><path d='M7.5 19h9'/>", "2.4"),  # chalice — the sunburst is the PALADIN's (they read as one icon otherwise)
- 'druid':     ico("<path d='M4 21C4 12 11 5 20 5c0 9-7 16-16 16z'/><path d='M4.5 20.5C9 16 14.5 10.5 19 6'/>", "2.3"),  # leaf
- 'fighter':   ico("<path d='M4 20L16 8M16 8l4-5-5 4'/><path d='M20 20L8 8M8 8L4 3l1 5'/>", "2.3"),  # crossed swords
- 'monk':      ico("<path d='M12 21c-4.4 0-8-3.4-8-7.6 2.6 1.3 4.8 1.5 8 1.5s5.4-.2 8-1.5c0 4.2-3.6 7.6-8 7.6z'/><path d='M12 14.8c-2.4-2.8-2.4-6.6 0-9.4 2.4 2.8 2.4 6.6 0 9.4z'/>", "2.2"),  # lotus
- 'paladin':   ico("<circle cx='12' cy='12' r='4.4'/><path d='M12 2v3.4M12 18.6V22M2 12h3.4M18.6 12H22M5 5l2.4 2.4M16.6 16.6L19 19M19 5l-2.4 2.4M7.4 16.6L5 19'/>", "2.2"),  # sunburst
+ # --- the thirteen: each class's weapon ---
+ 'artificer': ico("<path d='M3 8h13v5H8l-2 3H3z'/><path d='M16 10.5h5'/><path d='M9 16v4'/><path d='M6.5 20h5'/>", "2.3"),  # gun
+ 'barbarian': ico("<path d='M12 3v18'/><path d='M12 6.5c3-3 7.5-3 9.5 0-2 3-6.5 3-9.5 0z'/><path d='M12 6.5c-3-3-7.5-3-9.5 0 2 3 6.5 3 9.5 0z'/>", "2.4"),  # battle axe
+ 'bard':      ico("<path d='M8 21c-3-3-2-8 2-11.5S18.5 6 21 8.5'/><path d='M12.5 18.5c0-4 3-7 7-7.5'/>", "2.4"),  # lute/harp
+ 'cleric':    ico("<path d='M12 21v-9'/><path d='M8 8.5a4 4 0 0 1 8 0 4 4 0 0 1-8 0z'/><path d='M12 2.5V5'/><path d='M9 21h6'/>", "2.4"),  # mace
+ 'druid':     ico("<path d='M8 21L14 6'/><path d='M14 6c-2.5-1-3-3.5-1.5-5.5C15 1.5 16 4 14 6z'/><path d='M14 6c2.5-1 5 0 5.5 2.5C17 9.5 15 8.5 14 6z'/><path d='M11 13c-2.5 0-4-1.5-4-4 2.5 0 4 1.5 4 4z'/>", "2.2"),  # wooden staff
+ 'fighter':   ico("<path d='M12 21V7'/><path d='M12 7l3-4.5L12 1.5 9 2.5z'/><path d='M8 7h8'/><path d='M10 21h4'/>", "2.4"),  # sword
+ 'monk':      ico("<path d='M6 11.5V8a1.8 1.8 0 0 1 3.6 0v3'/><path d='M9.6 11V6.5a1.8 1.8 0 0 1 3.6 0V11'/><path d='M13.2 11V7.5a1.8 1.8 0 0 1 3.6 0V12'/><path d='M16.8 12v-1a1.8 1.8 0 0 1 3.4 0v5.5a5.5 5.5 0 0 1-5.5 5.5h-3A5.6 5.6 0 0 1 6 17z'/>", "2.1"),  # fist
+ 'paladin':   ico("<path d='M12 2.5c3 2 6 2.6 9 2.6 0 8-3 14-9 17.4C6 19.1 3 13.1 3 5.1c3 0 6-.6 9-2.6z'/><path d='M12 7.5v9M8 11.5h8'/>", "2.3"),  # shield + cross
  'ranger':    ico("<path d='M4 20c0-8.8 7.2-16 16-16'/><path d='M4 20L20 4'/><path d='M20 4l-5.5 1 1 5.5'/>", "2.4"),  # bow + arrow
- 'rogue':     ico("<path d='M4 20l8-8'/><path d='M12 12l8-8'/><path d='M20 4l-1 5-4-1z'/><path d='M8 14l2 2'/>", "2.4"),  # dagger
- 'sorcerer':  ico("<path d='M12 21.5c-4.2 0-7.6-3.4-7.6-7.6 0-5 4.2-7.9 7.6-11.9 3.4 4 7.6 6.9 7.6 11.9 0 4.2-3.4 7.6-7.6 7.6z'/><path d='M12 17.6c-2 0-3.6-1.6-3.6-3.5 0-2.3 1.9-3.5 3.6-5.5 1.7 2 3.6 3.2 3.6 5.5 0 1.9-1.6 3.5-3.6 3.5z'/>", "2.2"),  # double flame
- 'warlock':   ico("<path d='M2.5 12c3.4-4.6 6.1-6.9 9.5-6.9s6.1 2.3 9.5 6.9c-3.4 4.6-6.1 6.9-9.5 6.9S5.9 16.6 2.5 12z'/><circle cx='12' cy='12' r='2.8'/>", "2.3"),  # eye
- 'wizard':    ico("<path d='M4 20L15 9'/><path d='M17.5 6.5l2 2'/><path d='M18.5 2.5l1.2 2.8 2.8 1.2-2.8 1.2-1.2 2.8-1.2-2.8L14.5 6.5l2.8-1.2z'/>", "2.3"),  # wand + star
+ 'rogue':     ico("<path d='M3.5 20.5L14 10'/><path d='M14 10l4-6.5-6.5 4'/><path d='M20.5 20.5L10 10'/><path d='M10 10L6 3.5l6.5 4'/>", "2.3"),  # two crossed daggers
+ 'sorcerer':  ico("<path d='M12 21.5c-4.2 0-7.6-3.4-7.6-7.6 0-5 4.2-7.9 7.6-11.9 3.4 4 7.6 6.9 7.6 11.9 0 4.2-3.4 7.6-7.6 7.6z'/><path d='M12 17.6c-2 0-3.6-1.6-3.6-3.5 0-2.3 1.9-3.5 3.6-5.5 1.7 2 3.6 3.2 3.6 5.5 0 1.9-1.6 3.5-3.6 3.5z'/>", "2.2"),  # innate flame — a sorcerer's weapon IS the magic
+ 'warlock':   ico("<path d='M2.5 12c3.4-4.6 6.1-6.9 9.5-6.9s6.1 2.3 9.5 6.9c-3.4 4.6-6.1 6.9-9.5 6.9S5.9 16.6 2.5 12z'/><circle cx='12' cy='12' r='2.8'/>", "2.3"),  # the pact's eye
+ 'wizard':    ico("<path d='M4 20L15 9'/><path d='M17.5 6.5l2 2'/><path d='M18.5 2.5l1.2 2.8 2.8 1.2-2.8 1.2-1.2 2.8-1.2-2.8L14.5 6.5l2.8-1.2z'/>", "2.3"),  # wand
 }
 
 THEMES = list(FAMILY.keys())
