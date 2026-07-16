@@ -3448,13 +3448,22 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const themes = [
       ["tavern", "Tavern", "#c8a44d"],
       ["slate", "Slate", "#79b8e0"],
-      ["ember", "Ember", "#e2924a"],
-      ["arcane", "Arcane", "#b483e0"],
-      ["flame", "Flame", "#f0a52e"],
       ["frost", "Frost", "#8fd3f4"],
-      ["clockwork", "Clockwork", "#9aa3ad"],
-      ["verdant", "Verdant", "#6fbf73"],
-      ["tide", "Tide", "#45c4b0"]
+      ["flame", "Flame", "#f0a52e"],
+      ["tide", "Tide", "#45c4b0"],
+      ["artificer", "Artificer", "#c98b3c"],
+      ["barbarian", "Barbarian", "#c0483a"],
+      ["bard", "Bard", "#d76ba8"],
+      ["cleric", "Cleric", "#e0d3a0"],
+      ["druid", "Druid", "#6fbf73"],
+      ["fighter", "Fighter", "#93a3b8"],
+      ["monk", "Monk", "#52c2a5"],
+      ["paladin", "Paladin", "#7f9fe0"],
+      ["ranger", "Ranger", "#9fbf5f"],
+      ["rogue", "Rogue", "#9b8fb5"],
+      ["sorcerer", "Sorcerer", "#e2703a"],
+      ["warlock", "Warlock", "#b06fe0"],
+      ["wizard", "Wizard", "#7f8fe0"]
     ];
     return themes.map(([id, label, sw]) =>
       `<button class="mc-theme-opt ${cur === id ? "mc-on" : ""}" data-action="set-theme" data-theme="${id}" title="${label}" aria-label="${label}" aria-pressed="${cur === id}"><span class="mc-theme-sw" style="background:${sw}"></span></button>`).join("");

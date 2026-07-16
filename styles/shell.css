@@ -1924,100 +1924,171 @@ body {
 /* A theme is a PALETTE on <body> (inherited by shell + DM panel + dialogs) and a shell
    background. Nothing else. If a theme needs a new rule, it wants a new token instead.
    Bars may carry a repeating pattern: keep it faint — it sits under white title text. */
-body.mc-theme-slate {
-  --mc-sunken: #141924;
-  --mc-font-title: "Allrounder Monument";
-  --mc-gold: #79b8e0; --mc-panel: #1d2330; --mc-panel-2: #262d3c; --mc-edge: #36404f;
-  --mc-primary: #2a3a52; --mc-primary-edge: #3a5374; --mc-primary-active: #34496a;
-  --mc-cta-top: #2f5f86; --mc-cta-bot: #1f4059; --mc-cta-edge: #4076a3; --mc-cta-ink: #e6f1f9;
-  --mc-bar-top: #2f4660; --mc-bar-bot: #1f3044; --mc-bar-edge: #16222f;
-}
-body.mc-theme-ember {
-  --mc-sunken: #1a1310;
-  --mc-font-title: "Granville";
-  --mc-gold: #e2924a; --mc-panel: #251c1a; --mc-panel-2: #2f2421; --mc-edge: #463530;
-  --mc-primary: #4a2b22; --mc-primary-edge: #6a4030; --mc-primary-active: #5c3527;
-  --mc-cta-top: #9a4526; --mc-cta-bot: #6b2c15; --mc-cta-edge: #b25732; --mc-cta-ink: #fbeade;
-  --mc-bar-top: #7a3a1e; --mc-bar-bot: #52240f; --mc-bar-edge: #3d1a0b;
-}
-body.mc-theme-arcane {
-  --mc-sunken: #17131f;
-  --mc-font-title: "Amiri";
-  --mc-gold: #b483e0; --mc-panel: #221c2e; --mc-panel-2: #2b2439; --mc-edge: #3e3550;
-  --mc-primary: #3a2c52; --mc-primary-edge: #54407a; --mc-primary-active: #463463;
-  --mc-cta-top: #5b3d8a; --mc-cta-bot: #3d2860; --mc-cta-edge: #7451ab; --mc-cta-ink: #f0e8fa;
-  --mc-bar-top: #4a3370; --mc-bar-bot: #31214d; --mc-bar-edge: #241838;
-}
 
 /* --- Themes with a patterned bar (DM 2026-07-17) --- */
 
 /* Flame: yellow-orange, flame licks on the bars. */
-body.mc-theme-flame {
-  --mc-sunken: #1d1509;
-  --mc-font-title: "OptimusPrinceps";
-  --mc-gold: #f0a52e; --mc-panel: #2a1f12; --mc-panel-2: #362818; --mc-edge: #4d3a1f;
-  --mc-primary: #5a3a12; --mc-primary-edge: #7d5219; --mc-primary-active: #6b4515;
-  --mc-cta-top: #c9701a; --mc-cta-bot: #8f4708; --mc-cta-edge: #e08a2b; --mc-cta-ink: #fff3e0;
-  --mc-bar-top: #b4611a; --mc-bar-bot: #7c3a06; --mc-bar-edge: #5c2a04;
-  /* The same silhouette as the corner ornament, cropped tight — the earlier motif had an
-     inner curl that closed into an arch at bar size and read as a row of beads. */
-  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='38' height='19' viewBox='-5.2 3 34 19'><path d='M4 17c0-6 4-10 10-13-2.6 3.4-3.6 6-3.6 8.2 0 1.8 1 3 2.6 3 1.3 0 2.2-.9 2.2-2.2 0-1.2-.8-1.8-.8-2.8 1.8 1.2 3 3 3 5.4 0 3.4-2.8 6-6.2 6C7.6 21.6 4 19.8 4 17z' fill='rgba(255,224,160,0.07)'/></svg>");
-}
 
 /* Frost: cold blue, snowflakes in a lighter blue. */
+
+/* Clockwork: gunmetal grey, gears. */
+
+/* Tide: deep teal, waves. */
+
+/* Verdant: deep green, leaves. */
+
+/* ===== Themes =====
+   A theme is a PALETTE on <body> (inherited by the shell, the DM panel and lifted dialogs), a
+   shell background, and a corner motif. Nothing else — UI-BIBLE 11.1. Generated from one table:
+   see scratchpad/gen_themes.py. The 13 CLASS palettes are derived from a single hue by formula,
+   so they stay consistent with each other and are retuned in one place; the 5 generic themes
+   keep their hand-tuned values.
+   Default is Tavern (no body class). ===== */
+body.mc-theme-slate {
+  --mc-font-title: "Signika";
+  --mc-gold: #79b8e0; --mc-panel: #1d2330; --mc-panel-2: #262d3c; --mc-edge: #36404f; --mc-sunken: #141924;
+  --mc-primary: #2a3a52; --mc-primary-edge: #3a5374; --mc-primary-active: #34496a;
+  --mc-cta-top: #2f5f86; --mc-cta-bot: #1f4059; --mc-cta-edge: #4076a3; --mc-cta-ink: #e6f1f9;
+  --mc-bar-top: #2f4660; --mc-bar-bot: #1f3044; --mc-bar-edge: #16222f;
+}
 body.mc-theme-frost {
-  --mc-sunken: #0f171d;
   --mc-font-title: "Titillium";
-  --mc-gold: #8fd3f4; --mc-panel: #16222b; --mc-panel-2: #1e2f3b; --mc-edge: #2f4655;
+  --mc-gold: #8fd3f4; --mc-panel: #16222b; --mc-panel-2: #1e2f3b; --mc-edge: #2f4655; --mc-sunken: #0f171d;
   --mc-primary: #1f4459; --mc-primary-edge: #2f6480; --mc-primary-active: #275470;
   --mc-cta-top: #2b7ba8; --mc-cta-bot: #185f80; --mc-cta-edge: #47a0cc; --mc-cta-ink: #eaf7ff;
   --mc-bar-top: #2a6d95; --mc-bar-bot: #174a63; --mc-bar-edge: #103548;
   --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='22' viewBox='-9 0 40 22'><g fill='none' stroke='rgba(200,240,255,0.13)' stroke-width='1.1' stroke-linecap='round'><path d='M11 3v16M3.5 7l15 8M18.5 7l-15 8'/><path d='M11 6.5l-2-2M11 6.5l2-2M11 15.5l-2 2M11 15.5l2 2'/></g></svg>");
 }
-
-/* Clockwork: gunmetal grey, gears. */
-body.mc-theme-clockwork {
-  --mc-sunken: #15171a;
-  --mc-font-title: "Bruno Ace";
-  --mc-gold: #9aa3ad; --mc-panel: #1e2024; --mc-panel-2: #282b30; --mc-edge: #3d4249;
-  --mc-primary: #33383f; --mc-primary-edge: #4b525b; --mc-primary-active: #3e444c;
-  --mc-cta-top: #5c646e; --mc-cta-bot: #3a4048; --mc-cta-edge: #79828d; --mc-cta-ink: #f0f2f4;
-  --mc-bar-top: #4a515a; --mc-bar-bot: #2f343b; --mc-bar-edge: #22262b;
-  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='24' viewBox='-10 0 44 24'><g fill='none' stroke='rgba(220,230,240,0.11)' stroke-width='1.2'><circle cx='12' cy='12' r='3.4'/><circle cx='12' cy='12' r='6.4' stroke-dasharray='2 2.8'/></g></svg>");
+body.mc-theme-flame {
+  --mc-font-title: "OptimusPrinceps";
+  --mc-gold: #f0a52e; --mc-panel: #2a1f12; --mc-panel-2: #362818; --mc-edge: #4d3a1f; --mc-sunken: #1d1509;
+  --mc-primary: #5a3a12; --mc-primary-edge: #7d5219; --mc-primary-active: #6b4515;
+  --mc-cta-top: #c9701a; --mc-cta-bot: #8f4708; --mc-cta-edge: #e08a2b; --mc-cta-ink: #fff3e0;
+  --mc-bar-top: #b4611a; --mc-bar-bot: #7c3a06; --mc-bar-edge: #5c2a04;
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='38' height='19' viewBox='-5.2 3 34 19'><path d='M4 17c0-6 4-10 10-13-2.6 3.4-3.6 6-3.6 8.2 0 1.8 1 3 2.6 3 1.3 0 2.2-.9 2.2-2.2 0-1.2-.8-1.8-.8-2.8 1.8 1.2 3 3 3 5.4 0 3.4-2.8 6-6.2 6C7.6 21.6 4 19.8 4 17z' fill='rgba(255,224,160,0.07)'/></svg>");
 }
-
-/* Tide: deep teal, waves. */
 body.mc-theme-tide {
-  --mc-sunken: #0d1a1f;
   --mc-font-title: "Average";
-  --mc-gold: #45c4b0; --mc-panel: #13232a; --mc-panel-2: #1b3038; --mc-edge: #2b4a54;
+  --mc-gold: #45c4b0; --mc-panel: #13232a; --mc-panel-2: #1b3038; --mc-edge: #2b4a54; --mc-sunken: #0d1a1f;
   --mc-primary: #1b4048; --mc-primary-edge: #2a606c; --mc-primary-active: #235058;
   --mc-cta-top: #1f7a76; --mc-cta-bot: #114f4d; --mc-cta-edge: #2fa39c; --mc-cta-ink: #e8fbf8;
   --mc-bar-top: #1d6b6a; --mc-bar-bot: #0f4746; --mc-bar-edge: #0a3130;
   --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='20' viewBox='-11 0 44 20'><path d='M-12 13c3.5 0 3.5-4 7-4s3.5 4 7 4 3.5-4 7-4 3.5 4 7 4 3.5-4 7-4 3.5 4 7 4' fill='none' stroke='rgba(190,255,248,0.12)' stroke-width='1.6' stroke-linecap='round'/></svg>");
 }
-
-/* Verdant: deep green, leaves. */
-body.mc-theme-verdant {
-  --mc-sunken: #0f1a12;
+body.mc-theme-artificer {
+  --mc-font-title: "Bruno Ace";
+  --mc-gold: #c98b3c; --mc-panel: #241f19; --mc-panel-2: #342c23; --mc-edge: #504639; --mc-sunken: #181510;
+  --mc-primary: #46392a; --mc-primary-edge: #69563f; --mc-primary-active: #564634;
+  --mc-cta-top: #73593a; --mc-cta-bot: #473724; --mc-cta-edge: #99754d; --mc-cta-ink: #f6f2ef;
+  --mc-bar-top: #624c32; --mc-bar-bot: #403220; --mc-bar-edge: #2c2216;
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='24' viewBox='-10 0 44 24'><g fill='none' stroke='rgba(255,225,180,0.11)' stroke-width='1.2'><circle cx='12' cy='12' r='3.4'/><circle cx='12' cy='12' r='6.4' stroke-dasharray='2 2.8'/></g></svg>");
+}
+body.mc-theme-barbarian {
+  --mc-font-title: "Allrounder Monument";
+  --mc-gold: #c0483a; --mc-panel: #241a19; --mc-panel-2: #342523; --mc-edge: #503c39; --mc-sunken: #181110;
+  --mc-primary: #462d2a; --mc-primary-edge: #69433f; --mc-primary-active: #563734;
+  --mc-cta-top: #73403a; --mc-cta-bot: #472724; --mc-cta-edge: #99544d; --mc-cta-ink: #f6efef;
+  --mc-bar-top: #623632; --mc-bar-bot: #402420; --mc-bar-edge: #2c1816;
+}
+body.mc-theme-bard {
   --mc-font-title: "Gilda";
-  --mc-gold: #6fbf73; --mc-panel: #16241a; --mc-panel-2: #1f3124; --mc-edge: #32483a;
-  --mc-primary: #1f4029; --mc-primary-edge: #2f5d3c; --mc-primary-active: #274e33;
-  --mc-cta-top: #2f7a3f; --mc-cta-bot: #1c4d27; --mc-cta-edge: #46a058; --mc-cta-ink: #ecfbee;
-  --mc-bar-top: #2c6b3a; --mc-bar-bot: #17482a; --mc-bar-edge: #103021;
-  /* The corner leaf, cropped tight — the previous motif thinned into diagonal hatching. */
+  --mc-gold: #d76ba8; --mc-panel: #24191f; --mc-panel-2: #33242b; --mc-edge: #4f3b45; --mc-sunken: #181114;
+  --mc-primary: #442c38; --mc-primary-edge: #664254; --mc-primary-active: #543645;
+  --mc-cta-top: #703e57; --mc-cta-bot: #452636; --mc-cta-edge: #945273; --mc-cta-ink: #f5eff2;
+  --mc-bar-top: #5f354a; --mc-bar-bot: #3e2230; --mc-bar-edge: #2b1821;
+}
+body.mc-theme-cleric {
+  --mc-font-title: "OptimusPrinceps";
+  --mc-gold: #e0d3a0; --mc-panel: #23211b; --mc-panel-2: #312e26; --mc-edge: #4d493d; --mc-sunken: #171612;
+  --mc-primary: #423d2f; --mc-primary-edge: #635b46; --mc-primary-active: #514b39;
+  --mc-cta-top: #6a6143; --mc-cta-bot: #423c29; --mc-cta-edge: #8d8059; --mc-cta-ink: #f5f3f0;
+  --mc-bar-top: #5b5239; --mc-bar-bot: #3b3625; --mc-bar-edge: #29251a;
+}
+body.mc-theme-druid {
+  --mc-font-title: "Average";
+  --mc-gold: #6fbf73; --mc-panel: #1c231b; --mc-panel-2: #283126; --mc-edge: #404d3d; --mc-sunken: #131712;
+  --mc-primary: #32422f; --mc-primary-edge: #4b6346; --mc-primary-active: #3d5139;
+  --mc-cta-top: #4a6a43; --mc-cta-bot: #2d4229; --mc-cta-edge: #618d59; --mc-cta-ink: #f1f5f0;
+  --mc-bar-top: #3f5b39; --mc-bar-bot: #293b25; --mc-bar-edge: #1c291a;
   --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='18' viewBox='-6.9 1.4 32 16.2'><path d='M2 2c0 9 5 15 14 15C16 8 11 2 2 2z' fill='rgba(205,255,210,0.09)'/></svg>");
+}
+body.mc-theme-fighter {
+  --mc-font-title: "Roboto Slab";
+  --mc-gold: #93a3b8; --mc-panel: #1d1f21; --mc-panel-2: #292b2e; --mc-edge: #414549; --mc-sunken: #131416;
+  --mc-primary: #34383d; --mc-primary-edge: #4d545b; --mc-primary-active: #3f454a;
+  --mc-cta-top: #4d5760; --mc-cta-bot: #30363b; --mc-cta-edge: #66737f; --mc-cta-ink: #f1f2f3;
+  --mc-bar-top: #424a52; --mc-bar-bot: #2b3036; --mc-bar-edge: #1e2125;
+}
+body.mc-theme-monk {
+  --mc-font-title: "Amiri";
+  --mc-gold: #52c2a5; --mc-panel: #1a2321; --mc-panel-2: #25312e; --mc-edge: #3d4d49; --mc-sunken: #121716;
+  --mc-primary: #2e423d; --mc-primary-edge: #45635c; --mc-primary-active: #38514b;
+  --mc-cta-top: #426c61; --mc-cta-bot: #29423c; --mc-cta-edge: #578e81; --mc-cta-ink: #f0f5f4;
+  --mc-bar-top: #385c53; --mc-bar-bot: #253c36; --mc-bar-edge: #192925;
+}
+body.mc-theme-paladin {
+  --mc-font-title: "Granville";
+  --mc-gold: #7f9fe0; --mc-panel: #1a1c23; --mc-panel-2: #252832; --mc-edge: #3c404e; --mc-sunken: #111318;
+  --mc-primary: #2d3243; --mc-primary-edge: #434c65; --mc-primary-active: #373e53;
+  --mc-cta-top: #3f4b6e; --mc-cta-bot: #272e44; --mc-cta-edge: #546392; --mc-cta-ink: #eff1f5;
+  --mc-bar-top: #36405e; --mc-bar-bot: #232a3e; --mc-bar-edge: #181d2a;
+}
+body.mc-theme-ranger {
+  --mc-font-title: "Roboto Condensed";
+  --mc-gold: #9fbf5f; --mc-panel: #1f221b; --mc-panel-2: #2c3126; --mc-edge: #464c3e; --mc-sunken: #151712;
+  --mc-primary: #3a412f; --mc-primary-edge: #566147; --mc-primary-active: #47503a;
+  --mc-cta-top: #5a6944; --mc-cta-bot: #37412a; --mc-cta-edge: #778b5b; --mc-cta-ink: #f3f4f0;
+  --mc-bar-top: #4d593a; --mc-bar-bot: #323b26; --mc-bar-edge: #22281a;
+}
+body.mc-theme-rogue {
+  --mc-font-title: "Titillium";
+  --mc-gold: #9b8fb5; --mc-panel: #1f1c21; --mc-panel-2: #2b282e; --mc-edge: #454149; --mc-sunken: #141316;
+  --mc-primary: #38333d; --mc-primary-edge: #544d5c; --mc-primary-active: #453f4b;
+  --mc-cta-top: #574c61; --mc-cta-bot: #362f3c; --mc-cta-edge: #736581; --mc-cta-ink: #f2f1f4;
+  --mc-bar-top: #4a4153; --mc-bar-bot: #302b36; --mc-bar-edge: #211d25;
+}
+body.mc-theme-sorcerer {
+  --mc-font-title: "Amiri";
+  --mc-gold: #e2703a; --mc-panel: #251c18; --mc-panel-2: #352822; --mc-edge: #524038; --mc-sunken: #191310;
+  --mc-primary: #483228; --mc-primary-edge: #6c4b3d; --mc-primary-active: #583d32;
+  --mc-cta-top: #774a36; --mc-cta-bot: #492e22; --mc-cta-edge: #9d6248; --mc-cta-ink: #f6f1ee;
+  --mc-bar-top: #653f2e; --mc-bar-bot: #42291e; --mc-bar-edge: #2d1c15;
+}
+body.mc-theme-warlock {
+  --mc-font-title: "Gilda";
+  --mc-gold: #b06fe0; --mc-panel: #211a23; --mc-panel-2: #2f2532; --mc-edge: #493c4e; --mc-sunken: #161118;
+  --mc-primary: #3e2d43; --mc-primary-edge: #5d4365; --mc-primary-active: #4c3753;
+  --mc-cta-top: #623f6e; --mc-cta-bot: #3d2744; --mc-cta-edge: #825492; --mc-cta-ink: #f4eff5;
+  --mc-bar-top: #54365e; --mc-bar-bot: #37233e; --mc-bar-edge: #26182a;
+}
+body.mc-theme-wizard {
+  --mc-font-title: "Granville";
+  --mc-gold: #7f8fe0; --mc-panel: #1b1a23; --mc-panel-2: #262532; --mc-edge: #3d3c4e; --mc-sunken: #121118;
+  --mc-primary: #2f2d43; --mc-primary-edge: #464365; --mc-primary-active: #393753;
+  --mc-cta-top: #433f6e; --mc-cta-bot: #2a2744; --mc-cta-edge: #595492; --mc-cta-ink: #f0eff5;
+  --mc-bar-top: #39365e; --mc-bar-bot: #26233e; --mc-bar-edge: #1a182a;
 }
 
 /* Shell backgrounds — the one per-theme rule that is NOT a token. */
 body.mc-theme-slate #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #1c2433 0%, #11151c 60%); }
-body.mc-theme-ember #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #2a1d17 0%, #16110e 60%); }
-body.mc-theme-arcane #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #241a33 0%, #14111c 60%); }
-body.mc-theme-flame #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #33230f 0%, #1a1208 60%); }
 body.mc-theme-frost #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #172a36 0%, #0d161d 60%); }
-body.mc-theme-clockwork #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #24272c 0%, #131518 60%); }
-body.mc-theme-verdant #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #172a1c 0%, #0d160f 60%); }
+body.mc-theme-flame #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #33230f 0%, #1a1208 60%); }
 body.mc-theme-tide #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #15282f 0%, #0b1418 60%); }
+body.mc-theme-artificer #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #2c241c 0%, #16120e 60%); }
+body.mc-theme-barbarian #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #2c1d1c 0%, #160f0e 60%); }
+body.mc-theme-bard #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #2b1d24 0%, #150e12 60%); }
+body.mc-theme-cleric #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #29261e 0%, #15130f 60%); }
+body.mc-theme-druid #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #20291e 0%, #10150f 60%); }
+body.mc-theme-fighter #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #212426 0%, #111213 60%); }
+body.mc-theme-monk #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #1e2927 0%, #0f1513 60%); }
+body.mc-theme-paladin #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #1d202a 0%, #0f1015 60%); }
+body.mc-theme-ranger #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #25291f 0%, #12140f 60%); }
+body.mc-theme-rogue #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #242127 0%, #121013 60%); }
+body.mc-theme-sorcerer #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #2d201b 0%, #16100d 60%); }
+body.mc-theme-warlock #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #271d2a 0%, #130f15 60%); }
+body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #1e1d2a 0%, #0f0f15 60%); }
+
+/* Shell backgrounds — the one per-theme rule that is NOT a token. */
 /* Animated theme backgrounds (non-default themes only — default stays flat).
    PERFORMANCE: one pseudo-element per theme, animating ONLY transform or opacity
    (GPU-composited, no per-frame layout/paint), a single rasterized tiled gradient,
@@ -2025,12 +2096,12 @@ body.mc-theme-tide #mobile-command-shell { background: radial-gradient(120% 80% 
 @media (prefers-reduced-motion: no-preference) {
   /* Lift real content above the overlay; scoped so the default theme is untouched. */
   body.mc-theme-slate #mobile-command-shell > *,
-  body.mc-theme-ember #mobile-command-shell > *,
-  body.mc-theme-arcane #mobile-command-shell > * { position: relative; z-index: 1; }
+  body.mc-theme-sorcerer #mobile-command-shell > *,
+  body.mc-theme-warlock #mobile-command-shell > * { position: relative; z-index: 1; }
 
   body.mc-theme-slate #mobile-command-shell::after,
-  body.mc-theme-ember #mobile-command-shell::after,
-  body.mc-theme-arcane #mobile-command-shell::after {
+  body.mc-theme-sorcerer #mobile-command-shell::after,
+  body.mc-theme-warlock #mobile-command-shell::after {
     content: ""; position: absolute; z-index: 0; pointer-events: none;
     will-change: transform, opacity;
   }
@@ -2045,16 +2116,16 @@ body.mc-theme-tide #mobile-command-shell { background: radial-gradient(120% 80% 
   }
   @keyframes mc-bg-snow { from { transform: translate3d(0,0,0); } to { transform: translate3d(10px,60px,0); } }
 
-  /* Ember — minimalist warm glow breathing at the base (opacity only). */
-  body.mc-theme-ember #mobile-command-shell::after {
+  /* Sorcerer — minimalist warm glow breathing at the base (opacity only). */
+  body.mc-theme-sorcerer #mobile-command-shell::after {
     inset: 0;
     background: radial-gradient(130% 60% at 50% 120%, rgba(224,96,30,0.30), transparent 70%);
-    animation: mc-bg-ember 6.5s ease-in-out infinite;
+    animation: mc-bg-sorc 6.5s ease-in-out infinite;
   }
-  @keyframes mc-bg-ember { 0%,100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+  @keyframes mc-bg-sorc { 0%,100% { opacity: 0.4; } 50% { opacity: 0.8; } }
 
-  /* Arcane — faint twinkling motes (opacity only). */
-  body.mc-theme-arcane #mobile-command-shell::after {
+  /* Warlock — faint twinkling motes (opacity only). */
+  body.mc-theme-warlock #mobile-command-shell::after {
     inset: 0;
     background-image: radial-gradient(rgba(168,140,255,0.55) 1px, transparent 1.5px);
     background-size: 46px 46px;
@@ -2176,11 +2247,11 @@ body.mc-theme-tide #mobile-command-shell { background: radial-gradient(120% 80% 
 .mc-profile-act.mc-act-exit:active { background: #4a2f30; border-color: #5c2f2c; color: #f0b8b2; }
 .mc-profile-act.mc-act-exit:active i { color: #f0b8b2; }
 
-/* Swatches only — no names (DM 2026-07-17). A GRID that divides the row evenly: every dot is the
-   same width, they fill the width with no ragged tail, and adding a theme just re-divides it —
-   no magic numbers to retune (DM: "spread evenly dynamically"). auto-fit + minmax wraps to a
-   second even row on a narrow phone instead of overflowing. */
-.mc-theme-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(38px, 1fr)); gap: 8px; align-items: center; }
+/* Swatches only — no names (DM 2026-07-17). A fixed 9-column grid: 18 themes = exactly TWO even
+   rows, and every tile is the same width whatever the shell's width (DM: "fill two rows … spread
+   evenly dynamically"). auto-fit was wrong here — it packs as many as fit, so the row count drifted
+   with the viewport. 9 columns is the design; the tiles flex. */
+.mc-theme-row { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; align-items: center; }
 /* Each swatch FILLS its track (UI-BIBLE §4.1, swatch-row exception): the tile is a plate the dot
    sits on, so it may be a rounded rect rather than a square — that's what lets the row divide
    evenly with no ragged tail. The dot itself stays round, which is the part you actually read.
@@ -2189,7 +2260,10 @@ body.mc-theme-tide #mobile-command-shell { background: radial-gradient(120% 80% 
   border-radius: 10px; cursor: pointer;
   background: var(--mc-panel); border: 1px solid var(--mc-edge); }
 .mc-theme-opt.mc-on { border-color: var(--mc-gold); }
-.mc-theme-sw { display: block; width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(255,255,255,.25); }
+/* The dot is the whole point — make it the tile, not a pea on it (DM 2026-07-17: "make the
+   colored circles in the button bigger"). Sized in % so it grows with the tile on a wide shell
+   and still fits a narrow phone. */
+.mc-theme-sw { display: block; width: 68%; max-width: 30px; aspect-ratio: 1; border-radius: 50%; border: 1px solid rgba(255,255,255,.25); }
 /* The selected dot wears the ring — the only state marking a dot can carry (§5). */
 .mc-theme-opt.mc-on .mc-theme-sw { box-shadow: 0 0 0 2px var(--mc-panel), 0 0 0 3.5px var(--mc-gold); }
 
@@ -2248,8 +2322,9 @@ body.mc-theme-tide #mobile-command-shell { background: radial-gradient(120% 80% 
      edges, a lighter parallel rule inside it, and a spiral volute terminating each arm.
      That structure is the common language of a printed corner ornament; the motif just
      says which theme it is. A theme overrides --mc-frame-orn ONLY. */
-  --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M3 33.5V29.2' stroke-width='0.9'/><path d='M3 29.4V24.2' stroke-width='1.5'/><path d='M3 24.4V18.2' stroke-width='2.1'/><path d='M3 18.4V12.2' stroke-width='2.6'/><path d='M3 12.4V10.5A7.5 7.5 0 0 1 10.5 3H12.4' stroke-width='3'/><path d='M12.2 3H18.4' stroke-width='2.6'/><path d='M18.2 3H24.4' stroke-width='2.1'/><path d='M24.2 3H29.4' stroke-width='1.5'/><path d='M29.2 3H33.5' stroke-width='0.9'/><path d='M11 40V33' stroke-width='1'/><path d='M11 33.2V22' stroke-width='1.5'/><path d='M11 22.2V15A4 4 0 0 1 15 11H22' stroke-width='1.5'/><path d='M21.8 11H33' stroke-width='1.5'/><path d='M32.8 11H40' stroke-width='1'/><path d='M40 11c3.7 0 5.8 1.9 5.8 4.6' stroke-width='1.2'/><path d='M45.8 15.6c0 2.3-1.7 4-3.8 4' stroke-width='0.9'/><path d='M42 19.6c-1.8 0-3-1.2-3-2.7 0-1.3.9-2.2 2-2.2' stroke-width='0.65'/><path d='M11 40c0 3.7 1.9 5.8 4.6 5.8' stroke-width='1.2'/><path d='M15.6 45.8c2.3 0 4-1.7 4-3.8' stroke-width='0.9'/><path d='M19.6 42c0-1.8-1.2-3-2.7-3-1.3 0-2.2.9-2.2 2' stroke-width='0.65'/></g></svg>");
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round'><circle cx='23' cy='23' r='4.6'/><path d='M23 13.5v4.2M23 28.2v4.2M13.5 23h4.2M28.2 23h4.2'/></g></svg>");
+  --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M4.6 39.5 C3.7 34 3.5 29.6 4.1 25.4' stroke-width='0.9'/><path d='M4.1 25.4 C4.8 20.6 6.5 16.2 9.4 12.4' stroke-width='1.8'/><path d='M9.4 12.4 C12.6 8.4 16.9 5.7 21.6 4.5' stroke-width='3.0'/><path d='M21.6 4.5 C26 3.4 30.6 3.4 35.2 4.1' stroke-width='1.8'/><path d='M35.2 4.1 C37.8 4.5 40 4.9 42 5.4' stroke-width='0.9'/><path d='M13.2 43 C12.3 37.6 12.6 32.8 14.1 28.6' stroke-width='1.0'/><path d='M14.1 28.6 C15.7 24 18.4 20.1 22.2 17.2' stroke-width='1.5'/><path d='M22.2 17.2 C26.2 14.1 30.9 12.5 35.8 12.2' stroke-width='1.5'/><path d='M35.8 12.2 C38.4 12.1 40.9 12.3 43.2 12.7' stroke-width='1.0'/><path d='M43.2 12.7 C46.9 13.4 49 15.9 48.8 19' stroke-width='1.2'/><path d='M48.8 19 C48.6 21.5 46.8 23.2 44.6 23' stroke-width='0.9'/><path d='M44.6 23 C42.7 22.8 41.5 21.4 41.7 19.8 C41.8 18.6 42.8 17.7 44 17.8' stroke-width='0.65'/><path d='M13.2 43 C13.9 46.7 16.4 48.8 19.5 48.6' stroke-width='1.2'/><path d='M19.5 48.6 C22 48.4 23.7 46.6 23.5 44.4' stroke-width='0.9'/><path d='M23.5 44.4 C23.3 42.5 21.9 41.3 20.3 41.5 C19.1 41.6 18.2 42.6 18.3 43.8' stroke-width='0.65'/></g></svg>");
+  /* Tavern's motif = the base. Every theme overrides just this one line. */
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round'><circle cx='25' cy='25' r='4.6'/><path d='M25 15.4v4.2M25 30.2v4.2M15.4 25h4.2M30.2 25h4.2'/></g></svg>");
   /* 26px read as a rounding error; 3x is the size the DM asked for (2026-07-17), inset
      so the art doesn't sit welded into the corner. Tune both HERE — the mirrors follow. */
   --mc-frame-c-size: 78px;
@@ -2274,39 +2349,76 @@ body.mc-theme-tide #mobile-command-shell { background: radial-gradient(120% 80% 
 .mc-frame-c.mc-tr { top: var(--mc-frame-c-pad); right: var(--mc-frame-c-pad); transform: scaleX(-1); }
 .mc-frame-c.mc-bl { bottom: var(--mc-frame-c-pad); left: var(--mc-frame-c-pad); transform: scaleY(-1); }
 .mc-frame-c.mc-br { bottom: var(--mc-frame-c-pad); right: var(--mc-frame-c-pad); transform: scale(-1, -1); }
-/* Per-theme corner art. */
-body.mc-theme-slate .mc-frame { /* angular / geometric */
+/* Per-theme corner motif — the shared skeleton does the structure (UI-BIBLE 11). */
+body.mc-theme-slate .mc-frame {
   --mc-frame: #3a5374;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.7'><rect x='16.5' y='16.5' width='13' height='13'/><rect x='20.5' y='20.5' width='5' height='5'/><path d='M29.5 16.5L34 12M16.5 29.5L12 34' stroke-linecap='round'/></g></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.6'><rect x='19' y='19' width='12' height='12' rx='2.4'/><rect x='22.6' y='22.6' width='4.8' height='4.8' rx='1.2'/></g></svg>");
 }
-body.mc-theme-ember .mc-frame { /* flame curl */
-  --mc-frame: #6a4030;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><path d='M23 12.5c1.3 3.6 3.9 5.1 3.9 8.5 0 2.5-1.9 4.4-4.3 4.4-2 0-3.4-1.4-3.4-3.2 0-1.7 1.3-2.7 1.3-4.4-2.6 1.7-4.3 4.3-4.3 7.5 0 4.7 3.9 8.1 8.6 8.1' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'/></svg>");
-}
-body.mc-theme-arcane .mc-frame { /* rune star */
-  --mc-frame: #54407a;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round'><path d='M23 13l2.6 6.1 6.4 1.9-6.4 1.9L23 29l-2.6-6.1L14 21l6.4-1.9L23 13z'/><circle cx='23' cy='21' r='1.5'/><path d='M31 31l1.2 2.8 2.8 1.2-2.8 1.2L31 39l-1.2-2.8L27 35l2.8-1.2L31 31z'/></g></svg>");
-}
-body.mc-theme-flame .mc-frame { /* twin flame licks */
-  --mc-frame: #b4611a;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='2' stroke-linecap='round'><path d='M22 12c1.2 3.4 3.7 4.9 3.7 8.1 0 2.4-1.8 4.2-4.1 4.2-1.9 0-3.2-1.3-3.2-3.1 0-1.6 1.2-2.6 1.2-4.2-2.5 1.6-4.1 4.1-4.1 7.2 0 4.5 3.7 7.7 8.2 7.7'/><path d='M28.5 27c.8 2 2.4 2.9 2.4 4.9 0 1.7-1.3 3-3 3' stroke-width='1.5'/></g></svg>");
-}
-body.mc-theme-frost .mc-frame { /* a six-arm flake, plus a small one trailing off the corner */
+body.mc-theme-frost .mc-frame {
   --mc-frame: #2f6480;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'><path d='M23 12.5v21M13.9 17.8l18.2 10.4M13.9 28.2l18.2-10.4'/><path d='M23 17.5l-3-3M23 17.5l3-3M23 28.5l-3 3M23 28.5l3 3'/><path d='M18.1 20.4l-4.1-1.1M18.1 25.6l-4.1 1.1M27.9 20.4l4.1-1.1M27.9 25.6l4.1 1.1'/></g></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'><path d='M25 15v20M16.4 20l17.2 10M16.4 30l17.2-10'/><path d='M25 19.6l-2.8-2.8M25 19.6l2.8-2.8M25 30.4l-2.8 2.8M25 30.4l2.8 2.8'/><path d='M20.4 22.6l-3.9-1M20.4 27.4l-3.9 1M29.6 22.6l3.9-1M29.6 27.4l3.9 1'/></g></svg>");
 }
-body.mc-theme-clockwork .mc-frame { /* gear + spoke */
-  --mc-frame: #4b525b;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><circle cx='23' cy='23' r='3.6' stroke-width='1.7'/><circle cx='23' cy='23' r='7.4' stroke-width='2.7' stroke-dasharray='2.6 3'/><path d='M28.5 28.5L35 35' stroke-width='1.6' stroke-linecap='round'/><circle cx='36.5' cy='36.5' r='2.4' stroke-width='1.5'/></g></svg>");
+body.mc-theme-flame .mc-frame {
+  --mc-frame: #b4611a;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><path d='M25 14c1.3 3.6 3.9 5.1 3.9 8.5 0 2.5-1.9 4.4-4.3 4.4-2 0-3.4-1.4-3.4-3.2 0-1.7 1.3-2.7 1.3-4.4-2.6 1.7-4.3 4.3-4.3 7.5 0 4.7 3.9 8.1 8.6 8.1' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/></svg>");
 }
-body.mc-theme-tide .mc-frame { /* cresting wave */
+body.mc-theme-tide .mc-frame {
   --mc-frame: #2a606c;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M13 30c0-9.4 7.6-17 17-17-5.6 2.6-9 6.6-9 11.2 0 3 2.1 5.1 4.9 5.1 2.4 0 4.1-1.7 4.1-4 0-1.9-1.3-3.2-3-3.2' stroke-width='2.2'/><path d='M12 36c3 0 3-3 6-3s3 3 6 3 3-3 6-3 3 3 6 3' stroke-width='1.5'/></g></svg>");
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M16 26c0-6 4.8-10.8 10.8-10.8-3.6 1.7-5.7 4.2-5.7 7.1 0 1.9 1.3 3.2 3.1 3.2 1.5 0 2.6-1.1 2.6-2.5 0-1.2-.8-2-1.9-2' stroke-width='2'/><path d='M15 32c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2' stroke-width='1.4'/></g></svg>");
 }
-body.mc-theme-verdant .mc-frame { /* vine + leaf */
-  --mc-frame: #2f5d3c;
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g><path d='M14 32c0-8.8 6.6-15.4 15.4-15.4 0 8.8-6.6 15.4-15.4 15.4z' fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='round'/><path d='M14 32L29.4 16.6' stroke='black' stroke-width='1.3' stroke-linecap='round'/><path d='M29 33c3.7 0 6.6 2.9 6.6 6.6' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'/></g></svg>");
+body.mc-theme-artificer .mc-frame {
+  --mc-frame: #69563f;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><circle cx='25' cy='25' r='8.8' stroke-width='1.3'/><circle cx='25' cy='25' r='6.2' stroke-width='1.3'/><circle cx='25' cy='25' r='7.5' stroke-width='2.6' stroke-dasharray='2.3 3.1'/><circle cx='25' cy='25' r='3' stroke-width='1.5'/></g></svg>");
 }
+body.mc-theme-barbarian .mc-frame {
+  --mc-frame: #69433f;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M19.5 32.5L30.5 21.5'/><path d='M30.5 21.5c2.4-2.8 6.4-3 8.8-.4-2.6 2.6-6.4 2.8-8.8.4z'/><path d='M19.5 32.5c-2.4 2.8-6.4 3-8.8.4 2.6-2.6 6.4-2.8 8.8-.4z'/></g></svg>");
+}
+body.mc-theme-bard .mc-frame {
+  --mc-frame: #664254;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M19.5 32.5c-3.2-3.2-2.4-8.6 1.8-12.2 4.2-3.6 9.4-3.8 12-.8' stroke-width='1.8'/><path d='M23.5 28.5c0-4.4 3.4-7.8 7.8-8.4' stroke-width='1.1'/><path d='M26.5 31.5c0-5.4 4-9.8 9-10.4' stroke-width='1.1'/></g></svg>");
+}
+body.mc-theme-cleric .mc-frame {
+  --mc-frame: #635b46;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><circle cx='25' cy='25' r='4' stroke-width='1.8'/><path d='M25 15.6v3.6M25 30.8v3.6M15.6 25h3.6M30.8 25h3.6' stroke-width='1.4'/><path d='M18.4 18.4l2.6 2.6M29 29l2.6 2.6M31.6 18.4L29 21M21 29l-2.6 2.6' stroke-width='1.2'/></g></svg>");
+}
+body.mc-theme-druid .mc-frame {
+  --mc-frame: #4b6346;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M16 34c0-9.4 7.6-17 17-17 0 9.4-7.6 17-17 17z' stroke-width='1.8' stroke-linejoin='round'/><path d='M16.5 33.5C21.5 28.5 27.5 22.5 32.5 17.5' stroke-width='1.1'/></g></svg>");
+}
+body.mc-theme-fighter .mc-frame {
+  --mc-frame: #4d545b;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M25 14.8c3.2 2.2 6.4 2.8 9.4 2.8 0 8.4-3.2 14.8-9.4 18.4-6.2-3.6-9.4-10-9.4-18.4 3 0 6.2-.6 9.4-2.8z' stroke-width='1.8'/><path d='M20.2 24.4c2.6 0 3.9 1.6 4.8 3 .9-1.4 2.2-3 4.8-3' stroke-width='1.3'/></g></svg>");
+}
+body.mc-theme-monk .mc-frame {
+  --mc-frame: #45635c;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'><path d='M25 34.5c-5.2 0-9.4-3.8-9.4-8.4 3.2 1.5 5.6 1.7 9.4 1.7s6.2-.2 9.4-1.7c0 4.6-4.2 8.4-9.4 8.4z'/><path d='M25 27.6c-2.7-3.1-2.7-7.3 0-10.4 2.7 3.1 2.7 7.3 0 10.4z'/><path d='M25 27.6c-3.5-1.5-6.2-4.2-7.3-7.7 3.5.6 6.2 2.7 7.3 7.7z'/><path d='M25 27.6c3.5-1.5 6.2-4.2 7.3-7.7-3.5.6-6.2 2.7-7.3 7.7z'/></g></svg>");
+}
+body.mc-theme-paladin .mc-frame {
+  --mc-frame: #434c65;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M25 14.6c3.2 2.2 6.4 2.8 9.6 2.8 0 8.6-3.2 15-9.6 18.6-6.4-3.6-9.6-10-9.6-18.6 3.2 0 6.4-.6 9.6-2.8z' stroke-width='1.8'/><path d='M25 20v10.4M20.6 24.4h8.8' stroke-width='1.5'/></g></svg>");
+}
+body.mc-theme-ranger .mc-frame {
+  --mc-frame: #566147;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M16.5 34.5c0-10 8-18 18-18' stroke-width='2.2'/><path d='M16.5 34.5c8-2 16-10 18-18' stroke-width='1'/><path d='M20.5 31.5l9.6-9.6' stroke-width='1.4'/><path d='M30.1 21.9l-1.2-3.2 3.2 1.2' stroke-width='1.2' stroke-linejoin='round'/></g></svg>");
+}
+body.mc-theme-rogue .mc-frame {
+  --mc-frame: #544d5c;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M18.5 33.5l8.4-8.4' stroke-width='1.9'/><path d='M26.9 25.1c2.2-2.4 5.4-6.6 7.6-9.6-3 2.2-7.2 5.4-9.6 7.6' stroke-width='1.6'/><path d='M22.4 26.6l3.6 3.6' stroke-width='1.6'/></g></svg>");
+}
+body.mc-theme-sorcerer .mc-frame {
+  --mc-frame: #6c4b3d;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M25 34.6c-5 0-9-4-9-9 0-6 5-9.4 9-14.2 4 4.8 9 8.2 9 14.2 0 5-4 9-9 9z' stroke-width='1.8'/><path d='M25 30.4c-2.4 0-4.2-1.8-4.2-4.1 0-2.7 2.2-4.1 4.2-6.5 2 2.4 4.2 3.8 4.2 6.5 0 2.3-1.8 4.1-4.2 4.1z' stroke-width='1.2'/></g></svg>");
+}
+body.mc-theme-warlock .mc-frame {
+  --mc-frame: #5d4365;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M15 25c4.2-5.6 7.6-8.4 10-8.4s5.8 2.8 10 8.4c-4.2 5.6-7.6 8.4-10 8.4s-5.8-2.8-10-8.4z' stroke-width='1.8'/><circle cx='25' cy='25' r='3.2' stroke-width='1.5'/></g></svg>");
+}
+body.mc-theme-wizard .mc-frame {
+  --mc-frame: #464365;
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='round'><path d='M25 15l2.7 6.3 6.3 1.9-6.3 1.9L25 31.4l-2.7-6.3-6.3-1.9 6.3-1.9L25 15z' stroke-width='1.6'/><path d='M33.6 31.6c-2.5 0-4.5-2-4.5-4.5' stroke-width='1.2' stroke-linecap='round'/></g></svg>");
+}
+/* Per-theme corner art. */
 
 .mc-move-row {
   display: flex; align-items: center; justify-content: space-between;

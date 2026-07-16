@@ -342,8 +342,18 @@ must not change any hit target.
   ornament. Motifs sit at the elbow on the shared 64-unit grid.
 - **Draw with lines, not blobs.** Outlines and strokes at ornament scale; a filled silhouette reads
   as a sticker (DM 2026-07-17: "more elaborate, using outlines and lines").
-- **Every theme ships its own corner art and frame colour** (tavern scroll-curl · slate angular ·
-  ember flame-curl · arcane rune-star · flame licks · frost snowflake · clockwork gear · verdant leaf).
+- **Every theme ships its own corner motif and frame colour.** 18 themes: 5 generic (tavern, slate,
+  frost, flame, tide) + **one per dnd5e class** (artificer, barbarian, bard, cleric, druid, fighter,
+  monk, paladin, ranger, rogue, sorcerer, warlock, wizard) — a player themes the app to *their
+  character* (DM 2026-07-17). The flavour themes that duplicated a class were folded into it rather
+  than deleted: clockwork→artificer (gear), verdant→druid (leaf), arcane→warlock (keeps the
+  twinkle), ember→sorcerer (keeps the glow).
+- **No long straight runs.** Every arm of the bracket is a cubic that never holds a heading; a
+  straight rule reads as a border, not an ornament (DM 2026-07-17: "avoid straight lines for too
+  long"). Taper with stepped segments + round caps — SVG strokes can't taper natively.
+- **Double outline reads better than one line.** Two concentric strokes with the detail *between*
+  them (the artificer's gear: two rings, dashed teeth between, a hub) look drawn rather than
+  clip-arted. The DM asked for this by name.
 - Frame colour is the **burgundy** family, not the accent gold: at frame scale the gold read as
   harsh and the outline as distracting (DM 2026-07-16). Decoration should sit *behind* the content,
   not compete with it.
@@ -366,9 +376,10 @@ Theme tokens: `--mc-gold` (accent) · `--mc-panel/-2` · `--mc-edge` · `--mc-pr
 ### 11.3 Fonts — extravagant titles, boring numbers
 
 A theme may swap **`--mc-font-title`**, and may be as characterful as it likes there: titles are
-short, large, and nothing depends on reading one exactly (tavern Modesto Condensed · slate
-Allrounder Monument · ember Granville · arcane Amiri · flame OptimusPrinceps · frost Titillium ·
-clockwork Bruno Ace · verdant Gilda).
+short, large, and nothing depends on reading one exactly. The face is a big part of what makes a
+theme feel like itself — the DM singled out the artificer's Bruno Ace: *"I really like the gray
+theme's font, it makes the theme more unique."* Reuse across themes is fine; 14 usable core faces
+cover 18 themes.
 
 **Numbers are never themed.** Stat values, ability mods, attack/roll totals and tab labels stay on
 Modesto Condensed in every theme. *A stat you misread is a bug, not a style* — the whole app exists
