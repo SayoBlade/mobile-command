@@ -95,7 +95,7 @@ Exactly four levels. Pick by **consequence**, not by how much you want it notice
 
 | Level | Look | Use | Example |
 |---|---|---|---|
-| **Primary** | Gold gradient fill (`linear-gradient(#c8a44d,#b98a1e)`), dark ink text, bold | The **one** action that advances the flow. **Max one per view.** | Start activities · Form up |
+| **Primary (CTA)** | The CTA token — `linear-gradient(var(--mc-cta-top), var(--mc-cta-bot))`, `var(--mc-cta-edge)` border, `var(--mc-cta-ink)` text, bold | The **one** action that advances the flow. **Max one per view.** | Start activities · Form up |
 | **Secondary** | Panel fill, `1px` edge, ink text | Real but non-committal actions | Edit · Give a task · Rest Short/Long |
 | **Tertiary** | No border, muted text, icon-led | Options that shouldn't compete | Cancel · Reopen choices · drawer chevrons |
 | **Destructive** | Transparent; **red only on hover/active** | Delete/remove | ✕ on a card |
@@ -131,25 +131,42 @@ sizes/gaps inside one group is a bug, not a style (DM 2026-07-16, profile tab).
   **symmetric padding** — lopsided padding reads as a layout bug (DM 2026-07-16: the Lvl chip had
   11px right vs 6px left). A **control** in a row stretches with its peers.
 
-### 4.2 A toggle is not a primary — gold fill is rationed
+### 4.2 Gold is an accent, never a button fill
 
-**A solid gold fill means "this is THE action". Nothing else may wear it.**
+**If it can be pressed, it is not filled with gold.** Gold is the loudest thing we own; on a control
+it reads as a shout. Two rules follow.
 
-An active toggle is **gold outline + gold glyph on a dark fill** — never a gold block:
+**1. A CTA wears the CTA token — not gold.** The primary fill is the burgundy of the section title
+bars, taken as a token so it can be tuned in one place and re-tinted per theme:
+
+```css
+background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot));
+border: 1px solid var(--mc-cta-edge);
+color: var(--mc-cta-ink);
+```
+
+Never re-hardcode a gradient at a call site. The gold gradient was pasted literally at ~15 sites, so
+"make the buttons calmer" meant editing 15 rules and the DM rejected it **twice** (2026-07-16: *"too
+harsh"*; 2026-07-17: *"still way too dominant"*, after a first attempt). A design you cannot restyle
+in one edit is a design you will not restyle.
+
+**2. An active toggle is an outline, not a block** — gold edge + gold glyph on a dark fill:
 
 ```css
 /* ON */ background: var(--mc-panel-2); border-color: var(--mc-gold); color: var(--mc-gold);
 ```
 
-Why: toggle-on states (inspiration, dice tray, favourites-edit, add-condition) all used a solid gold
-fill, so every toggle looked like the view's primary and the screen shouted (DM 2026-07-17: *"the
-yellow buttons… way too dominant"*). Gold is the **loudest** thing we own — spend it once per view.
+Toggle-on states (inspiration, dice tray, favourites-edit, add-condition, follow, night-step) each
+used a solid gold fill, so every toggle impersonated the view's primary.
 
-**Small non-button indicators** (spell-slot pips, proficiency dots, an encumbrance bar) may keep a
-gold fill: they're marks, not controls, and read as data. If it can be pressed, it follows the rule
-above.
+**Small non-button indicators** (spell-slot pips, proficiency dots, an encumbrance bar, a progress
+bar) keep their gold: they're marks, not controls, and read as data.
 
-> Ration test: count the solid-gold objects on screen. More than one? All but the primary are wrong.
+> Ration test: count the pressable gold-filled objects on screen. More than zero? All are wrong.
+
+**The palette is defined on both roots** (`#mobile-command-shell, #mc-dm-panel`). It used to be
+scoped to the shell alone, which is *why* the DM panel hardcoded literals — it could not see a single
+token. If you add a token, add it there, and never paste a hex into a rule.
 
 ---
 
