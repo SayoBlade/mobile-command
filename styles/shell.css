@@ -3514,8 +3514,8 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-openbtn i { color: #c8a44d; }
 .mc-dt-sizehint { font-size: 11px; color: var(--mc-muted); margin: 6px 0 0; text-align: center; }
 .mc-dt-newbtn { padding: 0 10px; height: 26px; border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 700;
-  color: #cfe0f5; background: #17202e; border: 1px solid #35507a; display: inline-flex; align-items: center; gap: 5px; }
-.mc-dt-newbtn:hover, .mc-dt-newbtn.mc-on { border-color: #6fa0e0; background: #1f2c3e; }
+  color: #d8d2c4; background: #1a1712; border: 1px solid #4a4334; display: inline-flex; align-items: center; gap: 5px; }
+.mc-dt-newbtn:hover, .mc-dt-newbtn.mc-on { border-color: #c8a44d; color: #e6c46a; background: #2a2418; }
 /* "Set the rule" — the DM's clear next step on a player-created activity. */
 .mc-dt-setrule { width: 100%; margin-top: 6px; min-height: 38px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700;
   color: #ece5d6; background: #2a2418; border: 1px solid #c8a44d; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
@@ -3550,7 +3550,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
 .mc-dt-toggle.mc-on { background: #23402c; border-color: #3a6b4a; color: #8fd6a8; }
 .mc-dt-gearhint { font-size: 11px; color: var(--mc-muted); margin: 2px 0 0; }
-.mc-dt-act { margin-top: 5px; padding: 7px 9px; border-radius: 8px; background: #1a1c24; border: 1px solid #2f3440; border-left: 3px solid #4a3f66; }
+.mc-dt-act { margin-top: 5px; padding: 7px 9px; border-radius: 8px; background: #1a1c24; border: 1px solid #2f3440; border-left: 3px solid #3a3f4c; }
 /* "mc-dt-shown" (NOT "mc-shown"/"mc-hidden" — ".mc-hidden" is the search filter's display:none). */
 .mc-dt-act.mc-dt-shown { border-left-color: #4a4334; }
 .mc-dt-act.mc-done { border-left-color: #3a6b4a; opacity: .7; }
