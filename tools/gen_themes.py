@@ -11,6 +11,11 @@ def hx(h, s, l):
     r, g, b = colorsys.hls_to_rgb(h / 360.0, l / 100.0, s / 100.0)
     return "#%02x%02x%02x" % (round(r * 255), round(g * 255), round(b * 255))
 
+def rgb_of(hexstr):
+    """'#8a3a2c' -> '138, 58, 44'. The CTA fill is rgba(), so it needs the channels."""
+    h = hexstr.lstrip("#")
+    return "%d, %d, %d" % (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+
 def ramp(h, s, dot, hb=None, sb=None, round=1.0):
     """A palette from a hue.
 
@@ -104,11 +109,13 @@ def tokens_block(k, font, p):
             "  --mc-gold: %s; --mc-panel: %s; --mc-panel-2: %s; --mc-edge: %s; --mc-sunken: %s;\n"
             "  --mc-primary: %s; --mc-primary-edge: %s; --mc-primary-active: %s;\n"
             "  --mc-cta-top: %s; --mc-cta-bot: %s; --mc-cta-edge: %s; --mc-cta-ink: %s;\n"
+            "  --mc-cta-top-rgb: %s; --mc-cta-bot-rgb: %s;\n"
             "  --mc-bar-top: %s; --mc-bar-bot: %s; --mc-bar-edge: %s;\n"
             "  --mc-round: %s;%s\n"
             "}\n" % (k, font, p['gold'], p['panel'], p['panel2'], p['edge'], p['sunken'],
                      p['primary'], p['primary_edge'], p['primary_active'],
                      p['cta_top'], p['cta_bot'], p['cta_edge'], p['cta_ink'],
+                     rgb_of(p['cta_top']), rgb_of(p['cta_bot']),
                      p['bar_top'], p['bar_bot'], p['bar_edge'], p['round'], barpat))
 
 def frame_block(k, p):

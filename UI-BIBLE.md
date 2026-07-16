@@ -115,7 +115,7 @@ Exactly four levels. Pick by **consequence**, not by how much you want it notice
 
 | Level | Look | Use | Example |
 |---|---|---|---|
-| **Primary (CTA)** | The CTA token — `linear-gradient(var(--mc-cta-top), var(--mc-cta-bot))`, `var(--mc-cta-edge)` border, `var(--mc-cta-ink)` text, bold | The **one** action that advances the flow. **Max one per view.** | Start activities · Form up |
+| **Primary (CTA)** | `var(--mc-cta-fill)` — an **outline** (`var(--mc-cta-edge)`) with a **semi-opaque** gradient wash, `var(--mc-cta-ink)` text, bold | The **one** action that advances the flow. **Max one per view.** | Start activities · Form up |
 | **Secondary** | Panel fill, `1px` edge, ink text | Real but non-committal actions | Edit · Give a task · Rest Short/Long |
 | **Tertiary** | No border, muted text, icon-led | Options that shouldn't compete | Cancel · Reopen choices · drawer chevrons |
 | **Destructive** | Transparent; **red only on hover/active** | Delete/remove | ✕ on a card |
@@ -160,14 +160,20 @@ sizes/gaps inside one group is a bug, not a style (DM 2026-07-16, profile tab).
 **If it can be pressed, it is not filled with gold.** Gold is the loudest thing we own; on a control
 it reads as a shout. Two rules follow.
 
-**1. A CTA wears the CTA token — not gold.** The primary fill is the burgundy of the section title
-bars, taken as a token so it can be tuned in one place and re-tinted per theme:
+**1. A CTA wears the CTA token — not gold.** The primary is the burgundy of the section title bars,
+taken as a token so it tunes in one place and re-tints per theme:
 
 ```css
-background: linear-gradient(var(--mc-cta-top), var(--mc-cta-bot));
-border: 1px solid var(--mc-cta-edge);
+background: var(--mc-cta-fill);          /* semi-opaque wash — NOT a solid slab */
+border: 1px solid var(--mc-cta-edge);    /* the outline is what carries the button */
 color: var(--mc-cta-ink);
 ```
+
+**The outline carries it; the fill only tints.** A fully opaque CTA reads as a sticker laid over the
+panel; an outline with a wash reads as part of it (DM 2026-07-17: *"I don't think the fully opaque
+buttons work, try an outline with a semi opaque gradient fill"*). `--mc-cta-a` (0.42) is the one
+knob for how strong the wash is, and `--mc-cta-fill` resolves per theme on its own because it's
+built from the theme's own `--mc-cta-*-rgb` channels.
 
 Never re-hardcode a gradient at a call site. The gold gradient was pasted literally at ~15 sites, so
 "make the buttons calmer" meant editing 15 rules and the DM rejected it **twice** (2026-07-16: *"too
