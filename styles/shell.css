@@ -2250,9 +2250,15 @@ body.mc-theme-arcane .mc-frame { /* rune star */
 }
 .mc-fav-edit.mc-on { background: var(--mc-panel-2); border-color: var(--mc-gold); color: var(--mc-gold); } /* toggle-on: outline, not fill (UI-BIBLE §4.2) */
 /* Per-row bookmark: gold when favorited, faint outline otherwise. */
-.mc-action-fav { flex: 0 0 auto; font-size: 15px; color: var(--mc-edge); }
-.mc-action-fav.mc-on { color: var(--mc-gold); }
-.mc-action-fav.mc-ph { visibility: hidden; } /* reserves the slot so usage dots align */
+/* The favorited bookmark. One mark, one meaning, wherever a row can be pinned:
+   Actions rows and Spells rows share it (DM 2026-07-17: spells had no bookmark). */
+.mc-action-fav, .mc-spell-fav { flex: 0 0 auto; font-size: 15px; color: var(--mc-edge); }
+.mc-action-fav.mc-on, .mc-spell-fav.mc-on { color: var(--mc-gold); }
+/* Reserves the slot so usage dots / prepare buttons stay aligned across rows. */
+.mc-action-fav.mc-ph, .mc-spell-fav.mc-ph { visibility: hidden; }
+/* In a spell row the mark sits OUTSIDE the tap target, left of the prepare button
+   (which owns the divider), so it never reads as part of either button. */
+.mc-spell-fav { align-self: center; padding: 0 8px; }
 
 /* §7.1 owned-token switcher (Explore): Prev / current / Next. */
 .mc-tokensw { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 2px 0 12px; }

@@ -2779,11 +2779,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const prepBtn = canPrepare
       ? `<button class="mc-spell-prep ${isPrepared ? "mc-on" : ""}" data-action="toggle-prep" data-item-id="${sp.id}" aria-label="Toggle prepared"><i class="fas fa-book"></i></button>`
       : "";
+    // Favorited mark, mirroring the Actions row: same bookmark, same gold, left of the
+    // prepare button. A mark, not a control — pinning still happens in Actions (DM 2026-07-17).
+    // Always rendered (hidden via .mc-ph when not favorited) so prepare buttons stay aligned.
+    const favId = activity ? `${sp.getRelativeUUID(sp.actor)}.Activity.${activity.id}` : null;
+    const isFav = favId ? (sp.actor?.system.hasFavorite?.(favId) ?? false) : false;
+    const favMark = `<i class="fas fa-bookmark mc-spell-fav ${isFav ? "mc-on" : "mc-ph"}"${isFav ? ' aria-label="Favorited"' : ' aria-hidden="true"'}></i>`;
     return `<div class="mc-spell ${canPrepare && !isPrepared ? "mc-unprepared" : ""}" data-search-name="${foundry.utils.escapeHTML(sp.name.toLowerCase())}">
       ${open}
         <img class="mc-spell-icon" src="${img}" alt="">
         <span class="mc-spell-name">${foundry.utils.escapeHTML(sp.name)}</span>
       ${close}
+      ${favMark}
       ${prepBtn}
     </div>`;
   }
