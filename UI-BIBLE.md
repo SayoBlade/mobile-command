@@ -352,9 +352,18 @@ must not change any hit target.
   | **deco** | Nested stepped Ls + a quarter sunburst fan over concentric arcs. Straight, stepped, strictly symmetric — Chrysler-building chevrons. | slate, artificer, fighter, rogue, wizard |
   | **nouveau** | The **asymmetric whiplash** S-curve with a tendril and a bud. *Asymmetry is exactly what separates Art Nouveau from baroque scrollwork* — never mirror it. | druid, bard, ranger, sorcerer |
   | **japanese** | **Seigaiha** (concentric quarter-arc waves) + an off-diagonal **asanoha** hemp-leaf star. Deliberately off-balance. | monk, tide, frost |
-  | **heraldic** | Mitred arms, trefoil cusp, pointed finials. Architectural and tight. | paladin, cleric, barbarian, warlock |
+  | **heraldic** | Mitred arms, trefoil cusp, pointed finials. Architectural and tight. | paladin, cleric, warlock |
+  | **runic** | **No bracket at all** — Elder Futhark staves, cut thick, butt-capped, each a couple of degrees off true. | barbarian |
+  | **gothic** | Lancet arch, tracery, crockets, finials. Severe and tall. | gothic |
   | **scroll** | The ogee bracket with volutes (the original). | tavern, flame |
 
+- **A frame is not compulsory.** Some ornament isn't a *border* — runes are chiselled into the
+  thing, so the marks ARE the ornament and a drawn corner around them is a lie (DM 2026-07-17:
+  "Runes don't need corners, just the runes, thick lines, more rough"). A family may be marks
+  scattered on the arms and nothing else. Ask what the style would really do.
+- **Let the tool show.** A chisel makes butt ends, thick staves and nothing perfectly vertical —
+  so runic uses `stroke-linecap: butt`, weights of 2.7–3.6, and every stave rotated 2–3° off true.
+  Roughness is *deliberate imprecision*, not sloppiness.
 - **THE MOTIF SLOT.** The motif lives at **(30,30) r≈7** on the 64-grid, and a skeleton must stay
   OUT of a circle at (30,30) r=9. Design the two halves *together*: the first cut had seigaiha arcs
   and an asanoha star drawn straight through the monk's lotus, because they were drawn apart.

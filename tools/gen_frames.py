@@ -162,6 +162,35 @@ FAM['gothic'] = (
     "</g>"
 )
 
+# --- RUNIC: NO BRACKET. Runes don't get a corner drawn round them — they're chiselled into the
+# thing itself, so the marks ARE the ornament (DM 2026-07-17: "Runes don't need corners, just the
+# runes, thick lines, more rough"). Elder Futhark, cut thick, every stave knocked a couple of
+# degrees off true and butt-capped: a chisel doesn't do round ends or perfect verticals.
+FAM['runic'] = (
+    "<g fill='none' stroke='black' stroke-linecap='butt'>"
+    # Algiz — the big one at the corner, leaning slightly
+    "<g transform='rotate(-2 11 19)'>"
+    "<path d='M11 31V7' stroke-width='3.6'/>"
+    "<path d='M11.2 16.6L4.2 8.6' stroke-width='3.2'/>"
+    "<path d='M10.8 16.2L18.4 8' stroke-width='3.1'/>"
+    "</g>"
+    # Isa + Gebo, cut down the vertical arm
+    "<path d='M6 38.5v10' stroke-width='3.2' transform='rotate(2 6 43)'/>"
+    "<g transform='rotate(-3 18 44)'>"
+    "<path d='M13.6 39.6l8.8 9' stroke-width='2.9'/>"
+    "<path d='M22.4 39.6l-8.8 9' stroke-width='2.7'/>"
+    "</g>"
+    # Kenaz + Sowilo, cut along the top arm
+    "<path d='M29.5 4l7.5 6.4-7.5 6.2' stroke-width='2.9' transform='rotate(3 33 10)'/>"
+    "<path d='M44 3.6l6 3.6-6 3.4 6 3.6' stroke-width='2.7' transform='rotate(-2 47 7)'/>"
+    # Thurisaz, low on the outer edge — clear of the motif slot
+    "<g transform='rotate(2 45 34)'>"
+    "<path d='M45 27.5v13' stroke-width='3'/>"
+    "<path d='M45 30.6l5.4 3.2-5.4 3.4z' stroke-width='2.8'/>"
+    "</g>"
+    "</g>"
+)
+
 # --- SCROLL: the original ogee bracket with volutes.
 FAM['scroll'] = (
     "<g fill='none' stroke='black' stroke-linecap='round'>"
@@ -189,7 +218,8 @@ FAMILY = {
     'gothic': 'gothic', 'artificer': 'deco', 'fighter': 'deco', 'rogue': 'deco', 'wizard': 'deco',
     'druid': 'nouveau', 'bard': 'nouveau', 'ranger': 'nouveau',
     'monk': 'japanese', 'tide': 'japanese', 'frost': 'japanese',
-    'paladin': 'heraldic', 'cleric': 'heraldic', 'barbarian': 'heraldic', 'warlock': 'heraldic',
+    'paladin': 'heraldic', 'cleric': 'heraldic', 'warlock': 'heraldic',
+    'barbarian': 'runic',
 }
 
 # ---------------------------------------------------------------- swatch icons
