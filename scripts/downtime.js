@@ -28,7 +28,7 @@
 export const RULE_TYPES = ["roll", "tally", "cumulative"];
 export const TICK_SOURCES = ["attempt", "day", "rest", "slice"]; // when a tally/cumulative advances
 export const GAIN_MODES = ["fixed", "total", "margin"];          // how much a tick adds
-export const RULE_KINDS = ["freestyle", "scribe", "craft"];      // authoring-preset hint (informational)
+export const RULE_KINDS = ["freestyle", "scribe", "craft", "learn"]; // authoring-preset hint (informational)
 export const WINDOW_SIZES = ["short", "long"];                   // short = a slice (~1/5 day); long = a day+ / hub
 
 // A blank Rule of the given type. `kind` is just an authoring hint (drives which preset
@@ -265,6 +265,19 @@ export function scribeScrollSuggest(level, spellName = "") {
   return { days: t.days, gp: t.gp, level: lvl, rule };
 }
 
+// PHB p.114 "Copying a Spell into the Book": 2 hours AND 50 gp per spell level; copying from a
+// Spell Scroll consumes the scroll. No roll by RAW — it's pure time + money, so the natural Rule is
+// a tally of `level` short slices (~2h each). The DM picks the LEVEL on the rule (a template is
+// generic — it can't read a specific PC's scroll), and the form shows the derived hours/gp.
+export function learnSpellSuggest(level, spellName = "") {
+  const lvl = Math.max(1, Math.min(9, Number(level) || 1));
+  const rule = defaultRule("tally", "learn");
+  rule.target = lvl; rule.tickSource = "slice"; rule.perTick = 1; rule.requireRoll = false;
+  rule.reward = spellName ? `${spellName} in your spellbook` : "The spell in your spellbook";
+  rule._level = lvl;
+  return { level: lvl, hours: 2 * lvl, gp: 50 * lvl, rule };
+}
+
 // PHB crafting: 5 gp of item value produced per day; materials = half the market value. The
 // natural Rule is a per-day tally to the day-count; the DM can switch it to a tool-check
 // cumulative if they want rolls to matter.
@@ -361,6 +374,8 @@ export function seedTemplates(state, createdBy = "") {
   const examples = [
     mk("Scribe a spell", "Pick the spell on the player's sheet; XGE sets the time/gp — charge it or not, your call.",
       () => { const r = defaultRule("tally", "scribe"); r.tickSource = "day"; r.reward = "The finished scroll"; return r; }),
+    mk("Learn a spell from a scroll", "PHB: 2h + 50gp per spell level, and the scroll is consumed. Set the spell's level on the rule.",
+      () => learnSpellSuggest(1).rule),
     mk("Teaching to use a Sword", "On a success, grant the student advantage on their next Learning roll (apply by hand).",
       () => { const r = defaultRule("roll"); r.dc = 15; r.roll = { ...athl }; return r; }),
     mk("Learning to use a Sword", "A group activity — pair with a teacher for advantage.",

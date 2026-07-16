@@ -3462,8 +3462,16 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-usericon { flex: 0 0 auto; font-size: 12px; }
 /* player: the single activity dropdown */
 .mc-dt-picklabel { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; font-size: 12px; color: var(--mc-muted); }
-.mc-dt-select { width: 100%; box-sizing: border-box; min-height: 44px; padding: 8px 10px; border-radius: 9px;
-  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 15px; font-weight: 600; }
+/* iOS renders a native select with its own metrics: min-height + padding pushed the text off-centre
+   and clipped its descenders (DM 2026-07-16, fine in Chrome). Kill the native chrome, use a fixed
+   height + line-height so the text centres, and draw our own gold chevron. */
+.mc-dt-select { width: 100%; box-sizing: border-box; -webkit-appearance: none; appearance: none;
+  height: 44px; line-height: 1.2; padding: 0 32px 0 12px; border-radius: 9px;
+  background-color: var(--mc-panel);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'><path fill='%23c8a44d' d='M0 0h10L5 6z'/></svg>");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 10px 6px;
+  border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 15px; font-weight: 600;
+  text-overflow: ellipsis; }
 .mc-dt-select:disabled { opacity: .7; }
 
 /* §17.7 downtime — accordion drawers (collapse the tall DM window) */

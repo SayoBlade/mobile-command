@@ -389,6 +389,12 @@ function ruleFormHTML(actorId, act) {
     seeder = `<label class="mc-rf-row">Spell <select data-rule="scribespell">${actorSpellOptions(actor, r._spellId)}</select></label>${note}`;
   } else if (r.kind === "craft") {
     seeder = `<label class="mc-rf-row">Tool <select data-rule="crafttool">${actorToolOptions(actor, r.roll?.tool)}</select></label>`;
+  } else if (r.kind === "learn") {
+    // A template is generic, so the DM picks the SCROLL'S LEVEL — time/gp scale off it (PHB).
+    const lvl = Number(r._level) || 1;
+    const s = DT.learnSpellSuggest(lvl);
+    seeder = `<label class="mc-rf-row">Spell level <select data-rule="learnlevel">${optList([1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => [String(n), `level ${n}`]), String(lvl))}</select></label>
+      <div class="mc-rf-note">≈ ${s.hours} hour${s.hours === 1 ? "" : "s"} · ${s.gp} gp · the scroll is consumed</div>`;
   }
   const needsRoll = r.type === "roll" || (r.type === "cumulative" && r.gainMode !== "fixed") || (r.type === "tally" && r.requireRoll);
   const rollPicker = needsRoll ? `
@@ -454,6 +460,7 @@ function ruleFormHTML(actorId, act) {
       <button class="mc-rf-preset ${r.kind === "freestyle" ? "mc-on" : ""}" data-rule-preset="freestyle">Freestyle</button>
       <button class="mc-rf-preset ${r.kind === "scribe" ? "mc-on" : ""}" data-rule-preset="scribe">Scribe</button>
       <button class="mc-rf-preset ${r.kind === "craft" ? "mc-on" : ""}" data-rule-preset="craft">Craft</button>
+      <button class="mc-rf-preset ${r.kind === "learn" ? "mc-on" : ""}" data-rule-preset="learn">Learn</button>
     </div>
     <label class="mc-rf-row mc-rf-kind">This is <select data-rule="type">
       <option value="roll" ${r.type === "roll" ? "selected" : ""}>a single roll</option>
@@ -506,6 +513,8 @@ function applyRuleField(field, value) {
       reRender = true; break;
     }
     case "crafttool": { if (value) { r.roll = rollSpec({ tool: value, label: toolLabel(value) }); r.kind = "craft"; } reRender = true; break; }
+    // Level drives the target (2h ≈ one short slice per level) + the derived hours/gp note.
+    case "learnlevel": { const lvl = Math.max(1, Math.min(9, Number(value) || 1)); r._level = lvl; r.target = lvl; reRender = true; break; }
   }
   if (reRender) render();
 }
@@ -517,6 +526,7 @@ function applyRulePreset(kind) {
   const cur = dtRuleDraft || DT.defaultRule();
   if (kind === "scribe") { const nr = DT.defaultRule("tally", "scribe"); nr.tickSource = "day"; nr.requireRoll = false; nr.reward = cur.reward || "The finished scroll"; dtRuleDraft = nr; }
   else if (kind === "craft") { const nr = DT.defaultRule("tally", "craft"); nr.tickSource = "day"; nr.requireRoll = false; nr.reward = cur.reward || "The finished item"; dtRuleDraft = nr; }
+  else if (kind === "learn") { const nr = DT.learnSpellSuggest(cur._level || 1).rule; if (cur.reward) nr.reward = cur.reward; dtRuleDraft = nr; }
   else { cur.kind = "freestyle"; dtRuleDraft = cur; }
 }
 
