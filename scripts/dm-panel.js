@@ -75,11 +75,11 @@ function tabRailHTML() {
   // When a flyout is open the rail rides its right edge (mc-open); else the panel's.
   return `<div class="mc-dmp-tabrail ${dockTab ? "mc-open" : ""}">
     ${tab("party", "fa-border-all", "Party order", !!packedGroup())}
-    ${tab("travel", "fa-route", "Travel")}
     ${tab("rolls", "fa-dice-d20", "Request rolls")}
     ${tab("tokens", "fa-users", "Players")}
     ${tab("downtime", "fa-hourglass-half", "Downtime", true, downtimeOpen() ? "•" : 0)}
-    ${tab("preflight", "fa-clipboard-check", "Session preflight", true, preflightFailCount())}
+    ${tab("travel", "fa-route", "Travel")}
+    ${tab("preflight", "fa-clipboard-check", "System health", true, preflightFailCount())}
   </div>`;
 }
 
@@ -672,7 +672,7 @@ function flyoutHTML() {
   else if (dockTab === "travel") { title = "Travel"; body = travelHTML(); }
   else if (dockTab === "tokens") { title = "Players"; body = ownedTokensHTML(); }
   else if (dockTab === "downtime") { title = "Downtime"; body = downtimeHTML(); }
-  else if (dockTab === "preflight") { title = "Session preflight"; body = preflightHTML(); }
+  else if (dockTab === "preflight") { title = "System health"; body = preflightHTML(); }
   else if (dockTab === "party") {
     const g = packedGroup();
     const f = g?.getFlag(MODULE_ID, "formation") ?? {};

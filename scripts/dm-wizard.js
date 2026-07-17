@@ -94,7 +94,7 @@ async function stepVision() {
     content: `<p><b>Sync every PC token's sight from its sheet.</b></p>
       <p>Darkvision, tremorsense and friends live on the ACTOR — freshly placed tokens often
       carry none of it, which reads as "my player is blind on the TV". This pushes the real
-      senses onto every placed PC token (safe to re-run any time; the Preflight tab checks it too).</p>`,
+      senses onto every placed PC token (safe to re-run any time; the System health tab checks it too).</p>`,
     buttons: [
       { action: "sync", label: "Sync now & continue", default: true },
       { action: "next", label: "Skip" },
@@ -137,9 +137,9 @@ async function stepPreflight() {
   const mark = { ok: "✅", warn: "⚠️", fail: "❌" };
   const rows = results.map(c => `<li>${mark[c.status] ?? "•"} <b>${esc(c.label)}</b> — ${esc(c.detail)}</li>`).join("");
   await D().wait({
-    window: { title: "Mobile Command setup — Preflight" },
+    window: { title: "Mobile Command setup — System health" },
     content: `<p>Final check of the live table:</p><ul style="max-height:240px;overflow-y:auto">${rows}</ul>
-      <p>Anything ⚠️/❌ stays visible on the DM panel's <b>Preflight tab</b> (clipboard icon), each with a one-tap fix where one is safe.</p>`,
+      <p>Anything ⚠️/❌ stays visible on the DM panel's <b>System health tab</b> (clipboard icon), each with a one-tap fix where one is safe.</p>`,
     buttons: [{ action: "done", label: "Done", default: true }]
   }).catch(() => null);
   return true;
