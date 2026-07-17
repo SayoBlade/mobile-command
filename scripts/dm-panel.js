@@ -110,7 +110,7 @@ function tabRailHTML() {
   // When a flyout is open the rail rides its right edge (mc-open); else the panel's.
   return `<div class="mc-dmp-tabrail ${dockTab ? "mc-open" : ""}">
     ${tab("party", "fa-border-all", "Party order", !!packedGroup())}
-    ${tab("rolls", "fa-dice-d20", "Request rolls")}
+    ${tab("rolls", "fa-dice-d20", "Request rolls", true, (game.user.targets?.size ?? 0) || 0)}
     ${tab("tokens", "fa-users", "Players")}
     ${tab("downtime", "fa-hourglass-half", "Downtime", true, downtimeOpen() ? "•" : 0)}
     ${tab("travel", "fa-route", "Travel")}
@@ -740,7 +740,11 @@ function travelHTML() {
 
 function flyoutHTML() {
   let title = "", body = "";
-  if (dockTab === "rolls") { title = "Request rolls"; body = rollsToolHTML(); }
+  if (dockTab === "rolls") {
+    title = "Request rolls";
+    const targets = Array.from(game.user.targets ?? []);
+    body = rollsToolHTML() + (targets.length ? `<div class="mc-dmp-assign">${assignHTML(targets)}</div>` : "");
+  }
   else if (dockTab === "travel") { title = "Travel"; body = travelHTML(); }
   else if (dockTab === "tokens") { title = "Players"; body = ownedTokensHTML(); }
   else if (dockTab === "downtime") { title = "Downtime"; body = downtimeHTML(); }
@@ -790,7 +794,8 @@ async function sendRolls() {
  * the phone resolves an owned character if none is assigned, and requiring it
  * made the panel show "no players" for unassigned (but connected) users. */
 function activePlayers() {
-  return game.users.filter(u => u.active && !u.isGM);
+  let tvId = ""; try { tvId = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
+  return game.users.filter(u => u.active && !u.isGM && u.id !== tvId);
 }
 
 /** Best label for a player: their assigned character, else their SOLE owned
@@ -1787,7 +1792,7 @@ function render() {
   // (DM 2026-07-17). Everything conditional sits above them.
   const main = grip + `<div class="mc-dmp-col">`
     + statusHTML() + cameraBarHTML() + reactionsHTML() + splitPartyHTML() + combatHTML() + quickHpHTML()
-    + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "")
+    + (pending.length ? pendingHTML(pending) : "")
     + `<div class="mc-dmp-foot">` + partyMainHTML() + nightHTML() + `</div>`
     + `</div>`;
   // Grow the flyout UP (anchored to the panel's bottom) when the panel sits in the lower half of
@@ -2186,7 +2191,7 @@ export function registerDMPanel() {
   // tab badge shows real fails without the DM opening it. Never auto-fixes.
   setTimeout(() => { runPreflight().then(() => render()).catch(e => console.warn(`${MODULE_ID} | preflight auto-run failed`, e)); }, 4000);
   registerNightEncounterOffer(); // §17.4: ambush during a watch → offer Unconscious+Surprised
-  Hooks.on("targetToken", () => render());
+  Hooks.on("targetToken", () => render());   // target count badge + assign section
   Hooks.on("controlToken", () => render());                        // quick-HP: selection changed
   // Keep the rolls-tab distances fresh as tokens move (only while that flyout is open).
   Hooks.on("updateToken", (_t, ch) => { if (dockTab === "rolls" && ("x" in ch || "y" in ch)) render(); });

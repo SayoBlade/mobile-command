@@ -3104,6 +3104,7 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-tok-palette:hover { border-color: #c8a44d; }
 /* Rolls tool: all three controls on one short line at the top (explicit widths so
    they always fit the 240px flyout — no spill). */
+.mc-dmp-assign { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--mc-edge); }
 .mc-dmp-rt-top { display: flex; gap: 6px; align-items: stretch; }
 /* (per-select rules retired 2026-07-17 — the three selects share one style above.) */
 .mc-rt-type { flex: 0 0 64px; } .mc-rt-abil { flex: 0 0 58px; }
