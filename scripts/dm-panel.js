@@ -1432,12 +1432,15 @@ function watchEditor(group, night) {
   // stands that watch.
   const slots = watchSlots(night);
   const ord = ["1st", "2nd", "3rd"];
+  // Identity per the bible §3: `(token icon in player colour) Name(ink)`. A bare name with no icon
+  // got skipped entirely (DM 2026-07-17 — the whole reason watches read as unreadable).
+  const idIcon = a => `<i class="fas fa-circle-user mc-dmp-nw-id" style="color:${pcColor(a)}"></i>`;
   const head = `<div class="mc-dmp-nw-row mc-dmp-nw-head"><span></span><span class="mc-dmp-nw-chips">
     ${slots.map(w => `<span class="mc-dmp-nw-h">${ord[w - 1]}</span>`).join("")}</span></div>`;
   const rows = nightMembers(group).map(a => {
     const chips = slots.map(w => `<button class="mc-dmp-nw ${(night.watches?.[w] ?? []).includes(a.id) ? "mc-on" : ""}"
         data-night="dm-toggle" data-group="${group.id}" data-actor="${a.id}" data-watch="${w}" title="Put ${esc(a.name.split(" ")[0])} on ${ord[w - 1]} watch">${w}</button>`).join("");
-    return `<div class="mc-dmp-nw-row"><span title="${esc(a.name)}">${esc(a.name.split(" ")[0])}</span><span class="mc-dmp-nw-chips">${chips}</span></div>`;
+    return `<div class="mc-dmp-nw-row"><span class="mc-dmp-nw-who" title="${esc(a.name)}">${idIcon(a)}<span class="mc-dmp-nw-name">${esc(a.name.split(" ")[0])}</span></span><span class="mc-dmp-nw-chips">${chips}</span></div>`;
   }).join("");
   return `<div class="mc-dmp-night-edit">${head}${rows}</div>`;
 }
@@ -1467,13 +1470,8 @@ function restHTML() {
   let body = "", advance = "", extra = "";
   if (rest.stage === "assign") {
     const one = (night?.count ?? 3) === 1;
-    const explain = one
-      ? `One watch this rest — tap to set who keeps it. Everyone else sleeps. Players can place themselves from their phones too.`
-      : `Each column is a watch; tap a slot to put that character on it. Anyone not on the running watch sleeps. Players can place themselves from their phones too.`;
     body = `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Set the watch${one ? "" : "es"}</div>
-      <p class="mc-rest-hint mc-rest-explain">${explain}</p>
-      ${watchEditor(group, night)}</div>
-      <p class="mc-rest-hint">Begin when the watch${one ? " is" : "es are"} set — the clock starts and the rest gets under way.</p>`;
+      ${watchEditor(group, night)}</div>`;
     advance = `<button class="mc-dmp-party-deploy mc-rest-adv" data-rest-advance><i class="fas fa-play"></i> Begin Rest</button>`;
   } else if (rest.stage === "downtime") {
     body = downtimeHTML(true);

@@ -2356,6 +2356,10 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-dmp-night-edit { display: flex; flex-direction: column; gap: 3px; margin: 4px 0; }
 .mc-dmp-nw-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
 .mc-dmp-nw-row > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* PC identity in the watch grid (bible §3): token icon in player colour + ink name. */
+.mc-dmp-nw-who { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mc-dmp-nw-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--mc-ink); }
+.mc-dmp-nw-id { flex: 0 0 auto; font-size: 15px; }
 .mc-dmp-nw-chips { display: flex; gap: 4px; flex: 0 0 auto; }
 .mc-dmp-nw { width: 26px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); font-weight: 800; font-size: 11px; opacity: .55; }
 .mc-dmp-nw.mc-on { opacity: 1; background: var(--mc-panel-2); border-color: var(--mc-gold); color: var(--mc-gold); }
@@ -4282,7 +4286,6 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-rest-watchtoggle { width: 100%; }
 .mc-rest-go { width: 100%; margin-top: 2px; }
 .mc-rest-hint { font-size: 11px; color: var(--mc-muted); margin: 2px 0 0; text-align: center; line-height: 1.4; }
-.mc-rest-explain { text-align: left; margin: 0 0 8px; }
 .mc-rest-active { gap: 8px; }
 .mc-rest-head { display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 6px 10px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); }

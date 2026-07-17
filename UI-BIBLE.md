@@ -290,6 +290,12 @@ Adding/removing an element must not shove everything else. If a layout change is
 - Say the **consequence**, not the mechanism: "Rest the whole party", not "Execute rest".
 - **Explanations live outside buttons** — a button is a verb; put the "a watch, an evening, a few
   hours" underneath as a hint, not inside the label.
+- **If the UI needs a paragraph, the UI failed.** Body text explaining how to use a control is a
+  *symptom* — fix the control (an icon, a face, a clearer affordance), don't paper over it with
+  prose. (DM 2026-07-17: the watch grid was unreadable because the PC rows carried a bare name and
+  no identity icon — §3 — so the DM skipped right over them. A paragraph explaining "each row is a
+  character" didn't help; adding the `(token icon) Name` did. The caption came out; the icon went
+  in.)
 
 ### 7.1 No explanations in titles — ever
 
