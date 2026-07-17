@@ -3749,6 +3749,9 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* Travel-only Disperse on its own full-width row (4 buttons in one row overflowed). */
 .mc-party-deploy-row { width: 100%; flex: none; }
 /* Party travel pad (reuses the explore D-pad classes) */
+/* Travel and Group checks are two SECTIONS, not one list — they get air and a rule between them
+   (DM 2026-07-17: "needs space and a div between travel and group check"). */
+.mc-party-rule { height: 1px; margin: 14px 0 12px; background: var(--mc-edge); border: 0; }
 .mc-party-pad-head { margin: 0 0 -6px; text-align: center; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--mc-muted); }
 /* Class icons now sit OUTSIDE the Lvl button, in the name row (DM 2026-07-03). */
 .mc-cls-run { display: inline-flex; align-items: center; gap: 4px; margin: 0 2px; flex: 0 0 auto; }
@@ -3798,7 +3801,9 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-gc-roll { flex: 1 1 auto; height: 52px; border-radius: calc(12px * var(--mc-round, 1)); font-weight: 800; font-size: 15px; color: var(--mc-cta-ink); background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge); cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.55); }
 .mc-gc-x { flex: 0 0 46px; height: 52px; border-radius: calc(12px * var(--mc-round, 1)); color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-edge); cursor: pointer; }
 /* Travel pace + group checks on the exploration tab. */
-.mc-party-pace { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--mc-edge); border-radius: calc(11px * var(--mc-round, 1)); background: linear-gradient(#1b202b, #161a23); }
+/* Same height as the Perception/Stealth/Survival buttons below it (46px): a readout and a
+   button are different things, but a row of near-identical boxes must be identical. */
+.mc-party-pace { display: flex; align-items: center; gap: 12px; min-height: 46px; box-sizing: border-box; padding: 0 12px; border: 1px solid var(--mc-edge); border-radius: calc(11px * var(--mc-round, 1)); background: var(--mc-sunken); }
 .mc-pace-label { flex: 1 1 auto; font-weight: 800; color: var(--mc-ink); }
 .mc-pace-label i { color: var(--mc-gold); margin-right: 5px; }
 .mc-pace-spd { color: var(--mc-muted); font-weight: 700; font-variant-numeric: tabular-nums; }

@@ -1829,7 +1829,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <span class="mc-pace-spd" title="Land"><i class="fas fa-person-walking"></i> ${spd(pace?.paces?.land)}</span>
       <span class="mc-pace-spd" title="Water"><i class="fas fa-person-swimming"></i> ${spd(pace?.paces?.water)}</span>
       <span class="mc-pace-spd" title="Air"><i class="fas fa-feather-pointed"></i> ${spd(pace?.paces?.air)}</span>
-    </div>${!pace?.paces?.land && !pace?.paces?.water && !pace?.paces?.air ? `<div class="mc-pv-note">Speeds unset — the DM fills land/water/air on the Group sheet.</div>` : ""}`;
+    </div>${!pace?.paces?.land && !pace?.paces?.water && !pace?.paces?.air ? `<div class="mc-pv-note">No pace set yet — the DM fills these in on the party’s Group sheet, under Travel.</div>` : ""}`;
     // Group checks roll like ANY roll (DM 2026-07-03): tapping rolls YOUR check via
     // the native dialog — no broadcast/prompt relay (removed; each player taps their own).
     // Group checks (#11): everyone rolls their own; the DM averages.
@@ -1842,6 +1842,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <div class="mc-party-head"><span><i class="fas fa-route"></i> Travel</span><span class="mc-party-fwd">Forward ${this.#fwdIcon(formation.forward)}</span></div>
       ${pad || `<div class="mc-party-hint">Lock in the marching order (Party order tab) to travel.</div>`}
       ${paceHTML}
+      <hr class="mc-party-rule">
       <div class="mc-party-pad-head"><i class="fas fa-dice-d20"></i> Group checks</div>
       ${checks}
     </div>`;
