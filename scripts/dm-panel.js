@@ -615,6 +615,17 @@ function rollsToolHTML() {
 // highest-level first. No tall stacked sections; horizontal scroll handles a
 // heavy player. (DM 2026-07-03.)
 function tokLevel(a) { return a.system?.details?.level ?? a.system?.details?.cr ?? 0; }
+/** The party's own sheet, one tap from the Players tab (DM 2026-07-17). It's where dnd5e keeps the
+ *  things only the GROUP has — travel paces, the member list, party currency — and nothing else in
+ *  the app opens it, so the DM was hunting for it in the sidebar. */
+function groupSheetBtn() {
+  const g = packedGroup() ?? candidateGroup();
+  if (!g) return "";
+  return `<button class="mc-dmp-party-mini mc-dmp-groupsheet" data-group-sheet="${g.id}"
+    title="Open ${foundry.utils.escapeHTML(g.name)} — travel pace, members, party currency">
+    <i class="fas fa-people-group"></i> ${foundry.utils.escapeHTML(g.name)} sheet</button>`;
+}
+
 function ownedTokensHTML() {
   const esc = foundry.utils.escapeHTML;
   let tvId = ""; try { tvId = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
@@ -635,7 +646,8 @@ function ownedTokensHTML() {
       <select class="mc-dmp-tok-player" data-tok-player>${opts}</select>
       <button class="mc-dmp-tok-palette" data-color-pick="${u.id}" title="Let ${esc(u.name)} pick their colour on their phone"><i class="fas fa-palette"></i></button>
     </div>
-    <div class="mc-dmp-tok-grid">${items || `<div class="mc-dmp-empty">No tokens for this player.</div>`}</div>`;
+    <div class="mc-dmp-tok-grid">${items || `<div class="mc-dmp-empty">No tokens for this player.</div>`}</div>
+    ${groupSheetBtn()}`;
 }
 
 // §18 travel T1.5: pick the overworld; the CTA packs the party, shows the DM the
@@ -1730,7 +1742,9 @@ function render() {
     + statusHTML() + cameraBarHTML() + reactionsHTML() + splitPartyHTML() + combatHTML() + quickHpHTML()
     + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "")
     + `<div class="mc-dmp-foot">` + partyMainHTML() + nightHTML() + `</div>`
-    + `</div>`;
+    + `</div>`
+    // a rail to match the flyout's bottom grabber, so both windows' buttons line up
+    + `<div class="mc-dmp-rail"></div>`;
   // Grow the flyout UP (anchored to the panel's bottom) when the panel sits in the lower half of
   // the screen, so a bottom-docked panel's second window opens into visible space instead of off
   // the bottom edge (DM 2026-07-13).
@@ -1978,6 +1992,8 @@ async function onClick(ev) {
       }
     }
   }
+  const gs = ev.target.closest("[data-group-sheet]");
+  if (gs) { game.actors.get(gs.dataset.groupSheet)?.sheet?.render(true); return; }
   if (ev.target.closest("[data-preflight-run]")) {
     await runPreflight();
     return render();

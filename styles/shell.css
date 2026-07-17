@@ -3030,11 +3030,17 @@ body.mc-theme-wizard .mc-frame {
    padding, so without cancelling that it sat inset — a boxed label rather than a window header,
    with its rule stopping short of both edges. The negative margin lets it span the window exactly
    as a flyout head spans its own. */
+/* Bottom rail: the flyout ends in a 14px grabber, so the primary ends in a 14px rail of the
+   same colour (minus the grip lines — there's nothing to drag). Purely so the two windows'
+   buttons sit on one line (DM 2026-07-17). */
+.mc-dmp-rail { height: 14px; margin: 8px -10px -10px; background: var(--mc-sunken); border-top: 1px solid var(--mc-edge); border-radius: 0 0 calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)); }
 .mc-dmp-drag.mc-dmp-fly-head { cursor: grab; margin: 6px -10px 8px; border-radius: calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)) 0 0; }
 .mc-dmp-drag.mc-dmp-fly-head:active { cursor: grabbing; }
 .mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; min-height: 36px; box-sizing: border-box; border-bottom: 1px solid var(--mc-edge); font-weight: 800; font-size: 14px; border-radius: calc(10px * var(--mc-round, 1)) 10px 0 0; }
 .mc-dmp-fly-x { flex: 0 0 auto; width: 24px; height: 24px; min-height: 0; line-height: 1; padding: 0; background: none; border: none; color: var(--mc-muted); font-size: 15px; cursor: pointer; }
 .mc-dmp-fly-x:hover { color: var(--mc-ink); }
+.mc-dmp-fly-body > * { flex-shrink: 0; }   /* never squash a row into the one below it */
+.mc-dmp-travel, .mc-dmp-rt-scroll { flex-shrink: 1 !important; }   /* these two are meant to take the slack */
 .mc-dmp-fly-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 /* Rolls tab only: let the targets dropdown escape the frame (short content). */
 /* The rolls tab is a COLUMN: type/ability on top, the player list taking the slack and
@@ -3069,6 +3075,7 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-tok span { font-size: 10px; line-height: 1.1; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ece5d6; pointer-events: none; }
 /* Players tab: dropdown + a palette button that asks the player to pick a colour. */
 .mc-dmp-tok-top { display: flex; gap: 6px; align-items: stretch; }
+.mc-dmp-groupsheet { margin-top: 8px; }
 .mc-dmp-tok-player { flex: 1 1 auto; min-width: 0; }
 .mc-dmp-tok-palette { flex: 0 0 34px; height: 30px; border-radius: calc(7px * var(--mc-round, 1)); background: #14171f; border: 1px solid #4a4334; cursor: pointer; }
 .mc-dmp-tok-palette:hover { border-color: #c8a44d; }
@@ -3902,7 +3909,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   display: flex; align-items: center; justify-content: center; pointer-events: none;
 }
 .mc-dmp-pf {
-  display: flex; align-items: center; gap: 8px; padding: 7px 8px; margin-bottom: 4px; min-height: 40px;
+  display: flex; align-items: center; gap: 8px; padding: 7px 8px; margin-bottom: 4px; min-height: 40px; flex-shrink: 0;
   border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); font-size: 12px;
 }
 .mc-dmp-pf-ico { flex: 0 0 auto; }
