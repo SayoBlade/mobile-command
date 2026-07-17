@@ -20,12 +20,14 @@ import { MODULE_ID } from "./preset.js";
 
 const DAY = 86400;
 
-/** Is a usable Simple Calendar present RIGHT NOW? Never cached — it can be disabled or updated
- *  between calls, and a stale `true` is exactly how a dependency takes you down. */
+/** Is a usable Simple Calendar API present RIGHT NOW? Never cached — it can be disabled or updated
+ *  between calls, and a stale `true` is exactly how a dependency takes you down.
+ *  Capability-checked, NOT id-checked (DM 2026-07-17: original SC never got v14 — the table runs
+ *  Simple Calendar REBORN, a different module id with the same `SimpleCalendar` global; the
+ *  Seasons & Stars compat bridge exposes it too). Whoever provides the global keeps the clock. */
 export function hasSimpleCalendar() {
   try {
-    const mod = game.modules.get("foundryvtt-simple-calendar");
-    return !!(mod?.active && globalThis.SimpleCalendar?.api?.timestampToDate);
+    return !!globalThis.SimpleCalendar?.api?.timestampToDate;
   } catch (e) {
     return false;
   }

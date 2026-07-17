@@ -647,17 +647,20 @@ function rollsToolHTML() {
     // A <button> row: colour-coded user icon, name, distance (green in range / red out), tick.
     const assigned = rollAssign[c.actor.id] ?? [];
     const picking = rtAssignFor === c.actor.id;
-    // Open → the live "Targets for <Name>" editor; closed but assigned → a compact read-only summary.
+    // The box exists ONLY while picking (live test 2026-07-18: the closed-state
+    // summary read as a picker that "didn't close", and one per assigned PC read
+    // as stacked pickers). A standing assignment collapses to a count badge on
+    // the crosshair; the names live in its tooltip.
     const names = assigned.map(t => `<span class="mc-dmp-rt-tgt">${esc(t.name)}</span>`).join("");
     const tgtBox = picking
       ? `<div class="mc-dmp-rt-tgts mc-picking">
           <span class="mc-dmp-rt-tgts-lbl">Targets for ${esc(c.actor.name)}</span>
           <div class="mc-dmp-rt-tgts-names">${assigned.length ? names : `<span class="mc-dmp-rt-tgt-empty">Target on the map to add — tap the crosshair again when done.</span>`}</div>
         </div>`
-      : (assigned.length ? `<div class="mc-dmp-rt-tgts">
-          <span class="mc-dmp-rt-tgts-lbl">Targets</span>
-          <div class="mc-dmp-rt-tgts-names">${names}</div>
-        </div>` : "");
+      : "";
+    const asnTitle = picking ? "Done — close the target picker"
+      : assigned.length ? `${assigned.length} target${assigned.length > 1 ? "s" : ""} on ${esc(c.actor.name)}'s phone (${esc(assigned.map(t => t.name).join(", "))}) — tap to edit`
+      : `Pick targets for ${esc(c.actor.name)}`;
     return `<div class="mc-dmp-rt-item">
       <div class="mc-dmp-rt-row${on ? " mc-on" : ""}${targeted ? " mc-targeted" : ""}">
         <button class="mc-dmp-rt-main" data-rt-target="${c.actor.id}" title="Tap: target ${esc(c.actor.name)} + toggle for the roll${reach != null && c.dist != null ? ` (${inRange ? "in" : "out of"} range)` : ""}">
@@ -665,7 +668,7 @@ function rollsToolHTML() {
           <span class="mc-rt-name">${esc(c.actor.name)}</span>
           ${dist}
         </button>
-        <button class="mc-dmp-rt-assign${picking ? " mc-on" : ""}" data-rt-assign="${c.actor.id}" title="${picking ? "Done — close the target picker" : "Pick targets for " + esc(c.actor.name)}" aria-pressed="${picking}"><i class="fas fa-crosshairs"></i></button>
+        <button class="mc-dmp-rt-assign${picking ? " mc-on" : ""}" data-rt-assign="${c.actor.id}" title="${asnTitle}" aria-pressed="${picking}"><i class="fas fa-crosshairs"></i>${!picking && assigned.length ? `<span class="mc-dmp-rt-badge">${assigned.length}</span>` : ""}</button>
       </div>
       ${tgtBox}
     </div>`;

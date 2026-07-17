@@ -3148,7 +3148,9 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-rt-row.mc-targeted .mc-dmp-rt-main { box-shadow: inset 0 0 0 1px var(--mc-gold); }
 /* The target-assign button: same height as the row's main button (box-sizing + matching min-height,
    so a square 36px control, DM 2026-07-17); gold-filled glyph when the picker is open (§5). */
-.mc-dmp-rt-assign { flex: 0 0 auto; width: 36px; min-height: 36px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; color: var(--mc-muted); background: var(--mc-panel); border: 1px solid var(--mc-edge); }
+.mc-dmp-rt-assign { position: relative; flex: 0 0 auto; width: 36px; min-height: 36px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; color: var(--mc-muted); background: var(--mc-panel); border: 1px solid var(--mc-edge); }
+/* Standing-assignment count on the crosshair — gold = state, not the alert red of the tab badge. */
+.mc-dmp-rt-badge { position: absolute; top: -4px; right: -4px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-gold); color: var(--mc-sunken); font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; pointer-events: none; }
 .mc-dmp-rt-assign:hover { border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-dmp-rt-assign.mc-on { color: var(--mc-gold); border-color: var(--mc-gold); background: var(--mc-panel-2); }
 /* Target container under a PC row: label + the assigned names, wrapping to as many lines as needed. */
