@@ -1197,3 +1197,100 @@ vs. the secret goblin village the DM can move clandestinely).
   and should the toggle live per-scene or per-journey?
 - Phone "suggest destination" ping — wanted at all, or does pointing at the TV cover it?
 - Calendar: plain `game.time` for now; revisit if a calendar module joins the stack.
+
+---
+
+## 19. REST — folding Downtime and Watches into one thing (DM-idea, spec 2026-07-17)
+
+> DM: *"move start the night and its inner widget into downtime tab… try to make a flow that makes
+> sense for both DT and watch… DM starts rest not night… Go over the logic of this and try to
+> smooth it out."*
+
+### 19.1 The actual problem
+
+Downtime and Night are **two features that mean the same thing**: *time passes while the party is
+camped.* Today each has its own entry, its own state, its own window and its own ending:
+
+| | Downtime | Night |
+|---|---|---|
+| entry | "Short downtime" / "Long downtime" | "Start the night" |
+| lives in | Downtime tab | the PRIMARY panel |
+| state | `settings.downtime.window {open,size}` | `group.flags.night {watches,watch}` |
+| ends via | "Close" (explicitly does NOT pass time) | "End night" (offers a long rest) |
+
+So the DM answers "is time passing?" twice, in two places, and only one of them actually rests
+anybody. **That** is the thing to smooth — not the button labels.
+
+### 19.2 The model: a Rest has phases
+
+ONE object. One lifecycle, one ending, two optional phases.
+
+```js
+rest = {
+  size:   "short" | "long",          // dnd5e's own rest; nothing new invented
+  phases: { downtime: bool, watches: bool },
+  stage:  "setup" | "downtime" | "watches" | "morning",
+  watch:  1..3,                      // the running watch
+  watches: { 1: [actorId…], 2: […], 3: […] },
+  startedAt: worldTime,
+}
+```
+
+A watch with nobody assigned **does not exist** — that is what "1–3 depending on what's filled in"
+means, and it removes the need for a separate count setting. SHORT ⇒ exactly one watch.
+
+### 19.3 The flow
+
+**1. Set up** — one card, one question each:
+   - length: `[Short] [Long]`
+   - what's happening: `☑ Downtime` `☑ Watches` (either, both, or neither)
+   - `[Start rest]`
+   - Neither phase ticked ⇒ it's a plain dnd5e rest: apply it and close. No ceremony.
+
+**2. Assign watches** (only if Watches) — the existing editor, before the clock starts. This is the
+   DM's "watch first, then DT": *setup* order, so nobody is asked to sort watches while downtime is
+   already running.
+
+**3. The clock starts.** DM and players both see the same header: length, phase, time.
+
+**4. Downtime phase** (if on) — exactly the flow that exists now: players pick one activity, DM hits
+   Start activities, attempts resolve. DM ends the phase with `[Watches]` (or `[Morning]` if watches
+   are off).
+
+**5. Watch phase** (if on) — "First watch — *(icon) Test Wizard, (icon) Abzarax*" on the DM's panel
+   AND on every phone. Per watch the DM has:
+   - `[Next watch]` → the next watch that has anybody in it
+   - `[Pass time]`  → advance the clock by that watch's hours
+   - `[Event]` / `[Encounter]` → hand off to the DM's own tools
+   After the last watch ⇒ **Morning**.
+
+**6. Morning / End rest** — apply the real dnd5e rest (`actor.shortRest()` / `actor.longRest()`) to
+   the party, then close. **This is the only place a rest is applied**, which fixes today's split
+   where "Close" passes no time and "End night" quietly offers a long rest.
+
+### 19.4 Decisions taken (mine, unless flagged)
+
+1. **The tab becomes "Rest"**, and it owns everything. Night leaves the primary panel — the primary
+   is for things you touch mid-scene; a rest is a mode you enter (DM 2026-07-17).
+2. **The button says "Rest".** Not "Start the night", not "Start a short downtime". §7.1.
+3. **Short ⇒ 1 watch.** Long ⇒ up to 3, existence driven by assignment.
+4. **The rest applies at Morning, once.** Never at Close.
+5. **Downtime is available on a short rest** — 5e limits what you can *do* in an hour, but that's
+   the Rule's business (a Rule already carries its own cost/target), not the shell's.
+
+### 19.5 Open questions — MUST be answered before building
+
+1. **THE CLOCK — this one blocks.** No calendar module is installed (probed live 2026-07-17:
+   `activeTimeModules: []`). `game.time.worldTime` is **elapsed seconds** (360 = 6 minutes since
+   the world began), not a time of day. So "DM and players are shown current game-time" has no
+   source yet. Options:
+     a. **Module-owned clock** — one setting (campaign start date/time) + worldTime ⇒ we render
+        "Night 3 · 21:40". Self-contained, no dependency, ours to maintain.
+     b. **Simple Calendar** (or similar) — real calendars, seasons, moons; a hard dependency on a
+        module the DM must install, against the pinned-stack rule.
+     c. **Relative only** — "2h into an 8h rest". Costs nothing, says less.
+2. Does **Pass time** advance `game.time.worldTime` for real (other modules/effects listen to it),
+   or is it just a label? Real is more correct and more dangerous.
+3. **Encounter** — does it start a Foundry combat, or just mark the watch and let the DM do it?
+4. Who may **end a phase** — DM only, or does the last player finishing downtime advance it?
+5. Watch **hours**: long rest 8h ÷ watches, or DM-set per watch?
