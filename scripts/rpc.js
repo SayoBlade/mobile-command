@@ -1897,6 +1897,20 @@ async function handlePartyPack({ groupId, requesterId, force = false }) {
     ring: { enabled: true, colors: { ring: null, background: null }, effects: 1, subject: { scale: 1 } },
     disposition: CONST.TOKEN_DISPOSITIONS.FRIENDLY
   };
+  // Write the party's vision to the PROTOTYPE token too, so it's AUTOMATIC everywhere — every future
+  // token (a hand-drag to a fresh scene, a re-pack, travel) inherits it, instead of only the one
+  // scene token the pack path happens to touch (DM 2026-07-17: "automatically setting the group
+  // vision would be nice"). The prototype was enabled:true but range:0/basic — visually blind.
+  // A group actor has no senses of its own, so the party's best sight is the only sensible source.
+  try {
+    await group.update({ prototypeToken: {
+      sight: patch.sight,
+      ...(patch.light ? { light: patch.light } : {}),
+      ring: patch.ring,
+      disposition: patch.disposition
+    } });
+  } catch (e) { console.warn(`${MODULE_ID} | couldn't sync party prototype-token vision`, e); }
+
   let gt = canvas.scene.tokens.find(t => t.actorId === group.id);
   if (gt) await gt.update(patch, { animate: false });
   else {
