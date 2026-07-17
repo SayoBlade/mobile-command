@@ -1742,9 +1742,7 @@ function render() {
     + statusHTML() + cameraBarHTML() + reactionsHTML() + splitPartyHTML() + combatHTML() + quickHpHTML()
     + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "")
     + `<div class="mc-dmp-foot">` + partyMainHTML() + nightHTML() + `</div>`
-    + `</div>`
-    // a rail to match the flyout's bottom grabber, so both windows' buttons line up
-    + `<div class="mc-dmp-rail"></div>`;
+    + `</div>`;
   // Grow the flyout UP (anchored to the panel's bottom) when the panel sits in the lower half of
   // the screen, so a bottom-docked panel's second window opens into visible space instead of off
   // the bottom edge (DM 2026-07-13).
@@ -1756,7 +1754,7 @@ function render() {
   const flyTop = el.querySelector(".mc-dmp-fly-body")?.scrollTop ?? 0;
   const mainTop = el.querySelector(".mc-dmp-scroll")?.scrollTop ?? 0;
   // Main content scrolls inside; the tab rail + flyout stick out the right edge.
-  el.innerHTML = `<div class="mc-dmp-scroll">${main}</div>${tabRailHTML()}${dockTab ? flyoutHTML() : ""}`;
+  el.innerHTML = `<div class="mc-dmp-scroll">${main}</div><div class="mc-dmp-rail"></div>${tabRailHTML()}${dockTab ? flyoutHTML() : ""}`;
   const fb = el.querySelector(".mc-dmp-fly-body"); if (fb && flyTop) fb.scrollTop = flyTop;
   const ms = el.querySelector(".mc-dmp-scroll"); if (ms && mainTop) ms.scrollTop = mainTop;
   el.classList.add("mc-show");

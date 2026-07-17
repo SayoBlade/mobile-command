@@ -3033,7 +3033,7 @@ body.mc-theme-wizard .mc-frame {
 /* Bottom rail: the flyout ends in a 14px grabber, so the primary ends in a 14px rail of the
    same colour (minus the grip lines — there's nothing to drag). Purely so the two windows'
    buttons sit on one line (DM 2026-07-17). */
-.mc-dmp-rail { height: 14px; margin: 8px -10px -10px; background: var(--mc-sunken); border-top: 1px solid var(--mc-edge); border-radius: 0 0 calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)); }
+.mc-dmp-rail { height: 14px; flex: 0 0 auto; margin: 8px -10px -10px; background: var(--mc-sunken); border-top: 1px solid var(--mc-edge); border-radius: 0 0 calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)); }
 .mc-dmp-drag.mc-dmp-fly-head { cursor: grab; margin: 6px -10px 8px; border-radius: calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)) 0 0; }
 .mc-dmp-drag.mc-dmp-fly-head:active { cursor: grabbing; }
 .mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; min-height: 36px; box-sizing: border-box; border-bottom: 1px solid var(--mc-edge); font-weight: 800; font-size: 14px; border-radius: calc(10px * var(--mc-round, 1)) 10px 0 0; }
@@ -3118,10 +3118,21 @@ body.mc-theme-wizard .mc-frame {
    this rule only settles size and alignment, so the two can be tuned apart.
    ============================================================ */
 .mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run, .mc-dmp-party-deploy, .mc-dt-openbtn, .mc-ob-done, .mc-party-done, .mc-dmp-party-mini {
-  min-height: 48px; border-radius: calc(8px * var(--mc-round, 1));
+  border-radius: calc(8px * var(--mc-round, 1));
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   font-size: 13px; font-weight: 800; line-height: 1.25; text-align: center; cursor: pointer;
 }
+/* PHONE primaries are 48px — a thumb needs it (UI-BIBLE §4.1). */
+.mc-ob-done, .mc-party-done { min-height: 48px; }
+/* DM-PANEL primaries are 36px — ~75% (DM 2026-07-17: "set all the widget buttons to about 75%
+   height"). It's a mouse-driven widget on a desktop: 48px there was phone geometry applied to a
+   surface that never asked for it, and it towered. §4.1 already said 26–34px for the DM panel and
+   my one-size rule had quietly broken it. Same SHAPE, different scale — that's why size and look
+   are separate rules. */
+.mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run, .mc-dmp-party-deploy, .mc-dt-openbtn, .mc-dmp-party-mini { min-height: 36px; }
+/* the widget's other controls follow the same scale */
+.mc-dmp-cam-btn { min-height: 36px; }
+.mc-dmp-hp-btn, .mc-dmp-hp-input { min-height: 34px; }
 /* Standalone primaries span the column; ones sharing a row (Form up + Disperse) keep their flex. */
 .mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run, .mc-ob-done { width: 100%; }
 .mc-dmp-rt-send { color: var(--mc-cta-ink); background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge); }

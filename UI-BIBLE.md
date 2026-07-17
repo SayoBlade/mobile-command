@@ -141,8 +141,14 @@ sizes/gaps inside one group is a bug, not a style (DM 2026-07-16, profile tab).
 
 | Surface | Height | Radius | Gap |
 |---|---|---|---|
-| Phone (touch) | **44px** min (40px only inside a dense form row) | 9–10px | **8px** |
-| DM panel (mouse) | 26–34px | 7–8px | 6px |
+| Phone (touch) | **44px** min; **48px** for a primary | 9–10px | **8px** |
+| DM panel (mouse) | **36px** for a primary; 26–34px for the rest | 7–8px | 6–8px |
+
+**One SHAPE, two SCALES.** A primary is the same object on both surfaces — centred icon+label, same
+radius, same CTA token — but a phone primary is 48px and a DM-panel primary is 36px (~75%). Size
+and look are separate rules for exactly this reason: sharing one geometry across both put phone
+buttons in a mouse-driven widget, where they towered (DM 2026-07-17). *A thumb needs 48px; a mouse
+does not.*
 
 - **A row of peers stretches equally** (`flex: 1 1 0`), never `auto` widths that make one wider
   because its label is longer.
