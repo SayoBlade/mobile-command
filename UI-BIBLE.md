@@ -204,6 +204,25 @@ bar) keep their gold: they're marks, not controls, and read as data.
 scoped to the shell alone, which is *why* the DM panel hardcoded literals — it could not see a single
 token. If you add a token, add it there, and never paste a hex into a rule.
 
+### 4.3 Button labels — two words, Title Case
+
+**A button label is two words unless a third is *absolutely* required, and every word is
+Capitalised** (DM 2026-07-17). A button is a thing you press, not a sentence you read; the meaning
+lives in the two words plus the icon, and the tooltip carries any nuance.
+
+- **Two words.** `Form Up`, `Lock In`, `Request Rolls`, `Set Rule`, `Full Screen`, `Start Night`,
+  `Push Roll`. One word is fine when it's enough (`Done`, `Close`, `Travel`, `Group`, `Next`).
+- **Title Case, always.** Both words get a capital — `Form Up`, not `Form up`; `Start Activities`,
+  not `Start activities`. Little words (of, the, to) are the usual reason a label sprawls past two —
+  cut them: `Start the Night` → `Start Night`, `Show the Welcome Tips` → `Welcome Tips`.
+- **"Absolutely required"** is a high bar, not an excuse. It's for the rare label that genuinely
+  loses its meaning shorter — and even then, prefer moving the detail to the tooltip.
+- **Disabled explainers are exempt** — `Start Activities — Nobody's Chosen Yet` is a *sentence doing
+  a job* (§4), not a resting label. The two-word rule is for the button at rest.
+
+> Count the words on every button. Three or more? Either two of them are one idea (`Full Screen`),
+> or a little word is padding (drop it), or the third word belongs in the tooltip.
+
 ---
 
 ## 5. Marking state

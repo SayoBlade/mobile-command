@@ -626,7 +626,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const fsStep = standalone
       ? `<div class="mc-ob-note">✓ You're running as an app — already full screen.</div>`
       : document.fullscreenEnabled
-        ? `<button class="mc-ob-fs" data-action="fullscreen"><i class="fas ${document.fullscreenElement ? "fa-compress" : "fa-expand"}"></i> ${document.fullscreenElement ? "✓ Full screen — tap to exit" : "Go full screen"}</button>`
+        ? `<button class="mc-ob-fs" data-action="fullscreen"><i class="fas ${document.fullscreenElement ? "fa-compress" : "fa-expand"}"></i> ${document.fullscreenElement ? "✓ Full Screen" : "Full Screen"}</button>`
         : `<div class="mc-ob-note"><b>iPhone:</b> tap Safari's <i class="fas fa-arrow-up-from-bracket"></i> Share button → <b>Add to Home Screen</b>, then open Mobile Command from that icon — it runs full screen like an app.</div>`;
     return `<div class="mc-onboard">
       <div class="mc-ob-card">
@@ -1993,7 +1993,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const dmRow = isGM ? `<div class="mc-party-dm">
       <button class="mc-party-rot" data-action="party-forward" data-dir="-1" aria-label="Rotate left"><i class="fas fa-rotate-left"></i></button>
       <button class="mc-party-stage${arranging ? " mc-primary" : ""}" data-action="party-stage" data-stage="${arranging ? "travel" : "arrange"}"${arranging && !canDeploy ? " disabled" : ""}>
-        <i class="fas ${arranging ? "fa-lock" : "fa-pen-to-square"}"></i> ${arranging ? "Lock in" : "Rearrange"}</button>
+        <i class="fas ${arranging ? "fa-lock" : "fa-pen-to-square"}"></i> ${arranging ? "Lock In" : "Rearrange"}</button>
       <button class="mc-party-rot" data-action="party-forward" data-dir="1" aria-label="Rotate right"><i class="fas fa-rotate-right"></i></button>
     </div>${arranging ? "" : `<button class="mc-party-deploy mc-party-deploy-row" data-action="party-disperse"><i class="fas fa-people-group"></i> Disperse</button>`}` : "";
 
@@ -2758,7 +2758,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // picks for list casters, so the spellbook offers the class-list picker any
     // time — counters show known vs the class cap; warnings, not walls.
     const learnBtn = this.#charGenSpellInfo(actor)
-      ? `<button class="mc-learn-spells" data-action="learn-spells"><i class="fas fa-book-medical"></i> Learn spells (class list)</button>`
+      ? `<button class="mc-learn-spells" data-action="learn-spells"><i class="fas fa-book-medical"></i> Learn Spells (class list)</button>`
       : "";
     return `<div class="mc-actions-head"><span class="mc-section-label">Spells</span>${this.#searchToggleHTML()}</div>
       ${this.#searchDrawerHTML()}${cards}${slotsRow}${sections}${learnBtn}`;
@@ -3372,9 +3372,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>
       <div class="mc-profile-acts">
         ${this.#fullscreenBtnHTML()}
-        <button class="mc-profile-act" data-action="onboard-open"><i class="fas fa-circle-question"></i> Show the welcome tips</button>
+        <button class="mc-profile-act" data-action="onboard-open"><i class="fas fa-circle-question"></i> Welcome Tips</button>
         <button class="mc-profile-act mc-act-exit" data-action="exit"><i class="fas fa-right-from-bracket"></i> Leave Mobile Command</button>
-        <button class="mc-profile-act mc-act-exit" data-action="logout"><i class="fas fa-power-off"></i> Log out</button>
+        <button class="mc-profile-act mc-act-exit" data-action="logout"><i class="fas fa-power-off"></i> Log Out</button>
       </div>`;
   }
 
@@ -3389,7 +3389,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     const fsOn = !!document.fullscreenElement;
     const label = document.fullscreenEnabled
-      ? (fsOn ? "Exit full screen" : "Go full screen")
+      ? (fsOn ? "Exit Full Screen" : "Full Screen")
       : "Full screen — how to";
     return `<button class="mc-profile-act" data-action="fullscreen"><i class="fas ${fsOn ? "fa-compress" : "fa-expand"}"></i> ${label}</button>`;
   }
@@ -3662,7 +3662,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>
       ${rows}
       ${xpBar}
-      ${classes.length ? `<button class="mc-lvlup-btn" data-action="level-up-open"><i class="fas fa-arrow-up-right-dots"></i> Level up</button>` : ""}
+      ${classes.length ? `<button class="mc-lvlup-btn" data-action="level-up-open"><i class="fas fa-arrow-up-right-dots"></i> Level Up</button>` : ""}
     </div>`;
   }
   // Level-up flow (from the Lvl panel): pick which class to level — the actor's
@@ -4508,7 +4508,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <textarea class="mc-pg-input" rows="3" placeholder="e.g. a stern human woman, long silver braid, weathered green cloak, twin daggers">${foundry.utils.escapeHTML(pg.freeText)}</textarea>
         <div class="mc-pg-label">Prompt <span class="mc-pg-hint">paste into your image generator</span></div>
         <textarea class="mc-pg-preview" data-pg-preview readonly rows="6">${foundry.utils.escapeHTML(prompt)}</textarea>
-        <button class="mc-pg-copy" data-action="portrait-copy"><i class="fas fa-copy"></i> Copy prompt</button>
+        <button class="mc-pg-copy" data-action="portrait-copy"><i class="fas fa-copy"></i> Copy Prompt</button>
         <a class="mc-pg-gemini" href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer"><i class="fas fa-arrow-up-right-from-square"></i> Open Gemini &amp; paste</a>
         <div class="mc-pg-label">Then upload the image you generated</div>
         <input type="file" accept="image/*" class="mc-pg-file" hidden>
@@ -4573,7 +4573,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const b = this.element?.querySelector(".mc-pg-copy");
     if (b) {
       b.innerHTML = ok ? '<i class="fas fa-check"></i> Copied' : '<i class="fas fa-triangle-exclamation"></i> Long-press the prompt to copy';
-      setTimeout(() => { const b2 = this.element?.querySelector(".mc-pg-copy"); if (b2) b2.innerHTML = '<i class="fas fa-copy"></i> Copy prompt'; }, ok ? 1600 : 2800);
+      setTimeout(() => { const b2 = this.element?.querySelector(".mc-pg-copy"); if (b2) b2.innerHTML = '<i class="fas fa-copy"></i> Copy Prompt'; }, ok ? 1600 : 2800);
     }
   }
   // Two images from the one upload: a disc-cropped 512px token (sharp, ring-framed) and the

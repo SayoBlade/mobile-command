@@ -179,7 +179,7 @@ function catalogHTML(st) {
     else if (hasRule) body = `<div class="mc-dt-act-rule">${esc(DT.describeRule(t.rule))}</div>
       ${t.note ? `<div class="mc-dt-note"><i class="fas fa-note-sticky"></i> ${esc(t.note)}</div>` : ""}
       <div class="mc-dt-act-editrow"><button class="mc-dt-act-edit" data-dt-tmpl-edit="${t.id}"><i class="fas fa-pen"></i> Edit</button></div>`;
-    else body = `<button class="mc-dt-setrule" data-dt-tmpl-edit="${t.id}"><i class="fas fa-wand-magic-sparkles"></i> Set the rule</button>`;
+    else body = `<button class="mc-dt-setrule" data-dt-tmpl-edit="${t.id}"><i class="fas fa-wand-magic-sparkles"></i> Set Rule</button>`;
     return `<div class="mc-dt-tmpl ${!hasRule ? "mc-norule" : ""}">
       <div class="mc-dt-act-top">
         <span class="mc-dt-act-name">${esc(t.name)}</span>
@@ -205,8 +205,8 @@ function downtimeHTML() {
     ? `<div class="mc-dt-openhead"><button class="mc-dt-close-btn" data-dt-end title="Close the downtime window — this does NOT advance time"><i class="fas fa-xmark"></i> Close</button></div>`
     : `<div class="mc-dt-setup">
         <div class="mc-dt-sizes">
-          <button class="mc-dt-openbtn" data-dt-open="short"><i class="fas fa-hourglass-half"></i> Short downtime</button>
-          <button class="mc-dt-openbtn" data-dt-open="long"><i class="fas fa-hourglass-start"></i> Long downtime</button>
+          <button class="mc-dt-openbtn" data-dt-open="short"><i class="fas fa-hourglass-half"></i> Short Downtime</button>
+          <button class="mc-dt-openbtn" data-dt-open="long"><i class="fas fa-hourglass-start"></i> Long Downtime</button>
         </div>
         <p class="mc-dt-sizehint">Short — a watch or an evening<br>Long — a day or more in a hub</p></div>`;
 
@@ -251,7 +251,7 @@ function downtimeHTML() {
         ${costHTML}
         <div class="mc-dt-act-progline">${dtProgressBar(act)}</div>
         <div class="mc-dt-act-ctl">${push}${adj}<button class="mc-dt-act-edit mc-dt-icon-only" data-dt-editrule="${act.id}" data-actor="${a.id}" title="Edit the rule"><i class="fas fa-pen"></i></button></div>`;
-      else bodyHTML = `<button class="mc-dt-setrule" data-dt-editrule="${act.id}" data-actor="${a.id}"><i class="fas fa-wand-magic-sparkles"></i> Set the rule</button>`;
+      else bodyHTML = `<button class="mc-dt-setrule" data-dt-editrule="${act.id}" data-actor="${a.id}"><i class="fas fa-wand-magic-sparkles"></i> Set Rule</button>`;
       // NB: never use the bare "mc-hidden"/"mc-shown" names here — ".mc-hidden" is the shell's
       // search-filter utility (display:none !important), which silently hid EVERY activity card on
       // the DM panel, since visible:false is the default (DM 2026-07-14: "nothing to do").
@@ -282,7 +282,7 @@ function downtimeHTML() {
     const adder = giving
       ? `<div class="mc-dt-givebox"><div class="mc-dt-give-head">Give a task to ${esc(a.name)}:</div>${giveList}
           <button class="mc-dt-add-cancel" data-dt-give="${a.id}">Close</button></div>`
-      : `<button class="mc-dt-addtask" data-dt-give="${a.id}"><i class="fas fa-hand-holding-hand"></i> Give a task</button>`;
+      : `<button class="mc-dt-addtask" data-dt-give="${a.id}"><i class="fas fa-hand-holding-hand"></i> Give Task</button>`;
     const color = pcColor(a);
     // Name stays INK; only the token icon + the card's rail carry the player colour — matching the
     // Request-rolls list, since some player colours are unreadable on this background (DM 2026-07-16).
@@ -584,7 +584,7 @@ function applyRulePreset(kind) {
 function preflightHTML() {
   const results = preflightResults;
   if (!results) return `<div class="mc-dmp-empty">Not run yet.</div>
-    <button class="mc-dmp-preflight-run" data-preflight-run><i class="fas fa-rotate"></i> Run checks</button>`;
+    <button class="mc-dmp-preflight-run" data-preflight-run><i class="fas fa-rotate"></i> Run Checks</button>`;
   const esc = foundry.utils.escapeHTML;
   const icon = { ok: "fa-circle-check", warn: "fa-triangle-exclamation", fail: "fa-circle-xmark" };
   const rows = results.map(c => `<div class="mc-dmp-pf mc-dmp-pf-${c.status}">
@@ -595,7 +595,7 @@ function preflightHTML() {
   const stamp = preflightRunAt ? preflightRunAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
   return `${rows}
     <button class="mc-dmp-preflight-run" data-preflight-run><i class="fas fa-rotate"></i> Run again${stamp ? ` <span class="mc-dmp-pf-stamp">(last ${stamp})</span>` : ""}</button>
-    <button class="mc-dmp-preflight-run" data-dm-wizard><i class="fas fa-hat-wizard"></i> Setup wizard</button>`;
+    <button class="mc-dmp-preflight-run" data-dm-wizard><i class="fas fa-hat-wizard"></i> Setup Wizard</button>`;
 }
 
 function rollsToolHTML() {
@@ -1076,7 +1076,7 @@ function combatHTML() {
   const esc = foundry.utils.escapeHTML;
   let btns;
   if (!c.started) {
-    btns = `<button data-combat="rollAll" title="Roll initiative for everyone"><i class="fas fa-dice-d20"></i> Roll all</button>
+    btns = `<button data-combat="rollAll" title="Roll initiative for everyone"><i class="fas fa-dice-d20"></i> Roll All</button>
       <button data-combat="start" title="Begin combat"><i class="fas fa-play"></i> Start</button>`;
   } else {
     btns = `<button data-combat="prev" title="Previous turn"><i class="fas fa-backward-step"></i></button>
@@ -1303,7 +1303,7 @@ function partyMainHTML() {
         <i class="fas fa-list-check"></i></button>`;
       return `<div class="mc-dmp-party-btns">
       <button class="mc-dmp-party-deploy" data-party="pack" data-group="${cand.id}" title="Collapse the clustered party into the ${foundry.utils.escapeHTML(cand.name)} token">
-        <i class="fas fa-people-group"></i> Form up</button>${rebuild}${roster}</div>`;
+        <i class="fas fa-people-group"></i> Form Up</button>${rebuild}${roster}</div>`;
     }
     // No usable group → say WHY instead of rendering nothing (playtest 2026-07-05:
     // an empty group meant no Form up, no hint, and a very confused DM). One tap
@@ -1377,7 +1377,7 @@ function nightHTML() {
   return `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Night — watch ${night.watch} (${esc(duty)})</div>
     ${editor}
     <div class="mc-dmp-party-btns">${steps}
-      <button class="mc-dmp-party-deploy" data-night="end" data-group="${group.id}" title="Morning comes — offer the long rest"><i class="fas fa-sun"></i> End night</button>
+      <button class="mc-dmp-party-deploy" data-night="end" data-group="${group.id}" title="Morning comes — offer the long rest"><i class="fas fa-sun"></i> End Night</button>
     </div></div>`;
 }
 
