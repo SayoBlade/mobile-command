@@ -1789,7 +1789,7 @@ function render() {
   // The main window wears the SAME header as its flyouts (DM 2026-07-17) — one window chrome, so
   // the primary doesn't read as a lesser thing than the panel hanging off it. It has no ✕: the
   // primary window is closed from the scene controls, not from itself.
-  const grip = `<div class="mc-dmp-fly-head mc-dmp-drag" title="Drag to move"><span>Mobile Command</span></div>`;
+  const grip = `<div class="mc-dmp-toprail"></div><div class="mc-dmp-fly-head mc-dmp-drag" title="Drag to move"><span>Mobile Command</span></div>`;
   // Party order lives in its own dock tab (auto-open on pack, close on disperse) —
   // the main area keeps only Form up / Disperse so its width never jumps.
   const packedNow = !!packedGroup();
@@ -2063,17 +2063,17 @@ async function onClick(ev) {
     const c = readClock();
     // Day / Hour / Minute steppers. SET (re-anchors clockStart so no time "passes" and no effects
     // fire) vs the chip's ±10 which PASSES time. − / + bump each field; wrap hour/minute, floor day.
-    const row = (key, label, val, max) => `<div class="mc-dmp-tset-row">
+    const row = (key, label, val, max, base = 0) => `<div class="mc-dmp-tset-row">
       <span class="mc-dmp-tset-lbl">${label}</span>
       <button type="button" class="mc-dmp-tset-b" data-step="${key}" data-d="-1"><i class="fas fa-minus"></i></button>
-      <input class="mc-dmp-tset-in" name="${key}" value="${val}" data-max="${max}" inputmode="numeric" readonly>
+      <input class="mc-dmp-tset-in" name="${key}" value="${val}" data-max="${max}" data-base="${base}" inputmode="numeric" readonly>
       <button type="button" class="mc-dmp-tset-b" data-step="${key}" data-d="1"><i class="fas fa-plus"></i></button>
     </div>`;
     const result = await foundry.applications.api.DialogV2.wait({
       window: { title: "Set the time" },
       content: `<div class="mc-dmp-tset">
         ${row("day", "Day", c.day, 0)}
-        ${row("hour", "Hour", c.hour, 24)}
+        ${row("hour", "Hour", c.hour === 0 ? 24 : c.hour, 24, 1)}
         ${row("minute", "Minute", c.minute, 60)}
       </div>`,
       buttons: [
@@ -2086,15 +2086,16 @@ async function onClick(ev) {
           e.preventDefault();
           const inp = dialog.element.querySelector(`input[name="${b.dataset.step}"]`);
           const max = Number(inp.dataset.max);
+          const base = Number(inp.dataset.base) || 0;
           let v = Number(inp.value) + Number(b.dataset.d);
-          if (max > 0) v = ((v % max) + max) % max;   // wrap hour 0-23 / minute 0-59
-          else v = Math.max(1, v);                     // day floors at 1
+          if (max > 0) v = ((v - base) % max + max) % max + base;   // wrap hour 1-24 / minute 0-59
+          else v = Math.max(1, v);                                  // day floors at 1
           inp.value = v;
         }));
       }
     }).catch(() => null);
     if (result && typeof result === "object") {
-      const target = (result.day - 1) * 86400 + result.hour * 3600 + result.minute * 60;
+      const target = (result.day - 1) * 86400 + (result.hour % 24) * 3600 + result.minute * 60; // 24 → midnight
       await game.settings.set(MODULE_ID, "clockStart", target - game.time.worldTime); // re-anchor
       render();
     }
