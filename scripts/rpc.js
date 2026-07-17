@@ -2085,15 +2085,24 @@ export function registerSummonOwnership() {
       const displayUser = game.settings.get(MODULE_ID, "displayOwnerUser") || null;
       const baseActor = game.actors.get(tokenDoc.actorId);
       // The TV must SEE the party's summon on the shared screen. A summon runs as GM, so the display
-      // account gets no ownership — and an invisible summon (Unseen Servant) is visible ONLY to an
-      // owner, so party vision alone won't show it. Grant the display user OWNER, ungated: the TV
-      // shows whatever the party conjures (DM 2026-07-17). The DM gate below is only for PLAYER control.
+      // account gets no ownership. But ownership ALONE isn't enough: Foundry's Token#isVisible has no
+      // ownership shortcut, and an INVISIBLE summon (Unseen Servant) is excluded by basic detection —
+      // so an owned-but-uncontrolled invisible token still won't render on the passive TV. The fix is
+      // the SAME mechanism syncPartyTokenSight uses for PCs: give the token SIGHT so it's a vision
+      // source for its owner → isVisible returns true. So we (1) grant the display user OWNER and
+      // (2) enable sight (from the summon's own senses; range 0 + lightPerception for a senseless
+      // Unseen Servant). Ungated — the TV shows whatever the party conjures (DM 2026-07-17). The DM
+      // gate below is only for PLAYER control.
       if (displayUser && baseActor) {
         const tvUser = game.users.get(displayUser);
         const OWNER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
         if (tvUser && !tvUser.isGM && (baseActor.ownership?.[displayUser] ?? 0) < OWNER) {
           try { await baseActor.update({ [`ownership.${displayUser}`]: OWNER }); }
           catch (e) { console.warn(`${MODULE_ID} | summon TV-ownership grant failed`, e); }
+        }
+        if (!tokenDoc.sight?.enabled) {
+          try { await tokenDoc.update(actorTokenSight(baseActor)); }
+          catch (e) { console.warn(`${MODULE_ID} | summon vision-source failed`, e); }
         }
       }
       const player = game.users.find(u => !u.isGM && u.id !== displayUser && u.character?.id === summoner.id)
