@@ -1830,7 +1830,7 @@ async function handleFixPcTokens() {
   return { ok: true, count: updates.length };
 }
 
-async function handlePartyPack({ groupId, requesterId }) {
+async function handlePartyPack({ groupId, requesterId, force = false }) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
   if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM can form up the party" };
   if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
@@ -1847,7 +1847,10 @@ async function handlePartyPack({ groupId, requesterId }) {
   const cols = mem.map(m => cellOf(m).col), rows = mem.map(m => cellOf(m).row);
   const minCol = Math.min(...cols), maxCol = Math.max(...cols);
   const minRow = Math.min(...rows), maxRow = Math.max(...rows);
-  if (maxCol - minCol > PARTY_GRID - 1 || maxRow - minRow > PARTY_GRID - 1)
+  // `force` (§18 travel, DM 2026-07-17): the cluster gate makes marching order
+  // meaningful, but it must never block the DM's choice to pull the party out —
+  // scattered members just collapse onto the 3×3's edges (cells clamp below).
+  if (!force && (maxCol - minCol > PARTY_GRID - 1 || maxRow - minRow > PARTY_GRID - 1))
     return { ok: false, reason: "party isn't clustered — bring them within a 3×3 first" };
 
   // Group token = centroid cell = center (1,1) of the 3×3. Pre-fill the formation
@@ -1915,7 +1918,7 @@ async function handleTravelBegin({ requesterId }) {
   if (!group) {
     const cand = game.actors.find(a => a.type === "group" && (a.system?.members ?? []).some(m => m.actor));
     if (!cand) return { ok: false, stage: "resolve", reason: "no party group with members — set one up in the panel first" };
-    const packed = await handlePartyPack({ groupId: cand.id, requesterId });
+    const packed = await handlePartyPack({ groupId: cand.id, requesterId, force: true });
     if (packed?.ok === false) return packed;
     group = cand;
   }
@@ -1933,6 +1936,12 @@ async function handleTravelBegin({ requesterId }) {
     x: d.sceneX + Math.floor(d.sceneWidth / 2 / g) * g,
     y: d.sceneY + Math.floor(d.sceneHeight / 2 / g) * g
   });
+
+  // Unset transition (schema initial: null → core's default wipe) gets our
+  // pull-back zoom, so travel looks right out of the box (DM 2026-07-17: "do I
+  // need to set the transitions myself?"). An explicit choice is never overridden.
+  if (over.transition?.type == null && CONFIG.Canvas?.sceneTransitions?.mcZoomOut)
+    await over.update({ "transition.type": "mcZoomOut" });
 
   const data = gt.toObject();
   delete data._id;

@@ -631,8 +631,9 @@ function ownedTokensHTML() {
   </div>`).join("");
   return `
     <div class="mc-dmp-tok-top">
-      <select class="mc-dmp-tok-player" data-tok-player style="border-color:${u.color?.css ?? "#4a4334"}">${opts}</select>
-      <button class="mc-dmp-tok-palette" data-color-pick="${u.id}" title="Let ${esc(u.name)} pick their colour on their phone"><i class="fas fa-palette" style="color:${u.color?.css ?? "#c8a44d"}"></i></button>
+      <i class="fas fa-circle-user mc-nt-ico mc-dmp-tok-who" style="color:${u.color?.css ?? "#c8a44d"}"></i>
+      <select class="mc-dmp-tok-player" data-tok-player>${opts}</select>
+      <button class="mc-dmp-tok-palette" data-color-pick="${u.id}" title="Let ${esc(u.name)} pick their colour on their phone"><i class="fas fa-palette"></i></button>
     </div>
     <div class="mc-dmp-tok-grid">${items || `<div class="mc-dmp-empty">No tokens for this player.</div>`}</div>`;
 }
@@ -649,7 +650,7 @@ function travelHTML() {
   const state = !over ? "Choose which scene is the overworld map."
     : onOver ? "The party is already on this map."
     : packed ? "Party is formed up — ready to travel."
-    : cand ? "Party will form up automatically (they must be clustered)."
+    : cand ? "Party will form up automatically — wherever they stand."
     : "No party group with members — set one up from the panel first.";
   const ready = !!over && !onOver && !!(packed || cand);
   return `<div class="mc-dmp-travel">
@@ -662,7 +663,7 @@ function travelHTML() {
     <button class="mc-dmp-party-deploy mc-dmp-travel-go" data-travel-begin ${ready ? "" : "disabled"}
       title="Form up if needed, land the party token on the overworld, and activate it — the scene's transition plays for everyone">
       <i class="fas fa-route"></i> Pull the party to ${over ? esc(over.name) : "the overworld"}</button>
-    <p class="mc-dmp-travel-hint">The destination's Ambience → Transition plays on arrival — set the overworld's to "Zoom Out (Mobile Command)" for the pull-back.</p>
+    <p class="mc-dmp-travel-hint">Travel gives the overworld the Zoom Out pull-back automatically if no transition is set — pick a different one in the scene's Ambience tab any time.</p>
   </div>`;
 }
 
@@ -687,7 +688,7 @@ function flyoutHTML() {
   // No inline min-height: the floor is CSS `min-height:100%` = the main window's height, so the
   // second screen can never be dragged shorter than the primary (DM 2026-07-17). An inline
   // min-height here is what defeated that — it always beat the stylesheet.
-  return `<div class="mc-dmp-flyout mc-fly-${dockTab}${flyUp ? " mc-fly-up" : ""}" style="max-height:${Math.max(flyMaxH, flyMinH())}px">
+  return `<div class="mc-dmp-flyout mc-fly-${dockTab}${flyUp ? " mc-fly-up" : ""}" style="height:${Math.max(flyMaxH, flyMinH())}px">
     ${flyUp ? grab : ""}${head}
     <div class="mc-dmp-fly-body">${body}</div>
     ${flyUp ? "" : grab}
@@ -837,7 +838,7 @@ function startFlyResize(ev) {
   const floor = flyMinH(); // the main window's height — measured once, it can't change mid-drag
   const move = (e) => {
     flyMaxH = Math.round(Math.max(floor, Math.min(window.innerHeight - 24, startH + dir * (e.clientY - startY))));
-    fly.style.maxHeight = `${flyMaxH}px`;
+    fly.style.height = `${flyMaxH}px`;
   };
   const up = () => {
     document.removeEventListener("pointermove", move);

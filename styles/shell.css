@@ -3075,7 +3075,22 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-rt-row.mc-on { border-color: var(--mc-gold); background: var(--mc-panel-2); }
 .mc-dmp-rt-row.mc-on .mc-rt-tick { opacity: 1; }
 .mc-dmp-rt-row.mc-targeted { box-shadow: inset 0 0 0 1px var(--mc-gold); }
-.mc-dmp-rt-send { height: 40px; border-radius: calc(9px * var(--mc-round, 1)); font-weight: 800; color: var(--mc-cta-ink); background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge); cursor: pointer; }
+
+/* ============================================================
+   PRIMARY BUTTON GEOMETRY — one shape for every committing button, taken from the downtime
+   Short/Long buttons the DM liked (2026-07-17). Two rows of text tall (48px), icon+label centred,
+   and FULL WIDTH when it stands alone: a primary that doesn't span its column reads as an
+   afterthought ("Request rolls button needs to fill width"). The LOOK is still §4.2's CTA token —
+   this rule only settles size and alignment, so the two can be tuned apart.
+   ============================================================ */
+.mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run, .mc-dmp-party-deploy, .mc-dt-openbtn {
+  min-height: 48px; border-radius: calc(8px * var(--mc-round, 1));
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 13px; font-weight: 800; line-height: 1.25; text-align: center; cursor: pointer;
+}
+/* Standalone primaries span the column; ones sharing a row (Form up + Disperse) keep their flex. */
+.mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run { width: 100%; }
+.mc-dmp-rt-send { color: var(--mc-cta-ink); background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge); }
 .mc-dmp-empty { color: #a59b86; font-size: 12px; text-align: center; padding: 8px; }
 #mc-dm-panel.mc-show { display: block; }
 /* Drag grip — repositions the panel so it doesn't cover other widgets. */
@@ -3089,6 +3104,15 @@ body.mc-theme-wizard .mc-frame {
 /* Status row: pause toggle + per-player presence lights. */
 .mc-dmp-status { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
 /* (.mc-dmp-pause removed 2026-07-17 — Pause + Show left the DM window; nothing renders it.) */
+/* The Players picker follows §3 too: the ICON carries the player's colour, the NAME sits in the
+   dropdown in plain ink. The select used to wear the player's colour as its border and the
+   palette icon was tinted to match — three things saying the same thing, two of them badly
+   (DM 2026-07-17: "use the default character look ... you can lose the outline color on the
+   dropdown and the palette"). */
+.mc-dmp-tok-who { align-self: center; }
+.mc-dmp-tok-player { border-color: var(--mc-edge) !important; color: var(--mc-ink); }
+.mc-dmp-tok-palette i { color: var(--mc-muted); }
+.mc-dmp-tok-palette:hover i { color: var(--mc-gold); }
 /* §3 name tag: the ICON carries identity (player colour / DM colour for NPCs), the NAME is
    always ink. Shared by the roster, request-rolls, downtime and the selected-token title. */
 .mc-nt-ico { flex: 0 0 auto; font-size: 13px; }
@@ -3826,16 +3850,16 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   display: flex; align-items: center; justify-content: center; pointer-events: none;
 }
 .mc-dmp-pf {
-  display: flex; align-items: flex-start; gap: 8px; padding: 7px 8px; margin-bottom: 4px;
-  border-radius: calc(8px * var(--mc-round, 1)); background: #23262f; border: 1px solid #333743; font-size: 12px;
+  display: flex; align-items: center; gap: 8px; padding: 7px 8px; margin-bottom: 4px; min-height: 40px;
+  border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); font-size: 12px;
 }
-.mc-dmp-pf-ico { margin-top: 2px; }
+.mc-dmp-pf-ico { flex: 0 0 auto; }
 .mc-dmp-pf-ok .mc-dmp-pf-ico { color: #6fae6f; }
 .mc-dmp-pf-warn .mc-dmp-pf-ico { color: #d8b45a; }
 .mc-dmp-pf-fail { border-color: #7a3a3a; }
 .mc-dmp-pf-fail .mc-dmp-pf-ico { color: #d06060; }
 .mc-dmp-pf-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.mc-dmp-pf-text b { color: #ece5d6; }
+.mc-dmp-pf-text b { color: var(--mc-ink); }
 .mc-dmp-pf-text span { opacity: 0.8; line-height: 1.35; }
 .mc-dmp-pf-fix {
   flex: 0 0 auto; align-self: center; padding: 5px 9px; border-radius: calc(7px * var(--mc-round, 1)); font-size: 11px; font-weight: 700;

@@ -1154,10 +1154,18 @@ vs. the secret goblin village the DM can move clandestinely).
 
 - **T1 — Travel tab + pull-to-overmap (BUILT 2026-07-17).** DM-panel "Travel" dock tab: overworld
   scene picker (world setting `travelOverworldSceneId`, config:false, set from the tab) + one CTA.
-  `travelBegin` RPC: auto-packs via handlePartyPack when unpacked (surfacing its clear reasons,
-  e.g. "party isn't clustered"), then moves the group token to the overworld — landing at the
+  `travelBegin` RPC: auto-packs via handlePartyPack when unpacked — with `force: true`, which
+  SKIPS the 3×3 cluster gate (DM 2026-07-17: "if the DM decides to pull the party from a scene he
+  should be able to — we try to avoid blocking the DM from choosing"; scattered members collapse
+  onto the formation's edges, warnings-not-walls). Runs while PAUSED (no requireExecutor — its
+  pause guard blocks players, but the DM tables sit paused out of combat and travel is DM-only;
+  live-test finding 2026-07-17). Then moves the group token to the overworld — landing at the
   scene flag `travelPos` (last travel position), else a pre-existing group token's spot, else map
-  center — and activates the scene so the configured transition plays for the whole table.
+  center — and activates the scene so the configured transition plays for the whole table. If the
+  overworld's transition is UNSET (schema initial null → core's default wipe; live-test finding
+  2026-07-17), travelBegin defaults it to mcZoomOut first — an explicit DM choice is never
+  overridden. Per-route transitions elsewhere (tower stairs up vs. down) stay per-scene / per
+  Teleport-behavior config, as before.
 - **T2 — Pace + route.** Pace picker on the tab (flag on the group). DM draws a dashed freeform
   polyline (Drawing document — players see it); live readout DM-only: length → distance (scene
   grid) → hours/days at pace.
