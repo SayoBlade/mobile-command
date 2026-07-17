@@ -366,6 +366,12 @@ must not change any hit target.
 - **Let the tool show.** A chisel makes butt ends, thick staves and nothing perfectly vertical —
   so runic uses `stroke-linecap: butt`, weights of 2.7–3.6, and every stave rotated 2–3° off true.
   Roughness is *deliberate imprecision*, not sloppiness.
+- **A motif should POINT INWARD.** Tavern's fleur-de-lis is rotated 135° so its tip aims at the
+  middle of the screen; the four mirrored copies then all point in, which is what makes a frame
+  read as a frame rather than four stickers (DM 2026-07-17).
+- **Watch what a shape accidentally says.** Tavern's motif was a circle with four spokes — which
+  reads as a **targeting reticle**, menacing and wrong for a regal border. Ask what a shape looks
+  like to someone who doesn't know what you meant.
 - **THE MOTIF SLOT.** The motif lives at **(30,30) r≈7** on the 64-grid, and a skeleton must stay
   OUT of a circle at (30,30) r=9. Design the two halves *together*: the first cut had seigaiha arcs
   and an asanoha star drawn straight through the monk's lotus, because they were drawn apart.
