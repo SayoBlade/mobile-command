@@ -1278,19 +1278,32 @@ means, and it removes the need for a separate count setting. SHORT ⇒ exactly o
 5. **Downtime is available on a short rest** — 5e limits what you can *do* in an hour, but that's
    the Rule's business (a Rule already carries its own cost/target), not the shell's.
 
-### 19.5 Open questions — MUST be answered before building
+### 19.5 Open questions — RESOLVED (DM 2026-07-17)
 
-1. **THE CLOCK — this one blocks.** No calendar module is installed (probed live 2026-07-17:
-   `activeTimeModules: []`). `game.time.worldTime` is **elapsed seconds** (360 = 6 minutes since
-   the world began), not a time of day. So "DM and players are shown current game-time" has no
-   source yet. Options:
-     a. **Module-owned clock** — one setting (campaign start date/time) + worldTime ⇒ we render
-        "Night 3 · 21:40". Self-contained, no dependency, ours to maintain.
-     b. **Simple Calendar** (or similar) — real calendars, seasons, moons; a hard dependency on a
-        module the DM must install, against the pinned-stack rule.
-     c. **Relative only** — "2h into an 8h rest". Costs nothing, says less.
-2. Does **Pass time** advance `game.time.worldTime` for real (other modules/effects listen to it),
-   or is it just a label? Real is more correct and more dangerous.
-3. **Encounter** — does it start a Foundry combat, or just mark the watch and let the DM do it?
-4. Who may **end a phase** — DM only, or does the last player finishing downtime advance it?
-5. Watch **hours**: long rest 8h ÷ watches, or DM-set per watch?
+1. **THE CLOCK** → **one adapter, SC-optional** (his call: "two versions… so if a version conflicts
+   with the mod it won't completely break"). Key fact: SC doesn't own the time, `worldTime` does —
+   SC only interprets it. So `gametime.js`: advance is one call either way; only the LABEL asks SC,
+   feature-detected per call and wrapped to fall back to our own clock (campaignStart + worldTime,
+   default 21:00) if SC is absent/disabled/broken. BUILT — see the commit.
+2. **Pass time** → **advances the real `game.time.worldTime`.** Time-based effects and other modules
+   listen to it; a rest that doesn't really pass time is the bug we're removing. (Route via the
+   executor — GM-only.)
+3. **Encounter** → **just mark the watch; the DM runs it.** No auto-combat, no guessing which tokens
+   are in it. The module stays out of how fights are run.
+4. **Who advances a phase** → **DM only.** Matches "Start activities" — the DM is the clock. Players
+   can't rush past a beat the DM might narrate or interrupt.
+5. **Watch hours** → **split the rest evenly** across filled watches (8h ÷ N). Automatic; the classic
+   "everyone takes a turn" model. (A per-watch override can come later if a table wants uneven
+   watches — not v1.)
+
+### 19.6 Build order (once §19.1–5 land)
+
+1. `gametime.js` clock + a read-only clock chip on the panel (verify the SC-absent path first). DONE.
+2. The `rest` object + the setup card ([Short|Long] · ☑DT ☑Watches · Rest). Migrate the two old
+   states into it behind a one-time read.
+3. Watch assignment (reuse the existing editor) → clock starts.
+4. Downtime phase = today's flow, now inside Rest.
+5. Watch phase: First/Second/… watch on panel + phones; Next / Pass time (advance N h) / Event /
+   Encounter (mark only).
+6. Morning: apply the real dnd5e short/long rest to the party, ONCE. Retire "Start the night",
+   "Close" and "End night".
