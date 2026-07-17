@@ -2074,7 +2074,7 @@ function handleScribeResult({ ok, spellName, reason }) {
 // OWNER on the summon's world actor (covers all its tokens; the phone's token
 // switcher picks it up on the ownership change), ✕ leaves it DM-driven.
 export function registerSummonOwnership() {
-  Hooks.on("createToken", (tokenDoc) => {
+  Hooks.on("createToken", async (tokenDoc) => {
     try {
       if (!isExecutor()) return;
       const summonFlag = tokenDoc.actor?.flags?.dnd5e?.summon;
@@ -2083,10 +2083,22 @@ export function registerSummonOwnership() {
       const summoner = originItem?.actor ?? originItem?.parent;
       if (!summoner || summoner.type !== "character") return;
       const displayUser = game.settings.get(MODULE_ID, "displayOwnerUser") || null;
+      const baseActor = game.actors.get(tokenDoc.actorId);
+      // The TV must SEE the party's summon on the shared screen. A summon runs as GM, so the display
+      // account gets no ownership — and an invisible summon (Unseen Servant) is visible ONLY to an
+      // owner, so party vision alone won't show it. Grant the display user OWNER, ungated: the TV
+      // shows whatever the party conjures (DM 2026-07-17). The DM gate below is only for PLAYER control.
+      if (displayUser && baseActor) {
+        const tvUser = game.users.get(displayUser);
+        const OWNER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
+        if (tvUser && !tvUser.isGM && (baseActor.ownership?.[displayUser] ?? 0) < OWNER) {
+          try { await baseActor.update({ [`ownership.${displayUser}`]: OWNER }); }
+          catch (e) { console.warn(`${MODULE_ID} | summon TV-ownership grant failed`, e); }
+        }
+      }
       const player = game.users.find(u => !u.isGM && u.id !== displayUser && u.character?.id === summoner.id)
         ?? game.users.find(u => u.active && !u.isGM && u.id !== displayUser && summoner.testUserPermission(u, "OWNER"));
       if (!player) return; // NPC summoner / no player at the table — stays DM-driven
-      const baseActor = game.actors.get(tokenDoc.actorId);
       if (!baseActor || baseActor.testUserPermission(player, "OWNER")) return; // already theirs
       Hooks.callAll("mobile-command.dmReaction", {
         id: foundry.utils.randomID(),
