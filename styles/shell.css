@@ -2359,6 +2359,9 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-dmp-nw-chips { display: flex; gap: 4px; flex: 0 0 auto; }
 .mc-dmp-nw { width: 26px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); font-weight: 800; font-size: 11px; opacity: .55; }
 .mc-dmp-nw.mc-on { opacity: 1; background: var(--mc-panel-2); border-color: var(--mc-gold); color: var(--mc-gold); }
+/* Column headers over the watch chips — align to the 26px chip width. */
+.mc-dmp-nw-head { font-size: 10px; color: var(--mc-muted); text-transform: uppercase; letter-spacing: .03em; }
+.mc-dmp-nw-h { width: 26px; text-align: center; font-weight: 700; }
 .mc-dmp-night-box { margin: 6px 0; padding: 6px 8px; border-radius: calc(8px * var(--mc-round, 1)); background: #20222c; border: 1px solid #333743; }
 .mc-dmp-night-row { display: flex; gap: 8px; font-size: 12px; padding: 3px 2px; }
 .mc-dmp-night-row b { flex: 0 0 28px; color: #d8b45a; }
@@ -4273,8 +4276,13 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-rest-seg.mc-on, .mc-rest-chk.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); background: var(--mc-panel-2); }
 .mc-rest-chk .fa-square { color: var(--mc-muted); }
 .mc-rest-chk.mc-on .fa-square-check { color: var(--mc-gold); }
+/* Three rest types in a narrow flyout: tighter type/padding so "Downtime" fits. */
+.mc-rest-types .mc-rest-seg { font-size: 12px; gap: 4px; padding: 0 4px; }
+.mc-rest-types .mc-rest-seg i { font-size: 11px; }
+.mc-rest-watchtoggle { width: 100%; }
 .mc-rest-go { width: 100%; margin-top: 2px; }
 .mc-rest-hint { font-size: 11px; color: var(--mc-muted); margin: 2px 0 0; text-align: center; line-height: 1.4; }
+.mc-rest-explain { text-align: left; margin: 0 0 8px; }
 .mc-rest-active { gap: 8px; }
 .mc-rest-head { display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 6px 10px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); }

@@ -129,9 +129,14 @@ let dtRuleVisible = false; // whether Activate will show the Rule to the player 
 let dtRuleNote = ""; // the template's DM-only note being authored
 let dtNewTmplOpen = false; // the catalog "+ New activity" name field is open
 let dtGiveFor = null; // actorId whose "give a task" template picker is open
-// §19 Rest: the pre-start setup draft (DM-local — nothing persists until Start Rest). Defaults to a
-// long rest with both phases, the common camp.
-let restDraft = { size: "long", phases: { downtime: true, watches: true } };
+// §19 Rest: the pre-start setup draft (DM-local — nothing persists until Start Rest). The rest TYPE
+// is one of short / long / downtime (DM 2026-07-17: "Short and Long sound like the rests they are;
+// Downtime is its own thing"). Short → short rest; Long & Downtime → long rest; Downtime also runs
+// the activity phase. Watches is an independent add-on. Defaults to a long rest with watches.
+let restDraft = { type: "long", watches: true };
+function restPlan(d) {
+  return { size: d.type === "short" ? "short" : "long", downtime: d.type === "downtime", watches: !!d.watches };
+}
 function downtimeState() { try { return DT.normalizeState(game.settings.get(MODULE_ID, "downtimeState")); } catch (e) { return DT.normalizeState({}); } }
 function downtimeOpen() { return !!downtimeState().window?.open; }
 
@@ -216,9 +221,13 @@ function downtimeHTML(embedded = false) {
         </div>
         <p class="mc-dt-sizehint">Short — a watch or an evening<br>Long — a day or more in a hub</p></div>`);
 
-  // Only characters who are IN the scene — off-scene PCs are hidden here and excluded from the
-  // party rest (DM 2026-07-13: "hide out of scene characters… I don't see the use case").
-  const players = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner && inSceneActorIds().has(a.id))
+  // The roster. Embedded in a Rest → the REST'S PARTY (group members): a resting party is usually
+  // camped OFF the active scene, so the in-scene filter would hide everyone and their picks would
+  // never register (DM 2026-07-17: "chose an activity as a PC and still got 'nobody has chosen'").
+  // Standalone (legacy) → only characters IN the scene (DM 2026-07-13: "hide out-of-scene PCs").
+  const players = (embedded
+    ? nightMembers(restGroup()).filter(a => a.hasPlayerOwner)
+    : game.actors.filter(a => a.type === "character" && a.hasPlayerOwner && inSceneActorIds().has(a.id)))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const started = DT.isStarted(st);
@@ -320,8 +329,8 @@ function downtimeHTML(embedded = false) {
     ? (started
       ? `<div class="mc-dt-startbar"><span><i class="fas fa-play"></i> Activities under way</span>
           <button class="mc-dt-reopen" data-dt-start="0" title="Let players change their pick again">Reopen choices</button></div>`
-      : `<button class="mc-dt-startbtn" data-dt-start="1" ${anySel ? "" : "disabled"}>
-          <i class="fas fa-play"></i> ${anySel ? "Start activities" : "Start activities — nobody's chosen yet"}</button>`)
+      : `<button class="mc-dt-startbtn" data-dt-start="1" ${anySel ? "" : "disabled"} title="${anySel ? "Lock in the picks and push the first rolls" : "Waiting — nobody's chosen an activity yet"}">
+          <i class="fas fa-play"></i> Start Activities</button>`)
     : "";
   // Two accordion drawers: the live roster on top, the authoring catalog below.
   const rosterDrawer = win?.open ? dtDrawer("roster", "Who's doing what", "", `<div class="mc-dt-players">${rows}</div>${startBar}`) : "";
@@ -1374,18 +1383,16 @@ function isResting() { return !!restState(); }
 
 function restSetupCard(group) {
   const canRest = nightMembers(group).length > 0;
-  const d = restDraft;
-  const seg = (val, label, icon) => `<button class="mc-rest-seg ${d.size === val ? "mc-on" : ""}" data-rest-size="${val}"><i class="fas ${icon}"></i> ${label}</button>`;
-  const chk = (key, label, icon) => `<button class="mc-rest-chk ${d.phases[key] ? "mc-on" : ""}" data-rest-phase="${key}"><i class="fas ${d.phases[key] ? "fa-square-check" : "fa-square"}"></i> <i class="fas ${icon}"></i> ${label}</button>`;
-  const neither = !d.phases.downtime && !d.phases.watches;
-  const hint = neither
-    ? `A plain ${d.size} rest — applied to the party right away.`
-    : `The clock starts — ${[d.phases.watches ? "stand watch" : "", d.phases.downtime ? "run downtime" : ""].filter(Boolean).join(", ")}, then the ${d.size} rest lands in the morning.`;
+  const d = restDraft, plan = restPlan(d);
+  const seg = (val, label, icon) => `<button class="mc-rest-seg ${d.type === val ? "mc-on" : ""}" data-rest-type="${val}"><i class="fas ${icon}"></i> ${label}</button>`;
+  const restWord = plan.size === "long" ? "long rest" : "short rest";
+  const lead = plan.watches
+    ? (plan.downtime ? "Downtime, then watches" : "Watches")
+    : (plan.downtime ? "Downtime" : "");
+  const hint = lead ? `${lead}, then a ${restWord}.` : `A ${restWord}, applied right away.`;
   return `<div class="mc-rest-setup">
-    <div class="mc-rest-row"><span class="mc-rest-lbl">Length</span>
-      <div class="mc-rest-segs">${seg("short", "Short", "fa-mug-hot")}${seg("long", "Long", "fa-campground")}</div></div>
-    <div class="mc-rest-row"><span class="mc-rest-lbl">Happening</span>
-      <div class="mc-rest-chks">${chk("downtime", "Downtime", "fa-hourglass-half")}${chk("watches", "Watches", "fa-moon")}</div></div>
+    <div class="mc-rest-segs mc-rest-types">${seg("short", "Short", "fa-mug-hot")}${seg("long", "Long", "fa-campground")}${seg("downtime", "Downtime", "fa-hourglass-half")}</div>
+    <button class="mc-rest-chk mc-rest-watchtoggle ${d.watches ? "mc-on" : ""}" data-rest-watches><i class="fas ${d.watches ? "fa-square-check" : "fa-square"}"></i> <i class="fas fa-moon"></i> Set watches</button>
     <button class="mc-dmp-party-deploy mc-rest-go" data-rest-start ${canRest ? "" : "disabled"}><i class="fas fa-campground"></i> Start Rest</button>
     <p class="mc-rest-hint">${canRest ? hint : "No party group with members — set one up first."}</p>
   </div>`;
@@ -1410,11 +1417,17 @@ const firstName = id => game.actors.get(id)?.name?.split(" ")[0] ?? "?";
 function watchEditor(group, night) {
   const esc = foundry.utils.escapeHTML;
   if (!night) return "";
-  return `<div class="mc-dmp-night-edit">${nightMembers(group).map(a => {
+  // A labelled header row so the bare 1/2/3 chips read as watch slots (DM 2026-07-17: "I don't
+  // understand how watches are set"). Each column = a watch; each row = a PC; a lit chip = that PC
+  // stands that watch.
+  const head = `<div class="mc-dmp-nw-row mc-dmp-nw-head"><span></span><span class="mc-dmp-nw-chips">
+    <span class="mc-dmp-nw-h">1st</span><span class="mc-dmp-nw-h">2nd</span><span class="mc-dmp-nw-h">3rd</span></span></div>`;
+  const rows = nightMembers(group).map(a => {
     const chips = [1, 2, 3].map(w => `<button class="mc-dmp-nw ${(night.watches?.[w] ?? []).includes(a.id) ? "mc-on" : ""}"
-        data-night="dm-toggle" data-group="${group.id}" data-actor="${a.id}" data-watch="${w}" title="${["1st", "2nd", "3rd"][w - 1]} watch">${w}</button>`).join("");
+        data-night="dm-toggle" data-group="${group.id}" data-actor="${a.id}" data-watch="${w}" title="Put ${esc(a.name.split(" ")[0])} on ${["1st", "2nd", "3rd"][w - 1]} watch">${w}</button>`).join("");
     return `<div class="mc-dmp-nw-row"><span title="${esc(a.name)}">${esc(a.name.split(" ")[0])}</span><span class="mc-dmp-nw-chips">${chips}</span></div>`;
-  }).join("")}</div>`;
+  }).join("");
+  return `<div class="mc-dmp-night-edit">${head}${rows}</div>`;
 }
 
 function restHTML() {
@@ -1441,9 +1454,10 @@ function restHTML() {
 
   let body = "", advance = "", extra = "";
   if (rest.stage === "assign") {
-    body = `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Set the watch — players can place themselves too</div>
+    body = `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Set the watches</div>
+      <p class="mc-rest-hint mc-rest-explain">Each column is a watch; tap a slot to put that character on it. Anyone not on the running watch sleeps. Players can place themselves from their phones too.</p>
       ${watchEditor(group, night)}</div>
-      <p class="mc-rest-hint">Begin when the watch is set — the clock starts and the rest gets under way.</p>`;
+      <p class="mc-rest-hint">Begin when the watches are set — the clock starts and the rest gets under way.</p>`;
     advance = `<button class="mc-dmp-party-deploy mc-rest-adv" data-rest-advance><i class="fas fa-play"></i> Begin Rest</button>`;
   } else if (rest.stage === "downtime") {
     body = downtimeHTML(true);
@@ -1494,11 +1508,11 @@ async function applyPartyRest(group, size) {
 async function startRest() {
   const group = restGroup();
   if (!group) return;
-  const { size, phases } = restDraft;
-  if (!phases.downtime && !phases.watches) { await applyPartyRest(group, size); return render(); }
-  const stage = phases.watches ? "assign" : "downtime";
-  await group.setFlag(MODULE_ID, "rest", { id: foundry.utils.randomID(), size, phases: { ...phases }, stage, startedAt: game.time?.worldTime ?? 0 });
-  if (phases.watches) {
+  const { size, downtime, watches } = restPlan(restDraft);
+  if (!downtime && !watches) { await applyPartyRest(group, size); return render(); }
+  const stage = watches ? "assign" : "downtime";
+  await group.setFlag(MODULE_ID, "rest", { id: foundry.utils.randomID(), size, phases: { downtime, watches }, stage, startedAt: game.time?.worldTime ?? 0 });
+  if (watches) {
     // Fresh session id re-arms every phone's board (2026-07-09: a dismissed board stayed hidden).
     await group.setFlag(MODULE_ID, "night", { id: foundry.utils.randomID(), stage: "assign", watch: 0, watches: { 1: [], 2: [], 3: [] } });
   } else {
@@ -2142,10 +2156,9 @@ async function onClick(ev) {
   if (ev.target.closest("[data-rt-send]")) return sendRolls();
   { // §19 Rest — setup draft + the single ending. Watch/downtime buttons within fall through to
     // their own handlers (onNightClick / the downtime block below).
-    const rSize = ev.target.closest("[data-rest-size]");
-    if (rSize) { restDraft.size = rSize.dataset.restSize; return render(); }
-    const rPhase = ev.target.closest("[data-rest-phase]");
-    if (rPhase) { const k = rPhase.dataset.restPhase; restDraft.phases[k] = !restDraft.phases[k]; return render(); }
+    const rType = ev.target.closest("[data-rest-type]");
+    if (rType) { restDraft.type = rType.dataset.restType; return render(); }
+    if (ev.target.closest("[data-rest-watches]")) { restDraft.watches = !restDraft.watches; return render(); }
     if (ev.target.closest("[data-rest-start]")) return startRest();
     if (ev.target.closest("[data-rest-advance]")) return advanceRest();
     if (ev.target.closest("[data-rest-pass]")) return passWatch();
