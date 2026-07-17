@@ -1409,7 +1409,6 @@ function restSetupCard(group) {
 
 // The rest runs in stages (§19.3): assign watches → clock starts → downtime → watch phase →
 // morning. Stages for a phase that's off are skipped. Watch data lives on the `night` flag.
-const REST_MARK_ICON = { event: "fa-bolt", encounter: "fa-skull" };
 function watchSlots(night) { return Array.from({ length: night?.count ?? 3 }, (_, i) => i + 1); }
 function filledWatches(night) { return watchSlots(night).filter(w => (night?.watches?.[w] ?? []).length); }
 function watchSeconds(size, night) {
@@ -1479,23 +1478,18 @@ function restHTML() {
   } else if (rest.stage === "watches") {
     const w = night?.watch;
     const duty = (night?.watches?.[w] ?? []).map(firstName).join(", ") || "nobody";
-    const steps = filled.map(n => {
-      const mark = night?.marks?.[n];
-      return `<button class="mc-dmp-night-step ${w === n ? "mc-on" : ""}" data-night="watch" data-watch="${n}" data-group="${group.id}"
-        title="${(night.watches?.[n] ?? []).map(firstName).join(", ") || "nobody"} on duty">${filled.indexOf(n) + 1}${mark ? ` <i class="fas ${REST_MARK_ICON[mark]}"></i>` : ""}</button>`;
-    }).join("");
+    const steps = filled.map(n => `<button class="mc-dmp-night-step ${w === n ? "mc-on" : ""}" data-night="watch" data-watch="${n}" data-group="${group.id}"
+        title="${(night.watches?.[n] ?? []).map(firstName).join(", ") || "nobody"} on duty">${filled.indexOf(n) + 1}</button>`).join("");
     const secs = watchSeconds(rest.size, night);
-    const mark = night?.marks?.[w];
-    body = `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> On duty — ${esc(duty)}${mark ? ` · <i class="fas ${REST_MARK_ICON[mark]}"></i> ${mark}` : ""}</div>
+    // No Event/Encounter buttons: they only set a badge and did nothing (DM 2026-07-17). If something
+    // happens the DM just runs it — the off-watch PCs are already asleep — then Pass Watch to move on.
+    // Duration reads as a label after the chips, not baked into the button (bible §7).
+    body = `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Current watch — ${esc(duty)}</div>
       ${watchEditor(group, night)}
-      <div class="mc-dmp-party-btns mc-rest-steps">${steps}</div>
-      <div class="mc-rest-watchacts">
-        <button class="mc-dmp-party-mini" data-rest-mark="event" title="Something happens on this watch — you narrate it"><i class="fas fa-bolt"></i> Event</button>
-        <button class="mc-dmp-party-mini" data-rest-mark="encounter" title="A fight on this watch — mark it; you run it"><i class="fas fa-skull"></i> Encounter</button>
-      </div>`;
-    advance = `<button class="mc-dmp-party-deploy mc-rest-adv" data-rest-pass title="Nothing more this watch — advance the clock and move on"><i class="fas fa-hourglass-half"></i> Pass Watch · ${fmtDur(secs)}</button>`;
-    extra = `<button class="mc-dmp-party-mini mc-rest-skip" data-rest-advance title="Skip the rest of the watch — straight to morning"><i class="fas fa-forward"></i> To Morning</button>`;
-    body += `</div>`;
+      <div class="mc-rest-watchbar"><span class="mc-dmp-party-btns mc-rest-steps">${steps}</span><span class="mc-rest-dur">${fmtDur(secs)}</span></div>
+      <button class="mc-dmp-party-deploy mc-rest-pass" data-rest-pass title="Nothing more this watch — advance the clock and move on"><i class="fas fa-hourglass-half"></i> Pass Watch</button>
+    </div>`;
+    extra = `<button class="mc-dmp-party-deploy mc-rest-adv" data-rest-advance title="Skip the rest of the watch — straight to morning"><i class="fas fa-forward"></i> To Morning</button>`;
   } else { // morning
     body = `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-sun"></i> Morning</div>
       <p class="mc-rest-hint">The watch is over. End the rest to apply the ${rest.size === "long" ? "long" : "short"} rest to the party.</p></div>`;
@@ -1594,15 +1588,6 @@ async function passWatch() {
   }
   render();
 }
-// Mark the current watch as an event/encounter — a badge the DM sees; they run it themselves.
-async function markWatch(kind) {
-  const group = restGroup();
-  const night = group?.getFlag(MODULE_ID, "night");
-  if (!night) return;
-  await group.setFlag(MODULE_ID, "night", { ...night, marks: { ...(night.marks ?? {}), [night.watch]: kind } });
-  ui.notifications?.info(kind === "encounter" ? "Encounter marked — you run the fight." : "Event marked on this watch.");
-  render();
-}
 // End (or call off) the rest. This is the ONE place a dnd5e rest applies (§19). Tears down both
 // mechanisms either way; only `apply` lands the actual rest.
 async function endRest(apply) {
@@ -1635,22 +1620,39 @@ async function wakeActor(a) {
   }
 }
 
+// dnd5e's sleep cluster uses FIXED effect ids and an unreliable rider cascade, so rapid sleep/wake
+// across watch changes trips "already exists"/"does not exist" DB errors that surface as red banners
+// (DM 2026-07-17, passing a watch). We (a) always wake to a clean state before re-sleeping so a
+// stale rider can't collide with the cascade's fresh create, and (b) drop exactly those two DB
+// messages while our sleep ops run — every other notification passes through untouched.
+async function withQuietSleepNoise(fn) {
+  const n = ui?.notifications;
+  const orig = n?.notify?.bind(n);
+  const drop = /ActiveEffect .* does not exist|already exists within the parent collection/i;
+  if (orig) n.notify = (m, ...r) => (typeof m === "string" && drop.test(m)) ? undefined : orig(m, ...r);
+  try { return await fn(); }
+  finally { if (orig) setTimeout(() => { n.notify = orig; }, 500); } // cover the cascade's async tail
+}
+
 // On-duty PCs wake, everyone else sleeps (marker only — the DM taps any chip off
 // to wake someone, and non-sleeper races are exactly that manual toggle).
 async function applyWatchSleep(group) {
   const night = group.getFlag(MODULE_ID, "night");
   const onDuty = new Set(night?.watches?.[night.watch] ?? []);
-  for (const a of nightMembers(group)) {
-    const shouldSleep = !onDuty.has(a.id);
-    try {
-      if (shouldSleep && !a.statuses.has("sleeping")) await a.toggleStatusEffect("sleeping", { active: true });
-      else if (!shouldSleep && a.statuses.has("sleeping")) await wakeActor(a); // clear the rider cluster too
-    } catch (e) { console.warn(`${MODULE_ID} | watch sleep toggle failed for ${a.name}`, e); }
-  }
+  await withQuietSleepNoise(async () => {
+    for (const a of nightMembers(group)) {
+      const shouldSleep = !onDuty.has(a.id);
+      try {
+        // Clean any leftover riders first, THEN add sleeping fresh → the cascade's create can't clash.
+        if (shouldSleep && !a.statuses.has("sleeping")) { await wakeActor(a); await a.toggleStatusEffect("sleeping", { active: true }); }
+        else if (!shouldSleep && a.statuses.has("sleeping")) await wakeActor(a);
+      } catch (e) { console.warn(`${MODULE_ID} | watch sleep toggle failed for ${a.name}`, e); }
+    }
+  });
 }
 
 async function clearNightSleep(group) {
-  for (const a of nightMembers(group)) await wakeActor(a);
+  await withQuietSleepNoise(async () => { for (const a of nightMembers(group)) await wakeActor(a); });
 }
 
 async function nightLongRestPrompt(group) {
@@ -2178,8 +2180,6 @@ async function onClick(ev) {
     if (ev.target.closest("[data-rest-start]")) return startRest();
     if (ev.target.closest("[data-rest-advance]")) return advanceRest();
     if (ev.target.closest("[data-rest-pass]")) return passWatch();
-    const rMark = ev.target.closest("[data-rest-mark]");
-    if (rMark) return markWatch(rMark.dataset.restMark);
     if (ev.target.closest("[data-rest-end]")) return endRest(true);
     if (ev.target.closest("[data-rest-cancel]")) return endRest(false);
   }

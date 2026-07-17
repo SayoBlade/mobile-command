@@ -4293,11 +4293,11 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-rest-time { font-size: 12px; font-weight: 700; color: var(--mc-ink); display: inline-flex; align-items: center; gap: 6px; }
 .mc-rest-endbar { display: flex; gap: 6px; margin-top: 2px; align-items: stretch; }
 .mc-rest-end, .mc-rest-adv { flex: 1 1 auto; }
-.mc-rest-skip { flex: 0 0 auto; }
-/* Watch phase: the watch-switch chips + the Event/Encounter row */
+/* Watch phase: the 1/2/3 chips with the watch length beside them, then a full-width Pass Watch. */
 .mc-rest-steps { flex-wrap: wrap; }
-.mc-rest-watchacts { display: flex; gap: 6px; margin-top: 6px; }
-.mc-rest-watchacts .mc-dmp-party-mini { flex: 1 1 0; }
+.mc-rest-watchbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.mc-rest-dur { font-size: 12px; font-weight: 700; color: var(--mc-muted); flex: 0 0 auto; }
+.mc-rest-pass { width: 100%; margin-top: 8px; }
 .mc-dt-newbtn { padding: 0 10px; height: 26px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
   color: #d8d2c4; background: #1a1712; border: 1px solid #4a4334; display: inline-flex; align-items: center; gap: 5px; }
 .mc-dt-newbtn:hover, .mc-dt-newbtn.mc-on { border-color: #c8a44d; color: #e6c46a; background: #2a2418; }
