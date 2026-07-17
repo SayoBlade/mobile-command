@@ -705,17 +705,27 @@ function flyoutHTML() {
     title = `${(f.stage ?? "arrange") === "arrange" ? "Marching order" : "Traveling"} <i class="fas fa-arrow-up" style="display:inline-block;transform:rotate(${(f.forward ?? 0) * 45}deg)"></i>`;
     body = partyTabHTML();
   }
-  // The resize grabber sits on the FREE edge — the bottom when growing down, the top when growing
-  // up — so dragging it always enlarges toward open space.
-  const grab = `<div class="mc-dmp-fly-resize" data-fly-resize title="Drag to resize"><i class="fas fa-grip-lines"></i></div>`;
+  // BOTH edges drag (DM 2026-07-17). Each grabber knows which edge it is: the bottom one grows the
+  // box downward, the top one moves the box up and grows it — so the far edge stays put, which is
+  // what makes a resize feel like a resize rather than a jump.
+  const grabTop = `<div class="mc-dmp-fly-resize mc-fly-grab-top" data-fly-resize="top" title="Drag to resize"><i class="fas fa-grip-lines"></i></div>`;
+  const grabBot = `<div class="mc-dmp-fly-resize mc-fly-grab-bot" data-fly-resize="bottom" title="Drag to resize"><i class="fas fa-grip-lines"></i></div>`;
   const head = `<div class="mc-dmp-fly-head" title="Drag to move"><span>${title}</span><button class="mc-dmp-fly-x" data-dock-close aria-label="Close">✕</button></div>`;
   // No inline min-height: the floor is CSS `min-height:100%` = the main window's height, so the
   // second screen can never be dragged shorter than the primary (DM 2026-07-17). An inline
   // min-height here is what defeated that — it always beat the stylesheet.
-  return `<div class="mc-dmp-flyout mc-fly-${dockTab}${flyUp ? " mc-fly-up" : ""}" style="height:${Math.max(flyMaxH, flyMinH())}px">
-    ${flyUp ? grab : ""}${head}
+  const h = Math.max(flyMaxH, flyMinH());
+  // top is explicit so BOTH edges can be dragged; it only falls back to the flyUp default when the
+  // DM hasn't positioned it himself.
+  // Default: the two windows start at the SAME top, so their titles line up (DM 2026-07-17). The
+  // old default (flyUp ? panelH - h : 0) hung the flyout above the panel whenever it was taller —
+  // 39px above, here — which is exactly why the titles didn't agree. If the flyout runs off the
+  // bottom, clampPos shifts the panel; that's its job, and it beats starting misaligned.
+  const top = Math.round(flyTop ?? 0);
+  return `<div class="mc-dmp-flyout mc-fly-${dockTab}" style="top:${top}px;bottom:auto;height:${h}px">
+    ${grabTop}${head}
     <div class="mc-dmp-fly-body">${body}</div>
-    ${flyUp ? "" : grab}
+    ${grabBot}
   </div>`;
 }
 
@@ -788,6 +798,7 @@ const POS_KEY = "mc-dm-panel-pos";
 // shove the whole floating panel up — so opening a tall tab hides the primary and needs a
 // re-drag (DM 2026-07-13). Cap the flyout height (drag the bottom grabber to set it); the body
 // scrolls inside, so no tab ever grows past this and jostles the panel. Persisted per client.
+const FLY_TOP_KEY = "mc-dm-panel-flyTop";
 const FLY_KEY = "mc-dm-panel-flyH";
 // The MAIN window sets the floor for the second screen: a flyout shorter than the panel it hangs
 // off reads as broken (DM 2026-07-17: "i can still drag the secondary window under the primary").
@@ -799,7 +810,12 @@ function flyMinH() {
   return Math.min(Math.max(h || FLY_MIN_FALLBACK, FLY_MIN_FALLBACK), window.innerHeight - 24);
 }
 let flyMaxH = (() => { try { return parseInt(window.localStorage.getItem(FLY_KEY), 10) || 360; } catch (e) { return 360; } })();
-let flyUp = false; // grow the flyout upward (anchored to the panel's bottom) when the panel sits low
+let flyUp = false; // default anchor: grow from the panel's bottom when the panel sits low
+// The flyout's own top offset, in px from the panel's padding box. null = derive from flyUp.
+// Needed because a box anchored at top:0 can only ever grow DOWNWARD: to drag the TOP edge up we
+// must move the box AND resize it (DM 2026-07-17: "Now i can only drag the height of the secondary
+// window down, cant we have both!?").
+let flyTop = (() => { try { const v = window.localStorage.getItem(FLY_TOP_KEY); return v == null ? null : Number(v); } catch (e) { return null; } })();
 function applySavedPos(el) {
   try {
     const pos = JSON.parse(window.localStorage.getItem(POS_KEY) || "null");
@@ -857,17 +873,37 @@ function startFlyResize(ev) {
   ev.preventDefault(); ev.stopPropagation();
   const fly = panelEl?.querySelector(".mc-dmp-flyout");
   if (!fly) return;
-  const startY = ev.clientY, startH = fly.getBoundingClientRect().height;
-  const dir = flyUp ? -1 : 1; // growing up → dragging the top grabber UP (dy<0) enlarges
-  const floor = flyMinH(); // the main window's height — measured once, it can't change mid-drag
+  const edge = ev.target.closest("[data-fly-resize]")?.dataset.flyResize === "top" ? "top" : "bottom";
+  const startY = ev.clientY;
+  const r = fly.getBoundingClientRect();
+  const pr = panelEl.getBoundingClientRect();
+  const startH = r.height;
+  const startTop = r.top - pr.top;       // the flyout's offset inside the panel
+  const floor = flyMinH();               // the primary's height — measured once; can't move mid-drag
+  const ceiling = window.innerHeight - 24;
   const move = (e) => {
-    flyMaxH = Math.round(Math.max(floor, Math.min(window.innerHeight - 24, startH + dir * (e.clientY - startY))));
+    const dy = e.clientY - startY;
+    if (edge === "bottom") {
+      // drag down = taller; the top edge stays where it is
+      flyMaxH = Math.round(Math.max(floor, Math.min(ceiling, startH - 0 + dy)));
+      flyTop = Math.round(startTop);
+    } else {
+      // drag up = taller, growing UPWARD: the BOTTOM edge stays put, so top and height move together
+      const h = Math.round(Math.max(floor, Math.min(ceiling, startH - dy)));
+      flyMaxH = h;
+      flyTop = Math.round(startTop + (startH - h));
+    }
     fly.style.height = `${flyMaxH}px`;
+    fly.style.top = `${flyTop}px`;
+    fly.style.bottom = "auto";
   };
   const up = () => {
     document.removeEventListener("pointermove", move);
     document.removeEventListener("pointerup", up);
-    try { window.localStorage.setItem(FLY_KEY, String(flyMaxH)); } catch (e) { /* ignore */ }
+    try {
+      window.localStorage.setItem(FLY_KEY, String(flyMaxH));
+      window.localStorage.setItem(FLY_TOP_KEY, String(flyTop));
+    } catch (e) { /* ignore */ }
     clampPos(panelEl);
   };
   document.addEventListener("pointermove", move);
