@@ -178,7 +178,7 @@ function catalogHTML(st) {
     if (editing) body = ruleFormHTML(null, t);
     else if (hasRule) body = `<div class="mc-dt-act-rule">${esc(DT.describeRule(t.rule))}</div>
       ${t.note ? `<div class="mc-dt-note"><i class="fas fa-note-sticky"></i> ${esc(t.note)}</div>` : ""}
-      <button class="mc-dt-act-edit" data-dt-tmpl-edit="${t.id}"><i class="fas fa-pen"></i> Edit</button>`;
+      <div class="mc-dt-act-editrow"><button class="mc-dt-act-edit" data-dt-tmpl-edit="${t.id}"><i class="fas fa-pen"></i> Edit</button></div>`;
     else body = `<button class="mc-dt-setrule" data-dt-tmpl-edit="${t.id}"><i class="fas fa-wand-magic-sparkles"></i> Set the rule</button>`;
     return `<div class="mc-dt-tmpl ${!hasRule ? "mc-norule" : ""}">
       <div class="mc-dt-act-top">
@@ -202,8 +202,7 @@ function downtimeHTML() {
   const st = downtimeState();
   const win = st.window;
   const head = win?.open
-    ? `<div class="mc-dt-openhead"><span><b>Downtime open</b> — ${win.size === "long" ? "a day or more" : "a few hours"}</span>
-        <button class="mc-dt-close-btn" data-dt-end title="Close the downtime window — this does NOT advance time"><i class="fas fa-xmark"></i> Close</button></div>`
+    ? `<div class="mc-dt-openhead"><button class="mc-dt-close-btn" data-dt-end title="Close the downtime window — this does NOT advance time"><i class="fas fa-xmark"></i> Close</button></div>`
     : `<div class="mc-dt-setup">
         <div class="mc-dt-sizes">
           <button class="mc-dt-openbtn" data-dt-open="short"><i class="fas fa-hourglass-half"></i> Short downtime</button>
@@ -237,7 +236,7 @@ function downtimeHTML() {
       // Rolls only once you've started activities: push one (roll rules) or tick it (no-roll).
       const push = live && started
         ? (DT.needsRoll(act.rule)
-          ? `<button class="mc-dt-push ${act.pending ? "mc-waiting" : ""}" data-dt-push="${act.id}" data-actor="${a.id}" data-on="${act.pending ? "0" : "1"}"><i class="fas fa-dice-d20"></i> ${act.pending ? "Waiting…" : "Push roll"}</button>`
+          ? `<button class="mc-dt-push ${act.pending ? "mc-waiting" : ""}" data-dt-push="${act.id}" data-actor="${a.id}" data-on="${act.pending ? "0" : "1"}"><i class="fas fa-dice-d20"></i> ${act.pending ? "Waiting…" : "Push"}</button>`
           : `<button class="mc-dt-push" data-dt-tick="${act.id}" data-actor="${a.id}"><i class="fas fa-plus"></i> Tick +${Number(act.rule.perTick) || 1}</button>`)
         : "";
       // Cost: both sides see it; only the DM is told when the PC can't cover it. Nothing is deducted.
@@ -251,7 +250,7 @@ function downtimeHTML() {
         <div class="mc-dt-act-rule">${esc(DT.describeRule(act.rule))}${act.visible ? ' <i class="fas fa-eye mc-dt-eye" title="The player can see this rule"></i>' : ""}</div>
         ${costHTML}
         <div class="mc-dt-act-progline">${dtProgressBar(act)}</div>
-        <div class="mc-dt-act-ctl">${push}${adj}<button class="mc-dt-act-edit" data-dt-editrule="${act.id}" data-actor="${a.id}"><i class="fas fa-pen"></i> Edit</button></div>`;
+        <div class="mc-dt-act-ctl">${push}${adj}<button class="mc-dt-act-edit mc-dt-icon-only" data-dt-editrule="${act.id}" data-actor="${a.id}" title="Edit the rule"><i class="fas fa-pen"></i></button></div>`;
       else bodyHTML = `<button class="mc-dt-setrule" data-dt-editrule="${act.id}" data-actor="${a.id}"><i class="fas fa-wand-magic-sparkles"></i> Set the rule</button>`;
       // NB: never use the bare "mc-hidden"/"mc-shown" names here — ".mc-hidden" is the shell's
       // search-filter utility (display:none !important), which silently hid EVERY activity card on
@@ -657,9 +656,9 @@ function tokLevel(a) { return a.system?.details?.level ?? a.system?.details?.cr 
 function groupSheetBtn() {
   const g = packedGroup() ?? candidateGroup();
   if (!g) return "";
-  return `<button class="mc-dmp-party-mini mc-dmp-groupsheet" data-group-sheet="${g.id}"
+  return `<button class="mc-dmp-groupsheet" data-group-sheet="${g.id}"
     title="Open ${foundry.utils.escapeHTML(g.name)} — travel pace, members, party currency">
-    <i class="fas fa-people-group"></i> ${foundry.utils.escapeHTML(g.name)} sheet</button>`;
+    <i class="fas fa-people-group"></i> Group</button>`;
 }
 
 function ownedTokensHTML() {
@@ -719,13 +718,13 @@ function travelHTML() {
   const packed = packedGroup(), cand = candidateGroup();
   const onOver = !!over && game.scenes.active?.id === over.id;
   const state = !over ? "Choose which scene is the overworld map."
-    : onOver && packed ? "Party is on this map — the button lets you re-place them."
+    : onOver && packed ? "Click to place group on map."
     : packed ? "Party is formed up — you'll click their landing spot."
     : cand ? "Party will form up automatically — wherever they stand."
     : "No party group with members — set one up from the panel first.";
   const ready = !!over && !!(packed || cand);
   return `<div class="mc-dmp-travel">
-    <label class="mc-dmp-travel-lbl" for="mc-travel-scene">Overworld map</label>
+    <label class="mc-dmp-travel-lbl" for="mc-travel-scene">Travel to</label>
     <select id="mc-travel-scene" data-travel-scene>
       <option value="">— choose a scene —</option>
       ${scenes.map(s => `<option value="${s.id}" ${s.id === chosenId ? "selected" : ""}>${esc(s.name)}</option>`).join("")}

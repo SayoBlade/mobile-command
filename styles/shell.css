@@ -3074,7 +3074,15 @@ body.mc-theme-wizard .mc-frame {
 /* Owned tokens — a player dropdown + a 2-row grid that scrolls HORIZONTALLY
    (compact for the common 4–6 players × 1–2 tokens; horizontal scroll for a heavy
    player). Sorted highest-level first. */
-.mc-dmp-tok-player { width: 100%; height: 30px; border-radius: calc(7px * var(--mc-round, 1)); background: #14171f; color: #ece5d6; border: 1px solid #4a4334; padding: 0 8px; font-weight: 700; }
+/* ONE select style, everywhere (UI-BIBLE §2.1 — tokens, and §4.1 — same control, same size). */
+.mc-dmp-rt-top select, .mc-dmp-travel select, .mc-dmp-tok-player {
+  width: 100%; min-height: 32px; border-radius: calc(7px * var(--mc-round, 1));
+  background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge);
+  padding: 0 8px; font-size: 12px; font-weight: 700; box-sizing: border-box;
+}
+.mc-dmp-rt-top select:focus, .mc-dmp-travel select:focus, .mc-dmp-tok-player:focus {
+  outline: none; border-color: var(--mc-gold);
+}
 .mc-dmp-tok-grid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); grid-auto-columns: 74px; gap: 6px; overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
 .mc-dmp-tok { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px; border-radius: calc(8px * var(--mc-round, 1)); background: #1b202b; border: 1px solid #2f3640; cursor: grab; }
 .mc-dmp-tok:hover { border-color: #c8a44d; }
@@ -3083,14 +3091,21 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-tok span { font-size: 10px; line-height: 1.1; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ece5d6; pointer-events: none; }
 /* Players tab: dropdown + a palette button that asks the player to pick a colour. */
 .mc-dmp-tok-top { display: flex; gap: 6px; align-items: stretch; }
-.mc-dmp-groupsheet { margin-top: 8px; }
+.mc-dmp-groupsheet {
+  margin-top: auto;   /* the fly-body is a column → this sinks the button to the bottom */
+  width: 100%; min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; font-weight: 700;
+  color: var(--mc-ink); background: var(--mc-panel-2); border: 1px solid var(--mc-edge);
+}
+.mc-dmp-groupsheet:hover { border-color: var(--mc-gold); }
+.mc-dmp-groupsheet i { color: var(--mc-muted); }
 .mc-dmp-tok-player { flex: 1 1 auto; min-width: 0; }
 .mc-dmp-tok-palette { flex: 0 0 34px; height: 30px; border-radius: calc(7px * var(--mc-round, 1)); background: #14171f; border: 1px solid #4a4334; cursor: pointer; }
 .mc-dmp-tok-palette:hover { border-color: #c8a44d; }
 /* Rolls tool: all three controls on one short line at the top (explicit widths so
    they always fit the 240px flyout — no spill). */
 .mc-dmp-rt-top { display: flex; gap: 6px; align-items: stretch; }
-.mc-dmp-rt-top select { height: 27px; border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge); padding: 0 4px; font-size: 12px; }
+/* (per-select rules retired 2026-07-17 — the three selects share one style above.) */
 .mc-rt-type { flex: 0 0 64px; } .mc-rt-abil { flex: 0 0 58px; }
 .mc-rt-multi { position: relative; flex: 1 1 auto; min-width: 0; }
 .mc-dmp-rt-forbtn { width: 100%; height: 27px; display: flex; align-items: center; justify-content: center; gap: 5px; border-radius: calc(7px * var(--mc-round, 1)); background: #14171f; color: #ece5d6; border: 1px solid #4a4334; cursor: pointer; white-space: nowrap; font-size: 12px; }
@@ -3169,7 +3184,7 @@ body.mc-theme-wizard .mc-frame {
    (DM 2026-07-17: "use the default character look ... you can lose the outline color on the
    dropdown and the palette"). */
 .mc-dmp-tok-who { align-self: center; }
-.mc-dmp-tok-player { border-color: var(--mc-edge) !important; color: var(--mc-ink); }
+
 .mc-dmp-tok-palette i { color: var(--mc-muted); }
 .mc-dmp-tok-palette:hover i { color: var(--mc-gold); }
 /* §3 name tag: the ICON carries identity (player colour / DM colour for NPCs), the NAME is
@@ -3988,10 +4003,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dmp-travel-foot { margin-top: auto; padding-top: 6px; }
 .mc-dmp-travel { display: flex; flex-direction: column; gap: 8px; padding: 4px 0 0; flex: 1 1 auto; min-height: 0; }
 .mc-dmp-travel-lbl { color: var(--mc-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
-.mc-dmp-travel select {
-  background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge);
-  border-radius: 6px; padding: 6px 8px; min-height: 34px; width: 100%;
-}
+
 .mc-dmp-travel-hint { color: var(--mc-muted); font-size: 12px; margin: 0; }
 /* geometry comes from the shared primary rule — this only says it's the travel one */
 .mc-dmp-travel-go { width: 100%; }
@@ -4245,9 +4257,11 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-act.mc-done { border-left-color: #3a6b4a; opacity: .7; }
 .mc-dt-act-top { display: flex; align-items: center; gap: 8px; }
 .mc-dt-act-name { flex: 1 1 auto; font-size: 13px; font-weight: 700; color: #ece5d6; }
-.mc-dt-act-rm { flex: 0 0 auto; min-width: 28px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); cursor: pointer;
-  background: transparent; border: 1px solid var(--mc-edge); color: var(--mc-muted); font-size: 12px; }
+.mc-dt-act-rm { flex: 0 0 auto; min-width: 26px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); cursor: pointer;
+  background: transparent; border: none; color: var(--mc-muted); font-size: 13px; }
 .mc-dt-act-rm:hover { border-color: #7a3a35; color: #ffb4a8; }
+/* the catalog item's Edit sits on its own row, pushed right (DM 2026-07-17). */
+.mc-dt-act-editrow { display: flex; justify-content: flex-end; margin-top: 4px; }
 .mc-dt-act-plan { font-size: 12px; color: var(--mc-muted); font-style: italic; margin-top: 2px; }
 .mc-dt-act-rule { font-size: 11px; color: #c8a44d; margin-top: 3px; }
 .mc-dt-act-rule em { color: var(--mc-muted); }
@@ -4257,7 +4271,8 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-bar > span { display: block; height: 100%; background: linear-gradient(90deg, #b98a1e, #e6c46a); }
 .mc-dt-act-edit { flex: 0 0 auto; padding: 0 10px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); cursor: pointer;
   background: transparent; border: 1px solid var(--mc-edge); color: #c8a44d; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; }
-.mc-dt-act-edit:hover { border-color: #c8a44d; color: #ece5d6; background: #1a1712; }
+.mc-dt-act-edit:hover { border-color: var(--mc-gold); color: var(--mc-ink); background: var(--mc-panel-2); }
+.mc-dt-icon-only { padding: 0; min-width: 26px; width: 26px; justify-content: center; gap: 0; }
 .mc-dt-eye { color: #c8a44d; margin-left: 4px; font-size: 10px; }
 .mc-dt-act-progline { display: flex; align-items: center; gap: 8px; }
 .mc-dt-act-progline .mc-dt-prog { flex: 1 1 auto; }
