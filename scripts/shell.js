@@ -2596,20 +2596,32 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // The "main screen" frame (DM 2026-07-16, experimental): one corner ornament mirrored into all
     // four corners + a rule above/below. The ornament is a mask, so it takes --mc-frame from the
     // theme (UI-BIBLE §11) — each theme ships its own corner art.
-    return `<div class="mc-frame">
+    // NO MOVEMENT (no own token and no party pad — e.g. between scenes): the pad is empty, so the
+    // frame collapsed onto the height of two stat columns and the 78px corner art landed straight
+    // on top of Init/Hit Dice/Speed/Prof (DM 2026-07-17). The four chips move to the MIDDLE as a
+    // 2x2 — his suggestion, and the right one: the corners want the edges, the content wants the
+    // centre. mc-frame-nopad also floors the frame's height so the top and bottom ornaments don't
+    // grow into each other.
+    const pad = this.#moveHTML();
+    const stats = {
+      init: estat("mc-tappable", "roll-init", "Init", initStr),
+      hd: estat("mc-tappable", "roll-hd", "Hit Dice", hdStr),
+      speed: estat("mc-gray mc-tappable", "speed-picker", "Speed", speed),
+      prof: estat("mc-gray", "", "Prof", prof),
+    };
+    const body = pad
+      ? `<div class="mc-move-row">
+        <div class="mc-estat-col">${stats.init}${stats.hd}</div>
+        <div class="mc-dpad-wrap">${pad}</div>
+        <div class="mc-estat-col">${stats.speed}${stats.prof}</div>
+      </div>`
+      : `<div class="mc-move-row mc-move-still">
+        <div class="mc-estat-mid">${stats.init}${stats.speed}${stats.hd}${stats.prof}</div>
+      </div>`;
+    return `<div class="mc-frame${pad ? "" : " mc-frame-nopad"}">
       <span class="mc-frame-c mc-tl"></span><span class="mc-frame-c mc-tr"></span>
       <span class="mc-frame-c mc-bl"></span><span class="mc-frame-c mc-br"></span>
-      <div class="mc-move-row">
-        <div class="mc-estat-col">
-          ${estat("mc-tappable", "roll-init", "Init", initStr)}
-          ${estat("mc-tappable", "roll-hd", "Hit Dice", hdStr)}
-        </div>
-        <div class="mc-dpad-wrap">${this.#moveHTML()}</div>
-        <div class="mc-estat-col">
-          ${estat("mc-gray mc-tappable", "speed-picker", "Speed", speed)}
-          ${estat("mc-gray", "", "Prof", prof)}
-        </div>
-      </div>
+      ${body}
     </div>`;
   }
 

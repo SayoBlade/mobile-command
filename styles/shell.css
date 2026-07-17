@@ -2608,6 +2608,20 @@ body.mc-theme-wizard .mc-frame {
 /* Per-theme corner motif — the shared skeleton does the structure (UI-BIBLE 11). */
 /* Per-theme corner art. */
 
+/* NO-MOVEMENT state: the four chips sit in the MIDDLE as a 2x2, so the corner ornaments keep the
+   edges to themselves (DM 2026-07-17: the art was landing on top of Init/Hit Dice/Speed/Prof).
+   The block is capped at ~2x88 so it clears a 78px ornament on either side even on a 375px phone,
+   and the frame gets a floor tall enough that the top and bottom art don't grow into each other. */
+.mc-frame-nopad { min-height: calc(var(--mc-frame-c-size) * 2 + var(--mc-frame-c-pad) * 2); display: flex; align-items: center; }
+.mc-move-still { width: 100%; }
+.mc-estat-mid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+  align-content: center; margin: 0 auto; width: 100%;
+  /* Derived from the ornament, not guessed: the corners occupy (size + pad) on EACH side, so the
+     block takes what's left minus a little air. A fixed 88px column overlapped by 1.5px on a
+     351px frame — close enough to look deliberate and still be wrong. */
+  max-width: calc(100% - (var(--mc-frame-c-size) + var(--mc-frame-c-pad)) * 2 - 12px);
+}
 .mc-move-row {
   display: flex; align-items: center; justify-content: space-between;
   gap: 6px; margin: 0;
