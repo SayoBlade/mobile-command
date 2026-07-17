@@ -730,7 +730,7 @@ function travelHTML() {
   const state = !over ? "Choose which scene is the overworld map."
     : onOver && packed ? "Click to place group on map."
     : packed ? "Party is formed up — you'll click their landing spot."
-    : cand ? "Party will form up automatically — wherever they stand."
+    : cand ? "Click the map to place the group and pull the party to the scene."
     : "No party group with members — set one up from the panel first.";
   const ready = !!over && !!(packed || cand);
   return `<div class="mc-dmp-travel">
