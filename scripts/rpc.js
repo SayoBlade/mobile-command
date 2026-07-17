@@ -491,7 +491,8 @@ export async function placeCast(id) {
   const usage = {
     midiOptions: {
       autoRollAttack: true, fastForwardAttack: true,
-      autoRollDamage: "always", fastForwardDamage: true
+      autoRollDamage: "always", fastForwardDamage: true,
+      workflowOptions: { targetConfirmation: "none" } // phone can't answer midi's target-confirm dialog
     }
   };
   const dialog = {};
@@ -695,7 +696,7 @@ async function handlePlacementConfirm() {
     // Consume the slot / post the card, then move the caster to the marker.
     // Auto-roll keys live in workflowOptions (midi ignores them at the top level —
     // same trap the fireAoO fix hit, Round 32).
-    const usage = { midiOptions: { workflowOptions: { autoRollAttack: true, fastForwardAttack: true, autoRollDamage: "always", fastForwardDamage: true, autoConsumeResource: "both" } } };
+    const usage = { midiOptions: { workflowOptions: { autoRollAttack: true, fastForwardAttack: true, autoRollDamage: "always", fastForwardDamage: true, autoConsumeResource: "both", targetConfirmation: "none" } } };
     if (p.slotLevel) usage.spell = { slot: p.slotLevel };
     try { await activity.use(usage, { configure: false }, {}); } catch (e) { console.warn(`${MODULE_ID} | teleport cast`, e); }
     const grid = canvas.scene.grid;
@@ -724,7 +725,7 @@ async function handlePlacementConfirm() {
   // pass. Fire-and-forget the cast so its card appears; never await/park.
   const targets = tokensUnderTemplate(tpl);
   try { game.user.updateTokenTargets(targets.map(t => t.id)); } catch (e) { /* best effort */ }
-  const usage = { midiOptions: { workflowOptions: { autoRollAttack: true, fastForwardAttack: true, autoRollDamage: "always", fastForwardDamage: true, autoConsumeResource: "both" } } };
+  const usage = { midiOptions: { workflowOptions: { autoRollAttack: true, fastForwardAttack: true, autoRollDamage: "always", fastForwardDamage: true, autoConsumeResource: "both", targetConfirmation: "none" } } };
   if (p.slotLevel) usage.spell = { slot: p.slotLevel };
   activity.use(usage, { configure: false }, {}).catch(e => console.warn(`${MODULE_ID} | AoE cast`, e));
   return { ok: true, mode: "aoe", targets: targets.length, dmResolves: true };
@@ -832,7 +833,7 @@ async function handleItemUse(payload) {
   // (dnd5e does `config.consume ??= {}` then sets `.action` on it → throws on a
   // primitive). So only ever set the falsy form; omit the key otherwise.
   const usage = {
-    midiOptions: { targetUuids, ignoreUserTargets: true, workflowOptions: { autoConsumeResource: "both" }, ...midiOptions }
+    midiOptions: { targetUuids, ignoreUserTargets: true, workflowOptions: { autoConsumeResource: "both", targetConfirmation: "none" }, ...midiOptions }
   };
   if (consume === false) usage.consume = false;
 
@@ -972,7 +973,7 @@ async function handleItemUseStart(payload) {
     const { result: workflow, captured } = await captureNotifications(() =>
       MidiQOL.completeActivityUse(activity.uuid, {
         ...spellCfg,
-        midiOptions: { targetUuids: uniqueTargets, ignoreUserTargets: true, autoRollDamage: "always", fastForwardDamage: true, workflowOptions: { autoConsumeResource: consumeMode }, ...midiOptions }
+        midiOptions: { targetUuids: uniqueTargets, ignoreUserTargets: true, autoRollDamage: "always", fastForwardDamage: true, workflowOptions: { autoConsumeResource: consumeMode, targetConfirmation: "none" }, ...midiOptions }
       }, { configure: false }, {})
     );
     if (!workflow || workflow.aborted) {
@@ -994,7 +995,7 @@ async function handleItemUseStart(payload) {
         targetUuids: uniqueTargets, ignoreUserTargets: true,
         autoRollAttack: true, fastForwardAttack: true,
         autoRollDamage: "none", fastForwardDamage: false,
-        workflowOptions: { autoConsumeResource: consumeMode },
+        workflowOptions: { autoConsumeResource: consumeMode, targetConfirmation: "none" },
         ...midiOptions
       }
     }, { configure: false }, {});
