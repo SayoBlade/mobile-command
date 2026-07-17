@@ -837,9 +837,11 @@ async function handleItemUse(payload) {
   };
   if (consume === false) usage.consume = false;
 
+  // Same AC5E unseen-target dialog suppression as the two-tap path (reactions/single-tap attacks).
+  const ac5eOff = suppressAc5eAttackDialog();
   const { result: workflow, captured } = await captureNotifications(() =>
     MidiQOL.completeActivityUse(activity.uuid, usage, { configure: false }, {})
-  );
+  ).finally(ac5eOff);
 
   if (!workflow || workflow.aborted) {
     return {
@@ -921,6 +923,20 @@ async function resolveAttackTotal(wf, timeoutMs = 5000) {
   return v;
 }
 
+// AC5E (visibilityChecks) forces midi's Attack-Roll dialog onto the EXECUTOR for an unseen
+// attacker/target by overriding our `configure:false` (its forceDialogConfigureForOptins). We
+// already surface AND confirm the adv/dis on the phone (attackPreview), so the executor must not
+// re-prompt. This listener runs AFTER AC5E's (added dynamically → last) and undoes the forced
+// configure — AC5E's computed advantageMode is set earlier and left intact, so only the confirmation
+// dialog is skipped, not the visibility adv/dis. Returns off() to unregister. (DM 2026-07-17.)
+function suppressAc5eAttackDialog() {
+  const id = Hooks.on("dnd5e.preRollAttackV2", (config, dialog) => {
+    if (dialog && typeof dialog === "object") dialog.configure = false;
+    if (config?.dialog && typeof config.dialog === "object") config.dialog.configure = false;
+  });
+  return () => Hooks.off("dnd5e.preRollAttackV2", id);
+}
+
 async function handleItemUseStart(payload) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
@@ -987,48 +1003,53 @@ async function handleItemUseStart(payload) {
   // which the finder would otherwise keep returning (the "only shows 9s" stale total).
   const wfColl = globalThis.MidiQOL?.Workflow?.workflows;
   const preWfIds = new Set(wfColl instanceof Map ? [...wfColl.keys()] : Object.keys(wfColl ?? {}));
-  // Fire attack-only; do NOT await (the workflow parks at WaitForDamageRoll).
-  const { captured } = await captureNotifications(async () => {
-    MidiQOL.completeActivityUse(activity.uuid, {
-      ...spellCfg,
-      midiOptions: {
-        targetUuids: uniqueTargets, ignoreUserTargets: true,
-        autoRollAttack: true, fastForwardAttack: true,
-        autoRollDamage: "none", fastForwardDamage: false,
-        workflowOptions: { autoConsumeResource: consumeMode, targetConfirmation: "none" },
-        ...midiOptions
-      }
-    }, { configure: false }, {});
-    return true;
-  });
+  // Suppress AC5E's forced attack dialog for the whole fire (through the parked attack roll), so an
+  // unseen target doesn't stall the executor on a dialog the phone already answered.
+  const ac5eOff = suppressAc5eAttackDialog();
+  try {
+    // Fire attack-only; do NOT await (the workflow parks at WaitForDamageRoll).
+    const { captured } = await captureNotifications(async () => {
+      MidiQOL.completeActivityUse(activity.uuid, {
+        ...spellCfg,
+        midiOptions: {
+          targetUuids: uniqueTargets, ignoreUserTargets: true,
+          autoRollAttack: true, fastForwardAttack: true,
+          autoRollDamage: "none", fastForwardDamage: false,
+          workflowOptions: { autoConsumeResource: consumeMode, targetConfirmation: "none" },
+          ...midiOptions
+        }
+      }, { configure: false }, {});
+      return true;
+    });
 
-  const wf = await findParkedWorkflow(activity.uuid, activity.item?.uuid, preWfIds);
-  // Whether the workflow parked for the two-tap. If false for a damage spell that
-  // should let the player roll (e.g. Magic Missile), it resolved without a roll
-  // step — that's the bug to chase (DM-reported MM didn't roll damage 2026-06-17).
-  console.debug(`${MODULE_ID} | use start`, { name: activity.item?.name, type: activity.type, hasAttack, parked: !!wf });
-  if (!wf) {
-    // No parked workflow: resolved already (e.g. a miss with no damage) or refused.
-    return { ok: true, needsDamage: false, hasAttack, hit: false,
-      itemName: activity.item?.name ?? null, reason: captured.join("; ") || null };
-  }
-  const requestId = foundry.utils.randomID();
-  if (Object.keys(extraInstances).length) wf.mcExtraInstances = extraInstances; // darts beyond the first per target
-  parkedWorkflows.set(requestId, wf);
-  // The attack total can lag the park by a tick (see resolveAttackTotal) — wait for
-  // the real d20 result so the phone shows the number that matches chat, never
-  // midi's -100 placeholder (which the phone renders as "—"). null only if it never
-  // resolves (then the phone shows "—" + the Hit/Attack label, still not -100).
-  const attackTotal = hasAttack ? await resolveAttackTotal(wf) : null;
-  if (hasAttack) console.debug(`${MODULE_ID} | attack total`, {
-    resolved: attackTotal, rollTotal: wf.attackRoll?.total, rawAttackTotal: wf.attackTotal, formula: wf.attackRoll?.formula
-  });
-  return {
-    ok: true, needsDamage: true, requestId, hasAttack,
-    itemName: activity.item?.name ?? null,
-    hit: hasAttack ? (wf.hitTargets?.size ?? 0) > 0 : null,
-    attackTotal
-  };
+    const wf = await findParkedWorkflow(activity.uuid, activity.item?.uuid, preWfIds);
+    // Whether the workflow parked for the two-tap. If false for a damage spell that
+    // should let the player roll (e.g. Magic Missile), it resolved without a roll
+    // step — that's the bug to chase (DM-reported MM didn't roll damage 2026-06-17).
+    console.debug(`${MODULE_ID} | use start`, { name: activity.item?.name, type: activity.type, hasAttack, parked: !!wf });
+    if (!wf) {
+      // No parked workflow: resolved already (e.g. a miss with no damage) or refused.
+      return { ok: true, needsDamage: false, hasAttack, hit: false,
+        itemName: activity.item?.name ?? null, reason: captured.join("; ") || null };
+    }
+    const requestId = foundry.utils.randomID();
+    if (Object.keys(extraInstances).length) wf.mcExtraInstances = extraInstances; // darts beyond the first per target
+    parkedWorkflows.set(requestId, wf);
+    // The attack total can lag the park by a tick (see resolveAttackTotal) — wait for
+    // the real d20 result so the phone shows the number that matches chat, never
+    // midi's -100 placeholder (which the phone renders as "—"). null only if it never
+    // resolves (then the phone shows "—" + the Hit/Attack label, still not -100).
+    const attackTotal = hasAttack ? await resolveAttackTotal(wf) : null;
+    if (hasAttack) console.debug(`${MODULE_ID} | attack total`, {
+      resolved: attackTotal, rollTotal: wf.attackRoll?.total, rawAttackTotal: wf.attackTotal, formula: wf.attackRoll?.formula
+    });
+    return {
+      ok: true, needsDamage: true, requestId, hasAttack,
+      itemName: activity.item?.name ?? null,
+      hit: hasAttack ? (wf.hitTargets?.size ?? 0) > 0 : null,
+      attackTotal
+    };
+  } finally { ac5eOff(); }
 }
 
 async function handleItemUseDamage({ requestId }) {
@@ -1237,18 +1258,26 @@ async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenU
   }
   setTargets(wanted, true);
 
-  // Capture AC5E's annotation (mode + named reasons). We do NOT abort the roll —
-  // a midi-wrapped attack ignores the abort and rolls a REAL extra die anyway. Instead
-  // let it roll and HIDE it: cancel Dice So Nice, roll BLIND (GM-only), and delete the
-  // throwaway card. Players' phones hide chat + have no canvas (no DSN/AutoAnimations),
-  // so it's invisible to them; the TV is the only place a residual could flash.
-  // (DM-accepted experimental, 2026-06-23; the real check is Sqyre on midi 14.0.9.)
+  // Capture AC5E's annotation, then UNDO its forced dialog so the throwaway can complete silently.
+  // AC5E annotates config.options[ac5e] in its own preRollAttackV2 listener (registered at init → runs
+  // before ours; ours is added dynamically → runs last), so the data is already there when we run.
+  //
+  // WHY (DM 2026-07-17): AC5E's `visibilityChecks` turns an unseen attacker/target into an OPTIN
+  // entry, and its `forceDialogConfigureForOptins` overrides our `configure:false` → it forces midi's
+  // Attack-Roll dialog onto the EXECUTOR. The "roll blind + delete card" throwaway then `await`ed a
+  // roll stuck behind that dialog → attackPreview HUNG and the phone never got its pre-roll (repro'd
+  // live: 4s hang on "Attack Roll", clicking did nothing). We do NOT abort (return false) — history
+  // showed midi ignores that on a wrapped roll and rolls a phantom die (Rounds 31/34). Instead we
+  // set `configure` back to false AFTER AC5E forced it, so the blind roll proceeds with no dialog and
+  // the existing DSN/card/AA suppression below hides it — the proven path, minus the hang.
   let ac5 = null, raw = null;
-  const hookId = Hooks.on("dnd5e.preRollAttackV2", (config) => {
+  const hookId = Hooks.on("dnd5e.preRollAttackV2", (config, dialog) => {
     try {
       const a = foundry.utils.getProperty(config, `options.${MID}`) ?? config?.[MID] ?? config?.rolls?.[0]?.options?.[MID] ?? null;
       if (a) { ac5 = a; raw = { advantageMode: a.advantageMode, defaultButton: a.defaultButton, subAdv: a.subject?.advantage, subDis: a.subject?.disadvantage, oppAdv: a.opponent?.advantage, oppDis: a.opponent?.disadvantage }; }
     } catch (e) { raw = { err: e.message }; }
+    if (dialog && typeof dialog === "object") dialog.configure = false;         // undo AC5E's forced dialog
+    if (config?.dialog && typeof config.dialog === "object") config.dialog.configure = false;
   });
   const dsnHook = Hooks.on("diceSoNiceRollStart", () => false); // suppress the 3D dice for the throwaway
   // Block the throwaway's chat card outright (create:false isn't honored on every midi
