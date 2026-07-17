@@ -70,6 +70,40 @@ function anchorRange(anchor) {
   return max || null;
 }
 
+// The DM's own theme. The panel's palette lives on <body> (UI-BIBLE §11.1), so setting
+// body.mc-theme-* on the GM client re-tints the whole widget — no shell needed. Stored under its
+// OWN key so a GM who also carries a phone doesn't cross the two.
+const DM_THEMES = [
+  // Mirror of the shell's list — the swatch art (--mc-sw-ico) is global CSS, so it just works.
+  ["tavern","Tavern","#c8a44d"],["gothic","Gothic","#a34049"],["frost","Frost","#8fd3f4"],
+  ["flame","Flame","#f0a52e"],["tide","Tide","#45c4b0"],["artificer","Artificer","#c98b3c"],
+  ["barbarian","Barbarian","#c8873f"],["bard","Bard","#d76ba8"],["cleric","Cleric","#e0d3a0"],
+  ["druid","Druid","#6fbf73"],["fighter","Fighter","#93a3b8"],["monk","Monk","#52c2a5"],
+  ["paladin","Paladin","#7f9fe0"],["ranger","Ranger","#9fbf5f"],["rogue","Rogue","#9b8fb5"],
+  ["sorcerer","Sorcerer","#e2703a"],["warlock","Warlock","#9a5fd0"],["wizard","Wizard","#7f8fe0"],
+];
+function dmTheme() {
+  try { return window.localStorage.getItem("mc-dm-theme") || "tavern"; } catch (e) { return "tavern"; }
+}
+function applyDmTheme() {
+  // Only touch the body class on a client that has NO phone shell — otherwise the shell owns it and
+  // we'd fight it every render. A GM desktop (the DM panel's home) has no shell, so this is safe.
+  if (document.getElementById("mobile-command-shell")) return;
+  const t = dmTheme();
+  for (const c of [...document.body.classList]) if (c.startsWith("mc-theme-")) document.body.classList.remove(c);
+  if (t && t !== "tavern") document.body.classList.add(`mc-theme-${t}`);
+}
+function settingsHTML() {
+  const cur = dmTheme();
+  const swatches = DM_THEMES.map(([id, label, sw]) =>
+    `<button class="mc-theme-opt ${cur === id ? "mc-on" : ""}" data-dm-theme="${id}" data-theme="${id}" title="${label}" aria-label="${label}" aria-pressed="${cur === id}"><span class="mc-theme-sw" style="background-color:${sw}"></span></button>`).join("");
+  return `<div class="mc-dmp-settings">
+    <div class="mc-dmp-set-sec">Widget theme</div>
+    <div class="mc-theme-row">${swatches}</div>
+    <p class="mc-dmp-set-note">Themes your DM widget only — each player themes their own phone.</p>
+  </div>`;
+}
+
 function tabRailHTML() {
   const tab = (id, icon, title, show = true, badge = 0) => show ? `<button class="mc-dmp-tab ${dockTab === id ? "mc-on" : ""}" data-dock="${id}" title="${title}" aria-label="${title}"><i class="fas ${icon}"></i>${badge ? `<span class="mc-dmp-tab-badge">${badge}</span>` : ""}</button>` : "";
   // When a flyout is open the rail rides its right edge (mc-open); else the panel's.
@@ -80,6 +114,7 @@ function tabRailHTML() {
     ${tab("downtime", "fa-hourglass-half", "Downtime", true, downtimeOpen() ? "•" : 0)}
     ${tab("travel", "fa-route", "Travel")}
     ${tab("preflight", "fa-clipboard-check", "System health", true, preflightFailCount())}
+    ${tab("settings", "fa-gear", "Settings")}
   </div>`;
 }
 
@@ -710,6 +745,7 @@ function flyoutHTML() {
   else if (dockTab === "tokens") { title = "Players"; body = ownedTokensHTML(); }
   else if (dockTab === "downtime") { title = "Downtime"; body = downtimeHTML(); }
   else if (dockTab === "preflight") { title = "System health"; body = preflightHTML(); }
+  else if (dockTab === "settings") { title = "Settings"; body = settingsHTML(); }
   else if (dockTab === "party") {
     const g = packedGroup();
     const f = g?.getFlag(MODULE_ID, "formation") ?? {};
@@ -1713,6 +1749,7 @@ function assignHTML(targets) {
 
 function render() {
   const el = ensureEl();
+  applyDmTheme(); // keep the DM's chosen widget theme live
   // Don't rebuild the panel while the DM is typing in a downtime TEXT field — background hooks
   // (presence 5s, combat, targeting) re-render often and would wipe the half-typed value (DM
   // 2026-07-13: "the task disappears"). Only text/number inputs need this; SELECTs must NOT be
@@ -1989,6 +2026,12 @@ async function onClick(ev) {
         return;
       }
     }
+  }
+  const dth = ev.target.closest("[data-dm-theme]");
+  if (dth) {
+    try { window.localStorage.setItem("mc-dm-theme", dth.dataset.dmTheme); } catch (e) { /* private mode */ }
+    applyDmTheme();
+    return render();
   }
   const gs = ev.target.closest("[data-group-sheet]");
   if (gs) { game.actors.get(gs.dataset.groupSheet)?.sheet?.render(true); return; }

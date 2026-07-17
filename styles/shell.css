@@ -2321,6 +2321,14 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-paused-sub { font-size: 14px; line-height: 1.5; color: var(--mc-ink); opacity: .85; margin-bottom: 18px; }
 .mc-paused-sub b { color: var(--mc-gold); }
 .mc-paused-browse { width: 100%; height: 48px; border-radius: calc(12px * var(--mc-round, 1)); font-weight: 700; font-size: 14px; color: var(--mc-ink); background: var(--mc-panel-2); border: 1px solid var(--mc-edge); }
+
+/* DM widget Settings tab (DM 2026-07-17): its own theme picker. The swatch grid + art are the
+   same global rules the phone uses, so this only styles the wrapper. */
+.mc-dmp-settings { display: flex; flex-direction: column; gap: 10px; }
+.mc-dmp-set-sec { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--mc-muted); }
+.mc-dmp-set-note { margin: 0; font-size: 11px; color: var(--mc-muted); line-height: 1.35; }
+/* In the DM panel the theme row is tighter — 6 across fits the 240px flyout without wrapping to 3 tall rows. */
+.mc-dmp-settings .mc-theme-row { grid-template-columns: repeat(6, 1fr); }
 /* DM panel: split-party chip (rides the reaction-chip look, hiking icon + activate). */
 .mc-dmp-split { background: #1f2a24; border-color: #3d5c49; }
 .mc-dmp-split button { min-width: 30px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); }
