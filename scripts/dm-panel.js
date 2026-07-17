@@ -112,7 +112,7 @@ function tabRailHTML() {
     ${tab("party", "fa-border-all", "Party order", !!packedGroup())}
     ${tab("rolls", "fa-dice-d20", "Request rolls", true, (game.user.targets?.size ?? 0) || 0)}
     ${tab("tokens", "fa-users", "Players")}
-    ${tab("downtime", "fa-hourglass-half", "Downtime", true, downtimeOpen() ? "•" : 0)}
+    ${tab("rest", "fa-campground", "Rest", true, (isResting() || downtimeOpen()) ? "•" : 0)}
     ${tab("travel", "fa-route", "Travel")}
     ${tab("preflight", "fa-clipboard-check", "System health", true, preflightFailCount())}
     ${tab("settings", "fa-gear", "Settings")}
@@ -129,6 +129,9 @@ let dtRuleVisible = false; // whether Activate will show the Rule to the player 
 let dtRuleNote = ""; // the template's DM-only note being authored
 let dtNewTmplOpen = false; // the catalog "+ New activity" name field is open
 let dtGiveFor = null; // actorId whose "give a task" template picker is open
+// §19 Rest: the pre-start setup draft (DM-local — nothing persists until Start Rest). Defaults to a
+// long rest with both phases, the common camp.
+let restDraft = { size: "long", phases: { downtime: true, watches: true } };
 function downtimeState() { try { return DT.normalizeState(game.settings.get(MODULE_ID, "downtimeState")); } catch (e) { return DT.normalizeState({}); } }
 function downtimeOpen() { return !!downtimeState().window?.open; }
 
@@ -197,18 +200,21 @@ function catalogHTML(st) {
   const seed = !templates.length && !dtNewTmplOpen ? `<button class="mc-dt-seedbtn" data-dt-seed><i class="fas fa-wand-sparkles"></i> Add a few examples</button>` : "";
   return `${adder}${rows}${seed}`; // body only — the "Activities" header + "New" live in the drawer
 }
-function downtimeHTML() {
+// `embedded` = rendered inside the Rest envelope (§19): the Rest owns opening/closing the window and
+// the single end-of-rest, so its own setup head and party-rest row are suppressed to avoid two
+// entries and two endings.
+function downtimeHTML(embedded = false) {
   const esc = foundry.utils.escapeHTML;
   const st = downtimeState();
   const win = st.window;
-  const head = win?.open
+  const head = embedded ? "" : (win?.open
     ? `<div class="mc-dt-openhead"><button class="mc-dt-close-btn" data-dt-end title="Close the downtime window — this does NOT advance time"><i class="fas fa-xmark"></i> Close</button></div>`
     : `<div class="mc-dt-setup">
         <div class="mc-dt-sizes">
           <button class="mc-dt-openbtn" data-dt-open="short"><i class="fas fa-hourglass-half"></i> Short DT</button>
           <button class="mc-dt-openbtn" data-dt-open="long"><i class="fas fa-hourglass-start"></i> Long DT</button>
         </div>
-        <p class="mc-dt-sizehint">Short — a watch or an evening<br>Long — a day or more in a hub</p></div>`;
+        <p class="mc-dt-sizehint">Short — a watch or an evening<br>Long — a day or more in a hub</p></div>`);
 
   // Only characters who are IN the scene — off-scene PCs are hidden here and excluded from the
   // party rest (DM 2026-07-13: "hide out of scene characters… I don't see the use case").
@@ -300,7 +306,7 @@ function downtimeHTML() {
 
   // Party-rest utility. Labelled + tucked below the roster so its Short/Long doesn't read as
   // paired with the downtime duration above (DM 2026-07-13: "short activity goes with short rest").
-  const restRow = win?.open ? `<div class="mc-dt-restgroup">
+  const restRow = (win?.open && !embedded) ? `<div class="mc-dt-restgroup">
     <span class="mc-dt-restlabel">Rest the whole party</span>
     <div class="mc-dt-restrow">
       <button class="mc-dt-rest" data-dt-rest="short"><i class="fas fa-mug-hot"></i> Short</button>
@@ -753,7 +759,7 @@ function flyoutHTML() {
   if (dockTab === "rolls") { title = "Request rolls"; body = rollsToolHTML(); }
   else if (dockTab === "travel") { title = "Travel"; body = travelHTML(); }
   else if (dockTab === "tokens") { title = "Players"; body = ownedTokensHTML(); }
-  else if (dockTab === "downtime") { title = "Downtime"; body = downtimeHTML(); }
+  else if (dockTab === "rest") { title = "Rest"; body = restHTML(); }
   else if (dockTab === "preflight") { title = "System health"; body = preflightHTML(); }
   else if (dockTab === "settings") { title = "Settings"; body = settingsHTML(); }
   else if (dockTab === "party") {
@@ -1354,21 +1360,70 @@ function nightMembers(group) {
   return (group?.system?.members ?? []).map(m => m.actor).filter(a => a && a.type === "character");
 }
 
-function nightHTML() {
-  const group = nightGroup();
-  if (!group) return "";
+// ── §19 Rest — one lifecycle folding Downtime + Watches (DESIGN.md §19) ──────────
+// The Rest is the single entry (a setup card) and the single ending. It DRIVES the two existing
+// mechanisms instead of replacing them: the downtime window (a world setting) and the watch board
+// (the group's `night` flag). The envelope itself lives on the party group's `rest` flag —
+// { size:"short"|"long", phases:{downtime,watches}, startedAt }. No flag = not resting.
+function restGroup() {
+  return game.actors.find(a => a.type === "group" && a.getFlag(MODULE_ID, "rest"))
+    ?? nightGroup();
+}
+function restState() { return restGroup()?.getFlag(MODULE_ID, "rest") ?? null; }
+function isResting() { return !!restState(); }
+
+function restSetupCard(group) {
+  const canRest = nightMembers(group).length > 0;
+  const d = restDraft;
+  const seg = (val, label, icon) => `<button class="mc-rest-seg ${d.size === val ? "mc-on" : ""}" data-rest-size="${val}"><i class="fas ${icon}"></i> ${label}</button>`;
+  const chk = (key, label, icon) => `<button class="mc-rest-chk ${d.phases[key] ? "mc-on" : ""}" data-rest-phase="${key}"><i class="fas ${d.phases[key] ? "fa-square-check" : "fa-square"}"></i> <i class="fas ${icon}"></i> ${label}</button>`;
+  const neither = !d.phases.downtime && !d.phases.watches;
+  const hint = neither
+    ? `A plain ${d.size} rest — applied to the party right away.`
+    : `The clock starts — ${[d.phases.watches ? "stand watch" : "", d.phases.downtime ? "run downtime" : ""].filter(Boolean).join(", ")}, then the ${d.size} rest lands in the morning.`;
+  return `<div class="mc-rest-setup">
+    <div class="mc-rest-row"><span class="mc-rest-lbl">Length</span>
+      <div class="mc-rest-segs">${seg("short", "Short", "fa-mug-hot")}${seg("long", "Long", "fa-campground")}</div></div>
+    <div class="mc-rest-row"><span class="mc-rest-lbl">Happening</span>
+      <div class="mc-rest-chks">${chk("downtime", "Downtime", "fa-hourglass-half")}${chk("watches", "Watches", "fa-moon")}</div></div>
+    <button class="mc-dmp-party-deploy mc-rest-go" data-rest-start ${canRest ? "" : "disabled"}><i class="fas fa-campground"></i> Start Rest</button>
+    <p class="mc-rest-hint">${canRest ? hint : "No party group with members — set one up first."}</p>
+  </div>`;
+}
+
+function restHTML() {
+  const esc = foundry.utils.escapeHTML;
+  const group = restGroup();
+  if (!group) return `<div class="mc-dt-panel"><p class="mc-rest-hint">No party group with members — set one up first.</p></div>`;
+  const rest = group.getFlag(MODULE_ID, "rest");
+  if (!rest) {
+    // Not resting: the setup card, with the authoring catalog still reachable below it.
+    return `<div class="mc-dt-panel">${restSetupCard(group)}${dtDrawer("catalog", "Activities", catalogNewBtn(), catalogHTML(downtimeState()))}</div>`;
+  }
+  const c = readClock();
+  const header = `<div class="mc-rest-head">
+    <span class="mc-rest-badge"><i class="fas fa-campground"></i> ${rest.size === "long" ? "Long rest" : "Short rest"}</span>
+    <span class="mc-rest-time"><i class="fas fa-${isNight() ? "moon" : "sun"}"></i> ${esc(c.label)}</span>
+  </div>`;
+  const watchSection = rest.phases?.watches ? watchBoardHTML(group) : "";
+  const dtSection = rest.phases?.downtime ? downtimeHTML(true) : "";
+  const foot = `<div class="mc-rest-endbar">
+    <button class="mc-dmp-party-deploy mc-rest-end" data-rest-end><i class="fas fa-sun"></i> End Rest</button>
+    <button class="mc-dmp-party-rebuild" data-rest-cancel title="Call off the rest — nothing is applied"><i class="fas fa-xmark"></i></button>
+  </div>`;
+  return `<div class="mc-dt-panel mc-rest-active">${header}${watchSection}${dtSection}${foot}</div>`;
+}
+
+// The watch board, embedded in the Rest envelope. Watch data still lives on the group's `night`
+// flag (the phones + sleep-application read it); the Rest owns the single ending, so this renders
+// no "Start the night" (Start Rest does that) and no "End Night" (End Rest does).
+function watchBoardHTML(group) {
   const esc = foundry.utils.escapeHTML;
   const night = group.getFlag(MODULE_ID, "night");
-  if (!night) {
-    if (!nightMembers(group).length) return "";
-    return `<div class="mc-dmp-party-btns"><button class="mc-dmp-party-deploy mc-dmp-night" data-night="start" data-group="${group.id}"
-      title="Make camp: send the watch board to the phones, or skip straight to the morning">
-      <i class="fas fa-moon"></i> Start the night</button></div>`;
-  }
+  if (!night) return "";
   const first = id => game.actors.get(id)?.name?.split(" ")[0] ?? "?";
-  // The DM can set anyone's watches (they initiate + own guard duty). A member row
-  // per PC with three watch chips; tap toggles that PC on/off that watch. Works in
-  // BOTH stages — during the night, editing re-applies who's asleep.
+  // A member row per PC with three watch chips; tap toggles that PC on/off that watch. Works in
+  // BOTH stages — mid-watch editing re-applies who's asleep.
   const editor = `<div class="mc-dmp-night-edit">${nightMembers(group).map(a => {
     const chips = [1, 2, 3].map(w => `<button class="mc-dmp-nw ${(night.watches?.[w] ?? []).includes(a.id) ? "mc-on" : ""}"
         data-night="dm-toggle" data-group="${group.id}" data-actor="${a.id}" data-watch="${w}" title="${["1st", "2nd", "3rd"][w - 1]} watch">${w}</button>`).join("");
@@ -1380,19 +1435,53 @@ function nightHTML() {
       ${editor}
       <div class="mc-dmp-party-btns">
         <button class="mc-dmp-party-deploy" data-night="lock" data-group="${group.id}" ${anyone ? "" : "disabled"}
-          title="Lock the watch order — the night begins at 1st watch"><i class="fas fa-lock"></i> Lock in</button>
-        <button class="mc-dmp-party-rebuild" data-night="cancel" data-group="${group.id}" title="Call off the night"><i class="fas fa-xmark"></i></button>
+          title="Lock the watch order — the watch begins at 1st watch"><i class="fas fa-lock"></i> Begin Watches</button>
       </div></div>`;
   }
   // stage "watch"
   const steps = [1, 2, 3].map(w => `<button class="mc-dmp-night-step ${night.watch === w ? "mc-on" : ""}" data-night="watch" data-watch="${w}" data-group="${group.id}"
       title="${(night.watches?.[w] ?? []).map(first).join(", ") || "nobody"} on duty">${w}</button>`).join("");
   const duty = (night.watches?.[night.watch] ?? []).map(first).join(", ") || "nobody";
-  return `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Night — watch ${night.watch} (${esc(duty)})</div>
+  return `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Watch ${night.watch} — ${esc(duty)}</div>
     ${editor}
-    <div class="mc-dmp-party-btns">${steps}
-      <button class="mc-dmp-party-deploy" data-night="end" data-group="${group.id}" title="Morning comes — offer the long rest"><i class="fas fa-sun"></i> End Night</button>
-    </div></div>`;
+    <div class="mc-dmp-party-btns">${steps}</div></div>`;
+}
+
+// Begin a rest from the setup draft. Neither phase → a plain dnd5e rest applied now (no ceremony,
+// §19.3). Otherwise the envelope flag is set and the phases it owns are opened.
+// Apply a dnd5e rest to the party (the group's members — the party is usually camped off the
+// active map, so this is NOT the in-scene set). The ONE place a rest lands (§19).
+async function applyPartyRest(group, size) {
+  let n = 0;
+  for (const a of nightMembers(group)) {
+    try { await (size === "long" ? a.longRest({ dialog: false }) : a.shortRest({ dialog: false })); n++; }
+    catch (e) { console.warn(`${MODULE_ID} | rest failed for ${a.name}`, e); }
+  }
+  if (size === "long") await advanceRestGoals();
+  ui.notifications?.info(`${size === "long" ? "Long" : "Short"} rest — ${n} character${n === 1 ? "" : "s"} rested.`);
+}
+async function startRest() {
+  const group = restGroup();
+  if (!group) return;
+  const { size, phases } = restDraft;
+  if (!phases.downtime && !phases.watches) { await applyPartyRest(group, size); return render(); }
+  await group.setFlag(MODULE_ID, "rest", { size, phases: { ...phases }, startedAt: game.time?.worldTime ?? 0 });
+  // Fresh session id re-arms every phone's board (2026-07-09: a dismissed board stayed hidden).
+  if (phases.watches) await group.setFlag(MODULE_ID, "night", { id: foundry.utils.randomID(), stage: "assign", watch: 0, watches: { 1: [], 2: [], 3: [] } });
+  if (phases.downtime) await api.downtime({ op: "openWindow", size });
+  render();
+}
+// End (or call off) the rest. This is the ONE place a dnd5e rest applies (§19). Tears down both
+// mechanisms either way; only `apply` lands the actual rest.
+async function endRest(apply) {
+  const group = restGroup();
+  if (!group) return;
+  const rest = group.getFlag(MODULE_ID, "rest");
+  if (group.getFlag(MODULE_ID, "night")) { await clearNightSleep(group); await group.unsetFlag(MODULE_ID, "night"); }
+  if (downtimeOpen()) await api.downtime({ op: "closeWindow" });
+  await group.unsetFlag(MODULE_ID, "rest");
+  if (apply && rest) await applyPartyRest(group, rest.size);
+  render();
 }
 
 // dnd5e's Sleeping condition drags Unconscious + its Incapacitated/Prone riders,
@@ -1796,13 +1885,13 @@ function render() {
   if (packedNow && !dockWasPacked) dockTab = "party";
   else if (!packedNow && dockWasPacked && dockTab === "party") dockTab = null;
   dockWasPacked = packedNow;
-  // Form up / Start the night are PINNED to the bottom (mc-dmp-foot + margin-top:auto): they're
-  // the two the DM reaches for without looking, so they must not slide when a section above grows
-  // (DM 2026-07-17). Everything conditional sits above them.
+  // Form up is PINNED to the bottom (mc-dmp-foot + margin-top:auto): the one the DM reaches for
+  // without looking, so it must not slide when a section above grows (DM 2026-07-17). Everything
+  // conditional sits above it. Rest moved to its own tab (§19), out of the primary.
   const main = grip + `<div class="mc-dmp-col">`
     + statusHTML() + cameraBarHTML() + reactionsHTML() + splitPartyHTML() + combatHTML() + quickHpHTML()
     + (pending.length ? pendingHTML(pending) : "")
-    + `<div class="mc-dmp-foot">` + partyMainHTML() + nightHTML() + `</div>`
+    + `<div class="mc-dmp-foot">` + partyMainHTML() + `</div>`
     + `</div>`;
   // Grow the flyout UP (anchored to the panel's bottom) when the panel sits in the lower half of
   // the screen, so a bottom-docked panel's second window opens into visible space instead of off
@@ -1938,6 +2027,16 @@ async function onClick(ev) {
     return;
   }
   if (ev.target.closest("[data-rt-send]")) return sendRolls();
+  { // §19 Rest — setup draft + the single ending. Watch/downtime buttons within fall through to
+    // their own handlers (onNightClick / the downtime block below).
+    const rSize = ev.target.closest("[data-rest-size]");
+    if (rSize) { restDraft.size = rSize.dataset.restSize; return render(); }
+    const rPhase = ev.target.closest("[data-rest-phase]");
+    if (rPhase) { const k = rPhase.dataset.restPhase; restDraft.phases[k] = !restDraft.phases[k]; return render(); }
+    if (ev.target.closest("[data-rest-start]")) return startRest();
+    if (ev.target.closest("[data-rest-end]")) return endRest(true);
+    if (ev.target.closest("[data-rest-cancel]")) return endRest(false);
+  }
   { // §17.7 downtime v2 — all writes route through the executor op dispatcher (api.downtime).
     const openBtn = ev.target.closest("[data-dt-open]");
     if (openBtn) { await api.downtime({ op: "openWindow", size: openBtn.dataset.dtOpen }); return; }

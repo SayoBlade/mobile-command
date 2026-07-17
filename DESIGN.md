@@ -1308,3 +1308,28 @@ means, and it removes the need for a separate count setting. SHORT ⇒ exactly o
    Encounter (mark only).
 6. Morning: apply the real dnd5e short/long rest to the party, ONCE. Retire "Start the night",
    "Close" and "End night".
+
+### 19.7 Build log
+
+- **Slice 2 — the Rest envelope. DONE + VERIFIED (v0.1.224, 2026-07-17).** Chose a *thin envelope*
+  over a from-scratch rewrite: the Rest is the single entry (a setup card) and the single ending,
+  and it DRIVES the two existing mechanisms rather than replacing them — the downtime window (world
+  setting `downtimeState`) and the watch board (the group's `night` flag). Envelope state lives on
+  the party group's `rest` flag `{ size, phases:{downtime,watches}, startedAt }`.
+  - Tab **"Downtime" → "Rest"** (`fa-campground`); **"Start the night" removed from the primary panel**
+    (§19.4-1). `nightHTML()` repurposed to `watchBoardHTML(group)` — an embeddable board with no
+    standalone start and no separate "End Night" (the Rest owns both). `downtimeHTML(embedded)` gained
+    a flag that suppresses its own setup head + party-rest row when nested.
+  - **Setup card:** Length `[Short|Long]`, Happening `[☑ Downtime] [☑ Watches]`, `Start Rest`, live
+    hint. **Neither phase ticked ⇒ a plain dnd5e rest applied immediately, no flag, no ceremony.**
+  - **The one ending:** `applyPartyRest(group, size)` rests the **group members** (the party is
+    usually camped OFF the active scene — the old `restParty` in-scene filter rested nobody; that was
+    caught + fixed live). Both `Start Rest` (neither-phase) and `End Rest` route through it.
+  - Verified live as GM: setup renders; both-phase start → active view (header + clock + watch board
+    + embedded downtime) with the night flag at `assign` and the DT window open; End Rest heals ALL
+    party members incl. an off-scene PC (6→14) and tears down both flags + the window; neither-phase
+    start heals immediately with no flag.
+  - **Deferred to later slices (3–6):** the §19.3 *sequencing* (watch-assign → clock → downtime →
+    watch-run → morning is currently concurrent, not staged); the phones' shared running header;
+    Pass time / Event / Encounter on the watch phase; the one-time migration of any already-open
+    downtime window / legacy night flag into a `rest` envelope.

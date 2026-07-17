@@ -4260,6 +4260,28 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-openbtn:hover { border-color: #c8a44d; color: #e6c46a; }
 .mc-dt-openbtn i { color: #c8a44d; }
 .mc-dt-sizehint { font-size: 11px; color: var(--mc-muted); margin: 6px 0 0; text-align: center; }
+
+/* §19 Rest — setup card + active header */
+.mc-rest-setup { display: flex; flex-direction: column; gap: 10px; }
+.mc-rest-row { display: flex; flex-direction: column; align-items: stretch; gap: 5px; }
+.mc-rest-lbl { font-size: 11px; font-weight: 700; color: var(--mc-muted); text-transform: uppercase; letter-spacing: .04em; }
+.mc-rest-segs, .mc-rest-chks { display: flex; gap: 6px; }
+.mc-rest-seg, .mc-rest-chk { flex: 1 1 0; min-width: 0; min-height: 38px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
+  font-size: 13px; font-weight: 700; color: #ece5d6; background: var(--mc-sunken); border: 1px solid var(--mc-edge);
+  white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.mc-rest-seg:hover, .mc-rest-chk:hover { border-color: var(--mc-gold); color: #e6c46a; }
+.mc-rest-seg.mc-on, .mc-rest-chk.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); background: var(--mc-panel-2); }
+.mc-rest-chk .fa-square { color: var(--mc-muted); }
+.mc-rest-chk.mc-on .fa-square-check { color: var(--mc-gold); }
+.mc-rest-go { width: 100%; margin-top: 2px; }
+.mc-rest-hint { font-size: 11px; color: var(--mc-muted); margin: 2px 0 0; text-align: center; line-height: 1.4; }
+.mc-rest-active { gap: 8px; }
+.mc-rest-head { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 10px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); }
+.mc-rest-badge { font-size: 13px; font-weight: 800; color: var(--mc-gold); display: inline-flex; align-items: center; gap: 6px; }
+.mc-rest-time { font-size: 12px; font-weight: 700; color: var(--mc-ink); display: inline-flex; align-items: center; gap: 6px; }
+.mc-rest-endbar { display: flex; gap: 6px; margin-top: 2px; }
+.mc-rest-end { flex: 1 1 auto; }
 .mc-dt-newbtn { padding: 0 10px; height: 26px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
   color: #d8d2c4; background: #1a1712; border: 1px solid #4a4334; display: inline-flex; align-items: center; gap: 5px; }
 .mc-dt-newbtn:hover, .mc-dt-newbtn.mc-on { border-color: #c8a44d; color: #e6c46a; background: #2a2418; }
