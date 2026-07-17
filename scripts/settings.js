@@ -4,6 +4,19 @@ import { makeConfirmMenuClass, deactivate, reactivate, hasBackup, hasReactivateS
 export function registerSettings() {
   // D7 role, per-client. Phase 1 uses it only to decide which client runs
   // executor duties ("dm" + GM role); the phone/display shells come later.
+  // The campaign's start TIME OF DAY, in seconds past midnight (0 = midnight, 43200 = noon).
+  // Our own clock is this + game.time.worldTime — because worldTime is seconds since the world
+  // began, not a time of day. IGNORED when Simple Calendar is installed: SC interprets worldTime
+  // itself and we defer to it (see gametime.js). Hidden: the DM sets it from the panel's clock,
+  // not from a settings list.
+  game.settings.register(MODULE_ID, "clockStart", {
+    scope: "world",
+    config: false,
+    type: Number,
+    default: 21 * 3600 // 21:00 — a campaign's first scene is usually an evening, and a rest flow
+                       // that opens at "Day 1 · 21:00" needs no explaining.
+  });
+
   game.settings.register(MODULE_ID, "role", {
     name: "MOBILECOMMAND.Role.Name",
     hint: "MOBILECOMMAND.Role.Hint",
