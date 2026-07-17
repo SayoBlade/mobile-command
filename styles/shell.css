@@ -3083,7 +3083,7 @@ body.mc-theme-wizard .mc-frame {
    afterthought ("Request rolls button needs to fill width"). The LOOK is still §4.2's CTA token —
    this rule only settles size and alignment, so the two can be tuned apart.
    ============================================================ */
-.mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run, .mc-dmp-party-deploy, .mc-dt-openbtn, .mc-ob-done {
+.mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run, .mc-dmp-party-deploy, .mc-dt-openbtn, .mc-ob-done, .mc-party-done {
   min-height: 48px; border-radius: calc(8px * var(--mc-round, 1));
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   font-size: 13px; font-weight: 800; line-height: 1.25; text-align: center; cursor: pointer;
@@ -3686,11 +3686,29 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-party-hint { text-align: center; font-size: 12.5px; color: var(--mc-muted); margin: -4px 0; }
 .mc-party-hint.mc-ok { color: #8fca7a; }
 .mc-party-done {
-  width: 100%; padding: 12px; border-radius: calc(11px * var(--mc-round, 1)); font-weight: 800; font-size: 15px; cursor: pointer;
-  color: var(--mc-ink); background: linear-gradient(#2a3a52, #213044); border: 1px solid var(--mc-primary-edge);
+  width: 100%; max-width: 380px; align-self: center;   /* fit the grid it belongs to */
+  font-size: 15px;
+  color: var(--mc-cta-ink); background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge);
 }
-.mc-party-done.mc-on { color: var(--mc-cta-ink); background: var(--mc-cta-fill); border-color: var(--mc-cta-edge); }
+/* Locked is a STATE, not a different button: same primary, gold edge (§5). The label and icon
+   carry the rest — "Locked" + a padlock. */
+.mc-party-done.mc-on { border-color: var(--mc-gold); }
 .mc-party-done:disabled { opacity: .5; cursor: default; }
+/* MY TOKENS tray: every token this player owns, placed or not. Before it, a token could only be
+   picked UP OFF THE GRID, so an unplaced familiar was unreachable without switching character
+   (DM 2026-07-17). Tap to arm, tap a square to drop. */
+.mc-party-tray { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; max-width: 380px; align-self: center; margin-bottom: 8px; }
+.mc-party-mine {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 4px 10px 4px 4px;
+  border-radius: calc(9px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
+  color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-edge);
+}
+.mc-party-mine img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; border: 1px solid var(--mc-edge); }
+/* Armed = the same gold marking a picked cell wears, so the two read as one gesture (§5). */
+.mc-party-mine.mc-on { border-color: var(--mc-gold); box-shadow: 0 0 0 1px var(--mc-gold) inset; }
+/* Not on the grid yet — dashed, with a + to say "this one still needs a square". */
+.mc-party-mine.mc-unplaced { border-style: dashed; }
+.mc-party-mine-new { color: var(--mc-gold); font-size: 10px; }
 .mc-party-dm { display: flex; align-items: center; gap: 8px; }
 .mc-party-rot { width: 44px; height: 44px; flex: 0 0 auto; border-radius: calc(10px * var(--mc-round, 1)); color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-edge); cursor: pointer; }
 .mc-party-facing { flex: 1 1 auto; text-align: center; }

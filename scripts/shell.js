@@ -1957,10 +1957,30 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     };
     const grid = [0, 1, 2].map(r => `<div class="mc-party-row">${[0, 1, 2].map(c => cell(r, c)).join("")}</div>`).join("");
 
+    // MY TOKENS tray (DM 2026-07-17: "player should be able to change all his owned tokens in the
+    // marching order grid — having to switch to familiar to place them is very annoying").
+    // You could only ever pick a token UP OFF THE GRID, so an unplaced familiar had no cell to tap
+    // and no way in: with 2+ owned tokens and one unplaced, it was unreachable without switching
+    // character. The tray lists every token you own — placed or not — so one tap arms it and the
+    // next tap drops it in a square. Only while arranging, and only when you own more than one.
+    const tray = (arranging && mine.length > 1) ? `<div class="mc-party-tray">
+      ${mine.map(m => {
+        const placedAt = formation.cells?.[m.id];
+        const timg = m.prototypeToken?.texture?.src || m.img || "icons/svg/mystery-man.svg";
+        return `<button class="mc-party-mine${picked === m.id ? " mc-on" : ""}${placedAt ? "" : " mc-unplaced"}" data-action="party-mine" data-actor-id="${m.id}" title="${foundry.utils.escapeHTML(m.name)}${placedAt ? "" : " — not placed yet"}">
+          <img src="${timg}" alt="">
+          <span>${foundry.utils.escapeHTML(m.name.split(" ")[0])}</span>
+          ${placedAt ? "" : `<i class="fas fa-circle-plus mc-party-mine-new"></i>`}
+        </button>`;
+      }).join("")}
+    </div>` : "";
+
     // Done locks EVERY token this player owns; enabled once they're all placed.
     const iLocked = mine.length > 0 && mine.every(m => locked.has(m.id));
     const iPlaced = mine.length > 0 && mine.every(m => !!formation.cells?.[m.id]);
-    const doneLabel = iLocked ? "Locked — tap to change" : mine.length > 1 ? "Done — lock my tokens" : "Done";
+    // A button says WHAT IT DOES, not how to use it — the instruction belongs in the hint line
+    // below the grid, which already exists (DM 2026-07-17: "no explanations in button").
+    const doneLabel = iLocked ? "Locked" : "Done";
     const doneBtn = mine.length ? `<button class="mc-party-done ${iLocked ? "mc-on" : ""}" data-action="party-done"${iPlaced ? "" : " disabled"}>
       <i class="fas ${iLocked ? "fa-lock" : "fa-check"}"></i> ${doneLabel}
     </button>` : "";
@@ -1981,7 +2001,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ? (isGM ? "Traveling — the pad moves the party. Rearrange to edit the order."
         : "On the move — drive the party with the pad.")
       : picked ? `Moving ${pickedName} — tap a square (tap it again to drop).`
-      : mine.length > 1 ? "Tap one of your tokens, then tap where it should go."
+      : mine.length > 1 ? "Tap one of your tokens above, then tap its square."
       : !allPlaced ? "Waiting for everyone to take a spot…"
       : !unique ? "Two characters share a spot — nudge one over."
       : isGM ? "Everyone's set — Lock in to travel, or Disperse."
@@ -1989,6 +2009,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
     return `<div class="mc-party">
       <div class="mc-party-head"><span><i class="fas fa-people-group"></i> ${arranging ? "Marching order" : "Marching order (locked)"}</span><span class="mc-party-fwd">Forward ${this.#fwdIcon(forward)}</span></div>
+      ${tray}
       <div class="mc-party-grid">${grid}</div>
       <div class="mc-party-hint${canDeploy ? " mc-ok" : ""}">${hint}</div>
       ${arranging ? doneBtn : ""}${dmRow}
@@ -5271,6 +5292,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "level-up-add": return this.#openMulticlass();
       case "level-up-pick": return this.#addMulticlass(el.dataset.uuid);
       case "party-cell": return this.#partyPlace(Number(el.dataset.r), Number(el.dataset.c));
+      case "party-mine": {
+        // Arm one of MY tokens from the tray; tapping the armed one disarms it. This is the only
+        // way to reach a token that isn't on the grid yet (DM 2026-07-17).
+        const id = el.dataset.actorId;
+        this.#partySelf = this.#partySelf === id ? null : id;
+        return this.render();
+      }
       case "roll-request": {
         const p = this.#rollRequest; this.#rollRequest = null; this.render();
         const a = p?.actorUuid ? fromUuidSync(p.actorUuid) : actor;
