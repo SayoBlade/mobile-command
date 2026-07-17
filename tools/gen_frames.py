@@ -15,7 +15,8 @@ there are now FIVE families, each with its own grammar, researched rather than i
   japanese — seigaiha (concentric quarter-arc waves) + an off-centre asanoha (hemp-leaf) star.
              Composition deliberately off-balance.
   heraldic — mitred arms + a trefoil cusp; tight, architectural, pointed.
-  scroll   — the ogee bracket with volutes (the original), kept for tavern/flame.
+  regal    — the DEFAULT: a ruled, straight, mitred outer border with beading, and ALL the
+             ornament inside it (acanthus rosette, leaves, volutes). tavern/flame.
 
 Each theme = family skeleton + its own motif, so no two corners read alike.
 
@@ -168,57 +169,85 @@ FAM['gothic'] = (
 # degrees off true and butt-capped: a chisel doesn't do round ends or perfect verticals.
 FAM['runic'] = (
     "<g fill='none' stroke='black' stroke-linecap='butt'>"
-    # Algiz — the big one at the corner, leaning slightly
-    "<g transform='rotate(-2 11 19)'>"
-    "<path d='M11 31V7' stroke-width='3.6'/>"
-    "<path d='M11.2 16.6L4.2 8.6' stroke-width='3.2'/>"
-    "<path d='M10.8 16.2L18.4 8' stroke-width='3.1'/>"
+    # TWO runes, large, set on the diagonal — a rune-cutter carves a couple of deep marks, not a
+    # scatter of little ones (DM 2026-07-17: "keep the barbarian to 2 larger runes, they can be
+    # written diagonally"). Algiz high on the corner, Thurisaz below it, both riding the diagonal.
+    "<g transform='rotate(-14 15 17)'>"
+    "<path d='M15 32V4' stroke-width='4.4'/>"
+    "<path d='M15.3 16.4L5.8 6.6' stroke-width='4'/>"
+    "<path d='M14.7 16L24.6 5.8' stroke-width='3.8'/>"
     "</g>"
-    # Isa + Gebo, cut down the vertical arm
-    "<path d='M6 38.5v10' stroke-width='3.2' transform='rotate(2 6 43)'/>"
-    "<g transform='rotate(-3 18 44)'>"
-    "<path d='M13.6 39.6l8.8 9' stroke-width='2.9'/>"
-    "<path d='M22.4 39.6l-8.8 9' stroke-width='2.7'/>"
-    "</g>"
-    # Kenaz + Sowilo, cut along the top arm
-    "<path d='M29.5 4l7.5 6.4-7.5 6.2' stroke-width='2.9' transform='rotate(3 33 10)'/>"
-    "<path d='M44 3.6l6 3.6-6 3.4 6 3.6' stroke-width='2.7' transform='rotate(-2 47 7)'/>"
-    # Thurisaz, low on the outer edge — clear of the motif slot
-    "<g transform='rotate(2 45 34)'>"
-    "<path d='M45 27.5v13' stroke-width='3'/>"
-    "<path d='M45 30.6l5.4 3.2-5.4 3.4z' stroke-width='2.8'/>"
+    "<g transform='rotate(-14 40 40)'>"
+    "<path d='M40 26v29' stroke-width='4.2'/>"
+    "<path d='M40 30.5l8.4 5.2-8.4 5.4z' stroke-width='3.8'/>"
     "</g>"
     "</g>"
 )
 
-# --- SCROLL: the original ogee bracket with volutes.
-FAM['scroll'] = (
-    "<g fill='none' stroke='black' stroke-linecap='round'>"
-    "<path d='M4.6 39.5 C3.7 34 3.5 29.6 4.1 25.4' stroke-width='0.9'/>"
-    "<path d='M4.1 25.4 C4.8 20.6 6.5 16.2 9.4 12.4' stroke-width='1.8'/>"
-    "<path d='M9.4 12.4 C12.6 8.4 16.9 5.7 21.6 4.5' stroke-width='3'/>"
-    "<path d='M21.6 4.5 C26 3.4 30.6 3.4 35.2 4.1' stroke-width='1.8'/>"
-    "<path d='M35.2 4.1 C37.8 4.5 40 4.9 42 5.4' stroke-width='0.9'/>"
-    "<path d='M13.2 43 C12.3 37.6 12.6 32.8 14.1 28.6' stroke-width='1'/>"
-    "<path d='M14.1 28.6 C15.7 24 18.4 20.1 22.2 17.2' stroke-width='1.5'/>"
-    "<path d='M22.2 17.2 C26.2 14.1 30.9 12.5 35.8 12.2' stroke-width='1.5'/>"
-    "<path d='M35.8 12.2 C38.4 12.1 40.9 12.3 43.2 12.7' stroke-width='1'/>"
-    "<path d='M43.2 12.7 C46.9 13.4 49 15.9 48.8 19' stroke-width='1.2'/>"
-    "<path d='M48.8 19 C48.6 21.5 46.8 23.2 44.6 23' stroke-width='0.9'/>"
-    "<path d='M44.6 23 C42.7 22.8 41.5 21.4 41.7 19.8 C41.8 18.6 42.8 17.7 44 17.8' stroke-width='0.65'/>"
-    "<path d='M13.2 43 C13.9 46.7 16.4 48.8 19.5 48.6' stroke-width='1.2'/>"
-    "<path d='M19.5 48.6 C22 48.4 23.7 46.6 23.5 44.4' stroke-width='0.9'/>"
-    "<path d='M23.5 44.4 C23.3 42.5 21.9 41.3 20.3 41.5 C19.1 41.6 18.2 42.6 18.3 43.8' stroke-width='0.65'/>"
+# --- ELDRITCH: a summoning circle, not a border. Two rings cut by the corner, radial ticks, a
+# star inside, and glyphs scratched along the arms (DM 2026-07-17: warlock = "summoning rituals,
+# spooky and sharp"). Miter joins and butt caps: this was scratched in a hurry, by someone who
+# should not have.
+FAM['eldritch'] = (
+    "<g fill='none' stroke='black' stroke-linejoin='miter' stroke-linecap='butt'>"
+    # the circle
+    "<circle cx='14' cy='14' r='11' stroke-width='1.7'/>"
+    "<circle cx='14' cy='14' r='8.4' stroke-width='0.9'/>"
+    # radial ticks in the channel between the rings
+    "<g stroke-width='0.9'>"
+    "<path d='M14 5.6V3M14 22.4V25M5.6 14H3M22.4 14H25M8.1 8.1L6.3 6.3M19.9 19.9l1.8 1.8M19.9 8.1l1.8-1.8M8.1 19.9l-1.8 1.8'/>"
     "</g>"
+    # the star within
+    "<path d='M14 6.6l4.9 15.1L6.1 12.4h15.8L9.1 21.7z' stroke-width='1.1'/>"
+    # glyphs scratched along the arms — the invocation
+    "<g stroke-width='1.5'>"
+    "<path d='M7 34v9M3.6 37.4h6.8'/>"
+    "<path d='M17 40l5.5 5.5M22.5 40L17 45.5'/>"
+    "<path d='M34 7h9M37.4 3.6v6.8'/>"
+    "<path d='M40 17l5.5 5.5M45.5 17L40 22.5'/>"
+    "</g></g>"
+)
+
+# --- REGAL: the default. STRAIGHT outside, elaborate inside (DM 2026-07-17: "go for something
+# regal, use a straighter outer corner and something more elaborate in the inside"). The border is
+# architecture — two ruled lines with beading in the channel between them, mitred at the corner.
+# All the ornament lives INSIDE it: an acanthus C-scroll rosette at the elbow, leaves fanning down
+# each arm, terminal volutes. The old ogee curled on the outside and was plain within — backwards.
+FAM['regal'] = (
+    "<g fill='none' stroke='black'>"
+    # --- OUTER: ruled, straight, mitred. A regal border does not curl.
+    "<path d='M3 48V3h45' stroke-width='3' stroke-linecap='butt'/>"
+    "<path d='M7.5 48V7.5h40.5' stroke-width='1' stroke-linecap='butt'/>"
+    "<path d='M12 7.5V3M7.5 12H3' stroke-width='1'/>"          # the mitre square
+    # beading in the channel between the two rules
+    "<g stroke-width='1.7' stroke-linecap='round'>"
+    "<path d='M5.2 41h.1M5.2 34h.1M5.2 27h.1M5.2 20h.1M5.2 14h.1M14 5.2h.1M20 5.2h.1M27 5.2h.1M34 5.2h.1M41 5.2h.1'/>"
+    "</g>"
+    # --- INSIDE: the elaborate part.
+    "<g stroke-linecap='round'>"
+    # an acanthus rosette at the elbow: two counter-scrolls meeting
+    "<path d='M12.5 26.5 C12.5 18.5 18.5 12.5 26.5 12.5' stroke-width='1.7'/>"
+    "<path d='M26.5 12.5 C21.4 13.2 17.3 15.7 15.4 20 C14.5 22.1 15.4 24 17.3 24.2 C18.8 24.4 19.9 23.3 19.7 21.8' stroke-width='1.2'/>"
+    "<path d='M12.5 26.5 C13.2 21.4 15.7 17.3 20 15.4 C22.1 14.5 24 15.4 24.2 17.3 C24.4 18.8 23.3 19.9 21.8 19.7' stroke-width='1.2'/>"
+    # acanthus leaves fanning down each arm
+    "<path d='M12.5 26.5 C9.8 30.8 10.4 36 14.2 39.6' stroke-width='1.4'/>"
+    "<path d='M14.2 39.6 C15.9 35.4 15.2 31.1 12.5 26.5z' stroke-width='0.9'/>"
+    "<path d='M26.5 12.5 C30.8 9.8 36 10.4 39.6 14.2' stroke-width='1.4'/>"
+    "<path d='M39.6 14.2 C35.4 15.9 31.1 15.2 26.5 12.5z' stroke-width='0.9'/>"
+    # terminal volutes, curling in
+    "<path d='M14.2 39.6 C14.9 43.4 17.6 45.6 20.8 44.9 C22.8 44.5 23.6 42.6 22.4 41.2' stroke-width='1'/>"
+    "<path d='M39.6 14.2 C43.4 14.9 45.6 17.6 44.9 20.8 C44.5 22.8 42.6 23.6 41.2 22.4' stroke-width='1'/>"
+    "</g></g>"
 )
 
 # which family each theme wears
 FAMILY = {
- 'tavern': 'scroll', 'flame': 'scroll', 'sorcerer': 'nouveau',
+ 'tavern': 'regal', 'flame': 'regal', 'sorcerer': 'nouveau',
     'gothic': 'gothic', 'artificer': 'deco', 'fighter': 'deco', 'rogue': 'deco', 'wizard': 'deco',
     'druid': 'nouveau', 'bard': 'nouveau', 'ranger': 'nouveau',
     'monk': 'japanese', 'tide': 'japanese', 'frost': 'japanese',
-    'paladin': 'heraldic', 'cleric': 'heraldic', 'warlock': 'heraldic',
+    'paladin': 'heraldic', 'cleric': 'heraldic',
+    'warlock': 'eldritch',
     'barbarian': 'runic',
 }
 
@@ -275,7 +304,7 @@ def main():
     io.open(os.path.join(out, "gen_icons.css"), "w", encoding="utf-8", newline="").write("".join(icos))
     # tavern keeps the scroll family as the base skeleton
     io.open(os.path.join(out, "gen_base_skel.txt"), "w", encoding="utf-8", newline="").write(
-        "--mc-frame-skel: %s" % svg64(FAM['scroll']))
+        "--mc-frame-skel: %s" % svg64(FAM['regal']))
     print("families: %d | skeleton rules: %d | icons: %d" % (len(FAM), len(skel), len(icos)))
     for fam in FAM:
         print("  %-9s -> %s" % (fam, ", ".join(sorted(k for k, v in FAMILY.items() if v == fam))))

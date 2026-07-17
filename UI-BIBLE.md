@@ -353,8 +353,10 @@ must not change any hit target.
   | **nouveau** | The **asymmetric whiplash** S-curve with a tendril and a bud. *Asymmetry is exactly what separates Art Nouveau from baroque scrollwork* — never mirror it. | druid, bard, ranger, sorcerer |
   | **japanese** | **Seigaiha** (concentric quarter-arc waves) + an off-diagonal **asanoha** hemp-leaf star. Deliberately off-balance. | monk, tide, frost |
   | **heraldic** | Mitred arms, trefoil cusp, pointed finials. Architectural and tight. | paladin, cleric, warlock |
-  | **runic** | **No bracket at all** — Elder Futhark staves, cut thick, butt-capped, each a couple of degrees off true. | barbarian |
+  | **runic** | **No bracket at all** — TWO large Elder Futhark staves on the diagonal, cut thick, butt-capped, off true. | barbarian |
   | **gothic** | Lancet arch, tracery, crockets, finials. Severe and tall. | gothic |
+  | **eldritch** | A summoning circle, not a border: two rings, radial ticks, a star, glyphs scratched along the arms. | warlock |
+  | **regal** (default) | **Straight ruled outer border** with beading, mitred — and ALL the ornament *inside* it: acanthus rosette, leaves, volutes. | tavern, flame |
   | **scroll** | The ogee bracket with volutes (the original). | tavern, flame |
 
 - **A frame is not compulsory.** Some ornament isn't a *border* — runes are chiselled into the
@@ -398,8 +400,13 @@ must not change any hit target.
 - **Double outline reads better than one line.** Two concentric strokes with the detail *between*
   them (the artificer's gear: two rings, dashed teeth between, a hub) look drawn rather than
   clip-arted. The DM asked for this by name.
-- **The ornament is GILDING — real gold (`--mc-gilt`) in every theme**, the one thing all 18 share:
-  gilt on leather, whatever colour the leather is dyed (DM 2026-07-17).
+- **`--mc-gilt` is gold by DEFAULT, not by law.** The ornament takes whatever colour the material
+  would really be (DM 2026-07-17: "you can use different colors for corner art in different
+  themes") — bone for carved runes, cold silver for a gothic arch, lacquer red on the monk's jade,
+  seafoam, verdigris, dull steel, ember.
+- **Straight outside, elaborate inside.** A regal border is *architecture*: rule the outer edge and
+  spend the detail within it. The original ogee curled on the outside and was plain inside — exactly
+  backwards (DM 2026-07-17).
   *(This supersedes the 2026-07-16 rule "frame is burgundy, never gold". That was written against a
   chunky 26px ornament, where a gold block read as harsh. The same colour as fine tapered line-art
   at 78px reads as gilt. The rule was right about the weight, wrong about the hue — when a rule
