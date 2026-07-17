@@ -3005,7 +3005,7 @@ body.mc-theme-wizard .mc-frame {
    they hold their place whether or not a token is selected and whatever grows above them. */
 .mc-dmp-scroll { max-height: calc(100vh - 24px); overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
 .mc-dmp-col { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
-.mc-dmp-foot { margin-top: auto; }
+.mc-dmp-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 /* Right-edge tab rail — icon-only tabs sticking out. Closed: on the panel's right
    edge. Open: rides the flyout's right edge (mc-open), so the tab is always on the
    far-right box (DM 2026-07-03). */
@@ -3022,10 +3022,15 @@ body.mc-theme-wizard .mc-frame {
 /* Rolls tab only: let the targets dropdown escape the box. Other tabs clip so the
    body scrolls (tokens grid can be long — DM 2026-07-03). */
 .mc-dmp-flyout.mc-fly-rolls { overflow: visible; }
-.mc-dmp-drag.mc-dmp-fly-head { cursor: grab; justify-content: center; }
+/* The primary's title must READ like a flyout's (DM 2026-07-17). It lives inside the panel's 10px
+   padding, so without cancelling that it sat inset — a boxed label rather than a window header,
+   with its rule stopping short of both edges. The negative margin lets it span the window exactly
+   as a flyout head spans its own. */
+.mc-dmp-drag.mc-dmp-fly-head { cursor: grab; margin: -10px -10px 8px; border-radius: calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)) 0 0; }
 .mc-dmp-drag.mc-dmp-fly-head:active { cursor: grabbing; }
-.mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px; border-bottom: 1px solid #4a4334; font-weight: 800; border-radius: calc(10px * var(--mc-round, 1)) 10px 0 0; }
-.mc-dmp-fly-x { background: none; border: none; color: #a59b86; font-size: 15px; cursor: pointer; }
+.mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; min-height: 36px; box-sizing: border-box; border-bottom: 1px solid var(--mc-edge); font-weight: 800; font-size: 14px; border-radius: calc(10px * var(--mc-round, 1)) 10px 0 0; }
+.mc-dmp-fly-x { flex: 0 0 auto; width: 24px; height: 24px; min-height: 0; line-height: 1; padding: 0; background: none; border: none; color: var(--mc-muted); font-size: 15px; cursor: pointer; }
+.mc-dmp-fly-x:hover { color: var(--mc-ink); }
 .mc-dmp-fly-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 /* Rolls tab only: let the targets dropdown escape the frame (short content). */
 /* The rolls tab is a COLUMN: type/ability on top, the player list taking the slack and
@@ -3071,7 +3076,9 @@ body.mc-theme-wizard .mc-frame {
 /* The real dropdown — absolute overlay that overflows the flyout frame. */
 .mc-dmp-rt-list { position: absolute; top: calc(100% + 4px); right: 0; min-width: 170px; z-index: 40; max-height: 300px; overflow-y: auto; padding: 4px; background: var(--mc-panel); border: 1px solid #c8a44d; border-radius: calc(9px * var(--mc-round, 1)); box-shadow: 0 10px 28px rgba(0,0,0,.6); }
 /* Packed main-area button — opens the Party order tab. */
-.mc-dmp-party-mini { width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: calc(9px * var(--mc-round, 1)); background: #221f16; color: #c8a44d; border: 1px solid #6b5a2a; cursor: pointer; font-weight: 700; }
+/* Secondary look, PRIMARY geometry — it stacks with Start the night, so it must match it. */
+.mc-dmp-party-mini { width: 100%; background: var(--mc-panel-2); color: var(--mc-ink); border: 1px solid var(--mc-edge); }
+.mc-dmp-party-mini:hover { border-color: var(--mc-gold); }
 .mc-dmp-rt-list { display: flex; flex-direction: column; gap: 3px; }
 /* Inline scrollable player-token target list (DM 2026-07-11). */
 .mc-dmp-rt-scroll { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; padding: 2px; }
@@ -3097,7 +3104,7 @@ body.mc-theme-wizard .mc-frame {
    afterthought ("Request rolls button needs to fill width"). The LOOK is still §4.2's CTA token —
    this rule only settles size and alignment, so the two can be tuned apart.
    ============================================================ */
-.mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run, .mc-dmp-party-deploy, .mc-dt-openbtn, .mc-ob-done, .mc-party-done {
+.mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run, .mc-dmp-party-deploy, .mc-dt-openbtn, .mc-ob-done, .mc-party-done, .mc-dmp-party-mini {
   min-height: 48px; border-radius: calc(8px * var(--mc-round, 1));
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   font-size: 13px; font-weight: 800; line-height: 1.25; text-align: center; cursor: pointer;
@@ -3108,8 +3115,8 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-empty { color: #a59b86; font-size: 12px; text-align: center; padding: 8px; }
 #mc-dm-panel.mc-show { display: block; }
 /* Drag grip — repositions the panel so it doesn't cover other widgets. */
-.mc-dmp-drag { display: flex; align-items: center; justify-content: center; height: 16px; margin: -4px -4px 6px; color: #8a7f63; cursor: move; touch-action: none; }
-.mc-dmp-drag:hover { color: #c8a44d; }
+/* (the bare .mc-dmp-drag grip is gone — the window header is the drag handle now.) */
+.mc-dmp-drag { touch-action: none; }
 /* Headers double as drag handles — shorter, a distinct tint, and a hover
    highlight to hint you can grab them (DM 2026-07-03). */
 .mc-dmp-fly-head, .mc-dmp-head { cursor: move; touch-action: none; background: #221f16; }
@@ -3174,13 +3181,13 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-heal:hover { background: #274028; }
 /* Camera bar (focus party + manual TV control). */
 .mc-dmp-cam { display: flex; gap: 8px; }
-.mc-dmp-cam:not(:last-child) { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
+.mc-dmp-cam:not(:last-child) { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--mc-edge); }
 .mc-dmp-cam-btn {
   flex: 1 1 0; min-height: 40px; display: flex; align-items: center; justify-content: center;
   font-size: 16px; color: #ece5d6; background: #2c2733; border: 1px solid #4a4334; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
 }
 .mc-dmp-cam-btn:hover { background: #36303f; }
-.mc-dmp-cam-btn.mc-active { color: #1a1712; background: #c8a44d; border-color: #c8a44d; }
+.mc-dmp-cam-btn.mc-active { color: var(--mc-gold); background: var(--mc-panel-2); border-color: var(--mc-gold); }
 .mc-dmp-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
 .mc-dmp-clear { background: none; border: none; color: #a59b86; font-size: 14px; line-height: 1; cursor: pointer; }
 .mc-dmp-clear:hover { color: #c8a44d; }
@@ -3851,7 +3858,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dmp-party-badge { position: absolute; top: 2px; right: 3px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: calc(8px * var(--mc-round, 1)); background: #d06060; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 .mc-dmp-party-lock { position: absolute; top: 3px; right: 4px; font-size: 9px; color: #c8a44d; }
 .mc-dmp-party-hint { text-align: center; font-size: 11px; color: #c8a44d; margin: 2px 0; min-height: 1.1em; }
-.mc-dmp-party-btns { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+.mc-dmp-party-btns { display: flex; gap: 6px; align-items: stretch; margin-top: 0; }
 .mc-dmp-party-btns button { height: 34px; border-radius: calc(8px * var(--mc-round, 1)); border: 1px solid #4a4334; background: #2c2733; color: #ece5d6; cursor: pointer; }
 .mc-dmp-party-btns button:hover { background: #36303f; }
 .mc-dmp-party-btns [data-party="rotl"], .mc-dmp-party-btns [data-party="rotr"] { flex: 0 0 38px; }
@@ -3926,14 +3933,20 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 }
 
 /* ── §18 Travel tab: a short column — scene picker, state hint, one CTA ── */
-.mc-dmp-travel { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px; }
+/* Travel is a column with the CTA pinned to the bottom (DM 2026-07-17: "stick the travel button
+   to the bottom"). The button says "Travel" — the dropdown right above it already names the map,
+   so repeating it made the label wrap and said nothing new. The long paragraph under it went to
+   the button's tooltip: it explained a flow that is self-evident once you press it. */
+.mc-dmp-travel-foot { margin-top: auto; padding-top: 6px; }
+.mc-dmp-travel { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px; flex: 1 1 auto; min-height: 0; }
 .mc-dmp-travel-lbl { color: var(--mc-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
 .mc-dmp-travel select {
   background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge);
   border-radius: 6px; padding: 6px 8px; min-height: 34px; width: 100%;
 }
 .mc-dmp-travel-hint { color: var(--mc-muted); font-size: 12px; margin: 0; }
-.mc-dmp-travel-go { min-height: 40px; border-radius: 6px; }
+/* geometry comes from the shared primary rule — this only says it's the travel one */
+.mc-dmp-travel-go { width: 100%; }
 .mc-dmp-travel-go:disabled { opacity: .45; cursor: default; }
 
 /* ── §17 Downtime — player board (top of the sheet when a window is open) ── */

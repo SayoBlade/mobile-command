@@ -1883,6 +1883,9 @@ async function handlePartyPack({ groupId, requesterId, force = false }) {
     // saturation muted (not core's full -1): reads as night vision but keeps color.
     sight: { enabled: true, range, visionMode: hasDarkvision ? "darkvision" : "basic", ...dvDefaults, ...(hasDarkvision ? { saturation: DARKVISION_SAT } : {}) },
     ...(glow > 0 ? { light: { bright: glow, dim: 0 } } : {}),
+    // The party reads as a PC on the TV: dnd5e's dynamic ring, same as every member wears.
+    // Without it the packed party was a bare image among ringed PCs (DM 2026-07-17).
+    ring: { enabled: true, colors: { ring: null, background: null }, effects: 1, subject: { scale: 1 } },
     disposition: CONST.TOKEN_DISPOSITIONS.FRIENDLY
   };
   let gt = canvas.scene.tokens.find(t => t.actorId === group.id);

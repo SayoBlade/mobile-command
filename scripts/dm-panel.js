@@ -683,10 +683,11 @@ function travelHTML() {
       ${scenes.map(s => `<option value="${s.id}" ${s.id === chosenId ? "selected" : ""}>${esc(s.name)}</option>`).join("")}
     </select>
     <p class="mc-dmp-travel-hint">${esc(state)}</p>
-    <button class="mc-dmp-party-deploy mc-dmp-travel-go" data-travel-begin ${ready ? "" : "disabled"}
-      title="Form up if needed and preview the overworld — then click the map where the party arrives; everyone else follows with the transition">
-      <i class="fas fa-route"></i> Travel to ${over ? esc(over.name) : "the overworld"}…</button>
-    <p class="mc-dmp-travel-hint">You go first: the button shows you the map, your next click drops the party there, and only then does the table follow with the transition (Zoom Out is set for you if the scene has none).</p>
+    <div class="mc-dmp-travel-foot">
+      <button class="mc-dmp-party-deploy mc-dmp-travel-go" data-travel-begin ${ready ? "" : "disabled"}
+        title="Form up if needed and preview the overworld — then click the map where the party arrives; everyone else follows with the transition (Zoom Out is set for you if the scene has none)">
+        <i class="fas fa-route"></i> Travel</button>
+    </div>
   </div>`;
 }
 
