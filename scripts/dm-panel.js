@@ -646,10 +646,18 @@ function rollsToolHTML() {
     const dist = c.dist == null ? "" : `<span class="mc-rt-dist${distCls}">${Math.round(c.dist)} ${esc(units)}</span>`;
     // A <button> row: colour-coded user icon, name, distance (green in range / red out), tick.
     const assigned = rollAssign[c.actor.id] ?? [];
-    const tgtBox = assigned.length ? `<div class="mc-dmp-rt-tgts">
-        <span class="mc-dmp-rt-tgts-lbl">Target for this player</span>
-        <div class="mc-dmp-rt-tgts-names">${assigned.map(t => `<span class="mc-dmp-rt-tgt">${esc(t.name)}</span>`).join("")}</div>
-      </div>` : "";
+    const picking = rtAssignFor === c.actor.id;
+    // Open → the live "Targets for <Name>" editor; closed but assigned → a compact read-only summary.
+    const names = assigned.map(t => `<span class="mc-dmp-rt-tgt">${esc(t.name)}</span>`).join("");
+    const tgtBox = picking
+      ? `<div class="mc-dmp-rt-tgts mc-picking">
+          <span class="mc-dmp-rt-tgts-lbl">Targets for ${esc(c.actor.name)}</span>
+          <div class="mc-dmp-rt-tgts-names">${assigned.length ? names : `<span class="mc-dmp-rt-tgt-empty">Target on the map to add — tap the crosshair again when done.</span>`}</div>
+        </div>`
+      : (assigned.length ? `<div class="mc-dmp-rt-tgts">
+          <span class="mc-dmp-rt-tgts-lbl">Targets</span>
+          <div class="mc-dmp-rt-tgts-names">${names}</div>
+        </div>` : "");
     return `<div class="mc-dmp-rt-item">
       <div class="mc-dmp-rt-row${on ? " mc-on" : ""}${targeted ? " mc-targeted" : ""}">
         <button class="mc-dmp-rt-main" data-rt-target="${c.actor.id}" title="Tap: target ${esc(c.actor.name)} + toggle for the roll${reach != null && c.dist != null ? ` (${inRange ? "in" : "out of"} range)` : ""}">
@@ -657,7 +665,7 @@ function rollsToolHTML() {
           <span class="mc-rt-name">${esc(c.actor.name)}</span>
           ${dist}
         </button>
-        <button class="mc-dmp-rt-assign${assigned.length ? " mc-on" : ""}" data-rt-assign="${c.actor.id}" title="${assigned.length ? "Clear this player's targets" : "Assign my current targets to " + esc(c.actor.name)}"><i class="fas fa-crosshairs"></i></button>
+        <button class="mc-dmp-rt-assign${picking ? " mc-on" : ""}" data-rt-assign="${c.actor.id}" title="${picking ? "Done — close the target picker" : "Pick targets for " + esc(c.actor.name)}" aria-pressed="${picking}"><i class="fas fa-crosshairs"></i></button>
       </div>
       ${tgtBox}
     </div>`;
@@ -1051,6 +1059,37 @@ function ownerColor(actor) { return ownerUser(actor)?.color?.css ?? null; }
 // Per-PC target assignment shown inline in the rolls tab (DM 2026-07-17): actorId -> [{uuid, name}].
 // DM-local; the actual send goes to the player's phone via api.assignTargets.
 let rollAssign = {};
+// §rolls target picker (DM 2026-07-17 rework): tapping a PC's crosshair opens an ASSIGN MODE for
+// THAT PC. While it's open, whatever the DM targets on the map becomes that PC's suggested
+// target(s) — live, multi-select. Tapping the same crosshair closes it; tapping another switches;
+// leaving the tab closes it. `rtAssignFor` = the actorId being assigned, or null.
+let rtAssignFor = null;
+function dmTargetList() {
+  return Array.from(game.user.targets ?? []).map(t => ({ uuid: t.document?.uuid, name: t.document?.name ?? "?" })).filter(t => t.uuid);
+}
+// Open (or switch to) the picker for a PC. Preload the map with whatever's already assigned so the
+// DM edits from the current set rather than a blank slate.
+async function openRtAssign(actorId) {
+  rtAssignFor = actorId;
+  const ids = (rollAssign[actorId] ?? []).map(t => fromUuidSync?.(t.uuid)?.id).filter(Boolean);
+  canvas.tokens?.setTargets(ids, { mode: "replace" }); // fires targetToken → syncRtAssign keeps it in step
+}
+// Close the picker. The assignment is already on the player (pushed live); clear the DM's own
+// reticles so the player's targets own the table-visible confirmation (§11).
+function closeRtAssign() {
+  if (rtAssignFor == null) return;
+  rtAssignFor = null;
+  canvas.tokens?.setTargets([], { mode: "replace" });
+}
+// Live sync while the picker is open: the DM's current map targets → this PC's suggestion, pushed to
+// the player's phone. Called from the targetToken hook.
+function syncRtAssign() {
+  if (rtAssignFor == null) return;
+  const actor = game.actors.get(rtAssignFor);
+  const u = ownerUser(actor);
+  rollAssign[rtAssignFor] = dmTargetList();
+  if (u) api.assignTargets(u.id, rollAssign[rtAssignFor].map(t => t.uuid));
+}
 function nameTag(actor, name) {
   const esc = foundry.utils.escapeHTML;
   const col = ownerColor(actor);
@@ -2144,8 +2183,8 @@ async function onClick(ev) {
   if (smNo) { dmReactions = dmReactions.filter(r => r.id !== smNo.dataset.dmsummonX); return render(); }
   // Right-side dock: tab toggle, close, target checkbox, send.
   const dockBtn = ev.target.closest("[data-dock]");
-  if (dockBtn) { dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }
-  if (ev.target.closest("[data-dock-close]")) { dockTab = null; return render(); }
+  if (dockBtn) { closeRtAssign(); dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }
+  if (ev.target.closest("[data-dock-close]")) { closeRtAssign(); dockTab = null; return render(); }
   if (ev.target.closest("[data-travel-begin]")) { // §18 T1.5: pack, preview the map, arm the landing click
     const res = await api.travelPrepare({});
     if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Couldn't prepare travel."); return render(); }
@@ -2433,23 +2472,10 @@ async function onClick(ev) {
   const asn = ev.target.closest("[data-rt-assign]");
   if (asn) {
     const actorId = asn.dataset.rtAssign;
-    const actor = game.actors.get(actorId);
-    const u = ownerUser(actor);
-    if (!u) { ui.notifications.warn("No player owns that character."); return; }
-    if (rollAssign[actorId]?.length) {
-      // active → clear: unassign on the phone, drop the box. Acts like the old assign "close" —
-      // it also clears the DM's own canvas targets (DM 2026-07-17).
-      await api.assignTargets(u.id, []);
-      delete rollAssign[actorId];
-      canvas.tokens?.setTargets([], { mode: "replace" });
-      return render();
-    }
-    // inactive → assign the DM's CURRENT targets to this player.
-    const tgts = Array.from(game.user.targets ?? []);
-    if (!tgts.length) { ui.notifications.info("Target something on the map first, then tap this to assign it."); return; }
-    const uuids = tgts.map(t => t.document?.uuid).filter(Boolean);
-    await api.assignTargets(u.id, uuids);
-    rollAssign[actorId] = tgts.map(t => ({ uuid: t.document?.uuid, name: t.document?.name ?? "?" }));
+    if (!ownerUser(game.actors.get(actorId))) { ui.notifications.warn("No player owns that character."); return; }
+    // Same crosshair → close; a different one → switch (open closes any current picker first).
+    if (rtAssignFor === actorId) closeRtAssign();
+    else await openRtAssign(actorId);
     return render();
   }
   const btn = ev.target.closest("[data-user]");
@@ -2471,7 +2497,7 @@ export function registerDMPanel() {
   // tab badge shows real fails without the DM opening it. Never auto-fixes.
   setTimeout(() => { runPreflight().then(() => render()).catch(e => console.warn(`${MODULE_ID} | preflight auto-run failed`, e)); }, 4000);
   registerNightEncounterOffer(); // §17.4: ambush during a watch → offer Unconscious+Surprised
-  Hooks.on("targetToken", () => render());   // target count badge + assign section
+  Hooks.on("targetToken", () => { syncRtAssign(); render(); });   // live target picker + count badge
   Hooks.on("controlToken", () => render());                        // quick-HP: selection changed
   // Keep the rolls-tab distances fresh as tokens move (only while that flyout is open).
   Hooks.on("updateToken", (_t, ch) => { if (dockTab === "rolls" && ("x" in ch || "y" in ch)) render(); });

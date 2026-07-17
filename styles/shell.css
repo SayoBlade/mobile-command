@@ -3138,7 +3138,7 @@ body.mc-theme-wizard .mc-frame {
    become its own control. */
 .mc-dmp-rt-item { display: flex; flex-direction: column; }
 .mc-dmp-rt-row { display: flex; align-items: stretch; gap: 6px; }
-.mc-dmp-rt-main { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 7px 9px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); cursor: pointer; font-size: 13px; color: var(--mc-ink); text-align: left; }
+.mc-dmp-rt-main { flex: 1 1 auto; min-width: 0; box-sizing: border-box; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 7px 9px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); cursor: pointer; font-size: 13px; color: var(--mc-ink); text-align: left; }
 .mc-rt-usericon { flex: 0 0 auto; font-size: 16px; width: 18px; text-align: center; }
 .mc-rt-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-rt-dist { flex: 0 0 auto; font-size: 11px; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
@@ -3146,12 +3146,16 @@ body.mc-theme-wizard .mc-frame {
 .mc-rt-dist.mc-out { color: #d68b7f; }  /* out of range */
 .mc-dmp-rt-row.mc-on .mc-dmp-rt-main { border-color: var(--mc-gold); background: var(--mc-panel-2); }
 .mc-dmp-rt-row.mc-targeted .mc-dmp-rt-main { box-shadow: inset 0 0 0 1px var(--mc-gold); }
-/* The target-assign button: its own border; gold-filled glyph when active (§5). */
-.mc-dmp-rt-assign { flex: 0 0 auto; width: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; color: var(--mc-muted); background: var(--mc-panel); border: 1px solid var(--mc-edge); }
+/* The target-assign button: same height as the row's main button (box-sizing + matching min-height,
+   so a square 36px control, DM 2026-07-17); gold-filled glyph when the picker is open (§5). */
+.mc-dmp-rt-assign { flex: 0 0 auto; width: 36px; min-height: 36px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; color: var(--mc-muted); background: var(--mc-panel); border: 1px solid var(--mc-edge); }
 .mc-dmp-rt-assign:hover { border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-dmp-rt-assign.mc-on { color: var(--mc-gold); border-color: var(--mc-gold); background: var(--mc-panel-2); }
 /* Target container under a PC row: label + the assigned names, wrapping to as many lines as needed. */
 .mc-dmp-rt-tgts { margin: 4px 0 2px; padding: 6px 8px; border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); border-left: 2px solid var(--mc-gold); }
+/* Open picker: brighter left rail + a soft glow, so it's obvious which PC you're targeting for. */
+.mc-dmp-rt-tgts.mc-picking { border-color: var(--mc-gold); box-shadow: inset 0 0 0 1px var(--mc-gold); }
+.mc-dmp-rt-tgt-empty { font-size: 11px; color: var(--mc-muted); font-style: italic; }
 .mc-dmp-rt-tgts-lbl { display: block; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--mc-muted); margin-bottom: 4px; }
 .mc-dmp-rt-tgts-names { display: flex; flex-wrap: wrap; gap: 4px; }
 .mc-dmp-rt-tgt { font-size: 12px; font-weight: 700; color: var(--mc-ink); padding: 2px 7px; border-radius: 999px; background: var(--mc-panel-2); border: 1px solid var(--mc-edge); }
