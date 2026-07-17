@@ -970,30 +970,42 @@ async function handleItemUseStart(payload) {
   const consumeMode = skipConsume ? "none" : "both";
   if (skipConsume) console.debug(`${MODULE_ID} | skipConsume`, { name: activity.item?.name });
 
-  // "Flat" = a heal whose amount has NO dice (Aid's +5) — only then is there
-  // nothing for the player to roll, so it can't park on a damage roll and midi
-  // leaks the heal-roll dialog to the executor (DM-reported via Aid). Dice can
-  // live in number/denomination OR in the bonus/custom formula string
-  // (system/importer-dependent), so test the assembled formula — NOT just the
-  // structured fields (Mass Healing Word keeps 1d4 in `bonus` and was wrongly
-  // fast-forwarded by the field-only check). Dice heals keep the two-tap below.
+  // Does the PLAYER have to ROLL anything here — an attack, damage dice, or heal dice? If NOT, this
+  // is a pure buff/utility (Alter Self), a flat heal (Aid), or a no-damage save (Hold Person). Such
+  // an activity must NOT go through the two-tap: with autoRollDamage:"none" midi parks it at
+  // WaitForDamageRoll waiting for a damage roll that never comes, so the phone sat on a phantom "roll
+  // damage" prompt — and re-casting to escape it applied the effect + CONCENTRATION twice (DM
+  // 2026-07-18, Alter Self). Complete it in one shot and report needsDamage:false.
+  //   Heal dice can live in number/denomination OR the bonus/custom formula string
+  //   (system/importer-dependent) — Mass Healing Word keeps 1d4 in `bonus` — so test the assembled
+  //   formula, not just the structured fields. Damage dice likewise.
   const h = activity.healing ?? {};
   const healFormula = [
     (h.number && h.denomination) ? `${h.number}d${h.denomination}` : "",
     h.custom?.enabled ? (h.custom?.formula ?? "") : "",
     h.bonus ?? ""
   ].join(" ");
-  const flatHeal = activity.type === "heal" && !/\d*d\d+/i.test(healFormula);
-  if (activity.type === "heal") console.debug(`${MODULE_ID} | heal`, { name: activity.item?.name, formula: healFormula, flat: flatHeal });
-  if (flatHeal) {
+  const hasHealDice = activity.type === "heal" && /\d*d\d+/i.test(healFormula);
+  const hasDamageDice = (activity.damage?.parts ?? []).some(p =>
+    (Number(p.number) && p.denomination) || /\d*d\d+/i.test(p.custom?.formula ?? p.formula ?? ""));
+  const noRollNeeded = !hasAttack && !hasDamageDice && !hasHealDice;
+  if (activity.type === "heal") console.debug(`${MODULE_ID} | heal`, { name: activity.item?.name, formula: healFormula, flat: !hasHealDice });
+  if (noRollNeeded) {
+    // A flat HEAL needs autoRollDamage:"always" so midi applies the (rollless) amount instead of
+    // parking on its heal-roll. A pure UTILITY/buff (Alter Self) has NO damage/heal at all, and
+    // forcing autoRollDamage there makes midi wait for a roll that never comes → it hangs; so we
+    // leave it off and let the workflow run to completion applying its effects (the proven
+    // single-fire config). Either way this returns needsDamage:false — no phantom two-tap step.
+    const midiOpts = {
+      targetUuids: uniqueTargets, ignoreUserTargets: true,
+      ...(activity.type === "heal" ? { autoRollDamage: "always", fastForwardDamage: true } : {}),
+      workflowOptions: { autoConsumeResource: consumeMode, targetConfirmation: "none" }, ...midiOptions
+    };
     const { result: workflow, captured } = await captureNotifications(() =>
-      MidiQOL.completeActivityUse(activity.uuid, {
-        ...spellCfg,
-        midiOptions: { targetUuids: uniqueTargets, ignoreUserTargets: true, autoRollDamage: "always", fastForwardDamage: true, workflowOptions: { autoConsumeResource: consumeMode, targetConfirmation: "none" }, ...midiOptions }
-      }, { configure: false }, {})
+      MidiQOL.completeActivityUse(activity.uuid, { ...spellCfg, midiOptions: midiOpts }, { configure: false }, {})
     );
     if (!workflow || workflow.aborted) {
-      return { ok: false, stage: "use", reason: captured.join("; ") || "heal refused (consumption/requirements) or timed out" };
+      return { ok: false, stage: "use", reason: captured.join("; ") || "activity refused (consumption/requirements) or timed out" };
     }
     return { ok: true, needsDamage: false, hasAttack: false, itemName: activity.item?.name ?? null, reason: captured.join("; ") || null };
   }
