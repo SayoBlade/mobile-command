@@ -638,8 +638,31 @@ function ownedTokensHTML() {
     <div class="mc-dmp-tok-grid">${items || `<div class="mc-dmp-empty">No tokens for this player.</div>`}</div>`;
 }
 
-// §18 travel mode T1: pick the overworld, one CTA pulls the party there. The
-// pace picker, route drawing, and the journey loop arrive in later slices (T2+).
+// §18 travel T1.5: pick the overworld; the CTA packs the party, shows the DM the
+// map, and arms a one-shot canvas click — the click is the landing spot (DM
+// 2026-07-17: "the DM is transferred to the new map first and selects the
+// location"). Pace, routes, and the journey loop arrive in later slices (T2+).
+let travelDisarm = null; // active placement-mode cleanup, or null
+
+function disarmTravelDrop() { try { travelDisarm?.(); } catch (e) { /* listener already gone */ } travelDisarm = null; }
+
+function armTravelDrop() {
+  disarmTravelDrop();
+  const board = document.getElementById("board");
+  if (!board) { ui.notifications.warn("No canvas to click on."); return; }
+  const onDown = async (ev) => {
+    disarmTravelDrop();
+    if (ev.button !== 0) { ui.notifications.info("Travel placement cancelled."); return; }
+    ev.preventDefault();
+    ev.stopPropagation(); // capture phase: the click places the party, core never sees it
+    const res = await api.travelDrop({ x: canvas.mousePosition.x, y: canvas.mousePosition.y });
+    if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't place the party.");
+  };
+  board.addEventListener("pointerdown", onDown, true);
+  travelDisarm = () => board.removeEventListener("pointerdown", onDown, true);
+  ui.notifications.info("Click the map where the party arrives — right-click to cancel.");
+}
+
 function travelHTML() {
   const esc = foundry.utils.escapeHTML;
   const chosenId = game.settings.get(MODULE_ID, "travelOverworldSceneId");
@@ -648,11 +671,11 @@ function travelHTML() {
   const packed = packedGroup(), cand = candidateGroup();
   const onOver = !!over && game.scenes.active?.id === over.id;
   const state = !over ? "Choose which scene is the overworld map."
-    : onOver ? "The party is already on this map."
-    : packed ? "Party is formed up — ready to travel."
+    : onOver && packed ? "Party is on this map — the button lets you re-place them."
+    : packed ? "Party is formed up — you'll click their landing spot."
     : cand ? "Party will form up automatically — wherever they stand."
     : "No party group with members — set one up from the panel first.";
-  const ready = !!over && !onOver && !!(packed || cand);
+  const ready = !!over && !!(packed || cand);
   return `<div class="mc-dmp-travel">
     <label class="mc-dmp-travel-lbl" for="mc-travel-scene">Overworld map</label>
     <select id="mc-travel-scene" data-travel-scene>
@@ -661,9 +684,9 @@ function travelHTML() {
     </select>
     <p class="mc-dmp-travel-hint">${esc(state)}</p>
     <button class="mc-dmp-party-deploy mc-dmp-travel-go" data-travel-begin ${ready ? "" : "disabled"}
-      title="Form up if needed, land the party token on the overworld, and activate it — the scene's transition plays for everyone">
-      <i class="fas fa-route"></i> Pull the party to ${over ? esc(over.name) : "the overworld"}</button>
-    <p class="mc-dmp-travel-hint">Travel gives the overworld the Zoom Out pull-back automatically if no transition is set — pick a different one in the scene's Ambience tab any time.</p>
+      title="Form up if needed and preview the overworld — then click the map where the party arrives; everyone else follows with the transition">
+      <i class="fas fa-route"></i> Travel to ${over ? esc(over.name) : "the overworld"}…</button>
+    <p class="mc-dmp-travel-hint">You go first: the button shows you the map, your next click drops the party there, and only then does the table follow with the transition (Zoom Out is set for you if the scene has none).</p>
   </div>`;
 }
 
@@ -1761,10 +1784,12 @@ async function onClick(ev) {
   const dockBtn = ev.target.closest("[data-dock]");
   if (dockBtn) { dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }
   if (ev.target.closest("[data-dock-close]")) { dockTab = null; return render(); }
-  if (ev.target.closest("[data-travel-begin]")) { // §18 T1: pull the party to the overworld
-    const res = await api.travelBegin({});
-    if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't begin travel.");
-    else if (res?.already) ui.notifications.info("The party is already on the overworld.");
+  if (ev.target.closest("[data-travel-begin]")) { // §18 T1.5: pack, preview the map, arm the landing click
+    const res = await api.travelPrepare({});
+    if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Couldn't prepare travel."); return render(); }
+    const over = game.scenes.get(res.sceneId);
+    if (over && canvas.scene?.id !== over.id) await over.view(); // DM goes first — view, not activate
+    armTravelDrop();
     return render();
   }
   if (ev.target.closest("[data-rt-forbtn]")) { rollTool.targetsOpen = !rollTool.targetsOpen; return render(); }

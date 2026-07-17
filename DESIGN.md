@@ -1159,13 +1159,21 @@ vs. the secret goblin village the DM can move clandestinely).
   should be able to — we try to avoid blocking the DM from choosing"; scattered members collapse
   onto the formation's edges, warnings-not-walls). Runs while PAUSED (no requireExecutor — its
   pause guard blocks players, but the DM tables sit paused out of combat and travel is DM-only;
-  live-test finding 2026-07-17). Then moves the group token to the overworld — landing at the
-  scene flag `travelPos` (last travel position), else a pre-existing group token's spot, else map
-  center — and activates the scene so the configured transition plays for the whole table. If the
+  live-test finding 2026-07-17). **T1.5 placement rework (DM 2026-07-17, live test: "i found my
+  party in a random location" — the map-center fallback):** travel is now two steps — PREPARE
+  packs and the DM's client VIEWS the overworld (view, not activate: the DM goes first, alone);
+  a one-shot capture-phase click on #board (world coords from `canvas.mousePosition`, snapped
+  via `grid.getTopLeftPoint`) is the landing spot; right-click cancels (party stays packed on
+  the old scene). DROP lands the token, saves `travelPos`, and only then activates, so the
+  table follows with the transition. Works as a re-place when already on the overworld. If the
   overworld's transition is UNSET (schema initial null → core's default wipe; live-test finding
   2026-07-17), travelBegin defaults it to mcZoomOut first — an explicit DM choice is never
   overridden. Per-route transitions elsewhere (tower stairs up vs. down) stay per-scene / per
-  Teleport-behavior config, as before.
+  Teleport-behavior config, as before. **Shader v2 (DM 2026-07-17: "more streaks and fade"):**
+  radial streak sampling + full-length exponential cross-fade adapted from GL Transitions'
+  CrossZoom (rectalogic, MIT) — 24 dithered taps marched toward the anchor with parabolic
+  weights, streak strength sin-peaking mid-flight (crisp endpoints). Feel constants to tune on
+  the live TV: SAMPLES 24 / STREAK 0.35 / zoom 11× / expEase dissolve.
 - **T2 — Pace + route.** Pace picker on the tab (flag on the group). DM draws a dashed freeform
   polyline (Drawing document — players see it); live readout DM-only: length → distance (scene
   grid) → hours/days at pace.

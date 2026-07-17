@@ -57,31 +57,64 @@ export function registerSceneTransitions() {
         vec4 colorFromSource(in vec2 uv) { return texture2D(uSampler, uv); }
         vec4 colorFromTarget(in vec2 uv) { return texture2D(targetTexture, mapFuv2Tuv(uv)) * getClip(uv); }
 
-        /* Dive INTO the old map: it magnifies around the anchor while the new
-           scene resolves underneath in the back half of the animation. */
-        vec4 zoomIn() {
-          float e = smoothstep(0.0, 1.0, progress);
-          float z = 1.0 + (e * e) * 11.0;
-          vec2 uv = anchor + (vFilterCoord - anchor) / z;
-          vec4 from = colorFromSource(mapFuv2Suv(uv));
-          vec4 to = colorFromTarget(vFilterCoord);
-          return mix(from, to, smoothstep(0.45, 1.0, e));
+        /* v2 (DM 2026-07-17: "more streaks and fade"): radial streak sampling +
+           full-length exponential cross-fade, technique adapted from GL
+           Transitions' CrossZoom (rectalogic, MIT) — dithered taps marched
+           toward the anchor with parabolic weights, streak strength swelling
+           sin-wise to a mid-flight peak so both endpoints are crisp. */
+        const float PI = 3.141592653589793;
+        const float SAMPLES = 24.0;   /* CrossZoom uses 40; TV canvas is huge — feel constant */
+        const float STREAK = 0.35;    /* max radial smear, in filter-coord units toward anchor */
+
+        float rand(in vec2 co) { return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453); }
+
+        /* CrossZoom's dissolve: exponential ease-in-out — a long fade that
+           builds through the middle instead of snapping near the end. */
+        float expEase(in float t) {
+          if (t <= 0.0) return 0.0;
+          if (t >= 1.0) return 1.0;
+          float u = t * 2.0;
+          if (u < 1.0) return 0.5 * pow(2.0, 10.0 * (u - 1.0));
+          return 0.5 * (2.0 - pow(2.0, -10.0 * (u - 1.0)));
         }
 
-        /* Pull BACK: the old scene shrinks into the anchor point, revealing the
-           big map around it, then dissolves. */
-        vec4 zoomOut() {
-          float e = smoothstep(0.0, 1.0, progress);
-          float z = 1.0 + (e * e) * 11.0;
-          vec2 uv = anchor + (vFilterCoord - anchor) * z;
-          float clip = getClip(uv);
-          vec4 from = colorFromSource(mapFuv2Suv(uv)) * clip;
-          vec4 to = colorFromTarget(vFilterCoord);
-          return mix(to, from, clip * (1.0 - smoothstep(0.75, 1.0, e)));
+        /* One tap of the zoom-in composite at filter-coord fuv: the old map
+           magnifies around the anchor while the new scene fades in beneath. */
+        vec4 tapZoomIn(in vec2 fuv, in float z, in float dissolve) {
+          vec2 suv = anchor + (fuv - anchor) / z;
+          vec4 from = colorFromSource(mapFuv2Suv(suv));
+          vec4 to = colorFromTarget(fuv);
+          return mix(from, to, dissolve);
+        }
+
+        /* One tap of the pull-back composite: the old scene shrinks into the
+           anchor over the big map, fading as it goes. */
+        vec4 tapZoomOut(in vec2 fuv, in float z, in float dissolve) {
+          vec2 suv = anchor + (fuv - anchor) * z;
+          float clip = getClip(suv);
+          vec4 from = colorFromSource(mapFuv2Suv(suv)) * clip;
+          vec4 to = colorFromTarget(fuv);
+          return mix(to, from, clip * (1.0 - dissolve));
         }
 
         void main() {
-          vec4 result = (type == 1) ? zoomOut() : zoomIn();
+          float e = smoothstep(0.0, 1.0, progress);
+          float z = 1.0 + (e * e) * 11.0;
+          float dissolve = expEase(progress);
+          float strength = sin(PI * e) * STREAK; /* streaks peak mid-flight, zero at rest */
+          vec2 toAnchor = anchor - vFilterCoord;
+          float jitter = rand(vFilterCoord);     /* hides the finite tap count */
+          vec4 acc = vec4(0.0);
+          float total = 0.0;
+          for (float t = 0.0; t < SAMPLES; t++) {
+            float percent = (t + jitter) / SAMPLES;
+            float weight = 4.0 * (percent - percent * percent);
+            vec2 fuv = vFilterCoord + toAnchor * (percent * strength);
+            vec4 c = (type == 1) ? tapZoomOut(fuv, z, dissolve) : tapZoomIn(fuv, z, dissolve);
+            acc += c * weight;
+            total += weight;
+          }
+          vec4 result = acc / total;
           result *= tintAlpha;
           if ( opaque > 0.5 ) {
             vec4 bg = backgroundColor;

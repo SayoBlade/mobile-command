@@ -35,7 +35,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
    UI back. Exempt from the hiding above (custom id), high z, fades after ~60s. */
 #mc-clean-hint {
   position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
-  z-index: 100000; padding: 10px 18px; border-radius: calc(999px * var(--mc-round, 1)); cursor: pointer;
+  z-index: 100000; padding: 10px 18px; border-radius: 999px; cursor: pointer;
   background: rgba(18, 19, 24, 0.94); color: var(--mc-ink); border: 1px solid var(--mc-edge);
   font-family: "Signika", sans-serif; font-size: 14px; box-shadow: 0 4px 18px rgba(0,0,0,0.55);
   opacity: 1; transition: opacity 0.8s ease;
@@ -429,7 +429,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 }
 .mc-nt-img { width: 36px; height: 36px; border-radius: calc(7px * var(--mc-round, 1)); object-fit: cover; object-position: top; background: #0c0d11; }
 .mc-nt-name { flex: 1 1 auto; min-width: 0; font-weight: 600; }
-.mc-nt-tag { font-size: 11px; padding: 3px 9px; border-radius: calc(999px * var(--mc-round, 1)); background: #22252e; color: #aeb4bf; }
+.mc-nt-tag { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: #22252e; color: #aeb4bf; }
 
 /* --- portrait generator (image-gen) --- */
 .mc-imgpop-gen {
@@ -504,7 +504,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   display: flex; align-items: baseline; gap: 7px;
   max-width: 62vw;
   padding: 6px 11px;
-  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(999px * var(--mc-round, 1));
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 999px;
 }
 .mc-roll-pill.mc-latest { border-color: #2f4660; box-shadow: inset 0 0 0 1px #243042; }
 .mc-roll-pill-total {
@@ -527,7 +527,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 }
 .mc-event-strip::-webkit-scrollbar { display: none; }
 .mc-event-chip {
-  flex: 0 0 auto; max-width: 72vw; padding: 6px 12px; border-radius: calc(999px * var(--mc-round, 1));
+  flex: 0 0 auto; max-width: 72vw; padding: 6px 12px; border-radius: 999px;
   font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   border: 1px solid var(--mc-edge); background: var(--mc-panel); color: var(--mc-ink);
 }
@@ -2291,7 +2291,7 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-ob-note b, .mc-ob-note i { color: var(--mc-ink); }
 .mc-ob-fs {
   min-height: 48px; border-radius: calc(10px * var(--mc-round, 1)); background: var(--mc-panel-2);
-  border: 1px solid var(--mc-gold); color: var(--mc-ink); font-size: 15px; font-weight: 700;
+  border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 15px; font-weight: 700;
 }
 .mc-ob-fs:active { background: var(--mc-cta-top); color: var(--mc-cta-ink); }
 .mc-ob-gestures { display: flex; flex-direction: column; gap: 8px; }
@@ -2301,7 +2301,7 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-ob-done {
   min-height: 50px; border-radius: calc(12px * var(--mc-round, 1)); margin-top: 4px;
   background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge);
-  color: #1a1712; font-size: 16px; font-weight: 800;
+  color: var(--mc-cta-ink); font-size: 16px; font-weight: 800;
 }
 .mc-ob-done:active { filter: brightness(1.1); }
 .mc-ob-done i { margin-right: 8px; }
@@ -2339,8 +2339,8 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
    past the board/Zzz card — a peek shouldn't be a one-way exit. */
 .mc-night-reopen {
   position: fixed; right: 12px; bottom: 76px; z-index: 9998;
-  display: flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: calc(999px * var(--mc-round, 1));
-  font-size: 13px; font-weight: 700; color: #1a1712;
+  display: flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 999px;
+  font-size: 13px; font-weight: 700; color: var(--mc-cta-ink);
   background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge);
   box-shadow: 0 4px 12px rgba(0, 0, 0, .5);
 }
@@ -2856,7 +2856,7 @@ body.mc-theme-wizard .mc-frame {
   /* center, not baseline: pips have no text baseline, so they sagged low and
      crowded the pill's right edge (DM screenshot 2026-07-07). */
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 12px; border-radius: calc(999px * var(--mc-round, 1));
+  padding: 6px 12px; border-radius: 999px;
   background: var(--mc-panel); border: 1px solid var(--mc-edge);
 }
 .mc-slot-label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--mc-muted); }
@@ -3083,13 +3083,13 @@ body.mc-theme-wizard .mc-frame {
    afterthought ("Request rolls button needs to fill width"). The LOOK is still §4.2's CTA token —
    this rule only settles size and alignment, so the two can be tuned apart.
    ============================================================ */
-.mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run, .mc-dmp-party-deploy, .mc-dt-openbtn {
+.mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run, .mc-dmp-party-deploy, .mc-dt-openbtn, .mc-ob-done {
   min-height: 48px; border-radius: calc(8px * var(--mc-round, 1));
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   font-size: 13px; font-weight: 800; line-height: 1.25; text-align: center; cursor: pointer;
 }
 /* Standalone primaries span the column; ones sharing a row (Form up + Disperse) keep their flex. */
-.mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run { width: 100%; }
+.mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run, .mc-ob-done { width: 100%; }
 .mc-dmp-rt-send { color: var(--mc-cta-ink); background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge); }
 .mc-dmp-empty { color: #a59b86; font-size: 12px; text-align: center; padding: 8px; }
 #mc-dm-panel.mc-show { display: block; }
@@ -3602,7 +3602,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-pc-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--mc-muted); }
 .mc-pc-stat-val { font-size: 22px; font-weight: 800; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
 /* Travel-type: the active speed is a tappable chip; tapping reveals the picker. */
-.mc-move-active { font: inherit; color: var(--mc-gold); background: transparent; border: 1px solid var(--mc-edge); border-radius: calc(999px * var(--mc-round, 1)); padding: 4px 12px; min-height: 32px; cursor: pointer; }
+.mc-move-active { font: inherit; color: var(--mc-gold); background: transparent; border: 1px solid var(--mc-edge); border-radius: 999px; padding: 4px 12px; min-height: 32px; cursor: pointer; }
 .mc-move-picker { display: flex; flex-direction: column; gap: 6px; margin: 10px auto 0; max-width: 280px; }
 .mc-move-opt { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; font-size: 14px; color: var(--mc-ink); background: #0c0d11; border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); cursor: pointer; }
 .mc-move-opt.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); }
@@ -3918,7 +3918,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-head i { color: #c8a44d; }
 .mc-dt-budget {
   margin-left: auto; font-size: 12px; font-weight: 700; color: #c8a44d;
-  background: #1a1712; border: 1px solid #4a4334; border-radius: calc(999px * var(--mc-round, 1)); padding: 2px 9px;
+  background: #1a1712; border: 1px solid #4a4334; border-radius: 999px; padding: 2px 9px;
   font-variant-numeric: tabular-nums;
 }
 .mc-dt-budget.mc-over { color: #ffb4a8; border-color: #7a3a35; background: #2a1614; }
@@ -3953,7 +3953,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-catalog { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
 .mc-dt-add {
   display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 11px;
-  border-radius: calc(999px * var(--mc-round, 1)); background: #1a1712; border: 1px solid #4a4334; color: #d8d2c4;
+  border-radius: 999px; background: #1a1712; border: 1px solid #4a4334; color: #d8d2c4;
   font-size: 12px; font-weight: 600; cursor: pointer;
 }
 .mc-dt-add:active { background: #2a2418; border-color: #c8a44d; }
@@ -3973,7 +3973,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 }
 
 /* §17.7 player board v2 — named Activities */
-.mc-dt-count { min-width: 20px; padding: 0 6px; border-radius: calc(999px * var(--mc-round, 1)); background: #1a1712; border: 1px solid #4a4334;
+.mc-dt-count { min-width: 20px; padding: 0 6px; border-radius: 999px; background: #1a1712; border: 1px solid #4a4334;
   color: #c8a44d; font-size: 11px; font-weight: 700; }
 .mc-dt-prow { margin-top: 6px; padding: 8px 10px; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); }
 .mc-dt-prow.mc-done { opacity: .65; }
@@ -4014,7 +4014,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-close-btn { flex: 0 0 auto; min-width: 34px; height: 30px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; background: #2c2733; border: 1px solid #4a3f66; color: #d0b0b0; }
 .mc-dt-players { display: flex; flex-direction: column; gap: 6px; }
 .mc-dt-player { padding: 7px 9px; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); border-left-width: 3px; }
-.mc-dt-lockbadge { flex: 0 0 auto; padding: 3px 9px; border-radius: calc(999px * var(--mc-round, 1)); cursor: pointer; font-size: 10px; font-weight: 700;
+.mc-dt-lockbadge { flex: 0 0 auto; padding: 3px 9px; border-radius: 999px; cursor: pointer; font-size: 10px; font-weight: 700;
   background: transparent; border: 1px solid var(--mc-edge); white-space: nowrap; }
 .mc-dt-lockbadge.mc-considering { color: var(--mc-muted); font-style: italic; }
 .mc-dt-lockbadge.mc-locked { color: #8fd6a8; border-color: #3a6b4a; background: #16241b; }
@@ -4179,7 +4179,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* Rule-authoring form */
 .mc-rf { margin-top: 8px; padding: 9px; border-radius: calc(8px * var(--mc-round, 1)); background: #14161c; border: 1px solid #4a4334; display: flex; flex-direction: column; gap: 6px; }
 .mc-rf-presets { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 11px; color: var(--mc-muted); }
-.mc-rf-preset { min-height: 26px; padding: 3px 9px; border-radius: calc(999px * var(--mc-round, 1)); cursor: pointer; font-size: 11px;
+.mc-rf-preset { min-height: 26px; padding: 3px 9px; border-radius: 999px; cursor: pointer; font-size: 11px;
   background: #1a1712; border: 1px solid #4a4334; color: #d8d2c4; }
 .mc-rf-preset.mc-on { background: #2a2418; border-color: #c8a44d; color: #ece5d6; }
 .mc-rf-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: #d8d2c4; }

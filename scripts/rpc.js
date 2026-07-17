@@ -92,7 +92,8 @@ export function initSocket() {
   socket.register("wildShapeRevert", handleWildShapeRevert);
   socket.register("partyPack", handlePartyPack);
   socket.register("partySetCell", handlePartySetCell);
-  socket.register("travelBegin", handleTravelBegin);
+  socket.register("travelPrepare", handleTravelPrepare);
+  socket.register("travelDrop", handleTravelDrop);
   socket.register("nightToggle", handleNightToggle);
   socket.register("scribeRequest", handleScribeRequest);
   socket.register("scribeResult", handleScribeResult);
@@ -1900,15 +1901,15 @@ async function handlePartyPack({ groupId, requesterId, force = false }) {
   return { ok: true };
 }
 
-// §18 travel mode T1: one button pulls the party to the overworld. Auto-packs
-// first when needed (handlePartyPack supplies the clear failure reasons, e.g.
-// "party isn't clustered"), then moves the group token to the overworld scene —
-// landing at the scene's travelPos flag (where travel last left them), else a
-// pre-existing group token's spot, else map center — and activates the scene so
-// its configured transition plays for the whole table (TV + phones).
-async function handleTravelBegin({ requesterId }) {
-  // No requireExecutor: its pause guard blocks players, but travel is DM-only and
-  // runs paused BY DESIGN (§18.1 auto-pause — the DM tables sit paused out of combat).
+// §18 travel T1.5 (DM 2026-07-17: "the DM is transferred to the new map first,
+// and selects the location the party appears in"): travel is two steps. PREPARE
+// packs the party (force — never block the DM's pull) and hands back the
+// overworld; the DM panel views the map and arms a one-shot canvas click. DROP
+// lands the group token on the clicked cell and activates the scene so the
+// transition plays for everyone else — the DM is already there by design.
+// No requireExecutor on either: its pause guard blocks players, but travel is
+// DM-only and runs paused BY DESIGN (§18.1 auto-pause).
+async function handleTravelPrepare({ requesterId }) {
   if (!isExecutor()) return { ok: false, stage: "route", reason: "not the DM client" };
   if (!game.users.get(requesterId)?.isGM) return { ok: false, stage: "permission", reason: "only the DM can begin travel" };
   const over = game.scenes.get(game.settings.get(MODULE_ID, "travelOverworldSceneId"));
@@ -1922,37 +1923,44 @@ async function handleTravelBegin({ requesterId }) {
     if (packed?.ok === false) return packed;
     group = cand;
   }
+  return { ok: true, sceneId: over.id, groupId: group.id };
+}
 
-  const cur = game.scenes.active;
-  const gt = cur?.tokens.find(t => t.actorId === group.id);
-  if (!gt) return { ok: false, stage: "resolve", reason: "the party token isn't on the active scene" };
-  if (over.id === cur.id) return { ok: true, already: true };
+async function handleTravelDrop({ x, y, requesterId }) {
+  if (!isExecutor()) return { ok: false, stage: "route", reason: "not the DM client" };
+  if (!game.users.get(requesterId)?.isGM) return { ok: false, stage: "permission", reason: "only the DM can place the party" };
+  const over = game.scenes.get(game.settings.get(MODULE_ID, "travelOverworldSceneId"));
+  if (!over) return { ok: false, stage: "validate", reason: "choose an overworld map in the Travel tab first" };
+  const group = game.actors.find(a => a.type === "group" && a.getFlag(MODULE_ID, "packed"));
+  if (!group) return { ok: false, stage: "resolve", reason: "no packed party to place" };
 
-  const g = over.grid.size;
-  const stale = over.tokens.find(t => t.actorId === group.id);
-  const saved = over.getFlag(MODULE_ID, "travelPos");
-  const d = over.dimensions;
-  const target = saved ?? (stale ? { x: stale.x, y: stale.y } : {
-    x: d.sceneX + Math.floor(d.sceneWidth / 2 / g) * g,
-    y: d.sceneY + Math.floor(d.sceneHeight / 2 / g) * g
-  });
+  let gt = null, from = null;
+  for (const scene of game.scenes) {
+    const t = scene.tokens.find(t => t.actorId === group.id);
+    if (t) { gt = t; from = scene; break; }
+  }
+  if (!gt) return { ok: false, stage: "resolve", reason: "the party token is nowhere on any scene" };
+  const target = over.grid.getTopLeftPoint({ x, y });
 
   // Unset transition (schema initial: null → core's default wipe) gets our
-  // pull-back zoom, so travel looks right out of the box (DM 2026-07-17: "do I
-  // need to set the transitions myself?"). An explicit choice is never overridden.
+  // pull-back zoom, so travel looks right out of the box (DM 2026-07-17). An
+  // explicit choice is never overridden.
   if (over.transition?.type == null && CONFIG.Canvas?.sceneTransitions?.mcZoomOut)
     await over.update({ "transition.type": "mcZoomOut" });
 
-  const data = gt.toObject();
-  delete data._id;
-  data.x = target.x;
-  data.y = target.y;
-  if (stale) await over.deleteEmbeddedDocuments("Token", [stale.id]);
-  await over.createEmbeddedDocuments("Token", [data]);
-  await cur.deleteEmbeddedDocuments("Token", [gt.id]);
+  if (from.id === over.id) {
+    await gt.update({ x: target.x, y: target.y }, { animate: false }); // re-place on the same map
+  } else {
+    const data = gt.toObject();
+    delete data._id;
+    data.x = target.x;
+    data.y = target.y;
+    await over.createEmbeddedDocuments("Token", [data]);
+    await from.deleteEmbeddedDocuments("Token", [gt.id]);
+  }
   await over.setFlag(MODULE_ID, "travelPos", { x: target.x, y: target.y });
   // transitions.js's createToken hook usually activates already (partyTeleportActivates) —
-  // this covers the setting being off, so the Travel button always follows through.
+  // this covers the setting being off, so travel always follows through.
   if (!over.active) await over.activate();
   return { ok: true };
 }
@@ -2514,7 +2522,7 @@ function toExecutor(handler, payload) {
       partyJournalAdd: handlePartyJournalAdd, portraitUpload: handlePortraitUpload,
       wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert,
       partyPack: handlePartyPack, partySetCell: handlePartySetCell,
-      travelBegin: handleTravelBegin,
+      travelPrepare: handleTravelPrepare, travelDrop: handleTravelDrop,
       nightToggle: handleNightToggle, scribeRequest: handleScribeRequest,
       placementStart: handlePlacementStart, placementNudge: handlePlacementNudge,
       placementRotate: handlePlacementRotate, placementConfirm: handlePlacementConfirm,
@@ -2555,7 +2563,8 @@ export const api = {
   wildShapeRevert: (payload = {}) => toExecutor("wildShapeRevert", payload),
   partyPack: (payload = {}) => toExecutor("partyPack", payload),
   partySetCell: (payload = {}) => toExecutor("partySetCell", payload),
-  travelBegin: (payload = {}) => toExecutor("travelBegin", payload),
+  travelPrepare: (payload = {}) => toExecutor("travelPrepare", payload),
+  travelDrop: (payload = {}) => toExecutor("travelDrop", payload),
   nightToggle: (payload = {}) => toExecutor("nightToggle", payload),
   scribeRequest: (payload = {}) => toExecutor("scribeRequest", payload),
   placementStart: (payload = {}) => toExecutor("placementStart", payload),
