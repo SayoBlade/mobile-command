@@ -625,12 +625,22 @@ function rollsToolHTML() {
     const distCls = inRange === true ? " mc-in" : inRange === false ? " mc-out" : "";
     const dist = c.dist == null ? "" : `<span class="mc-rt-dist${distCls}">${Math.round(c.dist)} ${esc(units)}</span>`;
     // A <button> row: colour-coded user icon, name, distance (green in range / red out), tick.
-    return `<button class="mc-dmp-rt-row${on ? " mc-on" : ""}${targeted ? " mc-targeted" : ""}" data-rt-target="${c.actor.id}" title="Tap: target ${esc(c.actor.name)} + toggle for the roll${reach != null && c.dist != null ? ` (${inRange ? "in" : "out of"} range)` : ""}">
-      <i class="fas fa-circle-user mc-rt-usericon" style="color:${ownerColor(c.actor) ?? '#c8a44d'}"></i>
-      <span class="mc-rt-name">${esc(c.actor.name)}</span>
-      ${dist}
-      <i class="fas fa-crosshairs mc-rt-tick"></i>
-    </button>`;
+    const assigned = rollAssign[c.actor.id] ?? [];
+    const tgtBox = assigned.length ? `<div class="mc-dmp-rt-tgts">
+        <span class="mc-dmp-rt-tgts-lbl">Target for this player</span>
+        <div class="mc-dmp-rt-tgts-names">${assigned.map(t => `<span class="mc-dmp-rt-tgt">${esc(t.name)}</span>`).join("")}</div>
+      </div>` : "";
+    return `<div class="mc-dmp-rt-item">
+      <div class="mc-dmp-rt-row${on ? " mc-on" : ""}${targeted ? " mc-targeted" : ""}">
+        <button class="mc-dmp-rt-main" data-rt-target="${c.actor.id}" title="Tap: target ${esc(c.actor.name)} + toggle for the roll${reach != null && c.dist != null ? ` (${inRange ? "in" : "out of"} range)` : ""}">
+          <i class="fas fa-circle-user mc-rt-usericon" style="color:${ownerColor(c.actor) ?? '#c8a44d'}"></i>
+          <span class="mc-rt-name">${esc(c.actor.name)}</span>
+          ${dist}
+        </button>
+        <button class="mc-dmp-rt-assign${assigned.length ? " mc-on" : ""}" data-rt-assign="${c.actor.id}" title="${assigned.length ? "Clear this player's targets" : "Assign my current targets to " + esc(c.actor.name)}"><i class="fas fa-crosshairs"></i></button>
+      </div>
+      ${tgtBox}
+    </div>`;
   }).join("");
   return `
     <div class="mc-dmp-rt-top">
@@ -740,11 +750,7 @@ function travelHTML() {
 
 function flyoutHTML() {
   let title = "", body = "";
-  if (dockTab === "rolls") {
-    title = "Request rolls";
-    const targets = Array.from(game.user.targets ?? []);
-    body = rollsToolHTML() + (targets.length ? `<div class="mc-dmp-assign">${assignHTML(targets)}</div>` : "");
-  }
+  if (dockTab === "rolls") { title = "Request rolls"; body = rollsToolHTML(); }
   else if (dockTab === "travel") { title = "Travel"; body = travelHTML(); }
   else if (dockTab === "tokens") { title = "Players"; body = ownedTokensHTML(); }
   else if (dockTab === "downtime") { title = "Downtime"; body = downtimeHTML(); }
@@ -1015,11 +1021,14 @@ function fmtAway(secs) {
  *  The NAME is always ink, never tinted: many player colours are unreadable on our dark panels
  *  (a real one in the test world is #0001bf). The icon says whose it is; the text stays readable.
  *  One helper so the roster, request-rolls, downtime and the selected-token title can't drift. */
-function ownerColor(actor) {
-  const u = game.users.find(u => !u.isGM && u.character?.id === actor?.id)
-         ?? game.users.find(u => !u.isGM && actor?.testUserPermission?.(u, "OWNER"));
-  return u?.color?.css ?? null;
+function ownerUser(actor) {
+  return game.users.find(u => !u.isGM && u.character?.id === actor?.id)
+      ?? game.users.find(u => !u.isGM && actor?.testUserPermission?.(u, "OWNER")) ?? null;
 }
+function ownerColor(actor) { return ownerUser(actor)?.color?.css ?? null; }
+// Per-PC target assignment shown inline in the rolls tab (DM 2026-07-17): actorId -> [{uuid, name}].
+// DM-local; the actual send goes to the player's phone via api.assignTargets.
+let rollAssign = {};
 function nameTag(actor, name) {
   const esc = foundry.utils.escapeHTML;
   const col = ownerColor(actor);
@@ -2171,6 +2180,28 @@ async function onClick(ev) {
   }
   if (ev.target.closest('[data-action="clear"]')) {
     return canvas.tokens?.setTargets([], { mode: "replace" });
+  }
+  const asn = ev.target.closest("[data-rt-assign]");
+  if (asn) {
+    const actorId = asn.dataset.rtAssign;
+    const actor = game.actors.get(actorId);
+    const u = ownerUser(actor);
+    if (!u) { ui.notifications.warn("No player owns that character."); return; }
+    if (rollAssign[actorId]?.length) {
+      // active → clear: unassign on the phone, drop the box. Acts like the old assign "close" —
+      // it also clears the DM's own canvas targets (DM 2026-07-17).
+      await api.assignTargets(u.id, []);
+      delete rollAssign[actorId];
+      canvas.tokens?.setTargets([], { mode: "replace" });
+      return render();
+    }
+    // inactive → assign the DM's CURRENT targets to this player.
+    const tgts = Array.from(game.user.targets ?? []);
+    if (!tgts.length) { ui.notifications.info("Target something on the map first, then tap this to assign it."); return; }
+    const uuids = tgts.map(t => t.document?.uuid).filter(Boolean);
+    await api.assignTargets(u.id, uuids);
+    rollAssign[actorId] = tgts.map(t => ({ uuid: t.document?.uuid, name: t.document?.name ?? "?" }));
+    return render();
   }
   const btn = ev.target.closest("[data-user]");
   if (!btn) return;
