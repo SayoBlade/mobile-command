@@ -3887,7 +3887,10 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
    #mobile-command-shell, which doesn't exist on the DM client — var() there is
    invalid and the gold button rendered as dark-on-dark (DM 2026-07-02). Palette
    matches the panel's own literals (#c8a44d gold / #ece5d6 ink / #4a4334 edge). */
-.mc-dmp-party { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 100%; max-width: 240px; margin: 4px auto; }
+.mc-dmp-party { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 100%; max-width: 240px; margin: 0 auto; }
+/* The marching-order grid is the tallest tab; trim its flyout so it fits the DEFAULT height
+   without a scrollbar (DM 2026-07-17: "lose some padding so it fits in the default height"). */
+.mc-fly-party .mc-dmp-fly-body { padding: 8px; gap: 6px; }
 .mc-dmp-party-row { display: contents; }
 .mc-dmp-party-cell {
   position: relative; width: 100%; height: auto; aspect-ratio: 1 / 1;
