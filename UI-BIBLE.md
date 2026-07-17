@@ -447,6 +447,8 @@ ornament opacity · title face · title casing.
 | **Bar angle** | `--mc-bar-angle` | 120°–180°; raking light beats a flat wash |
 | **Ornament opacity** | `--mc-frame-a` | tide `0.38` — one theme must *whisper* |
 | Title face + casing | `--mc-font-title`, `--mc-title-case` | gothic: blackletter, sentence case |
+| **Ornament colour** | `--mc-gilt` | bone (barbarian) · cold silver (gothic) · lacquer red (monk) |
+| **Diagonal key corner** | `--mc-dpad-diag` | warlock: 30px on the OUTWARD corner only |
 
 **A theme may mix two hues.** The *material* hue (surfaces, edges, background, title bars) and the
 *button* hue (`--mc-primary*`, `--mc-cta-*`) are separate — the DM's brief: *"druid can have green
@@ -497,8 +499,15 @@ phone. Check `CONFIG.fontDefinitions`, or bundle it.
 
 ### 11.2 Bar patterns
 
-Section title bars may carry a repeating motif via `--mc-bar-pat` (flame licks, snowflakes, gears,
-leaves). Three rules, each learned the hard way:
+Section title bars may carry a repeating motif via `--mc-bar-pat`. Four rules, each learned the
+hard way:
+
+0. **Several DIFFERENT elements per tile, not one motif repeated.** One shape tiled is wallpaper;
+   three or four different shapes tiled reads as *writing*, or a hedge, or a machine. That's why
+   the warlock's bar works — three unlike glyphs (DM 2026-07-17: "the warlock titles came out
+   amazing, use more titles with multiple items for the texture"). So: four different runes for the
+   barbarian, leaves at three angles for the druid, four sigils for the wizard, bolts pinned to the
+   bar's *edges* for the artificer.
 
 1. **Faint.** It sits under white title text. ~0.2 alpha.
 2. **Scale to the bar, repeat across it** (`background-size: auto 100%`, `repeat-x`). Free tiling

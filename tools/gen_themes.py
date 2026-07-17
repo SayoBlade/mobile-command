@@ -16,7 +16,7 @@ def rgb_of(hexstr):
     h = hexstr.lstrip("#")
     return "%d, %d, %d" % (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
 
-def ramp(h, s, dot, hb=None, sb=None, round=1.0, angle=180, he=None, frame_a=1.0, case='uppercase', track='.06em', gilt=None):
+def ramp(h, s, dot, hb=None, sb=None, round=1.0, angle=180, he=None, frame_a=1.0, case='uppercase', track='.06em', gilt=None, diag=None):
     """A palette from a hue.
 
     h/s  = the MATERIAL hue: surfaces, edges, background, and the title bars.
@@ -35,7 +35,7 @@ def ramp(h, s, dot, hb=None, sb=None, round=1.0, angle=180, he=None, frame_a=1.0
     hb = h if hb is None else hb
     sb = s if sb is None else sb
     he = h if he is None else he
-    return dict(gold=dot, round=round, angle=angle, frame_a=frame_a, case=case, track=track, gilt=gilt,
+    return dict(gold=dot, round=round, angle=angle, frame_a=frame_a, case=case, track=track, gilt=gilt, diag=diag,
         panel=hx(h, s*0.35, 12), panel2=hx(h, s*0.35, 17), edge=hx(he, s*0.30, 27), sunken=hx(h, s*0.35, 8),
         primary=hx(hb, sb*0.45, 22), primary_edge=hx(hb, sb*0.45, 33), primary_active=hx(hb, sb*0.45, 27),
         cta_top=hx(hb, sb*0.60, 34), cta_bot=hx(hb, sb*0.60, 21), cta_edge=hx(hb, sb*0.60, 45), cta_ink=hx(hb, sb*0.50, 95),
@@ -49,6 +49,7 @@ def hand(**kw):
     kw.setdefault('case', 'uppercase')
     kw.setdefault('track', '.06em')
     kw.setdefault('gilt', None)
+    kw.setdefault('diag', None)
     return kw
 
 Q = chr(39)   # single quote, kept out of the literals below for sanity
@@ -86,18 +87,18 @@ def pat(w, h, vb, body):
             "height=%s%s%s viewBox=%s%s%s>%s</svg>\")" % (Q, Q, Q, w, Q, Q, h, Q, Q, vb, Q, body))
 
 P = {}
-P['frost'] = pat(40, 22, "-9 0 40 22", "<g fill='none' stroke='rgba(200,240,255,0.13)' stroke-width='1.1' stroke-linecap='round'><path d='M11 3v16M3.5 7l15 8M18.5 7l-15 8'/><path d='M11 6.5l-2-2M11 6.5l2-2M11 15.5l-2 2M11 15.5l2 2'/></g>")
-P['flame'] = pat(38, 19, "-5.2 3 34 19", "<path d='M4 17c0-6 4-10 10-13-2.6 3.4-3.6 6-3.6 8.2 0 1.8 1 3 2.6 3 1.3 0 2.2-.9 2.2-2.2 0-1.2-.8-1.8-.8-2.8 1.8 1.2 3 3 3 5.4 0 3.4-2.8 6-6.2 6C7.6 21.6 4 19.8 4 17z' fill='rgba(255,224,160,0.07)'/>")
+P['frost'] = pat(72, 22, "-6 0 72 22", "<g fill='none' stroke='rgba(200,240,255,0.13)' stroke-width='1.1' stroke-linecap='round'><g transform='translate(8 11)'><path d='M0 -8V8M-6.9 -4L6.9 4M-6.9 4L6.9 -4'/><path d='M0 -4.4l-2.4-2.4M0 -4.4l2.4-2.4M0 4.4l-2.4 2.4M0 4.4l2.4 2.4'/></g><g transform='translate(30 11) rotate(20)'><path d='M0 -5.6V5.6M-4.8 -2.8L4.8 2.8M-4.8 2.8L4.8 -2.8'/></g><g transform='translate(52 11) rotate(-15)'><path d='M0 -6.8V6.8M-5.9 -3.4L5.9 3.4M-5.9 3.4L5.9 -3.4'/><path d='M0 -6.8l-2.2 2.2M0 -6.8l2.2 2.2'/></g></g>")
+P['flame'] = pat(66, 20, "-6 0 66 20", "<g fill='rgba(255,224,160,0.08)'><path d='M8 2c1.2 3.2 3.6 4.4 3.6 7.4 0 2.2-1.7 3.9-3.8 3.9-1.8 0-3-1.2-3-2.9 0-1.5 1.1-2.4 1.1-3.9C3.5 8.1 2 10.4 2 13c0 3.4 2.7 5 6 5s6-2 6-5.4C14 8.1 10.4 5.5 8 2z'/><path d='M32 6c.8 2.1 2.4 2.9 2.4 4.9 0 1.5-1.1 2.6-2.5 2.6-1.2 0-2-.8-2-1.9 0-1 .7-1.6.7-2.6-1.6.7-2.6 2.2-2.6 3.9 0 2.3 1.8 3.3 4 3.3s4-1.3 4-3.6C36 10.1 33.6 8.4 32 6z'/></g><g fill='none' stroke='rgba(255,224,160,0.10)' stroke-width='1' stroke-linecap='round'><path d='M50 5h.1M56 10h.1M52 15h.1M60 6h.1'/></g>")
 P['tide'] = pat(44, 20, "-11 0 44 20", "<path d='M-12 13c3.5 0 3.5-4 7-4s3.5 4 7 4 3.5-4 7-4 3.5 4 7 4 3.5-4 7-4 3.5 4 7 4' fill='none' stroke='rgba(190,255,248,0.12)' stroke-width='1.6' stroke-linecap='round'/>")
-P['artificer'] = pat(46, 26, "-11 0 46 26", "<g fill='none' stroke='rgba(255,228,180,0.15)'><circle cx='12' cy='13' r='4.6' stroke-width='1.6'/><circle cx='12' cy='13' r='8.4' stroke-width='1.4'/><circle cx='12' cy='13' r='6.5' stroke-width='3.8' stroke-dasharray='2.6 3.4'/></g>")
-P['druid'] = pat(36, 18, "-6.9 1.4 32 16.2", "<path d='M2 2c0 9 5 15 14 15C16 8 11 2 2 2z' fill='rgba(205,255,210,0.09)'/>")
+P['artificer'] = pat(58, 26, "-8 0 58 26", "<g fill='none' stroke='rgba(255,228,180,0.16)'><circle cx='14' cy='13' r='4.4' stroke-width='1.5'/><circle cx='14' cy='13' r='8' stroke-width='1.3'/><circle cx='14' cy='13' r='6.2' stroke-width='3.6' stroke-dasharray='2.5 3.3'/><g stroke-width='1.2'><circle cx='38' cy='3.6' r='1.9'/><path d='M36.7 2.3l2.6 2.6'/><circle cx='38' cy='22.4' r='1.9'/><path d='M36.7 21.1l2.6 2.6'/><circle cx='50' cy='3.6' r='1.9'/><path d='M48.7 4.9l2.6-2.6'/><circle cx='50' cy='22.4' r='1.9'/><path d='M48.7 23.7l2.6-2.6'/></g></g>")
+P['druid'] = pat(78, 22, "-7 0 78 22", "<g fill='rgba(205,255,210,0.11)'><path transform='rotate(-18 9 11)' d='M2 18C2 9.7 8.7 3 17 3c0 8.3-6.7 15-15 15z'/><path transform='rotate(40 32 11)' d='M25 17c0-7.2 5.8-13 13-13 0 7.2-5.8 13-13 13z'/><path transform='rotate(-52 56 11)' d='M49 18C49 9.7 55.7 3 64 3c0 8.3-6.7 15-15 15z'/></g>")
 
 # More textures (DM 2026-07-17: "try more textures"). Faint, wide-tiled, scaled to the bar.
 P['gothic'] = pat(30, 24, "-6 0 30 24", "<g fill='none' stroke='rgba(210,215,225,0.10)' stroke-width='1.2'><path d='M9 22V9L14 3l5 6v13'/><circle cx='14' cy='11' r='2.6'/></g>")
-P['barbarian'] = pat(34, 22, "-9 0 34 22", "<g fill='none' stroke='rgba(255,205,195,0.11)' stroke-width='2' stroke-linecap='butt'><path d='M8 3v16M8.2 10L3.4 5M7.8 9.8L12.8 4.6'/></g>")
+P['barbarian'] = pat(84, 22, "-6 0 84 22", "<g fill='none' stroke='rgba(255,226,196,0.14)' stroke-width='1.9' stroke-linecap='butt'><path d='M6 3v16M6.2 10.4L1.6 5.6M5.8 10.2L10.8 5'/><path d='M24 3v16M24 6.4l5.2 3.2-5.2 3.4z'/><path d='M42 3l5.2 4.6-5.2 4.6M42 12.2V19'/><path d='M60 3v16M56 3.4h8M56 18.6h8'/><path d='M76 4l4.6 7.4-4.6 7.4'/></g>")
 P['fighter'] = pat(30, 20, "-7 0 30 20", "<path d='M2 14l6-7 6 7' fill='none' stroke='rgba(215,230,245,0.10)' stroke-width='1.6' stroke-linejoin='round'/>")
 P['paladin'] = pat(40, 22, "-10 0 40 22", "<g fill='none' stroke='rgba(225,235,255,0.11)' stroke-width='1.2'><circle cx='10' cy='11' r='3.4'/><path d='M10 2.6v3M10 16.4v3M1.6 11h3M15.4 11h3M4.2 5.2l2 2M13.8 14.8l2 2M15.8 5.2l-2 2M6.2 14.8l-2 2'/></g>")
-P['wizard'] = pat(38, 22, "-9 0 38 22", "<g fill='none' stroke='rgba(215,220,255,0.12)' stroke-width='1.1' stroke-linejoin='round'><path d='M10 4l1.7 4 4 1.2-4 1.2L10 14.4 8.3 10.4l-4-1.2 4-1.2z'/></g>")
+P['wizard'] = pat(88, 24, "-8 0 88 24", "<g fill='none' stroke='rgba(255,226,150,0.09)' stroke-width='1.1' stroke-linejoin='round'><path d='M8 4l1.9 4.5 4.5 1.4-4.5 1.4L8 15.8l-1.9-4.5L1.6 9.9l4.5-1.4z'/><g transform='translate(28 12)'><circle r='5.2'/><circle r='1.4'/><path d='M0 -8v2.4M0 5.6V8M-8 0h2.4M5.6 0H8'/></g><path d='M52 5a7 7 0 1 0 0 14 8.4 8.4 0 0 1 0-14z'/><g transform='translate(74 12)'><path d='M0 -6.5L5.6 4H-5.6z'/><path d='M-7 8h14'/></g></g>")
 P['monk'] = pat(44, 22, "-11 0 44 22", "<g fill='none' stroke='rgba(200,255,240,0.10)' stroke-width='1.3'><path d='M-4 22A15 15 0 0 1 11 7 15 15 0 0 1 26 22'/><path d='M4 22A7 7 0 0 1 11 15 7 7 0 0 1 18 22'/></g>")
 P['rogue'] = pat(32, 22, "-8 0 32 22", "<g fill='none' stroke='rgba(225,215,240,0.10)' stroke-width='1.3' stroke-linecap='round'><path d='M3 17L11 9M11 9l3-4.6-4.6 3'/></g>")
 P['bard'] = pat(36, 22, "-8 0 36 22", "<g fill='none' stroke='rgba(255,215,235,0.11)' stroke-width='1.2'><circle cx='7' cy='16' r='3'/><path d='M10 16V5l7-2v11' stroke-linecap='round'/><circle cx='17' cy='14' r='3'/></g>")
@@ -116,7 +117,9 @@ THEMES = [
     ('tide', 'Tide', '#45c4b0', '"Average"', hand(round=1.5, frame_a=0.38, angle=170, gold='#45c4b0', panel='#13232a', panel2='#1b3038', edge='#2b4a54', sunken='#0d1a1f', primary='#4a3820', primary_edge='#6e532f', primary_active='#5b4527', cta_top='#96702c', cta_bot='#5d451b', cta_edge='#c2953e', cta_ink='#fdf5e6', bar_top='#1d6b6a', bar_bot='#0f4746', bar_edge='#0a3130', frame='#2a606c', bg1='#15282f', bg2='#0b1418', gilt='#6fd0c0'), None),
     # --- the thirteen dnd5e classes ---
     ('artificer', 'Artificer', '#c98b3c', "Orbitron", ramp(32, 55, '#c98b3c', 210, 22, 0.45, angle=150, he=205), None),
-    ('barbarian', 'Barbarian', '#c0483a', "Metamorphous", ramp(6, 55, '#c0483a', 28, 45, 0.25, angle=170, he=32, gilt='#d8cdb4'), None),
+    # BEAR FUR BROWN is the material (DM 2026-07-17); the blood moves to the buttons and the
+    # outline, so it reads as a brown bear with red where it bleeds — not a red room.
+    ('barbarian', 'Barbarian', '#c8873f', '"Metamorphous"', ramp(28, 42, '#c8873f', 6, 50, 0.25, angle=170, he=6, gilt='#d8cdb4'), None),
     ('bard', 'Bard', '#d76ba8', "Gilda", ramp(330, 48, '#d76ba8', 265, 40, 1.7, angle=135, he=265, gilt='#e0a0b8'), None),
     ('cleric', 'Cleric', '#e0d3a0', "Cinzel", ramp(45, 38, '#e0d3a0', 220, 35, 1.2, angle=180), None),
     ('druid', 'Druid', '#6fbf73', "Average", ramp(110, 38, '#6fbf73', 28, 42, 1.6, angle=160, he=30, gilt='#8fcfa8'), None),
@@ -126,11 +129,12 @@ THEMES = [
     ('ranger', 'Ranger', '#9fbf5f', "Metamorphous", ramp(85, 35, '#9fbf5f', 25, 40, 1.3, angle=165, gilt='#b08d5a'), None),
     ('rogue', 'Rogue', '#9b8fb5', "Allrounder Monument", ramp(270, 20, '#9b8fb5', 150, 30, 0.7, angle=140, he=150, gilt='#9aa0ae'), None),
     ('sorcerer', 'Sorcerer', '#e2703a', "Amiri", ramp(18, 62, '#e2703a', 320, 45, 1.4, angle=130, he=320, gilt='#e08a4a'), 'glow'),
-    ('warlock', 'Warlock', '#9a5fd0', '"GrenzeGotisch"', hand(round=0.3, angle=140, case='none', track='.01em', gilt='#9a6ad0', gold='#9a5fd0', panel='#191a1d', panel2='#222328', edge='#3f3548', sunken='#0e0f11', primary='#26262c', primary_edge='#3d3d47', primary_active='#2f2f37', cta_top='#5a2c86', cta_bot='#341a4e', cta_edge='#8a4fc4', cta_ink='#f0e6fa', bar_top='#3a1c56', bar_bot='#1f0f2e', bar_edge='#6a3a9a', bg1='#16141a', bg2='#09080b'), 'twinkle'),
+    ('warlock', 'Warlock', '#9a5fd0', '"GrenzeGotisch"', hand(round=0.3, angle=140, diag='30px', case='none', track='.01em', gilt='#9a6ad0', gold='#9a5fd0', panel='#191a1d', panel2='#222328', edge='#3f3548', sunken='#0e0f11', primary='#26262c', primary_edge='#3d3d47', primary_active='#2f2f37', cta_top='#5a2c86', cta_bot='#341a4e', cta_edge='#8a4fc4', cta_ink='#f0e6fa', bar_top='#3a1c56', bar_bot='#1f0f2e', bar_edge='#6a3a9a', bg1='#16141a', bg2='#09080b'), 'twinkle'),
     ('wizard', 'Wizard', '#7f8fe0', "Bruno Ace", ramp(245, 45, '#7f8fe0', 45, 45, 1.0, angle=150, he=45, gilt='#a9b6e8'), None),
 ]
 
 def tokens_block(k, font, p):
+    diag = ("\n  --mc-dpad-diag: %s;" % p['diag']) if p.get('diag') else ""
     gilt = ("\n  --mc-gilt: %s;" % p['gilt']) if p.get('gilt') else ""
     barpat = ("\n  --mc-bar-pat: %s;" % P[k]) if k in P else ""
     return ("body.mc-theme-%s {\n"
@@ -141,12 +145,12 @@ def tokens_block(k, font, p):
             "  --mc-cta-top-rgb: %s; --mc-cta-bot-rgb: %s;\n"
             "  --mc-bar-top: %s; --mc-bar-bot: %s; --mc-bar-edge: %s;\n"
             "  --mc-round: %s; --mc-bar-angle: %sdeg; --mc-frame-a: %s;\n"
-            "  --mc-title-case: %s; --mc-title-track: %s;%s%s\n"
+            "  --mc-title-case: %s; --mc-title-track: %s;%s%s%s\n"
             "}\n" % (k, font, p['gold'], p['panel'], p['panel2'], p['edge'], p['sunken'],
                      p['primary'], p['primary_edge'], p['primary_active'],
                      p['cta_top'], p['cta_bot'], p['cta_edge'], p['cta_ink'],
                      rgb_of(p['cta_top']), rgb_of(p['cta_bot']),
-                     p['bar_top'], p['bar_bot'], p['bar_edge'], p['round'], p['angle'], p['frame_a'], p['case'], p['track'], gilt, barpat))
+                     p['bar_top'], p['bar_bot'], p['bar_edge'], p['round'], p['angle'], p['frame_a'], p['case'], p['track'], gilt, diag, barpat))
 
 def frame_block(k, p):
     """Motif only — the ornament is GILDING now.

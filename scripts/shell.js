@@ -3452,7 +3452,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ["flame", "Flame", "#f0a52e"],
       ["tide", "Tide", "#45c4b0"],
       ["artificer", "Artificer", "#c98b3c"],
-      ["barbarian", "Barbarian", "#c0483a"],
+      ["barbarian", "Barbarian", "#c8873f"],
       ["bard", "Bard", "#d76ba8"],
       ["cleric", "Cleric", "#e0d3a0"],
       ["druid", "Druid", "#6fbf73"],
@@ -3462,7 +3462,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ["ranger", "Ranger", "#9fbf5f"],
       ["rogue", "Rogue", "#9b8fb5"],
       ["sorcerer", "Sorcerer", "#e2703a"],
-      ["warlock", "Warlock", "#b06fe0"],
+      ["warlock", "Warlock", "#9a5fd0"],
       ["wizard", "Wizard", "#7f8fe0"]
     ];
     return themes.map(([id, label, sw]) =>
