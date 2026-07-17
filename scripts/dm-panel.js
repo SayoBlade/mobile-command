@@ -1026,10 +1026,25 @@ function quickHpHTML() {
   // ALWAYS render the block, even with nothing selected (DM 2026-07-17): the panel's height is
   // then the same whether or not a token is picked, so it never jumps under the DM's hand — and
   // Form up / Start the night stay exactly where the muscle memory left them.
+  // The empty state reserves the REAL row — the same three controls, rendered invisible — with the
+  // note laid over them. So the two states are identical in height by CONSTRUCTION, whatever those
+  // buttons measure on a given client.
+  //
+  // v0.1.194 matched them with a hardcoded --mc-hp-row-h: 34px, which is what MY buttons happen to
+  // measure. The DM still saw the panel jump (2026-07-17, "a big bug in my eyes") and he was right:
+  // at a different UI scale or font the row is not 34 and the floor misses. Never pin two things
+  // to a number when you can pin them to each other.
   if (!toks.length) {
     return `<div class="mc-dmp-hp mc-dmp-hp-empty">
       <div class="mc-dmp-hp-head"><i class="fas fa-hand-pointer"></i> No token selected</div>
-      <div class="mc-dmp-note">Select a token for more</div>
+      <div class="mc-dmp-hp-slot">
+        <div class="mc-dmp-hp-row" aria-hidden="true">
+          <button class="mc-dmp-hp-btn mc-dmp-dmg" disabled tabindex="-1">− Damage</button>
+          <input class="mc-dmp-hp-input" type="number" disabled tabindex="-1">
+          <button class="mc-dmp-hp-btn mc-dmp-heal" disabled tabindex="-1">Heal +</button>
+        </div>
+        <div class="mc-dmp-note">Select a token for more</div>
+      </div>
     </div>`;
   }
   const esc = foundry.utils.escapeHTML;

@@ -3143,15 +3143,17 @@ body.mc-theme-wizard .mc-frame {
 .mc-nt-ico { flex: 0 0 auto; font-size: 13px; }
 .mc-nt-name { color: var(--mc-ink); font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The HP block renders even with nothing selected, so the panel's height never jumps (DM
-   2026-07-17: "I want the minimal height to be this state (token selected), even when a token
-   isn't selected"). The two states are the same height BY CONSTRUCTION — the note occupies exactly
-   the slot the button row would — rather than by a magic total that drifts the moment the row
-   changes. */
-.mc-dmp-hp { --mc-hp-row-h: 34px; }
-.mc-dmp-hp-row { min-height: var(--mc-hp-row-h); }
+   2026-07-17). The empty state RESERVES THE REAL ROW — the same three controls, invisible — and
+   lays the note over them, so both states are identical in height by construction on ANY client.
+   The previous cut pinned them to a hardcoded 34px, which was only true of my own rendering; at a
+   different UI scale the row missed the floor and the panel jumped again. Pin things to each
+   other, not to a number. */
 .mc-dmp-hp-empty { opacity: .75; }
 .mc-dmp-hp-empty .mc-dmp-hp-head { color: var(--mc-muted); }
-.mc-dmp-hp-empty .mc-dmp-note { min-height: var(--mc-hp-row-h); display: flex; align-items: center; }
+.mc-dmp-hp-slot { position: relative; }
+/* the ghost row is spacing only — invisible, unreachable, untabbable */
+.mc-dmp-hp-empty .mc-dmp-hp-row { visibility: hidden; pointer-events: none; }
+.mc-dmp-hp-empty .mc-dmp-note { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .mc-dmp-note { font-size: 11px; color: var(--mc-muted); padding: 2px; }
 .mc-dmp-pres-row { display: flex; flex-wrap: wrap; gap: 3px 8px; min-width: 0; }
 .mc-dmp-pres { font-size: 11px; color: #d6cfbf; display: inline-flex; align-items: center; gap: 4px; }
