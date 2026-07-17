@@ -270,7 +270,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   padding: 10px 14px 0; /* match the list bodies' 14px gutter (scroll wrapper has none) */
 }
 .mc-back { background: none; border: none; color: #5db4e6; font-size: 14px; padding: 4px 0; }
-.mc-picker-title { flex: 1 1 auto; font-size: 16px; font-weight: 600; }
+.mc-picker-title { flex: 1 1 auto; } /* size/weight: the one window-title rule (UI-BIBLE §6.4) */
 .mc-picker-range { margin-left: 8px; font-size: 11px; font-weight: 600; color: #9a9da8;
   padding: 2px 7px; border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); white-space: nowrap; }
 .mc-target-count { font-size: 13px; color: #9a9da8; font-variant-numeric: tabular-nums; }
@@ -414,7 +414,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   color: var(--mc-user, #c8a44d); background: #14161c;
   box-shadow: 0 0 0 2px var(--mc-user, #2c2f3a); margin-bottom: 4px;
 }
-.mc-nt-title { font-size: 17px; font-weight: 700; color: #e8e6df; }
+.mc-nt-title { color: var(--mc-ink); }
 .mc-nt-sub { font-size: 13px; color: #9aa0ab; line-height: 1.5; max-width: 320px; }
 .mc-nt-sub b { color: #c8ccd4; }
 .mc-nt-listhead {
@@ -988,6 +988,13 @@ body {
   font-family: var(--mc-font-title), "Modesto Condensed", "Signika", sans-serif;
   letter-spacing: .02em;
 }
+/* WINDOW TITLES — ONE SIZE (UI-BIBLE §6.4). Every secondary window / popup title on the phone is
+   17px weight 700 — pickers, prompts, overlays, image popups and lifted dialogs each carried
+   their own size (15–20px) and weight (600–800), so every popup felt like a different app
+   (DM 2026-07-18). A new popup's title JOINS this list; it never brings its own numbers.
+   Colour still follows meaning and stays on the per-component rules. */
+.mc-picker-title, .mc-nt-title, .mc-saveprompt-title, .mc-ob-title, .mc-paused-title,
+.mc-colorpick-title, .mc-place-title, .mc-imgpop-title { font-size: 17px; font-weight: 700; }
 /* NUMBERS + tab labels — never themed. A stat you misread is a bug, not a style. */
 #mobile-command-shell .mc-stat-val,
 #mobile-command-shell .mc-ability-mod,
@@ -1269,7 +1276,7 @@ body {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 14px; border-bottom: 1px solid var(--mc-edge); flex: 0 0 auto;
 }
-.mc-saveprompt-title { font-size: 16px; font-weight: 700; color: var(--mc-gold); }
+.mc-saveprompt-title { color: var(--mc-gold); }
 /* Opportunity-attack variant — reaction violet (matches the RE economy color). */
 .mc-saveprompt.mc-aoo { border-top-color: #8a6fd8; }
 .mc-saveprompt.mc-aoo .mc-saveprompt-title { color: #b39df1; }
@@ -1635,7 +1642,7 @@ body.mc-phone .mc-phone-dialog.advancement.manager .window-content .step {
   max-height: none !important; height: auto !important;
 }
 body.mc-phone .mc-phone-dialog .window-header { flex: 0 0 auto; }
-body.mc-phone .mc-phone-dialog .window-title { font-size: 16px; }
+body.mc-phone .mc-phone-dialog .window-title { font-size: 17px; } /* matches the shell's one window-title size (UI-BIBLE §6.4) */
 body.mc-phone .mc-phone-dialog .window-header button,
 body.mc-phone .mc-phone-dialog .header-control { min-width: 40px; min-height: 40px; font-size: 17px; }
 body.mc-phone .mc-phone-dialog button { min-height: 44px; }
@@ -2280,7 +2287,7 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
   background: var(--mc-panel, #1c1922); border: 1px solid var(--mc-gold); border-radius: calc(16px * var(--mc-round, 1));
   padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,.6); display: flex; flex-direction: column; gap: 14px;
 }
-.mc-ob-title { font-size: 20px; font-weight: 800; color: var(--mc-gold); text-align: center; }
+.mc-ob-title { color: var(--mc-gold); text-align: center; }
 .mc-ob-step { display: flex; flex-direction: column; gap: 8px; }
 .mc-ob-head { font-size: 15px; font-weight: 700; color: var(--mc-ink); display: flex; align-items: center; gap: 8px; }
 .mc-ob-n {
@@ -2317,7 +2324,7 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-paused-card { width: 100%; max-width: 340px; background: var(--mc-panel, #1c1922); border: 1px solid var(--mc-gold); border-radius: calc(16px * var(--mc-round, 1)); padding: 24px 20px; box-shadow: 0 12px 40px rgba(0,0,0,.6); text-align: center; }
 .mc-paused-ico { font-size: 34px; color: var(--mc-gold); margin-bottom: 12px; animation: mc-paused-flip 3s ease-in-out infinite; }
 @keyframes mc-paused-flip { 0%, 80% { transform: rotate(0); } 90%, 100% { transform: rotate(180deg); } }
-.mc-paused-title { font-weight: 800; font-size: 18px; color: var(--mc-ink); margin-bottom: 8px; }
+.mc-paused-title { color: var(--mc-ink); margin-bottom: 8px; }
 .mc-paused-sub { font-size: 14px; line-height: 1.5; color: var(--mc-ink); opacity: .85; margin-bottom: 18px; }
 .mc-paused-sub b { color: var(--mc-gold); }
 .mc-paused-browse { width: 100%; height: 48px; border-radius: calc(12px * var(--mc-round, 1)); font-weight: 700; font-size: 14px; color: var(--mc-ink); background: var(--mc-panel-2); border: 1px solid var(--mc-edge); }
@@ -2379,7 +2386,7 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-dmp-react-summon { background: #1c2530; border-color: #3c5a72; }
 .mc-dmp-react-summon button { min-width: 30px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); }
 .mc-colorpick-card { width: 100%; max-width: 340px; background: var(--mc-panel, #1c1922); border: 1px solid var(--mc-gold); border-radius: calc(16px * var(--mc-round, 1)); padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
-.mc-colorpick-title { font-weight: 800; font-size: 17px; text-align: center; margin-bottom: 16px; color: var(--mc-ink); }
+.mc-colorpick-title { text-align: center; margin-bottom: 16px; color: var(--mc-ink); }
 .mc-colorpick-done { width: 100%; margin-top: 18px; height: 48px; border-radius: calc(12px * var(--mc-round, 1)); font-weight: 800; font-size: 15px; color: var(--mc-cta-ink); background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge); cursor: pointer; }
 /* Profile actions (Details tab): ONE group, ONE style. These four buttons had three different
    looks (gold icon + ink · muted · red) and four different margins (14/10/18/10) — the 18px on
@@ -2740,7 +2747,7 @@ body.mc-theme-wizard .mc-frame {
 /* Round 33: spell-placement overlay — aim a template/teleport from the phone
    while the TV shows the live preview. D-pad + rotate + range + Cast/Cancel. */
 .mc-place-card { max-width: 320px; }
-.mc-place-title { font-weight: 800; font-size: 17px; color: var(--mc-gold); margin-bottom: 4px; }
+.mc-place-title { color: var(--mc-gold); margin-bottom: 4px; }
 .mc-place-sub { font-size: 13px; opacity: .8; color: var(--mc-ink); margin-bottom: 12px; }
 .mc-place-range { font-size: 15px; font-weight: 700; color: var(--mc-ink); margin-bottom: 10px; }
 .mc-place-range.mc-place-far { color: #d06060; }
@@ -3041,20 +3048,16 @@ body.mc-theme-wizard .mc-frame {
 /* Rolls tab only: let the targets dropdown escape the box. Other tabs clip so the
    body scrolls (tokens grid can be long — DM 2026-07-03). */
 .mc-dmp-flyout.mc-fly-rolls { overflow: visible; }
-/* The primary's title must READ like a flyout's (DM 2026-07-17). It lives inside the panel's 10px
-   padding, so without cancelling that it sat inset — a boxed label rather than a window header,
-   with its rule stopping short of both edges. The negative margin lets it span the window exactly
-   as a flyout head spans its own. */
 /* Bottom rail: the flyout ends in a 14px grabber, so the primary ends in a 14px rail of the
    same colour (minus the grip lines — there's nothing to drag). Purely so the two windows'
    buttons sit on one line (DM 2026-07-17). */
 .mc-dmp-rail { height: 14px; flex: 0 0 auto; margin: 8px -10px -10px; background: var(--mc-sunken); border-top: 1px solid var(--mc-edge); border-radius: 0 0 calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)); }
-/* Primary header: a clean sunken title bar. The top strip above it (mc-dmp-toprail) provides the
-   height that lines the title up with the flyout, so the header itself needs no odd padding. */
-.mc-dmp-toprail { height: 14px; margin: -10px -10px 0; background: var(--mc-sunken); border-radius: calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)) 0 0; }
-.mc-dmp-drag.mc-dmp-fly-head { cursor: grab; margin: 0 -10px 8px; background: var(--mc-sunken); border-radius: 0; border-top: none; }
-.mc-dmp-drag.mc-dmp-fly-head:active { cursor: grabbing; }
-.mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; min-height: 36px; box-sizing: border-box; border-bottom: 1px solid var(--mc-edge); font-weight: 800; font-size: 14px; border-radius: calc(10px * var(--mc-round, 1)) 10px 0 0; }
+/* Primary top: the SAME plain rail as the bottom, mirrored (DM 2026-07-18) — no title bar. The
+   old toprail + "Mobile Command" header stacked 50px of chrome and its whole face dragged. The
+   rail is still the drag handle (grab cursor on hover only), so the panel stays movable. */
+.mc-dmp-toprail { height: 14px; margin: -10px -10px 8px; background: var(--mc-sunken); border-bottom: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)) 0 0; cursor: grab; }
+.mc-dmp-toprail:active { cursor: grabbing; }
+.mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; min-height: 36px; box-sizing: border-box; border-bottom: 1px solid var(--mc-edge); font-weight: 800; font-size: 14px; border-radius: calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)) 0 0; }
 .mc-dmp-fly-x { flex: 0 0 auto; width: 24px; height: 24px; min-height: 0; line-height: 1; padding: 0; background: none; border: none; color: var(--mc-muted); font-size: 15px; cursor: pointer; }
 .mc-dmp-fly-x:hover { color: var(--mc-ink); }
 .mc-dmp-fly-body > * { flex-shrink: 0; }   /* never squash a row into the one below it */
@@ -3360,7 +3363,7 @@ body.mc-theme-wizard .mc-frame {
 .mc-imgpop-tab.mc-on { background: var(--mc-primary); border-color: var(--mc-primary-edge); color: var(--mc-ink); }
 /* DM "Show Players" image routed onto the phone — above the portrait/token popup. */
 .mc-imgpop-shared { z-index: 110; }
-.mc-imgpop-title { color: #fff; font-size: 16px; font-weight: 600; text-align: center; max-width: 92%;
+.mc-imgpop-title { color: var(--mc-ink); text-align: center; max-width: 92%;
   text-shadow: 0 1px 3px rgba(0, 0, 0, .85); }
 
 /* §11 "Targets set by DM" banner in the target picker. */
@@ -3982,9 +3985,12 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dmp-party-lock { position: absolute; top: 3px; right: 4px; font-size: 9px; color: #c8a44d; }
 .mc-dmp-party-hint { text-align: center; font-size: 11px; color: #c8a44d; margin: 2px 0; min-height: 1.1em; }
 .mc-dmp-party-btns { display: flex; gap: 6px; align-items: stretch; margin-top: 0; }
-.mc-dmp-party-btns button { height: 34px; border-radius: calc(8px * var(--mc-round, 1)); border: 1px solid #4a4334; background: #2c2733; color: #ece5d6; cursor: pointer; }
-.mc-dmp-party-btns button:hover { background: #36303f; }
-.mc-dmp-party-btns [data-party="rotl"], .mc-dmp-party-btns [data-party="rotr"] { flex: 0 0 38px; }
+/* One height for the whole row — rotates, Rearrange AND Lock in all sit at the panel's default
+   36px (DM 2026-07-18: the row had three heights). min-height, not height, so it can't fight the
+   primary-geometry rule that already puts .mc-dmp-party-deploy at 36. */
+.mc-dmp-party-btns button { min-height: 36px; border-radius: calc(8px * var(--mc-round, 1)); border: 1px solid var(--mc-edge); background: var(--mc-panel-2); color: var(--mc-ink); cursor: pointer; }
+.mc-dmp-party-btns button:hover { border-color: var(--mc-gold); }
+.mc-dmp-party-btns [data-party="rotl"], .mc-dmp-party-btns [data-party="rotr"] { flex: 0 0 36px; }
 .mc-dmp-party-btns [data-party="stage"] { flex: 1 1 auto; font-weight: 700; white-space: nowrap; }
 .mc-dmp-party-head { cursor: pointer; user-select: none; }
 .mc-dmp-party-head:hover { color: #c8a44d; }

@@ -2063,12 +2063,12 @@ function render() {
   const targets = Array.from(game.user.targets ?? []);
   const pending = listPendingCasts();
   // The camera bar is always present (the DM needs TV control out of combat, with
-  // no targets); targeting/cast sections grow the panel when relevant. A grip at the
-  // top lets the DM drag the panel off other widgets.
-  // The main window wears the SAME header as its flyouts (DM 2026-07-17) — one window chrome, so
-  // the primary doesn't read as a lesser thing than the panel hanging off it. It has no ✕: the
-  // primary window is closed from the scene controls, not from itself.
-  const grip = `<div class="mc-dmp-toprail"></div><div class="mc-dmp-fly-head mc-dmp-drag" title="Drag to move"><span>Mobile Command</span></div>`;
+  // no targets); targeting/cast sections grow the panel when relevant.
+  // The primary carries NO title bar (DM 2026-07-18: the old toprail + "Mobile Command" header
+  // stacked 50px of chrome and its whole face dragged — "REALLY annoying"). Its top is the same
+  // plain 14px rail as its bottom (.mc-dmp-rail); the rail doubles as the drag handle. Titles
+  // belong to the flyouts — the primary is closed from the scene controls, not from itself.
+  const grip = `<div class="mc-dmp-toprail mc-dmp-drag" title="Drag to move"></div>`;
   // Party order lives in its own dock tab (auto-open on pack, close on disperse) —
   // the main area keeps only Form up / Disperse so its width never jumps.
   const packedNow = !!packedGroup();

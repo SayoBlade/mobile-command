@@ -252,6 +252,22 @@ licence.
 - The DM panel's second window is **height-capped and drag-resizable**, and grows **up** when the
   panel sits low. It must never shove the primary panel, and **the primary panel's height is the
   second window's minimum** — a floating tab smaller than its parent reads as broken.
+- **The DM panel's primary window carries NO title bar** (DM 2026-07-18). Its chrome is two plain
+  **14px sunken rails** — identical top and bottom, no grip lines, no label. The top rail is still
+  the drag handle (grab cursor on hover only). Titles belong to the flyouts; the old
+  toprail + "Mobile Command" header stacked 50px of chrome whose whole face dragged.
+  *(This supersedes the 2026-07-17 rule "the main window wears the same header as its flyouts" —
+  what changed: the shared header bought unity but cost 50px and constant accidental drags.)*
+
+### 6.4 Window titles — one size
+
+**Every secondary window / popup title sits at ONE size per surface: phone 17px weight 700, DM
+panel 14px weight 800.** The pickers, prompts, overlays, image popups and lifted dialogs each
+carried their own font-size (15–20px) and weight (600–800), so every popup felt like a different
+app (§1; DM 2026-07-18). One grouped rule in `shell.css` ("WINDOW TITLES — ONE SIZE") sizes them
+all — a new popup's title **joins that rule**, never brings its own numbers. Colour still follows
+meaning: gold for window titles, ink when the title is a name (§3), violet on a reaction prompt
+(§2.2).
 
 ### 6.1 A header must never look like an item
 
