@@ -1137,7 +1137,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           ${sec("Cantrips", opts.cantrips, selCant, si.knownCantrips)}
           ${sec(si.prepared ? "Spells to prepare" : "Spells", opts.leveled, selLev, si.knownSpells)}
         </div>
-        <button class="mc-cg-finish" data-action="char-gen-spell-apply">Add spells</button>`;
+        <button class="mc-cg-finish" data-action="char-gen-spell-apply">Save spells</button>`;
   }
   #toggleSpellSel(uuid) {
     const cg = this.#charGen; if (!cg) return;
@@ -1174,7 +1174,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const levMode = si.pact ? "pact" : "prepared";
     const toAdd = [];
     for (const s of [...opts.cantrips, ...opts.leveled]) {
-      if (!sel.has(s.uuid) || haveNames.has(s.name)) continue; // add-only (no removal)
+      if (!sel.has(s.uuid) || haveNames.has(s.name)) continue; // same-named spell already on the sheet → no duplicate
       const doc = await fromUuid(s.uuid);
       if (!doc) continue;
       const data = doc.toObject();
@@ -1183,6 +1183,23 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       foundry.utils.setProperty(data, "system.preparation.prepared", true);
       toAdd.push(data);
     }
+    // SYNC, not add-only (live 2026-07-17: "spells I removed still stay active"):
+    // the picker pre-checks what the actor knows, so unchecking must remove.
+    // Eligible for removal: the spell's name is on the shown class list (so this
+    // picker could have granted it), it is now unchecked, and it looks picker-made —
+    // advancement grants (race/class/feat) and item-cast spells are never touched,
+    // and only the modes we create qualify ("prepared"/"pact"; cantrips land as
+    // "prepared" then dnd5e flips them to "always").
+    const selNames = new Set([...opts.cantrips, ...opts.leveled].filter(s => sel.has(s.uuid)).map(s => s.name));
+    const optNames = new Set([...opts.cantrips, ...opts.leveled].map(s => s.name));
+    const toRemove = actor.items.filter(i => {
+      if (i.type !== "spell") return false;
+      if (!optNames.has(i.name) || selNames.has(i.name)) return false;
+      if (i.flags?.dnd5e?.advancementOrigin) return false;
+      if (i.system?.linkedActivity || i.system?.cachedFor) return false;
+      const mode = i.system?.preparation?.mode;
+      return (i.system?.level ?? 0) === 0 ? ["prepared", "always"].includes(mode) : ["prepared", "pact"].includes(mode);
+    });
     try {
       const created = toAdd.length ? await actor.createEmbeddedDocuments("Item", toAdd) : [];
       // dnd5e resets preparation.prepared to false on create; a known caster's
@@ -1193,12 +1210,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         .filter(i => (i.system?.level ?? 0) > 0 && ["prepared", "pact"].includes(i.system?.preparation?.mode) && !i.system.preparation.prepared)
         .map(i => ({ _id: i.id, "system.preparation.prepared": true }));
       if (reprep.length) await actor.updateEmbeddedDocuments("Item", reprep);
-    } catch (e) { return ui.notifications.warn(`Couldn't add spells: ${e.message}`); }
+      if (toRemove.length) await actor.deleteEmbeddedDocuments("Item", toRemove.map(i => i.id));
+    } catch (e) { return ui.notifications.warn(`Couldn't save spells: ${e.message}`); }
     if (cg.learn) this.#charGen = null; // post-creation "Learn spells" → back to the sheet, not the workspace
     else cg.picking = null;
     this.#charGenSpellOptions = null;
     this.render();
-    ui.notifications.info(toAdd.length ? `Learned ${toAdd.length} spell${toAdd.length > 1 ? "s" : ""}.` : "No new spells added.");
+    const parts = [];
+    if (toAdd.length) parts.push(`learned ${toAdd.length}`);
+    if (toRemove.length) parts.push(`removed ${toRemove.length}`);
+    ui.notifications.info(parts.length ? `Spells saved — ${parts.join(", ")}.` : "Spells unchanged.");
   }
 
   // ===== Starting equipment (class + background) ============================

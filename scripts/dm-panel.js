@@ -1391,6 +1391,32 @@ function restSetupCard(group) {
   </div>`;
 }
 
+// The rest runs in stages (§19.3): assign watches → clock starts → downtime → watch phase →
+// morning. Stages for a phase that's off are skipped. Watch data lives on the `night` flag.
+const REST_MARK_ICON = { event: "fa-bolt", encounter: "fa-skull" };
+function filledWatches(night) { return [1, 2, 3].filter(w => (night?.watches?.[w] ?? []).length); }
+function watchSeconds(size, night) {
+  const total = (size === "long" ? 8 : 1) * 3600;
+  return Math.round(total / (filledWatches(night).length || 1));
+}
+function fmtDur(sec) {
+  const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+  return h && m ? `${h}h ${m}m` : h ? `${h}h` : `${m}m`;
+}
+const firstName = id => game.actors.get(id)?.name?.split(" ")[0] ?? "?";
+
+// The per-PC × three-watch grid. Tap a chip to toggle that PC on/off that watch; mid-watch edits
+// re-apply who's asleep (the existing data-night handlers). Shared by the assign and watch stages.
+function watchEditor(group, night) {
+  const esc = foundry.utils.escapeHTML;
+  if (!night) return "";
+  return `<div class="mc-dmp-night-edit">${nightMembers(group).map(a => {
+    const chips = [1, 2, 3].map(w => `<button class="mc-dmp-nw ${(night.watches?.[w] ?? []).includes(a.id) ? "mc-on" : ""}"
+        data-night="dm-toggle" data-group="${group.id}" data-actor="${a.id}" data-watch="${w}" title="${["1st", "2nd", "3rd"][w - 1]} watch">${w}</button>`).join("");
+    return `<div class="mc-dmp-nw-row"><span title="${esc(a.name)}">${esc(a.name.split(" ")[0])}</span><span class="mc-dmp-nw-chips">${chips}</span></div>`;
+  }).join("")}</div>`;
+}
+
 function restHTML() {
   const esc = foundry.utils.escapeHTML;
   const group = restGroup();
@@ -1400,55 +1426,59 @@ function restHTML() {
     // Not resting: the setup card, with the authoring catalog still reachable below it.
     return `<div class="mc-dt-panel">${restSetupCard(group)}${dtDrawer("catalog", "Activities", catalogNewBtn(), catalogHTML(downtimeState()))}</div>`;
   }
-  const c = readClock();
+  const night = group.getFlag(MODULE_ID, "night");
+  const filled = night ? filledWatches(night) : [];
+  const stageLabel = {
+    assign: "Assign watches",
+    downtime: "Downtime",
+    watches: night ? `Watch ${filled.indexOf(night.watch) + 1} of ${filled.length}` : "Watch",
+    morning: "Morning",
+  }[rest.stage] ?? "Rest";
   const header = `<div class="mc-rest-head">
-    <span class="mc-rest-badge"><i class="fas fa-campground"></i> ${rest.size === "long" ? "Long rest" : "Short rest"}</span>
-    <span class="mc-rest-time"><i class="fas fa-${isNight() ? "moon" : "sun"}"></i> ${esc(c.label)}</span>
+    <span class="mc-rest-badge"><i class="fas fa-campground"></i> ${rest.size === "long" ? "Long" : "Short"} · ${esc(stageLabel)}</span>
+    <span class="mc-rest-time"><i class="fas fa-${isNight() ? "moon" : "sun"}"></i> ${esc(readClock().time)}</span>
   </div>`;
-  const watchSection = rest.phases?.watches ? watchBoardHTML(group) : "";
-  const dtSection = rest.phases?.downtime ? downtimeHTML(true) : "";
-  const foot = `<div class="mc-rest-endbar">
-    <button class="mc-dmp-party-deploy mc-rest-end" data-rest-end><i class="fas fa-sun"></i> End Rest</button>
+
+  let body = "", advance = "", extra = "";
+  if (rest.stage === "assign") {
+    body = `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Set the watch — players can place themselves too</div>
+      ${watchEditor(group, night)}</div>
+      <p class="mc-rest-hint">Begin when the watch is set — the clock starts and the rest gets under way.</p>`;
+    advance = `<button class="mc-dmp-party-deploy mc-rest-adv" data-rest-advance><i class="fas fa-play"></i> Begin Rest</button>`;
+  } else if (rest.stage === "downtime") {
+    body = downtimeHTML(true);
+    advance = `<button class="mc-dmp-party-deploy mc-rest-adv" data-rest-advance><i class="fas fa-forward"></i> ${rest.phases?.watches ? "To Watches" : "To Morning"}</button>`;
+  } else if (rest.stage === "watches") {
+    const w = night?.watch;
+    const duty = (night?.watches?.[w] ?? []).map(firstName).join(", ") || "nobody";
+    const steps = filled.map(n => {
+      const mark = night?.marks?.[n];
+      return `<button class="mc-dmp-night-step ${w === n ? "mc-on" : ""}" data-night="watch" data-watch="${n}" data-group="${group.id}"
+        title="${(night.watches?.[n] ?? []).map(firstName).join(", ") || "nobody"} on duty">${filled.indexOf(n) + 1}${mark ? ` <i class="fas ${REST_MARK_ICON[mark]}"></i>` : ""}</button>`;
+    }).join("");
+    const secs = watchSeconds(rest.size, night);
+    const mark = night?.marks?.[w];
+    body = `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> On duty — ${esc(duty)}${mark ? ` · <i class="fas ${REST_MARK_ICON[mark]}"></i> ${mark}` : ""}</div>
+      ${watchEditor(group, night)}
+      <div class="mc-dmp-party-btns mc-rest-steps">${steps}</div>
+      <div class="mc-rest-watchacts">
+        <button class="mc-dmp-party-mini" data-rest-mark="event" title="Something happens on this watch — you narrate it"><i class="fas fa-bolt"></i> Event</button>
+        <button class="mc-dmp-party-mini" data-rest-mark="encounter" title="A fight on this watch — mark it; you run it"><i class="fas fa-skull"></i> Encounter</button>
+      </div>`;
+    advance = `<button class="mc-dmp-party-deploy mc-rest-adv" data-rest-pass title="Nothing more this watch — advance the clock and move on"><i class="fas fa-hourglass-half"></i> Pass Watch · ${fmtDur(secs)}</button>`;
+    extra = `<button class="mc-dmp-party-mini mc-rest-skip" data-rest-advance title="Skip the rest of the watch — straight to morning"><i class="fas fa-forward"></i> To Morning</button>`;
+    body += `</div>`;
+  } else { // morning
+    body = `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-sun"></i> Morning</div>
+      <p class="mc-rest-hint">The watch is over. End the rest to apply the ${rest.size === "long" ? "long" : "short"} rest to the party.</p></div>`;
+    advance = `<button class="mc-dmp-party-deploy mc-rest-end" data-rest-end><i class="fas fa-sun"></i> End Rest</button>`;
+  }
+  const foot = `<div class="mc-rest-endbar">${advance}${extra}
     <button class="mc-dmp-party-rebuild" data-rest-cancel title="Call off the rest — nothing is applied"><i class="fas fa-xmark"></i></button>
   </div>`;
-  return `<div class="mc-dt-panel mc-rest-active">${header}${watchSection}${dtSection}${foot}</div>`;
+  return `<div class="mc-dt-panel mc-rest-active">${header}${body}${foot}</div>`;
 }
 
-// The watch board, embedded in the Rest envelope. Watch data still lives on the group's `night`
-// flag (the phones + sleep-application read it); the Rest owns the single ending, so this renders
-// no "Start the night" (Start Rest does that) and no "End Night" (End Rest does).
-function watchBoardHTML(group) {
-  const esc = foundry.utils.escapeHTML;
-  const night = group.getFlag(MODULE_ID, "night");
-  if (!night) return "";
-  const first = id => game.actors.get(id)?.name?.split(" ")[0] ?? "?";
-  // A member row per PC with three watch chips; tap toggles that PC on/off that watch. Works in
-  // BOTH stages — mid-watch editing re-applies who's asleep.
-  const editor = `<div class="mc-dmp-night-edit">${nightMembers(group).map(a => {
-    const chips = [1, 2, 3].map(w => `<button class="mc-dmp-nw ${(night.watches?.[w] ?? []).includes(a.id) ? "mc-on" : ""}"
-        data-night="dm-toggle" data-group="${group.id}" data-actor="${a.id}" data-watch="${w}" title="${["1st", "2nd", "3rd"][w - 1]} watch">${w}</button>`).join("");
-    return `<div class="mc-dmp-nw-row"><span title="${esc(a.name)}">${esc(a.name.split(" ")[0])}</span><span class="mc-dmp-nw-chips">${chips}</span></div>`;
-  }).join("")}</div>`;
-  if (night.stage === "assign") {
-    const anyone = [1, 2, 3].some(w => (night.watches?.[w] ?? []).length);
-    return `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Watches — players placing (you can edit)</div>
-      ${editor}
-      <div class="mc-dmp-party-btns">
-        <button class="mc-dmp-party-deploy" data-night="lock" data-group="${group.id}" ${anyone ? "" : "disabled"}
-          title="Lock the watch order — the watch begins at 1st watch"><i class="fas fa-lock"></i> Begin Watches</button>
-      </div></div>`;
-  }
-  // stage "watch"
-  const steps = [1, 2, 3].map(w => `<button class="mc-dmp-night-step ${night.watch === w ? "mc-on" : ""}" data-night="watch" data-watch="${w}" data-group="${group.id}"
-      title="${(night.watches?.[w] ?? []).map(first).join(", ") || "nobody"} on duty">${w}</button>`).join("");
-  const duty = (night.watches?.[night.watch] ?? []).map(first).join(", ") || "nobody";
-  return `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Watch ${night.watch} — ${esc(duty)}</div>
-    ${editor}
-    <div class="mc-dmp-party-btns">${steps}</div></div>`;
-}
-
-// Begin a rest from the setup draft. Neither phase → a plain dnd5e rest applied now (no ceremony,
-// §19.3). Otherwise the envelope flag is set and the phases it owns are opened.
 // Apply a dnd5e rest to the party (the group's members — the party is usually camped off the
 // active map, so this is NOT the in-scene set). The ONE place a rest lands (§19).
 async function applyPartyRest(group, size) {
@@ -1460,15 +1490,87 @@ async function applyPartyRest(group, size) {
   if (size === "long") await advanceRestGoals();
   ui.notifications?.info(`${size === "long" ? "Long" : "Short"} rest — ${n} character${n === 1 ? "" : "s"} rested.`);
 }
+// Begin a rest from the setup draft. Neither phase → a plain dnd5e rest applied now (no ceremony).
 async function startRest() {
   const group = restGroup();
   if (!group) return;
   const { size, phases } = restDraft;
   if (!phases.downtime && !phases.watches) { await applyPartyRest(group, size); return render(); }
-  await group.setFlag(MODULE_ID, "rest", { size, phases: { ...phases }, startedAt: game.time?.worldTime ?? 0 });
-  // Fresh session id re-arms every phone's board (2026-07-09: a dismissed board stayed hidden).
-  if (phases.watches) await group.setFlag(MODULE_ID, "night", { id: foundry.utils.randomID(), stage: "assign", watch: 0, watches: { 1: [], 2: [], 3: [] } });
-  if (phases.downtime) await api.downtime({ op: "openWindow", size });
+  const stage = phases.watches ? "assign" : "downtime";
+  await group.setFlag(MODULE_ID, "rest", { id: foundry.utils.randomID(), size, phases: { ...phases }, stage, startedAt: game.time?.worldTime ?? 0 });
+  if (phases.watches) {
+    // Fresh session id re-arms every phone's board (2026-07-09: a dismissed board stayed hidden).
+    await group.setFlag(MODULE_ID, "night", { id: foundry.utils.randomID(), stage: "assign", watch: 0, watches: { 1: [], 2: [], 3: [] } });
+  } else {
+    await api.downtime({ op: "openWindow", size }); // downtime-only → its window opens straight away
+  }
+  render();
+}
+// Start the running watch phase: sleep everyone not on the first filled watch. Returns false if
+// nobody is on any watch (the DM ticked Watches but assigned no one) — the caller skips the phase.
+async function beginWatchRun(group) {
+  const night = foundry.utils.deepClone(group.getFlag(MODULE_ID, "night"));
+  const filled = filledWatches(night);
+  if (!filled.length) return false;
+  night.stage = "watch"; night.watch = filled[0];
+  await group.setFlag(MODULE_ID, "night", night);
+  await applyWatchSleep(group);
+  return true;
+}
+// Move the rest to its next stage, opening/closing the mechanisms each stage owns.
+async function advanceRest() {
+  const group = restGroup();
+  const rest = group?.getFlag(MODULE_ID, "rest");
+  if (!rest) return;
+  const setStage = (s) => group.setFlag(MODULE_ID, "rest", { ...rest, stage: s });
+  if (rest.stage === "assign") {
+    // Clock starts. Downtime first (if on), else straight to the watch run.
+    if (rest.phases?.downtime) { await api.downtime({ op: "openWindow", size: rest.size }); await setStage("downtime"); }
+    else { await (await beginWatchRun(group) ? setStage("watches") : setStage("morning")); }
+  } else if (rest.stage === "downtime") {
+    if (downtimeOpen()) await api.downtime({ op: "closeWindow" });
+    if (rest.phases?.watches && await beginWatchRun(group)) await setStage("watches");
+    else await setStage("morning");
+  } else if (rest.stage === "watches") {
+    // "To Morning" — skip the remaining watches. Move the stage FIRST so the re-render that the
+    // night-flag unset triggers already sees "morning" (never stage=watches with no night flag).
+    await setStage("morning");
+    if (group.getFlag(MODULE_ID, "night")) { await clearNightSleep(group); await group.unsetFlag(MODULE_ID, "night"); }
+  }
+  render();
+}
+// Pass the current watch: advance the real world clock by its share of the rest, then step to the
+// next filled watch — or to morning after the last one. Time-based effects listen to worldTime, so
+// this really passes time (§19.5-2).
+async function passWatch() {
+  const group = restGroup();
+  const rest = group?.getFlag(MODULE_ID, "rest");
+  const night = group?.getFlag(MODULE_ID, "night");
+  if (!rest || !night) return;
+  const secs = watchSeconds(rest.size, night);
+  if (game.user?.isGM) await game.time.advance(secs);
+  const filled = filledWatches(night);
+  const next = filled[filled.indexOf(night.watch) + 1];
+  if (next != null) {
+    await group.setFlag(MODULE_ID, "night", { ...night, watch: next });
+    await applyWatchSleep(group);
+    ui.notifications?.info(`${fmtDur(secs)} passes — ${filled.indexOf(next) + 1}${["st", "nd", "rd"][filled.indexOf(next)] ?? "th"} watch.`);
+  } else {
+    // Last watch passed → morning. Stage first, then tear down the night flag (see advanceRest).
+    await group.setFlag(MODULE_ID, "rest", { ...rest, stage: "morning" });
+    await clearNightSleep(group);
+    await group.unsetFlag(MODULE_ID, "night");
+    ui.notifications?.info(`${fmtDur(secs)} passes — the watch is over.`);
+  }
+  render();
+}
+// Mark the current watch as an event/encounter — a badge the DM sees; they run it themselves.
+async function markWatch(kind) {
+  const group = restGroup();
+  const night = group?.getFlag(MODULE_ID, "night");
+  if (!night) return;
+  await group.setFlag(MODULE_ID, "night", { ...night, marks: { ...(night.marks ?? {}), [night.watch]: kind } });
+  ui.notifications?.info(kind === "encounter" ? "Encounter marked — you run the fight." : "Event marked on this watch.");
   render();
 }
 // End (or call off) the rest. This is the ONE place a dnd5e rest applies (§19). Tears down both
@@ -1491,7 +1593,16 @@ async function endRest(apply) {
 // cluster.
 const SLEEP_CLUSTER = ["sleeping", "unconscious", "incapacitated", "prone", "surprised"];
 async function wakeActor(a) {
-  for (const s of SLEEP_CLUSTER) if (a.statuses.has(s)) await a.toggleStatusEffect(s, { active: false });
+  // Toggle each cluster status off through dnd5e's own status API (NOT a raw effect delete — that
+  // bypasses the linkage and leaves "prone" re-derived from unconscious, DM 2026-07-09). Removing
+  // "sleeping" cascade-removes some riders, so a later toggle can hit an already-gone effect and
+  // the DB logs a harmless "ActiveEffect … does not exist" — swallowed per status so a cosmetic
+  // marker never aborts a rest stage transition (DM 2026-07-17).
+  for (const s of SLEEP_CLUSTER) {
+    if (!a.statuses.has(s)) continue;
+    try { await a.toggleStatusEffect(s, { active: false }); }
+    catch (e) { console.warn(`${MODULE_ID} | wake: couldn't clear ${s} on ${a.name}`, e); }
+  }
 }
 
 // On-duty PCs wake, everyone else sleeps (marker only — the DM taps any chip off
@@ -1501,8 +1612,10 @@ async function applyWatchSleep(group) {
   const onDuty = new Set(night?.watches?.[night.watch] ?? []);
   for (const a of nightMembers(group)) {
     const shouldSleep = !onDuty.has(a.id);
-    if (shouldSleep && !a.statuses.has("sleeping")) await a.toggleStatusEffect("sleeping", { active: true });
-    else if (!shouldSleep && a.statuses.has("sleeping")) await wakeActor(a); // clear the rider cluster too
+    try {
+      if (shouldSleep && !a.statuses.has("sleeping")) await a.toggleStatusEffect("sleeping", { active: true });
+      else if (!shouldSleep && a.statuses.has("sleeping")) await wakeActor(a); // clear the rider cluster too
+    } catch (e) { console.warn(`${MODULE_ID} | watch sleep toggle failed for ${a.name}`, e); }
   }
 }
 
@@ -2034,6 +2147,10 @@ async function onClick(ev) {
     const rPhase = ev.target.closest("[data-rest-phase]");
     if (rPhase) { const k = rPhase.dataset.restPhase; restDraft.phases[k] = !restDraft.phases[k]; return render(); }
     if (ev.target.closest("[data-rest-start]")) return startRest();
+    if (ev.target.closest("[data-rest-advance]")) return advanceRest();
+    if (ev.target.closest("[data-rest-pass]")) return passWatch();
+    const rMark = ev.target.closest("[data-rest-mark]");
+    if (rMark) return markWatch(rMark.dataset.restMark);
     if (ev.target.closest("[data-rest-end]")) return endRest(true);
     if (ev.target.closest("[data-rest-cancel]")) return endRest(false);
   }

@@ -1333,3 +1333,27 @@ means, and it removes the need for a separate count setting. SHORT ⇒ exactly o
     watch-run → morning is currently concurrent, not staged); the phones' shared running header;
     Pass time / Event / Encounter on the watch phase; the one-time migration of any already-open
     downtime window / legacy night flag into a `rest` envelope.
+
+- **Slices 3 + 5 — the staged flow + watch-phase controls. DONE + VERIFIED (v0.1.225, 2026-07-17).**
+  The Rest is now a real state machine: `rest.stage ∈ assign → downtime → watches → morning`, with
+  a per-stage advance button; stages for an off phase are skipped. `advanceRest()` opens/closes each
+  mechanism as its stage begins/ends (downtime window on entering *downtime*, watch sleep on
+  entering *watches*), so they run **in order**, not concurrently.
+  - **Assign** (watches on): the editor only, no clock/DT yet; `Begin Rest` starts the clock and
+    routes to downtime (if on) else the watch run.
+  - **Downtime**: the embedded window; `To Watches` / `To Morning` advances.
+  - **Watches** (running): per-watch `Pass Watch · Xh` advances the REAL `game.time.worldTime` by
+    that watch's share (8h ÷ filled watches — §19.5-5) then steps to the next filled watch, or to
+    morning after the last; `Event` / `Encounter` drop a badge on the watch (the DM runs it,
+    §19.5-3); `To Morning` skips the rest. Verified: 3 watches passed = exactly 8h, handoff sleeps
+    the right PCs, encounter badge shows on the chip.
+  - **Morning**: `End Rest` applies the party rest once.
+  - **Two robustness fixes found live:** (1) `wakeActor` now swallows the "ActiveEffect … does not
+    exist" that dnd5e's own sleep-cluster cascade races — that reject was *aborting* the stage
+    transition after the clock had advanced (clock moved but stage stuck). Kept the per-status
+    `toggleStatusEffect` loop (NOT a raw effect delete — a delete bypasses dnd5e's linkage and
+    leaves "prone" re-derived from unconscious). (2) Teardown now sets the stage *before* unsetting
+    the night flag, so a re-render never sees `stage=watches` with no flag (was throwing "reading
+    'watches'").
+  - **Still deferred (4, 6-migration):** the phones' shared running rest header; the one-time
+    migration of a legacy open downtime window / night flag into a `rest` envelope.
