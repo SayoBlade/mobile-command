@@ -12,6 +12,35 @@ import { runPreflight } from "./preflight.js";
 const D = () => foundry.applications.api.DialogV2;
 const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
 
+// Unify the setup steps into ONE wizard (DM 2026-07-17: "look like one setup wizard with steps and
+// not several different sized popups"). They're still separate DialogV2 calls, but every one now
+// opens at the SAME width, the SAME place, with the SAME step chrome — so it reads as a single
+// window advancing, not a scatter of differently-sized popups. Fixed body min-height means short
+// steps are as tall as the tallest, so nothing resizes between steps.
+const WIZ_STEPS = 5; // welcome · preset · toggles · vision · party  (preflight is the finale)
+function wizPos() {
+  return { width: 480, left: Math.max(20, Math.round((window.innerWidth - 480) / 2)), top: Math.max(40, Math.round(window.innerHeight * 0.14)) };
+}
+function wizChrome(n, title, inner) {
+  const dots = Array.from({ length: WIZ_STEPS }, (_, i) =>
+    `<span class="mc-wiz-dot ${i + 1 < n ? "mc-done" : i + 1 === n ? "mc-on" : ""}"></span>`).join("");
+  const label = n > WIZ_STEPS ? "Final check" : `Step ${n} of ${WIZ_STEPS}`;
+  return `<div class="mc-wiz">
+    <div class="mc-wiz-head"><div class="mc-wiz-dots">${dots}</div>
+      <div class="mc-wiz-step"><span class="mc-wiz-n">${label}</span><span class="mc-wiz-title">${esc(title)}</span></div></div>
+    <div class="mc-wiz-body">${inner}</div>
+  </div>`;
+}
+function wizWait({ n, title, content, buttons, render }) {
+  return D().wait({
+    window: { title: "Mobile Command — Setup" },
+    position: wizPos(),
+    content: wizChrome(n, title, content),
+    buttons,
+    ...(render ? { render } : {})
+  });
+}
+
 // Shared table toggles the wizard surfaces (step 3) — key, label, one-liner.
 const TOGGLES = [
   ["combatPovVision", "Combat POV vision", "In combat the TV shows only the active PC's own senses — no darkvision means a dark screen on their turn."],
@@ -25,8 +54,8 @@ async function stepWelcomeTv() {
   const opts = [`<option value="" ${current ? "" : "selected"}>— none / skip —</option>`]
     .concat(game.users.filter(u => !u.isGM).map(u =>
       `<option value="${u.id}" ${u.id === current ? "selected" : ""}>${esc(u.name)}${u.character ? ` (has a character: ${esc(u.character.name)})` : ""}</option>`));
-  const picked = await D().wait({
-    window: { title: "Mobile Command setup — 1/5 · The shared screen" },
+  const picked = await wizWait({
+    n: 1, title: "The shared screen",
     content: `<p><b>Which account runs your TV / shared display?</b></p>
       <p>That account is auto-granted Owner on every PC so the TV can show party vision.
       It should be a dedicated account — <em>not</em> one of the phone players — and should
@@ -50,8 +79,8 @@ async function stepPreset() {
        <ul style="max-height:180px;overflow-y:auto">${drift.slice(0, 12).map(d => `<li><code>${esc(d.path)}</code>: ${esc(JSON.stringify(d.current))} → ${esc(JSON.stringify(d.expected))}</li>`).join("")}${drift.length > 12 ? "<li>…</li>" : ""}</ul>
        <p>The preset is what the phone flows are tested against. Deliberate deviations are fine.</p>`
     : `<p><b>All midi/dnd5e settings already match the preset.</b> Nothing to do here.</p>`;
-  const res = await D().wait({
-    window: { title: "Mobile Command setup — 2/5 · midi settings" },
+  const res = await wizWait({
+    n: 2, title: "midi settings",
     content: body,
     buttons: [
       ...(drift.length ? [{ action: "apply", label: "Apply preset & continue", default: true }] : []),
@@ -72,8 +101,8 @@ async function stepToggles() {
   const npc = `<label style="display:block;margin-top:6px"><b>NPC opportunity attacks</b>
       <select name="aooNpcMode" style="width:100%">${Object.entries(modes).map(([k, v]) =>
         `<option value="${k}" ${game.settings.get(MODULE_ID, "aooNpcMode") === k ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>`;
-  const res = await D().wait({
-    window: { title: "Mobile Command setup — 3/5 · Table toggles" },
+  const res = await wizWait({
+    n: 3, title: "Table toggles",
     content: rows + npc,
     buttons: [
       { action: "next", label: "Save & continue", default: true,
@@ -89,8 +118,8 @@ async function stepToggles() {
 }
 
 async function stepVision() {
-  const res = await D().wait({
-    window: { title: "Mobile Command setup — 4/5 · Token vision" },
+  const res = await wizWait({
+    n: 4, title: "Token vision",
     content: `<p><b>Sync every PC token's sight from its sheet.</b></p>
       <p>Darkvision, tremorsense and friends live on the ACTOR — freshly placed tokens often
       carry none of it, which reads as "my player is blind on the TV". This pushes the real
@@ -121,8 +150,8 @@ async function stepParty() {
        the ⟳ rebuild when it goes stale, and the checklist for picking members by hand.</p>`
     : `<p><b>No party group exists yet.</b> Once your PCs stand on the active scene, the DM panel
        offers a one-tap <b>Create party</b> (or the checklist to pick members). Nothing to do here now.</p>`;
-  const res = await D().wait({
-    window: { title: "Mobile Command setup — 5/5 · The party" },
+  const res = await wizWait({
+    n: 5, title: "The party",
     content: body,
     buttons: [
       { action: "next", label: "Run the preflight", default: true },
@@ -136,9 +165,9 @@ async function stepPreflight() {
   const results = await runPreflight();
   const mark = { ok: "✅", warn: "⚠️", fail: "❌" };
   const rows = results.map(c => `<li>${mark[c.status] ?? "•"} <b>${esc(c.label)}</b> — ${esc(c.detail)}</li>`).join("");
-  await D().wait({
-    window: { title: "Mobile Command setup — System health" },
-    content: `<p>Final check of the live table:</p><ul style="max-height:240px;overflow-y:auto">${rows}</ul>
+  await wizWait({
+    n: 6, title: "System health",
+    content: `<p>Final check of the live table:</p><ul style="max-height:220px;overflow-y:auto;margin:0">${rows}</ul>
       <p>Anything ⚠️/❌ stays visible on the DM panel's <b>System health tab</b> (clipboard icon), each with a one-tap fix where one is safe.</p>`,
     buttons: [{ action: "done", label: "Done", default: true }]
   }).catch(() => null);
@@ -163,9 +192,10 @@ export function maybePromptDmWizard() {
   if (game.settings.get(MODULE_ID, "dmOnboarded")) return;
   setTimeout(async () => {
     const res = await D().wait({
-      window: { title: "Mobile Command — first-time setup" },
-      content: `<p>Walk through the shared-table setup? Five short steps: the TV account,
-        midi settings, table toggles, token vision, the party — then a live preflight.</p>`,
+      window: { title: "Mobile Command — Setup" },
+      position: { width: 480 },
+      content: `<div class="mc-wiz"><div class="mc-wiz-body" style="min-height:0"><p style="margin-top:0">Walk through the shared-table setup? Five short steps — the TV account,
+        midi settings, table toggles, token vision, the party — then a live health check.</p></div></div>`,
       buttons: [
         { action: "run", label: "Run setup", default: true },
         { action: "later", label: "Later" },

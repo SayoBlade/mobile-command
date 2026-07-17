@@ -3177,6 +3177,21 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-clock.mc-night i { color: #8fb4e0; }
 .mc-dmp-clock:hover { border-color: var(--mc-gold); }
 .mc-dmp-clock-sc { opacity: .6; font-size: 9px; }
+
+/* Setup wizard — one identity across all steps (DM 2026-07-17). Fixed body height so nothing
+   resizes between steps; a dot row + "Step N of 5" so it reads as one window advancing. Lives on
+   a plain GM-desktop DialogV2, so it styles itself rather than relying on the phone skin. */
+.mc-wiz { display: flex; flex-direction: column; }
+.mc-wiz-head { display: flex; flex-direction: column; gap: 8px; padding: 2px 0 12px; margin-bottom: 12px; border-bottom: 1px solid var(--mc-edge, #3b3640); }
+.mc-wiz-dots { display: flex; gap: 6px; }
+.mc-wiz-dot { flex: 1 1 0; height: 4px; border-radius: 2px; background: var(--mc-edge, #3b3640); }
+.mc-wiz-dot.mc-done { background: var(--mc-gold, #c8a44d); opacity: .55; }
+.mc-wiz-dot.mc-on { background: var(--mc-gold, #c8a44d); }
+.mc-wiz-step { display: flex; align-items: baseline; gap: 8px; }
+.mc-wiz-n { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--mc-muted, #a59b86); }
+.mc-wiz-title { font-size: 15px; font-weight: 800; color: var(--mc-ink, #ece5d6); }
+.mc-wiz-body { min-height: 208px; font-size: 13px; line-height: 1.4; }
+.mc-wiz-body p:first-child { margin-top: 0; }
 /* Clock ± group: the chip flanked by -10/+10 quick nudges (DM 2026-07-17). */
 .mc-dmp-clockgroup { display: inline-flex; align-items: stretch; }
 .mc-dmp-clockgroup .mc-dmp-clock { border-radius: 0; }
