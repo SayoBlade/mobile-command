@@ -1587,7 +1587,16 @@ async function handlePortraitUpload({ requesterId, actorId, dataUrl, tokenUrl, p
   const actor = game.actors.get(actorId);
   const requester = game.users.get(requesterId);
   if (!actor) return { ok: false, reason: "character not found" };
-  if (!requester || !actor.testUserPermission(requester, "OWNER")) return { ok: false, reason: "not your character" };
+  // A GROUP actor is the DM's document — no player owns it — so an ownership test always failed and
+  // no PC could ever set the party's portrait (DM 2026-07-17: "PCs don't have the permissions to
+  // change the group image"). For a group the authority is MEMBERSHIP, not ownership: if one of
+  // your characters is in the party, the party's picture is yours to set too. Still a real check —
+  // a player outside the party can't touch it, and everything else stays owner-only.
+  const inParty = actor.type === "group"
+    && (actor.system?.members ?? []).some(m => m.actor?.testUserPermission(requester, "OWNER"));
+  if (!requester || !(actor.testUserPermission(requester, "OWNER") || inParty)) {
+    return { ok: false, reason: actor.type === "group" ? "you're not in this party" : "not your character" };
+  }
   const tokenData = tokenUrl || dataUrl;       // disc-cropped → token texture
   const portraitData = portraitUrl || dataUrl; // full image → actor portrait (falls back to token)
   if (!/^data:image\//.test(tokenData || "")) return { ok: false, reason: "no image data" };
