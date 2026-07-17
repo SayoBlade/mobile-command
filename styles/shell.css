@@ -4285,10 +4285,12 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* "mc-dt-shown" (NOT "mc-shown"/"mc-hidden" — ".mc-hidden" is the search filter's display:none). */
 .mc-dt-act.mc-dt-shown { border-left-color: #4a4334; }
 .mc-dt-act.mc-done { border-left-color: #3a6b4a; opacity: .7; }
-.mc-dt-act-top { display: flex; align-items: center; gap: 8px; }
-.mc-dt-act-name { flex: 1 1 auto; font-size: 13px; font-weight: 700; color: #ece5d6; }
-.mc-dt-act-rm { flex: 0 0 auto; min-width: 26px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); cursor: pointer;
-  background: transparent; border: none; color: var(--mc-muted); font-size: 13px; }
+.mc-dt-act-top { display: flex; align-items: center; gap: 8px; min-height: 26px; }
+.mc-dt-act-name { flex: 1 1 auto; min-width: 0; font-size: 13px; font-weight: 700; color: var(--mc-ink); line-height: 1.25; }
+/* The X is a flex box so its glyph is CENTRED — otherwise it sat high in the 26px button while the
+   title text centred, so the two looked misaligned (DM 2026-07-17: "align the title and the X"). */
+.mc-dt-act-rm { flex: 0 0 auto; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(6px * var(--mc-round, 1)); cursor: pointer;
+  background: transparent; border: none; color: var(--mc-muted); font-size: 13px; line-height: 1; padding: 0; }
 .mc-dt-act-rm:hover { border-color: #7a3a35; color: #ffb4a8; }
 /* the catalog item's Edit sits on its own row, pushed right (DM 2026-07-17). */
 .mc-dt-act-editrow { display: flex; justify-content: flex-end; margin-top: 4px; }
