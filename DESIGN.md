@@ -1357,3 +1357,14 @@ means, and it removes the need for a separate count setting. SHORT ⇒ exactly o
     'watches'").
   - **Still deferred (4, 6-migration):** the phones' shared running rest header; the one-time
     migration of a legacy open downtime window / night flag into a `rest` envelope.
+
+- **Setup refinements (v0.1.226–227, 2026-07-17).** Rest TYPE is Short / Long / Downtime (they read
+  as the rests they are) + an independent Watches toggle. **Watch count is per type** (DM
+  2026-07-17): **Short = 1 watch, Long = up to 3, Downtime = none** (a safe hub — the toggle is
+  disabled and reads "No watches"). The count rides the `night` flag as `count`, so the DM grid AND
+  the phones show only the slots that rest has (grid columns, phone rows, and the header ordinals
+  all follow it). Short → `size:short` → `shortRest()`; Long & Downtime → `size:long` →
+  `longRest()`; Downtime also runs the activity phase. Also: the assign grid got column headers
+  (1st/2nd/3rd) + an explainer, and the embedded downtime roster lists the **party (group members)**
+  not in-scene tokens (a camped party is off-map — a PC's pick wasn't registering, "nobody has
+  chosen yet"); "Start activities — nobody's chosen yet" → "Start Activities" (state → tooltip).

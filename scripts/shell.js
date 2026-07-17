@@ -564,20 +564,24 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (this.#nightDismissed === key)
         return `<button class="mc-night-reopen" data-action="night-reopen"><i class="fas fa-moon"></i> Watches</button>`;
       const first = id => game.actors.get(id)?.name?.split(" ")[0] ?? "?";
-      const rows = [1, 2, 3].map(w => {
+      const wc = night.count ?? 3; // short rest → one watch, long → up to three (DM 2026-07-17)
+      const rows = Array.from({ length: wc }, (_, i) => i + 1).map(w => {
         const ids = night.watches?.[w] ?? [];
         const mine = ids.includes(me.id);
         const others = ids.filter(id => id !== me.id).map(first).join(", ");
         return `<button class="mc-night-row ${mine ? "mc-on" : ""}" data-action="night-toggle" data-watch="${w}" data-group="${group.id}">
-          <b>${["1st", "2nd", "3rd"][w - 1]} watch</b>
+          <b>${wc === 1 ? "The watch" : `${["1st", "2nd", "3rd"][w - 1]} watch`}</b>
           <span>${mine ? "You" : ""}${mine && others ? ", " : ""}${esc(others)}${!mine && !others ? "—" : ""}</span>
           <i class="fas ${mine ? "fa-circle-check" : "fa-circle"}"></i>
         </button>`;
       }).join("");
+      const sub = wc === 1
+        ? `Tap if <b>${esc(me.name.split(" ")[0])}</b> keeps the watch this rest — or leave it and sleep.`
+        : `Tap the watches <b>${esc(me.name.split(" ")[0])}</b> will stand. You can take more than one — or none and sleep through.`;
       return `<div class="mc-paused"><div class="mc-paused-card">
         <i class="fas fa-moon mc-paused-ico" style="animation:none"></i>
-        <div class="mc-paused-title">Setting the watches</div>
-        <div class="mc-paused-sub">Tap the watches <b>${esc(me.name.split(" ")[0])}</b> will stand. You can take more than one — or none and sleep through.</div>
+        <div class="mc-paused-title">${wc === 1 ? "Setting the watch" : "Setting the watches"}</div>
+        <div class="mc-paused-sub">${sub}</div>
         <div class="mc-night-rows">${rows}</div>
         <button class="mc-paused-browse" data-action="night-dismiss" data-key="${key}"><i class="fas fa-book-open"></i> Browse my sheet</button>
       </div></div>`;

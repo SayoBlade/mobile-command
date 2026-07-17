@@ -134,8 +134,13 @@ let dtGiveFor = null; // actorId whose "give a task" template picker is open
 // Downtime is its own thing"). Short → short rest; Long & Downtime → long rest; Downtime also runs
 // the activity phase. Watches is an independent add-on. Defaults to a long rest with watches.
 let restDraft = { type: "long", watches: true };
+// Watches per rest type (DM 2026-07-17): a short rest is ONE watch; a long rest up to three;
+// downtime is a safe hub — no watches at all.
+function watchCount(size) { return size === "short" ? 1 : 3; }
 function restPlan(d) {
-  return { size: d.type === "short" ? "short" : "long", downtime: d.type === "downtime", watches: !!d.watches };
+  const size = d.type === "short" ? "short" : "long";
+  const downtime = d.type === "downtime";
+  return { size, downtime, watches: downtime ? false : !!d.watches }; // DT never stands watch
 }
 function downtimeState() { try { return DT.normalizeState(game.settings.get(MODULE_ID, "downtimeState")); } catch (e) { return DT.normalizeState({}); } }
 function downtimeOpen() { return !!downtimeState().window?.open; }
@@ -1386,13 +1391,17 @@ function restSetupCard(group) {
   const d = restDraft, plan = restPlan(d);
   const seg = (val, label, icon) => `<button class="mc-rest-seg ${d.type === val ? "mc-on" : ""}" data-rest-type="${val}"><i class="fas ${icon}"></i> ${label}</button>`;
   const restWord = plan.size === "long" ? "long rest" : "short rest";
-  const lead = plan.watches
-    ? (plan.downtime ? "Downtime, then watches" : "Watches")
-    : (plan.downtime ? "Downtime" : "");
+  const canWatch = !plan.downtime;
+  const lead = plan.downtime ? "Downtime"
+    : plan.watches ? (plan.size === "short" ? "One watch" : "Watches")
+    : "";
   const hint = lead ? `${lead}, then a ${restWord}.` : `A ${restWord}, applied right away.`;
+  // Downtime has no watches (a safe hub) — the toggle is disabled and reads why.
+  const watchBtn = `<button class="mc-rest-chk mc-rest-watchtoggle ${plan.watches ? "mc-on" : ""}" data-rest-watches ${canWatch ? "" : "disabled"} title="${canWatch ? "" : "Downtime is a safe hub — no watches"}">
+      <i class="fas ${plan.watches ? "fa-square-check" : "fa-square"}"></i> <i class="fas fa-moon"></i> ${canWatch ? (plan.size === "short" ? "One watch" : "Set watches") : "No watches"}</button>`;
   return `<div class="mc-rest-setup">
     <div class="mc-rest-segs mc-rest-types">${seg("short", "Short", "fa-mug-hot")}${seg("long", "Long", "fa-campground")}${seg("downtime", "Downtime", "fa-hourglass-half")}</div>
-    <button class="mc-rest-chk mc-rest-watchtoggle ${d.watches ? "mc-on" : ""}" data-rest-watches><i class="fas ${d.watches ? "fa-square-check" : "fa-square"}"></i> <i class="fas fa-moon"></i> Set watches</button>
+    ${watchBtn}
     <button class="mc-dmp-party-deploy mc-rest-go" data-rest-start ${canRest ? "" : "disabled"}><i class="fas fa-campground"></i> Start Rest</button>
     <p class="mc-rest-hint">${canRest ? hint : "No party group with members — set one up first."}</p>
   </div>`;
@@ -1401,7 +1410,8 @@ function restSetupCard(group) {
 // The rest runs in stages (§19.3): assign watches → clock starts → downtime → watch phase →
 // morning. Stages for a phase that's off are skipped. Watch data lives on the `night` flag.
 const REST_MARK_ICON = { event: "fa-bolt", encounter: "fa-skull" };
-function filledWatches(night) { return [1, 2, 3].filter(w => (night?.watches?.[w] ?? []).length); }
+function watchSlots(night) { return Array.from({ length: night?.count ?? 3 }, (_, i) => i + 1); }
+function filledWatches(night) { return watchSlots(night).filter(w => (night?.watches?.[w] ?? []).length); }
 function watchSeconds(size, night) {
   const total = (size === "long" ? 8 : 1) * 3600;
   return Math.round(total / (filledWatches(night).length || 1));
@@ -1420,11 +1430,13 @@ function watchEditor(group, night) {
   // A labelled header row so the bare 1/2/3 chips read as watch slots (DM 2026-07-17: "I don't
   // understand how watches are set"). Each column = a watch; each row = a PC; a lit chip = that PC
   // stands that watch.
+  const slots = watchSlots(night);
+  const ord = ["1st", "2nd", "3rd"];
   const head = `<div class="mc-dmp-nw-row mc-dmp-nw-head"><span></span><span class="mc-dmp-nw-chips">
-    <span class="mc-dmp-nw-h">1st</span><span class="mc-dmp-nw-h">2nd</span><span class="mc-dmp-nw-h">3rd</span></span></div>`;
+    ${slots.map(w => `<span class="mc-dmp-nw-h">${ord[w - 1]}</span>`).join("")}</span></div>`;
   const rows = nightMembers(group).map(a => {
-    const chips = [1, 2, 3].map(w => `<button class="mc-dmp-nw ${(night.watches?.[w] ?? []).includes(a.id) ? "mc-on" : ""}"
-        data-night="dm-toggle" data-group="${group.id}" data-actor="${a.id}" data-watch="${w}" title="Put ${esc(a.name.split(" ")[0])} on ${["1st", "2nd", "3rd"][w - 1]} watch">${w}</button>`).join("");
+    const chips = slots.map(w => `<button class="mc-dmp-nw ${(night.watches?.[w] ?? []).includes(a.id) ? "mc-on" : ""}"
+        data-night="dm-toggle" data-group="${group.id}" data-actor="${a.id}" data-watch="${w}" title="Put ${esc(a.name.split(" ")[0])} on ${ord[w - 1]} watch">${w}</button>`).join("");
     return `<div class="mc-dmp-nw-row"><span title="${esc(a.name)}">${esc(a.name.split(" ")[0])}</span><span class="mc-dmp-nw-chips">${chips}</span></div>`;
   }).join("");
   return `<div class="mc-dmp-night-edit">${head}${rows}</div>`;
@@ -1454,10 +1466,14 @@ function restHTML() {
 
   let body = "", advance = "", extra = "";
   if (rest.stage === "assign") {
-    body = `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Set the watches</div>
-      <p class="mc-rest-hint mc-rest-explain">Each column is a watch; tap a slot to put that character on it. Anyone not on the running watch sleeps. Players can place themselves from their phones too.</p>
+    const one = (night?.count ?? 3) === 1;
+    const explain = one
+      ? `One watch this rest — tap to set who keeps it. Everyone else sleeps. Players can place themselves from their phones too.`
+      : `Each column is a watch; tap a slot to put that character on it. Anyone not on the running watch sleeps. Players can place themselves from their phones too.`;
+    body = `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-moon"></i> Set the watch${one ? "" : "es"}</div>
+      <p class="mc-rest-hint mc-rest-explain">${explain}</p>
       ${watchEditor(group, night)}</div>
-      <p class="mc-rest-hint">Begin when the watches are set — the clock starts and the rest gets under way.</p>`;
+      <p class="mc-rest-hint">Begin when the watch${one ? " is" : "es are"} set — the clock starts and the rest gets under way.</p>`;
     advance = `<button class="mc-dmp-party-deploy mc-rest-adv" data-rest-advance><i class="fas fa-play"></i> Begin Rest</button>`;
   } else if (rest.stage === "downtime") {
     body = downtimeHTML(true);
@@ -1514,7 +1530,9 @@ async function startRest() {
   await group.setFlag(MODULE_ID, "rest", { id: foundry.utils.randomID(), size, phases: { downtime, watches }, stage, startedAt: game.time?.worldTime ?? 0 });
   if (watches) {
     // Fresh session id re-arms every phone's board (2026-07-09: a dismissed board stayed hidden).
-    await group.setFlag(MODULE_ID, "night", { id: foundry.utils.randomID(), stage: "assign", watch: 0, watches: { 1: [], 2: [], 3: [] } });
+    // `count` carries the type's watch count (short=1, long=3) so both the DM grid and the phones
+    // show only the slots this rest actually has.
+    await group.setFlag(MODULE_ID, "night", { id: foundry.utils.randomID(), stage: "assign", watch: 0, count: watchCount(size), watches: { 1: [], 2: [], 3: [] } });
   } else {
     await api.downtime({ op: "openWindow", size }); // downtime-only → its window opens straight away
   }
