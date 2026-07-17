@@ -3155,7 +3155,13 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-head { padding: 4px 8px; margin-bottom: 6px; border-radius: calc(6px * var(--mc-round, 1)); }
 .mc-dmp-fly-head:hover, .mc-dmp-head:hover { background: #322c1c; color: #e6c46a; }
 /* Status row: pause toggle + per-player presence lights. */
-.mc-dmp-status { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
+.mc-dmp-status { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--mc-edge); flex-wrap: wrap; }
+/* Clock chip: world time through the SC-optional adapter. Gold sun by day, cool moon by night. */
+.mc-dmp-clock { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; min-height: 24px; border-radius: 999px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--mc-ink); background: var(--mc-sunken); border: 1px solid var(--mc-edge); cursor: pointer; }
+.mc-dmp-clock i { color: var(--mc-gold); }
+.mc-dmp-clock.mc-night i { color: #8fb4e0; }
+.mc-dmp-clock:hover { border-color: var(--mc-gold); }
+.mc-dmp-clock-sc { opacity: .6; font-size: 9px; }
 /* (.mc-dmp-pause removed 2026-07-17 — Pause + Show left the DM window; nothing renders it.) */
 /* The Players picker follows §3 too: the ICON carries the player's colour, the NAME sits in the
    dropdown in plain ink. The select used to wear the player's colour as its border and the

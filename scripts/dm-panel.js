@@ -3,6 +3,7 @@ import { fireAoO } from "./aoo.js";
 import { MODULE_ID } from "./preset.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
+import { clockLabel, isNight, readClock, hasSimpleCalendar } from "./gametime.js";
 import { runDmWizard } from "./dm-wizard.js";
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
@@ -1054,7 +1055,12 @@ function statusHTML() {
     }
     return `<span class="mc-dmp-pres ${cls}" title="${esc(playerLabel(u))} — ${state}"><i class="fas fa-circle"></i> ${esc(playerLabel(u))}</span>`;
   }).join("") || `<span class="mc-dmp-pres mc-off">No players</span>`;
-  return `<div class="mc-dmp-status"><div class="mc-dmp-pres-row">${chips}</div></div>`;
+  // Clock chip: the world time, read through the SC-optional adapter. Tap to set the campaign's
+  // start time-of-day (our own clock only — when SC drives, it's read-only and shows a lock).
+  const night = isNight();
+  const clock = `<button class="mc-dmp-clock ${night ? "mc-night" : ""}" data-dm-clock title="${hasSimpleCalendar() ? "Simple Calendar is keeping time" : "Tap to set the campaign start time"}">
+    <i class="fas fa-${night ? "moon" : "sun"}"></i> ${esc(clockLabel())}${hasSimpleCalendar() ? ` <i class="fas fa-lock mc-dmp-clock-sc"></i>` : ""}</button>`;
+  return `<div class="mc-dmp-status">${clock}<div class="mc-dmp-pres-row">${chips}</div></div>`;
 }
 
 /** Combat control strip — run the encounter from the panel. Pre-start: Roll all +
@@ -2027,6 +2033,26 @@ async function onClick(ev) {
       }
     }
   }
+  const clockBtn = ev.target.closest("[data-dm-clock]");
+  if (clockBtn) {
+    if (hasSimpleCalendar()) { ui.notifications.info("Simple Calendar is keeping the time — set it there."); return; }
+    const c = readClock();
+    const cur = `${String(c.hour).padStart(2, "0")}:${String(c.minute).padStart(2, "0")}`;
+    const val = await foundry.applications.api.DialogV2.prompt({
+      window: { title: "Campaign start time" },
+      content: `<p style="margin:0 0 8px;font-size:13px">The time of day the campaign began. The clock is this plus elapsed play time.</p>
+        <input type="time" name="t" value="${cur}" style="width:100%;font-size:16px;padding:6px">`,
+      ok: { label: "Set", callback: (_e, btn) => btn.form.elements.t.value }
+    }).catch(() => null);
+    if (val && /^\d{2}:\d{2}$/.test(val)) {
+      const [h, m] = val.split(":").map(Number);
+      const startOfDay = (h * 3600 + m * 60) - (game.time.worldTime % 86400);
+      const wrapped = ((startOfDay % 86400) + 86400) % 86400;
+      await game.settings.set(MODULE_ID, "clockStart", wrapped);
+      render();
+    }
+    return;
+  }
   const dth = ev.target.closest("[data-dm-theme]");
   if (dth) {
     try { window.localStorage.setItem("mc-dm-theme", dth.dataset.dmTheme); } catch (e) { /* private mode */ }
@@ -2137,6 +2163,7 @@ export function registerDMPanel() {
   Hooks.on("updateScene", (_s, ch) => { if ("active" in ch) render(); }); // split-party chips follow activation
   Hooks.on("userConnected", () => render());                       // presence: connect/disconnect
   Hooks.on("updateUser", () => render());                          // presence: a player changed scene (viewedScene)
+  Hooks.on("updateWorldTime", () => render());                     // the clock chip follows the world time
   Hooks.on("mobile-command.presence", () => render());             // away-timer: a phone reported fg/bg
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.downtimeState`) render(); }); // §17.7: activities/window changed
   // Away-timer tick: the red escalation crosses the threshold with no event to fire it, so

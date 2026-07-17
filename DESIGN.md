@@ -1298,7 +1298,8 @@ means, and it removes the need for a separate count setting. SHORT ⇒ exactly o
 
 ### 19.6 Build order (once §19.1–5 land)
 
-1. `gametime.js` clock + a read-only clock chip on the panel (verify the SC-absent path first). DONE.
+1. `gametime.js` clock + a clock chip on the panel. DONE + VERIFIED (v0.1.209): SC-absent path
+   shows "Day 1 · 21:06", advances with worldTime (rolls past midnight), sun/moon flips at 06:00/18:00.
 2. The `rest` object + the setup card ([Short|Long] · ☑DT ☑Watches · Rest). Migrate the two old
    states into it behind a one-time read.
 3. Watch assignment (reuse the existing editor) → clock starts.
