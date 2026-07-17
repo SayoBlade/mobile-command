@@ -1430,7 +1430,7 @@ function isResting() { return !!restState(); }
 function restSetupCard(group) {
   const canRest = nightMembers(group).length > 0;
   const d = restDraft, plan = restPlan(d);
-  const seg = (val, label, icon) => `<button class="mc-rest-seg ${d.type === val ? "mc-on" : ""}" data-rest-type="${val}"><i class="fas ${icon}"></i> ${label}</button>`;
+  const seg = (val, label) => `<button class="mc-rest-seg ${d.type === val ? "mc-on" : ""}" data-rest-type="${val}">${label}</button>`;
   const restWord = plan.size === "long" ? "long rest" : "short rest";
   const canWatch = !plan.downtime;
   const lead = plan.downtime ? "Downtime"
@@ -1441,7 +1441,7 @@ function restSetupCard(group) {
   const watchBtn = `<button class="mc-rest-chk mc-rest-watchtoggle ${plan.watches ? "mc-on" : ""}" data-rest-watches ${canWatch ? "" : "disabled"} title="${canWatch ? "" : "Downtime is a safe hub — no watches"}">
       <i class="fas ${plan.watches ? "fa-square-check" : "fa-square"}"></i> <i class="fas fa-moon"></i> ${canWatch ? (plan.size === "short" ? "One watch" : "Set watches") : "No watches"}</button>`;
   return `<div class="mc-rest-setup">
-    <div class="mc-rest-segs mc-rest-types">${seg("short", "Short", "fa-mug-hot")}${seg("long", "Long", "fa-campground")}${seg("downtime", "Downtime", "fa-hourglass-half")}</div>
+    <div class="mc-rest-segs mc-rest-types">${seg("short", "Short")}${seg("long", "Long")}${seg("downtime", "Downtime")}</div>
     ${watchBtn}
     <button class="mc-dmp-party-deploy mc-rest-go" data-rest-start ${canRest ? "" : "disabled"}><i class="fas fa-campground"></i> Start Rest</button>
     <p class="mc-rest-hint">${canRest ? hint : "No party group with members — set one up first."}</p>
