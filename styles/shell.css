@@ -3189,9 +3189,10 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-drag { touch-action: none; }
 /* Headers double as drag handles — shorter, a distinct tint, and a hover
    highlight to hint you can grab them (DM 2026-07-03). */
-.mc-dmp-fly-head, .mc-dmp-head { cursor: move; touch-action: none; background: #221f16; }
-.mc-dmp-head { padding: 4px 8px; margin-bottom: 6px; border-radius: calc(6px * var(--mc-round, 1)); }
-.mc-dmp-fly-head:hover, .mc-dmp-head:hover { background: #322c1c; color: #e6c46a; }
+.mc-dmp-fly-head { cursor: move; touch-action: none; background: #221f16; }
+.mc-dmp-fly-head:hover { background: #322c1c; color: #e6c46a; }
+/* A section header, NOT a drag grip: no move cursor, no grab-hint hover (DM 2026-07-17). */
+.mc-dmp-head { padding: 4px 8px; margin-bottom: 6px; border-radius: calc(6px * var(--mc-round, 1)); background: #221f16; }
 /* Status row: pause toggle + per-player presence lights. */
 .mc-dmp-status { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--mc-edge); flex-wrap: wrap; }
 /* Clock chip: world time through the SC-optional adapter. Gold sun by day, cool moon by night. */
@@ -4298,6 +4299,10 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-rest-watchbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
 .mc-rest-dur { font-size: 12px; font-weight: 700; color: var(--mc-muted); flex: 0 0 auto; }
 .mc-rest-pass { width: 100%; margin-top: 8px; }
+/* Cancel rest — tertiary (no border, muted), always visible so the flow has a clear exit. */
+.mc-rest-cancel { width: 100%; margin-top: 6px; padding: 6px; background: none; border: none; cursor: pointer;
+  font-size: 12px; color: var(--mc-muted); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.mc-rest-cancel:hover { color: var(--mc-ink); }
 .mc-dt-newbtn { padding: 0 10px; height: 26px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
   color: #d8d2c4; background: #1a1712; border: 1px solid #4a4334; display: inline-flex; align-items: center; gap: 5px; }
 .mc-dt-newbtn:hover, .mc-dt-newbtn.mc-on { border-color: #c8a44d; color: #e6c46a; background: #2a2418; }

@@ -992,7 +992,9 @@ function startFlyResize(ev) {
 function onPointerDown(ev) {
   if (ev.target.closest("[data-fly-resize]")) return startFlyResize(ev); // resize the flyout height
   if (ev.target.closest("button, select, input")) return; // controls act, don't drag
-  if (!ev.target.closest(".mc-dmp-drag, .mc-dmp-fly-head, .mc-dmp-head")) return; // grip or any header
+  if (!ev.target.closest(".mc-dmp-drag, .mc-dmp-fly-head")) return; // only the window title bars drag —
+  // NOT `.mc-dmp-head`, which is an internal section title (dragging the window from a content header
+  // surprised the DM 2026-07-17).
   ev.preventDefault();
   const rect = panelEl.getBoundingClientRect();
   const offX = ev.clientX - rect.left, offY = ev.clientY - rect.top;
@@ -1495,9 +1497,10 @@ function restHTML() {
       <p class="mc-rest-hint">The watch is over. End the rest to apply the ${rest.size === "long" ? "long" : "short"} rest to the party.</p></div>`;
     advance = `<button class="mc-dmp-party-deploy mc-rest-end" data-rest-end><i class="fas fa-sun"></i> End Rest</button>`;
   }
-  const foot = `<div class="mc-rest-endbar">${advance}${extra}
-    <button class="mc-dmp-party-rebuild" data-rest-cancel title="Call off the rest — nothing is applied"><i class="fas fa-xmark"></i></button>
-  </div>`;
+  // A LABELLED cancel, not a lone X — an icon-only exit gets missed (bible §4; DM 2026-07-17
+  // "no way to cancel the rest once it's started"). Tertiary, sits under the primary action.
+  const foot = `<div class="mc-rest-endbar">${advance}${extra}</div>
+    <button class="mc-rest-cancel" data-rest-cancel title="Call off the rest — nothing is applied"><i class="fas fa-xmark"></i> Cancel rest</button>`;
   return `<div class="mc-dt-panel mc-rest-active">${header}${body}${foot}</div>`;
 }
 
