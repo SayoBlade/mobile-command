@@ -31,11 +31,12 @@ export function hasSimpleCalendar() {
   }
 }
 
-/** The campaign's start time-of-day, in seconds (our clock's zero). Ignored when SC is driving. */
+/** Our clock's zero: the offset (in seconds) added to worldTime to get game time. Encodes a full
+ *  date, not just a time of day, so the DM can re-anchor to any Day·HH:MM. SC ignores it. */
 function startOffset() {
   try {
     const v = Number(game.settings.get(MODULE_ID, "clockStart"));
-    return Number.isFinite(v) ? ((v % DAY) + DAY) % DAY : 0;
+    return Number.isFinite(v) ? v : 0;
   } catch (e) {
     return 0;
   }
@@ -43,7 +44,7 @@ function startOffset() {
 
 /** Our own reading of worldTime: { day, hour, minute, time, date, label }. */
 function ownClock(ts) {
-  const total = startOffset() + Math.max(0, Math.floor(ts));
+  const total = Math.max(0, startOffset() + Math.floor(ts));
   const day = Math.floor(total / DAY) + 1;
   const hour = Math.floor((total % DAY) / 3600);
   const minute = Math.floor((total % 3600) / 60);

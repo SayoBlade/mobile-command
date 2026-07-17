@@ -3177,6 +3177,21 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-clock.mc-night i { color: #8fb4e0; }
 .mc-dmp-clock:hover { border-color: var(--mc-gold); }
 .mc-dmp-clock-sc { opacity: .6; font-size: 9px; }
+/* Clock ± group: the chip flanked by -10/+10 quick nudges (DM 2026-07-17). */
+.mc-dmp-clockgroup { display: inline-flex; align-items: stretch; }
+.mc-dmp-clockgroup .mc-dmp-clock { border-radius: 0; }
+.mc-dmp-clock-step { flex: 0 0 auto; width: 22px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; cursor: pointer; color: var(--mc-muted); background: var(--mc-sunken); border: 1px solid var(--mc-edge); }
+.mc-dmp-clock-step:first-child { border-radius: 999px 0 0 999px; border-right: none; }
+.mc-dmp-clock-step:last-child { border-radius: 0 999px 999px 0; border-left: none; }
+.mc-dmp-clock-step:hover { color: var(--mc-gold); border-color: var(--mc-gold); }
+/* Set-the-time dialog: Day / Hour / Minute steppers. */
+.mc-dmp-tset { display: flex; flex-direction: column; gap: 8px; }
+.mc-dmp-tset-row { display: flex; align-items: center; gap: 8px; }
+.mc-dmp-tset-lbl { flex: 1 1 auto; font-weight: 700; }
+.mc-dmp-tset-b { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; color: var(--mc-ink); background: var(--mc-panel-2); border: 1px solid var(--mc-edge); }
+.mc-dmp-tset-b:hover { border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-dmp-tset-in { flex: 0 0 52px; width: 52px; text-align: center; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; padding: 5px 0; border-radius: 8px; background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge); }
+
 /* (.mc-dmp-pause removed 2026-07-17 — Pause + Show left the DM window; nothing renders it.) */
 /* The Players picker follows §3 too: the ICON carries the player's colour, the NAME sits in the
    dropdown in plain ink. The select used to wear the player's colour as its border and the

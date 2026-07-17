@@ -1057,8 +1057,13 @@ function statusHTML() {
   // Clock chip: the world time, read through the SC-optional adapter. Tap to set the campaign's
   // start time-of-day (our own clock only — when SC drives, it's read-only and shows a lock).
   const night = isNight();
-  const clock = `<button class="mc-dmp-clock ${night ? "mc-night" : ""}" data-dm-clock title="${hasSimpleCalendar() ? "Simple Calendar is keeping time" : "Tap to set the campaign start time"}">
-    <i class="fas fa-${night ? "moon" : "sun"}"></i> ${esc(clockLabel())}${hasSimpleCalendar() ? ` <i class="fas fa-lock mc-dmp-clock-sc"></i>` : ""}</button>`;
+  const sc = hasSimpleCalendar();
+  const clock = `<div class="mc-dmp-clockgroup">
+    ${sc ? "" : `<button class="mc-dmp-clock-step" data-dm-clock-nudge="-600" title="10 minutes earlier"><i class="fas fa-minus"></i></button>`}
+    <button class="mc-dmp-clock ${night ? "mc-night" : ""}" data-dm-clock title="${sc ? "Simple Calendar is keeping time" : "Tap to set the game time"}">
+      <i class="fas fa-${night ? "moon" : "sun"}"></i> ${esc(clockLabel())}${sc ? ` <i class="fas fa-lock mc-dmp-clock-sc"></i>` : ""}</button>
+    ${sc ? "" : `<button class="mc-dmp-clock-step" data-dm-clock-nudge="600" title="10 minutes later"><i class="fas fa-plus"></i></button>`}
+  </div>`;
   return `<div class="mc-dmp-status">${clock}<div class="mc-dmp-pres-row">${chips}</div></div>`;
 }
 
@@ -2032,22 +2037,51 @@ async function onClick(ev) {
       }
     }
   }
+  // ±10 minutes: real time PASSES (advances worldTime — effects/other modules listen). GM-only.
+  const nudge = ev.target.closest("[data-dm-clock-nudge]");
+  if (nudge) {
+    if (game.user.isGM) await game.time.advance(Number(nudge.dataset.dmClockNudge)); // updateWorldTime re-renders
+    return;
+  }
   const clockBtn = ev.target.closest("[data-dm-clock]");
   if (clockBtn) {
     if (hasSimpleCalendar()) { ui.notifications.info("Simple Calendar is keeping the time — set it there."); return; }
     const c = readClock();
-    const cur = `${String(c.hour).padStart(2, "0")}:${String(c.minute).padStart(2, "0")}`;
-    const val = await foundry.applications.api.DialogV2.prompt({
-      window: { title: "Campaign start time" },
-      content: `<p style="margin:0 0 8px;font-size:13px">The time of day the campaign began. The clock is this plus elapsed play time.</p>
-        <input type="time" name="t" value="${cur}" style="width:100%;font-size:16px;padding:6px">`,
-      ok: { label: "Set", callback: (_e, btn) => btn.form.elements.t.value }
+    // Day / Hour / Minute steppers. SET (re-anchors clockStart so no time "passes" and no effects
+    // fire) vs the chip's ±10 which PASSES time. − / + bump each field; wrap hour/minute, floor day.
+    const row = (key, label, val, max) => `<div class="mc-dmp-tset-row">
+      <span class="mc-dmp-tset-lbl">${label}</span>
+      <button type="button" class="mc-dmp-tset-b" data-step="${key}" data-d="-1"><i class="fas fa-minus"></i></button>
+      <input class="mc-dmp-tset-in" name="${key}" value="${val}" data-max="${max}" inputmode="numeric" readonly>
+      <button type="button" class="mc-dmp-tset-b" data-step="${key}" data-d="1"><i class="fas fa-plus"></i></button>
+    </div>`;
+    const result = await foundry.applications.api.DialogV2.wait({
+      window: { title: "Set the time" },
+      content: `<div class="mc-dmp-tset">
+        ${row("day", "Day", c.day, 0)}
+        ${row("hour", "Hour", c.hour, 24)}
+        ${row("minute", "Minute", c.minute, 60)}
+      </div>`,
+      buttons: [
+        { action: "set", label: "Set", default: true, callback: (_e, btn) => ({
+            day: Number(btn.form.elements.day.value), hour: Number(btn.form.elements.hour.value), minute: Number(btn.form.elements.minute.value) }) },
+        { action: "cancel", label: "Cancel" }
+      ],
+      render: (_e, dialog) => {
+        dialog.element.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", (e) => {
+          e.preventDefault();
+          const inp = dialog.element.querySelector(`input[name="${b.dataset.step}"]`);
+          const max = Number(inp.dataset.max);
+          let v = Number(inp.value) + Number(b.dataset.d);
+          if (max > 0) v = ((v % max) + max) % max;   // wrap hour 0-23 / minute 0-59
+          else v = Math.max(1, v);                     // day floors at 1
+          inp.value = v;
+        }));
+      }
     }).catch(() => null);
-    if (val && /^\d{2}:\d{2}$/.test(val)) {
-      const [h, m] = val.split(":").map(Number);
-      const startOfDay = (h * 3600 + m * 60) - (game.time.worldTime % 86400);
-      const wrapped = ((startOfDay % 86400) + 86400) % 86400;
-      await game.settings.set(MODULE_ID, "clockStart", wrapped);
+    if (result && typeof result === "object") {
+      const target = (result.day - 1) * 86400 + result.hour * 3600 + result.minute * 60;
+      await game.settings.set(MODULE_ID, "clockStart", target - game.time.worldTime); // re-anchor
       render();
     }
     return;
