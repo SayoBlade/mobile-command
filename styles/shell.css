@@ -2986,7 +2986,12 @@ body.mc-theme-wizard .mc-frame {
 }
 /* Main content scrolls inside a wrapper so the tab rail + flyout can stick OUT of
    the panel's right edge without being clipped (DM 2026-07-03 dock). */
-.mc-dmp-scroll { max-height: calc(100vh - 24px); overflow-y: auto; overflow-x: hidden; }
+/* The main window is a COLUMN with a pinned foot: Form up / Start the night ride the bottom
+   (DM 2026-07-17: "align the form up and start night buttons to the bottom as they are now"), so
+   they hold their place whether or not a token is selected and whatever grows above them. */
+.mc-dmp-scroll { max-height: calc(100vh - 24px); overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
+.mc-dmp-col { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+.mc-dmp-foot { margin-top: auto; }
 /* Right-edge tab rail — icon-only tabs sticking out. Closed: on the panel's right
    edge. Open: rides the flyout's right edge (mc-open), so the tab is always on the
    far-right box (DM 2026-07-03). */
@@ -3003,11 +3008,16 @@ body.mc-theme-wizard .mc-frame {
 /* Rolls tab only: let the targets dropdown escape the box. Other tabs clip so the
    body scrolls (tokens grid can be long — DM 2026-07-03). */
 .mc-dmp-flyout.mc-fly-rolls { overflow: visible; }
+.mc-dmp-drag.mc-dmp-fly-head { cursor: grab; justify-content: center; }
+.mc-dmp-drag.mc-dmp-fly-head:active { cursor: grabbing; }
 .mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px; border-bottom: 1px solid #4a4334; font-weight: 800; border-radius: calc(10px * var(--mc-round, 1)) 10px 0 0; }
 .mc-dmp-fly-x { background: none; border: none; color: #a59b86; font-size: 15px; cursor: pointer; }
 .mc-dmp-fly-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 /* Rolls tab only: let the targets dropdown escape the frame (short content). */
-.mc-dmp-flyout.mc-fly-rolls .mc-dmp-fly-body { overflow: visible; }
+/* The rolls tab is a COLUMN: type/ability on top, the player list taking the slack and
+   scrolling, and Request pinned to the bottom where the thumb expects it (DM 2026-07-17).
+   It used to be overflow:visible, so a long roster just grew past the window. */
+.mc-dmp-flyout.mc-fly-rolls .mc-dmp-fly-body { overflow: hidden; }
 /* Drag grabber to set the flyout's height cap (so a tall tab scrolls instead of shoving the panel). */
 .mc-dmp-fly-resize { flex: 0 0 auto; height: 14px; display: flex; align-items: center; justify-content: center;
   cursor: ns-resize; touch-action: none; color: #6b6250; background: #221f16; border-top: 1px solid #3a3423; border-radius: 0 0 10px 10px; }
@@ -3040,7 +3050,7 @@ body.mc-theme-wizard .mc-frame {
 /* Rolls tool: all three controls on one short line at the top (explicit widths so
    they always fit the 240px flyout — no spill). */
 .mc-dmp-rt-top { display: flex; gap: 6px; align-items: stretch; }
-.mc-dmp-rt-top select { height: 27px; border-radius: calc(7px * var(--mc-round, 1)); background: #14171f; color: #ece5d6; border: 1px solid #4a4334; padding: 0 4px; font-size: 12px; }
+.mc-dmp-rt-top select { height: 27px; border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge); padding: 0 4px; font-size: 12px; }
 .mc-rt-type { flex: 0 0 64px; } .mc-rt-abil { flex: 0 0 58px; }
 .mc-rt-multi { position: relative; flex: 1 1 auto; min-width: 0; }
 .mc-dmp-rt-forbtn { width: 100%; height: 27px; display: flex; align-items: center; justify-content: center; gap: 5px; border-radius: calc(7px * var(--mc-round, 1)); background: #14171f; color: #ece5d6; border: 1px solid #4a4334; cursor: pointer; white-space: nowrap; font-size: 12px; }
@@ -3050,17 +3060,21 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-party-mini { width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: calc(9px * var(--mc-round, 1)); background: #221f16; color: #c8a44d; border: 1px solid #6b5a2a; cursor: pointer; font-weight: 700; }
 .mc-dmp-rt-list { display: flex; flex-direction: column; gap: 3px; }
 /* Inline scrollable player-token target list (DM 2026-07-11). */
-.mc-dmp-rt-scroll { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow-y: auto; padding: 2px; }
-.mc-dmp-rt-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 9px; border-radius: calc(8px * var(--mc-round, 1)); background: #1b202b; border: 1px solid #2f3640; cursor: pointer; font-size: 13px; color: #ece5d6; text-align: left; }
+.mc-dmp-rt-scroll { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; padding: 2px; }
+.mc-dmp-rt-foot { flex: 0 0 auto; padding-top: 2px; }
+/* A STANDARD secondary row — panel fill, edge border, ink text (UI-BIBLE §4). It was a bespoke
+   slate-blue card that matched nothing else in the app (DM 2026-07-17: "I still low-key hate the
+   request roll character selection buttons, get them more standard"). */
+.mc-dmp-rt-row { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding: 7px 9px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); cursor: pointer; font-size: 13px; color: var(--mc-ink); text-align: left; }
 .mc-rt-usericon { flex: 0 0 auto; font-size: 16px; width: 18px; text-align: center; }
 .mc-rt-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-rt-dist { flex: 0 0 auto; font-size: 11px; color: #9a9da8; font-variant-numeric: tabular-nums; }
 .mc-rt-dist.mc-in { color: #6fcf7d; }   /* within the anchor's weapon range */
 .mc-rt-dist.mc-out { color: #d68b7f; }  /* out of range */
 .mc-rt-tick { flex: 0 0 auto; color: #c8a44d; opacity: .22; width: 15px; text-align: center; }
-.mc-dmp-rt-row.mc-on { border-color: #c8a44d; background: #221f16; }
+.mc-dmp-rt-row.mc-on { border-color: var(--mc-gold); background: var(--mc-panel-2); }
 .mc-dmp-rt-row.mc-on .mc-rt-tick { opacity: 1; }
-.mc-dmp-rt-row.mc-targeted { box-shadow: inset 0 0 0 1px #c8a44d; }
+.mc-dmp-rt-row.mc-targeted { box-shadow: inset 0 0 0 1px var(--mc-gold); }
 .mc-dmp-rt-send { height: 40px; border-radius: calc(9px * var(--mc-round, 1)); font-weight: 800; color: var(--mc-cta-ink); background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge); cursor: pointer; }
 .mc-dmp-empty { color: #a59b86; font-size: 12px; text-align: center; padding: 8px; }
 #mc-dm-panel.mc-show { display: block; }
@@ -3074,9 +3088,22 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-fly-head:hover, .mc-dmp-head:hover { background: #322c1c; color: #e6c46a; }
 /* Status row: pause toggle + per-player presence lights. */
 .mc-dmp-status { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
-.mc-dmp-pause { flex: none; width: 32px; height: 32px; border-radius: calc(8px * var(--mc-round, 1)); background: #2c2733; border: 1px solid #4a4334; color: #ece5d6; cursor: pointer; }
-.mc-dmp-pause:hover { background: #36303f; }
-.mc-dmp-pause.mc-active { color: #1a1712; background: #c8a44d; border-color: #c8a44d; }
+/* (.mc-dmp-pause removed 2026-07-17 — Pause + Show left the DM window; nothing renders it.) */
+/* §3 name tag: the ICON carries identity (player colour / DM colour for NPCs), the NAME is
+   always ink. Shared by the roster, request-rolls, downtime and the selected-token title. */
+.mc-nt-ico { flex: 0 0 auto; font-size: 13px; }
+.mc-nt-name { color: var(--mc-ink); font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The HP block renders even with nothing selected, so the panel's height never jumps (DM
+   2026-07-17: "I want the minimal height to be this state (token selected), even when a token
+   isn't selected"). The two states are the same height BY CONSTRUCTION — the note occupies exactly
+   the slot the button row would — rather than by a magic total that drifts the moment the row
+   changes. */
+.mc-dmp-hp { --mc-hp-row-h: 34px; }
+.mc-dmp-hp-row { min-height: var(--mc-hp-row-h); }
+.mc-dmp-hp-empty { opacity: .75; }
+.mc-dmp-hp-empty .mc-dmp-hp-head { color: var(--mc-muted); }
+.mc-dmp-hp-empty .mc-dmp-note { min-height: var(--mc-hp-row-h); display: flex; align-items: center; }
+.mc-dmp-note { font-size: 11px; color: var(--mc-muted); padding: 2px; }
 .mc-dmp-pres-row { display: flex; flex-wrap: wrap; gap: 3px 8px; min-width: 0; }
 .mc-dmp-pres { font-size: 11px; color: #d6cfbf; display: inline-flex; align-items: center; gap: 4px; }
 .mc-dmp-pres i { font-size: 8px; }
@@ -3832,15 +3859,26 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   background: #2c2733; border: 1px solid #4a3f66; color: #b39df1;
 }
 .mc-dmp-react button:hover { border-color: #8a6fd8; background: #362f47; }
-.mc-dmp-party-deploy:hover { background: linear-gradient(#d4b35f, #c49a2e) !important; }
-.mc-dmp-party-deploy.mc-warn { color: #fff !important; background: linear-gradient(#c05555, #9c3d3d) !important; border-color: #d06060 !important; }
+.mc-dmp-party-deploy:hover { border-color: var(--mc-gold) !important; --mc-cta-a: 0.6; }
+.mc-dmp-party-deploy.mc-warn { color: #ffd9d4 !important; background: linear-gradient(rgba(192,85,85,.42), rgba(156,61,61,.42)) !important; border-color: #d06060 !important; }
 /* Combat nudge: the packed group joined the tracker — a fight as a blob makes no
    sense, so pulse Disperse (nudge, never force; §15.2 decision 6). */
 .mc-dmp-party-deploy.mc-nudge { animation: mc-party-nudge 1.2s ease-in-out infinite; }
 @keyframes mc-party-nudge {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(230, 180, 60, 0); }
-  50% { box-shadow: 0 0 10px 3px rgba(230, 180, 60, .75); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--mc-cta-top-rgb), 0); }
+  50% { box-shadow: 0 0 10px 3px rgba(var(--mc-cta-top-rgb), .75); }
 }
+
+/* ── §18 Travel tab: a short column — scene picker, state hint, one CTA ── */
+.mc-dmp-travel { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px; }
+.mc-dmp-travel-lbl { color: var(--mc-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.mc-dmp-travel select {
+  background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge);
+  border-radius: 6px; padding: 6px 8px; min-height: 34px; width: 100%;
+}
+.mc-dmp-travel-hint { color: var(--mc-muted); font-size: 12px; margin: 0; }
+.mc-dmp-travel-go { min-height: 40px; border-radius: 6px; }
+.mc-dmp-travel-go:disabled { opacity: .45; cursor: default; }
 
 /* ── §17 Downtime — player board (top of the sheet when a window is open) ── */
 .mc-dt-board {

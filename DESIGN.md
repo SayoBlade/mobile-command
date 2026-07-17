@@ -1106,3 +1106,78 @@ Mechanics mapping (researched):
 **Two model additions (v0.1.140, DM 2026-07-13):** (1) **Per-character gear settings** — rare, hidden behind a gear icon. `bonusActivities` is the "doesn't sleep" case (a race trait or undocumented backstory ability → extra Activities per beat; `slotsFor(size, settings)` = base-by-size + bonus, a soft guide, DM dictates); `showMechanicsByDefault` seeds the DM's show/hide toggle per player (a crunch preference). Stored in a parallel `actorSettings:{[actorId]:…}` map on `downtimeState` with `getActorSettings`/`setActorSetting`. (2) **Visibility-aware player button** `playerRuleView(rule, progress, visible)` — the SAME Rule, two faces per the DM's per-Activity `visible` toggle: hidden → a bare "Roll a Dexterity check" (no numbers); shown → "Roll a DC 50 Dexterity check" + a note ("−1 DC each miss" / "18/150"). Uses a UI-resolved `roll.label` (so the pure module needs no dnd5e CONFIG), reflects the current shifting DC, phrases saves vs checks, does a/an correctly, and returns `button:null` for a no-roll tally the DM ticks. All covered by the engine tests (49/49).
 
 **SIGNED OFF (DM 2026-07-08)** with amendments: **NO race/Trance detection at all** ("just not possible to follow all the 3rd-party races") — the Zzz default applies to EVERY off-duty PC and the DM toggles individuals by hand (the Trance rules note above stays as table knowledge only); and a **"Skip guard duty" option** starts the night with no watch board (straight to "night passes" → the long-rest prompt). Remaining defaults decided under the sign-off (warnings-not-walls): free placement, a PC may take 0..3 watches (0 = sleeps through; hint, never a block); Zzz = core "sleep" status as a pure visual marker during narration, DM taps any sleeper's marker off to wake them; a sleeping PC's phone shows a Zzz overlay (same pattern as 17.3's paused overlay); at ENCOUNTER START a one-tap chip offers "apply Unconscious + Surprised to the N sleepers" (never auto); when watch 3 ends — or duty was skipped — a prompt offers "night passed — grant the long rest" (runs dnd5e longRest for all); the board lives in the Party tabs for players + a DM panel section behind a "Start the night" action. **DM-INITIATED ONLY (DM 2026-07-08): the whole guard-duty flow starts from the DM's "Start the night" — players never open the watch board themselves; it appears on their phones when the DM starts it (mirrors how pack auto-opens the Party-order tab) and leaves when the night resolves.**
+
+## 18. Travel mode (DM-idea, spec 2026-07-17)
+
+The pitch (DM 2026-07-17): one button pulls the party to the overworld map (zoom-out transition),
+grouped automatically. The DM sets the group's travel pace. Players point at the TV with their
+hands and debate; the DM draws a dashed freeform route, and the panel converts line length → map
+distance (scene grid settings) → travel time at the current pace — numbers DM-only, the line
+itself visible to everyone. On agreement, one button walks the group token along the route while
+game time and the daylight move with it ("a 10-hour trip could be 5 seconds with the sun setting").
+Plus: scene shortcuts (camp / ambush / lair) and shown/hidden map pins (the known villain castle
+vs. the secret goblin village the DM can move clandestinely).
+
+### 18.1 Decisions (all DM 2026-07-17)
+
+- **Map calibration is the DM's job.** Distance/time math trusts the overworld scene's grid
+  distance + units. If the map isn't calibrated, the numbers are wrong — "not our problem".
+- **Freeform imprecision is diegetic.** A wobble in the drawn line is a small detour the party
+  made; a big slip is redrawn. The line is visible to players, so redraw-vs-explain is table talk.
+- **No terrain math in phase 1.** Estimate = line length ÷ pace; the DM eyeballs the swamp. The
+  fuzziness is arguably a feature ("you estimate 2 days, but the terrain is rough — who knows").
+  Auto terrain-cost via painted regions (v14 TerrainData) is a LATER maybe (T5).
+- **Players never input a destination directly.** They point at the TV physically; the DM is the
+  only hand on the map. (A phone "suggest destination" ping is a possible later idea — ledger.)
+- **Tick-based journey loop** (design, not yet built): split the route into 1-game-hour ticks.
+  Per tick: move the group token one slice along the line, `game.time.advance(3600)`, nudge scene
+  darkness toward the time-of-day target with core's animate-darkness so light SWEEPS. Cinematic
+  rate ≈ 0.5 real s per game hour, clamped ~4–15 s total. Why ticks beat one-animation-plus-jump:
+  the DM can STOP mid-route (ambush!) and clock + position are already consistent at the stop
+  point; and each tick fires `updateWorldTime`, so calendars/watch logic see time pass normally.
+  Darkness-follows-time is a TOGGLE (some DMs narrate nightfall; some maps hate darkness).
+- **Travel must be pausable in human time (DM 2026-07-17).** The tick rate errs SLOW — DM-adjustable
+  seconds-per-game-hour with a floor high enough that Stop can land on the intended hour (≈1 s per
+  game hour as the default; drop the old 4–15 s total clamp in favor of the DM-set rate). A journey
+  is a narration beat, not a loading screen.
+- **The journey auto-pauses the game (DM 2026-07-17)** so no player presses a movement key mid-ride —
+  the existing pause guard already refuses phone RPC and shows the paused overlay, so pausing is the
+  whole mechanism. Executor-side tick writes are direct document updates, unaffected by pause.
+  Arrival unpauses; **Stop stays paused** (the DM is probably setting up an encounter).
+- **Pace is data, not a stat.** fast/normal/slow → miles-per-day stored as a flag on the group
+  actor/token; never write the token's real movement attributes.
+- **Per-route transitions already work.** The registry entries (transitions.js) are pickable per
+  Scene (Ambience → Transition) AND per Teleport Token region behavior — so tower stairs 2→3 can
+  zoom OUT while 4→3 zooms IN, same destination scene, no new code (answered DM 2026-07-17).
+
+### 18.2 Build slices
+
+- **T1 — Travel tab + pull-to-overmap (BUILT 2026-07-17).** DM-panel "Travel" dock tab: overworld
+  scene picker (world setting `travelOverworldSceneId`, config:false, set from the tab) + one CTA.
+  `travelBegin` RPC: auto-packs via handlePartyPack when unpacked (surfacing its clear reasons,
+  e.g. "party isn't clustered"), then moves the group token to the overworld — landing at the
+  scene flag `travelPos` (last travel position), else a pre-existing group token's spot, else map
+  center — and activates the scene so the configured transition plays for the whole table.
+- **T2 — Pace + route.** Pace picker on the tab (flag on the group). DM draws a dashed freeform
+  polyline (Drawing document — players see it); live readout DM-only: length → distance (scene
+  grid) → hours/days at pace.
+- **T3 — The journey.** Tick loop per 18.1 (auto-pause on start, DM-set rate, Stop button, darkness
+  toggle), save `travelPos` as it goes; arrival unpauses and offers the pull-in (activate the
+  destination scene / shortcut).
+- **T3.5 — Random encounters (DM 2026-07-17, "opens up a random encounter roll per X hours").**
+  Optional per-journey check: every X game hours the tick loop rolls (or prompts the DM) for an
+  encounter; a hit auto-Stops — game stays paused, clock and party position already at the
+  encounter's exact hour and spot on the line. Pairs naturally with the T4 shortcut strip
+  ("ambush on the road" is one tap away).
+- **T4 — Pins + shortcuts.** Map Notes as shown/hidden pins with per-pin visibility toggle (known
+  castle vs. secret goblin village; DM can move hidden pins), and a shortcut strip of predefined
+  scenes (camp / ambush / lair) = one-tap activations with their own transitions.
+- **T5 (maybe) — terrain regions.** Painted terrain regions auto-multiply segment cost in the
+  estimate; only if the DM actually wants to paint overmaps.
+
+### 18.3 Open questions (ledger)
+
+- Darkness curve: what darkness level maps to which hour (flat day/night with dawn/dusk ramps?),
+  and should the toggle live per-scene or per-journey?
+- Phone "suggest destination" ping — wanted at all, or does pointing at the TV cover it?
+- Calendar: plain `game.time` for now; revisit if a calendar module joins the stack.

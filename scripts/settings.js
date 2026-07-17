@@ -205,6 +205,15 @@ export function registerSettings() {
     default: true
   });
 
+  // §18 travel mode: the DM's chosen overworld scene — picked from the DM panel's
+  // Travel tab, not the settings sheet (config: false).
+  game.settings.register(MODULE_ID, "travelOverworldSceneId", {
+    scope: "world",
+    config: false,
+    type: String,
+    default: ""
+  });
+
   // Auto-loot (DESIGN §7.6): when an NPC token dies, the executor turns it into an Item
   // Piles loot pile so players can loot it from the phone with the flow we already built.
   // Off by default (opt-in); needs Item Piles installed. Skips PCs, linked tokens, tokens

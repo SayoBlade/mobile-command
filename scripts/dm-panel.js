@@ -75,6 +75,7 @@ function tabRailHTML() {
   // When a flyout is open the rail rides its right edge (mc-open); else the panel's.
   return `<div class="mc-dmp-tabrail ${dockTab ? "mc-open" : ""}">
     ${tab("party", "fa-border-all", "Party order", !!packedGroup())}
+    ${tab("travel", "fa-route", "Travel")}
     ${tab("rolls", "fa-dice-d20", "Request rolls")}
     ${tab("tokens", "fa-users", "Players")}
     ${tab("downtime", "fa-hourglass-half", "Downtime", true, downtimeOpen() ? "•" : 0)}
@@ -172,7 +173,7 @@ function downtimeHTML() {
           <button class="mc-dt-openbtn" data-dt-open="short"><i class="fas fa-hourglass-half"></i> Short downtime</button>
           <button class="mc-dt-openbtn" data-dt-open="long"><i class="fas fa-hourglass-start"></i> Long downtime</button>
         </div>
-        <p class="mc-dt-sizehint">Short — a watch or an evening · Long — a day or more in a hub</p></div>`;
+        <p class="mc-dt-sizehint">Short — a watch or an evening<br>Long — a day or more in a hub</p></div>`;
 
   // Only characters who are IN the scene — off-scene PCs are hidden here and excluded from the
   // party rest (DM 2026-07-13: "hide out of scene characters… I don't see the use case").
@@ -566,7 +567,6 @@ function rollsToolHTML() {
   const esc = foundry.utils.escapeHTML;
   const cands = rollTargets();
   if (rollTool.selected == null) rollTool.selected = new Set(cands.filter(c => c.preselect).map(c => c.actor.id));
-  const colorFor = (a) => { const u = game.users.find(u => !u.isGM && u.character?.id === a?.id) ?? game.users.find(u => !u.isGM && a?.testUserPermission?.(u, "OWNER")); return u?.color?.css ?? "#c8a44d"; };
   const abilOpts = Object.entries(CONFIG.DND5E?.abilities ?? {}).map(([k, v]) =>
     `<option value="${k}" ${rollTool.ability === k ? "selected" : ""}>${esc((v.abbreviation ?? k).toUpperCase())}</option>`).join("");
   // Player-token button list (DM 2026-07-11): each row is a player-controlled token with a
@@ -591,7 +591,7 @@ function rollsToolHTML() {
     const dist = c.dist == null ? "" : `<span class="mc-rt-dist${distCls}">${Math.round(c.dist)} ${esc(units)}</span>`;
     // A <button> row: colour-coded user icon, name, distance (green in range / red out), tick.
     return `<button class="mc-dmp-rt-row${on ? " mc-on" : ""}${targeted ? " mc-targeted" : ""}" data-rt-target="${c.actor.id}" title="Tap: target ${esc(c.actor.name)} + toggle for the roll${reach != null && c.dist != null ? ` (${inRange ? "in" : "out of"} range)` : ""}">
-      <i class="fas fa-circle-user mc-rt-usericon" style="color:${colorFor(c.actor)}"></i>
+      <i class="fas fa-circle-user mc-rt-usericon" style="color:${ownerColor(c.actor) ?? '#c8a44d'}"></i>
       <span class="mc-rt-name">${esc(c.actor.name)}</span>
       ${dist}
       <i class="fas fa-crosshairs mc-rt-tick"></i>
@@ -603,7 +603,7 @@ function rollsToolHTML() {
       <select class="mc-rt-abil" data-rt="ability">${abilOpts}</select>
     </div>
     <div class="mc-dmp-rt-scroll">${rows || `<div class="mc-dmp-empty">No player tokens.</div>`}</div>
-    <button class="mc-dmp-rt-send" data-rt-send${selCount ? "" : " disabled"}><i class="fas fa-paper-plane"></i> Request ${rollTool.type} from ${selCount}</button>`;
+    <div class="mc-dmp-rt-foot"><button class="mc-dmp-rt-send" data-rt-send${selCount ? "" : " disabled"}><i class="fas fa-paper-plane"></i> Request ${rollTool.type} from ${selCount}</button></div>`;
 }
 
 // Owned tokens (task #18): each non-GM, non-TV player's owned actors as draggable
@@ -637,9 +637,39 @@ function ownedTokensHTML() {
     <div class="mc-dmp-tok-grid">${items || `<div class="mc-dmp-empty">No tokens for this player.</div>`}</div>`;
 }
 
+// §18 travel mode T1: pick the overworld, one CTA pulls the party there. The
+// pace picker, route drawing, and the journey loop arrive in later slices (T2+).
+function travelHTML() {
+  const esc = foundry.utils.escapeHTML;
+  const chosenId = game.settings.get(MODULE_ID, "travelOverworldSceneId");
+  const scenes = game.scenes.contents.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const over = game.scenes.get(chosenId);
+  const packed = packedGroup(), cand = candidateGroup();
+  const onOver = !!over && game.scenes.active?.id === over.id;
+  const state = !over ? "Choose which scene is the overworld map."
+    : onOver ? "The party is already on this map."
+    : packed ? "Party is formed up — ready to travel."
+    : cand ? "Party will form up automatically (they must be clustered)."
+    : "No party group with members — set one up from the panel first.";
+  const ready = !!over && !onOver && !!(packed || cand);
+  return `<div class="mc-dmp-travel">
+    <label class="mc-dmp-travel-lbl" for="mc-travel-scene">Overworld map</label>
+    <select id="mc-travel-scene" data-travel-scene>
+      <option value="">— choose a scene —</option>
+      ${scenes.map(s => `<option value="${s.id}" ${s.id === chosenId ? "selected" : ""}>${esc(s.name)}</option>`).join("")}
+    </select>
+    <p class="mc-dmp-travel-hint">${esc(state)}</p>
+    <button class="mc-dmp-party-deploy mc-dmp-travel-go" data-travel-begin ${ready ? "" : "disabled"}
+      title="Form up if needed, land the party token on the overworld, and activate it — the scene's transition plays for everyone">
+      <i class="fas fa-route"></i> Pull the party to ${over ? esc(over.name) : "the overworld"}</button>
+    <p class="mc-dmp-travel-hint">The destination's Ambience → Transition plays on arrival — set the overworld's to "Zoom Out (Mobile Command)" for the pull-back.</p>
+  </div>`;
+}
+
 function flyoutHTML() {
   let title = "", body = "";
   if (dockTab === "rolls") { title = "Request rolls"; body = rollsToolHTML(); }
+  else if (dockTab === "travel") { title = "Travel"; body = travelHTML(); }
   else if (dockTab === "tokens") { title = "Players"; body = ownedTokensHTML(); }
   else if (dockTab === "downtime") { title = "Downtime"; body = downtimeHTML(); }
   else if (dockTab === "preflight") { title = "Session preflight"; body = preflightHTML(); }
@@ -855,8 +885,7 @@ function cameraBarHTML() {
   </div>`;
 }
 
-/** Top status row: a pause toggle (the pause-guard freezes player actions) + a
- *  per-player presence light — green = present (on the active scene OR a canvasless
+/** Top status row: a per-player presence light — green = present (on the active scene OR a canvasless
  *  phone), amber = a desktop client viewing a DIFFERENT scene, gray = offline. */
 // Compact "away for" readout: 45s, 2m, 1h12m.
 function fmtAway(secs) {
@@ -866,11 +895,32 @@ function fmtAway(secs) {
   return `${Math.floor(m / 60)}h${m % 60}m`;
 }
 
+/** UI-BIBLE §3 — `(token icon) Name`, everywhere a creature is named.
+ *  PC  → fa-circle-user in THAT PLAYER's colour.
+ *  NPC → fa-dragon in the DM's colour (an NPC has no player, so it carries the DM's).
+ *  The NAME is always ink, never tinted: many player colours are unreadable on our dark panels
+ *  (a real one in the test world is #0001bf). The icon says whose it is; the text stays readable.
+ *  One helper so the roster, request-rolls, downtime and the selected-token title can't drift. */
+function ownerColor(actor) {
+  const u = game.users.find(u => !u.isGM && u.character?.id === actor?.id)
+         ?? game.users.find(u => !u.isGM && actor?.testUserPermission?.(u, "OWNER"));
+  return u?.color?.css ?? null;
+}
+function nameTag(actor, name) {
+  const esc = foundry.utils.escapeHTML;
+  const col = ownerColor(actor);
+  const icon = col ? "fa-circle-user" : "fa-dragon";
+  const colour = col ?? (game.user?.color?.css ?? "#c8a44d");
+  return `<i class="fas ${icon} mc-nt-ico" style="color:${colour}"></i>`
+       + `<span class="mc-nt-name">${esc(name ?? actor?.name ?? "")}</span>`;
+}
+
 function statusHTML() {
   const esc = foundry.utils.escapeHTML;
-  const paused = game.paused;
-  const pauseBtn = `<button class="mc-dmp-pause ${paused ? "mc-active" : ""}" data-action="pause" title="${paused ? "Resume — players' actions allowed" : "Pause — freeze players' actions"}"><i class="fas fa-${paused ? "play" : "pause"}"></i></button>`;
-  const showBtn = `<button class="mc-dmp-pause" data-action="show-players" title="Show the selected token's image on players' phones"><i class="fas fa-image"></i></button>`;
+  // Pause + Show removed from this window (DM 2026-07-16). Both already live in Foundry's own UI,
+  // and the panel is the DM's PHONE-FACING controls — anything the desktop already does well
+  // doesn't earn a seat here. The pause GUARD (which freezes player actions) is untouched: that's
+  // enforcement in rpc.js, not this button.
   const activeScene = game.scenes?.active?.id;
   const players = game.users.filter(u => !u.isGM);
   // Away-timer threshold (§7.8): seconds a phone may stay backgrounded before its dot goes red.
@@ -895,7 +945,7 @@ function statusHTML() {
     }
     return `<span class="mc-dmp-pres ${cls}" title="${esc(playerLabel(u))} — ${state}"><i class="fas fa-circle"></i> ${esc(playerLabel(u))}</span>`;
   }).join("") || `<span class="mc-dmp-pres mc-off">No players</span>`;
-  return `<div class="mc-dmp-status">${pauseBtn}${showBtn}<div class="mc-dmp-pres-row">${chips}</div></div>`;
+  return `<div class="mc-dmp-status"><div class="mc-dmp-pres-row">${chips}</div></div>`;
 }
 
 /** Combat control strip — run the encounter from the panel. Pre-start: Roll all +
@@ -948,11 +998,22 @@ async function applyHpDelta(actor, delta) {
 /** Quick HP: Damage / Heal the selected token(s) without opening a sheet. */
 function quickHpHTML() {
   const toks = controlledWithActors();
-  if (!toks.length) return "";
+  // ALWAYS render the block, even with nothing selected (DM 2026-07-17): the panel's height is
+  // then the same whether or not a token is picked, so it never jumps under the DM's hand — and
+  // Form up / Start the night stay exactly where the muscle memory left them.
+  if (!toks.length) {
+    return `<div class="mc-dmp-hp mc-dmp-hp-empty">
+      <div class="mc-dmp-hp-head"><i class="fas fa-hand-pointer"></i> No token selected</div>
+      <div class="mc-dmp-note">Select a token for more</div>
+    </div>`;
+  }
   const esc = foundry.utils.escapeHTML;
-  const label = toks.length === 1 ? esc(toks[0].name) : `${toks.length} tokens`;
+  // §3: `(token icon) Name` — the icon carries identity, the name stays ink.
+  const label = toks.length === 1
+    ? nameTag(toks[0].actor, toks[0].name)
+    : `<i class="fas fa-users mc-nt-ico"></i><span class="mc-nt-name">${toks.length} tokens</span>`;
   return `<div class="mc-dmp-hp">
-      <div class="mc-dmp-hp-head"><i class="fas fa-heart-pulse"></i> ${label}</div>
+      <div class="mc-dmp-hp-head">${label}</div>
       <div class="mc-dmp-hp-row">
         <button class="mc-dmp-hp-btn mc-dmp-dmg" data-hp="damage" title="Damage the selected token(s)">− Damage</button>
         <input class="mc-dmp-hp-input" type="number" min="0" step="1" inputmode="numeric" aria-label="HP amount">
@@ -1576,16 +1637,24 @@ function render() {
   // The camera bar is always present (the DM needs TV control out of combat, with
   // no targets); targeting/cast sections grow the panel when relevant. A grip at the
   // top lets the DM drag the panel off other widgets.
-  const grip = `<div class="mc-dmp-drag" title="Drag to move"><i class="fas fa-grip-lines"></i></div>`;
+  // The main window wears the SAME header as its flyouts (DM 2026-07-17) — one window chrome, so
+  // the primary doesn't read as a lesser thing than the panel hanging off it. It has no ✕: the
+  // primary window is closed from the scene controls, not from itself.
+  const grip = `<div class="mc-dmp-fly-head mc-dmp-drag" title="Drag to move"><span>Mobile Command</span></div>`;
   // Party order lives in its own dock tab (auto-open on pack, close on disperse) —
   // the main area keeps only Form up / Disperse so its width never jumps.
   const packedNow = !!packedGroup();
   if (packedNow && !dockWasPacked) dockTab = "party";
   else if (!packedNow && dockWasPacked && dockTab === "party") dockTab = null;
   dockWasPacked = packedNow;
-  const main = grip + statusHTML() + cameraBarHTML() + reactionsHTML() + splitPartyHTML() + combatHTML() + quickHpHTML()
-    + partyMainHTML() + nightHTML()
-    + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "");
+  // Form up / Start the night are PINNED to the bottom (mc-dmp-foot + margin-top:auto): they're
+  // the two the DM reaches for without looking, so they must not slide when a section above grows
+  // (DM 2026-07-17). Everything conditional sits above them.
+  const main = grip + `<div class="mc-dmp-col">`
+    + statusHTML() + cameraBarHTML() + reactionsHTML() + splitPartyHTML() + combatHTML() + quickHpHTML()
+    + (pending.length ? pendingHTML(pending) : "") + (targets.length ? assignHTML(targets) : "")
+    + `<div class="mc-dmp-foot">` + partyMainHTML() + nightHTML() + `</div>`
+    + `</div>`;
   // Grow the flyout UP (anchored to the panel's bottom) when the panel sits in the lower half of
   // the screen, so a bottom-docked panel's second window opens into visible space instead of off
   // the bottom edge (DM 2026-07-13).
@@ -1622,6 +1691,8 @@ function onTokenDblClick(ev) {
 function onChange(ev) {
   const rf = ev.target.closest("[data-rule]");
   if (rf) return applyRuleField(rf.dataset.rule, rf.value); // §17.7 Rule-authoring form field
+  const trav = ev.target.closest("[data-travel-scene]");
+  if (trav) { game.settings.set(MODULE_ID, "travelOverworldSceneId", trav.value).then(() => render()); return; } // §18 T1
   const player = ev.target.closest("[data-tok-player]");
   if (player) { tokensPlayer = player.value; return render(); } // owned-tokens player switch
   const sel = ev.target.closest("[data-rt]");
@@ -1689,6 +1760,12 @@ async function onClick(ev) {
   const dockBtn = ev.target.closest("[data-dock]");
   if (dockBtn) { dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }
   if (ev.target.closest("[data-dock-close]")) { dockTab = null; return render(); }
+  if (ev.target.closest("[data-travel-begin]")) { // §18 T1: pull the party to the overworld
+    const res = await api.travelBegin({});
+    if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't begin travel.");
+    else if (res?.already) ui.notifications.info("The party is already on the overworld.");
+    return render();
+  }
   if (ev.target.closest("[data-rt-forbtn]")) { rollTool.targetsOpen = !rollTool.targetsOpen; return render(); }
   const cp = ev.target.closest("[data-color-pick]");
   if (cp) { // DM initiates: push the colour picker to that player's phone
@@ -1854,21 +1931,6 @@ async function onClick(ev) {
     else if (cam.dataset.cam === "zoom-out") globalThis.MobileCommand?.tvZoom?.(1 / 1.25);
     return render();
   }
-  if (ev.target.closest('[data-action="pause"]')) {
-    game.togglePause(!game.paused, { broadcast: true });
-    return render();
-  }
-  if (ev.target.closest('[data-action="show-players"]')) {
-    const tok = canvas.tokens?.controlled?.[0];
-    const img = tok?.document?.texture?.src || tok?.actor?.img;
-    if (!img) { ui.notifications.warn("Select a token — its image will show on players' phones."); return; }
-    // The shell hides native windows, so phones pick this up via shell.js's own
-    // `shareImage` socket listener (mirrors it into the full-screen overlay). No name/title:
-    // a token's name can spoil what the image is (a potion labelled "Poison …"). DM 2026-06-26.
-    game.socket.emit("shareImage", { image: img, title: "", showTitle: false });
-    ui.notifications.info("Shown on players' phones.");
-    return;
-  }
   const hpBtn = ev.target.closest("[data-hp]");
   if (hpBtn) {
     const input = panelEl.querySelector(".mc-dmp-hp-input");
@@ -1937,7 +1999,6 @@ export function registerDMPanel() {
   Hooks.on("updateCombat", () => render());
   Hooks.on("deleteCombat", () => render());                        // combat ended → drop the strip
   Hooks.on("combatStart", () => render());
-  Hooks.on("pauseGame", () => render());                           // pause toggle ↔ panel button
   Hooks.on("updateScene", (_s, ch) => { if ("active" in ch) render(); }); // split-party chips follow activation
   Hooks.on("userConnected", () => render());                       // presence: connect/disconnect
   Hooks.on("updateUser", () => render());                          // presence: a player changed scene (viewedScene)
