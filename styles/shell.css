@@ -2615,13 +2615,17 @@ body.mc-theme-wizard .mc-frame {
 .mc-frame-nopad { min-height: calc(var(--mc-frame-c-size) * 2 + var(--mc-frame-c-pad) * 2); display: flex; align-items: center; }
 .mc-move-still { width: 100%; }
 .mc-estat-mid {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
-  align-content: center; margin: 0 auto; width: 100%;
-  /* Derived from the ornament, not guessed: the corners occupy (size + pad) on EACH side, so the
-     block takes what's left minus a little air. A fixed 88px column overlapped by 1.5px on a
-     351px frame — close enough to look deliberate and still be wrong. */
+  /* Columns HUG their chips (auto, not 1fr) and the block centres as a unit. With 1fr the cells
+     were ~156px while a chip is ~65px, so each chip sat at the START of its cell: the block read
+     as left-shifted with a canyon down the middle (DM 2026-07-17: "center the four items").
+     max-width still keeps it clear of the corner art, which is derived from the ornament. */
+  display: grid; grid-template-columns: repeat(2, auto); gap: 10px 12px;
+  justify-content: center; align-content: center; justify-items: stretch;
+  margin: 0 auto;
   max-width: calc(100% - (var(--mc-frame-c-size) + var(--mc-frame-c-pad)) * 2 - 12px);
 }
+/* the four chips match each other, as a group of peers must (UI-BIBLE §4.1) */
+.mc-estat-mid .mc-estat { min-width: 74px; }
 .mc-move-row {
   display: flex; align-items: center; justify-content: space-between;
   gap: 6px; margin: 0;
@@ -3938,7 +3942,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
    so repeating it made the label wrap and said nothing new. The long paragraph under it went to
    the button's tooltip: it explained a flow that is self-evident once you press it. */
 .mc-dmp-travel-foot { margin-top: auto; padding-top: 6px; }
-.mc-dmp-travel { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px; flex: 1 1 auto; min-height: 0; }
+.mc-dmp-travel { display: flex; flex-direction: column; gap: 8px; padding: 4px 0 0; flex: 1 1 auto; min-height: 0; }
 .mc-dmp-travel-lbl { color: var(--mc-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
 .mc-dmp-travel select {
   background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge);
