@@ -205,8 +205,8 @@ function downtimeHTML() {
     ? `<div class="mc-dt-openhead"><button class="mc-dt-close-btn" data-dt-end title="Close the downtime window — this does NOT advance time"><i class="fas fa-xmark"></i> Close</button></div>`
     : `<div class="mc-dt-setup">
         <div class="mc-dt-sizes">
-          <button class="mc-dt-openbtn" data-dt-open="short"><i class="fas fa-hourglass-half"></i> Short Downtime</button>
-          <button class="mc-dt-openbtn" data-dt-open="long"><i class="fas fa-hourglass-start"></i> Long Downtime</button>
+          <button class="mc-dt-openbtn" data-dt-open="short"><i class="fas fa-hourglass-half"></i> Short DT</button>
+          <button class="mc-dt-openbtn" data-dt-open="long"><i class="fas fa-hourglass-start"></i> Long DT</button>
         </div>
         <p class="mc-dt-sizehint">Short — a watch or an evening<br>Long — a day or more in a hub</p></div>`;
 
