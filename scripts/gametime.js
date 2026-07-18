@@ -33,6 +33,21 @@ export function hasSimpleCalendar() {
   }
 }
 
+/** SC Reborn's popup is the table's Calendar (DM 2026-07-18: "hide the four buttons on the
+ *  right, change the title to Calendar"). The tool column is hidden in CSS (shell.css,
+ *  `.app.simple-calendar .fsc-xf`) — Notes/Search/Today/Configure all remain reachable from
+ *  Module Settings, where SC registers its own menu buttons. Here: the retitle. The main app
+ *  is a V1 FormApplication (class MainApp) → hook renderMainApp; html is jQuery on V1. */
+export function setupCalendarSkin() {
+  Hooks.on("renderMainApp", (app) => {
+    try {
+      const root = app?.element?.[0] ?? app?.element;
+      const t = root?.querySelector?.(".window-title");
+      if (t) t.textContent = "Calendar";
+    } catch (e) { /* skin only — never break the calendar */ }
+  });
+}
+
 /** Our clock's zero: the offset (in seconds) added to worldTime to get game time. Encodes a full
  *  date, not just a time of day, so the DM can re-anchor to any Day·HH:MM. SC ignores it. */
 function startOffset() {

@@ -184,11 +184,32 @@ function checkModuleStack() {
   return { id: "stack", label: "Module stack", status: fatal ? "fail" : "warn", detail: bits.join("; ") + "." };
 }
 
+// §18 travel: for the journey's sun-setting-over-time effect to show, the overworld scene
+// needs darkness that can move AND matter — Global Illumination OFF, darkness unlocked, token
+// vision ON (Foundry core doesn't tie worldTime to lighting; the travel loop drives
+// environment.darknessLevel). Only relevant once an overworld map is chosen; a warn, not a fail.
+function checkTravelLighting() {
+  const id = "travelLighting", label = "Travel lighting";
+  const over = game.scenes.get(game.settings.get(MODULE_ID, "travelOverworldSceneId") || "");
+  if (!over) return { id, label, status: "ok", detail: "No overworld map set — skipped." };
+  const env = over.environment ?? {};
+  const problems = [];
+  if (env.globalLight?.enabled) problems.push("Global Illumination is ON");
+  if (env.darknessLock) problems.push("Darkness is locked");
+  if (!over.tokenVision) problems.push("Token Vision is OFF");
+  if (!problems.length) return { id, label, status: "ok", detail: `${over.name}: ready for time-of-day lighting.` };
+  return {
+    id, label, status: "warn",
+    detail: `${over.name}: ${problems.join(", ")} — travel's sunset/night won't show until this is fixed.`,
+    fix: { label: "Fix scene", run: async () => { await over.update({ "environment.globalLight.enabled": false, "environment.darknessLock": false, tokenVision: true }); } }
+  };
+}
+
 // ── Runner ──────────────────────────────────────────────────────────────────
 
 export async function runPreflight() {
   const checks = [checkExecutor, checkDisplayAccount, checkPresetDrift, checkAssignments,
-    checkTokenSight, checkPartyGroup, checkTeleportRegions, checkModuleStack];
+    checkTokenSight, checkPartyGroup, checkTeleportRegions, checkTravelLighting, checkModuleStack];
   const out = [];
   for (const fn of checks) {
     try { out.push(await fn()); }

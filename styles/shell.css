@@ -47,7 +47,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 #mc-display-gm-warn {
   position: fixed; left: 50%; top: 18px; transform: translateX(-50%);
   z-index: 100001; max-width: min(640px, 92vw); padding: 12px 18px; border-radius: calc(12px * var(--mc-round, 1)); cursor: pointer;
-  background: rgba(60, 42, 10, 0.97); color: #ffe9c2; border: 1px solid #c8a44d;
+  background: rgba(60, 42, 10, 0.97); color: #ffe9c2; border: 1px solid var(--mc-edge);
   font-family: "Signika", sans-serif; font-size: 15px; line-height: 1.4; text-align: center;
   box-shadow: 0 6px 22px rgba(0,0,0,0.6);
 }
@@ -1020,7 +1020,7 @@ body {
 }
 
 #mobile-command-shell .mc-header {
-  background: linear-gradient(#26222b, #1c1922);
+  background: linear-gradient(var(--mc-panel-2), var(--mc-panel));
   border-bottom: 1px solid var(--mc-gold);
 }
 #mobile-command-shell .mc-portrait { border-color: var(--mc-gold); }
@@ -1267,7 +1267,7 @@ body {
    Restyled save roll dialog it opens (which uses z = SHELL_Z + 2). */
 .mc-saveprompt {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 9000;
-  background: linear-gradient(#26222b, #1c1922);
+  background: linear-gradient(var(--mc-panel-2), var(--mc-panel));
   border-top: 1px solid var(--mc-gold); border-radius: calc(16px * var(--mc-round, 1)) 16px 0 0;
   box-shadow: 0 -8px 24px rgba(0, 0, 0, .55);
   display: flex; flex-direction: column; max-height: 92vh;
@@ -1415,6 +1415,8 @@ body {
   width: 18px; height: 18px; border-radius: calc(4px * var(--mc-round, 1)); object-fit: cover;
   flex: 0 0 auto; filter: saturate(1.1);
 }
+/* Duplicate-effect count (DM 2026-07-18): gold ×N when identical effects were collapsed. */
+.mc-chip-mult { margin-left: 2px; font-weight: 800; color: var(--mc-gold); font-size: 11px; }
 
 /* AC: framed + gray so it reads as info, not a button. */
 .mc-stat-acwrap { align-items: center; }
@@ -1695,8 +1697,8 @@ body.mc-phone .mc-journal-close {
   position: absolute; top: 8px; right: 8px; z-index: 2147483647;
   width: 44px; height: 44px; padding: 0; margin: 0;
   display: flex !important; align-items: center; justify-content: center;
-  background: #2a272e !important; border: 1px solid #c8a44d !important; border-radius: calc(8px * var(--mc-round, 1));
-  color: #c8a44d !important; font-size: 22px; line-height: 1; cursor: pointer; opacity: 1 !important;
+  background: #2a272e !important; border: 1px solid var(--mc-edge) !important; border-radius: calc(8px * var(--mc-round, 1));
+  color: var(--mc-gold) !important; font-size: 22px; line-height: 1; cursor: pointer; opacity: 1 !important;
 }
 body.mc-phone .mc-journal-close > i { pointer-events: none; }
 body.mc-phone .mc-journal-close:active { background: #1a1712 !important; }
@@ -2016,14 +2018,16 @@ body.mc-theme-gothic {
   --mc-round: 0.3; --mc-bar-angle: 165deg; --mc-frame-a: 1.0;
   --mc-title-case: none; --mc-title-track: .01em;
   --mc-gilt: #8d9298;
-  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='30' height='24' viewBox='-6 0 30 24'><g fill='none' stroke='rgba(210,215,225,0.10)' stroke-width='1.2'><path d='M9 22V9L14 3l5 6v13'/><circle cx='14' cy='11' r='2.6'/></g></svg>");
+  /* #2: castle battlements — crenellated top + a course line + stone joints (seamless, period 16). */
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='24' viewBox='0 0 16 24'><g fill='none' stroke='rgba(210,215,225,0.11)' stroke-width='1.2' stroke-linejoin='miter'><path d='M0 10V6h4v4h4V6h4v4h4'/><path d='M2 10v9M8 10v9M14 10v9'/><path d='M0 15h16'/></g></svg>");
 }
 body.mc-theme-frost {
   --mc-font-title: "Titillium";
   --mc-gold: #8fd3f4; --mc-panel: #16222b; --mc-panel-2: #1e2f3b; --mc-edge: #2f4655; --mc-sunken: #0f171d;
-  --mc-primary: #4a3a1e; --mc-primary-edge: #6d552b; --mc-primary-active: #5b4724;
-  --mc-cta-top: #8a6a2a; --mc-cta-bot: #57411a; --mc-cta-edge: #b48b38; --mc-cta-ink: #fdf4e2;
-  --mc-cta-top-rgb: 138, 106, 42; --mc-cta-bot-rgb: 87, 65, 26;
+  /* #3: no brown — an icy blue button family. */
+  --mc-primary: #26404f; --mc-primary-edge: #3d6076; --mc-primary-active: #2f4d5e;
+  --mc-cta-top: #3a6f95; --mc-cta-bot: #244a63; --mc-cta-edge: #5a92ba; --mc-cta-ink: #eaf4fb;
+  --mc-cta-top-rgb: 58, 111, 149; --mc-cta-bot-rgb: 36, 74, 99;
   --mc-bar-top: #2a6d95; --mc-bar-bot: #174a63; --mc-bar-edge: #103548;
   --mc-round: 1.4; --mc-bar-angle: 180deg; --mc-frame-a: 1.0;
   --mc-title-case: uppercase; --mc-title-track: .06em;
@@ -2033,9 +2037,10 @@ body.mc-theme-frost {
 body.mc-theme-flame {
   --mc-font-title: "OptimusPrinceps";
   --mc-gold: #f0a52e; --mc-panel: #2a1f12; --mc-panel-2: #362818; --mc-edge: #4d3a1f; --mc-sunken: #1d1509;
-  --mc-primary: #25303a; --mc-primary-edge: #3a4c5c; --mc-primary-active: #2e3d4a;
-  --mc-cta-top: #3d5163; --mc-cta-bot: #26333f; --mc-cta-edge: #5b7a94; --mc-cta-ink: #eaf1f8;
-  --mc-cta-top-rgb: 61, 81, 99; --mc-cta-bot-rgb: 38, 51, 63;
+  /* #4: warm ember secondary — no more blue. A deep red distinct from the orange-gold accent. */
+  --mc-primary: #7a2f1c; --mc-primary-edge: #a5432a; --mc-primary-active: #8f3a22;
+  --mc-cta-top: #a83824; --mc-cta-bot: #6f2113; --mc-cta-edge: #cf5a3e; --mc-cta-ink: #fdece0;
+  --mc-cta-top-rgb: 168, 56, 36; --mc-cta-bot-rgb: 111, 33, 19;
   --mc-bar-top: #b4611a; --mc-bar-bot: #7c3a06; --mc-bar-edge: #5c2a04;
   --mc-round: 1.0; --mc-bar-angle: 180deg; --mc-frame-a: 1.0;
   --mc-title-case: uppercase; --mc-title-track: .06em;
@@ -2044,9 +2049,10 @@ body.mc-theme-flame {
 body.mc-theme-tide {
   --mc-font-title: "Average";
   --mc-gold: #45c4b0; --mc-panel: #13232a; --mc-panel-2: #1b3038; --mc-edge: #2b4a54; --mc-sunken: #0d1a1f;
-  --mc-primary: #4a3820; --mc-primary-edge: #6e532f; --mc-primary-active: #5b4527;
-  --mc-cta-top: #96702c; --mc-cta-bot: #5d451b; --mc-cta-edge: #c2953e; --mc-cta-ink: #fdf5e6;
-  --mc-cta-top-rgb: 150, 112, 44; --mc-cta-bot-rgb: 93, 69, 27;
+  /* #5: cobalt secondary (less aqua) — no brown; a true blue that reads apart from the teal accent. */
+  --mc-primary: #22405e; --mc-primary-edge: #345d82; --mc-primary-active: #2a4e70;
+  --mc-cta-top: #2f6394; --mc-cta-bot: #1d4064; --mc-cta-edge: #4a86bd; --mc-cta-ink: #eaf3fb;
+  --mc-cta-top-rgb: 47, 99, 148; --mc-cta-bot-rgb: 29, 64, 100;
   --mc-bar-top: #1d6b6a; --mc-bar-bot: #0f4746; --mc-bar-edge: #0a3130;
   --mc-round: 1.5; --mc-bar-angle: 170deg; --mc-frame-a: 0.38;
   --mc-title-case: uppercase; --mc-title-track: .06em;
@@ -2055,18 +2061,23 @@ body.mc-theme-tide {
 }
 body.mc-theme-artificer {
   --mc-font-title: Orbitron;
-  --mc-gold: #c98b3c; --mc-panel: #241f19; --mc-panel-2: #342c23; --mc-edge: #394750; --mc-sunken: #181510;
-  --mc-primary: #33383e; --mc-primary-edge: #4c545c; --mc-primary-active: #3e454c;
-  --mc-cta-top: #4b5762; --mc-cta-bot: #2e363d; --mc-cta-edge: #647382; --mc-cta-ink: #f1f2f4;
-  --mc-cta-top-rgb: 75, 87, 98; --mc-cta-bot-rgb: 46, 54, 61;
-  --mc-bar-top: #624c32; --mc-bar-bot: #403220; --mc-bar-edge: #2c2216;
-  --mc-round: 0.45; --mc-bar-angle: 150deg; --mc-frame-a: 1.0;
+  /* Muted fantasy (DM 2026-07-18): warm-charcoal surfaces + a soft antique-brass accent, kept LOW
+     saturation so the widget stays meek beside the map. Loud colour is reserved for meaning only —
+     green/red/yellow status + player colours. No bright gold, no steel-blue. */
+  --mc-gold: #b09a63; --mc-panel: #24222b; --mc-panel-2: #2d2b35; --mc-edge: #3b3847; --mc-sunken: #1a1920;
+  --mc-primary: #35333f; --mc-primary-edge: #4a4757; --mc-primary-active: #3f3c4a;
+  --mc-cta-top: #574f3c; --mc-cta-bot: #38321f; --mc-cta-edge: #857547; --mc-cta-ink: #f2ecdd;
+  --mc-cta-top-rgb: 87, 79, 60; --mc-cta-bot-rgb: 56, 50, 31;
+  --mc-bar-top: #322f3b; --mc-bar-bot: #24222b; --mc-bar-edge: #454150;
+  --mc-gilt: #9c8a62;
+  --mc-round: 0.5; --mc-bar-angle: 150deg; --mc-frame-a: 1.0;
   --mc-title-case: uppercase; --mc-title-track: .06em;
-  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='58' height='26' viewBox='-8 0 58 26'><g fill='none' stroke='rgba(255,228,180,0.16)'><circle cx='14' cy='13' r='4.4' stroke-width='1.5'/><circle cx='14' cy='13' r='8' stroke-width='1.3'/><circle cx='14' cy='13' r='6.2' stroke-width='3.6' stroke-dasharray='2.5 3.3'/><g stroke-width='1.2'><circle cx='38' cy='3.6' r='1.9'/><path d='M36.7 2.3l2.6 2.6'/><circle cx='38' cy='22.4' r='1.9'/><path d='M36.7 21.1l2.6 2.6'/><circle cx='50' cy='3.6' r='1.9'/><path d='M48.7 4.9l2.6-2.6'/><circle cx='50' cy='22.4' r='1.9'/><path d='M48.7 23.7l2.6-2.6'/></g></g></svg>");
+  /* rivets, warm brass tint. */
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='20' viewBox='0 0 24 20'><g fill='rgba(200,178,130,0.13)'><circle cx='6' cy='5' r='1.9'/><circle cx='18' cy='5' r='1.9'/><circle cx='0' cy='15' r='1.9'/><circle cx='12' cy='15' r='1.9'/><circle cx='24' cy='15' r='1.9'/></g><g fill='rgba(255,244,214,0.09)'><circle cx='5.4' cy='4.4' r='0.7'/><circle cx='17.4' cy='4.4' r='0.7'/><circle cx='11.4' cy='14.4' r='0.7'/></g></svg>");
 }
 body.mc-theme-barbarian {
   --mc-font-title: "Metamorphous";
-  --mc-gold: #c8873f; --mc-panel: #231e1a; --mc-panel-2: #322b25; --mc-edge: #4e3e3c; --mc-sunken: #171411;
+  --mc-gold: #b0342b; --mc-panel: #231e1a; --mc-panel-2: #322b25; --mc-edge: #4e3e3c; --mc-sunken: #171411; /* #7: blood-red icon accent */
   --mc-primary: #452e2b; --mc-primary-edge: #674541; --mc-primary-active: #543835;
   --mc-cta-top: #71423d; --mc-cta-bot: #462925; --mc-cta-edge: #955750; --mc-cta-ink: #f5f0ef;
   --mc-cta-top-rgb: 113, 66, 61; --mc-cta-bot-rgb: 70, 41, 37;
@@ -2086,18 +2097,20 @@ body.mc-theme-bard {
   --mc-round: 1.7; --mc-bar-angle: 135deg; --mc-frame-a: 1.0;
   --mc-title-case: uppercase; --mc-title-track: .06em;
   --mc-gilt: #e0a0b8;
-  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='22' viewBox='-8 0 36 22'><g fill='none' stroke='rgba(255,215,235,0.11)' stroke-width='1.2'><circle cx='7' cy='16' r='3'/><path d='M10 16V5l7-2v11' stroke-linecap='round'/><circle cx='17' cy='14' r='3'/></g></svg>");
+  /* #8: music notes — a beamed eighth-note pair + a single flagged eighth. */
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='22' viewBox='0 0 44 22'><g fill='rgba(255,215,235,0.13)'><ellipse cx='7' cy='16' rx='2.5' ry='1.9' transform='rotate(-22 7 16)'/><ellipse cx='17' cy='14.5' rx='2.5' ry='1.9' transform='rotate(-22 17 14.5)'/><ellipse cx='33' cy='15.5' rx='2.5' ry='1.9' transform='rotate(-22 33 15.5)'/></g><g fill='none' stroke='rgba(255,215,235,0.13)' stroke-width='1.3' stroke-linecap='round'><path d='M9.3 15.4V5.5M19.3 13.9V4'/><path d='M9.3 5.5L19.3 4M9.3 7.5L19.3 6'/><path d='M35.3 14.9V4.5'/><path d='M35.3 4.5c3 .3 4 2 3.6 4.2'/></g></svg>");
 }
 body.mc-theme-cleric {
   --mc-font-title: Cinzel;
-  --mc-gold: #e0d3a0; --mc-panel: #23211b; --mc-panel-2: #312e26; --mc-edge: #4d493d; --mc-sunken: #171612;
+  --mc-gold: #e0d3a0; --mc-panel: #1e2024; --mc-panel-2: #292c31; --mc-edge: #45474d; --mc-sunken: #131417; /* #9: de-muddied — cool stone surfaces under the gold */
   --mc-primary: #2f3541; --mc-primary-edge: #475061; --mc-primary-active: #3a4150;
   --mc-cta-top: #445169; --mc-cta-bot: #2a3241; --mc-cta-edge: #5b6b8b; --mc-cta-ink: #f0f2f4;
   --mc-cta-top-rgb: 68, 81, 105; --mc-cta-bot-rgb: 42, 50, 65;
-  --mc-bar-top: #5b5239; --mc-bar-bot: #3b3625; --mc-bar-edge: #29251a;
+  --mc-bar-top: #7a6a2e; --mc-bar-bot: #514518; --mc-bar-edge: #a98f3e; /* #9: golden title bar, no brown */
   --mc-round: 1.2; --mc-bar-angle: 180deg; --mc-frame-a: 1.0;
   --mc-title-case: uppercase; --mc-title-track: .06em;
-  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='34' height='22' viewBox='-8 0 34 22'><g fill='none' stroke='rgba(255,246,215,0.11)' stroke-width='1.4' stroke-linecap='round'><path d='M9 4v14M9 8.5a3.4 3.4 0 1 0 0 .1z'/></g></svg>");
+  /* #9: starburst + mace, alternating. */
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='22' viewBox='0 0 48 22'><g fill='none' stroke='rgba(255,246,215,0.12)' stroke-width='1.1' stroke-linecap='round'><g transform='translate(11,11)'><path d='M0 -6V-3M0 6V3M-6 0H-3M6 0H3M-4.2 -4.2l2.1 2.1M4.2 4.2l-2.1-2.1M4.2 -4.2l-2.1 2.1M-4.2 4.2l2.1-2.1'/><circle r='1.6'/></g><g transform='translate(33,11)'><path d='M4 4L-2 10'/><circle cx='6' cy='2' r='3'/><path d='M6 -2v2M6 4v1.5M2 2h1.5M9 2h1.5M3.5 -0.5l1 1M8.5 4.5l-1-1M8.5 -0.5l-1 1M3.5 4.5l1-1'/></g></g></svg>");
 }
 body.mc-theme-druid {
   --mc-font-title: Average;
@@ -2114,9 +2127,10 @@ body.mc-theme-druid {
 body.mc-theme-fighter {
   --mc-font-title: Allrounder Monument;
   --mc-gold: #93a3b8; --mc-panel: #1d1f21; --mc-panel-2: #292b2e; --mc-edge: #494241; --mc-sunken: #131416;
-  --mc-primary: #42312e; --mc-primary-edge: #634945; --mc-primary-active: #513c38;
-  --mc-cta-top: #6c4742; --mc-cta-bot: #422c29; --mc-cta-edge: #8e5f57; --mc-cta-ink: #f5f0f0;
-  --mc-cta-top-rgb: 108, 71, 66; --mc-cta-bot-rgb: 66, 44, 41;
+  /* #11: royal red secondary (no brown). */
+  --mc-primary: #4a1f26; --mc-primary-edge: #6e2f38; --mc-primary-active: #5a262e;
+  --mc-cta-top: #8f2434; --mc-cta-bot: #5c1620; --mc-cta-edge: #b83b4c; --mc-cta-ink: #fdeef0;
+  --mc-cta-top-rgb: 143, 36, 52; --mc-cta-bot-rgb: 92, 22, 32;
   --mc-bar-top: #424a52; --mc-bar-bot: #2b3036; --mc-bar-edge: #1e2125;
   --mc-round: 0.5; --mc-bar-angle: 155deg; --mc-frame-a: 1.0;
   --mc-title-case: uppercase; --mc-title-track: .06em;
@@ -2126,9 +2140,10 @@ body.mc-theme-fighter {
 body.mc-theme-monk {
   --mc-font-title: ShipporiMincho;
   --mc-gold: #52c2a5; --mc-panel: #1a2321; --mc-panel-2: #25312e; --mc-edge: #3d4d49; --mc-sunken: #121716;
-  --mc-primary: #423b2e; --mc-primary-edge: #635845; --mc-primary-active: #514838;
-  --mc-cta-top: #6c5c42; --mc-cta-bot: #423929; --mc-cta-edge: #8e7a57; --mc-cta-ink: #f5f3f0;
-  --mc-cta-top-rgb: 108, 92, 66; --mc-cta-bot-rgb: 66, 57, 41;
+  /* #12: faded red secondary — brown didn't work. */
+  --mc-primary: #472e2e; --mc-primary-edge: #6b4444; --mc-primary-active: #573838;
+  --mc-cta-top: #9a4a44; --mc-cta-bot: #632c28; --mc-cta-edge: #bd6b63; --mc-cta-ink: #f7ece9;
+  --mc-cta-top-rgb: 154, 74, 68; --mc-cta-bot-rgb: 99, 44, 40;
   --mc-bar-top: #385c53; --mc-bar-bot: #253c36; --mc-bar-edge: #192925;
   --mc-round: 1.9; --mc-bar-angle: 120deg; --mc-frame-a: 1.0;
   --mc-title-case: uppercase; --mc-title-track: .06em;
@@ -2137,10 +2152,11 @@ body.mc-theme-monk {
 }
 body.mc-theme-paladin {
   --mc-font-title: Cinzel;
-  --mc-gold: #7f9fe0; --mc-panel: #1a1c23; --mc-panel-2: #252832; --mc-edge: #4e493c; --mc-sunken: #111318;
-  --mc-primary: #453e2b; --mc-primary-edge: #675e41; --mc-primary-active: #544d35;
-  --mc-cta-top: #71643d; --mc-cta-bot: #463e25; --mc-cta-edge: #958450; --mc-cta-ink: #f5f4ef;
-  --mc-cta-top-rgb: 113, 100, 61; --mc-cta-bot-rgb: 70, 62, 37;
+  /* #13: pale-gold icon #FFFD86 + goldenrod secondary #AC7D0C (no brown). */
+  --mc-gold: #fffd86; --mc-panel: #1a1c23; --mc-panel-2: #252832; --mc-edge: #4e493c; --mc-sunken: #111318;
+  --mc-primary: #6e5008; --mc-primary-edge: #9a7010; --mc-primary-active: #86620c;
+  --mc-cta-top: #ac7d0c; --mc-cta-bot: #6e5008; --mc-cta-edge: #d4a02a; --mc-cta-ink: #fff7e0;
+  --mc-cta-top-rgb: 172, 125, 12; --mc-cta-bot-rgb: 110, 80, 8;
   --mc-bar-top: #36405e; --mc-bar-bot: #232a3e; --mc-bar-edge: #181d2a;
   --mc-round: 1.0; --mc-bar-angle: 145deg; --mc-frame-a: 1.0;
   --mc-title-case: uppercase; --mc-title-track: .06em;
@@ -2149,34 +2165,38 @@ body.mc-theme-paladin {
 body.mc-theme-ranger {
   --mc-font-title: Metamorphous;
   --mc-gold: #9fbf5f; --mc-panel: #1f221b; --mc-panel-2: #2c3126; --mc-edge: #464c3e; --mc-sunken: #151712;
-  --mc-primary: #42362e; --mc-primary-edge: #635245; --mc-primary-active: #514338;
-  --mc-cta-top: #6c5342; --mc-cta-bot: #423329; --mc-cta-edge: #8e6e57; --mc-cta-ink: #f5f2f0;
-  --mc-cta-top-rgb: 108, 83, 66; --mc-cta-bot-rgb: 66, 51, 41;
+  /* #14: brown kept but a richer chestnut shade (the muddy grey-brown is gone). */
+  --mc-primary: #4a3120; --mc-primary-edge: #6f4a2c; --mc-primary-active: #5b3c26;
+  --mc-cta-top: #855227; --mc-cta-bot: #563317; --mc-cta-edge: #ad7440; --mc-cta-ink: #fbf1e6;
+  --mc-cta-top-rgb: 133, 82, 39; --mc-cta-bot-rgb: 86, 51, 23;
   --mc-bar-top: #4d593a; --mc-bar-bot: #323b26; --mc-bar-edge: #22281a;
   --mc-round: 1.3; --mc-bar-angle: 165deg; --mc-frame-a: 1.0;
   --mc-title-case: uppercase; --mc-title-track: .06em;
   --mc-gilt: #b08d5a;
-  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='38' height='22' viewBox='-9 0 38 22'><g fill='none' stroke='rgba(230,245,200,0.10)' stroke-width='1.3' stroke-linecap='round'><path d='M3 18C3 9.7 9.7 3 18 3'/><path d='M3 18L18 3'/></g></svg>");
+  /* #14: bow, then arrow, alternating (bow-arrow-bow-arrow…). */
+  --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='56' height='22' viewBox='-9 0 56 22'><g fill='none' stroke='rgba(230,245,200,0.11)' stroke-width='1.3' stroke-linecap='round'><path d='M3 18C3 9.7 9.7 3 18 3'/><path d='M3 18L18 3'/><path d='M28 18L44 4'/><path d='M44 4l-4 .4 .4 4' stroke-linejoin='round'/></g><path d='M28 18l1.7-3.7 2 1.8z' fill='rgba(230,245,200,0.11)' stroke='none'/></svg>");
 }
 body.mc-theme-rogue {
   --mc-font-title: Allrounder Monument;
-  --mc-gold: #9b8fb5; --mc-panel: #1f1c21; --mc-panel-2: #2b282e; --mc-edge: #414945; --mc-sunken: #141316;
-  --mc-primary: #314038; --mc-primary-edge: #496054; --mc-primary-active: #3c4e45;
-  --mc-cta-top: #476657; --mc-cta-bot: #2c3f36; --mc-cta-edge: #5e8773; --mc-cta-ink: #f0f4f2;
-  --mc-cta-top-rgb: 71, 102, 87; --mc-cta-bot-rgb: 44, 63, 54;
+  /* #15: dark-purple base, green secondary #2c4c3b, lavender icons #A580CA. */
+  --mc-gold: #a580ca; --mc-panel: #171226; --mc-panel-2: #221b38; --mc-edge: #372f4c; --mc-sunken: #0e0a1a;
+  --mc-primary: #223a2e; --mc-primary-edge: #345745; --mc-primary-active: #2a4838;
+  --mc-cta-top: #2c4c3b; --mc-cta-bot: #1c3226; --mc-cta-edge: #46705a; --mc-cta-ink: #eaf3ee;
+  --mc-cta-top-rgb: 44, 76, 59; --mc-cta-bot-rgb: 28, 50, 38;
   --mc-bar-top: #4a4153; --mc-bar-bot: #302b36; --mc-bar-edge: #211d25;
   --mc-round: 0.7; --mc-bar-angle: 140deg; --mc-frame-a: 1.0;
   --mc-title-case: uppercase; --mc-title-track: .06em;
-  --mc-gilt: #9aa0ae;
+  --mc-gilt: #0f2d0a; /* #15: corner art */
   --mc-bar-pat: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='22' viewBox='-8 0 32 22'><g fill='none' stroke='rgba(225,215,240,0.10)' stroke-width='1.3' stroke-linecap='round'><path d='M3 17L11 9M11 9l3-4.6-4.6 3'/></g></svg>");
 }
 body.mc-theme-sorcerer {
   --mc-font-title: Amiri;
-  --mc-gold: #e2703a; --mc-panel: #251c18; --mc-panel-2: #352822; --mc-edge: #523849; --mc-sunken: #191310;
-  --mc-primary: #432d3c; --mc-primary-edge: #65435a; --mc-primary-active: #533749;
-  --mc-cta-top: #6e3f5f; --mc-cta-bot: #44273a; --mc-cta-edge: #92547d; --mc-cta-ink: #f5eff3;
-  --mc-cta-top-rgb: 110, 63, 95; --mc-cta-bot-rgb: 68, 39, 58;
-  --mc-bar-top: #653f2e; --mc-bar-bot: #42291e; --mc-bar-edge: #2d1c15;
+  /* #16: no purple — saturated red/orange throughout. */
+  --mc-gold: #ee6a28; --mc-panel: #271713; --mc-panel-2: #37201a; --mc-edge: #52382f; --mc-sunken: #190f0b;
+  --mc-primary: #4a271d; --mc-primary-edge: #6e3a2a; --mc-primary-active: #5a3023;
+  --mc-cta-top: #b34a24; --mc-cta-bot: #742a12; --mc-cta-edge: #d96e3a; --mc-cta-ink: #fdeee2;
+  --mc-cta-top-rgb: 179, 74, 36; --mc-cta-bot-rgb: 116, 42, 18;
+  --mc-bar-top: #8a3a1e; --mc-bar-bot: #5c2410; --mc-bar-edge: #a5471f;
   --mc-round: 1.4; --mc-bar-angle: 130deg; --mc-frame-a: 1.0;
   --mc-title-case: uppercase; --mc-title-track: .06em;
   --mc-gilt: #e08a4a;
@@ -2198,9 +2218,10 @@ body.mc-theme-warlock {
 body.mc-theme-wizard {
   --mc-font-title: Bruno Ace;
   --mc-gold: #7f8fe0; --mc-panel: #1b1a23; --mc-panel-2: #262532; --mc-edge: #4e493c; --mc-sunken: #121118;
-  --mc-primary: #433e2d; --mc-primary-edge: #655d43; --mc-primary-active: #534c37;
-  --mc-cta-top: #6e623f; --mc-cta-bot: #443d27; --mc-cta-edge: #928254; --mc-cta-ink: #f5f4ef;
-  --mc-cta-top-rgb: 110, 98, 63; --mc-cta-bot-rgb: 68, 61, 39;
+  /* #18: deep blue secondary #063682 (no brown). */
+  --mc-primary: #12315e; --mc-primary-edge: #1e4a82; --mc-primary-active: #183d6e;
+  --mc-cta-top: #0d4394; --mc-cta-bot: #063682; --mc-cta-edge: #2a5fb0; --mc-cta-ink: #e8f0fb;
+  --mc-cta-top-rgb: 13, 67, 148; --mc-cta-bot-rgb: 6, 54, 130;
   --mc-bar-top: #39365e; --mc-bar-bot: #26233e; --mc-bar-edge: #1a182a;
   --mc-round: 1.0; --mc-bar-angle: 150deg; --mc-frame-a: 1.0;
   --mc-title-case: uppercase; --mc-title-track: .06em;
@@ -2213,16 +2234,16 @@ body.mc-theme-gothic #mobile-command-shell { background: radial-gradient(120% 80
 body.mc-theme-frost #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #172a36 0%, #0d161d 60%); }
 body.mc-theme-flame #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #33230f 0%, #1a1208 60%); }
 body.mc-theme-tide #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #15282f 0%, #0b1418 60%); }
-body.mc-theme-artificer #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #2c241c 0%, #16120e 60%); }
+body.mc-theme-artificer #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #23282f 0%, #12151a 60%); }
 body.mc-theme-barbarian #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #2a231e 0%, #15120f 60%); }
 body.mc-theme-bard #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #2b1d24 0%, #150e12 60%); }
-body.mc-theme-cleric #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #29261e 0%, #15130f 60%); }
+body.mc-theme-cleric #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #212328 0%, #101114 60%); }
 body.mc-theme-druid #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #20291e 0%, #10150f 60%); }
 body.mc-theme-fighter #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #212426 0%, #111213 60%); }
 body.mc-theme-monk #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #1e2927 0%, #0f1513 60%); }
 body.mc-theme-paladin #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #1d202a 0%, #0f1015 60%); }
 body.mc-theme-ranger #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #25291f 0%, #12140f 60%); }
-body.mc-theme-rogue #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #242127 0%, #121013 60%); }
+body.mc-theme-rogue #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #1a1330 0%, #0c0918 60%); }
 body.mc-theme-sorcerer #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #2d201b 0%, #16100d 60%); }
 body.mc-theme-warlock #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #16141a 0%, #09080b 60%); }
 body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80% at 50% -10%, #1e1d2a 0%, #0f0f15 60%); }
@@ -2360,7 +2381,9 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
   box-shadow: 0 4px 12px rgba(0, 0, 0, .5);
 }
 /* DM panel: per-member watch editor (name + 1/2/3 chips). */
-.mc-dmp-night-edit { display: flex; flex-direction: column; gap: 3px; margin: 4px 0; }
+.mc-dmp-night-edit { display: flex; flex-direction: column; gap: 3px; margin: 4px 0; min-height: 0; }
+/* ~5 rows (26px + 3px gap) above the fold, then scroll; the 1st/2nd/3rd header stays fixed above it. */
+.mc-dmp-nw-scroll { display: flex; flex-direction: column; gap: 3px; max-height: 148px; overflow-y: auto; overflow-x: hidden; }
 .mc-dmp-nw-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
 .mc-dmp-nw-row > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* PC identity in the watch grid (bible §3): token icon in player colour + ink name. */
@@ -2435,21 +2458,21 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 /* Unselected themes sit back a little so the chosen one reads at a glance (§5). */
 .mc-theme-opt .mc-theme-sw { opacity: .72; }
 .mc-theme-opt.mc-on .mc-theme-sw { opacity: 1; }
-.mc-theme-opt[data-theme="artificer"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'><path d='M3 8h13v5H8l-2 3H3z'/><path d='M16 10.5h5'/><path d='M9 16v4'/><path d='M6.5 20h5'/></g></svg>"); }
-.mc-theme-opt[data-theme="barbarian"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3v18'/><path d='M12 6.5c3-3 7.5-3 9.5 0-2 3-6.5 3-9.5 0z'/><path d='M12 6.5c-3-3-7.5-3-9.5 0 2 3 6.5 3 9.5 0z'/></g></svg>"); }
-.mc-theme-opt[data-theme="bard"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M8 21c-3-3-2-8 2-11.5S18.5 6 21 8.5'/><path d='M12.5 18.5c0-4 3-7 7-7.5'/></g></svg>"); }
-.mc-theme-opt[data-theme="cleric"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21v-9'/><path d='M8 8.5a4 4 0 0 1 8 0 4 4 0 0 1-8 0z'/><path d='M12 2.5V5'/><path d='M9 21h6'/></g></svg>"); }
-.mc-theme-opt[data-theme="druid"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M8 21L14 6'/><path d='M14 6c-2.5-1-3-3.5-1.5-5.5C15 1.5 16 4 14 6z'/><path d='M14 6c2.5-1 5 0 5.5 2.5C17 9.5 15 8.5 14 6z'/><path d='M11 13c-2.5 0-4-1.5-4-4 2.5 0 4 1.5 4 4z'/></g></svg>"); }
-.mc-theme-opt[data-theme="fighter"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21V7'/><path d='M12 7l3-4.5L12 1.5 9 2.5z'/><path d='M8 7h8'/><path d='M10 21h4'/></g></svg>"); }
-.mc-theme-opt[data-theme="flame"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2.5c1.4 4 4.2 5.6 4.2 9.2 0 2.6-2 4.6-4.4 4.6-2.1 0-3.5-1.4-3.5-3.2 0-1.8 1.3-2.8 1.3-4.6C6.6 10.4 4.8 13 4.8 16.2c0 3.9 3.2 5.8 7.2 5.8s7.2-2.4 7.2-6.6c0-5.4-4.4-8.6-7.2-12.9z'/></g></svg>"); }
-.mc-theme-opt[data-theme="frost"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2.5v19M4 7l16 9.5M4 16.5L20 7'/><path d='M12 7L8.6 3.6M12 7l3.4-3.4M12 17l-3.4 3.4M12 17l3.4 3.4'/></g></svg>"); }
+.mc-theme-opt[data-theme="artificer"] .mc-theme-sw { /* #6: pistol outline (not a stick) — slide/barrel + grip + trigger guard */ --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'><path d='M2 7H20V11H13L11 19H7L8.5 11H2Z'/><path d='M8.7 11.5a2 2 0 0 0 3.4 0'/></g></svg>"); }
+.mc-theme-opt[data-theme="barbarian"] .mc-theme-sw { /* #7: bearded battle-axe — shaft + big curved blade + back spike */ --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M8 2.5V21.5' stroke-width='2.3'/><path d='M8 5C13 3.5 19 5.5 21 11C15.5 12.5 10.5 11.5 8 9.5' stroke-width='2'/><path d='M8 5.4C5.6 5.2 3.6 6.1 2.9 8' stroke-width='1.6'/></g></svg>"); }
+.mc-theme-opt[data-theme="bard"] .mc-theme-sw { /* #8: lute — bowl body, neck, headstock, sound hole */ --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M6 20.5a5 5 0 1 1 6.5-7' stroke-width='2'/><path d='M12.5 13.5L18.5 5.5' stroke-width='2'/><path d='M18.5 5.5l2.5-2 .5 3-3-1' stroke-width='1.6'/><circle cx='7.6' cy='15.4' r='1.5' stroke-width='1.3'/></g></svg>"); }
+.mc-theme-opt[data-theme="cleric"] .mc-theme-sw { /* #9: flanged mace — handle, pommel, spiked head */ --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M13 11L5 19' stroke-width='2.2'/><path d='M4 20.4l1.7-1.7' stroke-width='2.2'/><circle cx='15' cy='9' r='4' stroke-width='2'/><path d='M15 3.4V5M15 13v1.6M9.4 9H11M19 9h1.6M11 5l1.1 1.1M18 12l-1.1-1.1M18 5l-1.1 1.1M11 13l1.1-1.1' stroke-width='1.5'/></g></svg>"); }
+.mc-theme-opt[data-theme="druid"] .mc-theme-sw { /* #10: crossed daggers w/ round pommels (NB: reads as rogue — confirm if druid was intended) */ --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><circle cx='4.6' cy='4.6' r='1.8' stroke-width='1.6'/><path d='M5.9 5.9L18 18' stroke-width='2.1'/><path d='M15.6 15.6l1 3.4-3.4-1z' fill='black' stroke-width='0.8'/><circle cx='19.4' cy='4.6' r='1.8' stroke-width='1.6'/><path d='M18.1 5.9L6 18' stroke-width='2.1'/><path d='M8.4 15.6l-1 3.4 3.4-1z' fill='black' stroke-width='0.8'/><path d='M4 9.2h4.8M15.2 9.2H20' stroke-width='1.4'/></g></svg>"); }
+.mc-theme-opt[data-theme="fighter"] .mc-theme-sw { /* #11: sword — pointed blade, crossguard, grip, pommel ring */ --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2L12 15' stroke-width='2.4'/><path d='M7.5 15H16.5' stroke-width='2'/><path d='M12 15V19.4' stroke-width='2.2'/><path d='M9.8 20.2a2.2 2.2 0 1 0 4.4 0' stroke-width='1.8'/></g></svg>"); }
+.mc-theme-opt[data-theme="flame"] .mc-theme-sw { /* #4: flame with a licking curl + inner flame */ --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3c1.9 4.3 5.4 6.2 5.4 10.4 0 3.5-2.4 5.9-5.4 5.9s-5.4-2.4-5.4-5.9c0-2.1 1-3.8 2.4-5.3-.3 2.1.8 3.4 1.9 3.4 1.3 0 1.7-1.3 1-3.2C11.5 6.4 11.5 4.4 12 3z' stroke-width='2.1'/><path d='M12 16.7c-1.7 0-3-1.3-3-3 0-1.8 1.4-2.9 3-4.6 1.6 1.7 3 2.8 3 4.6 0 1.7-1.3 3-3 3z' stroke-width='1.5'/></g></svg>"); }
+.mc-theme-opt[data-theme="frost"] .mc-theme-sw { /* #3: fuller snowflake — 3 axes + tip forks + side barbs */ --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><g stroke-width='1.9'><path d='M12 2.5V21.5'/><path d='M3.8 7.2L20.2 16.8'/><path d='M3.8 16.8L20.2 7.2'/></g><g stroke-width='1.5'><path d='M12 6.5l-2.6-2.6M12 6.5l2.6-2.6M12 17.5l-2.6 2.6M12 17.5l2.6 2.6'/><path d='M6.9 8.6l-3.1-.6M6.9 8.6l.6-3.1M17.1 15.4l3.1.6M17.1 15.4l-.6 3.1M17.1 8.6l3.1-.6M17.1 8.6l-.6-3.1M6.9 15.4l-3.1.6M6.9 15.4l.6 3.1'/></g></g></svg>"); }
 .mc-theme-opt[data-theme="gothic"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2.5L19 11v10.5H5V11z'/><circle cx='12' cy='11.5' r='3.4'/><path d='M9 21.5v-4a3 3 0 0 1 6 0v4'/></g></svg>"); }
 .mc-theme-opt[data-theme="monk"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'><path d='M6 11.5V8a1.8 1.8 0 0 1 3.6 0v3'/><path d='M9.6 11V6.5a1.8 1.8 0 0 1 3.6 0V11'/><path d='M13.2 11V7.5a1.8 1.8 0 0 1 3.6 0V12'/><path d='M16.8 12v-1a1.8 1.8 0 0 1 3.4 0v5.5a5.5 5.5 0 0 1-5.5 5.5h-3A5.6 5.6 0 0 1 6 17z'/></g></svg>"); }
 .mc-theme-opt[data-theme="paladin"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2.5c3 2 6 2.6 9 2.6 0 8-3 14-9 17.4C6 19.1 3 13.1 3 5.1c3 0 6-.6 9-2.6z'/><path d='M12 7.5v9M8 11.5h8'/></g></svg>"); }
 .mc-theme-opt[data-theme="ranger"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M4 20c0-8.8 7.2-16 16-16'/><path d='M4 20L20 4'/><path d='M20 4l-5.5 1 1 5.5'/></g></svg>"); }
 .mc-theme-opt[data-theme="rogue"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'><path d='M3.5 20.5L14 10'/><path d='M14 10l4-6.5-6.5 4'/><path d='M20.5 20.5L10 10'/><path d='M10 10L6 3.5l6.5 4'/></g></svg>"); }
 .mc-theme-opt[data-theme="sorcerer"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21.5c-4.2 0-7.6-3.4-7.6-7.6 0-5 4.2-7.9 7.6-11.9 3.4 4 7.6 6.9 7.6 11.9 0 4.2-3.4 7.6-7.6 7.6z'/><path d='M12 17.6c-2 0-3.6-1.6-3.6-3.5 0-2.3 1.9-3.5 3.6-5.5 1.7 2 3.6 3.2 3.6 5.5 0 1.9-1.6 3.5-3.6 3.5z'/></g></svg>"); }
-.mc-theme-opt[data-theme="tavern"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><path d='M6 7h9v11a2.5 2.5 0 0 1-2.5 2.5h-4A2.5 2.5 0 0 1 6 18z'/><path d='M15 10h2.5a2.5 2.5 0 0 1 0 5H15'/><path d='M6 11h9'/></g></svg>"); }
+.mc-theme-opt[data-theme="tavern"] .mc-theme-sw { /* #1: crown */ --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'><path d='M3 18L4.2 8.5L8 12L12 5.5L16 12L19.8 8.5L21 18Z'/><path d='M3.4 18.4h17.2'/><circle cx='4.2' cy='7.4' r='0.9'/><circle cx='12' cy='4.4' r='0.9'/><circle cx='19.8' cy='7.4' r='0.9'/></g></svg>"); }
 .mc-theme-opt[data-theme="tide"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 8.5c2.2 0 2.2-2.6 4.5-2.6S12 8.5 14.2 8.5s2.3-2.6 4.5-2.6S21 8.5 21 8.5'/><path d='M3 14c2.2 0 2.2-2.6 4.5-2.6S12 14 14.2 14s2.3-2.6 4.5-2.6S21 14 21 14'/><path d='M3 19.5c2.2 0 2.2-2.6 4.5-2.6S12 19.5 14.2 19.5s2.3-2.6 4.5-2.6S21 19.5 21 19.5'/></g></svg>"); }
 .mc-theme-opt[data-theme="warlock"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'><path d='M2.5 12c3.4-4.6 6.1-6.9 9.5-6.9s6.1 2.3 9.5 6.9c-3.4 4.6-6.1 6.9-9.5 6.9S5.9 16.6 2.5 12z'/><circle cx='12' cy='12' r='2.8'/></g></svg>"); }
 .mc-theme-opt[data-theme="wizard"] .mc-theme-sw { --mc-sw-ico: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='none' stroke='black' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'><path d='M4 20L15 9'/><path d='M17.5 6.5l2 2'/><path d='M18.5 2.5l1.2 2.8 2.8 1.2-2.8 1.2-1.2 2.8-1.2-2.8L14.5 6.5l2.8-1.2z'/></g></svg>"); }
@@ -2553,24 +2576,27 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 body.mc-theme-artificer .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 40V3h37' stroke-width='3'/><path d='M8.5 45V8.5h37' stroke-width='1.5'/><path d='M13 49.5V13h6.5' stroke-width='1.2'/><path d='M49.5 13H43' stroke-width='1.2'/><path d='M14 32A18 18 0 0 0 32 14' stroke-width='1'/><path d='M14 26A12 12 0 0 0 26 14' stroke-width='1.4'/><g stroke-linecap='round'><path d='M14 19v9' stroke-width='1.6'/><path d='M16.9 18.3L20.4 26.4' stroke-width='1.3'/><path d='M19.5 19.5L23.2 23.2' stroke-width='1.6'/><path d='M18.3 16.9L26.4 20.4' stroke-width='1.3'/><path d='M19 14h9' stroke-width='1.6'/></g><g stroke-linecap='butt' stroke-width='0.9'><path d='M14 34v6'/><path d='M20.1 32.1l4.3 4.3'/><path d='M34 14h6'/><path d='M32.1 20.1l4.3 4.3'/></g><g stroke-width='1'><path d='M3 44h4v-4M3 52h8v-8'/><path d='M44 3v4h-4M52 3v8h-8'/></g></g></svg>"); }
 body.mc-theme-barbarian .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='butt'><g transform='rotate(-14 15 17)'><path d='M15 32V4' stroke-width='4.4'/><path d='M15.3 16.4L5.8 6.6' stroke-width='4'/><path d='M14.7 16L24.6 5.8' stroke-width='3.8'/></g><g transform='rotate(-14 40 40)'><path d='M40 26v29' stroke-width='4.2'/><path d='M40 30.5l8.4 5.2-8.4 5.4z' stroke-width='3.8'/></g></g></svg>"); }
 body.mc-theme-bard .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M5.5 50 C4.2 40 5.4 30 9.6 22' stroke-width='2.8'/><path d='M9.6 22 C13.4 14.6 20 8.8 28.5 6' stroke-width='2.1'/><path d='M28.5 6 C34.5 4 40 3.6 46 4.4' stroke-width='1.3'/><path d='M46 4.4 C50.4 5 52.6 7.6 52 11 C51.6 13.4 49.6 15 47.4 14.6' stroke-width='0.9'/><path d='M12.4 17.6 C13.2 24 14.4 29.6 17.6 34.6' stroke-width='1.3'/><path d='M17.6 34.6 C20.4 39 19.6 43.4 16 44.6 C13.4 45.4 11.4 43.8 11.6 41.6 C11.8 40 13.2 39 14.6 39.4' stroke-width='0.9'/><path d='M7.4 33 C10 30.4 13.6 30 16.4 31.6' stroke-width='1'/><path d='M16.4 31.6 C18.6 33 19.2 35.6 18 37.6' stroke-width='0.8'/><g stroke-width='0.9'><path d='M6.6 46 C3.4 45.2 2.4 42 4.4 39.6 C6 37.6 9 37.8 10.2 40'/><path d='M10.2 40 C12.6 38.4 15.6 39.6 16 42.4 C16.4 45 14.2 47.2 11.4 46.8'/></g><path d='M20 8.6 C24.4 5.2 30.6 4.2 36 5.6 C31.6 9.6 25.4 10.8 20 8.6z' stroke-width='0.9'/></g></svg>"); }
-body.mc-theme-cleric .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter'><path d='M3 38V7.5L7.5 3H38' stroke-width='2.8'/><path d='M9 44V11L11 9H44' stroke-width='1.3'/><g stroke-width='1.2'><circle cx='19' cy='19' r='3.6'/><circle cx='26.5' cy='19' r='3.6'/><circle cx='19' cy='26.5' r='3.6'/></g><path d='M38 3l4 4-4 4' stroke-width='1.3'/><path d='M3 38l4 4 4-4' stroke-width='1.3'/><g stroke-width='1' stroke-linecap='round'><path d='M14 15l4-4 4 4M24 15l4-4 4 4M34 15l4-4 4 4'/><path d='M15 14l-4 4 4 4M15 24l-4 4 4 4M15 34l-4 4 4 4'/></g><g stroke-width='1.4' stroke-linecap='round'><path d='M7 7h.1M12 4h.1M4 12h.1'/></g></g></svg>"); }
+body.mc-theme-cleric .mc-frame { /* #9 (rev2): trefoil removed — nothing overlaps the chalice; just the bracket + corner ticks. */ --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter'><path d='M3 38V7.5L7.5 3H38' stroke-width='2.8'/><path d='M9 40V11L11 9H40' stroke-width='1.3'/><path d='M38 3l4 4-4 4' stroke-width='1.3'/><path d='M3 38l4 4 4-4' stroke-width='1.3'/><g stroke-width='1.4' stroke-linecap='round'><path d='M7 7h.1M12 4h.1M4 12h.1'/></g></g></svg>"); }
 body.mc-theme-druid .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M5.5 50 C4.2 40 5.4 30 9.6 22' stroke-width='2.8'/><path d='M9.6 22 C13.4 14.6 20 8.8 28.5 6' stroke-width='2.1'/><path d='M28.5 6 C34.5 4 40 3.6 46 4.4' stroke-width='1.3'/><path d='M46 4.4 C50.4 5 52.6 7.6 52 11 C51.6 13.4 49.6 15 47.4 14.6' stroke-width='0.9'/><path d='M12.4 17.6 C13.2 24 14.4 29.6 17.6 34.6' stroke-width='1.3'/><path d='M17.6 34.6 C20.4 39 19.6 43.4 16 44.6 C13.4 45.4 11.4 43.8 11.6 41.6 C11.8 40 13.2 39 14.6 39.4' stroke-width='0.9'/><path d='M7.4 33 C10 30.4 13.6 30 16.4 31.6' stroke-width='1'/><path d='M16.4 31.6 C18.6 33 19.2 35.6 18 37.6' stroke-width='0.8'/><g stroke-width='0.9'><path d='M6.6 46 C3.4 45.2 2.4 42 4.4 39.6 C6 37.6 9 37.8 10.2 40'/><path d='M10.2 40 C12.6 38.4 15.6 39.6 16 42.4 C16.4 45 14.2 47.2 11.4 46.8'/></g><path d='M20 8.6 C24.4 5.2 30.6 4.2 36 5.6 C31.6 9.6 25.4 10.8 20 8.6z' stroke-width='0.9'/></g></svg>"); }
 body.mc-theme-fighter .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 40V3h37' stroke-width='3'/><path d='M8.5 45V8.5h37' stroke-width='1.5'/><path d='M13 49.5V13h6.5' stroke-width='1.2'/><path d='M49.5 13H43' stroke-width='1.2'/><path d='M14 32A18 18 0 0 0 32 14' stroke-width='1'/><path d='M14 26A12 12 0 0 0 26 14' stroke-width='1.4'/><g stroke-linecap='round'><path d='M14 19v9' stroke-width='1.6'/><path d='M16.9 18.3L20.4 26.4' stroke-width='1.3'/><path d='M19.5 19.5L23.2 23.2' stroke-width='1.6'/><path d='M18.3 16.9L26.4 20.4' stroke-width='1.3'/><path d='M19 14h9' stroke-width='1.6'/></g><g stroke-linecap='butt' stroke-width='0.9'><path d='M14 34v6'/><path d='M20.1 32.1l4.3 4.3'/><path d='M34 14h6'/><path d='M32.1 20.1l4.3 4.3'/></g><g stroke-width='1'><path d='M3 44h4v-4M3 52h8v-8'/><path d='M44 3v4h-4M52 3v8h-8'/></g></g></svg>"); }
 body.mc-theme-flame .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 48V3h45' stroke-width='3' stroke-linecap='butt'/><path d='M7.5 48V7.5h40.5' stroke-width='1' stroke-linecap='butt'/><path d='M12 7.5V3M7.5 12H3' stroke-width='1'/><g stroke-width='1.7' stroke-linecap='round'><path d='M5.2 41h.1M5.2 34h.1M5.2 27h.1M5.2 20h.1M5.2 14h.1M14 5.2h.1M20 5.2h.1M27 5.2h.1M34 5.2h.1M41 5.2h.1'/></g><g stroke-linecap='round'><path d='M12.5 26.5 C12.5 18.5 18.5 12.5 26.5 12.5' stroke-width='1.7'/><path d='M26.5 12.5 C21.4 13.2 17.3 15.7 15.4 20 C14.5 22.1 15.4 24 17.3 24.2 C18.8 24.4 19.9 23.3 19.7 21.8' stroke-width='1.2'/><path d='M12.5 26.5 C13.2 21.4 15.7 17.3 20 15.4 C22.1 14.5 24 15.4 24.2 17.3 C24.4 18.8 23.3 19.9 21.8 19.7' stroke-width='1.2'/><path d='M12.5 26.5 C9.8 30.8 10.4 36 14.2 39.6' stroke-width='1.4'/><path d='M14.2 39.6 C15.9 35.4 15.2 31.1 12.5 26.5z' stroke-width='0.9'/><path d='M26.5 12.5 C30.8 9.8 36 10.4 39.6 14.2' stroke-width='1.4'/><path d='M39.6 14.2 C35.4 15.9 31.1 15.2 26.5 12.5z' stroke-width='0.9'/><path d='M14.2 39.6 C14.9 43.4 17.6 45.6 20.8 44.9 C22.8 44.5 23.6 42.6 22.4 41.2' stroke-width='1'/><path d='M39.6 14.2 C43.4 14.9 45.6 17.6 44.9 20.8 C44.5 22.8 42.6 23.6 41.2 22.4' stroke-width='1'/></g></g></svg>"); }
-body.mc-theme-frost .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M3 12A9 9 0 0 1 12 3' stroke-width='2.4'/><path d='M3 20A17 17 0 0 1 20 3' stroke-width='1.7'/><path d='M3 27A24 24 0 0 1 27 3' stroke-width='1.4'/><path d='M3 34A31 31 0 0 1 34 3' stroke-width='1.1'/><g stroke-width='0.9' transform='translate(13,34) scale(0.62)'><path d='M0 -9V9M-7.8 -4.5L7.8 4.5M-7.8 4.5L7.8 -4.5'/><path d='M0 -9L-7.8 -4.5L-7.8 4.5L0 9L7.8 4.5L7.8 -4.5Z'/><path d='M0 0L-7.8 -4.5M0 0L7.8 -4.5M0 0L-7.8 4.5M0 0L7.8 4.5'/></g><g stroke-width='0.8'><path d='M3 41A38 38 0 0 1 41 3'/><path d='M3 48A45 45 0 0 1 48 3'/></g><g stroke-width='1.1'><path d='M40 6.5h14'/><path d='M44.5 4.5v4M49.5 4.5v4'/><path d='M46 11c2.6 0 4.6 1.6 5.6 4' stroke-linecap='round'/></g></g></svg>"); }
-body.mc-theme-gothic .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter' stroke-linecap='butt'><path d='M3 46V16L14 3' stroke-width='3'/><path d='M9.5 50V19L18.5 8' stroke-width='1.4'/><path d='M14 3L25 14' stroke-width='3'/><path d='M18.5 8L27.5 17' stroke-width='1.4'/><g stroke-width='1.1'><circle cx='13.5' cy='17.5' r='2.6'/><circle cx='19' cy='23' r='2.6'/><path d='M11 20L16.4 25.4' stroke-linecap='round'/></g><g stroke-width='1.2' stroke-linecap='round'><path d='M6 34c2.6 0 4-1.4 4-4'/><path d='M6 26c2.6 0 4-1.4 4-4'/><path d='M30 7c0 2.6 1.4 4 4 4'/><path d='M38 7c0 2.6 1.4 4 4 4'/></g><path d='M3 46l3 5 3-5' stroke-width='1.4'/><path d='M46 3l5 3-5 3' stroke-width='1.4'/></g></svg>"); }
-body.mc-theme-monk .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M3 12A9 9 0 0 1 12 3' stroke-width='2.4'/><path d='M3 20A17 17 0 0 1 20 3' stroke-width='1.7'/><path d='M3 27A24 24 0 0 1 27 3' stroke-width='1.4'/><path d='M3 34A31 31 0 0 1 34 3' stroke-width='1.1'/><g stroke-width='0.9' transform='translate(13,34) scale(0.62)'><path d='M0 -9V9M-7.8 -4.5L7.8 4.5M-7.8 4.5L7.8 -4.5'/><path d='M0 -9L-7.8 -4.5L-7.8 4.5L0 9L7.8 4.5L7.8 -4.5Z'/><path d='M0 0L-7.8 -4.5M0 0L7.8 -4.5M0 0L-7.8 4.5M0 0L7.8 4.5'/></g><g stroke-width='0.8'><path d='M3 41A38 38 0 0 1 41 3'/><path d='M3 48A45 45 0 0 1 48 3'/></g><g stroke-width='1.1'><path d='M40 6.5h14'/><path d='M44.5 4.5v4M49.5 4.5v4'/><path d='M46 11c2.6 0 4.6 1.6 5.6 4' stroke-linecap='round'/></g></g></svg>"); }
-body.mc-theme-paladin .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter'><path d='M3 38V7.5L7.5 3H38' stroke-width='2.8'/><path d='M9 44V11L11 9H44' stroke-width='1.3'/><g stroke-width='1.2'><circle cx='19' cy='19' r='3.6'/><circle cx='26.5' cy='19' r='3.6'/><circle cx='19' cy='26.5' r='3.6'/></g><path d='M38 3l4 4-4 4' stroke-width='1.3'/><path d='M3 38l4 4 4-4' stroke-width='1.3'/><g stroke-width='1' stroke-linecap='round'><path d='M14 15l4-4 4 4M24 15l4-4 4 4M34 15l4-4 4 4'/><path d='M15 14l-4 4 4 4M15 24l-4 4 4 4M15 34l-4 4 4 4'/></g><g stroke-width='1.4' stroke-linecap='round'><path d='M7 7h.1M12 4h.1M4 12h.1'/></g></g></svg>"); }
+body.mc-theme-frost .mc-frame { /* #3 (rev2): three identical snowflakes pushed OUT into the corner (r21 from the big motif flake) so they no longer touch it. */ --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='0.9' stroke-linecap='round'><g transform='translate(10.2,10.2)'><path d='M0 -3.4V3.4M-3 -1.7L3 1.7M-3 1.7L3 -1.7M0 -2l-1.2-1.2M0 -2l1.2-1.2M0 2l-1.2 1.2M0 2l1.2 1.2'/></g><g transform='translate(6,16.1)'><path d='M0 -3.4V3.4M-3 -1.7L3 1.7M-3 1.7L3 -1.7M0 -2l-1.2-1.2M0 -2l1.2-1.2M0 2l-1.2 1.2M0 2l1.2 1.2'/></g><g transform='translate(16.1,6)'><path d='M0 -3.4V3.4M-3 -1.7L3 1.7M-3 1.7L3 -1.7M0 -2l-1.2-1.2M0 -2l1.2-1.2M0 2l-1.2 1.2M0 2l1.2 1.2'/></g></g></svg>"); }
+body.mc-theme-gothic .mc-frame { /* #2 (rev): no tracery — the skull stands alone as a minimalist icon. */ --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'></svg>"); }
+body.mc-theme-monk .mc-frame { /* #12 (rev2): two small elements removed — just the concentric arcs; lotus stays the motif. */ --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M3 12A9 9 0 0 1 12 3' stroke-width='2.4'/><path d='M3 20A17 17 0 0 1 20 3' stroke-width='1.7'/><path d='M3 27A24 24 0 0 1 27 3' stroke-width='1.4'/><path d='M3 34A31 31 0 0 1 34 3' stroke-width='1.1'/></g></svg>"); }
+body.mc-theme-paladin .mc-frame { /* #13 (rev): dropped the inner rule that touched the sun; the outer bracket stays. */ --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter'><path d='M3 38V7.5L7.5 3H38' stroke-width='2.8'/><path d='M38 3l4 4-4 4' stroke-width='1.3'/><path d='M3 38l4 4 4-4' stroke-width='1.3'/><g stroke-width='1.4' stroke-linecap='round'><path d='M7 7h.1M12 4h.1M4 12h.1M16 5h.1M5 16h.1'/></g></g></svg>"); }
 body.mc-theme-ranger .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M5.5 50 C4.2 40 5.4 30 9.6 22' stroke-width='2.8'/><path d='M9.6 22 C13.4 14.6 20 8.8 28.5 6' stroke-width='2.1'/><path d='M28.5 6 C34.5 4 40 3.6 46 4.4' stroke-width='1.3'/><path d='M46 4.4 C50.4 5 52.6 7.6 52 11 C51.6 13.4 49.6 15 47.4 14.6' stroke-width='0.9'/><path d='M12.4 17.6 C13.2 24 14.4 29.6 17.6 34.6' stroke-width='1.3'/><path d='M17.6 34.6 C20.4 39 19.6 43.4 16 44.6 C13.4 45.4 11.4 43.8 11.6 41.6 C11.8 40 13.2 39 14.6 39.4' stroke-width='0.9'/><path d='M7.4 33 C10 30.4 13.6 30 16.4 31.6' stroke-width='1'/><path d='M16.4 31.6 C18.6 33 19.2 35.6 18 37.6' stroke-width='0.8'/><g stroke-width='0.9'><path d='M6.6 46 C3.4 45.2 2.4 42 4.4 39.6 C6 37.6 9 37.8 10.2 40'/><path d='M10.2 40 C12.6 38.4 15.6 39.6 16 42.4 C16.4 45 14.2 47.2 11.4 46.8'/></g><path d='M20 8.6 C24.4 5.2 30.6 4.2 36 5.6 C31.6 9.6 25.4 10.8 20 8.6z' stroke-width='0.9'/></g></svg>"); }
 body.mc-theme-rogue .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 40V3h37' stroke-width='3'/><path d='M8.5 45V8.5h37' stroke-width='1.5'/><path d='M13 49.5V13h6.5' stroke-width='1.2'/><path d='M49.5 13H43' stroke-width='1.2'/><path d='M14 32A18 18 0 0 0 32 14' stroke-width='1'/><path d='M14 26A12 12 0 0 0 26 14' stroke-width='1.4'/><g stroke-linecap='round'><path d='M14 19v9' stroke-width='1.6'/><path d='M16.9 18.3L20.4 26.4' stroke-width='1.3'/><path d='M19.5 19.5L23.2 23.2' stroke-width='1.6'/><path d='M18.3 16.9L26.4 20.4' stroke-width='1.3'/><path d='M19 14h9' stroke-width='1.6'/></g><g stroke-linecap='butt' stroke-width='0.9'><path d='M14 34v6'/><path d='M20.1 32.1l4.3 4.3'/><path d='M34 14h6'/><path d='M32.1 20.1l4.3 4.3'/></g><g stroke-width='1'><path d='M3 44h4v-4M3 52h8v-8'/><path d='M44 3v4h-4M52 3v8h-8'/></g></g></svg>"); }
-body.mc-theme-sorcerer .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M5.5 50 C4.2 40 5.4 30 9.6 22' stroke-width='2.8'/><path d='M9.6 22 C13.4 14.6 20 8.8 28.5 6' stroke-width='2.1'/><path d='M28.5 6 C34.5 4 40 3.6 46 4.4' stroke-width='1.3'/><path d='M46 4.4 C50.4 5 52.6 7.6 52 11 C51.6 13.4 49.6 15 47.4 14.6' stroke-width='0.9'/><path d='M12.4 17.6 C13.2 24 14.4 29.6 17.6 34.6' stroke-width='1.3'/><path d='M17.6 34.6 C20.4 39 19.6 43.4 16 44.6 C13.4 45.4 11.4 43.8 11.6 41.6 C11.8 40 13.2 39 14.6 39.4' stroke-width='0.9'/><path d='M7.4 33 C10 30.4 13.6 30 16.4 31.6' stroke-width='1'/><path d='M16.4 31.6 C18.6 33 19.2 35.6 18 37.6' stroke-width='0.8'/><g stroke-width='0.9'><path d='M6.6 46 C3.4 45.2 2.4 42 4.4 39.6 C6 37.6 9 37.8 10.2 40'/><path d='M10.2 40 C12.6 38.4 15.6 39.6 16 42.4 C16.4 45 14.2 47.2 11.4 46.8'/></g><path d='M20 8.6 C24.4 5.2 30.6 4.2 36 5.6 C31.6 9.6 25.4 10.8 20 8.6z' stroke-width='0.9'/></g></svg>"); }
+body.mc-theme-sorcerer .mc-frame { /* #16: too busy — swap the vined nouveau skeleton for the cleaner volute bracket. */ --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 48V3h45' stroke-width='3' stroke-linecap='butt'/><path d='M7.5 48V7.5h40.5' stroke-width='1' stroke-linecap='butt'/><path d='M12 7.5V3M7.5 12H3' stroke-width='1'/><g stroke-linecap='round'><path d='M12.5 26.5 C12.5 18.5 18.5 12.5 26.5 12.5' stroke-width='1.7'/><path d='M12.5 26.5 C9.8 30.8 10.4 36 14.2 39.6' stroke-width='1.4'/><path d='M14.2 39.6 C15.9 35.4 15.2 31.1 12.5 26.5z' stroke-width='0.9'/><path d='M26.5 12.5 C30.8 9.8 36 10.4 39.6 14.2' stroke-width='1.4'/><path d='M39.6 14.2 C35.4 15.9 31.1 15.2 26.5 12.5z' stroke-width='0.9'/></g></g></svg>"); }
 body.mc-theme-tide .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M3 12A9 9 0 0 1 12 3' stroke-width='2.4'/><path d='M3 20A17 17 0 0 1 20 3' stroke-width='1.7'/><path d='M3 27A24 24 0 0 1 27 3' stroke-width='1.4'/><path d='M3 34A31 31 0 0 1 34 3' stroke-width='1.1'/><g stroke-width='0.9' transform='translate(13,34) scale(0.62)'><path d='M0 -9V9M-7.8 -4.5L7.8 4.5M-7.8 4.5L7.8 -4.5'/><path d='M0 -9L-7.8 -4.5L-7.8 4.5L0 9L7.8 4.5L7.8 -4.5Z'/><path d='M0 0L-7.8 -4.5M0 0L7.8 -4.5M0 0L-7.8 4.5M0 0L7.8 4.5'/></g><g stroke-width='0.8'><path d='M3 41A38 38 0 0 1 41 3'/><path d='M3 48A45 45 0 0 1 48 3'/></g><g stroke-width='1.1'><path d='M40 6.5h14'/><path d='M44.5 4.5v4M49.5 4.5v4'/><path d='M46 11c2.6 0 4.6 1.6 5.6 4' stroke-linecap='round'/></g></g></svg>"); }
-body.mc-theme-warlock .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter' stroke-linecap='butt'><circle cx='14' cy='14' r='11' stroke-width='1.7'/><circle cx='14' cy='14' r='8.4' stroke-width='0.9'/><g stroke-width='0.9'><path d='M14 5.6V3M14 22.4V25M5.6 14H3M22.4 14H25M8.1 8.1L6.3 6.3M19.9 19.9l1.8 1.8M19.9 8.1l1.8-1.8M8.1 19.9l-1.8 1.8'/></g><path d='M14 6.6l4.9 15.1L6.1 12.4h15.8L9.1 21.7z' stroke-width='1.1'/><g stroke-width='1.5'><path d='M7 34v9M3.6 37.4h6.8'/><path d='M17 40l5.5 5.5M22.5 40L17 45.5'/><path d='M34 7h9M37.4 3.6v6.8'/><path d='M40 17l5.5 5.5M45.5 17L40 22.5'/></g></g></svg>"); }
+body.mc-theme-warlock .mc-frame { /* #17 (rev): the summoning circle is the ONLY element and fills the tile — big rings + pentagram + radial ticks, nothing else. */ --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='miter' stroke-linecap='butt'><circle cx='25' cy='25' r='21' stroke-width='1.7'/><circle cx='25' cy='25' r='16.6' stroke-width='0.9'/><g stroke-width='0.9'><path d='M25 4V1M25 46V49M4 25H1M46 25H49M10.5 10.5l-2-2M39.5 39.5l2 2M39.5 10.5l2-2M10.5 39.5l-2 2'/></g><path d='M25 8.4L34.8 38.4L9.2 19.9L40.8 19.9L15.2 38.4Z' stroke-width='1.1'/></g></svg>"); }
 body.mc-theme-wizard .mc-frame { --mc-frame-skel: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><path d='M3 40V3h37' stroke-width='3'/><path d='M8.5 45V8.5h37' stroke-width='1.5'/><path d='M13 49.5V13h6.5' stroke-width='1.2'/><path d='M49.5 13H43' stroke-width='1.2'/><path d='M14 32A18 18 0 0 0 32 14' stroke-width='1'/><path d='M14 26A12 12 0 0 0 26 14' stroke-width='1.4'/><g stroke-linecap='round'><path d='M14 19v9' stroke-width='1.6'/><path d='M16.9 18.3L20.4 26.4' stroke-width='1.3'/><path d='M19.5 19.5L23.2 23.2' stroke-width='1.6'/><path d='M18.3 16.9L26.4 20.4' stroke-width='1.3'/><path d='M19 14h9' stroke-width='1.6'/></g><g stroke-linecap='butt' stroke-width='0.9'><path d='M14 34v6'/><path d='M20.1 32.1l4.3 4.3'/><path d='M34 14h6'/><path d='M32.1 20.1l4.3 4.3'/></g><g stroke-width='1'><path d='M3 44h4v-4M3 52h8v-8'/><path d='M44 3v4h-4M52 3v8h-8'/></g></g></svg>"); }
 
 /* Per-theme corner motif — sits in the slot the skeletons keep clear. */
 body.mc-theme-gothic .mc-frame {
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M25 12l9 11v14H16V23z' stroke-width='1.4'/><circle cx='25' cy='24' r='6.6' stroke-width='1.6'/><circle cx='25' cy='24' r='2.4' stroke-width='1.2'/><path d='M25 17.4v13.2M18.4 24h13.2M20.3 19.3l9.4 9.4M29.7 19.3l-9.4 9.4' stroke-width='0.9'/><path d='M20 37V31a5 5 0 0 1 10 0v6' stroke-width='1.2'/></g></svg>");
+  /* #2 (rev): minimalist SILHOUETTE skull (solid, negative-space eyes/nose + scalloped teeth,
+     evenodd) — like a clean icon, no decorations. rotate(45) points the chin inward; the
+     four-corner mirrors carry that around. */
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><path transform='rotate(-45 25 24)' fill='black' fill-rule='evenodd' d='M25 9 C16.7 9 11 15.2 11 23 C11 27.4 12.8 30 15 32 L15 36 C15 38.2 16.8 40 19 40 L19 36.5 C19 35.7 19.6 35.1 20.4 35.1 C21.2 35.1 21.8 35.7 21.8 36.5 L21.8 40 L23.6 40 L23.6 36.5 C23.6 35.7 24.2 35.1 25 35.1 C25.8 35.1 26.4 35.7 26.4 36.5 L26.4 40 L28.2 40 L28.2 36.5 C28.2 35.7 28.8 35.1 29.6 35.1 C30.4 35.1 31 35.7 31 36.5 L31 40 C33.2 40 35 38.2 35 36 L35 32 C37.2 30 39 27.4 39 23 C39 15.2 33.3 9 25 9 Z M20.4 20 C18.3 20 16.9 21.9 16.9 24.1 C16.9 26.1 18.2 27.6 20.1 27.6 C22 27.6 23.1 26 23.1 24 C23.1 21.8 22.3 20 20.4 20 Z M29.6 20 C31.7 20 33.1 21.9 33.1 24.1 C33.1 26.1 31.8 27.6 29.9 27.6 C28 27.6 26.9 26 26.9 24 C26.9 21.8 27.7 20 29.6 20 Z M25 28.2 L22.8 32.6 L27.2 32.6 Z'/></svg>");
 }
 body.mc-theme-frost .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'><path d='M25 15v20M16.4 20l17.2 10M16.4 30l17.2-10'/><path d='M25 19.6l-2.8-2.8M25 19.6l2.8-2.8M25 30.4l-2.8 2.8M25 30.4l2.8 2.8'/><path d='M20.4 22.6l-3.9-1M20.4 27.4l-3.9 1M29.6 22.6l3.9-1M29.6 27.4l3.9 1'/></g></svg>");
@@ -2579,7 +2605,9 @@ body.mc-theme-flame .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><path d='M25 14c1.3 3.6 3.9 5.1 3.9 8.5 0 2.5-1.9 4.4-4.3 4.4-2 0-3.4-1.4-3.4-3.2 0-1.7 1.3-2.7 1.3-4.4-2.6 1.7-4.3 4.3-4.3 7.5 0 4.7 3.9 8.1 8.6 8.1' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/></svg>");
 }
 body.mc-theme-tide .mc-frame {
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M16 26c0-6 4.8-10.8 10.8-10.8-3.6 1.7-5.7 4.2-5.7 7.1 0 1.9 1.3 3.2 3.1 3.2 1.5 0 2.6-1.1 2.6-2.5 0-1.2-.8-2-1.9-2' stroke-width='2'/><path d='M15 32c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2' stroke-width='1.4'/></g></svg>");
+  /* #5: a cresting wave (Great-Wave curl) with under-ripples and spray, replacing the old
+     nautilus. */
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M14 31 C14 22 20 16.5 26.5 16.5 C31.6 16.5 35.5 20 35.5 25 C35.5 28.2 33.3 30.4 30.2 30.4 C28 30.4 26.4 28.8 26.4 26.7 C26.4 25.1 27.5 24 29.1 24' stroke-width='2'/><path d='M14 31 C16.4 27.8 19.6 26.2 23.3 26.2' stroke-width='1.3'/><path d='M15 35.5 C18.4 33.2 22.6 32.6 27 33.8' stroke-width='1.2'/><circle cx='31.4' cy='19.6' r='0.9' stroke-width='0.9'/><circle cx='34.4' cy='22.8' r='0.9' stroke-width='0.9'/></g></svg>");
 }
 body.mc-theme-artificer .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black'><circle cx='25' cy='25' r='8.8' stroke-width='1.3'/><circle cx='25' cy='25' r='6.2' stroke-width='1.3'/><circle cx='25' cy='25' r='7.5' stroke-width='2.6' stroke-dasharray='2.3 3.1'/><circle cx='25' cy='25' r='3' stroke-width='1.5'/></g></svg>");
@@ -2591,7 +2619,8 @@ body.mc-theme-bard .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M19.5 32.5c-3.2-3.2-2.4-8.6 1.8-12.2 4.2-3.6 9.4-3.8 12-.8' stroke-width='1.8'/><path d='M23.5 28.5c0-4.4 3.4-7.8 7.8-8.4' stroke-width='1.1'/><path d='M26.5 31.5c0-5.4 4-9.8 9-10.4' stroke-width='1.1'/></g></svg>");
 }
 body.mc-theme-cleric .mc-frame {
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M17 14h16v5.5a8 8 0 0 1-16 0z' stroke-width='1.6'/><path d='M25 27.5V35' stroke-width='1.8'/><path d='M19.5 35.5h11' stroke-width='1.6'/><path d='M21 17.5c2.6 1.4 5.4 1.4 8 0' stroke-width='1'/></g></svg>");
+  /* #9 (rev): curved base tapering to a thin 1px rim; varied stroke weight for a turned-metal look. */
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M17.5 14.5h15' stroke-width='1'/><path d='M17.5 14.5 a7.5 7.5 0 0 0 15 0' stroke-width='1.8'/><path d='M25 22V33' stroke-width='1.6'/><path d='M19 36 Q25 31.5 31 36' stroke-width='1.6'/><path d='M20.5 36.8h9' stroke-width='1'/></g></svg>");
 }
 body.mc-theme-druid .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M15.5 35.5c3.5-9 9.5-15.5 19-19' stroke-width='1.6'/><path d='M22 29c-2.5-3.5-1.5-8 2.5-10.5 1.5 4.5.5 8.5-2.5 10.5z' stroke-width='1.5'/><path d='M27.5 23.5c-1-4 1.5-7.8 6-8.6.2 4.6-2.2 7.8-6 8.6z' stroke-width='1.5'/><path d='M19.5 32.5c-4-.5-6.6-3.6-6.4-7.8 4 1.2 6.2 4 6.4 7.8z' stroke-width='1.5'/></g></svg>");
@@ -2603,7 +2632,9 @@ body.mc-theme-monk .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'><path d='M25 34.5c-5.2 0-9.4-3.8-9.4-8.4 3.2 1.5 5.6 1.7 9.4 1.7s6.2-.2 9.4-1.7c0 4.6-4.2 8.4-9.4 8.4z'/><path d='M25 27.6c-2.7-3.1-2.7-7.3 0-10.4 2.7 3.1 2.7 7.3 0 10.4z'/><path d='M25 27.6c-3.5-1.5-6.2-4.2-7.3-7.7 3.5.6 6.2 2.7 7.3 7.7z'/><path d='M25 27.6c3.5-1.5 6.2-4.2 7.3-7.7-3.5.6-6.2 2.7-7.3 7.7z'/></g></svg>");
 }
 body.mc-theme-paladin .mc-frame {
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><circle cx='25' cy='25' r='5' stroke-width='1.8'/><circle cx='25' cy='25' r='7.4' stroke-width='1'/><path d='M25 12.6v4.6M25 32.8v4.6M12.6 25h4.6M32.8 25h4.6' stroke-width='1.8'/><path d='M16.2 16.2l3.3 3.3M30.5 30.5l3.3 3.3M33.8 16.2l-3.3 3.3M19.5 30.5l-3.3 3.3' stroke-width='1.5'/><path d='M20.2 13.4l1.8 4.3M28 32.3l1.8 4.3M13.4 29.8l4.3-1.8M32.3 22l4.3-1.8' stroke-width='1'/></g></svg>");
+  /* #13: rays TAPER — thick at the disc, to a point at the tip (filled triangles, base near
+     the disc, apex far out). Eight rays + a clean ringed sun. */
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='black'><path d='M23.5 18L26.5 18L25 6Z'/><path d='M23.5 32L26.5 32L25 44Z'/><path d='M18 23.5L18 26.5L6 25Z'/><path d='M32 23.5L32 26.5L44 25Z'/><path d='M18.3 20.4L20.4 18.3L9 9Z'/><path d='M29.6 18.3L31.7 20.4L41 9Z'/><path d='M18.3 29.6L20.4 31.7L9 41Z'/><path d='M31.7 29.6L29.6 31.7L41 41Z'/></g><g fill='none' stroke='black' stroke-width='1.4'><circle cx='25' cy='25' r='5.4'/></g><circle cx='25' cy='25' r='2' fill='black'/></svg>");
 }
 body.mc-theme-ranger .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M16.5 34.5c0-10 8-18 18-18' stroke-width='2.2'/><path d='M16.5 34.5c8-2 16-10 18-18' stroke-width='1'/><path d='M20.5 31.5l9.6-9.6' stroke-width='1.4'/><path d='M30.1 21.9l-1.2-3.2 3.2 1.2' stroke-width='1.2' stroke-linejoin='round'/></g></svg>");
@@ -2612,10 +2643,13 @@ body.mc-theme-rogue .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M18.5 33.5l8.4-8.4' stroke-width='1.9'/><path d='M26.9 25.1c2.2-2.4 5.4-6.6 7.6-9.6-3 2.2-7.2 5.4-9.6 7.6' stroke-width='1.6'/><path d='M22.4 26.6l3.6 3.6' stroke-width='1.6'/></g></svg>");
 }
 body.mc-theme-sorcerer .mc-frame {
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M25 34.6c-5 0-9-4-9-9 0-6 5-9.4 9-14.2 4 4.8 9 8.2 9 14.2 0 5-4 9-9 9z' stroke-width='1.8'/><path d='M25 30.4c-2.4 0-4.2-1.8-4.2-4.1 0-2.7 2.2-4.1 4.2-6.5 2 2.4 4.2 3.8 4.2 6.5 0 2.3-1.8 4.1-4.2 4.1z' stroke-width='1.2'/></g></svg>");
+  /* #16: bolder, more "flaming" — a big flame with a licking side-tongue and an inner flame. */
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round'><path d='M25 8 C27 15 33 18 33 26 C33 31.5 29.4 35.5 25 35.5 C20.6 35.5 17 31.5 17 26 C17 22 19 19 21.5 16.5 C21 20 22.5 22 24 22 C25.5 22 26 20 25 17 C24 14 24 11 25 8 Z' stroke-width='2'/><path d='M25 31 C22.8 31 21 29.2 21 26.9 C21 24.5 22.8 22.9 25 20.5 C27.2 22.9 29 24.5 29 26.9 C29 29.2 27.2 31 25 31 Z' stroke-width='1.3'/></g></svg>");
 }
 body.mc-theme-warlock .mc-frame {
-  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linecap='round'><path d='M15 25c4.2-5.6 7.6-8.4 10-8.4s5.8 2.8 10 8.4c-4.2 5.6-7.6 8.4-10 8.4s-5.8-2.8-10-8.4z' stroke-width='1.8'/><circle cx='25' cy='25' r='3.2' stroke-width='1.5'/></g></svg>");
+  /* #17: lose the eye — the enlarged summoning circle (the skeleton) IS the ornament now.
+     Empty motif so only the skeleton draws. */
+  --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'></svg>");
 }
 body.mc-theme-wizard .mc-frame {
   --mc-frame-orn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><g fill='none' stroke='black' stroke-linejoin='round'><path d='M25 15l2.7 6.3 6.3 1.9-6.3 1.9L25 31.4l-2.7-6.3-6.3-1.9 6.3-1.9L25 15z' stroke-width='1.6'/><path d='M33.6 31.6c-2.5 0-4.5-2-4.5-4.5' stroke-width='1.2' stroke-linecap='round'/></g></svg>");
@@ -2768,7 +2802,7 @@ body.mc-theme-wizard .mc-frame {
 .mc-place-cancel, .mc-place-confirm { flex: 1 1 0; height: 48px; border-radius: calc(12px * var(--mc-round, 1)); font-weight: 800; font-size: 15px; }
 .mc-place-cancel { background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink); }
 .mc-place-confirm { background: linear-gradient(#4a8c4a, #2f6b2f); border: 1px solid #4a8c4a; color: #fff; }
-.mc-place-confirm.mc-warn { background: linear-gradient(#a37a2e, #8a5f1e); border-color: #c8a44d; }
+.mc-place-confirm.mc-warn { background: linear-gradient(#a37a2e, #8a5f1e); border-color: var(--mc-gold); }
 /* Learn spells (Spells tab): full-width entry into the class-list picker. */
 .mc-learn-spells {
   width: 100%; min-height: 46px; margin-top: 10px; border-radius: calc(10px * var(--mc-round, 1));
@@ -3020,10 +3054,16 @@ body.mc-theme-wizard .mc-frame {
   /* Shared minimum for the panel AND its flyout (≈ the main box's height with a
      player selected) so the two boxes match and neither is over-tall (DM 2026-07-03). */
   --mc-dmp-min-h: 268px; min-height: var(--mc-dmp-min-h);
-  background: linear-gradient(#26222b, #1c1922); color: #ece5d6;
-  border: 1px solid #c8a44d; border-radius: calc(10px * var(--mc-round, 1)); padding: 10px;
+  background: linear-gradient(var(--mc-panel-2), var(--mc-panel)); color: #ece5d6;
+  border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); padding: 10px;
   font-family: "Signika", sans-serif; box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
 }
+/* Scrollbars follow the palette instead of Foundry's burgundy default (DM 2026-07-18). */
+#mc-dm-panel, #mobile-command-shell { scrollbar-width: thin; scrollbar-color: var(--mc-edge) transparent; }
+#mc-dm-panel ::-webkit-scrollbar, #mobile-command-shell ::-webkit-scrollbar { width: 8px; height: 8px; }
+#mc-dm-panel ::-webkit-scrollbar-thumb, #mobile-command-shell ::-webkit-scrollbar-thumb { background: var(--mc-edge); border-radius: 4px; }
+#mc-dm-panel ::-webkit-scrollbar-thumb:hover, #mobile-command-shell ::-webkit-scrollbar-thumb:hover { background: var(--mc-gold); }
+#mc-dm-panel ::-webkit-scrollbar-track, #mobile-command-shell ::-webkit-scrollbar-track { background: transparent; }
 /* Main content scrolls inside a wrapper so the tab rail + flyout can stick OUT of
    the panel's right edge without being clipped (DM 2026-07-03 dock). */
 /* The main window is a COLUMN with a pinned foot: Form up / Start the night ride the bottom
@@ -3035,16 +3075,18 @@ body.mc-theme-wizard .mc-frame {
 /* Right-edge tab rail — icon-only tabs sticking out. Closed: on the panel's right
    edge. Open: rides the flyout's right edge (mc-open), so the tab is always on the
    far-right box (DM 2026-07-03). */
-.mc-dmp-tabrail { position: absolute; left: 100%; top: 10px; display: flex; flex-direction: column; gap: 5px; transition: left .15s ease; }
+/* Tighter so all 7 tabs fit inside the panel's min height (268px) instead of spilling below it
+   (DM 2026-07-18: "tabs too low… keep them closer together"). 7×32 + 6×4 + 6 top ≈ 254px. */
+.mc-dmp-tabrail { position: absolute; left: 100%; top: 6px; display: flex; flex-direction: column; gap: 4px; transition: left .15s ease; }
 .mc-dmp-tabrail.mc-open { left: calc(100% + 242px); }
-.mc-dmp-tab { width: 30px; height: 38px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #ece5d6; background: linear-gradient(#26222b, #1c1922); border: 1px solid #c8a44d; border-left: none; border-radius: 0 9px 9px 0; cursor: pointer; }
-.mc-dmp-tab.mc-on { color: #1a1712; background: #c8a44d; }
+.mc-dmp-tab { width: 30px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #ece5d6; background: linear-gradient(var(--mc-panel-2), var(--mc-panel)); border: 1px solid var(--mc-edge); border-left: none; border-radius: 0 9px 9px 0; cursor: pointer; }
+.mc-dmp-tab.mc-on { color: #1a1712; background: var(--mc-gold); }
 /* Flyout box — attached to the panel's right; taller minimum, no h-scroll, and
    overflow visible so the targets dropdown can escape the frame (DM 2026-07-03). */
 /* min-height:100% — the flyout is absolutely positioned inside the panel, so 100% IS the main
    window's current height. The primary sets the secondary's minimum, live, with no JS measuring
    (DM 2026-07-17). Do not re-add an inline min-height; it beats this rule. */
-.mc-dmp-flyout { position: absolute; left: calc(100% + 2px); top: 0; width: 240px; min-height: 100%; max-height: calc(100vh - 24px); display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(#26222b, #1c1922); color: #ece5d6; border: 1px solid #c8a44d; border-radius: calc(10px * var(--mc-round, 1)); box-shadow: 0 8px 24px rgba(0,0,0,.55); }
+.mc-dmp-flyout { position: absolute; left: calc(100% + 2px); top: 0; width: 240px; min-height: 100%; max-height: calc(100vh - 24px); display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(var(--mc-panel-2), var(--mc-panel)); color: #ece5d6; border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); box-shadow: 0 8px 24px rgba(0,0,0,.55); }
 /* Rolls tab only: let the targets dropdown escape the box. Other tabs clip so the
    body scrolls (tokens grid can be long — DM 2026-07-03). */
 .mc-dmp-flyout.mc-fly-rolls { overflow: visible; }
@@ -3057,6 +3099,11 @@ body.mc-theme-wizard .mc-frame {
    rail is still the drag handle (grab cursor on hover only), so the panel stays movable. */
 .mc-dmp-toprail { height: 14px; margin: -10px -10px 8px; background: var(--mc-sunken); border-bottom: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)) 0 0; cursor: grab; }
 .mc-dmp-toprail:active { cursor: grabbing; }
+/* Main-panel title bar: mirrors the flyout's grab-row + header, bled to the panel edges. The grab
+   row here carries no grip-lines icon (drag-to-move, not resize) — its only job is to match the
+   flyout's height so the two titles line up. */
+.mc-dmp-tophead { margin: -10px -10px 8px; cursor: move; }
+.mc-dmp-tophead .mc-dmp-fly-resize { cursor: move; }
 .mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; min-height: 36px; box-sizing: border-box; border-bottom: 1px solid var(--mc-edge); font-weight: 800; font-size: 14px; border-radius: calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)) 0 0; }
 .mc-dmp-fly-x { flex: 0 0 auto; width: 24px; height: 24px; min-height: 0; line-height: 1; padding: 0; background: none; border: none; color: var(--mc-muted); font-size: 15px; cursor: pointer; }
 .mc-dmp-fly-x:hover { color: var(--mc-ink); }
@@ -3082,8 +3129,8 @@ body.mc-theme-wizard .mc-frame {
 .mc-dt-restrow { display: flex; gap: 6px; margin-bottom: 8px; }
 .mc-dt-rest { flex: 1 1 0; min-height: 40px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; font-weight: 700;
   color: #ece5d6; background: var(--mc-sunken); border: 1px solid var(--mc-edge); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.mc-dt-rest:hover { border-color: #c8a44d; color: #e6c46a; }
-.mc-dt-rest i { color: #c8a44d; }
+.mc-dt-rest:hover { border-color: var(--mc-gold); color: #e6c46a; }
+.mc-dt-rest i { color: var(--mc-gold); }
 /* Owned tokens — a player dropdown + a 2-row grid that scrolls HORIZONTALLY
    (compact for the common 4–6 players × 1–2 tokens; horizontal scroll for a heavy
    player). Sorted highest-level first. */
@@ -3098,7 +3145,7 @@ body.mc-theme-wizard .mc-frame {
 }
 .mc-dmp-tok-grid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); grid-auto-columns: 74px; gap: 6px; overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
 .mc-dmp-tok { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px; border-radius: calc(8px * var(--mc-round, 1)); background: #1b202b; border: 1px solid #2f3640; cursor: grab; }
-.mc-dmp-tok:hover { border-color: #c8a44d; }
+.mc-dmp-tok:hover { border-color: var(--mc-gold); }
 .mc-dmp-tok:active { cursor: grabbing; }
 .mc-dmp-tok img { width: 48px; height: 48px; border-radius: calc(8px * var(--mc-round, 1)); object-fit: cover; pointer-events: none; }
 .mc-dmp-tok span { font-size: 10px; line-height: 1.1; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ece5d6; pointer-events: none; }
@@ -3114,7 +3161,7 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-groupsheet i { color: var(--mc-muted); }
 .mc-dmp-tok-player { flex: 1 1 auto; min-width: 0; }
 .mc-dmp-tok-palette { flex: 0 0 34px; height: 30px; border-radius: calc(7px * var(--mc-round, 1)); background: #14171f; border: 1px solid #4a4334; cursor: pointer; }
-.mc-dmp-tok-palette:hover { border-color: #c8a44d; }
+.mc-dmp-tok-palette:hover { border-color: var(--mc-gold); }
 /* Rolls tool: all three controls on one short line at the top (explicit widths so
    they always fit the 240px flyout — no spill). */
 .mc-dmp-assign { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--mc-edge); }
@@ -3124,7 +3171,7 @@ body.mc-theme-wizard .mc-frame {
 .mc-rt-multi { position: relative; flex: 1 1 auto; min-width: 0; }
 .mc-dmp-rt-forbtn { width: 100%; height: 27px; display: flex; align-items: center; justify-content: center; gap: 5px; border-radius: calc(7px * var(--mc-round, 1)); background: #14171f; color: #ece5d6; border: 1px solid #4a4334; cursor: pointer; white-space: nowrap; font-size: 12px; }
 /* The real dropdown — absolute overlay that overflows the flyout frame. */
-.mc-dmp-rt-list { position: absolute; top: calc(100% + 4px); right: 0; min-width: 170px; z-index: 40; max-height: 300px; overflow-y: auto; padding: 4px; background: var(--mc-panel); border: 1px solid #c8a44d; border-radius: calc(9px * var(--mc-round, 1)); box-shadow: 0 10px 28px rgba(0,0,0,.6); }
+.mc-dmp-rt-list { position: absolute; top: calc(100% + 4px); right: 0; min-width: 170px; z-index: 40; max-height: 300px; overflow-y: auto; padding: 4px; background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(9px * var(--mc-round, 1)); box-shadow: 0 10px 28px rgba(0,0,0,.6); }
 /* Packed main-area button — opens the Party order tab. */
 /* Secondary look, PRIMARY geometry — it stacks with Start the night, so it must match it. */
 .mc-dmp-party-mini { width: 100%; background: var(--mc-panel-2); color: var(--mc-ink); border: 1px solid var(--mc-edge); }
@@ -3280,7 +3327,7 @@ body.mc-theme-wizard .mc-frame {
 @keyframes mc-away-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 /* Combat control strip. */
 .mc-dmp-combat { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
-.mc-dmp-turn { font-size: 12px; font-weight: 700; color: #c8a44d; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.mc-dmp-turn { font-size: 12px; font-weight: 700; color: var(--mc-gold); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .mc-dmp-combatbtns { display: flex; gap: 6px; }
 .mc-dmp-combatbtns button { flex: 1 1 0; min-height: 34px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; gap: 4px;
   display: flex; align-items: center; justify-content: center; font-size: 12px;
@@ -3288,7 +3335,7 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-combatbtns button:hover { background: #2c3d54; }
 /* Quick HP (damage/heal the selected token(s)). */
 .mc-dmp-hp { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
-.mc-dmp-hp-head { font-size: 12px; font-weight: 700; color: #c8a44d; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.mc-dmp-hp-head { font-size: 12px; font-weight: 700; color: var(--mc-gold); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .mc-dmp-hp-row { display: flex; gap: 6px; align-items: stretch; }
 .mc-dmp-hp-input { flex: 1 1 0; min-width: 0; min-height: 34px; text-align: center; border-radius: calc(8px * var(--mc-round, 1));
   background: #2c2733; border: 1px solid #4a4334; color: #ece5d6; font-size: 14px; }
@@ -3308,7 +3355,7 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-cam-btn.mc-active { color: var(--mc-gold); background: var(--mc-panel-2); border-color: var(--mc-gold); }
 .mc-dmp-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
 .mc-dmp-clear { background: none; border: none; color: #a59b86; font-size: 14px; line-height: 1; cursor: pointer; }
-.mc-dmp-clear:hover { color: #c8a44d; }
+.mc-dmp-clear:hover { color: var(--mc-gold); }
 .mc-dmp-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
 .mc-dmp-chip { font-size: 11px; padding: 2px 8px; border-radius: calc(10px * var(--mc-round, 1)); background: #2a272e; border: 1px solid #3b3640; }
 .mc-dmp-players { display: flex; flex-direction: column; gap: 6px; }
@@ -3317,7 +3364,7 @@ body.mc-theme-wizard .mc-frame {
   background: #243042; border: 1px solid #2f4660; color: #ece5d6; font-size: 13px; font-weight: 600;
 }
 .mc-dmp-send:hover { background: #2c3d54; }
-.mc-dmp-send.mc-current { border-color: #c8a44d; background: #2a2415; }
+.mc-dmp-send.mc-current { border-color: var(--mc-gold); background: #2a2415; }
 .mc-dmp-empty { font-size: 12px; color: #a59b86; }
 
 /* AoE push: pending-cast rows (Player — Spell + Place). Sits above the assign
@@ -3326,7 +3373,7 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-cast {
   display: flex; align-items: center; gap: 6px;
   padding: 6px 8px; border-radius: calc(7px * var(--mc-round, 1));
-  background: #2a2415; border: 1px solid #c8a44d;
+  background: #2a2415; border: 1px solid var(--mc-edge);
 }
 .mc-dmp-cast-info { flex: 1; font-size: 12px; line-height: 1.2; min-width: 0; }
 .mc-dmp-place {
@@ -3335,7 +3382,7 @@ body.mc-theme-wizard .mc-frame {
 }
 .mc-dmp-place:hover { background: #2c3d54; }
 .mc-dmp-cast-x { background: none; border: none; color: #a59b86; font-size: 14px; line-height: 1; cursor: pointer; flex: none; }
-.mc-dmp-cast-x:hover { color: #c8a44d; }
+.mc-dmp-cast-x:hover { color: var(--mc-gold); }
 
 /* Full-screen image popup (tap the portrait): portrait ↔ token, X to close. */
 .mc-imgpop {
@@ -3878,6 +3925,9 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-journal { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; gap: 8px; }
 .mc-jn-filterrow { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 12px 0; color: var(--mc-muted); }
 .mc-jn-filter { flex: 1 1 auto; height: 38px; border-radius: calc(9px * var(--mc-round, 1)); background: #14171f; border: 1px solid var(--mc-edge); color: var(--mc-ink); padding: 0 10px; font-size: 14px; }
+/* Calendar opener beside the filter (DM 2026-07-18) — 44px tap target. */
+.mc-jn-cal { flex: 0 0 auto; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-muted); font-size: 16px; cursor: pointer; }
+.mc-jn-cal:hover { color: var(--mc-gold); border-color: var(--mc-gold); }
 .mc-jn-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 12px; }
 .mc-jn-compose { flex: 0 0 auto; border-top: 1px solid var(--mc-edge); background: rgba(10, 12, 17, .92); padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px)); }
 /* Biography editor — reuses the journal frame (filter + scrolling body + footer). */
@@ -3909,9 +3959,12 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-party-cell.mc-away, .mc-dmp-party-cell.mc-away { opacity: .45; border-style: dashed; }
 .mc-party-cell.mc-away .mc-party-lock { color: var(--mc-muted); }
 /* Group-check prompt bar (above the tab bar, like the save prompt). */
-.mc-gc-bar { position: fixed; left: 10px; right: 10px; bottom: 74px; z-index: 10001; display: flex; gap: 8px; }
-.mc-gc-roll { flex: 1 1 auto; height: 52px; border-radius: calc(12px * var(--mc-round, 1)); font-weight: 800; font-size: 15px; color: var(--mc-cta-ink); background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge); cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.55); }
-.mc-gc-x { flex: 0 0 46px; height: 52px; border-radius: calc(12px * var(--mc-round, 1)); color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-edge); cursor: pointer; }
+/* (roll-request now rides the .mc-saveprompt sheet — the old .mc-gc-bar floating pair is gone) */
+
+/* SC Reborn is the table's Calendar (DM 2026-07-18): hide the right tool column
+   (notes / search / today / configure) — every one of those stays reachable via
+   Module Settings, where SC registers its own Calendar + Configuration buttons. */
+.app.simple-calendar .fsc-xf { display: none !important; }
 /* Travel pace + group checks on the exploration tab. */
 /* Same height as the Perception/Stealth/Survival buttons below it (46px): a readout and a
    button are different things, but a row of near-identical boxes must be identical. */
@@ -3968,7 +4021,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dmp-party { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 100%; max-width: 240px; margin: 0 auto; }
 /* The marching-order grid is the tallest tab; trim its flyout so it fits the DEFAULT height
    without a scrollbar (DM 2026-07-17: "lose some padding so it fits in the default height"). */
-.mc-fly-party .mc-dmp-fly-body { padding: 8px; gap: 6px; }
+.mc-fly-party .mc-dmp-fly-body { padding: 10px; gap: 8px; } /* same padding as every other tab */
 .mc-dmp-party-row { display: contents; }
 .mc-dmp-party-cell {
   position: relative; width: 100%; height: auto; aspect-ratio: 1 / 1;
@@ -3979,11 +4032,11 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dmp-party-cell img { width: 78%; height: 78%; border-radius: 50%; object-fit: cover; }
 .mc-dmp-party-cell.mc-full { border-color: #2f4660; }
 .mc-dmp-party-cell.mc-bad { border-color: #d06060; box-shadow: 0 0 0 1px #d06060 inset; background: linear-gradient(#2b1b1b, #231616); }
-.mc-dmp-party-cell.mc-sel { border-color: #c8a44d; box-shadow: 0 0 0 2px #c8a44d inset; }
+.mc-dmp-party-cell.mc-sel { border-color: var(--mc-gold); box-shadow: 0 0 0 2px var(--mc-gold) inset; }
 .mc-dmp-party-cell.mc-stack { border-color: #d06060; }
 .mc-dmp-party-badge { position: absolute; top: 2px; right: 3px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: calc(8px * var(--mc-round, 1)); background: #d06060; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
-.mc-dmp-party-lock { position: absolute; top: 3px; right: 4px; font-size: 9px; color: #c8a44d; }
-.mc-dmp-party-hint { text-align: center; font-size: 11px; color: #c8a44d; margin: 2px 0; min-height: 1.1em; }
+.mc-dmp-party-lock { position: absolute; top: 3px; right: 4px; font-size: 9px; color: var(--mc-gold); }
+.mc-dmp-party-hint { text-align: center; font-size: 11px; color: var(--mc-gold); margin: 2px 0; min-height: 1.1em; }
 .mc-dmp-party-btns { display: flex; gap: 6px; align-items: stretch; margin-top: 0; }
 /* One height for the whole row — rotates, Rearrange AND Lock in all sit at the panel's default
    36px (DM 2026-07-18: the row had three heights). min-height, not height, so it can't fight the
@@ -3993,11 +4046,11 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dmp-party-btns [data-party="rotl"], .mc-dmp-party-btns [data-party="rotr"] { flex: 0 0 36px; }
 .mc-dmp-party-btns [data-party="stage"] { flex: 1 1 auto; font-weight: 700; white-space: nowrap; }
 .mc-dmp-party-head { cursor: pointer; user-select: none; }
-.mc-dmp-party-head:hover { color: #c8a44d; }
+.mc-dmp-party-head:hover { color: var(--mc-gold); }
 .mc-dmp-party-deploy { flex: 1 1 auto; font-weight: 800; color: var(--mc-cta-ink) !important; background: var(--mc-cta-fill) !important; border-color: var(--mc-cta-edge) !important; }
 /* Stale group: the scene's PCs aren't all members → offer a rebuild beside Form up. */
 .mc-dmp-party-rebuild { flex: 0 0 38px; color: #d8b45a !important; }
-.mc-dmp-party-rebuild:hover { border-color: #c8a44d !important; }
+.mc-dmp-party-rebuild:hover { border-color: var(--mc-gold) !important; }
 /* Membership checklist (the "slow flow"): one row per candidate in the DialogV2.
    Rows are full-width tap targets — the label toggles the checkbox. */
 .mc-dmp-roster { display: flex; flex-direction: column; gap: 2px; max-height: 55vh; overflow-y: auto; }
@@ -4067,12 +4120,45 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
    so repeating it made the label wrap and said nothing new. The long paragraph under it went to
    the button's tooltip: it explained a flow that is self-evident once you press it. */
 .mc-dmp-travel-foot { margin-top: auto; padding-top: 6px; }
-.mc-dmp-travel { display: flex; flex-direction: column; gap: 8px; padding: 4px 0 0; flex: 1 1 auto; min-height: 0; }
+.mc-dmp-travel { display: flex; flex-direction: column; gap: 8px; padding: 0; flex: 1 1 auto; min-height: 0; } /* rely on the fly-body's 10px like every other tab */
 .mc-dmp-travel-lbl { color: var(--mc-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
 
 .mc-dmp-travel-hint { color: var(--mc-muted); font-size: 12px; margin: 0; }
+/* §18 T2: pace segmented control — gold outline on the active pace (state, not fill; UI-BIBLE §4.2). */
+.mc-dmp-travel-segs { display: flex; gap: 6px; }
+/* Base = a full-width, FIXED-height button (route actions live in a column and must NOT grow
+   vertically — that stretched them to fill the flyout, DM 2026-07-18). */
+.mc-dmp-travel-seg { flex: 0 0 auto; width: 100%; min-height: 34px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 13px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+/* Only inside the pace ROW do the segments share width. */
+.mc-dmp-travel-segs .mc-dmp-travel-seg { flex: 1 1 0; width: auto; }
+.mc-dmp-travel-seg.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); background: var(--mc-panel-2); }
+/* Stop the journey — red, reads as an interrupt (encounter!). */
+.mc-dmp-travel-stop { width: 100%; color: #fff !important; background: linear-gradient(#c05555, #9c3d3d) !important; border-color: #d06060 !important; }
+/* Clear + Start share a row, equal width. */
+.mc-dmp-travel-row { display: flex; gap: 6px; }
+.mc-dmp-travel-row > * { flex: 1 1 0; width: auto; min-height: 34px; }
 /* geometry comes from the shared primary rule — this only says it's the travel one */
-.mc-dmp-travel-go { width: 100%; }
+.mc-dmp-travel-go { width: 100%; margin-top: 8px; } /* breathing room under the "switch scene" hint */
+/* Pace header: label + a small [+] for custom transports. */
+.mc-dmp-travel-pacehead { display: flex; align-items: center; justify-content: space-between; }
+.mc-dmp-travel-addpace { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(6px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-muted); cursor: pointer; font-size: 12px; }
+.mc-dmp-travel-addpace:hover, .mc-dmp-travel-addpace.mc-on { color: var(--mc-gold); border-color: var(--mc-gold); }
+/* Custom-transport dropdown below the three built-ins; gold outline when a custom is active. */
+.mc-dmp-travel-custom { width: 100%; min-height: 34px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge); padding: 0 8px; }
+.mc-dmp-travel-custom.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); background: var(--mc-panel-2); }
+/* Custom-pace editor popup. */
+.mc-dmp-pace-pop { display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); }
+.mc-dmp-pace-poplist { display: flex; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto; }
+.mc-dmp-pace-poprow { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--mc-ink); }
+.mc-dmp-pace-del { flex: 0 0 auto; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; color: var(--mc-muted); cursor: pointer; }
+.mc-dmp-pace-del:hover { color: #ffb4a8; }
+.mc-dmp-pace-form { display: flex; flex-direction: column; gap: 6px; }
+.mc-dmp-pace-form input { min-height: 32px; border-radius: calc(6px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); padding: 0 8px; box-sizing: border-box; }
+.mc-dmp-pace-speeds { display: flex; gap: 6px; }
+.mc-dmp-pace-speeds input { flex: 1 1 0; min-width: 0; }
+.mc-dmp-pace-add { width: 100%; }
 .mc-dmp-travel-go:disabled { opacity: .45; cursor: default; }
 
 /* ── §17 Downtime — player board (top of the sheet when a window is open) ── */
@@ -4086,15 +4172,15 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 14px;
   color: #ece5d6; margin-bottom: 8px;
 }
-.mc-dt-head i { color: #c8a44d; }
+.mc-dt-head i { color: var(--mc-gold); }
 .mc-dt-budget {
-  margin-left: auto; font-size: 12px; font-weight: 700; color: #c8a44d;
+  margin-left: auto; font-size: 12px; font-weight: 700; color: var(--mc-gold);
   background: #1a1712; border: 1px solid #4a4334; border-radius: 999px; padding: 2px 9px;
   font-variant-numeric: tabular-nums;
 }
 .mc-dt-budget.mc-over { color: #ffb4a8; border-color: #7a3a35; background: #2a1614; }
 .mc-dt-collapse { margin-left: 6px; min-width: 30px; height: 28px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer;
-  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: #c8a44d; }
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-gold); }
 .mc-dt-board.mc-dt-mini { padding: 7px 10px; }
 .mc-dt-board.mc-dt-mini .mc-dt-head { margin-bottom: 0; }
 .mc-dt-minilock { color: #8fd6a8; margin-left: 2px; }
@@ -4102,15 +4188,15 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-row { padding: 7px 0; border-top: 1px solid #253347; }
 .mc-dt-row:first-of-type { border-top: none; }
 .mc-dt-row-top { display: flex; align-items: center; gap: 8px; }
-.mc-dt-row-top > i { color: #c8a44d; width: 16px; text-align: center; }
+.mc-dt-row-top > i { color: var(--mc-gold); width: 16px; text-align: center; }
 .mc-dt-name { font-size: 13px; font-weight: 700; color: var(--mc-ink); flex: 1 1 auto; }
 .mc-dt-days { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
 .mc-dt-step {
   min-width: 32px; height: 32px; border-radius: calc(8px * var(--mc-round, 1)); font-size: 18px; font-weight: 800; line-height: 1;
-  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: #c8a44d; cursor: pointer;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-gold); cursor: pointer;
 }
-.mc-dt-step:active { border-color: #c8a44d; color: #ece5d6; }
-.mc-dt-dayn { min-width: 30px; text-align: center; font-size: 13px; font-weight: 800; color: #c8a44d; font-variant-numeric: tabular-nums; }
+.mc-dt-step:active { border-color: var(--mc-gold); color: #ece5d6; }
+.mc-dt-dayn { min-width: 30px; text-align: center; font-size: 13px; font-weight: 800; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
 .mc-dt-rm {
   flex: 0 0 auto; min-width: 32px; height: 32px; border-radius: calc(8px * var(--mc-round, 1)); font-size: 13px;
   background: transparent; border: 1px solid var(--mc-edge); color: var(--mc-muted); cursor: pointer;
@@ -4127,8 +4213,8 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   border-radius: 999px; background: #1a1712; border: 1px solid #4a4334; color: #d8d2c4;
   font-size: 12px; font-weight: 600; cursor: pointer;
 }
-.mc-dt-add:active { background: #2a2418; border-color: #c8a44d; }
-.mc-dt-add i { color: #c8a44d; }
+.mc-dt-add:active { background: #2a2418; border-color: var(--mc-gold); }
+.mc-dt-add i { color: var(--mc-gold); }
 .mc-dt-lockbtn {
   width: 100%; margin-top: 8px; min-height: 44px; border-radius: calc(10px * var(--mc-round, 1)); cursor: pointer;
   font-size: 14px; font-weight: 800; color: #10221a;
@@ -4145,7 +4231,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 
 /* §17.7 player board v2 — named Activities */
 .mc-dt-count { min-width: 20px; padding: 0 6px; border-radius: 999px; background: #1a1712; border: 1px solid #4a4334;
-  color: #c8a44d; font-size: 11px; font-weight: 700; }
+  color: var(--mc-gold); font-size: 11px; font-weight: 700; }
 .mc-dt-prow { margin-top: 6px; padding: 8px 10px; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); }
 .mc-dt-prow.mc-done { opacity: .65; }
 .mc-dt-prow-top { display: flex; align-items: center; gap: 8px; }
@@ -4154,7 +4240,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   background: transparent; border: 1px solid var(--mc-edge); color: var(--mc-muted); font-size: 12px; }
 .mc-dt-prow-rm:active { border-color: #7a3a35; color: #ffb4a8; }
 .mc-dt-prow-plan { font-size: 12px; color: var(--mc-muted); font-style: italic; margin-top: 3px; }
-.mc-dt-prow-note { font-size: 12px; color: #c8a44d; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.mc-dt-prow-note { font-size: 12px; color: var(--mc-gold); margin-top: 4px; font-variant-numeric: tabular-nums; }
 .mc-dt-prow-done { font-size: 12px; color: #8fd6a8; margin-top: 4px; }
 .mc-dt-prow-done i { margin-right: 4px; }
 .mc-dt-addbtn { width: 100%; margin-top: 8px; min-height: 44px; border-radius: calc(10px * var(--mc-round, 1)); cursor: pointer;
@@ -4193,12 +4279,12 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-player.mc-locked { opacity: 1; border-color: #3a6b4a; }
 .mc-dt-player-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .mc-dt-player-head .mc-dt-name { font-weight: 700; color: #ece5d6; flex: 1 1 auto; }
-.mc-dt-spent { font-size: 11px; color: #c8a44d; font-variant-numeric: tabular-nums; }
+.mc-dt-spent { font-size: 11px; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
 .mc-dt-considering { font-size: 11px; color: var(--mc-muted); font-style: italic; }
 .mc-dt-lock { color: #6ec98a; }
 .mc-dt-item { margin-top: 4px; font-size: 12px; color: #d8d2c4; }
 .mc-dt-item-label { font-weight: 600; }
-.mc-dt-item-days { color: #c8a44d; margin-left: 6px; font-variant-numeric: tabular-nums; }
+.mc-dt-item-days { color: var(--mc-gold); margin-left: 6px; font-variant-numeric: tabular-nums; }
 .mc-dt-item-intent { font-size: 11px; color: var(--mc-muted); font-style: italic; margin-top: 1px; }
 .mc-dt-panel .mc-dt-empty { font-size: 11px; }
 
@@ -4236,9 +4322,9 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   font-size: 12px; font-weight: 800; color: #ece5d6; border-bottom: 1px solid var(--mc-edge); }
 .mc-dt-drawer-toggle i { flex: 0 0 auto; color: #6b6250; font-size: 10px; }
 .mc-dt-drawer-toggle:hover { color: #e6c46a; }
-.mc-dt-drawer-toggle:hover i { color: #c8a44d; }
+.mc-dt-drawer-toggle:hover i { color: var(--mc-gold); }
 /* Cost — both sides see it; the shortfall (DM-only) turns it red. */
-.mc-dt-cost { font-size: 11px; color: #c8a44d; margin-top: 4px; }
+.mc-dt-cost { font-size: 11px; color: var(--mc-gold); margin-top: 4px; }
 .mc-dt-cost i { margin-right: 4px; }
 .mc-dt-cost.mc-short { color: #ffb4a8; }
 .mc-dt-drawer-body { padding-top: 6px; }
@@ -4250,20 +4336,20 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-cat-hint { font-size: 10px; font-weight: 400; color: var(--mc-muted); }
 .mc-dt-roster-head { border-top: 1px dashed var(--mc-edge); padding-top: 8px; margin-top: 10px; }
 .mc-dt-tmpl { margin-top: 5px; padding: 7px 9px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid #2f3440; border-left: 3px solid #4a4334; }
-.mc-dt-tmpl.mc-norule { border-left-color: #c8a44d; }
-.mc-dt-note { font-size: 11px; color: #c8a44d; margin-top: 4px; }
+.mc-dt-tmpl.mc-norule { border-left-color: var(--mc-gold); }
+.mc-dt-note { font-size: 11px; color: var(--mc-gold); margin-top: 4px; }
 .mc-dt-note i { margin-right: 4px; }
 .mc-dt-tmplform { margin-top: 6px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: #14161c; border: 1px solid #4a4334; }
 .mc-dt-tmplname { width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 7px 9px; min-height: 34px;
   border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: #ece5d6; font-size: 13px; }
 .mc-dt-seedbtn { width: 100%; margin-top: 6px; min-height: 34px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
-  color: #c8a44d; background: transparent; border: 1px dashed #7a5a1e; }
+  color: var(--mc-gold); background: transparent; border: 1px dashed #7a5a1e; }
 .mc-dt-seedbtn:hover { background: #221f16; }
 .mc-dt-givebox { margin-top: 6px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: #14161c; border: 1px solid #2a2f3a; display: flex; flex-direction: column; gap: 5px; }
 .mc-dt-give-head { font-size: 11px; color: var(--mc-muted); }
 .mc-dt-givepick { min-height: 34px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; text-align: left; padding: 0 10px;
   color: #ece5d6; background: #1a1712; border: 1px solid #4a4334; }
-.mc-dt-givepick:hover { background: #2a2418; border-color: #c8a44d; }
+.mc-dt-givepick:hover { background: #2a2418; border-color: var(--mc-gold); }
 .mc-rf-notewrap { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #d8d2c4; }
 .mc-rf-notebox { width: 100%; box-sizing: border-box; min-height: 48px; padding: 7px 9px; border-radius: calc(7px * var(--mc-round, 1)); resize: vertical;
   background: var(--mc-sunken); border: 1px solid #7a5a1e; color: #ece5d6; font-size: 12px; }
@@ -4271,14 +4357,14 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-picklist { margin-top: 8px; padding: 8px; border-radius: calc(10px * var(--mc-round, 1)); background: #14161c; border: 1px solid #4a4334; display: flex; flex-direction: column; gap: 6px; }
 .mc-dt-pickbtn { min-height: 42px; border-radius: calc(9px * var(--mc-round, 1)); cursor: pointer; font-size: 14px; font-weight: 700; text-align: left; padding: 0 12px;
   color: #ece5d6; background: #1a1712; border: 1px solid #4a4334; }
-.mc-dt-pickbtn:active { background: #2a2418; border-color: #c8a44d; }
+.mc-dt-pickbtn:active { background: #2a2418; border-color: var(--mc-gold); }
 
 /* §17.7 downtime v2 — DM tab */
 .mc-dt-sizes { display: flex; gap: 6px; }
 .mc-dt-openbtn { flex: 1 1 0; min-height: 40px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; font-weight: 700;
   color: #ece5d6; background: var(--mc-sunken); border: 1px solid var(--mc-edge); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.mc-dt-openbtn:hover { border-color: #c8a44d; color: #e6c46a; }
-.mc-dt-openbtn i { color: #c8a44d; }
+.mc-dt-openbtn:hover { border-color: var(--mc-gold); color: #e6c46a; }
+.mc-dt-openbtn i { color: var(--mc-gold); }
 .mc-dt-sizehint { font-size: 11px; color: var(--mc-muted); margin: 6px 0 0; text-align: center; }
 
 /* §19 Rest — setup card + active header */
@@ -4299,7 +4385,9 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-rest-watchtoggle { width: 100%; }
 .mc-rest-go { width: 100%; margin-top: 2px; }
 .mc-rest-hint { font-size: 11px; color: var(--mc-muted); margin: 2px 0 0; text-align: center; line-height: 1.4; }
-.mc-rest-active { gap: 8px; }
+/* Fill the flyout and push the action button(s) to the bottom (DM 2026-07-18: "button stuck to the bottom"). */
+.mc-rest-active { gap: 8px; flex: 1 1 auto; min-height: 0; }
+.mc-rest-active .mc-rest-endbar { margin-top: auto; }
 .mc-rest-head { display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 6px 10px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); }
 .mc-rest-badge { font-size: 13px; font-weight: 800; color: var(--mc-gold); display: inline-flex; align-items: center; gap: 6px; }
@@ -4317,19 +4405,19 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-rest-cancel:hover { color: var(--mc-ink); }
 .mc-dt-newbtn { padding: 0 10px; height: 26px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
   color: #d8d2c4; background: #1a1712; border: 1px solid #4a4334; display: inline-flex; align-items: center; gap: 5px; }
-.mc-dt-newbtn:hover, .mc-dt-newbtn.mc-on { border-color: #c8a44d; color: #e6c46a; background: #2a2418; }
+.mc-dt-newbtn:hover, .mc-dt-newbtn.mc-on { border-color: var(--mc-gold); color: #e6c46a; background: #2a2418; }
 /* "Set the rule" — the DM's clear next step on a player-created activity. */
 .mc-dt-setrule { width: 100%; margin-top: 6px; min-height: 38px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; font-weight: 700;
-  color: #ece5d6; background: #2a2418; border: 1px solid #c8a44d; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  color: #ece5d6; background: #2a2418; border: 1px solid var(--mc-edge); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .mc-dt-setrule:hover { background: #322c1c; }
-.mc-dt-act.mc-norule { border-left-color: #c8a44d; } /* gold rail = needs a rule */
+.mc-dt-act.mc-norule { border-left-color: var(--mc-gold); } /* gold rail = needs a rule */
 /* Party-rest utility, tucked below the roster with its own label. */
 .mc-dt-restgroup { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--mc-edge); }
 .mc-dt-restlabel { display: block; font-size: 11px; color: var(--mc-muted); margin-bottom: 4px; }
 /* DM-side "Add a task" per player. */
 .mc-dt-addtask { width: 100%; margin-top: 6px; min-height: 32px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
   color: #e6c46a; background: #221f16; border: 1px solid #4a4334; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.mc-dt-addtask:hover { background: #2a2418; border-color: #c8a44d; }
+.mc-dt-addtask:hover { background: #2a2418; border-color: var(--mc-gold); }
 .mc-dt-addform { margin-top: 6px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: #14161c; border: 1px solid #4a4334; }
 .mc-dt-addname, .mc-dt-addplan { width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 7px 9px; min-height: 34px;
   border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: #ece5d6; font-size: 13px; }
@@ -4363,36 +4451,43 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-act-rm { flex: 0 0 auto; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(6px * var(--mc-round, 1)); cursor: pointer;
   background: transparent; border: none; color: var(--mc-muted); font-size: 13px; line-height: 1; padding: 0; }
 .mc-dt-act-rm:hover { border-color: #7a3a35; color: #ffb4a8; }
+/* Offered/shelved toggle beside ✕ — gold checkbox = on offer (state, per the bible §2.2 green
+   is "done", not "available"); a shelved card dims but stays editable. */
+.mc-dt-act-offer { flex: 0 0 auto; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(6px * var(--mc-round, 1)); cursor: pointer;
+  background: transparent; border: none; color: var(--mc-muted); font-size: 13px; line-height: 1; padding: 0; }
+.mc-dt-act-offer.mc-on { color: var(--mc-gold); }
+.mc-dt-act-offer:hover { color: var(--mc-gold); }
+.mc-dt-tmpl.mc-shelved { opacity: .55; }
 /* the catalog item's Edit sits on its own row, pushed right (DM 2026-07-17). */
 .mc-dt-act-editrow { display: flex; justify-content: flex-end; margin-top: 4px; }
 .mc-dt-act-plan { font-size: 12px; color: var(--mc-muted); font-style: italic; margin-top: 2px; }
-.mc-dt-act-rule { font-size: 11px; color: #c8a44d; margin-top: 3px; }
+.mc-dt-act-rule { font-size: 11px; color: var(--mc-gold); margin-top: 3px; }
 .mc-dt-act-rule em { color: var(--mc-muted); }
 .mc-dt-prog { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
-.mc-dt-prog-head { font-size: 11px; font-weight: 700; color: #c8a44d; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mc-dt-prog-head { font-size: 11px; font-weight: 700; color: var(--mc-gold); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mc-dt-bar { flex: 1 1 auto; height: 6px; border-radius: calc(3px * var(--mc-round, 1)); background: #23262f; overflow: hidden; }
 .mc-dt-bar > span { display: block; height: 100%; background: linear-gradient(90deg, #b98a1e, #e6c46a); }
 .mc-dt-act-edit { flex: 0 0 auto; padding: 0 10px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); cursor: pointer;
-  background: transparent; border: 1px solid var(--mc-edge); color: #c8a44d; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; }
+  background: transparent; border: 1px solid var(--mc-edge); color: var(--mc-gold); font-size: 12px; display: inline-flex; align-items: center; gap: 5px; }
 .mc-dt-act-edit:hover { border-color: var(--mc-gold); color: var(--mc-ink); background: var(--mc-panel-2); }
 .mc-dt-icon-only { padding: 0; min-width: 26px; width: 26px; justify-content: center; gap: 0; }
-.mc-dt-eye { color: #c8a44d; margin-left: 4px; font-size: 10px; }
+.mc-dt-eye { color: var(--mc-gold); margin-left: 4px; font-size: 10px; }
 .mc-dt-act-progline { display: flex; align-items: center; gap: 8px; }
 .mc-dt-act-progline .mc-dt-prog { flex: 1 1 auto; }
 .mc-dt-adj { display: flex; gap: 2px; flex: 0 0 auto; }
 .mc-dt-adj button { min-width: 26px; height: 24px; border-radius: calc(6px * var(--mc-round, 1)); cursor: pointer; font-size: 14px; font-weight: 800;
-  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: #c8a44d; }
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-gold); }
 .mc-dt-act-ctl { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
 .mc-dt-push { flex: 1 1 auto; min-height: 30px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
   color: #ece5d6; background: #1a1712; border: 1px solid #4a4334; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.mc-dt-push:hover { border-color: #c8a44d; }
+.mc-dt-push:hover { border-color: var(--mc-gold); }
 .mc-dt-push.mc-waiting { color: #e6c46a; border-color: #7a5a1e; background: #2a2413; }
 /* Rule-authoring form */
 .mc-rf { margin-top: 8px; padding: 9px; border-radius: calc(8px * var(--mc-round, 1)); background: #14161c; border: 1px solid #4a4334; display: flex; flex-direction: column; gap: 6px; }
 .mc-rf-presets { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 11px; color: var(--mc-muted); }
 .mc-rf-preset { min-height: 26px; padding: 3px 9px; border-radius: 999px; cursor: pointer; font-size: 11px;
   background: #1a1712; border: 1px solid #4a4334; color: #d8d2c4; }
-.mc-rf-preset.mc-on { background: #2a2418; border-color: #c8a44d; color: #ece5d6; }
+.mc-rf-preset.mc-on { background: #2a2418; border-color: var(--mc-gold); color: #ece5d6; }
 .mc-rf-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: #d8d2c4; }
 .mc-rf-row select, .mc-rf-row input { flex: 0 0 auto; max-width: 62%; padding: 6px 8px; border-radius: calc(7px * var(--mc-round, 1));
   background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: #ece5d6; font-size: 13px; }
@@ -4401,18 +4496,18 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* Grouped sections + 2-across rows so the builder reads top-to-bottom (DM 2026-07-16). */
 .mc-rf-kind select { font-weight: 700; }
 .mc-rf-sec { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: #191b22; border: 1px solid #2a2f3a; }
-.mc-rf-seclabel { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: #c8a44d; font-weight: 800; }
+.mc-rf-seclabel { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--mc-gold); font-weight: 800; }
 .mc-rf-2up { display: flex; gap: 8px; }
 .mc-rf-2up .mc-rf-row { flex: 1 1 0; min-width: 0; justify-content: space-between; }
 .mc-rf-2up .mc-rf-row select, .mc-rf-2up .mc-rf-row input { max-width: none; }
 .mc-rf-2up .mc-rf-row input[type="number"] { width: 56px; }
 .mc-rf-toggle { min-height: 34px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
-.mc-rf-toggle.mc-on { background: #2a2418; border-color: #c8a44d; color: #ece5d6; }
+.mc-rf-toggle.mc-on { background: #2a2418; border-color: var(--mc-gold); color: #ece5d6; }
 .mc-rf-luck { display: flex; gap: 6px; }
 .mc-rf-luck .mc-rf-toggle { flex: 1 1 0; }
-.mc-rf-note { font-size: 11px; color: #c8a44d; margin: -2px 0 2px; }
-.mc-rf-preview { font-size: 11px; color: #c8a44d; padding: 6px 8px; border-radius: calc(7px * var(--mc-round, 1)); background: #10141b; border: 1px solid #2a2f3a; }
+.mc-rf-note { font-size: 11px; color: var(--mc-gold); margin: -2px 0 2px; }
+.mc-rf-preview { font-size: 11px; color: var(--mc-gold); padding: 6px 8px; border-radius: calc(7px * var(--mc-round, 1)); background: #10141b; border: 1px solid #2a2f3a; }
 .mc-rf-preview i { margin-right: 4px; }
 .mc-rf-actions { display: flex; gap: 6px; margin-top: 2px; }
 .mc-rf-cancel { flex: 0 0 auto; min-height: 38px; padding: 0 14px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px;

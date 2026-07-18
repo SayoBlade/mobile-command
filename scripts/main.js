@@ -8,6 +8,7 @@ import { registerDMPanel } from "./dm-panel.js";
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerAoO } from "./aoo.js";
+import { setupCalendarSkin } from "./gametime.js";
 
 Hooks.once("init", () => {
   registerSettings();
@@ -619,6 +620,7 @@ Hooks.once("ready", () => {
   setupDisplayItemPileNames(); // hide item-pile token names on the shared TV (spoiler/clutter)
   setupAutoOwnNewPCs(); // auto-own new PCs for the display/TV account (opt-in; see displayOwnerUser)
   registerPartyTeleportActivation(); // party token teleports to a new scene → activate it (TV follows; primary-GM-gated)
+  setupCalendarSkin(); // SC Reborn's popup = the table's "Calendar": retitle (tool column hidden in CSS)
   registerAoO(); // opportunity-attack movement watcher (executor-gated inside; see aoo.js)
 
   globalThis.MobileCommand = {

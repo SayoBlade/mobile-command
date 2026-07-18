@@ -362,6 +362,7 @@ async function handleDowntimeOp(payload = {}) {
     case "upsertTemplate": state = DT.upsertTemplate(state, payload.template); break;
     case "removeTemplate": state = DT.removeTemplate(state, payload.id); break;
     case "setTemplateRule": state = DT.setTemplateRule(state, payload.id, payload.rule); break;
+    case "setTemplateOffered": state = DT.setTemplateOffered(state, payload.id, payload.on); break;
     case "setTemplateNote": state = DT.setTemplateNote(state, payload.id, payload.note); break;
     case "pickTemplate": state = DT.pickTemplate(state, actorId, payload.templateId, requesterId); break;
     case "seedTemplates": state = DT.seedTemplates(state, requesterId); break;

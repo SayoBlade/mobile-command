@@ -436,7 +436,22 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Rage / Unarmored Defense / Danger Sense live on their feature item, not actor.effects, so
     // the old actor.effects read dropped them. appliedEffects is exactly the active set the
     // sheet shows. DM 2026-06-27: "any effect in the Foundry UI should show up on mobile."
-    const effects = (actor.appliedEffects ?? []).filter(e => e.name);
+    const rawEffects = (actor.appliedEffects ?? []).filter(e => e.name);
+    // Collapse EXACT duplicates to one chip with a ×N count (DM 2026-07-18). 5e RAW:
+    // conditions are binary and the same spell never stacks — concentration is strictly
+    // ONE — so identical chips are always redundant. But DAE defaults to "multi" stacking,
+    // so a genuinely-stackable effect CAN legitimately pile up; we therefore show ×N rather
+    // than hide, so a real stack keeps its count AND a bug (×3 Concentrating) still reads as
+    // wrong. "Exact" = same name + icon + changes + statuses; anything that differs (an
+    // exhaustion LEVEL, a distinct source) stays its own chip — never collapse cumulative.
+    const effSig = (e) => `${e.name}|${e.img ?? ""}|${JSON.stringify(e.changes ?? [])}|${[...(e.statuses ?? [])].sort().join(",")}`;
+    const effGroups = []; const effAt = new Map();
+    for (const e of rawEffects) {
+      const k = effSig(e);
+      if (effAt.has(k)) effGroups[effAt.get(k)].count++;
+      else { effAt.set(k, effGroups.length); effGroups.push({ e, count: 1 }); }
+    }
+    const effects = effGroups.map(g => g.e); // for downstream count-based UI (none today)
     // DM request (2026-06-18): surface the action-economy "used" conditions as
     // chips. midi ships visible effects for "Bonus Action used" / "Reaction used"
     // (we no longer exclude them) and styles them as spent (mc-chip-used). The main
@@ -450,8 +465,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // "Action used" chip has no backing effect, so it isn't pressable.
     // Tap OR long-press opens the condition detail (DM 2026-07-04: "a tap should
     // open the condition too") — data-action for the tap, data-detail for the hold.
-    const condsHTML = effects.map(e =>
-      `<span class="mc-chip mc-chip-tap${isEconEffect(e) ? " mc-chip-used" : ""}" data-action="cond-open" data-detail="cond" data-effect-id="${e.id}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}</span>`
+    const condsHTML = effGroups.map(({ e, count }) =>
+      `<span class="mc-chip mc-chip-tap${isEconEffect(e) ? " mc-chip-used" : ""}" data-action="cond-open" data-detail="cond" data-effect-id="${e.id}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}${count > 1 ? `<span class="mc-chip-mult">×${count}</span>` : ""}</span>`
     ).join("");
     const condHTML = (actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
 
@@ -2384,7 +2399,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const list = pages.length ? notes : `<div class="mc-jn-empty">No notes yet — start the party log.</div>`;
     return `
       <section class="mc-journal">
-        <div class="mc-jn-filterrow"><i class="fas fa-magnifying-glass"></i><input class="mc-jn-filter" type="search" placeholder="Filter notes… (e.g. shopke)" value="${foundry.utils.escapeHTML(this.#journalFilter)}"></div>
+        <div class="mc-jn-filterrow"><i class="fas fa-magnifying-glass"></i><input class="mc-jn-filter" type="search" placeholder="Filter notes… (e.g. shopke)" value="${foundry.utils.escapeHTML(this.#journalFilter)}">${globalThis.SimpleCalendar?.api?.showCalendar ? `<button class="mc-jn-cal" data-action="open-calendar" title="Open the calendar" aria-label="Open the calendar"><i class="fas fa-calendar-days"></i></button>` : ""}</div>
         <div class="mc-jn-list">${list}</div>
         <div class="mc-jn-compose">
           <textarea class="mc-jn-input" rows="2" placeholder="Add a note to the party journal…" ${this.#journalBusy ? "disabled" : ""}>${foundry.utils.escapeHTML(this.#journalDraft)}</textarea>
@@ -2935,7 +2950,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // ONE activity per downtime, chosen from a dropdown (DM 2026-07-14). No player lock-in — the
     // choice reaches the DM the moment it's made; the DM starts activities when the table agrees.
     const started = DT.isStarted(st);
-    const templates = DT.listTemplates(st);
+    // Shelved templates stay off the phone's menu (DM 2026-07-18) — unless this PC already
+    // holds one (a DM Give Task override), which must keep rendering as their selection.
+    const selTmplId = DT.selectedActivity(st, actor.id)?.templateId ?? "";
+    const templates = DT.listTemplates(st).filter(t => DT.isOffered(t) || t.id === selTmplId);
     const selId = DT.selectedActivityId(st, actor.id);
     const sel = DT.selectedActivity(st, actor.id);
     const selTmpl = sel?.templateId ?? "";
@@ -3510,17 +3528,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ["frost", "Frost", "#8fd3f4"],
       ["flame", "Flame", "#f0a52e"],
       ["tide", "Tide", "#45c4b0"],
-      ["artificer", "Artificer", "#c98b3c"],
-      ["barbarian", "Barbarian", "#c8873f"],
+      ["artificer", "Artificer", "#8aa6c4"],
+      ["barbarian", "Barbarian", "#b0342b"],
       ["bard", "Bard", "#d76ba8"],
       ["cleric", "Cleric", "#e0d3a0"],
       ["druid", "Druid", "#6fbf73"],
       ["fighter", "Fighter", "#93a3b8"],
       ["monk", "Monk", "#52c2a5"],
-      ["paladin", "Paladin", "#7f9fe0"],
+      ["paladin", "Paladin", "#fffd86"],
       ["ranger", "Ranger", "#9fbf5f"],
-      ["rogue", "Rogue", "#9b8fb5"],
-      ["sorcerer", "Sorcerer", "#e2703a"],
+      ["rogue", "Rogue", "#a580ca"],
+      ["sorcerer", "Sorcerer", "#ee6a28"],
       ["warlock", "Warlock", "#9a5fd0"],
       ["wizard", "Wizard", "#7f8fe0"]
     ];
@@ -4701,9 +4719,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const a = p.actorUuid ? fromUuidSync(p.actorUuid) : this.actor;
     if (!a?.testUserPermission(game.user, "OWNER")) return "";
     const verb = p.rollType === "check" ? "check" : "save";
-    return `<div class="mc-gc-bar">
-      <button class="mc-gc-roll" data-action="roll-request"><i class="fas fa-dice-d20"></i> Roll ${foundry.utils.escapeHTML(p.label ?? p.ability)} ${verb}</button>
-      <button class="mc-gc-x" data-action="roll-request-x" aria-label="Dismiss">✕</button>
+    // Same bottom-sheet chrome as every other incoming prompt (save/reaction/AoO) —
+    // the old bare fixed bar floated over the sheet with no background (live 2026-07-18).
+    return `<div class="mc-saveprompt mc-rollreq">
+      <div class="mc-saveprompt-bar">
+        <span class="mc-saveprompt-title"><i class="fas fa-dice-d20"></i> The DM asks for a roll</span>
+        <button class="mc-saveprompt-x" data-action="roll-request-x" aria-label="Dismiss"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="mc-saveprompt-body">
+        <div class="mc-saveprompt-btns">
+          <button class="mc-save-roll" data-action="roll-request">Roll ${foundry.utils.escapeHTML(p.label ?? p.ability)} ${verb}</button>
+        </div>
+      </div>
     </div>`;
   }
 
@@ -5466,6 +5493,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#operateInteractable("tile", el.dataset.id);
       case "journal-post":
         return this.#postJournalNote();
+      case "open-calendar": // reopen the Calendar (SC Reborn) from the Journal tab (DM 2026-07-18)
+        try { globalThis.SimpleCalendar?.api?.showCalendar?.(); } catch (e) { console.warn(`${MODULE_ID} | calendar open failed`, e); }
+        return;
       case "bio-close":
         this.#bioOpen = false; this.#bioEditing = false; return this.render();
       case "bio-edit":

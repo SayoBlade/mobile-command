@@ -84,7 +84,7 @@ const DM_THEMES = [
   ["sorcerer","Sorcerer","#e2703a"],["warlock","Warlock","#9a5fd0"],["wizard","Wizard","#7f8fe0"],
 ];
 function dmTheme() {
-  try { return window.localStorage.getItem("mc-dm-theme") || "tavern"; } catch (e) { return "tavern"; }
+  return "artificer"; // DM themes removed for now (DM 2026-07-18) — the widget is fixed to Artificer.
 }
 function applyDmTheme() {
   // Only touch the body class on a client that has NO phone shell — otherwise the shell owns it and
@@ -115,7 +115,6 @@ function tabRailHTML() {
     ${tab("rest", "fa-campground", "Rest", true, (isResting() || downtimeOpen()) ? "•" : 0)}
     ${tab("travel", "fa-route", "Travel")}
     ${tab("preflight", "fa-clipboard-check", "System health", true, preflightFailCount())}
-    ${tab("settings", "fa-gear", "Settings")}
   </div>`;
 }
 
@@ -193,9 +192,15 @@ function catalogHTML(st) {
       ${t.note ? `<div class="mc-dt-note"><i class="fas fa-note-sticky"></i> ${esc(t.note)}</div>` : ""}
       <div class="mc-dt-act-editrow"><button class="mc-dt-act-edit" data-dt-tmpl-edit="${t.id}"><i class="fas fa-pen"></i> Edit</button></div>`;
     else body = `<button class="mc-dt-setrule" data-dt-tmpl-edit="${t.id}"><i class="fas fa-wand-magic-sparkles"></i> Set Rule</button>`;
-    return `<div class="mc-dt-tmpl ${!hasRule ? "mc-norule" : ""}">
+    // Offered ↔ shelved (DM 2026-07-18): shelved activities stay authored but leave
+    // the players' pickers; Give Task still lists them (a DM hand-out overrides).
+    const offered = DT.isOffered(t);
+    return `<div class="mc-dt-tmpl ${!hasRule ? "mc-norule" : ""} ${offered ? "" : "mc-shelved"}">
       <div class="mc-dt-act-top">
         <span class="mc-dt-act-name">${esc(t.name)}</span>
+        <button class="mc-dt-act-offer ${offered ? "mc-on" : ""}" data-dt-tmpl-offer="${t.id}" data-on="${offered ? "0" : "1"}"
+          title="${offered ? "On offer — players can pick this; tap to shelve it for now" : "Shelved — players don't see this; tap to offer it"}">
+          <i class="fas ${offered ? "fa-square-check" : "fa-square"}"></i></button>
         <button class="mc-dt-act-rm" data-dt-tmpl-rm="${t.id}" title="Delete this activity">✕</button>
       </div>
       ${body}
@@ -751,31 +756,298 @@ function armTravelDrop() {
   ui.notifications.info("Click the map where the party arrives — right-click to cancel.");
 }
 
+// §18 T2: DM draws a freeform route the players see (a Drawing), and the panel reads out
+// length → distance (scene grid) → time at the current pace — DM-only. Anchored at the party
+// token so you draw FROM it without selecting it (DM 2026-07-18). Foundry Drawings have no dash
+// style, so the line is solid gold. GM client writes the Drawing directly (no RPC needed).
+
+// Scene distance → MILES (the pace unit). A battle-scaled map in feet must NOT be read as miles
+// (DM 2026-07-18: "761ft took 31.7 days" — feet were treated as miles). Unknown units pass through.
+function travelToMiles(dist, units) {
+  const u = String(units).toLowerCase();
+  if (/mile|(^|[^k])mi\b/.test(u)) return dist;
+  if (/feet|foot|ft|'/.test(u)) return dist / 5280;
+  if (/km|kilomet/.test(u)) return dist / 1.60934;
+  if (/meter|metre|(^|[^k])m\b/.test(u)) return dist / 1609.34;
+  if (/yard|yd/.test(u)) return dist / 1760;
+  if (/league/.test(u)) return dist * 3;
+  return dist;
+}
+function fmtTravelTime(hours) {
+  if (!(hours > 0)) return "~0";
+  if (hours < 1) return `~${Math.max(1, Math.round(hours * 60))} min`;
+  if (hours < 24) return `~${Math.round(hours)} h`;
+  return `~${(hours / 8).toFixed(1)} days`; // a travel day = 8h on the road
+}
+
+let travelRouteDisarm = null;
+let travelRouteInfo = null; // {dist, units, hours} — DM-only readout of the last route
+let travelRoutePts = null;  // scene-coord polyline the journey walks
+let travelJourneyActive = false, travelJourneyStop = false;
+const travelSleep = (ms) => new Promise(r => setTimeout(r, ms));
+// Time-of-day → darkness: sinusoidal, 0 at noon, 1 at midnight (dawn/dusk ≈ 0.5).
+function darknessForHour(h) { return Math.min(1, Math.max(0, 0.5 + 0.5 * Math.cos((Number(h) || 0) / 24 * 2 * Math.PI))); }
+function travelCumLen(pts) { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y)); return c; }
+function travelPointAt(pts, cum, target) {
+  const total = cum[cum.length - 1];
+  if (target <= 0) return pts[0];
+  if (target >= total) return pts[pts.length - 1];
+  let i = 1; while (i < cum.length && cum[i] < target) i++;
+  const f = (target - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1);
+  return { x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * f, y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * f };
+}
+async function moveGroupTo(gt, pt, durMs) {
+  const g = gt.parent.grid.size;
+  const x = Math.round(pt.x - (gt.width || 1) * g / 2), y = Math.round(pt.y - (gt.height || 1) * g / 2);
+  await gt.update({ x, y }, { animate: true, animation: { duration: Math.max(200, Math.round(durMs)) } });
+}
+function stopTravelJourney() { travelJourneyStop = true; }
+// §18 T3: tick the token along the route while game-time advances (1 game-hour/tick) and the
+// daylight sweeps to match (DESIGN §18.1). Auto-pauses so no one moves; arrival unpauses; Stop
+// halts and STAYS paused (probably an encounter). Cinematic rate ≈ 1 real s per game-hour, clamped.
+async function runTravelJourney(group) {
+  const scene = canvas.scene;
+  const gt = scene?.tokens.find(t => t.actorId === group.id);
+  const pts = travelRoutePts;
+  if (!gt || !pts || pts.length < 2 || !travelRouteInfo) { ui.notifications.warn("Draw a route first."); return; }
+  if (travelJourneyActive) return;
+  const totalHours = Math.max(1, Math.round(travelRouteInfo.miles * 8 / travelMilesPerDay(group)));
+  const cum = travelCumLen(pts), total = cum[cum.length - 1];
+  // Follow the DRAWN line: resample to closely-spaced waypoints (a single-jump animation goes
+  // straight and would chord across the curves — DM 2026-07-18 "takes the shortest path"). Cap
+  // the count so a huge route doesn't spam DB writes.
+  const steps = Math.max(2, Math.min(80, Math.round(total / (scene.grid.size * 0.6)) || 2));
+  const totalReal = Math.min(40000, Math.max(4000, totalHours * 1000)); // whole-journey ms, clamped
+  const segReal = totalReal / steps;                 // ms per waypoint
+  const segSecs = (totalHours * 3600) / steps;       // game-seconds per waypoint
+  const env = scene.environment ?? {};
+  const darknessOn = game.settings.get(MODULE_ID, "travelDaylight") && !env.globalLight?.enabled && !env.darknessLock;
+  const wePaused = !game.paused;
+  if (wePaused) game.togglePause(true);
+  travelJourneyActive = true; travelJourneyStop = false; render();
+  try {
+    let lastDark = null;
+    for (let s = 1; s <= steps; s++) {
+      if (travelJourneyStop) break;
+      await moveGroupTo(gt, travelPointAt(pts, cum, (s / steps) * total), segReal); // next point ON the line
+      await game.time.advance(Math.round(segSecs));
+      if (darknessOn) {
+        const c = readClock();
+        const d = darknessForHour((Number(c.hour) || 0) + (Number(c.minute) || 0) / 60);
+        if (lastDark === null || Math.abs(d - lastDark) > 0.03) { // throttle scene writes
+          lastDark = d;
+          try { await scene.update({ "environment.darknessLevel": d }, { animateDarkness: Math.round(segReal) }); } catch (e) { /* darkness is best-effort */ }
+        }
+      }
+      await travelSleep(segReal);
+    }
+  } catch (e) { console.error(`${MODULE_ID} | journey failed`, e); }
+  const arrived = !travelJourneyStop;
+  travelJourneyActive = false; travelJourneyStop = false;
+  if (arrived) {
+    const end = pts[pts.length - 1], g = scene.grid.size;
+    await scene.setFlag(MODULE_ID, "travelPos", { x: Math.round(end.x - (gt.width || 1) * g / 2), y: Math.round(end.y - (gt.height || 1) * g / 2) });
+    const prior = scene.drawings.filter(d => d.getFlag(MODULE_ID, "travelRoute")).map(d => d.id);
+    if (prior.length) await scene.deleteEmbeddedDocuments("Drawing", prior);
+    travelRouteInfo = null; travelRoutePts = null;
+    if (wePaused) game.togglePause(false); // arrival unpauses (only if the journey paused)
+    ui.notifications.info("The party arrives.");
+  } else ui.notifications.info("Journey stopped — the game stays paused.");
+  render();
+}
+function disarmTravelRoute() { try { travelRouteDisarm?.(); } catch (e) { /* gone */ } travelRouteDisarm = null; }
+function armTravelRoute() {
+  disarmTravelRoute();
+  const board = document.getElementById("board");
+  const group = packedGroup();
+  if (!board || !group || !canvas?.ready) { ui.notifications.warn("Form up on the overworld first."); return; }
+  const gtok = canvas.tokens?.placeables.find(t => t.actor?.id === group.id);
+  const anchor = gtok?.center ?? null; // start the line at the token, no selection needed
+  // Belt-and-suspenders: even if a pointer event leaks past the window capture, tokens can't be
+  // dragged while drawing (DM 2026-07-18, re-reported). Restored on disarm.
+  if (canvas.tokens) canvas.tokens.interactiveChildren = false;
+  const coord = (ev) => canvas.canvasCoordinatesFromClient({ x: ev.clientX, y: ev.clientY });
+  let drawing = false, pts = [];
+  const push = (p) => { const l = pts[pts.length - 1]; if (!l || Math.hypot(p.x - l.x, p.y - l.y) > 12) pts.push(p); };
+  // Capture on WINDOW (capture phase) so we preempt Foundry's own canvas listeners — no marquee,
+  // no token drag while drawing (DM 2026-07-18). Only engage over the map, not the panel.
+  const eat = (ev) => { ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation?.(); };
+  const down = (ev) => {
+    if (ev.button === 2) { eat(ev); disarmTravelRoute(); ui.notifications.info("Route cancelled."); return; }
+    if (ev.button !== 0 || !(ev.target === board || board.contains(ev.target))) return;
+    eat(ev);
+    drawing = true; pts = [];
+    if (anchor) pts.push({ x: anchor.x, y: anchor.y });
+    push(coord(ev));
+  };
+  const move = (ev) => { if (!drawing) return; eat(ev); push(coord(ev)); };
+  const up = async (ev) => { if (!drawing) return; eat(ev); drawing = false; push(coord(ev)); disarmTravelRoute(); await finishTravelRoute(group, pts); };
+  const key = (ev) => { if (ev.key === "Escape") { disarmTravelRoute(); ui.notifications.info("Route cancelled."); } };
+  window.addEventListener("pointerdown", down, true);
+  window.addEventListener("pointermove", move, true);
+  window.addEventListener("pointerup", up, true);
+  window.addEventListener("contextmenu", eat, true);
+  window.addEventListener("keydown", key, true);
+  travelRouteDisarm = () => {
+    for (const [t, f] of [["pointerdown", down], ["pointermove", move], ["pointerup", up], ["contextmenu", eat], ["keydown", key]])
+      window.removeEventListener(t, f, true);
+    if (canvas.tokens) canvas.tokens.interactiveChildren = true; // restore token dragging
+  };
+  ui.notifications.info("Draw the route from the party — press and drag on the map; right-click or Esc cancels.");
+}
+async function finishTravelRoute(group, pts) {
+  const scene = canvas.scene;
+  if (!scene || pts.length < 2) { ui.notifications.warn("Route too short."); return; }
+  let px = 0;
+  for (let i = 1; i < pts.length; i++) px += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+  const grid = scene.grid;
+  const dist = px / grid.size * (grid.distance || 1);   // in the scene's own units
+  const units = (grid.units || "").trim();
+  const miles = travelToMiles(dist, units);
+  const mpd = travelMilesPerDay(group);
+  travelRouteInfo = { miles }; // time is derived live from the current pace (not frozen at draw)
+  travelRoutePts = pts.slice(); // §18 T3: the journey walks the token along these
+  // Replace any prior route, then draw the new one for everyone.
+  const prior = scene.drawings.filter(d => d.getFlag(MODULE_ID, "travelRoute")).map(d => d.id);
+  if (prior.length) await scene.deleteEmbeddedDocuments("Drawing", prior);
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  const minX = Math.min(...xs), minY = Math.min(...ys);
+  const flat = pts.flatMap(p => [Math.round(p.x - minX), Math.round(p.y - minY)]);
+  const data = {
+    x: Math.round(minX), y: Math.round(minY),
+    shape: { type: "p", width: Math.round(Math.max(...xs) - minX) || 1, height: Math.round(Math.max(...ys) - minY) || 1, points: flat },
+    bezierFactor: 0.3, strokeWidth: 4, strokeColor: "#ffd86a", strokeAlpha: 0.9, fillType: 0,
+    flags: { [MODULE_ID]: { travelRoute: true } }
+  };
+  try { await scene.createEmbeddedDocuments("Drawing", [data]); }
+  catch (e) { console.error(`${MODULE_ID} | route draw failed`, e); ui.notifications.warn(`Couldn't draw the route: ${e.message}`); }
+  render();
+}
+
+// §18 T2: travel pace — data, not a stat (DESIGN §18.1). fast/normal/slow map to the D&D
+// overland speeds; the mi/day feeds the route's time estimate (next slice). Stored as a flag
+// on the group so it travels with the party.
+const TRAVEL_PACES = [["slow", "Slow", 18], ["normal", "Normal", 24], ["fast", "Fast", 30]];
+const KPH_PER_MPH = 1.60934;
+function travelCustomPaces() { try { const a = game.settings.get(MODULE_ID, "travelCustomPaces"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+function travelPaceOf(group) { return group?.getFlag(MODULE_ID, "travelPace") ?? "normal"; }
+function travelMilesPerDay(group) {
+  const p = travelPaceOf(group);
+  const b = TRAVEL_PACES.find(x => x[0] === p);
+  if (b) return b[2];
+  const c = travelCustomPaces().find(x => x.id === p); // custom transport: MPH → mi/day over an 8h day
+  if (c) return (Number(c.mph) || 3) * 8;
+  return 24;
+}
+function travelPaceLabel(group) {
+  const p = travelPaceOf(group);
+  const b = TRAVEL_PACES.find(x => x[0] === p);
+  if (b) return b[1].toLowerCase();
+  return travelCustomPaces().find(x => x.id === p)?.name ?? "normal";
+}
+
+// §18 travel tab: two accordions (DM 2026-07-18) — reuses the downtime drawer chrome.
+let travelDrawers = { switch: true, go: true };
+function travelDrawer(key, title, body) {
+  const open = travelDrawers[key] !== false;
+  return `<div class="mc-dt-drawer ${open ? "mc-open" : ""}">
+    <div class="mc-dt-drawer-head">
+      <button class="mc-dt-drawer-toggle" data-travel-drawer="${key}"><span>${foundry.utils.escapeHTML(title)}</span><i class="fas fa-chevron-${open ? "down" : "right"}"></i></button>
+    </div>
+    ${open ? `<div class="mc-dt-drawer-body">${body}</div>` : ""}
+  </div>`;
+}
+// §18 travel: custom-pace editor popup (DM 2026-07-18) — list each custom transport with a trash,
+// plus a create form (name + MPH/KPH; the other auto-fills via onInput).
+let travelPaceEditorOpen = false;
+function travelPaceEditorHTML(customs) {
+  const esc = foundry.utils.escapeHTML;
+  const rows = customs.length
+    ? customs.map(c => `<div class="mc-dmp-pace-poprow">
+        <span>${esc(c.name)} — ${c.mph} MPH / ${(Number(c.mph) * KPH_PER_MPH).toFixed(1)} KPH</span>
+        <button class="mc-dmp-pace-del" data-travel-delpace="${c.id}" title="Delete ${esc(c.name)}"><i class="fas fa-trash"></i></button>
+      </div>`).join("")
+    : `<div class="mc-dmp-travel-hint">No custom transports yet.</div>`;
+  return `<div class="mc-dmp-pace-pop">
+    <div class="mc-dmp-pace-poplist">${rows}</div>
+    <div class="mc-dmp-pace-form">
+      <input type="text" data-pace-name placeholder="Name — e.g. Camel" maxlength="30">
+      <div class="mc-dmp-pace-speeds">
+        <input type="number" data-pace-mph placeholder="MPH" min="0" step="0.1" inputmode="decimal">
+        <input type="number" data-pace-kph placeholder="KPH" min="0" step="0.1" inputmode="decimal">
+      </div>
+      <button class="mc-dmp-party-deploy mc-dmp-pace-add" data-travel-paceadd><i class="fas fa-plus"></i> Add transport</button>
+    </div>
+  </div>`;
+}
 function travelHTML() {
   const esc = foundry.utils.escapeHTML;
   const chosenId = game.settings.get(MODULE_ID, "travelOverworldSceneId");
   const scenes = game.scenes.contents.slice().sort((a, b) => a.name.localeCompare(b.name));
   const over = game.scenes.get(chosenId);
   const packed = packedGroup(), cand = candidateGroup();
+  const group = packed ?? cand;
   const onOver = !!over && game.scenes.active?.id === over.id;
-  const state = !over ? "Choose which scene is the overworld map."
-    : onOver && packed ? "Click to place group on map."
-    : packed ? "Party is formed up — you'll click their landing spot."
-    : cand ? "Click the map to place the group and pull the party to the scene."
-    : "No party group with members — set one up from the panel first.";
+  const state = !over ? "Choose which scene to switch to."
+    : onOver && packed ? "Click the map to place the group."
+    : packed ? "Formed up — you'll click their landing spot."
+    : cand ? "Click the map to place the group and pull the party over."
+    : "No party group with members — set one up first.";
   const ready = !!over && !!(packed || cand);
-  return `<div class="mc-dmp-travel">
-    <label class="mc-dmp-travel-lbl" for="mc-travel-scene">Travel to</label>
-    <select id="mc-travel-scene" data-travel-scene>
+  const pace = travelPaceOf(group);
+
+  // Accordion 1 — Switch scene to…: pick a scene + Switch (pack, preview, click-to-place, activate).
+  const switchBody = `<select id="mc-travel-scene" data-travel-scene>
       <option value="">— choose a scene —</option>
       ${scenes.map(s => `<option value="${s.id}" ${s.id === chosenId ? "selected" : ""}>${esc(s.name)}</option>`).join("")}
     </select>
     <p class="mc-dmp-travel-hint">${esc(state)}</p>
-    <div class="mc-dmp-travel-foot">
-      <button class="mc-dmp-party-deploy mc-dmp-travel-go" data-travel-begin ${ready ? "" : "disabled"}
-        title="Form up if needed and preview the overworld — then click the map where the party arrives; everyone else follows with the transition (Zoom Out is set for you if the scene has none)">
-        <i class="fas fa-route"></i> Travel</button>
+    <button class="mc-dmp-party-deploy mc-dmp-travel-go" data-travel-begin ${ready ? "" : "disabled"}
+      title="Form up if needed and preview the scene — then click the map where the party arrives; everyone follows with the transition">
+      <i class="fas fa-right-to-bracket"></i> Switch</button>`;
+
+  // Accordion 2 — Travel to…: pace (built-ins + custom transports) + freeform route.
+  const customs = travelCustomPaces();
+  const onCustom = customs.some(c => c.id === pace);
+  const paceRow = `<div class="mc-dmp-travel-pacehead">
+      <label class="mc-dmp-travel-lbl">Pace</label>
+      <button class="mc-dmp-travel-addpace ${travelPaceEditorOpen ? "mc-on" : ""}" data-travel-addpace title="Add or edit custom transports"><i class="fas fa-plus"></i></button>
     </div>
+    <div class="mc-dmp-travel-segs">
+      ${TRAVEL_PACES.map(([k, l, mpd]) => `<button class="mc-dmp-travel-seg ${pace === k ? "mc-on" : ""}" data-travel-pace="${k}" title="${mpd} miles/day">${l}</button>`).join("")}
+    </div>
+    <select class="mc-dmp-travel-custom ${onCustom ? "mc-on" : ""}" data-travel-custompace>
+      <option value="">— custom transport —</option>
+      ${customs.map(c => `<option value="${c.id}" ${pace === c.id ? "selected" : ""}>${esc(c.name)} · ${c.mph} mph</option>`).join("")}
+    </select>
+    ${travelPaceEditorOpen ? travelPaceEditorHTML(customs) : ""}`;
+  const ri = travelRouteInfo;
+  let readout = "";
+  if (ri) {
+    const ft = Math.round(ri.miles * 5280).toLocaleString();
+    const mi = ri.miles.toFixed(1), km = (ri.miles * KPH_PER_MPH).toFixed(1);
+    const hrs = ri.miles * 8 / travelMilesPerDay(group); // live — recomputes when the pace changes
+    readout = `<p class="mc-dmp-travel-hint">${ft} ft / ${mi} miles / ${km} km<br>${fmtTravelTime(hrs)} at ${esc(travelPaceLabel(group))} speed</p>`;
+  }
+  const routeCtl = ri
+    ? (travelJourneyActive
+      ? `<button class="mc-dmp-party-deploy mc-dmp-travel-stop" data-travel-stop><i class="fas fa-stop"></i> Stop</button>`
+      : `<div class="mc-dmp-travel-row">
+          <button class="mc-dmp-travel-seg" data-travel-route-clear title="Erase the route"><i class="fas fa-eraser"></i> Clear</button>
+          <button class="mc-dmp-party-deploy" data-travel-go title="Walk the party along the route as the clock advances"><i class="fas fa-person-walking"></i> Start</button>
+        </div>`)
+    : "";
+  const goBody = !group ? `<p class="mc-dmp-travel-hint">No party group — set one up first.</p>`
+    : (packed && onOver)
+      ? `${paceRow}
+         <label class="mc-dmp-travel-lbl">Route</label>
+         <button class="mc-dmp-travel-seg" data-travel-route ${travelJourneyActive ? "disabled" : ""}><i class="fas fa-pen-nib"></i> Draw from party</button>
+         ${readout}${routeCtl}`
+      : `${paceRow}<p class="mc-dmp-travel-hint">Switch to the overworld, then draw a route.</p>`;
+
+  return `<div class="mc-dmp-travel">
+    ${travelDrawer("switch", "Switch scene to…", switchBody)}
+    ${travelDrawer("go", "Travel to…", goBody)}
   </div>`;
 }
 
@@ -786,7 +1058,6 @@ function flyoutHTML() {
   else if (dockTab === "tokens") { title = "Players"; body = ownedTokensHTML(); }
   else if (dockTab === "rest") { title = "Rest"; body = restHTML(); }
   else if (dockTab === "preflight") { title = "System health"; body = preflightHTML(); }
-  else if (dockTab === "settings") { title = "Settings"; body = settingsHTML(); }
   else if (dockTab === "party") {
     const g = packedGroup();
     const f = g?.getFlag(MODULE_ID, "formation") ?? {};
@@ -867,6 +1138,7 @@ function ensureEl() {
   panelEl.id = "mc-dm-panel";
   panelEl.addEventListener("click", onClick);
   panelEl.addEventListener("change", onChange); // Rolls-tool dropdowns + token player
+  panelEl.addEventListener("input", onInput);   // live MPH↔KPH auto-fill in the custom-pace form
   panelEl.addEventListener("dragstart", onTokenDragStart); // Owned-tokens → canvas
   panelEl.addEventListener("dblclick", onTokenDblClick);   // Owned-tokens → sheet
   panelEl.addEventListener("pointerdown", onPointerDown); // drag from the grip handle
@@ -920,6 +1192,18 @@ function applySavedPos(el) {
 // targets), so a position saved when the panel was short can push the tail —
 // and its buttons — below the viewport (DM 2026-07-02: "Form up" at y=1214 on a
 // smaller screen). Clamp after every render and on window resize.
+// Collapsing/expanding an in-panel drawer changes the panel's height; with the
+// default bottom-anchored position that shifts every control ABOVE the drawer
+// (DM 2026-07-18: "minimizing the archive drawer causes position changes"). Pin
+// the current top edge first so height changes grow/shrink DOWNWARD, under the
+// pointer — clampPos still rescues any overflow.
+function pinPanelTop() {
+  if (!panelEl) return;
+  const r = panelEl.getBoundingClientRect();
+  if (!r.height) return;
+  panelEl.style.top = `${Math.round(r.top)}px`;
+  panelEl.style.bottom = "auto";
+}
 function clampPos(el) {
   // Clamp the COMBINED box — the tab rail and flyout are absolutely-positioned
   // children that stick out to the right/below and don't count in the panel's own
@@ -971,17 +1255,23 @@ function startFlyResize(ev) {
   const startTop = r.top - pr.top;       // the flyout's offset inside the panel
   const floor = flyMinH();               // the primary's height — measured once; can't move mid-drag
   const ceiling = window.innerHeight - 24;
+  const SNAP = 10; // px — snap the dragged edge to the primary window's matching edge when close
   const move = (e) => {
     const dy = e.clientY - startY;
     if (edge === "bottom") {
       // drag down = taller; the top edge stays where it is
-      flyMaxH = Math.round(Math.max(floor, Math.min(ceiling, startH - 0 + dy)));
-      flyTop = Math.round(startTop);
+      let h = Math.round(Math.max(floor, Math.min(ceiling, startH + dy)));
+      const top = Math.round(startTop);
+      // snap the BOTTOM edge to the primary's bottom (top + h ≈ floor)
+      if (Math.abs((top + h) - floor) <= SNAP) h = Math.max(floor, floor - top);
+      flyMaxH = h; flyTop = top;
     } else {
       // drag up = taller, growing UPWARD: the BOTTOM edge stays put, so top and height move together
-      const h = Math.round(Math.max(floor, Math.min(ceiling, startH - dy)));
-      flyMaxH = h;
-      flyTop = Math.round(startTop + (startH - h));
+      let h = Math.round(Math.max(floor, Math.min(ceiling, startH - dy)));
+      let top = Math.round(startTop + (startH - h));
+      // snap the TOP edge to the primary's top (0), keeping the bottom put
+      if (Math.abs(top) <= SNAP) { const bottom = startTop + startH; top = 0; h = Math.max(floor, bottom - top); }
+      flyMaxH = h; flyTop = top;
     }
     fly.style.height = `${flyMaxH}px`;
     fly.style.top = `${flyTop}px`;
@@ -1485,7 +1775,8 @@ function watchEditor(group, night) {
         data-night="dm-toggle" data-group="${group.id}" data-actor="${a.id}" data-watch="${w}" title="Put ${esc(a.name.split(" ")[0])} on ${ord[w - 1]} watch">${w}</button>`).join("");
     return `<div class="mc-dmp-nw-row"><span class="mc-dmp-nw-who" title="${esc(a.name)}">${idIcon(a)}<span class="mc-dmp-nw-name">${esc(a.name.split(" ")[0])}</span></span><span class="mc-dmp-nw-chips">${chips}</span></div>`;
   }).join("");
-  return `<div class="mc-dmp-night-edit">${head}${rows}</div>`;
+  // Header stays put; the PC rows scroll (DM 2026-07-18: "~4-5 above the fold with a scroll for more").
+  return `<div class="mc-dmp-night-edit">${head}<div class="mc-dmp-nw-scroll">${rows}</div></div>`;
 }
 
 function restHTML() {
@@ -1518,7 +1809,9 @@ function restHTML() {
     advance = `<button class="mc-dmp-party-deploy mc-rest-adv" data-rest-advance><i class="fas fa-play"></i> Begin Rest</button>`;
   } else if (rest.stage === "downtime") {
     body = downtimeHTML(true);
-    advance = `<button class="mc-dmp-party-deploy mc-rest-adv" data-rest-advance><i class="fas fa-forward"></i> ${rest.phases?.watches ? "To Watches" : "To Morning"}</button>`;
+    advance = rest.phases?.watches
+      ? `<button class="mc-dmp-party-deploy mc-rest-adv" data-rest-advance><i class="fas fa-forward"></i> To Watches</button>`
+      : `<button class="mc-dmp-party-deploy mc-rest-end" data-rest-end title="Apply the rest to the party"><i class="fas fa-check"></i> Finish</button>`;
   } else if (rest.stage === "watches") {
     const w = night?.watch;
     const duty = (night?.watches?.[w] ?? []).map(firstName).join(", ") || "nobody";
@@ -1533,11 +1826,11 @@ function restHTML() {
       <div class="mc-rest-watchbar"><span class="mc-dmp-party-btns mc-rest-steps">${steps}</span><span class="mc-rest-dur">${fmtDur(secs)}</span></div>
       <button class="mc-dmp-party-deploy mc-rest-pass" data-rest-pass title="Nothing more this watch — advance the clock and move on"><i class="fas fa-hourglass-half"></i> Pass Watch</button>
     </div>`;
-    extra = `<button class="mc-dmp-party-deploy mc-rest-adv" data-rest-advance title="Skip the rest of the watch — straight to morning"><i class="fas fa-forward"></i> To Morning</button>`;
+    extra = `<button class="mc-dmp-party-deploy mc-rest-end" data-rest-end title="Finish now — apply the rest to the party"><i class="fas fa-check"></i> Finish</button>`;
   } else { // morning
     body = `<div class="mc-dmp-night-box"><div class="mc-dmp-head"><i class="fas fa-sun"></i> Morning</div>
       <p class="mc-rest-hint">The watch is over. End the rest to apply the ${rest.size === "long" ? "long" : "short"} rest to the party.</p></div>`;
-    advance = `<button class="mc-dmp-party-deploy mc-rest-end" data-rest-end><i class="fas fa-sun"></i> End Rest</button>`;
+    advance = `<button class="mc-dmp-party-deploy mc-rest-end" data-rest-end><i class="fas fa-check"></i> Finish</button>`;
   }
   // A LABELLED cancel, not a lone X — an icon-only exit gets missed (bible §4; DM 2026-07-17
   // "no way to cancel the rest once it's started"). Tertiary, sits under the primary action.
@@ -2068,7 +2361,13 @@ function render() {
   // stacked 50px of chrome and its whole face dragged — "REALLY annoying"). Its top is the same
   // plain 14px rail as its bottom (.mc-dmp-rail); the rail doubles as the drag handle. Titles
   // belong to the flyouts — the primary is closed from the scene controls, not from itself.
-  const grip = `<div class="mc-dmp-toprail mc-dmp-drag" title="Drag to move"></div>`;
+  // IDENTICAL to the flyout's top (DM 2026-07-18): the same grab row + title header, same classes,
+  // height, colours and drag behaviour — the ONLY difference is the grab row carries no grip-lines
+  // icon (and no X). The grab row's height makes this title line up with the flyout's.
+  const grip = `<div class="mc-dmp-tophead mc-dmp-drag" title="Drag to move">
+    <div class="mc-dmp-fly-resize mc-fly-grab-top" aria-hidden="true"></div>
+    <div class="mc-dmp-fly-head"><span>Mobile Command</span></div>
+  </div>`;
   // Party order lives in its own dock tab (auto-open on pack, close on disperse) —
   // the main area keeps only Form up / Disperse so its width never jumps.
   const packedNow = !!packedGroup();
@@ -2116,11 +2415,21 @@ function onTokenDblClick(ev) {
   game.actors.get(item.dataset.sheetActor)?.sheet?.render(true);
 }
 
+// §18: live MPH↔KPH auto-fill in the custom-pace form — updates the paired field directly (no
+// re-render, so focus/typing isn't disturbed).
+function onInput(ev) {
+  const mph = ev.target.closest("[data-pace-mph]");
+  if (mph) { const k = panelEl?.querySelector("[data-pace-kph]"); if (k) k.value = mph.value ? (Number(mph.value) * KPH_PER_MPH).toFixed(1) : ""; return; }
+  const kph = ev.target.closest("[data-pace-kph]");
+  if (kph) { const m = panelEl?.querySelector("[data-pace-mph]"); if (m) m.value = kph.value ? (Number(kph.value) / KPH_PER_MPH).toFixed(1) : ""; return; }
+}
 function onChange(ev) {
   const rf = ev.target.closest("[data-rule]");
   if (rf) return applyRuleField(rf.dataset.rule, rf.value); // §17.7 Rule-authoring form field
   const trav = ev.target.closest("[data-travel-scene]");
   if (trav) { game.settings.set(MODULE_ID, "travelOverworldSceneId", trav.value).then(() => render()); return; } // §18 T1
+  const custPace = ev.target.closest("[data-travel-custompace]"); // §18: pick a custom transport pace
+  if (custPace) { const g = packedGroup() ?? candidateGroup(); if (g) g.setFlag(MODULE_ID, "travelPace", custPace.value || "normal").then(() => render()); else render(); return; }
   const player = ev.target.closest("[data-tok-player]");
   if (player) { tokensPlayer = player.value; return render(); } // owned-tokens player switch
   const sel = ev.target.closest("[data-rt]");
@@ -2188,6 +2497,41 @@ async function onClick(ev) {
   const dockBtn = ev.target.closest("[data-dock]");
   if (dockBtn) { closeRtAssign(); dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }
   if (ev.target.closest("[data-dock-close]")) { closeRtAssign(); dockTab = null; return render(); }
+  if (ev.target.closest("[data-travel-route]")) { armTravelRoute(); return; } // §18 T2: draw the route
+  if (ev.target.closest("[data-travel-route-clear]")) {
+    const prior = canvas.scene?.drawings.filter(d => d.getFlag(MODULE_ID, "travelRoute")).map(d => d.id) ?? [];
+    if (prior.length) await canvas.scene.deleteEmbeddedDocuments("Drawing", prior);
+    travelRouteInfo = null; travelRoutePts = null; return render();
+  }
+  if (ev.target.closest("[data-travel-go]")) { const g = packedGroup(); if (g) await runTravelJourney(g); return; } // §18 T3
+  if (ev.target.closest("[data-travel-stop]")) { stopTravelJourney(); return; }
+  const travDrawer = ev.target.closest("[data-travel-drawer]");
+  if (travDrawer) { const k = travDrawer.dataset.travelDrawer; travelDrawers[k] = travelDrawers[k] === false; return render(); }
+  const paceBtn = ev.target.closest("[data-travel-pace]"); // §18 T2: set the group's travel pace
+  if (paceBtn) {
+    const g = packedGroup() ?? candidateGroup();
+    if (g) await g.setFlag(MODULE_ID, "travelPace", paceBtn.dataset.travelPace);
+    return render();
+  }
+  if (ev.target.closest("[data-travel-addpace]")) { travelPaceEditorOpen = !travelPaceEditorOpen; return render(); } // §18 custom paces
+  const delPace = ev.target.closest("[data-travel-delpace]");
+  if (delPace) {
+    const id = delPace.dataset.travelDelpace;
+    await game.settings.set(MODULE_ID, "travelCustomPaces", travelCustomPaces().filter(c => c.id !== id));
+    const g = packedGroup() ?? candidateGroup();
+    if (g && travelPaceOf(g) === id) await g.setFlag(MODULE_ID, "travelPace", "normal"); // deleted the selected one
+    return render();
+  }
+  if (ev.target.closest("[data-travel-paceadd]")) {
+    const name = (panelEl.querySelector("[data-pace-name]")?.value || "").trim();
+    const mph = Number(panelEl.querySelector("[data-pace-mph]")?.value);
+    if (!name || !(mph > 0)) { ui.notifications.warn("Enter a name and a speed (MPH or KPH)."); return; }
+    const list = travelCustomPaces().slice();
+    list.push({ id: foundry.utils.randomID(), name: name.slice(0, 30), mph: Math.round(mph * 10) / 10 });
+    await game.settings.set(MODULE_ID, "travelCustomPaces", list);
+    travelPaceEditorOpen = false;
+    return render();
+  }
   if (ev.target.closest("[data-travel-begin]")) { // §18 T1.5: pack, preview the map, arm the landing click
     const res = await api.travelPrepare({});
     if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Couldn't prepare travel."); return render(); }
@@ -2302,6 +2646,8 @@ async function onClick(ev) {
       seedRollIfNeeded();
       return render();
     }
+    const toffer = ev.target.closest("[data-dt-tmpl-offer]");
+    if (toffer) { await api.downtime({ op: "setTemplateOffered", id: toffer.dataset.dtTmplOffer, on: toffer.dataset.on === "1" }); return; }
     const trm = ev.target.closest("[data-dt-tmpl-rm]");
     if (trm) { await api.downtime({ op: "removeTemplate", id: trm.dataset.dtTmplRm }); return; }
     if (ev.target.closest("[data-dt-seed]")) { await api.downtime({ op: "seedTemplates" }); return; }
@@ -2319,7 +2665,7 @@ async function onClick(ev) {
       return;
     }
     const drawer = ev.target.closest("[data-dt-drawer]");
-    if (drawer) { const k = drawer.dataset.dtDrawer; dtDrawers[k] = dtDrawers[k] === false; return render(); }
+    if (drawer) { pinPanelTop(); const k = drawer.dataset.dtDrawer; dtDrawers[k] = dtDrawers[k] === false; return render(); }
     // ── Authoring-form controls (activity OR template) ──────────────────────
     if (dtRuleDraft) {
       const preset = ev.target.closest("[data-rule-preset]");

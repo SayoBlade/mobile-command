@@ -227,6 +227,32 @@ export function registerSettings() {
     default: ""
   });
 
+  // §18 travel: DM-authored custom transport paces (horse/cart/ship/airship + whatever the DM
+  // adds), each a name + MPH. mi/day = MPH × 8 (an 8-hour travel day). Managed from the Pace [+]
+  // popup, config:false. Prepopulated with sensible defaults.
+  game.settings.register(MODULE_ID, "travelCustomPaces", {
+    scope: "world",
+    config: false,
+    type: Array,
+    default: [
+      { id: "horse", name: "Horseback", mph: 8 },
+      { id: "cart", name: "Cart", mph: 3 },
+      { id: "ship", name: "Ship", mph: 5 },
+      { id: "airship", name: "Airship", mph: 10 }
+    ]
+  });
+
+  // §18 travel: during a journey the scene's darkness sweeps to match the clock. Moved out of the
+  // Travel tab into settings (DM 2026-07-18 — the inline toggle read as unclear).
+  game.settings.register(MODULE_ID, "travelDaylight", {
+    name: "Travel: daylight follows the clock",
+    hint: "During a travel journey the scene's darkness moves with the time of day (dawn → day → dusk → night). Needs the overworld's Global Illumination off and darkness unlocked (Preflight → Travel lighting fixes this). Off: the light stays put while the party travels.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
   // Auto-loot (DESIGN §7.6): when an NPC token dies, the executor turns it into an Item
   // Piles loot pile so players can loot it from the phone with the flow we already built.
   // Off by default (opt-in); needs Item Piles installed. Skips PCs, linked tokens, tokens

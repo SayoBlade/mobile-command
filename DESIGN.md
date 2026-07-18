@@ -1176,12 +1176,27 @@ vs. the secret goblin village the DM can move clandestinely).
   CrossZoom (rectalogic, MIT) — 24 dithered taps marched toward the anchor with parabolic
   weights, streak strength sin-peaking mid-flight (crisp endpoints). Feel constants to tune on
   the live TV: SAMPLES 24 / STREAK 0.35 / zoom 11× / expEase dissolve.
-- **T2 — Pace + route.** Pace picker on the tab (flag on the group). DM draws a dashed freeform
-  polyline (Drawing document — players see it); live readout DM-only: length → distance (scene
-  grid) → hours/days at pace.
-- **T3 — The journey.** Tick loop per 18.1 (auto-pause on start, DM-set rate, Stop button, darkness
-  toggle), save `travelPos` as it goes; arrival unpauses and offers the pull-in (activate the
-  destination scene / shortcut).
+- **T2 — Pace + route (BUILT 2026-07-18).** Pace picker on the tab — Slow/Normal/Fast → 18/24/30
+  mi/day, stored as the group flag `travelPace`. Route: the DM arms "Draw from party" and drags a
+  freeform line on #board (capture-phase pointer events, anchored at the party token's center so
+  no token selection is needed); on release the GM client writes a polygon Drawing (flag
+  `travelRoute`, solid gold — Foundry Drawings have NO dash style) that players see, and the panel
+  reads out DM-only length→distance (px / grid.size × grid.distance)→time (miles×8/mpd hours,
+  miles/mpd days) at the current pace. "Clear route" deletes it. A new route replaces the old.
+- **Time→lighting settings (found 2026-07-18):** Foundry core does NOT tie worldTime to darkness —
+  the T3 loop drives `scene.environment.darknessLevel` via `update(..., {animateDarkness: ms})`.
+  For it to SHOW, the overworld scene needs: Global Illumination OFF
+  (`environment.globalLight.enabled=false`), darkness unlocked (`environment.darknessLock=false`),
+  and Token Vision ON. Added a `checkTravelLighting` preflight check (warn + one-tap Fix) that
+  enforces exactly these on the configured overworld — so it's part of onboarding/preflight.
+- **T3 — The journey (BUILT 2026-07-18).** "Start journey" ticks the group token along the route
+  polyline, one game-hour per tick: moveGroupTo (animated) → `game.time.advance(3600)` → if the
+  "Daylight follows time" toggle is on AND the scene allows (globalLight off, unlocked), sweep
+  `environment.darknessLevel` toward `darknessForHour(hour)` (sinusoid: 0 at noon, 1 at midnight)
+  via `{animateDarkness}`. Real rate ≈ 1 s/game-hour clamped to a 4–40 s total. Auto-pauses on
+  start (only unpauses on arrival IF the journey was the one that paused); **Stop** halts and STAYS
+  paused (encounter). On arrival: save `travelPos`, delete the route Drawing, clear the readout.
+  Toggle stored as the group flag `travelDarkness`. TODO T3.5: the per-X-hours random-encounter roll.
 - **T3.5 — Random encounters (DM 2026-07-17, "opens up a random encounter roll per X hours").**
   Optional per-journey check: every X game hours the tick loop rolls (or prompts the DM) for an
   encounter; a hit auto-Stops — game stays paused, clock and party position already at the

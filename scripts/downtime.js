@@ -397,6 +397,15 @@ export function removeTemplate(state, id) {
   const s = normalizeState(state);
   return { ...s, templates: s.templates.filter(t => t.id !== id) };
 }
+// Per-rest availability (DM 2026-07-18: "choose if they are available for this rest or not").
+// `offered` is absent-or-true by default so every pre-existing template stays on offer; a
+// shelved template disappears from the players' pickers but stays in the catalog and in
+// Give Task (a DM handing out a shelved activity is an override, not an error).
+export function isOffered(template) { return template?.offered !== false; }
+export function setTemplateOffered(state, id, on) {
+  const s = normalizeState(state);
+  return { ...s, templates: s.templates.map(t => t.id === id ? { ...t, offered: !!on } : t) };
+}
 function mapTemplate(state, id, fn) {
   const s = normalizeState(state);
   return { ...s, templates: s.templates.map(t => (t.id === id ? fn({ ...t }) : t)) };
