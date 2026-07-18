@@ -3069,7 +3069,9 @@ body.mc-theme-wizard .mc-frame {
 /* The main window is a COLUMN with a pinned foot: Form up / Start the night ride the bottom
    (DM 2026-07-17: "align the form up and start night buttons to the bottom as they are now"), so
    they hold their place whether or not a token is selected and whatever grows above them. */
-.mc-dmp-scroll { max-height: calc(100vh - 24px); overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
+/* 90px = viewport margin (24) + the tophead (~50) + bottom rail (14) + borders, which sit OUTSIDE
+   this scroller — only the content between them scrolls. */
+.mc-dmp-scroll { max-height: calc(100vh - 90px); overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
 .mc-dmp-col { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
 .mc-dmp-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 /* Right-edge tab rail — icon-only tabs sticking out. Closed: on the panel's right
@@ -3094,14 +3096,14 @@ body.mc-theme-wizard .mc-frame {
    same colour (minus the grip lines — there's nothing to drag). Purely so the two windows'
    buttons sit on one line (DM 2026-07-17). */
 .mc-dmp-rail { height: 14px; flex: 0 0 auto; margin: 8px -10px -10px; background: var(--mc-sunken); border-top: 1px solid var(--mc-edge); border-radius: 0 0 calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)); }
-/* Primary top: the SAME plain rail as the bottom, mirrored (DM 2026-07-18) — no title bar. The
-   old toprail + "Mobile Command" header stacked 50px of chrome and its whole face dragged. The
-   rail is still the drag handle (grab cursor on hover only), so the panel stays movable. */
-.mc-dmp-toprail { height: 14px; margin: -10px -10px 8px; background: var(--mc-sunken); border-bottom: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)) 0 0; cursor: grab; }
-.mc-dmp-toprail:active { cursor: grabbing; }
+/* (the plain .mc-dmp-toprail experiment is gone — the primary wears the full flyout-style
+   tophead again, just without the grip-lines icon; see .mc-dmp-tophead.) */
 /* Main-panel title bar: mirrors the flyout's grab-row + header, bled to the panel edges. The grab
    row here carries no grip-lines icon (drag-to-move, not resize) — its only job is to match the
    flyout's height so the two titles line up. */
+/* A DIRECT child of the panel, before .mc-dmp-scroll (like .mc-dmp-rail after it) — inside the
+   scroller, overflow clipped the -10px bleed at the panel padding and left a gray inset frame
+   around the title (DM 2026-07-18). */
 .mc-dmp-tophead { margin: -10px -10px 8px; cursor: move; }
 .mc-dmp-tophead .mc-dmp-fly-resize { cursor: move; }
 .mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; min-height: 36px; box-sizing: border-box; border-bottom: 1px solid var(--mc-edge); font-weight: 800; font-size: 14px; border-radius: calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)) 0 0; }

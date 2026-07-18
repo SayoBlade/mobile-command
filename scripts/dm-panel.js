@@ -2357,13 +2357,12 @@ function render() {
   const pending = listPendingCasts();
   // The camera bar is always present (the DM needs TV control out of combat, with
   // no targets); targeting/cast sections grow the panel when relevant.
-  // The primary carries NO title bar (DM 2026-07-18: the old toprail + "Mobile Command" header
-  // stacked 50px of chrome and its whole face dragged — "REALLY annoying"). Its top is the same
-  // plain 14px rail as its bottom (.mc-dmp-rail); the rail doubles as the drag handle. Titles
-  // belong to the flyouts — the primary is closed from the scene controls, not from itself.
   // IDENTICAL to the flyout's top (DM 2026-07-18): the same grab row + title header, same classes,
   // height, colours and drag behaviour — the ONLY difference is the grab row carries no grip-lines
   // icon (and no X). The grab row's height makes this title line up with the flyout's.
+  // It renders OUTSIDE .mc-dmp-scroll (like the bottom rail): inside, the scroll container
+  // clipped its negative-margin bleed at the panel's 10px padding, leaving a gray inset frame
+  // around the title (DM 2026-07-18: "the gray padding on the top and sides is driving me crazy").
   const grip = `<div class="mc-dmp-tophead mc-dmp-drag" title="Drag to move">
     <div class="mc-dmp-fly-resize mc-fly-grab-top" aria-hidden="true"></div>
     <div class="mc-dmp-fly-head"><span>Mobile Command</span></div>
@@ -2377,7 +2376,7 @@ function render() {
   // Form up is PINNED to the bottom (mc-dmp-foot + margin-top:auto): the one the DM reaches for
   // without looking, so it must not slide when a section above grows (DM 2026-07-17). Everything
   // conditional sits above it. Rest moved to its own tab (§19), out of the primary.
-  const main = grip + `<div class="mc-dmp-col">`
+  const main = `<div class="mc-dmp-col">`
     + statusHTML() + cameraBarHTML() + reactionsHTML() + splitPartyHTML() + combatHTML() + quickHpHTML()
     + (pending.length ? pendingHTML(pending) : "")
     + `<div class="mc-dmp-foot">` + partyMainHTML() + `</div>`
@@ -2393,7 +2392,7 @@ function render() {
   const flyTop = el.querySelector(".mc-dmp-fly-body")?.scrollTop ?? 0;
   const mainTop = el.querySelector(".mc-dmp-scroll")?.scrollTop ?? 0;
   // Main content scrolls inside; the tab rail + flyout stick out the right edge.
-  el.innerHTML = `<div class="mc-dmp-scroll">${main}</div><div class="mc-dmp-rail"></div>${tabRailHTML()}${dockTab ? flyoutHTML() : ""}`;
+  el.innerHTML = `${grip}<div class="mc-dmp-scroll">${main}</div><div class="mc-dmp-rail"></div>${tabRailHTML()}${dockTab ? flyoutHTML() : ""}`;
   const fb = el.querySelector(".mc-dmp-fly-body"); if (fb && flyTop) fb.scrollTop = flyTop;
   const ms = el.querySelector(".mc-dmp-scroll"); if (ms && mainTop) ms.scrollTop = mainTop;
   el.classList.add("mc-show");
