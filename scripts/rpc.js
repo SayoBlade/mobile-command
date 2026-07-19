@@ -835,7 +835,7 @@ async function handleTransferOffer({ actorId, toActorId, itemMoves, coins, reque
   if (!user || !from || !to) return { ok: false, stage: "resolve", reason: "character not found" };
   if (!from.testUserPermission(user, "OWNER")) return { ok: false, stage: "permission", reason: "you don't own the giving character" };
   if (to.id === from.id) return { ok: false, stage: "validate", reason: "that's the same character" };
-  if (to.type !== "character" || !to.hasPlayerOwner) return { ok: false, stage: "validate", reason: "you can only give to another player character" };
+  if (!to.hasPlayerOwner) return { ok: false, stage: "validate", reason: "you can only give to a party member or your own summon" };
   // Proximity: the giver's token must be near the receiver's on the active scene (server-authoritative).
   try {
     const fromTok = canvas?.tokens?.placeables.find(t => t.actor?.id === from.id);

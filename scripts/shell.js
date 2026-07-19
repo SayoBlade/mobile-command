@@ -3153,7 +3153,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     for (const t of scene.tokens) {
       const a = t.actor;
       if (!a || t.id === meTok.id || a.id === myActorId || t.hidden) continue;
-      if (a.type !== "character" || !a.hasPlayerOwner) continue;
+      if (!a.hasPlayerOwner) continue; // any player-owned token — PCs AND your own summons (npc-type); DM NPCs excluded
       const o = ctr(t);
       const distFt = Math.round(Math.hypot(o.x - me.x, o.y - me.y) / gs * gd);
       if (distFt <= 10) out.push({ actorId: a.id, name: t.name, distFt });
