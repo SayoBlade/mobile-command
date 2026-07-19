@@ -234,9 +234,17 @@ lives in the two words plus the icon, and the tooltip carries any nuance.
 | Visible to the player | **`fa-eye`** icon | The *absence* of the eye means hidden — don't add a "hidden" icon |
 | Waiting on someone | Amber text + the word (`Waiting…`) | Never a spinner |
 | Progress | Gold bar + `count/target` | Bar always; numbers only if the player may see the rule |
+| Attention on another token | Gold-outlined **bell** in the header, gently pulsing (`.mc-bell-on`) | Lit when a save/reaction/AoO waits on a token you're **not** viewing; tap hops you there. Greyed + inert otherwise. Binary — no count (DM 2026-07-19) |
 
 **Never encode state in the name text.** `(dead)` on a token is a Foundry-side exception, not a
 licence.
+
+**The "never a spinner" rule is about *in-app* waiting chips** (someone owes an action) — a spinner
+there is anxious dead-air. The **game-pause cue on the shared canvas** is the deliberate exception:
+Foundry's centred "GAME PAUSED" bar covered the map (it hid a travel journey outright), so it's
+replaced by **four small semi-transparent spinning icons in the screen corners** — no text, no dark
+band, map fully visible (`#mc-pause-corners`, DM 2026-07-19). A slow ambient spin on the *canvas* is
+ambient, not a demand for input; the ban stays in force for the shell's status chips.
 
 ---
 

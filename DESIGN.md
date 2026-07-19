@@ -1152,6 +1152,57 @@ vs. the secret goblin village the DM can move clandestinely).
   Scene (Ambience → Transition) AND per Teleport Token region behavior — so tower stairs 2→3 can
   zoom OUT while 4→3 zooms IN, same destination scene, no new code (answered DM 2026-07-17).
 
+### 18.1a Follow-ups (DM 2026-07-19)
+
+- **Multi-overworld by grid detection (replaces the single hand-picked scene for LIGHTING).** A scene
+  is treated as an overworld travel map when its grid cell measures ≥ `travelOverworldGridThreshold`
+  FEET (setting, default 100). `isOverworldScene(scene)` / `gridFeetPerCell(scene)` live in
+  settings.js (units→feet map + regex fallback: mi=5280, league=15840, km=3280.84, m=3.28, yd=3).
+  A 5-ft battle map never qualifies; a miles-per-cell or hundreds-of-ft map does. The dropdown
+  `travelOverworldSceneId` still names the *Switch-scene-to* target for the pull; detection governs
+  the lighting + preflight so ANY big map behaves as a travel map.
+- **Auto-lighting on load (one-shot per scene).** `maybeAutoLightOverworld()` runs on `canvasReady`
+  (executor GM only, gated by `travelAutoLight`, default on). First time a detected overworld opens:
+  Token Vision off (whole map visible, no sight circle), Global Illumination off, darkness unlocked,
+  and `environment.darknessLevel` synced to the clock via `darknessForHour`. A `flags.<id>.travelAutoLit`
+  guard makes it strictly one-shot so a scene the DM later customises is never re-stomped. This is the
+  "automate the behavior" ask — no manual Preflight fix, no per-scene designation. `checkTravelLighting`
+  now prefers the active scene when it's a detected overworld, else the configured one.
+- **Route line is dashed, thick, WHITE (`#ffffff`, width 8).** Started warm orange (`#ee5a36`) but it
+  read as invisible on the map (DM 2026-07-19: "red line isn't working, lets try white"). Foundry
+  Drawings have no native dash, so `routeDashDrawings()` emits one short polyline Drawing per dash
+  (dash 0.5 cell / gap 0.45 cell, sampled off the smooth path so each dash follows the curve), capped
+  at 140 dashes (dash/gap scale up past the cap). All carry the `travelRoute` flag so Clear / arrival
+  delete them together. Foundry's polygon needs ≥3 vertices, so a 2-point dash gets a midpoint
+  injected (`routeDrawingFrom`); if the dash batch is still rejected, `finishTravelRoute` falls back
+  to a single solid polyline so a line ALWAYS appears. The journey still walks the smooth
+  `travelRoutePts`; only the rendering changed.
+- **Pause cue restyled to corner spinners (`pause-overlay.js`, DM 2026-07-19).** Foundry's centred
+  "GAME PAUSED" bar covered the canvas and hid the travel walk. Core `#pause` is now hidden by CSS;
+  `#mc-pause-corners` (four small semi-transparent spinning `fa-circle-notch` icons, one per corner)
+  fades in via `body.mc-game-paused`, toggled on the `pauseGame` hook. Non-phone clients only (phones
+  have their own shell overlay). Custom id → survives the clean-TV hide list, so the shared display
+  still shows a paused cue. UI-BIBLE §5 exception documented (the "never a spinner" ban is for in-app
+  waiting chips, not the ambient canvas pause cue).
+- **Scene-jump guard — REMOVED (DM 2026-07-19).** A journey-end "snap back to the travel scene if the
+  canvas drifted" guard was added for a reported "travel ends in a jump to the previous scene." But a
+  legitimate **teleporter crossed mid-journey** looks identical to drift, so the guard yanked the DM
+  back to the overworld (where the party no longer was → the "place the party" prompt). Transporting is
+  a feature; the guard is gone. Stray lines are handled by cleanup (below), not by re-viewing scenes.
+- **Orphaned-route cleanup (DM 2026-07-19).** "Passed a teleport marker off the overworld mid-travel,
+  now there's a dashed line I can't remove." Route drawings are flag-tagged, so `deleteTravelRouteDrawings(exceptSceneId?)`
+  wipes them across scenes; the Clear button, journey arrival, and drawing a new route all route
+  through it. **On every scene switch** (`canvasReady`, active-GM only) it clears routes on the scenes
+  you're NOT on — sparing the current scene so a route you're drawing/travelling survives, and a normal
+  journey never fires `canvasReady` so the walk is untouched. No UI button (DM: "I don't want a Clear
+  button; just run the cleanup on scene switch").
+
+- **Right-click pans, not cancels (DM 2026-07-19).** Both arming flows (party placement + route draw)
+  used right-click as their cancel — but right-click-drag is how you PAN the map to decide where to
+  place/draw. Now right/middle buttons pass through to the canvas (pan), only left does the action, and
+  **Esc** is the cancel. Route draw also drops its `contextmenu` capture. Re-arm is a tap on **Switch**
+  (placement) or **Draw from party** (route), so a cancel is never a dead end.
+
 ### 18.2 Build slices
 
 - **T1 — Travel tab + pull-to-overmap (BUILT 2026-07-17).** DM-panel "Travel" dock tab: overworld
@@ -1185,10 +1236,13 @@ vs. the secret goblin village the DM can move clandestinely).
   miles/mpd days) at the current pace. "Clear route" deletes it. A new route replaces the old.
 - **Time→lighting settings (found 2026-07-18):** Foundry core does NOT tie worldTime to darkness —
   the T3 loop drives `scene.environment.darknessLevel` via `update(..., {animateDarkness: ms})`.
-  For it to SHOW, the overworld scene needs: Global Illumination OFF
-  (`environment.globalLight.enabled=false`), darkness unlocked (`environment.darknessLock=false`),
-  and Token Vision ON. Added a `checkTravelLighting` preflight check (warn + one-tap Fix) that
-  enforces exactly these on the configured overworld — so it's part of onboarding/preflight.
+  For it to SHOW on a **fully-visible overworld** (DM 2026-07-18: "still lets players see all of
+  it"), the scene needs: **Token Vision OFF** (no fog / no sight-range circle — the whole map is
+  visible, and darkness still tints it), Global Illumination OFF (it would cancel the dimming), and
+  darkness unlocked. CORRECTED 2026-07-18 — the first pass set Token Vision ON, which limited each
+  player to their token's ~120ft sight on a huge map (the reported bug). `checkTravelLighting`
+  (warn + one-tap Fix) now enforces tokenVision:false + globalLight off + unlocked. The night
+  darkness caps ~0.7 (`darknessForHour`) so night reads as dim, not black, on the visible map.
 - **T3 — The journey (BUILT 2026-07-18).** "Start journey" ticks the group token along the route
   polyline, one game-hour per tick: moveGroupTo (animated) → `game.time.advance(3600)` → if the
   "Daylight follows time" toggle is on AND the scene allows (globalLight off, unlocked), sweep
@@ -1385,3 +1439,107 @@ means, and it removes the need for a separate count setting. SHORT ⇒ exactly o
   (1st/2nd/3rd) + an explainer, and the embedded downtime roster lists the **party (group members)**
   not in-scene tokens (a camped party is off-map — a PC's pick wasn't registering, "nobody has
   chosen yet"); "Start activities — nobody's chosen yet" → "Start Activities" (state → tooltip).
+
+## 20. Item transfers (DM-idea, spec 2026-07-18)
+
+One-way transfers of items + coins between a PC and another PC, or between a PC and the party
+stash (the GROUP actor's own items — already browsed read-only in §15's shared inventory). NO
+NPCs (merchants already work via Item Piles). NO two-way swap — a transfer moves in one direction.
+
+### 20.1 Model & decisions (all DM 2026-07-18)
+
+- **Two targets, one committing rule.** You transfer with (a) another PC, or (b) the party stash.
+  A transfer commits only when the *other side* consents: the receiving player accepts/declines a
+  PC give; the giving player accepts a pull; the **DM** accepts anything DM-owned. EXCEPTION
+  (simplification): the **stash needs no acceptance** — put-in / take-from commits on the player's
+  own accept (the DM oversees the stash but doesn't gate each move).
+- **Proximity for PC↔PC.** Story matters — you can't toss a potion across the room. Reuse the Use
+  flow's proximity target-picker to pick the nearby ally (reach-gated). The stash has no distance.
+- **No new per-item buttons** (heavy UI). ONE "Transfer" entry (equipment tab) opens the composer;
+  destination (nearby ally / party stash + put|take) is chosen inside it.
+- **Composer:** toggle your items and coins; each stack has a +/- **quantity** stepper. Coins are
+  amounts by denomination.
+- **Live offer:** the receiver's popup fills/empties as the sender edits — pushed on a **~1s
+  throttle** (no true realtime needed).
+- **Offline receiver → the DM** gets the accept/decline instead (a DM-panel chip, scribe-style).
+
+### 20.2 Build slices
+
+- **T-core (BUILT 2026-07-18).** `moveItemsAndCoins(src, dest, itemMoves, coins)` — the first
+  cross-actor Item move in the module: merges into a matching destination stack or creates a copy,
+  decrements/deletes on the source, moves coins by denomination (validates the source can cover
+  them). `handleTransferStash({actorId, dir:"put"|"take", itemMoves, coins})` — resolves the PC's
+  group, moves instantly, owner-gated. Registered as `api.transferStash`.
+- **T-stash UI.** Equipment-tab "Transfer" button → composer with a put/take toggle over the stash;
+  item toggles + qty steppers + coin amounts → api.transferStash.
+- **T-p2p.** Same composer, destination = a nearby ally (reused proximity picker). Offer session on
+  the executor: propose → live-push to the receiver's phone (or the DM chip if offline) → accept
+  commits via moveItemsAndCoins / decline drops it. Sender's accept locks the offer; receiver's
+  accept commits.
+
+### 20.3 Ledger
+
+- Whole-stack merge key = same name+type+identifier, not a container. Revisit if identical-name
+  items with different data should stay separate.
+- Stash take is first-come-first-served (no reservation) — fine for a party (DM 2026-07-18).
+
+- **No action-economy automation (DM 2026-07-18).** Whether a transfer is a free action, a bonus
+  action, or a full action is the DM's ruling narrated at the table ("that potion is free",
+  "5 arrows as a bonus action", "the armor is your whole turn") — the app never consumes an
+  action or checks the economy for a transfer.
+
+## 21. Pending-action queue + attention bell (DM-idea, spec + BUILT 2026-07-19)
+
+The problem (surfaced by a wizard + familiar + summon hit by fireball): the phone stored **one**
+save prompt, one reaction, one AoO — each a single slot that **clobbered** on a burst. Three saves →
+you saw one; two AoOs → you got one. Fix: a **unified queue** + a header **bell** that navigates it.
+
+### 21.1 Findings that shaped it
+
+- **Reactions and AoOs are self-contained.** `#useReaction`/`aoo-attack` fire off the activity's
+  **UUID** (`rpc.useActivityStart`), not the viewed subject — so, like saves, they roll on the right
+  creature regardless of which token is on screen. So the "switch to the token" leg is a UI nicety
+  (context/clarity), not a mechanical requirement. The real bug in all cases was the single-slot
+  clobber.
+- Each prompt already carries its actor: save `actorUuid`, reaction `reactorUuid`; AoO now carries
+  `reactorUuid` + `reactorTokenUuid` (added to `dispatchAoO`).
+
+### 21.2 Model (BUILT, shell.js)
+
+- `#pending = []` replaces `#savePrompt`/`#reactionPrompt`/`#aooPrompt`. Entry:
+  `{id, kind:"save"|"reaction"|"aoo", actorId, tokenId, payload, expiresAt, timer}`.
+- `#enqueue(kind, payload, actorUuid)` resolves actor→tokenId, de-dupes by kind+actor, sets a
+  per-entry expiry timer, plays the attention sfx **once per burst** (only when the queue was empty).
+- `#cur(kind)` = the entry for the **current subject** (or a null-actor entry, so an unresolved one
+  is never stranded); the `#savePromptHTML`/`#reactionPromptHTML`/`#aooPromptHTML` popups render it.
+- `#resolve(kind)` drops the current entry on roll/fire/dismiss; a rolled save clears **only the
+  creature that rolled** (by `message.speaker.actor`), so rolling the wizard's save keeps the pet's.
+- **Combat feeds the bell too (DM 2026-07-19).** The "Roll initiative" prompt and the auto-follow-the-turn
+  switch only apply to the current subject, so a secondary token (summon/familiar) that owes initiative
+  OR whose turn it now is was invisible when you were parked on another token (e.g. mid-action, when
+  auto-follow is skipped). `#attentionActorIds()` now unions the pending queue with, for owned tokens on
+  the active scene: **(a) the active combatant when it's another of your tokens' turn**, and **(b) any
+  combatant whose initiative is null**. Bell lights and hops just like a save/reaction; clears as you
+  switch / roll (`updateCombat`/`updateCombatant` re-render). An NPC's turn never lights it.
+- **Bell:** `#bellActive()` ⟺ `#attentionActorIds()` is non-empty (a queued prompt OR an unrolled
+  initiative on a token whose actor ≠ current subject). Header
+  button `.mc-bell` (by the dice tray): greyed + `disabled` when idle, gold-outlined + pulsing when
+  live. `attention-next` hops to the next such token (`#subjectId` = its token) → its popup shows.
+  Greys again once the only remaining business is on the token you're viewing; relights if you switch
+  away (DM 2026-07-19 rule: keyed to viewed-vs-elsewhere, not a raw count).
+
+### 21.3 Reaction timeout (BUILT)
+
+Phone players need a beat to **notice** a prompt light up before tapping — midi's timeout assumes the
+dialog is already on screen. New world setting **`reactionTimeoutPct`** (default **120** = +20%)
+multiplies midi's `reactionTimeout` for the prompts the module relays to phones (reaction relay +
+AoO). Single source of truth: `reactionTimeoutMs()` in settings.js. It never writes midi's own
+setting (so the enforcer is unaffected) and never touches the DM's rolls. AoO moved from
+`playerSaveTimeout` onto this (an AoO is a reaction). Saves keep midi's `playerSaveTimeout`.
+
+### 21.4 Not yet / next
+
+- **Trades fold in later:** Transfer Milestone B (§20 T-p2p) registers an incoming offer as a
+  `kind:"trade"` entry so the bell surfaces it; **same-owner transfers commit instantly** (no
+  self-accept — you don't accept a gift from yourself), matching the stash.
+- Needs a live table test (numbered protocol handed to the DM 2026-07-19).

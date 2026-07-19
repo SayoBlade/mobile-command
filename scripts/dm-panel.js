@@ -5,6 +5,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
 import { clockLabel, isNight, readClock, hasSimpleCalendar } from "./gametime.js";
 import { runDmWizard } from "./dm-wizard.js";
+import { isOverworldScene, isExecutor, gridFeetPerCell } from "./settings.js";
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -744,16 +745,18 @@ function armTravelDrop() {
   const board = document.getElementById("board");
   if (!board) { ui.notifications.warn("No canvas to click on."); return; }
   const onDown = async (ev) => {
+    if (ev.button !== 0) return; // right/middle-drag pans the map — don't cancel placement (DM 2026-07-19)
     disarmTravelDrop();
-    if (ev.button !== 0) { ui.notifications.info("Travel placement cancelled."); return; }
     ev.preventDefault();
     ev.stopPropagation(); // capture phase: the click places the party, core never sees it
     const res = await api.travelDrop({ x: canvas.mousePosition.x, y: canvas.mousePosition.y });
     if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't place the party.");
   };
+  const onKey = (ev) => { if (ev.key === "Escape") { disarmTravelDrop(); ui.notifications.info("Travel placement cancelled."); } };
   board.addEventListener("pointerdown", onDown, true);
-  travelDisarm = () => board.removeEventListener("pointerdown", onDown, true);
-  ui.notifications.info("Click the map where the party arrives — right-click to cancel.");
+  window.addEventListener("keydown", onKey, true);
+  travelDisarm = () => { board.removeEventListener("pointerdown", onDown, true); window.removeEventListener("keydown", onKey, true); };
+  ui.notifications.info("Click the map where the party arrives — right-click-drag pans, Esc cancels.");
 }
 
 // §18 T2: DM draws a freeform route the players see (a Drawing), and the panel reads out
@@ -785,8 +788,25 @@ let travelRouteInfo = null; // {dist, units, hours} — DM-only readout of the l
 let travelRoutePts = null;  // scene-coord polyline the journey walks
 let travelJourneyActive = false, travelJourneyStop = false;
 const travelSleep = (ms) => new Promise(r => setTimeout(r, ms));
+// A drawn route can be orphaned if the party teleports/switches off the overworld mid-travel (DM
+// 2026-07-19: "passed a marker that teleported me to a battle map, now there's a leftover dashed line").
+// Routes are flag-tagged, so we wipe them from every scene — the Clear button, arrival, drawing a new
+// route, and the on-scene-switch cleanup all route through here. `exceptSceneId` spares the scene the
+// DM is currently on, so a route being actively drawn/travelled isn't nuked by a same-scene refresh.
+async function deleteTravelRouteDrawings(exceptSceneId = null) {
+  let n = 0;
+  for (const scene of game.scenes) {
+    if (exceptSceneId && scene.id === exceptSceneId) continue;
+    try {
+      const ids = scene.drawings.filter(d => d.getFlag(MODULE_ID, "travelRoute")).map(d => d.id);
+      if (ids.length) { await scene.deleteEmbeddedDocuments("Drawing", ids); n += ids.length; }
+    } catch (e) { console.warn(`${MODULE_ID} | couldn't clear a travel route on "${scene.name}"`, e); }
+  }
+  return n;
+}
+function resetTravelRoute() { travelRouteInfo = null; travelRoutePts = null; }
 // Time-of-day → darkness: sinusoidal, 0 at noon, 1 at midnight (dawn/dusk ≈ 0.5).
-function darknessForHour(h) { return Math.min(1, Math.max(0, 0.5 + 0.5 * Math.cos((Number(h) || 0) / 24 * 2 * Math.PI))); }
+function darknessForHour(h) { return Math.max(0, 0.35 + 0.35 * Math.cos((Number(h) || 0) / 24 * 2 * Math.PI)); } // 0 at noon → ~0.7 at midnight (dim, not pitch-black on a fully-visible map)
 function travelCumLen(pts) { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y)); return c; }
 function travelPointAt(pts, cum, target) {
   const total = cum[cum.length - 1];
@@ -802,6 +822,30 @@ async function moveGroupTo(gt, pt, durMs) {
   await gt.update({ x, y }, { animate: true, animation: { duration: Math.max(200, Math.round(durMs)) } });
 }
 function stopTravelJourney() { travelJourneyStop = true; }
+// §18 travel (DM 2026-07-19): auto-detected overworlds (grid ≥ threshold ft/cell) set themselves up
+// for travel the first time you open them — whole map visible (no sight circle), Global Illumination
+// off, darkness unlocked, and darkness synced to the clock. One-shot per scene (a flag guards it) so
+// a map you later customise is never re-stomped. Executor GM only (one writer). This is the "automate
+// the behavior" the DM asked for — no per-scene designation, no manual Preflight fix.
+async function maybeAutoLightOverworld(scene) {
+  try {
+    if (!scene || !game.user.isGM || !isExecutor()) return;
+    if (!game.settings.get(MODULE_ID, "travelAutoLight")) return;
+    if (!isOverworldScene(scene) || scene.getFlag(MODULE_ID, "travelAutoLit")) return;
+    const env = scene.environment ?? {};
+    const patch = { [`flags.${MODULE_ID}.travelAutoLit`]: true };
+    if (scene.tokenVision) patch.tokenVision = false;                                 // whole map visible, no sight-range circle
+    if (env.globalLight?.enabled) patch["environment.globalLight.enabled"] = false;   // let darkness tint the map
+    if (env.darknessLock) patch["environment.darknessLock"] = false;                  // the travel loop drives darkness
+    if (game.settings.get(MODULE_ID, "travelDaylight")) {                             // open at the right time of day
+      const c = readClock();
+      patch["environment.darknessLevel"] = darknessForHour((Number(c.hour) || 0) + (Number(c.minute) || 0) / 60);
+    }
+    await scene.update(patch, { animateDarkness: 800 });
+    console.log(`${MODULE_ID} | auto-lit overworld "${scene.name}" (${Math.round(gridFeetPerCell(scene))} ft/cell) — whole map visible, darkness follows the clock`);
+    ui.notifications.info(`Travel map ready: “${scene.name}” — whole map stays visible and dims with the clock.`);
+  } catch (e) { console.warn(`${MODULE_ID} | auto-light overworld failed`, e); }
+}
 // §18 T3: tick the token along the route while game-time advances (1 game-hour/tick) and the
 // daylight sweeps to match (DESIGN §18.1). Auto-pauses so no one moves; arrival unpauses; Stop
 // halts and STAYS paused (probably an encounter). Cinematic rate ≈ 1 real s per game-hour, clamped.
@@ -847,12 +891,14 @@ async function runTravelJourney(group) {
   if (arrived) {
     const end = pts[pts.length - 1], g = scene.grid.size;
     await scene.setFlag(MODULE_ID, "travelPos", { x: Math.round(end.x - (gt.width || 1) * g / 2), y: Math.round(end.y - (gt.height || 1) * g / 2) });
-    const prior = scene.drawings.filter(d => d.getFlag(MODULE_ID, "travelRoute")).map(d => d.id);
-    if (prior.length) await scene.deleteEmbeddedDocuments("Drawing", prior);
-    travelRouteInfo = null; travelRoutePts = null;
+    await deleteTravelRouteDrawings();
+    resetTravelRoute();
     if (wePaused) game.togglePause(false); // arrival unpauses (only if the journey paused)
     ui.notifications.info("The party arrives.");
   } else ui.notifications.info("Journey stopped — the game stays paused.");
+  // No snap-back to the travel scene: if the party crossed a teleporter mid-journey, following it to the
+  // new scene is CORRECT — transporting is a feature (DM 2026-07-19). Line cleanup (deleteTravelRouteDrawings
+  // on arrival + the on-scene-switch canvasReady sweep) keeps stray routes from lingering either way.
   render();
 }
 function disarmTravelRoute() { try { travelRouteDisarm?.(); } catch (e) { /* gone */ } travelRouteDisarm = null; }
@@ -873,8 +919,7 @@ function armTravelRoute() {
   // no token drag while drawing (DM 2026-07-18). Only engage over the map, not the panel.
   const eat = (ev) => { ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation?.(); };
   const down = (ev) => {
-    if (ev.button === 2) { eat(ev); disarmTravelRoute(); ui.notifications.info("Route cancelled."); return; }
-    if (ev.button !== 0 || !(ev.target === board || board.contains(ev.target))) return;
+    if (ev.button !== 0 || !(ev.target === board || board.contains(ev.target))) return; // right/middle pass through → the map pans (DM 2026-07-19)
     eat(ev);
     drawing = true; pts = [];
     if (anchor) pts.push({ x: anchor.x, y: anchor.y });
@@ -886,14 +931,50 @@ function armTravelRoute() {
   window.addEventListener("pointerdown", down, true);
   window.addEventListener("pointermove", move, true);
   window.addEventListener("pointerup", up, true);
-  window.addEventListener("contextmenu", eat, true);
   window.addEventListener("keydown", key, true);
   travelRouteDisarm = () => {
-    for (const [t, f] of [["pointerdown", down], ["pointermove", move], ["pointerup", up], ["contextmenu", eat], ["keydown", key]])
+    for (const [t, f] of [["pointerdown", down], ["pointermove", move], ["pointerup", up], ["keydown", key]])
       window.removeEventListener(t, f, true);
     if (canvas.tokens) canvas.tokens.interactiveChildren = true; // restore token dragging
   };
-  ui.notifications.info("Draw the route from the party — press and drag on the map; right-click or Esc cancels.");
+  ui.notifications.info("Draw the route from the party — left-drag to draw; right-click-drag pans, Esc cancels.");
+}
+// §18 T2 (DM 2026-07-19): the route is DASHED, thick, and WHITE — the orange-red read as invisible
+// on the map (DM: "red line isn't working, lets try white"). Foundry Drawings have no native dash, so
+// we emit one short polyline Drawing per dash, each sampled off the smooth path so it follows the
+// curve. All carry the travelRoute flag → Clear / arrival delete them together. Dash count is capped
+// so a long route can't spam the DB (dash/gap scale up past the cap).
+const ROUTE_COLOR = "#ffffff", ROUTE_WIDTH = 8, ROUTE_ALPHA = 0.95, ROUTE_MAX_DASHES = 140;
+// One polyline Drawing from a list of scene-space points. Rounded, min-anchored, thick white stroke.
+// Foundry's polygon needs ≥3 vertices, so a 2-point dash gets its midpoint injected before we build.
+function routeDrawingFrom(seg) {
+  if (seg.length === 2) seg = [seg[0], { x: (seg[0].x + seg[1].x) / 2, y: (seg[0].y + seg[1].y) / 2 }, seg[1]];
+  const xs = seg.map(p => p.x), ys = seg.map(p => p.y);
+  const minX = Math.min(...xs), minY = Math.min(...ys);
+  return {
+    x: Math.round(minX), y: Math.round(minY),
+    shape: { type: "p", width: Math.round(Math.max(...xs) - minX) || 1, height: Math.round(Math.max(...ys) - minY) || 1, points: seg.flatMap(p => [Math.round(p.x - minX), Math.round(p.y - minY)]) },
+    bezierFactor: 0.2, strokeWidth: ROUTE_WIDTH, strokeColor: ROUTE_COLOR, strokeAlpha: ROUTE_ALPHA, fillType: 0,
+    flags: { [MODULE_ID]: { travelRoute: true } }
+  };
+}
+function routeDashDrawings(scene, pts) {
+  const cum = travelCumLen(pts), total = cum[cum.length - 1];
+  const cell = scene.grid?.size || 100;
+  let dash = cell * 0.5, gap = cell * 0.45, period = dash + gap;
+  if (total / period > ROUTE_MAX_DASHES) { const k = (total / period) / ROUTE_MAX_DASHES; dash *= k; gap *= k; period = dash + gap; }
+  const sample = Math.max(6, cell * 0.12); // resolution WITHIN a dash so it curves with the path
+  const out = [];
+  for (let d0 = 0; d0 < total; d0 += period) {
+    const d1 = Math.min(total, d0 + dash);
+    if (d1 - d0 < 1) continue;                // skip a zero-length tail dash
+    const seg = [];
+    for (let s = d0; s < d1; s += sample) seg.push(travelPointAt(pts, cum, s));
+    seg.push(travelPointAt(pts, cum, d1));
+    if (seg.length < 2) continue;
+    out.push(routeDrawingFrom(seg));
+  }
+  return out;
 }
 async function finishTravelRoute(group, pts) {
   const scene = canvas.scene;
@@ -907,20 +988,19 @@ async function finishTravelRoute(group, pts) {
   const mpd = travelMilesPerDay(group);
   travelRouteInfo = { miles }; // time is derived live from the current pace (not frozen at draw)
   travelRoutePts = pts.slice(); // §18 T3: the journey walks the token along these
-  // Replace any prior route, then draw the new one for everyone.
-  const prior = scene.drawings.filter(d => d.getFlag(MODULE_ID, "travelRoute")).map(d => d.id);
-  if (prior.length) await scene.deleteEmbeddedDocuments("Drawing", prior);
-  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
-  const minX = Math.min(...xs), minY = Math.min(...ys);
-  const flat = pts.flatMap(p => [Math.round(p.x - minX), Math.round(p.y - minY)]);
-  const data = {
-    x: Math.round(minX), y: Math.round(minY),
-    shape: { type: "p", width: Math.round(Math.max(...xs) - minX) || 1, height: Math.round(Math.max(...ys) - minY) || 1, points: flat },
-    bezierFactor: 0.3, strokeWidth: 4, strokeColor: "#ffd86a", strokeAlpha: 0.9, fillType: 0,
-    flags: { [MODULE_ID]: { travelRoute: true } }
-  };
-  try { await scene.createEmbeddedDocuments("Drawing", [data]); }
-  catch (e) { console.error(`${MODULE_ID} | route draw failed`, e); ui.notifications.warn(`Couldn't draw the route: ${e.message}`); }
+  // Replace any prior route, then draw the new one (dashed, thick, white) for everyone. If Foundry
+  // rejects the dash batch for any reason, fall back to the proven single solid polyline so a line
+  // ALWAYS appears (DM 2026-07-19: "red line isn't working" — never leave the route invisible).
+  await deleteTravelRouteDrawings(); // wipe any prior route (incl. a stray one left on another scene)
+  const dashes = routeDashDrawings(scene, pts);
+  try {
+    if (!dashes.length) throw new Error("no dashes built");
+    await scene.createEmbeddedDocuments("Drawing", dashes);
+  } catch (e) {
+    console.warn(`${MODULE_ID} | dashed route failed (${e.message}) — drawing a solid line instead`);
+    try { await scene.createEmbeddedDocuments("Drawing", [routeDrawingFrom(pts.slice())]); }
+    catch (e2) { console.error(`${MODULE_ID} | route draw failed`, e2); ui.notifications.warn(`Couldn't draw the route: ${e2.message}`); }
+  }
   render();
 }
 
@@ -1323,6 +1403,7 @@ function cameraBarHTML() {
   return `<div class="mc-dmp-cam">
     <button class="mc-dmp-cam-btn" data-cam="focus" title="Focus the display on the party (P)" aria-label="Focus on party"><i class="fas fa-bullseye"></i></button>
     <button class="mc-dmp-cam-btn ${manualOn}" data-cam="manual" title="Manual TV control: your pan/zoom drives the display (M)" aria-label="Manual TV control"><i class="fas fa-arrows-up-down-left-right"></i></button>
+    <button class="mc-dmp-cam-btn" data-cam="fit" title="Fit the whole scene on the display" aria-label="Fit whole scene"><i class="fas fa-expand"></i></button>
     <button class="mc-dmp-cam-btn" data-cam="zoom-out" title="Zoom the display out" aria-label="Zoom display out"><i class="fas fa-magnifying-glass-minus"></i></button>
     <button class="mc-dmp-cam-btn" data-cam="zoom-in" title="Zoom the display in" aria-label="Zoom display in"><i class="fas fa-magnifying-glass-plus"></i></button>
   </div>`;
@@ -1514,11 +1595,16 @@ function quickHpHTML() {
   const label = toks.length === 1
     ? nameTag(toks[0].actor, toks[0].name)
     : `<i class="fas fa-users mc-nt-ico"></i><span class="mc-nt-name">${toks.length} tokens</span>`;
+  // Show the selected token's current HP (value/max) as a faint placeholder in the amount field — it
+  // disappears the moment the DM types a number (DM 2026-07-19). Single token only; a mixed selection
+  // has no one number to show.
+  const hp = toks.length === 1 ? toks[0].actor?.system?.attributes?.hp : null;
+  const hpHint = hp && hp.max != null ? `${hp.value ?? 0}/${hp.max}` : "";
   return `<div class="mc-dmp-hp">
       <div class="mc-dmp-hp-head">${label}</div>
       <div class="mc-dmp-hp-row">
         <button class="mc-dmp-hp-btn mc-dmp-dmg" data-hp="damage" title="Damage the selected token(s)">− Damage</button>
-        <input class="mc-dmp-hp-input" type="number" min="0" step="1" inputmode="numeric" aria-label="HP amount">
+        <input class="mc-dmp-hp-input" type="number" min="0" step="1" inputmode="numeric" placeholder="${esc(hpHint)}" aria-label="HP amount (current ${esc(hpHint || "HP")})">
         <button class="mc-dmp-hp-btn mc-dmp-heal" data-hp="heal" title="Heal the selected token(s)">Heal +</button>
       </div>
     </div>`;
@@ -2498,9 +2584,8 @@ async function onClick(ev) {
   if (ev.target.closest("[data-dock-close]")) { closeRtAssign(); dockTab = null; return render(); }
   if (ev.target.closest("[data-travel-route]")) { armTravelRoute(); return; } // §18 T2: draw the route
   if (ev.target.closest("[data-travel-route-clear]")) {
-    const prior = canvas.scene?.drawings.filter(d => d.getFlag(MODULE_ID, "travelRoute")).map(d => d.id) ?? [];
-    if (prior.length) await canvas.scene.deleteEmbeddedDocuments("Drawing", prior);
-    travelRouteInfo = null; travelRoutePts = null; return render();
+    await deleteTravelRouteDrawings(); // all scenes — clears a stray route even from a battle map
+    resetTravelRoute(); return render();
   }
   if (ev.target.closest("[data-travel-go]")) { const g = packedGroup(); if (g) await runTravelJourney(g); return; } // §18 T3
   if (ev.target.closest("[data-travel-stop]")) { stopTravelJourney(); return; }
@@ -2770,6 +2855,7 @@ async function onClick(ev) {
   const cam = ev.target.closest("[data-cam]");
   if (cam) {
     if (cam.dataset.cam === "focus") globalThis.MobileCommand?.focusParty?.();
+    else if (cam.dataset.cam === "fit") globalThis.MobileCommand?.tvFitScene?.();
     else if (cam.dataset.cam === "manual") globalThis.MobileCommand?.toggleTvManual?.();
     else if (cam.dataset.cam === "zoom-in") globalThis.MobileCommand?.tvZoom?.(1.25);
     else if (cam.dataset.cam === "zoom-out") globalThis.MobileCommand?.tvZoom?.(1 / 1.25);
@@ -2844,6 +2930,10 @@ export function registerDMPanel() {
   // Preflight auto-run (§16): one pass shortly after the canvas settles so the
   // tab badge shows real fails without the DM opening it. Never auto-fixes.
   setTimeout(() => { runPreflight().then(() => render()).catch(e => console.warn(`${MODULE_ID} | preflight auto-run failed`, e)); }, 4000);
+  // §18 travel: auto-set up a detected overworld the first time it's opened (whole map visible, dims
+  // with the clock). Runs on every canvas load — the flag guard makes it one-shot per scene.
+  Hooks.on("canvasReady", () => { maybeAutoLightOverworld(canvas?.scene); });
+  maybeAutoLightOverworld(canvas?.scene); // the scene already up when the panel initialises
   registerNightEncounterOffer(); // §17.4: ambush during a watch → offer Unconscious+Surprised
   Hooks.on("targetToken", () => { syncRtAssign(); render(); });   // live target picker + count badge
   Hooks.on("controlToken", () => render());                        // quick-HP: selection changed
@@ -2885,11 +2975,25 @@ export function registerDMPanel() {
   // Party Mode: repaint when the marching order changes (group flags), on
   // pack/unpack (token churn), and when the group token itself moves (the
   // blocked-cell preview depends on its position).
-  Hooks.on("updateActor", (a) => { if (a?.type === "group") render(); });
+  Hooks.on("updateActor", (a, ch) => {
+    if (a?.type === "group") return render();
+    // Keep the quick-HP hint (value/max placeholder) fresh when a SELECTED token's HP changes elsewhere.
+    if (foundry.utils.hasProperty(ch ?? {}, "system.attributes.hp") && controlledWithActors().some(t => t.actor?.id === a?.id)) render();
+  });
   // Player-owned tokens count too: the Create party / rebuild buttons key off the
   // scene's PC tokens, so placing or removing one must refresh the party section
   // (2026-07-08: placed two fresh PCs and the button never appeared).
   Hooks.on("createToken", (t) => { if (t?.actor?.type === "group" || t?.actor?.hasPlayerOwner || packedGroup()) render(); });
+  // Every scene switch wipes any travel route left on the scenes you're NOT on (DM 2026-07-19: "every
+  // time you switch scenes, run the cleanup"). Sparing the current scene keeps a route you're actively
+  // drawing/travelling; a normal journey never fires canvasReady, so it's untouched mid-walk. Active GM
+  // only (one writer). If the clear leaves nothing on the current scene, drop the stale route state too.
+  Hooks.on("canvasReady", () => {
+    if (game.users.activeGM?.id !== game.user.id) return;
+    deleteTravelRouteDrawings(canvas.scene?.id).then(n => {
+      if (n && !canvas.scene?.drawings.some(d => d.getFlag(MODULE_ID, "travelRoute"))) { resetTravelRoute(); render(); }
+    }).catch(() => {});
+  });
   Hooks.on("deleteToken", (t) => { if (t?.actor?.type === "group" || t?.actor?.hasPlayerOwner || packedGroup()) render(); });
   Hooks.on("updateToken", (t, ch) => { if (t?.actor?.type === "group" && ("x" in ch || "y" in ch)) render(); });
   // Combat nudge: adding/removing the packed group in the tracker toggles the

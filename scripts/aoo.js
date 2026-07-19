@@ -10,7 +10,7 @@
 // Warnings-not-walls: v1 does NOT interrupt movement mid-path, doesn't check
 // vision, and keys reach off equipped melee weapon activities (largest reach).
 import { MODULE_ID } from "./preset.js";
-import { isExecutor } from "./settings.js";
+import { isExecutor, reactionTimeoutMs } from "./settings.js";
 import { aooPromptUser } from "./rpc.js";
 
 const INCAPACITATED = ["incapacitated", "stunned", "paralyzed", "unconscious", "petrified", "dead"];
@@ -144,16 +144,19 @@ async function checkAoO(moverDoc, from, to) {
 
 async function dispatchAoO(attackerToken, moverDoc, activity, opts = {}) {
   const actor = attackerToken.actor;
-  const timeout = game.settings.get("midi-qol", "ConfigSettings")?.playerSaveTimeout ?? 30;
   const payload = {
     activityUuid: activity.uuid,
     targetUuid: moverDoc.uuid,
+    // The reacting creature (this player's PC/pet) — lets the phone's pending-action queue tie the
+    // card to a token, so the attention bell can hop to it (DM 2026-07-19).
+    reactorUuid: actor?.uuid ?? null,
+    reactorTokenUuid: attackerToken.document?.uuid ?? attackerToken.uuid ?? null,
     attackerName: attackerToken.name,
     moverName: moverDoc.name,
     weaponName: activity.item?.name ?? "",
     title: opts.title ?? null,   // phone card header override (PAM / Sentinel)
     reason: opts.reason ?? null, // phone card body override
-    ttlMs: timeout > 0 ? timeout * 1000 : 30000,
+    ttlMs: reactionTimeoutMs(),  // an AoO is a reaction — same phone-time bonus as the reaction relay
     ts: Date.now()
   };
   console.log(`${MODULE_ID} | ${opts.title ?? "AoO"}: ${opts.reason ?? `${moverDoc.name} leaves ${attackerToken.name}'s reach`} (${activity.item?.name})`);
@@ -169,6 +172,12 @@ async function dispatchAoO(attackerToken, moverDoc, activity, opts = {}) {
     for (const u of owners) aooPromptUser(u.id, payload);
     return;
   }
+
+  // Fell through to the DM — say WHY, so a mis-routed reaction (DM 2026-07-19: "Polearm Master popped on
+  // the DM screen, not the app") is diagnosable: for each non-GM user, is it connected, does it own the
+  // reactor, and is it the excluded display/TV account?
+  console.warn(`${MODULE_ID} | ${opts.title ?? "AoO"} for "${actor.name}" found NO phone owner → DM policy. candidates:`,
+    game.users.filter(u => !u.isGM).map(u => ({ user: u.name, active: u.active, ownsReactor: actor.testUserPermission(u, "OWNER"), isDisplayAccount: u.id === displayUser })));
 
   // NPC attacker — or a PC with no player at the table → DM policy.
   const mode = game.settings.get(MODULE_ID, "aooNpcMode");

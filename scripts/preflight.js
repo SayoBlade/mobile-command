@@ -10,7 +10,7 @@
 // destination-less teleport region that silently blocked ALL movement on Cave A
 // (Round 32).
 import { MODULE_ID } from "./preset.js";
-import { resolveExecutorId } from "./settings.js";
+import { resolveExecutorId, isOverworldScene } from "./settings.js";
 import { diffPreset, applyPreset } from "./enforcer.js";
 import { actorTokenSight } from "./rpc.js";
 
@@ -184,24 +184,29 @@ function checkModuleStack() {
   return { id: "stack", label: "Module stack", status: fatal ? "fail" : "warn", detail: bits.join("; ") + "." };
 }
 
-// §18 travel: for the journey's sun-setting-over-time effect to show, the overworld scene
-// needs darkness that can move AND matter — Global Illumination OFF, darkness unlocked, token
-// vision ON (Foundry core doesn't tie worldTime to lighting; the travel loop drives
-// environment.darknessLevel). Only relevant once an overworld map is chosen; a warn, not a fail.
+// §18 travel: an overworld where the WHOLE map stays visible but dims with the clock (DM
+// 2026-07-18: "still lets players see all of it"). Token Vision OFF = no fog / no sight-range
+// circle; darkness still tints the fully-visible scene. Global Illumination OFF (it would cancel
+// the dimming); darkness unlocked so the travel loop can drive environment.darknessLevel. Warn.
 function checkTravelLighting() {
   const id = "travelLighting", label = "Travel lighting";
-  const over = game.scenes.get(game.settings.get(MODULE_ID, "travelOverworldSceneId") || "");
-  if (!over) return { id, label, status: "ok", detail: "No overworld map set — skipped." };
+  // The scene you're actually on wins when it's a detected overworld (grid ≥ threshold ft/cell);
+  // else fall back to the hand-picked overworld. Auto-detection means any big map is covered.
+  const active = canvas?.scene;
+  const over = (active && isOverworldScene(active))
+    ? active
+    : game.scenes.get(game.settings.get(MODULE_ID, "travelOverworldSceneId") || "");
+  if (!over) return { id, label, status: "ok", detail: "No overworld map open or set — skipped." };
   const env = over.environment ?? {};
   const problems = [];
-  if (env.globalLight?.enabled) problems.push("Global Illumination is ON");
+  if (over.tokenVision) problems.push("Token Vision is ON (players only see around their token)");
+  if (env.globalLight?.enabled) problems.push("Global Illumination is ON (it cancels the day/night dimming)");
   if (env.darknessLock) problems.push("Darkness is locked");
-  if (!over.tokenVision) problems.push("Token Vision is OFF");
-  if (!problems.length) return { id, label, status: "ok", detail: `${over.name}: ready for time-of-day lighting.` };
+  if (!problems.length) return { id, label, status: "ok", detail: `${over.name}: the whole map stays visible and dims with the clock.` };
   return {
     id, label, status: "warn",
-    detail: `${over.name}: ${problems.join(", ")} — travel's sunset/night won't show until this is fixed.`,
-    fix: { label: "Fix scene", run: async () => { await over.update({ "environment.globalLight.enabled": false, "environment.darknessLock": false, tokenVision: true }); } }
+    detail: `${over.name}: ${problems.join("; ")} — the party won't see the whole map dim with day/night until fixed.`,
+    fix: { label: "Fix scene", run: async () => { await over.update({ tokenVision: false, "environment.globalLight.enabled": false, "environment.darknessLock": false }); } }
   };
 }
 

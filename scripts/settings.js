@@ -206,6 +206,21 @@ export function registerSettings() {
     choices: { prompt: "Ask the DM", auto: "Roll automatically", off: "NPCs don't react" }
   });
 
+  // Reaction time for phone players (DM 2026-07-19). midi's reactionTimeout is tuned for a desktop
+  // where the reaction dialog is already on screen; a phone player must first NOTICE the prompt light
+  // up and then tap, so they need a beat longer. This is a PERCENTAGE of midi's reaction timeout, and
+  // it OVERRIDES midi for prompts Mobile Command relays to phones (reactions + opportunity attacks) —
+  // it never touches midi's stored setting (so the enforcer is unaffected) or the DM's own rolls.
+  // Default 120 = 20% more time; 100 = same as midi; higher for a slower table.
+  game.settings.register(MODULE_ID, "reactionTimeoutPct", {
+    name: "Reaction time for phone players (% of midi's)",
+    hint: "Phone players need a moment to see a reaction / opportunity-attack prompt light up before they can tap it — midi's timeout assumes the dialog is already on their screen. This multiplies midi's reaction timeout for the prompts Mobile Command relays to phones. 120 = 20% more time (default); 100 = identical to midi; raise it for a slower table. Only affects phone prompts, never the DM's own rolls, and it doesn't change midi's own setting.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 120
+  });
+
   // Party-teleport follow-through: when the packed party token arrives on a new
   // scene (core Teleport Token region behavior / DM drag), the executor activates
   // that scene so the TV + every phone transitions together (transitions.js).
@@ -247,6 +262,32 @@ export function registerSettings() {
   game.settings.register(MODULE_ID, "travelDaylight", {
     name: "Travel: daylight follows the clock",
     hint: "During a travel journey the scene's darkness moves with the time of day (dawn → day → dusk → night). Needs the overworld's Global Illumination off and darkness unlocked (Preflight → Travel lighting fixes this). Off: the light stays put while the party travels.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
+  // §18 travel: any scene whose grid cell measures at least this many FEET is auto-treated as an
+  // overworld travel map (multi-overworld — no per-scene designation, DM 2026-07-19). A battle map
+  // (~5 ft/cell) never qualifies; a world/region map (miles, or hundreds of ft, per cell) does.
+  // Feeds isOverworldScene() → the on-load auto-lighting + the Preflight lighting check.
+  game.settings.register(MODULE_ID, "travelOverworldGridThreshold", {
+    name: "Overworld detection: grid feet per cell",
+    hint: "Any scene whose grid measures at least this many feet per cell is treated as a travel/overworld map — the whole map stays visible and dims with the clock. Battle maps (5 ft/cell) are never affected. Default 100.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 100
+  });
+
+  // §18 travel: the first time you open a detected overworld, set it up for travel once — whole map
+  // visible (Token Vision off), Global Illumination off, darkness unlocked, and darkness synced to
+  // the clock. One-shot per scene (a flag guards it) so a scene you later customise is never
+  // re-stomped. Off = leave scene lighting alone; use Preflight → Travel lighting by hand.
+  game.settings.register(MODULE_ID, "travelAutoLight", {
+    name: "Travel: auto-set overworld lighting on load",
+    hint: "The first time you open a detected overworld map, automatically make the whole map visible and let its darkness follow the clock (the same fix as Preflight → Travel lighting). Done once per scene. Turn off to configure overworld lighting yourself.",
     scope: "world",
     config: true,
     type: Boolean,
@@ -441,4 +482,40 @@ export function resolveExecutorId() {
 
 export function isExecutor() {
   return game.user.id === resolveExecutorId();
+}
+
+// §18 travel (DM 2026-07-19): a scene is an "overworld" travel map when its grid cell measures at
+// least travelOverworldGridThreshold FEET. Auto-detection replaces the single hand-picked scene, so
+// several overworlds all behave as travel maps. Gridless / undefined-grid scenes never qualify.
+const GRID_UNIT_FEET = { "'": 1, ft: 1, foot: 1, feet: 1, yd: 3, yard: 3, yards: 3, m: 3.28084, meter: 3.28084, metre: 3.28084, meters: 3.28084, metres: 3.28084, km: 3280.84, kilometer: 3280.84, kilometre: 3280.84, mi: 5280, mile: 5280, miles: 5280, league: 15840, leagues: 15840, hex: 1 };
+export function gridFeetPerCell(scene) {
+  const g = scene?.grid;
+  if (!g || !(g.distance > 0)) return 0;
+  const u = String(g.units ?? "ft").trim().toLowerCase();
+  const per = GRID_UNIT_FEET[u]
+    ?? (/mile|(^|[^k])mi\b/.test(u) ? 5280 : /league/.test(u) ? 15840 : /km|kilom/.test(u) ? 3280.84
+      : /meter|metre|(^|[^k])m\b/.test(u) ? 3.28084 : /yard|yd/.test(u) ? 3 : 1);
+  return g.distance * per;
+}
+export function isOverworldScene(scene) {
+  try {
+    if (!scene) return false;
+    const thr = Number(game.settings.get(MODULE_ID, "travelOverworldGridThreshold")) || 100;
+    return gridFeetPerCell(scene) >= thr;
+  } catch (e) { return false; }
+}
+
+// Reaction/opportunity-attack ttl for phone prompts (DM 2026-07-19): midi's reactionTimeout scaled by
+// the module's reactionTimeoutPct (default 120 = +20%), floored at 5s. Single source of truth for the
+// reaction relay and the AoO dispatch, so "give phone players more time" is set in one place.
+export function reactionTimeoutMs() {
+  let base = 30;
+  try {
+    const mid = (globalThis.MidiQOL?.configSettings?.().reactionTimeout)
+      ?? game.settings.get("midi-qol", "ConfigSettings")?.reactionTimeout;
+    if (Number(mid) > 0) base = Number(mid);
+  } catch (e) { /* midi absent or key moved — keep the 30s default */ }
+  let pct = 120;
+  try { const p = Number(game.settings.get(MODULE_ID, "reactionTimeoutPct")); if (p > 0) pct = p; } catch (e) {}
+  return Math.max(5, Math.round(base * pct / 100)) * 1000;
 }

@@ -1,5 +1,5 @@
 import { MODULE_ID } from "./preset.js";
-import { resolveExecutorId, isExecutor } from "./settings.js";
+import { resolveExecutorId, isExecutor, reactionTimeoutMs } from "./settings.js";
 import * as DT from "./downtime.js"; // §17.7 downtime data model + Rule engine (pure, unit-tested)
 
 // §5 Service RPC contract, Phase 1 subset, running on the executor client
@@ -94,6 +94,7 @@ export function initSocket() {
   socket.register("partySetCell", handlePartySetCell);
   socket.register("travelPrepare", handleTravelPrepare);
   socket.register("travelDrop", handleTravelDrop);
+  socket.register("transferStash", handleTransferStash);
   socket.register("nightToggle", handleNightToggle);
   socket.register("scribeRequest", handleScribeRequest);
   socket.register("scribeResult", handleScribeResult);
@@ -200,14 +201,14 @@ export function registerReactionNotifier() {
       const user = game.users.find(u => u.active && !u.isGM && u.character?.id === actor.id)
         ?? game.users.find(u => u.active && !u.isGM && actor.testUserPermission?.(u, "OWNER"));
       // Passive chip in the DM panel's reaction widget (DM 2026-07-07) — non-modal
-      // awareness of the player's reaction window; expires with midi's timeout.
-      const timeout = game.settings.get("midi-qol", "ConfigSettings")?.reactionTimeout ?? 30;
+      // awareness of the player's reaction window; matches the phone's extended window
+      // (reactionTimeoutMs) so the chip doesn't vanish before the player's time is up.
       Hooks.callAll("mobile-command.dmReaction", {
         id: foundry.utils.randomID(),
         kind: "window",
         label: `${actor.name}${user ? ` · ${user.name}` : ""}`,
         weapon: names,
-        expiresAt: Date.now() + Math.max(5, timeout) * 1000
+        expiresAt: Date.now() + reactionTimeoutMs()
       });
     } catch (e) { /* awareness only — never disturb the workflow */ }
   });
@@ -253,14 +254,13 @@ export function registerReactionRelay() {
         img: a.item?.img ?? a.img ?? "icons/svg/upgrade.svg",
         selfTarget: (a.target?.affects?.type ?? a.item?.system?.target?.affects?.type) === "self"
       }));
-      const timeout = MidiQOL?.configSettings?.().reactionTimeout ?? 30;
       socket.executeAsUser("reactionPrompt", owner.id, {
         reactorUuid: reactor.uuid,
         attackerTokenUuid, attackerName,
         triggerType: triggerType ?? "",
         spellName: wf?.item?.name ?? "",
         reactions: reactionsOut,
-        ttlMs: Math.max(5, timeout) * 1000,
+        ttlMs: reactionTimeoutMs(), // midi's reactionTimeout + the module's phone bonus (default +20%)
         ts: Date.now()
       }); // fire-and-forget — DO NOT await (awaiting stalls midi's reaction flow)
       console.debug(`${MODULE_ID} | reaction relay → ${owner.name}`, { reactor: reactor.name, count: reactionsOut.length, triggerType, attacker: attackerName });
@@ -751,6 +751,62 @@ function requesterCanAct(requesterId, actorOrToken) {
   return actor?.testUserPermission(user, "OWNER") ?? false;
 }
 
+// §20 item transfers: the first cross-actor Item move in the module. itemMoves = [{id, qty}];
+// coins = {pp,gp,ep,sp,cp} amounts. Merges into a matching destination stack or creates a copy,
+// decrements/deletes on the source, moves coins by denomination. Executor runs as GM (write perms
+// on both actors); the CALLER is responsible for the consent/permission policy.
+const TRANSFER_COINS = ["pp", "gp", "ep", "sp", "cp"];
+async function moveItemsAndCoins(src, dest, itemMoves = [], coins = {}) {
+  const srcCur = src.system?.currency ?? {};
+  const coinMove = {};
+  for (const k of TRANSFER_COINS) {
+    const n = Math.max(0, Math.floor(Number(coins?.[k]) || 0));
+    if (n > (srcCur[k] ?? 0)) return { ok: false, reason: `not enough ${k}` };
+    if (n) coinMove[k] = n;
+  }
+  const createOnDest = [], updateOnDest = [], updateOnSrc = [], deleteOnSrc = [];
+  for (const mv of itemMoves ?? []) {
+    const item = src.items.get(mv?.id);
+    if (!item || !("quantity" in (item.system ?? {}))) continue;
+    const have = Number(item.system.quantity) || 1;
+    const move = Math.max(1, Math.min(Math.floor(Number(mv.qty) || have), have));
+    if (move >= have) deleteOnSrc.push(item.id);
+    else updateOnSrc.push({ _id: item.id, "system.quantity": have - move });
+    const match = dest.items.find(i => i.type === item.type && i.name === item.name && !i.system?.container
+      && (i.system?.identifier ?? "") === (item.system?.identifier ?? ""));
+    if (match) updateOnDest.push({ _id: match.id, "system.quantity": (Number(match.system.quantity) || 1) + move });
+    else { const data = item.toObject(); delete data._id; foundry.utils.setProperty(data, "system.quantity", move); createOnDest.push(data); }
+  }
+  if (!createOnDest.length && !updateOnDest.length && !deleteOnSrc.length && !updateOnSrc.length && !Object.keys(coinMove).length)
+    return { ok: false, reason: "nothing to transfer" };
+  try {
+    if (createOnDest.length) await dest.createEmbeddedDocuments("Item", createOnDest);
+    if (updateOnDest.length) await dest.updateEmbeddedDocuments("Item", updateOnDest);
+    if (deleteOnSrc.length) await src.deleteEmbeddedDocuments("Item", deleteOnSrc);
+    if (updateOnSrc.length) await src.updateEmbeddedDocuments("Item", updateOnSrc);
+    if (Object.keys(coinMove).length) {
+      const su = {}, du = {}, destCur = dest.system?.currency ?? {};
+      for (const [k, n] of Object.entries(coinMove)) { su[`system.currency.${k}`] = (srcCur[k] ?? 0) - n; du[`system.currency.${k}`] = (destCur[k] ?? 0) + n; }
+      await src.update(su); await dest.update(du);
+    }
+  } catch (e) { console.error(`${MODULE_ID} | transfer move failed`, e); return { ok: false, reason: e.message }; }
+  return { ok: true };
+}
+
+// §20 T-core: instant stash put/take (no consent step — the DM oversees the shared stash). dir
+// "put" = PC → group stash, "take" = group stash → PC. Owner-gated on the PC.
+async function handleTransferStash({ actorId, dir, itemMoves, coins, requesterId }) {
+  if (!isExecutor()) return { ok: false, stage: "route", reason: "not the DM client" };
+  const user = game.users.get(requesterId);
+  const pc = game.actors.get(actorId);
+  if (!user || !pc) return { ok: false, stage: "resolve", reason: "character not found" };
+  if (!pc.testUserPermission(user, "OWNER")) return { ok: false, stage: "permission", reason: "you don't own that character" };
+  const group = game.actors.find(a => a.type === "group" && (a.system?.members ?? []).some(m => m.actor?.id === pc.id));
+  if (!group) return { ok: false, stage: "resolve", reason: "no party group for this character" };
+  const [source, dest] = dir === "take" ? [group, pc] : [pc, group];
+  return moveItemsAndCoins(source, dest, itemMoves, coins);
+}
+
 // Capture toast notifications fired during a callback so refusal reasons can
 // be surfaced back to the phone instead of dying on the executor's screen.
 async function captureNotifications(fn) {
@@ -797,7 +853,10 @@ export function registerDialogWatchdog() {
       const title = app?.title || app?.options?.window?.title || cname || "a popup";
       const { name, requesterId } = activePhoneAction;
       activePhoneAction = null; // alert once per action
-      console.warn(`${MODULE_ID} | dialog watchdog: stranded prompt "${title}" during phone action "${name}"`);
+      // Include the app CLASS so a mis-routed dialog is identifiable (DM 2026-07-19: the Spear AoO's
+      // "Orc Fury … 10" popup — is it a damage/usage config that should relay to the phone, or an NPC's
+      // own reaction that belongs to the DM?).
+      console.warn(`${MODULE_ID} | dialog watchdog: stranded prompt "${title}" [class: ${cname || "?"}] during phone action "${name}"`, app);
       ui.notifications?.warn(`⚠ Mobile Command: "${name}" opened "${title}" here — the phone can't reach it. Resolve it so the player isn't stuck.`, { permanent: true });
       if (socket && requesterId) {
         try { socket.executeAsUser("watchdogPing", requesterId, { name, title }); } catch (e) { /* best effort */ }
@@ -2613,6 +2672,7 @@ function toExecutor(handler, payload) {
       wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert,
       partyPack: handlePartyPack, partySetCell: handlePartySetCell,
       travelPrepare: handleTravelPrepare, travelDrop: handleTravelDrop,
+      transferStash: handleTransferStash,
       nightToggle: handleNightToggle, scribeRequest: handleScribeRequest,
       placementStart: handlePlacementStart, placementNudge: handlePlacementNudge,
       placementRotate: handlePlacementRotate, placementConfirm: handlePlacementConfirm,
@@ -2653,6 +2713,7 @@ export const api = {
   wildShapeRevert: (payload = {}) => toExecutor("wildShapeRevert", payload),
   partyPack: (payload = {}) => toExecutor("partyPack", payload),
   partySetCell: (payload = {}) => toExecutor("partySetCell", payload),
+  transferStash: (payload = {}) => toExecutor("transferStash", payload),
   travelPrepare: (payload = {}) => toExecutor("travelPrepare", payload),
   travelDrop: (payload = {}) => toExecutor("travelDrop", payload),
   nightToggle: (payload = {}) => toExecutor("nightToggle", payload),

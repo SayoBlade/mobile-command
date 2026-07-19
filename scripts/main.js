@@ -3,6 +3,7 @@ import { registerSettings, resolveExecutorId, isExecutor } from "./settings.js";
 import { diffPreset, applyPreset, checkAndPrompt, deactivate, reactivate, hasBackup } from "./enforcer.js";
 import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, registerReactionNotifier, registerSummonOwnership, api, actorTokenSight } from "./rpc.js";
 import { initPauseGuard } from "./pause-guard.js";
+import { initPauseOverlay } from "./pause-overlay.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient, isDisplayClient } from "./shell.js";
 import { registerDMPanel } from "./dm-panel.js";
 import { maybePromptDmWizard } from "./dm-wizard.js";
@@ -205,6 +206,7 @@ function tvBroadcast(payload) { try { game.socket?.emit(`module.${MODULE_ID}`, p
 function onTvControl(payload) {
   if (!payload || typeof payload !== "object" || !isDisplayClient()) return; // only the shared display reacts
   if (payload.cmd === "frameParty") { tvManual = false; framePartyTokens(); }
+  else if (payload.cmd === "fitScene") { tvManual = false; fitSceneLocal(); } // §camera: show the whole map
   else if (payload.cmd === "manual") { tvManual = !!payload.on; }
   else if (payload.cmd === "zoom" && canvas?.ready) {
     // Zoom around the display's CURRENT centre. Not gated on manual mode — a direct
@@ -263,6 +265,30 @@ function tvZoom(factor) {
     canvas.animatePan({ x: s.pivot.x, y: s.pivot.y, scale, duration: 250, easing: tvEase });
   }
   tvBroadcast({ cmd: "zoom", factor });
+}
+
+// Fit the WHOLE scene on the display (DM 2026-07-19: the missing "Fullscreen zoom" — show the entire
+// map, the natural opposite of Focus party). Computed on the DISPLAY from ITS own screen (like the
+// zoom relay), so the framing is right for the TV, not the DM's window. Locks the scale (like the
+// zoom buttons) so the party-follow holds this overview until the DM reframes.
+function fitSceneLocal() {
+  try {
+    if (!canvas?.ready) return false;
+    const r = canvas.dimensions?.sceneRect ?? canvas.dimensions?.rect;
+    if (!r) return false;
+    const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
+    const minZoom = CONFIG.Canvas?.minZoom ?? 0.1, maxZoom = CONFIG.Canvas?.maxZoom ?? 3;
+    const scale = Math.max(minZoom, Math.min(screenW / r.width, screenH / r.height, maxZoom) * 0.96); // 0.96 = a sliver of edge padding
+    setTvLockedScale(scale);
+    canvas.animatePan({ x: r.x + r.width / 2, y: r.y + r.height / 2, scale, duration: 1000, easing: tvEase });
+    return true;
+  } catch (e) { console.warn(`${MODULE_ID} | fitSceneLocal failed`, e); return false; }
+}
+// Like focusPartyAll: frame here if this IS the display, always drive the display(s), and drop manual.
+function tvFitScene() {
+  if (isDisplayClient()) fitSceneLocal();
+  tvBroadcast({ cmd: "fitScene" });
+  if (dmRelaying) setDmRelaying(false);
 }
 
 // --- TV party-follow (DM 2026-06-20, whole-party rework 2026-06-27) ----------
@@ -598,6 +624,7 @@ Hooks.once("ready", () => {
   injectShellStyles(); // load CSS via JS so a plain F5 works without re-reading the manifest
   initSocket(); // idempotent fallback in case socketlib.ready raced or didn't fire
   initPauseGuard();
+  if (!isPhoneClient()) initPauseOverlay(); // corner spinners replace the "GAME PAUSED" bar (phones have their own overlay)
   startHeartbeat();
   registerShellHooks();
   registerDMPanel(); // DM-assign panel (GM clients only; self-gates)
@@ -633,6 +660,7 @@ Hooks.once("ready", () => {
     toggleTvManual,                      // DM drives the display by panning own view
     tvManualActive: isTvManualActive,
     tvZoom,                              // zoom the display in/out (factor >1 in, <1 out) — Stream Deck via macro
+    tvFitScene,                          // frame the whole scene on the display ("Fit whole scene")
     refreshCombatVision,                 // re-apply combat POV vision on the display (settings onChange + manual)
     syncPartyTokenSight,                 // GM: set each PC token's sight/detection from its dnd5e senses
     resolveExecutorId,

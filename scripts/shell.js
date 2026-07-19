@@ -188,10 +188,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #assignedBy = null;    // DM/user name who assigned them (for the picker banner)
   #subjectId = null;     // §7.1 token switcher: active-scene token id the shell controls
   #subjectActorId = null; // tokenless subject (a blank PC mid-creation, no token yet)
-  #savePrompt = null;    // §7.4/§7.6 incoming save request relayed from the executor
-  #savePromptTimer = null;
-  #reactionPrompt = null; // §9 incoming reaction chooser relayed from the executor
-  #reactionTimer = null;
+  // Unified pending-action queue (DM 2026-07-19): saves, reactions, and opportunity attacks all land
+  // here instead of three single slots that clobbered each other (fireball → 3 saves; two AoOs).
+  // Each entry: {id, kind:"save"|"reaction"|"aoo", actorId, tokenId, payload, expiresAt, timer}. The
+  // popup renders the entry for the CURRENT subject; the header bell (mc-bell) lights when an entry
+  // exists for a token you're NOT viewing, and hops you there.
+  #pending = [];
   #reactionFiring = false; // transient: the next #pickAction is firing a reaction (→ isReaction)
   #deathSaveDismissed = false; // X'd the death-save panel (DM's call overrides; warnings-not-walls)
   #partyMoveNote = null;  // party-mode move pad: last wall/refusal readout
@@ -200,8 +202,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #wasPacked = false;     // pack-transition latch: jump phones to the order tab once per pack
   #lastReleased = null;   // scout release-follow: last-seen released member set
   #rollRequest = null;    // DM roll-request prompt {actorUuid, rollType, ability, label}
-  #aooPrompt = null;      // opportunity-attack prompt {activityUuid, targetUuid, attackerName, moverName, ttlMs}
-  #aooTimer = null;
   #colorPickOpen = false; // DM-triggered colour-picker overlay is showing
   #pausedDismissed = null; // §17.3 split-scene overlay: "activeId:hereId" the player browsed past
   #nightDismissed = null;  // §17.4 night overlays: "assign" | "watch:N" the player browsed past
@@ -211,6 +211,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #journalFilter = "";    // journal: live post filter ("shopke" → matching notes)
   #openContainers = new Set(); // Equipment tab: container item ids currently expanded
   #itemPickerId = null; // Equipment tab: item whose multi-activity picker is open
+  #transferState = null; // §20 item-transfer composer: { dir:"put"|"take", items:{id:qty}, coins:{k:amt} }
   #detailCard = null;   // long-press: { name, img, subtitle, desc } of an item shown full-screen
   #detailStack = [];    // drill-down back-stack: closing a linked card returns to the previous one
   #dropArmed = null;    // itemId mid-confirm for a "Drop" (2-tap so a stray tap can't delete)
@@ -496,6 +497,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
             ${hpBtn}${tempBtn}
             <button class="mc-stat mc-stat-tap mc-stat-acwrap" data-action="ac-detail" title="Armor Class — tap for breakdown"><span class="mc-ac-frame"><i class="fas fa-shield"></i>${ac}</span></button>
             <button class="mc-dtray-btn ${this.#diceTrayOpen ? "mc-on" : ""}" data-action="dice-tray" title="Dice tray — roll any die" aria-label="Dice tray"><i class="fas fa-dice-d20"></i></button>
+            ${this.#attentionBellHTML()}
           </div>
         </div>
       </header>
@@ -1601,8 +1603,82 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // executor relays a midi save request to this player (the whispered chat card
   // is hidden behind the shell). Tapping rolls the save the normal way
   // (actor.rollSavingThrow → the native dialog, Restyled), which midi intercepts.
+  // ── Pending-action queue + attention bell (DM 2026-07-19) ────────────────────
+  // Add/replace a pending action, tying it to the acting actor and its token on the active scene.
+  #enqueue(kind, payload, actorUuid) {
+    const wasEmpty = this.#pending.length === 0;
+    let actor = null;
+    try { actor = actorUuid ? fromUuidSync(actorUuid) : null; } catch (e) { /* stale uuid */ }
+    const actorId = actor?.id ?? null;
+    const tokenId = actorId ? (game.scenes?.active?.tokens.find(t => t.actor?.id === actorId)?.id ?? null) : null;
+    const dup = this.#pending.find(e => e.kind === kind && e.actorId === actorId); // a re-fired prompt replaces
+    if (dup) { clearTimeout(dup.timer); this.#pending = this.#pending.filter(e => e !== dup); }
+    const ttl = Number(payload?.ttlMs) > 0 ? Number(payload.ttlMs) : null;
+    const entry = { id: foundry.utils.randomID(), kind, actorId, tokenId, payload, expiresAt: ttl ? Date.now() + ttl : null, timer: null };
+    if (ttl) entry.timer = setTimeout(() => this.#expirePending(entry.id), ttl);
+    this.#pending.push(entry);
+    if (wasEmpty) this.#sfx("prompt"); // first of a burst only — not once per card (§6 attention cue)
+    if (this.rendered) this.render();
+  }
+  // The pending entry of `kind` for the CURRENT subject — the one whose popup shows. An entry whose
+  // actor couldn't be resolved (null actorId) is shown on ANY view so it's never stranded.
+  #cur(kind) { const id = this.actor?.id; return this.#pending.find(e => e.kind === kind && (e.actorId === id || e.actorId == null)) || null; }
+  // Drop the current subject's entry of `kind` (acted on or dismissed) — plus any unresolved-actor one.
+  #resolve(kind) {
+    const id = this.actor?.id;
+    this.#pending = this.#pending.filter(e => {
+      if (e.kind === kind && (e.actorId === id || e.actorId == null)) { clearTimeout(e.timer); return false; }
+      return true;
+    });
+  }
+  #expirePending(id) {
+    const e = this.#pending.find(x => x.id === id);
+    if (!e) return;
+    clearTimeout(e.timer);
+    this.#pending = this.#pending.filter(x => x.id !== id);
+    if (this.rendered) this.render();
+  }
+  // Actor ids (other than the current subject) that need you: a queued prompt (save/reaction/AoO), the
+  // active combatant when it's ANOTHER of your tokens' turn, or an unrolled initiative. All three only
+  // surface when that token is the subject, so the bell is how you reach them. Only owned tokens on the
+  // active scene (switchable) count. Insertion order = queued prompts, then whose-turn, then initiative.
+  #attentionActorIds() {
+    const id = this.actor?.id;
+    const ids = new Set();
+    const onScene = (a) => !!a && game.scenes?.active?.tokens.some(t => t.actor?.id === a.id);
+    for (const e of this.#pending) if (e.actorId && e.actorId !== id) ids.add(e.actorId);
+    const combat = game.combat;
+    if (combat) {
+      // It's another owned token's turn (auto-follow was skipped — e.g. you're mid-action).
+      const active = combat.started ? combat.combatant?.actor : null;
+      if (active?.isOwner && active.id !== id && onScene(active)) ids.add(active.id);
+      // An owned token still owes initiative (pre-start roll phase).
+      for (const c of combat.combatants) {
+        const a = c.actor;
+        if (c.initiative != null || !a?.isOwner || a.id === id) continue;
+        if (onScene(a)) ids.add(a.id);
+      }
+    }
+    return ids;
+  }
+  // The bell is live whenever a pending action or an unrolled initiative sits on another owned token.
+  #bellActive() { return this.#attentionActorIds().size > 0; }
+  #attentionBellHTML() {
+    const on = this.#bellActive();
+    return `<button class="mc-bell${on ? " mc-bell-on" : ""}" data-action="attention-next" ${on ? "" : "disabled"} title="${on ? "Go to a token that needs you" : "Nothing waiting on your other tokens"}" aria-label="Pending actions on other tokens"><i class="fas fa-bell"></i></button>`;
+  }
+  // Hop to the next token that needs you; switching subject makes its popup / initiative prompt show.
+  #attentionNext() {
+    const nextActorId = [...this.#attentionActorIds()][0];
+    if (!nextActorId) return this.render();
+    const tok = game.scenes?.active?.tokens.find(t => t.actor?.id === nextActorId);
+    if (tok) { this.#subjectId = tok.id; this.#subjectActorId = null; }
+    else { const a = game.actors.get(nextActorId); if (a?.isOwner) { this.#subjectActorId = nextActorId; this.#subjectId = null; } }
+    this.render();
+  }
+
   #savePromptHTML() {
-    const s = this.#savePrompt;
+    const s = this.#cur("save")?.payload;
     if (!s) return "";
     const abilLabel = (a) => CONFIG.DND5E?.abilities?.[a]?.label ?? a.toUpperCase();
     const dc = s.dc != null ? ` DC ${s.dc}` : "";
@@ -1630,18 +1706,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // executor (rpc.useActivity) with the attacker pre-targeted + isReaction — so the slot is
   // spent, the damage rolls, and the reaction's own save fans to the attacker (DM 2026-07-11).
   noteReactionPrompt(payload) {
-    clearTimeout(this.#reactionTimer);
-    this.#reactionPrompt = (payload?.reactions?.length ? payload : null);
-    if (this.#reactionPrompt) {
-      this.#sfx("prompt");
-      if (payload.ttlMs) {
-        this.#reactionTimer = setTimeout(() => { this.#reactionPrompt = null; if (this.rendered) this.render(); }, payload.ttlMs);
-      }
-    }
-    if (this.rendered) this.render();
+    if (!(payload?.reactions?.length)) return;
+    this.#enqueue("reaction", payload, payload.reactorUuid);
   }
   #reactionPromptHTML() {
-    const r = this.#reactionPrompt;
+    const r = this.#cur("reaction")?.payload;
     if (!r) return "";
     const who = r.attackerName ? `from ${foundry.utils.escapeHTML(r.attackerName)}` : "";
     const btns = (r.reactions ?? []).map(rx =>
@@ -1671,9 +1740,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // target's save and never offered the damage roll (DM 2026-07-11). Letting midi/the normal
   // flow drive means we don't reimplement what each of 200+ reactions needs.
   #useReaction(uuid, selfTarget) {
-    clearTimeout(this.#reactionTimer);
-    const r = this.#reactionPrompt;
-    this.#reactionPrompt = null;
+    const r = this.#cur("reaction")?.payload;
+    this.#resolve("reaction");
     if (!uuid) return this.render();
     if (!selfTarget && r?.attackerTokenUuid) {
       this.#assignedTargets = [r.attackerTokenUuid];
@@ -1687,7 +1755,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // out of this player's reach. Attack = the normal two-tap attack flow with the
   // mover PRE-TARGETED (assigned-targets path); midi charges the reaction on roll.
   #aooPromptHTML() {
-    const p = this.#aooPrompt;
+    const p = this.#cur("aoo")?.payload;
     if (!p) return "";
     return `<div class="mc-saveprompt mc-aoo">
       <div class="mc-saveprompt-bar">
@@ -1704,16 +1772,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   noteAoOPrompt(payload) {
-    clearTimeout(this.#aooTimer);
-    this.#aooPrompt = payload || null;
-    if (payload) this.#sfx("prompt"); // off-turn attention cue — eyes are on the TV
-    if (payload?.ttlMs) {
-      this.#aooTimer = setTimeout(() => {
-        this.#aooPrompt = null;
-        if (this.rendered) this.render();
-      }, payload.ttlMs);
-    }
-    if (this.rendered) this.render();
+    if (!payload) return;
+    this.#enqueue("aoo", payload, payload.reactorUuid);
   }
 
   // Full-screen image popup (tap the portrait): toggles between the actor's
@@ -1801,6 +1861,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // An in-progress action/cast overlays the current tab — so casting from the
     // Spells tab (or using a favorite from Explore) stays put instead of jumping.
     if (this.#detailCard) return this.#detailCardHTML();
+    if (this.#transferState) return this.#transferComposerHTML(actor);
     if (this.#actionState) return this.#targetPickerHTML();
     if (this.#itemPickerId) return this.#itemActivityPickerHTML(actor);
     if (this.#wildShape?.open) return this.#wildShapeBrowserHTML();
@@ -2585,9 +2646,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const cur = subs[i]?.actorId ? game.actors.get(subs[i].actorId) : null;
     const canStar = !game.user.isGM && !!subs[i]?.tokenId && cur?.type === "character";
     const isMain = cur && game.user.character?.id === cur.id;
+    // Reserve the star's slot even when it doesn't apply (a summon/familiar), so cycling tokens never
+    // shifts the row (DM 2026-07-19).
     const star = canStar ? `<button class="mc-tokensw-btn mc-tokensw-star ${isMain ? "mc-on" : ""}" data-action="set-active-pc" data-actor-id="${cur.id}"
         title="${isMain ? "Your active character — save & reaction popups come here" : "Play as this one — make it your active character (popups route here)"}"
-        aria-label="Set active character"><i class="fas fa-star"></i></button>` : "";
+        aria-label="Set active character"><i class="fas fa-star"></i></button>`
+      : `<span class="mc-tokensw-btn mc-tokensw-ph" aria-hidden="true"></span>`;
     return `<div class="mc-tokensw">
       <button class="mc-tokensw-btn mc-follow ${following ? "mc-follow-on" : ""}" data-action="follow-toggle"
         title="${following ? "Following: your other tokens copy this one's moves" : "Follow: have your other tokens copy this one's moves"}"
@@ -3031,8 +3095,70 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       return `<div class="mc-search-group"><div class="mc-actions-sub">${g.label}</div><div class="mc-inv">${this.#inventoryItemsHTML(items)}</div></div>`;
     }).join("");
     // Search gets its OWN row here — the header already carries weight + new-item (UI-BIBLE §6.2).
-    return `<div class="mc-actions-head mc-eq-head"><span class="mc-section-label">Equipment</span>${this.#carriedWeightHTML(actor)}${this.#newItemBtnHTML()}</div>
+    return `<div class="mc-actions-head mc-eq-head"><span class="mc-section-label">Equipment</span>${this.#carriedWeightHTML(actor)}${this.#transferBtnHTML(actor)}${this.#newItemBtnHTML()}</div>
       ${this.#newItemInputHTML()}${this.#searchDrawerHTML()}${currency}${enc}${sections}`;
+  }
+
+  // §20 item transfers: the group this PC belongs to (its items = the party stash), packed or not.
+  #stashGroup(actor) {
+    return game.actors.find(a => a.type === "group" && (a.system?.members ?? []).some(m => m.actor?.id === actor?.id)) ?? null;
+  }
+  // One "Transfer" button in the equipment header (no per-item clutter). Only when a party stash exists.
+  #transferBtnHTML(actor) {
+    if (!actor?.isOwner || !this.#stashGroup(actor)) return "";
+    return `<button class="mc-eq-new" data-action="transfer-open" aria-label="Transfer items" title="Transfer items with the party stash"><i class="fas fa-right-left"></i></button>`;
+  }
+  // The composer: put-in / take-from the shared stash; toggle items (with a +/- quantity on stacks)
+  // and coin amounts; commit is instant (the DM oversees the stash — §20.1). (Ally transfers reuse
+  // this composer via the proximity picker in the next slice.)
+  #transferComposerHTML(actor) {
+    const esc = foundry.utils.escapeHTML;
+    const t = this.#transferState;
+    const group = this.#stashGroup(actor);
+    if (!group) { this.#transferState = null; return this.#equipmentHTML(actor); }
+    const source = t.dir === "take" ? group : actor;
+    const coinKeys = Object.keys(CONFIG.DND5E?.currencies ?? { pp: 1, gp: 1, ep: 1, sp: 1, cp: 1 });
+    const items = source.items.filter(i => "quantity" in (i.system ?? {}) && !i.system?.container).sort((a, b) => a.name.localeCompare(b.name));
+    const sel = t.items ?? {};
+    const head = `<div class="mc-picker-head">
+        <button class="mc-back mc-picker-x" data-action="transfer-close" aria-label="Back"><i class="fas fa-xmark"></i></button>
+        <span class="mc-picker-title">Transfer</span>
+      </div>`;
+    const dir = `<div class="mc-tr-dir">
+        <button class="mc-tr-dirbtn ${t.dir !== "take" ? "mc-on" : ""}" data-action="transfer-dir" data-dir="put"><i class="fas fa-arrow-right"></i> Put in shared</button>
+        <button class="mc-tr-dirbtn ${t.dir === "take" ? "mc-on" : ""}" data-action="transfer-dir" data-dir="take"><i class="fas fa-arrow-left"></i> Take from shared</button>
+      </div>`;
+    const itemRows = items.length ? items.map(i => {
+      const on = i.id in sel;
+      const max = Number(i.system.quantity) || 1;
+      const qty = on ? Math.min(sel[i.id] || max, max) : max;
+      return `<div class="mc-tr-item ${on ? "mc-on" : ""}">
+          <button class="mc-tr-item-main" data-action="transfer-item" data-id="${i.id}">
+            <i class="fas ${on ? "fa-square-check" : "fa-square"} mc-tr-tick"></i>
+            <img class="mc-tr-item-img" src="${esc(i.img)}" alt="">
+            <span class="mc-tr-item-name">${esc(i.name)}</span>
+            ${max > 1 ? `<span class="mc-tr-item-have">×${max}</span>` : ""}
+          </button>
+          ${on && max > 1 ? `<span class="mc-tr-qty">
+            <button data-action="transfer-qty" data-id="${i.id}" data-d="-1">−</button>
+            <span class="mc-tr-qty-n">${qty}</span>
+            <button data-action="transfer-qty" data-id="${i.id}" data-d="1">+</button>
+          </span>` : ""}
+        </div>`;
+    }).join("") : `<div class="mc-target-note">Nothing to ${t.dir === "take" ? "take" : "give"}.</div>`;
+    const srcCur = source.system?.currency ?? {};
+    const coinRow = `<div class="mc-tr-coins">${coinKeys.map(k => `<span class="mc-tr-coin">
+        <img class="mc-coin-icon" src="${this.#coinIconSrc(k)}" alt="${k}" title="${k.toUpperCase()}">
+        <input class="mc-tr-coin-in" type="number" min="0" max="${srcCur[k] ?? 0}" data-tr-coin="${k}" value="${t.coins?.[k] || ""}" placeholder="0" inputmode="numeric">
+        <span class="mc-tr-coin-have">/ ${srcCur[k] ?? 0}</span>
+      </span>`).join("")}</div>`;
+    const label = t.dir === "take" ? "Take from shared" : "Put in shared";
+    return `${head}${dir}
+      <div class="mc-tr-scroll">
+        <div class="mc-section-label">Items</div>${itemRows}
+        <div class="mc-section-label">Coins</div>${coinRow}
+      </div>
+      <button class="mc-cg-finish" data-action="transfer-commit"><i class="fas fa-right-left"></i> ${label}</button>`;
   }
 
   // Carried weight (current / capacity) for the Equipment header — always shown, since dnd5e
@@ -4735,22 +4861,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   noteSavePrompt(payload) {
-    clearTimeout(this.#savePromptTimer);
-    // Log the required save as a bottom event chip (the save-prompt card is the popup).
-    if (payload && this.#savePrompt?.actorUuid !== payload.actorUuid) {
+    if (!payload) return;
+    // Log the required save as a bottom event chip — once per creature (not on a re-note).
+    if (!this.#pending.some(e => e.kind === "save" && e.payload?.actorUuid === payload.actorUuid)) {
       const abil = payload.abilities?.[0];
       const label = CONFIG.DND5E?.abilities?.[abil]?.label ?? (abil ? abil.toUpperCase() : "");
       this.#pushEvent({ kind: "save", text: `${payload.dc ? `DC ${payload.dc} ` : ""}${label} save`.trim() });
     }
-    this.#savePrompt = payload || null;
-    if (payload) this.#sfx("prompt"); // off-turn attention cue (§6: player is looking at the TV)
-    if (payload?.ttlMs) {
-      this.#savePromptTimer = setTimeout(() => {
-        this.#savePrompt = null;
-        if (this.rendered) this.render();
-      }, payload.ttlMs);
-    }
-    if (this.rendered) this.render();
+    this.#enqueue("save", payload, payload.actorUuid);
   }
   // Phone-side fallback for the save prompt. The executor relay (rpc.js) is the
   // primary path, but it only fires if the GM/executor client is running current
@@ -4771,7 +4889,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const abil = Object.entries(CONFIG.DND5E?.abilities ?? {})
         .find(([, v]) => v?.label && new RegExp(`\\b${v.label}\\b`, "i").test(text))?.[0];
       if (!abil) return;
-      if (this.#savePrompt?.actorUuid === actor.uuid) return;        // relay (or a prior card) already prompted
+      if (this.#pending.some(e => e.kind === "save" && e.payload?.actorUuid === actor.uuid)) return; // relay (or a prior card) already prompted
       const dc = Number((text.match(/DC\s*(\d+)/i) || [])[1]) || null;
       const flavor = (text.split(/\s[-–]\s/).pop() || "").replace(/[)\s]+$/, "").trim();
       const timeout = game.settings.get("midi-qol", "ConfigSettings")?.playerSaveTimeout ?? 0;
@@ -4785,15 +4903,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       });
     } catch (e) { console.warn(`${MODULE_ID} | save-card fallback failed`, e); }
   }
-  #clearSavePrompt() {
-    clearTimeout(this.#savePromptTimer);
-    this.#savePrompt = null;
-  }
   // Roll the requested save on the *specific* actor that needs it (which may not
   // be the currently-viewed subject). midi intercepts the matching roll.
   async #rollSavePrompt(ability) {
-    const s = this.#savePrompt;
-    this.#clearSavePrompt();
+    const s = this.#cur("save")?.payload;
+    this.#resolve("save");
     this.render();
     const actor = s?.actorUuid ? await fromUuid(s.actorUuid) : this.actor;
     actor?.rollSavingThrow?.({ ability });
@@ -5052,6 +5166,43 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.render();
         if (this.#searchOpen) setTimeout(() => this.element?.querySelector(".mc-search-input")?.focus(), 0);
         return;
+      case "transfer-open":
+        this.#transferState = { dir: "put", items: {}, coins: {} }; return this.render();
+      case "transfer-close":
+        this.#transferState = null; return this.render();
+      case "transfer-dir": {
+        const t = this.#transferState; if (!t) return;
+        t.dir = el.dataset.dir === "take" ? "take" : "put"; t.items = {}; t.coins = {};
+        return this.render();
+      }
+      case "transfer-item": {
+        const t = this.#transferState; if (!t) return;
+        const id = el.dataset.id; t.items ??= {};
+        if (id in t.items) delete t.items[id];
+        else { const src = t.dir === "take" ? this.#stashGroup(this.actor) : this.actor; t.items[id] = Number(src?.items.get(id)?.system?.quantity) || 1; }
+        return this.render();
+      }
+      case "transfer-qty": {
+        const t = this.#transferState; if (!t) return;
+        const id = el.dataset.id; if (!(id in (t.items ?? {}))) return;
+        const src = t.dir === "take" ? this.#stashGroup(this.actor) : this.actor;
+        const max = Number(src?.items.get(id)?.system?.quantity) || 1;
+        t.items[id] = Math.max(1, Math.min((t.items[id] || 1) + (Number(el.dataset.d) || 0), max));
+        return this.render();
+      }
+      case "transfer-commit": {
+        const t = this.#transferState; if (!t) return;
+        const itemMoves = Object.entries(t.items ?? {}).map(([id, qty]) => ({ id, qty }));
+        const coins = t.coins ?? {};
+        if (!itemMoves.length && !Object.values(coins).some(n => Number(n) > 0)) { ui.notifications.warn("Pick something to transfer."); return; }
+        rpc.transferStash({ actorId: this.actor.id, dir: t.dir, itemMoves, coins }).then(res => {
+          if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Transfer failed."); return; }
+          this.#transferState = null;
+          ui.notifications.info(t.dir === "take" ? "Taken from the party stash." : "Put in the party stash.");
+          this.render();
+        });
+        return;
+      }
       case "new-item":
         this.#newItemOpen = !this.#newItemOpen;
         this.render();
@@ -5372,10 +5523,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       }
       case "roll-request-x": this.#rollRequest = null; return this.render();
       case "aoo-attack": {
-        const p = this.#aooPrompt;
+        const p = this.#cur("aoo")?.payload;
         if (!p) return;
-        clearTimeout(this.#aooTimer);
-        this.#aooPrompt = null;
+        this.#resolve("aoo");
         // Pre-target the escaping enemy via the assigned-targets path — the picker
         // opens with them selected; Use → the normal attack → damage two-tap.
         this.#assignedTargets = [p.targetUuid];
@@ -5383,8 +5533,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#pickAction(p.activityUuid);
       }
       case "aoo-dismiss":
-        clearTimeout(this.#aooTimer);
-        this.#aooPrompt = null; return this.render();
+        this.#resolve("aoo"); return this.render();
       case "party-move": return this.#partyMove(Number(el.dataset.dx), Number(el.dataset.dy));
       case "party-stage": return this.#partyStage(el.dataset.stage);
       case "ptab":
@@ -5581,14 +5730,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "save-prompt-roll":
         this.#rollSavePrompt(el.dataset.ability); return;
       case "save-prompt-dismiss":
-        this.#clearSavePrompt(); return this.render();
+        this.#resolve("save"); return this.render();
       case "reaction-pick":
         return this.#useReaction(el.dataset.uuid, el.dataset.self === "1");
       case "reaction-info":
         return this.#triggerDetail(el); // open the reaction's description card (same as long-press)
       case "reaction-dismiss":
-        clearTimeout(this.#reactionTimer);
-        this.#reactionPrompt = null; return this.render();
+        this.#resolve("reaction"); return this.render();
+      case "attention-next":                              // the header bell: hop to the next token that needs you
+        return this.#attentionNext();
       case "short-rest":
         return this.#doRest("short");
       case "long-rest":
@@ -6391,6 +6541,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // No re-render here — that would steal focus mid-word.
   #onInput = (ev) => {
     const t = ev.target;
+    const trc = t?.closest?.("[data-tr-coin]"); // §20: transfer coin amount → state, no re-render (keep focus)
+    if (trc && this.#transferState) { (this.#transferState.coins ??= {})[trc.dataset.trCoin] = Math.max(0, Math.floor(Number(trc.value) || 0)); return; }
     if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-jn-input")) {
       this.#journalDraft = t.value;
     } else if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-bio-edit")) {
@@ -6504,12 +6656,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   /** Called from the createChatMessage hook for every new message. */
   noteRoll(message) {
-    // Close the save prompt once a save actually rolls — however it was rolled
-    // (our card, the native card, or the sheet), so it never lingers (DM 2026-06-17).
-    if (this.#savePrompt && message.author?.id === game.user.id
-        && message.flags?.dnd5e?.roll?.type === "save") {
-      this.#clearSavePrompt();
-      if (this.rendered) this.render();
+    // Close the save prompt once a save actually rolls — however it was rolled (our card, the native
+    // card, or the sheet), so it never lingers (DM 2026-06-17). Clear ONLY the creature that rolled
+    // (fireball: rolling the wizard's save must not drop the pet's still-pending card).
+    if (message.author?.id === game.user.id && message.flags?.dnd5e?.roll?.type === "save") {
+      const rolledActorId = message.speaker?.actor ?? this.actor?.id ?? null;
+      const before = this.#pending.length;
+      this.#pending = this.#pending.filter(e => {
+        if (e.kind === "save" && e.actorId === rolledActorId) { clearTimeout(e.timer); return false; }
+        return true;
+      });
+      if (this.#pending.length !== before && this.rendered) this.render();
     }
     const entry = this.#describeRoll(message);
     if (!entry) return;
@@ -6638,8 +6795,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   _onClose(options) {
     this.#abandonAction(); // cancel any held workflow if the shell closes mid-flow
     clearTimeout(this.#toastTimer);
-    clearTimeout(this.#reactionTimer);
-    this.#reactionPrompt = null;
+    for (const e of this.#pending) clearTimeout(e.timer); // drop every queued prompt's expiry timer
+    this.#pending = [];
     this.#toastEl = null;
     this.#recentRolls = [];
     this.#combatEvents = [];

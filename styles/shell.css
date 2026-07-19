@@ -31,6 +31,21 @@ body.mc-clean #board, body.mc-clean canvas#board { display: block !important; vi
    logs in as a player, so Foundry filters blind/private GM rolls (they never
    animate here) while public player + DM rolls do. */
 body.mc-clean #dice-box-canvas { display: block !important; visibility: visible !important; }
+
+/* Quieter pause cue (DM 2026-07-19): replace Foundry's centred "GAME PAUSED" bar — it covered the
+   canvas and hid travel — with four small spinning icons in the screen corners. No text, no dark
+   band, the map stays fully visible. Core #pause is hidden; #mc-pause-corners fades in only while
+   paused (body.mc-game-paused, toggled by pause-overlay.js). Custom id → survives the clean-TV hide
+   list, so the shared display still shows a paused cue. */
+#pause { display: none !important; }
+#mc-pause-corners { position: fixed; inset: 0; z-index: 90; pointer-events: none; opacity: 0; transition: opacity .3s ease; }
+body.mc-game-paused #mc-pause-corners { opacity: 1; }
+#mc-pause-corners .mc-pause-spin { position: fixed; font-size: 26px; color: var(--mc-gold, #b09a63); opacity: .45; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .6)); animation: mc-pause-spin 2.4s linear infinite; }
+#mc-pause-corners .mc-pc-tl { top: 20px; left: 20px; }
+#mc-pause-corners .mc-pc-tr { top: 20px; right: 20px; }
+#mc-pause-corners .mc-pc-bl { bottom: 20px; left: 20px; }
+#mc-pause-corners .mc-pc-br { bottom: 20px; right: 20px; }
+@keyframes mc-pause-spin { to { transform: rotate(360deg); } }
 /* Clean-mode escape-hatch hint: a dismissable pill telling the user how to get the
    UI back. Exempt from the hiding above (custom id), high z, fades after ~60s. */
 #mc-clean-hint {
@@ -175,6 +190,8 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
 /* --- scrollable content --- */
 .mc-content {
   flex: 1 1 auto;
+  min-height: 0; /* iOS Safari: without this a flex:1 scroll child sizes to its content and shoves the
+                    footer (the tab bar) around — esp. on short screens like death saves (DM 2026-07-19) */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 12px;
@@ -1069,6 +1086,27 @@ body {
 .mc-dtray-btn.mc-on { color: var(--mc-gold); background: var(--mc-panel-2); border-color: var(--mc-gold); } /* toggle-on: outline, not fill (UI-BIBLE §4.2) */
 .mc-dtray-btn:active { background: #2a2730; }
 
+/* Attention bell (DM 2026-07-19): sits by the dice tray. Greyed + inert most of the time; when a
+   pending action (save / reaction / opportunity attack) waits on a token you're NOT viewing it goes
+   gold-outlined and gently pulses. Tap hops you to that token. Gold accents the outline, never fills
+   (UI-BIBLE §4.2); the pulse is an attention glow, not a loading spinner (§5 exception, canvas-style). */
+.mc-bell {
+  flex: 0 0 auto; align-self: center; margin-left: 6px;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: #1a1820; border: 1px solid var(--mc-edge); color: var(--mc-ink);
+  font-size: 14px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.mc-bell:disabled { opacity: .3; cursor: default; }
+.mc-bell-on {
+  color: var(--mc-gold); background: var(--mc-panel-2); border-color: var(--mc-gold); cursor: pointer;
+  animation: mc-bell-pulse 1.6s ease-in-out infinite;
+}
+@keyframes mc-bell-pulse { /* rgba matches --mc-gold #b09a63 (no token for a shadow tint) */
+  0%, 100% { box-shadow: 0 0 0 0 rgba(176, 154, 99, 0.5); }
+  50% { box-shadow: 0 0 0 5px rgba(176, 154, 99, 0); }
+}
+
 /* Dice tray panel (contextless rolls). Posts a public roll so it shows on the TV
    via Dice So Nice when present — DSN not required. Mirrors the stat-editor row. */
 .mc-dtray {
@@ -1134,6 +1172,29 @@ body {
   min-height: 50px; border-radius: calc(12px * var(--mc-round, 1)); font-size: 16px; font-weight: 800; background: #243042; border: 1px solid #2f5d8a; color: var(--mc-ink); }
 .mc-cg-finish:active { background: #2c3d54; }
 .mc-cg-finish:disabled { opacity: .4; }
+/* §20 item-transfer composer */
+.mc-tr-dir { display: flex; gap: 6px; padding: 6px 14px 0; }
+.mc-tr-dirbtn { flex: 1 1 0; min-height: 38px; border-radius: calc(9px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); }
+.mc-tr-dirbtn.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); background: var(--mc-panel-2); }
+.mc-tr-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px 14px 4px; display: flex; flex-direction: column; gap: 4px; }
+.mc-tr-scroll .mc-section-label { margin: 10px 0 2px; }
+.mc-tr-item { display: flex; align-items: center; gap: 8px; }
+.mc-tr-item-main { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 10px; cursor: pointer;
+  border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); text-align: left; }
+.mc-tr-item.mc-on .mc-tr-item-main { border-color: var(--mc-gold); background: var(--mc-panel-2); }
+.mc-tr-tick { flex: 0 0 auto; color: var(--mc-muted); font-size: 15px; }
+.mc-tr-item.mc-on .mc-tr-tick { color: var(--mc-gold); }
+.mc-tr-item-img { width: 26px; height: 26px; border-radius: calc(5px * var(--mc-round, 1)); object-fit: cover; flex: 0 0 auto; }
+.mc-tr-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-tr-item-have { margin-left: auto; flex: 0 0 auto; font-size: 12px; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
+.mc-tr-qty { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; }
+.mc-tr-qty button { width: 30px; min-height: 30px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 16px; background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); }
+.mc-tr-qty-n { min-width: 22px; text-align: center; font-variant-numeric: tabular-nums; }
+.mc-tr-coins { display: flex; flex-wrap: wrap; gap: 8px; }
+.mc-tr-coin { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--mc-muted); }
+.mc-tr-coin-in { width: 56px; min-height: 34px; border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: var(--mc-ink); padding: 0 6px; box-sizing: border-box; font-variant-numeric: tabular-nums; }
+.mc-tr-coin-have { font-variant-numeric: tabular-nums; }
 /* Spell-pick step (known casters): tap to select up to the known count */
 .mc-spellpick-body { display: flex; flex-direction: column; gap: 6px; padding: 6px 14px 12px; }
 .mc-spellpick-body .mc-section-label { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; }
@@ -2265,16 +2326,18 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
   body.mc-theme-sorcerer #mobile-command-shell > *,
   body.mc-theme-warlock #mobile-command-shell > * { position: relative; z-index: 1; }
 
-  body.mc-theme-frost #mobile-command-shell::after,
-  body.mc-theme-sorcerer #mobile-command-shell::after,
-  body.mc-theme-warlock #mobile-command-shell::after {
+  /* Ambient bg lives on ::before so it doesn't clobber the ::after player-colour outline
+     (DM 2026-07-18: "no outline on frost"). */
+  body.mc-theme-frost #mobile-command-shell::before,
+  body.mc-theme-sorcerer #mobile-command-shell::before,
+  body.mc-theme-warlock #mobile-command-shell::before {
     content: ""; position: absolute; z-index: 0; pointer-events: none;
     will-change: transform, opacity;
   }
 
   /* Frost — drifting snow: a tiled dot pattern translated exactly one tile (seamless
      loop). Oversized inset so the translate never reveals an edge. */
-  body.mc-theme-frost #mobile-command-shell::after {
+  body.mc-theme-frost #mobile-command-shell::before {
     inset: -80px;
     background-image: radial-gradient(rgba(210,228,248,0.40) 1.2px, transparent 1.7px);
     background-size: 60px 60px; opacity: 0.5;
@@ -2283,7 +2346,7 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
   @keyframes mc-bg-snow { from { transform: translate3d(0,0,0); } to { transform: translate3d(10px,60px,0); } }
 
   /* Sorcerer — minimalist warm glow breathing at the base (opacity only). */
-  body.mc-theme-sorcerer #mobile-command-shell::after {
+  body.mc-theme-sorcerer #mobile-command-shell::before {
     inset: 0;
     background: radial-gradient(130% 60% at 50% 120%, rgba(224,96,30,0.30), transparent 70%);
     animation: mc-bg-sorc 6.5s ease-in-out infinite;
@@ -2291,7 +2354,7 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
   @keyframes mc-bg-sorc { 0%,100% { opacity: 0.4; } 50% { opacity: 0.8; } }
 
   /* Warlock — faint twinkling motes (opacity only). */
-  body.mc-theme-warlock #mobile-command-shell::after {
+  body.mc-theme-warlock #mobile-command-shell::before {
     inset: 0;
     background-image: radial-gradient(rgba(168,140,255,0.55) 1px, transparent 1.5px);
     background-size: 46px 46px;
@@ -2769,7 +2832,10 @@ body.mc-theme-wizard .mc-frame {
 .mc-spell-fav { align-self: center; padding: 0 8px; }
 
 /* §7.1 owned-token switcher (Explore): Prev / current / Next. */
-.mc-tokensw { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 2px 0 12px; }
+/* Name fills the row (below) so the arrows + star pin to fixed edges — no center-justify, or the whole
+   group slid as the name width changed while cycling (DM 2026-07-19). */
+.mc-tokensw { display: flex; align-items: center; gap: 12px; margin: 2px 0 12px; }
+.mc-tokensw-ph { visibility: hidden; } /* reserved slot when the active-character star doesn't apply */
 .mc-tokensw-btn {
   width: 40px; height: 40px; border-radius: calc(9px * var(--mc-round, 1));
   background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 16px;
@@ -2813,7 +2879,7 @@ body.mc-theme-wizard .mc-frame {
 .mc-tokensw-star { color: #8a8578; }
 .mc-tokensw-star.mc-on { background: var(--mc-panel-2); border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-tokensw-name {
-  min-width: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1 1 auto; min-width: 0; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 15px; font-weight: 700; color: var(--mc-gold);
 }
 .mc-tokensw-count { font-size: 12px; font-weight: 600; color: var(--mc-ink-dim, #a59b86); }
@@ -3341,17 +3407,21 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-hp-row { display: flex; gap: 6px; align-items: stretch; }
 .mc-dmp-hp-input { flex: 1 1 0; min-width: 0; min-height: 34px; text-align: center; border-radius: calc(8px * var(--mc-round, 1));
   background: #2c2733; border: 1px solid #4a4334; color: #ece5d6; font-size: 14px; }
+/* the selected token's current HP shows as a faint hint; it clears the instant the DM types (DM 2026-07-19) */
+.mc-dmp-hp-input::placeholder { color: var(--mc-ink); opacity: .4; }
 .mc-dmp-hp-btn { flex: 0 0 auto; min-height: 34px; padding: 0 12px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700; border: 1px solid; }
 .mc-dmp-dmg { background: #3a1f1d; border-color: #6a302a; color: #e8a59c; }
 .mc-dmp-dmg:hover { background: #4a2722; }
 .mc-dmp-heal { background: #1f3320; border-color: #2f5d39; color: #8fe0a0; }
 .mc-dmp-heal:hover { background: #274028; }
 /* Camera bar (focus party + manual TV control). */
-.mc-dmp-cam { display: flex; gap: 8px; }
+/* gap tightened 8→6 + icon 16→15 so a 5th button (Fit whole scene) fits WITHOUT widening the panel —
+   the buttons are flex:1 1 0, so they just share the same width (DM 2026-07-19). */
+.mc-dmp-cam { display: flex; gap: 6px; }
 .mc-dmp-cam:not(:last-child) { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--mc-edge); }
 .mc-dmp-cam-btn {
-  flex: 1 1 0; min-height: 40px; display: flex; align-items: center; justify-content: center;
-  font-size: 16px; color: #ece5d6; background: #2c2733; border: 1px solid #4a4334; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
+  flex: 1 1 0; min-width: 0; min-height: 40px; display: flex; align-items: center; justify-content: center;
+  font-size: 15px; color: #ece5d6; background: #2c2733; border: 1px solid #4a4334; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
 }
 .mc-dmp-cam-btn:hover { background: #36303f; }
 .mc-dmp-cam-btn.mc-active { color: var(--mc-gold); background: var(--mc-panel-2); border-color: var(--mc-gold); }
@@ -3430,7 +3500,9 @@ body.mc-theme-wizard .mc-frame {
 
 /* Name row: Lvl button sits before the name, its right edge at the name's start. */
 #mobile-command-shell .mc-name { display: flex; align-items: center; gap: 8px; }
-.mc-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Fill the row so the trailing inspiration star pins to a FIXED right edge — otherwise it slid with
+   each character's name length as you switched (DM 2026-07-19). The star's slot is always reserved. */
+.mc-name-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Resistances / Vulnerabilities chips (green = resist, solid green = immune,
    red = vulnerable) — colour replaces per-category labels. */
