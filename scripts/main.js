@@ -561,6 +561,15 @@ Hooks.once("ready", () => {
   // disabling the module just stops adding these classes, so it auto-reverts.
   if (isDisplayClient()) {
     document.body.classList.add("mc-display", "mc-clean"); showCleanHint(); warnDisplayGM(); suppressMcdCamera(); mountTvCompass();
+    // The TV is the screen that SHOULD show spell/attack VFX. Sequencer's effectsEnabled is
+    // client-scoped and STICKY — if this browser was ever a phone (we disable it there), it stays off,
+    // so animations vanish on the TV while the DM still sees them (DM 2026-07-20). Force it back on.
+    try {
+      if (game.modules.get("sequencer")?.active && !game.settings.get("sequencer", "effectsEnabled")) {
+        game.settings.set("sequencer", "effectsEnabled", true);
+        console.log(`${MODULE_ID} | display client — re-enabled Sequencer canvas effects (takes effect on the next reload of this TV)`);
+      }
+    } catch (e) { /* sequencer absent or its setting key moved */ }
     // Kill the ORANGE controlled-token borders on the TV: Monk's Common Display
     // CONTROLS the party tokens to merge vision, and controlled tokens draw an
     // orange border (CONFIG.Canvas dispositionColors.CONTROLLED). View-only screen

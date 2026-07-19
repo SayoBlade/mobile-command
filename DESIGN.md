@@ -853,6 +853,21 @@ Single list so a fresh session can pick up. UI rounds 1–7 (§12) are built; de
 
 **Known non-bugs:** test Fighter's Speed shows 0 (actor/Foundry data quirk, not ours).
 
+**2026-07-20 light-source items give light — MVP BUILT (native).** A phone player taps the **flame
+toggle** on a torch/lantern/lamp/candle/bullseye-lantern row (Equipment tab) → their token emits light;
+tap again to put it out. `#lightConfigFor` (shell.js) is a **name-based** radius lookup (torch 20/40,
+lantern 30/60, bullseye 60/120 @60°, lamp 15/45, candle 5/10 ft — never bare "light", which would catch
+a Light Crossbow). `handleSetTokenLight` (rpc.js, executor, owner-gated) writes `token.light` and tracks
+`flags.<id>.litItem` so the toggle is stateful. Warm flame colour + torch animation.
+- **Module findings (DM asked to check):** the **Torch** module (v3.3.0) ships **minified** — no
+  readable API to integrate. The **Light Sources** module (foundryvtt.com/packages/light-sources, NOT
+  installed) activates lights via the **Token HUD flame button**, which a canvasless phone can't reach,
+  and its store page documents only a `registerSources()` hook (no activation API) — so we went
+  **native** instead of depending on it. **Caveat:** if the DM later adopts the Light Sources module,
+  the two would both write `token.light`; switch the phone toggle to drive that module's API then.
+- **Out of scope (DM):** Torch's *drop-a-torch* / light-on-the-ground — skipped.
+- **Untested; heuristic detection** — homebrew light names may miss (refine the lookup or add a flag).
+
 ---
 
 ## 14. Why the phone has its own adv/dis buttons — and the spike to remove them
@@ -1472,10 +1487,19 @@ NPCs (merchants already work via Item Piles). NO two-way swap — a transfer mov
   group, moves instantly, owner-gated. Registered as `api.transferStash`.
 - **T-stash UI.** Equipment-tab "Transfer" button → composer with a put/take toggle over the stash;
   item toggles + qty steppers + coin amounts → api.transferStash.
-- **T-p2p.** Same composer, destination = a nearby ally (reused proximity picker). Offer session on
-  the executor: propose → live-push to the receiver's phone (or the DM chip if offline) → accept
-  commits via moveItemsAndCoins / decline drops it. Sender's accept locks the offer; receiver's
-  accept commits.
+- **T-p2p — BUILT 2026-07-20 (Milestone B).** Same composer, destination = a **nearby PC ally** — the
+  composer lists allies within ~10 ft (`#nearbyAllies`, computed client-side from scene token
+  positions; NPCs excluded), each a "Give to …" button. Commit → `handleTransferOffer` (executor):
+  re-checks proximity authoritatively (`MidiQOL.computeDistance ≤ 10 ft`), then:
+  - **Same owner** (your own summon / second PC) → commits **instantly**, no self-accept.
+  - **Online receiver** → an offer is pushed to their phone as a **`trade` entry in the pending
+    queue**, so the attention bell surfaces it; the offer card (green) has Accept / Decline →
+    `handleTransferRespond` commits via `moveItemsAndCoins` or drops it; the giver is toasted the
+    result.
+  - **Offline receiver** → a **DM reaction-widget chip** (kind `trade`) lets the DM accept/decline on
+    their behalf.
+  One-way only, no NPCs, no action-economy automation. (The live-fill-while-composing preview was
+  dropped per DM "don't need realtime" — the offer is sent on commit, one push.)
 
 ### 20.3 Ledger
 

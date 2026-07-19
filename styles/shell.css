@@ -1173,8 +1173,8 @@ body {
 .mc-cg-finish:active { background: #2c3d54; }
 .mc-cg-finish:disabled { opacity: .4; }
 /* §20 item-transfer composer */
-.mc-tr-dir { display: flex; gap: 6px; padding: 6px 14px 0; }
-.mc-tr-dirbtn { flex: 1 1 0; min-height: 38px; border-radius: calc(9px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+.mc-tr-dir { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 14px 0; } /* wraps when there are nearby allies to give to */
+.mc-tr-dirbtn { flex: 1 1 45%; min-height: 38px; border-radius: calc(9px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); }
 .mc-tr-dirbtn.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); background: var(--mc-panel-2); }
 .mc-tr-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px 14px 4px; display: flex; flex-direction: column; gap: 4px; }
@@ -1361,6 +1361,9 @@ body {
    available reaction with its icon + name, stacked full-width. DM 2026-07-11. */
 .mc-saveprompt.mc-reaction { border-top-color: #8a6fd8; }
 .mc-saveprompt.mc-reaction .mc-saveprompt-title { color: #b39df1; }
+/* §20 incoming give: friendly green, distinct from a save/reaction. */
+.mc-saveprompt.mc-trade { border-top-color: #5f9e50; }
+.mc-saveprompt.mc-trade .mc-saveprompt-title { color: #9ed98a; }
 .mc-react-btns { flex-direction: column; }
 .mc-react-opt {
   display: flex; align-items: center; gap: 10px; justify-content: flex-start;
@@ -3698,6 +3701,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-inv-toggle.mc-on { color: var(--mc-gold); }
 .mc-inv-toggle.mc-warn { color: #e0b24a; }
 .mc-inv-toggle.mc-ph { cursor: default; }
+.mc-inv-light.mc-on { color: #ff9d3b; text-shadow: 0 0 8px rgba(255, 157, 59, .6); } /* lit torch/lantern glows */
 .mc-inv-chev { flex: 0 0 auto; color: var(--mc-muted); font-size: 13px; margin-left: 8px; }
 /* Nested container contents: a clearly-contained inset block (inset both sides,
    gold left rule, faint inset background) so items read as INSIDE the pack. */

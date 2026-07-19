@@ -211,7 +211,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #journalFilter = "";    // journal: live post filter ("shopke" → matching notes)
   #openContainers = new Set(); // Equipment tab: container item ids currently expanded
   #itemPickerId = null; // Equipment tab: item whose multi-activity picker is open
-  #transferState = null; // §20 item-transfer composer: { dir:"put"|"take", items:{id:qty}, coins:{k:amt} }
+  #transferState = null; // §20 transfer composer: { mode:"stash"|"ally", dir:"put"|"take", to:allyActorId, items:{id:qty}, coins:{k:amt} }
   #detailCard = null;   // long-press: { name, img, subtitle, desc } of an item shown full-screen
   #detailStack = [];    // drill-down back-stack: closing a linked card returns to the previous one
   #dropArmed = null;    // itemId mid-confirm for a "Drop" (2-tap so a stray tap can't delete)
@@ -523,6 +523,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#reactionPromptHTML()}
       ${this.#rollRequestHTML()}
       ${this.#aooPromptHTML()}
+      ${this.#tradePromptHTML()}
       ${this.#colorPickOpen ? this.#colorPickHTML() : ""}
       ${this.#placementHTML()}
       ${this.#pausedHTML() || this.#nightOverlayHTML()}
@@ -1675,6 +1676,42 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (tok) { this.#subjectId = tok.id; this.#subjectActorId = null; }
     else { const a = game.actors.get(nextActorId); if (a?.isOwner) { this.#subjectActorId = nextActorId; this.#subjectId = null; } }
     this.render();
+  }
+
+  // §20 T-p2p: an incoming give lands in the queue as a `trade` entry (so the bell surfaces it if it's
+  // for a token you're not viewing), tied to the receiving actor.
+  noteTradeOffer(payload) {
+    if (!payload?.offerId) return;
+    payload.ttlMs = payload.ttlMs ?? 10 * 60 * 1000;
+    this.#enqueue("trade", payload, payload.toActorUuid);
+  }
+  #tradePromptHTML() {
+    const s = this.#cur("trade")?.payload;
+    if (!s) return "";
+    const esc = foundry.utils.escapeHTML;
+    const parts = [...(s.items ?? []).map(i => `${esc(i.name)}${i.qty > 1 ? ` ×${i.qty}` : ""}`), ...(s.coins ?? []).map(c => `${c.n} ${c.k}`)];
+    return `<div class="mc-saveprompt mc-trade">
+      <div class="mc-saveprompt-bar">
+        <span class="mc-saveprompt-title"><i class="fas fa-hand-holding-heart"></i> ${esc(s.fromName ?? "A party member")} offers you</span>
+        <button class="mc-saveprompt-x" data-action="trade-decline" data-offer="${esc(s.offerId)}" aria-label="Decline"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="mc-saveprompt-body">
+        <div class="mc-saveprompt-sub">${esc(parts.join(", ") || "nothing")}</div>
+        <div class="mc-saveprompt-btns">
+          <button class="mc-save-roll" data-action="trade-accept" data-offer="${esc(s.offerId)}">Accept</button>
+          <button class="mc-save-roll mc-trade-no" data-action="trade-decline" data-offer="${esc(s.offerId)}">Decline</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  #respondTrade(offerId, accept) {
+    this.#resolve("trade");
+    this.render();
+    if (!offerId) return;
+    rpc.transferRespond({ offerId, accept }).then(res => {
+      if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't respond to the offer.");
+      else ui.notifications.info(accept ? "Received." : "Declined.");
+    });
   }
 
   #savePromptHTML() {
@@ -3103,10 +3140,35 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #stashGroup(actor) {
     return game.actors.find(a => a.type === "group" && (a.system?.members ?? []).some(m => m.actor?.id === actor?.id)) ?? null;
   }
+  // §20 T-p2p: nearby PC allies you can hand items to. Computed client-side from the active scene's
+  // token positions (the phone has them); the executor re-checks proximity authoritatively on commit.
+  // PCs only (no NPCs), within ~10 ft, excluding yourself and hidden tokens.
+  #nearbyAllies() {
+    const scene = game.scenes?.active;
+    const meTok = this.originTokenId ? scene?.tokens.get(this.originTokenId) : null;
+    if (!scene || !meTok) return [];
+    const gs = scene.grid?.size || 100, gd = scene.grid?.distance || 5;
+    const ctr = (t) => ({ x: t.x + (t.width ?? 1) * gs / 2, y: t.y + (t.height ?? 1) * gs / 2 });
+    const me = ctr(meTok), myActorId = this.actor?.id, out = [];
+    for (const t of scene.tokens) {
+      const a = t.actor;
+      if (!a || t.id === meTok.id || a.id === myActorId || t.hidden) continue;
+      if (a.type !== "character" || !a.hasPlayerOwner) continue;
+      const o = ctr(t);
+      const distFt = Math.round(Math.hypot(o.x - me.x, o.y - me.y) / gs * gd);
+      if (distFt <= 10) out.push({ actorId: a.id, name: t.name, distFt });
+    }
+    return out.sort((x, y) => x.distFt - y.distFt);
+  }
+  // The inventory the composer is drawing FROM: the stash when taking, otherwise you (put / ally-give).
+  #transferSource() {
+    const t = this.#transferState;
+    return (t?.mode === "stash" && t.dir === "take") ? this.#stashGroup(this.actor) : this.actor;
+  }
   // One "Transfer" button in the equipment header (no per-item clutter). Only when a party stash exists.
   #transferBtnHTML(actor) {
-    if (!actor?.isOwner || !this.#stashGroup(actor)) return "";
-    return `<button class="mc-eq-new" data-action="transfer-open" aria-label="Transfer items" title="Transfer items with the party stash"><i class="fas fa-right-left"></i></button>`;
+    if (!actor?.isOwner || (!this.#stashGroup(actor) && !this.#nearbyAllies().length)) return "";
+    return `<button class="mc-eq-new" data-action="transfer-open" aria-label="Transfer items" title="Transfer items — party stash or a nearby ally"><i class="fas fa-right-left"></i></button>`;
   }
   // The composer: put-in / take-from the shared stash; toggle items (with a +/- quantity on stacks)
   // and coin amounts; commit is instant (the DM oversees the stash — §20.1). (Ally transfers reuse
@@ -3115,8 +3177,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const esc = foundry.utils.escapeHTML;
     const t = this.#transferState;
     const group = this.#stashGroup(actor);
-    if (!group) { this.#transferState = null; return this.#equipmentHTML(actor); }
-    const source = t.dir === "take" ? group : actor;
+    const allies = this.#nearbyAllies();
+    if (!group && !allies.length) { this.#transferState = null; return this.#equipmentHTML(actor); }
+    const takingFromStash = t.mode === "stash" && t.dir === "take";
+    const source = takingFromStash ? group : actor;
     const coinKeys = Object.keys(CONFIG.DND5E?.currencies ?? { pp: 1, gp: 1, ep: 1, sp: 1, cp: 1 });
     const items = source.items.filter(i => "quantity" in (i.system ?? {}) && !i.system?.container).sort((a, b) => a.name.localeCompare(b.name));
     const sel = t.items ?? {};
@@ -3124,10 +3188,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <button class="mc-back mc-picker-x" data-action="transfer-close" aria-label="Back"><i class="fas fa-xmark"></i></button>
         <span class="mc-picker-title">Transfer</span>
       </div>`;
-    const dir = `<div class="mc-tr-dir">
-        <button class="mc-tr-dirbtn ${t.dir !== "take" ? "mc-on" : ""}" data-action="transfer-dir" data-dir="put"><i class="fas fa-arrow-right"></i> Put in shared</button>
-        <button class="mc-tr-dirbtn ${t.dir === "take" ? "mc-on" : ""}" data-action="transfer-dir" data-dir="take"><i class="fas fa-arrow-left"></i> Take from shared</button>
-      </div>`;
+    // Destination: the party stash (put / take) plus a "Give to …" button per nearby ally.
+    const stashBtns = group ? `
+        <button class="mc-tr-dirbtn ${t.mode === "stash" && t.dir !== "take" ? "mc-on" : ""}" data-action="transfer-dest" data-dest="put"><i class="fas fa-box-archive"></i> Put in shared</button>
+        <button class="mc-tr-dirbtn ${t.mode === "stash" && t.dir === "take" ? "mc-on" : ""}" data-action="transfer-dest" data-dest="take"><i class="fas fa-hand-holding"></i> Take from shared</button>` : "";
+    const allyBtns = allies.map(a =>
+      `<button class="mc-tr-dirbtn ${t.mode === "ally" && t.to === a.actorId ? "mc-on" : ""}" data-action="transfer-dest" data-dest="ally" data-to="${a.actorId}"><i class="fas fa-hand-holding-heart"></i> Give to ${esc(a.name.split(" ")[0])}</button>`).join("");
+    const dir = `<div class="mc-tr-dir">${stashBtns}${allyBtns}</div>`;
     const itemRows = items.length ? items.map(i => {
       const on = i.id in sel;
       const max = Number(i.system.quantity) || 1;
@@ -3145,14 +3212,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
             <button data-action="transfer-qty" data-id="${i.id}" data-d="1">+</button>
           </span>` : ""}
         </div>`;
-    }).join("") : `<div class="mc-target-note">Nothing to ${t.dir === "take" ? "take" : "give"}.</div>`;
+    }).join("") : `<div class="mc-target-note">Nothing to ${takingFromStash ? "take" : "give"}.</div>`;
     const srcCur = source.system?.currency ?? {};
     const coinRow = `<div class="mc-tr-coins">${coinKeys.map(k => `<span class="mc-tr-coin">
         <img class="mc-coin-icon" src="${this.#coinIconSrc(k)}" alt="${k}" title="${k.toUpperCase()}">
         <input class="mc-tr-coin-in" type="number" min="0" max="${srcCur[k] ?? 0}" data-tr-coin="${k}" value="${t.coins?.[k] || ""}" placeholder="0" inputmode="numeric">
         <span class="mc-tr-coin-have">/ ${srcCur[k] ?? 0}</span>
       </span>`).join("")}</div>`;
-    const label = t.dir === "take" ? "Take from shared" : "Put in shared";
+    const label = t.mode === "ally"
+      ? `Give to ${esc((game.actors.get(t.to)?.name ?? "ally").split(" ")[0])}`
+      : (t.dir === "take" ? "Take from shared" : "Put in shared");
     return `${head}${dir}
       <div class="mc-tr-scroll">
         <div class="mc-section-label">Items</div>${itemRows}
@@ -3289,6 +3358,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     } catch (e) { /* best effort */ }
   }
 
+  // §backlog light-source items: item NAME → token-light config (radii in ft, from D&D's own light
+  // objects). Heuristic — homebrew names may miss; only specific light gear (never bare "light", which
+  // would catch a Light Crossbow). Physical items only. Native; no Light Sources / Torch dependency.
+  #lightConfigFor(item) {
+    if (!item || !("quantity" in (item.system ?? {}))) return null;
+    const n = (item.name || "").toLowerCase();
+    if (/bullseye lantern/.test(n)) return { bright: 60, dim: 120, angle: 60 };
+    if (/lantern/.test(n)) return { bright: 30, dim: 60 };
+    if (/\btorch/.test(n)) return { bright: 20, dim: 40 };
+    if (/\blamp/.test(n)) return { bright: 15, dim: 45 };
+    if (/\bcandle/.test(n)) return { bright: 5, dim: 10 };
+    return null;
+  }
   #inventoryRowHTML(item) {
     const sys = item.system ?? {};
     const searchAttr = `data-search-name="${foundry.utils.escapeHTML(item.name.toLowerCase())}"`;
@@ -3308,7 +3390,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const equipBtn = canEquip
       ? `<button class="mc-inv-toggle ${equipped ? "mc-on" : ""}" data-action="equip-toggle" data-item-id="${item.id}" aria-label="Toggle equipped" title="${equipped ? "Equipped" : "Not equipped"}"><i class="fas fa-shield-halved"></i></button>`
       : `<span class="mc-inv-toggle mc-ph"></span>`;
-    const toggles = `<span class="mc-inv-toggles">${attuneBtn}${equipBtn}</span>`;
+    // Light source (torch/lantern/…): a flame toggle that makes your token glow (§backlog).
+    const lightCfg = this.#lightConfigFor(item);
+    let lightBtn = "";
+    if (lightCfg) {
+      const meTok = this.originTokenId ? game.scenes?.active?.tokens.get(this.originTokenId) : null;
+      const lit = meTok?.getFlag?.(MODULE_ID, "litItem") === item.id;
+      lightBtn = `<button class="mc-inv-toggle mc-inv-light ${lit ? "mc-on" : ""}" data-action="light-toggle" data-item-id="${item.id}" aria-label="Toggle light" title="${lit ? "Put it out" : "Light it — your token glows"}"><i class="fas fa-fire"></i></button>`;
+    }
+    const toggles = `<span class="mc-inv-toggles">${lightBtn}${attuneBtn}${equipBtn}</span>`;
     // Containers: the main area is an expand toggle (contents count + chevron).
     if (item.type === "container") {
       const opened = this.#openContainers.has(item.id);
@@ -5166,27 +5256,34 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.render();
         if (this.#searchOpen) setTimeout(() => this.element?.querySelector(".mc-search-input")?.focus(), 0);
         return;
-      case "transfer-open":
-        this.#transferState = { dir: "put", items: {}, coins: {} }; return this.render();
+      case "transfer-open": {
+        const group = this.#stashGroup(this.actor);
+        this.#transferState = group
+          ? { mode: "stash", dir: "put", to: null, items: {}, coins: {} }
+          : { mode: "ally", dir: "put", to: this.#nearbyAllies()[0]?.actorId ?? null, items: {}, coins: {} };
+        return this.render();
+      }
       case "transfer-close":
         this.#transferState = null; return this.render();
-      case "transfer-dir": {
+      case "transfer-dest": {
         const t = this.#transferState; if (!t) return;
-        t.dir = el.dataset.dir === "take" ? "take" : "put"; t.items = {}; t.coins = {};
+        const dest = el.dataset.dest;
+        if (dest === "ally") { t.mode = "ally"; t.to = el.dataset.to; }
+        else { t.mode = "stash"; t.dir = dest === "take" ? "take" : "put"; t.to = null; }
+        t.items = {}; t.coins = {};
         return this.render();
       }
       case "transfer-item": {
         const t = this.#transferState; if (!t) return;
         const id = el.dataset.id; t.items ??= {};
         if (id in t.items) delete t.items[id];
-        else { const src = t.dir === "take" ? this.#stashGroup(this.actor) : this.actor; t.items[id] = Number(src?.items.get(id)?.system?.quantity) || 1; }
+        else t.items[id] = Number(this.#transferSource()?.items.get(id)?.system?.quantity) || 1;
         return this.render();
       }
       case "transfer-qty": {
         const t = this.#transferState; if (!t) return;
         const id = el.dataset.id; if (!(id in (t.items ?? {}))) return;
-        const src = t.dir === "take" ? this.#stashGroup(this.actor) : this.actor;
-        const max = Number(src?.items.get(id)?.system?.quantity) || 1;
+        const max = Number(this.#transferSource()?.items.get(id)?.system?.quantity) || 1;
         t.items[id] = Math.max(1, Math.min((t.items[id] || 1) + (Number(el.dataset.d) || 0), max));
         return this.render();
       }
@@ -5195,10 +5292,34 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         const itemMoves = Object.entries(t.items ?? {}).map(([id, qty]) => ({ id, qty }));
         const coins = t.coins ?? {};
         if (!itemMoves.length && !Object.values(coins).some(n => Number(n) > 0)) { ui.notifications.warn("Pick something to transfer."); return; }
-        rpc.transferStash({ actorId: this.actor.id, dir: t.dir, itemMoves, coins }).then(res => {
-          if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Transfer failed."); return; }
-          this.#transferState = null;
-          ui.notifications.info(t.dir === "take" ? "Taken from the party stash." : "Put in the party stash.");
+        if (t.mode === "ally") {
+          if (!t.to) { ui.notifications.warn("Pick who to give to."); return; }
+          rpc.transferOffer({ actorId: this.actor.id, toActorId: t.to, itemMoves, coins }).then(res => {
+            if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Transfer failed."); return; }
+            this.#transferState = null;
+            ui.notifications.info(res.instant ? "Handed over." : "Offer sent — waiting for them to accept.");
+            this.render();
+          });
+        } else {
+          rpc.transferStash({ actorId: this.actor.id, dir: t.dir, itemMoves, coins }).then(res => {
+            if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Transfer failed."); return; }
+            this.#transferState = null;
+            ui.notifications.info(t.dir === "take" ? "Taken from the party stash." : "Put in the party stash.");
+            this.render();
+          });
+        }
+        return;
+      }
+      case "trade-accept": return this.#respondTrade(el.dataset.offer, true);
+      case "trade-decline": return this.#respondTrade(el.dataset.offer, false);
+      case "light-toggle": {
+        const item = this.actor?.items.get(el.dataset.itemId);
+        const cfg = item && this.#lightConfigFor(item);
+        const tokenId = this.originTokenId;
+        if (!cfg || !tokenId) { ui.notifications.warn("No token on this scene to light."); return; }
+        rpc.setTokenLight({ tokenId, itemId: item.id, light: cfg }).then(res => {
+          if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Couldn't change the light."); return; }
+          ui.notifications.info(res.lit ? `${item.name} lit.` : `${item.name} put out.`);
           this.render();
         });
         return;
@@ -7085,6 +7206,7 @@ export function registerShellHooks() {
   Hooks.on("mobile-command.reactionPrompt", (payload) => shellInstance?.noteReactionPrompt(payload));
   Hooks.on("mobile-command.rollRequest", (payload) => shellInstance?.noteRollRequest(payload));
   Hooks.on("mobile-command.aooPrompt", (payload) => shellInstance?.noteAoOPrompt(payload));
+  Hooks.on("mobile-command.transferOffer", (payload) => shellInstance?.noteTradeOffer(payload)); // §20 T-p2p incoming give
   // "Show Players" image → the phone. The shell hides native windows, so Foundry's
   // ImagePopout never reaches a phone; mirror the core `shareImage` broadcast into the
   // shell's full-screen overlay instead (respect an explicit users allowlist).

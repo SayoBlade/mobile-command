@@ -1692,6 +1692,12 @@ function reactionsHTML() {
         <button data-dmsummon-ok="${r.id}" title="Grant control — the summon appears in their phone's token switcher"><i class="fas fa-check"></i></button>
         <button data-dmsummon-x="${r.id}" title="Keep it DM-driven"><i class="fas fa-xmark"></i></button>
       </div>`
+    : r.kind === "trade"
+    ? `<div class="mc-dmp-react mc-dmp-react-trade">
+        <span class="mc-dmp-react-txt"><i class="fas fa-hand-holding-heart"></i> ${foundry.utils.escapeHTML(r.label)}<br><em>receiver offline — accept for them?</em></span>
+        <button data-dmtrade-ok="${r.id}" title="Accept — hand the items over"><i class="fas fa-check"></i></button>
+        <button data-dmtrade-x="${r.id}" title="Decline"><i class="fas fa-xmark"></i></button>
+      </div>`
     : `<div class="mc-dmp-react mc-dmp-react-win">
         <span class="mc-dmp-react-txt"><i class="fas fa-hourglass-half"></i> ${foundry.utils.escapeHTML(r.label)}${r.weapon ? ` — ${foundry.utils.escapeHTML(r.weapon)}` : ""}</span>
       </div>`);
@@ -2558,6 +2564,23 @@ async function onClick(ev) {
     dmReactions = dmReactions.filter(r => r.id !== sNo.dataset.dmscribeX);
     render();
     if (entry) scribeResultToUser(entry.userId, { ok: false, spellName: entry.label });
+    return;
+  }
+  // §20 T-p2p: receiver offline → the DM accepts/declines the give on their behalf.
+  const trOk = ev.target.closest("[data-dmtrade-ok]");
+  if (trOk) {
+    const entry = dmReactions.find(r => r.id === trOk.dataset.dmtradeOk);
+    dmReactions = dmReactions.filter(r => r.id !== trOk.dataset.dmtradeOk);
+    render();
+    if (entry) api.transferRespond({ offerId: entry.offerId, accept: true }).then(res => { if (res?.ok === false) ui.notifications.warn(res.reason ?? "Transfer failed."); });
+    return;
+  }
+  const trNo = ev.target.closest("[data-dmtrade-x]");
+  if (trNo) {
+    const entry = dmReactions.find(r => r.id === trNo.dataset.dmtradeX);
+    dmReactions = dmReactions.filter(r => r.id !== trNo.dataset.dmtradeX);
+    render();
+    if (entry) api.transferRespond({ offerId: entry.offerId, accept: false });
     return;
   }
   // Summon control (2026-07-09): ✓ grants the summoner's player OWNER on the

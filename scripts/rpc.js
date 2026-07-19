@@ -95,6 +95,11 @@ export function initSocket() {
   socket.register("travelPrepare", handleTravelPrepare);
   socket.register("travelDrop", handleTravelDrop);
   socket.register("transferStash", handleTransferStash);
+  socket.register("transferOffer", handleTransferOffer);       // giver → executor
+  socket.register("transferRespond", handleTransferRespond);   // receiver/DM → executor
+  socket.register("transferOfferPush", handleTransferOfferPush); // executor → receiver phone
+  socket.register("transferResult", handleTransferResult);     // executor → giver phone
+  socket.register("setTokenLight", handleSetTokenLight);       // §backlog: light-source items
   socket.register("nightToggle", handleNightToggle);
   socket.register("scribeRequest", handleScribeRequest);
   socket.register("scribeResult", handleScribeResult);
@@ -805,6 +810,101 @@ async function handleTransferStash({ actorId, dir, itemMoves, coins, requesterId
   if (!group) return { ok: false, stage: "resolve", reason: "no party group for this character" };
   const [source, dest] = dir === "take" ? [group, pc] : [pc, group];
   return moveItemsAndCoins(source, dest, itemMoves, coins);
+}
+
+// §20 T-p2p: one-way PC → PC give. The giver's phone proposes; the receiver accepts/declines (or the
+// DM stands in when the receiver is offline). SAME-owner (your own summon / second PC) commits
+// instantly — you don't accept a gift from yourself. Proximity is re-checked HERE (authoritative). No
+// action-economy automation (the DM narrates free/bonus/action).
+const TRANSFER_REACH_FT = 10; // "near enough to hand something over"
+const pendingTransfers = new Map(); // offerId -> { fromActorId, toActorId, itemMoves, coins, fromUserId, toName }
+function activeNonDisplayOwners(actor) {
+  const displayUser = game.settings.get(MODULE_ID, "displayOwnerUser") || null;
+  return game.users.filter(u => u.active && !u.isGM && u.id !== displayUser && actor?.testUserPermission?.(u, "OWNER"));
+}
+function transferSummary(from, itemMoves, coins) {
+  const items = (itemMoves ?? []).map(m => { const i = from.items.get(m.id); return i ? { name: i.name, img: i.img, qty: Math.max(1, Math.floor(Number(m.qty) || 1)) } : null; }).filter(Boolean);
+  const coinList = TRANSFER_COINS.map(k => ({ k, n: Math.max(0, Math.floor(Number(coins?.[k]) || 0)) })).filter(c => c.n);
+  const text = [...items.map(i => `${i.name}${i.qty > 1 ? ` ×${i.qty}` : ""}`), ...coinList.map(c => `${c.n} ${c.k}`)].join(", ") || "nothing";
+  return { items, coins: coinList, text };
+}
+async function handleTransferOffer({ actorId, toActorId, itemMoves, coins, requesterId }) {
+  if (!isExecutor()) return { ok: false, stage: "route", reason: "not the DM client" };
+  const user = game.users.get(requesterId);
+  const from = game.actors.get(actorId), to = game.actors.get(toActorId);
+  if (!user || !from || !to) return { ok: false, stage: "resolve", reason: "character not found" };
+  if (!from.testUserPermission(user, "OWNER")) return { ok: false, stage: "permission", reason: "you don't own the giving character" };
+  if (to.id === from.id) return { ok: false, stage: "validate", reason: "that's the same character" };
+  if (to.type !== "character" || !to.hasPlayerOwner) return { ok: false, stage: "validate", reason: "you can only give to another player character" };
+  // Proximity: the giver's token must be near the receiver's on the active scene (server-authoritative).
+  try {
+    const fromTok = canvas?.tokens?.placeables.find(t => t.actor?.id === from.id);
+    const toTok = canvas?.tokens?.placeables.find(t => t.actor?.id === to.id);
+    if (fromTok && toTok && MidiQOL.computeDistance(fromTok, toTok, { wallsBlock: false }) > TRANSFER_REACH_FT)
+      return { ok: false, stage: "range", reason: `too far — get next to ${to.name}` };
+  } catch (e) { /* can't measure → allow (warnings-not-walls) */ }
+  // Same owner → instant (no self-accept).
+  if (to.testUserPermission(user, "OWNER")) {
+    const res = await moveItemsAndCoins(from, to, itemMoves, coins);
+    return res.ok === false ? res : { ok: true, instant: true };
+  }
+  const offer = { id: foundry.utils.randomID(), fromActorId: from.id, toActorId: to.id, itemMoves, coins, fromUserId: requesterId, toName: to.name };
+  pendingTransfers.set(offer.id, offer);
+  setTimeout(() => pendingTransfers.delete(offer.id), 10 * 60 * 1000);
+  const summary = transferSummary(from, itemMoves, coins);
+  const owners = activeNonDisplayOwners(to);
+  if (owners.length && socket) {
+    const payload = { offerId: offer.id, fromName: from.name, toActorUuid: to.uuid, items: summary.items, coins: summary.coins };
+    for (const u of owners) socket.executeAsUser("transferOfferPush", u.id, payload);
+    return { ok: true, pending: true };
+  }
+  // Receiver offline → DM decides on their behalf (reaction-widget chip, scribe-style).
+  Hooks.callAll("mobile-command.dmReaction", { id: offer.id, kind: "trade", offerId: offer.id, label: `${from.name} → ${to.name}: ${summary.text}`, expiresAt: Date.now() + 10 * 60 * 1000 });
+  return { ok: true, pending: true, viaDM: true };
+}
+async function handleTransferRespond({ offerId, accept, requesterId }) {
+  if (!isExecutor()) return { ok: false, stage: "route", reason: "not the DM client" };
+  const offer = pendingTransfers.get(offerId);
+  if (!offer) return { ok: false, stage: "resolve", reason: "that offer expired" };
+  const user = game.users.get(requesterId);
+  const from = game.actors.get(offer.fromActorId), to = game.actors.get(offer.toActorId);
+  if (!user || !(user.isGM || to?.testUserPermission(user, "OWNER"))) return { ok: false, stage: "permission", reason: "not yours to answer" };
+  pendingTransfers.delete(offerId);
+  const tellGiver = (p) => { if (socket && offer.fromUserId) socket.executeAsUser("transferResult", offer.fromUserId, p).catch(() => {}); };
+  if (!accept) { tellGiver({ ok: false, declined: true, toName: offer.toName }); return { ok: true, declined: true }; }
+  const res = await moveItemsAndCoins(from, to, offer.itemMoves, offer.coins);
+  tellGiver({ ok: res.ok !== false, toName: offer.toName, reason: res.reason });
+  return res;
+}
+function handleTransferOfferPush(payload) { Hooks.callAll("mobile-command.transferOffer", payload); return true; }
+function handleTransferResult(payload) {
+  if (payload?.declined) ui.notifications.info(`${payload.toName ?? "They"} declined the transfer.`);
+  else if (payload?.ok) ui.notifications.info(`${payload.toName ?? "They"} accepted — items handed over.`);
+  else ui.notifications.warn(`Transfer failed: ${payload?.reason ?? "unknown"}`);
+  return true;
+}
+
+// §backlog: light-source items give light (DM 2026-07-20). A phone player can't reach the Token HUD
+// (canvasless), so they toggle their torch/lantern/etc. from the inventory; the executor (GM) writes
+// the token's light. A `litItem` flag tracks which item is lit, so tapping it again puts it out.
+// NATIVE (no dependency on the Light Sources / Torch modules) — name-driven radii on the phone side.
+async function handleSetTokenLight({ tokenId, itemId, light, requesterId }) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const user = game.users.get(requesterId);
+  let tok = game.scenes.active?.tokens.get(tokenId);
+  if (!tok) for (const s of game.scenes) { const t = s.tokens.get(tokenId); if (t) { tok = t; break; } }
+  if (!user || !tok) return { ok: false, reason: "token not found" };
+  if (!tok.actor?.testUserPermission(user, "OWNER")) return { ok: false, reason: "you don't own that token" };
+  if ((tok.getFlag(MODULE_ID, "litItem") ?? null) === itemId) { // already lit by this item → put it out
+    await tok.update({ light: { bright: 0, dim: 0, angle: 360 }, [`flags.${MODULE_ID}.litItem`]: null });
+    return { ok: true, lit: false };
+  }
+  const l = light ?? {};
+  await tok.update({
+    light: { bright: Number(l.bright) || 0, dim: Number(l.dim) || 0, angle: Number(l.angle) || 360, color: l.color ?? "#ff9d3b", alpha: 0.45, animation: { type: l.anim ?? "torch", speed: 2, intensity: 2 } },
+    [`flags.${MODULE_ID}.litItem`]: itemId
+  });
+  return { ok: true, lit: true };
 }
 
 // Capture toast notifications fired during a callback so refusal reasons can
@@ -2672,7 +2772,8 @@ function toExecutor(handler, payload) {
       wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert,
       partyPack: handlePartyPack, partySetCell: handlePartySetCell,
       travelPrepare: handleTravelPrepare, travelDrop: handleTravelDrop,
-      transferStash: handleTransferStash,
+      transferStash: handleTransferStash, transferOffer: handleTransferOffer, transferRespond: handleTransferRespond,
+      setTokenLight: handleSetTokenLight,
       nightToggle: handleNightToggle, scribeRequest: handleScribeRequest,
       placementStart: handlePlacementStart, placementNudge: handlePlacementNudge,
       placementRotate: handlePlacementRotate, placementConfirm: handlePlacementConfirm,
@@ -2714,6 +2815,9 @@ export const api = {
   partyPack: (payload = {}) => toExecutor("partyPack", payload),
   partySetCell: (payload = {}) => toExecutor("partySetCell", payload),
   transferStash: (payload = {}) => toExecutor("transferStash", payload),
+  transferOffer: (payload = {}) => toExecutor("transferOffer", payload),
+  transferRespond: (payload = {}) => toExecutor("transferRespond", payload),
+  setTokenLight: (payload = {}) => toExecutor("setTokenLight", payload),
   travelPrepare: (payload = {}) => toExecutor("travelPrepare", payload),
   travelDrop: (payload = {}) => toExecutor("travelDrop", payload),
   nightToggle: (payload = {}) => toExecutor("nightToggle", payload),
