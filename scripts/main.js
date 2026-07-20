@@ -4,6 +4,7 @@ import { diffPreset, applyPreset, checkAndPrompt, deactivate, reactivate, hasBac
 import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, registerReactionNotifier, registerSummonOwnership, api, actorTokenSight } from "./rpc.js";
 import { initPauseGuard } from "./pause-guard.js";
 import { initPauseOverlay } from "./pause-overlay.js";
+import { initHeartbeat } from "./heartbeat.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient, isDisplayClient } from "./shell.js";
 import { registerDMPanel } from "./dm-panel.js";
 import { maybePromptDmWizard } from "./dm-wizard.js";
@@ -634,6 +635,7 @@ Hooks.once("ready", () => {
   initSocket(); // idempotent fallback in case socketlib.ready raced or didn't fire
   initPauseGuard();
   if (!isPhoneClient()) initPauseOverlay(); // corner spinners replace the "GAME PAUSED" bar (phones have their own overlay)
+  if (!isPhoneClient()) initHeartbeat();    // critical-HP heartbeat pulse on PC token rings (canvas only)
   startHeartbeat();
   registerShellHooks();
   registerDMPanel(); // DM-assign panel (GM clients only; self-gates)

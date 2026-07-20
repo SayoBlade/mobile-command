@@ -1973,7 +1973,8 @@ function applyPcVisuals(td, actor) {
       const pct = hp?.max ? Math.max(0, Math.min(1, (Number(hp.value) || 0) / hp.max)) : 1;
       ring = healthRingColor(pct);
       background = color;
-      if (pct <= 0.2) effects |= RING_PULSE; // bloodied (≤20%) → heartbeat pulse (DM 2026-07-20)
+      // ≤20% "heartbeat" is a custom double-tap canvas animation (heartbeat.js), not the plain
+      // built-in RING_PULSE sine — so the ring effect stays COLOR_OVER_SUBJECT only here.
     }
     td.ring = foundry.utils.mergeObject(td.ring ?? {}, {
       enabled: true,
