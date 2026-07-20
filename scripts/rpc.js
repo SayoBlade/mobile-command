@@ -1908,6 +1908,7 @@ function partyMembers(group) {
 
 const DARKVISION_SAT = -0.8; // DM 2026-07-03: -0.6 was too colorful; halfway to full gray.
 const RING_COLOR_OVER_SUBJECT = 33; // ENABLED(1) | COLOR_OVER_SUBJECT(32)
+const RING_PULSE = 2;               // the dynamic ring's built-in pulse — a heartbeat at low HP
 
 // The player color assigned to a PC actor (assigned character first, then owner).
 function playerColorFor(actor) {
@@ -1966,16 +1967,17 @@ function applyPcVisuals(td, actor) {
     if (!color) return;
     // Default: ring = player colour. Health mode: ring border = HP colour, player colour → background
     // (so identity stays), and COLOR_OVER_SUBJECT tints the token toward red as it drops.
-    let ring = color, background = td.ring?.colors?.background ?? null;
+    let ring = color, background = td.ring?.colors?.background ?? null, effects = RING_COLOR_OVER_SUBJECT;
     if (game.settings.get(MODULE_ID, "ringHealthColors")) {
       const hp = actor.system?.attributes?.hp;
       const pct = hp?.max ? Math.max(0, Math.min(1, (Number(hp.value) || 0) / hp.max)) : 1;
       ring = healthRingColor(pct);
       background = color;
+      if (pct <= 0.2) effects |= RING_PULSE; // bloodied (≤20%) → heartbeat pulse (DM 2026-07-20)
     }
     td.ring = foundry.utils.mergeObject(td.ring ?? {}, {
       enabled: true,
-      effects: RING_COLOR_OVER_SUBJECT,
+      effects,
       colors: { ...(td.ring?.colors ?? {}), ring, background }
     });
   } catch (e) { /* cosmetic */ }
