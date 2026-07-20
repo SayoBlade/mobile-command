@@ -137,6 +137,19 @@ export function registerSettings() {
     default: true
   });
 
+  // Health-at-a-glance on the token ring (DM 2026-07-20). The player's colour moves to the ring
+  // BACKGROUND (identity kept), and the ring BORDER shows a 5-band green→red gradient by current HP
+  // (>80% green, >60% yellow-green, >40% amber, >20% orange, ≤20% red). Recolours live as HP changes.
+  // Needs "Color PC dynamic rings by player" on (it's the same ring pipeline). PCs (+ owned tokens).
+  game.settings.register(MODULE_ID, "ringHealthColors", {
+    name: "Show HP on PC token rings (green→red)",
+    hint: "The token's ring border becomes a health bar: green at full, through amber, to red when bloodied (5 bands at 100/80/60/40/20%). The player's colour moves to the ring background so you still see whose token it is. Updates live as HP changes. Requires the player-ring-colour option above. Off by default.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false
+  });
+
   game.settings.register(MODULE_ID, "dmOmniscientVision", {
     name: "Keep the DM's vision omniscient (shared-screen tables)",
     hint: "When the DM selects/controls a player's token, don't shrink the DM's view to that token's point of view — the DM keeps seeing the whole map. Players and the TV/display are unaffected. On by default.",

@@ -1948,6 +1948,14 @@ export function actorTokenSight(actor) {
 // color + COLOR_OVER_SUBJECT (tints the portrait too, DM 2026-07-03) + a 0.1ft
 // self-glow so the token keeps color under darkvision ("0.1 is better than
 // nothing"). Native ring = exact sync/scale; stock Ring-tab options still apply.
+// HP fraction → a 5-band green→red ring colour (DM 2026-07-20). Bands at 100/80/60/40/20%.
+function healthRingColor(pct) {
+  if (pct > 0.8) return "#4caf50"; // green
+  if (pct > 0.6) return "#9ccc4f"; // yellow-green
+  if (pct > 0.4) return "#e0c04a"; // amber
+  if (pct > 0.2) return "#e8913a"; // orange
+  return "#d84a3f";                // red (bloodied)
+}
 function applyPcVisuals(td, actor) {
   try {
     if (actor?.type !== "character" || !actor.hasPlayerOwner) return;
@@ -1956,10 +1964,19 @@ function applyPcVisuals(td, actor) {
     if (!game.settings.get(MODULE_ID, "ringPlayerColors")) return;
     const color = playerColorFor(actor);
     if (!color) return;
+    // Default: ring = player colour. Health mode: ring border = HP colour, player colour → background
+    // (so identity stays), and COLOR_OVER_SUBJECT tints the token toward red as it drops.
+    let ring = color, background = td.ring?.colors?.background ?? null;
+    if (game.settings.get(MODULE_ID, "ringHealthColors")) {
+      const hp = actor.system?.attributes?.hp;
+      const pct = hp?.max ? Math.max(0, Math.min(1, (Number(hp.value) || 0) / hp.max)) : 1;
+      ring = healthRingColor(pct);
+      background = color;
+    }
     td.ring = foundry.utils.mergeObject(td.ring ?? {}, {
       enabled: true,
       effects: RING_COLOR_OVER_SUBJECT,
-      colors: { ...(td.ring?.colors ?? {}), ring: color }
+      colors: { ...(td.ring?.colors ?? {}), ring, background }
     });
   } catch (e) { /* cosmetic */ }
 }
@@ -2414,6 +2431,23 @@ function registerPlayerColorSync() {
         const td = { _id: t.id };
         applyPcVisuals(td, a);
         if (td.light || td.ring) updates.push(td);
+      }
+      if (updates.length) await canvas.scene.updateEmbeddedDocuments("Token", updates);
+    } catch (e) { /* cosmetic */ }
+  });
+  // Health rings (DM 2026-07-20): recolour a PC's token ring live when its HP changes.
+  Hooks.on("updateActor", async (actor, changes) => {
+    try {
+      if (!isExecutor() || !onActiveScene() || !canvas?.ready) return;
+      if (!game.settings.get(MODULE_ID, "ringHealthColors") || !game.settings.get(MODULE_ID, "ringPlayerColors")) return;
+      if (!foundry.utils.hasProperty(changes, "system.attributes.hp")) return;
+      if (actor?.type !== "character" || !actor.hasPlayerOwner) return;
+      const updates = [];
+      for (const t of canvas.scene.tokens) {
+        if (t.actor?.id !== actor.id) continue;
+        const td = { _id: t.id };
+        applyPcVisuals(td, actor);
+        if (td.ring) updates.push(td);
       }
       if (updates.length) await canvas.scene.updateEmbeddedDocuments("Token", updates);
     } catch (e) { /* cosmetic */ }
