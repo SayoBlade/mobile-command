@@ -10,7 +10,7 @@ import { MODULE_ID } from "./preset.js";
 const PERIOD_MS = 940;   // ~64/min — a bit faster than 1050
 // Semi-transparent red over the persistent white glow. A bit more opaque than 0.24/0.58 (DM 2026-07-20).
 const ALPHA_MIN = 0.28;  // rest
-const ALPHA_MAX = 0.66;  // beat
+const ALPHA_MAX = 0.76;  // beat — +15% for readability on bright backgrounds
 const COLOR = 0xd84a3f;  // matches the ≤20% health band
 const RADIUS_FACTOR = 0.86; // ring radius as a fraction of the token half-size — hugs the token, inside the light glow
 const WIDTH_FACTOR = 0.07;  // ring thickness as a fraction of the token half-size (a neat collar, not a fat band)
