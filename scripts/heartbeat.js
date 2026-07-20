@@ -5,17 +5,20 @@
 // setting; non-phone clients only (phones have no canvas). Tunables up top so it's easy to dial in.
 import { MODULE_ID } from "./preset.js";
 
-const PERIOD_MS = 935;   // one full heartbeat (lub-dub + pause). ~64 bpm — calmer, easy to watch for ~10 min.
-const ALPHA_MIN = 0.06;  // ring never fully vanishes (a faint steady red border between beats)
-const ALPHA_MAX = 0.48;  // peak of a tap — halved from the first pass so it's subtle over long viewing.
+// Photosensitivity-safe (DM 2026-07-20): steady faint red that only GENTLY swells — NO dark gap
+// between beats (that pause read as a strobe), broad smooth humps (no sharp onset), low contrast.
+const PERIOD_MS = 1050;  // ~57/min — slow and calm for long viewing (~10 min fights)
+const ALPHA_MIN = 0.30;  // resting glow — the ring is ALWAYS clearly red, never blinks off
+const ALPHA_MAX = 0.48;  // gentle peak of a swell — only +0.18 over the floor (low contrast)
 const COLOR = 0xd84a3f;  // matches the ≤20% health band
 
 let layer = null, rings = new Map(), tickerFn = null, t0 = 0;
 
-// phase 0..1 → 0..1: two quick Gaussian taps (lub, then a slightly softer dub), then a flat pause.
+// phase 0..1 → 0..1: two BROAD, SMOOTH raised-cosine humps (a soft lub-dub), periodic & continuous.
+// Broad + applied over the low 0.30→0.48 range = a gentle swell, not a flash. No sharp edges anywhere.
 function envelope(phase) {
-  const bump = (p, c, w) => Math.exp(-((p - c) ** 2) / (2 * w * w));
-  return Math.min(1, bump(phase, 0.00, 0.045) + 0.8 * bump(phase, 0.17, 0.05));
+  const hump = (c, w) => { let d = Math.abs(phase - c); d = Math.min(d, 1 - d); return d < w ? 0.5 + 0.5 * Math.cos(Math.PI * d / w) : 0; };
+  return Math.min(1, hump(0.0, 0.16) + 0.7 * hump(0.28, 0.16));
 }
 
 function isCritical(token) {
