@@ -5,9 +5,9 @@
 // setting; non-phone clients only (phones have no canvas). Tunables up top so it's easy to dial in.
 import { MODULE_ID } from "./preset.js";
 
-const PERIOD_MS = 560;   // one full heartbeat (lub-dub + pause). ~107 bpm — fast/stressed.
-const ALPHA_MIN = 0.12;  // ring never fully vanishes (reads as a steady red border between beats)
-const ALPHA_MAX = 0.95;  // peak of a tap. Below full-flash to stay easy on the eyes.
+const PERIOD_MS = 935;   // one full heartbeat (lub-dub + pause). ~64 bpm — calmer, easy to watch for ~10 min.
+const ALPHA_MIN = 0.06;  // ring never fully vanishes (a faint steady red border between beats)
+const ALPHA_MAX = 0.48;  // peak of a tap — halved from the first pass so it's subtle over long viewing.
 const COLOR = 0xd84a3f;  // matches the ≤20% health band
 
 let layer = null, rings = new Map(), tickerFn = null, t0 = 0;
