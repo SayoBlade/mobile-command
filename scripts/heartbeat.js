@@ -11,6 +11,8 @@ const PERIOD_MS = 1050;  // ~57/min — slow and calm for long viewing (~10 min 
 const ALPHA_MIN = 0.30;  // resting glow — the ring is ALWAYS clearly red, never blinks off
 const ALPHA_MAX = 0.48;  // gentle peak of a swell — only +0.18 over the floor (low contrast)
 const COLOR = 0xd84a3f;  // matches the ≤20% health band
+const RADIUS_FACTOR = 0.86; // ring radius as a fraction of the token half-size — hugs the token, inside the light glow
+const WIDTH_FACTOR = 0.07;  // ring thickness as a fraction of the token half-size (a neat collar, not a fat band)
 
 let layer = null, rings = new Map(), tickerFn = null, t0 = 0;
 
@@ -62,8 +64,8 @@ function frame() {
       const w = (t.document.width ?? 1) * canvas.grid.size, h = (t.document.height ?? 1) * canvas.grid.size;
       const r = Math.max(w, h) / 2;
       g.clear();
-      g.lineStyle(Math.max(3, r * 0.09), COLOR, alpha);
-      g.drawCircle(t.center.x, t.center.y, r * 0.97);
+      g.lineStyle(Math.max(2.5, r * WIDTH_FACTOR), COLOR, alpha);
+      g.drawCircle(t.center.x, t.center.y, r * RADIUS_FACTOR);
     }
     if (!rings.size) stop();
   } catch (e) { /* per-frame — never spam */ }
