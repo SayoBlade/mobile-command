@@ -8,28 +8,21 @@ import { MODULE_ID } from "./preset.js";
 // Photosensitivity-safe (DM 2026-07-20): steady faint red that only GENTLY swells — NO dark gap
 // between beats (that pause read as a strobe), broad smooth humps (no sharp onset), low contrast.
 const PERIOD_MS = 1050;  // ~57/min — slow and calm for long viewing (~10 min fights)
-// More opaque + a bigger fade so it reads over the glow on any map, but the colour WHITENS on the
-// beat (rose → white) so it stays soft, not a stark red flash (DM 2026-07-20).
-const ALPHA_MIN = 0.32;  // rest — faded, but opaque enough to read on non-dark maps
-const ALPHA_MAX = 0.92;  // beat — nearly opaque so it shows over the glow / bright art
-const COLOR_LOW = 0xdb5a6e;  // rose (rest) — reads on light backgrounds; soft, not stark
-const COLOR_HIGH = 0xffffff; // white (beat) — reads on dark backgrounds; the pulse "whitens" toward it
+// Semi-transparent red over the persistent white glow; just +20% opacity at the peak and -20% at rest
+// vs the old 0.30/0.48 so the swell reads a touch more without changing the colour (DM 2026-07-20).
+const ALPHA_MIN = 0.24;  // rest — 20% less than the 0.30 baseline
+const ALPHA_MAX = 0.58;  // beat — 20% more than the 0.48 baseline
+const COLOR = 0xd84a3f;  // matches the ≤20% health band
 const RADIUS_FACTOR = 0.86; // ring radius as a fraction of the token half-size — hugs the token, inside the light glow
 const WIDTH_FACTOR = 0.07;  // ring thickness as a fraction of the token half-size (a neat collar, not a fat band)
 
 let layer = null, rings = new Map(), tickerFn = null, t0 = 0;
 
 // phase 0..1 → 0..1: two BROAD, SMOOTH raised-cosine humps (a soft lub-dub), periodic & continuous.
-// Broad humps + both alpha AND colour ride the same envelope = a gentle rose→white swell, not a flash.
+// Broad + applied over the low 0.24→0.58 range = a gentle swell, not a flash. No sharp edges anywhere.
 function envelope(phase) {
   const hump = (c, w) => { let d = Math.abs(phase - c); d = Math.min(d, 1 - d); return d < w ? 0.5 + 0.5 * Math.cos(Math.PI * d / w) : 0; };
   return Math.min(1, hump(0.0, 0.16) + 0.7 * hump(0.28, 0.16));
-}
-
-// Linear interpolate two 0xRRGGBB colours (t: 0→a, 1→b). Rose at rest → white on the beat.
-function lerpColor(a, b, t) {
-  const mix = (s, e) => Math.round(s + (e - s) * t);
-  return (mix((a >> 16) & 255, (b >> 16) & 255) << 16) | (mix((a >> 8) & 255, (b >> 8) & 255) << 8) | mix(a & 255, b & 255);
 }
 
 function isCritical(token) {
@@ -66,16 +59,14 @@ function rebuild() {
 function frame() {
   try {
     const phase = ((performance.now() - t0) % PERIOD_MS) / PERIOD_MS;
-    const env = envelope(phase);
-    const alpha = ALPHA_MIN + (ALPHA_MAX - ALPHA_MIN) * env;
-    const col = lerpColor(COLOR_LOW, COLOR_HIGH, env);
+    const alpha = ALPHA_MIN + (ALPHA_MAX - ALPHA_MIN) * envelope(phase);
     for (const [id, g] of rings) {
       const t = canvas.tokens?.get(id);
       if (!t) { g.destroy(); rings.delete(id); continue; }
       const w = (t.document.width ?? 1) * canvas.grid.size, h = (t.document.height ?? 1) * canvas.grid.size;
       const r = Math.max(w, h) / 2;
       g.clear();
-      g.lineStyle(Math.max(2.5, r * WIDTH_FACTOR), col, alpha);
+      g.lineStyle(Math.max(2.5, r * WIDTH_FACTOR), COLOR, alpha);
       g.drawCircle(t.center.x, t.center.y, r * RADIUS_FACTOR);
     }
     if (!rings.size) stop();
