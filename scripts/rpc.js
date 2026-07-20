@@ -2452,6 +2452,18 @@ function registerPlayerColorSync() {
       if (updates.length) await canvas.scene.updateEmbeddedDocuments("Token", updates);
     } catch (e) { /* cosmetic */ }
   });
+  // A freshly-placed PC token gets its ring/glow immediately, no repack/fixPcTokens needed (DM
+  // 2026-07-20: "my new PC has no ring"). Player-owned characters only; the executor writes it.
+  Hooks.on("createToken", async (tokenDoc) => {
+    try {
+      if (!isExecutor()) return;
+      const a = tokenDoc.actor;
+      if (a?.type !== "character" || !a.hasPlayerOwner) return;
+      const td = { _id: tokenDoc.id };
+      applyPcVisuals(td, a);
+      if (td.light || td.ring) await tokenDoc.parent?.updateEmbeddedDocuments("Token", [td]);
+    } catch (e) { /* cosmetic */ }
+  });
 }
 
 // --- Auto-loot: dead NPC → Item Piles loot pile (DESIGN §7.6) --------------------
