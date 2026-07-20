@@ -7,11 +7,10 @@ import { MODULE_ID } from "./preset.js";
 
 // Photosensitivity-safe (DM 2026-07-20): steady faint red that only GENTLY swells — NO dark gap
 // between beats (that pause read as a strobe), broad smooth humps (no sharp onset), low contrast.
-const PERIOD_MS = 1050;  // ~57/min — slow and calm for long viewing (~10 min fights)
-// Semi-transparent red over the persistent white glow; just +20% opacity at the peak and -20% at rest
-// vs the old 0.30/0.48 so the swell reads a touch more without changing the colour (DM 2026-07-20).
-const ALPHA_MIN = 0.24;  // rest — 20% less than the 0.30 baseline
-const ALPHA_MAX = 0.58;  // beat — 20% more than the 0.48 baseline
+const PERIOD_MS = 940;   // ~64/min — a bit faster than 1050
+// Semi-transparent red over the persistent white glow. A bit more opaque than 0.24/0.58 (DM 2026-07-20).
+const ALPHA_MIN = 0.28;  // rest
+const ALPHA_MAX = 0.66;  // beat
 const COLOR = 0xd84a3f;  // matches the ≤20% health band
 const RADIUS_FACTOR = 0.86; // ring radius as a fraction of the token half-size — hugs the token, inside the light glow
 const WIDTH_FACTOR = 0.07;  // ring thickness as a fraction of the token half-size (a neat collar, not a fat band)
@@ -19,10 +18,11 @@ const WIDTH_FACTOR = 0.07;  // ring thickness as a fraction of the token half-si
 let layer = null, rings = new Map(), tickerFn = null, t0 = 0;
 
 // phase 0..1 → 0..1: two BROAD, SMOOTH raised-cosine humps (a soft lub-dub), periodic & continuous.
-// Broad + applied over the low 0.24→0.58 range = a gentle swell, not a flash. No sharp edges anywhere.
+// Broad + applied over the low 0.28→0.66 range = a gentle swell, not a flash. No sharp edges anywhere.
+// Second hump at 0.33 (was 0.28) = a tiny more space between the two thuds of the lub-dub.
 function envelope(phase) {
   const hump = (c, w) => { let d = Math.abs(phase - c); d = Math.min(d, 1 - d); return d < w ? 0.5 + 0.5 * Math.cos(Math.PI * d / w) : 0; };
-  return Math.min(1, hump(0.0, 0.16) + 0.7 * hump(0.28, 0.16));
+  return Math.min(1, hump(0.0, 0.16) + 0.7 * hump(0.33, 0.16));
 }
 
 function isCritical(token) {
