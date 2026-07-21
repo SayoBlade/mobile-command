@@ -2298,9 +2298,14 @@ export function registerSummonOwnership() {
           try { await baseActor.update({ [`ownership.${displayUser}`]: DISPLAY_LEVEL }); }
           catch (e) { console.warn(`${MODULE_ID} | summon TV share failed`, e); }
         }
-        // Sight (the vision-source trick above) and the summoner's colour/glow go on in ONE write —
-        // two updates on a just-created token race the canvas draw and the ring can land unpainted.
-        const payload = tokenDoc.sight?.enabled ? {} : { ...actorTokenSight(baseActor) };
+      }
+      // Sight and the summoner's colour/glow go on in ONE write — two updates on a just-created
+      // token race the canvas draw and the ring can land unpainted. Only the SIGHT half is a
+      // display-account concern (it's the vision-source trick that makes an invisible summon
+      // render on the passive TV); the ring and glow are for every table, so they must not sit
+      // behind `displayUser` — a world with no TV configured would silently get no glow.
+      if (baseActor) {
+        const payload = (displayUser && !tokenDoc.sight?.enabled) ? { ...actorTokenSight(baseActor) } : {};
         applyPcVisuals(payload, baseActor, { colorFrom: summoner });
         if (Object.keys(payload).length) {
           try { await tokenDoc.update(payload); }
