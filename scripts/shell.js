@@ -6457,8 +6457,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       : `<div class="mc-bio-read">${readBody}</div>`;
     const foot = this.#bioEditing
       ? `<div class="mc-bio-foot">
-          <button class="mc-jn-post" data-action="bio-save" ${this.#bioBusy ? "disabled" : ""}>${this.#bioBusy ? "Saving…" : "Save biography"}</button>
           <button class="mc-bio-cancel" data-action="bio-cancel" ${this.#bioBusy ? "disabled" : ""}>Cancel</button>
+          <button class="mc-jn-post" data-action="bio-save" ${this.#bioBusy ? "disabled" : ""}>${this.#bioBusy ? "Saving…" : "Save biography"}</button>
         </div>`
       : (canEdit ? `<button class="mc-jn-post" data-action="bio-edit"><i class="fas fa-feather"></i> Edit biography</button>` : "");
     return `<div class="mc-picker-head">

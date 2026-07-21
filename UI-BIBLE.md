@@ -164,7 +164,9 @@ does not.*
 ### 4.1.1 Right is forward — button ORDER in a row
 
 **The action that moves you forward sits on the RIGHT; the one that backs out sits on the LEFT.**
-(DM 2026-07-21, setup wizard.) Reading order and the direction of travel agree: `Next`,
+(DM 2026-07-21: "popups should ALWAYS keep the positive path on the right.") **Every** popup —
+DialogV2 dialogs, the shell's own bottom sheets, any hand-rolled footer row — no exceptions.
+Reading order and the direction of travel agree: `Next`,
 `Save & continue`, `Sync now & continue`, `Run the preflight`, `Done` — all rightmost.
 `Finish later`, `Back`, `Cancel`, `Don't ask again` — all leftmost.
 
