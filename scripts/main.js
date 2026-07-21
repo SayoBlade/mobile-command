@@ -418,13 +418,21 @@ function tvCombatFollow(tokenDoc, changes) {
 // so a plain re-evaluation also restores shared vision when toggled off.
 function refreshCombatVision() {
   if (!isDisplayClient() || !canvas?.ready) return;
-  // Render trigger: the `_isVisionSource` patch already decides the *eligible* sources — it
-  // returns true for the active combatant outright, without consulting ownership — but Foundry
-  // needs a real vision refresh to RE-RENDER the fog from them. We used to control() the active
-  // token as that trigger; the display account is OBSERVER now (2026-07-21) and cannot control
-  // anything, so the call was dead weight. Release instead: with nothing controlled, core's own
-  // fallback lights every OBSERVED token, and the patch narrows that to the active one on a PC's
-  // turn. Same picture, no ownership required.
+  // RELEASING IS LOAD-BEARING — do not "restore" the control() call that used to be here.
+  //
+  // Core's Token#_isVisionSource ends with:
+  //     return !this.layer.controlled.some(t => !t.document.hidden && t.hasSight)
+  // so a single CONTROLLED token suppresses every merely-OBSERVED one. Measured live 2026-07-21 on
+  // a vision-on scene, as a non-GM holding OBSERVER (2) on one token and OWNER (3) on another:
+  //     controlling the owned token  → observed token isVisionSource FALSE, 1 live source
+  //     releaseAll()                 → observed token isVisionSource TRUE,  2 live sources
+  // That is the whole shared-display picture: the TV shows the party's MERGED vision only while it
+  // controls nothing. The old control() call was actively harmful to that, and it is doubly moot
+  // now the display account is OBSERVER and cannot control anything at all.
+  //
+  // The vision refresh below is still needed to RE-RENDER fog from the new source set; the
+  // `_isVisionSource` patch decides which tokens are eligible (it returns true for the active
+  // combatant outright, without consulting ownership).
   try { canvas.tokens?.releaseAll(); } catch (e) { /* best-effort */ }
   try { canvas.perception?.update({ initializeVision: true, refreshVision: true, refreshLighting: true }); } catch (e) {}
   try { canvas.effects?.initializeVisionSources?.(); } catch (e) {} // force a synchronous rebuild if available
