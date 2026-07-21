@@ -174,19 +174,19 @@ export function registerSettings() {
     onChange: () => { try { globalThis.MobileCommand?.refreshCombatVision?.(); } catch (e) {} }
   });
 
-  // Auto-own new player characters for the shared display/TV account so their vision shows on
-  // the TV without per-actor ownership fiddling (DM 2026-06-27). Stores a user id; "" = off.
-  // The field renders as a player dropdown (renderSettingsConfig below — game.users isn't ready
-  // at registration). Choosing an account also grants it ownership of EXISTING characters
-  // (onChange → retroGrantOwnership, executor-only).
+  // Auto-share new player characters with the shared display/TV account so their vision shows on
+  // the TV without per-actor fiddling (DM 2026-06-27). Stores a user id; "" = off. The field
+  // renders as a player dropdown (renderSettingsConfig below — game.users isn't ready at
+  // registration). Choosing an account also shares EXISTING characters with it (onChange →
+  // syncDisplayObserver, executor-only). OBSERVER, never OWNER — see DISPLAY_LEVEL.
   game.settings.register(MODULE_ID, "displayOwnerUser", {
-    name: "Auto-own new PCs for (display/TV account)", // nbsp keeps the parenthetical from wrapping mid-phrase
-    hint: "Pick your shared TV/display account. Any newly-created player character is automatically given to it as Owner, so the TV shows that character's vision. Choosing an account also grants it ownership of your existing characters. Leave as “none” to turn this off.",
+    name: "Share PCs with the display/TV account",
+    hint: "Pick your shared TV/display account. Every player character is shared with it as Observer, so the TV shows the party’s merged vision — new characters automatically, existing ones as soon as you pick the account. Observer is deliberate: it keeps save and reaction prompts going to players’ phones instead of the television. Leave as “none” to turn this off.",
     scope: "world",
     config: true,
     type: String,
     default: "",
-    onChange: (value) => { if (value) retroGrantOwnership(value); }
+    onChange: (value) => { if (value) syncDisplayObserver(value); }
   });
 
   // §16.3 DM first-run wizard: true once the DM finished (or dismissed) the
@@ -462,25 +462,63 @@ export function registerSettings() {
   });
 }
 
-// Grant `userId` OWNER on every existing player-character that lacks it — the "fix existing"
-// half of auto-own, run when displayOwnerUser is chosen. Executor-only (one writer; ownership
-// writes are GM-only).
-async function retroGrantOwnership(userId) {
+// The configured display/TV account, or null when the feature is off.
+export function displayUserId() {
+  try { return game.settings.get(MODULE_ID, "displayOwnerUser") || null; } catch (e) { return null; }
+}
+
+// OBSERVER, not OWNER — the level the TV actually needs (2026-07-21). Foundry 14 builds vision
+// from OBSERVER (`Token#_isVisionSource`: `testUserPermission(game.user, "OBSERVER")`), so the
+// shared screen sees the party's merged view at this level. OWNER bought only two things beyond
+// that: token CONTROL (which the display never legitimately needs — see refreshCombatVision) and
+// a seat in midi's prompt routing, which was the whole "Shield bug": `playerForActor`
+// (midi-qol.js:18174) matches `ownership[p.id] === OWNER` by strict equality on every fallback
+// branch, so an OBSERVER display account is INELIGIBLE to receive a save/reaction prompt. That is
+// what retires the "every player must have an assigned character" requirement (DESIGN §2).
+export const DISPLAY_LEVEL = 2; // CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER (CONST isn't ready at import)
+
+/** Does the display/TV account observe this actor? True for anything shared with it — including a
+ *  GM-created summon, which has NO player owner until the DM hands it over. Vision/POV code used
+ *  `hasPlayerOwner` to mean this, which only worked while the TV held OWNER (a summon's grant was
+ *  what made hasPlayerOwner true). Distinct from main.js's isPartyActor, which is the TV CAMERA's
+ *  narrower "who do I frame" test — don't merge them. */
+export function isDisplayShared(actor) {
+  const tv = displayUserId();
+  return !!tv && !!actor && (actor.ownership?.[tv] ?? 0) >= DISPLAY_LEVEL;
+}
+
+// Put the display/TV account at exactly OBSERVER on every existing player-character — the "fix
+// existing" half of the auto-share, run when displayOwnerUser is chosen and once at startup as a
+// migration. Levels DOWN as well as up: a world set up before 2026-07-21 has the TV on OWNER,
+// which is what mis-routed prompts. Executor-only (one writer; ownership writes are GM-only).
+export async function syncDisplayObserver(userId, { quiet = false } = {}) {
   try {
-    if (!isExecutor()) return;
+    if (!isExecutor()) return 0;
     const user = game.users.get(userId);
-    if (!user || user.isGM) return;
-    const OWNER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
-    let n = 0;
+    if (!user || user.isGM) return 0;
+    let raised = 0, lowered = 0;
     for (const actor of game.actors) {
-      if (actor.type !== "character" || !actor.hasPlayerOwner) continue; // real PCs only, not templates/NPCs
-      if ((actor.ownership?.[user.id] ?? 0) >= OWNER) continue;
-      await actor.update({ [`ownership.${user.id}`]: OWNER });
-      n++;
+      const have = actor.ownership?.[user.id] ?? 0;
+      if (have === DISPLAY_LEVEL) continue;
+      // Share PCs up to OBSERVER; on anything else only ever level DOWN. That second clause is
+      // what catches summons (Unseen Servant, Sphinx of Wonder): the old summon path granted the
+      // TV OWNER on npc actors, and OWNER on a summon means midi can route its saves to the
+      // television exactly like a PC's.
+      const isPC = actor.type === "character" && actor.hasPlayerOwner;
+      if (!isPC && have <= DISPLAY_LEVEL) continue;
+      await actor.update({ [`ownership.${user.id}`]: DISPLAY_LEVEL });
+      if (have > DISPLAY_LEVEL) lowered++; else raised++;
     }
-    ui.notifications?.info?.(`Mobile Command: gave ${user.name} ownership of ${n} character(s).`);
+    if (!quiet || raised || lowered) {
+      const bits = [];
+      if (raised) bits.push(`${raised} shared`);
+      if (lowered) bits.push(`${lowered} lowered from Owner (prompts now reach the player, not the TV)`);
+      if (bits.length) ui.notifications?.info?.(`Mobile Command: ${user.name} — ${bits.join(", ")}.`);
+    }
+    return raised + lowered;
   } catch (e) {
-    console.warn(`${MODULE_ID} | retro ownership grant failed`, e);
+    console.warn(`${MODULE_ID} | display observer sync failed`, e);
+    return 0;
   }
 }
 

@@ -57,9 +57,11 @@ async function stepWelcomeTv() {
   const picked = await wizWait({
     n: 1, title: "The shared screen",
     content: `<p><b>Which account runs your TV / shared display?</b></p>
-      <p>That account is auto-granted Owner on every PC so the TV can show party vision.
-      It should be a dedicated account — <em>not</em> one of the phone players — and should
-      have <b>no assigned character</b> (an assigned character makes it swallow that PC's prompts).</p>
+      <p>Every PC is shared with that account as <b>Observer</b>, which is what lets the TV show the
+      party's merged vision. Observer and not Owner is deliberate: it keeps save and reaction prompts
+      going to players' phones instead of the television. It should be a dedicated account —
+      <em>not</em> one of the phone players — and should have <b>no assigned character</b>
+      (an assigned character still makes it swallow that PC's prompts).</p>
       <select name="tv" style="width:100%">${opts.join("")}</select>`,
     buttons: [
       { action: "next", label: "Next", default: true, callback: (_e, b) => b.form.elements.tv.value },

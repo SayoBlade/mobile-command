@@ -57,9 +57,24 @@ function checkDisplayAccount() {
   if (!user) return { id: "display", label: "TV / display account", status: "fail", detail: "The configured display user no longer exists." };
   const bits = [];
   if (!user.active) bits.push("not connected");
+  // The two ways a display account still steals prompts, both checked against midi's
+  // playerForActor (midi-qol.js:18174): an assigned character wins outright (branch 1 ignores
+  // ownership entirely), and OWNER wins the active-owner fallback. OBSERVER — what the module
+  // grants now — matches neither, which is the point.
   if (user.character) bits.push(`has an assigned character (${user.character.name}) — it will swallow that PC's prompts`);
-  if (bits.length) return { id: "display", label: "TV / display account", status: "warn", detail: `${user.name}: ${bits.join("; ")}.` };
-  return { id: "display", label: "TV / display account", status: "ok", detail: `${user.name} is online, no character assigned.` };
+  const owns = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner
+    && (a.ownership?.[user.id] ?? 0) > 2).map(a => a.name);
+  if (owns.length) bits.push(`holds Owner (not Observer) on ${owns.length}: ${owns.slice(0, 3).join(", ")}${owns.length > 3 ? ", …" : ""} — it can intercept their save prompts`);
+  if (bits.length) {
+    return {
+      id: "display", label: "TV / display account", status: "warn", detail: `${user.name}: ${bits.join("; ")}.`,
+      fix: owns.length ? {
+        label: `Lower ${owns.length} to Observer`,
+        run: async () => { const { syncDisplayObserver } = await import("./settings.js"); await syncDisplayObserver(user.id); }
+      } : null
+    };
+  }
+  return { id: "display", label: "TV / display account", status: "ok", detail: `${user.name} is online, sees the party as Observer, no character assigned.` };
 }
 
 function checkPresetDrift() {
@@ -76,26 +91,51 @@ function checkPresetDrift() {
   };
 }
 
-function checkAssignments() {
+// Can every player-owned token on this scene actually reach a phone when midi asks it something?
+//
+// This replaced the old "PC ↔ player assignment" check (2026-07-21). That one demanded every PC be
+// some user's assigned character — arithmetically impossible the moment a player runs a familiar or
+// a second PC, since Foundry gives each user exactly ONE character slot. It reported a permanent,
+// unfixable failure for doing nothing wrong. The underlying risk was never assignment: it was the
+// TV account holding OWNER and winning midi's routing fallback. That's fixed at the source now
+// (DISPLAY_LEVEL, settings.js), so the only question left is the one a DM can act on — is there a
+// connected human who owns this creature? Note this deliberately does NOT filter on disposition:
+// a neutral pet is exactly as routable-or-not as a friendly one.
+function checkPromptRouting() {
+  const id = "prompts", label = "Player prompts";
   const tvId = displayUserId();
-  const pcs = partyPCs();
-  if (!pcs.length) return { id: "assign", label: "PC ↔ player assignment", status: "warn", detail: "No party PCs on the active scene to check." };
-  const unassigned = pcs.filter(({ actor }) =>
-    !game.users.some(u => !u.isGM && u.id !== tvId && u.character?.id === actor.id));
-  if (!unassigned.length) return { id: "assign", label: "PC ↔ player assignment", status: "ok", detail: "Every party PC is some player's assigned character." };
-  const fixable = [];
-  for (const { actor } of unassigned) {
-    const owners = game.users.filter(u => !u.isGM && u.id !== tvId && actor.testUserPermission(u, "OWNER"));
-    if (owners.length === 1 && !owners[0].character) fixable.push({ actor, user: owners[0] });
+  const owned = [];
+  const seen = new Set();
+  for (const t of game.scenes?.active?.tokens ?? []) {
+    const a = t.actor;
+    if (!a || a.type === "group" || seen.has(a.id) || a.flags?.["item-piles"]) continue;
+    if (!a.hasPlayerOwner) continue;
+    seen.add(a.id); owned.push({ actor: a, token: t });
   }
-  return {
-    id: "assign", label: "PC ↔ player assignment", status: "fail",
-    detail: `${unassigned.map(p => p.actor.name).join(", ")}: not assigned in any User Configuration — midi routes their save/reaction prompts to the wrong client (the Shield bug).`,
-    fix: fixable.length ? {
-      label: `Assign ${fixable.length} by ownership`,
-      run: async () => { for (const f of fixable) await f.user.update({ character: f.actor.id }); }
-    } : null
-  };
+  if (!owned.length) return { id, label, status: "warn", detail: "No player-owned tokens on the active scene to check." };
+  // Two very different states, and conflating them was the first version's mistake (DM screenshot,
+  // 2026-07-21: a red wall before the players had even logged in). "Nobody owns this" is a config
+  // error only the DM can fix — red. "Their player hasn't joined yet" is the normal state of every
+  // pre-session table and clears itself when they connect — amber, and it names the PERSON, since
+  // that's the actionable half.
+  const ownerless = [], waiting = new Map(); // userName -> [actor names]
+  for (const { actor } of owned) {
+    const owners = game.users.filter(u => !u.isGM && u.id !== tvId && actor.testUserPermission(u, "OWNER"));
+    if (!owners.length) { ownerless.push(actor.name); continue; }
+    if (owners.some(u => u.active)) continue;
+    for (const u of owners) waiting.set(u.name, [...(waiting.get(u.name) ?? []), actor.name]);
+  }
+  if (ownerless.length) {
+    return {
+      id, label, status: "fail",
+      detail: `Nobody owns ${ownerless.join(", ")}. Give a player Owner on the sheet.`
+    };
+  }
+  if (waiting.size) {
+    const who = [...waiting].map(([user, actors]) => `${user} (${actors.join(", ")})`).join("; ");
+    return { id, label, status: "warn", detail: `Not connected yet: ${who}.` };
+  }
+  return { id, label, status: "ok", detail: `${owned.length} token${owned.length === 1 ? "" : "s"} — all reach a phone.` };
 }
 
 function checkTokenSight() {
@@ -213,7 +253,7 @@ function checkTravelLighting() {
 // ── Runner ──────────────────────────────────────────────────────────────────
 
 export async function runPreflight() {
-  const checks = [checkExecutor, checkDisplayAccount, checkPresetDrift, checkAssignments,
+  const checks = [checkExecutor, checkDisplayAccount, checkPresetDrift, checkPromptRouting,
     checkTokenSight, checkPartyGroup, checkTeleportRegions, checkTravelLighting, checkModuleStack];
   const out = [];
   for (const fn of checks) {

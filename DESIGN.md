@@ -77,7 +77,20 @@
 4. **Determinism:** acceptable — D3's per-pair `canSense` is selection-independent and Route B passes `ignoreUserTargets`; the DM's own clicking can't contaminate results.
 5. **Q3 dissolves:** single GM client = no "which GM" addressing ambiguity, no `preferredGM` tuning.
 
-**Required regardless of topology (sharp edge found in midi source):** every real player user must have their **character assigned** (user config). midi's prompt routing (`playerForActor`, midi-qol.js:18040) prefers the active user whose *assigned character* is the actor before falling back to "any active owner" — this is what keeps save prompts off the TV even though the TV user holds Owner on all PCs (which Monk's Common Display needs for merged-vision token control).
+**~~Required regardless of topology~~ — RETIRED 2026-07-21.** This used to read: *every real player user must have their character assigned (user config)*, because midi's `playerForActor` prefers the active user whose assigned character is the actor before falling back to "any active owner" — the only thing keeping save prompts off the TV while the TV held **Owner** on all PCs.
+
+That requirement was unsatisfiable and has been removed. Foundry gives each user **exactly one** `user.character` slot, so a player running a familiar, a summon, or a second PC could never assign them all; the preflight check that enforced it reported a permanent, unfixable failure (DM's live world: 5 friendly player-owned tokens, 2 player accounts). **The real defect was the TV holding Owner**, not the missing assignment.
+
+**Resolution — the display account sits at OBSERVER, never OWNER** (`DISPLAY_LEVEL`, settings.js). Two facts read from installed source, both verified 2026-07-21:
+
+- **Foundry 14 builds vision from Observer.** `Token#_isVisionSource` (client/canvas/placeables/token.mjs): `const canObserve = this.actor?.testUserPermission(game.user, "OBSERVER")`. Owner was never required for the shared screen's merged vision — the earlier note above (and the Monk's Common Display rationale) overstated what the TV needs.
+- **midi's router matches Owner by strict equality.** `playerForActor` (midi-qol.js:18174) has four fallback branches; every ownership branch tests `ownership[p.id] === OWNERSHIP_LEVELS.OWNER`. An Observer display account is therefore **ineligible** to receive a save/reaction prompt — not deprioritised, invisible. No wrapper, no patch of midi.
+
+Consequences: prompt routing follows ownership to the real player's phone for PCs, familiars, summons and extra PCs alike; the phone's "active character" star is gone (shell.js); the assignment preflight check is replaced by `checkPromptRouting`, which fails only when a player-owned token has **no connected non-display owner** — the one condition a DM can act on. `checkDisplayAccount` now also flags (and offers to fix) a display account still holding Owner.
+
+Two things still route on `user.character`, so the display account must **not** have one assigned: midi's branch 1 matches an assigned character *ignoring ownership entirely*. The wizard and preflight both say so.
+
+Startup migration: `syncDisplayObserver` (executor-only, idempotent) levels the display account to exactly Observer on every PC, and levels **down** anything else it holds above Observer — summons granted Owner by the old `registerSummonOwnership` path (e.g. Unseen Servant, Sphinx of Wonder) included. Note for testing: downgrading ownership by hand in a running world is undone within seconds by the old build's `updateActor` auto-own hook — the world fix only sticks once the new code is loaded.
 
 ---
 

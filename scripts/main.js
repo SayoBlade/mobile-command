@@ -1,5 +1,5 @@
 import { MODULE_ID } from "./preset.js";
-import { registerSettings, resolveExecutorId, isExecutor } from "./settings.js";
+import { registerSettings, resolveExecutorId, isExecutor, displayUserId, isDisplayShared, syncDisplayObserver, DISPLAY_LEVEL } from "./settings.js";
 import { diffPreset, applyPreset, checkAndPrompt, deactivate, reactivate, hasBackup } from "./enforcer.js";
 import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, registerReactionNotifier, registerSummonOwnership, api, actorTokenSight } from "./rpc.js";
 import { initPauseGuard } from "./pause-guard.js";
@@ -418,16 +418,14 @@ function tvCombatFollow(tokenDoc, changes) {
 // so a plain re-evaluation also restores shared vision when toggled off.
 function refreshCombatVision() {
   if (!isDisplayClient() || !canvas?.ready) return;
-  let on = false; try { on = game.settings.get(MODULE_ID, "combatPovVision"); } catch (e) {}
-  // Render trigger: the `_isVisionSource` patch already restricts the *eligible* sources,
-  // but Foundry needs a real vision refresh to RE-RENDER the fog from them. control() is
-  // the canonical native path; the patch keeps the restriction even if MCD releases it.
-  try {
-    const active = on && game.combat?.started ? game.combat.combatant?.token?.object : null;
-    const owned = !!active?.actor?.hasPlayerOwner; // PC OR a player-owned summon (e.g. Badger)
-    if (owned && active) active.control({ releaseOthers: true }); // their turn → control it
-    else canvas.tokens?.releaseAll();                             // unowned NPC / off → drop control
-  } catch (e) { /* control best-effort (needs ownership) */ }
+  // Render trigger: the `_isVisionSource` patch already decides the *eligible* sources — it
+  // returns true for the active combatant outright, without consulting ownership — but Foundry
+  // needs a real vision refresh to RE-RENDER the fog from them. We used to control() the active
+  // token as that trigger; the display account is OBSERVER now (2026-07-21) and cannot control
+  // anything, so the call was dead weight. Release instead: with nothing controlled, core's own
+  // fallback lights every OBSERVED token, and the patch narrows that to the active one on a PC's
+  // turn. Same picture, no ownership required.
+  try { canvas.tokens?.releaseAll(); } catch (e) { /* best-effort */ }
   try { canvas.perception?.update({ initializeVision: true, refreshVision: true, refreshLighting: true }); } catch (e) {}
   try { canvas.effects?.initializeVisionSources?.(); } catch (e) {} // force a synchronous rebuild if available
 }
@@ -444,7 +442,10 @@ async function syncPartyTokenSight() {
   let n = 0, skipped = 0;
   for (const t of canvas.tokens?.placeables ?? []) {
     const actor = t.actor;
-    if (!actor?.hasPlayerOwner) continue; // PCs + player-owned summons (both get a POV turn)
+    // PCs + party summons. NOT main.js isPartyActor (camera-scoped: PCs and the packed
+    // group only) — a summon needs its senses synced too, and hasPlayerOwner is false for one
+    // the DM has not handed over yet (2026-07-21: it only read true while the TV held OWNER).
+    if (!actor?.hasPlayerOwner && !isDisplayShared(actor)) continue;
     // Senses → sight/detection now lives in ONE place (rpc.js actorTokenSight) and is
     // ALSO applied at token creation on deploy/scout-release (2026-07-04: a dispersed
     // PC kept the prototype's range-0 sight, so darkvision members walked blind until
@@ -640,15 +641,14 @@ Hooks.once("ready", () => {
   registerShellHooks();
   registerDMPanel(); // DM-assign panel (GM clients only; self-gates)
   maybePromptDmWizard(); // §16.3 first-run setup offer (GM only; once per world)
-  // TRACER (2026-07-09): Player 2's assigned character silently flipped to another
-  // owned PC twice; no module writer matches. Log every user.character change with
-  // the originating client's stack so the next drift names its caller. Remove once
-  // the culprit is found.
-  Hooks.on("preUpdateUser", (user, changes) => {
-    if (!("character" in changes)) return;
-    console.warn(`${MODULE_ID} | user.character changing: ${user.name} → ${game.actors.get(changes.character)?.name ?? changes.character}`,
-      new Error("origin stack").stack);
-  });
+  // The TV/display account must sit at OBSERVER, never OWNER: OWNER puts it in midi's prompt
+  // routing (playerForActor matches OWNER by strict equality) and it wins over the real player
+  // because it's always connected — the Shield bug. Worlds set up before 2026-07-21 have OWNER
+  // grants baked in, so level them down once, on the executor, at startup. Idempotent: after the
+  // first pass every actor already reads OBSERVER and this writes nothing.
+  try { const tv = displayUserId(); if (tv) syncDisplayObserver(tv, { quiet: true }); } catch (e) { /* best-effort */ }
+  // (The user.character tracer from 2026-07-09 retired with the assignment requirement itself —
+  //  nothing routes on user.character any more, so a drifting slot is no longer a bug.)
   registerSaveRelay(); // executor relays midi save requests to phones (self-gates on isExecutor)
   registerReactionNotifier(); // DM toast when a player gets a reaction window (self-gates)
   registerSummonOwnership(); // summoned-creature control chip for the DM (self-gates on isExecutor)
@@ -746,7 +746,10 @@ function setupDMOmniscientVision() {
         let pov = false; try { pov = game.settings.get(MODULE_ID, "combatPovVision"); } catch (e) {}
         if (pov) {
           const active = game.combat.combatant?.token;
-          const owned = active?.actor?.hasPlayerOwner; // PC OR player-owned summon (ally turn)
+          // PC OR party summon (ally turn). The isDisplayShared half matters because a GM-created
+          // summon has no player owner until the DM hands it over — it only read as "party" before
+          // because the TV held OWNER on it (2026-07-21 — the TV is OBSERVER now).
+          const owned = active?.actor?.hasPlayerOwner || isDisplayShared(active?.actor);
           if (owned) {
             if (this.document?.id !== active.id) return false;        // other tokens: no vision
             return canvas.visibility?.tokenVision !== false && this.hasSight; // active token sees per its senses
@@ -780,24 +783,25 @@ function setupDisplayItemPileNames() {
   try { canvas?.tokens?.placeables?.forEach(hide); } catch (e) {}
 }
 
-// Auto-own new player characters for the configured display/TV account (DM 2026-06-27), so the
-// TV picks up their vision without manual ownership. Executor-only writer; opt-in (off until a
+// Auto-share new player characters with the configured display/TV account (DM 2026-06-27), so the
+// TV picks up their vision without manual fiddling. Executor-only writer; opt-in (off until a
 // display account is chosen in settings → displayOwnerUser). Existing characters are handled by
-// that setting's onChange (retroGrantOwnership).
+// that setting's onChange and by the startup migration (syncDisplayObserver).
 function setupAutoOwnNewPCs() {
-  // Grant the configured display/TV account OWNER on a player-owned character (idempotent).
+  // Share a player-owned character with the display/TV account at exactly OBSERVER (idempotent).
   // `hasPlayerOwner` keeps it to real PCs — not the many test/template "character" actors.
+  // OBSERVER not OWNER: enough for vision, and it keeps the TV out of midi's prompt routing
+  // (see DISPLAY_LEVEL in settings.js).
   const grant = async (actor) => {
     try {
       if (!isExecutor() || actor?.type !== "character" || !actor.hasPlayerOwner) return;
-      let targetId = ""; try { targetId = game.settings.get(MODULE_ID, "displayOwnerUser"); } catch (e) {}
+      const targetId = displayUserId();
       if (!targetId) return;
       const user = game.users.get(targetId);
       if (!user || user.isGM) return;
-      const OWNER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
-      if ((actor.ownership?.[user.id] ?? 0) >= OWNER) return;
-      await actor.update({ [`ownership.${user.id}`]: OWNER });
-    } catch (e) { console.warn(`${MODULE_ID} | auto-own grant failed`, e); }
+      if ((actor.ownership?.[user.id] ?? 0) === DISPLAY_LEVEL) return;
+      await actor.update({ [`ownership.${user.id}`]: DISPLAY_LEVEL });
+    } catch (e) { console.warn(`${MODULE_ID} | display share failed`, e); }
   };
   Hooks.on("createActor", (actor) => grant(actor));
   // A PC usually gets its player owner AFTER creation, so also react to ownership edits.

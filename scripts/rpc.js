@@ -1,5 +1,5 @@
 import { MODULE_ID } from "./preset.js";
-import { resolveExecutorId, isExecutor, reactionTimeoutMs } from "./settings.js";
+import { resolveExecutorId, isExecutor, reactionTimeoutMs, DISPLAY_LEVEL } from "./settings.js";
 import * as DT from "./downtime.js"; // §17.7 downtime data model + Rule engine (pure, unit-tested)
 
 // §5 Service RPC contract, Phase 1 subset, running on the executor client
@@ -1957,13 +1957,18 @@ function healthRingColor(pct) {
   if (pct > 0.2) return "#e8913a"; // orange
   return "#d84a3f";                // red (bloodied)
 }
-function applyPcVisuals(td, actor) {
+// `colorFrom` lets a token borrow another actor's player colour. Summons use it: a conjured
+// Mage Hand is an NPC with no player owner (the DM hasn't handed it over yet, and the TV is only
+// an Observer), so both gates below reject it and it landed on the map unlit and unringed while
+// every PC around it glowed — DM 2026-07-21, "my only complaint is lack of glow". Passing the
+// SUMMONER makes it wear that player's colour, which is also the honest read: it's their hand.
+function applyPcVisuals(td, actor, { colorFrom = null } = {}) {
   try {
-    if (actor?.type !== "character" || !actor.hasPlayerOwner) return;
+    if (!colorFrom && (actor?.type !== "character" || !actor.hasPlayerOwner)) return;
     const glow = Number(game.settings.get(MODULE_ID, "tokenGlow")) || 0;
     if (glow > 0) td.light = { ...td.light, bright: glow, dim: 0 };
     if (!game.settings.get(MODULE_ID, "ringPlayerColors")) return;
-    const color = playerColorFor(actor);
+    const color = playerColorFor(colorFrom ?? actor);
     if (!color) return;
     // Default: ring = player colour. Health mode: ring border = HP colour, player colour → background
     // (so identity stays), and COLOR_OVER_SUBJECT tints the token toward red as it drops.
@@ -2281,20 +2286,25 @@ export function registerSummonOwnership() {
       // ownership shortcut, and an INVISIBLE summon (Unseen Servant) is excluded by basic detection —
       // so an owned-but-uncontrolled invisible token still won't render on the passive TV. The fix is
       // the SAME mechanism syncPartyTokenSight uses for PCs: give the token SIGHT so it's a vision
-      // source for its owner → isVisible returns true. So we (1) grant the display user OWNER and
-      // (2) enable sight (from the summon's own senses; range 0 + lightPerception for a senseless
-      // Unseen Servant). Ungated — the TV shows whatever the party conjures (DM 2026-07-17). The DM
-      // gate below is only for PLAYER control.
+      // source for the display → isVisible returns true. So we (1) share it with the display user
+      // at OBSERVER — the level Foundry 14 actually reads for vision, and the level that keeps the
+      // TV out of midi's prompt routing (DISPLAY_LEVEL, settings.js, 2026-07-21) — and (2) enable
+      // sight (from the summon's own senses; range 0 + lightPerception for a senseless Unseen
+      // Servant). Ungated — the TV shows whatever the party conjures (DM 2026-07-17). The DM gate
+      // below is only for PLAYER control.
       if (displayUser && baseActor) {
         const tvUser = game.users.get(displayUser);
-        const OWNER = CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER;
-        if (tvUser && !tvUser.isGM && (baseActor.ownership?.[displayUser] ?? 0) < OWNER) {
-          try { await baseActor.update({ [`ownership.${displayUser}`]: OWNER }); }
-          catch (e) { console.warn(`${MODULE_ID} | summon TV-ownership grant failed`, e); }
+        if (tvUser && !tvUser.isGM && (baseActor.ownership?.[displayUser] ?? 0) !== DISPLAY_LEVEL) {
+          try { await baseActor.update({ [`ownership.${displayUser}`]: DISPLAY_LEVEL }); }
+          catch (e) { console.warn(`${MODULE_ID} | summon TV share failed`, e); }
         }
-        if (!tokenDoc.sight?.enabled) {
-          try { await tokenDoc.update(actorTokenSight(baseActor)); }
-          catch (e) { console.warn(`${MODULE_ID} | summon vision-source failed`, e); }
+        // Sight (the vision-source trick above) and the summoner's colour/glow go on in ONE write —
+        // two updates on a just-created token race the canvas draw and the ring can land unpainted.
+        const payload = tokenDoc.sight?.enabled ? {} : { ...actorTokenSight(baseActor) };
+        applyPcVisuals(payload, baseActor, { colorFrom: summoner });
+        if (Object.keys(payload).length) {
+          try { await tokenDoc.update(payload); }
+          catch (e) { console.warn(`${MODULE_ID} | summon vision/visuals failed`, e); }
         }
       }
       const player = game.users.find(u => !u.isGM && u.id !== displayUser && u.character?.id === summoner.id)

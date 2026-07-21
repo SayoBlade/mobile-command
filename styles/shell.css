@@ -2879,8 +2879,6 @@ body.mc-theme-wizard .mc-frame {
   background: var(--mc-panel-2); border: 1px dashed var(--mc-gold);
 }
 /* Active-character star: dim = tap to make this PC your primary; gold = it already is. */
-.mc-tokensw-star { color: #8a8578; }
-.mc-tokensw-star.mc-on { background: var(--mc-panel-2); border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-tokensw-name {
   flex: 1 1 auto; min-width: 0; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 15px; font-weight: 700; color: var(--mc-gold);

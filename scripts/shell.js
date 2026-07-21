@@ -2674,21 +2674,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // switcher — while on, the player's OTHER owned tokens repeat every pad move
     // (familiar trails the PC). v1 all-or-none; the executor reads the user flag.
     const following = !!game.user.getFlag("mobile-command", "followAll");
-    // "Active character" star (DM 2026-07-09: playing a temp PC while the main is
-    // away). You can CONTROL any owned token via the switcher regardless — the star
-    // only sets which PC is your ASSIGNED character (Foundry's one-per-user slot):
-    // the default binding + where midi sends your save/reaction popups. Filled =
-    // this is your active one; outline = tap to make it active. Players may set
-    // their own (Foundry allows it); GM uses User Configuration instead.
-    const cur = subs[i]?.actorId ? game.actors.get(subs[i].actorId) : null;
-    const canStar = !game.user.isGM && !!subs[i]?.tokenId && cur?.type === "character";
-    const isMain = cur && game.user.character?.id === cur.id;
-    // Reserve the star's slot even when it doesn't apply (a summon/familiar), so cycling tokens never
-    // shifts the row (DM 2026-07-19).
-    const star = canStar ? `<button class="mc-tokensw-btn mc-tokensw-star ${isMain ? "mc-on" : ""}" data-action="set-active-pc" data-actor-id="${cur.id}"
-        title="${isMain ? "Your active character — save & reaction popups come here" : "Play as this one — make it your active character (popups route here)"}"
-        aria-label="Set active character"><i class="fas fa-star"></i></button>`
-      : `<span class="mc-tokensw-btn mc-tokensw-ph" aria-hidden="true"></span>`;
+    // The "active character" star lived here until 2026-07-21. It set Foundry's one-per-user
+    // assigned-character slot, which existed on this screen for exactly one reason: to win midi's
+    // prompt routing against the always-connected TV account. The TV is OBSERVER now and can't
+    // enter that race at all (DISPLAY_LEVEL, settings.js), so there is nothing for a player to get
+    // right — prompts follow ownership to their phone whatever this row shows. The empty slot on
+    // the right stays, so cycling tokens never shifts the row (DM 2026-07-19).
     return `<div class="mc-tokensw">
       <button class="mc-tokensw-btn mc-follow ${following ? "mc-follow-on" : ""}" data-action="follow-toggle"
         title="${following ? "Following: your other tokens copy this one's moves" : "Follow: have your other tokens copy this one's moves"}"
@@ -2696,7 +2687,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <button class="mc-tokensw-btn" data-action="token-prev" aria-label="Previous token"><i class="fas fa-chevron-left"></i></button>
       <span class="mc-tokensw-name">${foundry.utils.escapeHTML(label)} <span class="mc-tokensw-count">${i + 1}/${subs.length}</span></span>
       <button class="mc-tokensw-btn" data-action="token-next" aria-label="Next token"><i class="fas fa-chevron-right"></i></button>
-      ${star}
+      <span class="mc-tokensw-btn mc-tokensw-ph" aria-hidden="true"></span>
     </div>`;
   }
 
@@ -5705,14 +5696,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
             else ui.notifications.warn(r?.reason ?? "Couldn't finish the cast.");
           })
           .catch(e => { console.warn("mobile-command | place-confirm", e); this.#placement = null; this.render(); ui.notifications.warn("The DM screen didn't respond."); });
-        return;
-      }
-      case "set-active-pc": {
-        const id = el.dataset.actorId;
-        if (game.user.character?.id === id) return; // already active
-        game.user.update({ character: id })
-          .then(() => { ui.notifications.info(`${game.actors.get(id)?.name ?? "This PC"} is now your active character — your popups come here.`); if (this.rendered) this.render(); })
-          .catch(e => { console.warn("mobile-command | set active pc", e); ui.notifications.warn("Couldn't switch — ask the DM to assign it in User Configuration."); });
         return;
       }
       case "scroll-scribe":
