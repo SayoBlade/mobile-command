@@ -2109,10 +2109,10 @@ async function onNightClick(ev) {
         const res = await D.wait({
           window: { title: "Start the night" },
           content: `<p>Send the <b>watch board</b> to the phones (three watches, players place themselves) — or skip guard duty and go straight to the morning?</p>`,
-          buttons: [
-            { action: "board", label: "Watch board", icon: "fas fa-moon", default: true },
+          buttons: [ // bible §4.1.1: right is forward — DialogV2 renders array order L→R
+            { action: "cancel", label: "Cancel" },
             { action: "skip", label: "Skip guard duty", icon: "fas fa-forward" },
-            { action: "cancel", label: "Cancel" }
+            { action: "board", label: "Watch board", icon: "fas fa-moon", default: true }
           ]
         }).catch(() => null);
         // A fresh session id per night re-arms every phone's "browse my sheet"
@@ -2317,10 +2317,10 @@ async function onPartyClick(ev) {
         content: `<div class="mc-dmp-roster">
           ${pcs.map(a => row(a, memberIds.size ? memberIds.has(a.id) : true)).join("")}
           ${offScene.map(a => row(a, false, "not on this scene")).join("")}</div>`,
-        buttons: [
+        buttons: [ // bible §4.1.1: right is forward — DialogV2 renders array order L→R
+          { action: "cancel", label: "Cancel" },
           { action: "ok", label: "Set members", icon: "fas fa-users", default: true,
-            callback: (_ev, button) => [...button.form.querySelectorAll('input[name="member"]:checked')].map(i => i.value) },
-          { action: "cancel", label: "Cancel" }
+            callback: (_ev, button) => [...button.form.querySelectorAll('input[name="member"]:checked')].map(i => i.value) }
         ]
       }).catch(() => null);
       if (!Array.isArray(picked)) return true; // cancelled / closed
@@ -2819,10 +2819,10 @@ async function onClick(ev) {
         ${row("hour", "Hour", c.hour === 0 ? 24 : c.hour, 24, 1)}
         ${row("minute", "Minute", c.minute, 60)}
       </div>`,
-      buttons: [
+      buttons: [ // bible §4.1.1: right is forward — DialogV2 renders array order L→R
+        { action: "cancel", label: "Cancel" },
         { action: "set", label: "Set", default: true, callback: (_e, btn) => ({
-            day: Number(btn.form.elements.day.value), hour: Number(btn.form.elements.hour.value), minute: Number(btn.form.elements.minute.value) }) },
-        { action: "cancel", label: "Cancel" }
+            day: Number(btn.form.elements.day.value), hour: Number(btn.form.elements.hour.value), minute: Number(btn.form.elements.minute.value) }) }
       ],
       render: (_e, dialog) => {
         dialog.element.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", (e) => {

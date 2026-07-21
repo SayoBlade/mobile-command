@@ -31,6 +31,9 @@ function wizChrome(n, title, inner) {
     <div class="mc-wiz-body">${inner}</div>
   </div>`;
 }
+// Bible §4.1.1 — right is forward. DialogV2 renders `buttons[]` LEFT TO RIGHT in array order, so
+// every step lists "Finish later" FIRST and the forward action LAST. It reads backwards in source
+// and correctly on screen; don't "tidy" the arrays back (DM 2026-07-21).
 function wizWait({ n, title, content, buttons, render }) {
   return D().wait({
     window: { title: "Mobile Command — Setup" },
@@ -64,8 +67,8 @@ async function stepWelcomeTv() {
       (an assigned character still makes it swallow that PC's prompts).</p>
       <select name="tv" style="width:100%">${opts.join("")}</select>`,
     buttons: [
-      { action: "next", label: "Next", default: true, callback: (_e, b) => b.form.elements.tv.value },
-      { action: "cancel", label: "Finish later" }
+      { action: "cancel", label: "Finish later" },
+      { action: "next", label: "Next", default: true, callback: (_e, b) => b.form.elements.tv.value }
     ]
   }).catch(() => null);
   if (typeof picked !== "string") return false;
@@ -85,9 +88,9 @@ async function stepPreset() {
     n: 2, title: "midi settings",
     content: body,
     buttons: [
-      ...(drift.length ? [{ action: "apply", label: "Apply preset & continue", default: true }] : []),
+      { action: "cancel", label: "Finish later" },
       { action: "next", label: drift.length ? "Keep mine & continue" : "Next", default: !drift.length },
-      { action: "cancel", label: "Finish later" }
+      ...(drift.length ? [{ action: "apply", label: "Apply preset & continue", default: true }] : [])
     ]
   }).catch(() => null);
   if (res === "apply") { await applyPreset(); return true; }
@@ -107,10 +110,10 @@ async function stepToggles() {
     n: 3, title: "Table toggles",
     content: rows + npc,
     buttons: [
+      { action: "cancel", label: "Finish later" },
       { action: "next", label: "Save & continue", default: true,
         callback: (_e, b) => ({ npcMode: b.form.elements.aooNpcMode.value,
-          on: Object.fromEntries(TOGGLES.map(([k]) => [k, b.form.elements[k].checked])) }) },
-      { action: "cancel", label: "Finish later" }
+          on: Object.fromEntries(TOGGLES.map(([k]) => [k, b.form.elements[k].checked])) }) }
     ]
   }).catch(() => null);
   if (!res || typeof res !== "object") return false;
@@ -127,9 +130,9 @@ async function stepVision() {
       carry none of it, which reads as "my player is blind on the TV". This pushes the real
       senses onto every placed PC token (safe to re-run any time; the System health tab checks it too).</p>`,
     buttons: [
-      { action: "sync", label: "Sync now & continue", default: true },
+      { action: "cancel", label: "Finish later" },
       { action: "next", label: "Skip" },
-      { action: "cancel", label: "Finish later" }
+      { action: "sync", label: "Sync now & continue", default: true }
     ]
   }).catch(() => null);
   if (res === "sync") {
@@ -156,8 +159,8 @@ async function stepParty() {
     n: 5, title: "The party",
     content: body,
     buttons: [
-      { action: "next", label: "Run the preflight", default: true },
-      { action: "cancel", label: "Finish later" }
+      { action: "cancel", label: "Finish later" },
+      { action: "next", label: "Run the preflight", default: true }
     ]
   }).catch(() => null);
   return res === "next";
@@ -199,9 +202,9 @@ export function maybePromptDmWizard() {
       content: `<div class="mc-wiz"><div class="mc-wiz-body" style="min-height:0"><p style="margin-top:0">Walk through the shared-table setup? Five short steps — the TV account,
         midi settings, table toggles, token vision, the party — then a live health check.</p></div></div>`,
       buttons: [
-        { action: "run", label: "Run setup", default: true },
+        { action: "never", label: "Don't ask again" },
         { action: "later", label: "Later" },
-        { action: "never", label: "Don't ask again" }
+        { action: "run", label: "Run setup", default: true }
       ]
     }).catch(() => "later");
     if (res === "run") await runDmWizard();

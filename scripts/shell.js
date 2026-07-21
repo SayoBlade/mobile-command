@@ -5964,10 +5964,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const choice = await foundry.applications.api.DialogV2.wait({
       window: { title: "Leave Mobile Command?" },
       content: "<p>Return to the standard Foundry interface, or set this device up as the shared table display (TV)?</p>",
-      buttons: [
+      buttons: [ // bible §4.1.1: right is forward — DialogV2 renders array order L→R. Cancel stays
+                 // the DEFAULT (Enter backs out) even though it sits leftmost; this is a chooser,
+                 // and "This is the TV" is the committing answer, so it takes the right edge.
+        { action: "cancel", label: "Cancel", icon: "fas fa-xmark", default: true, callback: () => "cancel" },
         { action: "leave", label: "Leave", icon: "fas fa-right-from-bracket", callback: () => "leave" },
-        { action: "tv", label: "This is the TV", icon: "fas fa-tv", callback: () => "tv" },
-        { action: "cancel", label: "Cancel", icon: "fas fa-xmark", default: true, callback: () => "cancel" }
+        { action: "tv", label: "This is the TV", icon: "fas fa-tv", callback: () => "tv" }
       ],
       modal: true, rejectClose: false
     });

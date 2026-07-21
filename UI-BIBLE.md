@@ -161,6 +161,26 @@ does not.*
   **symmetric padding** — lopsided padding reads as a layout bug (DM 2026-07-16: the Lvl chip had
   11px right vs 6px left). A **control** in a row stretches with its peers.
 
+### 4.1.1 Right is forward — button ORDER in a row
+
+**The action that moves you forward sits on the RIGHT; the one that backs out sits on the LEFT.**
+(DM 2026-07-21, setup wizard.) Reading order and the direction of travel agree: `Next`,
+`Save & continue`, `Sync now & continue`, `Run the preflight`, `Done` — all rightmost.
+`Finish later`, `Back`, `Cancel`, `Don't ask again` — all leftmost.
+
+Where a step offers **two** ways forward, both go on the right and the **primary is furthest
+right**, so the rightmost button is always "the thing you probably want":
+
+`Finish later` · `Keep mine & continue` · **`Apply preset & continue`**
+
+Watch for framework defaults that invert this: `DialogV2` renders `buttons[]` **left to right in
+array order**, so the forward action must be **last in the array**, which reads backwards in source.
+Comment it where it isn't obvious rather than "fixing" it back.
+
+This is about direction of travel, not danger. A destructive action is styled per §4 and usually
+isn't the forward step at all — if it ever is (a confirm dialog whose whole purpose is to delete),
+it still sits right, because right is where "proceed" lives.
+
 ### 4.2 Gold is an accent, never a button fill
 
 **If it can be pressed, it is not filled with gold.** Gold is the loudest thing we own; on a control
