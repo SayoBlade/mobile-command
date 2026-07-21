@@ -53,13 +53,35 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
    and repaint the whole viewport every frame; this is the cheap way to the same picture. Cost: the
    very edge dips a couple of percent at the crossover, which is invisible at these values.
 
-   Custom id → survives the clean-TV hide list, so the shared display shows it too. Three knobs,
-   all here: --mc-pause-sat (lower = greyer), and the two reaches. */
+   WHY THE GLOW IS TWO-TONE. The first rule from the gold-on-tan failure — "never signal with a
+   hue" — was right but not sufficient: white is a VALUE, and a white glow dies on a bright map
+   (ice tundra, desert, snow) exactly the way gold died on tan (DM 2026-07-21: "it can be a near
+   infinite amount of backgrounds"). So the edge paints a DARK band underneath the white one,
+   reaching slightly further. On a dark cave the white reads; on snow the dark reads; on a mid
+   forest or a purple sea both do, softly. There is no background where BOTH a white and a black
+   edge vanish, which is the only way to be background-independent for real. The dark layer doesn't
+   breathe — it's contrast insurance, not the signal.
+
+   Custom id → survives the clean-TV hide list, so the shared display shows it too. Knobs, all
+   here: --mc-pause-sat (lower = greyer), the two reaches, and the two ink levels. */
 #pause { display: none !important; }
-:root { --mc-pause-sat: .55; --mc-pause-edge-min: 60px; --mc-pause-edge-max: 125px; --mc-pause-white: .35; }
+:root {
+  --mc-pause-sat: .55;
+  --mc-pause-edge-min: 60px; --mc-pause-edge-max: 125px;
+  --mc-pause-white: .35;  /* the signal on dark maps */
+  --mc-pause-dark: .28;   /* the signal on bright maps — under the white, reaching further */
+}
 canvas#board { transition: filter .45s ease; }
 body.mc-game-paused canvas#board { filter: saturate(var(--mc-pause-sat)); }
-#mc-pause-edge { position: fixed; inset: 0; z-index: 90; pointer-events: none; opacity: 0; transition: opacity .45s ease; }
+#mc-pause-edge {
+  position: fixed; inset: 0; z-index: 90; pointer-events: none; opacity: 0; transition: opacity .45s ease;
+  /* the steady dark under-layer — reaches past the white band's widest so it still frames it */
+  background:
+    linear-gradient(to right,  rgba(0,0,0,var(--mc-pause-dark)), rgba(0,0,0,0) calc(var(--mc-pause-edge-max) * 1.3)),
+    linear-gradient(to left,   rgba(0,0,0,var(--mc-pause-dark)), rgba(0,0,0,0) calc(var(--mc-pause-edge-max) * 1.3)),
+    linear-gradient(to bottom, rgba(0,0,0,var(--mc-pause-dark)), rgba(0,0,0,0) calc(var(--mc-pause-edge-max) * 1.3)),
+    linear-gradient(to top,    rgba(0,0,0,var(--mc-pause-dark)), rgba(0,0,0,0) calc(var(--mc-pause-edge-max) * 1.3));
+}
 #mc-pause-edge::before, #mc-pause-edge::after { content: ""; position: absolute; inset: 0; }
 #mc-pause-edge::before {
   background:

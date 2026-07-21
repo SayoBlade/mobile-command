@@ -653,6 +653,7 @@ Hooks.once("ready", () => {
   registerReactionNotifier(); // DM toast when a player gets a reaction window (self-gates)
   registerSummonOwnership(); // summoned-creature control chip for the DM (self-gates on isExecutor)
   registerDialogWatchdog(); // executor alerts DM + pings phone when an action strands a dialog (self-gates)
+  setupNoDoubleTapMinimize(); // no window collapses to a stranded title bar on an accidental double-tap
   setupGMCursorHiding(); // hide the GM's broadcast cursor on other screens (keep pings); reads hideGMCursor live
   setupDMOmniscientVision(); // keep the DM's canvas omniscient when a token is selected (shared-screen tables)
   setupDisplayItemPileNames(); // hide item-pile token names on the shared TV (spoiler/clutter)
@@ -695,6 +696,34 @@ Hooks.once("ready", () => {
 // position for GM users, which reuses Foundry's own hide-on-null teardown (no reimpl).
 // Both read the setting LIVE, so toggling hideGMCursor takes effect on the GM's next move.
 // The GM's own client is unaffected — it never renders its own broadcast cursor.
+// No window is minimizable by double-tapping its header (DM 2026-07-21: double-tapping the
+// Calendar header "minimizes the popup in a strange way" — a collapsed title bar stranded over the
+// canvas, which on a touch screen you hit by accident constantly and can't obviously undo).
+//
+// One capture-phase listener instead of patching two prototypes: ApplicationV2 binds
+// `header.dblclick → #onWindowDoubleClick` (application.mjs:1885) and AppV1 binds
+// `header.dblclick → _onToggleMinimize` (application-v1.mjs:571). Both are listeners on the header
+// element itself, so a capture-phase handler on `document` runs FIRST and can stop the event before
+// either sees it. That also covers third-party windows (Simple Calendar Reborn's MainApp is the one
+// that bit us) without knowing anything about them.
+//
+// Deliberately narrow: this kills the *accidental gesture*, not the feature. A real minimize
+// control in a V2 header is a single click carrying a data-action, so it still works — and that's
+// the one a DM presses on purpose.
+function setupNoDoubleTapMinimize() {
+  document.addEventListener("dblclick", (ev) => {
+    try {
+      const t = ev.target;
+      if (!(t instanceof Element)) return;
+      if (!t.closest(".window-header")) return;
+      // Let real controls through — buttons, links, and anything action-bound.
+      if (t.closest("[data-action], button, a, input, select")) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+    } catch (e) { /* never break a click handler */ }
+  }, true); // capture: beat the header's own listener
+}
+
 function setupGMCursorHiding() {
   try {
     const CL = foundry.canvas?.layers?.ControlsLayer
