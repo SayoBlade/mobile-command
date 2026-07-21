@@ -1,0 +1,81 @@
+<style>
+  html, body { margin: 0; background: #14151a; color: #cfc7bb;
+    font: 13px/1.4 -apple-system, Segoe UI, sans-serif; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; padding: 14px; }
+  figure { margin: 0; flex: 1 1 380px; }
+  figcaption { padding: 6px 2px; color: #9a917f; }
+  .panel { position: relative; height: 300px; overflow: hidden; border: 1px solid #2c2f3a; }
+
+  /* stand-in for Cave A: tan floor, brown rock, a grid — the palette that camouflaged gold */
+  .board { position: absolute; inset: 0;
+    background:
+      repeating-linear-gradient(to right, rgba(0,0,0,.13) 0 1px, transparent 1px 48px),
+      repeating-linear-gradient(to bottom, rgba(0,0,0,.13) 0 1px, transparent 1px 48px),
+      radial-gradient(60% 45% at 30% 12%, #6b4a3a 0%, #4a3126 55%, transparent 100%),
+      radial-gradient(70% 40% at 78% 8%, #5a3f33 0%, #3d2a21 60%, transparent 100%),
+      linear-gradient(#c9a978 0%, #bb9a6a 55%, #a8875a 100%); }
+  /* a couple of tokens, so "did the map lose colour" is judgeable on saturated art */
+  .tok { position: absolute; width: 46px; height: 46px; border-radius: 50%;
+    border: 2px solid #d8c48a; top: 175px; }
+  .t1 { left: 120px; background: radial-gradient(circle at 35% 30%, #7fc7e8, #24506e); }
+  .t2 { left: 185px; background: radial-gradient(circle at 35% 30%, #e88f7f, #7e2f24); }
+  .t3 { left: 250px; background: radial-gradient(circle at 35% 30%, #8fe0a0, #276b38); }
+
+  /* ── exact rules under test (scoped to .panel instead of body) ───────────── */
+  :root { --mc-pause-sat: .55; --mc-pause-edge-min: 60px; --mc-pause-edge-max: 125px; --mc-pause-white: .35; }
+  .paused .board { filter: saturate(var(--mc-pause-sat)); }
+  .edge { position: absolute; inset: 0; z-index: 90; pointer-events: none; }
+  .edge::before, .edge::after { content: ""; position: absolute; inset: 0; }
+  .edge::before {
+    background:
+      linear-gradient(to right,  rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-min)),
+      linear-gradient(to left,   rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-min)),
+      linear-gradient(to bottom, rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-min)),
+      linear-gradient(to top,    rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-min)); }
+  .edge::after { opacity: 0;
+    background:
+      linear-gradient(to right,  rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-max)),
+      linear-gradient(to left,   rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-max)),
+      linear-gradient(to bottom, rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-max)),
+      linear-gradient(to top,    rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-max)); }
+
+  /* frozen phases of the 4s breath, so a screenshot is deterministic */
+  .phase-in  .edge::before { opacity: 1; }   /* t=0s   — band at its narrowest */
+  .phase-in  .edge::after  { opacity: 0; }
+  .phase-mid .edge::before { opacity: .5; }  /* t=1s   — travelling */
+  .phase-mid .edge::after  { opacity: .5; }
+  .phase-out .edge::before { opacity: 0; }   /* t=2s   — band at its widest */
+  .phase-out .edge::after  { opacity: 1; }
+  /* the real thing, actually breathing */
+  .live .edge::before { animation: mc-pause-narrow 4s ease-in-out infinite; }
+  .live .edge::after  { animation: mc-pause-wide   4s ease-in-out infinite; }
+  @keyframes mc-pause-narrow { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+  @keyframes mc-pause-wide   { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+</style>
+
+<div class="row">
+  <figure>
+    <div class="panel"><div class="board"></div><i class="tok t1"></i><i class="tok t2"></i><i class="tok t3"></i></div>
+    <figcaption><b>Running</b> — full colour, no edge</figcaption>
+  </figure>
+  <figure>
+    <div class="panel paused phase-in"><div class="board"></div><i class="tok t1"></i><i class="tok t2"></i><i class="tok t3"></i><div class="edge"></div></div>
+    <figcaption><b>Paused, breath in</b> — sat .55, band 60px</figcaption>
+  </figure>
+</div>
+<div class="row">
+  <figure>
+    <div class="panel paused phase-mid"><div class="board"></div><i class="tok t1"></i><i class="tok t2"></i><i class="tok t3"></i><div class="edge"></div></div>
+    <figcaption><b>Paused, mid-travel</b> — the crossover</figcaption>
+  </figure>
+  <figure>
+    <div class="panel paused phase-out"><div class="board"></div><i class="tok t1"></i><i class="tok t2"></i><i class="tok t3"></i><div class="edge"></div></div>
+    <figcaption><b>Paused, breath out</b> — band 125px</figcaption>
+  </figure>
+</div>
+<div class="row">
+  <figure style="flex: 1 1 100%">
+    <div class="panel paused live"><div class="board"></div><i class="tok t1"></i><i class="tok t2"></i><i class="tok t3"></i><div class="edge"></div></div>
+    <figcaption><b>Live</b> — the actual 4s loop, breathing in and out</figcaption>
+  </figure>
+</div>
