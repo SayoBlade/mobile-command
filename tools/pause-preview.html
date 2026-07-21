@@ -1,8 +1,9 @@
 <style>
   /* Pause-cue bench. The point is NOT one pretty scene — it's whether the cue survives every
      background a map can be (DM 2026-07-21: "a near infinite amount of backgrounds, from a dark
-     gray cave, to a lush green forest, to a magical purple sea, or an ice tundra"). The bright
-     rows are the ones that matter: a white glow dies on snow exactly like gold died on tan.
+     gray cave, to a lush green forest, to a magical purple sea, or an ice tundra"). Whichever ink
+     breathes, the rows that stress it are the ones sharing its value: a white glow dies on snow
+     exactly like gold died on tan, and black dies in a dark cave. That's why the band is two-tone.
      Each tile shows RUNNING on the left half and PAUSED on the right, so the desaturation and the
      edge are judged against the same pixels. Open this file in any browser; no server needed. */
   html, body { margin: 0; background: #101116; color: #cfc7bb;
@@ -38,39 +39,47 @@
   :root {
     --mc-pause-sat: .55;
     --mc-pause-edge-min: 60px; --mc-pause-edge-max: 125px;
-    --mc-pause-white: .35;
-    --mc-pause-dark: .28;
+    --mc-pause-ink: 0, 0, 0;            --mc-pause-ink-a: .38;      /* breathing band */
+    --mc-pause-counter: 255, 255, 255;  --mc-pause-counter-a: .20;  /* steady opposite */
   }
   .paused .board, .paused .tok { filter: saturate(var(--mc-pause-sat)); }
   .edge { position: absolute; inset: 0; z-index: 90; pointer-events: none;
     background:
-      linear-gradient(to right,  rgba(0,0,0,var(--mc-pause-dark)), rgba(0,0,0,0) calc(var(--mc-pause-edge-max) * 1.3)),
-      linear-gradient(to left,   rgba(0,0,0,var(--mc-pause-dark)), rgba(0,0,0,0) calc(var(--mc-pause-edge-max) * 1.3)),
-      linear-gradient(to bottom, rgba(0,0,0,var(--mc-pause-dark)), rgba(0,0,0,0) calc(var(--mc-pause-edge-max) * 1.3)),
-      linear-gradient(to top,    rgba(0,0,0,var(--mc-pause-dark)), rgba(0,0,0,0) calc(var(--mc-pause-edge-max) * 1.3)); }
+      linear-gradient(to right,  rgba(var(--mc-pause-counter), var(--mc-pause-counter-a)), transparent calc(var(--mc-pause-edge-max) * 1.3)),
+      linear-gradient(to left,   rgba(var(--mc-pause-counter), var(--mc-pause-counter-a)), transparent calc(var(--mc-pause-edge-max) * 1.3)),
+      linear-gradient(to bottom, rgba(var(--mc-pause-counter), var(--mc-pause-counter-a)), transparent calc(var(--mc-pause-edge-max) * 1.3)),
+      linear-gradient(to top,    rgba(var(--mc-pause-counter), var(--mc-pause-counter-a)), transparent calc(var(--mc-pause-edge-max) * 1.3)); }
   .edge::before, .edge::after { content: ""; position: absolute; inset: 0; }
   .edge::before {
     background:
-      linear-gradient(to right,  rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-min)),
-      linear-gradient(to left,   rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-min)),
-      linear-gradient(to bottom, rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-min)),
-      linear-gradient(to top,    rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-min));
+      linear-gradient(to right,  rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-min)),
+      linear-gradient(to left,   rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-min)),
+      linear-gradient(to bottom, rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-min)),
+      linear-gradient(to top,    rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-min));
     animation: mc-pause-narrow 4s ease-in-out infinite; }
   .edge::after { opacity: 0;
     background:
-      linear-gradient(to right,  rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-max)),
-      linear-gradient(to left,   rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-max)),
-      linear-gradient(to bottom, rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-max)),
-      linear-gradient(to top,    rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-max));
+      linear-gradient(to right,  rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-max)),
+      linear-gradient(to left,   rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-max)),
+      linear-gradient(to bottom, rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-max)),
+      linear-gradient(to top,    rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-max));
     animation: mc-pause-wide 4s ease-in-out infinite; }
   @keyframes mc-pause-narrow { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
   @keyframes mc-pause-wide   { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+  @keyframes mc-bench-sweep { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(355%); } }
 </style>
 
 <h1>Pause cue — does it survive every map?</h1>
 <p class="note">Left half of each tile is running, right half is paused. The cue is two-tone on
-purpose: a white glow carries dark maps, a dark band carries bright ones. Snow and tundra are the
-rows that decide it — a white-only edge disappears there, which is the same failure gold had on tan.</p>
+purpose: a breathing <b>black</b> band carries bright maps, a steady white one underneath carries
+dark maps. The dark cave row is the one that decides it now — black alone would disappear there,
+the mirror of what gold did on tan.</p>
+<p class="note"><b>Motion check:</b> the swatch below sweeps left-to-right on the same 4s loop as
+the bands. If it is sitting still, this page is being shown as a static image and nothing here will
+appear to breathe — open the file directly in a browser instead.</p>
+<div style="margin:0 16px 14px;height:10px;border:1px solid #2c2f3a;overflow:hidden">
+  <div style="width:22%;height:100%;background:#8fe0a0;animation:mc-bench-sweep 4s ease-in-out infinite"></div>
+</div>
 
 <div class="grid">
   <figure>

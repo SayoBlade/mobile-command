@@ -33,82 +33,77 @@ body.mc-clean #board, body.mc-clean canvas#board { display: block !important; vi
 body.mc-clean #dice-box-canvas { display: block !important; visibility: visible !important; }
 
 /* Pause cue (DM 2026-07-19; reworked 2026-07-21). Foundry's centred "GAME PAUSED" bar covered the
-   canvas and hid a travel journey outright, so it's hidden. Its replacement — four small gold
+   canvas and hid a travel journey outright, so it's hidden. Its first replacement — four small gold
    spinners in the corners — failed for a different reason: gold (#b09a63) at 45% on a tan cave
    floor is the SAME HUE as the map, so the cue was camouflaged rather than subtle (DM screenshot,
-   Cave A). The rule that came out of it: never signal pause with a hue, because every hue loses on
-   some map. Signal with things a background can't cancel — a change to the background itself, and
-   motion at the screen edge where the contrast is against UI chrome. Two layers, neither covering
-   a pixel of map:
+   Cave A). Two layers now, neither covering a pixel of map:
 
      1. the canvas DESATURATES lightly — the world visibly loses colour while time is stopped
-     2. a white edge gradient BREATHES IN AND OUT on a 4s loop — the band itself grows and
-        shrinks (DM 2026-07-21), it doesn't just fade
+     2. an edge band BREATHES IN AND OUT on a 4s loop — the band itself grows and shrinks, it
+        doesn't just fade
 
-   HOW the band moves without repainting a full-screen layer every frame: two stacked gradients at
-   DIFFERENT reaches (--mc-pause-edge-min / -max) cross-fade against each other. At the midpoint
-   both sit near half strength and composite to an intermediate reach, so the edge reads as
-   physically travelling — but the only animated property is opacity, which the compositor handles
-   without a paint. Animating the gradient's length directly (via @property) would look the same
-   and repaint the whole viewport every frame; this is the cheap way to the same picture. Cost: the
-   very edge dips a couple of percent at the crossover, which is invisible at these values.
+   NEVER SIGNAL WITH A HUE — and never with a lone VALUE either. "Not gold" was only half the
+   lesson: white was the next pick, and a white glow dies on an ice tundra exactly the way gold died
+   on tan (DM 2026-07-21: "a near infinite amount of backgrounds"). So the edge is TWO-TONE — a
+   breathing band in one ink over a steady band in its opposite, reaching further. No background
+   makes both a black and a white edge vanish, which is the only real way to be
+   background-independent. Currently black breathes over a steady white counter (DM's call); the
+   two --mc-pause-ink*/--mc-pause-counter* tokens swap that in one line.
 
-   WHY THE GLOW IS TWO-TONE. The first rule from the gold-on-tan failure — "never signal with a
-   hue" — was right but not sufficient: white is a VALUE, and a white glow dies on a bright map
-   (ice tundra, desert, snow) exactly the way gold died on tan (DM 2026-07-21: "it can be a near
-   infinite amount of backgrounds"). So the edge paints a DARK band underneath the white one,
-   reaching slightly further. On a dark cave the white reads; on snow the dark reads; on a mid
-   forest or a purple sea both do, softly. There is no background where BOTH a white and a black
-   edge vanish, which is the only way to be background-independent for real. The dark layer doesn't
-   breathe — it's contrast insurance, not the signal.
+   HOW THE BAND MOVES without repainting a full-screen layer every frame: two stacked gradients at
+   DIFFERENT reaches cross-fade against each other. At the midpoint both sit near half strength and
+   composite to an intermediate reach, so the edge reads as physically travelling — but the only
+   animated property is opacity, which the compositor handles without a paint. Animating the
+   gradient's length directly (via @property) looks the same and repaints the whole viewport every
+   frame; this is the cheap way to the same picture.
 
-   Custom id → survives the clean-TV hide list, so the shared display shows it too. Knobs, all
-   here: --mc-pause-sat (lower = greyer), the two reaches, and the two ink levels. */
+   Custom id → survives the clean-TV hide list, so the shared display shows it too. */
 #pause { display: none !important; }
 :root {
-  --mc-pause-sat: .55;
-  --mc-pause-edge-min: 60px; --mc-pause-edge-max: 125px;
-  --mc-pause-white: .35;  /* the signal on dark maps */
-  --mc-pause-dark: .28;   /* the signal on bright maps — under the white, reaching further */
+  --mc-pause-sat: .55;                       /* lower = greyer while paused */
+  --mc-pause-edge-min: 60px;                 /* the band at its narrowest */
+  --mc-pause-edge-max: 125px;                /* ...and its widest */
+  --mc-pause-ink: 0, 0, 0;      --mc-pause-ink-a: .38;      /* the BREATHING band */
+  --mc-pause-counter: 255, 255, 255; --mc-pause-counter-a: .20; /* the STEADY opposite, underneath */
 }
 canvas#board { transition: filter .45s ease; }
 body.mc-game-paused canvas#board { filter: saturate(var(--mc-pause-sat)); }
 #mc-pause-edge {
   position: fixed; inset: 0; z-index: 90; pointer-events: none; opacity: 0; transition: opacity .45s ease;
-  /* the steady dark under-layer — reaches past the white band's widest so it still frames it */
+  /* steady counter-ink, reaching past the breathing band's widest so it still frames it */
   background:
-    linear-gradient(to right,  rgba(0,0,0,var(--mc-pause-dark)), rgba(0,0,0,0) calc(var(--mc-pause-edge-max) * 1.3)),
-    linear-gradient(to left,   rgba(0,0,0,var(--mc-pause-dark)), rgba(0,0,0,0) calc(var(--mc-pause-edge-max) * 1.3)),
-    linear-gradient(to bottom, rgba(0,0,0,var(--mc-pause-dark)), rgba(0,0,0,0) calc(var(--mc-pause-edge-max) * 1.3)),
-    linear-gradient(to top,    rgba(0,0,0,var(--mc-pause-dark)), rgba(0,0,0,0) calc(var(--mc-pause-edge-max) * 1.3));
+    linear-gradient(to right,  rgba(var(--mc-pause-counter), var(--mc-pause-counter-a)), transparent calc(var(--mc-pause-edge-max) * 1.3)),
+    linear-gradient(to left,   rgba(var(--mc-pause-counter), var(--mc-pause-counter-a)), transparent calc(var(--mc-pause-edge-max) * 1.3)),
+    linear-gradient(to bottom, rgba(var(--mc-pause-counter), var(--mc-pause-counter-a)), transparent calc(var(--mc-pause-edge-max) * 1.3)),
+    linear-gradient(to top,    rgba(var(--mc-pause-counter), var(--mc-pause-counter-a)), transparent calc(var(--mc-pause-edge-max) * 1.3));
 }
 #mc-pause-edge::before, #mc-pause-edge::after { content: ""; position: absolute; inset: 0; }
 #mc-pause-edge::before {
   background:
-    linear-gradient(to right,  rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-min)),
-    linear-gradient(to left,   rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-min)),
-    linear-gradient(to bottom, rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-min)),
-    linear-gradient(to top,    rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-min));
+    linear-gradient(to right,  rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-min)),
+    linear-gradient(to left,   rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-min)),
+    linear-gradient(to bottom, rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-min)),
+    linear-gradient(to top,    rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-min));
 }
 #mc-pause-edge::after {
   opacity: 0;
   background:
-    linear-gradient(to right,  rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-max)),
-    linear-gradient(to left,   rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-max)),
-    linear-gradient(to bottom, rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-max)),
-    linear-gradient(to top,    rgba(255,255,255,var(--mc-pause-white)), rgba(255,255,255,0) var(--mc-pause-edge-max));
+    linear-gradient(to right,  rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-max)),
+    linear-gradient(to left,   rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-max)),
+    linear-gradient(to bottom, rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-max)),
+    linear-gradient(to top,    rgba(var(--mc-pause-ink), var(--mc-pause-ink-a)), transparent var(--mc-pause-edge-max));
 }
 body.mc-game-paused #mc-pause-edge { opacity: 1; }
 body.mc-game-paused #mc-pause-edge::before { animation: mc-pause-narrow 4s ease-in-out infinite; }
 body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-in-out infinite; }
 @keyframes mc-pause-narrow { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 @keyframes mc-pause-wide   { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
-/* Respect the OS "reduce motion" setting: hold the band at its wider reach instead of breathing
-   it. The desaturation still carries the signal, so nothing is lost. */
-@media (prefers-reduced-motion: reduce) {
-  body.mc-game-paused #mc-pause-edge::before { animation: none; opacity: 0; }
-  body.mc-game-paused #mc-pause-edge::after  { animation: none; opacity: 1; }
-}
+/* NOTE (2026-07-21): there is deliberately NO prefers-reduced-motion branch here. There was one,
+   and it was the prime suspect for "still no breathing" — Windows' Settings › Accessibility ›
+   Visual effects › Animation effects toggles that media query system-wide, and a DM who has it off
+   for the OS would have silently lost the breath they asked for. A 4s ease-in-out swell is about as
+   gentle as motion gets, and the desaturation carries the signal for anyone who dislikes it, so the
+   cue no longer opts itself out. */
 /* Clean-mode escape-hatch hint: a dismissable pill telling the user how to get the
    UI back. Exempt from the hiding above (custom id), high z, fades after ~60s. */
 #mc-clean-hint {
