@@ -48,7 +48,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
    breathing band in one ink over a steady band in its opposite, reaching further. No background
    makes both a black and a white edge vanish, which is the only real way to be
    background-independent. Currently black breathes over a steady white counter (DM's call); the
-   two --mc-pause-ink*/--mc-pause-counter* tokens swap that in one line.
+   two ink tokens below swap that in one line.
 
    HOW THE BAND MOVES without repainting a full-screen layer every frame: two stacked gradients at
    DIFFERENT reaches cross-fade against each other. At the midpoint both sit near half strength and
