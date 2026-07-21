@@ -32,20 +32,42 @@ body.mc-clean #board, body.mc-clean canvas#board { display: block !important; vi
    animate here) while public player + DM rolls do. */
 body.mc-clean #dice-box-canvas { display: block !important; visibility: visible !important; }
 
-/* Quieter pause cue (DM 2026-07-19): replace Foundry's centred "GAME PAUSED" bar — it covered the
-   canvas and hid travel — with four small spinning icons in the screen corners. No text, no dark
-   band, the map stays fully visible. Core #pause is hidden; #mc-pause-corners fades in only while
-   paused (body.mc-game-paused, toggled by pause-overlay.js). Custom id → survives the clean-TV hide
-   list, so the shared display still shows a paused cue. */
+/* Pause cue (DM 2026-07-19, reworked 2026-07-21). Foundry's centred "GAME PAUSED" bar covered the
+   canvas and hid a travel journey outright, so it's hidden. Its replacement — four small gold
+   spinners in the corners — failed for a different reason: gold (#b09a63) at 45% on a tan cave
+   floor is the SAME HUE as the map, so the cue was camouflaged rather than subtle (DM screenshot,
+   Cave A). The rule that came out of it: never signal pause with a hue, because every hue loses on
+   some map. Signal with things a background can't cancel — a change to the background itself, and
+   motion at the screen edge where the contrast is against UI chrome. Two layers, neither covering
+   a pixel of map:
+
+     1. the canvas DESATURATES lightly — the world visibly loses colour while time is stopped
+     2. a white edge gradient BREATHES on a 4s loop — 30% at the very edge, out to nothing inward
+
+   Only opacity is animated: it's compositor-only, so the breath costs no repaint of a full-screen
+   layer every frame. (Physically travelling the band inward would repaint — say the word and I'll
+   trade the cost.) Custom id → survives the clean-TV hide list, so the shared display shows it too.
+   Both numbers are vars: --mc-pause-sat is the only knob for "greyer/less grey". */
 #pause { display: none !important; }
-#mc-pause-corners { position: fixed; inset: 0; z-index: 90; pointer-events: none; opacity: 0; transition: opacity .3s ease; }
-body.mc-game-paused #mc-pause-corners { opacity: 1; }
-#mc-pause-corners .mc-pause-spin { position: fixed; font-size: 26px; color: var(--mc-gold, #b09a63); opacity: .45; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .6)); animation: mc-pause-spin 2.4s linear infinite; }
-#mc-pause-corners .mc-pc-tl { top: 20px; left: 20px; }
-#mc-pause-corners .mc-pc-tr { top: 20px; right: 20px; }
-#mc-pause-corners .mc-pc-bl { bottom: 20px; left: 20px; }
-#mc-pause-corners .mc-pc-br { bottom: 20px; right: 20px; }
-@keyframes mc-pause-spin { to { transform: rotate(360deg); } }
+:root { --mc-pause-sat: .65; --mc-pause-edge: 90px; }
+canvas#board { transition: filter .45s ease; }
+body.mc-game-paused canvas#board { filter: saturate(var(--mc-pause-sat)); }
+#mc-pause-edge {
+  position: fixed; inset: 0; z-index: 90; pointer-events: none;
+  opacity: 0; transition: opacity .45s ease;
+  background:
+    linear-gradient(to right,  rgba(255,255,255,.30), rgba(255,255,255,0) var(--mc-pause-edge)),
+    linear-gradient(to left,   rgba(255,255,255,.30), rgba(255,255,255,0) var(--mc-pause-edge)),
+    linear-gradient(to bottom, rgba(255,255,255,.30), rgba(255,255,255,0) var(--mc-pause-edge)),
+    linear-gradient(to top,    rgba(255,255,255,.30), rgba(255,255,255,0) var(--mc-pause-edge));
+}
+body.mc-game-paused #mc-pause-edge { opacity: 1; animation: mc-pause-breathe 4s ease-in-out infinite; }
+@keyframes mc-pause-breathe { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+/* Respect the OS "reduce motion" setting: hold the glow steady rather than breathing it. The
+   desaturation still carries the signal, so nothing is lost. */
+@media (prefers-reduced-motion: reduce) {
+  body.mc-game-paused #mc-pause-edge { animation: none; opacity: .8; }
+}
 /* Clean-mode escape-hatch hint: a dismissable pill telling the user how to get the
    UI back. Exempt from the hiding above (custom id), high z, fades after ~60s. */
 #mc-clean-hint {
