@@ -2491,6 +2491,15 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-dmp-split { background: #1f2a24; border-color: #3d5c49; }
 .mc-dmp-split button { min-width: 30px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); }
 /* §17.4 night watches: phone board rows + DM panel night box. */
+/* Watch-subject switcher: only shown when the player owns more than one watcher (their PC + a pet).
+   A row of pill chips; the lit one is who the watch rows below assign (DM 2026-07-22). */
+.mc-night-subjects { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px; }
+.mc-night-subj {
+  min-height: 40px; padding: 6px 14px; border-radius: calc(999px * var(--mc-round, 1));
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink);
+  font-size: 13px; font-weight: 600;
+}
+.mc-night-subj.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-night-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .mc-night-row {
   display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 12px;

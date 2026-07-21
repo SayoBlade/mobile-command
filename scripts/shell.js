@@ -205,6 +205,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #colorPickOpen = false; // DM-triggered colour-picker overlay is showing
   #pausedDismissed = null; // §17.3 split-scene overlay: "activeId:hereId" the player browsed past
   #nightDismissed = null;  // §17.4 night overlays: "assign" | "watch:N" the player browsed past
+  #nightSubjectId = null;  // §17.4 watch board: which of my owned actors (PC or a pet) I'm assigning
   #placement = null;       // Round 33: active spell placement session { mode, kind, spellName, rangeFt, distFt, inRange, direction, activityUuid, busy }
   #onboardOpen = null;    // first-run welcome overlay: null = unresolved, true/false = show/hide
   #partySelf = null;      // marching-order: the owned member the player picked up
@@ -556,13 +557,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // allowed) and the Zzz card while the current watch doesn't include me.
   // Both carry the same "Browse my sheet" escape as the paused overlay.
   #nightInfo() {
-    const me = game.user.character ?? this.actor;
-    if (!me || me.type !== "character") return null;
+    const isGM = game.user.isGM;
     for (const g of game.actors.filter(a => a.type === "group")) {
       const night = g.getFlag("mobile-command", "night");
       if (!night) continue;
-      if (!(g.system?.members ?? []).some(m => m.actor?.id === me.id)) continue;
-      return { group: g, night, me };
+      // Everything THIS player can place on a watch: their PC and any owned pet/summon that's a
+      // party member (DM 2026-07-22 — a druid's owl can keep watch too). A GM peeking at the shell
+      // only ever sees the current subject, so the board never lights up on the DM screen.
+      const mine = (g.system?.members ?? []).map(m => m.actor).filter(a => a && a.type !== "group"
+        && (isGM ? a.id === this.actor?.id : a.isOwner && (a.type === "character" || a.hasPlayerOwner)));
+      if (!mine.length) continue;
+      // The assigning subject: the one the player tapped, else their assigned PC, else the first.
+      const me = mine.find(a => a.id === this.#nightSubjectId)
+        ?? mine.find(a => a.id === game.user.character?.id) ?? mine[0];
+      return { group: g, night, me, mine };
     }
     return null;
   }
@@ -570,7 +578,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const info = this.#nightInfo();
     if (!info) return "";
     const esc = foundry.utils.escapeHTML;
-    const { group, night, me } = info;
+    const { group, night, me, mine } = info;
+    // When the player owns more than one watcher (their PC + a pet), a small chip row picks WHO
+    // they're placing; the watch rows below then toggle that subject. Hidden for the common
+    // one-PC case, so nothing changes there (DM 2026-07-22).
+    const subjectSwitch = mine.length > 1
+      ? `<div class="mc-night-subjects">${mine.map(a => `<button class="mc-night-subj ${a.id === me.id ? "mc-on" : ""}"
+          data-action="night-subject" data-actor="${a.id}">${esc(a.name.split(" ")[0])}</button>`).join("")}</div>`
+      : "";
     // Keys carry the night's session id so a NEW night (or a restarted one)
     // re-arms the overlay even if the player browsed past the last one
     // (2026-07-09: a dismissed board stayed hidden across a DM restart). While
@@ -583,29 +598,36 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return `<button class="mc-night-reopen" data-action="night-reopen"><i class="fas fa-moon"></i> Watches</button>`;
       const first = id => game.actors.get(id)?.name?.split(" ")[0] ?? "?";
       const wc = night.count ?? 3; // short rest → one watch, long → up to three (DM 2026-07-17)
+      // "You" reads wrong when the subject is a pet, so name the subject once a switcher is shown.
+      const selfLabel = mine.length > 1 ? esc(me.name.split(" ")[0]) : "You";
       const rows = Array.from({ length: wc }, (_, i) => i + 1).map(w => {
         const ids = night.watches?.[w] ?? [];
-        const mine = ids.includes(me.id);
+        const standing = ids.includes(me.id); // is the SELECTED subject on this watch
         const others = ids.filter(id => id !== me.id).map(first).join(", ");
-        return `<button class="mc-night-row ${mine ? "mc-on" : ""}" data-action="night-toggle" data-watch="${w}" data-group="${group.id}">
+        return `<button class="mc-night-row ${standing ? "mc-on" : ""}" data-action="night-toggle" data-watch="${w}" data-group="${group.id}">
           <b>${wc === 1 ? "The watch" : `${["1st", "2nd", "3rd"][w - 1]} watch`}</b>
-          <span>${mine ? "You" : ""}${mine && others ? ", " : ""}${esc(others)}${!mine && !others ? "—" : ""}</span>
-          <i class="fas ${mine ? "fa-circle-check" : "fa-circle"}"></i>
+          <span>${standing ? selfLabel : ""}${standing && others ? ", " : ""}${esc(others)}${!standing && !others ? "—" : ""}</span>
+          <i class="fas ${standing ? "fa-circle-check" : "fa-circle"}"></i>
         </button>`;
       }).join("");
+      const who = esc(me.name.split(" ")[0]);
       const sub = wc === 1
-        ? `Tap if <b>${esc(me.name.split(" ")[0])}</b> keeps the watch this rest — or leave it and sleep.`
-        : `Tap the watches <b>${esc(me.name.split(" ")[0])}</b> will stand. You can take more than one — or none and sleep through.`;
+        ? `Tap if <b>${who}</b> keeps the watch this rest — or leave it and sleep.`
+        : `Tap the watches <b>${who}</b> will stand. You can take more than one — or none and sleep through.`;
       return `<div class="mc-paused"><div class="mc-paused-card">
         <i class="fas fa-moon mc-paused-ico" style="animation:none"></i>
         <div class="mc-paused-title">${wc === 1 ? "Setting the watch" : "Setting the watches"}</div>
+        ${subjectSwitch}
         <div class="mc-paused-sub">${sub}</div>
         <div class="mc-night-rows">${rows}</div>
         <button class="mc-paused-browse" data-action="night-dismiss" data-key="${key}"><i class="fas fa-book-open"></i> Browse my sheet</button>
       </div></div>`;
     }
     if (night.stage === "watch") {
-      const onDuty = (night.watches?.[night.watch] ?? []).includes(me.id);
+      // Awake if ANY of my watchers is on duty this watch (my PC or a pet) — the player is playing
+      // whichever one is standing, so the Zzz card shouldn't cover their screen.
+      const dutyIds = night.watches?.[night.watch] ?? [];
+      const onDuty = mine.some(a => dutyIds.includes(a.id));
       if (onDuty) return "";
       const key = `watch:${sid}:${night.watch}`;
       if (this.#nightDismissed === key)
@@ -5706,9 +5728,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           })
           .catch(e => { console.warn("mobile-command | scribeRequest", e); ui.notifications.warn("The DM's client isn't reachable."); });
         return;
+      case "night-subject": // pick which of my watchers (PC or pet) the watch rows now assign
+        this.#nightSubjectId = el.dataset.actor;
+        return this.render();
       case "night-toggle": {
-        const me = game.user.character ?? this.actor;
-        rpc.nightToggle({ groupId: el.dataset.group, actorId: me?.id, watch: Number(el.dataset.watch), requesterId: game.user.id })
+        // Assign the currently-selected subject (their PC by default, or a pet they switched to).
+        const subject = this.#nightInfo()?.me;
+        rpc.nightToggle({ groupId: el.dataset.group, actorId: subject?.id, watch: Number(el.dataset.watch), requesterId: game.user.id })
           .then(res => { if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't set that watch."); })
           .catch(e => console.warn("mobile-command | nightToggle", e));
         return; // the group flag update re-renders every member phone

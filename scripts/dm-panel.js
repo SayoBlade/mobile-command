@@ -364,16 +364,20 @@ async function restParty(kind) {
     try { await (kind === "long" ? a.longRest({ dialog: false }) : a.shortRest({ dialog: false })); n++; }
     catch (e) { console.warn(`${MODULE_ID} | party rest failed for ${a.name}`, e); }
   }
-  const advanced = kind === "long" ? await advanceRestGoals() : 0;
+  const advanced = kind === "long" ? await advanceRestGoals(new Set(pcs.map(a => a.id))) : 0;
   ui.notifications?.info(`${kind === "long" ? "Long" : "Short"} rest — ${n} character${n === 1 ? "" : "s"} rested${advanced ? `, ${advanced} nightly goal${advanced === 1 ? "" : "s"} advanced` : ""}.`);
 }
 
 // Long-rest reminder woven into the montage: a long rest advances every "per rest" downtime
 // goal at once (a no-roll tally like nightly pushups ticks; a roll-gated one gets pushed to the
 // player). One read-modify-write over the shared state. Runs on the executor (a GM).
-async function advanceRestGoals() {
+async function advanceRestGoals(restedIds = null) {
   let state = DT.normalizeState(game.settings.get(MODULE_ID, "downtimeState"));
-  const here = inSceneActorIds();
+  // The actors that actually rested. MUST be passed by the §19 Rest flow: it rests the GROUP
+  // (camped off the active scene), so the old inSceneActorIds() default advanced nobody — a proper
+  // rest silently never ticked "per rest" goals like Nightly pushups (bug, DM 2026-07-22). The
+  // legacy in-scene montage falls back to the scene set.
+  const here = restedIds ?? inSceneActorIds();
   let touched = 0;
   for (const [actorId, acts] of Object.entries(state.activities)) {
     if (!here.has(actorId)) continue; // only the party that actually rested
@@ -1800,6 +1804,18 @@ function nightMembers(group) {
   return (group?.system?.members ?? []).map(m => m.actor).filter(a => a && a.type === "character");
 }
 
+// Watch-eligible members: every party member that can keep a watch — the PCs AND player-owned
+// pets/summons (a druid's owl, a familiar, a beast companion). A pet was silently dropped from the
+// watch grid because nightMembers() keeps only type "character" (DM 2026-07-22: "I don't think pets
+// can take watch shifts — that's a bug"), even though scenePartyActors() deliberately folds those
+// same pets INTO the travelling group (DM 2026-07-07). This is the superset used for WATCHES and
+// the sleep/wake markers only; nightMembers() stays character-only for the dnd5e rest and the
+// downtime roster, because a summon neither takes a long rest nor learns a language.
+function watchMembers(group) {
+  return (group?.system?.members ?? []).map(m => m.actor)
+    .filter(a => a && a.type !== "group" && (a.type === "character" || a.hasPlayerOwner));
+}
+
 // ── §19 Rest — one lifecycle folding Downtime + Watches (DESIGN.md §19) ──────────
 // The Rest is the single entry (a setup card) and the single ending. It DRIVES the two existing
 // mechanisms instead of replacing them: the downtime window (a world setting) and the watch board
@@ -1862,7 +1878,7 @@ function watchEditor(group, night) {
   const idIcon = a => `<i class="fas fa-circle-user mc-dmp-nw-id" style="color:${pcColor(a)}"></i>`;
   const head = `<div class="mc-dmp-nw-row mc-dmp-nw-head"><span></span><span class="mc-dmp-nw-chips">
     ${slots.map(w => `<span class="mc-dmp-nw-h">${ord[w - 1]}</span>`).join("")}</span></div>`;
-  const rows = nightMembers(group).map(a => {
+  const rows = watchMembers(group).map(a => {
     const chips = slots.map(w => `<button class="mc-dmp-nw ${(night.watches?.[w] ?? []).includes(a.id) ? "mc-on" : ""}"
         data-night="dm-toggle" data-group="${group.id}" data-actor="${a.id}" data-watch="${w}" title="Put ${esc(a.name.split(" ")[0])} on ${ord[w - 1]} watch">${w}</button>`).join("");
     return `<div class="mc-dmp-nw-row"><span class="mc-dmp-nw-who" title="${esc(a.name)}">${idIcon(a)}<span class="mc-dmp-nw-name">${esc(a.name.split(" ")[0])}</span></span><span class="mc-dmp-nw-chips">${chips}</span></div>`;
@@ -1934,12 +1950,14 @@ function restHTML() {
 // Apply a dnd5e rest to the party (the group's members — the party is usually camped off the
 // active map, so this is NOT the in-scene set). The ONE place a rest lands (§19).
 async function applyPartyRest(group, size) {
+  const rested = nightMembers(group);
   let n = 0;
-  for (const a of nightMembers(group)) {
+  for (const a of rested) {
     try { await (size === "long" ? a.longRest({ dialog: false }) : a.shortRest({ dialog: false })); n++; }
     catch (e) { console.warn(`${MODULE_ID} | rest failed for ${a.name}`, e); }
   }
-  if (size === "long") await advanceRestGoals();
+  // Pass the party that rested — they're camped off-scene, so the in-scene default would tick nothing.
+  if (size === "long") await advanceRestGoals(new Set(rested.map(a => a.id)));
   ui.notifications?.info(`${size === "long" ? "Long" : "Short"} rest — ${n} character${n === 1 ? "" : "s"} rested.`);
 }
 // Begin a rest from the setup draft. Neither phase → a plain dnd5e rest applied now (no ceremony).
@@ -2070,7 +2088,7 @@ async function applyWatchSleep(group) {
   const night = group.getFlag(MODULE_ID, "night");
   const onDuty = new Set(night?.watches?.[night.watch] ?? []);
   await withQuietSleepNoise(async () => {
-    for (const a of nightMembers(group)) {
+    for (const a of watchMembers(group)) { // pets sleep/wake with the party too — they can stand watch
       const shouldSleep = !onDuty.has(a.id);
       try {
         // Clean any leftover riders first, THEN add sleeping fresh → the cascade's create can't clash.
@@ -2082,7 +2100,7 @@ async function applyWatchSleep(group) {
 }
 
 async function clearNightSleep(group) {
-  await withQuietSleepNoise(async () => { for (const a of nightMembers(group)) await wakeActor(a); });
+  await withQuietSleepNoise(async () => { for (const a of watchMembers(group)) await wakeActor(a); }); // wake pets too
 }
 
 async function nightLongRestPrompt(group) {
@@ -2091,10 +2109,12 @@ async function nightLongRestPrompt(group) {
     content: `<p>Night passes — grant the party a <b>long rest</b>?</p>`
   }).catch(() => false);
   if (!yes) return;
-  for (const a of nightMembers(group)) {
+  const rested = nightMembers(group);
+  for (const a of rested) {
     try { await a.longRest({ dialog: false, chat: false }); } catch (e) { console.warn(`${MODULE_ID} | rest failed for ${a.name}`, e); }
   }
-  ui.notifications.info(`${group.name}: long rest granted.`);
+  const advanced = await advanceRestGoals(new Set(rested.map(a => a.id))); // tick per-rest goals here too
+  ui.notifications.info(`${group.name}: long rest granted${advanced ? `, ${advanced} nightly goal${advanced === 1 ? "" : "s"} advanced` : ""}.`);
 }
 
 async function onNightClick(ev) {
@@ -2202,12 +2222,12 @@ function registerNightEncounterOffer() {
     if (!game.user.isGM) return;
     const group = game.actors.find(a => a.type === "group" && a.getFlag(MODULE_ID, "night")?.stage === "watch");
     if (!group) return;
-    const sleepers = nightMembers(group).filter(a => a.statuses.has("sleeping"));
+    const sleepers = watchMembers(group).filter(a => a.statuses.has("sleeping")); // pets asleep on watch are ambushed too
     if (!sleepers.length) return;
     if (!CONFIG.statusEffects.some(s => s.id === "surprised")) return;
     const yes = await foundry.applications.api.DialogV2.confirm({
       window: { title: "Night ambush" },
-      content: `<p>${sleepers.length} PC${sleepers.length > 1 ? "s are" : " is"} asleep (${foundry.utils.escapeHTML(sleepers.map(a => a.name.split(" ")[0]).join(", "))}) — already Unconscious from the Sleeping condition.</p>
+      content: `<p>${sleepers.length} ${sleepers.length > 1 ? "sleepers are" : "sleeper is"} asleep (${foundry.utils.escapeHTML(sleepers.map(a => a.name.split(" ")[0]).join(", "))}) — already Unconscious from the Sleeping condition.</p>
         <p>Also mark them <b>Surprised</b> (initiative at disadvantage)?</p>`
     }).catch(() => false);
     if (!yes) return;
