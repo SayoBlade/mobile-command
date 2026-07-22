@@ -523,13 +523,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <img class="mc-portrait" src="${img}" alt="" data-action="show-image" data-detail="bio" title="Tap for image · hold for bio">
         <div class="mc-id">
           <div class="mc-name">${classIcons ? `<span class="mc-cls-run">${classIcons}</span>` : ""}${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels"><span class="mc-lvl-num">Lvl ${totalLevel}</span></button>` : ""}<span class="mc-name-text" data-action="show-summary" data-detail="bio" title="Tap for summary · hold for bio">${foundry.utils.escapeHTML(actor.name)}</span>
-            <button class="mc-insp ${insp ? "mc-insp-on" : ""}" data-action="toggle-insp" title="Inspiration">★</button>
+            ${this.#pausedChipHTML()}
           </div>
           <div class="mc-stats">
             ${hpBtn}${tempBtn}
             <button class="mc-stat mc-stat-tap mc-stat-acwrap" data-action="ac-detail" title="Armor Class — tap for breakdown"><span class="mc-ac-frame"><i class="fas fa-shield"></i>${ac}</span></button>
-            <button class="mc-dtray-btn ${this.#diceTrayOpen ? "mc-on" : ""}" data-action="dice-tray" title="Dice tray — roll any die" aria-label="Dice tray"><i class="fas fa-dice-d20"></i></button>
-            ${this.#attentionBellHTML()}
+            <span class="mc-stat-tools">
+              <button class="mc-dtray-btn ${this.#diceTrayOpen ? "mc-on" : ""}" data-action="dice-tray" title="Dice tray — roll any die" aria-label="Dice tray"><i class="fas fa-dice-d20"></i></button>
+              <button class="mc-insp ${insp ? "mc-insp-on" : ""}" data-action="toggle-insp" title="Inspiration" aria-label="Inspiration">★</button>
+              ${this.#attentionBellHTML()}
+            </span>
           </div>
         </div>
       </header>
@@ -1720,6 +1723,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #attentionBellHTML() {
     const on = this.#bellActive();
     return `<button class="mc-bell${on ? " mc-bell-on" : ""}" data-action="attention-next" ${on ? "" : "disabled"} title="${on ? "Go to a token that needs you" : "Nothing waiting on your other tokens"}" aria-label="Pending actions on other tokens"><i class="fas fa-bell"></i></button>`;
+  }
+  // "Paused" chip (DM 2026-07-22): a read-only marker beside the name while the game is paused, so
+  // a player who taps a dead button knows WHY rather than assuming the app broke. Pause already
+  // gates actions (pause-guard) and the DM/TV get the desaturate+edge cue, but the phone had no
+  // indicator at all. It rides the NAME row, not the stats row, so the controls beside it never
+  // shift when it appears. Not a button — players can't unpause (registerShellHooks repaints it).
+  #pausedChipHTML() {
+    if (!game.paused) return "";
+    return `<span class="mc-paused-chip" title="The DM has paused the game"><i class="fas fa-pause"></i> Paused</span>`;
   }
   // Hop to the next token that needs you; switching subject makes its popup / initiative prompt show.
   #attentionNext() {
@@ -3899,11 +3911,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <div class="mc-dtray-formula ${formula ? "" : "mc-empty"}">${formula ? foundry.utils.escapeHTML(formula) : "Tap dice to build a roll"}</div>
       <div class="mc-dtray-dice">${dieBtns}</div>
       <div class="mc-dtray-row">
-        <span class="mc-dtray-modlabel">Mod</span>
-        <button class="mc-pm mc-minus" data-action="dtray-mod" data-delta="-1">−</button>
-        <span class="mc-dtray-mod">${m > 0 ? `+${m}` : m}</span>
-        <button class="mc-pm mc-plus" data-action="dtray-mod" data-delta="1">+</button>
         <button class="mc-dtray-clear" data-action="dtray-clear">Clear</button>
+        <span class="mc-dtray-step">
+          <button class="mc-pm mc-minus" data-action="dtray-mod" data-delta="-1" aria-label="Modifier down">−</button>
+          <span class="mc-dtray-mod" aria-label="Modifier">${m > 0 ? `+${m}` : m}</span>
+          <button class="mc-pm mc-plus" data-action="dtray-mod" data-delta="1" aria-label="Modifier up">+</button>
+        </span>
         <button class="mc-dtray-roll" data-action="dtray-roll"><i class="fas fa-dice-d20"></i> Roll</button>
       </div>
     </div>`;
@@ -7187,6 +7200,8 @@ export function registerShellHooks() {
     if (shellInstance?.rendered && p && shellInstance.actor?.id === p.actorId) shellInstance.noteDamage(p.amount, p.source);
   });
   Hooks.on("deleteCombat", () => shellInstance?.clearCombatEvents()); // combat over → clear the event chips
+  // Pause/resume → repaint so the header's "Paused" chip appears and clears with the game state.
+  Hooks.on("pauseGame", () => { if (shellInstance?.rendered) shellInstance.render(); });
   // §17.7 Downtime: repaint the board when the window opens/closes or the DM edits an Activity.
   // Skip while a new-activity field is focused so a relayed change can't wipe mid-typing.
   Hooks.on("updateSetting", (s) => {

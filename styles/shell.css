@@ -1134,19 +1134,34 @@ body {
   border: 1px solid var(--mc-gold); border-radius: calc(6px * var(--mc-round, 1));
   font-variant-numeric: tabular-nums;
 }
+/* Inspiration sits in the STATS row between the dice tray and the bell (DM 2026-07-22) — it used to
+   right-align itself in the name row via margin-left:auto, which would now shove it away from the
+   dice button it's meant to sit beside. Same 30px circle + 6px gap as the bell, so the three read as
+   one group. */
 .mc-insp {
-  margin-left: auto; width: 34px; height: 34px; border-radius: 50%;
+  flex: 0 0 auto; align-self: center;
+  width: 30px; height: 30px; border-radius: 50%;
   background: #1a1820; border: 1px solid var(--mc-edge);
-  color: #4a4654; font-size: 17px; line-height: 1;
+  color: #4a4654; font-size: 15px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 .mc-insp-on { color: var(--mc-gold); background: var(--mc-panel-2); border-color: var(--mc-gold); } /* toggle-on: outline, not fill (UI-BIBLE §4.2) */
 
-/* Inspiration rides the name row (right-aligned via its own margin-left:auto);
-   the dice-tray D20 rides the stats row, pushed right and vertically centered
-   with the AC box (both rows are align-items:center). */
-.mc-name .mc-insp { flex: 0 0 auto; }
+/* "Paused" chip: a read-only marker on the NAME row while the game is paused, so the stats controls
+   never shift when it appears. Muted, not gold — it reports a state, it isn't an action (bible §4.2). */
+.mc-paused-chip {
+  flex: 0 0 auto; margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted, #9aa0ab);
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+}
+.mc-paused-chip i { font-size: 9px; }
+/* The dice/inspiration/bell trio is ONE flex item (.mc-stat-tools) — as separate items with the
+   stats row's 12px gap they split across lines on a 375px phone, stranding the star and bell on a
+   row of their own (DM 2026-07-22). Grouped, they wrap together or not at all. */
+.mc-stat-tools { margin-left: auto; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; }
 .mc-dtray-btn {
-  margin-left: auto; flex: 0 0 auto; align-self: center;
+  flex: 0 0 auto; align-self: center;
   width: 30px; height: 30px; border-radius: 50%;
   background: #1a1820; border: 1px solid var(--mc-edge); color: var(--mc-gold);
   font-size: 15px; line-height: 1;
@@ -1160,7 +1175,7 @@ body {
    gold-outlined and gently pulses. Tap hops you to that token. Gold accents the outline, never fills
    (UI-BIBLE §4.2); the pulse is an attention glow, not a loading spinner (§5 exception, canvas-style). */
 .mc-bell {
-  flex: 0 0 auto; align-self: center; margin-left: 6px;
+  flex: 0 0 auto; align-self: center;
   width: 30px; height: 30px; border-radius: 50%;
   background: #1a1820; border: 1px solid var(--mc-edge); color: var(--mc-ink);
   font-size: 14px; line-height: 1;
@@ -1204,11 +1219,15 @@ body {
   padding: 0 4px; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-gold); color: #1a1410;
   font-size: 11px; font-weight: 800; line-height: 18px; text-align: center;
 }
-.mc-dtray-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.mc-dtray-modlabel { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--mc-muted); }
+/* Clear (left) · − n + (centred) · Roll (right) — DM 2026-07-22. A 3-column grid with equal 1fr
+   flanks is what actually CENTERS the stepper: in a flex row it would drift with the differing
+   widths of Clear and Roll. The "Mod" label is gone — the ± buttons around a number already say
+   what it is, and a title that only teaches is noise (bible §7.1). */
+.mc-dtray-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+.mc-dtray-step { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .mc-dtray-mod { min-width: 2.2em; text-align: center; font-size: 17px; font-weight: 800; color: var(--mc-ink); font-variant-numeric: tabular-nums; }
-.mc-dtray-clear { min-height: 46px; padding: 8px 14px; border-radius: calc(9px * var(--mc-round, 1)); background: none; border: 1px solid var(--mc-edge); color: var(--mc-muted); font-weight: 700; }
-.mc-dtray-roll { margin-left: auto; min-height: 46px; padding: 8px 18px; border-radius: calc(9px * var(--mc-round, 1)); background: #243042; border: 1px solid #2f5d8a; color: var(--mc-ink); font-size: 16px; font-weight: 800; }
+.mc-dtray-clear { justify-self: start; min-height: 46px; padding: 8px 14px; border-radius: calc(9px * var(--mc-round, 1)); background: none; border: 1px solid var(--mc-edge); color: var(--mc-muted); font-weight: 700; }
+.mc-dtray-roll { justify-self: end; min-height: 46px; padding: 8px 18px; border-radius: calc(9px * var(--mc-round, 1)); background: #243042; border: 1px solid #2f5d8a; color: var(--mc-ink); font-size: 16px; font-weight: 800; }
 .mc-dtray-roll:active { background: #2c3d54; }
 
 /* ===== Character creation (§7.x) ===== */
