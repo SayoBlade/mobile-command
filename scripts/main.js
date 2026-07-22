@@ -39,7 +39,7 @@ Hooks.once("init", () => {
   try {
     game.keybindings.register(MODULE_ID, "frameParty", {
       name: "Mobile Command: Focus the party",
-      hint: "Frame all player-character tokens here AND on the table display, and return the display to its default camera (Stream Deck-friendly).",
+      hint: "Frame the whole party — PCs and their pets — here AND on the table display, and return the display to its default camera (Stream Deck-friendly).",
       editable: [{ key: "KeyP" }],
       onDown: () => { focusPartyAll(); return true; },
       restricted: false
@@ -129,12 +129,25 @@ function mountTvCompass() {
 // per player instead — applyRingColor in rpc.js — which syncs/scales perfectly
 // and keeps the stock Ring-tab options. Targeting = core's per-user colored pips.)
 
-// A token the TV camera should treat as "the party": a player-owned PC, or the
-// PACKED group token (Party Mode §15 — while packed it IS the party; without
-// this the camera ignores it and the party walks off the display).
+// A token the TV camera should treat as "the party": ANY player-owned creature — the PCs and their
+// pets/summons alike — or the PACKED group token (Party Mode §15 — while packed it IS the party;
+// without this the camera ignores it and the party walks off the display).
+//
+// Pets were excluded by a `type === "character"` test until 2026-07-22, so a druid's beast or a
+// familiar could walk clean off the display and Focus would frame the party without it (DM: "pets
+// don't seem to be taken into account for focus on party"). That was the last holdout of the same
+// assumption fixed elsewhere: scenePartyActors() already folds those pets into the travelling group,
+// and watchMembers() lets them stand watch.
+//
+// Two deliberate exclusions. Item piles: a lootable pile is often player-owned precisely so players
+// can open it, and framing one would drag the camera off to a chest (scenePartyActors guards the
+// same way). GM-run summons nobody has been given yet: `hasPlayerOwner` is false until the DM hands
+// control over, and until then it's a DM-driven NPC, not somebody's pet.
 function isPartyActor(actor) {
-  return !!actor && ((actor.hasPlayerOwner && actor.type === "character")
-    || (actor.type === "group" && actor.getFlag?.("mobile-command", "packed")));
+  if (!actor) return false;
+  if (actor.type === "group") return !!actor.getFlag?.("mobile-command", "packed");
+  if (actor.flags?.["item-piles"]) return false;
+  return !!actor.hasPlayerOwner;
 }
 
 // The whole-party frame: centroid + target scale over every visible PC token. Used by
@@ -450,9 +463,10 @@ async function syncPartyTokenSight() {
   let n = 0, skipped = 0;
   for (const t of canvas.tokens?.placeables ?? []) {
     const actor = t.actor;
-    // PCs + party summons. NOT main.js isPartyActor (camera-scoped: PCs and the packed
-    // group only) — a summon needs its senses synced too, and hasPlayerOwner is false for one
-    // the DM has not handed over yet (2026-07-21: it only read true while the TV held OWNER).
+    // PCs + party summons. Deliberately WIDER than isPartyActor (the camera's test): this also
+    // covers a summon the DM hasn't handed over yet, whose hasPlayerOwner is still false — it needs
+    // its senses synced regardless, or it walks the TV blind (2026-07-21: hasPlayerOwner only read
+    // true for those while the TV held OWNER).
     if (!actor?.hasPlayerOwner && !isDisplayShared(actor)) continue;
     // Senses → sight/detection now lives in ONE place (rpc.js actorTokenSight) and is
     // ALSO applied at token creation on deploy/scout-release (2026-07-04: a dispersed
