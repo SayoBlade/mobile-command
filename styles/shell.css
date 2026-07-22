@@ -2560,6 +2560,19 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-dmp-settings { display: flex; flex-direction: column; gap: 10px; }
 .mc-dmp-set-sec { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--mc-muted); }
 .mc-dmp-set-note { margin: 0; font-size: 11px; color: var(--mc-muted); line-height: 1.35; }
+/* Who the display hears through (Settings > Sound). A lit ear = listening; struck-through +
+   greyed = ignored. Two-state toggle, so the OFF state must read as deliberate, not disabled. */
+.mc-dmp-ears { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.mc-dmp-ear {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 5px 10px;
+  border-radius: calc(8px * var(--mc-round, 1));
+  background: var(--mc-panel-2); border: 1px solid var(--mc-gold); color: var(--mc-ink);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.mc-dmp-ear i { font-size: 12px; color: var(--mc-gold); }
+.mc-dmp-ear.mc-off { border-color: var(--mc-edge); color: var(--mc-muted); opacity: .75; }
+.mc-dmp-ear.mc-off i { color: var(--mc-muted); }
+.mc-dmp-ear.mc-off .mc-dmp-ear-name { text-decoration: line-through; }
 /* Table-display volume sliders (Settings > Sound, DM 2026-07-22). */
 .mc-dmp-vol { margin-bottom: 14px; }
 .mc-dmp-vol-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }

@@ -105,7 +105,11 @@ function applyDmTheme() {
 // (The widget theme picker that used to live here is gone for good — dmTheme() has been pinned to
 // Artificer since 2026-07-18, so every swatch wrote a key nothing read. DM: "a failed experiment".)
 function settingsHTML() {
+  const esc = foundry.utils.escapeHTML;
   const v = { music: 0.5, ambient: 0.5, interface: 0.5, ...(tvVolume() || {}) };
+  // Foundry's own three channels, in Foundry's order and under Foundry's names (AUDIO.CHANNELS.*:
+  // Music / Environment / Interface) — a DM who knows the core sidebar should not have to learn a
+  // second vocabulary here. `ambient` stays the storage key so nothing has to migrate.
   const row = (key, label, hint) => {
     const pct = Math.round((Number(v[key]) || 0) * 100);
     return `<div class="mc-dmp-vol">
@@ -114,12 +118,35 @@ function settingsHTML() {
       <div class="mc-dmp-vol-hint">${hint}</div>
     </div>`;
   };
-  const body = `${row("ambient", "Ambient", "Positional scene sounds — loudest for whichever party token is nearest the source.")}
-    ${row("music", "Music", "Playlists and background tracks.")}
-    ${row("interface", "Effects", "Dice, combat and interface sounds.")}
-    <p class="mc-dmp-set-note">These set the <b>table display's</b> volume, not yours — its own controls are out of reach in clean mode.
-      Hearing nothing at all? The TV needs one tap after each reload before a browser will play any audio.</p>`;
-  return `<div class="mc-dmp-settings">${dtDrawer("setSound", "Sound", "", body)}</div>`;
+  const sliders = `${row("music", "Music", "Playlists and background tracks.")}
+    ${row("ambient", "Environment", "Positional scene sounds — see who is listening, below.")}
+    ${row("interface", "Interface", "Dice, combat and interface sounds.")}
+    <p class="mc-dmp-set-note">These set the <b>table display's</b> volume, not yours — its own controls are out of
+      reach in clean mode. Hearing nothing at all? The TV needs one tap after each reload before a browser will
+      play any audio.</p>`;
+
+  // Who the display listens THROUGH. Loudness is nearest-listener-wins (SoundsLayer#_syncPositions
+  // keeps the max, never an average), so a single scout or familiar parked beside a waterfall drives
+  // the room's audio by itself. Deafening a token here drops it from getListenerPositions.
+  const party = scenePartyActors().filter(a => a.type !== "group");
+  const ears = party.length
+    ? party.map(a => {
+        const off = !!a.getFlag(MODULE_ID, "muteListener");
+        return `<button class="mc-dmp-ear ${off ? "mc-off" : ""}" data-sound-mute="${a.id}"
+          title="${off ? `${esc(a.name)} is ignored — the display never hears through them` : `${esc(a.name)} is listening — tap to ignore them`}">
+          <i class="fas ${off ? "fa-ear-deaf" : "fa-ear-listen"}"></i>
+          <span class="mc-dmp-ear-name">${esc(a.name)}</span>
+        </button>`;
+      }).join("")
+    : `<div class="mc-dmp-empty">No party tokens on this scene.</div>`;
+  const earsBody = `<div class="mc-dmp-ears">${ears}</div>
+    <p class="mc-dmp-set-note">The nearest listening token sets a sound's volume — it is <b>not</b> averaged across the
+      party. Ignore a scout or a familiar so wandering off doesn't drag the room's audio with them.</p>`;
+
+  return `<div class="mc-dmp-settings">
+    ${dtDrawer("setSound", "Sound", "", sliders)}
+    ${dtDrawer("setEars", "Who the display hears through", "", earsBody)}
+  </div>`;
 }
 
 function tabRailHTML() {
@@ -2899,6 +2926,12 @@ async function onClick(ev) {
       await game.settings.set(MODULE_ID, "clockStart", target - game.time.worldTime); // re-anchor
       render();
     }
+    return;
+  }
+  const ear = ev.target.closest("[data-sound-mute]");
+  if (ear) {
+    const a = game.actors.get(ear.dataset.soundMute);
+    if (a) { a.setFlag(MODULE_ID, "muteListener", !a.getFlag(MODULE_ID, "muteListener")).then(() => render()); }
     return;
   }
   const gs = ev.target.closest("[data-group-sheet]");

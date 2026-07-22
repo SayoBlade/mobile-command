@@ -774,6 +774,10 @@ function setupDisplayAudioListeners() {
         const out = [];
         for (const t of canvas.tokens?.placeables ?? []) {
           if (t.document?.hidden || !isPartyActor(t.actor)) continue;
+          // Deafened by the DM (Settings › Sound). Loudness is NEAREST-listener-wins, not an
+          // average, so one scout beside a waterfall drives the whole room's audio on its own —
+          // this is the opt-out for exactly that (DM 2026-07-22).
+          if (t.actor?.getFlag?.(MODULE_ID, "muteListener")) continue;
           try { out.push(t.document.getListenerPosition()); } catch (e) { /* skip a bad token */ }
         }
         return out.length ? out : base;
