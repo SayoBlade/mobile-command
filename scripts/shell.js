@@ -21,16 +21,35 @@ const ROLL_HISTORY_MAX = 6;   // recent-rolls strip cap (newest-first)
 const ROLL_TOAST_MS = 4500;   // transient roll toast lifetime (ms)
 const COMBAT_EVENT_MAX = 4;   // combat-event chip strip cap (damage taken / saves required)
 
+// Is this client signed in as the account the DM nominated as the shared screen?
+// `role` is per-DEVICE (client-scoped) but the wizard's TV choice (displayOwnerUser) is
+// world-level, and the two were never linked: the TV signed in, `role` was still "auto", the
+// account is non-GM — so it opened the PHONE shell. The DM then ran setup, picked TV as the
+// shared view, and nothing changed, because that setting names the account, not the device
+// (DM 2026-07-22: "set tv as the shared view… still loads as player with no characters").
+// Naming the account IS the intent, so honour it on whatever device that account signs in from.
+function isDisplayAccount() {
+  try {
+    const tv = game.settings.get(MODULE_ID, "displayOwnerUser") || null;
+    return !!tv && game.user?.id === tv;
+  } catch (e) { return false; }
+}
+
 export function isPhoneClient() {
   const role = game.settings.get(MODULE_ID, "role");
-  return role === "phone" || (role === "auto" && !game.user.isGM);
+  if (role === "phone") return true;      // an explicit per-device choice still wins
+  if (isDisplayAccount()) return false;   // the shared screen never opens the phone shell
+  return role === "auto" && !game.user.isGM;
 }
 
 // The shared table display (TV): a canvas client with no shell. It still needs
 // third-party combat HUDs suppressed so the map view stays clean (those HUDs are
 // player-action helpers meant for phones, not a passive display).
 export function isDisplayClient() {
-  return game.settings.get(MODULE_ID, "role") === "display";
+  const role = game.settings.get(MODULE_ID, "role");
+  if (role === "display") return true;    // this device was set up as the TV by hand
+  if (role === "phone") return false;     // …or explicitly told it is not
+  return isDisplayAccount();              // otherwise the DM's nominated TV account is the display
 }
 
 // Idea #2 — assemble a layered AI image-generation prompt for a character portrait.
@@ -386,11 +405,23 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <span class="mc-nt-name">${foundry.utils.escapeHTML(a.name)}</span>
         <span class="mc-nt-tag">${this.#isCharGenPC(a) ? "Build" : "View"}</span>
       </button>`).join("");
+    // ALWAYS offer a way out. This screen has no header — so with no characters to list it used to
+    // render a title and nothing else, and a device that landed here was simply stuck (DM
+    // 2026-07-22: "I'm completely stuck as I can't even change in the no character view"). The TV
+    // account reaches exactly that state: it observes the party but owns nothing, so `rows` is
+    // empty. Right is forward per bible §4.1.1, and "This is the TV" is the committing answer.
     return `<div class="mc-notoken">
       <div class="mc-nt-badge"><i class="fa-solid fa-location-dot"></i></div>
       <div class="mc-nt-title">No token on this scene</div>
       <div class="mc-nt-sub">The DM hasn't placed a token for you on <b>${foundry.utils.escapeHTML(scene)}</b> yet. This updates automatically the moment they do.</div>
       ${rows ? `<div class="mc-nt-listhead">Your characters</div><div class="mc-nt-list">${rows}</div>` : ""}
+      <div class="mc-nt-escape">
+        <div class="mc-nt-escape-hint">${rows ? "Not what you expected?" : "Is this the table's shared screen?"}</div>
+        <div class="mc-nt-escape-btns">
+          <button class="mc-nt-esc" data-action="logout"><i class="fas fa-right-from-bracket"></i> Switch user</button>
+          <button class="mc-nt-esc mc-nt-esc-go" data-action="become-display"><i class="fas fa-tv"></i> This is the TV</button>
+        </div>
+      </div>
     </div>`;
   }
   #buildHTML() {
@@ -5242,6 +5273,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const actor = this.actor;
     switch (action) {
       case "exit": return this.#confirmExit();
+      case "become-display": return this.#becomeDisplay(); // no-token screen's escape: set this device up as the TV
       case "fullscreen": return this.#toggleFullscreen();
       case "onboard-done":
         try { window.localStorage.setItem("mc-onboarded", "1"); } catch (e) { /* private mode */ }

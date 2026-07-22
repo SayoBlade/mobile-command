@@ -505,6 +505,17 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
 .mc-nt-img { width: 36px; height: 36px; border-radius: calc(7px * var(--mc-round, 1)); object-fit: cover; object-position: top; background: #0c0d11; }
 .mc-nt-name { flex: 1 1 auto; min-width: 0; font-weight: 600; }
 .mc-nt-tag { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: #22252e; color: #aeb4bf; }
+/* Always-available escape from the no-token screen — it has no header, so without this a device
+   with nothing to list (the TV account: observes the party, owns nothing) is stuck (DM 2026-07-22). */
+.mc-nt-escape { margin-top: 22px; align-self: stretch; padding-top: 16px; border-top: 1px solid #2c2f3a; }
+.mc-nt-escape-hint { font-size: 12px; color: #6f7682; text-align: center; margin-bottom: 10px; }
+.mc-nt-escape-btns { display: flex; gap: 8px; }
+.mc-nt-esc {
+  flex: 1 1 0; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 12px; border-radius: calc(10px * var(--mc-round, 1));
+  background: #14161c; border: 1px solid #2c2f3a; color: #c8ccd4; font-size: 13px; font-weight: 600;
+}
+.mc-nt-esc-go { border-color: var(--mc-gold, #b09a63); color: var(--mc-gold, #b09a63); }
 
 /* --- portrait generator (image-gen) --- */
 .mc-imgpop-gen {
