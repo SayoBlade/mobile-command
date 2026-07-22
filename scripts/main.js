@@ -1,12 +1,12 @@
 import { MODULE_ID } from "./preset.js";
-import { registerSettings, resolveExecutorId, isExecutor, displayUserId, isDisplayShared, syncDisplayObserver, DISPLAY_LEVEL } from "./settings.js";
+import { registerSettings, resolveExecutorId, isExecutor, displayUserId, isDisplayShared, syncDisplayObserver, DISPLAY_LEVEL, setTvAudioState } from "./settings.js";
 import { diffPreset, applyPreset, checkAndPrompt, deactivate, reactivate, hasBackup } from "./enforcer.js";
 import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, registerReactionNotifier, registerSummonOwnership, api, actorTokenSight } from "./rpc.js";
 import { initPauseGuard } from "./pause-guard.js";
 import { initPauseOverlay } from "./pause-overlay.js";
 import { initHeartbeat } from "./heartbeat.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient, isDisplayClient } from "./shell.js";
-import { registerDMPanel } from "./dm-panel.js";
+import { registerDMPanel, refreshPanel } from "./dm-panel.js";
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerAoO } from "./aoo.js";
@@ -218,7 +218,15 @@ let _panTimer = null, _lastPan = 0;
 function tvBroadcast(payload) { try { game.socket?.emit(`module.${MODULE_ID}`, payload); } catch (e) { /* socket not ready */ } }
 
 function onTvControl(payload) {
-  if (!payload || typeof payload !== "object" || !isDisplayClient()) return; // only the shared display reacts
+  if (!payload || typeof payload !== "object") return;
+  // Travels display → everyone, so it is handled BEFORE the display-only gate below.
+  if (payload.cmd === "audioState") {
+    // Newest wins. Stored in settings.js so the panel can read it without an import cycle.
+    setTvAudioState({ locked: !!payload.locked, muted: !!payload.muted, at: Number(payload.at) || Date.now() });
+    try { globalThis.MobileCommand?.refreshPanel?.(); } catch (e) { /* panel may not exist */ }
+    return;
+  }
+  if (!isDisplayClient()) return; // only the shared display reacts to the rest
   if (payload.cmd === "frameParty") { tvManual = false; framePartyTokens(); }
   else if (payload.cmd === "fitScene") { tvManual = false; fitSceneLocal(); } // §camera: show the whole map
   else if (payload.cmd === "manual") { tvManual = !!payload.on; }
@@ -699,6 +707,7 @@ Hooks.once("ready", () => {
     tvZoom,                              // zoom the display in/out (factor >1 in, <1 out) — Stream Deck via macro
     tvFitScene,                          // frame the whole scene on the display ("Fit whole scene")
     refreshCombatVision,                 // re-apply combat POV vision on the display (settings onChange + manual)
+    refreshPanel,                        // repaint the DM panel (used by the display's audio report)
     syncPartyTokenSight,                 // GM: set each PC token's sight/detection from its dnd5e senses
     resolveExecutorId,
     isExecutor
@@ -771,6 +780,18 @@ function setupDisplayAudioListeners() {
       proto.getListenerPositions = function () {
         const base = orig.call(this);
         if (base.length || !isDisplayClient()) return base; // something is controlled → core decides
+        // Combat audio POV — the counterpart of combatPovVision. On a PARTY member's turn the room
+        // hears from that combatant alone, so the soundscape follows whoever is acting. Enemy turns
+        // fall through to the party, exactly as the vision patch does.
+        let pov = false;
+        try { pov = game.settings.get(MODULE_ID, "combatPovAudio"); } catch (e) { /* setting late */ }
+        if (pov && game.combat?.started) {
+          const active = game.combat.combatant?.token?.object;
+          if (active && isPartyActor(active.actor) && !active.document?.hidden
+              && !active.actor?.getFlag?.(MODULE_ID, "muteListener")) {
+            try { return [active.document.getListenerPosition()]; } catch (e) { /* fall through */ }
+          }
+        }
         const out = [];
         for (const t of canvas.tokens?.placeables ?? []) {
           if (t.document?.hidden || !isPartyActor(t.actor)) continue;
@@ -855,9 +876,42 @@ function applyTvVolumes() {
     }
   } catch (e) { console.warn(`${MODULE_ID} | could not apply TV volumes`, e); }
 }
+// Mute/unmute the table. globalMute zeroes all three gains and restores them from the settings on
+// release, so the DM's levels survive the round trip untouched.
+function applyTvMute() {
+  try {
+    if (!isDisplayClient() || !game.audio) return;
+    const want = !!game.settings.get(MODULE_ID, "tvMuted");
+    if (game.audio.globalMute !== want) game.audio.globalMute = want;
+  } catch (e) { console.warn(`${MODULE_ID} | could not apply TV mute`, e); }
+}
+
+// Tell the DM what the display's audio is actually doing. Without this the panel cannot distinguish
+// "muted", "volume at zero" and "the browser has never been tapped, so nothing can play at all" —
+// and that last one cost a session's confusion (2026-07-22). One-way display → everyone; the panel
+// keeps the latest report and renders it in Settings › Sound.
+function broadcastAudioState() {
+  try {
+    if (!isDisplayClient()) return;
+    tvBroadcast({ cmd: "audioState", userId: game.user.id, locked: !!game.audio?.locked,
+      muted: !!game.audio?.globalMute, at: Date.now() });
+  } catch (e) { /* socket not ready */ }
+}
+
 function setupTvVolumes() {
   applyTvVolumes();
-  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.tvVolume`) applyTvVolumes(); });
+  applyTvMute();
+  Hooks.on("updateSetting", (s) => {
+    if (s?.key === `${MODULE_ID}.tvVolume`) applyTvVolumes();
+    if (s?.key === `${MODULE_ID}.tvMuted`) { applyTvMute(); broadcastAudioState(); }
+  });
+  if (isDisplayClient()) {
+    broadcastAudioState();
+    // Re-announce once audio unlocks, and on a slow heartbeat so a DM panel opened later still
+    // learns the state without having to ask.
+    game.audio?.unlock?.then?.(() => broadcastAudioState()).catch?.(() => {});
+    setInterval(broadcastAudioState, 15000);
+  }
 }
 
 function setupGMCursorHiding() {

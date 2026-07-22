@@ -5,7 +5,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
 import { clockLabel, isNight, readClock, hasSimpleCalendar } from "./gametime.js";
 import { runDmWizard } from "./dm-wizard.js";
-import { isOverworldScene, isExecutor, gridFeetPerCell } from "./settings.js";
+import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState } from "./settings.js";
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -79,6 +79,9 @@ function anchorRange(anchor) {
 // The DM widget is FIXED to Artificer. Per-DM theme choice was tried and dropped (DM 2026-07-18,
 // reaffirmed 2026-07-22: "a failed experiment") — players still theme their own phones, which is
 // where it earned its keep. Kept as a function so the widget's look stays one named decision.
+function tvMuted() {
+  try { return game.settings.get(MODULE_ID, "tvMuted"); } catch (e) { return false; }
+}
 function tvVolume() {
   try { return game.settings.get(MODULE_ID, "tvVolume") ?? {}; } catch (e) { return {}; }
 }
@@ -119,7 +122,22 @@ function settingsHTML() {
       <div class="mc-dmp-vol-hint">${hint}</div>
     </div>`;
   };
-  const sliders = `${row("music", "Music", "Playlists and background tracks.")}
+  // What the display's audio is ACTUALLY doing. Without this the DM cannot tell "muted" from
+  // "volume at zero" from "the browser has never been tapped so nothing can play" — and that last
+  // one is invisible from the DM's chair (it cost a session, 2026-07-22).
+  const muted = !!tvMuted();
+  const rep = tvAudioState;
+  const stale = !rep || (Date.now() - rep.at) > 45000;
+  const status = stale
+    ? `<div class="mc-dmp-sound-status mc-unknown"><i class="fas fa-question-circle"></i> No display connected — nothing is reporting.</div>`
+    : rep.locked
+      ? `<div class="mc-dmp-sound-status mc-bad"><i class="fas fa-hand-pointer"></i> The display has never been tapped — a browser plays no audio until it is. Tap the TV once.</div>`
+      : `<div class="mc-dmp-sound-status mc-ok"><i class="fas fa-circle-check"></i> Display audio is live${rep.muted ? " (muted)" : ""}.</div>`;
+  const muteBtn = `<button class="mc-dmp-mute ${muted ? "mc-on" : ""}" data-tv-mute="${muted ? "0" : "1"}">
+      <i class="fas ${muted ? "fa-volume-xmark" : "fa-volume-high"}"></i> ${muted ? "Unmute the table" : "Mute the table"}
+    </button>`;
+  const sliders = `${status}${muteBtn}
+    ${row("music", "Music", "Playlists and background tracks.")}
     ${row("ambient", "Environment", "Positional scene sounds — see who is listening, below.")}
     ${row("interface", "Interface", "Dice, combat and interface sounds.")}
     <p class="mc-dmp-set-note">These set the <b>table display's</b> volume, not yours — its own controls are out of
@@ -140,7 +158,12 @@ function settingsHTML() {
         </button>`;
       }).join("")
     : `<div class="mc-dmp-empty">No party tokens on this scene.</div>`;
-  const earsBody = `<div class="mc-dmp-ears">${ears}</div>
+  const anyOn = party.some(a => !a.getFlag(MODULE_ID, "muteListener"));
+  const bulk = party.length
+    ? `<button class="mc-dmp-earbulk" data-ears-all="${anyOn ? "off" : "on"}">
+        <i class="fas ${anyOn ? "fa-ear-deaf" : "fa-ear-listen"}"></i> ${anyOn ? "Ignore everyone" : "Listen through everyone"}
+      </button>` : "";
+  const earsBody = `<div class="mc-dmp-ears">${ears}</div>${bulk}
     <p class="mc-dmp-set-note">The nearest listening token sets a sound's volume — it is <b>not</b> averaged across the
       party. Ignore a scout or a familiar so wandering off doesn't drag the room's audio with them.</p>`;
 
@@ -2901,6 +2924,16 @@ async function onClick(ev) {
     }
     return;
   }
+  const mute = ev.target.closest("[data-tv-mute]");
+  if (mute) { await game.settings.set(MODULE_ID, "tvMuted", mute.dataset.tvMute === "1"); return render(); }
+  const bulkEar = ev.target.closest("[data-ears-all]");
+  if (bulkEar) {
+    const off = bulkEar.dataset.earsAll === "off";
+    for (const a of scenePartyActors().filter(x => x.type !== "group")) {
+      if (!!a.getFlag(MODULE_ID, "muteListener") !== off) await a.setFlag(MODULE_ID, "muteListener", off);
+    }
+    return render();
+  }
   const ear = ev.target.closest("[data-sound-mute]");
   if (ear) {
     const a = game.actors.get(ear.dataset.soundMute);
@@ -2992,6 +3025,9 @@ async function onClick(ev) {
 }
 
 /** DM/executor client only — the TV is player-role, phones have no canvas targets. */
+/** Repaint the panel from outside (the display's audio report arrives over the socket). */
+export function refreshPanel() { try { if (panelEl) render(); } catch (e) { /* not mounted */ } }
+
 export function registerDMPanel() {
   if (!game.user.isGM) return;
   // Preflight auto-run (§16): one pass shortly after the canvas settles so the

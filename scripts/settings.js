@@ -203,6 +203,32 @@ export function registerSettings() {
     default: { music: 0.5, ambient: 0.5, interface: 0.5 }
   });
 
+  // Silence the table in one tap — a break, a phone call, someone talking over the ambience.
+  // Applied on the display as `game.audio.globalMute`, which zeroes all three gains and restores
+  // them from the settings on unmute (core AudioHelper), so the levels above survive the round trip.
+  // A world setting because globalMute itself is runtime-only and per-client: it would not persist
+  // a reload, and the DM cannot reach the TV's own controls anyway.
+  game.settings.register(MODULE_ID, "tvMuted", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false
+  });
+
+  // Combat audio POV — the exact counterpart of combatPovVision (above). With it on, the display
+  // hears from the ACTIVE COMBATANT alone instead of the whole party, so the soundscape follows
+  // whoever is acting. It matters because loudness is nearest-listener-wins, never an average:
+  // without this, a party spread across a map means the room always hears whoever happens to be
+  // standing closest to a source, regardless of whose turn it is.
+  game.settings.register(MODULE_ID, "combatPovAudio", {
+    name: "Combat: hear from the active combatant on the TV",
+    hint: "During combat the shared display hears positional sound from the active combatant's position only, instead of from the whole party. Enemy turns fall back to the party. Pairs with the combat POV vision setting above. Off by default.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false
+  });
+
   // §16.3 DM first-run wizard: true once the DM finished (or dismissed) the
   // guided setup. Hidden — the wizard flips it; reopen lives on the Preflight tab.
   game.settings.register(MODULE_ID, "dmOnboarded", {
@@ -535,6 +561,14 @@ export async function syncDisplayObserver(userId, { quiet = false } = {}) {
     return 0;
   }
 }
+
+// The shared display's last audio report (locked / muted), pushed over the socket by the display
+// and read by the DM panel. It lives HERE rather than in main.js because dm-panel.js would then
+// have to import main.js, which already imports dm-panel.js — a cycle whose binding order is
+// exactly the sort of thing that breaks silently at load. settings.js imports neither, so both can
+// depend on it safely.
+export let tvAudioState = null;
+export function setTvAudioState(v) { tvAudioState = v; }
 
 export function resolveExecutorId() {
   const configured = game.settings.get(MODULE_ID, "executorUser");
