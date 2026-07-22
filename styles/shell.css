@@ -69,6 +69,7 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   --mc-pause-edge-min: 60px;                 /* the band at its narrowest */
   --mc-pause-edge-max: 125px;                /* ...and its widest */
   --mc-pause-ink: 0, 0, 0;      --mc-pause-ink-a: .90;      /* the BREATHING band (DM 2026-07-22: 90% at the edge) */
+  --mc-pause-chip-a: .80;                    /* the phone chip's dark peak — same ink, same 4s loop */
 }
 canvas#board { transition: filter .45s ease; }
 body.mc-game-paused canvas#board { filter: saturate(var(--mc-pause-sat)); }
@@ -1168,12 +1169,19 @@ body {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, .35), 0 0 10px -2px var(--mc-gold);
 }
 .mc-paused-chip i { font-size: 11px; color: var(--mc-gold); } /* the accent lives on the glyph + edge */
-/* Slight fade in/out on the SAME 4s loop as the canvas edge band (DM 2026-07-22), so the phone and
-   the TV breathe together and read as one pause state. Deliberately shallow — it dips to .62, never
-   near invisible: this is the only on-screen answer to "why is my button dead?", so it must stay
-   legible at every point in the cycle. Opacity only, so it stays compositor-side. */
+/* The chip breathes on the SAME 4s loop as the canvas edge, so the phone and the TV read as one
+   pause state. It darkens to 80% black at the midpoint and returns to its resting panel fill
+   (DM 2026-07-22) — the same ink as the edge band, via --mc-pause-ink, so the two can never drift
+   apart. This replaced an opacity fade: darkening is the better cue here because the label is INK
+   on a dark fill, so contrast RISES as it darkens. The chip is the only on-screen answer to "why is
+   my button dead?", and it stays legible at every point in the cycle — a fade toward transparent
+   could not promise that. Background-color only, and on an element this small the repaint is
+   nothing like animating a full-screen layer. */
 .mc-paused-chip { animation: mc-paused-chip-breathe 4s ease-in-out infinite; }
-@keyframes mc-paused-chip-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .62; } }
+@keyframes mc-paused-chip-breathe {
+  0%, 100% { background-color: var(--mc-panel-2); }
+  50%      { background-color: rgba(var(--mc-pause-ink), var(--mc-pause-chip-a)); }
+}
 /* The dice/inspiration/bell trio is ONE flex item (.mc-stat-tools) — as separate items with the
    stats row's 12px gap they split across lines on a 375px phone, stranding the star and bell on a
    row of their own (DM 2026-07-22). Grouped, they wrap together or not at all. */
