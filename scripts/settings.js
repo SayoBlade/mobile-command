@@ -189,6 +189,20 @@ export function registerSettings() {
     onChange: (value) => { if (value) syncDisplayObserver(value); }
   });
 
+  // Table-display volumes (DM 2026-07-22: "sound settings for the TV"). Foundry's own volumes are
+  // scope:"client", so the DM sliding them on the DM screen moves the DM screen and nothing else —
+  // which is exactly the confusion that started this ("I turned down the volume in the DM screen,
+  // and i dont hear anything"). The TV usually has no keyboard and runs in clean mode, so its
+  // volumes are otherwise unreachable. Keeping them in a WORLD setting means the DM panel can show
+  // the real current value, the choice survives a reload, and the display applies it deterministically
+  // instead of us fire-and-forgetting over the socket. 0..1 each, matching core's AlphaField.
+  game.settings.register(MODULE_ID, "tvVolume", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: { music: 0.5, ambient: 0.5, interface: 0.5 }
+  });
+
   // §16.3 DM first-run wizard: true once the DM finished (or dismissed) the
   // guided setup. Hidden — the wizard flips it; reopen lives on the Preflight tab.
   game.settings.register(MODULE_ID, "dmOnboarded", {

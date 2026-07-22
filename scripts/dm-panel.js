@@ -78,6 +78,9 @@ function anchorRange(anchor) {
 // The DM widget is FIXED to Artificer. Per-DM theme choice was tried and dropped (DM 2026-07-18,
 // reaffirmed 2026-07-22: "a failed experiment") — players still theme their own phones, which is
 // where it earned its keep. Kept as a function so the widget's look stays one named decision.
+function tvVolume() {
+  try { return game.settings.get(MODULE_ID, "tvVolume") ?? {}; } catch (e) { return {}; }
+}
 function dmTheme() {
   return "artificer";
 }
@@ -89,13 +92,35 @@ function applyDmTheme() {
   for (const c of [...document.body.classList]) if (c.startsWith("mc-theme-")) document.body.classList.remove(c);
   if (t && t !== "tavern") document.body.classList.add(`mc-theme-${t}`);
 }
-// NOTE (2026-07-22): no Settings tab right now, on purpose. It was restored earlier today for the
-// widget theme picker — but that picker was already a dead end: dmTheme() has returned a hardcoded
-// "artificer" since 2026-07-18, so every swatch wrote a localStorage key nothing read. The DM's
-// verdict: "no need for the themes, it was a failed experiment". With themes gone the tab had no
-// content, and an empty tab is worse than none. It comes back the moment the Sound drawer exists
-// (DESIGN.md §21) — one `tab(...)` line plus one dockTab branch, and settingsHTML() rebuilt from
-// dtDrawer, exactly as the sound work will want it.
+// Settings tab — Sound (DM 2026-07-22). The tab is back for the reason it was asked for: the TABLE
+// DISPLAY's volumes. Foundry's three volumes are scope:"client", so the DM's own sliders move the
+// DM's machine and nothing else — the confusion that started this ("I turned down the volume in the
+// DM screen, and i dont hear anything"). The TV has no keyboard and runs in clean mode, so its
+// volumes are otherwise unreachable from the table.
+//
+// The sliders write ONE world setting (tvVolume); the display mirrors it into its own client
+// settings (applyTvVolumes, main.js). That way the value persists, and the panel can show what is
+// actually set instead of guessing after a fire-and-forget broadcast.
+//
+// (The widget theme picker that used to live here is gone for good — dmTheme() has been pinned to
+// Artificer since 2026-07-18, so every swatch wrote a key nothing read. DM: "a failed experiment".)
+function settingsHTML() {
+  const v = { music: 0.5, ambient: 0.5, interface: 0.5, ...(tvVolume() || {}) };
+  const row = (key, label, hint) => {
+    const pct = Math.round((Number(v[key]) || 0) * 100);
+    return `<div class="mc-dmp-vol">
+      <div class="mc-dmp-vol-top"><span class="mc-dmp-vol-label">${label}</span><span class="mc-dmp-vol-val">${pct}%</span></div>
+      <input class="mc-dmp-vol-slider" type="range" min="0" max="100" step="5" value="${pct}" data-tv-vol="${key}" aria-label="${label}">
+      <div class="mc-dmp-vol-hint">${hint}</div>
+    </div>`;
+  };
+  const body = `${row("ambient", "Ambient", "Positional scene sounds — loudest for whichever party token is nearest the source.")}
+    ${row("music", "Music", "Playlists and background tracks.")}
+    ${row("interface", "Effects", "Dice, combat and interface sounds.")}
+    <p class="mc-dmp-set-note">These set the <b>table display's</b> volume, not yours — its own controls are out of reach in clean mode.
+      Hearing nothing at all? The TV needs one tap after each reload before a browser will play any audio.</p>`;
+  return `<div class="mc-dmp-settings">${dtDrawer("setSound", "Sound", "", body)}</div>`;
+}
 
 function tabRailHTML() {
   const tab = (id, icon, title, show = true, badge = 0) => show ? `<button class="mc-dmp-tab ${dockTab === id ? "mc-on" : ""}" data-dock="${id}" title="${title}" aria-label="${title}"><i class="fas ${icon}"></i>${badge ? `<span class="mc-dmp-tab-badge">${badge}</span>` : ""}</button>` : "";
@@ -107,6 +132,7 @@ function tabRailHTML() {
     ${tab("rest", "fa-campground", "Rest", true, (isResting() || downtimeOpen()) ? "•" : 0)}
     ${tab("travel", "fa-route", "Travel")}
     ${tab("preflight", "fa-clipboard-check", "System health", true, preflightFailCount())}
+    ${tab("settings", "fa-gear", "Settings")}
   </div>`;
 }
 
@@ -1133,6 +1159,7 @@ function flyoutHTML() {
   else if (dockTab === "tokens") { title = "Players"; body = ownedTokensHTML(); }
   else if (dockTab === "rest") { title = "Rest"; body = restHTML(); }
   else if (dockTab === "preflight") { title = "System health"; body = preflightHTML(); }
+  else if (dockTab === "settings") { title = "Settings"; body = settingsHTML(); }
   else if (dockTab === "party") {
     const g = packedGroup();
     const f = g?.getFlag(MODULE_ID, "formation") ?? {};
@@ -2520,12 +2547,31 @@ function onTokenDblClick(ev) {
 // §18: live MPH↔KPH auto-fill in the custom-pace form — updates the paired field directly (no
 // re-render, so focus/typing isn't disturbed).
 function onInput(ev) {
+  // Volume sliders: update the % readout live while dragging, but DON'T write the world setting on
+  // every input event — that would be a document write per pixel of drag. The commit happens on
+  // `change` (pointer release) in onChange. Purely local echo, no re-render, so the drag is smooth.
+  const vol = ev.target.closest("[data-tv-vol]");
+  if (vol) {
+    const out = vol.closest(".mc-dmp-vol")?.querySelector(".mc-dmp-vol-val");
+    if (out) out.textContent = `${vol.value}%`;
+    return;
+  }
   const mph = ev.target.closest("[data-pace-mph]");
   if (mph) { const k = panelEl?.querySelector("[data-pace-kph]"); if (k) k.value = mph.value ? (Number(mph.value) * KPH_PER_MPH).toFixed(1) : ""; return; }
   const kph = ev.target.closest("[data-pace-kph]");
   if (kph) { const m = panelEl?.querySelector("[data-pace-mph]"); if (m) m.value = kph.value ? (Number(kph.value) / KPH_PER_MPH).toFixed(1) : ""; return; }
 }
 function onChange(ev) {
+  // Volume slider committed (pointer released) → write the world setting; the display mirrors it
+  // into its own client volumes. No re-render: the slider already shows the value, and rebuilding
+  // the panel mid-interaction would drop focus.
+  const vol = ev.target.closest("[data-tv-vol]");
+  if (vol) {
+    const next = { music: 0.5, ambient: 0.5, interface: 0.5, ...(tvVolume() || {}) };
+    next[vol.dataset.tvVol] = Math.max(0, Math.min(1, Number(vol.value) / 100));
+    game.settings.set(MODULE_ID, "tvVolume", next);
+    return;
+  }
   const rf = ev.target.closest("[data-rule]");
   if (rf) return applyRuleField(rf.dataset.rule, rf.value); // §17.7 Rule-authoring form field
   const trav = ev.target.closest("[data-travel-scene]");

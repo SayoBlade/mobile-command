@@ -677,6 +677,7 @@ Hooks.once("ready", () => {
   registerDialogWatchdog(); // executor alerts DM + pings phone when an action strands a dialog (self-gates)
   setupDisplayAudioListeners(); // the TV hears positional sound from the party (it controls nothing + is only an Observer)
   setupDisplayAudioUnlock();    // …and can actually play it: browsers need one tap before any audio starts
+  setupTvVolumes();             // the TV mirrors the DM's chosen volumes (its own are unreachable at the table)
   setupNoDoubleTapMinimize(); // no window collapses to a stranded title bar on an accidental double-tap
   setupGMCursorHiding(); // hide the GM's broadcast cursor on other screens (keep pings); reads hideGMCursor live
   setupDMOmniscientVision(); // keep the DM's canvas omniscient when a token is selected (shared-screen tables)
@@ -831,6 +832,28 @@ function setupDisplayAudioUnlock() {
   };
   show();
   Hooks.on("canvasReady", show); // a scene change on a still-locked display re-offers it
+}
+
+// Apply the DM's chosen table-display volumes on THIS client (display only). Foundry's three
+// volumes are scope:"client", so nobody but the TV itself can set the TV's — the DM panel writes a
+// world setting (tvVolume) and the display mirrors it into its own client settings here, which is
+// what actually moves core's gain nodes. Runs at ready and whenever the DM moves a slider.
+function applyTvVolumes() {
+  try {
+    if (!isDisplayClient()) return;
+    const v = game.settings.get(MODULE_ID, "tvVolume") ?? {};
+    const map = { music: "globalPlaylistVolume", ambient: "globalAmbientVolume", interface: "globalInterfaceVolume" };
+    for (const [key, coreKey] of Object.entries(map)) {
+      const want = Number(v[key]);
+      if (!Number.isFinite(want)) continue;
+      const clamped = Math.max(0, Math.min(1, want));
+      if (game.settings.get("core", coreKey) !== clamped) game.settings.set("core", coreKey, clamped);
+    }
+  } catch (e) { console.warn(`${MODULE_ID} | could not apply TV volumes`, e); }
+}
+function setupTvVolumes() {
+  applyTvVolumes();
+  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.tvVolume`) applyTvVolumes(); });
 }
 
 function setupGMCursorHiding() {

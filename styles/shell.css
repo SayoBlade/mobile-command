@@ -2560,6 +2560,20 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-dmp-settings { display: flex; flex-direction: column; gap: 10px; }
 .mc-dmp-set-sec { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--mc-muted); }
 .mc-dmp-set-note { margin: 0; font-size: 11px; color: var(--mc-muted); line-height: 1.35; }
+/* Table-display volume sliders (Settings > Sound, DM 2026-07-22). */
+.mc-dmp-vol { margin-bottom: 14px; }
+.mc-dmp-vol-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+.mc-dmp-vol-label { font-size: 13px; font-weight: 700; color: var(--mc-ink); }
+.mc-dmp-vol-val { font-size: 12px; font-weight: 700; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
+.mc-dmp-vol-hint { margin-top: 3px; font-size: 11px; color: var(--mc-muted); line-height: 1.35; }
+.mc-dmp-vol-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: none; cursor: pointer; }
+.mc-dmp-vol-slider::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--mc-sunken, #14151a); border: 1px solid var(--mc-edge); }
+.mc-dmp-vol-slider::-moz-range-track { height: 4px; border-radius: 2px; background: var(--mc-sunken, #14151a); border: 1px solid var(--mc-edge); }
+.mc-dmp-vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: -7px;
+  border-radius: 50%; background: var(--mc-panel-2); border: 1px solid var(--mc-gold);
+}
+.mc-dmp-vol-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--mc-panel-2); border: 1px solid var(--mc-gold); }
 /* In the DM panel the theme row is tighter — 6 across fits the 240px flyout without wrapping to 3 tall rows. */
 .mc-dmp-settings .mc-theme-row { grid-template-columns: repeat(6, 1fr); }
 /* DM panel: split-party chip (rides the reaction-chip look, hiking icon + activate). */
