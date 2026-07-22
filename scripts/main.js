@@ -676,6 +676,7 @@ Hooks.once("ready", () => {
   registerSummonOwnership(); // summoned-creature control chip for the DM (self-gates on isExecutor)
   registerDialogWatchdog(); // executor alerts DM + pings phone when an action strands a dialog (self-gates)
   setupDisplayAudioListeners(); // the TV hears positional sound from the party (it controls nothing + is only an Observer)
+  setupDisplayAudioUnlock();    // …and can actually play it: browsers need one tap before any audio starts
   setupNoDoubleTapMinimize(); // no window collapses to a stranded title bar on an accidental double-tap
   setupGMCursorHiding(); // hide the GM's broadcast cursor on other screens (keep pings); reads hideGMCursor live
   setupDMOmniscientVision(); // keep the DM's canvas omniscient when a token is selected (shared-screen tables)
@@ -787,6 +788,49 @@ function setupDisplayAudioListeners() {
   // future canvas draw, which also re-arms it after a scene change.
   patch();
   Hooks.on("canvasReady", patch);
+}
+
+// The shared display can't play a sound until someone touches it (DM 2026-07-22: "I turned down the
+// volume in the DM screen, and i dont hear anything"). Browsers suspend the AudioContext until a
+// real user gesture; Foundry waits for the first contextmenu/auxclick/pointerdown/pointerup/keydown
+// on document (AudioHelper#awaitFirstGesture) and, until then, SoundsLayer bails on the very first
+// line of _syncPositions — `if (!this.sources.size || game.audio.locked) return`.
+//
+// A TV is the one client that never gets that gesture: nobody clicks it, and in clean-display mode
+// core's own hint is hidden along with the rest of the UI. Measured on the TV: audioLocked true,
+// ambient volume a healthy 0.5, 7 listeners, 3 audible sources — and not one of them playing.
+// Volume was never the problem, so turning a volume knob could never have fixed it.
+//
+// The gesture is a browser requirement — it cannot be faked or auto-dispatched. All we can do is
+// make it ONE obvious tap instead of an invisible prerequisite. The panel is huge, centred and
+// unmissable on a TV, any tap anywhere dismisses it (core's listener is on document, so the tap
+// that closes this IS the unlocking gesture), and it removes itself the moment audio unlocks.
+function setupDisplayAudioUnlock() {
+  const ID = "mc-audio-unlock";
+  const show = () => {
+    try {
+      if (!isDisplayClient() || !game.audio?.locked) return;
+      if (document.getElementById(ID)) return;
+      const el = document.createElement("div");
+      el.id = ID;
+      el.innerHTML = `<div class="mc-au-card">
+        <i class="fas fa-volume-high mc-au-ico"></i>
+        <div class="mc-au-title">Tap to enable sound</div>
+        <div class="mc-au-sub">This screen has had no touch yet, and browsers only start audio after one.
+          Tap anywhere — you only need to do this once per reload.</div>
+      </div>`;
+      const done = () => {
+        el.remove();
+        // The tap unlocked audio; re-sync so ambient sounds start at their correct volumes now.
+        try { canvas?.sounds?.refresh(); } catch (e) { /* best-effort */ }
+      };
+      el.addEventListener("pointerdown", () => setTimeout(done, 50)); // core unlocks on the same event
+      document.body.appendChild(el);
+      game.audio.unlock?.then?.(done).catch?.(() => {});
+    } catch (e) { console.warn(`${MODULE_ID} | audio-unlock prompt failed`, e); }
+  };
+  show();
+  Hooks.on("canvasReady", show); // a scene change on a still-locked display re-offers it
 }
 
 function setupGMCursorHiding() {

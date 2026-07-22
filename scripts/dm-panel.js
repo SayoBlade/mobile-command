@@ -75,17 +75,11 @@ function anchorRange(anchor) {
 // The DM's own theme. The panel's palette lives on <body> (UI-BIBLE §11.1), so setting
 // body.mc-theme-* on the GM client re-tints the whole widget — no shell needed. Stored under its
 // OWN key so a GM who also carries a phone doesn't cross the two.
-const DM_THEMES = [
-  // Mirror of the shell's list — the swatch art (--mc-sw-ico) is global CSS, so it just works.
-  ["tavern","Tavern","#c8a44d"],["gothic","Gothic","#a34049"],["frost","Frost","#8fd3f4"],
-  ["flame","Flame","#f0a52e"],["tide","Tide","#45c4b0"],["artificer","Artificer","#c98b3c"],
-  ["barbarian","Barbarian","#c8873f"],["bard","Bard","#d76ba8"],["cleric","Cleric","#e0d3a0"],
-  ["druid","Druid","#6fbf73"],["fighter","Fighter","#93a3b8"],["monk","Monk","#52c2a5"],
-  ["paladin","Paladin","#7f9fe0"],["ranger","Ranger","#9fbf5f"],["rogue","Rogue","#9b8fb5"],
-  ["sorcerer","Sorcerer","#e2703a"],["warlock","Warlock","#9a5fd0"],["wizard","Wizard","#7f8fe0"],
-];
+// The DM widget is FIXED to Artificer. Per-DM theme choice was tried and dropped (DM 2026-07-18,
+// reaffirmed 2026-07-22: "a failed experiment") — players still theme their own phones, which is
+// where it earned its keep. Kept as a function so the widget's look stays one named decision.
 function dmTheme() {
-  return "artificer"; // DM themes removed for now (DM 2026-07-18) — the widget is fixed to Artificer.
+  return "artificer";
 }
 function applyDmTheme() {
   // Only touch the body class on a client that has NO phone shell — otherwise the shell owns it and
@@ -95,19 +89,13 @@ function applyDmTheme() {
   for (const c of [...document.body.classList]) if (c.startsWith("mc-theme-")) document.body.classList.remove(c);
   if (t && t !== "tavern") document.body.classList.add(`mc-theme-${t}`);
 }
-// Settings tab. Its tab entry and dock branch were dropped by the travel-mode commit (f3d1dab,
-// 2026-07-18) while this renderer AND its data-dm-theme click handler were both left in place — so
-// the loss looks collateral, and the widget theme picker sat unreachable from then until it was
-// restored 2026-07-22. Built as accordion drawers (the same chrome downtime and travel use) so
-// further sections — a Sound drawer next (DM 2026-07-22) — drop straight in.
-function settingsHTML() {
-  const cur = dmTheme();
-  const swatches = DM_THEMES.map(([id, label, sw]) =>
-    `<button class="mc-theme-opt ${cur === id ? "mc-on" : ""}" data-dm-theme="${id}" data-theme="${id}" title="${label}" aria-label="${label}" aria-pressed="${cur === id}"><span class="mc-theme-sw" style="background-color:${sw}"></span></button>`).join("");
-  const appearance = `<div class="mc-theme-row">${swatches}</div>
-    <p class="mc-dmp-set-note">Themes your DM widget only — each player themes their own phone.</p>`;
-  return `<div class="mc-dmp-settings">${dtDrawer("setAppearance", "Widget theme", "", appearance)}</div>`;
-}
+// NOTE (2026-07-22): no Settings tab right now, on purpose. It was restored earlier today for the
+// widget theme picker — but that picker was already a dead end: dmTheme() has returned a hardcoded
+// "artificer" since 2026-07-18, so every swatch wrote a localStorage key nothing read. The DM's
+// verdict: "no need for the themes, it was a failed experiment". With themes gone the tab had no
+// content, and an empty tab is worse than none. It comes back the moment the Sound drawer exists
+// (DESIGN.md §21) — one `tab(...)` line plus one dockTab branch, and settingsHTML() rebuilt from
+// dtDrawer, exactly as the sound work will want it.
 
 function tabRailHTML() {
   const tab = (id, icon, title, show = true, badge = 0) => show ? `<button class="mc-dmp-tab ${dockTab === id ? "mc-on" : ""}" data-dock="${id}" title="${title}" aria-label="${title}"><i class="fas ${icon}"></i>${badge ? `<span class="mc-dmp-tab-badge">${badge}</span>` : ""}</button>` : "";
@@ -119,7 +107,6 @@ function tabRailHTML() {
     ${tab("rest", "fa-campground", "Rest", true, (isResting() || downtimeOpen()) ? "•" : 0)}
     ${tab("travel", "fa-route", "Travel")}
     ${tab("preflight", "fa-clipboard-check", "System health", true, preflightFailCount())}
-    ${tab("settings", "fa-gear", "Settings")}
   </div>`;
 }
 
@@ -1146,7 +1133,6 @@ function flyoutHTML() {
   else if (dockTab === "tokens") { title = "Players"; body = ownedTokensHTML(); }
   else if (dockTab === "rest") { title = "Rest"; body = restHTML(); }
   else if (dockTab === "preflight") { title = "System health"; body = preflightHTML(); }
-  else if (dockTab === "settings") { title = "Settings"; body = settingsHTML(); }
   else if (dockTab === "party") {
     const g = packedGroup();
     const f = g?.getFlag(MODULE_ID, "formation") ?? {};
@@ -2462,7 +2448,7 @@ function assignHTML(targets) {
 
 function render() {
   const el = ensureEl();
-  applyDmTheme(); // keep the DM's chosen widget theme live
+  applyDmTheme(); // keep the widget on its fixed theme
   // Don't rebuild the panel while the DM is typing in a downtime TEXT field — background hooks
   // (presence 5s, combat, targeting) re-render often and would wipe the half-typed value (DM
   // 2026-07-13: "the task disappears"). Only text/number inputs need this; SELECTs must NOT be
@@ -2868,12 +2854,6 @@ async function onClick(ev) {
       render();
     }
     return;
-  }
-  const dth = ev.target.closest("[data-dm-theme]");
-  if (dth) {
-    try { window.localStorage.setItem("mc-dm-theme", dth.dataset.dmTheme); } catch (e) { /* private mode */ }
-    applyDmTheme();
-    return render();
   }
   const gs = ev.target.closest("[data-group-sheet]");
   if (gs) { game.actors.get(gs.dataset.groupSheet)?.sheet?.render(true); return; }

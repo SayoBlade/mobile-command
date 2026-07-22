@@ -104,6 +104,25 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
    for the OS would have silently lost the breath they asked for. A 4s ease-in-out swell is about as
    gentle as motion gets, and the desaturation carries the signal for anyone who dislikes it, so the
    cue no longer opts itself out. */
+/* Shared-display audio unlock (DM 2026-07-22). A TV never receives the tap browsers demand before
+   audio may start, and in clean mode core's own hint is hidden with the rest of the UI — so the
+   room gets silence with no explanation. Deliberately full-bleed and centred: this is a TV read
+   from across a room, and it must be impossible to walk past. Any tap dismisses it, because the
+   tap IS the unlocking gesture. Above the pause edge (z 90) but below dialogs. */
+#mc-audio-unlock {
+  position: fixed; inset: 0; z-index: 95; display: flex; align-items: center; justify-content: center;
+  background: rgba(6, 8, 12, .72); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+#mc-audio-unlock .mc-au-card {
+  max-width: 620px; padding: 34px 40px; text-align: center;
+  background: var(--mc-panel, #1c1922); border: 1px solid var(--mc-gold, #b09a63);
+  border-radius: calc(18px * var(--mc-round, 1)); box-shadow: 0 16px 50px rgba(0, 0, 0, .65);
+  font-family: "Signika", sans-serif; /* a status you must read — never the themed display face (bible §11.3) */
+}
+#mc-audio-unlock .mc-au-ico { font-size: 46px; color: var(--mc-gold, #b09a63); margin-bottom: 16px; display: block; }
+#mc-audio-unlock .mc-au-title { font-size: 30px; font-weight: 800; color: var(--mc-ink, #efe9df); margin-bottom: 12px; }
+#mc-audio-unlock .mc-au-sub { font-size: 17px; line-height: 1.5; color: var(--mc-muted, #a59b86); }
 /* Clean-mode escape-hatch hint: a dismissable pill telling the user how to get the
    UI back. Exempt from the hiding above (custom id), high z, fades after ~60s. */
 #mc-clean-hint {
