@@ -95,15 +95,18 @@ function applyDmTheme() {
   for (const c of [...document.body.classList]) if (c.startsWith("mc-theme-")) document.body.classList.remove(c);
   if (t && t !== "tavern") document.body.classList.add(`mc-theme-${t}`);
 }
+// Settings tab. Its tab entry and dock branch were dropped by the travel-mode commit (f3d1dab,
+// 2026-07-18) while this renderer AND its data-dm-theme click handler were both left in place — so
+// the loss looks collateral, and the widget theme picker sat unreachable from then until it was
+// restored 2026-07-22. Built as accordion drawers (the same chrome downtime and travel use) so
+// further sections — a Sound drawer next (DM 2026-07-22) — drop straight in.
 function settingsHTML() {
   const cur = dmTheme();
   const swatches = DM_THEMES.map(([id, label, sw]) =>
     `<button class="mc-theme-opt ${cur === id ? "mc-on" : ""}" data-dm-theme="${id}" data-theme="${id}" title="${label}" aria-label="${label}" aria-pressed="${cur === id}"><span class="mc-theme-sw" style="background-color:${sw}"></span></button>`).join("");
-  return `<div class="mc-dmp-settings">
-    <div class="mc-dmp-set-sec">Widget theme</div>
-    <div class="mc-theme-row">${swatches}</div>
-    <p class="mc-dmp-set-note">Themes your DM widget only — each player themes their own phone.</p>
-  </div>`;
+  const appearance = `<div class="mc-theme-row">${swatches}</div>
+    <p class="mc-dmp-set-note">Themes your DM widget only — each player themes their own phone.</p>`;
+  return `<div class="mc-dmp-settings">${dtDrawer("setAppearance", "Widget theme", "", appearance)}</div>`;
 }
 
 function tabRailHTML() {
@@ -116,6 +119,7 @@ function tabRailHTML() {
     ${tab("rest", "fa-campground", "Rest", true, (isResting() || downtimeOpen()) ? "•" : 0)}
     ${tab("travel", "fa-route", "Travel")}
     ${tab("preflight", "fa-clipboard-check", "System health", true, preflightFailCount())}
+    ${tab("settings", "fa-gear", "Settings")}
   </div>`;
 }
 
@@ -1142,6 +1146,7 @@ function flyoutHTML() {
   else if (dockTab === "tokens") { title = "Players"; body = ownedTokensHTML(); }
   else if (dockTab === "rest") { title = "Rest"; body = restHTML(); }
   else if (dockTab === "preflight") { title = "System health"; body = preflightHTML(); }
+  else if (dockTab === "settings") { title = "Settings"; body = settingsHTML(); }
   else if (dockTab === "party") {
     const g = packedGroup();
     const f = g?.getFlag(MODULE_ID, "formation") ?? {};

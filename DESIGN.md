@@ -1293,6 +1293,34 @@ vs. the secret goblin village the DM can move clandestinely).
 - **T5 (maybe) — terrain regions.** Painted terrain regions auto-multiply segment cost in the
   estimate; only if the DM actually wants to paint overmaps.
 
+## 21. Sound — the Settings tab's next drawer (DM 2026-07-22, NOT started)
+
+> DM: *"once sound works, I think we'll need the settings tab back for a sound accordion drawer."*
+
+**Done:** the Settings tab is back (restored 2026-07-22). It had been dropped by the travel-mode
+commit (f3d1dab, 2026-07-18) while `settingsHTML()` and its `data-dm-theme` click handler were both
+left in place — collateral damage, not a decision — which left the DM widget's theme picker
+unreachable for four days. It is now built from the shared accordion drawers (`dtDrawer`), so a
+Sound drawer is a drop-in beside "Widget theme".
+
+**Open — what belongs in the Sound drawer.** Not designed yet; the DM gated it on positional sound
+being confirmed working at the table. Candidates, to be confirmed rather than assumed:
+
+- Master/ambient volume for the shared display specifically (the TV is the machine that actually
+  plays the room's audio; today volume is Foundry's own per-client setting, buried in core's UI and
+  awkward on a TV with no keyboard).
+- A listener-source choice: party-wide (current behaviour — nearest party token wins, incl. pets)
+  vs. the active combatant only, mirroring how `combatPovVision` narrows the TV's vision in combat.
+- Phone SFX toggles (dice / prompt / combat-start), currently always-on core sounds with no opt-out.
+- Whether pets should count as listeners at all, or only PCs.
+
+**Related, already settled:** positional volume is computed from the CLOSEST listener, never the
+last token moved (`SoundsLayer#_syncPositions`). The display client gets its listeners from the
+party's tokens because it controls nothing and is only an Observer — see `setupDisplayAudioListeners`
+in main.js and commit 935596d.
+
+---
+
 ### 18.3 Open questions (ledger)
 
 - Darkness curve: what darkness level maps to which hour (flat day/night with dawn/dusk ramps?),
