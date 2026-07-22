@@ -675,6 +675,7 @@ Hooks.once("ready", () => {
   registerReactionNotifier(); // DM toast when a player gets a reaction window (self-gates)
   registerSummonOwnership(); // summoned-creature control chip for the DM (self-gates on isExecutor)
   registerDialogWatchdog(); // executor alerts DM + pings phone when an action strands a dialog (self-gates)
+  setupDisplayAudioListeners(); // the TV hears positional sound from the party (it controls nothing + is only an Observer)
   setupNoDoubleTapMinimize(); // no window collapses to a stranded title bar on an accidental double-tap
   setupGMCursorHiding(); // hide the GM's broadcast cursor on other screens (keep pings); reads hideGMCursor live
   setupDMOmniscientVision(); // keep the DM's canvas omniscient when a token is selected (shared-screen tables)
@@ -744,6 +745,48 @@ function setupNoDoubleTapMinimize() {
       ev.stopPropagation();
     } catch (e) { /* never break a click handler */ }
   }, true); // capture: beat the header's own listener
+}
+
+// Positional ambient sound on the shared display (2026-07-22). Core picks listener positions from
+// CONTROLLED tokens, falling back — for non-GMs only — to every token whose actor the user OWNS
+// (SoundsLayer#getListenerPositions, client/canvas/layers/sounds.mjs). The TV satisfies NEITHER: it
+// deliberately controls nothing (releaseAll is what keeps merged party vision alive — see
+// refreshCombatVision) and it has only been an OBSERVER since 2026-07-21, so isOwner is false on
+// every PC. Measured on Cave A: 4 ambient sounds, 0 listeners — every positional sound silent on
+// the one machine that actually plays the table's audio.
+//
+// So the display listens from the PARTY's tokens — the same set the camera frames, pets included.
+// Core's own rule still decides loudness: _syncPositions keeps the CLOSEST listener to each source,
+// so a brazier or a waterfall swells as the party walks toward it. Only the FALLBACK is ours; the
+// moment anything is actually controlled, core's answer stands untouched.
+function setupDisplayAudioListeners() {
+  const patch = () => {
+    try {
+      if (!isDisplayClient() || !canvas?.sounds) return;
+      const proto = Object.getPrototypeOf(canvas.sounds);
+      const orig = proto?.getListenerPositions;
+      if (!proto || proto.__mcAudioListenersPatched || typeof orig !== "function") return;
+      proto.getListenerPositions = function () {
+        const base = orig.call(this);
+        if (base.length || !isDisplayClient()) return base; // something is controlled → core decides
+        const out = [];
+        for (const t of canvas.tokens?.placeables ?? []) {
+          if (t.document?.hidden || !isPartyActor(t.actor)) continue;
+          try { out.push(t.document.getListenerPosition()); } catch (e) { /* skip a bad token */ }
+        }
+        return out.length ? out : base;
+      };
+      proto.__mcAudioListenersPatched = true;
+      try { canvas.sounds.refresh(); } catch (e) { /* refresh is best-effort */ }
+    } catch (e) {
+      console.warn(`${MODULE_ID} | could not patch display audio listeners`, e);
+    }
+  };
+  // `canvasReady` has ALREADY fired by the time the `ready` hook runs, so registering only the hook
+  // silently never patched anything (caught on the first live re-test). Patch now AND on every
+  // future canvas draw, which also re-arms it after a scene change.
+  patch();
+  Hooks.on("canvasReady", patch);
 }
 
 function setupGMCursorHiding() {
