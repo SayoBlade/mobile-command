@@ -1293,6 +1293,46 @@ vs. the secret goblin village the DM can move clandestinely).
 - **T5 (maybe) — terrain regions.** Painted terrain regions auto-multiply segment cost in the
   estimate; only if the DM actually wants to paint overmaps.
 
+## 20.9 Dead-code sweep (2026-07-22)
+
+DM: *"just like the themes stayed behind, i don't want stray mentions of the 'active PC' and
+multiple owners code showing up… be careful when trimming."*
+
+Removed, each verified unreferenced first:
+
+- **DM-assign chip list** (`assignHTML` + `activePlayers` + the `[data-user]` and
+  `[data-action="clear"]` handlers + 9 CSS rules). It was the only producer of `data-user`, and
+  nothing called it — superseded by the Rolls tab's per-PC crosshair, which calls the same
+  `api.assignTargets`. The panel's own header still advertised it as job #1.
+- **`bonusActivities` / `WINDOW_SLOTS` / `slotsFor()`** — the "extra activities per beat" stepper.
+  Downtime became ONE activity per player on 2026-07-14 (`selectActivity`), which superseded the
+  whole slots idea, and **nothing ever read `slotsFor()`**: the DM could set +2 and no code
+  consumed it. A control that silently does nothing is worse than no control. `showMechanicsByDefault`
+  stays — it is read when authoring a Rule.
+- **`formatValue`** (enforcer.js), unreferenced.
+- **50 CSS rules** from the retired Phase-1a downtime (`mc-dt-item*`, `mc-dt-days*`, `mc-dt-lock*`,
+  `mc-dt-budget`, …).
+
+**Kept deliberately, with the reasons, so they are not re-trimmed later:**
+
+- **`user.character` is NOT dead.** What was retired (§2) is *routing* on it. It remains a
+  legitimate **preference**: player colour, panel labels, the phone's default subject, and the
+  default watch subject. Preflight's warning that the display account must not have one is also
+  still correct — midi's `playerForActor` branch 1 matches an assigned character *ignoring
+  ownership*, so a TV with one really would swallow prompts.
+- **`craftSuggest`** — unwired, but documented shipped API (§17.7) awaiting the item-value picker.
+  The authoring form's comment was corrected: it claimed scribe/craft "use the pure suggesters",
+  when craft never calls `craftSuggest` and scribe only calls its suggester once a spell is picked.
+
+**Method note — a naive CSS sweep is unsafe here.** Class names are built by interpolation
+(`mc-dmp-pf-${c.status}`, `mc-coin-${k}`, `mc-def-${cls}`, `mc-econ-${…}`, `mc-enc-${tier}`,
+`mc-prof-${…}`, `mc-rec-${…}`, `mc-event-${…}`, `mc-move-${…}`, `mc-theme-${…}`, `mc-fly-${…}`).
+A static grep flags those as orphans and deleting them would have broken preflight status colours,
+currency and defence chips. Only prefixes with **no** interpolated form (verified per-prefix) may be
+swept, and grouped selectors must be skipped rather than edited.
+
+---
+
 ## 21. Sound — the Settings tab's next drawer (DM 2026-07-22, NOT started)
 
 > DM: *"once sound works, I think we'll need the settings tab back for a sound accordion drawer."*

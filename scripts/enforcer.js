@@ -157,9 +157,6 @@ export function makeConfirmMenuClass(buildConfig) {
   };
 }
 
-function formatValue(v) {
-  return typeof v === "string" ? `"${v}"` : String(v);
-}
 
 // Apply-once, then hands-off (DM 2026-06-25): the phone UX needs a specific midi/dnd5e
 // config, so on FIRST activation the mod applies its preset outright (one info toast; your

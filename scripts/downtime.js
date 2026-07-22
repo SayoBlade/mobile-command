@@ -448,12 +448,17 @@ export function pickTemplate(state, actorId, templateId, createdBy = "") {
   return upsertActivity(s, actorId, inst);
 }
 
-// Per-character gear settings — rare, hidden behind a gear icon (DM 2026-07-13). `bonusActivities`
-// is the "doesn't sleep" case (a race trait or undocumented backstory ability): extra Activities
-// this PC may pursue per beat beyond the base. `showMechanicsByDefault` seeds the DM's show/hide
-// toggle when authoring a Rule for this PC (a per-player crunch preference).
-export const ACTOR_SETTINGS_DEFAULT = { bonusActivities: 0, showMechanicsByDefault: false };
-export const WINDOW_SLOTS = { short: 1, long: 1 }; // base Activities per beat by window size (soft guide; DM dictates)
+// Per-character gear settings — rare, hidden behind a gear icon (DM 2026-07-13).
+// `showMechanicsByDefault` seeds the DM's show/hide toggle when authoring a Rule for this PC (a
+// per-player crunch preference).
+//
+// `bonusActivities` + WINDOW_SLOTS + slotsFor() lived here until 2026-07-22. They were the
+// "doesn't sleep" case — extra Activities per beat beyond the base — and the 2026-07-14
+// simplification to ONE activity per player per downtime (selectActivity) superseded the whole
+// idea. Nothing ever read slotsFor(), so the DM panel's "Extra activities per beat" stepper was
+// storing a number no code consumed: a control that silently did nothing. Removed rather than
+// left to mislead. If multi-activity downtime returns, this is the anchor to rebuild from.
+export const ACTOR_SETTINGS_DEFAULT = { showMechanicsByDefault: false };
 export function getActorSettings(state, actorId) {
   return { ...ACTOR_SETTINGS_DEFAULT, ...(normalizeState(state).actorSettings[actorId] || {}) };
 }
@@ -462,11 +467,6 @@ export function setActorSetting(state, actorId, key, value) {
   const cur = { ...ACTOR_SETTINGS_DEFAULT, ...(s.actorSettings[actorId] || {}) };
   cur[key] = value;
   return { ...s, actorSettings: { ...s.actorSettings, [actorId]: cur } };
-}
-// Soft guide for how many Activities a PC can juggle in a beat: base (by size) + the gear bonus.
-export function slotsFor(size, settings) {
-  const base = WINDOW_SLOTS[size === "long" ? "long" : "short"];
-  return base + Math.max(0, Number(settings?.bonusActivities) || 0);
 }
 export function listActivities(state, actorId) {
   return (normalizeState(state).activities[actorId] || []).slice();

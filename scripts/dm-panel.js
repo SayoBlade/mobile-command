@@ -9,10 +9,11 @@ import { isOverworldScene, isExecutor, gridFeetPerCell } from "./settings.js";
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
-//   1. DM-assign: when the DM holds ≥1 target, hand them to a player's phone via
-//      api.assignTargets (current combatant highlighted; DM targets clear after).
-//   2. AoE push: when a phone announces an area spell, show a "Player — Spell"
+//   1. AoE push: when a phone announces an area spell, show a "Player — Spell"
 //      row with a Place button that drops the template (placeCast) on this client.
+// (A second job — a chip list that handed the DM's held targets to a player — was
+//  removed 2026-07-22: it had been unreachable, superseded by the Rolls tab's
+//  per-PC crosshair, which calls the same api.assignTargets.)
 
 let panelEl = null;
 
@@ -332,16 +333,13 @@ function downtimeHTML(embedded = false) {
       </div>`;
     }
     const gearOpen = dtGearFor === a.id;
+    // "Extra activities per beat" (a ± stepper) was removed 2026-07-22: downtime has been ONE
+    // activity per player since 2026-07-14, nothing ever read the number, and a control that
+    // silently does nothing is worse than no control (see downtime.js ACTOR_SETTINGS_DEFAULT).
     const gearHTML = gearOpen ? `<div class="mc-dt-gearpanel">
-        <div class="mc-dt-gearrow"><span>Extra activities per beat</span>
-          <span class="mc-dt-step-grp">
-            <button class="mc-dt-step" data-dt-gear="bonus" data-actor="${a.id}" data-delta="-1">−</button>
-            <span class="mc-dt-dayn">+${gear.bonusActivities}</span>
-            <button class="mc-dt-step" data-dt-gear="bonus" data-actor="${a.id}" data-delta="1">+</button>
-          </span></div>
         <div class="mc-dt-gearrow"><span>Show rules to this player by default</span>
           <button class="mc-dt-toggle ${gear.showMechanicsByDefault ? "mc-on" : ""}" data-dt-gear="crunch" data-actor="${a.id}">${gear.showMechanicsByDefault ? "On" : "Off"}</button></div>
-        <p class="mc-dt-gearhint">For a character who barely sleeps (a race trait or an undocumented ability), let them run more than one activity a night.</p>
+        <p class="mc-dt-gearhint">Whether this player sees the DCs and targets behind their activity, or just the button.</p>
       </div>` : "";
     // The DM can hand a PC a task straight from the catalog (no need to wait for the player).
     const giving = dtGiveFor === a.id;
@@ -642,9 +640,12 @@ function applyRuleField(field, value) {
   if (reRender) render();
 }
 
-// Preset chips seed sensible defaults. Scribe/craft use the pure suggesters (a per-day tally);
-// the real owned-scroll / tool-proficiency pickers that set the exact target land in the next
-// slice — for now the DM edits the seeded target. Freestyle just clears the preset tag.
+// Preset chips seed sensible defaults. NOTE what these actually do today: scribe and craft seed a
+// bare per-day tally, NOT the costed suggesters — DT.scribeScrollSuggest fires only once a specific
+// spell is picked (it needs a level), and DT.craftSuggest is unwired entirely because the form
+// collects no item value yet. Both remain exported and documented (DESIGN §17.7) for the slice that
+// adds the owned-scroll / tool pickers; until then the DM edits the seeded target by hand.
+// Freestyle just clears the preset tag.
 function applyRulePreset(kind) {
   const cur = dtRuleDraft || DT.defaultRule();
   if (kind === "scribe") { const nr = DT.defaultRule("tally", "scribe"); nr.tickSource = "day"; nr.requireRoll = false; nr.reward = cur.reward || "The finished scroll"; dtRuleDraft = nr; }
@@ -1225,14 +1226,6 @@ async function sendRolls() {
   if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Couldn't request rolls."); return; }
   const ab = CONFIG.DND5E?.abilities?.[rollTool.ability]?.label ?? rollTool.ability;
   ui.notifications.info(`Requested ${ab} ${rollTool.type} from ${res.sent} player${res.sent === 1 ? "" : "s"}${res.auto ? ` (auto-rolled ${res.auto})` : ""}.`);
-}
-
-/** Active player users (non-GM). Don't require a formally assigned character —
- * the phone resolves an owned character if none is assigned, and requiring it
- * made the panel show "no players" for unassigned (but connected) users. */
-function activePlayers() {
-  let tvId = ""; try { tvId = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
-  return game.users.filter(u => u.active && !u.isGM && u.id !== tvId);
 }
 
 /** Best label for a player: their assigned character, else their SOLE owned
@@ -2481,25 +2474,6 @@ async function onPartyClick(ev) {
   return false;
 }
 
-/** DM-assign section: target chips + a send button per active player. */
-function assignHTML(targets) {
-  const chips = targets.map(t =>
-    `<span class="mc-dmp-chip">${foundry.utils.escapeHTML(t.document?.name ?? "?")}</span>`).join("");
-  const cur = currentTurnUserId();
-  const players = activePlayers();
-  const buttons = players.length
-    ? players.map(u => `<button class="mc-dmp-send ${u.id === cur ? "mc-current" : ""}" data-user="${u.id}">
-        ${foundry.utils.escapeHTML(playerLabel(u))}${u.id === cur ? " · turn" : ""}</button>`).join("")
-    : `<div class="mc-dmp-empty">No players connected</div>`;
-  return `
-    <div class="mc-dmp-head">
-      <span>Assign ${targets.length} target${targets.length === 1 ? "" : "s"}</span>
-      <button class="mc-dmp-clear" data-action="clear" aria-label="Clear targets">✕</button>
-    </div>
-    <div class="mc-dmp-chips">${chips}</div>
-    <div class="mc-dmp-players">${buttons}</div>`;
-}
-
 function render() {
   const el = ensureEl();
   applyDmTheme(); // keep the widget on its fixed theme
@@ -2773,8 +2747,7 @@ async function onClick(ev) {
     if (gear) {
       const actorId = gear.dataset.actor;
       const cur = DT.getActorSettings(downtimeState(), actorId);
-      if (gear.dataset.dtGear === "bonus") await api.downtime({ op: "setActorSetting", actorId, key: "bonusActivities", value: Math.max(0, cur.bonusActivities + Number(gear.dataset.delta)) });
-      else if (gear.dataset.dtGear === "crunch") await api.downtime({ op: "setActorSetting", actorId, key: "showMechanicsByDefault", value: !cur.showMechanicsByDefault });
+      if (gear.dataset.dtGear === "crunch") await api.downtime({ op: "setActorSetting", actorId, key: "showMechanicsByDefault", value: !cur.showMechanicsByDefault });
       return;
     }
     const rm = ev.target.closest("[data-dt-remove]");
@@ -3007,9 +2980,6 @@ async function onClick(ev) {
     dismissCast(ev.target.closest("[data-dismiss]").dataset.dismiss);
     return render();
   }
-  if (ev.target.closest('[data-action="clear"]')) {
-    return canvas.tokens?.setTargets([], { mode: "replace" });
-  }
   const asn = ev.target.closest("[data-rt-assign]");
   if (asn) {
     const actorId = asn.dataset.rtAssign;
@@ -3019,16 +2989,6 @@ async function onClick(ev) {
     else await openRtAssign(actorId);
     return render();
   }
-  const btn = ev.target.closest("[data-user]");
-  if (!btn) return;
-  const uuids = Array.from(game.user.targets).map(t => t.document?.uuid).filter(Boolean);
-  if (!uuids.length) return;
-  await api.assignTargets(btn.dataset.user, uuids);
-  const u = game.users.get(btn.dataset.user);
-  ui.notifications.info(`Assigned ${uuids.length} target(s) to ${u ? playerLabel(u) : "player"}`);
-  // Clear the DM's own targets after the handoff so the player's reticle owns the
-  // table-visible confirmation (§11). v14: setTargets replaces (User#updateTokenTargets is gone).
-  canvas.tokens?.setTargets([], { mode: "replace" });
 }
 
 /** DM/executor client only — the TV is player-role, phones have no canvas targets. */
