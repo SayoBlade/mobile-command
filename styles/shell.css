@@ -1148,14 +1148,27 @@ body {
 .mc-insp-on { color: var(--mc-gold); background: var(--mc-panel-2); border-color: var(--mc-gold); } /* toggle-on: outline, not fill (UI-BIBLE §4.2) */
 
 /* "Paused" chip: a read-only marker on the NAME row while the game is paused, so the stats controls
-   never shift when it appears. Muted, not gold — it reports a state, it isn't an action (bible §4.2). */
+   never shift when it appears. It is a state you must read at a glance, so it takes GOLD — the
+   accent for active state and marks (bible §2.1) — not muted grey, which read as decoration and
+   was missed (DM 2026-07-22: "Pause needs to be more obvious").
+   FONT: forced to the UI face. It sits inside .mc-name, which carries --mc-font-title, so it was
+   inheriting the theme's DISPLAY face — rendering "PAUSED" in blackletter on the gothic theme.
+   Bible §11.3: only the display group moves; body copy and anything you must read stay on the UI
+   face. Forced here the same way numbers force Modesto.
+   COLOUR: INK text, GOLD edge — not gold text. Measured across all 20 themes, --mc-gold on
+   --mc-panel-2 drops to 2.5:1 on gothic and 2.24:1 on barbarian (both under the 3:1 floor for
+   large bold text), because those themes' accents are dark crimsons. --mc-ink never falls below
+   10.64:1. So the accent carries the EDGE and the glow — which is what gold is for (bible §2.1,
+   "marks, edges") — and the word itself stays on ink, readable on every theme. */
 .mc-paused-chip {
   flex: 0 0 auto; margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 10px; border-radius: 999px;
-  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted, #9aa0ab);
-  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+  padding: 4px 12px; border-radius: 999px;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-gold); color: var(--mc-ink);
+  font-family: "Signika", sans-serif; /* never the themed display face — see above */
+  font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .35), 0 0 10px -2px var(--mc-gold);
 }
-.mc-paused-chip i { font-size: 9px; }
+.mc-paused-chip i { font-size: 11px; color: var(--mc-gold); } /* the accent lives on the glyph + edge */
 /* The dice/inspiration/bell trio is ONE flex item (.mc-stat-tools) — as separate items with the
    stats row's 12px gap they split across lines on a 375px phone, stranding the star and bell on a
    row of their own (DM 2026-07-22). Grouped, they wrap together or not at all. */

@@ -554,6 +554,13 @@ Modesto Condensed in every theme. *A stat you misread is a bug, not a style* —
 to be glanced at mid-combat (DM 2026-07-17: "anything except titles … is easy to read"). Body copy
 stays on the UI face too; only the display group moves.
 
+**Watch for inherited faces.** The display face is applied to CONTAINERS (`.mc-name`,
+`.mc-section-label`, `.mc-picker-title`), so anything you nest inside one silently inherits it. A
+status marker is not a title: the "Paused" chip sat inside `.mc-name` and rendered in *blackletter*
+on the gothic theme (DM 2026-07-22: "using a non-stylized font"). **Any chip, badge or state marker
+declares `font-family: "Signika", sans-serif` explicitly**, the same way numbers force Modesto —
+being readable is the entire point of a status.
+
 **Core faces, or a BUNDLED one — never a system font.** Foundry's 18 core faces
 (`CONFIG.fontDefinitions`) are all Latin *text* faces: no blackletter, no mincho. Where a theme
 needs a real voice we ship the font ourselves under **SIL OFL** (`fonts/`, ~114KB for six; see
