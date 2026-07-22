@@ -42,13 +42,18 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
      2. an edge band BREATHES IN AND OUT on a 4s loop — the band itself grows and shrinks, it
         doesn't just fade
 
-   NEVER SIGNAL WITH A HUE — and never with a lone VALUE either. "Not gold" was only half the
-   lesson: white was the next pick, and a white glow dies on an ice tundra exactly the way gold died
-   on tan (DM 2026-07-21: "a near infinite amount of backgrounds"). So the edge is TWO-TONE — a
-   breathing band in one ink over a steady band in its opposite, reaching further. No background
-   makes both a black and a white edge vanish, which is the only real way to be
-   background-independent. Currently black breathes over a steady white counter (DM's call); the
-   two ink tokens below swap that in one line.
+   NEVER SIGNAL WITH A HUE. "Not gold" was only half the lesson: white was the next pick, and a
+   white glow dies on an ice tundra exactly the way gold died on tan (DM 2026-07-21: "a near
+   infinite amount of backgrounds"). That drove a TWO-TONE band — a breathing ink over a steady
+   counter in its opposite — so no background could swallow both.
+
+   The white counter is now GONE (DM 2026-07-22: "there seems to still be a white pause border, get
+   rid of it"), and the two-tone argument no longer applies, because the surviving ink is BLACK at
+   90%. That was the whole point of the counter: it insured against an ink that dies on maps
+   sharing its value, and white dies on snow. Black at 90% does the opposite — it is at its
+   STRONGEST on a bright map. The only background it could vanish into is one that is already
+   near-black at its edges, which also means the map has no edge detail to lose. One ink, no
+   counter, and the failure mode is a genuine corner case rather than a whole climate.
 
    HOW THE BAND MOVES without repainting a full-screen layer every frame: two stacked gradients at
    DIFFERENT reaches cross-fade against each other. At the midpoint both sit near half strength and
@@ -63,19 +68,13 @@ body.mc-clean #dice-box-canvas { display: block !important; visibility: visible 
   --mc-pause-sat: .55;                       /* lower = greyer while paused */
   --mc-pause-edge-min: 60px;                 /* the band at its narrowest */
   --mc-pause-edge-max: 125px;                /* ...and its widest */
-  --mc-pause-ink: 0, 0, 0;      --mc-pause-ink-a: .48;      /* the BREATHING band — ~25% MORE black than the .38 it replaced (DM 2026-07-22) */
-  --mc-pause-counter: 255, 255, 255; --mc-pause-counter-a: .20; /* the STEADY opposite, underneath */
+  --mc-pause-ink: 0, 0, 0;      --mc-pause-ink-a: .90;      /* the BREATHING band (DM 2026-07-22: 90% at the edge) */
 }
 canvas#board { transition: filter .45s ease; }
 body.mc-game-paused canvas#board { filter: saturate(var(--mc-pause-sat)); }
+/* No background of its own — the two breathing layers below ARE the band now. */
 #mc-pause-edge {
   position: fixed; inset: 0; z-index: 90; pointer-events: none; opacity: 0; transition: opacity .45s ease;
-  /* steady counter-ink, reaching past the breathing band's widest so it still frames it */
-  background:
-    linear-gradient(to right,  rgba(var(--mc-pause-counter), var(--mc-pause-counter-a)), transparent calc(var(--mc-pause-edge-max) * 1.3)),
-    linear-gradient(to left,   rgba(var(--mc-pause-counter), var(--mc-pause-counter-a)), transparent calc(var(--mc-pause-edge-max) * 1.3)),
-    linear-gradient(to bottom, rgba(var(--mc-pause-counter), var(--mc-pause-counter-a)), transparent calc(var(--mc-pause-edge-max) * 1.3)),
-    linear-gradient(to top,    rgba(var(--mc-pause-counter), var(--mc-pause-counter-a)), transparent calc(var(--mc-pause-edge-max) * 1.3));
 }
 #mc-pause-edge::before, #mc-pause-edge::after { content: ""; position: absolute; inset: 0; }
 #mc-pause-edge::before {
