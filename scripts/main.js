@@ -775,6 +775,9 @@ Hooks.once("ready", () => {
     tvManualActive: isTvManualActive,
     tvZoom,                              // zoom the display in/out (factor >1 in, <1 out) — Stream Deck via macro
     tvFitScene,                          // frame the whole scene on the display ("Fit whole scene")
+    // What the follow thinks the DM's frame is (§23). Run on the DISPLAY client when the camera
+    // misbehaves: it separates "captured the wrong clearance" from "the pan maths is wrong".
+    tvFrameInfo: () => ({ scale: tvFrameScale, clearanceFt: tvClearanceFt, measuredFt: canvas?.ready ? measureClearanceFt() : null }),
     refreshCombatVision,                 // re-apply combat POV vision on the display (settings onChange + manual)
     refreshPanel,                        // repaint the DM panel (used by the display's audio report)
     syncPartyTokenSight,                 // GM: set each PC token's sight/detection from its dnd5e senses
