@@ -91,6 +91,8 @@ export function initSocket() {
   socket.register("listInteractables", handleListInteractables);
   socket.register("operateInteractable", handleOperateInteractable);
   socket.register("partyJournalAdd", handlePartyJournalAdd);
+  socket.register("partyJournalEdit", handlePartyJournalEdit);
+  socket.register("partyJournalDelete", handlePartyJournalDelete);
   socket.register("portraitUpload", handlePortraitUpload);
   socket.register("wildShapeList", handleWildShapeList);
   socket.register("wildShapeInto", handleWildShapeInto);
@@ -1783,6 +1785,38 @@ async function handlePartyJournalAdd({ text, authorName } = {}) {
   }
 }
 
+// Edit / delete a party-journal note. Relay fallback for a client that can't write the entry
+// directly (the entry is default:OWNER so this is rare). The executor verifies the requester
+// actually owns the note — GM edits any; a player edits their own (by userId flag, or author-name
+// for pre-userId notes). DM 2026-07-24.
+function journalNoteOwnedBy(page, userId) {
+  const u = game.users.get(userId);
+  if (!u) return false;
+  if (u.isGM) return true;
+  const uid = page.getFlag(MODULE_ID, "userId");
+  if (uid) return uid === userId;
+  const author = page.getFlag(MODULE_ID, "author");
+  return !!author && (author === u.name || game.actors.some(a => a.name === author && a.testUserPermission(u, "OWNER")));
+}
+async function handlePartyJournalEdit({ pageId, text, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const clean = String(text ?? "").trim();
+  if (!clean) return { ok: false, reason: "empty note" };
+  const page = game.journal.find(j => j.getFlag(MODULE_ID, "partyJournal"))?.pages?.get(pageId);
+  if (!page) return { ok: false, reason: "that note is gone" };
+  if (!journalNoteOwnedBy(page, requesterId)) return { ok: false, reason: "not your note" };
+  try { await page.update({ text: { content: `<p>${foundry.utils.escapeHTML(clean)}</p>` } }); return { ok: true }; }
+  catch (e) { return { ok: false, reason: e?.message ?? "could not edit the note" }; }
+}
+async function handlePartyJournalDelete({ pageId, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const page = game.journal.find(j => j.getFlag(MODULE_ID, "partyJournal"))?.pages?.get(pageId);
+  if (!page) return { ok: true }; // already gone
+  if (!journalNoteOwnedBy(page, requesterId)) return { ok: false, reason: "not your note" };
+  try { await page.delete(); return { ok: true }; }
+  catch (e) { return { ok: false, reason: e?.message ?? "could not delete the note" }; }
+}
+
 // --- AI portrait upload (idea #2) --------------------------------------------
 // Players can't write files (FILES_UPLOAD is GM-only), so the phone sends the image data
 // here and the executor saves it to a NON-module dir at the data root (mc-portraits/,
@@ -2837,7 +2871,7 @@ function toExecutor(handler, payload) {
       previewTargets: handlePreviewTargets, endTurn: handleEndTurn, announceCast: handleAnnounceCast,
       listLoot: handleListLoot, openLoot: handleOpenLoot,
       listInteractables: handleListInteractables, operateInteractable: handleOperateInteractable,
-      partyJournalAdd: handlePartyJournalAdd, portraitUpload: handlePortraitUpload,
+      partyJournalAdd: handlePartyJournalAdd, partyJournalEdit: handlePartyJournalEdit, partyJournalDelete: handlePartyJournalDelete, portraitUpload: handlePortraitUpload,
       wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert,
       partyPack: handlePartyPack, partySetCell: handlePartySetCell,
       travelPrepare: handleTravelPrepare, travelDrop: handleTravelDrop,
@@ -2877,6 +2911,8 @@ export const api = {
   listInteractables: (payload = {}) => toExecutor("listInteractables", payload),
   operateInteractable: (payload = {}) => toExecutor("operateInteractable", payload),
   partyJournalAdd: (payload = {}) => toExecutor("partyJournalAdd", payload),
+  partyJournalEdit: (payload = {}) => toExecutor("partyJournalEdit", { ...payload, requesterId: game.user.id }),
+  partyJournalDelete: (payload = {}) => toExecutor("partyJournalDelete", { ...payload, requesterId: game.user.id }),
   portraitUpload: (payload = {}) => toExecutor("portraitUpload", payload),
   wildShapeList: (payload = {}) => toExecutor("wildShapeList", payload),
   wildShapeInto: (payload = {}) => toExecutor("wildShapeInto", payload),

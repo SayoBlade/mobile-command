@@ -3,7 +3,7 @@ import { fireAoO } from "./aoo.js";
 import { MODULE_ID } from "./preset.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
-import { clockLabel, isNight, readClock, hasSimpleCalendar } from "./gametime.js";
+import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar } from "./gametime.js";
 import { runDmWizard } from "./dm-wizard.js";
 import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState } from "./settings.js";
 
@@ -2958,7 +2958,9 @@ async function onClick(ev) {
   }
   const clockBtn = ev.target.closest("[data-dm-clock]");
   if (clockBtn) {
-    if (hasSimpleCalendar()) { ui.notifications.info("Simple Calendar is keeping the time — set it there."); return; }
+    // SC keeps the time, so the chip toggles its calendar (a second tap closes it) instead of the
+    // old dead "set it there" notice (DM 2026-07-24).
+    if (hasSimpleCalendar()) { toggleSimpleCalendar(); return; }
     const c = readClock();
     // Day / Hour / Minute steppers. SET (re-anchors clockStart so no time "passes" and no effects
     // fire) vs the chip's ±10 which PASSES time. − / + bump each field; wrap hour/minute, floor day.

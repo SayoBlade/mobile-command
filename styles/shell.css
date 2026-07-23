@@ -1708,7 +1708,22 @@ body {
 .mc-jn-post[disabled] { opacity: 0.55; }
 .mc-jn-list { display: flex; flex-direction: column; gap: 10px; }
 .mc-jn-note { background: var(--mc-panel); border: 1px solid var(--mc-edge); border-left: 3px solid var(--mc-note, var(--mc-edge)); border-radius: calc(10px * var(--mc-round, 1)); padding: 10px 12px; }
-.mc-jn-head { font-size: 12px; font-weight: 600; color: var(--mc-note, var(--mc-gold)); margin-bottom: 4px; }
+/* Head carries the author/date on the left and the edit/delete tools on the right (DM 2026-07-24). */
+.mc-jn-head { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--mc-note, var(--mc-gold)); margin-bottom: 4px; }
+.mc-jn-tools { margin-left: auto; flex: 0 0 auto; display: inline-flex; gap: 4px; }
+.mc-jn-tool {
+  width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); font-size: 12px; cursor: pointer;
+}
+.mc-jn-tool:active { background: var(--mc-panel); }
+.mc-jn-del:active { border-color: #7a3a35; color: #ffb4a8; } /* destructive = red on press (bible §2.2) */
+.mc-jn-note.mc-editing { border-color: var(--mc-gold); }
+.mc-jn-composebtns { display: flex; gap: 8px; }
+.mc-jn-composebtns .mc-jn-post { flex: 1 1 0; }
+.mc-jn-cancel {
+  flex: 0 0 auto; min-height: 44px; padding: 8px 16px; border-radius: calc(9px * var(--mc-round, 1));
+  background: none; border: 1px solid var(--mc-edge); color: var(--mc-muted); font-weight: 600;
+}
 .mc-jn-body { font-size: 14px; line-height: 1.45; color: var(--mc-ink); word-break: break-word; }
 .mc-jn-body p { margin: 0 0 6px; }
 .mc-jn-body p:last-child { margin-bottom: 0; }

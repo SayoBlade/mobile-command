@@ -1,6 +1,7 @@
 import { MODULE_ID } from "./preset.js";
 import { api as rpc, actorTokenSight, reportPresence } from "./rpc.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
+import { toggleSimpleCalendar } from "./gametime.js";
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -250,6 +251,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #lootBusy = false;      // a nearby-scan round-trip is in flight
   #journalDraft = "";     // party-journal composer text, kept across re-renders so typing isn't wiped
   #journalBusy = false;   // a partyJournalAdd round-trip is in flight
+  #journalEditId = null;  // the party-journal page id currently being edited (null = composing a new note)
   #bioOpen = false;       // biography editor overlay (long-press the portrait/name)
   #bioEditing = false;    // biography: read+search (false) vs edit textarea (true)
   #bioDraft = "";         // biography composer text, kept across re-renders
@@ -2553,22 +2555,49 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const author = p.getFlag(MODULE_ID, "author");
       const color = colorFor(author);
       const head = (ts && author) ? `${foundry.utils.escapeHTML(author)} · ${fmtDate(ts)}` : foundry.utils.escapeHTML(p.name);
+      // Edit/delete a note you wrote — or any note if you're the GM (DM 2026-07-24). Authorship is
+      // the stored userId flag; older notes without it fall back to matching the author name.
+      const mine = this.#canEditNote(p);
+      const tools = mine ? `<div class="mc-jn-tools">
+        <button class="mc-jn-tool" data-action="journal-edit" data-page="${p.id}" title="Edit this note" aria-label="Edit note"><i class="fas fa-pen"></i></button>
+        <button class="mc-jn-tool mc-jn-del" data-action="journal-delete" data-page="${p.id}" title="Delete this note" aria-label="Delete note"><i class="fas fa-trash"></i></button>
+      </div>` : "";
+      const editing = this.#journalEditId === p.id;
       return `
-      <div class="mc-jn-note"${color ? ` style="--mc-note:${color}"` : ""}>
-        <div class="mc-jn-head">${head}</div>
+      <div class="mc-jn-note ${editing ? "mc-editing" : ""}"${color ? ` style="--mc-note:${color}"` : ""}>
+        <div class="mc-jn-head">${head}${tools}</div>
         <div class="mc-jn-body">${p.text?.content ?? ""}</div>
       </div>`;
     }).join("");
     const list = pages.length ? notes : `<div class="mc-jn-empty">No notes yet — start the party log.</div>`;
+    // The compose box doubles as the editor: while editing a note it's prefilled and Post becomes Save.
+    const editing = !!this.#journalEditId;
     return `
       <section class="mc-journal">
         <div class="mc-jn-filterrow"><i class="fas fa-magnifying-glass"></i><input class="mc-jn-filter" type="search" placeholder="Filter notes… (e.g. shopke)" value="${foundry.utils.escapeHTML(this.#journalFilter)}">${globalThis.SimpleCalendar?.api?.showCalendar ? `<button class="mc-jn-cal" data-action="open-calendar" title="Open the calendar" aria-label="Open the calendar"><i class="fas fa-calendar-days"></i></button>` : ""}</div>
         <div class="mc-jn-list">${list}</div>
-        <div class="mc-jn-compose">
-          <textarea class="mc-jn-input" rows="2" placeholder="Add a note to the party journal…" ${this.#journalBusy ? "disabled" : ""}>${foundry.utils.escapeHTML(this.#journalDraft)}</textarea>
-          <button class="mc-jn-post" data-action="journal-post" ${this.#journalBusy ? "disabled" : ""}>${this.#journalBusy ? "Posting…" : "Post note"}</button>
+        <div class="mc-jn-compose ${editing ? "mc-editing" : ""}">
+          <textarea class="mc-jn-input" rows="2" placeholder="${editing ? "Edit your note…" : "Add a note to the party journal…"}" ${this.#journalBusy ? "disabled" : ""}>${foundry.utils.escapeHTML(this.#journalDraft)}</textarea>
+          <div class="mc-jn-composebtns">
+            ${editing ? `<button class="mc-jn-cancel" data-action="journal-edit-cancel" ${this.#journalBusy ? "disabled" : ""}>Cancel</button>` : ""}
+            <button class="mc-jn-post" data-action="journal-post" ${this.#journalBusy ? "disabled" : ""}>${this.#journalBusy ? (editing ? "Saving…" : "Posting…") : (editing ? "Save note" : "Post note")}</button>
+          </div>
         </div>
       </section>`;
+  }
+  // Whose note can this user touch: the GM edits any; a player edits their own (by stored userId,
+  // or author-name for pre-2026-07-24 notes that predate the userId flag).
+  #canEditNote(page) {
+    if (game.user.isGM) return true;
+    const uid = page.getFlag(MODULE_ID, "userId");
+    if (uid) return uid === game.user.id;
+    const author = page.getFlag(MODULE_ID, "author");
+    return !!author && (author === this.actor?.name || author === game.user?.name);
+  }
+  // Party-journal page HTML → the plain text the composer holds (so an edit round-trips cleanly).
+  #notePlainText(page) {
+    try { const d = document.createElement("div"); d.innerHTML = page?.text?.content ?? ""; return (d.textContent ?? "").trim(); }
+    catch (e) { return ""; }
   }
   async #postJournalNote() {
     const live = this.element?.querySelector(".mc-jn-input")?.value;
@@ -2580,10 +2609,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // If we OWN the shared entry, append the page DIRECTLY — no GM round-trip, and it
       // works even if the executor is momentarily offline. The executor is only needed
       // the first time, to CREATE the entry (players can't create top-level journals).
-      const res = entry?.testUserPermission(game.user, "OWNER")
-        ? await this.#addJournalPageDirect(entry, text)
-        : await rpc.partyJournalAdd({ text, authorName: this.actor?.name ?? game.user?.name });
-      if (res?.ok) this.#journalDraft = "";
+      const owns = entry?.testUserPermission(game.user, "OWNER");
+      let res;
+      if (this.#journalEditId) {
+        // Editing an existing note → update in place (direct if we own the entry, else relay).
+        res = owns ? await this.#editJournalPageDirect(entry, this.#journalEditId, text)
+                   : await rpc.partyJournalEdit({ pageId: this.#journalEditId, text });
+      } else {
+        res = owns ? await this.#addJournalPageDirect(entry, text)
+                   : await rpc.partyJournalAdd({ text, authorName: this.actor?.name ?? game.user?.name });
+      }
+      if (res?.ok) { this.#journalDraft = ""; this.#journalEditId = null; }
       else ui.notifications.warn(`Journal: ${res?.reason ?? "couldn't post that note"}`);
     } catch (e) {
       console.error("mobile-command | journal post failed", e);
@@ -2601,9 +2637,42 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       type: "text",
       title: { show: true, level: 3 },
       text: { content: `<p>${foundry.utils.escapeHTML(text)}</p>`, format: 1 },
-      flags: { [MODULE_ID]: { ts, author } }
+      flags: { [MODULE_ID]: { ts, author, userId: game.user.id } } // userId → robust "is this mine" checks
     }]);
     return { ok: true };
+  }
+  // Edit a note's body in place (keeps its timestamp/author). Only the text changes.
+  async #editJournalPageDirect(entry, pageId, text) {
+    const page = entry?.pages?.get(pageId);
+    if (!page) return { ok: false, reason: "that note is gone" };
+    if (!this.#canEditNote(page)) return { ok: false, reason: "that's not your note" };
+    await page.update({ text: { content: `<p>${foundry.utils.escapeHTML(text)}</p>` } });
+    return { ok: true };
+  }
+  // A note being edited got deleted (by anyone) → leave edit mode so the composer isn't stuck on it.
+  onJournalPageDeleted(pageId) {
+    if (this.#journalEditId === pageId) { this.#journalEditId = null; this.#journalDraft = ""; }
+  }
+  async #deleteJournalNote(pageId) {
+    const entry = this.#partyJournalEntry();
+    const page = entry?.pages?.get(pageId);
+    if (!page) return;
+    if (!this.#canEditNote(page)) return ui.notifications.warn("Journal: that's not your note.");
+    const ok = await foundry.applications.api.DialogV2.confirm({
+      window: { title: "Delete note?" },
+      content: "<p>Delete this journal note? This can't be undone.</p>",
+      modal: true, rejectClose: false
+    }).catch(() => false);
+    if (!ok) return;
+    if (this.#journalEditId === pageId) { this.#journalEditId = null; this.#journalDraft = ""; }
+    try {
+      if (entry.testUserPermission(game.user, "OWNER")) await page.delete();
+      else { const res = await rpc.partyJournalDelete({ pageId }); if (res?.ok === false) return ui.notifications.warn(`Journal: ${res.reason ?? "couldn't delete"}`); }
+    } catch (e) {
+      console.warn("mobile-command | journal delete failed", e);
+      ui.notifications.warn("Journal: couldn't delete that note.");
+    }
+    if (this.rendered) this.render();
   }
 
   // --- Wild Shape (Druid) ----------------------------------------------------
@@ -5817,8 +5886,22 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#operateInteractable("tile", el.dataset.id);
       case "journal-post":
         return this.#postJournalNote();
-      case "open-calendar": // reopen the Calendar (SC Reborn) from the Journal tab (DM 2026-07-18)
-        try { globalThis.SimpleCalendar?.api?.showCalendar?.(); } catch (e) { console.warn(`${MODULE_ID} | calendar open failed`, e); }
+      case "journal-edit": {                              // load a note into the composer to edit it
+        const page = this.#partyJournalEntry()?.pages?.get(el.dataset.page);
+        if (!page || !this.#canEditNote(page)) return;
+        this.#journalEditId = page.id;
+        this.#journalDraft = this.#notePlainText(page);
+        this.render();
+        setTimeout(() => { const ta = this.element?.querySelector(".mc-jn-input"); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }, 0);
+        return;
+      }
+      case "journal-edit-cancel":
+        this.#journalEditId = null; this.#journalDraft = "";
+        return this.render();
+      case "journal-delete":
+        return this.#deleteJournalNote(el.dataset.page);
+      case "open-calendar": // toggle the Calendar (SC Reborn) from the Journal tab — a 2nd tap closes it (DM 2026-07-24)
+        toggleSimpleCalendar();
         return;
       case "bio-close":
         this.#bioOpen = false; this.#bioEditing = false; return this.render();
@@ -7157,9 +7240,14 @@ export function registerShellHooks() {
   });
   // Party journal: re-render so a freshly-posted note shows up — for the poster AND
   // for everyone else watching the Journal tab live. Cheap + rare; harmless off-tab.
-  Hooks.on("createJournalEntryPage", (page) => {
+  const repaintOnPartyJournal = (page) => {
     if (page?.parent?.getFlag?.(MODULE_ID, "partyJournal")) shellInstance?.render();
-  });
+  };
+  Hooks.on("createJournalEntryPage", repaintOnPartyJournal);
+  Hooks.on("updateJournalEntryPage", repaintOnPartyJournal); // an edited note repaints on every phone
+  Hooks.on("deleteJournalEntryPage", repaintOnPartyJournal); // …and a deleted one clears
+  // A delete can strand the composer in edit mode on a page that's gone — drop back to composing.
+  Hooks.on("deleteJournalEntryPage", (page) => shellInstance?.onJournalPageDeleted?.(page?.id));
   // Keep the fullscreen button's label honest when the browser flips state
   // (its own gesture, Esc, the rotate-out-of-fullscreen Android quirk…).
   document.addEventListener("fullscreenchange", () => { if (shellInstance?.rendered) shellInstance.render(); });

@@ -33,6 +33,18 @@ export function hasSimpleCalendar() {
   }
 }
 
+/** Open the SC Reborn calendar, or CLOSE it if it's already up (a second tap on the calendar button
+ *  dismisses it — DM 2026-07-24). SC's public api exposes only showCalendar (open-only, no toggle in
+ *  this build), so we detect the open window ourselves — it's a V1 app of class MainApp — and close
+ *  it; otherwise we open via the api. */
+export function toggleSimpleCalendar() {
+  try {
+    const open = Object.values(ui.windows ?? {}).find(w => w?.constructor?.name === "MainApp");
+    if (open) return void open.close();
+    globalThis.SimpleCalendar?.api?.showCalendar?.();
+  } catch (e) { console.warn("mobile-command | calendar toggle failed", e); }
+}
+
 /** SC Reborn's popup is the table's Calendar (DM 2026-07-18: "hide the four buttons on the
  *  right, change the title to Calendar"). The tool column is hidden in CSS (shell.css,
  *  `.app.simple-calendar .fsc-xf`) — Notes/Search/Today/Configure all remain reachable from
