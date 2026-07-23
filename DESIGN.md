@@ -1333,31 +1333,30 @@ swept, and grouped selectors must be skipped rather than edited.
 
 ---
 
-## 21. Sound — the Settings tab's next drawer (DM 2026-07-22, NOT started)
+## 21. Sound — Settings › Sound (DM 2026-07-22, BUILT)
 
 > DM: *"once sound works, I think we'll need the settings tab back for a sound accordion drawer."*
 
-**Done:** the Settings tab is back (restored 2026-07-22). It had been dropped by the travel-mode
-commit (f3d1dab, 2026-07-18) while `settingsHTML()` and its `data-dm-theme` click handler were both
-left in place — collateral damage, not a decision — which left the DM widget's theme picker
-unreachable for four days. It is now built from the shared accordion drawers (`dtDrawer`), so a
-Sound drawer is a drop-in beside "Widget theme".
+**BUILT 2026-07-22** across commits 935596d / 71f33c6 / 0379534 / da9dd7e / 9faffd9. What shipped:
 
-**Open — what belongs in the Sound drawer.** Not designed yet; the DM gated it on positional sound
-being confirmed working at the table. Candidates, to be confirmed rather than assumed:
+- **The TV can play positional sound again.** The Observer change (e50c1ef) had left the display
+  with zero listeners — it controls nothing (releaseAll keeps merged vision) and Observer ≠ Owner —
+  so all positional audio was silent. `setupDisplayAudioListeners` (main.js) gives the display its
+  listeners from the party's tokens (pets included). Loudness stays core's rule: CLOSEST listener
+  wins per source (`_syncPositions` keeps the max), never an average, never the last token moved.
+- **One-tap audio unlock** — a browser plays no audio until a gesture, and a TV never gets one;
+  `setupDisplayAudioUnlock` shows a full-bleed "Tap to enable sound" on the display until unlocked.
+- **Settings › Sound** (the tab is back, accordion drawers): the three Foundry channels (Music /
+  Environment / Interface) as sliders that set the **display's** volume via a world setting the TV
+  mirrors into its own client volumes; **Mute the table** (globalMute); **Who the display hears
+  through** — per-token deafen chips + Ignore/Listen-through-everyone; **combat audio POV** (world
+  setting `combatPovAudio`, off by default — hear from the active combatant in combat, the mirror of
+  `combatPovVision`); and a **display audio status line** (the TV reports {locked, muted} over the
+  socket so the DM can tell "muted" from "never tapped, can't play" from their chair).
 
-- Master/ambient volume for the shared display specifically (the TV is the machine that actually
-  plays the room's audio; today volume is Foundry's own per-client setting, buried in core's UI and
-  awkward on a TV with no keyboard).
-- A listener-source choice: party-wide (current behaviour — nearest party token wins, incl. pets)
-  vs. the active combatant only, mirroring how `combatPovVision` narrows the TV's vision in combat.
-- Phone SFX toggles (dice / prompt / combat-start), currently always-on core sounds with no opt-out.
-- Whether pets should count as listeners at all, or only PCs.
-
-**Related, already settled:** positional volume is computed from the CLOSEST listener, never the
-last token moved (`SoundsLayer#_syncPositions`). The display client gets its listeners from the
-party's tokens because it controls nothing and is only an Observer — see `setupDisplayAudioListeners`
-in main.js and commit 935596d.
+**Still open (small, if wanted):** phone SFX opt-outs (dice / prompt / combat-start are always-on
+core sounds); a second-client live confirmation that Mute actually silences the room (verified at the
+property/setting level only, single-browser).
 
 ---
 
