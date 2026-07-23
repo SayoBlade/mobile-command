@@ -59,13 +59,6 @@ Hooks.once("init", () => {
 // Cinematic ease (0→1) for TV camera moves — a smooth pan/zoom instead of a jump cut.
 const tvEase = (t) => (1 - Math.cos(Math.PI * t)) / 2;
 
-// Shared TV framing constants in scene feet (DM 2026-06-27). Both the "Focus the
-// party" press and the continuous party-follow use these so the resting frame and
-// the corrected frame agree: keep this much empty space outside the party, and
-// never frame tighter than this radius (a clustered party still shows context).
-const TV_PARTY_BUFFER_FT = 40;
-const TV_MIN_RADIUS_FT = 26; // default/min party-view radius — ~25% tighter than 35 (DM 2026-07-03)
-const TV_TOKEN_MARGIN_FT = 25; // always keep ≥ this much visible around every party token (DM 2026-07-03)
 // On each combat turn the display spotlights the ACTIVE token (DM 2026-06-27): zoom OUT
 // then zoom IN, centred on that token, ending at a TV_COMBAT_RADIUS_FT radius. The pull-
 // back is TV_COMBAT_OUT_FACTOR × the spotlight scale (a wider establishing view).
@@ -73,29 +66,54 @@ const TV_COMBAT_RADIUS_FT = 30;                       // spotlight radius on the
 const TV_COMBAT_OUT_FACTOR = 0.6;                     // zoom-out factor before the push-in
 const TV_COMBAT_OUT_MS = 600, TV_COMBAT_IN_MS = 900;  // out, then in (~1.5 s total)
 
-// DM-locked TV zoom for the party view (DM 2026-06-27). null = auto (TV_MIN_RADIUS_FT
-// fit; the party framing still zooms OUT past it when the party splits so everyone
-// stays in view); the zoom buttons set it. Used in and out of combat — the combat
-// turn pulse settles back to this same party framing.
-let tvLockedScale = null;
+// --- The DM's frame: one scale + one clearance, captured together (DM 2026-07-24) ------
+//
+// REPLACES the fixed-margin model (the party box grown by TV_TOKEN_MARGIN_FT = 25 ft per side,
+// re-fitted from scratch on every step). Because that recomputed the ZOOM on each move, any step
+// that widened the party box pulled the camera out — on a large scene, straight to the whole map:
+// "every move I make that should open up the FOV a bit goes to full screen" (DM 2026-07-23), still
+// happening 2026-07-24. Tuning the constant was never going to fix it; the model was wrong.
+//
+// The rule now is the DM's own: whatever frame you set, the camera KEEPS THE CLOSEST FOLLOWED TOKEN
+// THE SAME DISTANCE FROM THE EDGE as it was when you set it. Three players at 15 / 20 / 20 ft of
+// clearance → the frame holds 15 ft, and the camera PANS to maintain it. The zoom is yours.
+//
+// A frame is therefore a PAIR — the scale you set and the clearance you left — captured together
+// whenever you reframe (zoom buttons, Focus, Fit Scene, releasing manual control). An automatic
+// pull-back never overwrites `tvFrameScale`, which is exactly what lets the camera settle back to
+// YOUR zoom once the party regroups.
+const TV_FOLLOW_MIN_CLEARANCE_FT = 5;   // floor — a followed token never gets nearer than this to the edge
+const TV_FOLLOW_MAX_CLEARANCE_FT = 60;  // ceiling — from a wide frame, don't chase a token 300 ft out
+let tvFrameScale = null;   // the scale the DM last established (null = capture from the view as it stands)
+let tvClearanceFt = null;  // ...and the closest driver's edge clearance at that moment, in scene feet
 
-// A zoom-button press locks the party-view zoom.
-function setTvLockedScale(scale) {
-  tvLockedScale = scale;
+const ftToPx = (ft) => (ft / (canvas.dimensions?.distance ?? canvas.grid?.distance ?? 5)) * (canvas.dimensions?.size ?? canvas.grid?.size ?? 100);
+const pxToFt = (px) => (px / (canvas.dimensions?.size ?? canvas.grid?.size ?? 100)) * (canvas.dimensions?.distance ?? canvas.grid?.distance ?? 5);
+
+// The closest followed driver's distance to the nearest viewport edge, in scene feet.
+function measureClearanceFt() {
+  const box = followBox();
+  if (!box) return null;
+  const s = canvas.stage, scale = s.scale.x || 1;
+  const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
+  const halfW = screenW / scale / 2, halfH = screenH / scale / 2;
+  return pxToFt(Math.min(box.minX - (s.pivot.x - halfW), (s.pivot.x + halfW) - box.maxX,
+                         box.minY - (s.pivot.y - halfH), (s.pivot.y + halfH) - box.maxY));
 }
 
-// Decide the party-framing scale for a bounding box of size (extentW × extentH) px.
-// Locked → hold the DM's zoom but never tighter than the party + buffer fits (so a
-// split party stays in view). Unlocked → auto-fit the party + buffer, floored at the
-// TV_MIN_RADIUS_FT minimum so a clustered party isn't over-zoomed.
-function tvPartyScale(extentW, extentH, buffer, minDim, screenW, screenH) {
-  const minZoom = CONFIG.Canvas?.minZoom ?? 0.1, maxZoom = CONFIG.Canvas?.maxZoom ?? 3;
-  const spreadW = extentW + buffer * 2, spreadH = extentH + buffer * 2;
-  const fitScale = Math.min(screenW / spreadW, screenH / spreadH, maxZoom); // party + buffer fits exactly
-  if (tvLockedScale != null) return Math.max(minZoom, Math.min(tvLockedScale, fitScale));
-  const reqW = Math.max(spreadW, minDim), reqH = Math.max(spreadH, minDim);
-  return Math.max(minZoom, Math.min(screenW / reqW, screenH / reqH, maxZoom));
+// Record the frame the DM just set: its scale, and the clearance it leaves the party.
+function captureTvFrame() {
+  if (!canvas?.ready) return;
+  tvFrameScale = canvas.stage.scale.x || 1;
+  const ft = measureClearanceFt();
+  tvClearanceFt = ft == null ? null
+    : Math.min(Math.max(ft, TV_FOLLOW_MIN_CLEARANCE_FT), TV_FOLLOW_MAX_CLEARANCE_FT);
 }
+// Every reframe is animated, so capture once it has landed — measuring mid-flight would record
+// whatever the camera happened to be passing through.
+function captureAfter(p) { Promise.resolve(p).then(captureTvFrame).catch(() => {}); return p; }
+// Forget the frame: the next follow re-derives it from wherever the display has been left.
+function resetTvFrame() { tvFrameScale = null; tvClearanceFt = null; }
 
 // TV compass (DM 2026-07-03): players sit AROUND the TV facing it from different
 // sides, so "forward ↑" needs an anchor — a static compass pinned top-right that
@@ -165,23 +183,69 @@ function isAudioListener(actor) {
   return actor.type === "character" && !!actor.hasPlayerOwner;
 }
 
-// The whole-party frame: centroid + target scale over every visible PC token. Used by
-// Focus (centroid only — pure pan) and the combat turn pulse. null when no party.
-function partyFrame() {
-  const toks = (canvas.tokens?.placeables ?? []).filter(
-    (t) => isPartyActor(t.actor) && !t.document?.hidden);
-  if (!toks.length) return null;
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const t of toks) {
-    const w = t.w ?? t.width ?? 0, h = t.h ?? t.height ?? 0;
-    minX = Math.min(minX, t.x); minY = Math.min(minY, t.y);
-    maxX = Math.max(maxX, t.x + w); maxY = Math.max(maxY, t.y + h);
+// --- Who the camera follows (DM 2026-07-24) ----------------------------------------------
+// The DM's follow filter: a per-TOKEN opt-out, toggled from the panel's "Who the display
+// follows" list. It lives on the TokenDocument, never the actor — an unlinked summon's
+// `token.actor` is a synthetic clone sharing the base actor's id but NOT its flags, so an
+// actor flag written on one summon reads back on every other token off the same base, and
+// reliably on none of them (§22.1; this is the bug that made per-token deafening impossible).
+function isFollowedToken(doc) { return !doc?.getFlag?.(MODULE_ID, "noFollow"); }
+
+// Movement TRIGGER = a PC or the packed group token. A wandering familiar must never yank the
+// camera on its own (a Mage Hand sent across the room was pulling the view to full screen every
+// move, DM 2026-07-23).
+function isFollowDriver(actor) {
+  if (!actor) return false;
+  if (actor.type === "group") return !!actor.getFlag?.(MODULE_ID, "packed");
+  return actor.type === "character" && !!actor.hasPlayerOwner;
+}
+
+// The followed tokens as screen rects, split into two tiers — because DM 2026-07-22 ("pets aren't
+// taken into account for focus on party") and DM 2026-07-23 ("a mage hand shouldn't drag the
+// camera") are both right, they just describe different tiers:
+//   DRIVERS   — PCs + the packed group. They trigger the follow and the frame GUARANTEES them.
+//   TAGALONGS — the other player-owned tokens (pets, summons). Kept in shot only while they are
+//               free; the instant holding one would cost zoom, it drops out of the frame.
+// `movedDoc` (the update document) is authoritative for the token being moved — the placeable's
+// own x/y still lag while the move animates.
+function followTiers(movedDoc) {
+  const gs = canvas.dimensions?.size ?? 100;
+  const drivers = [], tagalongs = [];
+  for (const t of canvas.tokens?.placeables ?? []) {
+    const d = t.document;
+    if (!d || d.hidden || !isPartyActor(t.actor) || !isFollowedToken(d)) continue;
+    const src = movedDoc && d.id === movedDoc.id ? movedDoc : d;
+    const rect = { minX: src.x, minY: src.y, maxX: src.x + (d.width ?? 1) * gs, maxY: src.y + (d.height ?? 1) * gs };
+    (isFollowDriver(t.actor) ? drivers : tagalongs).push(rect);
   }
-  const gridSize = canvas.grid?.size ?? 100, gridDist = canvas.grid?.distance ?? 5;
-  const ftToPx = (ft) => (ft / gridDist) * gridSize;
-  const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
-  const scale = tvPartyScale(maxX - minX, maxY - minY, ftToPx(TV_PARTY_BUFFER_FT), ftToPx(TV_MIN_RADIUS_FT * 2), screenW, screenH);
-  return { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, scale };
+  return { drivers, tagalongs };
+}
+
+function unionBox(rects) {
+  if (!rects?.length) return null;
+  const b = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+  for (const r of rects) {
+    b.minX = Math.min(b.minX, r.minX); b.minY = Math.min(b.minY, r.minY);
+    b.maxX = Math.max(b.maxX, r.maxX); b.maxY = Math.max(b.maxY, r.maxY);
+  }
+  return b;
+}
+const boxDist2 = (r, x, y) => ((r.minX + r.maxX) / 2 - x) ** 2 + ((r.minY + r.maxY) / 2 - y) ** 2;
+
+// The box the follow is RESPONSIBLE for: the drivers. (With no PC on the scene — a pets-only
+// scene — the tagalongs stand in, so the camera isn't blind.) Clearance is measured against this.
+function followBox(movedDoc) {
+  const { drivers, tagalongs } = followTiers(movedDoc);
+  return unionBox(drivers.length ? drivers : tagalongs);
+}
+
+// The party's centre for the Focus press — over EVERY followed token, pets included (DM
+// 2026-07-22), and honouring the filter: Focus shouldn't fly off to a token the display has been
+// told to ignore. Pure pan, so no scale. null when nobody is on the scene.
+function partyFrame() {
+  const { drivers, tagalongs } = followTiers();
+  const box = unionBox([...drivers, ...tagalongs]);
+  return box ? { cx: (box.minX + box.maxX) / 2, cy: (box.minY + box.maxY) / 2 } : null;
 }
 
 // Frame a single token: its centre + the scale that shows `radiusFt` across the smaller
@@ -214,7 +278,8 @@ function framePartyTokens() {
     const frame = partyFrame();
     if (!frame) { ui.notifications?.info?.(`${MODULE_ID} | no party tokens on this scene to frame`); return false; }
     const scale = canvas.stage.scale.x || 1; // pure pan — keep current zoom
-    canvas.animatePan({ x: frame.cx, y: frame.cy, scale, duration: 1000, easing: tvEase });
+    // Focus IS a reframe: the clearance it leaves becomes the one the follow maintains.
+    captureAfter(canvas.animatePan({ x: frame.cx, y: frame.cy, scale, duration: 1000, easing: tvEase }));
     return true;
   } catch (e) {
     console.warn(`${MODULE_ID} | framePartyTokens failed`, e);
@@ -244,15 +309,16 @@ function onTvControl(payload) {
   if (!isDisplayClient()) return; // only the shared display reacts to the rest
   if (payload.cmd === "frameParty") { tvManual = false; framePartyTokens(); }
   else if (payload.cmd === "fitScene") { tvManual = false; fitSceneLocal(); } // §camera: show the whole map
-  else if (payload.cmd === "manual") { tvManual = !!payload.on; }
+  // Leaving manual control hands the camera back wherever the DM parked it — that view is now
+  // the frame the follow maintains, so forget the old pair and re-derive from it.
+  else if (payload.cmd === "manual") { tvManual = !!payload.on; if (!tvManual) resetTvFrame(); }
   else if (payload.cmd === "zoom" && canvas?.ready) {
     // Zoom around the display's CURRENT centre. Not gated on manual mode — a direct
     // DM control of the TV (DM 2026-06-21). Clamp to the canvas zoom limits.
     const s = canvas.stage;
     const min = CONFIG.Canvas?.minZoom ?? 0.1, max = CONFIG.Canvas?.maxZoom ?? 3;
     const scale = Math.max(min, Math.min((s.scale?.x || 1) * (payload.factor || 1), max));
-    setTvLockedScale(scale); // zoom overrides the context's radius until reload (DM 2026-06-27)
-    canvas.animatePan({ x: s.pivot.x, y: s.pivot.y, scale, duration: 250, easing: tvEase });
+    captureAfter(canvas.animatePan({ x: s.pivot.x, y: s.pivot.y, scale, duration: 250, easing: tvEase }));
   }
   else if (payload.cmd === "pan" && tvManual && canvas?.ready) {
     // dur present (e.g. entering manual) → animated glide; live drag-follow stays instant/responsive.
@@ -298,8 +364,7 @@ function tvZoom(factor) {
     const s = canvas.stage;
     const min = CONFIG.Canvas?.minZoom ?? 0.1, max = CONFIG.Canvas?.maxZoom ?? 3;
     const scale = Math.max(min, Math.min((s.scale?.x || 1) * factor, max));
-    setTvLockedScale(scale); // zoom overrides the context's radius until reload (DM 2026-06-27)
-    canvas.animatePan({ x: s.pivot.x, y: s.pivot.y, scale, duration: 250, easing: tvEase });
+    captureAfter(canvas.animatePan({ x: s.pivot.x, y: s.pivot.y, scale, duration: 250, easing: tvEase }));
   }
   tvBroadcast({ cmd: "zoom", factor });
 }
@@ -316,8 +381,7 @@ function fitSceneLocal() {
     const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
     const minZoom = CONFIG.Canvas?.minZoom ?? 0.1, maxZoom = CONFIG.Canvas?.maxZoom ?? 3;
     const scale = Math.max(minZoom, Math.min(screenW / r.width, screenH / r.height, maxZoom) * 0.96); // 0.96 = a sliver of edge padding
-    setTvLockedScale(scale);
-    canvas.animatePan({ x: r.x + r.width / 2, y: r.y + r.height / 2, scale, duration: 1000, easing: tvEase });
+    captureAfter(canvas.animatePan({ x: r.x + r.width / 2, y: r.y + r.height / 2, scale, duration: 1000, easing: tvEase }));
     return true;
   } catch (e) { console.warn(`${MODULE_ID} | fitSceneLocal failed`, e); return false; }
 }
@@ -328,80 +392,61 @@ function tvFitScene() {
   if (dmRelaying) setDmRelaying(false);
 }
 
-// --- TV party-follow (DM 2026-06-20, whole-party rework 2026-06-27) ----------
-// Keep the ENTIRE party in view at all times, with a TV_PARTY_BUFFER_FT empty
-// margin around the party's bounding box. On every PC step, recompute that box
-// and correct the camera if the buffer is broken: pan the minimum to bring the
-// party + buffer back inside the viewport, and zoom OUT if it no longer fits.
-// As the party regroups it zooms back IN (past a deadzone, so it doesn't hunt),
-// converging on the same frame the "Focus the party" press produces — floored at
-// the TV_MIN_RADIUS_FT minimum. Clamp to the scene so we never overscroll past
-// the map edge (there the party may sit nearer the edge). Display client only,
-// and yields to manual TV control.
-const TV_ZOOM_IN_SLACK = 1.15; // only tighten when the ideal frame is ≥15% closer than now
-
+// --- TV party-follow (DM 2026-06-20 · clearance rework 2026-07-24) ------------
+// PAN, don't re-fit. The camera holds the DM's frame and slides it so the closest DRIVER keeps
+// the clearance that frame was set with (see "The DM's frame" above). The zoom changes in
+// exactly one case: the drivers no longer fit even at the 5 ft floor — a party that has genuinely
+// split — and then it pulls back the minimum that fits, without touching the DM's stored scale,
+// so regrouping settles straight back to it. Nothing else moves the zoom, which is what ends the
+// "every step goes to full screen" behaviour: a step that widens the party box now costs a pan.
+// Display client only, yields to manual TV control, scene-clamped so we never overscroll the map.
 function tvPartyFollow(tokenDoc, changes) {
   try {
     if (!isDisplayClient() || tvManual || !canvas?.ready) return;
     if (game.combat?.started) return; // in combat the active-token spotlight takes over
     if (!("x" in changes) && !("y" in changes)) return; // only on movement
-    const actor = tokenDoc.actor;
-    // Only a PC (or the packed party token) DRIVES the auto-reframe. A pet is still framed when the
-    // DM presses Focus (the box below uses isPartyActor), but a wandering familiar/summon must not
-    // yank the TV camera on its own — a Mage Hand sent across the room was pulling the view to full
-    // screen every move (DM 2026-07-23). Movement TRIGGER = PC or packed group; frame CONTENTS = all.
-    const isFollowDriver = a => a && (a.type === "group" ? !!a.getFlag?.("mobile-command", "packed")
-      : a.type === "character" && a.hasPlayerOwner);
-    if (!isFollowDriver(actor)) return;
+    if (!isFollowDriver(tokenDoc.actor) || !isFollowedToken(tokenDoc)) return;
 
-    // Party bounding box over every visible PC token. The just-moved token's new
-    // position comes from the update doc (robust while the move animates); the
-    // rest from their current document positions.
-    const gs = canvas.dimensions?.size ?? 100;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const t of canvas.tokens?.placeables ?? []) {
-      const d = t.document;
-      if (d?.hidden || !isPartyActor(t.actor)) continue;
-      const x = d.id === tokenDoc.id ? tokenDoc.x : d.x;
-      const y = d.id === tokenDoc.id ? tokenDoc.y : d.y;
-      const w = (d.width ?? 1) * gs, h = (d.height ?? 1) * gs;
-      minX = Math.min(minX, x); minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x + w); maxY = Math.max(maxY, y + h);
-    }
-    if (!Number.isFinite(minX)) return; // no visible party
-
-    const gridDist = canvas.dimensions?.distance ?? canvas.grid?.distance ?? 5;
-    // Always keep ≥ TV_TOKEN_MARGIN_FT visible around every token — the required
-    // rect is the party box grown by that margin on each side (used for both the
-    // zoom-out and the pan deadzone). This is the "25ft around each" the DM wants.
-    const margin = (TV_TOKEN_MARGIN_FT / gridDist) * gs;
-    const buffer = margin;
-    const reqW = (maxX - minX) + margin * 2;
-    const reqH = (maxY - minY) + margin * 2;
-    const bx = (minX + maxX) / 2, by = (minY + maxY) / 2; // party centre
+    const { drivers, tagalongs } = followTiers(tokenDoc);
+    const core = unionBox(drivers);
+    if (!core) return; // nobody the camera is responsible for
 
     const stage = canvas.stage;
     const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
     const minZoom = CONFIG.Canvas?.minZoom ?? 0.1, maxZoom = CONFIG.Canvas?.maxZoom ?? 3;
 
-    // Zoom: the scale at which the whole required rect (party + 25ft each) fits.
-    // The DM's locked zoom is a CEILING — hold it while the party is grouped, but
-    // as they SPREAD, `needed` drops below it and the camera zooms OUT to keep
-    // everyone (with their margin) in view; regrouping raises `needed` back above
-    // the lock, returning to the set zoom. No manual zoom → auto-frame at `needed`.
-    const needed = Math.min(screenW / reqW, screenH / reqH, maxZoom);
-    const scale = Math.max(minZoom, tvLockedScale != null ? Math.min(tvLockedScale, needed) : needed);
+    // First move after a reframe (or after a reload) — adopt the view as it stands.
+    if (tvFrameScale == null || tvClearanceFt == null) captureTvFrame();
+    const want = ftToPx(tvClearanceFt ?? TV_FOLLOW_MIN_CLEARANCE_FT);
+    const floor = ftToPx(TV_FOLLOW_MIN_CLEARANCE_FT);
 
-    // Pan the minimum to keep the whole required rect inside the viewport; if an
-    // axis is fully filled by the rect, just centre the party on it.
+    // ZOOM — the DM's, held; `fit` is the last-resort pull-back described above.
+    const fit = Math.min(screenW / ((core.maxX - core.minX) + floor * 2),
+                         screenH / ((core.maxY - core.minY) + floor * 2), maxZoom);
+    const scale = Math.max(minZoom, Math.min(tvFrameScale ?? (stage.scale.x || 1), fit));
     const halfW = screenW / scale / 2, halfH = screenH / scale / 2;
+
+    // TAGALONGS — grow the frame to hold each pet that still fits at that scale, nearest first.
+    // The owl walking with the party stays in shot; the mage hand three rooms away simply doesn't,
+    // and costs nothing to leave behind.
+    const box = { ...core };
+    const cxCore = (core.minX + core.maxX) / 2, cyCore = (core.minY + core.maxY) / 2;
+    for (const r of tagalongs.sort((a, b) => boxDist2(a, cxCore, cyCore) - boxDist2(b, cxCore, cyCore))) {
+      const grown = unionBox([box, r]);
+      if ((grown.maxX - grown.minX) + floor * 2 <= halfW * 2
+       && (grown.maxY - grown.minY) + floor * 2 <= halfH * 2) Object.assign(box, grown);
+    }
+
+    // PAN — the minimum that restores the clearance. Per axis the target clearance is capped at
+    // what the frame can actually give (box + 2×clearance must fit), so it degrades toward the
+    // floor instead of demanding an impossible inset.
+    const cX = Math.max(0, Math.min(want, halfW - (box.maxX - box.minX) / 2));
+    const cY = Math.max(0, Math.min(want, halfH - (box.maxY - box.minY) / 2));
     let cx = stage.pivot.x, cy = stage.pivot.y;
-    if (halfW * 2 <= reqW) cx = bx;
-    else { if (minX - buffer < cx - halfW) cx = minX - buffer + halfW;
-           if (maxX + buffer > cx + halfW) cx = maxX + buffer - halfW; }
-    if (halfH * 2 <= reqH) cy = by;
-    else { if (minY - buffer < cy - halfH) cy = minY - buffer + halfH;
-           if (maxY + buffer > cy + halfH) cy = maxY + buffer - halfH; }
+    if (box.minX - cX < cx - halfW) cx = box.minX - cX + halfW;
+    if (box.maxX + cX > cx + halfW) cx = box.maxX + cX - halfW;
+    if (box.minY - cY < cy - halfH) cy = box.minY - cY + halfH;
+    if (box.maxY + cY > cy + halfH) cy = box.maxY + cY - halfH;
 
     // Clamp so the viewport stays within the scene (centre an axis smaller than it).
     const r = canvas.dimensions?.sceneRect ?? canvas.dimensions?.rect;
@@ -647,6 +692,8 @@ Hooks.once("ready", () => {
     if (game.combat?.started) tvCombatFollow(tokenDoc, changes);
     else tvPartyFollow(tokenDoc, changes);
   });
+  // A new scene is a new frame — a scale and a clearance measured on the old map mean nothing here.
+  Hooks.on("canvasReady", resetTvFrame);
   // On turn change / combat start: a zoom-out→zoom-in pulse on the whole party (camera)
   // + re-point vision (POV) on the active combatant. refreshCombatVision self-gates on
   // the opt-in setting.

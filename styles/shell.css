@@ -2588,6 +2588,20 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-dmp-ear.mc-off { border-color: var(--mc-edge); color: var(--mc-muted); opacity: .75; }
 .mc-dmp-ear.mc-off i { color: var(--mc-muted); }
 .mc-dmp-ear.mc-off .mc-dmp-ear-name { text-decoration: line-through; }
+/* Who the display FOLLOWS (Settings > Who the display follows, DM 2026-07-24). Same two-state
+   chip as the ear list — lit = the camera chases them, struck-through + greyed = ignored — so the
+   two "who" filters read as one idea. Own classes: an ear and a camera are not the same control. */
+.mc-dmp-follows { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.mc-dmp-follow {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 5px 10px;
+  border-radius: calc(8px * var(--mc-round, 1));
+  background: var(--mc-panel-2); border: 1px solid var(--mc-gold); color: var(--mc-ink);
+  font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.mc-dmp-follow i { font-size: 12px; color: var(--mc-gold); }
+.mc-dmp-follow.mc-off { border-color: var(--mc-edge); color: var(--mc-muted); opacity: .75; }
+.mc-dmp-follow.mc-off i { color: var(--mc-muted); }
+.mc-dmp-follow.mc-off .mc-dmp-follow-name { text-decoration: line-through; }
 /* Display audio status + mute (Settings > Sound). The status line answers the question the DM
    cannot answer from their chair: muted, or never tapped and therefore silent? */
 .mc-dmp-sound-status {
@@ -2601,13 +2615,13 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-dmp-sound-status.mc-bad { color: var(--mc-ink); border-color: var(--mc-gold); }
 .mc-dmp-sound-status.mc-bad i { color: var(--mc-gold); }        /* needs your attention, not destructive */
 .mc-dmp-sound-status.mc-unknown { color: var(--mc-muted); }
-.mc-dmp-mute, .mc-dmp-earbulk {
+.mc-dmp-mute, .mc-dmp-earbulk, .mc-dmp-followbulk {
   display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 34px;
   margin-bottom: 12px; padding: 7px 10px; border-radius: calc(8px * var(--mc-round, 1));
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink);
   font-size: 12px; font-weight: 700; cursor: pointer;
 }
-.mc-dmp-earbulk { margin-bottom: 8px; }
+.mc-dmp-earbulk, .mc-dmp-followbulk { margin-bottom: 8px; }
 .mc-dmp-mute.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); }
 /* Table-display volume sliders (Settings > Sound, DM 2026-07-22). */
 .mc-dmp-vol { margin-bottom: 14px; }

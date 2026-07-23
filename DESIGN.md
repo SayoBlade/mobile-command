@@ -1677,7 +1677,7 @@ changing the others.
 
 | Subsystem | Includes pets? | Predicate | Why |
 |---|---|---|---|
-| Camera / framing | **yes** | `isPartyActor` (main.js) — any `hasPlayerOwner` + the packed group | The TV should frame the owl and the mage hand; leaving them out cropped the party (DM 2026-07-22) |
+| Camera / framing | **yes, in two tiers** | `isPartyActor` (main.js) — any `hasPlayerOwner` + the packed group — split by `isFollowDriver` into DRIVERS (PCs + packed group) and TAGALONGS (pets/summons), and filtered by the per-token `noFollow` flag | The TV should frame the owl (DM 2026-07-22) but a mage hand must not drag it (DM 2026-07-23). Both hold once "framed" is tiered — see §23 |
 | Form Up / travelling group | **yes** | `scenePartyActors` — excludes only HOSTILE | A NEUTRAL Sphinx of Wonder and a SECRET Mage Hand were left behind by the old FRIENDLY-only filter |
 | Watches | **yes** | `watchMembers` — `character` OR `hasPlayerOwner` | DM 2026-07-22: *"I don't think pets can take watch shifts (that's a bug)"* — an owl absolutely keeps a watch |
 | Rest / downtime activities | **no** | `nightMembers` — `character` only | Downtime is one activity per *player*; a familiar doesn't craft |
@@ -1717,12 +1717,8 @@ ELECTRON_RUN_AS_NODE=1 NODE_OPTIONS=--experimental-vm-modules \
 
 ### 22.3 Open decisions — awaiting the DM, do not build unasked
 
-1. **Camera zoom margin.** The party follow grows the party box by a fixed `TV_TOKEN_MARGIN_FT`
-   (25 ft) per side. On a large-grid scene that resolves to roughly full-map zoom, so *every* step
-   yanks the view out (DM 2026-07-23: *"every move I make that should open up the FOV a bit goes to
-   full screen"*). Options put to the DM: (a) shrink the margin toward ~10 ft, or (b) **treat a manual
-   zoom as authoritative** — pan only, and re-zoom solely when someone actually leaves the frame
-   (recommended: it fixes the complaint without re-tuning a constant per scene). Not chosen yet.
+1. ~~**Camera zoom margin.**~~ **RESOLVED 2026-07-24** — the DM rejected both options and gave a
+   third: hold the *clearance*, not a margin. See **§23**.
 2. **real-fow replication** (DM likes gitlab.com/sir.sly/real-fow — volumetric drifting fog; it breaks
    on v14, which rewrote fog into a `VisibilityFilter` shader with explored/unexplored colour uniforms
    plus a native fog **overlay texture**). Two tiers offered, neither started:
@@ -1751,3 +1747,69 @@ plainly rather than reporting them as working:
 tag URL *and* the manifest install URL. Before that release: the DM must mark their real overworld
 map(s) with the Travel tab toggle (§18.1a) — the retired grid heuristic no longer auto-recognises them,
 so travel lighting will not fire until they do.
+
+---
+
+## 23. TV camera — the clearance model (DM 2026-07-24, BUILT)
+
+### 23.1 What was wrong
+
+Three generations of the out-of-combat follow all shared one mistake: **they recomputed the ZOOM from
+the party's bounding box on every step.** Whatever the margin was (40 ft buffer → 25 ft per token),
+any step that widened the box lowered the fitting scale, so the camera pulled out — and on a large
+scene "out" is the whole map. The DM reported it twice (2026-07-23, 2026-07-24: *"I'm still getting
+Fullscreen zoom outs when I move a token"*), and correctly diagnosed it as **his own requirement**
+being wrong, not the tuning.
+
+### 23.2 The rule (DM's words, 2026-07-24)
+
+> *"Keep the distance of the token closest to the edge from the edge during move (minimum of 5 ft) —
+> if a 3-player group has a player that's 15 ft from the frame and two that are 20, keep it at 15."*
+
+So a **frame is a pair**: the scale the DM set, and the clearance that frame left. Both are captured
+together, and the follow's job is to **pan** so the closest driver keeps that clearance.
+
+| | Old (margin) | New (clearance) |
+|---|---|---|
+| Zoom on a normal step | recomputed → pulls out | **untouched** |
+| What holds the party in shot | re-fitting the box | panning |
+| Clearance | fixed 25 ft/token, per scene | whatever *you* framed, floored at 5 ft, capped at 60 ft |
+| Party genuinely splits | pulls out to fit + 25 ft each | pulls back the **minimum** that fits at 5 ft, then returns to your zoom on regroup |
+
+Constants (`main.js`): `TV_FOLLOW_MIN_CLEARANCE_FT = 5` (floor — nobody gets nearer the edge),
+`TV_FOLLOW_MAX_CLEARANCE_FT = 60` (ceiling — from a wide frame, don't chase a token 300 ft out).
+State: `tvFrameScale` + `tvClearanceFt`, captured by `captureTvFrame()` **after** each reframe lands
+(zoom buttons, Focus, Fit Scene, releasing manual control) and reset on `canvasReady`. An automatic
+pull-back deliberately does **not** write `tvFrameScale` — that is what makes the zoom spring back.
+
+Removed as dead or superseded: `tvPartyScale`, `setTvLockedScale`/`tvLockedScale`,
+`TV_PARTY_BUFFER_FT`, `TV_MIN_RADIUS_FT`, `TV_TOKEN_MARGIN_FT`, `TV_ZOOM_IN_SLACK` (the last was
+declared and never read). `partyFrame()` is now centroid-only, which is all Focus ever used.
+
+### 23.3 Two tiers, so both pet rulings survive
+
+DM 2026-07-22 (*frame the owl*) and DM 2026-07-23 (*a mage hand shouldn't drag the camera*) look
+contradictory and aren't — they're different tiers:
+
+- **Drivers** — PCs + the packed group token. They trigger the follow, and the frame is *guaranteed*
+  to hold them (this is the tier the pull-back protects).
+- **Tagalongs** — every other player-owned token. Grown into the frame nearest-first, but **only
+  while they fit at the already-chosen scale**. A pet beside the party is in shot for free; a mage
+  hand three rooms away is silently left behind and costs no zoom.
+
+Focus (the P key / bullseye) still frames **everyone** followed, pets included — it's a deliberate press.
+
+### 23.4 The follow filter
+
+`Settings → Who the display follows`: one chip per followable token, lit = followed, struck-through =
+ignored, plus a `Follow Everyone` reset that only appears when something is excluded. Deliberately
+the same shape as `Who the display hears through`, so the two "who" filters read as one idea.
+
+The flag is **`noFollow` on the TokenDocument**, never the actor — two summons off one base actor
+share an actor id, so an actor flag would toggle both and reliably neither (§22.1).
+
+### 23.5 Untested
+
+Everything in §23 is mechanism-verified only (syntax gate + reasoning). The camera cannot be proven
+from one browser: it needs the display client plus a moving token. **Test protocol in the reply that
+shipped this; nothing here is "working" until the DM runs it at the table.**

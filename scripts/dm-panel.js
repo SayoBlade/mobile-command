@@ -168,10 +168,51 @@ function settingsHTML() {
     <p class="mc-dmp-set-note">The nearest listening token sets a sound's volume — it is <b>not</b> averaged across the
       party. Ignore a scout or a familiar so wandering off doesn't drag the room's audio with them.</p>`;
 
+  // Who the camera follows (DM 2026-07-24). The follow holds the DM's frame and PANS to keep the
+  // closest followed token the same distance from the edge — so anyone left in this list is
+  // something the camera will chase. Dropping a token here is how you stop a scout dragging the TV.
+  // The flag is written on the TOKEN document, not the actor: two summons off one base actor share
+  // an actor id, so an actor flag would toggle both (§22.1).
+  const cam = cameraFollowTokens();
+  const eyes = cam.length
+    ? cam.map(t => {
+        const off = !!t.document.getFlag(MODULE_ID, "noFollow");
+        const nm = t.document.name;
+        return `<button class="mc-dmp-follow ${off ? "mc-off" : ""}" data-cam-follow="${t.id}"
+          title="${off ? `The display ignores ${esc(nm)} — tap to follow them again` : `The display follows ${esc(nm)} — tap to ignore them`}">
+          <i class="fas ${off ? "fa-video-slash" : "fa-video"}"></i>
+          <span class="mc-dmp-follow-name">${esc(nm)}</span>
+        </button>`;
+      }).join("")
+    : `<div class="mc-dmp-empty">No party tokens on this scene.</div>`;
+  const anyOff = cam.some(t => t.document.getFlag(MODULE_ID, "noFollow"));
+  const camBulk = anyOff
+    ? `<button class="mc-dmp-followbulk" data-follow-all><i class="fas fa-video"></i> Follow Everyone</button>` : "";
+  const camBody = `<div class="mc-dmp-follows">${eyes}</div>${camBulk}
+    <p class="mc-dmp-set-note">The display keeps the <b>closest</b> of these the same distance from the screen edge as
+      when you set the frame — your zoom is never changed to fit somebody in. Pets ride along only while they fit;
+      drop a scout from this list and the camera stops chasing them for good.</p>`;
+
   return `<div class="mc-dmp-settings">
     ${dtDrawer("setSound", "Sound", "", sliders)}
     ${dtDrawer("setEars", "Who the display hears through", "", earsBody)}
+    ${dtDrawer("setFollow", "Who the display follows", "", camBody)}
   </div>`;
+}
+
+// The camera's own party set, mirroring main.js `isPartyActor` over the CANVAS tokens so the follow
+// list can never diverge from what the camera actually frames: any player-owned token (pets and
+// summons included) plus the packed group token, minus item piles and hidden tokens.
+function cameraFollowTokens() {
+  const out = [];
+  for (const t of canvas?.tokens?.placeables ?? []) {
+    const a = t.actor;
+    if (!a || t.document?.hidden) continue;
+    if (a.type === "group") { if (a.getFlag(MODULE_ID, "packed")) out.push(t); continue; }
+    if (a.flags?.["item-piles"] || !a.hasPlayerOwner) continue;
+    out.push(t);
+  }
+  return out;
 }
 
 function tabRailHTML() {
@@ -3019,6 +3060,22 @@ async function onClick(ev) {
     const a = canvas.tokens.get(ear.dataset.soundMute)?.actor; // token id → THIS token's actor
     if (a) { a.setFlag(MODULE_ID, "muteListener", !a.getFlag(MODULE_ID, "muteListener")).then(() => render()); }
     return;
+  }
+  if (ev.target.closest("[data-follow-all]")) {
+    // Clear the whole filter. Written on the TOKEN document — see cameraFollowTokens.
+    for (const t of cameraFollowTokens()) {
+      if (t.document.getFlag(MODULE_ID, "noFollow")) await t.document.unsetFlag(MODULE_ID, "noFollow");
+    }
+    return render();
+  }
+  const follow = ev.target.closest("[data-cam-follow]");
+  if (follow) {
+    const d = canvas.tokens.get(follow.dataset.camFollow)?.document;
+    if (d) {
+      const off = !!d.getFlag(MODULE_ID, "noFollow");
+      await (off ? d.unsetFlag(MODULE_ID, "noFollow") : d.setFlag(MODULE_ID, "noFollow", true));
+    }
+    return render();
   }
   const gs = ev.target.closest("[data-group-sheet]");
   if (gs) { game.actors.get(gs.dataset.groupSheet)?.sheet?.render(true); return; }
