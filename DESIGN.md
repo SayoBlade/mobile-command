@@ -1185,20 +1185,29 @@ vs. the secret goblin village the DM can move clandestinely).
 
 ### 18.1a Follow-ups (DM 2026-07-19)
 
-- **Multi-overworld by grid detection (replaces the single hand-picked scene for LIGHTING).** A scene
-  is treated as an overworld travel map when its grid cell measures ≥ `travelOverworldGridThreshold`
-  FEET (setting, default 100). `isOverworldScene(scene)` / `gridFeetPerCell(scene)` live in
-  settings.js (units→feet map + regex fallback: mi=5280, league=15840, km=3280.84, m=3.28, yd=3).
-  A 5-ft battle map never qualifies; a miles-per-cell or hundreds-of-ft map does. The dropdown
-  `travelOverworldSceneId` still names the *Switch-scene-to* target for the pull; detection governs
-  the lighting + preflight so ANY big map behaves as a travel map.
+- **~~Multi-overworld by grid detection~~ — REPLACED 2026-07-24 by an explicit DM-set list.** The
+  original rule treated a scene as an overworld map when its grid cell measured ≥
+  `travelOverworldGridThreshold` FEET (default 100), via `gridFeetPerCell()` and a units→feet map.
+  **Retired: a false positive is unacceptable.** Being "recognised" as a travel map turns Token Vision
+  OFF, which silently destroys that scene's fog of war — and it is invisible until someone notices the
+  fog won't reset (which is exactly how it was found; the DM's Cave A had `tokenVision:false` and reset
+  was a no-op). A big-cell battle map, an imported scene with wrong grid units, or a theatre-of-the-mind
+  backdrop would all have tripped it. DM 2026-07-24: *"misidentification of a map as a travel map is
+  very bad, make sure it doesn't happen!"* and *"we might want a list of overworld maps the DM sets…
+  keep things K.I.S.S."*
+  **Now:** world setting **`travelOverworldSceneIds`** (Array of scene ids) is the sole authority;
+  `isOverworldScene(scene)` is a membership test and nothing infers. The Travel tab carries a
+  mark/unmark toggle (`data-travel-mark`) per scene — **marking** applies travel lighting, **unmarking
+  restores `tokenVision: true`** so fog comes back with the map. The dropdown `travelOverworldSceneId`
+  still names the *Switch-scene-to* target for the pull. Migration note: existing worlds recognise
+  nothing until the DM marks their overworld map(s) once.
 - **Auto-lighting on load (one-shot per scene).** `maybeAutoLightOverworld()` runs on `canvasReady`
-  (executor GM only, gated by `travelAutoLight`, default on). First time a detected overworld opens:
+  (executor GM only, gated by `travelAutoLight`, default on). First time a **listed** overworld opens:
   Token Vision off (whole map visible, no sight circle), Global Illumination off, darkness unlocked,
   and `environment.darknessLevel` synced to the clock via `darknessForHour`. A `flags.<id>.travelAutoLit`
   guard makes it strictly one-shot so a scene the DM later customises is never re-stomped. This is the
-  "automate the behavior" ask — no manual Preflight fix, no per-scene designation. `checkTravelLighting`
-  now prefers the active scene when it's a detected overworld, else the configured one.
+  "automate the behavior" ask — no manual Preflight fix. `checkTravelLighting`
+  now prefers the active scene when it's a listed overworld, else the configured one.
 - **Route line is dashed, thick, WHITE (`#ffffff`, width 8).** Started warm orange (`#ee5a36`) but it
   read as invisible on the map (DM 2026-07-19: "red line isn't working, lets try white"). Foundry
   Drawings have no native dash, so `routeDashDrawings()` emits one short polyline Drawing per dash
@@ -1650,3 +1659,95 @@ setting (so the enforcer is unaffected) and never touches the DM's rolls. AoO mo
   `kind:"trade"` entry so the bell surfaces it; **same-owner transfers commit instantly** (no
   self-accept — you don't accept a gift from yourself), matching the stash.
 - Needs a live table test (numbered protocol handed to the DM 2026-07-19).
+
+---
+
+## 22. Standing rules and open decisions (consolidated 2026-07-24)
+
+Written at the end of the 2026-07-21→24 run so a fresh session doesn't re-derive them. The *history*
+of that run lives in the git log (~34 commits, all pushed, none released); this section is only the
+parts that outlive their commits.
+
+### 22.1 Who counts as "the party" — decided PER SUBSYSTEM, not globally
+
+There is no single party predicate, and that is deliberate. Pets/summons (player-owned actors that
+aren't `type:"character"`) belong to some subsystems and not others, and each exclusion was a
+separately-reported bug or a separately-reasoned choice. Changing one of these does **not** license
+changing the others.
+
+| Subsystem | Includes pets? | Predicate | Why |
+|---|---|---|---|
+| Camera / framing | **yes** | `isPartyActor` (main.js) — any `hasPlayerOwner` + the packed group | The TV should frame the owl and the mage hand; leaving them out cropped the party (DM 2026-07-22) |
+| Form Up / travelling group | **yes** | `scenePartyActors` — excludes only HOSTILE | A NEUTRAL Sphinx of Wonder and a SECRET Mage Hand were left behind by the old FRIENDLY-only filter |
+| Watches | **yes** | `watchMembers` — `character` OR `hasPlayerOwner` | DM 2026-07-22: *"I don't think pets can take watch shifts (that's a bug)"* — an owl absolutely keeps a watch |
+| Rest / downtime activities | **no** | `nightMembers` — `character` only | Downtime is one activity per *player*; a familiar doesn't craft |
+| Positional audio | **no** | `isAudioListener` / `audioListenerTokens` — `character` + `hasPlayerOwner`, plus the packed group | See below |
+| TV auto-follow trigger | **no** | movement of an audio listener | A wandering mage hand shouldn't drag the camera |
+
+**Why pets are deaf** (DM 2026-07-23: *"lets make pets 'deaf'… only PCs get to share sound"*): two
+reasons, both worth keeping. (1) **Cost** — every listener adds raycasts to each
+`_syncPositions` pass; the earlier all-player-owned-tokens listener set measurably stuttered the DM's
+machine. (2) **Correctness** — per-token deafen could not be made to work for summons at all, because
+an unlinked token's `token.actor` is a synthetic clone that shares the base actor's **id but not its
+flags**, so the flag was written where the token would never read it (this is the bug behind "unseen
+servant can't be ignored, mage hand isn't in the list"). Making pets deaf removes the need for
+per-token flags on synthetics entirely. If per-token state on summons is ever needed again, it must
+live on the **TokenDocument**, and lists must be keyed by token id (two summons off one base actor
+otherwise collapse into one row).
+
+**The packed group token is a listener.** While travelling there are no member tokens on the scene at
+all — just the one group token — so without that branch a packed party is stone deaf. It also happens
+to be the cheapest possible listener set (one).
+
+### 22.2 The syntax gate — `node --check` DOES NOT WORK here
+
+`tools/check-syntax.js` exists because the previous gate was **silently doing nothing**: run through
+Foundry's bundled Electron, `node --check` is swallowed and exits 0 on arbitrary garbage. Two real
+breakages shipped past it (a duplicate class private name; a CSS comment that closed early at `ink*/`
+and ate the following `#pause { display: none !important; }` rule, which brought Foundry's pause bar
+back). The tool parses JS with `vm.SourceTextModule` and checks CSS for unterminated comments, stray
+`*/`, and unbalanced braces — and carries a negative control so a future regression to a no-op is
+visible. **Run it on every edited JS *and* CSS file before committing:**
+
+```
+ELECTRON_RUN_AS_NODE=1 NODE_OPTIONS=--experimental-vm-modules \
+  "/c/Program Files/Foundry Virtual Tabletop 14/Foundry Virtual Tabletop.exe" \
+  tools/check-syntax.js scripts/*.js styles/*.css
+```
+
+### 22.3 Open decisions — awaiting the DM, do not build unasked
+
+1. **Camera zoom margin.** The party follow grows the party box by a fixed `TV_TOKEN_MARGIN_FT`
+   (25 ft) per side. On a large-grid scene that resolves to roughly full-map zoom, so *every* step
+   yanks the view out (DM 2026-07-23: *"every move I make that should open up the FOV a bit goes to
+   full screen"*). Options put to the DM: (a) shrink the margin toward ~10 ft, or (b) **treat a manual
+   zoom as authoritative** — pan only, and re-zoom solely when someone actually leaves the frame
+   (recommended: it fixes the complaint without re-tuning a constant per scene). Not chosen yet.
+2. **real-fow replication** (DM likes gitlab.com/sir.sly/real-fow — volumetric drifting fog; it breaks
+   on v14, which rewrote fog into a `VisibilityFilter` shader with explored/unexplored colour uniforms
+   plus a native fog **overlay texture**). Two tiers offered, neither started:
+   - **Tier 0 — native overlay texture.** Point the existing fog overlay at a mist texture. Static,
+     essentially free, no per-frame work. Gets ~70% of the look.
+   - **Tier 1 — custom shader.** Subclass the visibility filter and drift a noise field. The real
+     effect, but a **permanent per-frame GPU cost on every client including the TV**. Per the standing rule, this must be quoted to the DM before any code is written, and should
+     ship behind a default-off setting if it ships at all.
+3. **§18.3 travel questions are still open** (darkness curve per hour; per-scene vs per-journey; the
+   phone "suggest destination" ping). Re-ask when the DM next asks what's outstanding.
+
+### 22.4 Built but never tested with real devices
+
+All of these are verified at the mechanism level on a single browser, which cannot prove them. Say so
+plainly rather than reporting them as working:
+
+- TV **combat-POV vision** across a PC turn → a summon's turn → an NPC turn.
+- **Two-phone prompt delivery**: a save on a PC, a save on a summon, a reaction on another player.
+- The phone **watch-board subject switcher** for a pet.
+- **Sound follows the party** as heard on the TV (needs DM + TV clients at once).
+- **Mute the table** actually silencing a second client (only the setting/property was checked).
+
+### 22.5 Release state
+
+~41 commits are unreleased. Cutting one means posting the release
+tag URL *and* the manifest install URL. Before that release: the DM must mark their real overworld
+map(s) with the Travel tab toggle (§18.1a) — the retired grid heuristic no longer auto-recognises them,
+so travel lighting will not fire until they do.
