@@ -1808,8 +1808,54 @@ the same shape as `Who the display hears through`, so the two "who" filters read
 The flag is **`noFollow` on the TokenDocument**, never the actor — two summons off one base actor
 share an actor id, so an actor flag would toggle both and reliably neither (§22.1).
 
-### 23.5 Untested
+### 23.5 The maths is now testable off-table
 
-Everything in §23 is mechanism-verified only (syntax gate + reasoning). The camera cannot be proven
-from one browser: it needs the display client plus a moving token. **Test protocol in the reply that
-shipped this; nothing here is "working" until the DM runs it at the table.**
+The camera is the one subsystem that **cannot** be proved from a single browser — it needs the
+display client plus a moving token — which is how three generations of it shipped on reasoning
+alone and were wrong in the same way each time. So the geometry now lives in
+[camera-frame.js](scripts/camera-frame.js), free of Foundry globals, with
+[tools/test-camera.js](tools/test-camera.js) running it against the **real numbers of the live test
+scene** (Cave A: Kobold Lair, read 2026-07-24: 7930×5850, grid **260px at 5 ft/square, so 1 ft =
+52px**). Run it alongside the syntax gate:
+
+```
+ELECTRON_RUN_AS_NODE=1 NODE_OPTIONS=--experimental-vm-modules \
+  "/c/Program Files/Foundry Virtual Tabletop 14/Foundry Virtual Tabletop.exe" tools/test-camera.js
+```
+
+20 checks, all passing. Two of them are the regression test for the reported bug: on this scene the
+retired 25 ft-per-side margin resolved to **1300px per side**, collapsing a 40 ft-strung party to
+scale 0.231 against a whole-map fit of 0.185 — i.e. *effectively the whole map, exactly as
+reported*. The new model holds 0.415 for the same party.
+
+**The screen budget is worth knowing** (it surfaced as a false test failure): at scale 0.6 on a
+1080p TV the display shows 1800px = **34.6 ft** vertically, so only ~24.6 ft of party fits inside
+the 5 ft floor. The tighter the DM zooms, the sooner the last-resort pull-back engages. That is
+inherent to the zoom, not a bug — but it means "zoom right in on the group" is a genuinely tight
+frame on a 260px grid.
+
+Still unprovable here, and NOT to be reported as working: the actual pan/zoom as seen on the TV.
+
+### 23.6 LIVE FINDING — packing the party left the soundscape stale (2026-07-24, fixed)
+
+Found while testing "sound in and out of group". **Foundry never refreshes positional audio when a
+token is created or deleted.** Verified in the installed 14.365 source, not from memory:
+`refreshSounds` is raised by `Token#_onControl`, `#_onRelease`, `#_onUpdate` (position / elevation /
+size), the hidden-changed path, and `AmbientSound#initializeSoundSource` — and nowhere else.
+`SoundsLayer#_draw` does not refresh either (a scene change is covered only because each ambient
+sound initialising raises the flag).
+
+Packing and dispersing do exactly that: `rpc.js` swaps N member tokens for one group token and back.
+So a party that packed beside a waterfall kept a mix computed from tokens **that no longer existed**,
+until its first step happened to trigger the movement refresh. Same family as the 2026-07-23 "ignore
+did nothing you could hear" bug — the listener list was right, the mix was never recomputed.
+
+**The fix is ordering-sensitive, and the naive version is worse than the bug.** Pack creates the
+group token, deletes the members, and only *then* writes the `packed` flag — so a refresh landing
+mid-sequence finds no listeners at all (group not packed yet, members gone) and silences every
+positional sound with nothing scheduled to undo it. The fix therefore watches **create, delete *and*
+the `packed` flag through one shared 250ms debounce**: each step resets the timer, so exactly one
+refresh runs after the last of them, with the state settled. It also costs one recompute per pack
+instead of N+1, which matters — every refresh raycasts each ambient sound against every listener.
+
+Unverified by ear; it needs the display client and the DM's speakers.

@@ -11,6 +11,7 @@ import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerAoO } from "./aoo.js";
 import { setupCalendarSkin } from "./gametime.js";
+import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "./camera-frame.js";
 
 Hooks.once("init", () => {
   registerSettings();
@@ -94,11 +95,9 @@ const pxToFt = (px) => (px / (canvas.dimensions?.size ?? canvas.grid?.size ?? 10
 function measureClearanceFt() {
   const box = followBox();
   if (!box) return null;
-  const s = canvas.stage, scale = s.scale.x || 1;
+  const s = canvas.stage;
   const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
-  const halfW = screenW / scale / 2, halfH = screenH / scale / 2;
-  return pxToFt(Math.min(box.minX - (s.pivot.x - halfW), (s.pivot.x + halfW) - box.maxX,
-                         box.minY - (s.pivot.y - halfH), (s.pivot.y + halfH) - box.maxY));
+  return pxToFt(measureClearancePx({ box, pivot: s.pivot, scale: s.scale.x || 1, screenW, screenH }));
 }
 
 // Record the frame the DM just set: its scale, and the clearance it leaves the party.
@@ -107,7 +106,7 @@ function captureTvFrame() {
   tvFrameScale = canvas.stage.scale.x || 1;
   const ft = measureClearanceFt();
   tvClearanceFt = ft == null ? null
-    : Math.min(Math.max(ft, TV_FOLLOW_MIN_CLEARANCE_FT), TV_FOLLOW_MAX_CLEARANCE_FT);
+    : clampClearanceFt(ft, TV_FOLLOW_MIN_CLEARANCE_FT, TV_FOLLOW_MAX_CLEARANCE_FT);
 }
 // Every reframe is animated, so capture once it has landed — measuring mid-flight would record
 // whatever the camera happened to be passing through.
@@ -220,17 +219,6 @@ function followTiers(movedDoc) {
   }
   return { drivers, tagalongs };
 }
-
-function unionBox(rects) {
-  if (!rects?.length) return null;
-  const b = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
-  for (const r of rects) {
-    b.minX = Math.min(b.minX, r.minX); b.minY = Math.min(b.minY, r.minY);
-    b.maxX = Math.max(b.maxX, r.maxX); b.maxY = Math.max(b.maxY, r.maxY);
-  }
-  return b;
-}
-const boxDist2 = (r, x, y) => ((r.minX + r.maxX) / 2 - x) ** 2 + ((r.minY + r.maxY) / 2 - y) ** 2;
 
 // The box the follow is RESPONSIBLE for: the drivers. (With no PC on the scene — a pets-only
 // scene — the tagalongs stand in, so the camera isn't blind.) Clearance is measured against this.
@@ -417,45 +405,16 @@ function tvPartyFollow(tokenDoc, changes) {
 
     // First move after a reframe (or after a reload) — adopt the view as it stands.
     if (tvFrameScale == null || tvClearanceFt == null) captureTvFrame();
-    const want = ftToPx(tvClearanceFt ?? TV_FOLLOW_MIN_CLEARANCE_FT);
-    const floor = ftToPx(TV_FOLLOW_MIN_CLEARANCE_FT);
-
-    // ZOOM — the DM's, held; `fit` is the last-resort pull-back described above.
-    const fit = Math.min(screenW / ((core.maxX - core.minX) + floor * 2),
-                         screenH / ((core.maxY - core.minY) + floor * 2), maxZoom);
-    const scale = Math.max(minZoom, Math.min(tvFrameScale ?? (stage.scale.x || 1), fit));
-    const halfW = screenW / scale / 2, halfH = screenH / scale / 2;
-
-    // TAGALONGS — grow the frame to hold each pet that still fits at that scale, nearest first.
-    // The owl walking with the party stays in shot; the mage hand three rooms away simply doesn't,
-    // and costs nothing to leave behind.
-    const box = { ...core };
-    const cxCore = (core.minX + core.maxX) / 2, cyCore = (core.minY + core.maxY) / 2;
-    for (const r of tagalongs.sort((a, b) => boxDist2(a, cxCore, cyCore) - boxDist2(b, cxCore, cyCore))) {
-      const grown = unionBox([box, r]);
-      if ((grown.maxX - grown.minX) + floor * 2 <= halfW * 2
-       && (grown.maxY - grown.minY) + floor * 2 <= halfH * 2) Object.assign(box, grown);
-    }
-
-    // PAN — the minimum that restores the clearance. Per axis the target clearance is capped at
-    // what the frame can actually give (box + 2×clearance must fit), so it degrades toward the
-    // floor instead of demanding an impossible inset.
-    const cX = Math.max(0, Math.min(want, halfW - (box.maxX - box.minX) / 2));
-    const cY = Math.max(0, Math.min(want, halfH - (box.maxY - box.minY) / 2));
-    let cx = stage.pivot.x, cy = stage.pivot.y;
-    if (box.minX - cX < cx - halfW) cx = box.minX - cX + halfW;
-    if (box.maxX + cX > cx + halfW) cx = box.maxX + cX - halfW;
-    if (box.minY - cY < cy - halfH) cy = box.minY - cY + halfH;
-    if (box.maxY + cY > cy + halfH) cy = box.maxY + cY - halfH;
-
-    // Clamp so the viewport stays within the scene (centre an axis smaller than it).
-    const r = canvas.dimensions?.sceneRect ?? canvas.dimensions?.rect;
-    if (r) {
-      cx = r.width  <= halfW * 2 ? r.x + r.width  / 2 : Math.min(Math.max(cx, r.x + halfW), r.x + r.width  - halfW);
-      cy = r.height <= halfH * 2 ? r.y + r.height / 2 : Math.min(Math.max(cy, r.y + halfH), r.y + r.height - halfH);
-    }
-
     const curScale = stage.scale.x || 1;
+    const { cx, cy, scale } = planPartyFrame({
+      core, tagalongs, pivot: stage.pivot, screenW, screenH,
+      frameScale: tvFrameScale, curScale,
+      wantPx: ftToPx(tvClearanceFt ?? TV_FOLLOW_MIN_CLEARANCE_FT),
+      floorPx: ftToPx(TV_FOLLOW_MIN_CLEARANCE_FT),
+      minZoom, maxZoom,
+      sceneRect: canvas.dimensions?.sceneRect ?? canvas.dimensions?.rect ?? null
+    });
+
     const scaleChanged = Math.abs(scale - curScale) / curScale > 0.01;
     if (!scaleChanged && Math.abs(cx - stage.pivot.x) < 1 && Math.abs(cy - stage.pivot.y) < 1) return; // already framed
     canvas.animatePan({ x: cx, y: cy, scale, duration: 250, easing: tvEase });
@@ -913,13 +872,40 @@ function setupDisplayAudioListeners() {
   // refresh raycasts every ambient sound against the listeners, so the debounce keeps a busy scene
   // from hitching on movement.
   let moveTimer = null;
-  const refreshOnMove = () => { if (!isDisplayClient()) return; clearTimeout(moveTimer); moveTimer = setTimeout(() => refresh(), 250); };
-  Hooks.on("updateActor", (_a, changes) => { if (isDisplayClient() && touchesMuteFlag(changes)) refresh(MUTE_FADE_MS); });
+  const refreshSoon = () => { if (!isDisplayClient()) return; clearTimeout(moveTimer); moveTimer = setTimeout(() => refresh(), 250); };
+
+  // The listener set ALSO changes with nobody moving: packing and dispersing swap N member tokens
+  // for one group token and back (rpc.js `deleteEmbeddedDocuments`/`createEmbeddedDocuments`).
+  // Core does not cover this — checked in Foundry 14.365's own source, `refreshSounds` is raised on
+  // token control, release, move, size/elevation and hidden, and by an ambient sound initialising,
+  // but NOT on token create/delete. So a party that packs beside a waterfall kept the mix computed
+  // from tokens that no longer exist, until its first step happened to refresh it (2026-07-24).
+  //
+  // ORDERING MATTERS, and naively refreshing on create/delete alone is WORSE than the bug: pack
+  // creates the group token, deletes the members, and only THEN writes the `packed` flag — so a
+  // refresh landing mid-sequence sees no listeners at all (the group isn't packed yet, the members
+  // are gone) and silences every positional sound with nothing scheduled to undo it. Watching the
+  // flag too, through the SAME debounce, makes the sequence self-correcting: each step resets the
+  // timer, so exactly one refresh runs 250ms after the LAST of them, with the state settled.
+  const touchesPackedFlag = (changes) => foundry.utils.hasProperty(changes ?? {}, `flags.${MODULE_ID}.packed`);
+  // Deliberately looser than isAudioListener: a group token's `packed` flag may not be written yet
+  // (or may already be cleared) at create/delete time, and the cost of being wrong is one
+  // debounced recompute.
+  const couldListen = (actor) => !!actor
+    && (actor.type === "group" || (actor.type === "character" && !!actor.hasPlayerOwner));
+
+  Hooks.on("updateActor", (_a, changes) => {
+    if (!isDisplayClient()) return;
+    if (touchesMuteFlag(changes)) return refresh(MUTE_FADE_MS);
+    if (touchesPackedFlag(changes)) refreshSoon(); // party packed/dispersed → whole new listener set
+  });
   Hooks.on("updateToken", (t, changes) => {
     if (!isDisplayClient()) return;
     if (touchesMuteFlag(changes)) return refresh(MUTE_FADE_MS); // deafen → gentle 750ms fade
-    if (("x" in changes || "y" in changes) && isAudioListener(t.actor)) refreshOnMove();
+    if (("x" in changes || "y" in changes) && isAudioListener(t.actor)) refreshSoon();
   });
+  Hooks.on("createToken", (t) => { if (isDisplayClient() && couldListen(t.actor)) refreshSoon(); });
+  Hooks.on("deleteToken", (t) => { if (isDisplayClient() && couldListen(t.actor)) refreshSoon(); });
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.combatPovAudio`) refresh(); });
   Hooks.on("updateCombat", (_c, changed = {}) => { if ("turn" in changed || "round" in changed) refresh(); });
   Hooks.on("combatStart", refresh);
