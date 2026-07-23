@@ -1100,9 +1100,13 @@ function travelPaceLabel(group) {
 }
 
 // §18 travel tab: two accordions (DM 2026-07-18) — reuses the downtime drawer chrome.
-let travelDrawers = { switch: true, go: true };
-function travelDrawer(key, title, body) {
-  const open = travelDrawers[key] !== false;
+// `switch` opens by default; `go` (the route/journey feature) is left UNSET so its default follows
+// the party state — collapsed when not packed (DM 2026-07-23: "when not grouped up, minimize
+// travel to… drawer"), since a route journey needs a formed-up party. A manual toggle sets an
+// explicit boolean that then wins over the default.
+let travelDrawers = { switch: true };
+function travelDrawer(key, title, body, defaultOpen = true) {
+  const open = travelDrawers[key] !== undefined ? travelDrawers[key] !== false : defaultOpen;
   return `<div class="mc-dt-drawer ${open ? "mc-open" : ""}">
     <div class="mc-dt-drawer-head">
       <button class="mc-dt-drawer-toggle" data-travel-drawer="${key}"><span>${foundry.utils.escapeHTML(title)}</span><i class="fas fa-chevron-${open ? "down" : "right"}"></i></button>
@@ -1200,7 +1204,7 @@ function travelHTML() {
 
   return `<div class="mc-dmp-travel">
     ${travelDrawer("switch", "Switch scene to…", switchBody)}
-    ${travelDrawer("go", "Travel to…", goBody)}
+    ${travelDrawer("go", "Travel to…", goBody, !!packed)}
   </div>`;
 }
 
@@ -1571,7 +1575,9 @@ function statusHTML() {
       const secs = Math.max(0, Math.floor((Date.now() - pres.since) / 1000));
       if (secs >= awayThreshold) { cls = "mc-red"; state = `away ${fmtAway(secs)}`; }
     }
-    return `<span class="mc-dmp-pres ${cls}" title="${esc(playerLabel(u))} — ${state}"><i class="fas fa-circle"></i> ${esc(playerLabel(u))}</span>`;
+    // The connection monitor names the PERSON, not their character (DM 2026-07-23) — this row is
+    // "who's online", so the user's name is what matters, not which PC they're playing.
+    return `<span class="mc-dmp-pres ${cls}" title="${esc(u.name)} — ${state}"><i class="fas fa-circle"></i> ${esc(u.name)}</span>`;
   }).join("") || `<span class="mc-dmp-pres mc-off">No players</span>`;
   // Clock chip: the world time, read through the SC-optional adapter. Tap to set the campaign's
   // start time-of-day (our own clock only — when SC drives, it's read-only and shows a lock).
@@ -2721,7 +2727,14 @@ async function onClick(ev) {
   if (ev.target.closest("[data-travel-go]")) { const g = packedGroup(); if (g) await runTravelJourney(g); return; } // §18 T3
   if (ev.target.closest("[data-travel-stop]")) { stopTravelJourney(); return; }
   const travDrawer = ev.target.closest("[data-travel-drawer]");
-  if (travDrawer) { const k = travDrawer.dataset.travelDrawer; travelDrawers[k] = travelDrawers[k] === false; return render(); }
+  if (travDrawer) {
+    const k = travDrawer.dataset.travelDrawer;
+    // Flip the state that's ACTUALLY SHOWN — for the unset "go" drawer that default is packed, so a
+    // blind `=== false` would leave a not-packed (default-collapsed) drawer collapsed on tap-to-open.
+    const curOpen = travelDrawers[k] !== undefined ? travelDrawers[k] !== false : (k === "go" ? !!packedGroup() : true);
+    travelDrawers[k] = !curOpen;
+    return render();
+  }
   const paceBtn = ev.target.closest("[data-travel-pace]"); // §18 T2: set the group's travel pace
   if (paceBtn) {
     const g = packedGroup() ?? candidateGroup();

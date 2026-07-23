@@ -229,6 +229,16 @@ export function registerSettings() {
     default: false
   });
 
+  // One-time guard: true once we've flipped Automated Animations' "noTips" off (DM 2026-07-23 —
+  // the "SEQUENCER Persistent Effect" toast on every sleeping token). Hidden; set by the executor
+  // at startup so we do it ONCE and never fight a DM who deliberately turns tips back on.
+  game.settings.register(MODULE_ID, "aaTipsSuppressed", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false
+  });
+
   // §16.3 DM first-run wizard: true once the DM finished (or dismissed) the
   // guided setup. Hidden — the wizard flips it; reopen lives on the Preflight tab.
   game.settings.register(MODULE_ID, "dmOnboarded", {

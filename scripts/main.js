@@ -692,6 +692,7 @@ Hooks.once("ready", () => {
   registerShellHooks();
   registerDMPanel(); // DM-assign panel (GM clients only; self-gates)
   maybePromptDmWizard(); // §16.3 first-run setup offer (GM only; once per world)
+  suppressAutomatedAnimationsTips(); // one-time: quiet AA's "Persistent Effect" toast on sleeping tokens
   // The TV/display account must sit at OBSERVER, never OWNER: OWNER puts it in midi's prompt
   // routing (playerForActor matches OWNER by strict equality) and it wins over the real player
   // because it's always connected — the Shield bug. Worlds set up before 2026-07-21 have OWNER
@@ -937,6 +938,23 @@ function broadcastAudioState() {
     tvBroadcast({ cmd: "audioState", userId: game.user.id, locked: !!game.audio?.locked,
       muted: !!game.audio?.globalMute, at: Date.now() });
   } catch (e) { /* socket not ready */ }
+}
+
+// Quiet Automated Animations' persistent-effect tip. When a token gets the "sleeping" status (the
+// watch phase marks the off-duty party asleep), AA plays a persistent Sequencer effect and toasts
+// "This is a SEQUENCER Persistent Effect… " on every one — noise the DM doesn't want (2026-07-23).
+// AA gates that toast on its own world setting `autoanimations.noTips`; flip it ON, ONCE, on the
+// executor. Guarded by our own flag so a DM who later re-enables tips isn't overridden every load.
+async function suppressAutomatedAnimationsTips() {
+  try {
+    if (!isExecutor()) return;
+    if (!game.modules.get("autoanimations")?.active) return;
+    if (game.settings.get(MODULE_ID, "aaTipsSuppressed")) return; // already did it once
+    if (game.settings.settings.has("autoanimations.noTips") && !game.settings.get("autoanimations", "noTips")) {
+      await game.settings.set("autoanimations", "noTips", true);
+    }
+    await game.settings.set(MODULE_ID, "aaTipsSuppressed", true);
+  } catch (e) { console.warn(`${MODULE_ID} | could not suppress Automated Animations tips`, e); }
 }
 
 function setupTvVolumes() {
