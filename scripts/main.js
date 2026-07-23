@@ -814,6 +814,24 @@ function setupDisplayAudioListeners() {
   // future canvas draw, which also re-arms it after a scene change.
   patch();
   Hooks.on("canvasReady", patch);
+
+  // Recompute the soundscape when the LISTENER SET changes but no token moved. Core only re-runs
+  // _syncPositions on its own triggers (a token moving, a sound edit) — so patching
+  // getListenerPositions is not enough on its own: a change that only affects WHO listens leaves
+  // the old volumes playing until the next unrelated refresh. That is why "ignore" did nothing you
+  // could hear (DM 2026-07-23) — the flag flipped, the list was correct, but the mix never
+  // recomputed. Same latency hit combat audio POV on a turn change. Nudge a refresh on:
+  //   • a token's muteListener flag flipping (the deafen toggle),
+  //   • the combat POV audio setting changing,
+  //   • combat turn/round change and start/end (the active combatant is the listener under POV).
+  const refresh = () => { try { if (isDisplayClient()) canvas?.sounds?.refresh(); } catch (e) { /* best-effort */ } };
+  Hooks.on("updateActor", (_a, changes) => {
+    if (isDisplayClient() && foundry.utils.hasProperty(changes ?? {}, `flags.${MODULE_ID}.muteListener`)) refresh();
+  });
+  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.combatPovAudio`) refresh(); });
+  Hooks.on("updateCombat", (_c, changed = {}) => { if ("turn" in changed || "round" in changed) refresh(); });
+  Hooks.on("combatStart", refresh);
+  Hooks.on("deleteCombat", refresh);
 }
 
 // The shared display can't play a sound until someone touches it (DM 2026-07-22: "I turned down the
