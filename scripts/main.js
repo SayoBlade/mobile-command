@@ -157,7 +157,12 @@ function isPartyActor(actor) {
 // but not its flags, so deafening one never reached the object the listener read. PCs are linked,
 // so the whole class of problems disappears with the pets.
 function isAudioListener(actor) {
-  return actor?.type === "character" && !!actor.hasPlayerOwner;
+  if (!actor) return false;
+  // While the party is PACKED there are no member tokens on the scene — just the one group token —
+  // so without this a travelling party is stone deaf (DM 2026-07-23). The packed group token stands
+  // in as a single listener at the party's position, which is also cheaper than N separate ones.
+  if (actor.type === "group") return !!actor.getFlag?.("mobile-command", "packed");
+  return actor.type === "character" && !!actor.hasPlayerOwner;
 }
 
 // The whole-party frame: centroid + target scale over every visible PC token. Used by

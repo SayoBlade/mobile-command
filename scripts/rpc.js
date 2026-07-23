@@ -48,6 +48,11 @@ function handlePresence({ userId, hidden } = {}) {
 export function reportPresence(hidden) {
   try {
     if (game.user?.isGM || !socket) return;
+    // The shared display is MEANT to be passive — nobody touches it, its browser tab is often
+    // backgrounded — so it must not report presence, or the DM panel flags it red "away" (DM
+    // 2026-07-23: "tv SHOULD be inactive, remove it from the inactivity watch").
+    let tv = ""; try { tv = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
+    if (tv && game.user.id === tv) return;
     socket.executeForOthers("presence", { userId: game.user.id, hidden: !!hidden });
   } catch (e) { /* best effort */ }
 }

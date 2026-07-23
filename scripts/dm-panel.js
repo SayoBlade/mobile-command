@@ -1546,7 +1546,11 @@ function statusHTML() {
   // doesn't earn a seat here. The pause GUARD (which freezes player actions) is untouched: that's
   // enforcement in rpc.js, not this button.
   const activeScene = game.scenes?.active?.id;
-  const players = game.users.filter(u => !u.isGM);
+  // The TV/display account is not a player and is meant to sit passive — keep it out of the
+  // presence row entirely so it never shows (or blinks red) as an "away" client (DM 2026-07-23).
+  // Its connection is still visible in Settings › Sound (audio status) and the preflight check.
+  let tvId = ""; try { tvId = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
+  const players = game.users.filter(u => !u.isGM && u.id !== tvId);
   // Away-timer threshold (§7.8): seconds a phone may stay backgrounded before its dot goes red.
   let awayThreshold = 90;
   try { awayThreshold = Number(game.settings.get(MODULE_ID, "awayThresholdSeconds")); } catch (e) { /* default */ }
@@ -1871,7 +1875,9 @@ function audioListenerTokens() {
   const out = [];
   for (const t of canvas?.tokens?.placeables ?? []) {
     const a = t.actor;
-    if (t.document?.hidden || a?.type !== "character" || !a.hasPlayerOwner) continue;
+    if (t.document?.hidden) continue;
+    if (a?.type === "group") { if (a.getFlag(MODULE_ID, "packed")) out.push(t); continue; } // packed party = one listener
+    if (a?.type !== "character" || !a.hasPlayerOwner) continue;
     out.push(t);
   }
   return out;
