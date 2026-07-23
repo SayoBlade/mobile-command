@@ -346,7 +346,13 @@ function tvPartyFollow(tokenDoc, changes) {
     if (game.combat?.started) return; // in combat the active-token spotlight takes over
     if (!("x" in changes) && !("y" in changes)) return; // only on movement
     const actor = tokenDoc.actor;
-    if (!isPartyActor(actor)) return; // a PC (or the packed party token) moved
+    // Only a PC (or the packed party token) DRIVES the auto-reframe. A pet is still framed when the
+    // DM presses Focus (the box below uses isPartyActor), but a wandering familiar/summon must not
+    // yank the TV camera on its own — a Mage Hand sent across the room was pulling the view to full
+    // screen every move (DM 2026-07-23). Movement TRIGGER = PC or packed group; frame CONTENTS = all.
+    const isFollowDriver = a => a && (a.type === "group" ? !!a.getFlag?.("mobile-command", "packed")
+      : a.type === "character" && a.hasPlayerOwner);
+    if (!isFollowDriver(actor)) return;
 
     // Party bounding box over every visible PC token. The just-moved token's new
     // position comes from the update doc (robust while the move animates); the

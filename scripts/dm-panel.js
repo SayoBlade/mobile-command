@@ -1726,7 +1726,12 @@ function scenePartyActors() {
     const a = t.actor;
     if (!a || a.type === "group" || seen.has(a.id)) continue;
     if (!a.hasPlayerOwner) continue;
-    if (t.disposition !== CONST.TOKEN_DISPOSITIONS.FRIENDLY) continue;
+    // NO disposition filter (DM 2026-07-23): a summoned Sphinx (NEUTRAL) or Mage Hand (SECRET) is
+    // the player's creature and should Form Up with the party — but the old FRIENDLY-only test left
+    // them behind while the FRIENDLY Unseen Servant joined. Matches how the camera (isPartyActor)
+    // and watches (watchMembers) already treat player-owned tokens regardless of disposition. Only
+    // HOSTILE is excluded — a dominated enemy a player temporarily controls isn't "the party".
+    if (t.disposition === CONST.TOKEN_DISPOSITIONS.HOSTILE) continue;
     if (a.flags?.["item-piles"]) continue;
     seen.add(a.id); out.push(a);
   }
