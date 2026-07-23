@@ -150,6 +150,16 @@ function isPartyActor(actor) {
   return !!actor.hasPlayerOwner;
 }
 
+// Who feeds the shared display's positional audio — PLAYER CHARACTERS ONLY. Deliberately narrower
+// than isPartyActor (the camera still frames pets): pets are "deaf" (DM 2026-07-23, "remove them
+// from the hearing feature completely, only PCs get to share sound"). This also sidesteps a real
+// mess — a summon is an UNLINKED token whose `t.actor` is a synthetic clone sharing the base's id
+// but not its flags, so deafening one never reached the object the listener read. PCs are linked,
+// so the whole class of problems disappears with the pets.
+function isAudioListener(actor) {
+  return actor?.type === "character" && !!actor.hasPlayerOwner;
+}
+
 // The whole-party frame: centroid + target scale over every visible PC token. Used by
 // Focus (centroid only — pure pan) and the combat turn pulse. null when no party.
 function partyFrame() {
@@ -780,21 +790,20 @@ function setupDisplayAudioListeners() {
       proto.getListenerPositions = function () {
         const base = orig.call(this);
         if (base.length || !isDisplayClient()) return base; // something is controlled → core decides
-        // Combat audio POV — the counterpart of combatPovVision. On a PARTY member's turn the room
-        // hears from that combatant alone, so the soundscape follows whoever is acting. Enemy turns
-        // fall through to the party, exactly as the vision patch does.
+        // Combat audio POV — the counterpart of combatPovVision. On a PC's turn the room hears from
+        // that combatant alone; a pet's or enemy's turn falls through to the party.
         let pov = false;
         try { pov = game.settings.get(MODULE_ID, "combatPovAudio"); } catch (e) { /* setting late */ }
         if (pov && game.combat?.started) {
           const active = game.combat.combatant?.token?.object;
-          if (active && isPartyActor(active.actor) && !active.document?.hidden
+          if (active && isAudioListener(active.actor) && !active.document?.hidden
               && !active.actor?.getFlag?.(MODULE_ID, "muteListener")) {
             try { return [active.document.getListenerPosition()]; } catch (e) { /* fall through */ }
           }
         }
         const out = [];
         for (const t of canvas.tokens?.placeables ?? []) {
-          if (t.document?.hidden || !isPartyActor(t.actor)) continue;
+          if (t.document?.hidden || !isAudioListener(t.actor)) continue;
           // Deafened by the DM (Settings › Sound). Loudness is NEAREST-listener-wins, not an
           // average, so one scout beside a waterfall drives the whole room's audio on its own —
           // this is the opt-out for exactly that (DM 2026-07-22).
@@ -825,9 +834,12 @@ function setupDisplayAudioListeners() {
   //   • the combat POV audio setting changing,
   //   • combat turn/round change and start/end (the active combatant is the listener under POV).
   const refresh = () => { try { if (isDisplayClient()) canvas?.sounds?.refresh(); } catch (e) { /* best-effort */ } };
-  Hooks.on("updateActor", (_a, changes) => {
-    if (isDisplayClient() && foundry.utils.hasProperty(changes ?? {}, `flags.${MODULE_ID}.muteListener`)) refresh();
-  });
+  const touchesMuteFlag = (changes) => foundry.utils.hasProperty(changes ?? {}, `flags.${MODULE_ID}.muteListener`)
+    // an UNLINKED token's flag change arrives inside the ActorDelta, not as a top-level flags path
+    || foundry.utils.hasProperty(changes ?? {}, `delta.flags.${MODULE_ID}.muteListener`)
+    || (typeof changes?.flags?.[MODULE_ID] === "object" && "muteListener" in changes.flags[MODULE_ID]);
+  Hooks.on("updateActor", (_a, changes) => { if (isDisplayClient() && touchesMuteFlag(changes)) refresh(); });
+  Hooks.on("updateToken", (_t, changes) => { if (isDisplayClient() && touchesMuteFlag(changes)) refresh(); });
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.combatPovAudio`) refresh(); });
   Hooks.on("updateCombat", (_c, changed = {}) => { if ("turn" in changed || "round" in changed) refresh(); });
   Hooks.on("combatStart", refresh);

@@ -147,18 +147,19 @@ function settingsHTML() {
   // Who the display listens THROUGH. Loudness is nearest-listener-wins (SoundsLayer#_syncPositions
   // keeps the max, never an average), so a single scout or familiar parked beside a waterfall drives
   // the room's audio by itself. Deafening a token here drops it from getListenerPositions.
-  const party = scenePartyActors().filter(a => a.type !== "group");
+  const party = audioListenerTokens();
   const ears = party.length
-    ? party.map(a => {
-        const off = !!a.getFlag(MODULE_ID, "muteListener");
-        return `<button class="mc-dmp-ear ${off ? "mc-off" : ""}" data-sound-mute="${a.id}"
-          title="${off ? `${esc(a.name)} is ignored — the display never hears through them` : `${esc(a.name)} is listening — tap to ignore them`}">
+    ? party.map(t => {
+        const off = !!t.actor.getFlag(MODULE_ID, "muteListener");
+        const nm = t.document.name;
+        return `<button class="mc-dmp-ear ${off ? "mc-off" : ""}" data-sound-mute="${t.id}"
+          title="${off ? `${esc(nm)} is ignored — the display never hears through them` : `${esc(nm)} is listening — tap to ignore them`}">
           <i class="fas ${off ? "fa-ear-deaf" : "fa-ear-listen"}"></i>
-          <span class="mc-dmp-ear-name">${esc(a.name)}</span>
+          <span class="mc-dmp-ear-name">${esc(nm)}</span>
         </button>`;
       }).join("")
     : `<div class="mc-dmp-empty">No party tokens on this scene.</div>`;
-  const anyOn = party.some(a => !a.getFlag(MODULE_ID, "muteListener"));
+  const anyOn = party.some(t => !t.actor.getFlag(MODULE_ID, "muteListener"));
   const bulk = party.length
     ? `<button class="mc-dmp-earbulk" data-ears-all="${anyOn ? "off" : "on"}">
         <i class="fas ${anyOn ? "fa-ear-deaf" : "fa-ear-listen"}"></i> ${anyOn ? "Ignore everyone" : "Listen through everyone"}
@@ -1861,6 +1862,21 @@ function nightGroup() {
     ?? game.actors.find(a => a.type === "group" && (a.system?.members ?? []).some(m => m.actor));
 }
 
+// The exact set the display hears through — mirrors main.js isAudioListener over the CANVAS tokens,
+// so the ignore list can never diverge from the actual listeners. PLAYER CHARACTERS ONLY: pets are
+// deaf (DM 2026-07-23), which also means every listed token is a LINKED PC whose `t.actor` IS the
+// base actor — so the flag is written and read on one object, and the unlinked-summon mismatch that
+// broke deafening for pets can't occur here.
+function audioListenerTokens() {
+  const out = [];
+  for (const t of canvas?.tokens?.placeables ?? []) {
+    const a = t.actor;
+    if (t.document?.hidden || a?.type !== "character" || !a.hasPlayerOwner) continue;
+    out.push(t);
+  }
+  return out;
+}
+
 function nightMembers(group) {
   return (group?.system?.members ?? []).map(m => m.actor).filter(a => a && a.type === "character");
 }
@@ -2929,14 +2945,16 @@ async function onClick(ev) {
   const bulkEar = ev.target.closest("[data-ears-all]");
   if (bulkEar) {
     const off = bulkEar.dataset.earsAll === "off";
-    for (const a of scenePartyActors().filter(x => x.type !== "group")) {
-      if (!!a.getFlag(MODULE_ID, "muteListener") !== off) await a.setFlag(MODULE_ID, "muteListener", off);
+    // Flag the TOKEN's actor (t.actor) — the same object the display's listener filter reads. On an
+    // unlinked summon that's the synthetic token actor, NOT game.actors.get(id) (the base).
+    for (const t of audioListenerTokens()) {
+      if (!!t.actor.getFlag(MODULE_ID, "muteListener") !== off) await t.actor.setFlag(MODULE_ID, "muteListener", off);
     }
     return render();
   }
   const ear = ev.target.closest("[data-sound-mute]");
   if (ear) {
-    const a = game.actors.get(ear.dataset.soundMute);
+    const a = canvas.tokens.get(ear.dataset.soundMute)?.actor; // token id → THIS token's actor
     if (a) { a.setFlag(MODULE_ID, "muteListener", !a.getFlag(MODULE_ID, "muteListener")).then(() => render()); }
     return;
   }
