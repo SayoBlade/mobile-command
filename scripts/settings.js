@@ -331,17 +331,17 @@ export function registerSettings() {
     default: true
   });
 
-  // §18 travel: any scene whose grid cell measures at least this many FEET is auto-treated as an
-  // overworld travel map (multi-overworld — no per-scene designation, DM 2026-07-19). A battle map
-  // (~5 ft/cell) never qualifies; a world/region map (miles, or hundreds of ft, per cell) does.
-  // Feeds isOverworldScene() → the on-load auto-lighting + the Preflight lighting check.
-  game.settings.register(MODULE_ID, "travelOverworldGridThreshold", {
-    name: "Overworld detection: grid feet per cell",
-    hint: "Any scene whose grid measures at least this many feet per cell is treated as a travel/overworld map — the whole map stays visible and dims with the clock. Battle maps (5 ft/cell) are never affected. Default 100.",
+  // §18 travel: the DM's EXPLICIT list of travel/overworld scene ids (DM 2026-07-24). This replaced
+  // a grid-size heuristic — "misidentification of a map as a travel map is very bad, make sure it
+  // doesn't happen… a list of overworld maps the DM sets… keep things K.I.S.S." Nothing is guessed:
+  // a scene is a travel map iff the DM marked it (Travel tab → "This is a travel map"), so a battle
+  // map can never be dragged into travel mode. Feeds isOverworldScene() → the on-open auto-lighting
+  // + the Preflight lighting check.
+  game.settings.register(MODULE_ID, "travelOverworldSceneIds", {
     scope: "world",
-    config: true,
-    type: Number,
-    default: 100
+    config: false,
+    type: Array,
+    default: []
   });
 
   // §18 travel: the first time you open a detected overworld, set it up for travel once — whole map
@@ -593,9 +593,7 @@ export function isExecutor() {
   return game.user.id === resolveExecutorId();
 }
 
-// §18 travel (DM 2026-07-19): a scene is an "overworld" travel map when its grid cell measures at
-// least travelOverworldGridThreshold FEET. Auto-detection replaces the single hand-picked scene, so
-// several overworlds all behave as travel maps. Gridless / undefined-grid scenes never qualify.
+// Feet per grid cell — kept for labels / distance readouts (no longer used to CLASSIFY a scene).
 const GRID_UNIT_FEET = { "'": 1, ft: 1, foot: 1, feet: 1, yd: 3, yard: 3, yards: 3, m: 3.28084, meter: 3.28084, metre: 3.28084, meters: 3.28084, metres: 3.28084, km: 3280.84, kilometer: 3280.84, kilometre: 3280.84, mi: 5280, mile: 5280, miles: 5280, league: 15840, leagues: 15840, hex: 1 };
 export function gridFeetPerCell(scene) {
   const g = scene?.grid;
@@ -606,12 +604,14 @@ export function gridFeetPerCell(scene) {
       : /meter|metre|(^|[^k])m\b/.test(u) ? 3.28084 : /yard|yd/.test(u) ? 3 : 1);
   return g.distance * per;
 }
+// A scene is a travel map iff the DM put it on the list (DM 2026-07-24). No grid guessing → a battle
+// map can NEVER be misidentified. The list is managed from the Travel tab.
+export function overworldSceneIds() {
+  try { const v = game.settings.get(MODULE_ID, "travelOverworldSceneIds"); return Array.isArray(v) ? v : []; }
+  catch (e) { return []; }
+}
 export function isOverworldScene(scene) {
-  try {
-    if (!scene) return false;
-    const thr = Number(game.settings.get(MODULE_ID, "travelOverworldGridThreshold")) || 100;
-    return gridFeetPerCell(scene) >= thr;
-  } catch (e) { return false; }
+  try { return !!scene && overworldSceneIds().includes(scene.id); } catch (e) { return false; }
 }
 
 // Reaction/opportunity-attack ttl for phone prompts (DM 2026-07-19): midi's reactionTimeout scaled by

@@ -850,8 +850,21 @@ function setupDisplayAudioListeners() {
     // an UNLINKED token's flag change arrives inside the ActorDelta, not as a top-level flags path
     || foundry.utils.hasProperty(changes ?? {}, `delta.flags.${MODULE_ID}.muteListener`)
     || (typeof changes?.flags?.[MODULE_ID] === "object" && "muteListener" in changes.flags[MODULE_ID]);
+  // A LISTENER moving should move the soundscape — but core only auto-refreshes sound for the
+  // CONTROLLED listener, and the display controls nothing, so a party (or packed-group) move never
+  // updated the mix there (DM 2026-07-24: "moving the party doesn't change the sound… overworld
+  // might have location-based sounds too"). Debounced ~250ms: a step-by-step travel tick refreshes
+  // once each, and a fast drag coalesces into one refresh instead of one per frame. PERF: each
+  // refresh raycasts every ambient sound against the listeners, so the debounce keeps a busy scene
+  // from hitching on movement.
+  let moveTimer = null;
+  const refreshOnMove = () => { if (!isDisplayClient()) return; clearTimeout(moveTimer); moveTimer = setTimeout(refresh, 250); };
   Hooks.on("updateActor", (_a, changes) => { if (isDisplayClient() && touchesMuteFlag(changes)) refresh(); });
-  Hooks.on("updateToken", (_t, changes) => { if (isDisplayClient() && touchesMuteFlag(changes)) refresh(); });
+  Hooks.on("updateToken", (t, changes) => {
+    if (!isDisplayClient()) return;
+    if (touchesMuteFlag(changes)) return refresh();
+    if (("x" in changes || "y" in changes) && isAudioListener(t.actor)) refreshOnMove();
+  });
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.combatPovAudio`) refresh(); });
   Hooks.on("updateCombat", (_c, changed = {}) => { if ("turn" in changed || "round" in changed) refresh(); });
   Hooks.on("combatStart", refresh);

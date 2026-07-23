@@ -895,11 +895,15 @@ async function moveGroupTo(gt, pt, durMs) {
   await gt.update({ x, y }, { animate: true, animation: { duration: Math.max(200, Math.round(durMs)) } });
 }
 function stopTravelJourney() { travelJourneyStop = true; }
-// §18 travel (DM 2026-07-19): auto-detected overworlds (grid ≥ threshold ft/cell) set themselves up
-// for travel the first time you open them — whole map visible (no sight circle), Global Illumination
-// off, darkness unlocked, and darkness synced to the clock. One-shot per scene (a flag guards it) so
-// a map you later customise is never re-stomped. Executor GM only (one writer). This is the "automate
-// the behavior" the DM asked for — no per-scene designation, no manual Preflight fix.
+// §18 travel: a scene the DM has EXPLICITLY marked as a travel map (Travel tab → "This is a travel
+// map") sets itself up the first time you open it — whole map visible (no sight circle), Global
+// Illumination off, darkness unlocked and synced to the clock. One-shot per scene (a flag guards it)
+// so a map you later customise is never re-stomped. Executor GM only (one writer).
+//
+// NO GRID HEURISTIC (DM 2026-07-24: "misidentification of a map as a travel map is very bad… a list
+// of overworld maps the DM sets… keep things K.I.S.S."). This only ever fires for scenes on the DM's
+// explicit list (isOverworldScene), so it can NOT silently strip fog off a battle map — a mislabelled
+// grid can't drag a dungeon into travel mode any more, because nothing is guessed.
 async function maybeAutoLightOverworld(scene) {
   try {
     if (!scene || !game.user.isGM || !isExecutor()) return;
@@ -915,7 +919,7 @@ async function maybeAutoLightOverworld(scene) {
       patch["environment.darknessLevel"] = darknessForHour((Number(c.hour) || 0) + (Number(c.minute) || 0) / 60);
     }
     await scene.update(patch, { animateDarkness: 800 });
-    console.log(`${MODULE_ID} | auto-lit overworld "${scene.name}" (${Math.round(gridFeetPerCell(scene))} ft/cell) — whole map visible, darkness follows the clock`);
+    console.log(`${MODULE_ID} | set up travel map "${scene.name}" (DM-listed) — whole map visible, darkness follows the clock`);
     ui.notifications.info(`Travel map ready: “${scene.name}” — whole map stays visible and dims with the clock.`);
   } catch (e) { console.warn(`${MODULE_ID} | auto-light overworld failed`, e); }
 }
@@ -1202,7 +1206,19 @@ function travelHTML() {
          ${readout}${routeCtl}`
       : `${paceRow}<p class="mc-dmp-travel-hint">Switch to the overworld, then draw a route.</p>`;
 
+  // The DM's explicit travel-map list (DM 2026-07-24) — the CURRENT scene's membership, toggled
+  // here. This is the ONLY thing that makes a scene a travel map; nothing is guessed from the grid.
+  const here = game.scenes.active;
+  const isTravel = here ? isOverworldScene(here) : false;
+  const mapToggle = here ? `<div class="mc-dmp-travel-maprow">
+      <button class="mc-dmp-travel-maptoggle ${isTravel ? "mc-on" : ""}" data-travel-mark="${here.id}"
+        title="${isTravel ? "This scene is a travel map (whole map visible, dims with the clock). Tap to make it a normal map with fog." : "Mark this scene as a travel map — whole map stays visible and dims with the clock (turns off fog of war)."}">
+        <i class="fas fa-${isTravel ? "map-location-dot" : "map"}"></i> ${isTravel ? "Travel map — on" : "Mark as a travel map"}
+      </button>
+    </div>` : "";
+
   return `<div class="mc-dmp-travel">
+    ${mapToggle}
     ${travelDrawer("switch", "Switch scene to…", switchBody)}
     ${travelDrawer("go", "Travel to…", goBody, !!packed)}
   </div>`;
@@ -2719,6 +2735,26 @@ async function onClick(ev) {
   const dockBtn = ev.target.closest("[data-dock]");
   if (dockBtn) { closeRtAssign(); dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }
   if (ev.target.closest("[data-dock-close]")) { closeRtAssign(); dockTab = null; return render(); }
+  // Mark / unmark the current scene as a travel map (the DM's explicit list — no grid guessing).
+  const mark = ev.target.closest("[data-travel-mark]");
+  if (mark) {
+    const sc = game.scenes.get(mark.dataset.travelMark);
+    if (!sc) return;
+    const list = new Set(game.settings.get(MODULE_ID, "travelOverworldSceneIds") || []);
+    const wasTravel = list.has(sc.id);
+    if (wasTravel) list.delete(sc.id); else list.add(sc.id);
+    await game.settings.set(MODULE_ID, "travelOverworldSceneIds", [...list]);
+    await sc.unsetFlag(MODULE_ID, "travelAutoLit"); // let the one-shot re-apply for its new status
+    if (!wasTravel) {
+      await maybeAutoLightOverworld(sc); // marked → set it up for travel now
+    } else if (!sc.tokenVision) {
+      // Un-marked → give fog back: turn token vision on. That's the natural inverse and the exact
+      // fix for "reset fog does nothing" (it was off because the scene was a travel map).
+      await sc.update({ tokenVision: true });
+      ui.notifications.info(`“${sc.name}” is a normal map again — token vision on, fog of war restored.`);
+    }
+    return render();
+  }
   if (ev.target.closest("[data-travel-route]")) { armTravelRoute(); return; } // §18 T2: draw the route
   if (ev.target.closest("[data-travel-route-clear]")) {
     await deleteTravelRouteDrawings(); // all scenes — clears a stray route even from a battle map

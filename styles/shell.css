@@ -4384,6 +4384,15 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 
 .mc-dmp-travel-hint { color: var(--mc-muted); font-size: 12px; margin: 0; }
 /* §18 T2: pace segmented control — gold outline on the active pace (state, not fill; UI-BIBLE §4.2). */
+/* "This is a travel map" toggle (DM 2026-07-24) — the explicit list that replaces grid-guessing. */
+.mc-dmp-travel-maprow { margin-bottom: 10px; }
+.mc-dmp-travel-maptoggle {
+  width: 100%; min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
+  background: var(--mc-panel); border: 1px dashed var(--mc-edge); color: var(--mc-muted);
+  font-size: 13px; font-weight: 600;
+}
+.mc-dmp-travel-maptoggle.mc-on { border-style: solid; border-color: var(--mc-gold); color: var(--mc-gold); background: var(--mc-panel-2); }
 .mc-dmp-travel-segs { display: flex; gap: 6px; }
 /* Base = a full-width, FIXED-height button (route actions live in a column and must NOT grow
    vertically — that stretched them to fill the flyout, DM 2026-07-18). */
