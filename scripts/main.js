@@ -845,7 +845,12 @@ function setupDisplayAudioListeners() {
   //   • a token's muteListener flag flipping (the deafen toggle),
   //   • the combat POV audio setting changing,
   //   • combat turn/round change and start/end (the active combatant is the listener under POV).
-  const refresh = () => { try { if (isDisplayClient()) canvas?.sounds?.refresh(); } catch (e) { /* best-effort */ } };
+  // `fade` (ms) is forwarded straight to core's AmbientSound#sync, so a volume change RAMPS instead
+  // of snapping. Core's own default is 250ms; deafening a listener uses a gentler 750ms so a player
+  // dropping out doesn't cut sound abruptly (DM 2026-07-24: "avoid sharp cuts… ~750ms to mute
+  // completely" — and the same principle for sound changes generally).
+  const MUTE_FADE_MS = 750;
+  const refresh = (fade) => { try { if (isDisplayClient()) canvas?.sounds?.refresh(fade != null ? { fade } : {}); } catch (e) { /* best-effort */ } };
   const touchesMuteFlag = (changes) => foundry.utils.hasProperty(changes ?? {}, `flags.${MODULE_ID}.muteListener`)
     // an UNLINKED token's flag change arrives inside the ActorDelta, not as a top-level flags path
     || foundry.utils.hasProperty(changes ?? {}, `delta.flags.${MODULE_ID}.muteListener`)
@@ -858,11 +863,11 @@ function setupDisplayAudioListeners() {
   // refresh raycasts every ambient sound against the listeners, so the debounce keeps a busy scene
   // from hitching on movement.
   let moveTimer = null;
-  const refreshOnMove = () => { if (!isDisplayClient()) return; clearTimeout(moveTimer); moveTimer = setTimeout(refresh, 250); };
-  Hooks.on("updateActor", (_a, changes) => { if (isDisplayClient() && touchesMuteFlag(changes)) refresh(); });
+  const refreshOnMove = () => { if (!isDisplayClient()) return; clearTimeout(moveTimer); moveTimer = setTimeout(() => refresh(), 250); };
+  Hooks.on("updateActor", (_a, changes) => { if (isDisplayClient() && touchesMuteFlag(changes)) refresh(MUTE_FADE_MS); });
   Hooks.on("updateToken", (t, changes) => {
     if (!isDisplayClient()) return;
-    if (touchesMuteFlag(changes)) return refresh();
+    if (touchesMuteFlag(changes)) return refresh(MUTE_FADE_MS); // deafen → gentle 750ms fade
     if (("x" in changes || "y" in changes) && isAudioListener(t.actor)) refreshOnMove();
   });
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.combatPovAudio`) refresh(); });
