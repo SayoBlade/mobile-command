@@ -11,6 +11,7 @@ import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerAoO } from "./aoo.js";
 import { setupCalendarSkin } from "./gametime.js";
+import { registerFogMist, refreshFogMist } from "./fog-mist.js";
 import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "./camera-frame.js";
 
 Hooks.once("init", () => {
@@ -722,6 +723,7 @@ Hooks.once("ready", () => {
   registerPartyTeleportActivation(); // party token teleports to a new scene → activate it (TV follows; primary-GM-gated)
   setupCalendarSkin(); // SC Reborn's popup = the table's "Calendar": retitle (tool column hidden in CSS)
   registerAoO(); // opportunity-attack movement watcher (executor-gated inside; see aoo.js)
+  registerFogMist(); // Tier-0 fog-of-war mist on the display (opt-in `fogMist`; see fog-mist.js)
 
   globalThis.MobileCommand = {
     ...api,
@@ -734,6 +736,7 @@ Hooks.once("ready", () => {
     tvManualActive: isTvManualActive,
     tvZoom,                              // zoom the display in/out (factor >1 in, <1 out) — Stream Deck via macro
     tvFitScene,                          // frame the whole scene on the display ("Fit whole scene")
+    refreshFogMist,                      // (display) re-apply/clear Tier-0 fog mist on the setting change
     // What the follow thinks the DM's frame is (§23). Run on the DISPLAY client when the camera
     // misbehaves: it separates "captured the wrong clearance" from "the pan maths is wrong".
     tvFrameInfo: () => ({ scale: tvFrameScale, clearanceFt: tvClearanceFt, measuredFt: canvas?.ready ? measureClearanceFt() : null }),

@@ -2615,7 +2615,7 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-dmp-sound-status.mc-bad { color: var(--mc-ink); border-color: var(--mc-gold); }
 .mc-dmp-sound-status.mc-bad i { color: var(--mc-gold); }        /* needs your attention, not destructive */
 .mc-dmp-sound-status.mc-unknown { color: var(--mc-muted); }
-.mc-dmp-mute, .mc-dmp-earbulk, .mc-dmp-followbulk {
+.mc-dmp-mute, .mc-dmp-earbulk, .mc-dmp-followbulk, .mc-dmp-toggle {
   display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 34px;
   margin-bottom: 12px; padding: 7px 10px; border-radius: calc(8px * var(--mc-round, 1));
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink);
@@ -2623,6 +2623,10 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 }
 .mc-dmp-earbulk, .mc-dmp-followbulk { margin-bottom: 8px; }
 .mc-dmp-mute.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); }
+/* A generic on/off settings toggle (Settings › Display). Lit = on, same two-state read as the
+   mute/ear chips so the panel's toggles are one visual idea. */
+.mc-dmp-toggle.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-dmp-toggle.mc-on i { color: var(--mc-gold); }
 /* Table-display volume sliders (Settings > Sound, DM 2026-07-22). */
 .mc-dmp-vol { margin-bottom: 14px; }
 .mc-dmp-vol-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }

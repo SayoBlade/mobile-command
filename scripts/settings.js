@@ -150,6 +150,19 @@ export function registerSettings() {
     default: false
   });
 
+  // Fog-of-war mist (DESIGN §22.3 #2 Tier 0, DM 2026-07-24). Replaces the display's flat grey
+  // unexplored fog with a static cloudy overlay. Display-client only, generated once, no per-frame
+  // cost. Only shows where there IS fog (a vision-enabled scene). Default off — reversible.
+  game.settings.register(MODULE_ID, "fogMist", {
+    name: "Misty fog of war (table display)",
+    hint: "The shared display's unexplored areas become drifting-looking mist instead of flat grey. Static and essentially free — it only shows on the TV and only on scenes that use token vision / fog of war. Off by default.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    onChange: () => { try { globalThis.MobileCommand?.refreshFogMist?.(); } catch (e) {} }
+  });
+
   game.settings.register(MODULE_ID, "dmOmniscientVision", {
     name: "Keep the DM's vision omniscient (shared-screen tables)",
     hint: "When the DM selects/controls a player's token, don't shrink the DM's view to that token's point of view — the DM keeps seeing the whole map. Players and the TV/display are unaffected. On by default.",

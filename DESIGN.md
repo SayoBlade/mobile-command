@@ -1721,12 +1721,12 @@ ELECTRON_RUN_AS_NODE=1 NODE_OPTIONS=--experimental-vm-modules \
    third: hold the *clearance*, not a margin. See **§23**.
 2. **real-fow replication** (DM likes gitlab.com/sir.sly/real-fow — volumetric drifting fog; it breaks
    on v14, which rewrote fog into a `VisibilityFilter` shader with explored/unexplored colour uniforms
-   plus a native fog **overlay texture**). Two tiers offered, neither started:
-   - **Tier 0 — native overlay texture.** Point the existing fog overlay at a mist texture. Static,
-     essentially free, no per-frame work. Gets ~70% of the look.
+   plus a native fog **overlay texture**).
+   - **Tier 0 — native overlay texture. BUILT 2026-07-24 ("try 0 now"), unverified on the TV.** See
+     **§24**. Default-off `fogMist`; awaiting the DM's "is it enough" before Tier 1 is considered.
    - **Tier 1 — custom shader.** Subclass the visibility filter and drift a noise field. The real
      effect, but a **permanent per-frame GPU cost on every client including the TV**. Per the standing rule, this must be quoted to the DM before any code is written, and should
-     ship behind a default-off setting if it ships at all.
+     ship behind a default-off setting if it ships at all. NOT started — gated on the Tier-0 verdict.
 3. **§18.3 travel questions are still open** (darkness curve per hour; per-scene vs per-journey; the
    phone "suggest destination" ping). Re-ask when the DM next asks what's outstanding.
 
@@ -1859,3 +1859,61 @@ refresh runs after the last of them, with the state settled. It also costs one r
 instead of N+1, which matters — every refresh raycasts each ambient sound against every listener.
 
 Unverified by ear; it needs the display client and the DM's speakers.
+
+---
+
+## 24. Fog-of-war MIST — Tier 0 (DM 2026-07-24 "try 0 now", BUILT, unverified on the TV)
+
+[fog-mist.js](scripts/fog-mist.js). The DM likes real-fow's drifting volumetric fog, which can't run
+on v14. Tier 0 is the cheap ~70%: point Foundry's OWN fog-overlay slot at a cloudy texture so the
+display's **unexplored** fog reads as mist instead of flat grey. No core edit, no filter subclass, no
+per-frame cost — the texture is generated once and the shader already samples an overlay when present.
+
+### 24.1 How it plugs in (verified against installed 14.365 source, not memory)
+
+- `CanvasVisibility#_draw → #drawVisibilityOverlay` reads `canvas.sceneTextures.fogOverlay ??
+  canvas.level?.fog?.src` and, if a texture is there, builds the overlay sprite. So the entire
+  integration is: **set that slot, redraw the visibility group.**
+- The fragment shader (`rendering/filters/visibility.mjs`) mixes it into unexplored fog as
+  `mix(unexploredColor, overlay.rgb * backgroundColor, overlay.a)`. The texture's **alpha is the
+  wisp** (patchy density); its **RGB is the mist colour**, further tinted by the scene's (dark)
+  background. Straight-alpha is authored; PIXI premultiplies on upload and the shader's
+  `unPremultiply` undoes it, so RGB lands intact.
+- Applied at `canvasReady` + `canvas.visibility.draw()`. `draw()` re-reads the slot at draw time and
+  does **not** run `board#loadTextures` (whose texture-cache pass could otherwise drop a
+  directly-assigned `PIXI.Texture`). Its teardown calls `canvas.fog.clear()`, which **saves**
+  exploration first — so explored fog is never lost across the redraw. Both checked in source.
+
+### 24.2 The texture
+
+Procedural, so there is **no binary asset** in the repo and it works on any scene. 512×512 tileable
+value-noise fBm (4 octaves), generated once and reused. Two things were verified off-table because a
+bad texture is the likeliest failure and can't be seen from here (scratch scripts, Foundry's Electron):
+
+- **Seamless.** Each octave's integer lattice wraps at its own period, so column 0 == column 512 and
+  row 0 == row 512 exactly (measured 0.0e+0). Required — the sprite stretches/tiles across a scene
+  that is never a neat multiple of the texture.
+- **The first hash was degenerate and the mist was invisible.** A single-multiply integer hash
+  clustered dark on the coarse octaves' tiny lattices (period 3 → 9 values); measured mean alpha
+  collapsed to ~0.08. Replaced with a `Math.imul` murmur finalizer (mean ~0.5 even on a 3×3
+  lattice). Final texture: **alpha 0.10–0.90, mean 0.47, ~59% of the area above 0.4** — clearly
+  present mist with genuine clear gaps, tuned so it neither hides the map (too heavy) nor reads as
+  nothing (too light), since the DM's whole test is "is it enough".
+
+### 24.3 Scope, control, caveats
+
+- **Display client only.** Only the non-GM TV renders fog at all (a GM sees through everything), so
+  mist can only appear there; generating it off the DM's box keeps it genuinely free for them.
+- **World setting `fogMist`, default off** (Settings → Display in the DM panel, and Foundry's module
+  settings). Reversible: turning it off restores the prior overlay slot and redraws.
+- **Respects a scene's own fog overlay** — if the DM set a fog overlay image on the scene, that wins;
+  mist never clobbers it.
+- **Only shows where there IS fog.** A scene with token vision off (the current test scene, Cave A,
+  has `tokenVision:false`) has no unexplored area, so nothing renders. To see it, the DM needs a
+  **vision-enabled scene with unexplored fog**. This is inherent, not a bug — mist replaces the grey.
+
+### 24.4 Unverified
+
+The actual look on the TV. Everything above is source-checked and the texture is numerically
+verified, but "does it read as mist / is it enough" needs the display client on a fog scene. Tier 1
+stays unbuilt and unquoted-for-code until the DM has seen this.

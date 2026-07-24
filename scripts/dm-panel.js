@@ -193,10 +193,19 @@ function settingsHTML() {
       when you set the frame — your zoom is never changed to fit somebody in. Pets ride along only while they fit;
       drop a scout from this list and the camera stops chasing them for good.</p>`;
 
+  // Display visuals (DM 2026-07-24). Tier-0 fog mist toggle — a world setting the TV reacts to.
+  const mistOn = (() => { try { return !!game.settings.get(MODULE_ID, "fogMist"); } catch (e) { return false; } })();
+  const displayBody = `<button class="mc-dmp-toggle ${mistOn ? "mc-on" : ""}" data-set-toggle="fogMist">
+      <i class="fas ${mistOn ? "fa-cloud" : "fa-cloud-sun"}"></i> ${mistOn ? "Misty Fog On" : "Misty Fog Off"}
+    </button>
+    <p class="mc-dmp-set-note">The table display's unexplored fog reads as drifting mist instead of flat grey. Only shows on
+      the TV, and only on scenes that use token vision / fog of war.</p>`;
+
   return `<div class="mc-dmp-settings">
     ${dtDrawer("setSound", "Sound", "", sliders)}
     ${dtDrawer("setEars", "Who the display hears through", "", earsBody)}
     ${dtDrawer("setFollow", "Who the display follows", "", camBody)}
+    ${dtDrawer("setDisplay", "Display", "", displayBody)}
   </div>`;
 }
 
@@ -3045,6 +3054,12 @@ async function onClick(ev) {
   }
   const mute = ev.target.closest("[data-tv-mute]");
   if (mute) { await game.settings.set(MODULE_ID, "tvMuted", mute.dataset.tvMute === "1"); return render(); }
+  const setToggle = ev.target.closest("[data-set-toggle]");
+  if (setToggle) {
+    const key = setToggle.dataset.setToggle;
+    await game.settings.set(MODULE_ID, key, !game.settings.get(MODULE_ID, key));
+    return render();
+  }
   const bulkEar = ev.target.closest("[data-ears-all]");
   if (bulkEar) {
     const off = bulkEar.dataset.earsAll === "off";
