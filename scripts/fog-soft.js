@@ -32,11 +32,42 @@
 import { MODULE_ID } from "./preset.js";
 import { isDisplayClient } from "./shell.js";
 
-// How much softer than Foundry's default fog blur. 1 = stock; ~4 reads as clearly-feathered
-// atmospheric shadow without vision bleeding far past walls. Tunable — the achievable softness is
-// ultimately capped by the filter's kernel/pass count (fixed at construction from canvas.blur), so
-// past a point a bigger number stops helping and we'd need more passes (more GPU). Start moderate.
-const SOFT_FOG_MULT = 4;
+// How much softer than Foundry's default fog blur. The effective feather is ≈ strength × zoom in
+// SCREEN pixels, so the first build's fixed ×4 was only ~16px on a 1080p TV — invisible. A tuning
+// slider then found ×8 reads right (DM 2026-07-24: "it looks best at 8, you can get rid of the
+// slider"), so it's a constant again.
+const SOFT_FOG_MULT = 8;
+
+// TWO borders, TWO blurs — this is the crux of the DM's "the dark-to-seen border is still very sharp":
+//   • canvas.visibility.filter        softens the EXPLORED / remembered fog (the shader's `r` channel).
+//   • canvas.masks.vision.blurFilter  softens the CURRENT-vision edge (the `v` channel) — the black↔lit
+//     border, which the visibility filter's blur never reaches, so it stayed a hard line.
+// Both are AlphaBlur filters registered in canvas.blurFilters WITHOUT a `_configuredStrength`, so
+// updateBlur() drives both off `canvas.blur.strength × scale`; pinning `_configuredStrength` on each
+// overrides just these two. Blurring the vision mask feathers the live sight edge slightly PAST walls
+// — an aesthetic trade the shared display makes gladly (it never affects a player's own client).
+function softFogFilters() {
+  return [canvas?.visibility?.filter, canvas?.masks?.vision?.blurFilter].filter(f => f && f.blur !== undefined);
+}
+
+// Two independent knobs on the fog's DENSITY, both display-only, both trivially reversible.
+//
+// UNEXPLORED opacity — the black is the shader's `vec4(unexploredColor, 1.0)`. Dropping the whole
+// visibility group's alpha lets a faint trace of the map bleed through ("nearly indistinguishable
+// from black"). 0.95 → ~5% of the map shows. Independent of the blur, so it works on any perf mode;
+// Foundry never sets this alpha itself (checked), so 1.0 is the safe restore.
+const SOFT_FOG_UNEXPLORED_ALPHA = 0.95;
+
+// EXPLORED lightness — the remembered-but-unseen area was "much darker, want it more visible" (DM
+// 2026-07-24). That darkness is NOT a colour: both fog colours default to black (0x000000), and the
+// shader draws explored as black at a HARDCODED 0.5 alpha — a flat 50% dim of the remembered map.
+// The whole-layer alpha can't fix it independently (it keeps explored pinned at half the unexplored
+// value). The purpose-built lever is `canvas.colors.fogExplored`: a lighter grey there lifts the
+// explored overlay toward the actual map. Effects re-applies it from `canvas.colors.fogExplored` each
+// refresh (effects.mjs), so that Color is what we set — not the uniform, which would be overwritten.
+// 0x000000 = stock (darkest); higher = more of the remembered map shows. A blind first cut at ~0.4.
+const SOFT_FOG_EXPLORED_COLOR = 0x666666;
+let priorFogExplored; // the display's stock fogExplored Color, restored on clear
 
 let lastUnsupported = false; // whether the most recent apply found blur disabled (for the status report)
 
@@ -44,35 +75,49 @@ function softFogOn() {
   try { return !!game.settings.get(MODULE_ID, "softFog"); } catch (e) { return false; }
 }
 
-function visibilityFilter() {
-  const f = canvas?.visibility?.filter;
-  return f && f.blur !== undefined ? f : null;
-}
-
 function applySoftFog() {
   if (!isDisplayClient() || !canvas?.ready) return;
-  const filter = visibilityFilter();
-  if (!filter) return;
-  // Blur is a HIGH-performance-mode feature; on Medium or lower the filter has no blur passes and
-  // setting a strength does nothing. Record it so the DM can be told why nothing changed.
+  // Unexplored opacity — independent of the blur, so it applies on any performance mode.
+  try { if (canvas.visibility) canvas.visibility.alpha = SOFT_FOG_UNEXPLORED_ALPHA; } catch (e) { /* best-effort */ }
+  // Explored lightness — set the fogExplored Color (effects re-applies it into the uniform), and also
+  // push it into the uniform now so the change lands this frame rather than on the next refresh.
+  try {
+    const Col = foundry.utils?.Color ?? globalThis.Color;
+    const vis = canvas.visibility?.filter;
+    if (Col && canvas.colors && vis) {
+      if (priorFogExplored === undefined) priorFogExplored = canvas.colors.fogExplored;
+      canvas.colors.fogExplored = Col.from(SOFT_FOG_EXPLORED_COLOR);
+      canvas.colors.fogExplored.applyRGB(vis.uniforms.exploredColor);
+    }
+  } catch (e) { /* best-effort */ }
+  // Edge blur is a HIGH-performance-mode feature; on Medium or lower the filters have no blur passes
+  // and setting a strength does nothing. Record it so the DM can be told why the EDGE didn't soften.
+  const filters = softFogFilters();
   lastUnsupported = !canvas.blur?.enabled;
   if (lastUnsupported) {
-    console.warn(`${MODULE_ID} | soft fog needs Soft Shadows — set the display to High performance mode`);
-    broadcastSoftFogState();
-    return;
+    console.warn(`${MODULE_ID} | soft fog edge needs Soft Shadows — set the display to High performance mode`);
+  } else if (filters.length) {
+    try {
+      const strength = (canvas.blur.strength ?? 10) * SOFT_FOG_MULT; // × scale is applied by updateBlur
+      for (const f of filters) f._configuredStrength = strength;
+      canvas.updateBlur();
+    } catch (e) { console.warn(`${MODULE_ID} | could not apply soft fog edge`, e); }
   }
-  try {
-    filter._configuredStrength = (canvas.blur.strength ?? 10) * SOFT_FOG_MULT; // × scale is applied by updateBlur
-    canvas.updateBlur();
-  } catch (e) { console.warn(`${MODULE_ID} | could not apply soft fog`, e); }
   broadcastSoftFogState();
 }
 
 function clearSoftFog() {
-  const filter = visibilityFilter();
-  if (!filter) return;
+  if (!canvas?.ready) return;
+  try { if (canvas.visibility) canvas.visibility.alpha = 1; } catch (e) { /* best-effort */ }
   try {
-    delete filter._configuredStrength; // fall back to canvas.blur.strength — the stock fog blur
+    if (priorFogExplored !== undefined && canvas.colors) {
+      canvas.colors.fogExplored = priorFogExplored;
+      priorFogExplored.applyRGB?.(canvas.visibility?.filter?.uniforms?.exploredColor);
+      priorFogExplored = undefined;
+    }
+  } catch (e) { /* best-effort */ }
+  try {
+    for (const f of softFogFilters()) delete f._configuredStrength; // fall back to stock blur
     canvas.updateBlur?.();
   } catch (e) { console.warn(`${MODULE_ID} | could not clear soft fog`, e); }
   lastUnsupported = false;

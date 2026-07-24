@@ -107,6 +107,13 @@ kind of thing this is*, the colour says *whose it is* (DM 2026-07-16).
 **The phone wears its player's colour as a 1px outline** around the whole shell — the one place a
 player colour is allowed to bound the app, so a glance tells you whose phone you're holding.
 
+**Any per-creature list is a ROSTER, and every roster looks like Request-rolls** (DM 2026-07-24,
+"make sure both lists look like players lists"). A row is one `(token icon) Name` per §3 — icon in the
+owner's colour, name in ink — never a bare pill of coloured text. This binds the lists that drifted
+into ad-hoc chip styles: *Who the display hears through* and *Who the display follows* are both
+rosters and must render as Request-rolls does, not as coloured chips. A per-row on/off state marks
+per §5 (struck-through + muted for off); it never changes the row's *shape*.
+
 ---
 
 ## 4. Buttons — the hierarchy
@@ -119,6 +126,13 @@ Exactly four levels. Pick by **consequence**, not by how much you want it notice
 | **Secondary** | Panel fill, `1px` edge, ink text | Real but non-committal actions | Edit · Give a task · Rest Short/Long |
 | **Tertiary** | No border, muted text, icon-led | Options that shouldn't compete | Cancel · Reopen choices · drawer chevrons |
 | **Destructive** | Transparent; **red only on hover/active** | Delete/remove | ✕ on a card |
+| **Mini** | A small utility button, icon or one word | Cramped inline tools that *label a row*, not advance a flow | `+ New` / edit (pencil) in an activity row |
+
+**One height, one exception (DM 2026-07-24).** Every panel control — button, dropdown, toggle,
+text/number field — is the **same height** (the DM panel: **31px**; `#mc-dm-panel button, select, input`
+governs it in one place so "set watch tall, start rest short" can't recur). **Mini** buttons are the
+*only* exception, at ~24px — they hug an inline tool (New, edit) and would tower if forced to full
+height. A new control **inherits** the governing height; it never brings its own `min-height`.
 
 **Request buttons** (`Check` · `Save` · `Roll a…`) are a **secondary** pair: they're offered
 constantly and must never shout. Same size, same fill, side by side, equal width. A request button
@@ -327,6 +341,47 @@ the next line (DM 2026-07-16: "they currently have a line break between them").
 Adding/removing an element must not shove everything else. If a layout change is unavoidable,
 **animate it** (the drawer transition is the reference). A silent jump reads as a bug
 (DM 2026-07-16).
+
+### 6.5 The DM panel — a fixed floor and a tab that grows up (DM 2026-07-24)
+
+The DM panel is **one assembly, stacked vertically**, not two side-by-side windows. This supersedes
+the right-side flyout of §6 (2026-07-13): the flyout became a huge layout engine — `flyUp`, a
+three-rect clamp, a shared min-height, duplicated chrome — purely to stop two windows fighting, and
+it grew *right*, into Foundry's sidebar. Vertical is the cheap axis; the fight disappears.
+
+**Two zones, and only one of them ever moves:**
+
+- **The floor** — pinned to the bottom, the DM's home base, **it never reflows**. It carries only what
+  must be glanceable without a click: the **presence bar**, the **camera basics** (Focus · Manual),
+  the **Display-tab shortcut**, the **attention bell / waiting-reaction** signal (§5 — "someone owes
+  a roll" cannot live inside a tab), and the **selected-token strip**. The floor is the primary; the
+  DM reaches for it without looking, so nothing above it may push it.
+- **The workspace** — the tab content, **grows upward** from just above the floor so the floor stays
+  put. It is exactly today's flyout content, moved above the floor (it used to hang off the right).
+  One tab open at a time.
+
+**The tab rail rides the floor's RIGHT edge** (vertical, right-rounded folder-tabs). A horizontal
+strip *between* floor and workspace was tried and rejected — it wasted vertical space (DM 2026-07-24).
+So the stack is workspace-over-floor, and the tabs sit to the side selecting what fills the workspace.
+Tabs are icon-led; tapping the active tab again collapses the workspace (the calendar-button gesture —
+a second tap closes). *(An active-tab label was speced when the rail was horizontal; on a narrow
+vertical rail it doesn't fit cleanly — revisit only if icon-only tabs prove hard to read.)*
+
+**The selected-token strip obeys §6.3 hard.** It is **always present at a fixed height**, showing a
+neutral resting state when nothing is selected — selecting/deselecting a token must never grow or
+shrink the floor (DM 2026-07-24: "you know my feeling on jumpy UIs"). The strip updates silently; it
+does **not** auto-open any tab.
+
+**Auto-open is rare and earns its place** — exactly two, both real context shifts, each firing **once**
+(never re-triggering while the DM is working elsewhere):
+
+| Trigger | Opens |
+|---|---|
+| A combatant is added to combat | **Combat tab** (its pre-start staging: battle-music pick + Start Combat) |
+| The DM switches Manual → Focus | **Display tab** |
+
+Everything else is DM-driven. Badges on tab icons (a count, a `•`) are how a tab *asks* for attention
+without stealing it (§5) — the DM decides whether to look.
 
 ---
 

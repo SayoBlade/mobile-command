@@ -20,8 +20,9 @@ let panelEl = null;
 // Right-side tab dock (DM 2026-07-03, future-proofed for more tools). Icon-only
 // tabs stick out the panel's right edge; a tab opens a same-height flyout box to
 // its right (X or re-click closes). First tool = Rolls.
-let dockTab = null;          // null | "rolls" | "party" | "tokens"
-let dockWasPacked = false;   // auto-open the party tab on pack, close on disperse
+let dockTab = null;          // null | "combat" | "party" | "display" | "rest" | "travel" | "preflight" | "settings"
+let dockWasPacked = false;   // (retired §25 2b) tracked but no longer auto-opens the party tab
+let _prevManual = false;     // last manual-TV state, so only the manual→OFF edge auto-opens Display
 let tokensPlayer = "";       // owned-tokens: which player's tokens are shown
 let dmReactions = [];        // reaction widget: live chips {id, kind:"aoo"|"window", label, weapon, activityUuid?, targetUuid?, expiresAt}
 const rollTool = { type: "save", ability: "dex", selected: null, targetsOpen: false };
@@ -152,11 +153,9 @@ function settingsHTML() {
     ? party.map(t => {
         const off = !!t.actor.getFlag(MODULE_ID, "muteListener");
         const nm = t.document.name;
-        return `<button class="mc-dmp-ear ${off ? "mc-off" : ""}" data-sound-mute="${t.id}"
-          title="${off ? `${esc(nm)} is ignored — the display never hears through them` : `${esc(nm)} is listening — tap to ignore them`}">
-          <i class="fas ${off ? "fa-ear-deaf" : "fa-ear-listen"}"></i>
-          <span class="mc-dmp-ear-name">${esc(nm)}</span>
-        </button>`;
+        return rosterToggleRow({ id: t.id, data: "data-sound-mute", actor: t.actor, name: nm, off,
+          onIcon: "fa-ear-listen", offIcon: "fa-ear-deaf",
+          title: off ? `${esc(nm)} is ignored — tap to listen through them again` : `${esc(nm)} is listening — tap to ignore them` });
       }).join("")
     : `<div class="mc-dmp-empty">No party tokens on this scene.</div>`;
   const anyOn = party.some(t => !t.actor.getFlag(MODULE_ID, "muteListener"));
@@ -164,39 +163,43 @@ function settingsHTML() {
     ? `<button class="mc-dmp-earbulk" data-ears-all="${anyOn ? "off" : "on"}">
         <i class="fas ${anyOn ? "fa-ear-deaf" : "fa-ear-listen"}"></i> ${anyOn ? "Ignore everyone" : "Listen through everyone"}
       </button>` : "";
-  const earsBody = `<div class="mc-dmp-ears">${ears}</div>${bulk}
+  const earsBody = `<div class="mc-dmp-roster">${ears}</div>${bulk}
     <p class="mc-dmp-set-note">The nearest listening token sets a sound's volume — it is <b>not</b> averaged across the
       party. Ignore a scout or a familiar so wandering off doesn't drag the room's audio with them.</p>`;
 
-  // Who the camera follows (DM 2026-07-24). The follow holds the DM's frame and PANS to keep the
-  // closest followed token the same distance from the edge — so anyone left in this list is
-  // something the camera will chase. Dropping a token here is how you stop a scout dragging the TV.
-  // The flag is written on the TOKEN document, not the actor: two summons off one base actor share
-  // an actor id, so an actor flag would toggle both (§22.1).
+  // Follow list + soft fog moved to the DISPLAY tab (§25 2b) — Settings keeps only the audio.
+  return `<div class="mc-dmp-settings">
+    ${dtDrawer("setSound", "Sound", "", sliders)}
+    ${dtDrawer("setEars", "Who the display hears through", "", earsBody)}
+  </div>`;
+}
+
+// --- Display tab (§25 2b, DM 2026-07-24): everything about the TV's look in one place — the camera
+// controls that don't live on the floor (Fit + zoom), who the camera follows, and the fog. Focus +
+// Manual stay on the floor (reflexive); this is the configuration.
+function followListBody() {
+  const esc = foundry.utils.escapeHTML;
   const cam = cameraFollowTokens();
   const eyes = cam.length
     ? cam.map(t => {
         const off = !!t.document.getFlag(MODULE_ID, "noFollow");
         const nm = t.document.name;
-        return `<button class="mc-dmp-follow ${off ? "mc-off" : ""}" data-cam-follow="${t.id}"
-          title="${off ? `The display ignores ${esc(nm)} — tap to follow them again` : `The display follows ${esc(nm)} — tap to ignore them`}">
-          <i class="fas ${off ? "fa-video-slash" : "fa-video"}"></i>
-          <span class="mc-dmp-follow-name">${esc(nm)}</span>
-        </button>`;
+        return rosterToggleRow({ id: t.id, data: "data-cam-follow", actor: t.actor, name: nm, off,
+          onIcon: "fa-video", offIcon: "fa-video-slash",
+          title: off ? `The display ignores ${esc(nm)} — tap to follow them again` : `The display follows ${esc(nm)} — tap to ignore them` });
       }).join("")
     : `<div class="mc-dmp-empty">No party tokens on this scene.</div>`;
   const anyOff = cam.some(t => t.document.getFlag(MODULE_ID, "noFollow"));
   const camBulk = anyOff
     ? `<button class="mc-dmp-followbulk" data-follow-all><i class="fas fa-video"></i> Follow Everyone</button>` : "";
-  const camBody = `<div class="mc-dmp-follows">${eyes}</div>${camBulk}
+  return `<div class="mc-dmp-roster">${eyes}</div>${camBulk}
     <p class="mc-dmp-set-note">The display keeps the <b>closest</b> of these the same distance from the screen edge as
       when you set the frame — your zoom is never changed to fit somebody in. Pets ride along only while they fit;
       drop a scout from this list and the camera stops chasing them for good.</p>`;
+}
 
-  // Display visuals (DM 2026-07-24). Tier-0 soft fog-edge toggle — a world setting the TV reacts to.
+function softFogBody() {
   const softOn = (() => { try { return !!game.settings.get(MODULE_ID, "softFog"); } catch (e) { return false; } })();
-  // The display reports whether it could actually apply it — needs High performance mode. Without
-  // this the DM couldn't tell "working" from "TV isn't on High" (the invisible-failure trap).
   const sf = tvSoftFogState;
   const sfStale = !sf || (Date.now() - sf.at) > 45000;
   const sfStatus = !softOn ? ""
@@ -205,17 +208,55 @@ function settingsHTML() {
       : sf.supported
         ? `<div class="mc-dmp-sound-status mc-ok"><i class="fas fa-circle-check"></i> Soft edges are live on the display.</div>`
         : `<div class="mc-dmp-sound-status mc-bad"><i class="fas fa-gauge-high"></i> The display isn't on High performance mode — soft shadows are off, so nothing changes. Set the TV to High (Configure Settings).</div>`;
-  const displayBody = `<button class="mc-dmp-toggle ${softOn ? "mc-on" : ""}" data-set-toggle="softFog">
+  return `<button class="mc-dmp-toggle ${softOn ? "mc-on" : ""}" data-set-toggle="softFog">
       <i class="fas fa-cloud"></i> ${softOn ? "Soft Fog On" : "Soft Fog Off"}
     </button>${sfStatus}
-    <p class="mc-dmp-set-note">The table display's fog stays black, but its edge feathers into soft shadow instead of a hard line.
-      Only affects the TV. Needs the TV on High performance mode.</p>`;
+    <p class="mc-dmp-set-note">The table display's fog stays black, but both its edges — remembered and currently-seen — feather
+      into soft shadow instead of a hard line. Only affects the TV. Needs the TV on High performance mode.</p>`;
+}
 
+function displayTabHTML() {
+  const camControls = `<div class="mc-dmp-cam">
+    <button class="mc-dmp-cam-btn" data-cam="fit" title="Fit the whole scene on the display" aria-label="Fit whole scene"><i class="fas fa-expand"></i></button>
+    <button class="mc-dmp-cam-btn" data-cam="zoom-out" title="Zoom the display out" aria-label="Zoom display out"><i class="fas fa-magnifying-glass-minus"></i></button>
+    <button class="mc-dmp-cam-btn" data-cam="zoom-in" title="Zoom the display in" aria-label="Zoom display in"><i class="fas fa-magnifying-glass-plus"></i></button>
+  </div>`;
   return `<div class="mc-dmp-settings">
-    ${dtDrawer("setSound", "Sound", "", sliders)}
-    ${dtDrawer("setEars", "Who the display hears through", "", earsBody)}
-    ${dtDrawer("setFollow", "Who the display follows", "", camBody)}
-    ${dtDrawer("setDisplay", "Display", "", displayBody)}
+    ${dtDrawer("dispCam", "Zoom & fit", "", camControls)}
+    ${dtDrawer("dispFollow", "Who the display follows", "", followListBody())}
+    ${dtDrawer("dispFog", "Fog", "", softFogBody())}
+  </div>`;
+}
+
+// --- Combat tab (§25 2b): request rolls / targeting + the encounter controls + pending casts.
+function combatTabHTML() {
+  const pending = listPendingCasts();
+  return `<div class="mc-dmp-col">`
+    + rollsToolHTML()
+    + combatHTML()
+    + splitPartyHTML()
+    + (pending.length ? pendingHTML(pending) : "")
+    + `</div>`;
+}
+
+// --- Party tab (§25 2b): the roster grid + marching order (while packed) + Form Up pinned at the foot.
+function partyTabFull() {
+  const marching = packedGroup() ? partyTabHTML() : "";
+  return `<div class="mc-dmp-col">`
+    + ownedTokensHTML()
+    + marching
+    + `<div class="mc-dmp-foot">` + partyMainHTML() + `</div>`
+    + `</div>`;
+}
+
+// --- Floor camera strip (§25 2b): only the reflexive controls — Focus, Manual, and a shortcut into
+// the Display tab for the rest (Fit/zoom/follow/fog).
+function cameraFloorHTML() {
+  const manualOn = globalThis.MobileCommand?.tvManualActive?.() ? "mc-active" : "";
+  return `<div class="mc-dmp-cam">
+    <button class="mc-dmp-cam-btn" data-cam="focus" title="Focus the display on the party (P)" aria-label="Focus on party"><i class="fas fa-bullseye"></i></button>
+    <button class="mc-dmp-cam-btn ${manualOn}" data-cam="manual" title="Manual TV control: your pan/zoom drives the display (M)" aria-label="Manual TV control"><i class="fas fa-arrows-up-down-left-right"></i></button>
+    <button class="mc-dmp-cam-btn ${dockTab === "display" ? "mc-active" : ""}" data-dock="display" title="Display controls — fit, zoom, follow, fog" aria-label="Display controls"><i class="fas fa-sliders"></i></button>
   </div>`;
 }
 
@@ -236,11 +277,13 @@ function cameraFollowTokens() {
 
 function tabRailHTML() {
   const tab = (id, icon, title, show = true, badge = 0) => show ? `<button class="mc-dmp-tab ${dockTab === id ? "mc-on" : ""}" data-dock="${id}" title="${title}" aria-label="${title}"><i class="fas ${icon}"></i>${badge ? `<span class="mc-dmp-tab-badge">${badge}</span>` : ""}</button>` : "";
-  // When a flyout is open the rail rides its right edge (mc-open); else the panel's.
+  // §25 2b tab set. Combat absorbs the old Rolls; Party absorbs the old Players + marching order; the
+  // new Display tab carries the camera config that left the floor.
+  const combatBadge = (game.user.targets?.size ?? 0) || (game.combat?.started ? "•" : 0);
   return `<div class="mc-dmp-tabrail ${dockTab ? "mc-open" : ""}">
-    ${tab("party", "fa-border-all", "Party order", !!packedGroup())}
-    ${tab("rolls", "fa-dice-d20", "Request rolls", true, (game.user.targets?.size ?? 0) || 0)}
-    ${tab("tokens", "fa-users", "Players")}
+    ${tab("combat", "fa-dice-d20", "Combat — rolls, targeting, the encounter", true, combatBadge)}
+    ${tab("party", "fa-users", "Party — roster, form up, marching order")}
+    ${tab("display", "fa-tv", "Display — fit, zoom, follow, fog")}
     ${tab("rest", "fa-campground", "Rest", true, (isResting() || downtimeOpen()) ? "•" : 0)}
     ${tab("travel", "fa-route", "Travel")}
     ${tab("preflight", "fa-clipboard-check", "System health", true, preflightFailCount())}
@@ -258,18 +301,16 @@ let dtRuleVisible = false; // whether Activate will show the Rule to the player 
 let dtRuleNote = ""; // the template's DM-only note being authored
 let dtNewTmplOpen = false; // the catalog "+ New activity" name field is open
 let dtGiveFor = null; // actorId whose "give a task" template picker is open
-// §19 Rest: the pre-start setup draft (DM-local — nothing persists until Start Rest). The rest TYPE
-// is one of short / long / downtime (DM 2026-07-17: "Short and Long sound like the rests they are;
-// Downtime is its own thing"). Short → short rest; Long & Downtime → long rest; Downtime also runs
-// the activity phase. Watches is an independent add-on. Defaults to a long rest with watches.
-let restDraft = { type: "long", watches: true };
-// Watches per rest type (DM 2026-07-17): a short rest is ONE watch; a long rest up to three;
-// downtime is a safe hub — no watches at all.
+// §19.3 Rest: length + two INDEPENDENT phase toggles (DM 2026-07-25 — restoring the spec). The
+// 2026-07-17 build made Short/Long/Downtime three mutually-exclusive TYPES, which trapped activities
+// inside a "Downtime" type and contradicted §19.4.5 ("Downtime is available on a short rest"). A rest
+// is now a SIZE (short/long) with optional Downtime (activities) and/or Watches phases — either, both
+// or neither; Downtime runs BEFORE watches. Neither ticked ⇒ a plain dnd5e rest. DM-local until Start.
+let restDraft = { size: "long", downtime: false, watches: true };
+// A short rest is ONE watch; a long rest up to three (existence driven by assignment).
 function watchCount(size) { return size === "short" ? 1 : 3; }
 function restPlan(d) {
-  const size = d.type === "short" ? "short" : "long";
-  const downtime = d.type === "downtime";
-  return { size, downtime, watches: downtime ? false : !!d.watches }; // DT never stands watch
+  return { size: d.size === "short" ? "short" : "long", downtime: !!d.downtime, watches: !!d.watches };
 }
 function downtimeState() { try { return DT.normalizeState(game.settings.get(MODULE_ID, "downtimeState")); } catch (e) { return DT.normalizeState({}); } }
 function downtimeOpen() { return !!downtimeState().window?.open; }
@@ -307,7 +348,7 @@ function dtDrawer(key, title, headerExtra, body) {
   </div>`;
 }
 function catalogNewBtn() {
-  return `<button class="mc-dt-newbtn ${dtNewTmplOpen ? "mc-on" : ""}" data-dt-tmpl-new><i class="fas fa-plus"></i> New</button>`;
+  return `<button class="mc-dt-newbtn mc-dmp-mini ${dtNewTmplOpen ? "mc-on" : ""}" data-dt-tmpl-new><i class="fas fa-plus"></i> New</button>`;
 }
 // The DM-authored catalog: named activities + rules + DM-only notes. Players pick from these.
 function catalogHTML(st) {
@@ -1286,40 +1327,34 @@ function travelHTML() {
 
 function flyoutHTML() {
   let title = "", body = "";
-  if (dockTab === "rolls") { title = "Request rolls"; body = rollsToolHTML(); }
+  if (dockTab === "combat") { title = "Combat"; body = combatTabHTML(); }
+  else if (dockTab === "display") { title = "Display"; body = displayTabHTML(); }
   else if (dockTab === "travel") { title = "Travel"; body = travelHTML(); }
-  else if (dockTab === "tokens") { title = "Players"; body = ownedTokensHTML(); }
   else if (dockTab === "rest") { title = "Rest"; body = restHTML(); }
   else if (dockTab === "preflight") { title = "System health"; body = preflightHTML(); }
   else if (dockTab === "settings") { title = "Settings"; body = settingsHTML(); }
   else if (dockTab === "party") {
     const g = packedGroup();
     const f = g?.getFlag(MODULE_ID, "formation") ?? {};
-    const arr = ["↑", "→", "↓", "←", "↖", "↗", "↘", "↙"]; // display only
-    title = `${(f.stage ?? "arrange") === "arrange" ? "Marching order" : "Traveling"} <i class="fas fa-arrow-up" style="display:inline-block;transform:rotate(${(f.forward ?? 0) * 45}deg)"></i>`;
-    body = partyTabHTML();
+    // While packed the title shows the marching heading; otherwise it's just the roster.
+    title = g ? `Party <i class="fas fa-arrow-up" style="display:inline-block;transform:rotate(${(f.forward ?? 0) * 45}deg)"></i>` : "Party";
+    body = partyTabFull();
   }
-  // BOTH edges drag (DM 2026-07-17). Each grabber knows which edge it is: the bottom one grows the
-  // box downward, the top one moves the box up and grows it — so the far edge stays put, which is
-  // what makes a resize feel like a resize rather than a jump.
-  const grabTop = `<div class="mc-dmp-fly-resize mc-fly-grab-top" data-fly-resize="top" title="Drag to resize"><i class="fas fa-grip-lines"></i></div>`;
-  const grabBot = `<div class="mc-dmp-fly-resize mc-fly-grab-bot" data-fly-resize="bottom" title="Drag to resize"><i class="fas fa-grip-lines"></i></div>`;
-  const head = `<div class="mc-dmp-fly-head" title="Drag to move"><span>${title}</span><button class="mc-dmp-fly-x" data-dock-close aria-label="Close">✕</button></div>`;
-  // No inline min-height: the floor is CSS `min-height:100%` = the main window's height, so the
-  // second screen can never be dragged shorter than the primary (DM 2026-07-17). An inline
-  // min-height here is what defeated that — it always beat the stylesheet.
-  const h = Math.max(flyMaxH, flyMinH());
-  // top is explicit so BOTH edges can be dragged; it only falls back to the flyUp default when the
-  // DM hasn't positioned it himself.
-  // Default: the two windows start at the SAME top, so their titles line up (DM 2026-07-17). The
-  // old default (flyUp ? panelH - h : 0) hung the flyout above the panel whenever it was taller —
-  // 39px above, here — which is exactly why the titles didn't agree. If the flyout runs off the
-  // bottom, clampPos shifts the panel; that's its job, and it beats starting misaligned.
-  const top = Math.round(flyTop ?? 0);
-  return `<div class="mc-dmp-flyout mc-fly-${dockTab}" style="top:${top}px;bottom:auto;height:${h}px">
+  // §6.5 (2026-07-24): the workspace grows UP from the seam, its lower edge pinned there, so only the
+  // TOP edge resizes (drag up = taller). One grabber, at the top; the old two-edge / match-the-
+  // primary-height machinery went with the right-side flyout. The `bottom` anchor lives in CSS.
+  const grabTop = `<div class="mc-dmp-fly-resize mc-fly-grab-top" data-fly-resize="top" title="Drag to resize · double-click to fit"><i class="fas fa-grip-lines"></i></div>`;
+  // No X — closing is tapping the active tab again (DM 2026-07-24). The header is title + drag only.
+  const head = `<div class="mc-dmp-fly-head" title="Drag to move"><span>${title}</span></div>`;
+  // Content-fit by DEFAULT — open at the size that shows everything with no inner scroll (DM
+  // 2026-07-24: "I don't see why secondary starts minimized… to the minimal size without a scroll").
+  // flyMaxH is null until the DM drags the grabber to CAP the height (then the body scrolls); a
+  // double-click on the grabber clears that cap back to content-fit. CSS max-height still guards the
+  // viewport, so a genuinely huge tab scrolls rather than running off-screen.
+  const style = flyMaxH != null ? ` style="height:${Math.max(flyMaxH, WORKSPACE_MIN_H)}px"` : "";
+  return `<div class="mc-dmp-flyout mc-fly-${dockTab}"${style}>
     ${grabTop}${head}
     <div class="mc-dmp-fly-body">${body}</div>
-    ${grabBot}
   </div>`;
 }
 
@@ -1397,7 +1432,40 @@ function flyMinH() {
   const h = Math.round(panelEl?.getBoundingClientRect().height ?? 0);
   return Math.min(Math.max(h || FLY_MIN_FALLBACK, FLY_MIN_FALLBACK), window.innerHeight - 24);
 }
-let flyMaxH = (() => { try { return parseInt(window.localStorage.getItem(FLY_KEY), 10) || 360; } catch (e) { return 360; } })();
+// The workspace opens MINIMIZED by default (DM 2026-07-24: content-fit is a "few-seconds peek, then
+// want minimized again"). flyMaxH: a number = that height (body scrolls past it); null = content-fit
+// (show everything, no scroll — the double-click "peek"). Persisted as a number or the string "fit".
+const MINIMIZED_H = 160;      // the resting/default workspace height
+const WORKSPACE_MIN_H = 120;  // the smallest the DM can DRAG it to
+const WIDGET_MAX_FRAC = 0.95; // the WHOLE widget (floor + workspace) never exceeds this × window height
+let flyMaxH = (() => {
+  try {
+    const v = window.localStorage.getItem(FLY_KEY);
+    if (v === "fit") return null;
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) ? n : MINIMIZED_H;
+  } catch (e) { return MINIMIZED_H; }
+})();
+// The height a double-click reverts to: whatever the workspace was BEFORE the DC expanded it to fit
+// (DM 2026-07-24). Cleared by a drag, so the next DC remembers the freshly-dragged height.
+let flyPrevH = null;
+
+// Cap the workspace so the WHOLE widget stays within the window — this is what stops the DC loop
+// (DM 2026-07-24: "entire widget height can not be >95% of browser screen height"). The workspace
+// grows UP from the floor, so its ceiling is the SMALLER of: the room above the floor (never pass the
+// viewport top), and 95% of the window minus the floor's own height. Applied as an inline max-height
+// after each render, so a fit-to-content workspace scrolls instead of shoving the panel off-screen.
+function applyWorkspaceBounds() {
+  const fly = panelEl?.querySelector(".mc-dmp-flyout");
+  if (!fly) return;
+  const r = panelEl.getBoundingClientRect();
+  if (!r.height) return;
+  const roomAbove = r.top - 8;                                       // viewport top → floor top
+  const cap95 = WIDGET_MAX_FRAC * window.innerHeight - r.height;     // 95% of window, minus the floor
+  const maxH = Math.max(WORKSPACE_MIN_H, Math.min(roomAbove, cap95));
+  fly.style.maxHeight = `${Math.round(maxH)}px`;
+  if (flyMaxH != null && flyMaxH > maxH) fly.style.height = `${Math.round(maxH)}px`;
+}
 let flyUp = false; // default anchor: grow from the panel's bottom when the panel sits low
 // The flyout's own top offset, in px from the panel's padding box. null = derive from flyUp.
 // Needed because a box anchored at top:0 can only ever grow DOWNWARD: to drag the TOP edge up we
@@ -1473,44 +1541,21 @@ function startFlyResize(ev) {
   ev.preventDefault(); ev.stopPropagation();
   const fly = panelEl?.querySelector(".mc-dmp-flyout");
   if (!fly) return;
-  const edge = ev.target.closest("[data-fly-resize]")?.dataset.flyResize === "top" ? "top" : "bottom";
+  // §6.5: the workspace is bottom-anchored (its lower edge pinned to the seam by CSS), so a resize is
+  // just its HEIGHT — dragging the top grabber UP (dy < 0) grows it. No more top-offset bookkeeping.
   const startY = ev.clientY;
-  const r = fly.getBoundingClientRect();
-  const pr = panelEl.getBoundingClientRect();
-  const startH = r.height;
-  const startTop = r.top - pr.top;       // the flyout's offset inside the panel
-  const floor = flyMinH();               // the primary's height — measured once; can't move mid-drag
-  const ceiling = window.innerHeight - 24;
-  const SNAP = 10; // px — snap the dragged edge to the primary window's matching edge when close
+  const startH = fly.getBoundingClientRect().height;
+  const ceiling = window.innerHeight - 80;
   const move = (e) => {
-    const dy = e.clientY - startY;
-    if (edge === "bottom") {
-      // drag down = taller; the top edge stays where it is
-      let h = Math.round(Math.max(floor, Math.min(ceiling, startH + dy)));
-      const top = Math.round(startTop);
-      // snap the BOTTOM edge to the primary's bottom (top + h ≈ floor)
-      if (Math.abs((top + h) - floor) <= SNAP) h = Math.max(floor, floor - top);
-      flyMaxH = h; flyTop = top;
-    } else {
-      // drag up = taller, growing UPWARD: the BOTTOM edge stays put, so top and height move together
-      let h = Math.round(Math.max(floor, Math.min(ceiling, startH - dy)));
-      let top = Math.round(startTop + (startH - h));
-      // snap the TOP edge to the primary's top (0), keeping the bottom put
-      if (Math.abs(top) <= SNAP) { const bottom = startTop + startH; top = 0; h = Math.max(floor, bottom - top); }
-      flyMaxH = h; flyTop = top;
-    }
+    flyMaxH = Math.round(Math.max(WORKSPACE_MIN_H, Math.min(ceiling, startH - (e.clientY - startY))));
     fly.style.height = `${flyMaxH}px`;
-    fly.style.top = `${flyTop}px`;
-    fly.style.bottom = "auto";
   };
   const up = () => {
     document.removeEventListener("pointermove", move);
     document.removeEventListener("pointerup", up);
-    try {
-      window.localStorage.setItem(FLY_KEY, String(flyMaxH));
-      window.localStorage.setItem(FLY_TOP_KEY, String(flyTop));
-    } catch (e) { /* ignore */ }
-    clampPos(panelEl);
+    flyPrevH = null; // a fresh drag replaces any "revert to" height (DM 2026-07-24)
+    try { window.localStorage.setItem(FLY_KEY, String(flyMaxH)); } catch (e) { /* ignore */ }
+    applyWorkspaceBounds(); clampPos(panelEl);
   };
   document.addEventListener("pointermove", move);
   document.addEventListener("pointerup", up);
@@ -1541,19 +1586,8 @@ function onPointerDown(ev) {
   document.addEventListener("pointerup", up);
 }
 
-/** Always-on camera bar: focus the table display on the party + a manual-drive
- * toggle (the DM's pan/zoom mirrors to the display). Both also have keybindings
- * (P / M) for a Stream Deck. The manual button lights up while active. */
-function cameraBarHTML() {
-  const manualOn = globalThis.MobileCommand?.tvManualActive?.() ? "mc-active" : "";
-  return `<div class="mc-dmp-cam">
-    <button class="mc-dmp-cam-btn" data-cam="focus" title="Focus the display on the party (P)" aria-label="Focus on party"><i class="fas fa-bullseye"></i></button>
-    <button class="mc-dmp-cam-btn ${manualOn}" data-cam="manual" title="Manual TV control: your pan/zoom drives the display (M)" aria-label="Manual TV control"><i class="fas fa-arrows-up-down-left-right"></i></button>
-    <button class="mc-dmp-cam-btn" data-cam="fit" title="Fit the whole scene on the display" aria-label="Fit whole scene"><i class="fas fa-expand"></i></button>
-    <button class="mc-dmp-cam-btn" data-cam="zoom-out" title="Zoom the display out" aria-label="Zoom display out"><i class="fas fa-magnifying-glass-minus"></i></button>
-    <button class="mc-dmp-cam-btn" data-cam="zoom-in" title="Zoom the display in" aria-label="Zoom display in"><i class="fas fa-magnifying-glass-plus"></i></button>
-  </div>`;
-}
+/* (cameraBarHTML retired 2026-07-24 §25 2b — split into cameraFloorHTML on the floor and the Zoom &
+ *  fit controls in displayTabHTML.) */
 
 /** Top status row: a per-player presence light — green = present (on the active scene OR a canvasless
  *  phone), amber = a desktop client viewing a DIFFERENT scene, gray = offline. */
@@ -1576,6 +1610,22 @@ function ownerUser(actor) {
       ?? game.users.find(u => !u.isGM && actor?.testUserPermission?.(u, "OWNER")) ?? null;
 }
 function ownerColor(actor) { return ownerUser(actor)?.color?.css ?? null; }
+
+// A per-creature toggle ROW that matches the Combat list exactly (UI-BIBLE §3, DM 2026-07-25): the
+// same `.mc-dmp-rt-item/row/main` shell, an owner-coloured `fa-circle-user`, an ink name, and a
+// trailing state icon. `off` strikes it through and mutes it (§5) without changing the row's shape.
+// Used by the two "who" lists (hears-through, follows) so they read like the roster, not chips.
+function rosterToggleRow({ id, data, actor, name, off, onIcon, offIcon, title }) {
+  const esc = foundry.utils.escapeHTML;
+  const col = off ? "var(--mc-muted)" : (ownerColor(actor) ?? "#c8a44d");
+  return `<div class="mc-dmp-rt-item"><div class="mc-dmp-rt-row${off ? " mc-off" : ""}">
+    <button class="mc-dmp-rt-main" ${data}="${id}" title="${title}">
+      <i class="fas fa-circle-user mc-rt-usericon" style="color:${col}"></i>
+      <span class="mc-rt-name">${esc(name)}</span>
+      <i class="fas ${off ? offIcon : onIcon} mc-dmp-rt-state"></i>
+    </button>
+  </div></div>`;
+}
 // Per-PC target assignment shown inline in the rolls tab (DM 2026-07-17): actorId -> [{uuid, name}].
 // DM-local; the actual send goes to the player's phone via api.assignTargets.
 let rollAssign = {};
@@ -1655,15 +1705,18 @@ function statusHTML() {
     // "who's online", so the user's name is what matters, not which PC they're playing.
     return `<span class="mc-dmp-pres ${cls}" title="${esc(u.name)} — ${state}"><i class="fas fa-circle"></i> ${esc(u.name)}</span>`;
   }).join("") || `<span class="mc-dmp-pres mc-off">No players</span>`;
-  // Clock chip: the world time, read through the SC-optional adapter. Tap to set the campaign's
-  // start time-of-day (our own clock only — when SC drives, it's read-only and shows a lock).
-  const night = isNight();
+  // Clock chip: our own clock, ONLY when Simple Calendar isn't running. When SC is present it owns
+  // time-of-day and shows its own calendar, so the panel's clock is pure duplication — drop it
+  // entirely rather than show a locked read-only copy (DM 2026-07-24: "SC handles the time passing…
+  // there's just no need for it"). Without SC the panel is the only clock, so it stays — tappable to
+  // set the game time, with ±10-minute nudges.
   const sc = hasSimpleCalendar();
-  const clock = `<div class="mc-dmp-clockgroup">
-    ${sc ? "" : `<button class="mc-dmp-clock-step" data-dm-clock-nudge="-600" title="10 minutes earlier"><i class="fas fa-minus"></i></button>`}
-    <button class="mc-dmp-clock ${night ? "mc-night" : ""}" data-dm-clock title="${sc ? "Simple Calendar is keeping time" : "Tap to set the game time"}">
-      <i class="fas fa-${night ? "moon" : "sun"}"></i> ${esc(clockLabel())}${sc ? ` <i class="fas fa-lock mc-dmp-clock-sc"></i>` : ""}</button>
-    ${sc ? "" : `<button class="mc-dmp-clock-step" data-dm-clock-nudge="600" title="10 minutes later"><i class="fas fa-plus"></i></button>`}
+  const night = isNight();
+  const clock = sc ? "" : `<div class="mc-dmp-clockgroup">
+    <button class="mc-dmp-clock-step" data-dm-clock-nudge="-600" title="10 minutes earlier"><i class="fas fa-minus"></i></button>
+    <button class="mc-dmp-clock ${night ? "mc-night" : ""}" data-dm-clock title="Tap to set the game time">
+      <i class="fas fa-${night ? "moon" : "sun"}"></i> ${esc(clockLabel())}</button>
+    <button class="mc-dmp-clock-step" data-dm-clock-nudge="600" title="10 minutes later"><i class="fas fa-plus"></i></button>
   </div>`;
   return `<div class="mc-dmp-status">${clock}<div class="mc-dmp-pres-row">${chips}</div></div>`;
 }
@@ -2001,19 +2054,19 @@ function isResting() { return !!restState(); }
 function restSetupCard(group) {
   const canRest = nightMembers(group).length > 0;
   const d = restDraft, plan = restPlan(d);
-  const seg = (val, label) => `<button class="mc-rest-seg ${d.type === val ? "mc-on" : ""}" data-rest-type="${val}">${label}</button>`;
+  const seg = (val, label) => `<button class="mc-rest-seg ${d.size === val ? "mc-on" : ""}" data-rest-size="${val}">${label}</button>`;
   const restWord = plan.size === "long" ? "long rest" : "short rest";
-  const canWatch = !plan.downtime;
-  const lead = plan.downtime ? "Downtime"
-    : plan.watches ? (plan.size === "short" ? "One watch" : "Watches")
-    : "";
-  const hint = lead ? `${lead}, then a ${restWord}.` : `A ${restWord}, applied right away.`;
-  // Downtime has no watches (a safe hub) — the toggle is disabled and reads why.
-  const watchBtn = `<button class="mc-rest-chk mc-rest-watchtoggle ${plan.watches ? "mc-on" : ""}" data-rest-watches ${canWatch ? "" : "disabled"} title="${canWatch ? "" : "Downtime is a safe hub — no watches"}">
-      <i class="fas ${plan.watches ? "fa-square-check" : "fa-square"}"></i> <i class="fas fa-moon"></i> ${canWatch ? (plan.size === "short" ? "One watch" : "Set watches") : "No watches"}</button>`;
+  // Two INDEPENDENT phase toggles (§19.3). Activities (downtime) run BEFORE watches; both optional.
+  const dtBtn = `<button class="mc-rest-chk ${plan.downtime ? "mc-on" : ""}" data-rest-downtime title="Run downtime activities before the rest">
+      <i class="fas ${plan.downtime ? "fa-square-check" : "fa-square"}"></i> <i class="fas fa-mug-hot"></i> Activities</button>`;
+  const watchBtn = `<button class="mc-rest-chk mc-rest-watchtoggle ${plan.watches ? "mc-on" : ""}" data-rest-watches title="Stand watches during the rest">
+      <i class="fas ${plan.watches ? "fa-square-check" : "fa-square"}"></i> <i class="fas fa-moon"></i> ${plan.size === "short" ? "One watch" : "Watches"}</button>`;
+  const phases = [plan.downtime ? "Activities" : null, plan.watches ? (plan.size === "short" ? "one watch" : "watches") : null].filter(Boolean);
+  let hint = phases.length ? `${phases.join(", then ")}, then a ${restWord}.` : `A ${restWord}, applied right away.`;
+  hint = hint.charAt(0).toUpperCase() + hint.slice(1);
   return `<div class="mc-rest-setup">
-    <div class="mc-rest-segs mc-rest-types">${seg("short", "Short")}${seg("long", "Long")}${seg("downtime", "Downtime")}</div>
-    ${watchBtn}
+    <div class="mc-rest-segs mc-rest-types">${seg("short", "Short")}${seg("long", "Long")}</div>
+    <div class="mc-rest-phases">${dtBtn}${watchBtn}</div>
     <button class="mc-dmp-party-deploy mc-rest-go" data-rest-start ${canRest ? "" : "disabled"}><i class="fas fa-campground"></i> Start Rest</button>
     <p class="mc-rest-hint">${canRest ? hint : "No party group with members — set one up first."}</p>
   </div>`;
@@ -2616,33 +2669,20 @@ function render() {
   const ae = document.activeElement;
   if (ae && el.contains(ae) && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA") && /^(text|number|search|textarea|)$/.test(ae.type || "textarea")
       && (ae.closest(".mc-dt-addform") || ae.closest(".mc-dt-tmplform") || ae.closest(".mc-rf"))) return;
-  const targets = Array.from(game.user.targets ?? []);
-  const pending = listPendingCasts();
-  // The camera bar is always present (the DM needs TV control out of combat, with
-  // no targets); targeting/cast sections grow the panel when relevant.
-  // IDENTICAL to the flyout's top (DM 2026-07-18): the same grab row + title header, same classes,
-  // height, colours and drag behaviour — the ONLY difference is the grab row carries no grip-lines
-  // icon (and no X). The grab row's height makes this title line up with the flyout's.
-  // It renders OUTSIDE .mc-dmp-scroll (like the bottom rail): inside, the scroll container
-  // clipped its negative-margin bleed at the panel's 10px padding, leaving a gray inset frame
-  // around the title (DM 2026-07-18: "the gray padding on the top and sides is driving me crazy").
-  const grip = `<div class="mc-dmp-tophead mc-dmp-drag" title="Drag to move">
-    <div class="mc-dmp-fly-resize mc-fly-grab-top" aria-hidden="true"></div>
-    <div class="mc-dmp-fly-head"><span>Mobile Command</span></div>
-  </div>`;
-  // Party order lives in its own dock tab (auto-open on pack, close on disperse) —
-  // the main area keeps only Form up / Disperse so its width never jumps.
-  const packedNow = !!packedGroup();
-  if (packedNow && !dockWasPacked) dockTab = "party";
-  else if (!packedNow && dockWasPacked && dockTab === "party") dockTab = null;
-  dockWasPacked = packedNow;
-  // Form up is PINNED to the bottom (mc-dmp-foot + margin-top:auto): the one the DM reaches for
-  // without looking, so it must not slide when a section above grows (DM 2026-07-17). Everything
-  // conditional sits above it. Rest moved to its own tab (§19), out of the primary.
+  // (targeting/pending now live in the Combat tab — §25 2b — so the floor no longer computes them.)
+  // The floor's top chrome is a bare slim drag rail — no "Mobile Command" title, no X (DM 2026-07-24:
+  // "no need for the primary top bar… remove the Mobile Command header… make the top panel shorter").
+  // This restores the bible §6 "two 14px sunken rails" chrome: top rail here, bottom .mc-dmp-rail,
+  // both flush to the edge (rendered OUTSIDE .mc-dmp-scroll so the negative-margin bleed isn't clipped).
+  const grip = `<div class="mc-dmp-tophead mc-dmp-drag" title="Drag to move"></div>`;
+  // §25 2b: the pack-auto-open is retired — party assembly (Form Up + marching order) lives in the
+  // Party tab now, so packing no longer force-opens anything. Kept `dockWasPacked` harmless below.
+  dockWasPacked = !!packedGroup();
+  // §25 2b — the FLOOR is lean: presence, the reflexive camera trio (Focus/Manual/Display), the
+  // attention/reaction signal, and the always-present selected-token strip. Everything else moved to
+  // a tab (combat/rolls → Combat, roster/form-up → Party, fit/zoom/follow/fog → Display).
   const main = `<div class="mc-dmp-col">`
-    + statusHTML() + cameraBarHTML() + reactionsHTML() + splitPartyHTML() + combatHTML() + quickHpHTML()
-    + (pending.length ? pendingHTML(pending) : "")
-    + `<div class="mc-dmp-foot">` + partyMainHTML() + `</div>`
+    + statusHTML() + cameraFloorHTML() + reactionsHTML() + quickHpHTML()
     + `</div>`;
   // Grow the flyout UP (anchored to the panel's bottom) when the panel sits in the lower half of
   // the screen, so a bottom-docked panel's second window opens into visible space instead of off
@@ -2659,6 +2699,7 @@ function render() {
   const fb = el.querySelector(".mc-dmp-fly-body"); if (fb && flyTop) fb.scrollTop = flyTop;
   const ms = el.querySelector(".mc-dmp-scroll"); if (ms && mainTop) ms.scrollTop = mainTop;
   el.classList.add("mc-show");
+  applyWorkspaceBounds(); // cap the workspace to 95% of the window BEFORE clamping (stops the DC loop)
   clampPos(el);
 }
 
@@ -2672,6 +2713,16 @@ function onTokenDragStart(ev) {
   try { ev.dataTransfer.setData("text/plain", JSON.stringify(a.toDragData())); ev.dataTransfer.effectAllowed = "copy"; } catch (e) { /* */ }
 }
 function onTokenDblClick(ev) {
+  // Double-click the resize grabber → expand the tab to its content height (capped at 95% of the
+  // window by applyWorkspaceBounds), or, if already expanded, revert to the height it was before
+  // (DM 2026-07-24). So Players (little) barely grows; Settings (lots) opens to the max.
+  if (ev.target.closest("[data-fly-resize]")) {
+    if (flyMaxH === null) flyMaxH = flyPrevH ?? MINIMIZED_H;   // already fit → back to the remembered height
+    else { flyPrevH = flyMaxH; flyMaxH = null; }               // remember, then expand to content-fit
+    try { window.localStorage.setItem(FLY_KEY, flyMaxH == null ? "fit" : String(flyMaxH)); } catch (e) { /* ignore */ }
+    render();
+    return;
+  }
   const item = ev.target.closest("[data-sheet-actor]");
   if (!item) return;
   game.actors.get(item.dataset.sheetActor)?.sheet?.render(true);
@@ -2887,8 +2938,9 @@ async function onClick(ev) {
   if (ev.target.closest("[data-rt-send]")) return sendRolls();
   { // §19 Rest — setup draft + the single ending. Watch/downtime buttons within fall through to
     // their own handlers (onNightClick / the downtime block below).
-    const rType = ev.target.closest("[data-rest-type]");
-    if (rType) { restDraft.type = rType.dataset.restType; return render(); }
+    const rSize = ev.target.closest("[data-rest-size]");
+    if (rSize) { restDraft.size = rSize.dataset.restSize; return render(); }
+    if (ev.target.closest("[data-rest-downtime]")) { restDraft.downtime = !restDraft.downtime; return render(); }
     if (ev.target.closest("[data-rest-watches]")) { restDraft.watches = !restDraft.watches; return render(); }
     if (ev.target.closest("[data-rest-start]")) return startRest();
     if (ev.target.closest("[data-rest-advance]")) return advanceRest();
@@ -3203,10 +3255,14 @@ export function registerDMPanel() {
   Hooks.on("targetToken", () => { syncRtAssign(); render(); });   // live target picker + count badge
   Hooks.on("controlToken", () => render());                        // quick-HP: selection changed
   // Keep the rolls-tab distances fresh as tokens move (only while that flyout is open).
-  Hooks.on("updateToken", (_t, ch) => { if (dockTab === "rolls" && ("x" in ch || "y" in ch)) render(); });
+  Hooks.on("updateToken", (_t, ch) => { if (dockTab === "combat" && ("x" in ch || "y" in ch)) render(); });
   Hooks.on("updateCombat", () => render());
   Hooks.on("deleteCombat", () => render());                        // combat ended → drop the strip
   Hooks.on("combatStart", () => render());
+  // §25 2b: creating an encounter (first combatant added, before it's started) auto-opens the Combat
+  // tab once — the pre-start staging home (battle music + Start Combat land here later). Fires on the
+  // Combat doc's creation, not each combatant, so it never re-opens while the DM adds monsters.
+  Hooks.on("createCombat", () => { dockTab = "combat"; render(); });
   Hooks.on("updateScene", (_s, ch) => { if ("active" in ch) render(); }); // split-party chips follow activation
   Hooks.on("userConnected", () => render());                       // presence: connect/disconnect
   Hooks.on("updateUser", () => render());                          // presence: a player changed scene (viewedScene)
@@ -3236,7 +3292,13 @@ export function registerDMPanel() {
   });
   Hooks.on("mobile-command.pendingCast", () => render());          // a phone announced an AoE cast
   Hooks.on("mobile-command.pendingCastResolved", () => render());  // placed or dismissed
-  Hooks.on("mobile-command.tvManualChanged", () => render());      // keep the manual button in sync (keybinding toggles too)
+  // Manual → OFF (the DM dropping manual, e.g. via Focus) auto-opens the Display tab (§25 2b,
+  // DM 2026-07-24). Turning manual ON does not. Tracks the prior state so only the down-edge fires.
+  Hooks.on("mobile-command.tvManualChanged", (on) => {
+    if (_prevManual && !on) dockTab = "display";
+    _prevManual = !!on;
+    render();
+  });
   // Party Mode: repaint when the marching order changes (group flags), on
   // pack/unpack (token churn), and when the group token itself moves (the
   // blocked-cell preview depends on its position).

@@ -1878,10 +1878,25 @@ soft edge, with the fog itself black.
 
 Foundry already blurs the fog edge: `CanvasVisibility` runs its vision/fog mask through a gaussian blur
 (`rendering/filters/visibility.mjs`), so seen↔unseen is a soft boundary, not a hard polygon. Its
-strength is `canvas.blur.strength` (default `gridSize/25` ≈ 10px on a 260px grid). The feature simply
-**cranks that blur ×`SOFT_FOG_MULT` (=4)** on the display so the edge reads as soft atmospheric shadow.
-The fog stays **black** — `unexploredColor` is untouched at `[0,0,0]`. No texture, no new shader; the
-only added cost is the wider blur kernel the filter already runs.
+strength is `canvas.blur.strength` (default `gridSize/25` ≈ 10px on a 260px grid). The feature
+**cranks that blur ×`SOFT_FOG_MULT` (=8)** on the display so the edge reads as soft atmospheric
+shadow. The fog stays **black** — `unexploredColor` is untouched at `[0,0,0]`. No texture, no new
+shader; the only added cost is the wider blur kernel the filter already runs.
+
+**Getting to ×8** (DM 2026-07-24): the first build hard-coded ×4, which the DM couldn't see — the
+feather is ≈ `strength × zoom` in SCREEN pixels (verified in the blur shader: sample offset =
+`khl × strength/passes`), so ×4 on a party-view zoom (~0.4) is only ~16px on a 1080p TV. A temporary
+1–30 slider found **×8 reads right**; the slider was then removed ("you can get rid of the slider").
+Quality ceiling to remember: the kernel is 5–9 taps, so a *much* larger multiplier would band rather
+than smoothly blur — if ×8 ever needs to go higher, add blur *passes*, don't just raise the number.
+
+**TWO borders, TWO blurs** — the DM's key correction (*"the dark-to-seen border is still very
+sharp"*): the visibility filter's blur only softens the **explored/remembered** fog (the shader's `r`
+channel). The **current-vision** edge — black↔lit — comes from a *separate* mask,
+`canvas.masks.vision.blurFilter` (an AlphaBlur on the vision mask, also driven by `canvas.blur`), and
+was left sharp. The feature now pins `_configuredStrength` on **both** filters. Cost of softening the
+vision mask: the live sight edge feathers slightly **past walls** — an aesthetic trade the shared TV
+makes (it never touches a player's own client).
 
 ### 24.2 The lever, and the HARD requirement (verified in installed 14.365 source)
 
@@ -1912,8 +1927,88 @@ only added cost is the wider blur kernel the filter already runs.
 - **Only visible where there IS fog.** A `tokenVision:false` scene (the current test scene, Cave A)
   has no fog edge to soften. Needs a vision-enabled scene.
 
-### 24.4 Unverified
+### 24.4 State
 
-The look on the TV, and whether `MULT=4` is the right softness. All source-checked and reasoned; not
-seen. Needs the display client on High perf mode on a fog scene. Tier 1 (a drifting-noise shader,
-permanent per-frame GPU cost) stays unbuilt until the DM has judged this.
+Blur applied but ×4 was too weak to see (DM 2026-07-24) — replaced with the `softFogStrength` slider
+(§24.1) so the DM dials the feather in live rather than me guessing blind. Still to confirm on the TV:
+what value reads right, and whether high values band before they're soft enough (if so, the fix is
+more blur passes = more GPU, not more strength). Tier 1 (a drifting-noise shader, permanent per-frame
+GPU cost) stays unbuilt until the DM has judged this.
+
+---
+
+## 25. DM panel restructure + combat music (DM-idea, spec 2026-07-24)
+
+Two linked pieces: a **layout restructure** of the DM panel, and a **per-PC combat-music** feature
+that lives inside it. The *look* rules are in **UI-BIBLE §6.5** (fixed floor, workspace grows up, tab
+strip as the seam, the two auto-opens, the no-jump token strip) and **§3** (both "who" lists become
+rosters). This section is the mechanics and the build order.
+
+### 25.1 The restructure, in one line
+
+Today: a 232px primary window + a 240px right-side flyout + a tab rail ≈ 504px wide, growing *right*.
+Target: **one vertical assembly** — a fixed **floor** (bottom, never reflows) + a **workspace** (the
+tab content, grows *up*) with the **tab strip** between them. This deletes `flyUp`, the three-rect
+`clampPos`, the shared `--mc-dmp-min-h`, and the duplicated chrome. It is a *reposition + additions*,
+not a rewrite (DM: "we're not really changing that much").
+
+**Floor (fixed):** presence bar · Focus · Manual · Display-tab shortcut · attention bell/reactions ·
+selected-token strip (always present, neutral when nothing selected).
+**Tabs:** Combat · Party · Rest · Travel · System health · **Display** (new) · Settings.
+**Auto-opens (each once):** combatant-added → Combat; Manual→Focus → Display.
+
+Tab moves from today: **Players → Party** (absorbs the roster grid + Form Up + the roster-checklist
+member picker; this retires the pack-auto-open — party assembly now lives in one tab). Marching-order
+folds into Party. **Camera** promoted out of the always-on bar into the **Display tab** (Fit, zoom,
+the follow list, TV vision, soft fog) — Focus + Manual stay on the floor. **Sound stays a drawer in
+Settings** (DM's call), now also holding the per-PC combat themes.
+
+### 25.2 Combat music — model
+
+Two halves:
+
+- **Per-PC themes.** Settings → Sound drawer, a **roster** (§3) of PCs only (no pets). Each row has a
+  **drop container**: drag a Foundry playlist sound onto it → its name shows; a trash icon clears it,
+  another drop replaces it. Stored as `flags.mobile-command.combatTheme` = the sound's **uuid**
+  (`Playlist.x.PlaylistSound.y`). Verified: dragging a playlist sound sets
+  `{type:"PlaylistSound", uuid}` as JSON on the drag event (`toDragData`, client-document.mjs).
+- **Battle track.** Chosen from the DM's **Playlists** at **Start Combat** (the Combat tab's pre-start
+  staging: a dropdown + a Start-Combat button directly under it). The baseline for foe turns.
+
+**Playback (executor/GM-driven, syncs to the TV):**
+
+- **On Start Combat:** remember whatever is currently playing, **pause it** (takeover — DM's choice),
+  then play combat music.
+- **On each turn change:** the combatant's token → its actor. A **character** with a theme → play that
+  theme. A foe, or a PC with no theme → play the **battle track**. (Pets/summons: **deferred** — a
+  pet's turn uses the battle track for now.)
+- **Stop-and-play**, not pause/resume-from-position (MVP; DM accepted "stop if pause is difficult").
+  Each track restarts from 0. True resume-from-`pausedTime` is a later nicety.
+- **On combat end:** stop combat music, **resume** what was playing before (the remembered set).
+
+Foundry hooks: `PlaylistSound#update({playing})` drives playback and syncs to all clients incl. the
+TV; run on `game.users.activeGM` / the executor (playlist writes are GM-only). Turn hooks:
+`combatStart`, `updateCombat` (turn/round), `deleteCombat` (end).
+
+### 25.3 Build slices (panel usable at every step)
+
+1. ✅ **Fog softness** (done — §24; not strictly part of the restructure, but the live blocker).
+2. **Layout reposition** — floor fixed at bottom, workspace grows up, tab strip as the seam. Delete
+   `flyUp` / three-rect clamp / shared min-height / duplicated chrome. Active tab shows its label;
+   re-tap collapses.
+3. **Display tab** — move Fit/zoom/TV-vision/soft-fog + the follow list into it; both "who" lists →
+   rosters (§3); mute → 750ms fade (parity with deafen). Manual→Focus auto-opens it.
+4. **Party tab** — absorb Players grid + Form Up + roster checklist; retire pack-auto-open.
+5. **Combat tab** — pre-start staging (battle-music dropdown + Start Combat) + combatant-added
+   auto-open + the takeover/restore on start/end.
+6. **Per-PC themes** — the Sound-drawer roster with drag-drop containers + the turn-by-turn playback
+   engine.
+
+### 25.4 Open / deferred
+
+- **Pets in combat music** — a pet/summon's turn playing its owner's theme needs a token→owner-PC map;
+  deferred until the core loop is proven.
+- **Pause/resume-from-position** — MVP stops-and-plays; revisit if the restart-from-0 grates.
+- **The battle-music dropdown** in the Combat staging is the first concrete piece of the "bigger
+  combat-music feature" the DM flagged; further staging ideas (multiple battle tracks, per-encounter
+  overrides) are unspecced.

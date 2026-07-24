@@ -3347,11 +3347,13 @@ body.mc-theme-wizard .mc-frame {
 #mc-dm-panel {
   position: fixed; left: 12px; bottom: 110px; z-index: 70;
   width: 232px; display: none; box-sizing: border-box;
-  /* Shared minimum for the panel AND its flyout (≈ the main box's height with a
-     player selected) so the two boxes match and neither is over-tall (DM 2026-07-03). */
-  --mc-dmp-min-h: 268px; min-height: var(--mc-dmp-min-h);
+  /* No min-height — the floor sizes to its content. The old 268px floor matched the side-by-side
+     flyout's height; with the workspace stacked on top it just forced empty panel gradient below the
+     content, wasting prime space (DM 2026-07-24). */
   background: linear-gradient(var(--mc-panel-2), var(--mc-panel)); color: #ece5d6;
-  border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); padding: 10px;
+  /* TOP corners square so the floor joins flush to the workspace above it (DM 2026-07-24); bottom
+     stays rounded. The workspace mirrors this with square BOTTOM corners. */
+  border: 1px solid var(--mc-edge); border-radius: 0 0 calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)); padding: 10px;
   font-family: "Signika", sans-serif; box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
 }
 /* Scrollbars follow the palette instead of Foundry's burgundy default (DM 2026-07-18). */
@@ -3369,14 +3371,28 @@ body.mc-theme-wizard .mc-frame {
    this scroller — only the content between them scrolls. */
 .mc-dmp-scroll { max-height: calc(100vh - 90px); overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
 .mc-dmp-col { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
-.mc-dmp-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+/* Form Up sits right after the roster now (no margin-top:auto). The auto-margin pinned it to the
+   panel bottom in the old FLOOR layout; in the Party tab it just opened a gap above Form Up when the
+   workspace was dragged taller than the content (DM 2026-07-25). */
+.mc-dmp-foot { display: flex; flex-direction: column; gap: 8px; }
 /* Right-edge tab rail — icon-only tabs sticking out. Closed: on the panel's right
    edge. Open: rides the flyout's right edge (mc-open), so the tab is always on the
    far-right box (DM 2026-07-03). */
 /* Tighter so all 7 tabs fit inside the panel's min height (268px) instead of spilling below it
    (DM 2026-07-18: "tabs too low… keep them closer together"). 7×32 + 6×4 + 6 top ≈ 254px. */
-.mc-dmp-tabrail { position: absolute; left: 100%; top: 6px; display: flex; flex-direction: column; gap: 4px; transition: left .15s ease; }
-.mc-dmp-tabrail.mc-open { left: calc(100% + 242px); }
+/* §6.5 (2026-07-24, revised): the workspace stacks on TOP and grows up, but the tab rail rides the
+   floor's RIGHT edge — a horizontal strip on top wasted vertical space (DM). Vertical folder-tabs,
+   right-rounded, as before the restructure. */
+/* Tabs ride the floor's right edge, BOTTOM-aligned so their bottom meets the floor's bottom (DM
+   2026-07-25) — top-aligning let a rail taller than the short floor hang out the bottom. */
+.mc-dmp-tabrail { position: absolute; left: 100%; bottom: 0; display: flex; flex-direction: column; gap: 2px; }
+.mc-dmp-tab { transition: flex-basis .15s ease; }
+/* CONDENSED when the workspace is CLOSED (DM 2026-07-25): the rail SPANS the floor's height (top:0 to
+   bottom:0) and the tabs DISTRIBUTE to fill it — so they use all the room and only shrink as much as
+   they must, never a fixed heavy overlap ("why squished if there's room?"). Any click opens the
+   workspace, which drops .mc-open's absence and springs the tabs back to full 32px height. */
+.mc-dmp-tabrail:not(.mc-open) { top: 0; bottom: 0; }
+.mc-dmp-tabrail:not(.mc-open) .mc-dmp-tab { flex: 1 1 0; height: auto; min-height: 0; }
 .mc-dmp-tab { width: 30px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #ece5d6; background: linear-gradient(var(--mc-panel-2), var(--mc-panel)); border: 1px solid var(--mc-edge); border-left: none; border-radius: 0 9px 9px 0; cursor: pointer; }
 .mc-dmp-tab.mc-on { color: #1a1712; background: var(--mc-gold); }
 /* Flyout box — attached to the panel's right; taller minimum, no h-scroll, and
@@ -3384,7 +3400,13 @@ body.mc-theme-wizard .mc-frame {
 /* min-height:100% — the flyout is absolutely positioned inside the panel, so 100% IS the main
    window's current height. The primary sets the secondary's minimum, live, with no JS measuring
    (DM 2026-07-17). Do not re-add an inline min-height; it beats this rule. */
-.mc-dmp-flyout { position: absolute; left: calc(100% + 2px); top: 0; width: 240px; min-height: 100%; max-height: calc(100vh - 24px); display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(var(--mc-panel-2), var(--mc-panel)); color: #ece5d6; border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); box-shadow: 0 8px 24px rgba(0,0,0,.55); }
+/* §6.5: the flyout is now the WORKSPACE — a box the full panel width that grows UP from just above
+   the tab seam (bottom-anchored, so its lower edge stays pinned to the seam and only the top edge
+   resizes). No more `min-height:100%` / right-side offset — that whole "match the primary's height"
+   saga belonged to the side-by-side layout, which is gone. */
+/* Flush to the floor (bottom:100%) with SQUARE bottom corners, so workspace + floor read as one
+   joined box; only the outer corners (workspace top, floor bottom) stay rounded (DM 2026-07-24). */
+.mc-dmp-flyout { position: absolute; left: 0; right: 0; bottom: 100%; max-height: calc(100vh - 80px); display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(var(--mc-panel-2), var(--mc-panel)); color: #ece5d6; border: 1px solid var(--mc-edge); border-bottom: none; border-radius: calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)) 0 0; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
 /* Rolls tab only: let the targets dropdown escape the box. Other tabs clip so the
    body scrolls (tokens grid can be long — DM 2026-07-03). */
 .mc-dmp-flyout.mc-fly-rolls { overflow: visible; }
@@ -3392,17 +3414,13 @@ body.mc-theme-wizard .mc-frame {
    same colour (minus the grip lines — there's nothing to drag). Purely so the two windows'
    buttons sit on one line (DM 2026-07-17). */
 .mc-dmp-rail { height: 14px; flex: 0 0 auto; margin: 8px -10px -10px; background: var(--mc-sunken); border-top: 1px solid var(--mc-edge); border-radius: 0 0 calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)); }
-/* (the plain .mc-dmp-toprail experiment is gone — the primary wears the full flyout-style
-   tophead again, just without the grip-lines icon; see .mc-dmp-tophead.) */
-/* Main-panel title bar: mirrors the flyout's grab-row + header, bled to the panel edges. The grab
-   row here carries no grip-lines icon (drag-to-move, not resize) — its only job is to match the
-   flyout's height so the two titles line up. */
-/* A DIRECT child of the panel, before .mc-dmp-scroll (like .mc-dmp-rail after it) — inside the
-   scroller, overflow clipped the -10px bleed at the panel padding and left a gray inset frame
-   around the title (DM 2026-07-18). */
-.mc-dmp-tophead { margin: -10px -10px 8px; cursor: move; }
-.mc-dmp-tophead .mc-dmp-fly-resize { cursor: move; }
-.mc-dmp-fly-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; min-height: 36px; box-sizing: border-box; border-bottom: 1px solid var(--mc-edge); font-weight: 800; font-size: 14px; border-radius: calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)) 0 0; }
+/* Top drag rail — a bare 14px sunken bar mirroring the bottom .mc-dmp-rail, no title, no icon (DM
+   2026-07-24). Bled to the panel edges (a DIRECT child before .mc-dmp-scroll, so the -10px bleed
+   isn't clipped by the scroller). Square top corners to match the floor's now-square top. */
+.mc-dmp-tophead { height: 14px; margin: -10px -10px 8px; background: var(--mc-sunken); border-bottom: 1px solid var(--mc-edge); border-radius: 0; cursor: move; }
+/* Workspace header — title + drag only (no X; closing is re-tapping the active tab). Shorter than the
+   old 36px (DM 2026-07-24: "make the top panel shorter"). Left-aligned now the X is gone. */
+.mc-dmp-fly-head { display: flex; align-items: center; padding: 4px 10px; min-height: 26px; box-sizing: border-box; border-bottom: 1px solid var(--mc-edge); font-weight: 800; font-size: 14px; }
 .mc-dmp-fly-x { flex: 0 0 auto; width: 24px; height: 24px; min-height: 0; line-height: 1; padding: 0; background: none; border: none; color: var(--mc-muted); font-size: 15px; cursor: pointer; }
 .mc-dmp-fly-x:hover { color: var(--mc-ink); }
 .mc-dmp-fly-body > * { flex-shrink: 0; }   /* never squash a row into the one below it */
@@ -3450,7 +3468,7 @@ body.mc-theme-wizard .mc-frame {
 /* Players tab: dropdown + a palette button that asks the player to pick a colour. */
 .mc-dmp-tok-top { display: flex; gap: 6px; align-items: stretch; }
 .mc-dmp-groupsheet {
-  margin-top: auto;   /* the fly-body is a column → this sinks the button to the bottom */
+  /* flows right after the roster — the old margin-top:auto sank it and opened a gap (DM 2026-07-25). */
   width: 100%; min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; font-weight: 700;
   color: var(--mc-ink); background: var(--mc-panel-2); border: 1px solid var(--mc-edge);
@@ -3493,6 +3511,13 @@ body.mc-theme-wizard .mc-frame {
 .mc-rt-dist.mc-out { color: #d68b7f; }  /* out of range */
 .mc-dmp-rt-row.mc-on .mc-dmp-rt-main { border-color: var(--mc-gold); background: var(--mc-panel-2); }
 .mc-dmp-rt-row.mc-targeted .mc-dmp-rt-main { box-shadow: inset 0 0 0 1px var(--mc-gold); }
+/* The two "who" lists (hears-through, follows) reuse the roster row (§3, DM 2026-07-25). A plain
+   column of rows; the trailing state icon is gold when on; the OFF row is struck + muted (§5). */
+.mc-dmp-roster { display: flex; flex-direction: column; gap: 4px; }
+.mc-dmp-rt-state { flex: 0 0 auto; font-size: 12px; color: var(--mc-gold); }
+.mc-dmp-rt-row.mc-off .mc-dmp-rt-main { opacity: .85; }
+.mc-dmp-rt-row.mc-off .mc-rt-name { text-decoration: line-through; color: var(--mc-muted); }
+.mc-dmp-rt-row.mc-off .mc-dmp-rt-state { color: var(--mc-muted); }
 /* The target-assign button: same height as the row's main button (box-sizing + matching min-height,
    so a square 36px control, DM 2026-07-17); gold-filled glyph when the picker is open (§5). */
 .mc-dmp-rt-assign { position: relative; flex: 0 0 auto; width: 36px; min-height: 36px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; color: var(--mc-muted); background: var(--mc-panel); border: 1px solid var(--mc-edge); }
@@ -3528,10 +3553,17 @@ body.mc-theme-wizard .mc-frame {
    surface that never asked for it, and it towered. §4.1 already said 26–34px for the DM panel and
    my one-size rule had quietly broken it. Same SHAPE, different scale — that's why size and look
    are separate rules. */
-.mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run, .mc-dmp-party-deploy, .mc-dt-openbtn, .mc-dmp-party-mini { min-height: 36px; }
-/* the widget's other controls follow the same scale */
-.mc-dmp-cam-btn { min-height: 36px; }
-.mc-dmp-hp-btn, .mc-dmp-hp-input { min-height: 34px; }
+/* ONE height for every panel control — buttons, dropdowns, toggles alike (DM 2026-07-24: "keep
+   buttons to the same size, same goes for dropdowns, toggle buttons"; "set watch is tall, start rest
+   is short" — no more). This id-scoped rule GOVERNS over the ~30 per-component min-heights scattered
+   below (now dead, to be swept), so a size change is one edit. 31px = the earlier 36 minus ~5 ("10
+   was too much"). Mini buttons (New / edit in activities) are the sole exception — UI-BIBLE §4. */
+#mc-dm-panel button:not(.mc-dmp-mini):not(.mc-dt-icon-only):not(.mc-dmp-clock):not(.mc-dmp-clock-step):not(.mc-dmp-tab),
+#mc-dm-panel select,
+#mc-dm-panel input[type="text"], #mc-dm-panel input[type="number"], #mc-dm-panel input[type="search"] {
+  min-height: 31px; box-sizing: border-box;
+}
+#mc-dm-panel .mc-dmp-mini, #mc-dm-panel .mc-dt-icon-only { min-height: 24px; box-sizing: border-box; }
 /* Standalone primaries span the column; ones sharing a row (Form up + Disperse) keep their flex. */
 .mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run, .mc-ob-done { width: 100%; }
 .mc-dmp-rt-send { color: var(--mc-cta-ink); background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge); }
@@ -3626,7 +3658,7 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-combat { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
 .mc-dmp-turn { font-size: 12px; font-weight: 700; color: var(--mc-gold); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .mc-dmp-combatbtns { display: flex; gap: 6px; }
-.mc-dmp-combatbtns button { flex: 1 1 0; min-height: 34px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; gap: 4px;
+.mc-dmp-combatbtns button { flex: 1 1 0; min-height: 24px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; gap: 4px;
   display: flex; align-items: center; justify-content: center; font-size: 12px;
   background: #1f2a38; border: 1px solid #2f4a6a; color: #cfe0f2; }
 .mc-dmp-combatbtns button:hover { background: #2c3d54; }
@@ -3634,11 +3666,11 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-hp { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
 .mc-dmp-hp-head { font-size: 12px; font-weight: 700; color: var(--mc-gold); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .mc-dmp-hp-row { display: flex; gap: 6px; align-items: stretch; }
-.mc-dmp-hp-input { flex: 1 1 0; min-width: 0; min-height: 34px; text-align: center; border-radius: calc(8px * var(--mc-round, 1));
+.mc-dmp-hp-input { flex: 1 1 0; min-width: 0; min-height: 24px; text-align: center; border-radius: calc(8px * var(--mc-round, 1));
   background: #2c2733; border: 1px solid #4a4334; color: #ece5d6; font-size: 14px; }
 /* the selected token's current HP shows as a faint hint; it clears the instant the DM types (DM 2026-07-19) */
 .mc-dmp-hp-input::placeholder { color: var(--mc-ink); opacity: .4; }
-.mc-dmp-hp-btn { flex: 0 0 auto; min-height: 34px; padding: 0 12px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700; border: 1px solid; }
+.mc-dmp-hp-btn { flex: 0 0 auto; min-height: 24px; padding: 0 12px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700; border: 1px solid; }
 .mc-dmp-dmg { background: #3a1f1d; border-color: #6a302a; color: #e8a59c; }
 .mc-dmp-dmg:hover { background: #4a2722; }
 .mc-dmp-heal { background: #1f3320; border-color: #2f5d39; color: #8fe0a0; }
