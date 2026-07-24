@@ -1722,8 +1722,9 @@ ELECTRON_RUN_AS_NODE=1 NODE_OPTIONS=--experimental-vm-modules \
 2. **real-fow replication** (DM likes gitlab.com/sir.sly/real-fow — volumetric drifting fog; it breaks
    on v14, which rewrote fog into a `VisibilityFilter` shader with explored/unexplored colour uniforms
    plus a native fog **overlay texture**).
-   - **Tier 0 — native overlay texture. BUILT 2026-07-24 ("try 0 now"), unverified on the TV.** See
-     **§24**. Default-off `fogMist`; awaiting the DM's "is it enough" before Tier 1 is considered.
+   - **Tier 0 — soft fog EDGES. BUILT 2026-07-24, pivoted same day.** The first take was a mist
+     texture in the fog-overlay slot; the DM rejected it ("the texture is really not the point… I'm
+     interested in the soft edges"). Rebuilt as an edge-blur crank. See **§24**. Default-off `softFog`.
    - **Tier 1 — custom shader.** Subclass the visibility filter and drift a noise field. The real
      effect, but a **permanent per-frame GPU cost on every client including the TV**. Per the standing rule, this must be quoted to the DM before any code is written, and should
      ship behind a default-off setting if it ships at all. NOT started — gated on the Tier-0 verdict.
@@ -1862,58 +1863,57 @@ Unverified by ear; it needs the display client and the DM's speakers.
 
 ---
 
-## 24. Fog-of-war MIST — Tier 0 (DM 2026-07-24 "try 0 now", BUILT, unverified on the TV)
+## 24. Fog-of-war SOFT EDGES — Tier 0 (DM 2026-07-24, BUILT, unverified on the TV)
 
-[fog-mist.js](scripts/fog-mist.js). The DM likes real-fow's drifting volumetric fog, which can't run
-on v14. Tier 0 is the cheap ~70%: point Foundry's OWN fog-overlay slot at a cloudy texture so the
-display's **unexplored** fog reads as mist instead of flat grey. No core edit, no filter subclass, no
-per-frame cost — the texture is generated once and the shader already samples an overlay when present.
+[fog-soft.js](scripts/fog-soft.js). **This section pivoted mid-day.** The first take (the now-deleted
+`fog-mist.js`) filled the black with a mist TEXTURE via Foundry's fog-overlay slot. The DM rejected it
+on sight: *"the texture itself is really not the point, and it looks rather bad — everything should be
+either black or nearly indistinguishable from black. I'm interested in the soft edges of the shadows."*
+The whole texture approach is gone. What real-fow's look is actually about is the **feathered edge**
+where vision/shadow meets the dark — and (checked against its README) even real-fow's own headline is a
+dual-**colour** fog, which v14 already does natively; the DM wants neither colour nor texture, just the
+soft edge, with the fog itself black.
 
-### 24.1 How it plugs in (verified against installed 14.365 source, not memory)
+### 24.1 What the soft edge actually is
 
-- `CanvasVisibility#_draw → #drawVisibilityOverlay` reads `canvas.sceneTextures.fogOverlay ??
-  canvas.level?.fog?.src` and, if a texture is there, builds the overlay sprite. So the entire
-  integration is: **set that slot, redraw the visibility group.**
-- The fragment shader (`rendering/filters/visibility.mjs`) mixes it into unexplored fog as
-  `mix(unexploredColor, overlay.rgb * backgroundColor, overlay.a)`. The texture's **alpha is the
-  wisp** (patchy density); its **RGB is the mist colour**, further tinted by the scene's (dark)
-  background. Straight-alpha is authored; PIXI premultiplies on upload and the shader's
-  `unPremultiply` undoes it, so RGB lands intact.
-- Applied at `canvasReady` + `canvas.visibility.draw()`. `draw()` re-reads the slot at draw time and
-  does **not** run `board#loadTextures` (whose texture-cache pass could otherwise drop a
-  directly-assigned `PIXI.Texture`). Its teardown calls `canvas.fog.clear()`, which **saves**
-  exploration first — so explored fog is never lost across the redraw. Both checked in source.
+Foundry already blurs the fog edge: `CanvasVisibility` runs its vision/fog mask through a gaussian blur
+(`rendering/filters/visibility.mjs`), so seen↔unseen is a soft boundary, not a hard polygon. Its
+strength is `canvas.blur.strength` (default `gridSize/25` ≈ 10px on a 260px grid). The feature simply
+**cranks that blur ×`SOFT_FOG_MULT` (=4)** on the display so the edge reads as soft atmospheric shadow.
+The fog stays **black** — `unexploredColor` is untouched at `[0,0,0]`. No texture, no new shader; the
+only added cost is the wider blur kernel the filter already runs.
 
-### 24.2 The texture
+### 24.2 The lever, and the HARD requirement (verified in installed 14.365 source)
 
-Procedural, so there is **no binary asset** in the repo and it works on any scene. 512×512 tileable
-value-noise fBm (4 octaves), generated once and reused. Two things were verified off-table because a
-bad texture is the likeliest failure and can't be seen from here (scratch scripts, Foundry's Electron):
+- `canvas.visibility.filter` is registered in `canvas.blurFilters` via `addBlurFilter` **without** a
+  `_configuredStrength`, so `canvas.updateBlur()` (run on every pan/zoom) sets its blur to
+  `canvas.blur.strength × stage.scale`. Pinning `filter._configuredStrength = strength × MULT`
+  overrides **only this filter** (lighting filters keep their own pinned strength) and survives zoom,
+  because updateBlur reads it back each frame. Clearing it (`delete`) restores the stock fog blur.
+- **Blur only EXISTS on HIGH performance mode.** `canvas.blur.enabled = performance.mode > MED`, and
+  the visibility filter only builds its blur passes when blur is enabled *at construction*. On Medium
+  or lower there is nothing to crank — setting a strength is a silent no-op. **The display must be on
+  High** (Configure Settings → Performance Mode). We DETECT this and report it rather than force it:
+  flipping perf mode is a heavy global change to make silently on a modest TV.
+- **Ceiling:** the blur's kernel/pass count is fixed at construction from `canvas.blur`, so past some
+  point a bigger `MULT` stops softening and we would need more passes (more GPU). `MULT=4` is a
+  starting point; tune before reaching for that.
 
-- **Seamless.** Each octave's integer lattice wraps at its own period, so column 0 == column 512 and
-  row 0 == row 512 exactly (measured 0.0e+0). Required — the sprite stretches/tiles across a scene
-  that is never a neat multiple of the texture.
-- **The first hash was degenerate and the mist was invisible.** A single-multiply integer hash
-  clustered dark on the coarse octaves' tiny lattices (period 3 → 9 values); measured mean alpha
-  collapsed to ~0.08. Replaced with a `Math.imul` murmur finalizer (mean ~0.5 even on a 3×3
-  lattice). Final texture: **alpha 0.10–0.90, mean 0.47, ~59% of the area above 0.4** — clearly
-  present mist with genuine clear gaps, tuned so it neither hides the map (too heavy) nor reads as
-  nothing (too light), since the DM's whole test is "is it enough".
+### 24.3 Scope, control, the invisible-failure guard
 
-### 24.3 Scope, control, caveats
-
-- **Display client only.** Only the non-GM TV renders fog at all (a GM sees through everything), so
-  mist can only appear there; generating it off the DM's box keeps it genuinely free for them.
-- **World setting `fogMist`, default off** (Settings → Display in the DM panel, and Foundry's module
-  settings). Reversible: turning it off restores the prior overlay slot and redraws.
-- **Respects a scene's own fog overlay** — if the DM set a fog overlay image on the scene, that wins;
-  mist never clobbers it.
-- **Only shows where there IS fog.** A scene with token vision off (the current test scene, Cave A,
-  has `tokenVision:false`) has no unexplored area, so nothing renders. To see it, the DM needs a
-  **vision-enabled scene with unexplored fog**. This is inherent, not a bug — mist replaces the grey.
+- **Display client only** (only the non-GM TV renders fog; a GM sees through everything).
+- **World setting `softFog`, default off** (Settings → Display in the panel, and Foundry's module
+  settings; `onChange → refreshSoftFog`). Reversible: off restores the default blur.
+- **Perf-mode status back to the panel.** The display reports `{on, supported}` over the same one-way
+  display→panel socket the audio status uses (`softFogState` → `setTvSoftFogState`), and Settings →
+  Display shows **live / not-on-High / no-display**. This is the direct lesson of the mist near-miss
+  and the deaf-pets bug: a display feature that can silently do nothing MUST tell the DM so, or it
+  reads as broken.
+- **Only visible where there IS fog.** A `tokenVision:false` scene (the current test scene, Cave A)
+  has no fog edge to soften. Needs a vision-enabled scene.
 
 ### 24.4 Unverified
 
-The actual look on the TV. Everything above is source-checked and the texture is numerically
-verified, but "does it read as mist / is it enough" needs the display client on a fog scene. Tier 1
-stays unbuilt and unquoted-for-code until the DM has seen this.
+The look on the TV, and whether `MULT=4` is the right softness. All source-checked and reasoned; not
+seen. Needs the display client on High perf mode on a fog scene. Tier 1 (a drifting-noise shader,
+permanent per-frame GPU cost) stays unbuilt until the DM has judged this.

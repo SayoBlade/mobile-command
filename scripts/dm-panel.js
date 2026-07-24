@@ -5,7 +5,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
 import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar } from "./gametime.js";
 import { runDmWizard } from "./dm-wizard.js";
-import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState } from "./settings.js";
+import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState } from "./settings.js";
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -193,13 +193,23 @@ function settingsHTML() {
       when you set the frame — your zoom is never changed to fit somebody in. Pets ride along only while they fit;
       drop a scout from this list and the camera stops chasing them for good.</p>`;
 
-  // Display visuals (DM 2026-07-24). Tier-0 fog mist toggle — a world setting the TV reacts to.
-  const mistOn = (() => { try { return !!game.settings.get(MODULE_ID, "fogMist"); } catch (e) { return false; } })();
-  const displayBody = `<button class="mc-dmp-toggle ${mistOn ? "mc-on" : ""}" data-set-toggle="fogMist">
-      <i class="fas ${mistOn ? "fa-cloud" : "fa-cloud-sun"}"></i> ${mistOn ? "Misty Fog On" : "Misty Fog Off"}
-    </button>
-    <p class="mc-dmp-set-note">The table display's unexplored fog reads as drifting mist instead of flat grey. Only shows on
-      the TV, and only on scenes that use token vision / fog of war.</p>`;
+  // Display visuals (DM 2026-07-24). Tier-0 soft fog-edge toggle — a world setting the TV reacts to.
+  const softOn = (() => { try { return !!game.settings.get(MODULE_ID, "softFog"); } catch (e) { return false; } })();
+  // The display reports whether it could actually apply it — needs High performance mode. Without
+  // this the DM couldn't tell "working" from "TV isn't on High" (the invisible-failure trap).
+  const sf = tvSoftFogState;
+  const sfStale = !sf || (Date.now() - sf.at) > 45000;
+  const sfStatus = !softOn ? ""
+    : sfStale
+      ? `<div class="mc-dmp-sound-status mc-unknown"><i class="fas fa-question-circle"></i> No display connected — can't confirm it's showing.</div>`
+      : sf.supported
+        ? `<div class="mc-dmp-sound-status mc-ok"><i class="fas fa-circle-check"></i> Soft edges are live on the display.</div>`
+        : `<div class="mc-dmp-sound-status mc-bad"><i class="fas fa-gauge-high"></i> The display isn't on High performance mode — soft shadows are off, so nothing changes. Set the TV to High (Configure Settings).</div>`;
+  const displayBody = `<button class="mc-dmp-toggle ${softOn ? "mc-on" : ""}" data-set-toggle="softFog">
+      <i class="fas fa-cloud"></i> ${softOn ? "Soft Fog On" : "Soft Fog Off"}
+    </button>${sfStatus}
+    <p class="mc-dmp-set-note">The table display's fog stays black, but its edge feathers into soft shadow instead of a hard line.
+      Only affects the TV. Needs the TV on High performance mode.</p>`;
 
   return `<div class="mc-dmp-settings">
     ${dtDrawer("setSound", "Sound", "", sliders)}

@@ -150,17 +150,18 @@ export function registerSettings() {
     default: false
   });
 
-  // Fog-of-war mist (DESIGN §22.3 #2 Tier 0, DM 2026-07-24). Replaces the display's flat grey
-  // unexplored fog with a static cloudy overlay. Display-client only, generated once, no per-frame
-  // cost. Only shows where there IS fog (a vision-enabled scene). Default off — reversible.
-  game.settings.register(MODULE_ID, "fogMist", {
-    name: "Misty fog of war (table display)",
-    hint: "The shared display's unexplored areas become drifting-looking mist instead of flat grey. Static and essentially free — it only shows on the TV and only on scenes that use token vision / fog of war. Off by default.",
+  // Soft fog-of-war edges (DESIGN §24 Tier 0, DM 2026-07-24). Cranks the display's built-in vision
+  // blur so the seen↔unseen boundary feathers into soft shadow — the fog stays black, only its edge
+  // softens. Display-client only. Needs Foundry's Soft Shadows (High performance mode on the TV);
+  // the panel reports if that's off. Default off — reversible.
+  game.settings.register(MODULE_ID, "softFog", {
+    name: "Soft fog-of-war edges (table display)",
+    hint: "The shared display's fog keeps its black, but its edge feathers into soft shadow instead of a hard line. Needs the TV on High performance mode (Foundry's Soft Shadows). Off by default.",
     scope: "world",
     config: true,
     type: Boolean,
     default: false,
-    onChange: () => { try { globalThis.MobileCommand?.refreshFogMist?.(); } catch (e) {} }
+    onChange: () => { try { globalThis.MobileCommand?.refreshSoftFog?.(); } catch (e) {} }
   });
 
   game.settings.register(MODULE_ID, "dmOmniscientVision", {
@@ -592,6 +593,12 @@ export async function syncDisplayObserver(userId, { quiet = false } = {}) {
 // depend on it safely.
 export let tvAudioState = null;
 export function setTvAudioState(v) { tvAudioState = v; }
+
+// Same one-way display→panel channel for the soft-fog feature: the display reports whether it could
+// actually apply (needs High performance mode), so the panel can show "on but the TV isn't on High"
+// instead of a dead toggle. Null until a display reports.
+export let tvSoftFogState = null;
+export function setTvSoftFogState(v) { tvSoftFogState = v; }
 
 export function resolveExecutorId() {
   const configured = game.settings.get(MODULE_ID, "executorUser");
