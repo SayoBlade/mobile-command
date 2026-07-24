@@ -36,7 +36,8 @@ import { isDisplayClient } from "./shell.js";
 // SCREEN pixels, so the first build's fixed ×4 was only ~16px on a 1080p TV — invisible. A tuning
 // slider then found ×8 reads right (DM 2026-07-24: "it looks best at 8, you can get rid of the
 // slider"), so it's a constant again.
-const SOFT_FOG_MULT = 8;
+const SOFT_FOG_MULT = 12; // DM 2026-07-25 wants softer edges; pushed up, but Foundry's 5–9-tap kernel
+                          // caps how soft this can get — the real real-fow look needs a Tier-1 shader.
 
 // TWO borders, TWO blurs — this is the crux of the DM's "the dark-to-seen border is still very sharp":
 //   • canvas.visibility.filter        softens the EXPLORED / remembered fog (the shader's `r` channel).
@@ -65,8 +66,10 @@ const SOFT_FOG_UNEXPLORED_ALPHA = 0.95;
 // value). The purpose-built lever is `canvas.colors.fogExplored`: a lighter grey there lifts the
 // explored overlay toward the actual map. Effects re-applies it from `canvas.colors.fogExplored` each
 // refresh (effects.mjs), so that Color is what we set — not the uniform, which would be overwritten.
-// 0x000000 = stock (darkest); higher = more of the remembered map shows. A blind first cut at ~0.4.
-const SOFT_FOG_EXPLORED_COLOR = 0x666666;
+// 0x000000 = stock (darkest); higher = more of the remembered map shows. DM 2026-07-25 now wants it
+// DARKER again ("darken explored… quite a bit") — dropped from 0x666666 to a deep grey so the
+// remembered map is barely a trace, not a wash.
+const SOFT_FOG_EXPLORED_COLOR = 0x1a1a1a;
 let priorFogExplored; // the display's stock fogExplored Color, restored on clear
 
 let lastUnsupported = false; // whether the most recent apply found blur disabled (for the status report)

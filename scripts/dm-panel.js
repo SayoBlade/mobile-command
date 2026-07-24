@@ -167,10 +167,11 @@ function settingsHTML() {
     <p class="mc-dmp-set-note">The nearest listening token sets a sound's volume — it is <b>not</b> averaged across the
       party. Ignore a scout or a familiar so wandering off doesn't drag the room's audio with them.</p>`;
 
-  // Follow list + soft fog moved to the DISPLAY tab (§25 2b) — Settings keeps only the audio.
+  // Follow list is in the Display tab; Fog lives here in Settings (DM 2026-07-25).
   return `<div class="mc-dmp-settings">
     ${dtDrawer("setSound", "Sound", "", sliders)}
     ${dtDrawer("setEars", "Who the display hears through", "", earsBody)}
+    ${dtDrawer("setFog", "Fog", "", softFogBody())}
   </div>`;
 }
 
@@ -189,13 +190,13 @@ function followListBody() {
           title: off ? `The display ignores ${esc(nm)} — tap to follow them again` : `The display follows ${esc(nm)} — tap to ignore them` });
       }).join("")
     : `<div class="mc-dmp-empty">No party tokens on this scene.</div>`;
-  const anyOff = cam.some(t => t.document.getFlag(MODULE_ID, "noFollow"));
-  const camBulk = anyOff
-    ? `<button class="mc-dmp-followbulk" data-follow-all><i class="fas fa-video"></i> Follow Everyone</button>` : "";
-  return `<div class="mc-dmp-roster">${eyes}</div>${camBulk}
-    <p class="mc-dmp-set-note">The display keeps the <b>closest</b> of these the same distance from the screen edge as
-      when you set the frame — your zoom is never changed to fit somebody in. Pets ride along only while they fit;
-      drop a scout from this list and the camera stops chasing them for good.</p>`;
+  // One TOGGLE (DM 2026-07-25): while anyone is followed it says "Follow None" (drop all, so you can
+  // then tap one person to follow) — much faster than un-ticking everyone; once none are followed it
+  // flips to "Follow Everyone".
+  const anyFollowed = cam.some(t => !t.document.getFlag(MODULE_ID, "noFollow"));
+  const camBulk = cam.length
+    ? `<button class="mc-dmp-followbulk" data-follow-all="${anyFollowed ? "none" : "all"}"><i class="fas ${anyFollowed ? "fa-video-slash" : "fa-video"}"></i> ${anyFollowed ? "Follow None" : "Follow Everyone"}</button>` : "";
+  return `<div class="mc-dmp-roster">${eyes}</div>${camBulk}`;
 }
 
 function softFogBody() {
@@ -210,9 +211,7 @@ function softFogBody() {
         : `<div class="mc-dmp-sound-status mc-bad"><i class="fas fa-gauge-high"></i> The display isn't on High performance mode — soft shadows are off, so nothing changes. Set the TV to High (Configure Settings).</div>`;
   return `<button class="mc-dmp-toggle ${softOn ? "mc-on" : ""}" data-set-toggle="softFog">
       <i class="fas fa-cloud"></i> ${softOn ? "Soft Fog On" : "Soft Fog Off"}
-    </button>${sfStatus}
-    <p class="mc-dmp-set-note">The table display's fog stays black, but both its edges — remembered and currently-seen — feather
-      into soft shadow instead of a hard line. Only affects the TV. Needs the TV on High performance mode.</p>`;
+    </button>${sfStatus}`;
 }
 
 function displayTabHTML() {
@@ -221,10 +220,12 @@ function displayTabHTML() {
     <button class="mc-dmp-cam-btn" data-cam="zoom-out" title="Zoom the display out" aria-label="Zoom display out"><i class="fas fa-magnifying-glass-minus"></i></button>
     <button class="mc-dmp-cam-btn" data-cam="zoom-in" title="Zoom the display in" aria-label="Zoom display in"><i class="fas fa-magnifying-glass-plus"></i></button>
   </div>`;
+  // Follow list on top; the bare zoom/fit buttons sit at the BOTTOM — nearest the seam, so they're
+  // close to the floor's Focus/Manual for one-handed camera control (DM 2026-07-25). No drawer/title
+  // on the buttons, and Fog moved to Settings.
   return `<div class="mc-dmp-settings">
-    ${dtDrawer("dispCam", "Zoom & fit", "", camControls)}
     ${dtDrawer("dispFollow", "Who the display follows", "", followListBody())}
-    ${dtDrawer("dispFog", "Fog", "", softFogBody())}
+    ${camControls}
   </div>`;
 }
 
@@ -1084,7 +1085,7 @@ function armTravelRoute() {
   disarmTravelRoute();
   const board = document.getElementById("board");
   const group = packedGroup();
-  if (!board || !group || !canvas?.ready) { ui.notifications.warn("Form up on the overworld first."); return; }
+  if (!board || !group || !canvas?.ready) { ui.notifications.warn("Form up on the travel map first."); return; }
   const gtok = canvas.tokens?.placeables.find(t => t.actor?.id === group.id);
   const anchor = gtok?.center ?? null; // start the line at the token, no selection needed
   // Belt-and-suspenders: even if a pointer event leaks past the window capture, tokens can't be
@@ -1305,18 +1306,17 @@ function travelHTML() {
          <label class="mc-dmp-travel-lbl">Route</label>
          <button class="mc-dmp-travel-seg" data-travel-route ${travelJourneyActive ? "disabled" : ""}><i class="fas fa-pen-nib"></i> Draw from party</button>
          ${readout}${routeCtl}`
-      : `${paceRow}<p class="mc-dmp-travel-hint">Switch to the overworld, then draw a route.</p>`;
+      : `${paceRow}<p class="mc-dmp-travel-hint">Switch to the travel map, then draw a route.</p>`;
 
   // The DM's explicit travel-map list (DM 2026-07-24) — the CURRENT scene's membership, toggled
   // here. This is the ONLY thing that makes a scene a travel map; nothing is guessed from the grid.
   const here = game.scenes.active;
   const isTravel = here ? isOverworldScene(here) : false;
-  const mapToggle = here ? `<div class="mc-dmp-travel-maprow">
-      <button class="mc-dmp-travel-maptoggle ${isTravel ? "mc-on" : ""}" data-travel-mark="${here.id}"
-        title="${isTravel ? "This scene is a travel map (whole map visible, dims with the clock). Tap to make it a normal map with fog." : "Mark this scene as a travel map — whole map stays visible and dims with the clock (turns off fog of war)."}">
-        <i class="fas fa-${isTravel ? "map-location-dot" : "map"}"></i> ${isTravel ? "Travel map — on" : "Mark as a travel map"}
-      </button>
-    </div>` : "";
+  // A plain checkbox (DM 2026-07-25: the old dotted toggle read as confusing). "Travel map ☑" —
+  // ticked = whole map visible, dims with the clock, no fog.
+  const mapToggle = here ? `<button class="mc-dmp-toggle mc-rest-chk ${isTravel ? "mc-on" : ""}" data-travel-mark="${here.id}"
+      title="${isTravel ? "This scene is a travel map — whole map visible, dims with the clock. Tap for a normal map with fog." : "Travel map: whole map stays visible and dims with the clock (turns off fog of war)."}">
+      <i class="fas ${isTravel ? "fa-square-check" : "fa-square"}"></i> Travel map</button>` : "";
 
   return `<div class="mc-dmp-travel">
     ${mapToggle}
@@ -2059,14 +2059,14 @@ function restSetupCard(group) {
   // Two INDEPENDENT phase toggles (§19.3). Activities (downtime) run BEFORE watches; both optional.
   const dtBtn = `<button class="mc-rest-chk ${plan.downtime ? "mc-on" : ""}" data-rest-downtime title="Run downtime activities before the rest">
       <i class="fas ${plan.downtime ? "fa-square-check" : "fa-square"}"></i> <i class="fas fa-mug-hot"></i> Activities</button>`;
-  const watchBtn = `<button class="mc-rest-chk mc-rest-watchtoggle ${plan.watches ? "mc-on" : ""}" data-rest-watches title="Stand watches during the rest">
+  const watchBtn = `<button class="mc-rest-chk ${plan.watches ? "mc-on" : ""}" data-rest-watches title="Stand watches during the rest">
       <i class="fas ${plan.watches ? "fa-square-check" : "fa-square"}"></i> <i class="fas fa-moon"></i> ${plan.size === "short" ? "One watch" : "Watches"}</button>`;
   const phases = [plan.downtime ? "Activities" : null, plan.watches ? (plan.size === "short" ? "one watch" : "watches") : null].filter(Boolean);
   let hint = phases.length ? `${phases.join(", then ")}, then a ${restWord}.` : `A ${restWord}, applied right away.`;
   hint = hint.charAt(0).toUpperCase() + hint.slice(1);
   return `<div class="mc-rest-setup">
     <div class="mc-rest-segs mc-rest-types">${seg("short", "Short")}${seg("long", "Long")}</div>
-    <div class="mc-rest-phases">${dtBtn}${watchBtn}</div>
+    <div class="mc-rest-chks">${dtBtn}${watchBtn}</div>
     <button class="mc-dmp-party-deploy mc-rest-go" data-rest-start ${canRest ? "" : "disabled"}><i class="fas fa-campground"></i> Start Rest</button>
     <p class="mc-rest-hint">${canRest ? hint : "No party group with members — set one up first."}</p>
   </div>`;
@@ -3138,10 +3138,14 @@ async function onClick(ev) {
     if (a) { a.setFlag(MODULE_ID, "muteListener", !a.getFlag(MODULE_ID, "muteListener")).then(() => render()); }
     return;
   }
-  if (ev.target.closest("[data-follow-all]")) {
-    // Clear the whole filter. Written on the TOKEN document — see cameraFollowTokens.
+  const followAll = ev.target.closest("[data-follow-all]");
+  if (followAll) {
+    // Toggle: "none" sets noFollow on all (drop everyone), "all" clears it. Flag on the TOKEN doc.
+    const drop = followAll.dataset.followAll === "none";
     for (const t of cameraFollowTokens()) {
-      if (t.document.getFlag(MODULE_ID, "noFollow")) await t.document.unsetFlag(MODULE_ID, "noFollow");
+      const has = !!t.document.getFlag(MODULE_ID, "noFollow");
+      if (drop && !has) await t.document.setFlag(MODULE_ID, "noFollow", true);
+      else if (!drop && has) await t.document.unsetFlag(MODULE_ID, "noFollow");
     }
     return render();
   }

@@ -3374,7 +3374,7 @@ body.mc-theme-wizard .mc-frame {
 /* Form Up sits right after the roster now (no margin-top:auto). The auto-margin pinned it to the
    panel bottom in the old FLOOR layout; in the Party tab it just opened a gap above Form Up when the
    workspace was dragged taller than the content (DM 2026-07-25). */
-.mc-dmp-foot { display: flex; flex-direction: column; gap: 8px; }
+.mc-dmp-foot { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 /* Right-edge tab rail — icon-only tabs sticking out. Closed: on the panel's right
    edge. Open: rides the flyout's right edge (mc-open), so the tab is always on the
    far-right box (DM 2026-07-03). */
@@ -3480,7 +3480,7 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-tok-palette:hover { border-color: var(--mc-gold); }
 /* Rolls tool: all three controls on one short line at the top (explicit widths so
    they always fit the 240px flyout — no spill). */
-.mc-dmp-rt-top { display: flex; gap: 6px; align-items: stretch; }
+.mc-dmp-rt-top { display: flex; gap: 6px; align-items: stretch; margin-bottom: 10px; }
 /* (per-select rules retired 2026-07-17 — the three selects share one style above.) */
 .mc-rt-type, .mc-rt-abil { flex: 1 1 0; min-width: 0; }
 .mc-rt-multi { position: relative; flex: 1 1 auto; min-width: 0; }
@@ -4445,7 +4445,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
    the button's tooltip: it explained a flow that is self-evident once you press it. */
 .mc-dmp-travel-foot { margin-top: auto; padding-top: 6px; }
 .mc-dmp-travel { display: flex; flex-direction: column; gap: 8px; padding: 0; flex: 1 1 auto; min-height: 0; } /* rely on the fly-body's 10px like every other tab */
-.mc-dmp-travel-lbl { color: var(--mc-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.mc-dmp-travel-lbl { display: block; color: var(--mc-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin: 10px 0 4px; }
 
 .mc-dmp-travel-hint { color: var(--mc-muted); font-size: 12px; margin: 0; }
 /* §18 T2: pace segmented control — gold outline on the active pace (state, not fill; UI-BIBLE §4.2). */
@@ -4458,7 +4458,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   font-size: 13px; font-weight: 600;
 }
 .mc-dmp-travel-maptoggle.mc-on { border-style: solid; border-color: var(--mc-gold); color: var(--mc-gold); background: var(--mc-panel-2); }
-.mc-dmp-travel-segs { display: flex; gap: 6px; }
+.mc-dmp-travel-segs { display: flex; gap: 6px; margin-bottom: 8px; }
 /* Base = a full-width, FIXED-height button (route actions live in a column and must NOT grow
    vertically — that stretched them to fill the flyout, DM 2026-07-18). */
 .mc-dmp-travel-seg { flex: 0 0 auto; width: 100%; min-height: 34px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
@@ -4475,11 +4475,12 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* geometry comes from the shared primary rule — this only says it's the travel one */
 .mc-dmp-travel-go { width: 100%; margin-top: 8px; } /* breathing room under the "switch scene" hint */
 /* Pace header: label + a small [+] for custom transports. */
-.mc-dmp-travel-pacehead { display: flex; align-items: center; justify-content: space-between; }
+.mc-dmp-travel-pacehead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.mc-dmp-travel-pacehead .mc-dmp-travel-lbl { margin: 0; }   /* the inline Pace label keeps the row tight */
 .mc-dmp-travel-addpace { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(6px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-muted); cursor: pointer; font-size: 12px; }
 .mc-dmp-travel-addpace:hover, .mc-dmp-travel-addpace.mc-on { color: var(--mc-gold); border-color: var(--mc-gold); }
 /* Custom-transport dropdown below the three built-ins; gold outline when a custom is active. */
-.mc-dmp-travel-custom { width: 100%; min-height: 34px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge); padding: 0 8px; }
+.mc-dmp-travel-custom { width: 100%; min-height: 34px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge); padding: 0 8px; margin-bottom: 8px; }
 .mc-dmp-travel-custom.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); background: var(--mc-panel-2); }
 /* Custom-pace editor popup. */
 .mc-dmp-pace-pop { display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); }
