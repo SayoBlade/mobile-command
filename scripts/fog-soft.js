@@ -248,8 +248,16 @@ function gpuFilterClass() {
       }`}
       // Shape a gathered density into the final edge: an S-curve for depth, warped by the wisp so
       // the border billows instead of tracing the polygon. Saturates to exactly 0/1 away from edges.
+      // INWARD fade (DM 2026-07-26: "blur in, not out — shadows are spilling into the visible
+      // areas"). The gather density at the geometric edge is 0.5: a band symmetric around 0.5 puts
+      // half the gradient on the VISIBLE side, dimming real map detail. Capping the band's top AT
+      // 0.5 means every pixel the players can see renders fully clear, and the whole feather lives
+      // inside the shadow. The LOW end sets how deep the penumbra reaches into the dark — 0.04 is
+      // generous on purpose: the DM is fine with near-edge room detail ghosting through in near
+      // darkness ("if they make out a few details at the very edge… it's not THAT bad"), and drawn
+      // map walls absorb the mild past-the-polygon reveal.
       float mcEdge(in float d, in float wisp) {
-        return smoothstep(0.18, 0.82, d + (wisp - 0.4375) * ${GPU_FOG_NOISE_AMP.toFixed(3)});
+        return smoothstep(0.04, 0.50, d + (wisp - 0.4375) * ${GPU_FOG_NOISE_AMP.toFixed(3)});
       }
 
       void main() {
@@ -308,12 +316,12 @@ function setGpuShader(on) {
 function applyStyle(style) {
   if (style === "off") { setGpuShader(false); clearSoftBlur(); clearDensity(); return; }
   applyDensity();
-  // "gpu" ALSO cranks the Tier-0 blur (where High mode provides it): our shader feathers the FOG
-  // edges, but the seen↔remembered boundary in the DM's screenshot is drawn by TWO systems — the
-  // fog v-cutout AND the lighting/vision-mode grey masked by canvas.masks.vision. Only the mask's
-  // blurFilter softens that second, lighting-side line, so leaving it stock made the fog side soft
-  // and the lighting side sharp at the same border (DM 2026-07-26).
-  if (style === "gpu") { applySoftBlur(); setGpuShader(true); }
+  // "gpu" does NOT crank the Tier-0 blur. It briefly did (to soften the lighting-side grey line),
+  // but that blur is SYMMETRIC — at ×12 it washed darkness deep into lit areas, exactly the
+  // "shadows spilling into the visible, look how many details are lost" the DM screenshotted
+  // (2026-07-26). The shader's own inward fade (mcEdge band capped at 0.5) is the softening now;
+  // the vision mask keeps Foundry's mild stock blur, so lit detail stays crisp to the line.
+  if (style === "gpu") { clearSoftBlur(); setGpuShader(true); }
   else { setGpuShader(false); applySoftBlur(); } // "soft"
 }
 

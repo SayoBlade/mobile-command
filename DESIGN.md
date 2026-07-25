@@ -1957,11 +1957,26 @@ client 2026-07-26:
   via onChange). The right value can only be matched by eye against the party's darkvision grey, so
   it's the DM's dial, not a constant. Verified: slider commits; display's `canvas.colors.fogExplored`
   follows exactly (#383838 at 22%).
-- **`gpu` now ALSO cranks the Tier-0 blur** (was soft-only): our shader feathers the FOG edges, but
-  the seen↔remembered border is co-drawn by the lighting grey whose mask (`canvas.masks.vision`
-  blurFilter) stayed stock-sharp — soft fog beside a hard lighting line at the same border. Verified:
-  `blurFilter._configuredStrength` = 124.8 on the TV in gpu mode. (Below High the mask blur doesn't
-  exist — the lighting-side line stays hard there; Foundry provides no lever.)
+- ~~`gpu` also cranks the Tier-0 blur~~ — **REVERTED same day** (see the inward-fade note below):
+  that blur is symmetric, and at ×12 it washed darkness deep into lit areas. gpu leaves the vision
+  mask on Foundry's mild stock blur now.
+
+**Inward fade (DM 2026-07-26: "blur in, not out — shadows are spilling into the visible areas, look
+how many details are lost").** Two causes, both fixed and pixel-verified on the TV client:
+
+1. The ×12 vision-mask blur (above) — symmetric, so it darkened lit floor. Reverted.
+2. The shader's smoothstep band was centred on the boundary (density at the geometric edge = 0.5, band
+   0.18–0.82), putting HALF the gradient on the visible side. Now **`smoothstep(0.04, 0.50)`** — the
+   top capped AT 0.5 means every player-visible pixel renders fully clear; the whole feather lives
+   inside the shadow, reaching ~90 px deep as an irregular wispy penumbra. The low end is generous by
+   the DM's explicit call: near-edge room detail may ghost through in near-darkness, and a mild
+   past-the-polygon reveal is fine because drawn map walls (~20 px+) absorb it ("if they make out a
+   few details at the very edge… it's not THAT bad in 90% of cases").
+
+Verified (profile A/B, TV client): visible-side pixels **identical to stock** (zero spill, lighting
+wash gone); dark side fades `19,16,11,19,3,14,3,3,7,11,8,12,5,2,1,0` (~90 px wispy) where stock cuts
+`19,16,11,18,0,0`; explored areas near boundaries also commit to full explored strength sooner (more
+remembered map shows). No shader errors.
 
 ### 24.0 (historical) Tier 0 soft edges (DM 2026-07-24, BUILT, unverified on the TV)
 
