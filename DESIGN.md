@@ -1984,7 +1984,19 @@ Two halves:
   pet's turn uses the battle track for now.)
 - **Stop-and-play**, not pause/resume-from-position (MVP; DM accepted "stop if pause is difficult").
   Each track restarts from 0. True resume-from-`pausedTime` is a later nicety.
-- **On combat end:** stop combat music, **resume** what was playing before (the remembered set).
+- **On combat end:** stop combat music, **resume** what was playing before (the remembered set); if
+  nothing was playing before, end on silence (DM 2026-07-25).
+
+**DM 2026-07-25 fixes (live testing):**
+
+- **PC anthems LOOP** for the whole turn. A non-repeating theme in a sequential playlist ended
+  mid-turn and Foundry auto-advanced to the next sound, which then bled over the battle track on the
+  next NPC turn — the root cause of both "anthem switches tracks" **and** "battle music doesn't return
+  on the foe turn." We force `repeat:true` on the theme before playing (prior value restored on end).
+- **Crossfade, not hard-cut.** Switches previously popped/beeped and lagged ~2s (audio load). We set a
+  `fade` (500ms) on combat tracks and **start the incoming track before fading out the old**, so they
+  overlap — the pop is gone and the load latency hides behind the fade. `repeat`/`fade` we change are
+  remembered per-uuid and restored when combat ends, so the DM's playlist config isn't rewritten.
 
 Foundry hooks: `PlaylistSound#update({playing})` drives playback and syncs to all clients incl. the
 TV; run on `game.users.activeGM` / the executor (playlist writes are GM-only). Turn hooks:
