@@ -2258,3 +2258,29 @@ in the dropdown re-targets the open thread. Player replies land via the createCh
   on table feel.
 - Group notes (one message to several players) — trivially `whisper: [ids…]`, but the thread
   model is 1:1 today; unspecced.
+
+### 26.6 Targeted effects + batch 2 (DM-picked 2026-07-26: ideas 3/5/8/10/12/16, BUILT)
+
+**Targeting:** one-shots may carry `{ users: [ids] }` — every client receives the broadcast,
+non-targets drop it silently. Player STATES store `{ users: [ids] }` in `fxActive`, so one world
+entry drives every targeted phone and survives their reloads. Both flow through the same §26.1
+machinery; `dmToggleFxFor` / `fxIsOnFor` are the per-player twins of the originals.
+
+| Effect | Kind | Mechanism |
+|---|---|---|
+| **Storm** (rolling) | state, table | ONLY the executor schedules (independent per-client timers would desync the room): first strike 3–18s after toggle, then every ~40s–2.5min, 75% distant (`soft` = dim flash, later + 0.4× thunder). Everyone receives the same broadcast strike. |
+| **Doom Bell** | one-shot, table | One press = one toll — the DM taps the rhythm. Synth = inharmonic partials (hum/prime/tierce/quint/nominal, hair of detune = "metal") over an 82Hz fundamental + a strike thud; canvas clients ring, EVERY screen dips dark together (`mc-fx-dim`). |
+| **Heartbeat** | state, per-player | Red vignette squeezing at 1Hz + a lub-dub (two 55Hz sine bursts) + vibration on the beat (Android; iOS no-ops). Private to the target. |
+| **Woozy** | state, per-player | The shell sways ±0.4° and blurs 0.6px on a 7s cycle. Deliberately small — readable but wrong; never fights tapping. |
+| **Static** | one-shot, per-player | Shifting scan-band overlay (gradients, `steps(12)`, single 0.8s pass — no sustained strobe) + three ragged noise spikes + a vibration stutter. |
+| **Ghost Voice** | one-shot, per-player | `speechSynthesis` at pitch 0.1 / rate 0.65 speaks DM-typed words (≤80 chars) out of the target's phone. Zero assets. Flagged experimental — may read goofy; judge live. |
+
+Panel: two new drawers — **Moments** (bell; future explosions live here) and **Player** (target
+picker in the §3 roster shape + heartbeat/woozy toggles, static shot, ghost-voice input row).
+
+**Deferred by the DM, ideas kept (2026-07-26):**
+- **"Deliver dramatically" on personal messages** (idea 7) — the §27 composer gains an option
+  that darkens the target's phone and types the note letter-by-letter with a whisper sound.
+  "Sounds like a whole feature" — spec when messages have table mileage.
+- **Surround thunder** (idea 15) — phones as a distributed speaker array, thunder rolling
+  seat-by-seat around the table; needs a one-time seating order. Parked, explicitly keep.

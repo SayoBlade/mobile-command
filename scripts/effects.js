@@ -1,6 +1,7 @@
 import { MODULE_ID } from "./preset.js";
 import { socket } from "./rpc.js";
 import { isPhoneClient } from "./shell.js";
+import { isExecutor } from "./settings.js";
 
 // §26 Effects tab (spike) — DM-triggered table ambience, three kinds under one catalog:
 //   scene   — shortcuts to Foundry's own scene data (weather particles, darkness). Foundry
@@ -25,9 +26,12 @@ import { isPhoneClient } from "./shell.js";
 /* -------------------------------------------- */
 
 // Drawer order for the panel. One-shots render as plain buttons, the rest as toggles.
+// `player` effects target ONE user's phone — the panel pairs them with a player picker.
 export const FX_TABS = {
-  weather: ["rain", "rainStorm", "snow", "blizzard", "fog", "leaves", "night", "heat", "dust", "lightning"],
-  magical: ["rainbow", "invert", "dreamy", "drained"]
+  weather: ["rain", "rainStorm", "snow", "blizzard", "fog", "leaves", "night", "heat", "dust", "storm", "lightning"],
+  moments: ["bell"],
+  magical: ["rainbow", "invert", "dreamy", "drained"],
+  player: ["heartbeat", "woozy", "static", "voice"]
 };
 
 // weather: a CONFIG.weatherEffects id (Foundry 14 ships leaves/rain/rainStorm/fog/snow/blizzard;
@@ -44,6 +48,12 @@ export const FX_DEFS = {
   heat: { label: "Heat Haze", icon: "fa-temperature-high", filter: "heat", hint: "Rising shimmer + a warm tint" },
   dust: { label: "Dust Storm", icon: "fa-wind", weather: "fog", filter: "dust", sound: "dustWind", hint: "Ochre haze, low wind, fog particles as dust" },
   lightning: { label: "Lightning", icon: "fa-bolt", oneShot: true, hint: "White flash on every screen, thunder a beat later" },
+  storm: { label: "Storm", icon: "fa-cloud-bolt", state: true, hint: "Distant flashes + thunder roll in on their own every minute or two" },
+  bell: { label: "Doom Bell", icon: "fa-bell", oneShot: true, hint: "One toll per press — phones dim with each toll" },
+  heartbeat: { label: "Heartbeat", icon: "fa-heart-pulse", player: "state", hint: "Their phone pulses red with a heartbeat only they get" },
+  woozy: { label: "Woozy", icon: "fa-flask", player: "state", hint: "Drunk, poisoned, concussed — their phone wobbles and blurs" },
+  static: { label: "Static", icon: "fa-wave-square", player: "shot", oneShot: true, hint: "A half-second cursed glitch on their phone" },
+  voice: { label: "Ghost Voice", icon: "fa-ghost", player: "shot", oneShot: true, hint: "Their phone speaks the words in a dead voice" },
   rainbow: { label: "Rainbow", icon: "fa-rainbow", filter: "rainbow", hint: "The whole scene cycles through hues" },
   invert: { label: "Invert", icon: "fa-circle-half-stroke", filter: "invert", hint: "Negative — an unsettling other-side look" },
   dreamy: { label: "Dreamy", icon: "fa-cloud-moon", filter: "dreamy", hint: "Soft blur — dream sequences, visions" },
@@ -60,13 +70,31 @@ export function fxActiveMap() {
 export function fxIsOn(id) {
   const def = FX_DEFS[id];
   if (!def) return false;
-  if (def.filter || def.sound) return !!fxActiveMap()[id];
+  if (def.filter || def.sound || def.state) return !!fxActiveMap()[id];
   if (def.weather !== undefined) return canvas?.scene?.weather === def.weather;
   // _source, not prepared: during the 5s animateDarkness fade the PREPARED level is the
   // animation's current frame (environment.mjs writes the canvas value back onto the scene),
   // so the toggle would read stale-day for 5s after tapping Night. Source is the intent.
   if (def.darkness) return (canvas?.scene?._source?.environment?.darknessLevel ?? 0) >= 0.55;
   return false;
+}
+
+// --- per-player targeting. A player-state effect stores { users: [ids] } in fxActive, so one
+// world entry drives every targeted phone and survives their reloads like any other state.
+export function fxTargets(id) {
+  const v = fxActiveMap()[id];
+  return Array.isArray(v?.users) ? v.users : [];
+}
+export function fxIsOnFor(id, userId) { return fxTargets(id).includes(userId); }
+
+export async function dmToggleFxFor(id, userId) {
+  const def = FX_DEFS[id];
+  if (def?.player !== "state" || !game.user.isGM || !userId) return;
+  const cur = { ...fxActiveMap() };
+  const users = new Set(fxTargets(id));
+  if (users.has(userId)) users.delete(userId); else users.add(userId);
+  if (users.size) cur[id] = { users: [...users] }; else delete cur[id];
+  await game.settings.set(MODULE_ID, "fxActive", cur);
 }
 
 /* -------------------------------------------- */
@@ -93,36 +121,89 @@ export async function dmToggleFx(id) {
       if (k !== id && FX_DEFS[k]?.weather !== undefined) { delete cur[k]; dirty = true; }
     }
   }
-  if (def.filter || def.sound) {
+  if (def.filter || def.sound || def.state) {
     if (wantOn) cur[id] = true; else delete cur[id];
     dirty = true;
   }
   if (dirty) await game.settings.set(MODULE_ID, "fxActive", cur);
 }
 
-export function dmFireFx(id) {
+// extra: optional payload — { users: [ids] } narrows a one-shot to those clients (static,
+// ghost voice), { text } carries the ghost voice's words, { soft } is the storm's distant strike.
+export function dmFireFx(id, extra = {}) {
   if (!FX_DEFS[id]?.oneShot || !game.user.isGM) return;
-  if (socket) socket.executeForEveryone("fxOneShot", { id });
-  else handleFxOneShot({ id }); // socketlib missing — at least the DM's own screen fires
+  const payload = { id, ...extra };
+  if (socket) socket.executeForEveryone("fxOneShot", payload);
+  else handleFxOneShot(payload); // socketlib missing — at least the DM's own screen fires
 }
 
 /* -------------------------------------------- */
 /*  One-shots                                   */
 /* -------------------------------------------- */
 
-export function handleFxOneShot({ id } = {}) {
-  if (id === "lightning") lightningLocal();
+export function handleFxOneShot({ id, users, text, soft } = {}) {
+  // A targeted one-shot names its audience; everyone else drops it silently.
+  if (Array.isArray(users) && users.length && !users.includes(game.user.id)) return;
+  if (id === "lightning") lightningLocal(!!soft);
+  else if (id === "bell") bellLocal();
+  else if (id === "static") staticLocal();
+  else if (id === "voice") voiceLocal(text);
 }
 
-function lightningLocal() {
-  // The flash is a DOM overlay, so it works on every client — phones included.
+function overlayShot(className, ttlMs) {
   const d = document.createElement("div");
-  d.className = "mc-fx-flash";
+  d.className = className;
   document.body.appendChild(d);
   d.addEventListener("animationend", () => d.remove());
-  setTimeout(() => { try { d.remove(); } catch (e) { /* already gone */ } }, 1500);
+  setTimeout(() => { try { d.remove(); } catch (e) { /* already gone */ } }, ttlMs);
+  return d;
+}
+
+function lightningLocal(soft = false) {
+  // The flash is a DOM overlay, so it works on every client — phones included.
+  // `soft` is the rolling storm's distant strike: dimmer flash, later + quieter thunder.
+  overlayShot(soft ? "mc-fx-flash mc-fx-flash-soft" : "mc-fx-flash", 1500);
   // Thunder trails the flash like real distance would; canvas clients only (see header).
-  if (!isPhoneClient()) playThunder(600 + Math.random() * 1800);
+  if (!isPhoneClient()) playThunder(soft ? 1800 + Math.random() * 1800 : 600 + Math.random() * 1800, soft ? 0.4 : 1);
+}
+
+// Doom bell: the toll on canvas clients, a slow dim pulse on EVERY screen — the phones dip
+// dark together with each strike. One press = one toll; the DM taps the rhythm.
+function bellLocal() {
+  overlayShot("mc-fx-dim", 3200);
+  if (!isPhoneClient()) playBell();
+}
+
+// Cursed static: a half-second glitch overlay + a crackle burst + a vibration stutter.
+// Targeted at one player's phone; plays wherever that user is logged in.
+function staticLocal() {
+  overlayShot("mc-fx-static", 900);
+  try { navigator.vibrate?.([40, 30, 80, 30, 40]); } catch (e) { /* not supported */ }
+  const out = audioOut();
+  if (!out) return;
+  const { ctx, dest } = out;
+  const src = noiseSource(ctx, false);
+  const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1200;
+  const g = ctx.createGain(); g.gain.value = 0;
+  src.connect(hp).connect(g).connect(dest);
+  const t0 = ctx.currentTime;
+  // three ragged spikes, not a smooth burst — broken-signal, not wind
+  for (const [at, lvl] of [[0, 0.30], [0.16, 0.18], [0.34, 0.26]]) {
+    g.gain.setValueAtTime(lvl, t0 + at);
+    g.gain.exponentialRampToValueAtTime(0.004, t0 + at + 0.11);
+  }
+  src.start(t0); src.stop(t0 + 0.6);
+}
+
+// Ghost voice: the phone SPEAKS — speechSynthesis pitched into the grave. Zero assets.
+function voiceLocal(text) {
+  const words = String(text ?? "").slice(0, 80).trim();
+  if (!words || !globalThis.speechSynthesis) return;
+  try {
+    const u = new SpeechSynthesisUtterance(words);
+    u.pitch = 0.1; u.rate = 0.65; u.volume = 0.9;
+    speechSynthesis.speak(u);
+  } catch (e) { console.warn(`${MODULE_ID} | ghost voice failed`, e); }
 }
 
 /* -------------------------------------------- */
@@ -202,8 +283,9 @@ const SOUND_MAKERS = {
 };
 
 // Thunder: an initial high crack, then a low rumble whose filter sweeps down as it decays —
-// the same shape a real strike leaves after the air stops ringing. delayMs ≈ distance.
-function playThunder(delayMs) {
+// the same shape a real strike leaves after the air stops ringing. delayMs ≈ distance, and
+// scale (0..1) is how far away it FEELS — the storm's ambient strikes come in at 0.4.
+function playThunder(delayMs, scale = 1) {
   const out = audioOut();
   if (!out) return; // pre-gesture — a silent strike beats a console error
   const { ctx, dest } = out;
@@ -214,7 +296,7 @@ function playThunder(delayMs) {
   const cg = ctx.createGain(); cg.gain.value = 0;
   crack.connect(cbp).connect(cg).connect(dest);
   cg.gain.setValueAtTime(0, t0);
-  cg.gain.linearRampToValueAtTime(0.5, t0 + 0.012);
+  cg.gain.linearRampToValueAtTime(0.5 * scale, t0 + 0.012);
   cg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.28);
   crack.start(t0); crack.stop(t0 + 0.35);
 
@@ -230,8 +312,37 @@ function playThunder(delayMs) {
     g.gain.setTargetAtTime(0, at + 0.25, tau);
     src.start(at); src.stop(at + 6);
   };
-  mkRumble(t0 + 0.05, 0.5, 1.1);   // the main body
-  mkRumble(t0 + 1.3, 0.18, 1.5);   // a quieter roll behind it
+  mkRumble(t0 + 0.05, 0.5 * scale, 1.1);   // the main body
+  mkRumble(t0 + 1.3, 0.18 * scale, 1.5);   // a quieter roll behind it
+}
+
+// Doom bell: a struck bell is a stack of INHARMONIC partials — hum, prime, tierce, quint,
+// nominal — each dying at its own rate, plus a noise thud at the strike. Low fundamental,
+// long decay: a bell you hear with your chest.
+function playBell() {
+  const out = audioOut();
+  if (!out) return;
+  const { ctx, dest } = out;
+  const t0 = ctx.currentTime + 0.02;
+  const f0 = 82; // deep — a tower bell, not a dinner bell
+  for (const [ratio, level, decay] of [[0.5, 0.28, 6.5], [1, 0.34, 5.5], [1.19, 0.20, 4.0], [1.56, 0.14, 3.2], [2.0, 0.16, 2.4], [2.66, 0.07, 1.4]]) {
+    const o = ctx.createOscillator();
+    o.type = "sine";
+    o.frequency.value = f0 * ratio * (1 + (Math.random() - 0.5) * 0.004); // hair of detune = "metal"
+    const g = ctx.createGain(); g.gain.value = 0;
+    o.connect(g).connect(dest);
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(level, t0 + 0.015);
+    g.gain.setTargetAtTime(0, t0 + 0.03, decay / 4);
+    o.start(t0); o.stop(t0 + decay + 1);
+  }
+  const thud = noiseSource(ctx, false);
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 500;
+  const tg = ctx.createGain(); tg.gain.value = 0;
+  thud.connect(lp).connect(tg).connect(dest);
+  tg.gain.setValueAtTime(0.35, t0);
+  tg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18);
+  thud.start(t0); thud.stop(t0 + 0.25);
 }
 
 /* -------------------------------------------- */
@@ -374,6 +485,66 @@ function stopLoop(id) {
 }
 
 /* -------------------------------------------- */
+/*  Per-player phone states (heartbeat, woozy)   */
+/* -------------------------------------------- */
+
+// These run on the TARGETED user's client (any device they're logged in on) — DOM overlays,
+// a private audio pulse, vibration. Private theatre: the rest of the table sees nothing.
+const PHONE_FX = {
+  heartbeat: {
+    start() {
+      const d = document.createElement("div");
+      d.className = "mc-fxp-heart";
+      document.body.appendChild(d);
+      const beat = setInterval(() => {
+        try { navigator.vibrate?.([70, 110, 50]); } catch (e) { /* not supported */ }
+        const out = audioOut();
+        if (!out) return;
+        const { ctx, dest } = out;
+        const t0 = ctx.currentTime;
+        for (const [at, lvl] of [[0, 0.5], [0.22, 0.32]]) { // lub … dub
+          const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = 55;
+          const g = ctx.createGain(); g.gain.value = 0;
+          o.connect(g).connect(dest);
+          g.gain.setValueAtTime(0, t0 + at);
+          g.gain.linearRampToValueAtTime(lvl, t0 + at + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.001, t0 + at + 0.16);
+          o.start(t0 + at); o.stop(t0 + at + 0.25);
+        }
+      }, 1000);
+      return { el: d, beat };
+    },
+    stop(h) { clearInterval(h.beat); try { h.el.remove(); } catch (e) { /* gone */ } }
+  },
+  woozy: {
+    start() {
+      document.body.classList.add("mc-fxp-woozy");
+      return {};
+    },
+    stop() { document.body.classList.remove("mc-fxp-woozy"); }
+  }
+};
+
+const activePhoneFx = new Map(); // fx id -> start() handle
+
+/* -------------------------------------------- */
+/*  Rolling storm — the executor is the sky      */
+/* -------------------------------------------- */
+
+// ONE client schedules (the executor), everyone receives the broadcast strike — independent
+// per-client timers would flash the TV and the phones at different moments. First strike lands
+// 3–18s after the toggle so the DM gets feedback; then one every ~40s–2.5min, mostly distant.
+let stormTimer = null;
+function scheduleStormStrike(first = false) {
+  clearTimeout(stormTimer);
+  stormTimer = setTimeout(() => {
+    if (!fxActiveMap().storm || !isExecutor()) { stormTimer = null; return; }
+    dmFireFx("lightning", { soft: Math.random() < 0.75 });
+    scheduleStormStrike();
+  }, first ? 3000 + Math.random() * 15000 : 40000 + Math.random() * 110000);
+}
+
+/* -------------------------------------------- */
 /*  Client engine — keep local state == fxActive */
 /* -------------------------------------------- */
 
@@ -389,7 +560,16 @@ export function syncFx() {
       if (active[id] && !phone) startLoop(id, def);
       else stopLoop(id);
     }
+    if (def.player === "state") {
+      const on = fxTargets(id).includes(game.user.id);
+      const h = activePhoneFx.get(id);
+      if (on && !h) activePhoneFx.set(id, PHONE_FX[id].start());
+      else if (!on && h) { activePhoneFx.delete(id); PHONE_FX[id].stop(h); }
+    }
   }
+  // Rolling storm: only the executor keeps the sky going.
+  if (active.storm && isExecutor()) { if (!stormTimer) scheduleStormStrike(true); }
+  else { clearTimeout(stormTimer); stormTimer = null; }
 }
 
 export function registerFxEngine() {

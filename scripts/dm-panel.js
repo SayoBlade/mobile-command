@@ -7,7 +7,7 @@ import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar
 import { runDmWizard } from "./dm-wizard.js";
 import { startCombatWithMusic } from "./combat-music.js";
 import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist } from "./settings.js";
-import { FX_TABS, FX_DEFS, fxIsOn, dmToggleFx, dmFireFx } from "./effects.js"; // §26 Effects tab
+import { FX_TABS, FX_DEFS, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js"; // §26 Effects tab
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
@@ -29,6 +29,8 @@ let _prevManual = false;     // last manual-TV state, so only the manual→OFF e
 let tokensPlayer = "";       // owned-tokens: which player's tokens are shown
 let dmMsgOpen = false;       // §27: the selected player's message thread is open (Party tab)
 let dmMsgDraft = "";         // §27: composer text, kept across the panel's frequent re-renders
+let fxPlayer = "";           // §26.6: which player the Effects tab's Player drawer targets
+let fxVoiceDraft = "";       // §26.6: ghost-voice words, kept across re-renders
 let dmReactions = [];        // reaction widget: live chips {id, kind:"aoo"|"window", label, weapon, activityUuid?, targetUuid?, expiresAt}
 const rollTool = { type: "save", ability: "dex", selected: null, targetsOpen: false };
 
@@ -300,8 +302,9 @@ function partyTabFull() {
   </div>`;
 }
 
-// --- Effects tab (§26, spike): DM ambience shortcuts in two drawers. Toggles mark on-state per
-// UI-BIBLE §4.2 (gold outline, never a fill); Lightning is a one-shot, so it never marks.
+// --- Effects tab (§26): DM ambience shortcuts in four drawers. Toggles mark on-state per
+// UI-BIBLE §4.2 (gold outline, never a fill); one-shots (Lightning, the bell) never mark.
+// The Player drawer (§26.6) targets ONE player's phone — private theatre.
 function effectsTabHTML() {
   const btn = (id) => {
     const d = FX_DEFS[id];
@@ -311,8 +314,38 @@ function effectsTabHTML() {
   const grid = (ids) => `<div class="mc-fx-grid">${ids.map(btn).join("")}</div>`;
   return `<div class="mc-dmp-col">
     ${dtDrawer("fxWeather", "Weather", "", grid(FX_TABS.weather))}
+    ${dtDrawer("fxMoments", "Moments", "", grid(FX_TABS.moments))}
     ${dtDrawer("fxMagic", "Magical", "", grid(FX_TABS.magical))}
+    ${dtDrawer("fxPlayer", "Player", "", fxPlayerBody())}
   </div>`;
+}
+
+// §26.6 Player drawer: pick the victim, then per-phone toggles/shots. Same roster row shape as
+// the Party tab's picker (§3: identity icon in the player's colour). Ghost voice gets its own
+// input row — the phone will SPEAK exactly these words.
+function fxPlayerBody() {
+  const esc = foundry.utils.escapeHTML;
+  let tvId = ""; try { tvId = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
+  const players = game.users.filter(u => !u.isGM && u.id !== tvId);
+  if (!players.length) return `<div class="mc-dmp-empty">No players.</div>`;
+  if (!fxPlayer || !players.some(u => u.id === fxPlayer)) fxPlayer = players[0].id;
+  const u = game.users.get(fxPlayer);
+  const opts = players.map(p => `<option value="${p.id}" ${p.id === fxPlayer ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+  const btn = (id) => {
+    const d = FX_DEFS[id];
+    if (d.player === "shot") return `<button class="mc-fx-btn" data-fxp-shot="${id}" title="${d.hint}"><i class="fas ${d.icon}"></i><span>${d.label}</span></button>`;
+    return `<button class="mc-fx-btn ${fxIsOnFor(id, fxPlayer) ? "mc-on" : ""}" data-fxp="${id}" title="${d.hint}"><i class="fas ${d.icon}"></i><span>${d.label}</span></button>`;
+  };
+  return `
+    <div class="mc-dmp-tok-top">
+      <i class="fas fa-circle-user mc-nt-ico" style="color:${u.color?.css ?? "var(--mc-gold)"}"></i>
+      <select class="mc-dmp-tok-player" data-fx-player>${opts}</select>
+    </div>
+    <div class="mc-fx-grid">${FX_TABS.player.filter(id => id !== "voice").map(btn).join("")}</div>
+    <div class="mc-fx-voicerow">
+      <input type="text" class="mc-fx-voice" data-fx-voice maxlength="80" placeholder="Ghost voice — words their phone will speak…" value="${esc(fxVoiceDraft)}">
+      <button class="mc-fx-btn mc-fx-voicebtn" data-fxp-shot="voice" title="${FX_DEFS.voice.hint}"><i class="fas fa-ghost"></i></button>
+    </div>`;
 }
 
 // --- Floor camera strip (§25 2b): only the reflexive controls — Focus, Manual, and a shortcut into
@@ -2878,6 +2911,8 @@ function onTokenDblClick(ev) {
 function onInput(ev) {
   // §27: stash the message draft so the panel's frequent re-renders don't wipe mid-sentence typing.
   if (ev.target?.matches?.("[data-dm-msg-text]")) { dmMsgDraft = ev.target.value; return; }
+  // §26.6: same for the ghost-voice words.
+  if (ev.target?.matches?.("[data-fx-voice]")) { fxVoiceDraft = ev.target.value; return; }
   // Volume sliders: update the % readout live while dragging, but DON'T write the world setting on
   // every input event — that would be a document write per pixel of drag. The commit happens on
   // `change` (pointer release) in onChange. Purely local echo, no re-render, so the drag is smooth.
@@ -2899,6 +2934,8 @@ function onInput(ev) {
   if (kph) { const m = panelEl?.querySelector("[data-pace-mph]"); if (m) m.value = kph.value ? (Number(kph.value) / KPH_PER_MPH).toFixed(1) : ""; return; }
 }
 function onChange(ev) {
+  // §26.6: the Player drawer's target picker.
+  if (ev.target.matches?.("[data-fx-player]")) { fxPlayer = ev.target.value; return render(); }
   // Volume slider committed (pointer released) → write the world setting; the display mirrors it
   // into its own client volumes. No re-render: the slider already shows the value, and rebuilding
   // the panel mid-interaction would drop focus.
@@ -3007,6 +3044,22 @@ async function onClick(ev) {
   // toggle just wrote, so rendering before it lands would paint the stale state.
   const fxShot = ev.target.closest("[data-fx-shot]");
   if (fxShot) { dmFireFx(fxShot.dataset.fxShot); return; }
+  // §26.6 per-player effects: shots carry the target's user id; the ghost voice adds its words.
+  const fxpShot = ev.target.closest("[data-fxp-shot]");
+  if (fxpShot) {
+    const id = fxpShot.dataset.fxpShot;
+    if (id === "voice") {
+      const words = fxVoiceDraft.trim();
+      if (!words) { ui.notifications.warn("Write the words the phone should speak."); return; }
+      dmFireFx("voice", { users: [fxPlayer], text: words });
+      fxVoiceDraft = "";
+      return render();
+    }
+    dmFireFx(id, { users: [fxPlayer] });
+    return;
+  }
+  const fxpBtn = ev.target.closest("[data-fxp]");
+  if (fxpBtn) { await dmToggleFxFor(fxpBtn.dataset.fxp, fxPlayer); return render(); }
   const fxBtn = ev.target.closest("[data-fx]");
   if (fxBtn) { await dmToggleFx(fxBtn.dataset.fx); return render(); }
   // Mark / unmark the current scene as a travel map (the DM's explicit list — no grid guessing).

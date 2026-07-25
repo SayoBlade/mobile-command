@@ -3800,6 +3800,81 @@ body.mc-theme-wizard .mc-frame {
   30% { opacity: .25; }
   100% { opacity: 0; }
 }
+/* Distant strike (rolling storm): the same flash at whisper strength. */
+.mc-fx-flash.mc-fx-flash-soft { animation: mc-fx-flash-soft 900ms ease-out forwards; }
+@keyframes mc-fx-flash-soft {
+  0% { opacity: 0; }
+  6% { opacity: .28; }
+  14% { opacity: .06; }
+  22% { opacity: .18; }
+  100% { opacity: 0; }
+}
+
+/* §26 Doom bell: every screen dips dark together with the toll, then breathes back. */
+.mc-fx-dim {
+  position: fixed; inset: 0; z-index: 100000; background: #000; pointer-events: none;
+  opacity: 0; animation: mc-fx-dim 3s ease-in-out forwards;
+}
+@keyframes mc-fx-dim {
+  0% { opacity: 0; }
+  18% { opacity: .55; }
+  55% { opacity: .35; }
+  100% { opacity: 0; }
+}
+
+/* §26.6 Cursed static: shifting scan bands + a flicker. Bands are gradients, not images —
+   nothing to ship. Single fast pass, no sustained strobe. */
+.mc-fx-static {
+  position: fixed; inset: 0; z-index: 100000; pointer-events: none; mix-blend-mode: screen;
+  background: repeating-linear-gradient(0deg,
+    rgba(255, 255, 255, .16) 0 2px, transparent 2px 5px,
+    rgba(180, 220, 255, .10) 5px 6px, transparent 6px 11px);
+  animation: mc-fx-static .8s steps(12) forwards;
+}
+@keyframes mc-fx-static {
+  0% { opacity: .9; transform: translateY(0) skewX(0.4deg); }
+  25% { opacity: .35; transform: translateY(-14px) skewX(-1deg); }
+  40% { opacity: .8; transform: translateY(9px) skewX(0.8deg); }
+  65% { opacity: .2; transform: translateY(-5px); }
+  80% { opacity: .55; transform: translateY(3px) skewX(-0.5deg); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+
+/* §26.6 Heartbeat: a red vignette that squeezes with each beat — private to the targeted phone.
+   Semantic red (danger), not themed. */
+.mc-fxp-heart {
+  position: fixed; inset: 0; z-index: 99998; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 52%, rgba(122, 58, 53, .55) 100%);
+  animation: mc-fxp-heart 1s ease-in-out infinite;
+}
+@keyframes mc-fxp-heart {
+  0%, 100% { opacity: .35; transform: scale(1.06); }
+  8% { opacity: .85; transform: scale(1); }
+  22% { opacity: .5; transform: scale(1.04); }
+  30% { opacity: .7; transform: scale(1.01); }
+}
+
+/* §26.6 Woozy: the whole shell sways and softens. Amplitude is deliberately small — readable
+   but wrong; the effect must never fight the player's ability to actually tap. */
+body.mc-fxp-woozy #mobile-command-shell {
+  animation: mc-fxp-woozy 7s ease-in-out infinite;
+  filter: blur(0.6px) saturate(1.15) hue-rotate(8deg);
+}
+@keyframes mc-fxp-woozy {
+  0%, 100% { transform: rotate(0.35deg) translateX(2px); }
+  25% { transform: rotate(-0.3deg) translateY(2px); }
+  50% { transform: rotate(0.25deg) translateX(-2px); }
+  75% { transform: rotate(-0.4deg) translateY(-2px); }
+}
+
+/* §26.6 Ghost-voice row: input + a square ghost button, one row (§6.2 spirit). */
+#mc-dm-panel .mc-fx-voicerow { display: flex; gap: 6px; margin-top: 6px; }
+#mc-dm-panel .mc-fx-voice {
+  flex: 1 1 auto; min-width: 0; background: var(--mc-sunken); border: 1px solid var(--mc-edge);
+  border-radius: calc(7px * var(--mc-round, 1)); color: var(--mc-ink); padding: 0 8px; font-size: 12px;
+}
+#mc-dm-panel .mc-fx-voice:focus { border-color: var(--mc-gold); outline: none; }
+#mc-dm-panel .mc-fx-voicebtn { flex: none; width: 34px; }
 
 /* §27 Personal messages — one bubble language on both surfaces (phone overlay + DM panel).
    The list is column-reverse with newest-first source order, so it opens pinned to the latest
