@@ -171,10 +171,10 @@ function settingsHTML() {
 
   // Follow list is in the Display tab; Fog lives here in Settings (DM 2026-07-25).
   return `<div class="mc-dmp-settings">
-    ${dtDrawer("setSound", "Sound", "", sliders)}
-    ${dtDrawer("setEars", "Who the display hears through", "", earsBody)}
-    ${dtDrawer("setMusic", "Combat music", "", combatMusicBody())}
-    ${dtDrawer("setFog", "Fog", "", softFogBody())}
+    ${dtDrawer("setSound", "Sound", "", sliders, true)}
+    ${dtDrawer("setEars", "Who the display hears through", "", earsBody, true)}
+    ${dtDrawer("setMusic", "Combat music", "", combatMusicBody(), true)}
+    ${dtDrawer("setFog", "Fog", "", softFogBody(), true)}
   </div>`;
 }
 
@@ -252,12 +252,11 @@ function displayTabHTML() {
     <button class="mc-dmp-cam-btn" data-cam="zoom-out" title="Zoom the display out" aria-label="Zoom display out"><i class="fas fa-magnifying-glass-minus"></i></button>
     <button class="mc-dmp-cam-btn" data-cam="zoom-in" title="Zoom the display in" aria-label="Zoom display in"><i class="fas fa-magnifying-glass-plus"></i></button>
   </div>`;
-  // Follow list on top; the bare zoom/fit buttons sit at the BOTTOM — nearest the seam, so they're
-  // close to the floor's Focus/Manual for one-handed camera control (DM 2026-07-25). No drawer/title
-  // on the buttons, and Fog moved to Settings.
-  return `<div class="mc-dmp-settings">
-    ${dtDrawer("dispFollow", "Who the display follows", "", followListBody())}
-    ${camControls}
+  // Follow list scrolls in the MID; the bare zoom/fit buttons are pinned to the FOOT — nearest the
+  // seam, close to the floor's Focus/Manual for one-handed control (DM 2026-07-25).
+  return `<div class="mc-dmp-tabfill">
+    <div class="mc-dmp-tabmid">${dtDrawer("dispFollow", "Who the display follows", "", followListBody())}</div>
+    <div class="mc-dmp-tabfoot">${camControls}</div>
   </div>`;
 }
 
@@ -275,11 +274,12 @@ function combatTabHTML() {
 // --- Party tab (§25 2b): the roster grid + marching order (while packed) + Form Up pinned at the foot.
 function partyTabFull() {
   const marching = packedGroup() ? partyTabHTML() : "";
-  return `<div class="mc-dmp-col">`
-    + ownedTokensHTML()
-    + marching
-    + `<div class="mc-dmp-foot">` + partyMainHTML() + `</div>`
-    + `</div>`;
+  // Roster (+ marching order when packed) scrolls in the MID; Form Up / checklist / group pinned to
+  // the FOOT like the Combat send button (DM 2026-07-25).
+  return `<div class="mc-dmp-tabfill">
+    <div class="mc-dmp-tabmid">${ownedTokensHTML()}${marching}</div>
+    <div class="mc-dmp-tabfoot">${partyMainHTML()}</div>
+  </div>`;
 }
 
 // --- Floor camera strip (§25 2b): only the reflexive controls — Focus, Manual, and a shortcut into
@@ -368,9 +368,11 @@ function pcColor(a) {
 // Collapsible "drawer" so the tall downtime window can be tidied (DM 2026-07-14: "drawers like a
 // multi-open accordion"). Multi-open — each section toggles independently. `headerExtra` (e.g. the
 // catalog's "+ New") sits beside the toggle and is NOT part of the toggle button.
-let dtDrawers = { roster: true, catalog: true };
-function dtDrawer(key, title, headerExtra, body) {
-  const open = dtDrawers[key] !== false;
+let dtDrawers = { roster: true };
+// `defaultClosed` (DM 2026-07-25): settings + the activities catalog start collapsed until the DM
+// opens them. The stored toggle state still wins once touched.
+function dtDrawer(key, title, headerExtra, body, defaultClosed = false) {
+  const open = key in dtDrawers ? dtDrawers[key] !== false : !defaultClosed;
   // Title left, chevron right (DM 2026-07-16) — a leading chevron read as centred/odd.
   return `<div class="mc-dt-drawer ${open ? "mc-open" : ""}">
     <div class="mc-dt-drawer-head">
@@ -545,7 +547,7 @@ function downtimeHTML(embedded = false) {
     : "";
   // Two accordion drawers: the live roster on top, the authoring catalog below.
   const rosterDrawer = win?.open ? dtDrawer("roster", "Who's doing what", "", `<div class="mc-dt-players">${rows}</div>${startBar}`) : "";
-  const catalogDrawer = dtDrawer("catalog", "Activities", catalogNewBtn(), catalogHTML(st));
+  const catalogDrawer = dtDrawer("catalog", "Activities", catalogNewBtn(), catalogHTML(st), true);
   return `<div class="mc-dt-panel">${head}${rosterDrawer}${catalogDrawer}${restRow}</div>`;
 }
 
@@ -826,9 +828,12 @@ function preflightHTML() {
       ${c.fix ? `<button class="mc-dmp-pf-fix" data-preflight-fix="${c.id}">${esc(c.fix.label)}</button>` : ""}
     </div>`).join("");
   const stamp = preflightRunAt ? preflightRunAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
-  return `${rows}
-    <button class="mc-dmp-preflight-run" data-preflight-run><i class="fas fa-rotate"></i> Run again${stamp ? ` <span class="mc-dmp-pf-stamp">(last ${stamp})</span>` : ""}</button>
-    <button class="mc-dmp-preflight-run" data-dm-wizard><i class="fas fa-hat-wizard"></i> Setup Wizard</button>`;
+  // Checks scroll in the MID; the two action buttons pin to the FOOT (DM 2026-07-25).
+  return `<div class="mc-dmp-tabfill"><div class="mc-dmp-tabmid">${rows}</div>
+    <div class="mc-dmp-tabfoot">
+      <button class="mc-dmp-preflight-run" data-preflight-run><i class="fas fa-rotate"></i> Run again${stamp ? ` <span class="mc-dmp-pf-stamp">last ${stamp}</span>` : ""}</button>
+      <button class="mc-dmp-preflight-run" data-dm-wizard><i class="fas fa-hat-wizard"></i> Setup Wizard</button>
+    </div></div>`;
 }
 
 function rollsToolHTML() {
@@ -1299,7 +1304,7 @@ function travelHTML() {
     <p class="mc-dmp-travel-hint">${esc(state)}</p>
     <button class="mc-dmp-party-deploy mc-dmp-travel-go" data-travel-begin ${ready ? "" : "disabled"}
       title="Form up if needed and preview the scene — then click the map where the party arrives; everyone follows with the transition">
-      <i class="fas fa-right-to-bracket"></i> Switch</button>`;
+      <i class="fas fa-right-to-bracket"></i> Switch map</button>`;
 
   // Accordion 2 — Travel to…: pace (built-ins + custom transports) + freeform route.
   const customs = travelCustomPaces();
@@ -1346,14 +1351,16 @@ function travelHTML() {
   const isTravel = here ? isOverworldScene(here) : false;
   // A plain checkbox (DM 2026-07-25: the old dotted toggle read as confusing). "Travel map ☑" —
   // ticked = whole map visible, dims with the clock, no fog.
-  const mapToggle = here ? `<button class="mc-dmp-toggle mc-rest-chk ${isTravel ? "mc-on" : ""}" data-travel-mark="${here.id}"
+  const mapToggle = here ? `<button class="mc-dmp-toggle ${isTravel ? "mc-on" : ""}" data-travel-mark="${here.id}"
       title="${isTravel ? "This scene is a travel map — whole map visible, dims with the clock. Tap for a normal map with fog." : "Travel map: whole map stays visible and dims with the clock (turns off fog of war)."}">
       <i class="fas ${isTravel ? "fa-square-check" : "fa-square"}"></i> Travel map</button>` : "";
 
-  return `<div class="mc-dmp-travel">
-    ${mapToggle}
-    ${travelDrawer("switch", "Switch scene to…", switchBody)}
-    ${travelDrawer("go", "Travel to…", goBody, !!packed)}
+  // Travel-map toggle + Switch scroll in the MID; "Travel to…" pinned to the FOOT (DM 2026-07-25).
+  return `<div class="mc-dmp-tabfill"><div class="mc-dmp-travel mc-dmp-tabmid">
+      ${mapToggle}
+      ${travelDrawer("switch", "Switch scene to…", switchBody)}
+    </div>
+    <div class="mc-dmp-tabfoot">${travelDrawer("go", "Travel to…", goBody, !!packed)}</div>
   </div>`;
 }
 
@@ -2133,12 +2140,16 @@ function restSetupCard(group) {
   const phases = [plan.downtime ? "Activities" : null, plan.watches ? (plan.size === "short" ? "one watch" : "watches") : null].filter(Boolean);
   let hint = phases.length ? `${phases.join(", then ")}, then a ${restWord}.` : `A ${restWord}, applied right away.`;
   hint = hint.charAt(0).toUpperCase() + hint.slice(1);
+  // Just the CONTROLS now — Start Rest moved to the pinned foot (DM 2026-07-25).
   return `<div class="mc-rest-setup">
     <div class="mc-rest-segs mc-rest-types">${seg("short", "Short")}${seg("long", "Long")}</div>
     <div class="mc-rest-chks">${dtBtn}${watchBtn}</div>
-    <button class="mc-dmp-party-deploy mc-rest-go" data-rest-start ${canRest ? "" : "disabled"}><i class="fas fa-campground"></i> Start Rest</button>
     <p class="mc-rest-hint">${canRest ? hint : "No party group with members — set one up first."}</p>
   </div>`;
+}
+function restStartButton(group) {
+  const canRest = nightMembers(group).length > 0;
+  return `<button class="mc-dmp-party-deploy mc-rest-go" data-rest-start ${canRest ? "" : "disabled"}><i class="fas fa-campground"></i> Start Rest</button>`;
 }
 
 // The rest runs in stages (§19.3): assign watches → clock starts → downtime → watch phase →
@@ -2185,8 +2196,12 @@ function restHTML() {
   if (!group) return `<div class="mc-dt-panel"><p class="mc-rest-hint">No party group with members — set one up first.</p></div>`;
   const rest = group.getFlag(MODULE_ID, "rest");
   if (!rest) {
-    // Not resting: the setup card, with the authoring catalog still reachable below it.
-    return `<div class="mc-dt-panel">${restSetupCard(group)}${dtDrawer("catalog", "Activities", catalogNewBtn(), catalogHTML(downtimeState()))}</div>`;
+    // Not resting (§25 layout): the setup + collapsed Activities catalog scroll in the MID; Start Rest
+    // is pinned to the FOOT (DM 2026-07-25: "activities above Start Rest, Start Rest stuck to bottom").
+    return `<div class="mc-dmp-tabfill">
+      <div class="mc-dmp-tabmid">${restSetupCard(group)}${dtDrawer("catalog", "Activities", catalogNewBtn(), catalogHTML(downtimeState()), true)}</div>
+      <div class="mc-dmp-tabfoot">${restStartButton(group)}</div>
+    </div>`;
   }
   const night = group.getFlag(MODULE_ID, "night");
   const filled = night ? filledWatches(night) : [];

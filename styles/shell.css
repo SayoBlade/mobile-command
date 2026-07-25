@@ -3495,6 +3495,12 @@ body.mc-theme-wizard .mc-frame {
 /* Inline scrollable player-token target list (DM 2026-07-11). */
 .mc-dmp-rt-scroll { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; padding: 2px; }
 .mc-dmp-rt-foot { flex: 0 0 auto; padding-top: 2px; }
+/* Reusable "content scrolls, buttons pinned to the bottom" layout (DM 2026-07-25 — the Combat send
+   button pattern, applied to Party/Display/Rest/Travel/System-health). The FILL fills the workspace,
+   the MID takes the slack and scrolls, and the FOOT is pushed to the bottom with a padding gap. */
+.mc-dmp-tabfill { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.mc-dmp-tabmid { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 8px; padding: 1px; }
+.mc-dmp-tabfoot { flex: 0 0 auto; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 /* A STANDARD secondary row — panel fill, edge border, ink text (UI-BIBLE §4). It was a bespoke
    slate-blue card that matched nothing else in the app (DM 2026-07-17: "I still low-key hate the
    request roll character selection buttons, get them more standard"). */
@@ -4430,7 +4436,8 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   color: var(--mc-cta-ink); background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge); white-space: nowrap;
 }
 .mc-dmp-preflight-run { width: 100%; margin-top: 4px; padding: 7px; border-radius: calc(8px * var(--mc-round, 1)); font-weight: 700; }
-.mc-dmp-pf-stamp { font-weight: 400; opacity: 0.6; font-size: 11px; }
+.mc-dmp-tabfoot .mc-dmp-preflight-run { margin-top: 0; } /* the foot's gap handles spacing */
+.mc-dmp-pf-stamp { font-weight: 400; opacity: 0.6; font-size: 11px; align-self: center; line-height: 1; }
 /* Reaction widget: non-modal chips in the DM panel. aoo = actionable (violet,
    fist fires the OA, x declines); window = passive "a player is deciding". */
 .mc-dmp-reactions { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
