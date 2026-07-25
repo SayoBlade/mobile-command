@@ -2209,3 +2209,52 @@ overlay, so every phone at the table blinks white together — that's the featur
 - OPEN: should thunder also hit phones (surround-thunder vs echo)? More magical looks (underwater
   wobble, sepia flashback)? Per-effect volume? A "stop everything" button? Awaiting DM verdict on
   whether the direction is worth deepening.
+
+---
+
+## 27. Personal messages — DM ⇄ player private notes (DM-idea 2026-07-26, BUILT)
+
+**The ask:** "DM selects a player and writes a message — 'you are charmed, and want to get the
+party to leave this room' — player can respond to clarify. This can ride on foundry's chat
+reskinned for phone."
+
+### 27.1 It rides chat WHISPERS — no new storage, no RPC
+
+ChatMessage documents sync to every client and filter client-side (`ChatMessage#visible` =
+author or whisper target, verified 14.363), so both ends read the thread straight out of
+`game.messages`; `createChatMessage` is the live push; persistence and permissions are free.
+A note the DM types as `/w` in the native sidebar joins the same thread.
+
+- **`pm.js`** is the one shared definition (filter + send + text/time) so the two ends can never
+  disagree. "Personal" = carries our `pm` flag, OR any whisper with **no rolls and no
+  midi-qol/dnd5e flags** — that lets hand-typed `/w` in while keeping the automated whisper
+  machinery (midi save cards, roll results) out.
+- A **thread** = personal messages between one player user and the DM seat (any GM), either way.
+- Sends are text → `escapeHTML` → `<br>` newlines; renders strip to plain text (`pmText`), so a
+  bubble can never smuggle markup into either UI.
+
+### 27.2 Phone side (shell)
+
+Envelope in the header tool row (same 30px circle as dice tray/bell). Unread → gold outline +
+count badge; unread = DM-authored thread messages newer than the **`pmLastRead` USER flag** (a
+flag, not a client setting, so "read" follows the player across devices). Tap → a full-screen
+Messages overlay (same standing as the bio overlay; death saves outrank it): bubble thread —
+DM left with dragon icon in the DM's colour (§3), mine right — plus an inline composer
+(textarea + send, drafts survive re-renders via the `#onInput` stash pattern). The list is
+**`column-reverse`** with newest-first source order: it opens pinned to the latest message with
+zero scroll bookkeeping.
+
+### 27.3 DM side (panel, Party tab)
+
+An envelope beside the palette button in the player-picker row toggles the selected player's
+thread inline (last 20, same bubble classes at panel scale) + composer. Switching the player
+in the dropdown re-targets the open thread. Player replies land via the createChatMessage hook
+(and in the DM's native sidebar, as ever).
+
+### 27.4 Open
+
+- No push notification when the phone is asleep/backgrounded — the badge lights on next look.
+- Should a fresh DM note TOAST over the sheet (like damage), not just light the envelope? Waiting
+  on table feel.
+- Group notes (one message to several players) — trivially `whisper: [ids…]`, but the thread
+  model is 1:1 today; unspecced.

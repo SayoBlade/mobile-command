@@ -2,6 +2,7 @@ import { MODULE_ID } from "./preset.js";
 import { api as rpc, actorTokenSight, reportPresence } from "./rpc.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
 import { toggleSimpleCalendar } from "./gametime.js";
+import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -258,6 +259,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #journalPendingImg = null;  // an image queued to attach to the next entry (from the DM's shared image)
   #journalImage = null;   // fullscreen journal-image viewer src (null = closed)
   #journalTitleEdit = false;  // renaming the open page's title inline
+  #pmOpen = false;        // §27 Messages overlay (envelope in the header)
+  #pmDraft = "";          // Messages composer text, kept across re-renders
+  #pmBusy = false;        // a message send is in flight
   #bioOpen = false;       // biography editor overlay (long-press the portrait/name)
   #bioEditing = false;    // biography: read+search (false) vs edit textarea (true)
   #bioDraft = "";         // biography composer text, kept across re-renders
@@ -541,6 +545,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
             ${hpBtn}${tempBtn}
             <button class="mc-stat mc-stat-tap mc-stat-acwrap" data-action="ac-detail" title="Armor Class — tap for breakdown"><span class="mc-ac-frame"><i class="fas fa-shield"></i>${ac}</span></button>
             <span class="mc-stat-tools">
+              ${this.#pmButtonHTML()}
               <button class="mc-dtray-btn ${this.#diceTrayOpen ? "mc-on" : ""}" data-action="dice-tray" title="Dice tray — roll any die" aria-label="Dice tray"><i class="fas fa-dice-d20"></i></button>
               <button class="mc-insp ${insp ? "mc-insp-on" : ""}" data-action="toggle-insp" title="Inspiration" aria-label="Inspiration">★</button>
               ${this.#attentionBellHTML()}
@@ -1737,6 +1742,65 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const on = this.#bellActive();
     return `<button class="mc-bell${on ? " mc-bell-on" : ""}" data-action="attention-next" ${on ? "" : "disabled"} title="${on ? "Go to a token that needs you" : "Nothing waiting on your other tokens"}" aria-label="Pending actions on other tokens"><i class="fas fa-bell"></i></button>`;
   }
+  // --- §27 Personal messages (phone side) ----------------------------------
+  // The thread rides Foundry chat whispers (pm.js). Unread = DM-authored thread messages newer
+  // than the pmLastRead USER flag — a flag, not a client setting, so "read" follows the player
+  // across devices (phone at the table, laptop at home) the way a message inbox should.
+  #pmUnreadCount() {
+    const last = Number(game.user.getFlag(MODULE_ID, "pmLastRead") ?? 0);
+    return pmThread(game.user.id).filter(m => m.author?.id !== game.user.id && m.timestamp > last).length;
+  }
+  #pmButtonHTML() {
+    const n = this.#pmOpen ? 0 : this.#pmUnreadCount();
+    return `<button class="mc-pm-btn${n ? " mc-pm-unread" : ""}" data-action="pm-open" title="Messages — private notes from the DM" aria-label="Messages"><i class="fas fa-envelope"></i>${n ? `<span class="mc-pm-badge">${Math.min(n, 9)}</span>` : ""}</button>`;
+  }
+  // Bubble thread, newest LAST in source but the list is column-reverse (CSS), so the view
+  // starts pinned to the latest message with no scroll bookkeeping. DM bubbles left with the
+  // author's icon (§3: identity on the icon, never the text); mine right, no icon needed.
+  #pmHTML() {
+    const esc = foundry.utils.escapeHTML;
+    const rows = pmThread(game.user.id).slice(-60).reverse().map(m => {
+      const mine = m.author?.id === game.user.id;
+      const ico = mine ? "" : `<i class="fas fa-dragon mc-pm-ico" style="color:${game.users.get(m.author?.id)?.color?.css ?? "var(--mc-gold)"}"></i>`;
+      return `<div class="mc-pm-row ${mine ? "mc-pm-me" : "mc-pm-dm"}">${ico}<div class="mc-pm-bubble">${esc(pmText(m)).replaceAll("\n", "<br>")}<span class="mc-pm-time">${pmTime(m)}</span></div></div>`;
+    }).join("");
+    return `
+      <section class="mc-pm">
+        <div class="mc-pm-head">
+          <span class="mc-pm-title"><i class="fas fa-envelope"></i> Messages</span>
+          <button class="mc-pm-x" data-action="pm-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="mc-pm-list">${rows || `<div class="mc-pm-empty">Nothing yet. The DM can slip you a private note here — and you can write one back.</div>`}</div>
+        <div class="mc-pm-compose">
+          <textarea class="mc-pm-input" rows="2" placeholder="Write to the DM…" ${this.#pmBusy ? "disabled" : ""}>${esc(this.#pmDraft)}</textarea>
+          <button class="mc-pm-send" data-action="pm-send" ${this.#pmBusy ? "disabled" : ""} title="Send" aria-label="Send"><i class="fas fa-paper-plane"></i></button>
+        </div>
+      </section>`;
+  }
+  async #pmSendDraft() {
+    const text = (this.#pmDraft ?? "").trim();
+    if (!text || this.#pmBusy) return;
+    this.#pmBusy = true; this.render();
+    try {
+      await pmSend(ChatMessage.getWhisperRecipients("GM").map(u => u.id), text);
+      this.#pmDraft = "";
+    } catch (e) {
+      console.error(`${MODULE_ID} | message send failed`, e);
+      ui.notifications.warn("Couldn't send the message.");
+    } finally {
+      this.#pmBusy = false;
+      this.render();
+    }
+  }
+  /** createChatMessage → live thread/badge. Reading the thread live counts as reading. */
+  notePm(message) {
+    if (!pmIsPersonal(message)) return;
+    const fromDm = message.author?.isGM && (message.whisper ?? []).includes(game.user.id);
+    if (!fromDm) return;
+    if (this.#pmOpen) game.user.setFlag(MODULE_ID, "pmLastRead", Date.now());
+    if (this.rendered) this.render();
+  }
+
   // "Paused" chip (DM 2026-07-22): a read-only marker beside the name while the game is paused, so
   // a player who taps a dead button knows WHY rather than assuming the app broke. Pause already
   // gates actions (pause-guard) and the DM/TV get the desaturate+edge cue, but the phone had no
@@ -2029,6 +2093,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     else if (!party) this.#wasPacked = false;
     // Biography editor overlays everything (opened from the header, packed or not).
     if (this.#bioOpen) return this.#bioHTML(actor);
+    // §27 Messages overlay — same standing as the bio: header-opened, works packed or not.
+    // Deliberately AFTER the death-save collapse above: a dying PC's saves outrank a note.
+    if (this.#pmOpen) return this.#pmHTML();
     if (party && this.#partyView) return this.#partyContent(party, actor);
     // An in-progress action/cast overlays the current tab — so casting from the
     // Spells tab (or using a favorite from Explore) stays put instead of jumping.
@@ -5838,6 +5905,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#toggleInspiration();
       case "dice-tray":
         this.#diceTrayOpen = !this.#diceTrayOpen; return this.render();
+      case "pm-open":
+        this.#pmOpen = true;
+        game.user.setFlag(MODULE_ID, "pmLastRead", Date.now()); // opening = reading
+        return this.render();
+      case "pm-close":
+        this.#pmOpen = false; return this.render();
+      case "pm-send":
+        return this.#pmSendDraft();
       case "dtray-add": {
         const f = Number(el.dataset.faces);
         this.#dtrayPool[f] = (this.#dtrayPool[f] || 0) + 1;
@@ -7004,6 +7079,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (trc && this.#transferState) { (this.#transferState.coins ??= {})[trc.dataset.trCoin] = Math.max(0, Math.floor(Number(trc.value) || 0)); return; }
     if ((t instanceof HTMLTextAreaElement || t instanceof HTMLInputElement) && t.classList.contains("mc-jn-input")) {
       this.#journalDraft = t.value; // entry textarea OR the new-page title input
+    } else if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-pm-input")) {
+      this.#pmDraft = t.value; // §27: keep the message draft across re-renders (no focus steal)
     } else if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-bio-edit")) {
       this.#bioDraft = t.value; // keep the bio draft across re-renders (no focus steal)
     } else if (t instanceof HTMLInputElement && t.classList.contains("mc-bio-filter")) {
@@ -7538,6 +7615,7 @@ export function registerShellHooks() {
   Hooks.on("createChatMessage", (message) => {
     if (!shellInstance) return;
     shellInstance.maybeSavePromptFromCard(message); // phone-side save-prompt fallback (relay-independent)
+    shellInstance.notePm(message); // §27: a DM note lights the envelope / extends the open thread
     if (shellInstance.rendered) shellInstance.noteRoll(message);
   });
   // §11 DM-assign: the executor relays assigned targets here; pre-load them in

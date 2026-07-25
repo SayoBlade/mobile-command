@@ -1099,7 +1099,7 @@ body {
    (DM 2026-07-18). A new popup's title JOINS this list; it never brings its own numbers.
    Colour still follows meaning and stays on the per-component rules. */
 .mc-picker-title, .mc-nt-title, .mc-saveprompt-title, .mc-ob-title, .mc-paused-title,
-.mc-colorpick-title, .mc-place-title, .mc-imgpop-title { font-size: 17px; font-weight: 700; }
+.mc-colorpick-title, .mc-place-title, .mc-imgpop-title, .mc-pm-title { font-size: 17px; font-weight: 700; }
 /* NUMBERS + tab labels — never themed. A stat you misread is a bug, not a style. */
 #mobile-command-shell .mc-stat-val,
 #mobile-command-shell .mc-ability-mod,
@@ -3800,6 +3800,63 @@ body.mc-theme-wizard .mc-frame {
   30% { opacity: .25; }
   100% { opacity: 0; }
 }
+
+/* §27 Personal messages — one bubble language on both surfaces (phone overlay + DM panel).
+   The list is column-reverse with newest-first source order, so it opens pinned to the latest
+   message and stays there with zero scroll bookkeeping. */
+.mc-pm { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; gap: 8px; padding-top: 4px; }
+.mc-pm-head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; }
+.mc-pm-title { color: var(--mc-gold); }  /* size/weight joins the WINDOW TITLES rule (§6.4) */
+.mc-pm-x { width: 44px; height: 44px; flex: none; background: none; border: none; color: var(--mc-muted); font-size: 18px; cursor: pointer; }
+.mc-pm-x:hover { color: var(--mc-gold); }
+.mc-pm-list { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column-reverse; gap: 8px; overflow-y: auto; padding: 2px; }
+.mc-pm-row { display: flex; align-items: flex-end; gap: 6px; }
+.mc-pm-row.mc-pm-me { justify-content: flex-end; }
+.mc-pm-ico { flex: none; font-size: 14px; margin-bottom: 6px; }
+.mc-pm-bubble {
+  max-width: 82%; padding: 8px 10px; font-size: 14px; line-height: 1.35; color: var(--mc-ink);
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(12px * var(--mc-round, 1));
+}
+.mc-pm-dm .mc-pm-bubble { border-left: 2px solid var(--mc-gold); }  /* "from the DM" wears the brand */
+.mc-pm-me .mc-pm-bubble { background: var(--mc-panel-2); }
+.mc-pm-time { display: block; margin-top: 3px; font-size: 10px; color: var(--mc-muted); text-align: right; font-family: "Signika", sans-serif; }
+.mc-pm-empty { color: var(--mc-muted); font-size: 13px; padding: 12px 6px; }
+.mc-pm-compose { flex: 0 0 auto; display: flex; gap: 8px; align-items: flex-end; }
+.mc-pm-input {
+  flex: 1 1 auto; min-width: 0; min-height: 44px; resize: none; padding: 10px;
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge); border-radius: calc(9px * var(--mc-round, 1));
+  color: var(--mc-ink); font-family: inherit; font-size: 14px; line-height: 1.35;
+}
+.mc-pm-input:focus { border-color: var(--mc-gold); outline: none; }
+.mc-pm-send {
+  flex: none; width: 48px; min-height: 44px; cursor: pointer;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); border-radius: calc(9px * var(--mc-round, 1));
+  color: var(--mc-ink); font-size: 16px;
+}
+.mc-pm-send:hover { border-color: var(--mc-gold); color: var(--mc-gold); }
+
+/* Header envelope — same 30px circle as its row-mates (dice tray, bell); unread goes gold
+   outline + a count badge, never a fill (§4.2). */
+.mc-pm-btn {
+  position: relative; flex: 0 0 auto; align-self: center;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: var(--mc-ink);
+  font-size: 14px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.mc-pm-btn.mc-pm-unread { color: var(--mc-gold); border-color: var(--mc-gold); }
+.mc-pm-badge {
+  position: absolute; top: -5px; right: -5px; min-width: 15px; height: 15px; padding: 0 3px;
+  border-radius: 999px; background: var(--mc-gold); color: var(--mc-sunken);
+  font-size: 10px; line-height: 15px; font-weight: 700; font-family: "Signika", sans-serif; text-align: center;
+}
+
+/* DM-panel scale (mouse, §4.1: same shape, smaller scale). */
+#mc-dm-panel .mc-dmp-pm { margin: 8px 0 10px; display: flex; flex-direction: column; gap: 6px; }
+#mc-dm-panel .mc-dmp-pm-list { max-height: 220px; }
+#mc-dm-panel .mc-pm-bubble { font-size: 12px; max-width: 88%; }
+#mc-dm-panel .mc-pm-input { min-height: 31px; font-size: 12px; padding: 6px 8px; }
+#mc-dm-panel .mc-pm-send { width: 34px; min-height: 31px; font-size: 13px; }
 
 /* Full-screen image popup (tap the portrait): portrait ↔ token, X to close. */
 .mc-imgpop {

@@ -8,6 +8,7 @@ import { runDmWizard } from "./dm-wizard.js";
 import { startCombatWithMusic } from "./combat-music.js";
 import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist } from "./settings.js";
 import { FX_TABS, FX_DEFS, fxIsOn, dmToggleFx, dmFireFx } from "./effects.js"; // §26 Effects tab
+import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -26,6 +27,8 @@ let dockTab = null;          // null | "combat" | "party" | "display" | "rest" |
 let dockWasPacked = false;   // (retired §25 2b) tracked but no longer auto-opens the party tab
 let _prevManual = false;     // last manual-TV state, so only the manual→OFF edge auto-opens Display
 let tokensPlayer = "";       // owned-tokens: which player's tokens are shown
+let dmMsgOpen = false;       // §27: the selected player's message thread is open (Party tab)
+let dmMsgDraft = "";         // §27: composer text, kept across the panel's frequent re-renders
 let dmReactions = [];        // reaction widget: live chips {id, kind:"aoo"|"window", label, weapon, activityUuid?, targetUuid?, expiresAt}
 const rollTool = { type: "save", ability: "dex", selected: null, targetsOpen: false };
 
@@ -970,9 +973,30 @@ function ownedTokensHTML() {
       <i class="fas fa-circle-user mc-nt-ico mc-dmp-tok-who" style="color:${u.color?.css ?? "#c8a44d"}"></i>
       <select class="mc-dmp-tok-player" data-tok-player>${opts}</select>
       <button class="mc-dmp-tok-palette" data-color-pick="${u.id}" title="Let ${esc(u.name)} pick their colour on their phone"><i class="fas fa-palette"></i></button>
+      <button class="mc-dmp-tok-palette ${dmMsgOpen ? "mc-active" : ""}" data-dm-msg title="Private message — only ${esc(u.name)} sees it"><i class="fas fa-envelope"></i></button>
     </div>
+    ${dmMsgOpen ? dmMsgHTML(u) : ""}
     <div class="mc-dmp-tok-grid">${items || `<div class="mc-dmp-empty">No tokens for this player.</div>`}</div>
     ${groupSheetBtn()}`;
+}
+
+// §27 The thread with the selected player, under the player picker so it reads as THAT player's.
+// Same bubble classes as the phone (one language); the DM's lines sit right, the player's left
+// with their colour on the icon (§3). Newest pinned by the list's column-reverse.
+function dmMsgHTML(u) {
+  const esc = foundry.utils.escapeHTML;
+  const rows = pmThread(u.id).slice(-20).reverse().map(m => {
+    const theirs = m.author?.id === u.id;
+    const ico = theirs ? `<i class="fas fa-circle-user mc-pm-ico" style="color:${u.color?.css ?? "var(--mc-gold)"}"></i>` : "";
+    return `<div class="mc-pm-row ${theirs ? "mc-pm-dm" : "mc-pm-me"}">${ico}<div class="mc-pm-bubble">${esc(pmText(m)).replaceAll("\n", "<br>")}<span class="mc-pm-time">${pmTime(m)}</span></div></div>`;
+  }).join("");
+  return `<div class="mc-dmp-pm">
+    <div class="mc-pm-list mc-dmp-pm-list">${rows || `<div class="mc-dmp-empty">No messages with ${esc(u.name)} yet.</div>`}</div>
+    <div class="mc-pm-compose">
+      <textarea class="mc-pm-input" rows="2" placeholder="e.g. You are charmed — you want the party to leave this room…" data-dm-msg-text>${esc(dmMsgDraft)}</textarea>
+      <button class="mc-pm-send" data-dm-msg-send title="Send privately to ${esc(u.name)}" aria-label="Send"><i class="fas fa-paper-plane"></i></button>
+    </div>
+  </div>`;
 }
 
 // §18 travel T1.5: pick the overworld; the CTA packs the party, shows the DM the
@@ -2852,6 +2876,8 @@ function onTokenDblClick(ev) {
 // §18: live MPH↔KPH auto-fill in the custom-pace form — updates the paired field directly (no
 // re-render, so focus/typing isn't disturbed).
 function onInput(ev) {
+  // §27: stash the message draft so the panel's frequent re-renders don't wipe mid-sentence typing.
+  if (ev.target?.matches?.("[data-dm-msg-text]")) { dmMsgDraft = ev.target.value; return; }
   // Volume sliders: update the % readout live while dragging, but DON'T write the world setting on
   // every input event — that would be a document write per pixel of drag. The commit happens on
   // `change` (pointer release) in onChange. Purely local echo, no re-render, so the drag is smooth.
@@ -3053,6 +3079,16 @@ async function onClick(ev) {
     return render();
   }
   if (ev.target.closest("[data-rt-forbtn]")) { rollTool.targetsOpen = !rollTool.targetsOpen; return render(); }
+  // §27 personal messages: toggle the thread / send to the selected player.
+  if (ev.target.closest("[data-dm-msg-send]")) {
+    const text = dmMsgDraft.trim();
+    if (!text) { ui.notifications.warn("Write the message first."); return; }
+    const res = await pmSend([tokensPlayer], text).catch(e => { console.error(`${MODULE_ID} | message send failed`, e); return null; });
+    if (!res) { ui.notifications.warn("Couldn't send the message."); return; }
+    dmMsgDraft = "";
+    return render();
+  }
+  if (ev.target.closest("[data-dm-msg]")) { dmMsgOpen = !dmMsgOpen; return render(); }
   const cp = ev.target.closest("[data-color-pick]");
   if (cp) { // DM initiates: push the colour picker to that player's phone
     const uid = cp.dataset.colorPick;
@@ -3439,6 +3475,7 @@ export function registerDMPanel() {
   Hooks.on("mobile-command.presence", () => render());             // away-timer: a phone reported fg/bg
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.downtimeState`) render(); }); // §17.7: activities/window changed
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive` && dockTab === "effects") render(); }); // §26: fx toggles follow the world state
+  Hooks.on("createChatMessage", (m) => { if (dockTab === "party" && dmMsgOpen && pmIsPersonal(m)) render(); }); // §27: a player reply extends the open thread
   // Away-timer tick: the red escalation crosses the threshold with no event to fire it, so
   // while any player is backgrounded, re-render every 5s to update "away Ns" and flip to red.
   // Idle (nobody backgrounded) → no timer runs.
