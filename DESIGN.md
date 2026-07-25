@@ -1982,6 +1982,14 @@ wash gone); dark side fades `19,16,11,19,3,14,3,3,7,11,8,12,5,2,1,0` (~90 px wis
 `19,16,11,18,0,0`; explored areas near boundaries also commit to full explored strength sooner (more
 remembered map shows). No shader errors.
 
+**Lighting-line soften, the right dose (DM 2026-07-26 "95% happy… lines a bit softer, like an
+edge-blur").** The crisp straight line left in the screenshot is the LIGHTING mask edge
+(light/darkvision polygons via `canvas.masks.vision`), unreachable from the fog shader. gpu mode now
+pins **only the mask's blurFilter at ×4** (`GPU_MASK_BLUR_MULT`; the earlier ×12 pinned both filters
+and washed lit detail — this is ~1/3 the wash, fog input untouched). Verified on the TV: pinned 41.6,
+visible-side profile rounds gently (~3–9% in the last ~30 px before the edge), penumbra intact. Below
+High the mask has no blur filter — no lever (Foundry).
+
 ### 24.0 (historical) Tier 0 soft edges (DM 2026-07-24, BUILT, unverified on the TV)
 
 [fog-soft.js](scripts/fog-soft.js). **This section pivoted mid-day.** The first take (the now-deleted

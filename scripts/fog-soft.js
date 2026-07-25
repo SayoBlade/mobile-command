@@ -126,6 +126,34 @@ function clearSoftBlur() {
   lastSoftUnsupported = false;
 }
 
+// --- Gentle lighting-line soften for gpu mode --------------------------------
+// DM 2026-07-26 ("95% happy… I'd still like the lines a bit softer, like an edge-blur"): the crisp
+// straight line left in the screenshot is the LIGHTING mask edge — darkvision/light polygons masked
+// by canvas.masks.vision — which the fog shader cannot reach. The earlier ×12 crank melted it but
+// washed darkness over lit detail (symmetric blur); ×4 is the middle ground: enough to soften the
+// line, ~1/3 the wash. Only the MASK filter is pinned — the visibility filter's inner blur stays
+// stock so the fog shader's own input is untouched. Below High the mask has no blur filter at all
+// (Foundry provides no lever there).
+const GPU_MASK_BLUR_MULT = 4;
+let maskBlurPinned = false;
+function applyMaskBlur() {
+  const f = canvas?.masks?.vision?.blurFilter;
+  if (!f || !canvas.blur?.enabled) return;
+  try {
+    f._configuredStrength = (canvas.blur.strength ?? 10) * GPU_MASK_BLUR_MULT; // × scale via updateBlur
+    canvas.updateBlur();
+    maskBlurPinned = true;
+  } catch (e) { /* best-effort */ }
+}
+function clearMaskBlur() {
+  if (!maskBlurPinned) return;
+  try {
+    const f = canvas?.masks?.vision?.blurFilter;
+    if (f) { delete f._configuredStrength; canvas.updateBlur?.(); }
+  } catch (e) { /* best-effort */ }
+  maskBlurPinned = false;
+}
+
 // --- Tier 1 (gpu): REPLACE the visibility shader (deep dive 2026-07-25) ------
 // The first gpu build appended a blur filter after the visibility filter — and the DM's live test
 // showed ZERO change in the shadow polygons. The installed 14.365 source explains why the whole
@@ -318,15 +346,14 @@ function setGpuShader(on) {
 
 // --- Dispatch ----------------------------------------------------------------
 function applyStyle(style) {
-  if (style === "off") { setGpuShader(false); clearSoftBlur(); clearDensity(); return; }
+  if (style === "off") { setGpuShader(false); clearSoftBlur(); clearMaskBlur(); clearDensity(); return; }
   applyDensity();
-  // "gpu" does NOT crank the Tier-0 blur. It briefly did (to soften the lighting-side grey line),
-  // but that blur is SYMMETRIC — at ×12 it washed darkness deep into lit areas, exactly the
-  // "shadows spilling into the visible, look how many details are lost" the DM screenshotted
-  // (2026-07-26). The shader's own inward fade (mcEdge band capped at 0.5) is the softening now;
-  // the vision mask keeps Foundry's mild stock blur, so lit detail stays crisp to the line.
-  if (style === "gpu") { clearSoftBlur(); setGpuShader(true); }
-  else { setGpuShader(false); applySoftBlur(); } // "soft"
+  // "gpu" does NOT crank the ×12 Tier-0 blur (symmetric — it washed darkness over lit detail, the
+  // "shadows spilling in" screenshot). The shader's inward fade is the fog softening; the LIGHTING
+  // mask alone gets a gentle ×4 pin (applyMaskBlur) so the light/darkvision polygon line melts too
+  // without eating the map (DM 2026-07-26 "lines a bit softer, like an edge-blur").
+  if (style === "gpu") { clearSoftBlur(); applyMaskBlur(); setGpuShader(true); }
+  else { setGpuShader(false); clearMaskBlur(); applySoftBlur(); } // "soft" (×12 pins both filters itself)
 }
 
 // Re-evaluate on the display: apply the chosen style, clearing the others. From the setting's
