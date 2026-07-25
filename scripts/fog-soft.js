@@ -6,10 +6,13 @@
 //              feathers. Cheap (no extra passes beyond the wider kernel), but only EXISTS on High
 //              performance mode (`canvas.blur.enabled = performance.mode > MED`), and Foundry's small
 //              kernel caps how soft it gets. The panel reports if High mode is off.
-//   • "gpu"  — Tier 1. Our OWN PIXI filter on the visibility layer: a 24-tap golden-spiral disc
-//              gather that feathers the fog alpha far wider and smoother than Foundry's kernel, and
-//              runs regardless of performance mode (it's our pass, not Foundry's). This is the real
-//              real-fow look. Heavier on the display's GPU — hence opt-in, default off.
+//   • "gpu"  — Tier 1. REPLACE Foundry's fog shader (a VisibilityFilter subclass swapped in via
+//              CONFIG.Canvas.visibilityFilter): the explored AND live-vision channels are density
+//              gathers (24-tap golden spiral) shaped by smoothstep + an FBM wisp, so the shadow
+//              polygon itself becomes a wide cloud-like gradient — the real real-fow look. Runs on
+//              ANY performance mode. Heavier on the display's GPU — hence opt-in, default off.
+//              (v1 appended a blur filter AFTER the stock one — live-tested as a no-op: the polygon
+//              edge is the `v` single tap inside the stock shader; see the deep dive at Tier 1 below.)
 //
 // Both "soft" and "gpu" also apply two style-independent DENSITY knobs (below): unexplored opacity
 // (let a trace of the map bleed through the black) and explored lightness (how much of the remembered
@@ -113,75 +116,190 @@ function clearSoftBlur() {
   lastSoftUnsupported = false;
 }
 
-// --- Tier 1 (gpu): our own wide feather filter -------------------------------
-// A 24-sample golden-spiral disc gather over the visibility layer's output. `inputSize.zw` is
-// (1/width, 1/height), so `uRadiusPx` is a true screen-pixel radius. Averaging 25 samples in a disc
-// gives a smooth, wide feather — far past Foundry's 5–9 taps — and runs on any performance mode
-// because it is OUR filter pass, not Foundry's optional blur.
-const GPU_FOG_RADIUS_PX = 22; // feather radius on the display, in screen pixels (tune on the TV)
-const GPU_FOG_FRAG = `
-precision mediump float;
-varying vec2 vTextureCoord;
-uniform sampler2D uSampler;
-uniform vec4 inputSize;
-uniform float uRadiusPx;
-void main() {
-  vec2 px = inputSize.zw;
-  vec4 sum = texture2D(uSampler, vTextureCoord);
-  float total = 1.0;
-  const int N = 24;
-  float golden = 2.399963229728653;
-  for (int i = 1; i <= N; i++) {
-    float t = float(i);
-    float r = sqrt(t / float(N)) * uRadiusPx;
-    float a = t * golden;
-    vec2 off = vec2(cos(a), sin(a)) * r * px;
-    sum += texture2D(uSampler, vTextureCoord + off);
-    total += 1.0;
+// --- Tier 1 (gpu): REPLACE the visibility shader (deep dive 2026-07-25) ------
+// The first gpu build appended a blur filter after the visibility filter — and the DM's live test
+// showed ZERO change in the shadow polygons. The installed 14.365 source explains why the whole
+// edge-blur family of approaches was doomed:
+//
+//   • The live-vision cutout (the "shadow polygon" you actually watch during play) is the `v`
+//     channel: `mix(fow, vec4(0.0), v)` in VisibilityFilter's fragment — sampled with ONE raw tap
+//     from `canvas.masks.vision.renderTexture`, a RED/NEAREST/no-MSAA texture. The filter's internal
+//     blur passes blur only `uSampler` (the EXPLORED `r` channel) — they never touch `v`.
+//   • The vision mask's own blurFilter (what "soft" cranks) is only CREATED on High performance mode
+//     (CanvasVisionMask#createBlurFilter: `if (!b.enabled) return;`). Below High, nothing in the
+//     whole pipeline blurs anything — there is literally no filter to crank.
+//
+// So "gpu" now does what real-fow does: REPLACE the fog shader itself. Foundry's sanctioned hook is
+// `CONFIG.Canvas.visibilityFilter` (visibility.mjs builds `CONFIG.Canvas.visibilityFilter.create(...)`
+// on every canvas draw, and AbstractBaseFilter.create calls `this._createFragmentShader(options)` —
+// so a subclass swaps in cleanly, options and overlay plumbing included). Our fragment mirrors the
+// stock 14.365 shader exactly, except `r` and `v` are DENSITY GATHERS — a 24-tap golden-spiral disc
+// average in true screen pixels — shaped by smoothstep and a subtle FBM wisp, so the seen↔unseen
+// border becomes a wide, irregular, cloud-like gradient instead of a polygon edge. Runs on ANY
+// performance mode (it's our shader, not Foundry's optional blur).
+// Tuned on the live TV client via A/B luminance profiles (2026-07-25): at radius 26 with a
+// smoothstep(0.30,0.70) band the edge measured ~the same as stock — the S-curve keeps only the middle
+// 40% of the gather's ramp as visible gradient, cancelling the widening. Radius up + band opened so
+// the on-screen feather is ~0.6–0.7 × radius, clearly past Foundry's ~10–18px High-mode blur.
+const GPU_FOG_RADIUS_PX = 56;   // feather radius in screen px (live-tunable: canvas.visibility.filter.uniforms.uSoftRadiusPx)
+const GPU_FOG_NOISE_PX = 96;    // FBM wisp wavelength in screen px (bigger = broader billows)
+const GPU_FOG_NOISE_AMP = 0.22; // wisp warp of the edge threshold; max ±0.096 after centring — must stay < the smoothstep margin (0.18)
+
+let StockVisibilityFilter = null; // the class CONFIG.Canvas.visibilityFilter held before we touched it
+let GpuVisibilityFilter = null;   // our subclass (built lazily — needs Foundry loaded)
+
+function gpuFilterClass() {
+  if (GpuVisibilityFilter) return GpuVisibilityFilter;
+  const Stock = StockVisibilityFilter ?? CONFIG?.Canvas?.visibilityFilter;
+  if (!Stock) return null;
+  StockVisibilityFilter = Stock;
+  GpuVisibilityFilter = class MCSoftFogVisibilityFilter extends Stock {
+    /** Extra uniform: the gather radius, tunable live on the filter instance. */
+    static get defaultUniforms() {
+      return { ...super.defaultUniforms, uSoftRadiusPx: GPU_FOG_RADIUS_PX };
+    }
+
+    // The stock 14.365 fragment (rendering/filters/visibility.mjs) with the single-tap `r`/`v` reads
+    // replaced by mcGather* density gathers + mcEdge shaping. Everything else — explored colour math,
+    // overlay texture, persistentVision variant, premultiply — is verbatim stock so nothing regresses.
+    static _createFragmentShader(options) {
+      return `
+      varying vec2 vTextureCoord;
+      varying vec2 vMaskTextureCoord;
+      varying vec2 vOverlayCoord;
+      varying vec2 vOverlayTilingCoord;
+      uniform sampler2D uSampler;
+      uniform sampler2D primaryTexture;
+      uniform sampler2D overlayTexture;
+      uniform vec3 unexploredColor;
+      uniform vec3 backgroundColor;
+      uniform bool hasOverlayTexture;
+      uniform vec4 inputSize;          /* PIXI: (w, h, 1/w, 1/h) of the filter input */
+      uniform vec2 screenDimensions;   /* refreshed each apply() by AbstractBaseMaskFilter */
+      uniform float uSoftRadiusPx;
+      ${options.persistentVision ? `` : `uniform sampler2D visionTexture;
+       uniform vec3 exploredColor;`}
+      ${this.CONSTANTS}
+      ${this.PERCEIVED_BRIGHTNESS}
+
+      // To check if we are out of the bound
+      float getClip(in vec2 uv) {
+        return step(3.5,
+           step(0.0, uv.x) +
+           step(0.0, uv.y) +
+           step(uv.x, 1.0) +
+           step(uv.y, 1.0));
+      }
+
+      // Unpremultiply fog texture
+      vec4 unPremultiply(in vec4 pix) {
+        if ( !hasOverlayTexture || (pix.a == 0.0) ) return pix;
+        return vec4(pix.rgb / pix.a, pix.a);
+      }
+
+      // --- mobile-command soft fog (real-fow style) ---------------------------
+      // Value-noise FBM for the wispy edge. Static (screen-space) — no per-frame churn.
+      float mcHash(in vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+      float mcNoise(in vec2 p) {
+        vec2 i = floor(p); vec2 f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mcHash(i), mcHash(i + vec2(1.0, 0.0)), u.x),
+                   mix(mcHash(i + vec2(0.0, 1.0)), mcHash(i + vec2(1.0, 1.0)), u.x), u.y);
+      }
+      float mcFbm(in vec2 p) {
+        float s = 0.0; float a = 0.5;
+        for (int i = 0; i < 3; i++) { s += a * mcNoise(p); p *= 2.03; a *= 0.5; }
+        return s; // ~[0, 0.875]
+      }
+      // 24-tap golden-spiral disc average of the EXPLORED channel (the filter's own input texture).
+      float mcGatherR(in vec2 uv) {
+        float sum = texture2D(uSampler, uv).r;
+        for (int i = 1; i <= 24; i++) {
+          float t = float(i);
+          float rad = sqrt(t / 24.0) * uSoftRadiusPx;
+          float ang = t * 2.399963229728653;
+          sum += texture2D(uSampler, uv + vec2(cos(ang), sin(ang)) * rad * inputSize.zw).r;
+        }
+        return sum / 25.0;
+      }
+      // Same gather over the LIVE-VISION mask — the single tap the stock shader uses is exactly why
+      // the shadow polygon never softened. vMaskTextureCoord is screen-normalised, so one screen
+      // pixel is 1.0/screenDimensions.
+      ${options.persistentVision ? `` : `
+      float mcGatherV(in vec2 uv) {
+        float sum = texture2D(visionTexture, uv).r;
+        for (int i = 1; i <= 24; i++) {
+          float t = float(i);
+          float rad = sqrt(t / 24.0) * uSoftRadiusPx;
+          float ang = t * 2.399963229728653;
+          sum += texture2D(visionTexture, uv + vec2(cos(ang), sin(ang)) * rad / screenDimensions).r;
+        }
+        return sum / 25.0;
+      }`}
+      // Shape a gathered density into the final edge: an S-curve for depth, warped by the wisp so
+      // the border billows instead of tracing the polygon. Saturates to exactly 0/1 away from edges.
+      float mcEdge(in float d, in float wisp) {
+        return smoothstep(0.18, 0.82, d + (wisp - 0.4375) * ${GPU_FOG_NOISE_AMP.toFixed(3)});
+      }
+
+      void main() {
+        float wisp = mcFbm(vMaskTextureCoord * screenDimensions / ${GPU_FOG_NOISE_PX.toFixed(1)});
+        float r = mcEdge(mcGatherR(vTextureCoord), wisp);                 // Revealed, feathered
+        ${options.persistentVision ? `` : `float v = mcEdge(mcGatherV(vMaskTextureCoord), wisp);`} // Live vision, feathered
+        vec4 baseColor = texture2D(primaryTexture, vMaskTextureCoord);
+        vec4 fogColor = hasOverlayTexture
+                        ? texture2D(overlayTexture, vOverlayTilingCoord) * getClip(vOverlayCoord)
+                        : baseColor;
+        fogColor = unPremultiply(fogColor);
+
+        // Compute fog exploration colors
+        ${!options.persistentVision
+          ? `float reflec = perceivedBrightness(baseColor.rgb);
+        vec4 explored = vec4(min((exploredColor * reflec) + (baseColor.rgb * exploredColor), vec3(1.0)), 0.5);`
+          : ``}
+        vec4 unexplored = hasOverlayTexture
+                          ? mix(vec4(unexploredColor, 1.0), vec4(fogColor.rgb * backgroundColor, 1.0), fogColor.a)
+                          : vec4(unexploredColor, 1.0);
+
+        // Mixing components to produce fog of war
+        ${options.persistentVision
+          ? `gl_FragColor = mix(unexplored, vec4(0.0), r);`
+          : `vec4 fow = mix(unexplored, explored, max(r, v));
+        gl_FragColor = mix(fow, vec4(0.0), v);`}
+
+        // Output the result
+        gl_FragColor.rgb *= gl_FragColor.a;
+      }`;
+    }
+  };
+  return GpuVisibilityFilter;
+}
+
+// Point CONFIG at the wanted filter class; if the LIVE filter instance was built from the other
+// class, redraw the canvas so Foundry rebuilds it through its own construction path (that's the only
+// place the filter is created — visibility.mjs #drawVisibility). Constructor identity, not
+// instanceof: our subclass IS an instance of stock, so instanceof can't detect gpu→stock.
+let _fogRedrawing = false;
+function setGpuShader(on) {
+  const cls = gpuFilterClass();
+  if (!cls) return;
+  const want = on ? cls : StockVisibilityFilter;
+  try { if (CONFIG.Canvas.visibilityFilter !== want) CONFIG.Canvas.visibilityFilter = want; } catch (e) { return; }
+  const cur = canvas?.visibility?.filter;
+  if (cur && cur.constructor !== want && !_fogRedrawing) {
+    _fogRedrawing = true; // canvas.draw() refires canvasReady → refreshFog; by then the instance matches
+    Promise.resolve(canvas.draw())
+      .catch(e => console.warn(`${MODULE_ID} | fog shader swap redraw failed`, e))
+      .finally(() => { _fogRedrawing = false; });
   }
-  gl_FragColor = sum / total;
-}`;
-
-let gpuFilter = null;      // our PIXI.Filter instance (built once, reused)
-let gpuFilterOn = false;   // currently attached to canvas.visibility.filters
-
-function buildGpuFilter() {
-  if (gpuFilter) return gpuFilter;
-  try {
-    const Filter = PIXI?.Filter ?? globalThis.PIXI?.Filter;
-    if (!Filter) return null;
-    gpuFilter = new Filter(undefined, GPU_FOG_FRAG, { uRadiusPx: GPU_FOG_RADIUS_PX });
-    gpuFilter.padding = GPU_FOG_RADIUS_PX + 4; // don't clip the feather at the layer's edge
-  } catch (e) { console.warn(`${MODULE_ID} | could not build gpu fog filter`, e); gpuFilter = null; }
-  return gpuFilter;
-}
-
-function applyGpuFilter() {
-  const vis = canvas?.visibility;
-  if (!vis) return;
-  const f = buildGpuFilter();
-  if (!f) return;
-  try {
-    const base = vis.filter ? [vis.filter] : (Array.isArray(vis.filters) ? vis.filters.filter(x => x !== gpuFilter) : []);
-    if (!base.includes(f)) vis.filters = [...base, f];
-    gpuFilterOn = true;
-  } catch (e) { console.warn(`${MODULE_ID} | could not attach gpu fog filter`, e); }
-}
-function clearGpuFilter() {
-  if (!gpuFilterOn) return;
-  try {
-    const vis = canvas?.visibility;
-    if (vis && Array.isArray(vis.filters)) vis.filters = vis.filters.filter(x => x !== gpuFilter);
-  } catch (e) { console.warn(`${MODULE_ID} | could not detach gpu fog filter`, e); }
-  gpuFilterOn = false;
 }
 
 // --- Dispatch ----------------------------------------------------------------
 function applyStyle(style) {
-  if (style === "off") { clearGpuFilter(); clearSoftBlur(); clearDensity(); return; }
+  if (style === "off") { setGpuShader(false); clearSoftBlur(); clearDensity(); return; }
   applyDensity();
-  if (style === "gpu") { clearSoftBlur(); applyGpuFilter(); }
-  else { clearGpuFilter(); applySoftBlur(); } // "soft"
+  if (style === "gpu") { clearSoftBlur(); setGpuShader(true); }
+  else { setGpuShader(false); applySoftBlur(); } // "soft"
 }
 
 // Re-evaluate on the display: apply the chosen style, clearing the others. From the setting's

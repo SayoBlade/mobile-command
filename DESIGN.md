@@ -1905,17 +1905,45 @@ which is kept only so a world that had it on migrates to `soft`). Picked in the 
 
 - **`soft` (Tier 0)** — crank Foundry's own visibility/vision blur (§24.1–24.2). Cheap, but needs High
   performance mode and its 5–9-tap kernel caps the softness.
-- **`gpu` (Tier 1, DM 2026-07-25 "try gpu fog")** — OUR own PIXI filter on `canvas.visibility`: a
-  24-sample **golden-spiral disc gather** (`GPU_FOG_FRAG`) that feathers the fog alpha with a true
-  screen-pixel radius (`GPU_FOG_RADIUS_PX`, default 22) via `inputSize.zw`. Wider and smoother than
-  Foundry's kernel, and runs on **any** performance mode because it's our pass, not Foundry's optional
-  blur. Attached/detached on `canvas.visibility.filters`, rebuilt per scene on `canvasReady`.
-  - **Verified off-table (2026-07-25):** the fragment compiles standalone (empty info log), and the
-    filter attaches to the live `canvas.visibility` and renders in the real PIXI pipeline with **zero**
-    "Could not initialize shader" errors (bracketed-sentinel console check). So the shader is valid and
-    won't break the TV's fog. **Still unverified:** the actual look and the 22 px feather radius — that
-    needs the display client (a GM sees through fog). Both `soft` and `gpu` also apply the shared
-    density knobs (unexplored-alpha 0.95, explored-colour 0x1a1a1a).
+- **`gpu` (Tier 1, DM 2026-07-25 "try gpu fog")** — **REPLACE Foundry's fog shader.** A
+  `VisibilityFilter` subclass (`MCSoftFogVisibilityFilter`) swapped in via `CONFIG.Canvas.visibilityFilter`
+  (Foundry's sanctioned hook: `#drawVisibility` builds `CONFIG.Canvas.visibilityFilter.create(...)` on
+  every canvas draw, and `AbstractBaseFilter.create` → `this._createFragmentShader(options)`, so the
+  subclass inherits all overlay/persistentVision plumbing). Its fragment is the stock 14.365 shader with
+  the two single-tap reads replaced by 24-tap **golden-spiral density gathers** over BOTH channels,
+  shaped by `smoothstep(0.18, 0.82)` + a 3-octave FBM **wisp** that warps the threshold so the border
+  billows. Radius `uSoftRadiusPx` (default **56 screen px**, live-tunable on the filter uniforms). Runs
+  on ANY performance mode. Swap needs a `canvas.draw()`; `setGpuShader` redraws only when the live
+  filter's constructor mismatches (loop-guarded — the redraw's own canvasReady then matches).
+
+### 24.0a Deep dive — why every edge-BLUR approach was a no-op (2026-07-25, installed-source verified)
+
+DM live report: *"ZERO difference in the shape of the shadow polygons between off, soft and GPU."*
+True, and the 14.365 source says it had to be:
+
+1. **The shadow polygon is the `v` channel, and nothing ever blurs it.** In `VisibilityFilter`'s
+   fragment, the live-vision cutout is `mix(fow, vec4(0.0), v)` where `v` is **one raw tap** of
+   `visionTexture` = `canvas.masks.vision.renderTexture` — a `FORMAT.RED / SCALE_MODES.NEAREST /
+   no-MSAA` texture. The filter's internal blurX/blurY passes blur **only `uSampler`** — the explored
+   `r` channel (visibility.mjs filters, `apply()`).
+2. **The vision mask's own blurFilter — the only lever that could soften `v` — is never created below
+   High:** `CanvasVisionMask#createBlurFilter` starts `if (!canvas.blur.enabled) return;`. Below High
+   there is literally no filter for the "soft" style to crank.
+3. **v1's appended post-filter and v2's first tuning were also self-cancelling:** live A/B luminance
+   profiles on the TV client showed the gather ramp being re-compressed by a too-narrow
+   `smoothstep(0.30, 0.70)` band — only the middle 40% of the ramp stayed a gradient, ≈ what stock
+   High-mode blur already gives. Fixed: radius 26→56, band 0.30/0.70→0.18/0.82.
+
+**Verified ON the display client (TV login, 2026-07-25), not just compiled:** the live
+`canvas.visibility.filter` is `MCSoftFogVisibilityFilter` built through Foundry's own create path,
+zero console/shader errors, and a pixel-level A/B (render stage → RenderTexture → luminance profile
+across a fog boundary, stock filter instance swapped in for the B frame) measured: **stock jumps 7→70
+in one 6px step; gpu ramps over ~30–36px with wisp tendrils ahead of the edge** — a 3–5× wider,
+irregular feather at the actual fog edge. Light-falloff gradients (torch radii) are untouched, as they
+should be. **Still owed:** the DM's aesthetic verdict on the real TV (radius/wisp tuning); GPU cost on
+the TV's hardware (≈50 texture reads/px — opt-in for a reason). `fogStyle` was left on `gpu` in the
+test world. Both `soft` and `gpu` also apply the shared density knobs (unexplored-alpha 0.95,
+explored-colour 0x1a1a1a).
 
 ### 24.0 (historical) Tier 0 soft edges (DM 2026-07-24, BUILT, unverified on the TV)
 
