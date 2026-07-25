@@ -164,6 +164,12 @@ export function registerSettings() {
     onChange: () => { try { globalThis.MobileCommand?.refreshSoftFog?.(); } catch (e) {} }
   });
 
+  // Combat music (§25.2): the DM's chosen battle track — a Playlist uuid played on foe / theme-less
+  // turns. Picked in the Combat tab's pre-start staging; per-PC themes live on the actor flag.
+  game.settings.register(MODULE_ID, "combatBattleTrack", {
+    scope: "world", config: false, type: String, default: ""
+  });
+
   game.settings.register(MODULE_ID, "dmOmniscientVision", {
     name: "Keep the DM's vision omniscient (shared-screen tables)",
     hint: "When the DM selects/controls a player's token, don't shrink the DM's view to that token's point of view — the DM keeps seeing the whole map. Players and the TV/display are unaffected. On by default.",

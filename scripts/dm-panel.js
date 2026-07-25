@@ -5,6 +5,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
 import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar } from "./gametime.js";
 import { runDmWizard } from "./dm-wizard.js";
+import { startCombatWithMusic } from "./combat-music.js";
 import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState } from "./settings.js";
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
@@ -171,6 +172,7 @@ function settingsHTML() {
   return `<div class="mc-dmp-settings">
     ${dtDrawer("setSound", "Sound", "", sliders)}
     ${dtDrawer("setEars", "Who the display hears through", "", earsBody)}
+    ${dtDrawer("setMusic", "Combat music", "", combatMusicBody())}
     ${dtDrawer("setFog", "Fog", "", softFogBody())}
   </div>`;
 }
@@ -212,6 +214,34 @@ function softFogBody() {
   return `<button class="mc-dmp-toggle ${softOn ? "mc-on" : ""}" data-set-toggle="softFog">
       <i class="fas fa-cloud"></i> ${softOn ? "Soft Fog On" : "Soft Fog Off"}
     </button>${sfStatus}`;
+}
+
+// --- Combat music (§25.2): per-PC themes. Drag a playlist SOUND onto a PC; it plays on their turn in
+// combat (see combat-music.js). Stored as a PlaylistSound uuid on the actor flag. PCs only — no pets.
+function combatMusicPCs() {
+  return game.actors.filter(a => a.type === "character" && a.hasPlayerOwner).sort((a, b) => a.name.localeCompare(b.name));
+}
+function combatThemeName(uuid) {
+  if (!uuid) return null;
+  try { return fromUuidSync(uuid)?.name ?? "— missing track —"; } catch (e) { return "— missing track —"; }
+}
+function combatMusicBody() {
+  const esc = foundry.utils.escapeHTML;
+  const pcs = combatMusicPCs();
+  if (!pcs.length) return `<div class="mc-dmp-empty">No player characters.</div>`;
+  const rows = pcs.map(a => {
+    const uuid = a.getFlag(MODULE_ID, "combatTheme") || "";
+    const col = ownerColor(a) ?? "#c8a44d";
+    const nm = combatThemeName(uuid);
+    const slot = uuid
+      ? `<span class="mc-dmp-theme-name" title="${esc(nm)}"><i class="fas fa-music"></i> ${esc(nm)}</span>
+         <button class="mc-dmp-theme-clear mc-dt-icon-only" data-theme-clear="${a.id}" title="Remove ${esc(a.name)}'s theme"><i class="fas fa-trash"></i></button>`
+      : `<span class="mc-dmp-theme-empty">drag a track here</span>`;
+    return `<div class="mc-dmp-theme-row ${uuid ? "mc-set" : ""}" data-theme-drop="${a.id}">
+      <i class="fas fa-circle-user mc-rt-usericon" style="color:${col}"></i>
+      <span class="mc-rt-name">${esc(a.name)}</span>${slot}</div>`;
+  }).join("");
+  return `<div class="mc-dmp-roster">${rows}</div>`;
 }
 
 function displayTabHTML() {
@@ -1402,6 +1432,10 @@ function ensureEl() {
   panelEl.addEventListener("input", onInput);   // live MPH↔KPH auto-fill in the custom-pace form
   panelEl.addEventListener("dragstart", onTokenDragStart); // Owned-tokens → canvas
   panelEl.addEventListener("dblclick", onTokenDblClick);   // Owned-tokens → sheet
+  // Combat-music theme drop targets (§25.2): drag a PlaylistSound onto a PC row.
+  panelEl.addEventListener("dragover", (ev) => { const c = ev.target.closest("[data-theme-drop]"); if (c) { ev.preventDefault(); c.classList.add("mc-drag-over"); } });
+  panelEl.addEventListener("dragleave", (ev) => { const c = ev.target.closest("[data-theme-drop]"); if (c && !c.contains(ev.relatedTarget)) c.classList.remove("mc-drag-over"); });
+  panelEl.addEventListener("drop", onThemeDrop);
   panelEl.addEventListener("pointerdown", onPointerDown); // drag from the grip handle
   // Outside-click closes any open transient dropdown (DM 2026-07-09: "clicking
   // outside the dropdown should close it"). The selection is already live in
@@ -1728,10 +1762,17 @@ function combatHTML() {
   const c = game.combat;
   if (!c) return "";
   const esc = foundry.utils.escapeHTML;
-  let btns;
+  let btns, staging = "";
   if (!c.started) {
+    // Pre-start staging (§25.2): pick the battle track (played on foe / theme-less turns), then Start.
+    const cur = (() => { try { return game.settings.get(MODULE_ID, "combatBattleTrack") || ""; } catch (e) { return ""; } })();
+    const opts = game.playlists.contents.slice().sort((a, b) => a.name.localeCompare(b.name))
+      .map(pl => `<option value="${pl.uuid}" ${pl.uuid === cur ? "selected" : ""}>${esc(pl.name)}</option>`).join("");
+    staging = `<label class="mc-dmp-battle-lbl"><i class="fas fa-music"></i> Battle music</label>
+      <select class="mc-dmp-battle-track" data-battle-track title="Plays on foe turns and for PCs with no theme">
+        <option value="">— none —</option>${opts}</select>`;
     btns = `<button data-combat="rollAll" title="Roll initiative for everyone"><i class="fas fa-dice-d20"></i> Roll All</button>
-      <button data-combat="start" title="Begin combat"><i class="fas fa-play"></i> Start</button>`;
+      <button class="mc-dmp-party-deploy" data-combat="start-music" title="Begin combat and start the music"><i class="fas fa-play"></i> Start Combat</button>`;
   } else {
     btns = `<button data-combat="prev" title="Previous turn"><i class="fas fa-backward-step"></i></button>
       <button data-combat="rollNPC" title="Roll remaining NPC initiative"><i class="fas fa-dice-d20"></i></button>
@@ -1741,6 +1782,7 @@ function combatHTML() {
   const label = c.started ? `R${c.round} · ${esc(c.combatant?.name ?? "—")}` : "Not started";
   return `<div class="mc-dmp-combat">
       <div class="mc-dmp-turn"><i class="fas fa-khanda"></i> ${label}</div>
+      ${staging}
       <div class="mc-dmp-combatbtns">${btns}</div>
     </div>`;
 }
@@ -2712,6 +2754,19 @@ function onTokenDragStart(ev) {
   if (!a) return;
   try { ev.dataTransfer.setData("text/plain", JSON.stringify(a.toDragData())); ev.dataTransfer.effectAllowed = "copy"; } catch (e) { /* */ }
 }
+// Drop a PlaylistSound onto a PC row → set their combat theme (§25.2).
+async function onThemeDrop(ev) {
+  const cont = ev.target.closest("[data-theme-drop]");
+  if (!cont) return;
+  ev.preventDefault();
+  cont.classList.remove("mc-drag-over");
+  let data;
+  try { data = JSON.parse(ev.dataTransfer.getData("text/plain")); } catch (e) { return; }
+  if (data?.type !== "PlaylistSound" || !data.uuid) { ui.notifications.warn(`${MODULE_ID} | drag a playlist TRACK (a sound), not a whole playlist.`); return; }
+  const actor = game.actors.get(cont.dataset.themeDrop);
+  if (actor) { await actor.setFlag(MODULE_ID, "combatTheme", data.uuid); render(); }
+}
+
 function onTokenDblClick(ev) {
   // Double-click the resize grabber → expand the tab to its content height (capped at 95% of the
   // window by applyWorkspaceBounds), or, if already expanded, revert to the height it was before
@@ -3138,6 +3193,12 @@ async function onClick(ev) {
     if (a) { a.setFlag(MODULE_ID, "muteListener", !a.getFlag(MODULE_ID, "muteListener")).then(() => render()); }
     return;
   }
+  const themeClear = ev.target.closest("[data-theme-clear]");
+  if (themeClear) {
+    const a = game.actors.get(themeClear.dataset.themeClear);
+    if (a) await a.unsetFlag(MODULE_ID, "combatTheme");
+    return render();
+  }
   const followAll = ev.target.closest("[data-follow-all]");
   if (followAll) {
     // Toggle: "none" sets noFollow on all (drop everyone), "all" clears it. Flag on the TOKEN doc.
@@ -3216,6 +3277,10 @@ async function onClick(ev) {
         else if (act === "rollNPC") await c.rollNPC();
         else if (act === "rollAll") await c.rollAll();
         else if (act === "start") await c.startCombat();
+        else if (act === "start-music") { // §25.2: set the battle track, then begin — combatStart fires the music
+          const sel = panelEl.querySelector("[data-battle-track]");
+          await startCombatWithMusic(sel ? sel.value : undefined);
+        }
         else if (act === "end") await c.endCombat(); // core shows its own confirm
       } catch (e) { ui.notifications.warn(`Combat: ${e.message}`); }
     }

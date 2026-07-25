@@ -12,6 +12,7 @@ import { registerSceneTransitions, registerPartyTeleportActivation } from "./tra
 import { registerAoO } from "./aoo.js";
 import { setupCalendarSkin } from "./gametime.js";
 import { registerSoftFog, refreshSoftFog } from "./fog-soft.js";
+import { registerCombatMusic } from "./combat-music.js";
 import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "./camera-frame.js";
 
 Hooks.once("init", () => {
@@ -729,6 +730,7 @@ Hooks.once("ready", () => {
   setupCalendarSkin(); // SC Reborn's popup = the table's "Calendar": retitle (tool column hidden in CSS)
   registerAoO(); // opportunity-attack movement watcher (executor-gated inside; see aoo.js)
   registerSoftFog(); // Tier-0 soft fog-of-war edges on the display (opt-in `softFog`; see fog-soft.js)
+  registerCombatMusic(); // per-PC themes + battle track over combat turns (primary GM drives; see combat-music.js)
 
   globalThis.MobileCommand = {
     ...api,

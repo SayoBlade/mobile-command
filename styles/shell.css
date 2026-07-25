@@ -3514,6 +3514,21 @@ body.mc-theme-wizard .mc-frame {
 /* The two "who" lists (hears-through, follows) reuse the roster row (§3, DM 2026-07-25). A plain
    column of rows; the trailing state icon is gold when on; the OFF row is struck + muted (§5). */
 .mc-dmp-roster { display: flex; flex-direction: column; gap: 4px; }
+/* Combat-music theme rows (§25.2): a roster row that's also a DROP TARGET. Dashed edge = empty (drop
+   a track here), solid = set, gold = a track is dragging over it. */
+.mc-dmp-theme-row { display: flex; align-items: center; gap: 8px; min-height: 31px; box-sizing: border-box;
+  padding: 4px 9px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel);
+  border: 1px dashed var(--mc-edge); font-size: 13px; color: var(--mc-ink); }
+.mc-dmp-theme-row.mc-set { border-style: solid; }
+.mc-dmp-theme-row.mc-drag-over { border-color: var(--mc-gold); border-style: solid; background: var(--mc-panel-2); }
+.mc-dmp-theme-empty { flex: 1 1 auto; min-width: 0; text-align: right; color: var(--mc-muted); font-size: 11px; font-style: italic; }
+.mc-dmp-theme-name { flex: 1 1 auto; min-width: 0; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--mc-gold); font-size: 12px; }
+.mc-dmp-theme-name i { margin-right: 4px; }
+.mc-dmp-theme-clear { flex: 0 0 auto; }
+/* Battle-track picker in the Combat pre-start staging (§25.2). */
+.mc-dmp-battle-lbl { display: block; font-size: 11px; color: var(--mc-muted); text-transform: uppercase; letter-spacing: .04em; margin: 6px 0 3px; }
+.mc-dmp-battle-lbl i { color: var(--mc-gold); }
+.mc-dmp-battle-track { width: 100%; margin-bottom: 8px; border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge); padding: 0 8px; box-sizing: border-box; }
 .mc-dmp-rt-state { flex: 0 0 auto; font-size: 12px; color: var(--mc-gold); }
 .mc-dmp-rt-row.mc-off .mc-dmp-rt-main { opacity: .85; }
 .mc-dmp-rt-row.mc-off .mc-rt-name { text-decoration: line-through; color: var(--mc-muted); }
