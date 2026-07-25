@@ -14,6 +14,7 @@ import { setupCalendarSkin } from "./gametime.js";
 import { registerFog, refreshFog } from "./fog-soft.js";
 import { registerCombatMusic } from "./combat-music.js";
 import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "./camera-frame.js";
+import { registerFxEngine } from "./effects.js"; // §26 Effects tab engine
 
 Hooks.once("init", () => {
   registerSettings();
@@ -731,6 +732,7 @@ Hooks.once("ready", () => {
 
   injectShellStyles(); // load CSS via JS so a plain F5 works without re-reading the manifest
   initSocket(); // idempotent fallback in case socketlib.ready raced or didn't fire
+  registerFxEngine(); // §26 Effects tab: apply/remove screen filters + ambience loops as fxActive changes (all clients; phones flash-only)
   initPauseGuard();
   if (!isPhoneClient()) initPauseOverlay(); // corner spinners replace the "GAME PAUSED" bar (phones have their own overlay)
   if (!isPhoneClient()) initHeartbeat();    // critical-HP heartbeat pulse on PC token rings (canvas only)

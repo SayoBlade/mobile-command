@@ -2154,3 +2154,58 @@ TV; run on `game.users.activeGM` / the executor (playlist writes are GM-only). T
 - **The battle-music dropdown** in the Combat staging is the first concrete piece of the "bigger
   combat-music feature" the DM flagged; further staging ideas (multiple battle tracks, per-encounter
   overrides) are unspecced.
+
+---
+
+## 26. Effects tab (DM-idea 2026-07-26, SPIKE BUILT) — weather & magical ambience
+
+**The ask:** a DM tab of one-tap ambience — weather shortcuts ("rain", "night"), lightning with a
+flash and delayed thunder, heatwave, blizzard, dust storm — plus a "magical" drawer of screen looks
+(rainbow, invert, blur). "Try building a few so I can see if it's worth exploring further."
+
+### 26.1 Architecture — three kinds of effect, one catalog (`effects.js`)
+
+| Kind | Examples | Mechanism | Why |
+|---|---|---|---|
+| **scene** | rain/snow/blizzard/fog/leaves particles; night | Foundry's own scene data (`scene.weather`, `environment.darknessLevel` with `animateDarkness: 5000`) | Foundry already syncs scene data to every client — no mirror, no drift. Weather IDs verified in the 14.363 source: `leaves, rain, rainStorm, fog, snow, blizzard`. |
+| **client** | screen filters, sound loops | ONE world setting `fxActive` (`{fxId: true}`); every client diffs on `updateSetting` and mounts/unmounts locally | Same pattern as `tvVolume`: the TV re-applies deterministically after a reload; a late joiner catches up. No fire-and-forget state. |
+| **oneShot** | lightning | `socket.executeForEveryone("fxOneShot")` | A moment, not a state. |
+
+- **State sources in `fxIsOn`:** client effects read `fxActive`; pure-weather toggles read
+  `scene.weather` (authoritative — the scene config can change it under us); Night reads the
+  darkness level, so it agrees with a sunset the DM set by hand.
+- **`scene.weather` is single-slot**, so turning on a weather-bearing effect clears every other
+  weather-bearing id from `fxActive` — otherwise Blizzard-after-Rain plays both loops over snow.
+- **Dust storm is a composite**: fog particles (the only dust-ish stock particle) + an ochre
+  colour-grade filter + a low wind loop.
+
+### 26.2 Sound is SYNTHESIZED — nothing to license
+
+All audio is WebAudio filtered noise, generated at runtime: rain = band-limited hiss; wind = a
+narrow noise band whose centre/level wander (the wandering is the gust); thunder = a 2.5 kHz crack
+plus low-pass rumbles sweeping 420→55 Hz as they decay, fired 0.6–2.4 s after the flash. Zero
+assets shipped, zero licensing, and output feeds `game.audio.environment.gainNode`, so the core
+**Ambient volume** slider (and the TV volume mirroring built on it, §21) governs it. Audio-locked
+(pre-gesture) clients queue one retry on `game.audio.pending`.
+
+### 26.3 Screen filters (PIXI 7) on `canvas.environment`
+
+`canvas.environment` = map + tokens + lighting but NOT the interface group — rulers/HUD stay crisp.
+Filters: rainbow (animated `hue()`), invert (`negative`), drained (`desaturate`), dreamy (blur 2.5
+q2 + slight saturate), dust (warm matrix, crushed blue), heat haze (DisplacementFilter over a
+generated 256px blob-noise texture scrolling upward + warm tint). Perf guards for the modest
+machine: `filterArea = renderer.screen` (never a full-scene FBO), one shared ticker only while an
+animated filter is mounted, everything unmounts to zero cost when off.
+
+### 26.4 Who sees/hears what
+
+Filters + loops: canvas clients only (DM + display). Phones skip both — no canvas, and N phones
+playing one loop at different latencies is an echo. **The lightning FLASH is the exception:** a DOM
+overlay, so every phone at the table blinks white together — that's the feature.
+
+### 26.5 Spike scope + open questions
+
+- BUILT: the 10 weather + 4 magical effects above, as a DM-panel tab (Weather/Magical drawers).
+- OPEN: should thunder also hit phones (surround-thunder vs echo)? More magical looks (underwater
+  wobble, sepia flashback)? Per-effect volume? A "stop everything" button? Awaiting DM verdict on
+  whether the direction is worth deepening.

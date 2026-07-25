@@ -3774,6 +3774,33 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-cast-x { background: none; border: none; color: #a59b86; font-size: 14px; line-height: 1; cursor: pointer; flex: none; }
 .mc-dmp-cast-x:hover { color: var(--mc-gold); }
 
+/* §26 Effects tab: weather/magical toggle grid. Secondary at rest; ON is the standard
+   toggle outline (UI-BIBLE §4.2) — gold edge + glyph on a raised fill, never a gold fill. */
+#mc-dm-panel .mc-fx-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+#mc-dm-panel .mc-fx-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink);
+  border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 12px;
+}
+#mc-dm-panel .mc-fx-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mc-dm-panel .mc-fx-btn:hover { background: var(--mc-panel-2); }
+#mc-dm-panel .mc-fx-btn.mc-on { background: var(--mc-panel-2); border-color: var(--mc-gold); color: var(--mc-gold); }
+
+/* §26 lightning flash — every client, over everything, hit-proof. Pure white on purpose:
+   this is light, not a surface — it never themes (same standing as the semantic accents). */
+.mc-fx-flash {
+  position: fixed; inset: 0; z-index: 100000; background: #fff; pointer-events: none;
+  opacity: 0; animation: mc-fx-flash 700ms ease-out forwards;
+}
+@keyframes mc-fx-flash {
+  0% { opacity: 0; }
+  4% { opacity: .95; }
+  10% { opacity: .15; }
+  16% { opacity: .8; }
+  30% { opacity: .25; }
+  100% { opacity: 0; }
+}
+
 /* Full-screen image popup (tap the portrait): portrait ↔ token, X to close. */
 .mc-imgpop {
   position: fixed; inset: 0; z-index: 100; overflow: hidden;

@@ -7,6 +7,7 @@ import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar
 import { runDmWizard } from "./dm-wizard.js";
 import { startCombatWithMusic } from "./combat-music.js";
 import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist } from "./settings.js";
+import { FX_TABS, FX_DEFS, fxIsOn, dmToggleFx, dmFireFx } from "./effects.js"; // §26 Effects tab
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -21,7 +22,7 @@ let panelEl = null;
 // Right-side tab dock (DM 2026-07-03, future-proofed for more tools). Icon-only
 // tabs stick out the panel's right edge; a tab opens a same-height flyout box to
 // its right (X or re-click closes). First tool = Rolls.
-let dockTab = null;          // null | "combat" | "party" | "display" | "rest" | "travel" | "preflight" | "settings"
+let dockTab = null;          // null | "combat" | "party" | "display" | "rest" | "travel" | "effects" | "preflight" | "settings"
 let dockWasPacked = false;   // (retired §25 2b) tracked but no longer auto-opens the party tab
 let _prevManual = false;     // last manual-TV state, so only the manual→OFF edge auto-opens Display
 let tokensPlayer = "";       // owned-tokens: which player's tokens are shown
@@ -296,6 +297,21 @@ function partyTabFull() {
   </div>`;
 }
 
+// --- Effects tab (§26, spike): DM ambience shortcuts in two drawers. Toggles mark on-state per
+// UI-BIBLE §4.2 (gold outline, never a fill); Lightning is a one-shot, so it never marks.
+function effectsTabHTML() {
+  const btn = (id) => {
+    const d = FX_DEFS[id];
+    if (d.oneShot) return `<button class="mc-fx-btn" data-fx-shot="${id}" title="${d.hint}"><i class="fas ${d.icon}"></i><span>${d.label}</span></button>`;
+    return `<button class="mc-fx-btn ${fxIsOn(id) ? "mc-on" : ""}" data-fx="${id}" title="${d.hint}"><i class="fas ${d.icon}"></i><span>${d.label}</span></button>`;
+  };
+  const grid = (ids) => `<div class="mc-fx-grid">${ids.map(btn).join("")}</div>`;
+  return `<div class="mc-dmp-col">
+    ${dtDrawer("fxWeather", "Weather", "", grid(FX_TABS.weather))}
+    ${dtDrawer("fxMagic", "Magical", "", grid(FX_TABS.magical))}
+  </div>`;
+}
+
 // --- Floor camera strip (§25 2b): only the reflexive controls — Focus, Manual, and a shortcut into
 // the Display tab for the rest (Fit/zoom/follow/fog).
 function cameraFloorHTML() {
@@ -333,6 +349,7 @@ function tabRailHTML() {
     ${tab("display", "fa-tv", "Display — fit, zoom, follow, fog")}
     ${tab("rest", "fa-campground", "Rest", true, (isResting() || downtimeOpen()) ? "•" : 0)}
     ${tab("travel", "fa-route", "Travel")}
+    ${tab("effects", "fa-cloud-bolt", "Effects — weather, ambience, screen magic")}
     ${tab("preflight", "fa-clipboard-check", "System health", true, preflightFailCount())}
     ${tab("settings", "fa-gear", "Settings")}
   </div>`;
@@ -1382,6 +1399,7 @@ function flyoutHTML() {
   if (dockTab === "combat") { title = "Combat"; body = combatTabHTML(); }
   else if (dockTab === "display") { title = "Display"; body = displayTabHTML(); }
   else if (dockTab === "travel") { title = "Travel"; body = travelHTML(); }
+  else if (dockTab === "effects") { title = "Effects"; body = effectsTabHTML(); }
   else if (dockTab === "rest") { title = "Rest"; body = restHTML(); }
   else if (dockTab === "preflight") { title = "System health"; body = preflightHTML(); }
   else if (dockTab === "settings") { title = "Settings"; body = settingsHTML(); }
@@ -2959,6 +2977,12 @@ async function onClick(ev) {
   // Right-side dock: tab toggle (tapping the active tab again closes it), target checkbox, send.
   const dockBtn = ev.target.closest("[data-dock]");
   if (dockBtn) { closeRtAssign(); dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }
+  // §26 Effects tab: toggles + one-shots. The await matters — fxIsOn reads the scene/setting the
+  // toggle just wrote, so rendering before it lands would paint the stale state.
+  const fxShot = ev.target.closest("[data-fx-shot]");
+  if (fxShot) { dmFireFx(fxShot.dataset.fxShot); return; }
+  const fxBtn = ev.target.closest("[data-fx]");
+  if (fxBtn) { await dmToggleFx(fxBtn.dataset.fx); return render(); }
   // Mark / unmark the current scene as a travel map (the DM's explicit list — no grid guessing).
   const mark = ev.target.closest("[data-travel-mark]");
   if (mark) {
@@ -3408,12 +3432,13 @@ export function registerDMPanel() {
   // tab once — the pre-start staging home (battle music + Start Combat land here later). Fires on the
   // Combat doc's creation, not each combatant, so it never re-opens while the DM adds monsters.
   Hooks.on("createCombat", () => { dockTab = "combat"; render(); });
-  Hooks.on("updateScene", (_s, ch) => { if ("active" in ch) render(); }); // split-party chips follow activation
+  Hooks.on("updateScene", (_s, ch) => { if ("active" in ch || (dockTab === "effects" && ("weather" in ch || "environment" in ch))) render(); }); // split-party chips follow activation; fx toggles follow the scene
   Hooks.on("userConnected", () => render());                       // presence: connect/disconnect
   Hooks.on("updateUser", () => render());                          // presence: a player changed scene (viewedScene)
   Hooks.on("updateWorldTime", () => render());                     // the clock chip follows the world time
   Hooks.on("mobile-command.presence", () => render());             // away-timer: a phone reported fg/bg
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.downtimeState`) render(); }); // §17.7: activities/window changed
+  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive` && dockTab === "effects") render(); }); // §26: fx toggles follow the world state
   // Away-timer tick: the red escalation crosses the threshold with no event to fire it, so
   // while any player is backgrounded, re-render every 5s to update "away Ns" and flip to red.
   // Idle (nobody backgrounded) → no timer runs.

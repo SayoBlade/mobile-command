@@ -251,6 +251,17 @@ export function registerSettings() {
     default: { music: 0.5, ambient: 0.5, interface: 0.5 }
   });
 
+  // §26 Effects tab: which client-side effects (screen filters + procedural sound loops) are on,
+  // as { fxId: true }. World-scoped for the same reason as tvVolume — the display re-applies it
+  // deterministically after a reload and a late-joining client catches up, instead of depending on
+  // having been online for a broadcast. Scene weather/darkness live in scene data and need no mirror.
+  game.settings.register(MODULE_ID, "fxActive", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {}
+  });
+
   // Silence the table in one tap — a break, a phone call, someone talking over the ambience.
   // Applied on the display as `game.audio.globalMute`, which zeroes all three gains and restores
   // them from the settings on unmute (core AudioHelper), so the levels above survive the round trip.
