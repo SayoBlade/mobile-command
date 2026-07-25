@@ -1966,12 +1966,16 @@ how many details are lost").** Two causes, both fixed and pixel-verified on the 
 
 1. The ×12 vision-mask blur (above) — symmetric, so it darkened lit floor. Reverted.
 2. The shader's smoothstep band was centred on the boundary (density at the geometric edge = 0.5, band
-   0.18–0.82), putting HALF the gradient on the visible side. Now **`smoothstep(0.04, 0.50)`** — the
-   top capped AT 0.5 means every player-visible pixel renders fully clear; the whole feather lives
-   inside the shadow, reaching ~90 px deep as an irregular wispy penumbra. The low end is generous by
-   the DM's explicit call: near-edge room detail may ghost through in near-darkness, and a mild
-   past-the-polygon reveal is fine because drawn map walls (~20 px+) absorb it ("if they make out a
-   few details at the very edge… it's not THAT bad in 90% of cases").
+   0.18–0.82), putting HALF the gradient on the visible side. Final tuning (DM follow-up 2026-07-26
+   "edges a BIT less sharp" + "a gradient from the full black to the actual edge"):
+   **`smoothstep(0.04, 0.55)` at radius 100** — the top a whisker over 0.5 gives a soft wisp-modulated
+   lip (~10%) that dies within a few px past the line, the rest of the visible area renders fully
+   clear, and the penumbra spans **~200 px** from the edge down to full black with the FBM wisp riding
+   the whole fade (billowing cloud, not a ramp). Widening is FREE — the tap count is fixed (25); a
+   larger radius spreads the same samples and the wisp hides the sparser spacing. The low end is
+   generous by the DM's explicit call: near-edge room detail may ghost through in near-darkness, and a
+   mild past-the-polygon reveal is fine because drawn map walls (~20 px+) absorb it ("if they make out
+   a few details at the very edge… it's not THAT bad in 90% of cases").
 
 Verified (profile A/B, TV client): visible-side pixels **identical to stock** (zero spill, lighting
 wash gone); dark side fades `19,16,11,19,3,14,3,3,7,11,8,12,5,2,1,0` (~90 px wispy) where stock cuts
