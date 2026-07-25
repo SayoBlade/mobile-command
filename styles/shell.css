@@ -1729,6 +1729,45 @@ body {
 .mc-jn-body p:last-child { margin-bottom: 0; }
 .mc-jn-empty { font-size: 13px; color: var(--mc-muted); padding: 8px 2px; text-align: center; }
 
+/* --- Multi-page journal (DM 2026-07-25) ------------------------------------- */
+/* Cover: a title bar, then a scrolling list of page cards (tinted by their last editor). */
+.mc-jn-cover-head { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 12px 12px 4px;
+  font-family: var(--mc-font-title, inherit); font-size: 18px; font-weight: 800; color: var(--mc-ink); }
+.mc-jn-cover-head i { color: var(--mc-gold); }
+.mc-jn-pagelist { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px 12px; display: flex; flex-direction: column; gap: 8px; }
+.mc-jn-pageitem { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%;
+  min-height: 52px; text-align: left; padding: 10px 12px; background: var(--mc-panel);
+  border: 1px solid var(--mc-edge); border-left: 3px solid var(--mc-note, var(--mc-gold));
+  border-radius: calc(10px * var(--mc-round, 1)); cursor: pointer; }
+.mc-jn-pageitem:active { background: var(--mc-panel-2); }
+.mc-jn-page-title { font-size: 15px; font-weight: 700; color: var(--mc-ink); }
+.mc-jn-page-imgico { color: var(--mc-note, var(--mc-gold)); font-size: 12px; }
+.mc-jn-page-meta { font-size: 12px; color: var(--mc-muted); }
+/* Page: a back + editable-title header, then the entries and a composer. */
+.mc-jn-pagehead { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 12px 4px; }
+.mc-jn-back { flex: 0 0 auto; width: 40px; height: 40px; border-radius: calc(9px * var(--mc-round, 1));
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 15px; cursor: pointer; }
+.mc-jn-back:active { background: var(--mc-panel-2); }
+.mc-jn-title { flex: 1 1 auto; font-family: var(--mc-font-title, inherit); font-size: 17px; font-weight: 800; color: var(--mc-ink); word-break: break-word; }
+.mc-jn-title-input { flex: 1 1 auto; height: 40px; border-radius: calc(9px * var(--mc-round, 1));
+  background: #14171f; border: 1px solid var(--mc-gold); color: var(--mc-ink); padding: 0 10px; font-size: 16px; }
+/* Entry cards reuse the note look; images sit above the text and open fullscreen on tap. */
+.mc-jn-entry { background: var(--mc-panel); border: 1px solid var(--mc-edge); border-left: 3px solid var(--mc-note, var(--mc-edge));
+  border-radius: calc(10px * var(--mc-round, 1)); padding: 10px 12px; }
+.mc-jn-entry.mc-editing { border-color: var(--mc-gold); }
+.mc-jn-entry-head { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--mc-note, var(--mc-gold)); margin-bottom: 4px; }
+.mc-jn-entry-body { font-size: 14px; line-height: 1.45; color: var(--mc-ink); word-break: break-word; white-space: pre-wrap; }
+.mc-jn-entry-img { display: block; width: 100%; max-height: 240px; object-fit: cover; border-radius: calc(8px * var(--mc-round, 1));
+  border: 1px solid var(--mc-edge); margin: 2px 0 8px; cursor: zoom-in; }
+/* Attach-from-shared banner + the pending-image preview above the composer. */
+.mc-jn-attach { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; margin: 0 12px 6px; padding: 8px 10px;
+  font-size: 12px; color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-gold); border-radius: calc(9px * var(--mc-round, 1)); }
+.mc-jn-attach i { color: var(--mc-gold); }
+.mc-jn-attachprev { position: relative; margin-bottom: 8px; }
+.mc-jn-attachprev img { display: block; width: 100%; max-height: 140px; object-fit: cover; border-radius: calc(8px * var(--mc-round, 1)); border: 1px solid var(--mc-edge); }
+.mc-jn-attach-x { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 50%;
+  background: rgba(0,0,0,.6); border: 1px solid var(--mc-edge); color: #fff; font-size: 14px; cursor: pointer; }
+
 /* Wild Shape (Druid): entry bar / revert banner + the beast browser. */
 .mc-ws-bar {
   width: 100%; min-height: 48px; margin: 2px 0 10px; border-radius: calc(10px * var(--mc-round, 1));

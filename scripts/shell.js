@@ -250,9 +250,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #nearbyDoors = null;    // doors within reach: [{id, ds, distance}]
   #nearbyTiles = null;    // active-tile interactables within reach: [{id, label, distance}]
   #lootBusy = false;      // a nearby-scan round-trip is in flight
-  #journalDraft = "";     // party-journal composer text, kept across re-renders so typing isn't wiped
-  #journalBusy = false;   // a partyJournalAdd round-trip is in flight
-  #journalEditId = null;  // the party-journal page id currently being edited (null = composing a new note)
+  #journalDraft = "";     // entry composer text, kept across re-renders so typing isn't wiped
+  #journalBusy = false;   // a journal write is in flight
+  #journalPageId = null;  // the open page id (null = the cover / page list)
+  #journalEntryEditId = null; // the entry id being edited (null = composing a new entry)
+  #journalPendingImg = null;  // an image queued to attach to the next entry (from the DM's shared image)
+  #journalImage = null;   // fullscreen journal-image viewer src (null = closed)
+  #journalTitleEdit = false;  // renaming the open page's title inline
   #bioOpen = false;       // biography editor overlay (long-press the portrait/name)
   #bioEditing = false;    // biography: read+search (false) vs edit textarea (true)
   #bioDraft = "";         // biography composer text, kept across re-renders
@@ -558,6 +562,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <nav class="mc-tabs">${this.#tabBarHTML()}</nav>
       ${this.#imagePopupHTML(actor)}
       ${this.#sharedImageHTML()}
+      ${this.#journalImageHTML()}
       ${this.#savePromptHTML()}
       ${this.#reactionPromptHTML()}
       ${this.#rollRequestHTML()}
@@ -1910,6 +1915,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return `<div class="mc-imgpop mc-imgpop-shared">
       <button class="mc-imgpop-x" data-action="shared-img-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
       <img class="mc-imgpop-img" src="${s.src}" alt="">
+      <button class="mc-imgpop-gen" data-action="journal-add-shared"><i class="fas fa-feather"></i> Add to journal</button>
     </div>`;
   }
   // Called from the shareImage socket relay (main.js) when the DM shares an image.
@@ -2587,150 +2593,213 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #partyJournalEntry() {
     return game.journal?.find(j => j.getFlag(MODULE_ID, "partyJournal")) ?? null;
   }
+  // --- Multi-page party journal (DM 2026-07-25) --------------------------------
+  // A COVER (list of pages) → open a PAGE (a title + its ENTRIES) → each entry is text ± one image.
+  // Pages are JournalEntryPages flagged `mcPage`; a page's entries live in a `entries` flag array
+  // ([{id,text,img,by:{id,name,color},ts}]). The entry text is mirrored into the page's own
+  // text.content so it's readable in Foundry's journal sheet too. Any player may add pages and
+  // add/edit entries (the entry re-colours to the LAST editor); only the DM deletes a page, from
+  // Foundry's own UI. Legacy flat notes (pre-2026-07-25, no `mcPage`) are left untouched, not shown.
+  #journalPages(entry) {
+    const pages = entry ? entry.pages.contents.filter(p => p.getFlag(MODULE_ID, "mcPage")) : [];
+    return pages.sort((a, b) => (a.getFlag(MODULE_ID, "ts") ?? 0) - (b.getFlag(MODULE_ID, "ts") ?? 0));
+  }
+  #pageEntries(page) {
+    const e = page?.getFlag(MODULE_ID, "entries");
+    return Array.isArray(e) ? e : [];
+  }
+  #userColor() { return game.user?.color?.css ?? null; }
+
   #journalHTML() {
     const entry = this.#partyJournalEntry();
-    const pages = entry ? entry.pages.contents.slice() : [];
-    pages.sort((a, b) => (b.getFlag(MODULE_ID, "ts") ?? 0) - (a.getFlag(MODULE_ID, "ts") ?? 0));
-    // Format the date HERE (at render) from the stored timestamp, not from the page name —
-    // the name froze the CREATING device's locale (DM 2026-06-26: a UK phone showed
-    // "26/06/2026, 00:21:43", a US one "6/23/2026, 10:54:12 AM" in the same list). Rendering
-    // from the ts flag with a month-name format makes every note uniform on the viewer's
-    // screen and removes the day/month ambiguity. Old notes lacking the flag keep the name.
-    const fmtDate = (ts) => { try { return new Date(ts).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); } catch (e) { return new Date(ts).toLocaleString(); } };
-    // Tint each note in its poster's player colour (DM 2026-06-27). `author` is the character
-    // name, so map it to the owning player's colour; fall back to a user of that name. The
-    // lookup is live, so old notes colour too and a note tracks the player's current colour.
-    // --mc-note drives the header text + a left accent (see CSS); no colour → the gold default.
-    const colorFor = (author) => {
-      if (!author) return null;
-      const actor = game.actors?.getName?.(author);
-      let user = actor ? game.users?.find?.(u => !u.isGM && actor.testUserPermission(u, "OWNER")) : null;
-      if (!user) user = game.users?.getName?.(author);
-      return user?.color?.css ?? null;
-    };
-    const notes = pages.map(p => {
-      const ts = p.getFlag(MODULE_ID, "ts");
-      const author = p.getFlag(MODULE_ID, "author");
-      const color = colorFor(author);
-      const head = (ts && author) ? `${foundry.utils.escapeHTML(author)} · ${fmtDate(ts)}` : foundry.utils.escapeHTML(p.name);
-      // Edit/delete a note you wrote — or any note if you're the GM (DM 2026-07-24). Authorship is
-      // the stored userId flag; older notes without it fall back to matching the author name.
-      const mine = this.#canEditNote(p);
-      const tools = mine ? `<div class="mc-jn-tools">
-        <button class="mc-jn-tool" data-action="journal-edit" data-page="${p.id}" title="Edit this note" aria-label="Edit note"><i class="fas fa-pen"></i></button>
-        <button class="mc-jn-tool mc-jn-del" data-action="journal-delete" data-page="${p.id}" title="Delete this note" aria-label="Delete note"><i class="fas fa-trash"></i></button>
-      </div>` : "";
-      const editing = this.#journalEditId === p.id;
-      return `
-      <div class="mc-jn-note ${editing ? "mc-editing" : ""}"${color ? ` style="--mc-note:${color}"` : ""}>
-        <div class="mc-jn-head">${head}${tools}</div>
-        <div class="mc-jn-body">${p.text?.content ?? ""}</div>
-      </div>`;
+    if (this.#journalPageId) {
+      const page = entry?.pages?.get(this.#journalPageId);
+      if (page && page.getFlag(MODULE_ID, "mcPage")) return this.#journalPageHTML(entry, page);
+      this.#journalPageId = null; // the open page is gone → fall back to the cover
+    }
+    return this.#journalCoverHTML(entry);
+  }
+  // COVER: a titled list of pages, each showing its entry count + last-touched date, tinted by the
+  // last editor's colour; plus a "new page" composer at the foot.
+  #journalCoverHTML(entry) {
+    const esc = foundry.utils.escapeHTML;
+    const fmt = (ts) => { try { return new Date(ts).toLocaleDateString(undefined, { dateStyle: "medium" }); } catch (e) { return ""; } };
+    const pages = this.#journalPages(entry); // all pages render; the filter box show/hides in the DOM
+    const items = pages.map(p => {
+      const entries = this.#pageEntries(p);
+      const last = entries[entries.length - 1];
+      const color = last?.by?.color ?? null;
+      const when = last?.ts ?? p.getFlag(MODULE_ID, "ts");
+      const hasImg = entries.some(e => e.img);
+      return `<button class="mc-jn-pageitem" data-action="journal-open-page" data-page="${p.id}"${color ? ` style="--mc-note:${color}"` : ""}>
+        <span class="mc-jn-page-title">${hasImg ? `<i class="fas fa-image mc-jn-page-imgico"></i> ` : ""}${esc(p.name)}</span>
+        <span class="mc-jn-page-meta">${entries.length} ${entries.length === 1 ? "entry" : "entries"}${when ? ` · ${fmt(when)}` : ""}</span>
+      </button>`;
     }).join("");
-    const list = pages.length ? notes : `<div class="mc-jn-empty">No notes yet — start the party log.</div>`;
-    // The compose box doubles as the editor: while editing a note it's prefilled and Post becomes Save.
-    const editing = !!this.#journalEditId;
+    const list = pages.length ? items : `<div class="mc-jn-empty">No pages yet — start one below.</div>`;
+    const banner = this.#journalPendingImg
+      ? `<div class="mc-jn-attach"><i class="fas fa-image"></i> Pick a page for this image, or make a new one.</div>` : "";
+    const cal = globalThis.SimpleCalendar?.api?.showCalendar ? `<button class="mc-jn-cal" data-action="open-calendar" title="Open the calendar" aria-label="Open the calendar"><i class="fas fa-calendar-days"></i></button>` : "";
     return `
       <section class="mc-journal">
-        <div class="mc-jn-filterrow"><i class="fas fa-magnifying-glass"></i><input class="mc-jn-filter" type="search" placeholder="Filter notes… (e.g. shopke)" value="${foundry.utils.escapeHTML(this.#journalFilter)}">${globalThis.SimpleCalendar?.api?.showCalendar ? `<button class="mc-jn-cal" data-action="open-calendar" title="Open the calendar" aria-label="Open the calendar"><i class="fas fa-calendar-days"></i></button>` : ""}</div>
-        <div class="mc-jn-list">${list}</div>
-        <div class="mc-jn-compose ${editing ? "mc-editing" : ""}">
-          <textarea class="mc-jn-input" rows="2" placeholder="${editing ? "Edit your note…" : "Add a note to the party journal…"}" ${this.#journalBusy ? "disabled" : ""}>${foundry.utils.escapeHTML(this.#journalDraft)}</textarea>
+        <div class="mc-jn-cover-head"><i class="fas fa-book"></i> Party Journal</div>
+        ${banner}
+        <div class="mc-jn-filterrow"><i class="fas fa-magnifying-glass"></i><input class="mc-jn-filter" type="search" placeholder="Filter pages…" value="${esc(this.#journalFilter)}">${cal}</div>
+        <div class="mc-jn-pagelist">${list}</div>
+        <div class="mc-jn-compose">
+          <input class="mc-jn-input" type="text" placeholder="New page title…" ${this.#journalBusy ? "disabled" : ""} value="${esc(this.#journalDraft)}">
           <div class="mc-jn-composebtns">
-            ${editing ? `<button class="mc-jn-cancel" data-action="journal-edit-cancel" ${this.#journalBusy ? "disabled" : ""}>Cancel</button>` : ""}
-            <button class="mc-jn-post" data-action="journal-post" ${this.#journalBusy ? "disabled" : ""}>${this.#journalBusy ? (editing ? "Saving…" : "Posting…") : (editing ? "Save note" : "Post note")}</button>
+            <button class="mc-jn-post" data-action="journal-newpage" ${this.#journalBusy ? "disabled" : ""}>${this.#journalBusy ? "Creating…" : "New page"}</button>
           </div>
         </div>
       </section>`;
   }
-  // Whose note can this user touch: the GM edits any; a player edits their own (by stored userId,
-  // or author-name for pre-2026-07-24 notes that predate the userId flag).
-  #canEditNote(page) {
-    if (game.user.isGM) return true;
-    const uid = page.getFlag(MODULE_ID, "userId");
-    if (uid) return uid === game.user.id;
-    const author = page.getFlag(MODULE_ID, "author");
-    return !!author && (author === this.actor?.name || author === game.user?.name);
+  // PAGE: back button + editable title, the entries (text ± image, tinted by last editor), and a
+  // composer that also shows a pending image attachment when adding from the DM's shared image.
+  #journalPageHTML(entry, page) {
+    const esc = foundry.utils.escapeHTML;
+    const fmt = (ts) => { try { return new Date(ts).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); } catch (e) { return ""; } };
+    const isGM = game.user.isGM;
+    const entries = this.#pageEntries(page);
+    const rows = entries.map(e => {
+      const color = e.by?.color ?? null;
+      const editing = this.#journalEntryEditId === e.id;
+      const tools = `<div class="mc-jn-tools">
+        <button class="mc-jn-tool" data-action="journal-entry-edit" data-entry="${e.id}" title="Edit entry" aria-label="Edit entry"><i class="fas fa-pen"></i></button>
+        ${isGM ? `<button class="mc-jn-tool mc-jn-del" data-action="journal-entry-delete" data-entry="${e.id}" title="Delete entry" aria-label="Delete entry"><i class="fas fa-trash"></i></button>` : ""}
+      </div>`;
+      const img = e.img ? `<img class="mc-jn-entry-img" src="${e.img}" data-action="journal-img-open" data-src="${esc(e.img)}" alt="Tap to view">` : "";
+      return `
+      <div class="mc-jn-entry ${editing ? "mc-editing" : ""}"${color ? ` style="--mc-note:${color}"` : ""}>
+        <div class="mc-jn-entry-head">${esc(e.by?.name ?? "Someone")}${e.ts ? ` · ${fmt(e.ts)}` : ""}${tools}</div>
+        ${img}
+        ${e.text ? `<div class="mc-jn-entry-body">${esc(e.text)}</div>` : ""}
+      </div>`;
+    }).join("");
+    const list = entries.length ? rows : `<div class="mc-jn-empty">No entries yet — add the first below.</div>`;
+    const editing = !!this.#journalEntryEditId;
+    const pend = this.#journalPendingImg;
+    const attach = pend ? `<div class="mc-jn-attachprev"><img src="${pend}" alt=""><button class="mc-jn-attach-x" data-action="journal-attach-clear" aria-label="Remove image"><i class="fas fa-xmark"></i></button></div>` : "";
+    const title = this.#journalTitleEdit
+      ? `<input class="mc-jn-title-input" type="text" value="${esc(page.name)}" data-page="${page.id}"><button class="mc-jn-tool" data-action="journal-title-save" data-page="${page.id}" title="Save title" aria-label="Save title"><i class="fas fa-check"></i></button>`
+      : `<span class="mc-jn-title">${esc(page.name)}</span><button class="mc-jn-tool" data-action="journal-title-edit" title="Rename page" aria-label="Rename page"><i class="fas fa-pen"></i></button>`;
+    return `
+      <section class="mc-journal">
+        <div class="mc-jn-pagehead">
+          <button class="mc-jn-back" data-action="journal-back" title="Back to pages" aria-label="Back to pages"><i class="fas fa-chevron-left"></i></button>
+          ${title}
+        </div>
+        <div class="mc-jn-list">${list}</div>
+        <div class="mc-jn-compose ${editing ? "mc-editing" : ""}">
+          ${attach}
+          <textarea class="mc-jn-input" rows="2" placeholder="${editing ? "Edit entry…" : (pend ? "Say something about this image…" : "Add an entry…")}" ${this.#journalBusy ? "disabled" : ""}>${esc(this.#journalDraft)}</textarea>
+          <div class="mc-jn-composebtns">
+            ${editing ? `<button class="mc-jn-cancel" data-action="journal-entry-cancel" ${this.#journalBusy ? "disabled" : ""}>Cancel</button>` : ""}
+            <button class="mc-jn-post" data-action="journal-entry-save" ${this.#journalBusy ? "disabled" : ""}>${this.#journalBusy ? (editing ? "Saving…" : "Adding…") : (editing ? "Save" : "Add entry")}</button>
+          </div>
+        </div>
+      </section>`;
   }
-  // Party-journal page HTML → the plain text the composer holds (so an edit round-trips cleanly).
-  #notePlainText(page) {
-    try { const d = document.createElement("div"); d.innerHTML = page?.text?.content ?? ""; return (d.textContent ?? "").trim(); }
-    catch (e) { return ""; }
+  // Fullscreen viewer for a journal image (reuses .mc-imgpop-img → gets the pinch/drag controller).
+  #journalImageHTML() {
+    if (!this.#journalImage) return "";
+    return `<div class="mc-imgpop mc-imgpop-shared">
+      <button class="mc-imgpop-x" data-action="journal-img-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
+      <img class="mc-imgpop-img" src="${this.#journalImage}" alt="">
+    </div>`;
   }
-  async #postJournalNote() {
-    const live = this.element?.querySelector(".mc-jn-input")?.value;
-    const text = String(live ?? this.#journalDraft).trim();
-    if (!text || this.#journalBusy) return;
+  // The party-journal JournalEntry is default:OWNER, so a player writes pages/entries DIRECTLY.
+  // Only its first CREATION needs the executor (top-level journal creation is role-gated) — that's
+  // the one round-trip; everything after is local.
+  async #ensureJournalEntry() {
+    let entry = this.#partyJournalEntry();
+    if (entry) return entry;
+    try { await rpc.partyJournalEnsure?.({}); } catch (e) { /* executor offline */ }
+    return this.#partyJournalEntry();
+  }
+  // Mirror the entries into the page's own text.content so Foundry's journal sheet is readable too.
+  #entriesToHTML(list) {
+    const esc = foundry.utils.escapeHTML;
+    if (!list.length) return "";
+    return list.map(e => `<p><strong>${esc(e.by?.name ?? "")}</strong>${e.img ? " <em>[image]</em>" : ""}${e.text ? `<br>${esc(e.text)}` : ""}</p>`).join("");
+  }
+  async #createJournalPage(title) {
+    if (this.#journalBusy) return;
+    const t = (String(title ?? "").trim() || "Untitled page").slice(0, 120);
     this.#journalBusy = true; this.render();
     try {
-      const entry = this.#partyJournalEntry();
-      // If we OWN the shared entry, append the page DIRECTLY — no GM round-trip, and it
-      // works even if the executor is momentarily offline. The executor is only needed
-      // the first time, to CREATE the entry (players can't create top-level journals).
-      const owns = entry?.testUserPermission(game.user, "OWNER");
-      let res;
-      if (this.#journalEditId) {
-        // Editing an existing note → update in place (direct if we own the entry, else relay).
-        res = owns ? await this.#editJournalPageDirect(entry, this.#journalEditId, text)
-                   : await rpc.partyJournalEdit({ pageId: this.#journalEditId, text });
-      } else {
-        res = owns ? await this.#addJournalPageDirect(entry, text)
-                   : await rpc.partyJournalAdd({ text, authorName: this.actor?.name ?? game.user?.name });
-      }
-      if (res?.ok) { this.#journalDraft = ""; this.#journalEditId = null; }
-      else ui.notifications.warn(`Journal: ${res?.reason ?? "couldn't post that note"}`);
+      const entry = await this.#ensureJournalEntry();
+      if (!entry) { ui.notifications.warn("Journal: the DM must be online to start the journal."); return; }
+      const ts = Date.now();
+      const [page] = await entry.createEmbeddedDocuments("JournalEntryPage", [{
+        name: t, type: "text", title: { show: true, level: 2 },
+        text: { content: "", format: 1 },
+        flags: { [MODULE_ID]: { mcPage: true, ts, entries: [] } }
+      }]);
+      this.#journalDraft = "";
+      if (page) this.#journalPageId = page.id; // drop straight into the new page
     } catch (e) {
-      console.error("mobile-command | journal post failed", e);
-      ui.notifications.warn("Journal: couldn't post that note.");
+      console.error("mobile-command | create page failed", e);
+      ui.notifications.warn("Journal: couldn't create that page.");
     } finally {
       this.#journalBusy = false; this.render();
     }
   }
-
-  async #addJournalPageDirect(entry, text) {
-    const ts = Date.now();
-    const author = String(this.actor?.name ?? game.user?.name ?? "Someone").slice(0, 60);
-    await entry.createEmbeddedDocuments("JournalEntryPage", [{
-      name: `${author} · ${new Date(ts).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`,
-      type: "text",
-      title: { show: true, level: 3 },
-      text: { content: `<p>${foundry.utils.escapeHTML(text)}</p>`, format: 1 },
-      flags: { [MODULE_ID]: { ts, author, userId: game.user.id } } // userId → robust "is this mine" checks
-    }]);
-    return { ok: true };
-  }
-  // Edit a note's body in place (keeps its timestamp/author). Only the text changes.
-  async #editJournalPageDirect(entry, pageId, text) {
-    const page = entry?.pages?.get(pageId);
-    if (!page) return { ok: false, reason: "that note is gone" };
-    if (!this.#canEditNote(page)) return { ok: false, reason: "that's not your note" };
-    await page.update({ text: { content: `<p>${foundry.utils.escapeHTML(text)}</p>` } });
-    return { ok: true };
-  }
-  // A note being edited got deleted (by anyone) → leave edit mode so the composer isn't stuck on it.
-  onJournalPageDeleted(pageId) {
-    if (this.#journalEditId === pageId) { this.#journalEditId = null; this.#journalDraft = ""; }
-  }
-  async #deleteJournalNote(pageId) {
+  // Add a new entry, or save the one being edited. Either way the entry takes the CURRENT user's
+  // name + colour as its last editor (DM 2026-07-25: "switch the colour to the last player to edit").
+  async #saveJournalEntry() {
+    const live = this.element?.querySelector(".mc-jn-input")?.value;
+    const text = String(live ?? this.#journalDraft).trim();
+    const img = this.#journalPendingImg;
+    if ((!text && !img) || this.#journalBusy) return;
     const entry = this.#partyJournalEntry();
-    const page = entry?.pages?.get(pageId);
+    const page = entry?.pages?.get(this.#journalPageId);
     if (!page) return;
-    if (!this.#canEditNote(page)) return ui.notifications.warn("Journal: that's not your note.");
+    this.#journalBusy = true; this.render();
+    try {
+      const by = { id: game.user.id, name: this.actor?.name ?? game.user?.name ?? "Someone", color: this.#userColor() };
+      let list = this.#pageEntries(page).slice();
+      if (this.#journalEntryEditId) {
+        list = list.map(e => e.id === this.#journalEntryEditId ? { ...e, text, by, ts: Date.now() } : e);
+      } else {
+        list.push({ id: foundry.utils.randomID(), text, img: img ?? null, by, ts: Date.now() });
+      }
+      await page.update({ [`flags.${MODULE_ID}.entries`]: list, text: { content: this.#entriesToHTML(list) } });
+      this.#journalDraft = ""; this.#journalEntryEditId = null; this.#journalPendingImg = null;
+    } catch (e) {
+      console.error("mobile-command | save entry failed", e);
+      ui.notifications.warn("Journal: couldn't save that entry.");
+    } finally {
+      this.#journalBusy = false; this.render();
+    }
+  }
+  // Only the GM removes an entry in-app; page deletion is DM-only via Foundry's journal UI.
+  async #deleteJournalEntry(entryId) {
+    if (!game.user.isGM) return;
+    const entry = this.#partyJournalEntry();
+    const page = entry?.pages?.get(this.#journalPageId);
+    if (!page) return;
     const ok = await foundry.applications.api.DialogV2.confirm({
-      window: { title: "Delete note?" },
-      content: "<p>Delete this journal note? This can't be undone.</p>",
+      window: { title: "Delete entry?" }, content: "<p>Delete this journal entry?</p>",
       modal: true, rejectClose: false
     }).catch(() => false);
     if (!ok) return;
-    if (this.#journalEditId === pageId) { this.#journalEditId = null; this.#journalDraft = ""; }
-    try {
-      if (entry.testUserPermission(game.user, "OWNER")) await page.delete();
-      else { const res = await rpc.partyJournalDelete({ pageId }); if (res?.ok === false) return ui.notifications.warn(`Journal: ${res.reason ?? "couldn't delete"}`); }
-    } catch (e) {
-      console.warn("mobile-command | journal delete failed", e);
-      ui.notifications.warn("Journal: couldn't delete that note.");
-    }
+    const list = this.#pageEntries(page).filter(e => e.id !== entryId);
+    try { await page.update({ [`flags.${MODULE_ID}.entries`]: list, text: { content: this.#entriesToHTML(list) } }); }
+    catch (e) { ui.notifications.warn("Journal: couldn't delete that entry."); }
+    if (this.#journalEntryEditId === entryId) { this.#journalEntryEditId = null; this.#journalDraft = ""; }
     if (this.rendered) this.render();
+  }
+  async #renamePage(pageId, title) {
+    const page = this.#partyJournalEntry()?.pages?.get(pageId);
+    this.#journalTitleEdit = false;
+    const t = String(title ?? "").trim();
+    if (page && t) { try { await page.update({ name: t.slice(0, 120) }); } catch (e) { ui.notifications.warn("Journal: couldn't rename the page."); } }
+    if (this.rendered) this.render();
+  }
+  // A page deleted (by the DM in Foundry) while it's open → fall back to the cover.
+  onJournalPageDeleted(pageId) {
+    if (this.#journalPageId === pageId) { this.#journalPageId = null; this.#journalEntryEditId = null; this.#journalDraft = ""; }
   }
 
   // --- Wild Shape (Druid) ----------------------------------------------------
@@ -5942,22 +6011,55 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#operateInteractable("door", el.dataset.id);
       case "tile-trigger":
         return this.#operateInteractable("tile", el.dataset.id);
-      case "journal-post":
-        return this.#postJournalNote();
-      case "journal-edit": {                              // load a note into the composer to edit it
-        const page = this.#partyJournalEntry()?.pages?.get(el.dataset.page);
-        if (!page || !this.#canEditNote(page)) return;
-        this.#journalEditId = page.id;
-        this.#journalDraft = this.#notePlainText(page);
+      case "journal-open-page":
+        this.#journalPageId = el.dataset.page; this.#journalDraft = "";
+        this.#journalEntryEditId = null; this.#journalTitleEdit = false;
+        return this.render();
+      case "journal-back":
+        this.#journalPageId = null; this.#journalDraft = "";
+        this.#journalEntryEditId = null; this.#journalTitleEdit = false;
+        return this.render();
+      case "journal-newpage": {
+        const inp = this.element?.querySelector(".mc-jn-input");
+        return this.#createJournalPage(inp?.value ?? this.#journalDraft);
+      }
+      case "journal-entry-save":
+        return this.#saveJournalEntry();
+      case "journal-entry-edit": {                          // load an entry into the composer to edit it
+        const page = this.#partyJournalEntry()?.pages?.get(this.#journalPageId);
+        const e = this.#pageEntries(page).find(x => x.id === el.dataset.entry);
+        if (!e) return;
+        this.#journalEntryEditId = e.id; this.#journalDraft = e.text ?? "";
         this.render();
         setTimeout(() => { const ta = this.element?.querySelector(".mc-jn-input"); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }, 0);
         return;
       }
-      case "journal-edit-cancel":
-        this.#journalEditId = null; this.#journalDraft = "";
+      case "journal-entry-cancel":
+        this.#journalEntryEditId = null; this.#journalDraft = "";
         return this.render();
-      case "journal-delete":
-        return this.#deleteJournalNote(el.dataset.page);
+      case "journal-entry-delete":
+        return this.#deleteJournalEntry(el.dataset.entry);
+      case "journal-title-edit":
+        this.#journalTitleEdit = true; this.render();
+        setTimeout(() => { const i = this.element?.querySelector(".mc-jn-title-input"); if (i) { i.focus(); i.select(); } }, 0);
+        return;
+      case "journal-title-save": {
+        const i = this.element?.querySelector(".mc-jn-title-input");
+        return this.#renamePage(el.dataset.page, i?.value);
+      }
+      case "journal-img-open":
+        this.#journalImage = el.dataset.src; this.#resetImgZoom(); return this.render();
+      case "journal-img-close":
+        this.#journalImage = null; this.#resetImgZoom(); return this.render();
+      case "journal-attach-clear":
+        this.#journalPendingImg = null; return this.render();
+      case "journal-add-shared": {                          // "Add to journal" from the DM's shared image
+        this.#journalPendingImg = this.#sharedImage?.src ?? null;
+        this.#sharedImage = null; this.#resetImgZoom();
+        this.#tab = "journal"; this.#partyTab = "journal";
+        this.#journalPageId = null; this.#journalEntryEditId = null; this.#journalDraft = "";
+        return this.render();
+      }
       case "open-calendar": // toggle the Calendar (SC Reborn) from the Journal tab — a 2nd tap closes it (DM 2026-07-24)
         toggleSimpleCalendar();
         return;
@@ -6861,8 +6963,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const t = ev.target;
     const trc = t?.closest?.("[data-tr-coin]"); // §20: transfer coin amount → state, no re-render (keep focus)
     if (trc && this.#transferState) { (this.#transferState.coins ??= {})[trc.dataset.trCoin] = Math.max(0, Math.floor(Number(trc.value) || 0)); return; }
-    if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-jn-input")) {
-      this.#journalDraft = t.value;
+    if ((t instanceof HTMLTextAreaElement || t instanceof HTMLInputElement) && t.classList.contains("mc-jn-input")) {
+      this.#journalDraft = t.value; // entry textarea OR the new-page title input
     } else if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-bio-edit")) {
       this.#bioDraft = t.value; // keep the bio draft across re-renders (no focus steal)
     } else if (t instanceof HTMLInputElement && t.classList.contains("mc-bio-filter")) {
@@ -6873,10 +6975,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         n.style.display = !q || n.textContent.toLowerCase().includes(q) ? "" : "none";
       });
     } else if (t instanceof HTMLInputElement && t.classList.contains("mc-jn-filter")) {
-      // Journal note filter — pure DOM show/hide (no re-render, keeps focus).
+      // Journal page filter — pure DOM show/hide (no re-render, keeps focus).
       this.#journalFilter = t.value;
       const q = t.value.trim().toLowerCase();
-      this.element?.querySelectorAll(".mc-jn-note").forEach(n => {
+      this.element?.querySelectorAll(".mc-jn-pageitem").forEach(n => {
         n.style.display = !q || n.textContent.toLowerCase().includes(q) ? "" : "none";
       });
     } else if (t instanceof HTMLInputElement && t.classList.contains("mc-search-input")) {

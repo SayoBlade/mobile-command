@@ -90,6 +90,7 @@ export function initSocket() {
   socket.register("openLoot", handleOpenLoot);
   socket.register("listInteractables", handleListInteractables);
   socket.register("operateInteractable", handleOperateInteractable);
+  socket.register("partyJournalEnsure", handlePartyJournalEnsure);
   socket.register("partyJournalAdd", handlePartyJournalAdd);
   socket.register("partyJournalEdit", handlePartyJournalEdit);
   socket.register("partyJournalDelete", handlePartyJournalDelete);
@@ -1749,6 +1750,29 @@ async function handleOperateInteractable({ kind, id, forActorUuid } = {}) {
 // entry they only observe — so the executor creates each note's page here, and the
 // entry itself (default OBSERVER so every player can read it) on first use. Flagged
 // so the phone can find it. (Stated MVP goal — write to a shared party journal.)
+// Ensure the shared "Party Journal" entry exists (default:OWNER so players write pages/entries
+// directly afterward). Only the initial top-level JournalEntry creation is role-gated to the GM;
+// the phone's multi-page journal calls this once, then does everything locally. (DM 2026-07-25.)
+async function handlePartyJournalEnsure() {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  try {
+    let entry = game.journal.find(j => j.getFlag(MODULE_ID, "partyJournal"));
+    if (!entry) {
+      const folder = game.folders?.find(f => f.type === "JournalEntry" && f.name === "Party") ?? null;
+      entry = await JournalEntry.create({
+        name: "Party Journal",
+        folder: folder?.id ?? null,
+        ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+        flags: { [MODULE_ID]: { partyJournal: true } }
+      });
+    }
+    return { ok: !!entry };
+  } catch (e) {
+    console.warn(`${MODULE_ID} | partyJournalEnsure failed`, e);
+    return { ok: false, reason: e?.message ?? "could not open the party journal" };
+  }
+}
+
 async function handlePartyJournalAdd({ text, authorName } = {}) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
   const clean = String(text ?? "").trim();
@@ -2871,7 +2895,7 @@ function toExecutor(handler, payload) {
       previewTargets: handlePreviewTargets, endTurn: handleEndTurn, announceCast: handleAnnounceCast,
       listLoot: handleListLoot, openLoot: handleOpenLoot,
       listInteractables: handleListInteractables, operateInteractable: handleOperateInteractable,
-      partyJournalAdd: handlePartyJournalAdd, partyJournalEdit: handlePartyJournalEdit, partyJournalDelete: handlePartyJournalDelete, portraitUpload: handlePortraitUpload,
+      partyJournalEnsure: handlePartyJournalEnsure, partyJournalAdd: handlePartyJournalAdd, partyJournalEdit: handlePartyJournalEdit, partyJournalDelete: handlePartyJournalDelete, portraitUpload: handlePortraitUpload,
       wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert,
       partyPack: handlePartyPack, partySetCell: handlePartySetCell,
       travelPrepare: handleTravelPrepare, travelDrop: handleTravelDrop,
@@ -2910,6 +2934,7 @@ export const api = {
   openLoot: (payload = {}) => toExecutor("openLoot", payload),
   listInteractables: (payload = {}) => toExecutor("listInteractables", payload),
   operateInteractable: (payload = {}) => toExecutor("operateInteractable", payload),
+  partyJournalEnsure: (payload = {}) => toExecutor("partyJournalEnsure", payload),
   partyJournalAdd: (payload = {}) => toExecutor("partyJournalAdd", payload),
   partyJournalEdit: (payload = {}) => toExecutor("partyJournalEdit", { ...payload, requesterId: game.user.id }),
   partyJournalDelete: (payload = {}) => toExecutor("partyJournalDelete", { ...payload, requesterId: game.user.id }),
