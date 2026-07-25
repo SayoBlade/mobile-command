@@ -3529,10 +3529,14 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-battle-lbl { display: block; font-size: 11px; color: var(--mc-muted); text-transform: uppercase; letter-spacing: .04em; margin: 6px 0 3px; }
 .mc-dmp-battle-lbl i { color: var(--mc-gold); }
 .mc-dmp-battle-track { width: 100%; margin-bottom: 8px; border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge); padding: 0 8px; box-sizing: border-box; }
-.mc-dmp-rt-state { flex: 0 0 auto; font-size: 12px; color: var(--mc-gold); }
+/* The right ICON is its own square button (§follow/sound solo, DM 2026-07-25): the body removes, this
+   focuses. Gold glyph when on, muted when the row is off. */
+.mc-dmp-rt-solo { flex: 0 0 auto; width: 31px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; color: var(--mc-gold); background: var(--mc-panel); border: 1px solid var(--mc-edge); }
+.mc-dmp-rt-solo:hover { border-color: var(--mc-gold); }
 .mc-dmp-rt-row.mc-off .mc-dmp-rt-main { opacity: .85; }
 .mc-dmp-rt-row.mc-off .mc-rt-name { text-decoration: line-through; color: var(--mc-muted); }
-.mc-dmp-rt-row.mc-off .mc-dmp-rt-state { color: var(--mc-muted); }
+.mc-dmp-rt-row.mc-off .mc-dmp-rt-solo { color: var(--mc-muted); }
 /* The target-assign button: same height as the row's main button (box-sizing + matching min-height,
    so a square 36px control, DM 2026-07-17); gold-filled glyph when the picker is open (§5). */
 .mc-dmp-rt-assign { position: relative; flex: 0 0 auto; width: 36px; min-height: 36px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; color: var(--mc-muted); background: var(--mc-panel); border: 1px solid var(--mc-edge); }

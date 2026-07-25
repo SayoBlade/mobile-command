@@ -154,9 +154,10 @@ function settingsHTML() {
     ? party.map(t => {
         const off = !!t.actor.getFlag(MODULE_ID, "muteListener");
         const nm = t.document.name;
-        return rosterToggleRow({ id: t.id, data: "data-sound-mute", actor: t.actor, name: nm, off,
-          onIcon: "fa-ear-listen", offIcon: "fa-ear-deaf",
-          title: off ? `${esc(nm)} is ignored — tap to listen through them again` : `${esc(nm)} is listening — tap to ignore them` });
+        return rosterToggleRow({ id: t.id, bodyData: "data-sound-remove", iconData: "data-sound-solo",
+          actor: t.actor, name: nm, off, onIcon: "fa-ear-listen", offIcon: "fa-ear-deaf",
+          bodyTitle: off ? `${nm} is ignored — tap to listen again` : `Tap to ignore ${nm}`,
+          iconTitle: `Hear only ${nm} (tap again for everyone)` });
       }).join("")
     : `<div class="mc-dmp-empty">No party tokens on this scene.</div>`;
   const anyOn = party.some(t => !t.actor.getFlag(MODULE_ID, "muteListener"));
@@ -187,9 +188,10 @@ function followListBody() {
     ? cam.map(t => {
         const off = !!t.document.getFlag(MODULE_ID, "noFollow");
         const nm = t.document.name;
-        return rosterToggleRow({ id: t.id, data: "data-cam-follow", actor: t.actor, name: nm, off,
-          onIcon: "fa-video", offIcon: "fa-video-slash",
-          title: off ? `The display ignores ${esc(nm)} — tap to follow them again` : `The display follows ${esc(nm)} — tap to ignore them` });
+        return rosterToggleRow({ id: t.id, bodyData: "data-follow-remove", iconData: "data-follow-solo",
+          actor: t.actor, name: nm, off, onIcon: "fa-video", offIcon: "fa-video-slash",
+          bodyTitle: off ? `The display ignores ${nm} — tap to follow again` : `Tap to stop following ${nm}`,
+          iconTitle: `Focus the display on ${nm} only (tap again for everyone)` });
       }).join("")
     : `<div class="mc-dmp-empty">No party tokens on this scene.</div>`;
   // One TOGGLE (DM 2026-07-25): while anyone is followed it says "Follow None" (drop all, so you can
@@ -1645,20 +1647,45 @@ function ownerUser(actor) {
 }
 function ownerColor(actor) { return ownerUser(actor)?.color?.css ?? null; }
 
-// A per-creature toggle ROW that matches the Combat list exactly (UI-BIBLE §3, DM 2026-07-25): the
-// same `.mc-dmp-rt-item/row/main` shell, an owner-coloured `fa-circle-user`, an ink name, and a
-// trailing state icon. `off` strikes it through and mutes it (§5) without changing the row's shape.
-// Used by the two "who" lists (hears-through, follows) so they read like the roster, not chips.
-function rosterToggleRow({ id, data, actor, name, off, onIcon, offIcon, title }) {
+// A per-creature roster row with TWO click zones (UI-BIBLE §3; DM 2026-07-25). The BODY (owner-
+// coloured `fa-circle-user` + ink name) toggles the player OUT of the set. The right STATE ICON is a
+// separate button that FOCUSES on this one (isolate / add / back-to-all — see rosterSolo). `off`
+// strikes the row through and mutes it (§5). Shared by the follows + hears-through lists.
+function rosterToggleRow({ id, bodyData, iconData, actor, name, off, onIcon, offIcon, bodyTitle, iconTitle }) {
   const esc = foundry.utils.escapeHTML;
   const col = off ? "var(--mc-muted)" : (ownerColor(actor) ?? "#c8a44d");
   return `<div class="mc-dmp-rt-item"><div class="mc-dmp-rt-row${off ? " mc-off" : ""}">
-    <button class="mc-dmp-rt-main" ${data}="${id}" title="${title}">
+    <button class="mc-dmp-rt-main" ${bodyData}="${id}" title="${esc(bodyTitle)}">
       <i class="fas fa-circle-user mc-rt-usericon" style="color:${col}"></i>
       <span class="mc-rt-name">${esc(name)}</span>
-      <i class="fas ${off ? offIcon : onIcon} mc-dmp-rt-state"></i>
     </button>
+    <button class="mc-dmp-rt-solo" ${iconData}="${id}" title="${esc(iconTitle)}"><i class="fas ${off ? offIcon : onIcon}"></i></button>
   </div></div>`;
+}
+
+// Set operations over a roster, keyed by a flag on each token's `target(t)` (the token doc for
+// noFollow, the actor for muteListener). "Selected" = the flag is NOT set.
+async function rosterFlagSet(t, target, flag, on) {
+  const d = target(t); const cur = !!d.getFlag(MODULE_ID, flag);
+  if (cur === on) return; // `on` here means "flag set" = deselected
+  await (on ? d.setFlag(MODULE_ID, flag, true) : d.unsetFlag(MODULE_ID, flag));
+}
+async function rosterToggleOne(tokens, target, flag, id) {
+  const me = tokens.find(t => t.id === id); if (!me) return;
+  await rosterFlagSet(me, target, flag, !target(me).getFlag(MODULE_ID, flag));
+}
+// The "focus" gesture on the right icon: everyone-selected → isolate this; sole-selected → select
+// all; otherwise → add this to the focused subset.
+async function rosterSolo(tokens, target, flag, id) {
+  const me = tokens.find(t => t.id === id); if (!me) return;
+  const selected = tokens.filter(t => !target(t).getFlag(MODULE_ID, flag));
+  if (selected.length === 1 && selected[0].id === id) {           // sole → all
+    for (const t of tokens) await rosterFlagSet(t, target, flag, false);
+  } else if (selected.length === tokens.length) {                 // everyone → isolate this
+    for (const t of tokens) await rosterFlagSet(t, target, flag, t.id !== id);
+  } else {                                                        // subset → add this
+    await rosterFlagSet(me, target, flag, false);
+  }
 }
 // Per-PC target assignment shown inline in the rolls tab (DM 2026-07-17): actorId -> [{uuid, name}].
 // DM-local; the actual send goes to the player's phone via api.assignTargets.
@@ -3187,12 +3214,10 @@ async function onClick(ev) {
     }
     return render();
   }
-  const ear = ev.target.closest("[data-sound-mute]");
-  if (ear) {
-    const a = canvas.tokens.get(ear.dataset.soundMute)?.actor; // token id → THIS token's actor
-    if (a) { a.setFlag(MODULE_ID, "muteListener", !a.getFlag(MODULE_ID, "muteListener")).then(() => render()); }
-    return;
-  }
+  const soundRemove = ev.target.closest("[data-sound-remove]");
+  if (soundRemove) { await rosterToggleOne(audioListenerTokens(), t => t.actor, "muteListener", soundRemove.dataset.soundRemove); return render(); }
+  const soundSolo = ev.target.closest("[data-sound-solo]");
+  if (soundSolo) { await rosterSolo(audioListenerTokens(), t => t.actor, "muteListener", soundSolo.dataset.soundSolo); return render(); }
   const themeClear = ev.target.closest("[data-theme-clear]");
   if (themeClear) {
     const a = game.actors.get(themeClear.dataset.themeClear);
@@ -3210,13 +3235,16 @@ async function onClick(ev) {
     }
     return render();
   }
-  const follow = ev.target.closest("[data-cam-follow]");
-  if (follow) {
-    const d = canvas.tokens.get(follow.dataset.camFollow)?.document;
-    if (d) {
-      const off = !!d.getFlag(MODULE_ID, "noFollow");
-      await (off ? d.unsetFlag(MODULE_ID, "noFollow") : d.setFlag(MODULE_ID, "noFollow", true));
-    }
+  const followRemove = ev.target.closest("[data-follow-remove]");
+  if (followRemove) {
+    await rosterToggleOne(cameraFollowTokens(), t => t.document, "noFollow", followRemove.dataset.followRemove);
+    try { globalThis.MobileCommand?.focusParty?.(); } catch (e) { /* re-frame the display on the new set */ }
+    return render();
+  }
+  const followSolo = ev.target.closest("[data-follow-solo]");
+  if (followSolo) {
+    await rosterSolo(cameraFollowTokens(), t => t.document, "noFollow", followSolo.dataset.followSolo);
+    try { globalThis.MobileCommand?.focusParty?.(); } catch (e) { /* re-frame the display on the new set */ }
     return render();
   }
   const gs = ev.target.closest("[data-group-sheet]");

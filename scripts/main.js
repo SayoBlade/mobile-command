@@ -839,6 +839,10 @@ function setupDisplayAudioListeners() {
           // average, so one scout beside a waterfall drives the whole room's audio on its own —
           // this is the opt-out for exactly that (DM 2026-07-22).
           if (t.actor?.getFlag?.(MODULE_ID, "muteListener")) continue;
+          // Not FOLLOWED by the camera → not heard (DM 2026-07-25): when the display is focused on a
+          // subset, the story is on those tokens, so we hear their room, not the one left behind. A
+          // no-op when everyone is followed (no token carries noFollow).
+          if (t.document?.getFlag?.(MODULE_ID, "noFollow")) continue;
           try { out.push(t.document.getListenerPosition()); } catch (e) { /* skip a bad token */ }
         }
         return out.length ? out : base;
@@ -909,9 +913,13 @@ function setupDisplayAudioListeners() {
     if (touchesMuteFlag(changes)) return refresh(MUTE_FADE_MS);
     if (touchesPackedFlag(changes)) refreshSoon(); // party packed/dispersed → whole new listener set
   });
+  // A noFollow flag flip changes who's heard too (DM 2026-07-25: unfollowed → unheard), so refresh.
+  const touchesNoFollowFlag = (changes) => foundry.utils.hasProperty(changes ?? {}, `flags.${MODULE_ID}.noFollow`)
+    || (typeof changes?.flags?.[MODULE_ID] === "object" && "noFollow" in changes.flags[MODULE_ID]);
   Hooks.on("updateToken", (t, changes) => {
     if (!isDisplayClient()) return;
     if (touchesMuteFlag(changes)) return refresh(MUTE_FADE_MS); // deafen → gentle 750ms fade
+    if (touchesNoFollowFlag(changes)) return refresh(MUTE_FADE_MS); // follow subset changed → new listener set
     if (("x" in changes || "y" in changes) && isAudioListener(t.actor)) refreshSoon();
   });
   Hooks.on("createToken", (t) => { if (isDisplayClient() && couldListen(t.actor)) refreshSoon(); });
