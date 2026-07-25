@@ -211,6 +211,7 @@ function voiceLocal(text) {
 /* -------------------------------------------- */
 
 const noiseBuffers = new WeakMap(); // AudioContext -> 2s white-noise buffer, built once
+const brownBuffers = new WeakMap(); // AudioContext -> 2s brown-noise buffer, built once
 
 // Foundry's ambient channel: an AudioContext whose gainNode tracks the Ambient volume
 // slider. Null until the first user gesture unlocks audio (core AudioHelper).
@@ -247,6 +248,34 @@ function noiseSource(ctx, loop = true) {
   return src;
 }
 
+// Brown noise = integrated white, normalized: energy piles up at the BOTTOM of the spectrum.
+// The first thunder shipped as white noise through a 420→55Hz lowpass — white spreads its energy
+// evenly across 24kHz, so that filter kept ~2% of it and the "rumble" was inaudible next to the
+// crack (DM 2026-07-26: "a small pop"). Brown noise IS rumble; the filter only shapes it.
+function brownBuffer(ctx) {
+  let buf = brownBuffers.get(ctx);
+  if (buf) return buf;
+  const len = 2 * ctx.sampleRate;
+  buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  let last = 0, peak = 0;
+  for (let i = 0; i < len; i++) {
+    last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; // leaky integrator — no DC drift
+    data[i] = last;
+    peak = Math.max(peak, Math.abs(last));
+  }
+  for (let i = 0; i < len; i++) data[i] /= peak; // normalize to full scale
+  brownBuffers.set(ctx, buf);
+  return buf;
+}
+
+function brownSource(ctx, loop = true) {
+  const src = ctx.createBufferSource();
+  src.buffer = brownBuffer(ctx);
+  src.loop = loop;
+  return src;
+}
+
 // Steady rain: band-limited noise. The high band is the hiss; the width sets how hard it reads.
 function rainLoop(ctx, dest, { gain, lp }) {
   const src = noiseSource(ctx);
@@ -275,16 +304,21 @@ function windLoop(ctx, dest, { center, q, base, gustLo, gustHi, period }) {
   return { stop() { clearInterval(gust); g.gain.setTargetAtTime(0, ctx.currentTime, 0.4); setTimeout(() => { try { src.stop(); g.disconnect(); } catch (e) { /* ctx closed */ } }, 2500); } };
 }
 
+// Gain note: the wind band-passes keep only ~10–20% of white noise's amplitude (narrow band of
+// a flat spectrum — same physics that made thunder v1 a pop), so their gains run WAY above the
+// rain's. These are pre-filter values, not output loudness.
 const SOUND_MAKERS = {
   rain: (ctx, dest) => rainLoop(ctx, dest, { gain: 0.10, lp: 6500 }),
   rainHeavy: (ctx, dest) => rainLoop(ctx, dest, { gain: 0.17, lp: 9500 }),
-  blizzard: (ctx, dest) => windLoop(ctx, dest, { center: 750, q: 0.6, base: 0.06, gustLo: 0.10, gustHi: 0.30, period: 2400 }),
-  dustWind: (ctx, dest) => windLoop(ctx, dest, { center: 220, q: 0.7, base: 0.06, gustLo: 0.10, gustHi: 0.24, period: 3200 })
+  blizzard: (ctx, dest) => windLoop(ctx, dest, { center: 750, q: 0.6, base: 0.15, gustLo: 0.25, gustHi: 0.72, period: 2400 }),
+  dustWind: (ctx, dest) => windLoop(ctx, dest, { center: 220, q: 0.7, base: 0.16, gustLo: 0.25, gustHi: 0.60, period: 3200 })
 };
 
-// Thunder: an initial high crack, then a low rumble whose filter sweeps down as it decays —
-// the same shape a real strike leaves after the air stops ringing. delayMs ≈ distance, and
-// scale (0..1) is how far away it FEELS — the storm's ambient strikes come in at 0.4.
+// Thunder v2 (DM 2026-07-26: v1 was "a small pop" — see brownBuffer for the physics). Three
+// layers: the crack (kept from v1 — it was the one audible part), a BROWN-noise body whose
+// amplitude WOBBLES as it decays (real thunder rolls, it doesn't fade smoothly), and a sub-sine
+// sweep for chest weight on speakers that can reach it. delayMs ≈ distance; scale (0..1) is how
+// far away it FEELS — the storm's ambient strikes come in at 0.4.
 function playThunder(delayMs, scale = 1) {
   const out = audioOut();
   if (!out) return; // pre-gesture — a silent strike beats a console error
@@ -296,24 +330,46 @@ function playThunder(delayMs, scale = 1) {
   const cg = ctx.createGain(); cg.gain.value = 0;
   crack.connect(cbp).connect(cg).connect(dest);
   cg.gain.setValueAtTime(0, t0);
-  cg.gain.linearRampToValueAtTime(0.5 * scale, t0 + 0.012);
+  cg.gain.linearRampToValueAtTime(0.4 * scale, t0 + 0.012);
   cg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.28);
   crack.start(t0); crack.stop(t0 + 0.35);
 
-  const mkRumble = (at, level, tau) => {
-    const src = noiseSource(ctx, false);
+  // Rolling body: brown noise (loops — the 2s buffer would otherwise die mid-roll, another
+  // v1 bug) → lowpass sweeping down → a wobble gain staggering between random levels → the
+  // decay envelope. The wobble is what turns "a long noise" into "thunder rolling away".
+  const mkRoll = (at, level, holdS, tau) => {
+    const src = brownSource(ctx, true);
     const lp = ctx.createBiquadFilter(); lp.type = "lowpass";
-    lp.frequency.setValueAtTime(420, at);
-    lp.frequency.exponentialRampToValueAtTime(55, at + 4.5);
+    lp.frequency.setValueAtTime(500, at);
+    lp.frequency.exponentialRampToValueAtTime(80, at + 5);
+    const wob = ctx.createGain(); wob.gain.value = 1;
+    let wt = at + 0.35;
+    while (wt < at + holdS + 3) {
+      wob.gain.setTargetAtTime(0.4 + Math.random() * 0.6, wt, 0.22);
+      wt += 0.3 + Math.random() * 0.55;
+    }
     const g = ctx.createGain(); g.gain.value = 0;
-    src.connect(lp).connect(g).connect(dest);
+    src.connect(lp).connect(wob).connect(g).connect(dest);
     g.gain.setValueAtTime(0, at);
-    g.gain.linearRampToValueAtTime(level, at + 0.08);
-    g.gain.setTargetAtTime(0, at + 0.25, tau);
-    src.start(at); src.stop(at + 6);
+    g.gain.linearRampToValueAtTime(level, at + 0.12);
+    g.gain.setTargetAtTime(0, at + holdS, tau);
+    src.start(at); src.stop(at + holdS + 6);
   };
-  mkRumble(t0 + 0.05, 0.5 * scale, 1.1);   // the main body
-  mkRumble(t0 + 1.3, 0.18 * scale, 1.5);   // a quieter roll behind it
+  // Levels sum with the sub + crack at onset: 0.7/0.35/0.4 measured 0.86 peak-sample offline
+  // (0.85/0.4/0.5 clipped at 1.03) — keep the stack under full-scale or it crunches.
+  mkRoll(t0 + 0.04, 0.7 * scale, 1.2, 1.3);   // the main body
+  mkRoll(t0 + 1.6, 0.35 * scale, 0.8, 1.6);   // a quieter roll behind it
+
+  // Sub weight: an 85→45Hz sine dive. Small speakers skip it; good ones shake the table.
+  const sub = ctx.createOscillator(); sub.type = "sine";
+  sub.frequency.setValueAtTime(85, t0);
+  sub.frequency.exponentialRampToValueAtTime(45, t0 + 3);
+  const sg = ctx.createGain(); sg.gain.value = 0;
+  sub.connect(sg).connect(dest);
+  sg.gain.setValueAtTime(0, t0 + 0.04);
+  sg.gain.linearRampToValueAtTime(0.4 * scale, t0 + 0.15);
+  sg.gain.setTargetAtTime(0, t0 + 0.8, 1.0);
+  sub.start(t0); sub.stop(t0 + 6);
 }
 
 // Doom bell: a struck bell is a stack of INHARMONIC partials — hum, prime, tierce, quint,
@@ -503,6 +559,9 @@ const PHONE_FX = {
         const { ctx, dest } = out;
         const t0 = ctx.currentTime;
         for (const [at, lvl] of [[0, 0.5], [0.22, 0.32]]) { // lub … dub
+          // Two layers per beat: the 55Hz body (chest weight on speakers that reach it) and a
+          // 165Hz triangle "knock" — PHONE speakers roll off below ~200Hz and would render the
+          // sine alone as silence (the thunder-pop lesson, applied where it bites hardest).
           const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = 55;
           const g = ctx.createGain(); g.gain.value = 0;
           o.connect(g).connect(dest);
@@ -510,6 +569,13 @@ const PHONE_FX = {
           g.gain.linearRampToValueAtTime(lvl, t0 + at + 0.02);
           g.gain.exponentialRampToValueAtTime(0.001, t0 + at + 0.16);
           o.start(t0 + at); o.stop(t0 + at + 0.25);
+          const k = ctx.createOscillator(); k.type = "triangle"; k.frequency.value = 165;
+          const kg = ctx.createGain(); kg.gain.value = 0;
+          k.connect(kg).connect(dest);
+          kg.gain.setValueAtTime(0, t0 + at);
+          kg.gain.linearRampToValueAtTime(lvl * 0.45, t0 + at + 0.015);
+          kg.gain.exponentialRampToValueAtTime(0.001, t0 + at + 0.11);
+          k.start(t0 + at); k.stop(t0 + at + 0.18);
         }
       }, 1000);
       return { el: d, beat };

@@ -2182,8 +2182,17 @@ flash and delayed thunder, heatwave, blizzard, dust storm — plus a "magical" d
 ### 26.2 Sound is SYNTHESIZED — nothing to license
 
 All audio is WebAudio filtered noise, generated at runtime: rain = band-limited hiss; wind = a
-narrow noise band whose centre/level wander (the wandering is the gust); thunder = a 2.5 kHz crack
-plus low-pass rumbles sweeping 420→55 Hz as they decay, fired 0.6–2.4 s after the flash. Zero
+narrow noise band whose centre/level wander (the wandering is the gust); thunder (v2, 2026-07-26)
+= a 2.5 kHz crack + a BROWN-noise body with a wobbling amplitude + an 85→45 Hz sub dive, fired
+0.6–2.4 s after the flash. **The filtered-noise energy rule (learned when thunder v1 shipped as
+"a small pop"):** white noise spreads its energy flat across ~24 kHz, so a narrow filter keeps
+almost none of it — a 420 Hz lowpass keeps ~2%, and small speakers drop what's left below
+~100 Hz. Low rumble must START from brown noise (energy already at the bottom); band-passed wind
+gains must run ~3–5× the naive value; and anything meant for PHONE speakers needs a component
+above ~200 Hz (the heartbeat carries a 165 Hz knock over its 55 Hz body for exactly this).
+Thunder v2 measured offline (OfflineAudioContext RMS): peak RMS 0.344 vs v1's 0.050, 4.25 s
+audible vs 1.5 s, peak sample 0.82 (no clipping — 0.85/0.4/0.5 layer levels clipped at 1.03,
+hence 0.7/0.35/0.4). Zero
 assets shipped, zero licensing, and output feeds `game.audio.environment.gainNode`, so the core
 **Ambient volume** slider (and the TV volume mirroring built on it, §21) governs it. Audio-locked
 (pre-gesture) clients queue one retry on `game.audio.pending`.
