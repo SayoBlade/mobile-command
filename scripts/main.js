@@ -116,6 +116,27 @@ function captureAfter(p) { Promise.resolve(p).then(captureTvFrame).catch(() => {
 // Forget the frame: the next follow re-derives it from wherever the display has been left.
 function resetTvFrame() { tvFrameScale = null; tvClearanceFt = null; }
 
+// Does an update touch our noFollow flag (set, cleared, or nulled by unsetFlag)?
+function touchesNoFollowFlag(changes) {
+  return foundry.utils.hasProperty(changes ?? {}, `flags.${MODULE_ID}.noFollow`)
+    || (typeof changes?.flags?.[MODULE_ID] === "object" && "noFollow" in changes.flags[MODULE_ID]);
+}
+
+// Re-frame the party when WHO-is-followed changes (Follow Everyone / None / solo from the panel).
+// We react to the flag UPDATE itself rather than the frameParty socket message: that message races
+// ahead of the token-flag sync, so the display framed a stale (still-excluded) set and left the real
+// reframe waiting for the first token move — the "focus only works on the first move" bug
+// (DM 2026-07-25). Debounced because Follow Everyone clears several flags back-to-back.
+let _followFlagTimer = null;
+function reframeOnFollowChange() {
+  if (!isDisplayClient() || tvManual || game.combat?.started) return;
+  clearTimeout(_followFlagTimer);
+  // Same reframe a move would do (planPartyFrame), over the now-current followed set — reframeParty
+  // is defined below; this fires from a hook, long after load. Debounced: Follow Everyone / None
+  // flips several flags in a row, and we want one reframe over the settled set.
+  _followFlagTimer = setTimeout(() => { try { reframeParty(); } catch (e) { /* best-effort */ } }, 80);
+}
+
 // TV compass (DM 2026-07-03): players sit AROUND the TV facing it from different
 // sides, so "forward ↑" needs an anchor — a static compass pinned top-right that
 // always points map-north (the top of the TV). Plain DOM above the canvas
@@ -395,36 +416,45 @@ function tvFitScene() {
 // so regrouping settles straight back to it. Nothing else moves the zoom, which is what ends the
 // "every step goes to full screen" behaviour: a step that widens the party box now costs a pan.
 // Display client only, yields to manual TV control, scene-clamped so we never overscroll the map.
+// The shared party reframe: hold the driver box's clearance, panning (and only zooming when the
+// party won't fit at the floor). `movedDoc` (optional) is the token being moved — authoritative for
+// its position while the move still animates; omit it for a reframe NOT tied to a move, e.g. the
+// followed set changing (DM 2026-07-25 wants "the same repositioning action done on move" for any
+// active-focus change from the panel, not a plain re-center).
+function reframeParty(movedDoc) {
+  if (!isDisplayClient() || tvManual || !canvas?.ready) return;
+  if (game.combat?.started) return; // in combat the active-token spotlight takes over
+
+  const { drivers, tagalongs } = followTiers(movedDoc);
+  const core = unionBox(drivers);
+  if (!core) return; // nobody the camera is responsible for
+
+  const stage = canvas.stage;
+  const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
+  const minZoom = CONFIG.Canvas?.minZoom ?? 0.1, maxZoom = CONFIG.Canvas?.maxZoom ?? 3;
+
+  // First move after a reframe (or after a reload) — adopt the view as it stands.
+  if (tvFrameScale == null || tvClearanceFt == null) captureTvFrame();
+  const curScale = stage.scale.x || 1;
+  const { cx, cy, scale } = planPartyFrame({
+    core, tagalongs, pivot: stage.pivot, screenW, screenH,
+    frameScale: tvFrameScale, curScale,
+    wantPx: ftToPx(tvClearanceFt ?? TV_FOLLOW_MIN_CLEARANCE_FT),
+    floorPx: ftToPx(TV_FOLLOW_MIN_CLEARANCE_FT),
+    minZoom, maxZoom,
+    sceneRect: canvas.dimensions?.sceneRect ?? canvas.dimensions?.rect ?? null
+  });
+
+  const scaleChanged = Math.abs(scale - curScale) / curScale > 0.01;
+  if (!scaleChanged && Math.abs(cx - stage.pivot.x) < 1 && Math.abs(cy - stage.pivot.y) < 1) return; // already framed
+  canvas.animatePan({ x: cx, y: cy, scale, duration: 250, easing: tvEase });
+}
+
 function tvPartyFollow(tokenDoc, changes) {
   try {
-    if (!isDisplayClient() || tvManual || !canvas?.ready) return;
-    if (game.combat?.started) return; // in combat the active-token spotlight takes over
     if (!("x" in changes) && !("y" in changes)) return; // only on movement
     if (!isFollowDriver(tokenDoc.actor) || !isFollowedToken(tokenDoc)) return;
-
-    const { drivers, tagalongs } = followTiers(tokenDoc);
-    const core = unionBox(drivers);
-    if (!core) return; // nobody the camera is responsible for
-
-    const stage = canvas.stage;
-    const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
-    const minZoom = CONFIG.Canvas?.minZoom ?? 0.1, maxZoom = CONFIG.Canvas?.maxZoom ?? 3;
-
-    // First move after a reframe (or after a reload) — adopt the view as it stands.
-    if (tvFrameScale == null || tvClearanceFt == null) captureTvFrame();
-    const curScale = stage.scale.x || 1;
-    const { cx, cy, scale } = planPartyFrame({
-      core, tagalongs, pivot: stage.pivot, screenW, screenH,
-      frameScale: tvFrameScale, curScale,
-      wantPx: ftToPx(tvClearanceFt ?? TV_FOLLOW_MIN_CLEARANCE_FT),
-      floorPx: ftToPx(TV_FOLLOW_MIN_CLEARANCE_FT),
-      minZoom, maxZoom,
-      sceneRect: canvas.dimensions?.sceneRect ?? canvas.dimensions?.rect ?? null
-    });
-
-    const scaleChanged = Math.abs(scale - curScale) / curScale > 0.01;
-    if (!scaleChanged && Math.abs(cx - stage.pivot.x) < 1 && Math.abs(cy - stage.pivot.y) < 1) return; // already framed
-    canvas.animatePan({ x: cx, y: cy, scale, duration: 250, easing: tvEase });
+    reframeParty(tokenDoc);
   } catch (e) { /* follow is best-effort */ }
 }
 
@@ -657,6 +687,9 @@ Hooks.once("ready", () => {
   Hooks.on("updateToken", (tokenDoc, changes) => {
     if (game.combat?.started) tvCombatFollow(tokenDoc, changes);
     else tvPartyFollow(tokenDoc, changes);
+    // Follow-set change (Follow Everyone / None / solo) → reframe off the synced flag update, not the
+    // racing frameParty broadcast. Fires regardless of movement; self-gates on display/manual/combat.
+    if (touchesNoFollowFlag(changes)) reframeOnFollowChange();
   });
   // A new scene is a new frame — a scale and a clearance measured on the old map mean nothing here.
   Hooks.on("canvasReady", resetTvFrame);

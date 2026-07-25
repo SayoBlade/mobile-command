@@ -1809,6 +1809,16 @@ the same shape as `Who the display hears through`, so the two "who" filters read
 The flag is **`noFollow` on the TokenDocument**, never the actor — two summons off one base actor
 share an actor id, so an actor flag would toggle both and reliably neither (§22.1).
 
+**Reframe on a follow-set change, driven by the flag update (DM 2026-07-25).** Changing who's
+followed from the panel (Follow Everyone / None / solo a camera) must reframe the display *now*, with
+**the same repositioning a move does** (`planPartyFrame`, not a plain re-center). Two fixes: (1) the
+`Follow Everyone`/`None` bulk handler now calls `focusParty()` like the per-row handlers — it changed
+flags but never moved the camera. (2) The display reframes off the **`updateToken` noFollow-flag
+event**, not the `frameParty` socket broadcast: that broadcast races *ahead* of the token-flag sync,
+so the display framed a still-excluded set and the real reframe waited for the first token move ("the
+focus only works on the first move"). `tvPartyFollow`'s body is now `reframeParty(movedDoc?)` — shared
+by the move hook and a debounced follow-change reaction (no `movedDoc` → frames the settled set).
+
 ### 23.5 The maths is now testable off-table
 
 The camera is the one subsystem that **cannot** be proved from a single browser — it needs the
