@@ -1743,15 +1743,12 @@ ELECTRON_RUN_AS_NODE=1 NODE_OPTIONS=--experimental-vm-modules \
 
 1. ~~**Camera zoom margin.**~~ **RESOLVED 2026-07-24** — the DM rejected both options and gave a
    third: hold the *clearance*, not a margin. See **§23**.
-2. **real-fow replication** (DM likes gitlab.com/sir.sly/real-fow — volumetric drifting fog; it breaks
-   on v14, which rewrote fog into a `VisibilityFilter` shader with explored/unexplored colour uniforms
-   plus a native fog **overlay texture**).
-   - **Tier 0 — soft fog EDGES. BUILT 2026-07-24, pivoted same day.** The first take was a mist
-     texture in the fog-overlay slot; the DM rejected it ("the texture is really not the point… I'm
-     interested in the soft edges"). Rebuilt as an edge-blur crank. See **§24**. Default-off `softFog`.
-   - **Tier 1 — custom shader.** Subclass the visibility filter and drift a noise field. The real
-     effect, but a **permanent per-frame GPU cost on every client including the TV**. Per the standing rule, this must be quoted to the DM before any code is written, and should
-     ship behind a default-off setting if it ships at all. NOT started — gated on the Tier-0 verdict.
+2. **real-fow replication — ✅ DONE (DM sign-off 2026-07-26: "looks great").** Both tiers shipped as
+   the three-way `fogStyle` (off / soft / gpu); the full story, deep dive, and final tuning live in
+   **§24**. Tier 1 became `MCSoftFogVisibilityFilter` — the visibility shader replaced via
+   `CONFIG.Canvas.visibilityFilter`, inward-fading density gathers + FBM wisps (no drifting animation:
+   static wisps read right and cost nothing per-frame beyond the filter pass). Default-off, display
+   only; the test world runs `gpu` at radius 100, mask ×4, explored 22%.
 3. **§18.3 travel questions are still open** (darkness curve per hour; per-scene vs per-journey; the
    phone "suggest destination" ping). Re-ask when the DM next asks what's outstanding.
 
@@ -1897,7 +1894,7 @@ Unverified by ear; it needs the display client and the DM's speakers.
 
 ---
 
-## 24. Fog-of-war edges — THREE styles (Tier 0 soft + Tier 1 GPU, DM 2026-07-25)
+## 24. Fog-of-war edges — THREE styles (Tier 0 soft + Tier 1 GPU) — ✅ DONE, DM signed off 2026-07-26 ("looks great", "95% happy")
 
 **Now a three-way `fogStyle` setting: `off` / `soft` / `gpu`** (supersedes the old `softFog` boolean,
 which is kept only so a world that had it on migrates to `soft`). Picked in the panel's Fog control
@@ -1940,10 +1937,11 @@ zero console/shader errors, and a pixel-level A/B (render stage → RenderTextur
 across a fog boundary, stock filter instance swapped in for the B frame) measured: **stock jumps 7→70
 in one 6px step; gpu ramps over ~30–36px with wisp tendrils ahead of the edge** — a 3–5× wider,
 irregular feather at the actual fog edge. Light-falloff gradients (torch radii) are untouched, as they
-should be. **Still owed:** the DM's aesthetic verdict on the real TV (radius/wisp tuning); GPU cost on
-the TV's hardware (≈50 texture reads/px — opt-in for a reason). `fogStyle` was left on `gpu` in the
-test world. Both `soft` and `gpu` also apply the shared density knobs (unexplored-alpha 0.95,
-explored-colour — now a dial, below).
+should be. **Verdict delivered:** the DM iterated live over 2026-07-26 (two-tone shadows → inward fade
+→ full gradient → mask ×4, all below) and signed off — "looks great", "95% happy, which is a huge deal
+for my nitpicking". GPU cost (≈50 texture reads/px, opt-in) drew no perf complaints on the real TV.
+`fogStyle` runs `gpu` in the test world. Both `soft` and `gpu` also apply the shared density knobs
+(unexplored-alpha 0.95, explored-colour — now a dial, below).
 
 **The two-tone shadows (DM 2026-07-26 screenshot).** The two circled "explored but not currently
 seen" regions are DIFFERENT SYSTEMS, which is why they clashed: the lighter one is **currently seen
