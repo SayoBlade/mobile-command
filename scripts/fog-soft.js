@@ -151,7 +151,10 @@ function clearSoftBlur() {
 // smoothstep(0.30,0.70) band the edge measured ~the same as stock — the S-curve keeps only the middle
 // 40% of the gather's ramp as visible gradient, cancelling the widening. Radius up + band opened so
 // the on-screen feather is ~0.6–0.7 × radius, clearly past Foundry's ~10–18px High-mode blur.
-const GPU_FOG_RADIUS_PX = 56;   // feather radius in screen px (live-tunable: canvas.visibility.filter.uniforms.uSoftRadiusPx)
+const GPU_FOG_RADIUS_PX = 100;  // feather radius in screen px (live-tunable: canvas.visibility.filter.uniforms.uSoftRadiusPx).
+                                // 56 → 100 (DM 2026-07-26: "a gradient from the full black to the actual edge") — the tap
+                                // count is FIXED, so a wider radius costs nothing; it just spreads the same 25 samples,
+                                // and the FBM wisp hides the sparser spacing. Penumbra reach ≈ 1.6 × radius.
 const GPU_FOG_NOISE_PX = 96;    // FBM wisp wavelength in screen px (bigger = broader billows)
 const GPU_FOG_NOISE_AMP = 0.22; // wisp warp of the edge threshold; max ±0.096 after centring — must stay < the smoothstep margin (0.18)
 
@@ -250,14 +253,15 @@ function gpuFilterClass() {
       // the border billows instead of tracing the polygon. Saturates to exactly 0/1 away from edges.
       // INWARD fade (DM 2026-07-26: "blur in, not out — shadows are spilling into the visible
       // areas"). The gather density at the geometric edge is 0.5: a band symmetric around 0.5 puts
-      // half the gradient on the VISIBLE side, dimming real map detail. Capping the band's top AT
-      // 0.5 means every pixel the players can see renders fully clear, and the whole feather lives
-      // inside the shadow. The LOW end sets how deep the penumbra reaches into the dark — 0.04 is
+      // half the gradient on the VISIBLE side, dimming real map detail. The top sits a whisker OVER
+      // 0.5 (0.55 — DM follow-up: "edges a BIT less sharp") so a soft wisp-modulated lip (~10%)
+      // laps just past the line and dies within a few px; everything further into the visible area
+      // renders fully clear. The LOW end sets how deep the penumbra reaches into the dark — 0.04 is
       // generous on purpose: the DM is fine with near-edge room detail ghosting through in near
       // darkness ("if they make out a few details at the very edge… it's not THAT bad"), and drawn
       // map walls absorb the mild past-the-polygon reveal.
       float mcEdge(in float d, in float wisp) {
-        return smoothstep(0.04, 0.50, d + (wisp - 0.4375) * ${GPU_FOG_NOISE_AMP.toFixed(3)});
+        return smoothstep(0.04, 0.55, d + (wisp - 0.4375) * ${GPU_FOG_NOISE_AMP.toFixed(3)});
       }
 
       void main() {
