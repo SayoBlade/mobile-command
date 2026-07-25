@@ -204,6 +204,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #levelUp = null;      // level-up flow from the Lvl panel: null | { adding, options }
   #imagePopup = null;   // full-screen image popup: null | "profile" | "token"
   #sharedImage = null;  // DM "Show Players" image routed onto the phone: null | { src, title }
+  #imgZoom = { scale: 1, x: 0, y: 0 }; // pinch/drag transform for the fullscreen image viewer (shared/pop/journal)
   #assignedTargets = []; // §11: token uuids the DM assigned to this player
   #assignedBy = null;    // DM/user name who assigned them (for the picker banner)
   #subjectId = null;     // §7.1 token switcher: active-scene token id the shell controls
@@ -375,6 +376,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const nextKey = this.#currentViewKey();
     content.innerHTML = typeof result === "string" ? result : "";
     this.#attachListeners(content);
+    this.#attachImageZoom(content); // pinch/drag on any fullscreen image now on screen
     this.#applyTheme(); // keep the saved theme's body class in sync each render
     content.style.setProperty("--mc-user", game.user?.color?.css ?? "var(--mc-gold)"); // personal color accent
     // Also on the shell ROOT so the app's 1px player-colour outline can read it (UI-BIBLE §3):
@@ -1914,7 +1916,63 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   showSharedImage(src, title = "") {
     if (!src) return;
     this.#sharedImage = { src, title };
+    this.#resetImgZoom(); // a fresh image opens at 1× (DM 2026-07-25)
     if (this.rendered) this.render();
+  }
+
+  #resetImgZoom() { this.#imgZoom = { scale: 1, x: 0, y: 0 }; }
+
+  // Pinch-to-zoom + drag-to-pan on the fullscreen image viewer (the DM's shared image, the
+  // portrait/token popup, and journal-entry images all use `.mc-imgpop-img`). Pointer Events cover
+  // touch AND mouse; two pointers pinch, one pans once zoomed in, wheel zooms on desktop, double-tap
+  // resets. The transform lives in `#imgZoom` so it survives the shell's frequent re-renders — we
+  // re-apply it here each render. (DM 2026-07-25: "make sure pinch works on images shown by dm too".)
+  #attachImageZoom(content) {
+    const img = content.querySelector(".mc-imgpop-img");
+    if (!img) return;
+    const z = this.#imgZoom;
+    const apply = () => { img.style.transform = `translate(${Math.round(z.x)}px, ${Math.round(z.y)}px) scale(${z.scale})`; };
+    const clamp = () => {
+      z.scale = Math.max(1, Math.min(z.scale, 6));
+      if (z.scale <= 1) { z.scale = 1; z.x = 0; z.y = 0; }
+    };
+    img.style.touchAction = "none";
+    img.style.transformOrigin = "center center";
+    img.style.willChange = "transform";
+    apply();
+    const pts = new Map();
+    let startDist = 0, startScale = 1, panFrom = null;
+    img.onpointerdown = (e) => {
+      try { img.setPointerCapture(e.pointerId); } catch (err) { /* capture optional */ }
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) {
+        const [a, b] = [...pts.values()];
+        startDist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        startScale = z.scale;
+      } else if (pts.size === 1) {
+        panFrom = { x: e.clientX - z.x, y: e.clientY - z.y };
+      }
+    };
+    img.onpointermove = (e) => {
+      if (!pts.has(e.pointerId)) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) {
+        const [a, b] = [...pts.values()];
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        z.scale = startScale * (dist / startDist);
+        clamp(); apply();
+      } else if (pts.size === 1 && z.scale > 1 && panFrom) {
+        z.x = e.clientX - panFrom.x; z.y = e.clientY - panFrom.y; apply();
+      }
+    };
+    const end = (e) => {
+      pts.delete(e.pointerId);
+      if (pts.size < 2) startDist = 0;
+      if (pts.size === 1) { const p = [...pts.values()][0]; panFrom = { x: p.x - z.x, y: p.y - z.y }; }
+    };
+    img.onpointerup = end; img.onpointercancel = end;
+    img.onwheel = (e) => { e.preventDefault(); z.scale *= (e.deltaY < 0 ? 1.15 : 0.87); clamp(); apply(); };
+    img.ondblclick = () => { z.scale = 1; z.x = 0; z.y = 0; apply(); };
   }
 
   #tabButton(id, icon, label) {
@@ -5869,13 +5927,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return actor?.update({ "system.attributes.spellcasting": el.dataset.ability });
       case "show-image":
         // Re-tap the portrait to close the image popup.
-        this.#imagePopup = this.#imagePopup ? null : "profile"; return this.render();
+        this.#imagePopup = this.#imagePopup ? null : "profile"; this.#resetImgZoom(); return this.render();
       case "img-show":
-        this.#imagePopup = el.dataset.which; return this.render();
+        this.#imagePopup = el.dataset.which; this.#resetImgZoom(); return this.render();
       case "img-close":
-        this.#imagePopup = null; return this.render();
+        this.#imagePopup = null; this.#resetImgZoom(); return this.render();
       case "shared-img-close":
-        this.#sharedImage = null; return this.render();
+        this.#sharedImage = null; this.#resetImgZoom(); return this.render();
       case "use-nearby":
         return this.#useNearby();
       case "loot-open":
