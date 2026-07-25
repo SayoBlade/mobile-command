@@ -1468,17 +1468,7 @@ const POS_KEY = "mc-dm-panel-pos";
 // shove the whole floating panel up — so opening a tall tab hides the primary and needs a
 // re-drag (DM 2026-07-13). Cap the flyout height (drag the bottom grabber to set it); the body
 // scrolls inside, so no tab ever grows past this and jostles the panel. Persisted per client.
-const FLY_TOP_KEY = "mc-dm-panel-flyTop";
 const FLY_KEY = "mc-dm-panel-flyH";
-// The MAIN window sets the floor for the second screen: a flyout shorter than the panel it hangs
-// off reads as broken (DM 2026-07-17: "i can still drag the secondary window under the primary").
-// CSS `min-height:100%` is the live enforcement; this measures the same height for the drag clamp
-// and the persisted value. Falls back to a sane floor before the panel is on screen.
-const FLY_MIN_FALLBACK = 150; // enough for a tab's main flow buttons (e.g. the two rest buttons)
-function flyMinH() {
-  const h = Math.round(panelEl?.getBoundingClientRect().height ?? 0);
-  return Math.min(Math.max(h || FLY_MIN_FALLBACK, FLY_MIN_FALLBACK), window.innerHeight - 24);
-}
 // The workspace opens MINIMIZED by default (DM 2026-07-24: content-fit is a "few-seconds peek, then
 // want minimized again"). flyMaxH: a number = that height (body scrolls past it); null = content-fit
 // (show everything, no scroll — the double-click "peek"). Persisted as a number or the string "fit".
@@ -1514,11 +1504,6 @@ function applyWorkspaceBounds() {
   if (flyMaxH != null && flyMaxH > maxH) fly.style.height = `${Math.round(maxH)}px`;
 }
 let flyUp = false; // default anchor: grow from the panel's bottom when the panel sits low
-// The flyout's own top offset, in px from the panel's padding box. null = derive from flyUp.
-// Needed because a box anchored at top:0 can only ever grow DOWNWARD: to drag the TOP edge up we
-// must move the box AND resize it (DM 2026-07-17: "Now i can only drag the height of the secondary
-// window down, cant we have both!?").
-let flyTop = (() => { try { const v = window.localStorage.getItem(FLY_TOP_KEY); return v == null ? null : Number(v); } catch (e) { return null; } })();
 function applySavedPos(el) {
   try {
     const pos = JSON.parse(window.localStorage.getItem(POS_KEY) || "null");
@@ -1582,8 +1567,8 @@ function onOutsidePointerDown(ev) {
 }
 
 // Drag the flyout's bottom grabber to set its max height. Live-updates the element during the
-// drag (no re-render, so it's smooth), clamps to [flyMinH(), viewport], persists on release, then
-// re-clamps the panel so the new size stays on screen.
+// drag (no re-render, so it's smooth), clamps to [WORKSPACE_MIN_H, viewport], persists on release,
+// then re-clamps the panel so the new size stays on screen.
 function startFlyResize(ev) {
   ev.preventDefault(); ev.stopPropagation();
   const fly = panelEl?.querySelector(".mc-dmp-flyout");
@@ -2951,10 +2936,9 @@ async function onClick(ev) {
   }
   const smNo = ev.target.closest("[data-dmsummon-x]");
   if (smNo) { dmReactions = dmReactions.filter(r => r.id !== smNo.dataset.dmsummonX); return render(); }
-  // Right-side dock: tab toggle, close, target checkbox, send.
+  // Right-side dock: tab toggle (tapping the active tab again closes it), target checkbox, send.
   const dockBtn = ev.target.closest("[data-dock]");
   if (dockBtn) { closeRtAssign(); dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }
-  if (ev.target.closest("[data-dock-close]")) { closeRtAssign(); dockTab = null; return render(); }
   // Mark / unmark the current scene as a travel map (the DM's explicit list — no grid guessing).
   const mark = ev.target.closest("[data-travel-mark]");
   if (mark) {

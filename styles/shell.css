@@ -3425,8 +3425,6 @@ body.mc-theme-wizard .mc-frame {
 /* Workspace header — title + drag only (no X; closing is re-tapping the active tab). Shorter than the
    old 36px (DM 2026-07-24: "make the top panel shorter"). Left-aligned now the X is gone. */
 .mc-dmp-fly-head { display: flex; align-items: center; padding: 4px 10px; min-height: 26px; box-sizing: border-box; border-bottom: 1px solid var(--mc-edge); font-weight: 800; font-size: 14px; }
-.mc-dmp-fly-x { flex: 0 0 auto; width: 24px; height: 24px; min-height: 0; line-height: 1; padding: 0; background: none; border: none; color: var(--mc-muted); font-size: 15px; cursor: pointer; }
-.mc-dmp-fly-x:hover { color: var(--mc-ink); }
 .mc-dmp-fly-body > * { flex-shrink: 0; }   /* never squash a row into the one below it */
 .mc-dmp-travel, .mc-dmp-rt-scroll { flex-shrink: 1 !important; }   /* these two are meant to take the slack */
 .mc-dmp-fly-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
