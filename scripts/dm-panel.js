@@ -3133,7 +3133,16 @@ async function onClick(ev) {
       return;
     }
     const drawer = ev.target.closest("[data-dt-drawer]");
-    if (drawer) { pinPanelTop(); const k = drawer.dataset.dtDrawer; dtDrawers[k] = dtDrawers[k] === false; return render(); }
+    if (drawer) {
+      pinPanelTop();
+      const k = drawer.dataset.dtDrawer;
+      // Flip the ACTUAL rendered state (read the .mc-open class), not `dtDrawers[k] === false`: for a
+      // default-CLOSED drawer the key starts absent, and `undefined === false` is false — so the old
+      // formula wrote `false` (still closed) on the first tap and only opened on the second (DM 2026-07-25).
+      const isOpen = !!drawer.closest(".mc-dt-drawer")?.classList.contains("mc-open");
+      dtDrawers[k] = !isOpen;
+      return render();
+    }
     // ── Authoring-form controls (activity OR template) ──────────────────────
     if (dtRuleDraft) {
       const preset = ev.target.closest("[data-rule-preset]");
