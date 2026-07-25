@@ -14,7 +14,8 @@
 //
 // Storage: a PC's theme is `actor.flags.mobile-command.combatTheme` = a PlaylistSound uuid (set by
 // drag-drop in Settings → Sound). The battle track is the `combatBattleTrack` world setting = a
-// Playlist uuid (picked in the Combat tab's pre-start staging).
+// PlaylistSound uuid — ONE file, looped (DM 2026-07-25) — chosen in the Combat tab's pre-start
+// staging from the `combatMusicPlaylist` (set in mod settings / the onboarding wizard).
 
 import { MODULE_ID } from "./preset.js";
 
@@ -66,7 +67,7 @@ async function restoreTouched() {
   }
 }
 
-// The track for the active combatant: a character's own theme, else the battle track.
+// The track for the active combatant: a character's own theme, else the battle track (a looped file).
 function trackForActive() {
   const actor = game.combat?.combatant?.actor;
   if (actor?.type === "character") {

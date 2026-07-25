@@ -1972,15 +1972,20 @@ Two halves:
   another drop replaces it. Stored as `flags.mobile-command.combatTheme` = the sound's **uuid**
   (`Playlist.x.PlaylistSound.y`). Verified: dragging a playlist sound sets
   `{type:"PlaylistSound", uuid}` as JSON on the drag event (`toDragData`, client-document.mjs).
-- **Battle track.** Chosen from the DM's **Playlists** at **Start Combat** (the Combat tab's pre-start
-  staging: a dropdown + a Start-Combat button directly under it). The baseline for foe turns.
+- **Battle track.** Two-part (DM 2026-07-25): the DM picks a **combat-music playlist** once — in mod
+  settings *and* the onboarding wizard (`combatMusicPlaylist` world setting = a Playlist uuid, shown as
+  a Playlist dropdown) — and then at **Start Combat** picks **one file** from that playlist to loop for
+  the encounter (the pre-start staging lists that playlist's **sounds**; `combatBattleTrack` is now a
+  **PlaylistSound** uuid, not a Playlist). The baseline for foe turns, allied-NPC turns, and
+  theme-less PC turns; looped for the whole combat.
 
 **Playback (executor/GM-driven, syncs to the TV):**
 
 - **On Start Combat:** remember whatever is currently playing, **pause it** (takeover — DM's choice),
   then play combat music.
 - **On each turn change:** the combatant's token → its actor. A **character** with a theme → play that
-  theme. A foe, or a PC with no theme → play the **battle track**. (Pets/summons: **deferred** — a
+  theme (looped for the turn). Everyone else → the **battle track**: hostile NPCs, **friendly/allied
+  NPCs, and theme-less PCs** all get the combat music (DM 2026-07-25). (Pets/summons: **deferred** — a
   pet's turn uses the battle track for now.)
 - **Stop-and-play**, not pause/resume-from-position (MVP; DM accepted "stop if pause is difficult").
   Each track restarts from 0. True resume-from-`pausedTime` is a later nicety.

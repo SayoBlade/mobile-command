@@ -6,7 +6,7 @@ import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRun
 import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar } from "./gametime.js";
 import { runDmWizard } from "./dm-wizard.js";
 import { startCombatWithMusic } from "./combat-music.js";
-import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState } from "./settings.js";
+import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist } from "./settings.js";
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -1355,12 +1355,11 @@ function travelHTML() {
       title="${isTravel ? "This scene is a travel map — whole map visible, dims with the clock. Tap for a normal map with fog." : "Travel map: whole map stays visible and dims with the clock (turns off fog of war)."}">
       <i class="fas ${isTravel ? "fa-square-check" : "fa-square"}"></i> Travel map</button>` : "";
 
-  // Travel-map toggle + Switch scroll in the MID; "Travel to…" pinned to the FOOT (DM 2026-07-25).
-  return `<div class="mc-dmp-tabfill"><div class="mc-dmp-travel mc-dmp-tabmid">
-      ${mapToggle}
-      ${travelDrawer("switch", "Switch scene to…", switchBody)}
-    </div>
-    <div class="mc-dmp-tabfoot">${travelDrawer("go", "Travel to…", goBody, !!packed)}</div>
+  // All three flow together — "Travel to…" is NOT pinned to the floor (DM 2026-07-25: unstick it).
+  return `<div class="mc-dmp-travel">
+    ${mapToggle}
+    ${travelDrawer("switch", "Switch scene to…", switchBody)}
+    ${travelDrawer("go", "Travel to…", goBody, !!packed)}
   </div>`;
 }
 
@@ -1798,13 +1797,21 @@ function combatHTML() {
   const esc = foundry.utils.escapeHTML;
   let btns, staging = "";
   if (!c.started) {
-    // Pre-start staging (§25.2): pick the battle track (played on foe / theme-less turns), then Start.
+    // Pre-start staging (§25.2, DM 2026-07-25): pick ONE file to loop for this combat, from the
+    // configured combat-music playlist (Settings → the Combat-music playlist). No playlist set → a
+    // hint pointing there; the sounds are the choices, stored as a PlaylistSound uuid.
     const cur = (() => { try { return game.settings.get(MODULE_ID, "combatBattleTrack") || ""; } catch (e) { return ""; } })();
-    const opts = game.playlists.contents.slice().sort((a, b) => a.name.localeCompare(b.name))
-      .map(pl => `<option value="${pl.uuid}" ${pl.uuid === cur ? "selected" : ""}>${esc(pl.name)}</option>`).join("");
-    staging = `<label class="mc-dmp-battle-lbl"><i class="fas fa-music"></i> Battle music</label>
-      <select class="mc-dmp-battle-track" data-battle-track title="Plays on foe turns and for PCs with no theme">
-        <option value="">— none —</option>${opts}</select>`;
+    const pl = combatMusicPlaylist();
+    const sounds = pl ? pl.sounds.contents.slice().sort((a, b) => a.name.localeCompare(b.name)) : [];
+    if (!pl) {
+      staging = `<label class="mc-dmp-battle-lbl"><i class="fas fa-music"></i> Battle music</label>
+        <div class="mc-dmp-empty">Set a <b>Combat-music playlist</b> in Settings to pick a battle track.</div>`;
+    } else {
+      const opts = sounds.map(s => `<option value="${s.uuid}" ${s.uuid === cur ? "selected" : ""}>${esc(s.name)}</option>`).join("");
+      staging = `<label class="mc-dmp-battle-lbl"><i class="fas fa-music"></i> Battle music <span class="mc-dmp-battle-src">${esc(pl.name)}</span></label>
+        <select class="mc-dmp-battle-track" data-battle-track title="One track, looped on foe turns and for PCs with no theme">
+          <option value="">— none —</option>${opts}</select>`;
+    }
     btns = `<button data-combat="rollAll" title="Roll initiative for everyone"><i class="fas fa-dice-d20"></i> Roll All</button>
       <button class="mc-dmp-party-deploy" data-combat="start-music" title="Begin combat and start the music"><i class="fas fa-play"></i> Start Combat</button>`;
   } else {
@@ -3248,6 +3255,9 @@ async function onClick(ev) {
       if (drop && !has) await t.document.setFlag(MODULE_ID, "noFollow", true);
       else if (!drop && has) await t.document.unsetFlag(MODULE_ID, "noFollow");
     }
+    // Re-frame the display on the new set, same as the per-row remove/solo handlers below — without
+    // this, "Follow Everyone" changed the flags but the camera never moved, so it read as a no-op.
+    try { globalThis.MobileCommand?.focusParty?.(); } catch (e) { /* best-effort */ }
     return render();
   }
   const followRemove = ev.target.closest("[data-follow-remove]");

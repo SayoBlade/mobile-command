@@ -164,8 +164,19 @@ export function registerSettings() {
     onChange: () => { try { globalThis.MobileCommand?.refreshSoftFog?.(); } catch (e) {} }
   });
 
-  // Combat music (§25.2): the DM's chosen battle track — a Playlist uuid played on foe / theme-less
-  // turns. Picked in the Combat tab's pre-start staging; per-PC themes live on the actor flag.
+  // Combat music (§25.2): the DM's combat-music PLAYLIST — the library the per-combat battle track is
+  // chosen from. Set here (and in the onboarding wizard); the Combat tab's pre-start staging lists
+  // THIS playlist's sounds so the DM picks one file to loop for the encounter. Rendered as a Playlist
+  // dropdown by the renderSettingsConfig hook below (game.playlists isn't ready at registration).
+  game.settings.register(MODULE_ID, "combatMusicPlaylist", {
+    name: "Combat-music playlist",
+    hint: "The playlist your battle tracks live in. When you start combat, you pick one track from it to loop for that fight (played on foe turns and for PCs with no personal theme). Per-PC themes are set in the panel's Sound settings.",
+    scope: "world", config: true, type: String, default: ""
+  });
+
+  // The battle track chosen for the CURRENT combat — a single PlaylistSound uuid (a file), looped on
+  // foe / theme-less turns. Picked in the Combat tab's pre-start staging from the playlist above; not
+  // shown in this config sheet. Per-PC themes live on the actor flag.
   game.settings.register(MODULE_ID, "combatBattleTrack", {
     scope: "world", config: false, type: String, default: ""
   });
@@ -530,6 +541,33 @@ export function registerSettings() {
       console.warn(`${MODULE_ID} | could not build the display-owner dropdown`, e);
     }
   });
+
+  // Upgrade the combatMusicPlaylist text field to a Playlist dropdown (game.playlists is ready here).
+  Hooks.on("renderSettingsConfig", (app, html) => {
+    try {
+      if (!game.user?.isGM) return;
+      const root = html instanceof HTMLElement ? html : html?.[0];
+      const input = root?.querySelector(`[name="${MODULE_ID}.combatMusicPlaylist"]`);
+      if (!input || input.tagName !== "INPUT") return;
+      const cur = game.settings.get(MODULE_ID, "combatMusicPlaylist");
+      const sel = document.createElement("select");
+      sel.name = input.name;
+      sel.innerHTML = `<option value="">— none —</option>` +
+        game.playlists.contents.slice().sort((a, b) => a.name.localeCompare(b.name))
+          .map((p) => `<option value="${p.uuid}"${p.uuid === cur ? " selected" : ""}>${foundry.utils.escapeHTML(p.name)}</option>`).join("");
+      input.replaceWith(sel);
+    } catch (e) {
+      console.warn(`${MODULE_ID} | could not build the combat-music playlist dropdown`, e);
+    }
+  });
+}
+
+// The configured combat-music playlist Document, or null. Its sounds are the battle-track choices.
+export function combatMusicPlaylist() {
+  try {
+    const uuid = game.settings.get(MODULE_ID, "combatMusicPlaylist");
+    return uuid ? (fromUuidSync(uuid) ?? null) : null;
+  } catch (e) { return null; }
 }
 
 // The configured display/TV account, or null when the feature is off.

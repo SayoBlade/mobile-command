@@ -17,7 +17,7 @@ const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
 // opens at the SAME width, the SAME place, with the SAME step chrome — so it reads as a single
 // window advancing, not a scatter of differently-sized popups. Fixed body min-height means short
 // steps are as tall as the tallest, so nothing resizes between steps.
-const WIZ_STEPS = 5; // welcome · preset · toggles · vision · party  (preflight is the finale)
+const WIZ_STEPS = 6; // welcome · preset · toggles · vision · combat music · party  (preflight is the finale)
 function wizPos() {
   return { width: 480, left: Math.max(20, Math.round((window.innerWidth - 480) / 2)), top: Math.max(40, Math.round(window.innerHeight * 0.14)) };
 }
@@ -145,6 +145,29 @@ async function stepVision() {
   return res === "next";
 }
 
+async function stepCombatMusic() {
+  const current = game.settings.get(MODULE_ID, "combatMusicPlaylist") || "";
+  const opts = [`<option value="" ${current ? "" : "selected"}>— none / skip —</option>`]
+    .concat(game.playlists.contents.slice().sort((a, b) => a.name.localeCompare(b.name))
+      .map(p => `<option value="${p.uuid}" ${p.uuid === current ? "selected" : ""}>${esc(p.name)} (${p.sounds.size} track${p.sounds.size === 1 ? "" : "s"})</option>`));
+  const picked = await wizWait({
+    n: 5, title: "Combat music",
+    content: `<p><b>Which playlist holds your battle music?</b></p>
+      <p>When you start a combat you'll pick one track from it to loop for that fight — played on foe
+      turns and for any hero without their own theme. Give a PC a personal <b>anthem</b> later by
+      dragging a track onto their name in the panel's <em>Sound</em> settings. Optional; skip if you
+      don't use combat music.</p>
+      <select name="pl" style="width:100%">${opts.join("")}</select>`,
+    buttons: [
+      { action: "cancel", label: "Finish later" },
+      { action: "next", label: "Next", default: true, callback: (_e, b) => b.form.elements.pl.value }
+    ]
+  }).catch(() => null);
+  if (typeof picked !== "string") return false;
+  await game.settings.set(MODULE_ID, "combatMusicPlaylist", picked);
+  return true;
+}
+
 async function stepParty() {
   const groups = game.actors.filter(a => a.type === "group");
   const g = groups.find(x => (x.system?.members ?? []).some(m => m.actor)) ?? groups[0];
@@ -156,7 +179,7 @@ async function stepParty() {
     : `<p><b>No party group exists yet.</b> Once your PCs stand on the active scene, the DM panel
        offers a one-tap <b>Create party</b> (or the checklist to pick members). Nothing to do here now.</p>`;
   const res = await wizWait({
-    n: 5, title: "The party",
+    n: 6, title: "The party",
     content: body,
     buttons: [
       { action: "cancel", label: "Finish later" },
@@ -171,7 +194,7 @@ async function stepPreflight() {
   const mark = { ok: "✅", warn: "⚠️", fail: "❌" };
   const rows = results.map(c => `<li>${mark[c.status] ?? "•"} <b>${esc(c.label)}</b> — ${esc(c.detail)}</li>`).join("");
   await wizWait({
-    n: 6, title: "System health",
+    n: 7, title: "System health",
     content: `<p>Final check of the live table:</p><ul style="max-height:220px;overflow-y:auto;margin:0">${rows}</ul>
       <p>Anything ⚠️/❌ stays visible on the DM panel's <b>System health tab</b> (clipboard icon), each with a one-tap fix where one is safe.</p>`,
     buttons: [{ action: "done", label: "Done", default: true }]
@@ -181,7 +204,7 @@ async function stepPreflight() {
 
 export async function runDmWizard() {
   if (!game.user.isGM) return;
-  const steps = [stepWelcomeTv, stepPreset, stepToggles, stepVision, stepParty, stepPreflight];
+  const steps = [stepWelcomeTv, stepPreset, stepToggles, stepVision, stepCombatMusic, stepParty, stepPreflight];
   for (const step of steps) {
     const cont = await step();
     if (!cont) return; // "Finish later" / closed — leave dmOnboarded as-is so the prompt returns
@@ -199,8 +222,8 @@ export function maybePromptDmWizard() {
     const res = await D().wait({
       window: { title: "Mobile Command — Setup" },
       position: { width: 480 },
-      content: `<div class="mc-wiz"><div class="mc-wiz-body" style="min-height:0"><p style="margin-top:0">Walk through the shared-table setup? Five short steps — the TV account,
-        midi settings, table toggles, token vision, the party — then a live health check.</p></div></div>`,
+      content: `<div class="mc-wiz"><div class="mc-wiz-body" style="min-height:0"><p style="margin-top:0">Walk through the shared-table setup? Six short steps — the TV account,
+        midi settings, table toggles, token vision, combat music, the party — then a live health check.</p></div></div>`,
       buttons: [
         { action: "never", label: "Don't ask again" },
         { action: "later", label: "Later" },
