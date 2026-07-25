@@ -1743,6 +1743,9 @@ body {
 .mc-jn-page-title { font-size: 15px; font-weight: 700; color: var(--mc-ink); }
 .mc-jn-page-imgico { color: var(--mc-note, var(--mc-gold)); font-size: 12px; }
 .mc-jn-page-meta { font-size: 12px; color: var(--mc-muted); }
+/* Search-hit snippets: hidden until the cover filter reveals the matching ones as context lines. */
+.mc-jn-page-hit { display: none; font-size: 12px; color: var(--mc-ink); opacity: 0.75; font-style: italic;
+  word-break: break-word; text-align: left; border-top: 1px dashed var(--mc-edge); padding-top: 3px; margin-top: 2px; width: 100%; }
 /* Page: a back + editable-title header, then the entries and a composer. */
 .mc-jn-pagehead { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 12px 4px; }
 .mc-jn-back { flex: 0 0 auto; width: 40px; height: 40px; border-radius: calc(9px * var(--mc-round, 1));

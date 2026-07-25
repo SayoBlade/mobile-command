@@ -230,7 +230,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #placement = null;       // Round 33: active spell placement session { mode, kind, spellName, rangeFt, distFt, inRange, direction, activityUuid, busy }
   #onboardOpen = null;    // first-run welcome overlay: null = unresolved, true/false = show/hide
   #partySelf = null;      // marching-order: the owned member the player picked up
-  #journalFilter = "";    // journal: live post filter ("shopke" → matching notes)
+  #journalFilter = "";    // journal cover: live filter over page names AND entry text (shows hit snippets)
+  #journalPageFilter = ""; // journal page view: live filter over this page's entries
   #openContainers = new Set(); // Equipment tab: container item ids currently expanded
   #itemPickerId = null; // Equipment tab: item whose multi-activity picker is open
   #transferState = null; // §20 transfer composer: { mode:"stash"|"ally", dir:"put"|"take", to:allyActorId, items:{id:qty}, coins:{k:amt} }
@@ -394,6 +395,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     this.#viewKey = nextKey;
     if (this.#searchOpen && this.#searchQuery) this.#applySearch(this.#searchQuery); // keep the filter after a re-render
+    // Journal filters survive background re-renders too (HP ticks etc. repaint the whole shell).
+    if (this.#journalFilter.trim()) this.#applyJournalCoverFilter(this.#journalFilter.trim().toLowerCase());
+    if (this.#journalPageFilter.trim()) this.#applyJournalPageFilter(this.#journalPageFilter.trim().toLowerCase());
     if (this.#editingField) {
       const inp = content.querySelector(".mc-stat-input");
       if (inp) { inp.focus(); inp.select(); }
@@ -2631,9 +2635,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const color = last?.by?.color ?? null;
       const when = last?.ts ?? p.getFlag(MODULE_ID, "ts");
       const hasImg = entries.some(e => e.img);
+      // Every entry rides along as a HIDDEN hit node carrying its full text (author + body) in
+      // data-full. The cover filter matches against that and reveals matching ones as context
+      // snippets — so a keyword buried in an entry surfaces the page AND shows why (DM 2026-07-26).
+      const hits = entries.map(e =>
+        `<span class="mc-jn-page-hit" data-full="${esc(`${e.by?.name ?? "Someone"}: ${e.text || (e.img ? "[image]" : "")}`)}"></span>`).join("");
       return `<button class="mc-jn-pageitem" data-action="journal-open-page" data-page="${p.id}"${color ? ` style="--mc-note:${color}"` : ""}>
         <span class="mc-jn-page-title">${hasImg ? `<i class="fas fa-image mc-jn-page-imgico"></i> ` : ""}${esc(p.name)}</span>
         <span class="mc-jn-page-meta">${entries.length} ${entries.length === 1 ? "entry" : "entries"}${when ? ` · ${fmt(when)}` : ""}</span>
+        ${hits}
       </button>`;
     }).join("");
     const list = pages.length ? items : `<div class="mc-jn-empty">No pages yet — start one below.</div>`;
@@ -2689,6 +2699,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           <button class="mc-jn-back" data-action="journal-back" title="Back to pages" aria-label="Back to pages"><i class="fas fa-chevron-left"></i></button>
           ${title}
         </div>
+        <div class="mc-jn-filterrow"><i class="fas fa-magnifying-glass"></i><input class="mc-jn-pagefilter" type="search" placeholder="Search this page…" value="${esc(this.#journalPageFilter)}"></div>
         <div class="mc-jn-list">${list}</div>
         <div class="mc-jn-compose ${editing ? "mc-editing" : ""}">
           ${attach}
@@ -2700,6 +2711,34 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         </div>
       </section>`;
   }
+  // Cover search: match the page NAME or any entry's text; a matching page stays visible and up to
+  // three matching entries reveal as context snippets (a ±window around the first hit), so the DM's
+  // "searching from the cover gives no context" gap is closed. Pure DOM (no re-render, keeps focus).
+  #applyJournalCoverFilter(q) {
+    this.element?.querySelectorAll(".mc-jn-pageitem").forEach(item => {
+      const title = item.querySelector(".mc-jn-page-title")?.textContent.toLowerCase() ?? "";
+      let shown = 0;
+      item.querySelectorAll(".mc-jn-page-hit").forEach(hit => {
+        const full = hit.dataset.full ?? "";
+        const idx = q ? full.toLowerCase().indexOf(q) : -1;
+        const show = idx >= 0 && shown < 3;
+        hit.style.display = show ? "" : "none";
+        if (show) {
+          shown++;
+          const start = Math.max(0, idx - 30), end = Math.min(full.length, idx + q.length + 60);
+          hit.textContent = (start > 0 ? "…" : "") + full.slice(start, end) + (end < full.length ? "…" : "");
+        }
+      });
+      item.style.display = !q || title.includes(q) || shown ? "" : "none";
+    });
+  }
+  // Page search: show only the entries whose text (author, date, body) contains the query.
+  #applyJournalPageFilter(q) {
+    this.element?.querySelectorAll(".mc-jn-entry").forEach(n => {
+      n.style.display = !q || n.textContent.toLowerCase().includes(q) ? "" : "none";
+    });
+  }
+
   // Fullscreen viewer for a journal image (reuses .mc-imgpop-img → gets the pinch/drag controller).
   #journalImageHTML() {
     if (!this.#journalImage) return "";
@@ -6013,11 +6052,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#operateInteractable("tile", el.dataset.id);
       case "journal-open-page":
         this.#journalPageId = el.dataset.page; this.#journalDraft = "";
-        this.#journalEntryEditId = null; this.#journalTitleEdit = false;
+        this.#journalEntryEditId = null; this.#journalTitleEdit = false; this.#journalPageFilter = "";
         return this.render();
       case "journal-back":
         this.#journalPageId = null; this.#journalDraft = "";
-        this.#journalEntryEditId = null; this.#journalTitleEdit = false;
+        this.#journalEntryEditId = null; this.#journalTitleEdit = false; this.#journalPageFilter = "";
         return this.render();
       case "journal-newpage": {
         const inp = this.element?.querySelector(".mc-jn-input");
@@ -6975,12 +7014,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         n.style.display = !q || n.textContent.toLowerCase().includes(q) ? "" : "none";
       });
     } else if (t instanceof HTMLInputElement && t.classList.contains("mc-jn-filter")) {
-      // Journal page filter — pure DOM show/hide (no re-render, keeps focus).
+      // Journal cover filter — page names + entry text, with context snippets (no re-render).
       this.#journalFilter = t.value;
-      const q = t.value.trim().toLowerCase();
-      this.element?.querySelectorAll(".mc-jn-pageitem").forEach(n => {
-        n.style.display = !q || n.textContent.toLowerCase().includes(q) ? "" : "none";
-      });
+      this.#applyJournalCoverFilter(t.value.trim().toLowerCase());
+    } else if (t instanceof HTMLInputElement && t.classList.contains("mc-jn-pagefilter")) {
+      // In-page entry filter (DM 2026-07-26: "a search for each page is required anyway").
+      this.#journalPageFilter = t.value;
+      this.#applyJournalPageFilter(t.value.trim().toLowerCase());
     } else if (t instanceof HTMLInputElement && t.classList.contains("mc-search-input")) {
       this.#searchQuery = t.value; // live search filter — DOM toggle, no re-render
       this.#applySearch(t.value);
