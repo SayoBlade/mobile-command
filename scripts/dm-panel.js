@@ -204,18 +204,23 @@ function followListBody() {
 }
 
 function softFogBody() {
-  const softOn = (() => { try { return !!game.settings.get(MODULE_ID, "softFog"); } catch (e) { return false; } })();
+  const raw = (() => { try { return game.settings.get(MODULE_ID, "fogStyle"); } catch (e) { return "off"; } })();
+  const legacySoft = (() => { try { return game.settings.get(MODULE_ID, "softFog"); } catch (e) { return false; } })();
+  const cur = (raw === "off" && legacySoft) ? "soft" : raw; // honour a pre-fogStyle soft-fog world
   const sf = tvSoftFogState;
-  const sfStale = !sf || (Date.now() - sf.at) > 45000;
-  const sfStatus = !softOn ? ""
-    : sfStale
+  const stale = !sf || (Date.now() - sf.at) > 45000;
+  const opt = (val, label) => `<button class="mc-dmp-toggle ${cur === val ? "mc-on" : ""}" data-fog-style="${val}">${label}</button>`;
+  const seg = `<div class="mc-dmp-fogseg">${opt("off", "Off")}${opt("soft", "Soft edges")}${opt("gpu", "GPU")}</div>`;
+  let status = "";
+  if (cur !== "off") {
+    status = stale
       ? `<div class="mc-dmp-sound-status mc-unknown"><i class="fas fa-question-circle"></i> No display connected — can't confirm it's showing.</div>`
-      : sf.supported
-        ? `<div class="mc-dmp-sound-status mc-ok"><i class="fas fa-circle-check"></i> Soft edges are live on the display.</div>`
-        : `<div class="mc-dmp-sound-status mc-bad"><i class="fas fa-gauge-high"></i> The display isn't on High performance mode — soft shadows are off, so nothing changes. Set the TV to High (Configure Settings).</div>`;
-  return `<button class="mc-dmp-toggle ${softOn ? "mc-on" : ""}" data-set-toggle="softFog">
-      <i class="fas fa-cloud"></i> ${softOn ? "Soft Fog On" : "Soft Fog Off"}
-    </button>${sfStatus}`;
+      : (cur === "soft" && !sf.supported)
+        ? `<div class="mc-dmp-sound-status mc-bad"><i class="fas fa-gauge-high"></i> The display isn't on High performance mode — soft shadows are off. Set the TV to High, or switch to GPU (works on any mode).</div>`
+        : `<div class="mc-dmp-sound-status mc-ok"><i class="fas fa-circle-check"></i> ${cur === "gpu" ? "GPU fog" : "Soft edges"} live on the display.</div>`;
+  }
+  return `${seg}${status}
+    <p class="mc-dmp-set-note">GPU fog gives the softest, real-fow look on <b>any</b> performance mode, but works the display's GPU harder. Soft edges are lighter but need the TV on High.</p>`;
 }
 
 // --- Combat music (§25.2): per-PC themes. Drag a playlist SOUND onto a PC; it plays on their turn in
@@ -3224,6 +3229,11 @@ async function onClick(ev) {
   if (setToggle) {
     const key = setToggle.dataset.setToggle;
     await game.settings.set(MODULE_ID, key, !game.settings.get(MODULE_ID, key));
+    return render();
+  }
+  const fogStyleBtn = ev.target.closest("[data-fog-style]");
+  if (fogStyleBtn) {
+    await game.settings.set(MODULE_ID, "fogStyle", fogStyleBtn.dataset.fogStyle);
     return render();
   }
   const bulkEar = ev.target.closest("[data-ears-all]");

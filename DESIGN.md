@@ -1873,7 +1873,27 @@ Unverified by ear; it needs the display client and the DM's speakers.
 
 ---
 
-## 24. Fog-of-war SOFT EDGES — Tier 0 (DM 2026-07-24, BUILT, unverified on the TV)
+## 24. Fog-of-war edges — THREE styles (Tier 0 soft + Tier 1 GPU, DM 2026-07-25)
+
+**Now a three-way `fogStyle` setting: `off` / `soft` / `gpu`** (supersedes the old `softFog` boolean,
+which is kept only so a world that had it on migrates to `soft`). Picked in the panel's Fog control
+(Settings → Fog), a segmented Off / Soft edges / GPU. Display-client only. See [fog-soft.js](scripts/fog-soft.js).
+
+- **`soft` (Tier 0)** — crank Foundry's own visibility/vision blur (§24.1–24.2). Cheap, but needs High
+  performance mode and its 5–9-tap kernel caps the softness.
+- **`gpu` (Tier 1, DM 2026-07-25 "try gpu fog")** — OUR own PIXI filter on `canvas.visibility`: a
+  24-sample **golden-spiral disc gather** (`GPU_FOG_FRAG`) that feathers the fog alpha with a true
+  screen-pixel radius (`GPU_FOG_RADIUS_PX`, default 22) via `inputSize.zw`. Wider and smoother than
+  Foundry's kernel, and runs on **any** performance mode because it's our pass, not Foundry's optional
+  blur. Attached/detached on `canvas.visibility.filters`, rebuilt per scene on `canvasReady`.
+  - **Verified off-table (2026-07-25):** the fragment compiles standalone (empty info log), and the
+    filter attaches to the live `canvas.visibility` and renders in the real PIXI pipeline with **zero**
+    "Could not initialize shader" errors (bracketed-sentinel console check). So the shader is valid and
+    won't break the TV's fog. **Still unverified:** the actual look and the 22 px feather radius — that
+    needs the display client (a GM sees through fog). Both `soft` and `gpu` also apply the shared
+    density knobs (unexplored-alpha 0.95, explored-colour 0x1a1a1a).
+
+### 24.0 (historical) Tier 0 soft edges (DM 2026-07-24, BUILT, unverified on the TV)
 
 [fog-soft.js](scripts/fog-soft.js). **This section pivoted mid-day.** The first take (the now-deleted
 `fog-mist.js`) filled the black with a mist TEXTURE via Foundry's fog-overlay slot. The DM rejected it

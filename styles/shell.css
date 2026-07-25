@@ -2627,6 +2627,10 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
    mute/ear chips so the panel's toggles are one visual idea. */
 .mc-dmp-toggle.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-dmp-toggle.mc-on i { color: var(--mc-gold); }
+/* Three-way fog-style selector (Off / Soft edges / GPU) — one control, one choice. The buttons share
+   a row and drop their own bottom margin; the active one lights gold like every other toggle. */
+.mc-dmp-fogseg { display: flex; gap: 6px; margin-bottom: 8px; }
+.mc-dmp-fogseg .mc-dmp-toggle { margin-bottom: 0; flex: 1 1 0; }
 /* Table-display volume sliders (Settings > Sound, DM 2026-07-22). */
 .mc-dmp-vol { margin-bottom: 14px; }
 .mc-dmp-vol-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }

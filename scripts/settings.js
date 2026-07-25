@@ -154,14 +154,23 @@ export function registerSettings() {
   // blur so the seen↔unseen boundary feathers into soft shadow — the fog stays black, only its edge
   // softens. Display-client only. Needs Foundry's Soft Shadows (High performance mode on the TV);
   // the panel reports if that's off. Default off — reversible.
+  // Fog-of-war edge style on the table display: "off" (stock), "soft" (crank Foundry's blur — needs
+  // High performance mode) or "gpu" (our own wide shader feather — the real-fow look, any perf mode,
+  // heavier GPU). Picked in the panel's Fog control (config:false). See fog-soft.js.
+  game.settings.register(MODULE_ID, "fogStyle", {
+    scope: "world", config: false, type: String, default: "off",
+    choices: { off: "Off", soft: "Soft edges", gpu: "GPU — real-fow" },
+    onChange: () => { try { globalThis.MobileCommand?.refreshFog?.(); } catch (e) {} }
+  });
+
+  // Legacy boolean, kept only so a world that had it ON migrates to fogStyle="soft" (fog-soft.js
+  // reads it as a fallback). Hidden from the config sheet now that fogStyle supersedes it.
   game.settings.register(MODULE_ID, "softFog", {
-    name: "Soft fog-of-war edges (table display)",
-    hint: "The shared display's fog keeps its black, but its edge feathers into soft shadow instead of a hard line. Needs the TV on High performance mode (Foundry's Soft Shadows). Off by default.",
     scope: "world",
-    config: true,
+    config: false,
     type: Boolean,
     default: false,
-    onChange: () => { try { globalThis.MobileCommand?.refreshSoftFog?.(); } catch (e) {} }
+    onChange: () => { try { globalThis.MobileCommand?.refreshFog?.(); } catch (e) {} }
   });
 
   // Combat music (§25.2): the DM's combat-music PLAYLIST — the library the per-combat battle track is

@@ -11,7 +11,7 @@ import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerAoO } from "./aoo.js";
 import { setupCalendarSkin } from "./gametime.js";
-import { registerSoftFog, refreshSoftFog } from "./fog-soft.js";
+import { registerFog, refreshFog } from "./fog-soft.js";
 import { registerCombatMusic } from "./combat-music.js";
 import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "./camera-frame.js";
 
@@ -318,7 +318,7 @@ function onTvControl(payload) {
     return;
   }
   if (payload.cmd === "softFogState") {
-    setTvSoftFogState({ on: !!payload.on, supported: !!payload.supported, at: Number(payload.at) || Date.now() });
+    setTvSoftFogState({ on: !!payload.on, style: payload.style ?? (payload.on ? "soft" : "off"), supported: !!payload.supported, at: Number(payload.at) || Date.now() });
     try { globalThis.MobileCommand?.refreshPanel?.(); } catch (e) { /* panel may not exist */ }
     return;
   }
@@ -762,7 +762,7 @@ Hooks.once("ready", () => {
   registerPartyTeleportActivation(); // party token teleports to a new scene → activate it (TV follows; primary-GM-gated)
   setupCalendarSkin(); // SC Reborn's popup = the table's "Calendar": retitle (tool column hidden in CSS)
   registerAoO(); // opportunity-attack movement watcher (executor-gated inside; see aoo.js)
-  registerSoftFog(); // Tier-0 soft fog-of-war edges on the display (opt-in `softFog`; see fog-soft.js)
+  registerFog(); // fog-of-war edge styles on the display (off/soft/gpu via `fogStyle`; see fog-soft.js)
   registerCombatMusic(); // per-PC themes + battle track over combat turns (primary GM drives; see combat-music.js)
 
   globalThis.MobileCommand = {
@@ -776,7 +776,8 @@ Hooks.once("ready", () => {
     tvManualActive: isTvManualActive,
     tvZoom,                              // zoom the display in/out (factor >1 in, <1 out) — Stream Deck via macro
     tvFitScene,                          // frame the whole scene on the display ("Fit whole scene")
-    refreshSoftFog,                      // (display) re-apply/clear Tier-0 soft fog edges on the setting change
+    refreshSoftFog: refreshFog,          // (display) re-apply/clear fog-edge style on the setting change (name kept for callers)
+    refreshFog,                          // (display) re-apply/clear fog-edge style (off/soft/gpu)
     // What the follow thinks the DM's frame is (§23). Run on the DISPLAY client when the camera
     // misbehaves: it separates "captured the wrong clearance" from "the pan maths is wrong".
     tvFrameInfo: () => ({ scale: tvFrameScale, clearanceFt: tvClearanceFt, measuredFt: canvas?.ready ? measureClearanceFt() : null }),
