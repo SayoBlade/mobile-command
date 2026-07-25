@@ -3867,14 +3867,6 @@ body.mc-fxp-woozy #mobile-command-shell {
   75% { transform: rotate(-0.4deg) translateY(-2px); }
 }
 
-/* §26.6 Ghost-voice row: input + a square ghost button, one row (§6.2 spirit). */
-#mc-dm-panel .mc-fx-voicerow { display: flex; gap: 6px; margin-top: 6px; }
-#mc-dm-panel .mc-fx-voice {
-  flex: 1 1 auto; min-width: 0; background: var(--mc-sunken); border: 1px solid var(--mc-edge);
-  border-radius: calc(7px * var(--mc-round, 1)); color: var(--mc-ink); padding: 0 8px; font-size: 12px;
-}
-#mc-dm-panel .mc-fx-voice:focus { border-color: var(--mc-gold); outline: none; }
-#mc-dm-panel .mc-fx-voicebtn { flex: none; width: 34px; }
 
 /* §27 Personal messages — one bubble language on both surfaces (phone overlay + DM panel).
    The list is column-reverse with newest-first source order, so it opens pinned to the latest

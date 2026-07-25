@@ -31,7 +31,7 @@ export const FX_TABS = {
   weather: ["rain", "rainStorm", "snow", "blizzard", "fog", "leaves", "night", "heat", "dust", "storm", "lightning"],
   moments: ["bell"],
   magical: ["rainbow", "invert", "dreamy", "drained"],
-  player: ["heartbeat", "woozy", "static", "voice"]
+  player: ["heartbeat", "woozy", "static"]
 };
 
 // weather: a CONFIG.weatherEffects id (Foundry 14 ships leaves/rain/rainStorm/fog/snow/blizzard;
@@ -53,7 +53,6 @@ export const FX_DEFS = {
   heartbeat: { label: "Heartbeat", icon: "fa-heart-pulse", player: "state", hint: "Their phone pulses red with a heartbeat only they get" },
   woozy: { label: "Woozy", icon: "fa-flask", player: "state", hint: "Drunk, poisoned, concussed — their phone wobbles and blurs" },
   static: { label: "Static", icon: "fa-wave-square", player: "shot", oneShot: true, hint: "A half-second cursed glitch on their phone" },
-  voice: { label: "Ghost Voice", icon: "fa-ghost", player: "shot", oneShot: true, hint: "Their phone speaks the words in a dead voice" },
   rainbow: { label: "Rainbow", icon: "fa-rainbow", filter: "rainbow", hint: "The whole scene cycles through hues" },
   invert: { label: "Invert", icon: "fa-circle-half-stroke", filter: "invert", hint: "Negative — an unsettling other-side look" },
   dreamy: { label: "Dreamy", icon: "fa-cloud-moon", filter: "dreamy", hint: "Soft blur — dream sequences, visions" },
@@ -128,8 +127,8 @@ export async function dmToggleFx(id) {
   if (dirty) await game.settings.set(MODULE_ID, "fxActive", cur);
 }
 
-// extra: optional payload — { users: [ids] } narrows a one-shot to those clients (static,
-// ghost voice), { text } carries the ghost voice's words, { soft } is the storm's distant strike.
+// extra: optional payload — { users: [ids] } narrows a one-shot to those clients (static),
+// { soft } is the storm's distant strike.
 export function dmFireFx(id, extra = {}) {
   if (!FX_DEFS[id]?.oneShot || !game.user.isGM) return;
   const payload = { id, ...extra };
@@ -141,13 +140,12 @@ export function dmFireFx(id, extra = {}) {
 /*  One-shots                                   */
 /* -------------------------------------------- */
 
-export function handleFxOneShot({ id, users, text, soft } = {}) {
+export function handleFxOneShot({ id, users, soft } = {}) {
   // A targeted one-shot names its audience; everyone else drops it silently.
   if (Array.isArray(users) && users.length && !users.includes(game.user.id)) return;
   if (id === "lightning") lightningLocal(!!soft);
   else if (id === "bell") bellLocal();
   else if (id === "static") staticLocal();
-  else if (id === "voice") voiceLocal(text);
 }
 
 function overlayShot(className, ttlMs) {
@@ -163,8 +161,9 @@ function lightningLocal(soft = false) {
   // The flash is a DOM overlay, so it works on every client — phones included.
   // `soft` is the rolling storm's distant strike: dimmer flash, later + quieter thunder.
   overlayShot(soft ? "mc-fx-flash mc-fx-flash-soft" : "mc-fx-flash", 1500);
-  // Thunder trails the flash like real distance would; canvas clients only (see header).
-  if (!isPhoneClient()) playThunder(soft ? 1800 + Math.random() * 1800 : 600 + Math.random() * 1800, soft ? 0.4 : 1);
+  // Close strike = thunder right on the flash's heels (DM 2026-07-26: "get thunder closer to
+  // lightning" — distance is the STORM's job); soft distant strikes keep a real gap.
+  if (!isPhoneClient()) playThunder(soft ? 1200 + Math.random() * 1500 : 150 + Math.random() * 350, soft ? 0.4 : 1);
 }
 
 // Doom bell: the toll on canvas clients, a slow dim pulse on EVERY screen — the phones dip
@@ -195,16 +194,8 @@ function staticLocal() {
   src.start(t0); src.stop(t0 + 0.6);
 }
 
-// Ghost voice: the phone SPEAKS — speechSynthesis pitched into the grave. Zero assets.
-function voiceLocal(text) {
-  const words = String(text ?? "").slice(0, 80).trim();
-  if (!words || !globalThis.speechSynthesis) return;
-  try {
-    const u = new SpeechSynthesisUtterance(words);
-    u.pitch = 0.1; u.rate = 0.65; u.volume = 0.9;
-    speechSynthesis.speak(u);
-  } catch (e) { console.warn(`${MODULE_ID} | ghost voice failed`, e); }
-}
+// (Ghost Voice lived here 2026-07-26, for a day — speechSynthesis pitched down speaking DM-typed
+// words. Cut by the DM the same day: "it IS very silly." DESIGN §26.6 keeps the record.)
 
 /* -------------------------------------------- */
 /*  Procedural audio (WebAudio, no assets)      */
@@ -325,14 +316,22 @@ function playThunder(delayMs, scale = 1) {
   const { ctx, dest } = out;
   const t0 = ctx.currentTime + delayMs / 1000;
 
-  const crack = noiseSource(ctx, false);
-  const cbp = ctx.createBiquadFilter(); cbp.type = "bandpass"; cbp.frequency.value = 2500; cbp.Q.value = 0.7;
-  const cg = ctx.createGain(); cg.gain.value = 0;
-  crack.connect(cbp).connect(cg).connect(dest);
-  cg.gain.setValueAtTime(0, t0);
-  cg.gain.linearRampToValueAtTime(0.4 * scale, t0 + 0.012);
-  cg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.28);
-  crack.start(t0); crack.stop(t0 + 0.35);
+  // The crack v3 (DM: v2's crack "sounds very small and weak"): a close strike doesn't pop, it
+  // TEARS. v2 band-passed at 2.5kHz — thin by construction (narrow band of a flat spectrum,
+  // the same energy mistake as the v1 rumble). Now it's BROADBAND — everything above 200Hz at
+  // near-full level — with a second ragged hit 70ms behind, like the air ripping twice.
+  const mkCrack = (at, level, decayS) => {
+    const src = noiseSource(ctx, false);
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 200;
+    const g = ctx.createGain(); g.gain.value = 0;
+    src.connect(hp).connect(g).connect(dest);
+    g.gain.setValueAtTime(0, at);
+    g.gain.linearRampToValueAtTime(level, at + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.001, at + decayS);
+    src.start(at); src.stop(at + decayS + 0.1);
+  };
+  mkCrack(t0, 0.9 * scale, 0.45);
+  mkCrack(t0 + 0.07, 0.45 * scale, 0.3);
 
   // Rolling body: brown noise (loops — the 2s buffer would otherwise die mid-roll, another
   // v1 bug) → lowpass sweeping down → a wobble gain staggering between random levels → the
@@ -355,10 +354,11 @@ function playThunder(delayMs, scale = 1) {
     g.gain.setTargetAtTime(0, at + holdS, tau);
     src.start(at); src.stop(at + holdS + 6);
   };
-  // Levels sum with the sub + crack at onset: 0.7/0.35/0.4 measured 0.86 peak-sample offline
-  // (0.85/0.4/0.5 clipped at 1.03) — keep the stack under full-scale or it crunches.
-  mkRoll(t0 + 0.04, 0.7 * scale, 1.2, 1.3);   // the main body
-  mkRoll(t0 + 1.6, 0.35 * scale, 0.8, 1.6);   // a quieter roll behind it
+  // The body waits 0.25s so the crack OWNS the onset (also what keeps the summed peak under
+  // full scale — the v3 mix measured 0.87 peak-sample offline; crack at 0.9 over an instant
+  // body clipped). Levels are measurement-tuned: don't nudge without re-rendering.
+  mkRoll(t0 + 0.25, 0.7 * scale, 1.2, 1.3);   // the main body
+  mkRoll(t0 + 1.7, 0.35 * scale, 0.8, 1.6);   // a quieter roll behind it
 
   // Sub weight: an 85→45Hz sine dive. Small speakers skip it; good ones shake the table.
   const sub = ctx.createOscillator(); sub.type = "sine";
@@ -366,9 +366,9 @@ function playThunder(delayMs, scale = 1) {
   sub.frequency.exponentialRampToValueAtTime(45, t0 + 3);
   const sg = ctx.createGain(); sg.gain.value = 0;
   sub.connect(sg).connect(dest);
-  sg.gain.setValueAtTime(0, t0 + 0.04);
-  sg.gain.linearRampToValueAtTime(0.4 * scale, t0 + 0.15);
-  sg.gain.setTargetAtTime(0, t0 + 0.8, 1.0);
+  sg.gain.setValueAtTime(0, t0 + 0.2);
+  sg.gain.linearRampToValueAtTime(0.4 * scale, t0 + 0.35);
+  sg.gain.setTargetAtTime(0, t0 + 0.9, 1.0);
   sub.start(t0); sub.stop(t0 + 6);
 }
 

@@ -2182,9 +2182,11 @@ flash and delayed thunder, heatwave, blizzard, dust storm — plus a "magical" d
 ### 26.2 Sound is SYNTHESIZED — nothing to license
 
 All audio is WebAudio filtered noise, generated at runtime: rain = band-limited hiss; wind = a
-narrow noise band whose centre/level wander (the wandering is the gust); thunder (v2, 2026-07-26)
-= a 2.5 kHz crack + a BROWN-noise body with a wobbling amplitude + an 85→45 Hz sub dive, fired
-0.6–2.4 s after the flash. **The filtered-noise energy rule (learned when thunder v1 shipped as
+narrow noise band whose centre/level wander (the wandering is the gust); thunder (v3, 2026-07-26)
+= a BROADBAND tearing double-crack (v2's 2.5 kHz band-passed crack was "very small and weak" —
+the same energy mistake as the v1 rumble) + a BROWN-noise body with a wobbling amplitude + an
+85→45 Hz sub dive, fired 0.15–0.5 s after a close flash (distance is the STORM's job — its soft
+strikes wait 1.2–2.7 s). **The filtered-noise energy rule (learned when thunder v1 shipped as
 "a small pop"):** white noise spreads its energy flat across ~24 kHz, so a narrow filter keeps
 almost none of it — a 420 Hz lowpass keeps ~2%, and small speakers drop what's left below
 ~100 Hz. Low rumble must START from brown noise (energy already at the bottom); band-passed wind
@@ -2282,10 +2284,10 @@ machinery; `dmToggleFxFor` / `fxIsOnFor` are the per-player twins of the origina
 | **Heartbeat** | state, per-player | Red vignette squeezing at 1Hz + a lub-dub (two 55Hz sine bursts) + vibration on the beat (Android; iOS no-ops). Private to the target. |
 | **Woozy** | state, per-player | The shell sways ±0.4° and blurs 0.6px on a 7s cycle. Deliberately small — readable but wrong; never fights tapping. |
 | **Static** | one-shot, per-player | Shifting scan-band overlay (gradients, `steps(12)`, single 0.8s pass — no sustained strobe) + three ragged noise spikes + a vibration stutter. |
-| **Ghost Voice** | one-shot, per-player | `speechSynthesis` at pitch 0.1 / rate 0.65 speaks DM-typed words (≤80 chars) out of the target's phone. Zero assets. Flagged experimental — may read goofy; judge live. |
+| ~~**Ghost Voice**~~ | *REMOVED same day* | `speechSynthesis` speaking DM-typed words. Shipped flagged-experimental 2026-07-26, cut 2026-07-26 — DM: "it IS very silly." Don't rebuild with speechSynthesis; if a spoken effect ever returns it needs real audio acting, which means assets, which means licensing — the opposite of this system. |
 
 Panel: two new drawers — **Moments** (bell; future explosions live here) and **Player** (target
-picker in the §3 roster shape + heartbeat/woozy toggles, static shot, ghost-voice input row).
+picker in the §3 roster shape + heartbeat/woozy toggles, static shot).
 
 **Deferred by the DM, ideas kept (2026-07-26):**
 - **"Deliver dramatically" on personal messages** (idea 7) — the §27 composer gains an option
