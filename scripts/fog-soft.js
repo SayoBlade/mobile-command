@@ -60,9 +60,19 @@ function softFogFilters() {
 // from black"). 0.95 → ~5% of the map shows. Independent of any blur; Foundry never sets this alpha.
 const FOG_UNEXPLORED_ALPHA = 0.95;
 // EXPLORED lightness — the remembered-but-unseen area draws as black at a hardcoded 0.5 alpha. The
-// purpose-built lever is `canvas.colors.fogExplored`: a deep grey lifts the explored overlay a touch
-// off pure black without washing it out. Effects re-applies it from this Color each refresh.
-const FOG_EXPLORED_COLOR = 0x1a1a1a;
+// purpose-built lever is `canvas.colors.fogExplored`: a grey lifts the explored overlay off pure
+// black. This ping-ponged as a constant (0x666666 "too visible" → 0x1a1a1a "near-black, clashes
+// hard with the darkvision grey next to it", DM 2026-07-26 screenshot) — the two "shadows" the DM
+// circled are DIFFERENT SYSTEMS: seen-but-unlit (the lighting/vision-mode grey) beside
+// remembered-only (this explored tint). Their brightness can only be matched by eye, on the real
+// TV, against the party's actual vision modes — so it's the DM's dial now (`fogExploredLevel`,
+// 0–60 grey %, slider in the panel's Fog drawer).
+function fogExploredColor() {
+  let lvl = 22;
+  try { lvl = Number(game.settings.get(MODULE_ID, "fogExploredLevel")); } catch (e) { /* not registered */ }
+  const g = Math.round(255 * Math.max(0, Math.min(60, lvl)) / 100);
+  return (g << 16) | (g << 8) | g;
+}
 let priorFogExplored; // the display's stock fogExplored Color, restored on clear
 
 function applyDensity() {
@@ -72,7 +82,7 @@ function applyDensity() {
     const vis = canvas.visibility?.filter;
     if (Col && canvas.colors && vis) {
       if (priorFogExplored === undefined) priorFogExplored = canvas.colors.fogExplored;
-      canvas.colors.fogExplored = Col.from(FOG_EXPLORED_COLOR);
+      canvas.colors.fogExplored = Col.from(fogExploredColor());
       canvas.colors.fogExplored.applyRGB(vis.uniforms.exploredColor);
     }
   } catch (e) { /* best-effort */ }
@@ -298,7 +308,12 @@ function setGpuShader(on) {
 function applyStyle(style) {
   if (style === "off") { setGpuShader(false); clearSoftBlur(); clearDensity(); return; }
   applyDensity();
-  if (style === "gpu") { clearSoftBlur(); setGpuShader(true); }
+  // "gpu" ALSO cranks the Tier-0 blur (where High mode provides it): our shader feathers the FOG
+  // edges, but the seen↔remembered boundary in the DM's screenshot is drawn by TWO systems — the
+  // fog v-cutout AND the lighting/vision-mode grey masked by canvas.masks.vision. Only the mask's
+  // blurFilter softens that second, lighting-side line, so leaving it stock made the fog side soft
+  // and the lighting side sharp at the same border (DM 2026-07-26).
+  if (style === "gpu") { applySoftBlur(); setGpuShader(true); }
   else { setGpuShader(false); applySoftBlur(); } // "soft"
 }
 

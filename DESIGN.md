@@ -1943,7 +1943,25 @@ irregular feather at the actual fog edge. Light-falloff gradients (torch radii) 
 should be. **Still owed:** the DM's aesthetic verdict on the real TV (radius/wisp tuning); GPU cost on
 the TV's hardware (≈50 texture reads/px — opt-in for a reason). `fogStyle` was left on `gpu` in the
 test world. Both `soft` and `gpu` also apply the shared density knobs (unexplored-alpha 0.95,
-explored-colour 0x1a1a1a).
+explored-colour — now a dial, below).
+
+**The two-tone shadows (DM 2026-07-26 screenshot).** The two circled "explored but not currently
+seen" regions are DIFFERENT SYSTEMS, which is why they clashed: the lighter one is **currently seen
+but unlit** (inside a token's darkvision — drawn by the lighting/vision-mode pipeline, masked by
+`canvas.masks.vision`), the near-black one is **remembered only** (the fog shader's explored tint,
+which the earlier "darken explored" request had pushed to 0x1a1a1a). Two fixes, verified on the TV
+client 2026-07-26:
+
+- **`fogExploredLevel` world setting (0–60 grey %, default 22)** — an "Explored brightness" slider in
+  the panel's Fog drawer (volume-slider pattern: live % echo, commit on release, display re-applies
+  via onChange). The right value can only be matched by eye against the party's darkvision grey, so
+  it's the DM's dial, not a constant. Verified: slider commits; display's `canvas.colors.fogExplored`
+  follows exactly (#383838 at 22%).
+- **`gpu` now ALSO cranks the Tier-0 blur** (was soft-only): our shader feathers the FOG edges, but
+  the seen↔remembered border is co-drawn by the lighting grey whose mask (`canvas.masks.vision`
+  blurFilter) stayed stock-sharp — soft fog beside a hard lighting line at the same border. Verified:
+  `blurFilter._configuredStrength` = 124.8 on the TV in gpu mode. (Below High the mask blur doesn't
+  exist — the lighting-side line stays hard there; Foundry provides no lever.)
 
 ### 24.0 (historical) Tier 0 soft edges (DM 2026-07-24, BUILT, unverified on the TV)
 

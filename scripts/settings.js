@@ -163,6 +163,14 @@ export function registerSettings() {
     onChange: () => { try { globalThis.MobileCommand?.refreshFog?.(); } catch (e) {} }
   });
 
+  // How bright the EXPLORED-but-unseen fog renders (0–60, a grey level %). The fixed constant
+  // ping-ponged (0x666666 "too visible" → 0x1a1a1a "near-black, clashes with the darkvision grey",
+  // DM 2026-07-26) — so it's the DM's dial now, in the panel's Fog drawer. Display-applied.
+  game.settings.register(MODULE_ID, "fogExploredLevel", {
+    scope: "world", config: false, type: Number, default: 22,
+    onChange: () => { try { globalThis.MobileCommand?.refreshFog?.(); } catch (e) {} }
+  });
+
   // Legacy boolean, kept only so a world that had it ON migrates to fogStyle="soft" (fog-soft.js
   // reads it as a fallback). Hidden from the config sheet now that fogStyle supersedes it.
   game.settings.register(MODULE_ID, "softFog", {

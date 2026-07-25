@@ -219,7 +219,16 @@ function softFogBody() {
         ? `<div class="mc-dmp-sound-status mc-bad"><i class="fas fa-gauge-high"></i> The display isn't on High performance mode — soft shadows are off. Set the TV to High, or switch to GPU (works on any mode).</div>`
         : `<div class="mc-dmp-sound-status mc-ok"><i class="fas fa-circle-check"></i> ${cur === "gpu" ? "GPU fog" : "Soft edges"} live on the display.</div>`;
   }
-  return `${seg}${status}
+  // Explored brightness — how visible the remembered-but-unseen map is. A dial because it has to be
+  // matched BY EYE against the darkvision grey beside it (DM 2026-07-26 screenshot: the two
+  // "shadows" are different systems and clashed at a fixed constant).
+  const lvl = (() => { try { return Number(game.settings.get(MODULE_ID, "fogExploredLevel")); } catch (e) { return 22; } })();
+  const exploredRow = cur === "off" ? "" : `<div class="mc-dmp-vol">
+      <div class="mc-dmp-vol-top"><span class="mc-dmp-vol-label">Explored brightness</span><span class="mc-dmp-vol-val">${lvl}%</span></div>
+      <input class="mc-dmp-vol-slider" type="range" min="0" max="60" step="2" value="${lvl}" data-fog-explored aria-label="Explored brightness">
+      <div class="mc-dmp-vol-hint">How visible remembered-but-unseen areas stay. Match it to the grey where someone's darkvision reaches.</div>
+    </div>`;
+  return `${seg}${status}${exploredRow}
     <p class="mc-dmp-set-note">GPU fog gives the softest, real-fow look on <b>any</b> performance mode, but works the display's GPU harder. Soft edges are lighter but need the TV on High.</p>`;
 }
 
@@ -2834,6 +2843,12 @@ function onInput(ev) {
     if (out) out.textContent = `${vol.value}%`;
     return;
   }
+  const fex = ev.target.closest("[data-fog-explored]");
+  if (fex) { // live % echo while dragging; the world-setting write lands on `change` (release)
+    const out = fex.closest(".mc-dmp-vol")?.querySelector(".mc-dmp-vol-val");
+    if (out) out.textContent = `${fex.value}%`;
+    return;
+  }
   const mph = ev.target.closest("[data-pace-mph]");
   if (mph) { const k = panelEl?.querySelector("[data-pace-kph]"); if (k) k.value = mph.value ? (Number(mph.value) * KPH_PER_MPH).toFixed(1) : ""; return; }
   const kph = ev.target.closest("[data-pace-kph]");
@@ -2848,6 +2863,11 @@ function onChange(ev) {
     const next = { music: 0.5, ambient: 0.5, interface: 0.5, ...(tvVolume() || {}) };
     next[vol.dataset.tvVol] = Math.max(0, Math.min(1, Number(vol.value) / 100));
     game.settings.set(MODULE_ID, "tvVolume", next);
+    return;
+  }
+  const fex = ev.target.closest("[data-fog-explored]");
+  if (fex) { // committed on release → the display re-applies via the setting's onChange
+    game.settings.set(MODULE_ID, "fogExploredLevel", Math.max(0, Math.min(60, Number(fex.value) || 0)));
     return;
   }
   const rf = ev.target.closest("[data-rule]");
