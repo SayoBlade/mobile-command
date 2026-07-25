@@ -30,7 +30,6 @@ let tokensPlayer = "";       // owned-tokens: which player's tokens are shown
 let dmMsgOpen = false;       // §27: the selected player's message thread is open (Party tab)
 let dmMsgDraft = "";         // §27: composer text, kept across the panel's frequent re-renders
 let fxPlayer = "";           // §26.6: which player the Effects tab's Player drawer targets
-let fxVoiceDraft = "";       // §26.6: ghost-voice words, kept across re-renders
 let dmReactions = [];        // reaction widget: live chips {id, kind:"aoo"|"window", label, weapon, activityUuid?, targetUuid?, expiresAt}
 const rollTool = { type: "save", ability: "dex", selected: null, targetsOpen: false };
 
@@ -321,8 +320,7 @@ function effectsTabHTML() {
 }
 
 // §26.6 Player drawer: pick the victim, then per-phone toggles/shots. Same roster row shape as
-// the Party tab's picker (§3: identity icon in the player's colour). Ghost voice gets its own
-// input row — the phone will SPEAK exactly these words.
+// the Party tab's picker (§3: identity icon in the player's colour).
 function fxPlayerBody() {
   const esc = foundry.utils.escapeHTML;
   let tvId = ""; try { tvId = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
@@ -341,11 +339,7 @@ function fxPlayerBody() {
       <i class="fas fa-circle-user mc-nt-ico" style="color:${u.color?.css ?? "var(--mc-gold)"}"></i>
       <select class="mc-dmp-tok-player" data-fx-player>${opts}</select>
     </div>
-    <div class="mc-fx-grid">${FX_TABS.player.filter(id => id !== "voice").map(btn).join("")}</div>
-    <div class="mc-fx-voicerow">
-      <input type="text" class="mc-fx-voice" data-fx-voice maxlength="80" placeholder="Ghost voice — words their phone will speak…" value="${esc(fxVoiceDraft)}">
-      <button class="mc-fx-btn mc-fx-voicebtn" data-fxp-shot="voice" title="${FX_DEFS.voice.hint}"><i class="fas fa-ghost"></i></button>
-    </div>`;
+    <div class="mc-fx-grid">${FX_TABS.player.map(btn).join("")}</div>`;
 }
 
 // --- Floor camera strip (§25 2b): only the reflexive controls — Focus, Manual, and a shortcut into
@@ -1862,7 +1856,7 @@ function statusHTML() {
   return `<div class="mc-dmp-status">${clock}<div class="mc-dmp-pres-row">${chips}</div></div>`;
 }
 
-/** Combat control strip — run the encounter from the panel. Pre-start: Roll all +
+/** Combat control strip — run the encounter from the panel. Pre-start: Roll NPCs +
  *  Start. Started: previous / roll remaining NPCs / end / next, with a round +
  *  current-turn readout. All are stable core Combat methods. */
 function combatHTML() {
@@ -1886,7 +1880,9 @@ function combatHTML() {
         <select class="mc-dmp-battle-track" data-battle-track title="One track, looped on foe turns and for PCs with no theme">
           <option value="">— none —</option>${opts}</select>`;
     }
-    btns = `<button data-combat="rollAll" title="Roll initiative for everyone"><i class="fas fa-dice-d20"></i> Roll All</button>
+    // Roll NPCs, not Roll All (DM 2026-07-26): rollAll would roll over the players' own
+    // initiative — on this table the PCs roll from their phones; the DM only owns the foes.
+    btns = `<button data-combat="rollNPC" title="Roll initiative for the NPCs — players roll their own"><i class="fas fa-dice-d20"></i> Roll NPCs</button>
       <button class="mc-dmp-party-deploy" data-combat="start-music" title="Begin combat and start the music"><i class="fas fa-play"></i> Start Combat</button>`;
   } else {
     btns = `<button data-combat="prev" title="Previous turn"><i class="fas fa-backward-step"></i></button>
@@ -2911,8 +2907,6 @@ function onTokenDblClick(ev) {
 function onInput(ev) {
   // §27: stash the message draft so the panel's frequent re-renders don't wipe mid-sentence typing.
   if (ev.target?.matches?.("[data-dm-msg-text]")) { dmMsgDraft = ev.target.value; return; }
-  // §26.6: same for the ghost-voice words.
-  if (ev.target?.matches?.("[data-fx-voice]")) { fxVoiceDraft = ev.target.value; return; }
   // Volume sliders: update the % readout live while dragging, but DON'T write the world setting on
   // every input event — that would be a document write per pixel of drag. The commit happens on
   // `change` (pointer release) in onChange. Purely local echo, no re-render, so the drag is smooth.
@@ -3044,20 +3038,9 @@ async function onClick(ev) {
   // toggle just wrote, so rendering before it lands would paint the stale state.
   const fxShot = ev.target.closest("[data-fx-shot]");
   if (fxShot) { dmFireFx(fxShot.dataset.fxShot); return; }
-  // §26.6 per-player effects: shots carry the target's user id; the ghost voice adds its words.
+  // §26.6 per-player effects: shots carry the target's user id.
   const fxpShot = ev.target.closest("[data-fxp-shot]");
-  if (fxpShot) {
-    const id = fxpShot.dataset.fxpShot;
-    if (id === "voice") {
-      const words = fxVoiceDraft.trim();
-      if (!words) { ui.notifications.warn("Write the words the phone should speak."); return; }
-      dmFireFx("voice", { users: [fxPlayer], text: words });
-      fxVoiceDraft = "";
-      return render();
-    }
-    dmFireFx(id, { users: [fxPlayer] });
-    return;
-  }
+  if (fxpShot) { dmFireFx(fxpShot.dataset.fxpShot, { users: [fxPlayer] }); return; }
   const fxpBtn = ev.target.closest("[data-fxp]");
   if (fxpBtn) { await dmToggleFxFor(fxpBtn.dataset.fxp, fxPlayer); return render(); }
   const fxBtn = ev.target.closest("[data-fx]");
@@ -3464,7 +3447,6 @@ async function onClick(ev) {
         if (act === "next") await c.nextTurn();
         else if (act === "prev") await c.previousTurn();
         else if (act === "rollNPC") await c.rollNPC();
-        else if (act === "rollAll") await c.rollAll();
         else if (act === "start") await c.startCombat();
         else if (act === "start-music") { // §25.2: set the battle track, then begin — combatStart fires the music
           const sel = panelEl.querySelector("[data-battle-track]");
