@@ -332,7 +332,7 @@ function seanceBody() {
   return `
     <button class="mc-fx-btn ${on ? "mc-on" : ""}" data-fx="seance" title="${FX_DEFS.seance.hint}" style="width:100%"><i class="fas ${FX_DEFS.seance.icon}"></i><span>Spirit Board</span></button>
     <div class="mc-fx-voicerow">
-      <input type="text" class="mc-fx-voice" data-seance-text maxlength="120" placeholder="What the spirits say… (letters only)" value="${foundry.utils.escapeHTML(seanceDraft)}" ${on ? "" : "disabled"}>
+      <input type="text" class="mc-fx-voice" data-seance-text maxlength="120" placeholder="What the spirits say… (YES, NO, HELLO, GOODBYE land whole)" value="${foundry.utils.escapeHTML(seanceDraft)}" ${on ? "" : "disabled"}>
       <button class="mc-fx-btn mc-fx-voicebtn" data-seance-send title="The planchette spells it out" ${on ? "" : "disabled"}><i class="fas fa-hand-point-up"></i></button>
     </div>`;
 }
@@ -3066,8 +3066,8 @@ async function onClick(ev) {
   if (fxpBtn) { await dmToggleFxFor(fxpBtn.dataset.fxp, fxPlayer); return render(); }
   // §30 séance: broadcast the phrase; the TV's planchette does the talking.
   if (ev.target.closest("[data-seance-send]")) {
-    const words = seanceDraft.replace(/[^A-Za-z ]/g, "").trim();
-    if (!words) { ui.notifications.warn("Write what the spirits say — letters only."); return; }
+    const words = seanceDraft.replace(/[^A-Za-z0-9 ]/g, "").trim();
+    if (!words) { ui.notifications.warn("Write what the spirits say — letters and numbers only."); return; }
     dmFireFx("seancePhrase", { text: words });
     seanceDraft = "";
     return render();

@@ -30,11 +30,19 @@ for ($y = 0; $y -lt $h; $y++) {
     $isGreen = ($gr -gt ($r + 18)) -and ($gr -gt ($b + 18))
     $dx = $x - $lensX; $dy = $y - $lensY
     $inLens = ($dx * $dx + $dy * $dy) -lt ($lensR * $lensR)
-    if ($isGreen) {
+    if ($isGreen -and -not $inLens) {
       $bytes[$i + 3] = 0
     } elseif ($inLens) {
-      # non-green inside the glass = rim shadow / reflections -> glass sheen at 45%
-      $bytes[$i + 3] = [byte](0.45 * $bytes[$i + 3])
+      if ($isGreen) {
+        # glass body: a UNIFORM faint sage tint instead of raw transparency — the keyed
+        # remnants read as "broken green glass" (DM 2026-07-27); a consistent tint sits
+        # the reflections into the pane while the letter still shows through.
+        $bytes[$i] = 96; $bytes[$i + 1] = 118; $bytes[$i + 2] = 96
+        $bytes[$i + 3] = 52
+      } else {
+        # reflections / rim shadow -> glass sheen at 45%
+        $bytes[$i + 3] = [byte](0.45 * $bytes[$i + 3])
+      }
     }
     if ($bytes[$i + 3] -gt 8) {
       if ($x -lt $minX) { $minX = $x }; if ($x -gt $maxX) { $maxX = $x }

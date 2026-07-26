@@ -2546,3 +2546,17 @@ image edge.
 **Release note:** the module.zip build must now include `art/` (next release).
 **Open:** creaking-wood sound on movement (procedural, §26.2-style) if the DM wants it; a
 "clear the board" wipe animation; number ring (explicitly kept out — "no other layer").
+
+**§30 v2 (DM notes 2026-07-27):** the heart is DEAD STILL at rest — no tremble, no rotation
+wobble at start or end (tremble only while alive). A phrase from idle begins with a WAKE-UP:
+one very slow first stir (2.6s, barely more than a shiver) then a circling dance (the "little
+dance") before the first mark. The lens is TINTED GLASS now, not raw transparency — the keyed
+remnants read as "broken green glass"; process-planchette.ps1 paints the glass body a uniform
+faint sage (96,118,96 @ α52) under the kept reflections. FULL BOARD per the module: digits 1–0
+on an inner bottom arc (r 0.42), printed words HELLO (top-center), YES/NO (flanking high),
+GOODBYE (low-center) — a phrase word that IS a printed word lands on it as a single stop
+instead of being spelled. Verified end-to-end ("HELLO 13 XE NO"): pre-still → wake → dance →
+HELLO whole → 1 → 3 → X → E → NO whole → center rest, frozen (60s of identical transforms).
+**Backlog (DM): spin the séance board off as a standalone module** — it has no mobile-command
+dependency in principle (board + planchette + a GM input; the fxActive/socket plumbing would
+need a tiny self-contained equivalent).
