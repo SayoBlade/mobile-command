@@ -425,7 +425,10 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
 /* Multi-instance stepper on a selected target (Magic Missile darts): "− [n] +". */
 .mc-tstep-wrap { display: inline-flex; align-items: center; gap: 2px; margin-right: 2px; }
 .mc-tstep {
-  width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center;
+  /* 44px, not 38 (touch-target floor): at 38 the DM's finger hit the ROW beside the "+",
+     which used to unselect the target mid-Magic-Missile (2026-07-26). The row-tap now
+     also increments on multi-dart spells, so a near-miss still does the right thing. */
+  width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); border-radius: calc(9px * var(--mc-round, 1));
   color: var(--mc-ink); font-size: 18px; font-weight: 700; line-height: 1;
 }
@@ -1460,6 +1463,10 @@ body {
 .mc-turnhud.mc-myturn .mc-turn-label { color: var(--mc-gold); }
 .mc-endturn { padding: 9px 18px; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-crimson); border: 1px solid #7a2d27; color: #fff; font-weight: 700; font-size: 14px; }
 .mc-endturn:disabled { background: #2a272e; border-color: var(--mc-edge); color: #5a5560; }
+/* "Go" (your OTHER PC's turn): hop the shell to the active creature — secondary next to
+   End turn's commit red (§4: pick by consequence). */
+.mc-endturn.mc-turnhop { background: var(--mc-panel-2); border-color: var(--mc-edge); color: var(--mc-ink); }
+.mc-endturn.mc-turnhop:active { border-color: var(--mc-gold); color: var(--mc-gold); }
 
 /* Save / reaction prompt (§7.4/§7.6): a bottom-sheet styled to match the Prompt
    Restyler's native dialogs (.mc-phone-dialog) — same full-width sheet, header

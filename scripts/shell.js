@@ -4393,7 +4393,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   // Turn HUD (§7.4): shows the current combatant; End turn routes to the
-  // executor (nextTurn is GM-side) and is enabled only on the player's turn.
+  // executor (nextTurn is GM-side) and is enabled on ANY of the user's turns.
   #turnHudHTML() {
     const combat = game.combat;
     if (!combat?.started) return "";
@@ -4401,13 +4401,30 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // token-linked NPC copies and actor-linked PC combatants with a null tokenId — a
     // raw token compare disabled End turn for the latter, DM 2026-06-21).
     const cur = combat.combatant;
-    const isMyTurn = !!cur && this.#myCombatants(combat).some(c => c.id === cur.id);
-    const label = isMyTurn ? "Your turn"
+    const isSubjectTurn = !!cur && this.#myCombatants(combat).some(c => c.id === cur.id);
+    // A player with TWO PCs, phone on the wrong one: the HUD said "Up: <other PC>" with End
+    // turn dead, and they "forgot it was their turn" (DM 2026-07-26). If the active combatant
+    // is OWNED by this user (any token), it IS their turn: say so, offer the hop, and keep
+    // End turn live — the executor's endTurn checks USER ownership, not the viewed subject.
+    const isMyOtherTurn = !isSubjectTurn && !!cur?.actor && !game.user.isGM && cur.actor.testUserPermission(game.user, "OWNER");
+    const label = isSubjectTurn ? "Your turn"
+      : isMyOtherTurn ? `Your turn — ${foundry.utils.escapeHTML(cur.name)}`
       : `Up: ${foundry.utils.escapeHTML(cur?.name ?? "—")}`;
-    return `<div class="mc-turnhud ${isMyTurn ? "mc-myturn" : ""}">
+    const hop = isMyOtherTurn ? `<button class="mc-endturn mc-turnhop" data-action="turn-hop">Go</button>` : "";
+    return `<div class="mc-turnhud ${isSubjectTurn || isMyOtherTurn ? "mc-myturn" : ""}">
       <span class="mc-turn-label">${label}</span>
-      <button class="mc-endturn" data-action="end-turn" ${isMyTurn ? "" : "disabled"}>End turn</button>
+      ${hop}
+      <button class="mc-endturn" data-action="end-turn" ${isSubjectTurn || isMyOtherTurn ? "" : "disabled"}>End turn</button>
     </div>`;
+  }
+
+  // Hop the shell to the active combatant's token (the "Go" on your other PC's turn).
+  #hopToActiveCombatant() {
+    const cur = game.combat?.combatant;
+    if (!cur) return;
+    if (cur.tokenId) { this.#subjectId = cur.tokenId; this.#subjectActorId = null; }
+    else if (cur.actor) { this.#subjectActorId = cur.actor.id; this.#subjectId = null; }
+    this.render();
   }
 
   // Players have no combat tracker, so when the DM adds them to an encounter
@@ -4861,12 +4878,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       name: activity.item?.name, type: activity.type,
       template: activity.target?.template?.type ?? null, affects: activity.target?.affects?.type ?? null
     });
-    // Player-placed AoE (Round 33): aim the template yourself on the TV via the
-    // executor. Falls back to the DM-place announce if a placement session can't
-    // start (no canvas on the DM screen, etc.).
-    if (activity.target?.template?.type) return this.#startPlacement(activity, "aoe");
+    // Area spells → the DM places (§11 AoE push), full stop. The player-placed template
+    // flow (Round 33) is RETIRED for AoE (DM 2026-07-26: wrong-size cones, casts that did
+    // nothing, orphaned templates — "remove all phone created templates"): announceCast
+    // tells the DM what to drop, midi's own machinery (autoTarget, saves fan-out,
+    // autoRemoveInstantaneousTemplate) does the rest. Teleports below keep the placement
+    // flow — aiming your OWN destination isn't a template.
+    if (activity.target?.template?.type) return this.#announceCast(activity);
     // Teleport spells (misty step / dimension door / thunder step …): no template,
-    // but the caster MOVES — aim the destination the same way.
+    // but the caster MOVES — aim the destination on the TV via the executor.
     if (this.#isTeleportSpell(activity)) return this.#startPlacement(activity, "teleport");
     // Summons (#12): the cast IS the placement and both need the canvas, so the DM
     // still drops the token — but the player picks the choices FIRST (slot level +
@@ -5401,6 +5421,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       this.#subjectId = tok.id;
       this.#subjectActorId = null;
     }
+    // Physical "it's you" cue: buzz when any of THIS user's creatures starts its turn — the
+    // glance-away player who "forgot it was his turn" (DM 2026-07-26) gets a pocket tap.
+    // Android only (iOS has no vibration API and silently skips); GM/TV never buzz.
+    if (!game.user.isGM && !isDisplayClient() && combatant?.actor?.testUserPermission?.(game.user, "OWNER")) {
+      try { navigator.vibrate?.([120, 80, 120]); } catch (e) { /* not supported */ }
+    }
     if (!cur || cur === this.actor?.id) this.#collapsedActionGroups.clear();
   }
 
@@ -5541,7 +5567,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#sfx("roll");
     let res;
     try {
-      res = await this.#withTimeout(rpc.useActivityDamage({ requestId: s.requestId }));
+      // 20s, not the generic 12: the executor's damage step can carry save fan-outs plus the
+      // Dice So Nice animation midi awaits — giving up early is what minted the double-tap
+      // "expired" confusion (the executor also tombstones results now, belt and braces).
+      res = await this.#withTimeout(rpc.useActivityDamage({ requestId: s.requestId }), 20000);
     } catch (err) {
       console.error("mobile-command | useActivityDamage failed", err);
       res = { ok: false, reason: err?.message ?? "error — see DM console" };
@@ -5552,7 +5581,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // card doesn't reach the phone's chat-roll hook cleanly, so toast the total the
     // executor returned, the same way attack/check rolls toast.
     if (res.damageTotal != null) {
-      const entry = { id: `${s.requestId}-dmg`, label: `${s.name} — damage`, total: res.damageTotal, formula: "", outcome: "dmg" };
+      // Say WHY a save spell's roll didn't land (Mind Sliver on a made save): the die is real,
+      // the zero is the rules — without this line it reads as a bug (DM 2026-07-26).
+      const saved = (res.saves ?? []).length && !(res.failedSaves ?? []).length;
+      const label = saved ? `${s.name} — ${res.saves.join(", ")} saved, no damage` : `${s.name} — damage`;
+      const entry = { id: `${s.requestId}-dmg`, label, total: saved ? 0 : res.damageTotal, formula: "", outcome: "dmg" };
       this.#recentRolls.unshift(entry);
       if (this.#recentRolls.length > ROLL_HISTORY_MAX) this.#recentRolls.length = ROLL_HISTORY_MAX;
       this.#refreshStrip();
@@ -5850,7 +5883,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         const s = this.#actionState;
         if (!s) return;
         const uuid = el.dataset.uuid;
-        if (s.selected.has(uuid)) { s.selected.delete(uuid); delete s.counts[uuid]; }
+        if (s.selected.has(uuid)) {
+          // Multi-instance activities (Magic Missile): tapping a SELECTED row adds another
+          // instance — that's what the tap means ("add more missiles to the same target",
+          // DM 2026-07-26), and it's where a finger aiming at the 38px "+" actually lands.
+          // Deselect via "−" down to zero. Single-target rows keep tap-to-untoggle.
+          if (s.maxTargets > 1) {
+            if (this.#targetTotal(s) < s.maxTargets) s.counts[uuid] = (s.counts[uuid] ?? 1) + 1;
+          } else { s.selected.delete(uuid); delete s.counts[uuid]; }
+        }
         else if (this.#targetTotal(s) < s.maxTargets) { s.selected.add(uuid); s.counts[uuid] = 1; }
         else if (s.maxTargets === 1) { s.selected.clear(); s.counts = {}; s.selected.add(uuid); s.counts[uuid] = 1; } // single-target: tap to swap
         this.#pushPreview(); // B9: commit the target to the canvas/TV on tap
@@ -6249,6 +6290,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       }
       case "end-turn":
         return this.#endTurn();
+      case "turn-hop":
+        return this.#hopToActiveCombatant();
       case "roll-init":
         return this.#rollInitiative();
       case "roll-hd":

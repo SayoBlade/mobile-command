@@ -2295,3 +2295,53 @@ picker in the §3 roster shape + heartbeat/woozy toggles, static shot).
   "Sounds like a whole feature" — spec when messages have table mileage.
 - **Surround thunder** (idea 15) — phones as a distributed speaker array, thunder rolling
   seat-by-seat around the table; needs a one-time seating order. Parked, explicitly keep.
+
+---
+
+## 28. Combat hardening — the 2026-07-26 bug wave (DM report, 7 bugs → BUILT)
+
+Live report: anthem→silence · "forgot it's my turn"/dead End turn · MM "+" unselects + "attack
+expired" · no green Hit ever, "—" totals · NPC attacks itself · Mind Sliver "rolled damage, did
+no damage" · Burning Hands template wrong/dead/lingering. Bench: full solo combat rig (GM client
++ `MobileCommand.openShell()` on the same client = shell + canvas + executor in one place; a
+ticker pump + DSN-off for the hidden pane). New PC built through the phone char-gen (works, incl.
+all 10 advancement steps + species/background flows).
+
+### 28.1 The umbrella cause: STACK DRIFT + a crashable attack pipeline
+
+**midi-qol had silently updated 14.0.8 → 14.0.11** (found mid-bench; the preflight Module-stack
+check now warns on ANY exact-pin mismatch). Around it, a poisonous chain: AC5E's
+`dnd5e.preRollAttack` hook calls `t.shape.toClipperPoints()` on tokens with no drawn shape
+(Levels-culled tokens qualify) — the throw PROPAGATES through `Hooks.call` and **kills the attack
+roll**; midi also `await`s the **Dice So Nice animation before handing the roll to the workflow**
+(midi-qol.js:9642), so totals lag seconds. Our old `findParkedWorkflow` accepted ANY suspended
+workflow — including one stuck at `WaitForAttackRoll` with no attack — so the phone got a phantom
+"Roll damage" card, "—" totals, `hit:false` forever, and downstream "expired" weirdness.
+
+**Fixes:** the park gate now requires genuine `WaitForDamageRoll` (+ a real attackRoll for
+attacks); a workflow stuck at `WaitForAttackRoll` is aborted and reported honestly ("the attack
+roll didn't fire on the DM's screen — check the console"); the attack-total window is 8s (DSN
+margin); hit is read after the total resolves. **Considered and rejected:** try/catch-wrapping
+AC5E's hook in place — mutating another module's hook registry is the kind of invisible invasion
+this project avoids; the loud failure + pin warning is the honest version.
+
+### 28.2 Per-bug ledger
+
+| Report | Root cause | Fix |
+|---|---|---|
+| NPC attacks itself | Executor-run phone flows strand the PHONE's targets in the DM's `game.user.targets` (midi's save/restore around its per-target loop); panel rows target with `releaseOthers:false`, so the invisible stray joins the NPC's attack | Snapshot + restore the DM's targets around `handleItemUseStart` (verified: zero strays after a phone fire) |
+| MM "+" unselects | Steppers were 38px (below the 44px floor) — a near-miss hit the ROW = unselect | Steppers 44px; row-tap on a selected multi-dart target now ADDS an instance (it's what the tap means); deselect = "−" to zero |
+| "attack expired — roll again" | Slow executor (DSN+saves) outlives the phone's 12s timeout → the first tap lands late, the second hits a consumed requestId | Damage timeout 20s; executor keeps a 5-min tombstone of resolved damage (re-tap returns the same result); honest copy for the true-expired case (cancelled/resolved/DM reload) |
+| Mind Sliver "no damage" | Save-negates cantrip + target SAVED = correct zero, but nobody said so (and the save fan-out can also stall) | Damage result carries `saves`/`failedSaves`; the phone toast says "X saved — no damage" |
+| Forgot it's my turn / dead End turn | Two-PC player, shell on the wrong one: "Up: <other PC>" + disabled button (auto-follow is blocked mid-action by design) | HUD: "Your turn — <name>" + active styling + **Go** (hops subject) + End turn ENABLED (executor's endTurn checks USER ownership, verified) + vibration when any owned creature's turn starts |
+| Anthem → silence | Three compounding: `play()`'s same-uuid early-return pinned a DEAD track; the driver's state is per-client memory (a mid-combat reload silently killed the driver AND lost `_touched`/`_resumeAfter`); no watcher for unexpected stops | `play()` liveness check; `updatePlaylist` watcher (playback rides the PARENT's `sounds` delta — `updatePlaylistSound` never fires for play/stop, verified 14.363) re-plays the right track on any unexpected stop (verified live); re-arm on load if combat runs; `_touched` mirrored to a world setting so restore survives reloads |
+| Burning Hands template | Player-placed AoE flow (Round 33) — RETIRED for AoE per DM ("remove all phone created templates") | Template spells route to `#announceCast` (§11 AoE push): panel shows "<PC> — <spell> · Place"; midi's preset does targeting/saves/damage/auto-remove. Placement flow stays for TELEPORTS only |
+
+### 28.3 Solo-untestable (live-table checklist)
+
+Shield/reaction prompt relay to a phone (needs the player client online; midi's attack/hit side
+verified — 22 vs AC 12 hit and parked correctly), turn-start vibration on real phones, all
+audible checks. Test world state notes: Test Fighter (the blank PC) is now a Human Soldier
+Fighter 1 with longsword/chain mail + a torch light; Test Wizard learned Mind Sliver; the
+combatant Orc Fire Conduit carries a Spear (it had NO melee activity at all, which is why it
+RAW-correctly never got an opportunity attack — the AoO fired once a melee weapon existed).

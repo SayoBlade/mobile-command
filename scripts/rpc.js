@@ -1036,6 +1036,7 @@ const parkedWorkflows = new Map();
 
 async function findParkedWorkflow(activityUuid, itemUuid, preIds = new Set(), timeoutMs = 8000) {
   const start = Date.now();
+  let lastSeen = null; // the freshest matching workflow, whatever state it's in (for stuck diagnosis)
   while (Date.now() - start < timeoutMs) {
     // midi 14 keeps workflows in a Map keyed by id, stored optionally as WeakRefs
     // (useWeakReferences; midi-qol.js 24336/24347). `Object.values()` on a Map is
@@ -1056,17 +1057,24 @@ async function findParkedWorkflow(activityUuid, itemUuid, preIds = new Set(), ti
       .map(([, w]) => w);
     const wf = fresh[fresh.length - 1]; // most-recent fresh match = the one we just fired
     if (wf) {
-      // Parked awaiting a manual damage roll. midi's loop (midi-qol.js:25981) sets
-      // wf.suspended=true and breaks, LEAVING currentAction at WaitForDamageRoll — so
-      // `suspended` is the reliable signal (a no-attack spell like Magic Missile reaches
-      // it the same way an attack does). Gate on damage still pending.
-      const awaitingDamage = (wf.suspended || wf.currentAction === wf.WorkflowState_WaitForDamageRoll) && wf.needsDamage !== false;
-      if (awaitingDamage) return wf;
-      if (wf.currentAction === wf.WorkflowState_Completed || wf.currentAction === wf.WorkflowState_Abort) return null;
+      lastSeen = wf;
+      // Parked awaiting a manual damage roll — and GENUINELY there. The old gate accepted any
+      // `wf.suspended`, but midi suspends at WaitForAttackRoll too (e.g. when a third-party
+      // preRollAttack hook crashes the attack roll — live 2026-07-26, AC5E toClipperPoints on an
+      // undrawn Levels token): the phone then got a phantom "roll damage" card with no attack,
+      // "—" totals, never a Hit, and rolling damage on the un-attacked workflow misbehaved.
+      // Require the actual WaitForDamageRoll state; for attacks, also a real attack roll.
+      const atDamage = wf.currentAction === wf.WorkflowState_WaitForDamageRoll
+        || (wf.suspended && wf.currentAction !== wf.WorkflowState_WaitForAttackRoll);
+      const attackDone = wf.activity?.type !== "attack" || !!wf.attackRoll;
+      if (atDamage && attackDone && wf.needsDamage !== false) return { parked: wf };
+      if (wf.currentAction === wf.WorkflowState_Completed || wf.currentAction === wf.WorkflowState_Abort) return { parked: null };
     }
     await new Promise(r => setTimeout(r, 150));
   }
-  return null;
+  // Timed out. If the workflow is sitting at WaitForAttackRoll, the attack roll itself died —
+  // report it as stuck so the caller can abort it and tell the player the truth.
+  return { parked: null, stuck: lastSeen?.currentAction === lastSeen?.WorkflowState_WaitForAttackRoll ? lastSeen : null };
 }
 
 // The attack total can lag the park by a tick: on a cold first attack (midi/AC5E
@@ -1186,6 +1194,15 @@ async function handleItemUseStart(payload) {
   // Suppress AC5E's forced attack dialog for the whole fire (through the parked attack roll), so an
   // unseen target doesn't stall the executor on a dialog the phone already answered.
   const ac5eOff = suppressAc5eAttackDialog();
+  // Target hygiene (DM 2026-07-26: "the NPC attacks themselves"): midi's use/attack flow saves and
+  // restores game.user.targets around its per-target loop, which can strand the PHONE's targets in
+  // the DM's own target set — invisibly. The DM then targets a PC from the panel (releaseOthers:
+  // false, to allow multi-select) and the stale token joins the NPC's attack. Snapshot the DM's
+  // real targets here and put exactly those back when the fire settles.
+  const gmTargetIds = Array.from(game.user?.targets ?? []).map(t => t.id);
+  const restoreGmTargets = () => {
+    try { canvas.tokens?.setTargets?.(gmTargetIds, { mode: "replace" }); } catch (e) { /* canvas gone */ }
+  };
   try {
     // Fire attack-only; do NOT await (the workflow parks at WaitForDamageRoll).
     const { captured } = await captureNotifications(async () => {
@@ -1202,11 +1219,19 @@ async function handleItemUseStart(payload) {
       return true;
     });
 
-    const wf = await findParkedWorkflow(activity.uuid, activity.item?.uuid, preWfIds);
+    const { parked: wf, stuck } = await findParkedWorkflow(activity.uuid, activity.item?.uuid, preWfIds);
     // Whether the workflow parked for the two-tap. If false for a damage spell that
     // should let the player roll (e.g. Magic Missile), it resolved without a roll
     // step — that's the bug to chase (DM-reported MM didn't roll damage 2026-06-17).
-    console.debug(`${MODULE_ID} | use start`, { name: activity.item?.name, type: activity.type, hasAttack, parked: !!wf });
+    console.debug(`${MODULE_ID} | use start`, { name: activity.item?.name, type: activity.type, hasAttack, parked: !!wf, stuck: !!stuck });
+    if (stuck) {
+      // The attack roll itself never fired (a module conflict on the executor kills it —
+      // live 2026-07-26: AC5E's preRollAttack crashed on an undrawn token's geometry).
+      // Abort the corpse and tell the player the truth instead of a phantom damage card.
+      console.error(`${MODULE_ID} | attack roll never fired for ${activity.item?.name} — workflow stuck at WaitForAttackRoll (module conflict on the DM's client?)`);
+      try { stuck.aborted = true; stuck.performState?.(stuck.WorkflowState_Abort); } catch (e) { /* best effort */ }
+      return { ok: false, stage: "attack", reason: "the attack roll didn't fire on the DM's screen — tell the DM to check the console, then try again" };
+    }
     if (!wf) {
       // No parked workflow: resolved already (e.g. a miss with no damage) or refused.
       return { ok: true, needsDamage: false, hasAttack, hit: false,
@@ -1219,24 +1244,43 @@ async function handleItemUseStart(payload) {
     // the real d20 result so the phone shows the number that matches chat, never
     // midi's -100 placeholder (which the phone renders as "—"). null only if it never
     // resolves (then the phone shows "—" + the Hit/Attack label, still not -100).
-    const attackTotal = hasAttack ? await resolveAttackTotal(wf) : null;
+    // Window is 8s: midi awaits the Dice So Nice animation BEFORE handing the roll to the
+    // workflow (midi-qol.js:9642), so on a slow table the total lands seconds after the park.
+    const attackTotal = hasAttack ? await resolveAttackTotal(wf, 8000) : null;
     if (hasAttack) console.debug(`${MODULE_ID} | attack total`, {
       resolved: attackTotal, rollTotal: wf.attackRoll?.total, rawAttackTotal: wf.attackTotal, formula: wf.attackRoll?.formula
     });
     return {
       ok: true, needsDamage: true, requestId, hasAttack,
       itemName: activity.item?.name ?? null,
+      // Read hits AFTER the total resolved: the park gate guarantees adjudication ran, and
+      // waiting for the total means we never read hitTargets mid-processing (the "rolled well
+      // over the AC but no green" report, 2026-07-26).
       hit: hasAttack ? (wf.hitTargets?.size ?? 0) > 0 : null,
       attackTotal
     };
-  } finally { ac5eOff(); }
+  } finally { ac5eOff(); restoreGmTargets(); }
+}
+
+// Recently-resolved damage rolls, kept ~5 min. A slow executor (DSN + saves) can outlive the
+// phone's timeout: the FIRST tap succeeds late, the player taps again, and the old "expired —
+// fire again" toast blamed them for a roll that actually landed (DM 2026-07-26, "i don't even
+// know what that means"). A re-tap now returns the SAME result.
+const resolvedDamage = new Map(); // requestId -> { at, result }
+function rememberDamageResult(requestId, result) {
+  resolvedDamage.set(requestId, { at: Date.now(), result });
+  for (const [id, e] of resolvedDamage) if (Date.now() - e.at > 5 * 60 * 1000) resolvedDamage.delete(id);
 }
 
 async function handleItemUseDamage({ requestId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
   const wf = parkedWorkflows.get(requestId);
-  if (!wf) return { ok: false, stage: "expired", reason: "the attack expired — fire again" };
+  if (!wf) {
+    const done = resolvedDamage.get(requestId);
+    if (done) return done.result; // double-tap after a slow roll — same answer, no scolding
+    return { ok: false, stage: "expired", reason: "that action is no longer active on the DM's screen — it was cancelled, already resolved, or the DM's client reloaded. Use it again." };
+  }
   parkedWorkflows.delete(requestId);
   try {
     const { captured } = await captureNotifications(async () => {
@@ -1275,7 +1319,17 @@ async function handleItemUseDamage({ requestId }) {
         }).catch(() => {});
       }
     } catch (e) { console.warn(`${MODULE_ID} | extra-instance damage failed`, e); }
-    return { ok: true, damageTotal: (wf.damageTotal ?? null) == null ? null : wf.damageTotal + extraTotal, reason: captured.join("; ") || null };
+    // Save outcomes ride along so the phone can EXPLAIN a zero: a save-negates cantrip (Mind
+    // Sliver) rolls its die and correctly applies nothing when the target saved — which read
+    // as "it rolled the damage but did no damage!?" (DM 2026-07-26) with no one saying why.
+    const result = {
+      ok: true, damageTotal: (wf.damageTotal ?? null) == null ? null : wf.damageTotal + extraTotal,
+      saves: Array.from(wf.saves ?? []).map(t => t?.name).filter(Boolean),
+      failedSaves: Array.from(wf.failedSaves ?? []).map(t => t?.name).filter(Boolean),
+      reason: captured.join("; ") || null
+    };
+    rememberDamageResult(requestId, result);
+    return result;
   } catch (e) {
     // Names the actor/item + logs the error — a corrupted PC (e.g. invalid item
     // types from a disabled content module → DAE prep failures) throws here, which
