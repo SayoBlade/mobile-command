@@ -2560,3 +2560,12 @@ HELLO whole → 1 → 3 → X → E → NO whole → center rest, frozen (60s of
 **Backlog (DM): spin the séance board off as a standalone module** — it has no mobile-command
 dependency in principle (board + planchette + a GM input; the fxActive/socket plumbing would
 need a tiny self-contained equivalent).
+
+**§30 v3 (DM notes 2026-07-27):** the four words form an X of diagonals (YES upper-left, NO
+upper-right, HELLO lower-left, GOOD/BYE lower-right at r 0.32), each rotated so its glyph-tops
+face the board CENTER — people sit around the TV, so the person beyond each corner reads their
+word upright. Sized to fit inside the lens on landing (YES/NO 2.6u, HELLO 2.0u, GOODBYE as two
+centered 2.0u lines; lens ≈ 12.6u across). The planchette is now a wrapper div carrying a
+discrete engraved "A.D." maker's mark (Cinzel, ~1.35vmin, dark cut + faint light catch) on the
+plain wedge below the lens. Verified: rotations exact per corner, GOODBYE renders 2 tspans,
+single-word phrase landed at (241,236) vs computed (239,234).

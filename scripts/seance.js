@@ -28,12 +28,16 @@ const HOLD_MS = 2000;
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const DIGITS = "1234567890";
 const D2R = Math.PI / 180;
-// Printed words — polar positions in board units (angle: 0=right, 90°=down, -90°=up).
+// Printed words — an X of four diagonals, each ROTATED TO FACE ITS SIDE of the table
+// (people sit AROUND the TV, DM 2026-07-27: glyph-tops point at the center, so the person
+// beyond that corner reads their word upright). Sized to FIT INSIDE THE LENS when the
+// planchette lands (lens ≈ 12.6 units across at these proportions); GOODBYE breaks into
+// two centered lines for the same reason. lines = render lines; size = font units.
 const WORDS = {
-  HELLO: { a: -90 * D2R, r: 0.36 },
-  YES: { a: -145 * D2R, r: 0.36 },
-  NO: { a: -35 * D2R, r: 0.36 },
-  GOODBYE: { a: 90 * D2R, r: 0.30 }
+  YES: { a: -135 * D2R, r: 0.32, lines: ["YES"], size: 2.6 },
+  NO: { a: -45 * D2R, r: 0.32, lines: ["NO"], size: 2.6 },
+  HELLO: { a: 135 * D2R, r: 0.32, lines: ["HELLO"], size: 2.0 },
+  GOODBYE: { a: 45 * D2R, r: 0.32, lines: ["GOOD", "BYE"], size: 2.0 }
 };
 
 let root = null, planch = null, raf = 0;
@@ -94,14 +98,22 @@ function boardHTML() {
   const words = Object.entries(WORDS).map(([w, p], i) => {
     const x = 50 + Math.cos(p.a) * p.r * 50;
     const y = 50 + Math.sin(p.a) * p.r * 50;
-    return `<text x="${x}" y="${y}" transform="rotate(${jig(i + 51, 3)} ${x} ${y})" font-size="3.1"
-      letter-spacing="0.35" text-anchor="middle" dominant-baseline="central">${w}</text>`;
+    // Face the reader beyond this corner: glyph-tops toward the board center.
+    const deg = p.a / D2R - 90 + jig(i + 51, 2);
+    const lineH = p.size * 1.15;
+    const spans = p.lines.map((ln, li) =>
+      `<tspan x="${x}" dy="${li === 0 ? -((p.lines.length - 1) * lineH) / 2 : lineH}">${ln}</tspan>`).join("");
+    return `<text x="${x}" y="${y}" transform="rotate(${deg} ${x} ${y})" font-size="${p.size}"
+      letter-spacing="0.3" text-anchor="middle" dominant-baseline="central">${spans}</text>`;
   }).join("");
   return `
     <div class="mc-seance-board">
       <img class="mc-seance-table" src="modules/${MODULE_ID}/art/seance-table.jpg" alt="">
       <svg class="mc-seance-letters" viewBox="0 0 100 100">${glyphs}${digits}${words}</svg>
-      <img class="mc-seance-planchette" src="modules/${MODULE_ID}/art/planchette.png" alt="">
+      <div class="mc-seance-planchette">
+        <img src="modules/${MODULE_ID}/art/planchette.png" alt="">
+        <span class="mc-seance-ad">A.D.</span>
+      </div>
     </div>`;
 }
 

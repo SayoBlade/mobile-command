@@ -3952,6 +3952,17 @@ body.mc-fxp-woozy #mobile-command-shell {
   position: absolute; left: 0; top: 0; will-change: transform;
   filter: drop-shadow(0 1.2vmin 1.6vmin rgba(0, 0, 0, .55)); /* floats a breath above the wood */
 }
+.mc-seance-planchette img { display: block; width: 100%; }
+/* The maker's mark (DM 2026-07-27): a discrete engraved "A.D." on the plain wedge below the
+   lens. Cinzel (the bundled Roman-inscriptional face); engraved = dark cut with a faint light
+   catch on the lower edge. vmin-sized, so it scales with the board (72vmin → ~7% of the
+   planchette's width). */
+.mc-seance-ad {
+  position: absolute; left: 50%; top: 79%; transform: translate(-50%, -50%);
+  font-family: "Cinzel", Georgia, serif; font-size: 1.35vmin; letter-spacing: .12em;
+  color: #241a12; opacity: .72; pointer-events: none;
+  text-shadow: 0 -0.08vmin 0.06vmin rgba(0, 0, 0, .55), 0 0.08vmin 0 rgba(228, 202, 160, .14);
+}
 
 /* Effects-drawer input row (séance phrase; originally built for Ghost Voice, which is gone —
    the pattern lives on: a text input + a square send button on one row). */
