@@ -2382,3 +2382,16 @@ hidden). Numbered, one at a time, stop on first failure:
 
 Two-client leg (live table only): reaction/save prompt relay to a real phone; turn-start
 vibration on hardware.
+
+### 28.5 Ecosystem watch — the premades modules (checked 2026-07-26)
+
+- **gambits-premades**: last release 2.1.43 (May 27); author (April, 2.1.42): "as-is release for
+  V13 + 5e 5.3.x… I will not be doing any 5.3 bug fixes… focus will be on V14 + 5e 6.x." They are
+  SKIPPING our exact stack (V14 + 5e 5.3) — GPS will likely never run on it.
+- **chris-premades**: actively shipping 1.5.x (1.5.43 on July 25) but "not a V14 update… still a
+  work in progress"; the 2.0.x pre-releases are the rewrite with NO automations ported yet (only
+  generic features/summon animations, new "CAT" dependency).
+- **Consequences:** our home-built AoO/reaction machinery stays load-bearing — no drop-in
+  automation is coming for Foundry 14 + dnd5e 5.3.3. And the V14 automation ecosystem is
+  converging on **dnd5e 6.x**: chase-upstream (§28.4) will eventually mean a 5.3→6.x migration —
+  plan it as its own milestone (full §28.4 run + real porting), don't discover it under pressure.
