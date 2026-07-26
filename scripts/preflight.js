@@ -235,6 +235,11 @@ function checkModuleStack() {
     const m = game.modules.get(legacy);
     if (m?.active) bits.push(`${m.title} is v13-era — expect breakage on Foundry 14`);
   }
+  // MISC went V14-ready at 2.0.0 (first V14 + dnd5e 5.3 release, 2026-07-11) — but a leftover
+  // 1.x install is still v13-era and belongs with the warning above (§28.5 ecosystem watch).
+  const misc = game.modules.get("midi-item-showcase-community");
+  if (misc?.active && !foundry.utils.isNewerVersion(misc.version, "2.0.0") && misc.version !== "2.0.0")
+    bits.push(`${misc.title} ${misc.version} is v13-era — 2.0.0+ is the Foundry 14 line`);
   if (!bits.length) return { id: "stack", label: "Module stack", status: "ok", detail: `dnd5e ${dnd}, midi-qol ${midi?.version}, socketlib on.` };
   const fatal = bits.some(b => b.includes("inactive"));
   return { id: "stack", label: "Module stack", status: fatal ? "fail" : "warn", detail: bits.join("; ") + "." };

@@ -2391,7 +2391,20 @@ vibration on hardware.
 - **chris-premades**: actively shipping 1.5.x (1.5.43 on July 25) but "not a V14 update… still a
   work in progress"; the 2.0.x pre-releases are the rewrite with NO automations ported yet (only
   generic features/summon animations, new "CAT" dependency).
-- **Consequences:** our home-built AoO/reaction machinery stays load-bearing — no drop-in
-  automation is coming for Foundry 14 + dnd5e 5.3.3. And the V14 automation ecosystem is
-  converging on **dnd5e 6.x**: chase-upstream (§28.4) will eventually mean a 5.3→6.x migration —
-  plan it as its own milestone (full §28.4 run + real porting), don't discover it under pressure.
+- **midi-item-showcase-community (MISC)** — *the live one (added 2026-07-26, DM ask)*: 2.0.0
+  (July 11) is "the first release for Foundry v14 and dnd5e v5.3" — OUR EXACT STACK, today.
+  Community item automations (Posney's Discord); old deps (Times Up, Active Token Effects)
+  "absorbed by DAE and Foundry". **Integration candidate**: MISC items should ride our two-tap
+  executor flow as ordinary midi automations, but two known risk classes need a validation pass
+  first — automations that open caster-side dialogs (they'd land on the EXECUTOR; the dialog
+  watchdog catches, doesn't prevent) and reaction-style automations (must route through our
+  relay). Validate a handful of MISC items through the phone flow (§28.4-style) before
+  recommending it to tables. Preflight warns if a v13-era MISC 1.x is installed.
+- **CAT (Coven's Automation Toolkit)** — both CPR 2.0 and MISC 2.0 reference it: the ecosystem's
+  V14 automation era is converging on this new companion library. Watch it.
+- **Consequences (revised 2026-07-26, DM: "we'll be pushing versions too — don't count Gambit
+  out"):** our home-built AoO/reaction machinery stays load-bearing TODAY, and MISC is the first
+  possible complement on the current stack. GPS isn't dead to us — chase-upstream (§28.4) means
+  we'll reach V14 + dnd5e 6.x ourselves; GPS re-enters the picture at that milestone. Plan the
+  5.3→6.x migration as its own milestone (full §28.4 run + real porting), don't discover it
+  under pressure.
