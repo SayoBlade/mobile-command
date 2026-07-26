@@ -2400,8 +2400,15 @@ vibration on hardware.
   watchdog catches, doesn't prevent) and reaction-style automations (must route through our
   relay). Validate a handful of MISC items through the phone flow (§28.4-style) before
   recommending it to tables. Preflight warns if a v13-era MISC 1.x is installed.
-- **CAT (Coven's Automation Toolkit)** — both CPR 2.0 and MISC 2.0 reference it: the ecosystem's
-  V14 automation era is converging on this new companion library. Watch it.
+- **CAT (Coven's Automation Toolkit)** — *checked 2026-07-26*: CPR's author (chrisk123999)
+  extracting CPR's internals into a shared automation API; both CPR 2.0 and MISC 2.0 build on it
+  — the ecosystem's V14 era converges here. Manifest facts: **Foundry 14-only** (min/verified/max
+  14 — born on V14), **dnd5e min 5.3** / verified 6.0.0 / max 6.9.9 (spans our stack AND the 6.x
+  era — the bridge module), requires only midi-qol + DAE. At 0.0.6 (weekly releases since
+  June 17) its API is still moving — treat any install like AC5E: pin-watch it. Integration
+  note: CAT extends the SAME midi workflow objects our two-tap flow holds mid-flight, so its
+  event-timing hooks and dialog utilities hit exactly the two §28.5 MISC risk classes — one
+  MISC+CAT validation pass covers the whole new ecosystem, since they travel together.
 - **Consequences (revised 2026-07-26, DM: "we'll be pushing versions too — don't count Gambit
   out"):** our home-built AoO/reaction machinery stays load-bearing TODAY, and MISC is the first
   possible complement on the current stack. GPS isn't dead to us — chase-upstream (§28.4) means
