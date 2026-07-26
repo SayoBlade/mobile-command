@@ -1,7 +1,7 @@
 {
   "id": "mobile-command",
   "title": "Mobile Command — Phone Controller",
-  "description": "Phones as full Foundry clients with a touch-first UI replacement layer. Phase 1: executor RPC plumbing, Settings Enforcer, pause guard. Pinned stack: Foundry 14 / dnd5e 5.3.x / midi-qol 14.0.x — see DESIGN.md.",
+  "description": "Phones as full Foundry clients with a touch-first UI replacement layer: per-player phone sheets, DM panel, shared-TV camera, combat music, effects, and private messages. Tested stack: Foundry 14 / dnd5e 5.3.3 / midi-qol 14.0.11 — see DESIGN.md (the module's System-health tab watches for unvalidated versions).",
   "version": "0.1.245",
   "url": "https://github.com/SayoBlade/mobile-command",
   "manifest": "https://github.com/SayoBlade/mobile-command/releases/latest/download/module.json",
@@ -13,7 +13,7 @@
   ],
   "compatibility": {
     "minimum": "14",
-    "verified": "14.363"
+    "verified": "14.365"
   },
   "relationships": {
     "systems": [
@@ -30,14 +30,31 @@
       {
         "id": "midi-qol",
         "type": "module",
+        "reason": "Runs every phone-triggered attack/spell through midi's workflow on the DM's client (the two-tap flow holds midi workflows mid-flight).",
         "compatibility": {
           "minimum": "14.0.0",
-          "verified": "14.0.8"
+          "verified": "14.0.11"
         }
       },
       {
         "id": "socketlib",
-        "type": "module"
+        "type": "module",
+        "reason": "All phone-to-DM RPC rides socketlib; without it no phone action reaches the table."
+      }
+    ],
+    "recommends": [
+      {
+        "id": "item-piles",
+        "type": "module",
+        "reason": "The phone's loot flow (open nearby piles, take items/coins) reuses Item Piles' machinery; without it, looting from the phone is unavailable."
+      },
+      {
+        "id": "automated-conditions-5e",
+        "type": "module",
+        "reason": "Powers the advantage/disadvantage recommendation (and its named reasons) on the phone's attack screen; degrades to no recommendation without it.",
+        "compatibility": {
+          "verified": "14.533.10"
+        }
       }
     ]
   },
