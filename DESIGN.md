@@ -2415,3 +2415,38 @@ vibration on hardware.
   we'll reach V14 + dnd5e 6.x ourselves; GPS re-enters the picture at that milestone. Plan the
   5.3→6.x migration as its own milestone (full §28.4 run + real porting), don't discover it
   under pressure.
+
+### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
+
+Bench: MISC 2.0.1 + CAT 0.0.6 on midi 14.0.11 / DAE 14.0.12, run through the REAL phone flow
+(solo rig). Content on our 2024-rules line: ~55 docs — the martial staples (GWM, Sharpshooter,
+Charger, GWF), classic magic items (Flame Tongue, Sun Blade, Oathbow, Wand of Paralysis,
+poisons), monk/ranger/cleric features, 3 spells. Curated staples, not a full-SRD sweep; the
+legacy-5e packs roughly double it but don't match our rules generation.
+
+**What worked through the phone (all zero-dialog, zero-error):**
+- Wand of Paralysis one-tap: DC 15 CON save auto-rolled, Paralyzed+Incapacitated applied,
+  action economy recorded. The save→condition class is a clean win.
+- The stack COMPOSES: AC5E read the MISC-applied paralysis and pre-selected Advantage on the
+  phone's next attack (2d20adv rolled). Recommendation flow + MISC conditions work together.
+- Passive feats (GWM) ride along inertly and correctly (no rider on a non-Heavy weapon).
+
+**Frictions found:**
+1. **OUR gap — enchant activities never surface on the phone.** 2024 magic items lean on
+   enchant delivery (Flame Tongue's flames are `enchant` activities); the shell's action list
+   filters the type out, so the item is untouchable from a phone. Backlog: enchant support in
+   the shell (unlocks a third of the 2024 items pack).
+2. **Reaction automations UNPROVEN.** Gloves of Missile Snaring never prompted on a clean
+   ranged-weapon hit in the solo rig — cannot separate owner-offline routing / item trigger
+   nuance / midi damage-reaction settings without a second client. THE live-table question.
+3. **Upstream bug (report to MISC):** "Great Weapon Master - Passive" sets
+   `flags.midi-qol.optional.GWM.displayBonusRolls` to boolean `false`; midi 14.0.11's
+   midiCustomEffect calls `.trim()` on it → console error on EVERY data-prep of a GWM carrier.
+   Noisy, not fatal. Local fix: string `"false"` on the effect change.
+4. Paralyzed auto-crit within 5 ft didn't double damage — a midi optional setting to chase,
+   not a MISC fault.
+
+**Verdict:** worth adopting for the table — the save/condition/passive classes are real wins at
+zero integration cost, and the ecosystem (CAT) is where V14 automation is consolidating. Gate
+full trust on the live-table reaction test; expect 0.0.x churn (both are in preflight's TESTED
+watch now — any version bump warns until re-validated).

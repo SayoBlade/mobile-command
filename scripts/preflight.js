@@ -214,7 +214,12 @@ function checkTeleportRegions() {
 // run DESIGN §28.4, fix what broke, then bump these values + the CLAUDE.md stack line together.
 // (The silent 14.0.8→14.0.11 drift is what caused the 2026-07-26 bug wave to land mid-week
 // with no warning — this check exists so an update is always a DECISION, never a surprise.)
-const TESTED = { "dnd5e": "5.3.3", "midi-qol": "14.0.11", "automated-conditions-5e": "14.533.10" };
+const TESTED = {
+  "dnd5e": "5.3.3", "midi-qol": "14.0.11", "automated-conditions-5e": "14.533.10",
+  // The automation-ecosystem pair, deep-dived together 2026-07-26 (§28.6): versions move
+  // weekly (CAT is 0.0.x), so any bump gets the same validation treatment as midi's.
+  "cat": "0.0.6", "midi-item-showcase-community": "2.0.1"
+};
 
 function checkModuleStack() {
   const bits = [];
@@ -226,10 +231,13 @@ function checkModuleStack() {
   if (!midi?.active) bits.push("midi-qol inactive");
   else if (!String(midi.version).startsWith("14.")) bits.push(`midi-qol ${midi.version} (validated: 14.x — note: version string can read stale on symlinked worlds)`);
   else if (midi.version !== TESTED["midi-qol"]) bits.push(chase(midi.version, "midi-qol"));
-  // AC5E joins the watchlist: its preRollAttack hook can crash the whole attack roll (the
-  // toClipperPoints incident, §28.1) — an unvalidated AC5E is as risky as an unvalidated midi.
-  const ac5e = game.modules.get("automated-conditions-5e");
-  if (ac5e?.active && ac5e.version !== TESTED["automated-conditions-5e"]) bits.push(chase(ac5e.version, "automated-conditions-5e"));
+  // Optional-but-watched: modules that hook the same combat pipeline we hold mid-flight.
+  // AC5E's preRollAttack can crash the whole attack roll (toClipperPoints, §28.1); CAT/MISC
+  // extend midi workflows directly (§28.6). Only checked when actually active.
+  for (const id of ["automated-conditions-5e", "cat", "midi-item-showcase-community"]) {
+    const m = game.modules.get(id);
+    if (m?.active && m.version !== TESTED[id]) bits.push(chase(m.version, id));
+  }
   if (!game.modules.get("socketlib")?.active) bits.push("socketlib inactive (RPC dead)");
   for (const legacy of ["chris-premades", "gambits-premades"]) {
     const m = game.modules.get(legacy);
