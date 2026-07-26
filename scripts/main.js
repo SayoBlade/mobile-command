@@ -15,9 +15,11 @@ import { registerFog, refreshFog } from "./fog-soft.js";
 import { registerCombatMusic } from "./combat-music.js";
 import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "./camera-frame.js";
 import { registerFxEngine } from "./effects.js"; // §26 Effects tab engine
+import { registerSettingsMenu } from "./settings-app.js"; // §29 settings mini-app (menu button)
 
 Hooks.once("init", () => {
   registerSettings();
+  registerSettingsMenu(); // §29: registered from here, not settings.js — the app imports preflight, which imports settings.js (cycle)
   registerSceneTransitions(); // zoom in/out entries in CONFIG.Canvas.sceneTransitions (scene config + teleport pickers)
   // TV clean-canvas toggle (DM 2026-06-19): hide ALL Foundry UI so the shared
   // display shows only the canvas. Auto-on for the "display" role; this keybinding

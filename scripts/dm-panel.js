@@ -9,6 +9,7 @@ import { startCombatWithMusic } from "./combat-music.js";
 import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist } from "./settings.js";
 import { FX_TABS, FX_DEFS, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js"; // §26 Effects tab
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
+import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -175,7 +176,10 @@ function settingsHTML() {
       party. Ignore a scout or a familiar so wandering off doesn't drag the room's audio with them.</p>`;
 
   // Follow list is in the Display tab; Fog lives here in Settings (DM 2026-07-25).
+  // §29: the full settings mini-app opens from here — the panel keeps only the reflexive
+  // controls (volumes, ears, fog dial); everything else lives in the app's four tabs.
   return `<div class="mc-dmp-settings">
+    <button class="mc-dmp-place mc-dmp-allset" data-open-settings-app><i class="fas fa-sliders"></i> All Settings</button>
     ${dtDrawer("setSound", "Sound", "", sliders, true)}
     ${dtDrawer("setEars", "Who the display hears through", "", earsBody, true)}
     ${dtDrawer("setMusic", "Combat music", "", combatMusicBody(), true)}
@@ -3034,6 +3038,7 @@ async function onClick(ev) {
   // Right-side dock: tab toggle (tapping the active tab again closes it), target checkbox, send.
   const dockBtn = ev.target.closest("[data-dock]");
   if (dockBtn) { closeRtAssign(); dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }
+  if (ev.target.closest("[data-open-settings-app]")) { MCSettingsApp.open(); return; } // §29
   // §26 Effects tab: toggles + one-shots. The await matters — fxIsOn reads the scene/setting the
   // toggle just wrote, so rendering before it lands would paint the stale state.
   const fxShot = ev.target.closest("[data-fx-shot]");

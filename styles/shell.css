@@ -3925,6 +3925,50 @@ body.mc-fxp-woozy #mobile-command-shell {
   font-size: 10px; line-height: 15px; font-weight: 700; font-family: "Signika", sans-serif; text-align: center;
 }
 
+/* §29 Settings mini-app: four-tab window, DM-panel styling. The window chrome is core
+   ApplicationV2; only the content is ours. Same control grammar as the panel (31px row
+   rhythm, toggle = outline never fill, chips like the fx grid). */
+#mc-settings-app .window-content { padding: 0; }
+.mc-sa { display: flex; min-height: 380px; background: var(--mc-panel); color: var(--mc-ink); }
+.mc-sa-rail { display: flex; flex-direction: column; gap: 2px; background: var(--mc-sunken); padding: 10px 0; min-width: 138px; }
+.mc-sa-tab {
+  text-align: left; padding: 9px 14px; font-size: 13px; color: var(--mc-muted);
+  background: none; border: none; border-left: 3px solid transparent; cursor: pointer;
+}
+.mc-sa-tab.mc-on { color: var(--mc-gold); border-left-color: var(--mc-gold); background: var(--mc-panel); font-weight: 700; }
+.mc-sa-pane { flex: 1 1 auto; padding: 12px 16px 16px; overflow-y: auto; max-height: 70vh; }
+.mc-sa-sec { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--mc-gold); font-weight: 800; margin: 14px 0 4px; }
+.mc-sa-sec:first-child { margin-top: 0; }
+.mc-sa-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-bottom: 1px solid var(--mc-edge); font-size: 13px; }
+.mc-sa-row:last-child { border-bottom: none; }
+.mc-sa-lbl { flex: 1 1 auto; min-width: 0; }
+.mc-sa-hint { color: var(--mc-muted); font-size: 12px; max-width: 55%; text-align: right; }
+.mc-sa-toggle {
+  flex: none; width: 36px; height: 20px; border-radius: 999px; position: relative; cursor: pointer;
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge);
+}
+.mc-sa-toggle::after { content: ""; position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--mc-muted); transition: left .12s; }
+.mc-sa-toggle.mc-on { border-color: var(--mc-gold); }
+.mc-sa-toggle.mc-on::after { left: 18px; background: var(--mc-gold); }
+.mc-sa-chips { display: flex; gap: 5px; flex: none; }
+.mc-sa-chip {
+  padding: 4px 10px; font-size: 12px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-muted);
+}
+.mc-sa-chip.mc-on { background: var(--mc-panel-2); border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-sa-num { flex: none; width: 70px; background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: var(--mc-ink); border-radius: calc(6px * var(--mc-round, 1)); padding: 4px 6px; font-size: 12px; }
+.mc-sa-range { flex: none; width: 130px; accent-color: var(--mc-gold); }
+.mc-sa-unit { flex: none; color: var(--mc-muted); font-size: 11px; min-width: 40px; text-align: right; }
+.mc-sa-select { flex: none; max-width: 200px; background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: var(--mc-ink); border-radius: calc(6px * var(--mc-round, 1)); padding: 4px 6px; font-size: 12px; }
+.mc-sa-btn {
+  flex: none; padding: 5px 12px; font-size: 12px; cursor: pointer;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink); border-radius: calc(7px * var(--mc-round, 1));
+}
+.mc-sa-btn:hover { border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-sa-btn.mc-sa-cta { background: var(--mc-cta-fill); border-color: var(--mc-cta-edge); color: var(--mc-cta-ink); font-weight: 700; }
+/* the panel's opener */
+#mc-dm-panel .mc-dmp-allset { width: 100%; margin-bottom: 8px; }
+
 /* DM-panel scale (mouse, §4.1: same shape, smaller scale). */
 #mc-dm-panel .mc-dmp-pm { margin: 8px 0 10px; display: flex; flex-direction: column; gap: 6px; }
 #mc-dm-panel .mc-dmp-pm-list { max-height: 220px; }

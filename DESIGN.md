@@ -2502,3 +2502,15 @@ removed the bogus "downtime" toggle row (internal state, not a setting) — the 
 distinguishes DEFAULTS from the world's current values (blue "yours:" notes). Two questions
 still block the build: Effects toggles (fxActive) in Settings or panel-only; any settings to
 keep unexposed (heartbeatSeconds?).
+
+**§29 BUILD (2026-07-26):** the mini-app is built — `settings-app.js`, an ApplicationV2 with the
+four-tab rail, every exposed setting as a live control (toggles/chips/sliders/selects reading
+current values each render; registration onChange side effects fire on their own, e.g. fogStyle
+→ refreshFog). Reachable from Foundry's module-settings page (registerMenu shim) AND an "All
+Settings" button atop the DM panel's Settings tab. Read-only rows with pointers where the flow
+lives elsewhere (anthem drag-drop, overworld marking, custom paces — panel-owned on purpose).
+Unexposed per DM: heartbeatSeconds, clockStart, softFog + all state objects. registerMenu is
+called from main.js init, NOT settings.js (the app imports preflight → settings.js: cycle).
+**Bench verification PENDING** — the test server sat at the setup screen at build time; verify
+on next world launch (open from both doors, flip a toggle+chip+number, confirm writes + a
+fogStyle change refreshes fog).
