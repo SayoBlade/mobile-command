@@ -2490,3 +2490,15 @@ the wizard, panel drawers, or nothing at all.
 **Open questions (blocking build):** does Sound REPLACE the DM panel's Settings tab volumes or
 duplicate them? do the Effects toggles (fxActive) get Settings rows or stay panel-only? any
 settings the DM wants NOT exposed (heartbeatSeconds)?
+
+**§29 revision (DM 2026-07-26, "these settings don't need to be replicated in sound tab"):**
+FOUR tabs, not five — the Sound tab is dropped. TV volumes + mute stay on the DM panel's
+Settings tab ONLY (they're reflexive table controls, not configuration; one home each). The
+three combat-music rows (combatMusicPlaylist · per-PC anthem roster · combatPovAudio) move into
+**Combat → Music**. Wireframes v2.2 sent. v2.1 had also corrected nine mocked values to the
+true registered defaults (fog Off, HP-rings off, auto-loot off, aooNpcMode "prompt",
+reactionTimeoutPct 120, saveTimeout 60s, heartbeat 5s, tokenGlow 0.1ft, tvVolume 50/50/50) and
+removed the bogus "downtime" toggle row (internal state, not a setting) — the wireframe now
+distinguishes DEFAULTS from the world's current values (blue "yours:" notes). Two questions
+still block the build: Effects toggles (fxActive) in Settings or panel-only; any settings to
+keep unexposed (heartbeatSeconds?).
