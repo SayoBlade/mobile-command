@@ -207,13 +207,21 @@ function checkTeleportRegions() {
   };
 }
 
+// The EXACT pinned stack (CLAUDE.md / DESIGN): drift here is how "everything broke mid-week"
+// happens — midi quietly updated 14.0.8 → 14.0.11 before the 2026-07-26 combat bug wave, and
+// nothing said so. An exact-pin mismatch is a WARN with the pin named, so the DM sees the drift
+// the moment the health tab opens, and can decide to roll back or re-pin.
+const PINNED = { "dnd5e": "5.3.3", "midi-qol": "14.0.8" };
+
 function checkModuleStack() {
   const bits = [];
   const dnd = game.system.version;
   if (!dnd.startsWith("5.")) bits.push(`dnd5e ${dnd} (pinned: 5.3.x)`);
+  else if (dnd !== PINNED.dnd5e) bits.push(`dnd5e ${dnd} ≠ pinned ${PINNED.dnd5e} — retest combat or re-pin`);
   const midi = game.modules.get("midi-qol");
   if (!midi?.active) bits.push("midi-qol inactive");
   else if (!String(midi.version).startsWith("14.")) bits.push(`midi-qol ${midi.version} (pinned: 14.0.x — note: version string can read stale on symlinked worlds)`);
+  else if (midi.version !== PINNED["midi-qol"]) bits.push(`midi-qol ${midi.version} ≠ pinned ${PINNED["midi-qol"]} — retest combat or re-pin`);
   if (!game.modules.get("socketlib")?.active) bits.push("socketlib inactive (RPC dead)");
   for (const legacy of ["chris-premades", "gambits-premades"]) {
     const m = game.modules.get(legacy);

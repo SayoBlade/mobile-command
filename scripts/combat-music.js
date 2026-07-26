@@ -46,25 +46,39 @@ function battleTrackUuid() {
 // over the battle track on the following NPC turn (the "battle music doesn't return" bug). We also
 // give every combat track a fade so switches crossfade. Prior values are remembered per uuid and
 // restored when combat ends, so we never permanently rewrite the DM's playlist config.
+// The touched map is MIRRORED into a world setting: it used to be memory-only, so a mid-combat
+// reload of the DM client forgot what was changed and restoreTouched silently restored nothing —
+// tracks stayed repeat=true forever (found on the bench 2026-07-26). Best-effort writes; the
+// world setting is registered in settings.js (combatMusicTouched).
+function persistTouched() {
+  try { game.settings.set(MODULE_ID, "combatMusicTouched", Object.fromEntries(_touched)); } catch (e) { /* pre-ready */ }
+}
+
 async function configureForCombat(doc, { loop }) {
   if (!doc) return;
   const upd = {};
   if (loop && "repeat" in doc && !doc.repeat) upd.repeat = true;
   if ("fade" in doc && (doc.fade ?? 0) < CROSSFADE_MS) upd.fade = CROSSFADE_MS;
   if (!Object.keys(upd).length) return;
-  if (!_touched.has(doc.uuid)) _touched.set(doc.uuid, { repeat: doc.repeat, fade: doc.fade });
+  if (!_touched.has(doc.uuid)) { _touched.set(doc.uuid, { repeat: doc.repeat, fade: doc.fade }); persistTouched(); }
   try { await doc.update(upd); } catch (e) { /* best-effort */ }
 }
 
-// Put back the repeat/fade we changed on every track we touched this combat.
+// Put back the repeat/fade we changed on every track we touched this combat — including
+// what a PREVIOUS (pre-reload) session recorded in the world setting.
 async function restoreTouched() {
   const touched = _touched; _touched = new Map();
+  try {
+    const persisted = game.settings.get(MODULE_ID, "combatMusicTouched") ?? {};
+    for (const [uuid, prior] of Object.entries(persisted)) if (!touched.has(uuid)) touched.set(uuid, prior);
+  } catch (e) { /* setting unregistered */ }
   for (const [uuid, prior] of touched) {
     try {
       const doc = await fromUuid(uuid);
       if (doc) await doc.update({ repeat: prior.repeat, fade: prior.fade });
     } catch (e) { /* best-effort */ }
   }
+  persistTouched(); // now empty
 }
 
 // The track for the active combatant: a character's own theme, else the battle track (a looped file).
@@ -97,7 +111,15 @@ async function stopCurrent() {
 // the switch is smooth and the new track's load latency hides behind the fade.
 async function play(uuid) {
   if (!uuid) { await stopCurrent(); return; }
-  if (_combatPlaying && _combatPlaying.uuid === uuid) return; // already playing this — leave it running
+  // Same track → leave it running — but only if it IS running. If the audio layer dropped it
+  // (a non-looping file ran out, a load error, anything), the old early-return pinned the dead
+  // track and every later turn on the same uuid stayed SILENT (DM 2026-07-26: "anthem stops
+  // and then ends completely into silence"). A dead current track replays instead.
+  if (_combatPlaying && _combatPlaying.uuid === uuid) {
+    const alive = _combatPlaying.documentName === "Playlist" ? _combatPlaying.playing : !!_combatPlaying.playing;
+    if (alive) return;
+    _combatPlaying = null; // fall through and start it fresh
+  }
   let doc = null;
   try { doc = await fromUuid(uuid); } catch (e) { /* stale uuid */ }
   if (!doc) { await stopCurrent(); return; }
@@ -160,4 +182,32 @@ export function registerCombatMusic() {
   Hooks.on("combatStart", () => serialize(startCombatMusic));
   Hooks.on("updateCombat", (_c, ch) => { if ("turn" in ch || "round" in ch) serialize(updateCombatMusic); });
   Hooks.on("deleteCombat", () => serialize(endCombatMusic));
+  // Self-heal: if the track WE are supposed to be playing stops and we didn't stop it
+  // (stopCurrent nulls _combatPlaying first, so "still ours + playing:false" = not us —
+  // the file ended un-looped, failed to load, someone clicked the playlist…), put the
+  // right track back on. This is the safety net under the play() liveness check above.
+  // Playback state rides the PARENT playlist update as an embedded `sounds` delta —
+  // updatePlaylistSound never fires for play/stop (verified live, 14.363).
+  Hooks.on("updatePlaylist", (doc, ch) => {
+    if (!isMusicDriver() || !_active || !Array.isArray(ch.sounds)) return;
+    const cur = _combatPlaying;
+    if (!cur) return;
+    const curId = cur.documentName === "PlaylistSound" ? cur.id : null;
+    const stoppedOurs = ch.sounds.some(s => s.playing === false
+      && (curId ? s._id === curId : cur.sounds?.has?.(s._id)));
+    if (stoppedOurs) serialize(() => { _combatPlaying = null; return play(trackForActive()); });
+  });
+  // Reload resilience: this module state is per-client memory — a mid-combat reload of the
+  // DM client forgot _active, so turn changes stopped driving music entirely (and combat
+  // end couldn't clean up). registerCombatMusic runs INSIDE the ready hook (main.js), so
+  // re-arm directly — a Hooks.once("ready") here would register after ready and never fire.
+  // (_resumeAfter is gone for good on a reload — the pre-combat ambience won't auto-resume
+  // after combat; an accepted cost of reloading.)
+  if (isMusicDriver() && game.combat?.started) {
+    serialize(async () => {
+      if (_active) return;
+      _active = true;
+      await play(trackForActive());
+    });
+  }
 }

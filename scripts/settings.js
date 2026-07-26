@@ -251,6 +251,15 @@ export function registerSettings() {
     default: { music: 0.5, ambient: 0.5, interface: 0.5 }
   });
 
+  // §25.2 combat music: repeat/fade values we changed on combat tracks, so a mid-combat DM
+  // reload can still restore them when combat ends (memory-only lost them; bench 2026-07-26).
+  game.settings.register(MODULE_ID, "combatMusicTouched", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {}
+  });
+
   // §26 Effects tab: which client-side effects (screen filters + procedural sound loops) are on,
   // as { fxId: true }. World-scoped for the same reason as tvVolume — the display re-applies it
   // deterministically after a reload and a late-joining client catches up, instead of depending on
