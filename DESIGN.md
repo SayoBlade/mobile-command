@@ -2462,3 +2462,31 @@ Friction #3 correction: NO local fix exists for the GWM boolean — Foundry 14's
 schema preserves typed values (write "false", read back `false`), which is exactly why MISC
 ships a boolean and why midi 14.0.11's string-only `.trim()` chokes. Upstream only: midi should
 tolerate typed change values (or MISC avoid them). The console noise is known and harmless.
+
+---
+
+## 29. Settings mini-app (spec v2, 2026-07-26 — wireframes rebuilt, awaiting DM layout approval)
+
+The v1 wireframes lived only in a chat session and were LOST (DM couldn't find them) — spec
+recorded here now, wireframes regenerable from it (`settings-wireframes.html`, sent 2026-07-26).
+
+**Shape:** one window, DM-panel styling, vertical tab rail (like the panel's). Purpose: a home
+for the 43 registered settings — roughly half are `config:false` and reachable today only via
+the wizard, panel drawers, or nothing at all.
+
+**Tab → settings mapping (every key is a real registration in settings.js):**
+- **Display** — displayOwnerUser · dmOmniscientVision · combatPovVision · hideGMCursor ·
+  fogStyle (off/soft/gpu chips) + fogExploredLevel slider · tokenGlow · ringPlayerColors ·
+  ringHealthColors · markDeadNpcs · portraitStyle
+- **Sound** — tvVolume (music/ambient/interface sliders) · tvMuted · combatMusicPlaylist ·
+  per-PC anthem roster (actor flag combatTheme, drag-drop) · combatPovAudio
+- **Combat** — aooEnabled · aooNpcMode (Ask/Auto/Off chips) · reactionTimeoutPct ·
+  expectedSaveTimeout · autoLootNpcs · pauseGuard
+- **Travel & world** — travelOverworldSceneIds (roster) · travelAutoLight · travelDaylight ·
+  partyTeleportActivates · travelCustomPaces (Edit paces…) · awayThresholdSeconds · downtime
+- **System** — role (per-device chips: Auto/Phone/Display/DM) · executorUser ·
+  enforcerAutoPrompt · heartbeatSeconds · preflight "Run checks" · dmOnboarded "Re-run wizard"
+
+**Open questions (blocking build):** does Sound REPLACE the DM panel's Settings tab volumes or
+duplicate them? do the Effects toggles (fxActive) get Settings rows or stay panel-only? any
+settings the DM wants NOT exposed (heartbeatSeconds)?
