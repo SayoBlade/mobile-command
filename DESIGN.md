@@ -2345,3 +2345,40 @@ audible checks. Test world state notes: Test Fighter (the blank PC) is now a Hum
 Fighter 1 with longsword/chain mail + a torch light; Test Wizard learned Mind Sliver; the
 combatant Orc Fire Conduit carries a Spear (it had NO melee activity at all, which is why it
 RAW-correctly never got an opportunity attack — the AoO fired once a melee weapon existed).
+
+### 28.4 The stack policy + the combat validation script (DM decision 2026-07-26)
+
+**Policy: chase upstream, don't freeze.** DM: "we can't lock in on an older midi even before we
+release beta, we'll need to chase versions and learn how to keep up with them." Beta users will
+run current midi/dnd5e — an old pin just relocates the breakage to their tables. So the preflight
+Module-stack check holds the **last-VALIDATED** versions (`TESTED` in preflight.js: dnd5e,
+midi-qol, and AC5E — whose preRollAttack hook can kill attack rolls outright, §28.1), and a
+mismatch means "run the validation, then bump the pin" — an update is always a decision, never a
+surprise. midi-qol 14.0.11 was validated by the full §28 bench run (2026-07-26) and is the
+current tested version.
+
+**The combat validation script** — run on the Offline-test bench after ANY stack bump (solo rig:
+GM client + `MobileCommand.openShell()`; ticker pump + `game.dice3d = null` if the pane is
+hidden). Numbered, one at a time, stop on first failure:
+
+1. Panel: Roll NPCs rolls ONLY NPC initiative.
+2. Phone: the initiative prompt rolls the subject's initiative.
+3. Phone melee attack (two-tap): real total on the card, green **Hit** when total ≥ AC, damage
+   applies to the target's HP, toast shows the total.
+4. Attack pipeline health: after step 3's fire, the parked workflow sits at
+   `WaitForDamageRoll` with a non-null `attackRoll` (console: `MidiQOL.Workflow.workflows`).
+5. Magic Missile: select a target, row-tap adds darts (n/3 counts up), fire + roll → base +
+   extra-instance damage all applies.
+6. Save spell (Mind Sliver): failed save → damage applies; made save → "saved — no damage" toast.
+7. AoE (Burning Hands): NO phone template; a pending-cast row appears on the panel; DM Place
+   drives targeting/saves/damage; instantaneous template auto-removes.
+8. Targets: after any phone fire, `game.user.targets` on the DM client has no strays.
+9. AoO: a PC leaving a melee-armed, unspent-reaction enemy's reach fires the DM reaction chip.
+10. Music: battle track on start; anthem on themed-PC turns; battle back on foe turns; kill the
+    playing track mid-combat → it self-heals; reload mid-combat → driver re-arms; end combat →
+    silence/resume + repeat/fade restored.
+11. Turn HUD: on your OTHER PC's turn — "Your turn — <name>", Go hops, End turn works.
+12. Preflight: the stack check is green (or names exactly the version under test).
+
+Two-client leg (live table only): reaction/save prompt relay to a real phone; turn-start
+vibration on hardware.

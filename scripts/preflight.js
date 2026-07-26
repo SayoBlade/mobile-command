@@ -207,21 +207,29 @@ function checkTeleportRegions() {
   };
 }
 
-// The EXACT pinned stack (CLAUDE.md / DESIGN): drift here is how "everything broke mid-week"
-// happens — midi quietly updated 14.0.8 → 14.0.11 before the 2026-07-26 combat bug wave, and
-// nothing said so. An exact-pin mismatch is a WARN with the pin named, so the DM sees the drift
-// the moment the health tab opens, and can decide to roll back or re-pin.
-const PINNED = { "dnd5e": "5.3.3", "midi-qol": "14.0.8" };
+// The last-VALIDATED stack — not a freeze. Policy (DM 2026-07-26): we chase upstream releases
+// ("we can't lock in on an older midi… we'll need to chase versions and learn how to keep up") —
+// beta users will run current midi, so pinning old versions just moves the breakage to them.
+// A mismatch here means "this exact combination hasn't been through the combat validation yet":
+// run DESIGN §28.4, fix what broke, then bump these values + the CLAUDE.md stack line together.
+// (The silent 14.0.8→14.0.11 drift is what caused the 2026-07-26 bug wave to land mid-week
+// with no warning — this check exists so an update is always a DECISION, never a surprise.)
+const TESTED = { "dnd5e": "5.3.3", "midi-qol": "14.0.11", "automated-conditions-5e": "14.533.10" };
 
 function checkModuleStack() {
   const bits = [];
+  const chase = (v, key) => `${key} ${v} ≠ last-validated ${TESTED[key]} — run the combat validation (DESIGN §28.4), then bump the tested pin`;
   const dnd = game.system.version;
-  if (!dnd.startsWith("5.")) bits.push(`dnd5e ${dnd} (pinned: 5.3.x)`);
-  else if (dnd !== PINNED.dnd5e) bits.push(`dnd5e ${dnd} ≠ pinned ${PINNED.dnd5e} — retest combat or re-pin`);
+  if (!dnd.startsWith("5.")) bits.push(`dnd5e ${dnd} (validated: 5.3.x)`);
+  else if (dnd !== TESTED.dnd5e) bits.push(chase(dnd, "dnd5e"));
   const midi = game.modules.get("midi-qol");
   if (!midi?.active) bits.push("midi-qol inactive");
-  else if (!String(midi.version).startsWith("14.")) bits.push(`midi-qol ${midi.version} (pinned: 14.0.x — note: version string can read stale on symlinked worlds)`);
-  else if (midi.version !== PINNED["midi-qol"]) bits.push(`midi-qol ${midi.version} ≠ pinned ${PINNED["midi-qol"]} — retest combat or re-pin`);
+  else if (!String(midi.version).startsWith("14.")) bits.push(`midi-qol ${midi.version} (validated: 14.x — note: version string can read stale on symlinked worlds)`);
+  else if (midi.version !== TESTED["midi-qol"]) bits.push(chase(midi.version, "midi-qol"));
+  // AC5E joins the watchlist: its preRollAttack hook can crash the whole attack roll (the
+  // toClipperPoints incident, §28.1) — an unvalidated AC5E is as risky as an unvalidated midi.
+  const ac5e = game.modules.get("automated-conditions-5e");
+  if (ac5e?.active && ac5e.version !== TESTED["automated-conditions-5e"]) bits.push(chase(ac5e.version, "automated-conditions-5e"));
   if (!game.modules.get("socketlib")?.active) bits.push("socketlib inactive (RPC dead)");
   for (const legacy of ["chris-premades", "gambits-premades"]) {
     const m = game.modules.get(legacy);
