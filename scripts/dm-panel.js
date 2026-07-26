@@ -31,6 +31,7 @@ let tokensPlayer = "";       // owned-tokens: which player's tokens are shown
 let dmMsgOpen = false;       // §27: the selected player's message thread is open (Party tab)
 let dmMsgDraft = "";         // §27: composer text, kept across the panel's frequent re-renders
 let fxPlayer = "";           // §26.6: which player the Effects tab's Player drawer targets
+let seanceDraft = "";        // §30: the phrase the planchette will spell, kept across re-renders
 let dmReactions = [];        // reaction widget: live chips {id, kind:"aoo"|"window", label, weapon, activityUuid?, targetUuid?, expiresAt}
 const rollTool = { type: "save", ability: "dex", selected: null, targetsOpen: false };
 
@@ -320,7 +321,20 @@ function effectsTabHTML() {
     ${dtDrawer("fxMoments", "Moments", "", grid(FX_TABS.moments))}
     ${dtDrawer("fxMagic", "Magical", "", grid(FX_TABS.magical))}
     ${dtDrawer("fxPlayer", "Player", "", fxPlayerBody())}
+    ${dtDrawer("fxSeance", "Séance", "", seanceBody(), true)}
   </div>`;
+}
+
+// §30 the séance drawer: board toggle + the phrase the planchette spells on the TV.
+// Letters only (spaces pause between words); everything else is stripped before it flies.
+function seanceBody() {
+  const on = fxIsOn("seance");
+  return `
+    <button class="mc-fx-btn ${on ? "mc-on" : ""}" data-fx="seance" title="${FX_DEFS.seance.hint}" style="width:100%"><i class="fas ${FX_DEFS.seance.icon}"></i><span>Spirit Board</span></button>
+    <div class="mc-fx-voicerow">
+      <input type="text" class="mc-fx-voice" data-seance-text maxlength="120" placeholder="What the spirits say… (letters only)" value="${foundry.utils.escapeHTML(seanceDraft)}" ${on ? "" : "disabled"}>
+      <button class="mc-fx-btn mc-fx-voicebtn" data-seance-send title="The planchette spells it out" ${on ? "" : "disabled"}><i class="fas fa-hand-point-up"></i></button>
+    </div>`;
 }
 
 // §26.6 Player drawer: pick the victim, then per-phone toggles/shots. Same roster row shape as
@@ -2911,6 +2925,8 @@ function onTokenDblClick(ev) {
 function onInput(ev) {
   // §27: stash the message draft so the panel's frequent re-renders don't wipe mid-sentence typing.
   if (ev.target?.matches?.("[data-dm-msg-text]")) { dmMsgDraft = ev.target.value; return; }
+  // §30: same for the séance phrase.
+  if (ev.target?.matches?.("[data-seance-text]")) { seanceDraft = ev.target.value; return; }
   // Volume sliders: update the % readout live while dragging, but DON'T write the world setting on
   // every input event — that would be a document write per pixel of drag. The commit happens on
   // `change` (pointer release) in onChange. Purely local echo, no re-render, so the drag is smooth.
@@ -3048,6 +3064,14 @@ async function onClick(ev) {
   if (fxpShot) { dmFireFx(fxpShot.dataset.fxpShot, { users: [fxPlayer] }); return; }
   const fxpBtn = ev.target.closest("[data-fxp]");
   if (fxpBtn) { await dmToggleFxFor(fxpBtn.dataset.fxp, fxPlayer); return render(); }
+  // §30 séance: broadcast the phrase; the TV's planchette does the talking.
+  if (ev.target.closest("[data-seance-send]")) {
+    const words = seanceDraft.replace(/[^A-Za-z ]/g, "").trim();
+    if (!words) { ui.notifications.warn("Write what the spirits say — letters only."); return; }
+    dmFireFx("seancePhrase", { text: words });
+    seanceDraft = "";
+    return render();
+  }
   const fxBtn = ev.target.closest("[data-fx]");
   if (fxBtn) { await dmToggleFx(fxBtn.dataset.fx); return render(); }
   // Mark / unmark the current scene as a travel map (the DM's explicit list — no grid guessing).

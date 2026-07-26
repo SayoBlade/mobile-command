@@ -3925,6 +3925,45 @@ body.mc-fxp-woozy #mobile-command-shell {
   font-size: 10px; line-height: 15px; font-weight: 700; font-family: "Signika", sans-serif; text-align: center;
 }
 
+/* §30 Séance board — the spirit table on the TV (and the DM's screen), under the DM panel
+   (z-70). Backdrop deliberately BLAND (DM 2026-07-26): near-black ground, and the square
+   table art melts into blurred black shadow — no hard image edge anywhere. */
+#mc-seance {
+  position: fixed; inset: 0; z-index: 60; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, #0d0c10 0%, #050507 72%);
+}
+.mc-seance-board { position: relative; width: 72vmin; height: 72vmin; }
+.mc-seance-table {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  border-radius: 50%;                       /* the art is a round table on a square — mask to the wood */
+  box-shadow: 0 0 90px 55px #050507;        /* the blurred black shadow ring */
+}
+.mc-seance-board::after {                    /* soft vignette so the rim greys into the dark */
+  content: ""; position: absolute; inset: -6%; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, transparent 55%, rgba(5, 5, 7, 0) 62%, #050507 78%);
+}
+.mc-seance-letters { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mc-seance-letters text {
+  fill: #2b2118; opacity: .82;
+  font-family: Georgia, "Times New Roman", serif; font-weight: 700;
+}
+.mc-seance-planchette {
+  position: absolute; left: 0; top: 0; will-change: transform;
+  filter: drop-shadow(0 1.2vmin 1.6vmin rgba(0, 0, 0, .55)); /* floats a breath above the wood */
+}
+
+/* Effects-drawer input row (séance phrase; originally built for Ghost Voice, which is gone —
+   the pattern lives on: a text input + a square send button on one row). */
+#mc-dm-panel .mc-fx-voicerow { display: flex; gap: 6px; margin-top: 6px; }
+#mc-dm-panel .mc-fx-voice {
+  flex: 1 1 auto; min-width: 0; background: var(--mc-sunken); border: 1px solid var(--mc-edge);
+  border-radius: calc(7px * var(--mc-round, 1)); color: var(--mc-ink); padding: 0 8px; font-size: 12px;
+}
+#mc-dm-panel .mc-fx-voice:focus { border-color: var(--mc-gold); outline: none; }
+#mc-dm-panel .mc-fx-voice:disabled { opacity: .45; }
+#mc-dm-panel .mc-fx-voicebtn { flex: none; width: 34px; }
+
 /* §29 Settings mini-app: four-tab window, DM-panel styling. The window chrome is core
    ApplicationV2; only the content is ours. Same control grammar as the panel (31px row
    rhythm, toggle = outline never fill, chips like the fx grid). */

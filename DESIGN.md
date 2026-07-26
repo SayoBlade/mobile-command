@@ -2514,3 +2514,35 @@ called from main.js init, NOT settings.js (the app imports preflight → setting
 **Bench verification PENDING** — the test server sat at the setup screen at build time; verify
 on next world launch (open from both doors, flip a toggle+chip+number, confirm writes + a
 fogStyle change refreshes fog).
+
+---
+
+## 30. Séance board (DM-idea 2026-07-26, for a Crooked Moon game — BUILT)
+
+**The ask:** a spirit-board table on the TV; the DM types a phrase, the planchette spins to each
+letter — "slow and a bit jerky" — holds 2s, spaces unmarked, rests when done. Marker a separate
+entity. Letters must clearly surround the center like the Crooked Moon reference.
+
+**The layering decision (why it works):** the AI table art carries NO letters — image models
+butcher radial text, and baked letters have unknowable coordinates. The widget draws the A–Z
+ring itself as SVG (per-glyph size/rotation jitter so it reads hand-scratched), so every
+glyph's angle is exact — and the planchette's LENS, chroma-keyed to a true see-through window
+(tools/process-planchette.ps1: green key + lens punch at r132, brass ring kept opaque, sheen at
+45%), lands with the letter visible THROUGH the glass. Art: art/seance-table.jpg (Gemini, from
+the letterless prompt) + art/planchette.png (processed; lens center 315,338 of 626×653 — the
+landing point, baked into seance.js constants).
+
+**Mechanics (seance.js):** board = fxActive.seance state (panel Séance drawer toggle; TV
+re-mounts after reload via syncFx) shown on the display client + the DM's non-phone client,
+z-60 (under the panel). Phrase = fxOneShot {id:"seancePhrase", text} — sanitized to A–Z+space,
+≤120 chars. Motion is a polar state machine: smoothstepped travel (0.9–2.6s by distance) with
+sinusoidal stutter on the eased progress (the jerk), 2s holds with idle tremble, DOUBLE LETTERS
+swing away ~26° and return (two visits read as two taps — verified: three E-visits in "SEE ME"
+landed on identical coordinates), spaces wander toward the middle for a beat, end drifts to a
+center rest. Backdrop per DM: bland near-black radial ground; the round table is masked
+(border-radius) and melts into blurred black shadow (box-shadow + vignette ::after) — no hard
+image edge.
+
+**Release note:** the module.zip build must now include `art/` (next release).
+**Open:** creaking-wood sound on movement (procedural, §26.2-style) if the DM wants it; a
+"clear the board" wipe animation; number ring (explicitly kept out — "no other layer").

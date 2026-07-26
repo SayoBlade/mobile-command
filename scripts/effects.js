@@ -2,6 +2,7 @@ import { MODULE_ID } from "./preset.js";
 import { socket } from "./rpc.js";
 import { isPhoneClient } from "./shell.js";
 import { isExecutor } from "./settings.js";
+import { seanceSync, seancePhrase } from "./seance.js"; // §30 séance board (TV overlay)
 
 // §26 Effects tab (spike) — DM-triggered table ambience, three kinds under one catalog:
 //   scene   — shortcuts to Foundry's own scene data (weather particles, darkness). Foundry
@@ -53,6 +54,11 @@ export const FX_DEFS = {
   heartbeat: { label: "Heartbeat", icon: "fa-heart-pulse", player: "state", hint: "Their phone pulses red with a heartbeat only they get" },
   woozy: { label: "Woozy", icon: "fa-flask", player: "state", hint: "Drunk, poisoned, concussed — their phone wobbles and blurs" },
   static: { label: "Static", icon: "fa-wave-square", player: "shot", oneShot: true, hint: "A half-second cursed glitch on their phone" },
+  // §30 séance board: the toggle is a normal fxActive state (survives TV reloads); the phrase
+  // is a one-shot with { text }. Neither renders as a grid chip — the panel's Séance drawer
+  // owns their UI (a toggle plus a phrase input need more than a chip).
+  seance: { label: "Séance", icon: "fa-circle-dot", state: true, hint: "The spirit board on the table display" },
+  seancePhrase: { label: "Spell it out", icon: "fa-hand-point-up", oneShot: true, hint: "The planchette spells the phrase" },
   rainbow: { label: "Rainbow", icon: "fa-rainbow", filter: "rainbow", hint: "The whole scene cycles through hues" },
   invert: { label: "Invert", icon: "fa-circle-half-stroke", filter: "invert", hint: "Negative — an unsettling other-side look" },
   dreamy: { label: "Dreamy", icon: "fa-cloud-moon", filter: "dreamy", hint: "Soft blur — dream sequences, visions" },
@@ -140,12 +146,13 @@ export function dmFireFx(id, extra = {}) {
 /*  One-shots                                   */
 /* -------------------------------------------- */
 
-export function handleFxOneShot({ id, users, soft } = {}) {
+export function handleFxOneShot({ id, users, soft, text } = {}) {
   // A targeted one-shot names its audience; everyone else drops it silently.
   if (Array.isArray(users) && users.length && !users.includes(game.user.id)) return;
   if (id === "lightning") lightningLocal(!!soft);
   else if (id === "bell") bellLocal();
   else if (id === "static") staticLocal();
+  else if (id === "seancePhrase") seancePhrase(text); // no-op on clients without the board
 }
 
 function overlayShot(className, ttlMs) {
@@ -636,6 +643,8 @@ export function syncFx() {
   // Rolling storm: only the executor keeps the sky going.
   if (active.storm && isExecutor()) { if (!stormTimer) scheduleStormStrike(true); }
   else { clearTimeout(stormTimer); stormTimer = null; }
+  // §30 séance board: mounts on the display + the DM's client (seance.js gates itself).
+  seanceSync(!!active.seance);
 }
 
 export function registerFxEngine() {
