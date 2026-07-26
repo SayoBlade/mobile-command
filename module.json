@@ -55,6 +55,11 @@
         "compatibility": {
           "verified": "14.533.10"
         }
+      },
+      {
+        "id": "foundryvtt-simple-calendar-reborn",
+        "type": "module",
+        "reason": "The game clock chip, calendar button, watch/rest time labels, and travel day/night all read Simple Calendar (classic or Reborn — either works); without it there is no in-game time-of-day."
       }
     ]
   },
