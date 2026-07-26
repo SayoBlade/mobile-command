@@ -2450,3 +2450,15 @@ legacy-5e packs roughly double it but don't match our rules generation.
 zero integration cost, and the ecosystem (CAT) is where V14 automation is consolidating. Gate
 full trust on the live-table reaction test; expect 0.0.x churn (both are in preflight's TESTED
 watch now — any version bump warns until re-validated).
+
+**§28.6 addendum (same day):** friction #1 is CLOSED — enchant support is BUILT. The shell now
+lists `enchant` activities; tapping one opens an item picker (eligibility straight from dnd5e's
+`canEnchant`, reasons shown on disabled rows); the executor applies via dnd5e's own
+`applyEnchantment` (rename patterns work — the longsword became "Flame Tongue Longsword"), and
+tapping an already-enchanted item REMOVES the enchantment (the toggle). Verified end-to-end on
+the bench: apply → rename+effect, remove → clean revert. Consumption is deliberately not
+charged (the common enchant items are free toggles; revisit if a charged enchanter appears).
+Friction #3 correction: NO local fix exists for the GWM boolean — Foundry 14's effect-change
+schema preserves typed values (write "false", read back `false`), which is exactly why MISC
+ships a boolean and why midi 14.0.11's string-only `.trim()` chokes. Upstream only: midi should
+tolerate typed change values (or MISC avoid them). The console noise is known and harmless.

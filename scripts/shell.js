@@ -259,6 +259,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #journalPendingImg = null;  // an image queued to attach to the next entry (from the DM's shared image)
   #journalImage = null;   // fullscreen journal-image viewer src (null = closed)
   #journalTitleEdit = false;  // renaming the open page's title inline
+  #enchantState = null;   // §28.6 enchant item-picker: { uuid, name, profileId, rows } | null
   #pmOpen = false;        // §27 Messages overlay (envelope in the header)
   #pmDraft = "";          // Messages composer text, kept across re-renders
   #pmBusy = false;        // a message send is in flight
@@ -2101,6 +2102,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Spells tab (or using a favorite from Explore) stays put instead of jumping.
     if (this.#detailCard) return this.#detailCardHTML();
     if (this.#transferState) return this.#transferComposerHTML(actor);
+    if (this.#enchantState) return this.#enchantPickerHTML();
     if (this.#actionState) return this.#targetPickerHTML();
     if (this.#itemPickerId) return this.#itemActivityPickerHTML(actor);
     if (this.#wildShape?.open) return this.#wildShapeBrowserHTML();
@@ -4564,7 +4566,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         // Include features (Action Surge=utility, Second Wind=heal) and item
         // uses, not just weapons/offensive spells. AoE activities are kept too —
         // tapping one announces the cast to the DM (#announceCast), not the picker.
-        if (!["attack", "save", "damage", "utility", "heal", "transform"].includes(a.type)) continue;
+        // `enchant` joined 2026-07-26 (§28.6): 2024 magic items deliver their powers as
+        // enchant activities (Flame Tongue), which used to be invisible on the phone.
+        if (!["attack", "save", "damage", "utility", "heal", "transform", "enchant"].includes(a.type)) continue;
         out.push(a);
       }
     }
@@ -4892,6 +4896,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // still drops the token — but the player picks the choices FIRST (slot level +
     // which creature profile), and only the placement hands off (DM 2026-06-23).
     if (activity.type === "summon") return this.#openSummonConfig(activity);
+    // Enchant activities (§28.6): dnd5e wants an item dropped on a chat card — a phone
+    // can't. Pick the target item on the phone instead; the executor applies/removes.
+    if (activity.type === "enchant") return this.#openEnchantPicker(activity);
     // Wild Shape's only activity is a "transform" — let it ride the normal Actions
     // list (so it groups + long-presses like any item) but route the tap to the beast
     // browser instead of running the bare transform.
@@ -5506,6 +5513,65 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.render();
   }
 
+  // --- §28.6 enchant activities: pick the item to enchant on the PHONE ------
+  // (dnd5e's own flow is a drag onto the chat card — unreachable from a phone.)
+  // Rows: the actor's gear, eligibility from dnd5e's canEnchant; an item already
+  // carrying THIS activity's enchantment shows as on — tapping it removes (the toggle).
+  #openEnchantPicker(activity) {
+    const actor = this.actor;
+    const profile = activity.availableEnchantments?.[0];
+    const rows = [];
+    for (const item of actor?.items ?? []) {
+      if (item.id === activity.item?.id) continue; // never enchant the enchanter
+      if (!["weapon", "equipment", "tool", "consumable"].includes(item.type)) continue;
+      const existing = item.effects.find(e => e.origin === activity.uuid);
+      const errs = existing ? null : activity.canEnchant?.(item);
+      const bad = Array.isArray(errs) && errs.length;
+      rows.push({
+        itemId: item.id, name: item.name, enchanted: !!existing, effectId: existing?.id ?? null,
+        ok: existing ? true : !bad, why: bad ? (errs[0]?.message ?? "not eligible") : ""
+      });
+    }
+    rows.sort((a, b) => (b.enchanted - a.enchanted) || (b.ok - a.ok) || a.name.localeCompare(b.name));
+    this.#enchantState = { uuid: activity.uuid, name: activity.item?.name ?? activity.name, profileId: profile?._id ?? null, rows };
+    this.render();
+  }
+
+  #enchantPickerHTML() {
+    const s = this.#enchantState;
+    const esc = foundry.utils.escapeHTML;
+    const rows = s.rows.map(r => `
+      <button class="mc-target ${r.enchanted ? "mc-target-on" : ""}" data-action="enchant-pick" data-item-id="${r.itemId}" ${r.ok ? "" : "disabled"} title="${esc(r.why)}">
+        <span class="mc-target-name">${esc(r.name)}</span>
+        <span class="mc-target-right">${r.enchanted
+          ? `<span class="mc-disp mc-ally">Enchanted</span>`
+          : r.ok ? "" : `<span class="mc-disp mc-neutral">${esc(r.why.slice(0, 30))}</span>`}</span>
+      </button>`).join("");
+    return `
+      <div class="mc-picker-head">
+        <button class="mc-back mc-picker-x" data-action="enchant-back" aria-label="Close"><i class="fas fa-xmark"></i></button>
+        <span class="mc-picker-title">${esc(s.name)}</span>
+      </div>
+      <div class="mc-target-note">Choose the item to enchant — tap an enchanted one to remove it.</div>
+      ${rows || `<div class="mc-target-note">No eligible items.</div>`}`;
+  }
+
+  async #enchantApply(itemId) {
+    const s = this.#enchantState;
+    if (!s) return;
+    const row = s.rows.find(r => r.itemId === itemId);
+    this.#enchantState = null; this.render();
+    let res;
+    try {
+      res = await this.#withTimeout(rpc.enchantApply({ activityUuid: s.uuid, profileId: s.profileId, itemId, remove: row?.enchanted ? row.effectId : null }));
+    } catch (err) {
+      console.error("mobile-command | enchantApply failed", err);
+      res = { ok: false, reason: err?.message ?? "error — see DM console" };
+    }
+    if (!res?.ok) return ui.notifications.warn(`${s.name}: ${res?.reason ?? "couldn't enchant"}`);
+    ui.notifications.info(res.removed ? `${s.name} — enchantment removed from ${res.itemName}.` : `${s.name} now enchants ${res.itemName}.`);
+  }
+
   // Clear the picker; if a workflow is parked awaiting damage, cancel it on the
   // executor so we never orphan a held workflow when the player backs out.
   #abandonAction() {
@@ -5513,6 +5579,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (s?.requestId) rpc.useActivityCancel({ requestId: s.requestId });
     this.#clearPreview();
     this.#actionState = null;
+    this.#enchantState = null;
     this.#itemPickerId = null;
     this.#detailCard = null;
     this.#detailStack = [];
@@ -5954,6 +6021,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#pmOpen = false; return this.render();
       case "pm-send":
         return this.#pmSendDraft();
+      case "enchant-back":
+        this.#enchantState = null; return this.render();
+      case "enchant-pick":
+        return this.#enchantApply(el.dataset.itemId);
       case "dtray-add": {
         const f = Number(el.dataset.faces);
         this.#dtrayPool[f] = (this.#dtrayPool[f] || 0) + 1;

@@ -75,6 +75,7 @@ export function initSocket() {
   socket.register("itemUseStart", handleItemUseStart);
   socket.register("itemUseDamage", handleItemUseDamage);
   socket.register("itemUseCancel", handleItemUseCancel);
+  socket.register("enchantApply", handleEnchantApply); // §28.6 phone enchant picker
   socket.register("moveRequest", handleMoveRequest);
   socket.register("setMovementAction", handleSetMovementAction);
   socket.register("attackPreview", handleAttackPreview);
@@ -1337,6 +1338,34 @@ async function handleItemUseDamage({ requestId }) {
     console.error(`${MODULE_ID} | rollDamage failed`, { item: wf.item?.name, actor: wf.actor?.name, error: e });
     return { ok: false, stage: "damage", reason: `damage errored on ${wf.actor?.name ?? "this PC"}: ${e.message}` };
   }
+}
+
+// §28.6 enchant activities from the phone (Flame Tongue etc. — 2024 magic items deliver via
+// enchant): dnd5e's own flow wants an item DROPPED on the chat card, which a phone can't do.
+// The shell's picker sends the choice here; dnd5e's applyEnchantment does the validation and
+// creation, and tapping an already-enchanted item removes the enchantment (the toggle).
+// Consumption is deliberately NOT charged — the common enchant items are free toggles; revisit
+// if a charged enchanter shows up (noted in DESIGN §28.6).
+async function handleEnchantApply({ activityUuid, profileId = null, itemId, remove = null, requesterId }) {
+  const refused = requireExecutor("preflight");
+  if (refused) return refused;
+  const activity = await fromUuid(activityUuid);
+  if (!activity) return { ok: false, stage: "resolve", reason: "activity not found" };
+  const actor = activity.item?.actor;
+  if (!requesterCanAct(requesterId, actor)) return { ok: false, stage: "permission", reason: "requester does not own the acting actor" };
+  const item = actor?.items.get(itemId);
+  if (!item) return { ok: false, stage: "resolve", reason: "item not found" };
+  if (remove) {
+    const eff = item.effects.get(remove);
+    if (!eff) return { ok: false, stage: "resolve", reason: "that enchantment is already gone" };
+    await eff.delete();
+    return { ok: true, removed: true, itemName: item.name };
+  }
+  const profile = profileId ?? activity.availableEnchantments?.[0]?._id;
+  if (!profile) return { ok: false, stage: "validate", reason: "this enchantment has no usable profile" };
+  const { result, captured } = await captureNotifications(() => activity.applyEnchantment(profile, item, { strict: true }));
+  if (!result) return { ok: false, stage: "apply", reason: captured.join("; ") || "the enchantment was refused" };
+  return { ok: true, itemName: item.name };
 }
 
 function handleItemUseCancel({ requestId }) {
@@ -2943,6 +2972,7 @@ function toExecutor(handler, payload) {
     const handlers = {
       itemUse: handleItemUse, itemUseStart: handleItemUseStart,
       itemUseDamage: handleItemUseDamage, itemUseCancel: handleItemUseCancel,
+      enchantApply: handleEnchantApply,
       moveRequest: handleMoveRequest, setMovementAction: handleSetMovementAction,
       attackPreview: handleAttackPreview,
       measure: handleMeasure, targetsList: handleTargetsList,
@@ -2976,6 +3006,7 @@ export const api = {
   useActivityStart: (payload) => toExecutor("itemUseStart", payload),
   useActivityDamage: (payload) => toExecutor("itemUseDamage", payload),
   useActivityCancel: (payload) => toExecutor("itemUseCancel", payload),
+  enchantApply: (payload) => toExecutor("enchantApply", payload), // §28.6 phone enchant picker
   moveToken: (payload) => toExecutor("moveRequest", payload),
   setMovementAction: (payload) => toExecutor("setMovementAction", payload),
   attackPreview: (payload) => toExecutor("attackPreview", payload),
