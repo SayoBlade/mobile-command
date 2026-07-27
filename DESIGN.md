@@ -2598,55 +2598,117 @@ one-word constant in dm-panel if the table rules otherwise.)
 
 ---
 
-## 31. Twist of Fate (DM-idea 2026-07-27, concept per Avantris Entertainment — SPEC APPROVED, unbuilt)
+## 31. Twists of Fate (PIVOTED 2026-07-27 — now the Crooked Moon book mechanic; DM decision)
 
-A player may reroll a d20 roll by accepting a roll on a table of afflictions. Concept credited
-to Avantris's homebrew; ALL table text is our own original writing (never copy theirs).
+**Pivot (DM 2026-07-27):** the original Avantris-style "reroll by accepting an affliction"
+design is SPLIT. The fate-manipulation half becomes THIS section, rebuilt to match the Crooked
+Moon book RAW. The affliction-table half becomes **§33 Chaotic Curses** — the 15 seed entries
+were approved in the same message ("if yours are in the same theme… add them to the list"),
+resolving the tone verdict; they fold into the curse table. The name collision is thereby
+solved: "Twist of Fate" now means only the book token.
 
-**DM decisions (locked 2026-07-27):**
-- UNLIMITED twists per roll — the DM-as-gate is the only limiter.
-- Chip short-description is PLAYER-READABLE; the DM flavors verbally on top.
-- Chip mark = ICON (twisted-arrows/tarot) + dashed outline on a normal condition chip — no new
-  palette color (UI-BIBLE §2.2 stays clean).
-- V1 is OUT-OF-COMBAT ONLY (no attack-workflow rewind; an automated save's outcome can simply
-  be adjusted by the DM after — "it doesn't need to be like a reaction").
-- Mechanical entries confined to 1–10 of the d100, bare minimum, all with a supernatural,
-  creepy feel (losses framed as transactions — something took/borrowed/reclaimed). 11–100 pure
-  RP. Effects carry any mechanics as SELF-REVERTING ActiveEffects only (temp-max-HP negative
-  for half HP, AC delta, midi disadvantage flags, sense removal) — base actor data is never
-  written.
+**The rule (book RAW, ch9):** a Twist of Fate is a token held indefinitely (lasts until
+expended). Once per turn, when a creature the holder can SEE makes an ability check, attack
+roll, or saving throw, the holder can expend one to **replace the d20 roll with a 1 or a 20**
+(holder's choice). Not a reroll — the die is declared, and it targets anyone visible (own
+save to 20, ally auto-crit, enemy save forced to 1). Balanced purely by scarcity: book sources
+are the Fateweaving Discovery touchpoint (1 each, ch13–17) and The Moon tarot card (3, after
+the ch12 boss). The DM may grant more at will.
 
-**Architecture (agreed in discussion):**
-- A twist = an ActiveEffect on the PC with a module flag (stacks naturally; renders in the
-  shell's condition strip with the fate mark; tap → detail card with the instruction; DM panel
-  gets per-chip ✕ + "clear all twists" — removal reverts everything).
-- The table = a real Foundry RollTable the module ships (editable; custom table via setting).
-- Panel flow, never automated: player twists → panel chip ("X twists fate — <roll context>") →
-  DM: [Roll on table] → shown entry → [Accept] / [Roll again] / [Pick instead…]. Only Accept
-  applies. Reroll leg v1: the chip landing is permission; phone re-fires checks/saves with
-  "fate twisted" flavor; attacks are out of scope (out-of-combat only anyway).
-- Build slices: (1) fate-mark effects + chips + DM roll/pick/accept/clear flow; (2) the phone
-  "twist" button on fresh out-of-combat rolls + the shipped d100.
+**Architecture:**
+- Twist count = a numeric module flag on the ACTOR (a counter, not stacked ActiveEffects — a
+  twist has no mechanical rider while held). Shell shows a chip with the tarot/twisted-arrows
+  mark + count; tap → detail card with the rule text and the [Twist fate] button.
+- Spend flow, panel-adjudicated (v1, in AND out of combat since nothing rewinds): player taps
+  Twist fate → picks **1 or 20** → optional target/context line ("the hag's save") → panel
+  chip "X twists fate: 20 → <context>". DM [Apply] decrements the counter and posts a public
+  fate-twist chat card (table theater — everyone should see fate snap); [Dismiss] refunds.
+  The DM applies the declared die to the roll by hand v1 — no midi workflow surgery.
+- DM panel (Crooked Moon tab, §35): per-PC counters with +/− grant/revoke.
+- v2 (backlog): midi hook that literally sets the next roll's d20 for the chosen creature so
+  automated saves/attacks resolve with the declared die.
 
-**Seed entries (15 samples sent 2026-07-27; TONE VERDICT PENDING from the DM — these seed the
-full original d100 once approved):**
-1–2 Hollowed — "Something is wearing part of you. Half your life is elsewhere until it gives
-  it back." (−50% max HP via temp-max)
-3–4 Unshelled — "Your skin forgets it is armor. Blades remember you fondly." (−2 AC)
-5–6 Palsied Hand — "Your left hand answers to someone else now. It rests only when watched."
-  (disadvantage on hand-based checks, DM adjudicates)
-7–8 Dimmed — "The dark took back its gift. It says you never thanked it." (darkvision removed)
-9–10 Cotton Ears — "All sound reaches you through six feet of earth. Someone down there is
-  listening with you." (hearing lost)
-11+ RP: Counted (count every door aloud) · Paranoia (one party member casts no reflection when
-  unwatched) · Wet Footprints (yours, wet, never quite where you stepped) · The Smell of Rain
-  (you smell rain before something bad happens — you smell it now) · Borrowed Voice (your
-  laugh belongs to someone older) · Candle Debt (flames bend toward you; light is collecting) ·
-  Second Shadow (arrives half a second late, getting later) · Salt Hunger (food tastes of
-  nothing unsalted) · The Polite Guest (must thank any room you leave) · Cold Seat (every
-  chair is already cold in the shape of a person).
-Full d100 plan: 1–10 the mechanical ladder above; 11–100 RP in variety batches — compulsions,
-perceptions, social curses, body-wrongness, debts-and-bargains.
+## 33. Chaotic Curses (DM-approved 2026-07-27 — spec'd with §31 pivot, unbuilt)
+
+Fleeting, RP-focused curses per the book's Appendix C: designed to last **15–30 REAL-WORLD
+minutes**, alter perception/behavior/appearance, and stay light on combat math. Book examples:
+button eyes on everyone you see, footsteps only you hear, 1d8 human teeth in every meal,
+whisper-only voice, grayscale vision, your d20s are secretly d12s.
+
+**Content & legal:** we NEVER ship the book's curse text. The module ships its OWN original
+d100 table — seeded by the approved 15 entries (mechanical ladder 1–10: Hollowed −50% max HP ·
+Unshelled −2 AC · Palsied Hand · Dimmed (darkvision gone) · Cotton Ears (hearing gone); RP 11+:
+Counted, Paranoia, Wet Footprints, The Smell of Rain, Borrowed Voice, Candle Debt, Second
+Shadow, Salt Hunger, The Polite Guest, Cold Seat), expanded to the full d100 in variety
+batches (compulsions, perceptions, social curses, body-wrongness, debts-and-bargains) — all
+our own writing. A **curse-table setting** (UUID) lets a DM who OWNS the-crooked-moon-2014
+point the flow at the book's 1d156 table (`MFPMY4JfgYwbN31l`) instead; their content stays in
+their module, none of it in ours.
+
+**Mechanics:**
+- A curse = self-reverting ActiveEffect with a module flag (mechanics only ever as effect
+  deltas — temp-max HP, AC delta, midi disadvantage flags, sense removal; base actor data
+  never written). Chip on the condition strip with the curse mark + dashed outline (per the
+  old §31 decision; UI-BIBLE rule to be added at build time); player-readable short text; tap
+  → detail card with remaining time.
+- **Real-time expiry** (the book's defining trait): expiry timestamp in the effect flag;
+  default 20 min, DM-adjustable per cast; the executor's heartbeat sweeps and auto-reverts
+  expired curses (survives reloads — the timestamp is data, not a timer object). Early ends:
+  DM ✕ per chip, clear-all, or (book suggestions, DM-manual) Heroic Inspiration spend / Remove
+  Curse / short rest.
+- DM flow (reused from the old §31 design, now on the Crooked Moon tab): [Roll on table] →
+  shown entry → [Accept] / [Roll again] / [Pick instead…]. Only Accept applies. Book's
+  suggested triggers listed as button-side hints: nat 1, combat end, long rest, cursed object,
+  location.
+- **Bargain mode (optional toggle, default OFF):** preserves the original Avantris concept as
+  a curse TRIGGER — a player may request a reroll at the price of a curse roll; same panel
+  flow, reroll permission = the Accept. (The DM's original idea survives as one of several
+  triggers rather than the system itself.)
+- Per-phone PERCEPTION deliveries (grayscale filter, footsteps audio, whisper lock) are what
+  the phone medium adds over paper — v1 ships text+mechanical only; client-effect keys per
+  entry are backlog (performance talk first, per the pets-audio lesson).
+
+## 34. Fateweaving (DM-requested write-up 2026-07-27 — spec'd, unbuilt)
+
+The book's per-PC story-arc system (ch9): each player picks one of **13 Threads of Fate** (no
+duplicates) — a personal destiny (Deliverance, Duality, Immortality, Malediction, Slaughter…)
+with its own margin symbol and recurring prop (soul compass that pulses toward a goal,
+doppelganger in mirrors, self-writing demonic tome, dream journal, a shadow offering games of
+chance…). Each thread has **6 touchpoints** at fixed chapter windows with FIXED rewards:
+1 Incitement (ch10/12) → Heroic Inspiration · 2 Connection (ch11) → friendly ally + Bless 24 h
+· 3 Discovery (ch13–17) → **one Twist of Fate (§31)** · 4 Confrontation (ch18–22) → +2 to an
+ability score (max 24) · 5 Climax (ch24) → a free feat · 6 Catharsis (epilogue) → narrative
+resolution. Touchpoints are deliberately check-free and un-missable.
+
+**Module v1 (a tracker, not automation):**
+- Per-PC thread assignment (actor flag; set from the Crooked Moon tab).
+- Tab shows a 6-step touchpoint row per PC; DM taps a step to mark it reached → the module
+  applies what it can mechanically: Incitement grants Heroic Inspiration; Connection applies a
+  24 h Bless-style effect (ally is DM-narrative); Discovery increments the §31 twist counter;
+  Confrontation/Climax post a reminder chip (ability +2 and feat are sheet-level advancements
+  the DM applies by hand — we don't write base actor data).
+- Player phone: a "thread" card — thread name, the PC's goal line, symbol, and completed
+  touchpoints only (future ones hidden; spoiler-safe).
+- Content note: we ship only short ORIGINAL summaries of thread names/goals; the book's thread
+  prose stays in the book. Thread PROPS as interactive phone widgets (compass/mirror/tome/
+  journal) = backlog, one per thread, best built against the DM's actual party picks.
+
+## 35. The Crooked Moon tab (DM-requested 2026-07-27 — spec'd, unbuilt)
+
+A campaign-tools tab on the **DM panel**, gated behind a module setting ("Campaign tools: The
+Crooked Moon", default OFF) so non-Crooked-Moon tables never see it. V1 residents:
+- **Séance board** launch (§30) — moves in from wherever it currently lives.
+- **Twists of Fate** (§31): per-PC counters, grant/revoke, pending spend chips.
+- **Chaotic Curses** (§33): roll/pick/accept flow + active-curse list with countdowns + ✕.
+- **Fateweaving** (§34): thread assignment + touchpoint rows.
+- Future residents (from §32's shortlist): Fated Tarot draw, Druskenvald clock.
+Player side: NO new tab v1 — the shell already carries the chips (twist counter, curse chips,
+thread card in the character area). UI-BIBLE needs a section for the campaign tab + the twist/
+curse marks BEFORE building (bible-first, per CLAUDE.md).
+
+**Build order (slices):** A) tab shell + setting gate + séance relocation → B) twists
+(counter, chips, spend/apply flow) → C) curses (effects + real-time expiry + DM flow + the
+original d100 in batches) → D) fateweaving tracker. Each slice ships/commits separately.
 
 ## 32. Crooked Moon special-effects idea board (mined from the installed book 2026-07-27 — IDEAS, nothing approved)
 
@@ -2738,5 +2800,5 @@ already ship; recurs all campaign; feeds §31) → Chaotic Curses (near-free on 
 ch10 pack (ticket, haint meter, soul cans, crash/moon — if the party is pre-Express) →
 secret-confession gate (cheap, phone-native) → Druskenvald clock + clocktower. The audio-heavy
 ideas (directional caws, room-wide loops) need the performance-cost talk first (modest
-machine). OPEN QUESTION for the DM: where is the party now, and which 2–3 of these get built
-first?
+machine). RESOLVED 2026-07-27: campaign not started yet (no chapter urgency) — the DM chose
+the suite now spec'd as §31/§33/§34/§35; tarot + clock remain the top future residents.
