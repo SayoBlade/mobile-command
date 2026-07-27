@@ -245,6 +245,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #suppressClick = false; // a long-press fired → swallow the trailing click so the row doesn't also act
   #moveMode = null;       // chosen travel type (walk/fly/swim/climb/burrow); null → effective default
   #movePickerOpen = false; // character card: the travel-type picker is expanded
+  #twistOpen = false;     // §31 Twist of Fate: the spend panel under the condition strip
+  #twistDie = 20;         // the declared die (1 or 20) — 20 is the overwhelmingly common pick
+  #twistNote = "";        // "whose roll" context draft, kept across re-renders
   #moveBudget = null;     // last D-pad move readout { text, cls } — persisted so a combat
                           //   re-render doesn't wipe the counter (it lived only in the DOM)
   #collapsedActionGroups = new Set(); // Actions tab: accordion groups the user/use closed
@@ -510,6 +513,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const isEconEffect = (e) => e.changes?.some?.(c => c.key?.startsWith("flags.midi-qol.actions"));
     const econ = this.#actionEconomy(actor);
     const actionChip = (econ.inCombat && !econ.action) ? `<span class="mc-chip mc-chip-used">Action used</span>` : "";
+    // §31 Twists of Fate (Crooked Moon): a held-token counter chip — dashed outline + the
+    // crossed-arrows mark per the locked chip spec. Tap opens the spend panel; while a spend
+    // waits on the DM the chip glows. Rendered only when the DM has granted any (or one is
+    // in flight), so non-CM tables never see it.
+    const twists = Number(actor.getFlag(MODULE_ID, "twists") ?? 0);
+    const twistPending = actor.getFlag(MODULE_ID, "twistPending");
+    const twistChip = (twists > 0 || twistPending)
+      ? `<span class="mc-chip mc-chip-tap mc-twist-chip ${twistPending ? "mc-twist-waiting" : ""}" data-action="twist-open" title="Twist of Fate — tap to spend">
+          <i class="fas fa-shuffle"></i>Twist of Fate${twists > 1 ? `<span class="mc-chip-mult">×${twists}</span>` : ""}</span>`
+      : "";
     // Every effect-backed chip is long-pressable for its detail (#showEffectDetails
     // picks rules reference → own description → change summary). The synthetic
     // "Action used" chip has no backing effect, so it isn't pressable.
@@ -518,7 +531,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const condsHTML = effGroups.map(({ e, count }) =>
       `<span class="mc-chip mc-chip-tap${isEconEffect(e) ? " mc-chip-used" : ""}" data-action="cond-open" data-detail="cond" data-effect-id="${e.id}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}${count > 1 ? `<span class="mc-chip-mult">×${count}</span>` : ""}</span>`
     ).join("");
-    const condHTML = (actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
+    const condHTML = (twistChip + actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
 
     // B7: HP & temp are tap-to-edit. Tapping opens a roomy editor row with
     // on-screen − / + / Set so it works on the iOS numeric keypad (which has no
@@ -560,6 +573,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <button class="mc-cond-manage ${this.#condEditing ? "mc-on" : ""}" data-action="cond-edit" aria-label="Manage conditions" title="Add or remove conditions"><i class="fas fa-plus"></i></button>
       </div>
       ${this.#condEditing && !this.#detailCard ? this.#conditionPaletteHTML(actor) : ""}
+      ${this.#twistOpen && !this.#detailCard ? this.#twistPanelHTML(actor) : ""}
       ${this.#diceTrayOpen ? this.#diceTrayHTML() : ""}
       ${this.#atZeroHP(actor) && this.#deathSaveDismissed
         ? `<button class="mc-death-reopen" data-action="death-reopen"><i class="fas fa-skull"></i> At 0 HP — death saves</button>` : ""}
@@ -4394,6 +4408,56 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     </div>`;
   }
 
+  // §31 Twist of Fate — the spend panel (inline under the condition strip, like the condition
+  // palette; phone inputs stay inline per the house rule). Book RAW: once per turn, when a
+  // creature you can SEE makes an ability check, attack roll, or saving throw, expend one to
+  // replace the d20 with a 1 or a 20. The spend is a REQUEST: it writes twistPending on the
+  // actor (owner-writable) and the DM's panel applies or refunds — nothing rewinds on its own.
+  #twistPanelHTML(actor) {
+    const esc = foundry.utils.escapeHTML;
+    const n = Number(actor.getFlag(MODULE_ID, "twists") ?? 0);
+    const pending = actor.getFlag(MODULE_ID, "twistPending");
+    let body;
+    if (pending) {
+      body = `
+        <div class="mc-twist-wait"><i class="fas fa-shuffle"></i>
+          You twist fate — a <b>natural ${pending.die === 1 ? "1" : "20"}</b>${pending.note ? ` <span class="mc-twist-waitnote">(${esc(pending.note)})</span>` : ""}.
+          The DM holds the thread.</div>
+        <button class="mc-twist-withdraw" data-action="twist-withdraw"><i class="fas fa-rotate-left"></i> Withdraw</button>`;
+    } else if (n <= 0) {
+      body = `<div class="mc-twist-none">Fate owes you nothing right now.</div>`;
+    } else {
+      body = `
+        <div class="mc-twist-dies">
+          <button class="mc-twist-die ${this.#twistDie === 20 ? "mc-on" : ""}" data-action="twist-die" data-die="20"><span class="mc-twist-die-num">20</span><span class="mc-twist-die-sub">triumph</span></button>
+          <button class="mc-twist-die mc-twist-die-1 ${this.#twistDie === 1 ? "mc-on" : ""}" data-action="twist-die" data-die="1"><span class="mc-twist-die-num">1</span><span class="mc-twist-die-sub">ruin</span></button>
+        </div>
+        <input type="text" class="mc-twist-note" maxlength="80" placeholder="Whose roll? (say it aloud too)" value="${esc(this.#twistNote)}" autocomplete="off" enterkeyhint="send">
+        <button class="mc-twist-send" data-action="twist-send"><i class="fas fa-shuffle"></i> Twist Fate</button>`;
+    }
+    return `<div class="mc-cond-panel mc-twist-panel">
+      <div class="mc-cond-panel-head">
+        <span>Twist of Fate ${n > 0 ? `<span class="mc-twist-count">×${n}</span>` : ""}</span>
+        <button class="mc-cond-close" data-action="twist-open" aria-label="Close"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="mc-twist-rule">Once per turn, when a creature you can see makes an ability check,
+        attack roll, or saving throw, spend a twist to replace the d20 with a natural 1 or 20.</div>
+      ${body}
+    </div>`;
+  }
+
+  // §31: the spend request / its withdrawal (async pair — #onClick itself is not async).
+  async #twistSend(actor) {
+    if (Number(actor.getFlag(MODULE_ID, "twists") ?? 0) <= 0) return;
+    await actor.setFlag(MODULE_ID, "twistPending", { die: this.#twistDie, note: this.#twistNote.trim().slice(0, 80), ts: Date.now() });
+    this.#twistNote = "";
+    this.render();
+  }
+  async #twistWithdraw(actor) {
+    await actor.unsetFlag(MODULE_ID, "twistPending");
+    this.render();
+  }
+
   // Turn HUD (§7.4): shows the current combatant; End turn routes to the
   // executor (nextTurn is GM-side) and is enabled on ANY of the user's turns.
   #turnHudHTML() {
@@ -6101,6 +6165,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#showEffectDetails(el.dataset.effectId);
       case "cond-edit":
         this.#condEditing = !this.#condEditing; return this.render();
+      // §31 Twist of Fate: open/choose/send/withdraw. The send writes twistPending on the
+      // actor; the DM's panel is the only thing that spends or refunds the token.
+      case "twist-open":
+        this.#twistOpen = !this.#twistOpen; return this.render();
+      case "twist-die":
+        this.#twistDie = Number(el.dataset.die) === 1 ? 1 : 20; return this.render();
+      case "twist-send": return this.#twistSend(actor);
+      case "twist-withdraw": return this.#twistWithdraw(actor);
       case "toggle-levels":
         this.#showLevels = !this.#showLevels; this.#levelUp = null; return this.render();
       case "level-up-open": return this.#openLevelUp();
@@ -7195,6 +7267,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       this.#journalDraft = t.value; // entry textarea OR the new-page title input
     } else if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-pm-input")) {
       this.#pmDraft = t.value; // §27: keep the message draft across re-renders (no focus steal)
+    } else if (t instanceof HTMLInputElement && t.classList.contains("mc-twist-note")) {
+      this.#twistNote = t.value; // §31: keep the "whose roll" draft across re-renders
     } else if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-bio-edit")) {
       this.#bioDraft = t.value; // keep the bio draft across re-renders (no focus steal)
     } else if (t instanceof HTMLInputElement && t.classList.contains("mc-bio-filter")) {

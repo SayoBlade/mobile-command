@@ -398,18 +398,28 @@ function fxPlayerBody() {
   if (!players.length) return `<div class="mc-dmp-empty">No players.</div>`;
   if (!fxPlayer || !players.some(u => u.id === fxPlayer)) fxPlayer = players[0].id;
   const u = game.users.get(fxPlayer);
-  const opts = players.map(p => `<option value="${p.id}" ${p.id === fxPlayer ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+  // WHO is under an effect must be visible without cycling the picker (DM 2026-07-28: a
+  // heartbeat left on Player 1 in an earlier session read as "stuck" — with another player
+  // selected every button showed off and taps targeted the wrong user). ● marks a target in
+  // the dropdown; the stop-all is the guaranteed off switch (§8.1 energy).
+  const playerFxIds = FX_TABS.player.filter(id => FX_DEFS[id].player === "state");
+  const hasFx = (uid) => playerFxIds.some(id => fxIsOnFor(id, uid));
+  const opts = players.map(p => `<option value="${p.id}" ${p.id === fxPlayer ? "selected" : ""}>${hasFx(p.id) ? "● " : ""}${esc(p.name)}</option>`).join("");
   const btn = (id) => {
     const d = FX_DEFS[id];
     if (d.player === "shot") return `<button class="mc-fx-btn" data-fxp-shot="${id}" title="${d.hint}"><i class="fas ${d.icon}"></i><span>${d.label}</span></button>`;
     return `<button class="mc-fx-btn ${fxIsOnFor(id, fxPlayer) ? "mc-on" : ""}" data-fxp="${id}" title="${d.hint}"><i class="fas ${d.icon}"></i><span>${d.label}</span></button>`;
   };
+  const anyOn = players.some(p => hasFx(p.id));
+  const stopAll = anyOn
+    ? `<button class="mc-dmp-earbulk" data-fxp-stopall title="End every per-player effect on every player"><i class="fas fa-heart-crack"></i> Stop all player effects</button>`
+    : "";
   return `
     <div class="mc-dmp-tok-top">
       <i class="fas fa-circle-user mc-nt-ico" style="color:${u.color?.css ?? "var(--mc-gold)"}"></i>
       <select class="mc-dmp-tok-player" data-fx-player>${opts}</select>
     </div>
-    <div class="mc-fx-grid">${FX_TABS.player.map(btn).join("")}</div>`;
+    <div class="mc-fx-grid">${FX_TABS.player.map(btn).join("")}</div>${stopAll}`;
 }
 
 // --- Floor camera strip (§25 2b): only the reflexive controls — Focus, Manual, and a shortcut into
@@ -463,9 +473,39 @@ function cmToolsOn() {
 }
 function crookedTabHTML() {
   return `<div class="mc-dmp-tabfill"><div class="mc-dmp-tabmid">
+    ${dtDrawer("cmTwists", "Twists of fate", "", twistsBody())}
     ${dtDrawer("cmBoard", "All aboard", "", allAboardBody())}
     ${dtDrawer("fxSeance", "Séance", "", seanceBody())}
   </div></div>`;
+}
+
+// §31 Twists of Fate: per-PC counters (grant/revoke) + the pending-spend chips. A twist is a
+// held token — once per turn the holder declares any visible creature's d20 a natural 1 or 20.
+// The player's phone writes twistPending on their actor; ONLY Apply here spends the token
+// (and posts the public fate card — the whole table should see fate snap). ✕ refunds.
+function twistsBody() {
+  const esc = foundry.utils.escapeHTML;
+  const pcs = scenePcs();
+  const rows = pcs.map(a => {
+    const n = Number(a.getFlag(MODULE_ID, "twists") ?? 0);
+    return `<div class="mc-cmb-row">
+      <div class="mc-seance-pc mc-twist-pcrow"><i class="fas fa-circle-user" style="color:${pcColor(a)}"></i><span>${esc(a.name)}</span></div>
+      <button class="mc-cmb-ticket" data-twist-adj="${a.id}:-1" ${n > 0 ? "" : "disabled"} title="Take a twist back">−</button>
+      <span class="mc-twist-n ${n ? "mc-on" : ""}">${n}</span>
+      <button class="mc-cmb-ticket" data-twist-adj="${a.id}:1" title="Grant ${esc(a.name)} a Twist of Fate">+</button>
+    </div>`;
+  }).join("");
+  const pending = pcs.filter(a => a.getFlag(MODULE_ID, "twistPending"));
+  const chips = pending.map(a => {
+    const p = a.getFlag(MODULE_ID, "twistPending");
+    return `<div class="mc-twist-req">
+      <div class="mc-twist-reqtext"><i class="fas fa-shuffle"></i> <b>${esc(a.name)}</b> twists fate —
+        natural <b>${p.die === 1 ? "1" : "20"}</b>${p.note ? ` · <i>${esc(p.note)}</i>` : ""}</div>
+      <button class="mc-cmb-ticket mc-on" data-twist-apply="${a.id}" title="Fate snaps — spend the twist, tell the table"><i class="fas fa-check"></i></button>
+      <button class="mc-cmb-ticket" data-twist-dismiss="${a.id}" title="Refund — the twist is kept, nothing happens"><i class="fas fa-xmark"></i></button>
+    </div>`;
+  }).join("");
+  return `${chips}<div class="mc-seance-party">${rows || `<div class="mc-dmp-empty">No player characters.</div>`}</div>`;
 }
 
 // PC roster, scene-scoped per UI-BIBLE §6.6 — shared by the séance sitters and the boarding
@@ -3187,6 +3227,41 @@ async function onClick(ev) {
   if (fxpShot) { dmFireFx(fxpShot.dataset.fxpShot, { users: [fxPlayer] }); return; }
   const fxpBtn = ev.target.closest("[data-fxp]");
   if (fxpBtn) { await dmToggleFxFor(fxpBtn.dataset.fxp, fxPlayer); return render(); }
+  // §26.6 stop-all: clear every per-player state fx for every player in one tap.
+  if (ev.target.closest("[data-fxp-stopall]")) {
+    const cur = { ...fxActiveMap() };
+    for (const [id, d] of Object.entries(FX_DEFS)) if (d.player === "state") delete cur[id];
+    await game.settings.set(MODULE_ID, "fxActive", cur);
+    return render();
+  }
+  // §31 Twists of Fate: grant/revoke counters; Apply spends a pending twist and posts the
+  // PUBLIC fate card; Dismiss refunds (pending cleared, token kept).
+  const tAdj = ev.target.closest("[data-twist-adj]");
+  if (tAdj) {
+    const [aid, d] = tAdj.dataset.twistAdj.split(":");
+    const a = game.actors.get(aid);
+    if (a) await a.setFlag(MODULE_ID, "twists", Math.max(0, Number(a.getFlag(MODULE_ID, "twists") ?? 0) + Number(d)));
+    return render();
+  }
+  const tApply = ev.target.closest("[data-twist-apply]");
+  if (tApply) {
+    const a = game.actors.get(tApply.dataset.twistApply);
+    const p = a?.getFlag(MODULE_ID, "twistPending");
+    if (a && p) {
+      await a.setFlag(MODULE_ID, "twists", Math.max(0, Number(a.getFlag(MODULE_ID, "twists") ?? 0) - 1));
+      await a.unsetFlag(MODULE_ID, "twistPending");
+      await ChatMessage.create({
+        speaker: { alias: "Fate" },
+        content: `<p><b>${foundry.utils.escapeHTML(a.name)}</b> twists fate — the die comes up a <b>natural ${p.die === 1 ? "1" : "20"}</b>${p.note ? ` <em>(${foundry.utils.escapeHTML(p.note)})</em>` : ""}.</p>`
+      });
+    }
+    return render();
+  }
+  const tDismiss = ev.target.closest("[data-twist-dismiss]");
+  if (tDismiss) {
+    await game.actors.get(tDismiss.dataset.twistDismiss)?.unsetFlag(MODULE_ID, "twistPending");
+    return render();
+  }
   // §36 All aboard: introduce one PC on the display (tapping again takes the card down;
   // introducing also raises the station — one tap, not two).
   const cmIntro = ev.target.closest("[data-cm-intro]");
@@ -3739,6 +3814,7 @@ export function registerDMPanel() {
   Hooks.on("mobile-command.presence", () => render());             // away-timer: a phone reported fg/bg
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.downtimeState`) render(); }); // §17.7: activities/window changed
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive` && (dockTab === "effects" || dockTab === "crooked")) render(); }); // §26/§35: fx toggles follow the world state (séance lives on the Crooked Moon tab)
+  Hooks.on("updateActor", (_a, ch) => { if (dockTab === "crooked" && ch.flags?.[MODULE_ID]) render(); }); // §31: a phone's twist spend/withdraw lands as a chip live
   Hooks.on("createChatMessage", (m) => { if (dockTab === "party" && dmMsgOpen && pmIsPersonal(m)) render(); }); // §27: a player reply extends the open thread
   // Away-timer tick: the red escalation crosses the threshold with no event to fire it, so
   // while any player is backgrounded, re-render every 5s to update "away Ns" and flip to red.

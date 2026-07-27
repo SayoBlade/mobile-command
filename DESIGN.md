@@ -2296,6 +2296,30 @@ picker in the §3 roster shape + heartbeat/woozy toggles, static shot).
 - **Surround thunder** (idea 15) — phones as a distributed speaker array, thunder rolling
   seat-by-seat around the table; needs a one-time seating order. Parked, explicitly keep.
 
+**"Stuck heartbeat" fix (DM 2026-07-28, BUILT):** a heartbeat left on Player 1 in an earlier
+session read as unstoppable — the Player drawer shows/toggles ONLY the selected player, so
+with another player selected every button read off and taps targeted the wrong user, while
+the fxActive entry (persistent by design) kept beating. Fix: **● marks any player holding an
+active per-player effect** in the picker, and a **"Stop all player effects"** button appears
+whenever any exist — the guaranteed off switch (§8.1's spirit applied to fx state).
+
+### 26.7 Deathbeat — the heartbeat IS the death saves (DM-idea 2026-07-28, BUILT + bench-verified)
+
+"Use the heartbeat effect for death saves, slow down the heartbeat on each fail till it stops
+at death." While YOUR character lies dying, your phone beats on its own — no DM tap, no
+fxActive entry (automatic + local, so it can never be left stuck like a manual toggle):
+- 0 failures → beat every **1050 ms** at full strength · 1 failure → **1500 ms**, 0.8× audio ·
+  2 failures → **2100 ms**, 0.6× · **third failure or the dead status → stops MID-RHYTHM** —
+  the silence is the effect. Stabilizing (3 successes) or any healing ends it too.
+- The red vignette pulse slows with the beat (inline `animation-duration` follows the rate);
+  each rate change lands a beat IMMEDIATELY so the slowdown is felt, not inferred.
+- Runs on every client of the owning non-GM user (`game.user.character`); triggers on
+  updateActor + ActiveEffect create/delete (dead status arrives as an effect) + ready
+  (rejoining mid-death resumes the beat). A DM-toggled steady heartbeat YIELDS while the
+  deathbeat runs and resumes after (`syncFx` guard) — never two rhythms in one chest.
+- Bench (two clients, 2026-07-28): 0 HP → 1050 ms auto-start; failures 1/2 → 1500/2100 ms;
+  failure 3 → element gone; heal + reset → stays silent.
+
 ---
 
 ## 28. Combat hardening — the 2026-07-26 bug wave (DM report, 7 bugs → BUILT)
@@ -2652,6 +2676,17 @@ the ch12 boss). The DM may grant more at will.
 - DM panel (Crooked Moon tab, §35): per-PC counters with +/− grant/revoke.
 - v2 (backlog): midi hook that literally sets the next roll's d20 for the chosen creature so
   automated saves/attacks resolve with the declared die.
+
+**Slice B BUILT + bench-verified 2026-07-28.** Shell: dashed chip (crossed-arrows mark, ×N,
+pulses while a spend waits) → inline spend panel under the condition strip (rule text, big
+20-triumph / 1-ruin pick, "whose roll" inline input with a re-render-proof draft, Twist Fate
+send, Withdraw while pending). Spend = `twistPending` flag on the actor (owner-writable);
+count = `twists` flag. Panel: "Twists of fate" drawer — per-PC ± counters + pending request
+chips with Apply (decrements, clears, posts the PUBLIC "Fate" chat card) / ✕ (refund).
+`updateActor` hook lands phone spends on the open tab live. Bench: grant ×2 → chip → panel →
+die 1 + note "the hag's save" → pending chip on panel → Apply → count 1, public Fate card,
+phone back to idle. NB: shell's `#onClick` is NOT async — async twist work lives in
+`#twistSend`/`#twistWithdraw` (an inline `await` broke the class parse).
 
 ## 33. Chaotic Curses (DM-approved 2026-07-27 — spec'd with §31 pivot, unbuilt)
 
