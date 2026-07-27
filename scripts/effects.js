@@ -570,38 +570,42 @@ function stopLoop(id) {
 
 // These run on the TARGETED user's client (any device they're logged in on) — DOM overlays,
 // a private audio pulse, vibration. Private theatre: the rest of the table sees nothing.
+// One beat — vibration + the lub-dub, shared by the DM-fired heartbeat and the deathbeat.
+// `strength` scales the audio only; the vibration pattern stays (a weak buzz reads as broken).
+function heartBeatOnce(strength = 1) {
+  try { navigator.vibrate?.([70, 110, 50]); } catch (e) { /* not supported */ }
+  const out = audioOut();
+  if (!out) return;
+  const { ctx, dest } = out;
+  const t0 = ctx.currentTime;
+  for (const [at, lvl] of [[0, 0.5 * strength], [0.22, 0.32 * strength]]) { // lub … dub
+    // Two layers per beat: the 55Hz body (chest weight on speakers that reach it) and a
+    // 165Hz triangle "knock" — PHONE speakers roll off below ~200Hz and would render the
+    // sine alone as silence (the thunder-pop lesson, applied where it bites hardest).
+    const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = 55;
+    const g = ctx.createGain(); g.gain.value = 0;
+    o.connect(g).connect(dest);
+    g.gain.setValueAtTime(0, t0 + at);
+    g.gain.linearRampToValueAtTime(lvl, t0 + at + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + at + 0.16);
+    o.start(t0 + at); o.stop(t0 + at + 0.25);
+    const k = ctx.createOscillator(); k.type = "triangle"; k.frequency.value = 165;
+    const kg = ctx.createGain(); kg.gain.value = 0;
+    k.connect(kg).connect(dest);
+    kg.gain.setValueAtTime(0, t0 + at);
+    kg.gain.linearRampToValueAtTime(lvl * 0.45, t0 + at + 0.015);
+    kg.gain.exponentialRampToValueAtTime(0.001, t0 + at + 0.11);
+    k.start(t0 + at); k.stop(t0 + at + 0.18);
+  }
+}
+
 const PHONE_FX = {
   heartbeat: {
     start() {
       const d = document.createElement("div");
       d.className = "mc-fxp-heart";
       document.body.appendChild(d);
-      const beat = setInterval(() => {
-        try { navigator.vibrate?.([70, 110, 50]); } catch (e) { /* not supported */ }
-        const out = audioOut();
-        if (!out) return;
-        const { ctx, dest } = out;
-        const t0 = ctx.currentTime;
-        for (const [at, lvl] of [[0, 0.5], [0.22, 0.32]]) { // lub … dub
-          // Two layers per beat: the 55Hz body (chest weight on speakers that reach it) and a
-          // 165Hz triangle "knock" — PHONE speakers roll off below ~200Hz and would render the
-          // sine alone as silence (the thunder-pop lesson, applied where it bites hardest).
-          const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = 55;
-          const g = ctx.createGain(); g.gain.value = 0;
-          o.connect(g).connect(dest);
-          g.gain.setValueAtTime(0, t0 + at);
-          g.gain.linearRampToValueAtTime(lvl, t0 + at + 0.02);
-          g.gain.exponentialRampToValueAtTime(0.001, t0 + at + 0.16);
-          o.start(t0 + at); o.stop(t0 + at + 0.25);
-          const k = ctx.createOscillator(); k.type = "triangle"; k.frequency.value = 165;
-          const kg = ctx.createGain(); kg.gain.value = 0;
-          k.connect(kg).connect(dest);
-          kg.gain.setValueAtTime(0, t0 + at);
-          kg.gain.linearRampToValueAtTime(lvl * 0.45, t0 + at + 0.015);
-          kg.gain.exponentialRampToValueAtTime(0.001, t0 + at + 0.11);
-          k.start(t0 + at); k.stop(t0 + at + 0.18);
-        }
-      }, 1000);
+      const beat = setInterval(() => heartBeatOnce(1), 1000);
       return { el: d, beat };
     },
     stop(h) { clearInterval(h.beat); try { h.el.remove(); } catch (e) { /* gone */ } }
@@ -619,6 +623,53 @@ const PHONE_FX = {
 };
 
 const activePhoneFx = new Map(); // fx id -> start() handle
+
+/* -------------------------------------------- */
+/*  Deathbeat — the heartbeat IS the death saves */
+/* -------------------------------------------- */
+
+// (DM 2026-07-28) While YOUR character lies dying, your phone beats on its own — no DM tap.
+// Each death-save FAILURE slows and weakens the beat; the third failure (or the dead status)
+// stops it MID-RHYTHM — the silence is the effect. Stabilizing (3 successes) or any healing
+// ends it gently. Runs on every client of the owning (non-GM) user; automatic and local, so
+// it needs no fxActive entry and can't be left stuck like a manual toggle.
+const DEATHBEAT_RATE = [1050, 1500, 2100];   // ms between beats at 0 / 1 / 2 failures
+const DEATHBEAT_STRENGTH = [1, 0.8, 0.6];    // the audio fades as the body gives up
+let deathbeat = null; // { el, timer, rate }
+
+function deathbeatEval() {
+  const a = game.user?.character;
+  const attrs = a?.system?.attributes;
+  const dying = !!a && !game.user.isGM
+    && (attrs?.hp?.value ?? 1) <= 0
+    && (attrs?.death?.failure ?? 0) < 3
+    && (attrs?.death?.success ?? 0) < 3
+    && !a.statuses?.has?.("dead");
+  if (!dying) { deathbeatStop(); return; }
+  const f = Math.min(attrs.death?.failure ?? 0, 2);
+  if (!deathbeat) {
+    const el = document.createElement("div");
+    el.className = "mc-fxp-heart";
+    document.body.appendChild(el);
+    deathbeat = { el, timer: null, rate: 0 };
+    syncFx(); // a DM-toggled steady heartbeat yields while the deathbeat owns the chest
+  }
+  const rate = DEATHBEAT_RATE[f];
+  if (deathbeat.rate !== rate) {
+    deathbeat.rate = rate;
+    deathbeat.el.style.animationDuration = `${rate}ms`; // the red pulse slows with the beat
+    clearInterval(deathbeat.timer);
+    heartBeatOnce(DEATHBEAT_STRENGTH[f]); // the new, slower rhythm lands NOW, not a beat late
+    deathbeat.timer = setInterval(() => heartBeatOnce(DEATHBEAT_STRENGTH[Math.min(game.user?.character?.system?.attributes?.death?.failure ?? 0, 2)]), rate);
+  }
+}
+function deathbeatStop() {
+  if (!deathbeat) return;
+  clearInterval(deathbeat.timer);
+  try { deathbeat.el.remove(); } catch (e) { /* gone */ }
+  deathbeat = null;
+  syncFx(); // hand the chest back to the manual heartbeat if the DM still wants it
+}
 
 /* -------------------------------------------- */
 /*  Rolling storm — the executor is the sky      */
@@ -654,7 +705,9 @@ export function syncFx() {
       else stopLoop(id);
     }
     if (def.player === "state") {
-      const on = fxTargets(id).includes(game.user.id);
+      // The deathbeat owns the chest while it runs — a DM-toggled steady heartbeat would
+      // double up over the dying rhythm (its fxActive entry survives; it resumes after).
+      const on = fxTargets(id).includes(game.user.id) && !(id === "heartbeat" && deathbeat);
       const h = activePhoneFx.get(id);
       if (on && !h) activePhoneFx.set(id, PHONE_FX[id].start());
       else if (!on && h) { activePhoneFx.delete(id); PHONE_FX[id].stop(h); }
@@ -674,6 +727,13 @@ export function registerFxEngine() {
   catch (e) { console.warn(`${MODULE_ID} | could not register fxOneShot`, e); }
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive`) syncFx(); });
   Hooks.on("canvasReady", () => syncFx()); // remount whatever fxActive still wants
+  // Deathbeat triggers: my character's HP / death-save counters, and the dead status
+  // (which arrives as an ActiveEffect, not an actor update).
+  Hooks.on("updateActor", (a) => { if (a.id === game.user?.character?.id) deathbeatEval(); });
+  Hooks.on("createActiveEffect", (e) => { if (e.parent?.id === game.user?.character?.id) deathbeatEval(); });
+  Hooks.on("deleteActiveEffect", (e) => { if (e.parent?.id === game.user?.character?.id) deathbeatEval(); });
+  Hooks.on("ready", () => deathbeatEval()); // rejoin mid-death: the beat resumes where the body is
+  deathbeatEval();
   Hooks.on("canvasTearDown", () => {
     // REALLY unmount — don't just forget. canvas.environment and canvas.stage are persistent
     // groups that survive a re-draw, and a WEATHER change is itself a full canvas.draw()
