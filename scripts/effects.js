@@ -146,12 +146,12 @@ export function dmFireFx(id, extra = {}) {
 /*  One-shots                                   */
 /* -------------------------------------------- */
 
-export function handleFxOneShot({ id, users, soft, text } = {}) {
+export function handleFxOneShot({ id, users, soft, text, level } = {}) {
   // A targeted one-shot names its audience; everyone else drops it silently.
   if (Array.isArray(users) && users.length && !users.includes(game.user.id)) return;
   if (id === "lightning") lightningLocal(!!soft);
   else if (id === "bell") bellLocal();
-  else if (id === "static") staticLocal();
+  else if (id === "static") staticLocal(level);
   else if (id === "seancePhrase") seancePhrase(text); // no-op on clients without the board
 }
 
@@ -180,11 +180,18 @@ function bellLocal() {
   if (!isPhoneClient()) playBell();
 }
 
-// Cursed static: a half-second glitch overlay + a crackle burst + a vibration stutter.
-// Targeted at one player's phone; plays wherever that user is logged in.
-function staticLocal() {
-  overlayShot("mc-fx-static", 900);
-  try { navigator.vibrate?.([40, 30, 80, 30, 40]); } catch (e) { /* not supported */ }
+// Cursed static: a glitch overlay + a crackle burst + a vibration stutter. Targeted at one
+// player's phone; plays wherever that user is logged in. `level` (0..1) scales EVERYTHING —
+// the séance's escalating damage (§30.1) starts it "very weak" and grows it with the die;
+// the standalone Player-drawer shot fires at a solid mid-strength.
+function staticLocal(level = 0.65) {
+  const k = Math.max(0.1, Math.min(1, Number(level) || 0.65));
+  const d = overlayShot("mc-fx-static", 400 + 900 * k);
+  // the keyframes multiply their opacities by --fxk (an inline `opacity` would be
+  // overridden by the running animation)
+  d.style.setProperty("--fxk", String(0.3 + 0.7 * k));
+  d.style.animationDuration = `${0.35 + 0.65 * k}s`;
+  try { navigator.vibrate?.(k < 0.35 ? [30] : k < 0.7 ? [40, 30, 80] : [40, 30, 80, 30, 40]); } catch (e) { /* not supported */ }
   const out = audioOut();
   if (!out) return;
   const { ctx, dest } = out;
@@ -193,9 +200,10 @@ function staticLocal() {
   const g = ctx.createGain(); g.gain.value = 0;
   src.connect(hp).connect(g).connect(dest);
   const t0 = ctx.currentTime;
-  // three ragged spikes, not a smooth burst — broken-signal, not wind
-  for (const [at, lvl] of [[0, 0.30], [0.16, 0.18], [0.34, 0.26]]) {
-    g.gain.setValueAtTime(lvl, t0 + at);
+  // ragged spikes, not a smooth burst — broken-signal, not wind; count grows with level
+  const spikes = [[0, 0.30], [0.16, 0.18], [0.34, 0.26]].slice(0, k < 0.35 ? 1 : k < 0.7 ? 2 : 3);
+  for (const [at, lvl] of spikes) {
+    g.gain.setValueAtTime(lvl * k, t0 + at);
     g.gain.exponentialRampToValueAtTime(0.004, t0 + at + 0.11);
   }
   src.start(t0); src.stop(t0 + 0.6);

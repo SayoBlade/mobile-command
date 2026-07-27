@@ -55,6 +55,53 @@ function eligible() {
   return !isPhoneClient() && (isDisplayClient() || game.user?.isGM);
 }
 
+// ── the scrape (§26.2 house rule: synthesized, nothing licensed) ─────────────
+// Wood dragging on wood: a narrow noise band whose GAIN follows the planchette's actual
+// speed — silent at rest and during holds, a faint grainy drag while it travels. The
+// granular wobble (random gain kicks every ~90ms) is what makes it scrape, not hiss.
+// (Tiny local copy of effects.js's audio helpers — importing them would close an
+// effects⇄seance module cycle, which this codebase deliberately avoids.)
+let scrape = null; // { ctx, g, wobbleIv, src } | null
+function audioOut() {
+  const a = game.audio;
+  if (!a || a.locked || !a.environment?.gainNode) return null;
+  return { ctx: a.environment, dest: a.environment.gainNode };
+}
+function scrapeStart() {
+  if (scrape) return;
+  const out = audioOut();
+  if (!out) return; // pre-gesture — a silent séance beats a console error
+  const { ctx, dest } = out;
+  const len = 2 * ctx.sampleRate;
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1050; bp.Q.value = 1.6;
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2600;
+  const g = ctx.createGain(); g.gain.value = 0;
+  src.connect(bp).connect(lp).connect(g).connect(dest);
+  src.start();
+  const wobbleIv = setInterval(() => {
+    // grain: brief random kicks around the current drive level (set each tick via scrapeDrive)
+    const base = scrape?.drive ?? 0;
+    if (base > 0.002) g.gain.setTargetAtTime(base * (0.55 + Math.random() * 0.9), ctx.currentTime, 0.03);
+  }, 90);
+  scrape = { ctx, g, wobbleIv, src, drive: 0 };
+}
+function scrapeDrive(level) {
+  if (!scrape) { if (level > 0) scrapeStart(); if (!scrape) return; }
+  scrape.drive = level;
+  if (level <= 0.002) scrape.g.gain.setTargetAtTime(0, scrape.ctx.currentTime, 0.08);
+}
+function scrapeStop() {
+  if (!scrape) return;
+  clearInterval(scrape.wobbleIv);
+  try { scrape.g.gain.setTargetAtTime(0, scrape.ctx.currentTime, 0.05); } catch (e) { /* ctx died */ }
+  const s = scrape; scrape = null;
+  setTimeout(() => { try { s.src.stop(); s.g.disconnect(); } catch (e) { /* already gone */ } }, 400);
+}
+
 function letterAngle(ch) {
   const i = LETTERS.indexOf(ch);
   return i < 0 ? null : -Math.PI / 2 + (i / 26) * Math.PI * 2; // A at the top, clockwise
@@ -134,6 +181,7 @@ export function seanceSync(on) {
   } else if (!on && root) {
     cancelAnimationFrame(raf);
     raf = 0; root.remove(); root = null; planch = null; queue = [];
+    scrapeStop();
   }
 }
 
@@ -211,6 +259,7 @@ function tick(t) {
   const dt = Math.min(50, t - lastT);
   lastT = t;
   phaseT += dt;
+  const prev = { a: cur.a, r: cur.r };
   if (phase === "travel" || phase === "pause") {
     let p = Math.min(1, phaseT / travelMs);
     p = p * p * (3 - 2 * p); // smoothstep
@@ -227,6 +276,10 @@ function tick(t) {
   } else if (phase === "hold") {
     if (phaseT >= HOLD_MS) nextTarget();
   }
+  // The scrape rides the actual speed: distance moved this frame (in board units) → gain.
+  // FAINT is the brief (DM: "a scraping faint noise") — 0.045 is the ceiling, not the norm.
+  const moved = Math.abs(angDiff(prev.a, cur.a)) * Math.max(prev.r, cur.r) + Math.abs(cur.r - prev.r);
+  scrapeDrive(Math.min(0.045, (moved / Math.max(16, dt)) * 26));
   place(t);
 }
 

@@ -32,6 +32,10 @@ let dmMsgOpen = false;       // §27: the selected player's message thread is op
 let dmMsgDraft = "";         // §27: composer text, kept across the panel's frequent re-renders
 let fxPlayer = "";           // §26.6: which player the Effects tab's Player drawer targets
 let seanceDraft = "";        // §30: the phrase the planchette will spell, kept across re-renders
+let seanceParty = new Set(); // §30.1: actorIds of the PCs at the board (no pets — PCs only)
+let seanceStep = 0;          // §30.1: damage rolls made this séance — escalates 1d4→1d6→1d8→1d10→1d12
+let seanceArmed = false;     // §30.1: last d10 came up 1 — the damage roll is live
+let seanceLastD10 = null;    // §30.1: last d10 result, shown in the drawer
 let dmReactions = [];        // reaction widget: live chips {id, kind:"aoo"|"window", label, weapon, activityUuid?, targetUuid?, expiresAt}
 const rollTool = { type: "save", ability: "dex", selected: null, targetsOpen: false };
 
@@ -325,16 +329,53 @@ function effectsTabHTML() {
   </div>`;
 }
 
-// §30 the séance drawer: board toggle + the phrase the planchette spells on the TV.
-// Letters only (spaces pause between words); everything else is stripped before it flies.
+// §30 the séance drawer: board toggle, who's at the board, the phrase, and the module's
+// danger mechanic (§30.1): d10 per question; on a 1 the board bites — escalating psychic
+// damage (1d4→1d6→1d8→1d10→1d12) to every participant, with the glitch on the TV and
+// their phones growing with the die.
+const SEANCE_DICE = [4, 6, 8, 10, 12];
+function seanceDie() { return SEANCE_DICE[Math.min(seanceStep, SEANCE_DICE.length - 1)]; }
+function seanceGlitchLevel() { return [0.22, 0.45, 0.65, 0.85, 1][Math.min(seanceStep, 4)]; }
+
 function seanceBody() {
+  const esc = foundry.utils.escapeHTML;
   const on = fxIsOn("seance");
+  // The sitters: player-owned CHARACTERS only — pets/summons don't hold the planchette.
+  const pcs = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner);
+  for (const id of [...seanceParty]) if (!pcs.some(a => a.id === id)) seanceParty.delete(id);
+  const rows = pcs.map(a => {
+    const inParty = seanceParty.has(a.id);
+    return `<button class="mc-seance-pc ${inParty ? "mc-on" : ""}" data-seance-pc="${a.id}" title="${inParty ? `${esc(a.name)} is at the board` : `Seat ${esc(a.name)} at the board`}">
+      <i class="fas fa-circle-user" style="color:${pcColor(a)}"></i><span>${esc(a.name)}</span>
+      ${inParty ? `<i class="fas fa-check mc-seance-pc-check"></i>` : ""}
+    </button>`;
+  }).join("");
+  const rollBtn = seanceArmed
+    ? `<button class="mc-fx-btn mc-fx-voicebtn mc-seance-dmg" data-seance-dmg title="The board bites — 1d${seanceDie()} psychic to everyone at it" ${on ? "" : "disabled"}><i class="fas fa-skull"></i></button>`
+    : `<button class="mc-fx-btn mc-fx-voicebtn" data-seance-d10 title="Roll the question d10 — on a 1 the board bites" ${on && seanceParty.size ? "" : "disabled"}><i class="fas fa-dice-d10"></i></button>`;
+  const status = seanceArmed
+    ? `<div class="mc-seance-status mc-bad">d10: 1 — the board bites. Roll 1d${seanceDie()} psychic.</div>`
+    : seanceLastD10 != null
+      ? `<div class="mc-seance-status">d10: ${seanceLastD10} — the spirits stay civil.</div>`
+      : "";
   return `
     <button class="mc-fx-btn ${on ? "mc-on" : ""}" data-fx="seance" title="${FX_DEFS.seance.hint}" style="width:100%"><i class="fas ${FX_DEFS.seance.icon}"></i><span>Spirit Board</span></button>
+    <div class="mc-seance-party">${rows || `<div class="mc-dmp-empty">No player characters.</div>`}</div>
     <div class="mc-fx-voicerow">
-      <input type="text" class="mc-fx-voice" data-seance-text maxlength="120" placeholder="What the spirits say… (YES, NO, HELLO, GOODBYE land whole)" value="${foundry.utils.escapeHTML(seanceDraft)}" ${on ? "" : "disabled"}>
-      <button class="mc-fx-btn mc-fx-voicebtn" data-seance-send title="The planchette spells it out" ${on ? "" : "disabled"}><i class="fas fa-hand-point-up"></i></button>
-    </div>`;
+      <input type="text" class="mc-fx-voice" data-seance-text maxlength="120" placeholder="What the spirits say… (YES, NO, HELLO, GOODBYE land whole)" value="${esc(seanceDraft)}" ${on ? "" : "disabled"}>
+      <button class="mc-fx-btn mc-fx-voicebtn" data-seance-send title="The planchette spells it out (Enter works too)" ${on ? "" : "disabled"}><i class="fas fa-hand-point-up"></i></button>
+      ${rollBtn}
+    </div>
+    ${status}`;
+}
+
+// §30 shared by the Send button and Enter in the input.
+function seanceSend() {
+  const words = seanceDraft.replace(/[^A-Za-z0-9 ]/g, "").trim();
+  if (!words) { ui.notifications.warn("Write what the spirits say — letters and numbers only."); return; }
+  dmFireFx("seancePhrase", { text: words });
+  seanceDraft = "";
+  render();
 }
 
 // §26.6 Player drawer: pick the victim, then per-phone toggles/shots. Same roster row shape as
@@ -1539,6 +1580,10 @@ function ensureEl() {
   panelEl.addEventListener("click", onClick);
   panelEl.addEventListener("change", onChange); // Rolls-tool dropdowns + token player
   panelEl.addEventListener("input", onInput);   // live MPH↔KPH auto-fill in the custom-pace form
+  // §30: Enter in the séance input = Send (DM 2026-07-27, "an enter would be nice").
+  panelEl.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" && ev.target?.matches?.("[data-seance-text]")) { ev.preventDefault(); seanceSend(); }
+  });
   panelEl.addEventListener("dragstart", onTokenDragStart); // Owned-tokens → canvas
   panelEl.addEventListener("dblclick", onTokenDblClick);   // Owned-tokens → sheet
   // Combat-music theme drop targets (§25.2): drag a PlaylistSound onto a PC row.
@@ -3065,15 +3110,50 @@ async function onClick(ev) {
   const fxpBtn = ev.target.closest("[data-fxp]");
   if (fxpBtn) { await dmToggleFxFor(fxpBtn.dataset.fxp, fxPlayer); return render(); }
   // §30 séance: broadcast the phrase; the TV's planchette does the talking.
-  if (ev.target.closest("[data-seance-send]")) {
-    const words = seanceDraft.replace(/[^A-Za-z0-9 ]/g, "").trim();
-    if (!words) { ui.notifications.warn("Write what the spirits say — letters and numbers only."); return; }
-    dmFireFx("seancePhrase", { text: words });
-    seanceDraft = "";
+  if (ev.target.closest("[data-seance-send]")) return seanceSend();
+  const spc = ev.target.closest("[data-seance-pc]");
+  if (spc) {
+    const id = spc.dataset.seancePc;
+    if (seanceParty.has(id)) seanceParty.delete(id); else seanceParty.add(id);
+    return render();
+  }
+  // §30.1 the question d10: on a 1 the board bites and the damage roll goes live.
+  if (ev.target.closest("[data-seance-d10]")) {
+    const r = await (new Roll("1d10")).evaluate();
+    seanceLastD10 = r.total;
+    if (r.total === 1) seanceArmed = true;
+    await r.toMessage({ flavor: "Séance — the question d10", whisper: ChatMessage.getWhisperRecipients("GM").map(u => u.id) });
+    return render();
+  }
+  // §30.1 the bite: escalating psychic damage to every sitter; the glitch (TV + their
+  // phones) grows with the die — very weak the first time, ugly by 1d12.
+  if (ev.target.closest("[data-seance-dmg]")) {
+    const die = seanceDie();
+    const r = await (new Roll(`1d${die}`)).evaluate();
+    const sitters = [...seanceParty].map(id => game.actors.get(id)).filter(Boolean);
+    for (const a of sitters) await a.applyDamage([{ value: r.total, type: "psychic" }]);
+    const owners = new Set();
+    for (const a of sitters) for (const u of game.users) {
+      if (!u.isGM && a.testUserPermission(u, "OWNER")) owners.add(u.id);
+    }
+    let tvId = ""; try { tvId = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
+    if (tvId) owners.add(tvId);
+    dmFireFx("static", { users: [...owners], level: seanceGlitchLevel() });
+    await r.toMessage({
+      flavor: `Séance — the board bites: 1d${die} psychic to ${sitters.map(a => a.name).join(", ") || "nobody"}`,
+      whisper: ChatMessage.getWhisperRecipients("GM").map(u => u.id)
+    });
+    seanceStep++;
+    seanceArmed = false;
     return render();
   }
   const fxBtn = ev.target.closest("[data-fx]");
-  if (fxBtn) { await dmToggleFx(fxBtn.dataset.fx); return render(); }
+  if (fxBtn) {
+    // §30.1: a fresh séance resets the escalation — the die starts back at 1d4.
+    if (fxBtn.dataset.fx === "seance" && !fxIsOn("seance")) { seanceStep = 0; seanceArmed = false; seanceLastD10 = null; }
+    await dmToggleFx(fxBtn.dataset.fx);
+    return render();
+  }
   // Mark / unmark the current scene as a travel map (the DM's explicit list — no grid guessing).
   const mark = ev.target.closest("[data-travel-mark]");
   if (mark) {

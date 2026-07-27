@@ -3838,12 +3838,14 @@ body.mc-theme-wizard .mc-frame {
     rgba(180, 220, 255, .10) 5px 6px, transparent 6px 11px);
   animation: mc-fx-static .8s steps(12) forwards;
 }
+/* --fxk (0..1, default 1) scales the whole glitch — the séance's escalating damage starts
+   it "very weak" and grows it with the die (§30.1). */
 @keyframes mc-fx-static {
-  0% { opacity: .9; transform: translateY(0) skewX(0.4deg); }
-  25% { opacity: .35; transform: translateY(-14px) skewX(-1deg); }
-  40% { opacity: .8; transform: translateY(9px) skewX(0.8deg); }
-  65% { opacity: .2; transform: translateY(-5px); }
-  80% { opacity: .55; transform: translateY(3px) skewX(-0.5deg); }
+  0% { opacity: calc(.9 * var(--fxk, 1)); transform: translateY(0) skewX(0.4deg); }
+  25% { opacity: calc(.35 * var(--fxk, 1)); transform: translateY(-14px) skewX(-1deg); }
+  40% { opacity: calc(.8 * var(--fxk, 1)); transform: translateY(9px) skewX(0.8deg); }
+  65% { opacity: calc(.2 * var(--fxk, 1)); transform: translateY(-5px); }
+  80% { opacity: calc(.55 * var(--fxk, 1)); transform: translateY(3px) skewX(-0.5deg); }
   100% { opacity: 0; transform: translateY(0); }
 }
 
@@ -3963,6 +3965,21 @@ body.mc-fxp-woozy #mobile-command-shell {
   color: #241a12; opacity: .72; pointer-events: none;
   text-shadow: 0 -0.08vmin 0.06vmin rgba(0, 0, 0, .55), 0 0.08vmin 0 rgba(228, 202, 160, .14);
 }
+
+/* §30.1 the sitters + the bite. Roster rows per §3 (icon in the owner's colour, name in ink);
+   selected = the standard toggle outline. The damage button wears semantic red — it HURTS. */
+#mc-dm-panel .mc-seance-party { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+#mc-dm-panel .mc-seance-pc {
+  display: flex; align-items: center; gap: 7px; padding: 4px 8px; min-height: 26px;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(6px * var(--mc-round, 1));
+  color: var(--mc-muted); font-size: 12px; cursor: pointer; text-align: left;
+}
+#mc-dm-panel .mc-seance-pc span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mc-dm-panel .mc-seance-pc.mc-on { border-color: var(--mc-gold); color: var(--mc-ink); background: var(--mc-panel-2); }
+#mc-dm-panel .mc-seance-pc-check { color: var(--mc-gold); font-size: 10px; }
+#mc-dm-panel .mc-seance-dmg { border-color: #7a3a35; color: #ffb4a8; }
+#mc-dm-panel .mc-seance-status { margin-top: 5px; font-size: 11px; color: var(--mc-muted); }
+#mc-dm-panel .mc-seance-status.mc-bad { color: #ffb4a8; font-weight: 700; }
 
 /* Effects-drawer input row (séance phrase; originally built for Ghost Voice, which is gone —
    the pattern lives on: a text input + a square send button on one row). */

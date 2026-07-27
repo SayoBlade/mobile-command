@@ -2569,3 +2569,29 @@ centered 2.0u lines; lens ≈ 12.6u across). The planchette is now a wrapper div
 discrete engraved "A.D." maker's mark (Cinzel, ~1.35vmin, dark cut + faint light catch) on the
 plain wedge below the lens. Verified: rotations exact per corner, GOODBYE renders 2 tspans,
 single-word phrase landed at (241,236) vs computed (239,234).
+
+### 30.1 The bite — the module's danger mechanic + the scrape (DM 2026-07-27, BUILT)
+
+**Rule (quoted from the module):** d10 per question; on a 1, everyone using the board takes
+psychic damage on an escalating die — 1d4, then 1d6, 1d8, 1d10, capped at 1d12. (The DM's
+message said "necrotic" once but the quoted rule says Psychic — implemented as PSYCHIC, a
+one-word constant in dm-panel if the table rules otherwise.)
+
+- **Sitters:** a §3 roster in the Séance drawer — player-owned CHARACTERS only, no pets. The
+  d10 stays disabled until someone sits.
+- **Flow:** Send (button or ENTER in the input) spells the phrase; the d10 button rolls the
+  question die (whispered to GM, result shown in the drawer). On a 1 the button turns into the
+  SKULL (semantic red — it hurts) armed at the current die; clicking rolls it, applies the
+  total to every sitter (actor.applyDamage, psychic), whispers an audit line, escalates the
+  step, and fires the STATIC glitch at the TV + the sitters' phones — level-scaled: 0.22 →
+  0.45 → 0.65 → 0.85 → 1.0 with the die ("very weak the first time"). staticLocal now takes an
+  intensity that scales overlay opacity (via --fxk — keyframes override inline opacity),
+  duration, spike count, crackle gain and vibration. Toggling the board ON resets escalation.
+- **The scrape:** synthesized (no assets, §26.2) — a narrow noise band whose gain follows the
+  planchette's ACTUAL frame-to-frame speed, with 90ms granular gain kicks (the grain is what
+  makes it scrape, not hiss). Faint by design (0.045 ceiling); silent at rest and during
+  holds. Provisional per DM ("we'll see if I like it").
+- **Bench-verified:** sitter roster (13 PCs, zero pets), Enter-send, natural 1 on roll 15 →
+  armed 1d4 → both sitters −2 (equal, HP-checked), GM's own screen did NOT glitch (targeting),
+  re-arm showed 1d6. Untestable solo: the glitch landing on a real phone (same verified §26.6
+  targeted pathway) and the scrape by ear.
