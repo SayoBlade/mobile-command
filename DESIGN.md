@@ -2647,3 +2647,96 @@ full original d100 once approved):**
   chair is already cold in the shape of a person).
 Full d100 plan: 1–10 the mechanical ladder above; 11–100 RP in variety batches — compulsions,
 perceptions, social curses, body-wrongness, debts-and-bargains.
+
+## 32. Crooked Moon special-effects idea board (mined from the installed book 2026-07-27 — IDEAS, nothing approved)
+
+Source: `the-crooked-moon-2014` module's journal packs, dumped + read in full (extraction
+technique: copy pack dirs minus LOCK → classic-level via Foundry's Electron-as-Node; text dumps
++ rolltables.json/cards.json in the session scratchpad, regenerate as needed). "Gate weaving" =
+the book's **Fateweaving** (ch9). The séance board (§30) is the ch12 Parlor scene (H3) — its
+source confirmed, Q&A ladder + 1d10/escalating-die bite match our build.
+
+**Campaign-wide systems (the séance-board-sized features):**
+- **Fated Tarot reading (ch9+10) — top candidate.** Adela pulls one Major Arcana per PC on the
+  Ghostlight Express (always upright, no duplicate cards; each PC keeps their card; each card
+  unlocks a chapter-keyed Fabled Heirloom/boon later — Lovers = Adela's PLANCHETTE ch24, Moon =
+  3 Twists of Fate ch12 → ties into §31, Star = free feat, Sun = +2 ability, World = one Wish).
+  ALL 22 card faces ship in the module (`assets/card/card tarot/1_<n> - <Name>_Bleed.webp`, no
+  back art for this deck); Foundry docs exist: deck `tcm2014-cards…hE6QSAetov5iFigA`, 1d22
+  RollTable `PgDCRgyABMbAxork` (rewards), light 1d12 fortune table `M9wdb1sObnJHpTFG` (flavor
+  only — good for a repeatable "fortune teller" toy). UX sketch: TV card-flip reveal, each
+  player's card drawn face-down on THEIR phone first; persistent per-PC card chip.
+- **Chaotic Curses (App C).** 156 fleeting RP curses (15–30 real minutes), tarot-card-indexed
+  (78×upright/reversed), RollTable `MFPMY4JfgYwbN31l` (1d156). Many are PERCEPTION curses —
+  one-phone effects: grayscale filter, whisper-only, footsteps-audio only you hear, button-eyes
+  on portraits, roll d12 instead of d20. Rides on §31's infrastructure (self-reverting effects
+  + chips + DM roll/accept flow) almost unchanged.
+- **Fateweaving (ch9).** Per-PC story arc: 13 Threads of Fate, 6 touchpoints with fixed rewards
+  (Inspiration → ally+Bless → a Twist of Fate → +2 ability → free feat → catharsis). The
+  threads carry phone-prop-shaped devices: soul compass that points/pulses, doppelganger in
+  mirrors, self-writing demonic tome, dream journal, shadow offering games of chance, entity in
+  a flask. Module fit = private per-player widgets + a DM touchpoint tracker, not automation.
+- **Dark Bargains (ch6).** 13 unique boon+bane pacts; offered AT DEATH ("deny death by
+  accepting a Dark Bargain"). Phone fit: a devil's-deal prompt on the dying player's phone;
+  chip-tracked banes (Crooked Fortune's "next 3 saves at disadvantage" debt counter; Red Haze
+  forced-targeting; Watery Doom wet-state). Also ch8's Book of the Horned King (sign your name
+  = pledge your soul) as a signing UI.
+- **Druskenvald clock.** Eternal night, 6 named hours (Twilight/Dusk/Nightfall/Evening/
+  Midnight/Witching) each with a sky colour — a TV time-of-day HUD + ambient tint; NPC copy
+  uses the hour names. Feeds the Wickermoor clocktower haunt (below).
+- **"Lair pulse" engine (infrastructure).** The book runs on initiative-count-20 environmental
+  pulses (clock chimes, rising blood, baby wails, psychic bear, phantom feast, mill tremors)
+  and escalating-die ladders (séance bite 1d4→1d12; trophy-room DC10→13). One generic
+  executor-side pulse/ladder engine covers ~10 scenes across ch10–13.
+
+**Ch10 Ghostlight Express (party's next stop if early):** silver ticket pushed to each phone
+(PRC DC 13 gets it early) · haint-freeing skill challenge ×6 (3 successes before 3 failures,
+DC12, +2 per reused skill — calm↔rage meter on TV, per-skill "spent" marks on phones, exactly
+séance-board energy) · Soul Cans/bottle-trap ghost capture (hold-to-seal phone gesture; cans
+pay off in the boss fight as objective markers he eats for 20 HP) · 6-car token↔haint matching
+board (phonograph→Songstress etc.) · phantasmal food — free-text order materializes on the TV
+table (steak & eggs is a puzzle key; inline input per phone-input rule) · Vagrant train-PA
+(crackly intercom voice channel, reusable for any GM announcement) · Switcheroo mist-wipe
+random-car transition · don't-wake-the-tiger ring-slip (steady-hand slider, 2d6 fire on fail)
+· crash + first sight of the crone-faced Crooked Moon (shake + vibration burst + persistent
+moon skybox that gets closer/brighter across the campaign).
+
+**Ch11 Wickermoor (hub):** haunted clocktower — module rolls d12 secretly at long rest, fires
+a real-time wrong-hour bell + haunt that even the DM can't predict · Insight whisper-lane
+(passed checks push private "his smile doesn't reach his eyes" lines) · the Lottery draw
+(tumbling tickets on TV, each phone holds one — Shirley Jackson energy, trivial build) ·
+Gaston's degrading paintings (image series that corrupts act by act — fits the saved-image
+journal) · Bloody Cup carnival-games anthology (phone minigames + TV scoreboard; also serves
+ch21 Fool's Day tickets) · Oak of Many Faces solo night ambush (lone player's phone gets the
+creaks first).
+
+**Ch12 Crooked House (séance's home):** Crooked Teeth — ANY failed search finds a single human
+tooth (hook the roll, show the tooth on the failing phone, count them) · cursed foyer portrait
+= the party toothless (generate from their token art; cursed viewer gets a silent nat-1
+jumpscare flag) · check-for-monsters — 1-of-6 hide-and-seek with directional scraping audio as
+miss feedback, ceiling jumpscare on attempt 6 (Lurking Shadows table `6MD0TbD49MCv1CIK`) ·
+bathroom fills with blood — trapped players' PHONE SCREENS fill red over 4 rounds + muffled
+audio · haunted harpsichord forced-dance (house-wide discordant track; seated player gets a
+rhythm minigame as the DC 15 Performance; Patrini assists non-proficient — séance callback) ·
+6-memento tracker + rune-door slotting (chapter progress bar) · grandfather-clock chime
+spawner · Wisp's delayed betrayal (story told at table → 5-min-later charm takeover flag) ·
+false-Adela private guess commit · Crooked Man one-tap haunt button (three scripted
+apparitions + at-will).
+
+**Ch13 Fields of the Crow:** pay-a-secret gate — each entrant TYPES a confession privately;
+module flags who paid; Crowsong events later taunt THAT player with their own secret; +1
+legendary resistance per paid secret (the design question — does the table hear it? — is the
+drama) · 3-hour doom clock over the whole demiplane · crow-caw audio NAVIGATION (loudest of
+three directions is correct; check quality gates how much acoustic info: full/quietest-only/
+noise) · windmill 9-round collapse countdown + rotating-cog hazard · bucket-brigade
+firefighting (gallons per blaze, pump/carry/douse from phones) · crow-catching boss scoreboard
+(catch 6 before he eats 3; whispered-secret audio sting per catch) · amber-wristband
+auto-revive (Tender Secrets) · black-coin one-player whisper.
+
+**Triage note (2026-07-27, mine):** build-first shortlist = Fated Tarot (assets + tables
+already ship; recurs all campaign; feeds §31) → Chaotic Curses (near-free on §31 slice 1) →
+ch10 pack (ticket, haint meter, soul cans, crash/moon — if the party is pre-Express) →
+secret-confession gate (cheap, phone-native) → Druskenvald clock + clocktower. The audio-heavy
+ideas (directional caws, room-wide loops) need the performance-cost talk first (modest
+machine). OPEN QUESTION for the DM: where is the party now, and which 2–3 of these get built
+first?
