@@ -4,8 +4,10 @@ import { isPhoneClient, isDisplayClient } from "./shell.js";
 // §30 Séance board (DM-idea 2026-07-26, for a Crooked Moon game — "might be useful for others";
 // flagged for a standalone-module spin-off later). A spirit-board overlay on the TV: the DM
 // types a phrase on the panel; the planchette wakes slowly, circles once (the little dance),
-// then drifts mark to mark — slow, a bit jerky — resting 2s on each, and returns to a DEAD
-// STILL center when done (the heart never moves at rest, DM 2026-07-27).
+// then moves mark to mark and returns to a DEAD STILL center when done (the heart never moves
+// at rest, DM 2026-07-27). Three gaits (DM 2026-07-27 live feedback): spelled phrases hurry
+// with jittered timing and occasional sharp darts; the wake-up, the four printed words, and
+// short one-word replies keep the slow spooky crawl.
 //
 // The board (per the module's layout): A–Z on the outer ring, digits 1–0 on an inner bottom
 // arc, and four printed words — HELLO top-center, YES/NO flanking high, GOODBYE low-center.
@@ -23,7 +25,6 @@ const DIGIT_R = 0.42;         // digits arc radius
 const PLANCHETTE_FRAC = 0.30; // planchette width as a fraction of the board
 // Lens center within the processed sprite (626x653, lens at 315,338) — the landing point.
 const LENS_X = 315 / 626, LENS_Y = 338 / 653;
-const HOLD_MS = 2000;
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const DIGITS = "1234567890";
@@ -48,6 +49,7 @@ let phaseT = 0, lastT = 0;
 let cur = { a: -Math.PI / 2, r: 0.22 };
 let from = { ...cur }, to = { ...cur };
 let travelMs = 1200;
+let holdMs = 2000;    // per-stop rest on the mark — long for drama, short mid-spell
 let toIsRest = false;
 let lastKey = null;   // the mark we're currently holding on (double-letter detection)
 
@@ -190,10 +192,15 @@ export function seancePhrase(text) {
   const clean = String(text ?? "").toUpperCase().replace(/[^A-Z0-9 ]/g, "").replace(/ +/g, " ").trim().slice(0, 120);
   if (!clean) return;
   const wasIdle = phase === "rest" && !queue.length;
-  for (const word of clean.split(" ")) {
+  // Pacing (DM 2026-07-27): spelled phrases move FAST — the old uniform crawl dragged on
+  // longer words. Slow stays where the drama is: the wake-up, the four printed words, and a
+  // short one-word reply. `fast` rides each token so back-to-back phrases keep their own gait.
+  const words = clean.split(" ");
+  const fast = !(words.length === 1 && (WORDS[words[0]] || words[0].length <= 4));
+  for (const word of words) {
     if (WORDS[word]) queue.push({ word });
-    else for (const ch of word) queue.push({ ch });
-    queue.push({ space: true });
+    else for (const ch of word) queue.push({ ch, fast });
+    queue.push({ space: true, fast });
   }
   queue.pop(); // no trailing beat
   if (wasIdle) {
@@ -227,7 +234,7 @@ function nextTarget() {
   if (tok.space) {
     from = { ...cur };
     to = { a: cur.a + 0.6, r: 0.45 };
-    travelMs = 1100; phase = "pause"; phaseT = 0; lastKey = null;
+    travelMs = tok.fast ? 550 : 1100; phase = "pause"; phaseT = 0; lastKey = null;
     return;
   }
   const t = targetFor(tok);
@@ -237,13 +244,25 @@ function nextTarget() {
     queue.unshift(tok);
     from = { ...cur };
     to = { a: cur.a + (Math.random() < 0.5 ? 0.45 : -0.45), r: Math.max(0.3, cur.r - 0.2) };
-    travelMs = 900; phase = "pause"; phaseT = 0; lastKey = null;
+    travelMs = tok.fast ? 480 : 900; phase = "pause"; phaseT = 0; lastKey = null;
     return;
   }
   from = { ...cur };
   to = { a: t.a, r: t.r };
-  const dist = Math.abs(angDiff(from.a, t.a)) + Math.abs(t.r - from.r);
-  travelMs = 900 + Math.min(1, dist / Math.PI) * 1700; // farther = slower, never a snap
+  const dist = Math.min(1, (Math.abs(angDiff(from.a, t.a)) + Math.abs(t.r - from.r)) / Math.PI);
+  // Three gaits (DM 2026-07-27): printed words land SLOW with a long rest (the spirits point —
+  // that's the drama); fast spelling hurries mark to mark with jittered timing and the odd
+  // SHARP DART (a hand yanked, not a motor) so it never reads consistent; slow spelling (short
+  // single-word replies) keeps the original crawl.
+  if (tok.word) {
+    travelMs = 1100 + dist * 1500; holdMs = 2400;
+  } else if (tok.fast) {
+    travelMs = (420 + dist * 760) * (0.85 + Math.random() * 0.3);
+    if (Math.random() < 0.18) travelMs = Math.max(240, travelMs * 0.45); // the dart
+    holdMs = 750 + Math.random() * 250;
+  } else {
+    travelMs = 900 + dist * 1700; holdMs = 2000;
+  }
   phase = "travel"; phaseT = 0; lastKey = t.key;
 }
 
@@ -274,7 +293,7 @@ function tick(t) {
       else { phase = "hold"; phaseT = 0; }
     }
   } else if (phase === "hold") {
-    if (phaseT >= HOLD_MS) nextTarget();
+    if (phaseT >= holdMs) nextTarget();
   }
   // The scrape rides the actual speed: distance moved this frame (in board units) → gain.
   // FAINT is the brief (DM: "a scraping faint noise") — 0.045 is the ceiling, not the norm.
