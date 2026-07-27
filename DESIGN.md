@@ -2595,3 +2595,55 @@ one-word constant in dm-panel if the table rules otherwise.)
   armed 1d4 → both sitters −2 (equal, HP-checked), GM's own screen did NOT glitch (targeting),
   re-arm showed 1d6. Untestable solo: the glitch landing on a real phone (same verified §26.6
   targeted pathway) and the scrape by ear.
+
+---
+
+## 31. Twist of Fate (DM-idea 2026-07-27, concept per Avantris Entertainment — SPEC APPROVED, unbuilt)
+
+A player may reroll a d20 roll by accepting a roll on a table of afflictions. Concept credited
+to Avantris's homebrew; ALL table text is our own original writing (never copy theirs).
+
+**DM decisions (locked 2026-07-27):**
+- UNLIMITED twists per roll — the DM-as-gate is the only limiter.
+- Chip short-description is PLAYER-READABLE; the DM flavors verbally on top.
+- Chip mark = ICON (twisted-arrows/tarot) + dashed outline on a normal condition chip — no new
+  palette color (UI-BIBLE §2.2 stays clean).
+- V1 is OUT-OF-COMBAT ONLY (no attack-workflow rewind; an automated save's outcome can simply
+  be adjusted by the DM after — "it doesn't need to be like a reaction").
+- Mechanical entries confined to 1–10 of the d100, bare minimum, all with a supernatural,
+  creepy feel (losses framed as transactions — something took/borrowed/reclaimed). 11–100 pure
+  RP. Effects carry any mechanics as SELF-REVERTING ActiveEffects only (temp-max-HP negative
+  for half HP, AC delta, midi disadvantage flags, sense removal) — base actor data is never
+  written.
+
+**Architecture (agreed in discussion):**
+- A twist = an ActiveEffect on the PC with a module flag (stacks naturally; renders in the
+  shell's condition strip with the fate mark; tap → detail card with the instruction; DM panel
+  gets per-chip ✕ + "clear all twists" — removal reverts everything).
+- The table = a real Foundry RollTable the module ships (editable; custom table via setting).
+- Panel flow, never automated: player twists → panel chip ("X twists fate — <roll context>") →
+  DM: [Roll on table] → shown entry → [Accept] / [Roll again] / [Pick instead…]. Only Accept
+  applies. Reroll leg v1: the chip landing is permission; phone re-fires checks/saves with
+  "fate twisted" flavor; attacks are out of scope (out-of-combat only anyway).
+- Build slices: (1) fate-mark effects + chips + DM roll/pick/accept/clear flow; (2) the phone
+  "twist" button on fresh out-of-combat rolls + the shipped d100.
+
+**Seed entries (15 samples sent 2026-07-27; TONE VERDICT PENDING from the DM — these seed the
+full original d100 once approved):**
+1–2 Hollowed — "Something is wearing part of you. Half your life is elsewhere until it gives
+  it back." (−50% max HP via temp-max)
+3–4 Unshelled — "Your skin forgets it is armor. Blades remember you fondly." (−2 AC)
+5–6 Palsied Hand — "Your left hand answers to someone else now. It rests only when watched."
+  (disadvantage on hand-based checks, DM adjudicates)
+7–8 Dimmed — "The dark took back its gift. It says you never thanked it." (darkvision removed)
+9–10 Cotton Ears — "All sound reaches you through six feet of earth. Someone down there is
+  listening with you." (hearing lost)
+11+ RP: Counted (count every door aloud) · Paranoia (one party member casts no reflection when
+  unwatched) · Wet Footprints (yours, wet, never quite where you stepped) · The Smell of Rain
+  (you smell rain before something bad happens — you smell it now) · Borrowed Voice (your
+  laugh belongs to someone older) · Candle Debt (flames bend toward you; light is collecting) ·
+  Second Shadow (arrives half a second late, getting later) · Salt Hunger (food tastes of
+  nothing unsalted) · The Polite Guest (must thank any room you leave) · Cold Seat (every
+  chair is already cold in the shape of a person).
+Full d100 plan: 1–10 the mechanical ladder above; 11–100 RP in variety batches — compulsions,
+perceptions, social curses, body-wrongness, debts-and-bargains.
