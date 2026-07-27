@@ -3,6 +3,7 @@ import { api as rpc, actorTokenSight, reportPresence } from "./rpc.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
 import { toggleSimpleCalendar } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
+import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 the player's thread card
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -523,6 +524,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ? `<span class="mc-chip mc-chip-tap mc-twist-chip ${twistPending ? "mc-twist-waiting" : ""}" data-action="twist-open" title="Twist of Fate — tap to spend">
           <i class="fas fa-shuffle"></i>Twist of Fate${twists > 1 ? `<span class="mc-chip-mult">×${twists}</span>` : ""}</span>`
       : "";
+    // §34 Fateweaving: the PC's Thread of Fate as a quiet gold chip — tap for the spoiler-safe
+    // thread card (goal + touchpoints reached; the road ahead stays dark).
+    const fateThread = actor.getFlag(MODULE_ID, "fateThread");
+    const fateChip = fateThread?.key && FATE_THREADS[fateThread.key]
+      ? `<span class="mc-chip mc-chip-tap mc-fate-chip" data-action="fate-open" title="Your Thread of Fate">
+          <i class="fas fa-scroll"></i>${foundry.utils.escapeHTML(FATE_THREADS[fateThread.key].name)}</span>`
+      : "";
     // Every effect-backed chip is long-pressable for its detail (#showEffectDetails
     // picks rules reference → own description → change summary). The synthetic
     // "Action used" chip has no backing effect, so it isn't pressable.
@@ -531,7 +539,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const condsHTML = effGroups.map(({ e, count }) =>
       `<span class="mc-chip mc-chip-tap${isEconEffect(e) ? " mc-chip-used" : ""}" data-action="cond-open" data-detail="cond" data-effect-id="${e.id}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}${count > 1 ? `<span class="mc-chip-mult">×${count}</span>` : ""}</span>`
     ).join("");
-    const condHTML = (twistChip + actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
+    const condHTML = (fateChip + twistChip + actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
 
     // B7: HP & temp are tap-to-edit. Tapping opens a roomy editor row with
     // on-screen − / + / Set so it works on the iOS numeric keypad (which has no
@@ -4446,6 +4454,26 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     </div>`;
   }
 
+  // §34: the player's thread card — spoiler-safe: goal + the touchpoints already reached;
+  // steps still ahead render as unnamed dark marks. Uses the generic detail card.
+  #openFateCard(actor) {
+    const ft = actor.getFlag(MODULE_ID, "fateThread");
+    const t = ft?.key ? FATE_THREADS[ft.key] : null;
+    if (!t) return;
+    const esc = foundry.utils.escapeHTML;
+    const reached = Math.min(Number(ft.reached ?? 0), 6);
+    const steps = FATE_STEPS.map((s, i) =>
+      i < reached
+        ? `<li class="mc-fate-step mc-fate-done"><i class="fas fa-check"></i> ${esc(s.name)}</li>`
+        : `<li class="mc-fate-step"><i class="fas fa-circle"></i> <span class="mc-fate-unknown">— the thread runs on into the dark —</span></li>`
+    ).join("");
+    this.#detailCard = {
+      kind: "fate", name: t.name, glyph: "fa-scroll", subtitle: "Your Thread of Fate",
+      desc: `<p><em>${esc(t.goal)}</em></p><ol class="mc-fate-steps">${steps}</ol>`
+    };
+    this.render();
+  }
+
   // §31: the spend request / its withdrawal (async pair — #onClick itself is not async).
   async #twistSend(actor) {
     if (Number(actor.getFlag(MODULE_ID, "twists") ?? 0) <= 0) return;
@@ -6173,6 +6201,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#twistDie = Number(el.dataset.die) === 1 ? 1 : 20; return this.render();
       case "twist-send": return this.#twistSend(actor);
       case "twist-withdraw": return this.#twistWithdraw(actor);
+      case "fate-open": return this.#openFateCard(actor);
       case "toggle-levels":
         this.#showLevels = !this.#showLevels; this.#levelUp = null; return this.render();
       case "level-up-open": return this.#openLevelUp();

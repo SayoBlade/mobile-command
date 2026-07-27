@@ -5209,9 +5209,16 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-cmt-border {
   flex: 1; margin: 4.5%; padding: 6% 5%;
   border: 2px solid #3c342a; outline: 1px solid #3c342a; outline-offset: 4px;
-  border-radius: 6px;
+  border-radius: 6px; position: relative;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3.5vh;
   text-align: center;
+}
+/* the whole ticket catches the light — a slow foil sheen sweeping the paper (DM 2026-07-28) */
+.mc-cmt-border::after {
+  content: ""; position: absolute; inset: 0; border-radius: 6px; pointer-events: none;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 253, 240, 0.30) 50%, transparent 60%);
+  background-size: 320% 100%;
+  animation: mc-cmt-gleam 7s ease-in-out infinite;
 }
 .mc-cmt-head {
   font-family: "Cinzel", serif; font-weight: 700; font-size: 7.2cqw; letter-spacing: 0.1em;
@@ -5223,7 +5230,8 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-cmt-one {
   font-family: "Cinzel", serif; font-weight: 700; font-size: 12cqw; line-height: 1.12; letter-spacing: 0.12em;
   color: transparent;
-  background: linear-gradient(105deg, #aeb6c2 0%, #f6f8fb 24%, #8f98a6 48%, #e9edf3 70%, #9aa3b1 100%);
+  /* darker silver (DM 2026-07-28) — pewter, not chrome */
+  background: linear-gradient(105deg, #79818e 0%, #ccd3dd 24%, #656e7c 48%, #bfc6d1 70%, #6f7886 100%);
   background-size: 240% 100%;
   -webkit-background-clip: text; background-clip: text;
   filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.55)) drop-shadow(0 -1px 0 rgba(40, 36, 28, 0.65)) drop-shadow(0 2px 3px rgba(40, 36, 28, 0.4));
@@ -5233,9 +5241,12 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-cmt-valid {
   font-family: "Cinzel", serif; font-weight: 700; font-size: 4.3cqw; letter-spacing: 0.16em; text-transform: uppercase;
   color: transparent;
-  background: linear-gradient(#eef1f6, #97a0ae 60%, #dbe0e9);
+  /* darker silver + it gleams too (DM 2026-07-28) */
+  background: linear-gradient(105deg, #6d7684 0%, #c0c7d2 30%, #5f6875 55%, #b4bbc7 80%, #6d7684 100%);
+  background-size: 240% 100%;
   -webkit-background-clip: text; background-clip: text;
   filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.5)) drop-shadow(0 -1px 0 rgba(40, 36, 28, 0.6));
+  animation: mc-cmt-gleam 5.5s ease-in-out infinite 0.8s;
 }
 .mc-cmt-holder { font-family: "Cinzel", serif; font-size: 4.6cqw; letter-spacing: 0.08em; color: #4a3d2b; }
 .mc-cmt-no { position: absolute; bottom: 6.5%; right: 9%; font-family: monospace; font-size: 3.2cqw; color: #7a2f23; opacity: 0.85; transform: rotate(-3deg); }
@@ -5307,3 +5318,23 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 }
 .mc-twist-reqtext { flex: 1 1 auto; min-width: 0; font-size: 12.5px; line-height: 1.4; color: var(--mc-ink); }
 .mc-twist-reqtext .fa-shuffle { color: var(--mc-gold); margin-right: 2px; }
+
+/* == SS34 Fateweaving: thread chip, spoiler-safe card steps, DM dots row == */
+.mc-fate-chip { border-color: var(--mc-gold) !important; color: var(--mc-gold); }
+.mc-fate-chip .fa-scroll { margin-right: 4px; }
+.mc-fate-steps { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mc-fate-step { font-size: 13px; color: var(--mc-muted); }
+.mc-fate-step .fa-circle { font-size: 7px; vertical-align: 2px; opacity: 0.5; }
+.mc-fate-done { color: var(--mc-gold); }
+.mc-fate-unknown { font-style: italic; opacity: 0.6; }
+.mc-fate-select {
+  flex: 1 1 40%; min-width: 0; min-height: 44px; padding: 0 8px;
+  border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel-2);
+  border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 12.5px;
+}
+.mc-fate-dots { display: flex; gap: 6px; margin: 2px 0 8px; }
+.mc-fate-dot {
+  flex: 1 1 0; min-height: 40px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
+  background: var(--mc-panel-2); border: 1px dashed var(--mc-edge); color: var(--mc-muted); font-weight: 800;
+}
+.mc-fate-dot.mc-on { background: #2a2418; border: 1px solid var(--mc-gold); color: var(--mc-gold); }

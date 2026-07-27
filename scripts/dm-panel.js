@@ -8,6 +8,7 @@ import { runDmWizard } from "./dm-wizard.js";
 import { startCombatWithMusic } from "./combat-music.js";
 import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist } from "./settings.js";
 import { FX_TABS, FX_DEFS, fxActiveMap, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js"; // §26 Effects tab
+import { FATE_THREADS, FATE_STEPS, applyFateReward } from "./fateweaving.js"; // §34 Fateweaving tracker
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 
@@ -473,10 +474,36 @@ function cmToolsOn() {
 }
 function crookedTabHTML() {
   return `<div class="mc-dmp-tabfill"><div class="mc-dmp-tabmid">
+    ${dtDrawer("cmFate", "Fateweaving", "", fateBody())}
     ${dtDrawer("cmTwists", "Twists of fate", "", twistsBody())}
     ${dtDrawer("cmBoard", "All aboard", "", allAboardBody())}
     ${dtDrawer("fxSeance", "Séance", "", seanceBody())}
   </div></div>`;
+}
+
+// §34 Fateweaving: assign each PC a Thread of Fate, then tap the six touchpoint dots as the
+// story reaches them. Advancing a dot applies its book reward (inspiration / Bless / a twist)
+// or whispers a sheet-level reminder (+2 ability, feat). Tapping the reached dot retracts it
+// (bookkeeping only — rewards are never clawed back automatically).
+function fateBody() {
+  const esc = foundry.utils.escapeHTML;
+  const rows = scenePcs().map(a => {
+    const ft = a.getFlag(MODULE_ID, "fateThread");
+    const t = ft?.key ? FATE_THREADS[ft.key] : null;
+    const reached = Math.min(Number(ft?.reached ?? 0), 6);
+    const opts = [`<option value="">— no thread —</option>`,
+      ...Object.entries(FATE_THREADS).map(([k, v]) => `<option value="${k}" ${ft?.key === k ? "selected" : ""}>${esc(v.name)}</option>`)].join("");
+    const dots = t ? `<div class="mc-fate-dots">${FATE_STEPS.map((s, i) => {
+      const n = i + 1, on = n <= reached;
+      return `<button class="mc-fate-dot ${on ? "mc-on" : ""}" data-fate-dot="${a.id}:${n}"
+        title="${esc(s.name)} — ${esc(s.reward)}${on ? " (reached — tap to retract)" : ""}">${n}</button>`;
+    }).join("")}</div>` : "";
+    return `<div class="mc-cmb-row">
+      <div class="mc-seance-pc mc-twist-pcrow"><i class="fas fa-circle-user" style="color:${pcColor(a)}"></i><span>${esc(a.name)}</span></div>
+      <select class="mc-fate-select" data-fate-thread="${a.id}" title="${t ? esc(t.goal) : "Assign a Thread of Fate"}">${opts}</select>
+    </div>${dots}`;
+  }).join("");
+  return `<div class="mc-seance-party">${rows || `<div class="mc-dmp-empty">No player characters.</div>`}</div>`;
 }
 
 // §31 Twists of Fate: per-PC counters (grant/revoke) + the pending-spend chips. A twist is a
@@ -3113,6 +3140,15 @@ function onInput(ev) {
 function onChange(ev) {
   // §26.6: the Player drawer's target picker.
   if (ev.target.matches?.("[data-fx-player]")) { fxPlayer = ev.target.value; return render(); }
+  // §34: assign/clear a PC's Thread of Fate. Switching threads restarts the count — a new
+  // story starts at its beginning.
+  if (ev.target.matches?.("[data-fate-thread]")) {
+    const a = game.actors.get(ev.target.dataset.fateThread);
+    const key = ev.target.value;
+    const p = key ? a?.setFlag(MODULE_ID, "fateThread", { key, reached: 0 }) : a?.unsetFlag(MODULE_ID, "fateThread");
+    Promise.resolve(p).then(() => render());
+    return;
+  }
   // Volume slider committed (pointer released) → write the world setting; the display mirrors it
   // into its own client volumes. No re-render: the slider already shows the value, and rebuilding
   // the panel mid-interaction would drop focus.
@@ -3232,6 +3268,24 @@ async function onClick(ev) {
     const cur = { ...fxActiveMap() };
     for (const [id, d] of Object.entries(FX_DEFS)) if (d.player === "state") delete cur[id];
     await game.settings.set(MODULE_ID, "fxActive", cur);
+    return render();
+  }
+  // §34 Fateweaving: touchpoint dots. Advance applies each newly crossed step's reward;
+  // retract is bookkeeping only (rewards stay — the DM claws back by hand if ever needed).
+  const fDot = ev.target.closest("[data-fate-dot]");
+  if (fDot) {
+    const [aid, nStr] = fDot.dataset.fateDot.split(":");
+    const a = game.actors.get(aid);
+    const ft = a?.getFlag(MODULE_ID, "fateThread");
+    if (a && ft?.key) {
+      const n = Number(nStr);
+      const reached = Math.min(Number(ft.reached ?? 0), 6);
+      if (n <= reached) await a.setFlag(MODULE_ID, "fateThread", { ...ft, reached: n - 1 });
+      else {
+        for (let s = reached + 1; s <= n; s++) await applyFateReward(a, s);
+        await a.setFlag(MODULE_ID, "fateThread", { ...ft, reached: n });
+      }
+    }
     return render();
   }
   // §31 Twists of Fate: grant/revoke counters; Apply spends a pending twist and posts the

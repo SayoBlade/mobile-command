@@ -2753,6 +2753,19 @@ resolution. Touchpoints are deliberately check-free and un-missable.
   prose stays in the book. Thread PROPS as interactive phone widgets (compass/mirror/tome/
   journal) = backlog, one per thread, best built against the DM's actual party picks.
 
+**Slice D BUILT + bench-verified 2026-07-28** (`fateweaving.js`: FATE_THREADS 13 original
+one-liners, FATE_STEPS, applyFateReward). Panel: Fateweaving drawer — per-PC thread dropdown
+(switching threads resets progress to 0) + six touchpoint dot buttons; advancing applies each
+newly crossed step (1 Heroic Inspiration · 2 a 24 h Bless-style ActiveEffect, +1d4 saves/
+attacks · 3 +1 twist §31 · 4/5/6 GM-whispered "Fateweaving" reminder cards — sheet-level
+grants stay by-hand); tapping a reached dot retracts bookkeeping only (rewards never claw
+back). Shell: gold scroll chip with the thread name → spoiler-safe detail card (goal + reached
+step names; unreached steps render as unnamed "the thread runs on into the dark" marks).
+Bench: assign → dots 1/3/4 → inspiration ✓, Bless 86400 s ✓, twist +1 ✓, whispered reminder ✓,
+retract ✓, shell chip + card ✓. BENCH TRAP (cost 20 min): Foundry sessions are PER-BROWSER —
+logging a second pane tab in as another user overwrites the cookie, and the next reload of the
+first tab rejoins as THAT user; the "vanished" DM panel was just a Player 2 login.
+
 ## 35. The Crooked Moon tab (DM-requested 2026-07-27 — spec'd, unbuilt)
 
 A campaign-tools tab on the **DM panel**, gated behind a module setting ("Campaign tools: The
