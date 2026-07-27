@@ -307,6 +307,17 @@ export function registerSettings() {
     default: false
   });
 
+  // §35 Campaign tools: The Crooked Moon. Gates the DM panel's Crooked Moon tab
+  // (séance board + the coming twists/curses/fateweaving) so non-CM tables never
+  // see it. Defaults ON when the Crooked Moon module itself is installed & active
+  // (that table obviously wants the tools); toggle in Settings → Campaign.
+  game.settings.register(MODULE_ID, "crookedMoonTools", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: !!game.modules.get("the-crooked-moon-2014")?.active
+  });
+
   // §16.3 DM first-run wizard: true once the DM finished (or dismissed) the
   // guided setup. Hidden — the wizard flips it; reopen lives on the Preflight tab.
   game.settings.register(MODULE_ID, "dmOnboarded", {

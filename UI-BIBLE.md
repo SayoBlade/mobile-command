@@ -383,6 +383,23 @@ does **not** auto-open any tab.
 Everything else is DM-driven. Badges on tab icons (a count, a `•`) are how a tab *asks* for attention
 without stealing it (§5) — the DM decides whether to look.
 
+### 6.6 Rosters are scene-scoped (DM 2026-07-27)
+
+A list of PCs shows **the PCs with a token in the active scene**, not the world's whole cast —
+"unless there's a real reason, only list PCs in the scene." The séance sitters taught this: a
+13-name world roster buried the four people actually at the table. Fall back to the full list
+only when the scene holds no PC tokens at all (an empty roster helps nobody). A deliberate
+exception (e.g. a cross-scene assignment picker) is fine — but it's the exception, and it
+should know it.
+
+### 6.7 Campaign tabs are gated (2026-07-27)
+
+Campaign-specific tools (the Crooked Moon tab) live behind a world setting and **do not exist
+on the rail** for other tables — a table that never runs that campaign must never see its
+chrome. The gate defaults ON when the matching content module is installed and active. A
+campaign tab's icon is an **original glyph drawn by us** (the crooked-crescent mask,
+`.mc-icon-cmoon`) — never art shipped by the campaign book, which is licensed content.
+
 ---
 
 ## 7. Copy
@@ -428,6 +445,15 @@ The DM is the authority; the app **suggests and tracks**. Surface a problem, nev
 - ✅ a soft over-budget marker · ❌ a hard cap
 
 Anything the DM might overrule must stay **overrulable**.
+
+### 8.1 The DM can always cheat (DM 2026-07-27)
+
+Randomness is **flavor, not law**. Any effect the design gates behind a random roll (the
+séance's question d10, a future curse trigger, a random haunt) must ALSO have a direct manual
+trigger sitting right next to the honest one — the DM watched ~30 civil d10s in a row while
+the table waited to be zapped. The die is the ritual; the button is the authority. Label the
+cheat plainly ("Bite anyway — no roll needed"); the DM is not sneaking past the module, the
+module works for the DM.
 
 ---
 

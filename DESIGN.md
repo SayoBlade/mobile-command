@@ -2598,6 +2598,31 @@ one-word constant in dm-panel if the table rules otherwise.)
 
 ---
 
+### 30.2 Live-feedback round (DM 2026-07-27, after first real séance — BUILT + bench-verified)
+
+The séance is the BAR: "more like this — great visuals and the sound is really good too; this
+is the goal for the others."
+
+- **Three gaits (pacing).** The uniform crawl dragged on long words. Now: spelled phrases move
+  FAST (travel ~420–1180 ms jittered ±15 %, hold 750–1000 ms) with an occasional SHARP DART
+  (18 % of moves at ×0.45 — "a sharp move here and there keeps it interesting"); the wake-up
+  dance, the four printed words (slow travel + 2.4 s hold — the spirits POINT), and short
+  one-word replies (≤4 letters) keep the original spooky crawl. Bench: "SPIRITS NEVER SLEEP"
+  ~35 s (was ~70 s); "YES" still runs the full ~10 s ritual.
+- **The DM can always cheat (§30.1 amendment).** The skull (bite) button is ALWAYS live beside
+  the question d10 — the DM fired ~30 civil d10s in a row and nobody got zapped. Unarmed label:
+  "Bite anyway — 1dX psychic, no roll needed". The d10 stays as the ritual; escalation applies
+  either way. GENERAL PRINCIPLE (UI-BIBLE §8.1): any effect gated behind a random roll also
+  gets a direct manual trigger.
+- **Sitters are scene-scoped.** The roster lists only PCs with a token in the ACTIVE scene
+  (falls back to all PCs when none are placed). GENERAL RULE (UI-BIBLE §6.6): unless there's a
+  real reason, only list PCs in the scene.
+- **BUG found on the bench: séance chat cards were PUBLIC.** `Roll#toMessage` applies the
+  client's default roll mode AFTER messageData and clobbers an explicit `whisper:` array —
+  with public roll mode the d10 + bite cards went to everyone. Fixed: pass
+  `{ rollMode: "gmroll" }` as the OPTIONS argument instead of a whisper array. (Trap for every
+  future Roll→whisper: rollMode option, never a whisper array.)
+
 ## 31. Twists of Fate (PIVOTED 2026-07-27 — now the Crooked Moon book mechanic; DM decision)
 
 **Pivot (DM 2026-07-27):** the original Avantris-style "reroll by accepting an affliction"
@@ -2706,7 +2731,19 @@ Player side: NO new tab v1 — the shell already carries the chips (twist counte
 thread card in the character area). UI-BIBLE needs a section for the campaign tab + the twist/
 curse marks BEFORE building (bible-first, per CLAUDE.md).
 
-**Build order (slices):** A) tab shell + setting gate + séance relocation → B) twists
+**Player-side tab (DM 2026-07-27, OPTION — undecided):** the DM is considering a player-facing
+Crooked Moon tab in the shell holding their CM "stuff" — destiny/thread, prop, twists, curse
+details. Keep the design flexible so the chips-in-shell v1 can grow a dedicated tab later;
+don't build until he decides.
+
+**Slice A BUILT + bench-verified 2026-07-27:** `crookedMoonTools` world setting (defaults ON
+when the-crooked-moon-2014 module is active, else OFF; toggle in panel Settings → Campaign
+drawer); "crooked" tab on the rail between Effects and System health, gated live (open tab
+closes if the gate flips); séance drawer moved from Effects (same drawer key, so open-state
+carries); tab icon = ORIGINAL crooked-crescent SVG (socket eye + jagged grin) as a CSS
+currentColor mask (`.mc-icon-cmoon`, styles/shell.css) — never the book's art.
+
+**Build order (slices):** A) ✅ tab shell + setting gate + séance relocation → B) twists
 (counter, chips, spend/apply flow) → C) curses (effects + real-time expiry + DM flow + the
 original d100 in batches) → D) fateweaving tracker. Each slice ships/commits separately.
 

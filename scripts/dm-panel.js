@@ -183,12 +183,21 @@ function settingsHTML() {
   // Follow list is in the Display tab; Fog lives here in Settings (DM 2026-07-25).
   // §29: the full settings mini-app opens from here — the panel keeps only the reflexive
   // controls (volumes, ears, fog dial); everything else lives in the app's four tabs.
+  // §35 Campaign tools gate — the Crooked Moon tab appears on the rail while this is on.
+  const cmOn = cmToolsOn();
+  const campaignBody = `
+    <button class="mc-dmp-earbulk ${cmOn ? "mc-on" : ""}" data-cm-tools="${cmOn ? "off" : "on"}">
+      <i class="fas mc-icon-cmoon"></i> ${cmOn ? "Crooked Moon tools are on" : "Turn on Crooked Moon tools"}
+    </button>
+    <p class="mc-dmp-set-note">Adds <b>The Crooked Moon</b> tab to the panel — séance board and the
+      campaign's other table tools. Leave it off for other campaigns.</p>`;
   return `<div class="mc-dmp-settings">
     <button class="mc-dmp-place mc-dmp-allset" data-open-settings-app><i class="fas fa-sliders"></i> All Settings</button>
     ${dtDrawer("setSound", "Sound", "", sliders, true)}
     ${dtDrawer("setEars", "Who the display hears through", "", earsBody, true)}
     ${dtDrawer("setMusic", "Combat music", "", combatMusicBody(), true)}
     ${dtDrawer("setFog", "Fog", "", softFogBody(), true)}
+    ${dtDrawer("setCampaign", "Campaign", "", campaignBody, true)}
   </div>`;
 }
 
@@ -325,7 +334,6 @@ function effectsTabHTML() {
     ${dtDrawer("fxMoments", "Moments", "", grid(FX_TABS.moments))}
     ${dtDrawer("fxMagic", "Magical", "", grid(FX_TABS.magical))}
     ${dtDrawer("fxPlayer", "Player", "", fxPlayerBody())}
-    ${dtDrawer("fxSeance", "Séance", "", seanceBody(), true)}
   </div>`;
 }
 
@@ -341,7 +349,11 @@ function seanceBody() {
   const esc = foundry.utils.escapeHTML;
   const on = fxIsOn("seance");
   // The sitters: player-owned CHARACTERS only — pets/summons don't hold the planchette.
-  const pcs = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner);
+  // Scoped to the ACTIVE SCENE (DM 2026-07-27: "unless there's a real reason, only list PCs
+  // in the scene"); falls back to every PC when none have tokens placed there.
+  let pcs = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner);
+  const inScene = new Set((game.scenes.active?.tokens ?? []).map(t => t.actor?.id).filter(Boolean));
+  if (pcs.some(a => inScene.has(a.id))) pcs = pcs.filter(a => inScene.has(a.id));
   for (const id of [...seanceParty]) if (!pcs.some(a => a.id === id)) seanceParty.delete(id);
   const rows = pcs.map(a => {
     const inParty = seanceParty.has(a.id);
@@ -350,9 +362,11 @@ function seanceBody() {
       ${inParty ? `<i class="fas fa-check mc-seance-pc-check"></i>` : ""}
     </button>`;
   }).join("");
-  const rollBtn = seanceArmed
-    ? `<button class="mc-fx-btn mc-fx-voicebtn mc-seance-dmg" data-seance-dmg title="The board bites — 1d${seanceDie()} psychic to everyone at it" ${on ? "" : "disabled"}><i class="fas fa-skull"></i></button>`
-    : `<button class="mc-fx-btn mc-fx-voicebtn" data-seance-d10 title="Roll the question d10 — on a 1 the board bites" ${on && seanceParty.size ? "" : "disabled"}><i class="fas fa-dice-d10"></i></button>`;
+  // The d10 is the ritual; the skull is ALWAYS live — the DM can cheat (DM 2026-07-27: ~30
+  // civil questions in a row and nobody got zapped; never lock the payoff behind the roll).
+  const canBite = on && seanceParty.size;
+  const rollBtn = `<button class="mc-fx-btn mc-fx-voicebtn" data-seance-d10 title="Roll the question d10 — on a 1 the board bites" ${canBite && !seanceArmed ? "" : "disabled"}><i class="fas fa-dice-d10"></i></button>
+    <button class="mc-fx-btn mc-fx-voicebtn ${seanceArmed ? "mc-seance-dmg" : ""}" data-seance-dmg title="${seanceArmed ? `The board bites — 1d${seanceDie()} psychic to everyone at it` : `Bite anyway — 1d${seanceDie()} psychic, no roll needed`}" ${canBite ? "" : "disabled"}><i class="fas fa-skull"></i></button>`;
   const status = seanceArmed
     ? `<div class="mc-seance-status mc-bad">d10: 1 — the board bites. Roll 1d${seanceDie()} psychic.</div>`
     : seanceLastD10 != null
@@ -439,9 +453,21 @@ function tabRailHTML() {
     ${tab("rest", "fa-campground", "Rest", true, (isResting() || downtimeOpen()) ? "•" : 0)}
     ${tab("travel", "fa-route", "Travel")}
     ${tab("effects", "fa-cloud-bolt", "Effects — weather, ambience, screen magic")}
+    ${tab("crooked", "mc-icon-cmoon", "The Crooked Moon — campaign tools", cmToolsOn())}
     ${tab("preflight", "fa-clipboard-check", "System health", true, preflightFailCount())}
     ${tab("settings", "fa-gear", "Settings")}
   </div>`;
+}
+
+// §35 The Crooked Moon tab — campaign tools, world-gated so other tables never see it.
+// V1 resident: the séance board (moved in from Effects). Twists/curses/fateweaving follow.
+function cmToolsOn() {
+  try { return !!game.settings.get(MODULE_ID, "crookedMoonTools"); } catch (e) { return false; }
+}
+function crookedTabHTML() {
+  return `<div class="mc-dmp-tabfill"><div class="mc-dmp-tabmid">
+    ${dtDrawer("fxSeance", "Séance", "", seanceBody())}
+  </div></div>`;
 }
 
 let dtGearFor = null; // §17.7: actorId whose per-character gear panel is expanded (DM-local)
@@ -1506,11 +1532,13 @@ function travelHTML() {
 
 function flyoutHTML() {
   let title = "", body = "";
+  if (dockTab === "crooked" && !cmToolsOn()) dockTab = null; // gate flipped off under an open tab
   if (dockTab === "combat") { title = "Combat"; body = combatTabHTML(); }
   else if (dockTab === "display") { title = "Display"; body = displayTabHTML(); }
   else if (dockTab === "travel") { title = "Travel"; body = travelHTML(); }
   else if (dockTab === "effects") { title = "Effects"; body = effectsTabHTML(); }
   else if (dockTab === "rest") { title = "Rest"; body = restHTML(); }
+  else if (dockTab === "crooked") { title = "The Crooked Moon"; body = crookedTabHTML(); }
   else if (dockTab === "preflight") { title = "System health"; body = preflightHTML(); }
   else if (dockTab === "settings") { title = "Settings"; body = settingsHTML(); }
   else if (dockTab === "party") {
@@ -3122,7 +3150,10 @@ async function onClick(ev) {
     const r = await (new Roll("1d10")).evaluate();
     seanceLastD10 = r.total;
     if (r.total === 1) seanceArmed = true;
-    await r.toMessage({ flavor: "Séance — the question d10", whisper: ChatMessage.getWhisperRecipients("GM").map(u => u.id) });
+    // rollMode option, not a whisper array — Roll#toMessage applies the client's default roll
+    // mode AFTER messageData and clobbers an explicit whisper (found on the bench 2026-07-27:
+    // public roll mode made these cards public).
+    await r.toMessage({ flavor: "Séance — the question d10" }, { rollMode: "gmroll" });
     return render();
   }
   // §30.1 the bite: escalating psychic damage to every sitter; the glitch (TV + their
@@ -3140,9 +3171,8 @@ async function onClick(ev) {
     if (tvId) owners.add(tvId);
     dmFireFx("static", { users: [...owners], level: seanceGlitchLevel() });
     await r.toMessage({
-      flavor: `Séance — the board bites: 1d${die} psychic to ${sitters.map(a => a.name).join(", ") || "nobody"}`,
-      whisper: ChatMessage.getWhisperRecipients("GM").map(u => u.id)
-    });
+      flavor: `Séance — the board bites: 1d${die} psychic to ${sitters.map(a => a.name).join(", ") || "nobody"}`
+    }, { rollMode: "gmroll" });
     seanceStep++;
     seanceArmed = false;
     return render();
@@ -3454,6 +3484,12 @@ async function onClick(ev) {
     await game.settings.set(MODULE_ID, "fogStyle", fogStyleBtn.dataset.fogStyle);
     return render();
   }
+  // §35: the Campaign-tools gate — flips the Crooked Moon tab on the rail.
+  const cmTools = ev.target.closest("[data-cm-tools]");
+  if (cmTools) {
+    await game.settings.set(MODULE_ID, "crookedMoonTools", cmTools.dataset.cmTools === "on");
+    return render();
+  }
   const bulkEar = ev.target.closest("[data-ears-all]");
   if (bulkEar) {
     const off = bulkEar.dataset.earsAll === "off";
@@ -3618,7 +3654,7 @@ export function registerDMPanel() {
   Hooks.on("updateWorldTime", () => render());                     // the clock chip follows the world time
   Hooks.on("mobile-command.presence", () => render());             // away-timer: a phone reported fg/bg
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.downtimeState`) render(); }); // §17.7: activities/window changed
-  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive` && dockTab === "effects") render(); }); // §26: fx toggles follow the world state
+  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive` && (dockTab === "effects" || dockTab === "crooked")) render(); }); // §26/§35: fx toggles follow the world state (séance lives on the Crooked Moon tab)
   Hooks.on("createChatMessage", (m) => { if (dockTab === "party" && dmMsgOpen && pmIsPersonal(m)) render(); }); // §27: a player reply extends the open thread
   // Away-timer tick: the red escalation crosses the threshold with no event to fire it, so
   // while any player is backgrounded, re-render every 5s to update "away Ns" and flip to red.
