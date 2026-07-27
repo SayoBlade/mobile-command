@@ -3,6 +3,7 @@ import { socket } from "./rpc.js";
 import { isPhoneClient } from "./shell.js";
 import { isExecutor } from "./settings.js";
 import { seanceSync, seancePhrase } from "./seance.js"; // §30 séance board (TV overlay)
+import { cmStationSync, cmTicketFx, playTrainWhistle } from "./cm-boarding.js"; // §36 All aboard
 
 // §26 Effects tab (spike) — DM-triggered table ambience, three kinds under one catalog:
 //   scene   — shortcuts to Foundry's own scene data (weather particles, darkness). Foundry
@@ -59,6 +60,13 @@ export const FX_DEFS = {
   // owns their UI (a toggle plus a phrase input need more than a chip).
   seance: { label: "Séance", icon: "fa-circle-dot", state: true, hint: "The spirit board on the table display" },
   seancePhrase: { label: "Spell it out", icon: "fa-hand-point-up", oneShot: true, hint: "The planchette spells the phrase" },
+  // §36 All aboard: the boarding ritual. Station + intro are display states; the ticket is a
+  // per-player state (their whole phone IS the ticket until the DM takes it); the whistle is
+  // a synthesized one-shot. The panel's All-aboard drawer owns their UI — no grid chips.
+  cmStation: { label: "The Station", icon: "fa-train", state: true, hint: "The Ghostlight Express on the table display" },
+  cmIntro: { label: "Introduce", icon: "fa-masks-theater", state: true, hint: "Put one character's card on the display" },
+  cmTicket: { label: "Ticket", icon: "fa-ticket", player: "state", hint: "A life-size ticket fills their phone until they board" },
+  cmWhistle: { label: "Whistle", icon: "fa-bullhorn", oneShot: true, hint: "Two blasts of the Ghostlight's whistle" },
   rainbow: { label: "Rainbow", icon: "fa-rainbow", filter: "rainbow", hint: "The whole scene cycles through hues" },
   invert: { label: "Invert", icon: "fa-circle-half-stroke", filter: "invert", hint: "Negative — an unsettling other-side look" },
   dreamy: { label: "Dreamy", icon: "fa-cloud-moon", filter: "dreamy", hint: "Soft blur — dream sequences, visions" },
@@ -153,6 +161,7 @@ export function handleFxOneShot({ id, users, soft, text, level } = {}) {
   else if (id === "bell") bellLocal();
   else if (id === "static") staticLocal(level);
   else if (id === "seancePhrase") seancePhrase(text); // no-op on clients without the board
+  else if (id === "cmWhistle") playTrainWhistle();    // §36 — canvas clients only, gates itself
 }
 
 function overlayShot(className, ttlMs) {
@@ -603,7 +612,10 @@ const PHONE_FX = {
       return {};
     },
     stop() { document.body.classList.remove("mc-fxp-woozy"); }
-  }
+  },
+  // §36 the Ghostlight ticket — full-screen on the holder's phone; stop() is the boarding
+  // punch. Implementation lives in cm-boarding.js beside the station it belongs to.
+  cmTicket: cmTicketFx
 };
 
 const activePhoneFx = new Map(); // fx id -> start() handle
@@ -653,6 +665,8 @@ export function syncFx() {
   else { clearTimeout(stormTimer); stormTimer = null; }
   // §30 séance board: mounts on the display + the DM's client (seance.js gates itself).
   seanceSync(!!active.seance);
+  // §36 the station + intro card: same clients, same gate-inside pattern.
+  cmStationSync(!!active.cmStation, active.cmIntro?.actorId ?? null);
 }
 
 export function registerFxEngine() {

@@ -397,8 +397,11 @@ should know it.
 Campaign-specific tools (the Crooked Moon tab) live behind a world setting and **do not exist
 on the rail** for other tables — a table that never runs that campaign must never see its
 chrome. The gate defaults ON when the matching content module is installed and active. A
-campaign tab's icon is an **original glyph drawn by us** (the crooked-crescent mask,
-`.mc-icon-cmoon`) — never art shipped by the campaign book, which is licensed content.
+campaign tab's icon is an **original glyph drawn by us** (the crooked-crescent crone —
+socket eye, bent nose — `.mc-icon-cmoon`) — never art shipped by the campaign book, which is
+licensed content. Referencing the book's art **at runtime from the player's own installed
+module** (the Ghostlight train on the station backdrop) is fine — gated tables own it; we
+just never bundle it.
 
 ---
 

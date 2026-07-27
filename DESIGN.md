@@ -2746,6 +2746,41 @@ currentColor mask (`.mc-icon-cmoon`, styles/shell.css) — never the book's art.
 **Build order (slices):** A) ✅ tab shell + setting gate + séance relocation → B) twists
 (counter, chips, spend/apply flow) → C) curses (effects + real-time expiry + DM flow + the
 original d100 in batches) → D) fateweaving tracker. Each slice ships/commits separately.
+(§36 All aboard jumped the queue by DM request 2026-07-27 — built 2026-07-28.)
+
+## 36. All aboard — the Ghostlight boarding ritual (DM-idea 2026-07-27 — BUILT 2026-07-28, bench-verified)
+
+Campaign onboarding: players introduce their characters, each holds a LIFE-SIZE railway
+ticket on their phone, and the DM takes each ticket as its holder boards the train.
+
+- **The station (TV, `cmStation` fx state):** night sky + two drifting fog layers + flickering
+  headlight beam + the BOOK'S train art (`Scene_4_The Ghostlight Express cropped.webp`),
+  loaded AT RUNTIME from the player's installed the-crooked-moon-2014 module — never bundled
+  (UI-BIBLE §6.7); `onerror` removes the img so fog+beam carry the scene without the book.
+  Sits at z 55, under the séance board. Same eligible-clients gate as the séance.
+- **Introductions (`cmIntro` { actorId } fx state):** one PC at a time — portrait card (actor
+  img, Cinzel silver name, gold rule) blooms out of the fog on the left third. Introducing
+  from the panel auto-raises the station; closing the station clears the card.
+- **The ticket (`cmTicket` per-player fx, PHONE_FX injection):** fills the holder's WHOLE
+  screen — aged paper, perforated edges, double ink border, the book's exact wording ("One
+  Passenger" / "Valid for night of issue only") in gleaming raised-silver CSS lettering
+  (animated sheen), holder name + a stable per-user serial №. NO railway-ticket art exists in
+  the book module (only ch21's Festival of Fools carnival tickets — noted for later), so the
+  ticket is drawn, not a bitmap; DM may generate art later and we swap. Type is sized in cqw
+  against the paper container (bench: vmin sizes overflowed the paper at squat aspect ratios).
+  z 99000 — above the shell, below the lightning/bell flashes so table moments still land.
+  Survives reloads (fxActive state); slight hand-held sway animation.
+- **Boarding = the DM takes the ticket:** per-PC ticket button (or Punch All) → a rough
+  punch-hole slams through (clip-path star, synth "kachunk" clack), the paper jolts, then
+  tears away down-screen. Vibration on give and punch.
+- **The whistle (`cmWhistle` one-shot):** synthesized steam-whistle chord (D#4/F#4/A#4
+  triangle stack, 4.6 Hz vibrato, breath-noise bed), two blasts per the book's departure cue.
+  Canvas clients only — phones would echo.
+- **Panel (All aboard drawer, Crooked Moon tab):** Station toggle · per-PC rows (scene-scoped
+  via the shared `scenePcs()`, fallback to all PCs — boarding happens before tokens are
+  placed) with introduce (name button) + ticket (44px icon button) · All Tickets / Punch All
+  bulk · whistle. Tickets target the PC's USER (`pcUser()` — character-assignment first, then
+  ownership), so the ticket follows the player to any device.
 
 ## 32. Crooked Moon special-effects idea board (mined from the installed book 2026-07-27 — IDEAS, nothing approved)
 

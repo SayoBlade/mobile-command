@@ -5091,9 +5091,9 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-rf-activate { flex: 1 1 auto; min-height: 38px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 14px; font-weight: 800;
   color: #10221a; background: linear-gradient(#5cc98a, #34a869); border: 1px solid #5cc98a; }
 
-/* ── §35 The Crooked Moon tab icon — original crooked-crescent glyph (a crescent with a
-   socket eye and a jagged grin; drawn ours, NOT the book's art). CSS-mask so it inherits
-   currentColor exactly like the Font Awesome tab icons around it. */
+/* ── §35 The Crooked Moon tab icon — original crooked-crescent glyph (a crescent crone
+   profile: socket eye + long bent nose — the grin was cut, DM 2026-07-27; drawn ours, NOT
+   the book's art). CSS-mask so it inherits currentColor like the FA tab icons around it. */
 .mc-icon-cmoon::before {
   content: "";
   display: inline-block;
@@ -5101,6 +5101,167 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   height: 1em;
   vertical-align: -0.125em;
   background: currentColor;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Cpath%20fill-rule='evenodd'%20d='M3%2050a45%2045%200%201%200%2090%200a45%2045%200%201%200-90%200Zm29-6a38%2038%200%201%200%2076%200a38%2038%200%201%200-76%200ZM20%2036a6%206%200%201%200%2012%200a6%206%200%201%200-12%200ZM14%2058l6%204%205-6%205%207%204-5%202%204-3%206-5-4-5%206-6-6-3%202Z'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Cpath%20fill-rule='evenodd'%20d='M3%2050a45%2045%200%201%200%2090%200a45%2045%200%201%200-90%200Zm29-6a38%2038%200%201%200%2076%200a38%2038%200%201%200-76%200ZM20%2036a6%206%200%201%200%2012%200a6%206%200%201%200-12%200ZM14%2058l6%204%205-6%205%207%204-5%202%204-3%206-5-4-5%206-6-6-3%202Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Cpath%20fill-rule='evenodd'%20d='M3%2050a45%2045%200%201%200%2090%200a45%2045%200%201%200-90%200Zm29-6a38%2038%200%201%200%2076%200a38%2038%200%201%200-76%200ZM20%2036a6%206%200%201%200%2012%200a6%206%200%201%200-12%200ZM33%2045q10%201%2013%2010l-10%204q1-8-3-14Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Cpath%20fill-rule='evenodd'%20d='M3%2050a45%2045%200%201%200%2090%200a45%2045%200%201%200-90%200Zm29-6a38%2038%200%201%200%2076%200a38%2038%200%201%200-76%200ZM20%2036a6%206%200%201%200%2012%200a6%206%200%201%200-12%200ZM33%2045q10%201%2013%2010l-10%204q1-8-3-14Z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
+
+/* ── §36 All aboard — the Ghostlight station (table display) ─────────────────────────────
+   Night sky + drifting fog + the book's train art (loaded at runtime from the player's OWN
+   installed the-crooked-moon-2014 module — never bundled; onerror removes the img and the
+   fog + beam carry the scene). Sits UNDER the séance board (z 60) — the board wins. */
+#mc-cmstation {
+  position: fixed; inset: 0; z-index: 55; pointer-events: none; overflow: hidden;
+  background:
+    radial-gradient(ellipse 120% 60% at 78% 88%, rgba(64, 224, 208, 0.10), transparent 55%),
+    linear-gradient(#04060b 0%, #070b13 55%, #0a1018 100%);
+}
+.mc-cmst-train {
+  position: absolute; right: -4%; bottom: 4%; width: 74%; max-height: 86%; object-fit: contain;
+  filter: drop-shadow(0 0 34px rgba(64, 224, 208, 0.35)) drop-shadow(0 0 90px rgba(64, 224, 208, 0.16));
+  animation: mc-cmst-breathe 7s ease-in-out infinite;
+}
+@keyframes mc-cmst-breathe {
+  0%, 100% { transform: translateY(0) rotate(0.0deg); }
+  50% { transform: translateY(-1.2%) rotate(-0.35deg); }
+}
+.mc-cmst-beam {
+  position: absolute; right: 46%; bottom: 26%; width: 46%; height: 26%;
+  background: radial-gradient(ellipse at 92% 50%, rgba(140, 255, 240, 0.28), rgba(64, 224, 208, 0.08) 45%, transparent 72%);
+  filter: blur(6px);
+  animation: mc-cmst-flicker 5.2s ease-in-out infinite;
+}
+@keyframes mc-cmst-flicker {
+  0%, 100% { opacity: 0.85; } 44% { opacity: 1; } 47% { opacity: 0.62; } 50% { opacity: 0.95; } 76% { opacity: 0.8; }
+}
+.mc-cmst-fog {
+  position: absolute; left: -60%; right: -60%; height: 62%; bottom: -6%; pointer-events: none;
+  background:
+    radial-gradient(ellipse 34% 58% at 22% 68%, rgba(158, 178, 190, 0.14), transparent 70%),
+    radial-gradient(ellipse 42% 64% at 55% 78%, rgba(140, 165, 180, 0.17), transparent 72%),
+    radial-gradient(ellipse 30% 52% at 82% 64%, rgba(158, 178, 190, 0.13), transparent 70%);
+  filter: blur(10px);
+}
+.mc-cmst-fog-a { animation: mc-cmst-drift 46s linear infinite; opacity: 0.75; }
+.mc-cmst-fog-b { height: 44%; bottom: -10%; animation: mc-cmst-drift 27s linear infinite reverse; opacity: 0.9; }
+@keyframes mc-cmst-drift {
+  0% { transform: translateX(-6%); } 50% { transform: translateX(6%); } 100% { transform: translateX(-6%); }
+}
+.mc-cmst-vignette { position: absolute; inset: 0; box-shadow: inset 0 0 18vmin 6vmin rgba(2, 3, 6, 0.9); }
+
+/* The introduction card — one character at a time, entering out of the fog. */
+.mc-cmst-intro { position: absolute; left: 6%; top: 0; bottom: 0; width: 38%; display: flex; align-items: center; justify-content: center; }
+.mc-cmst-card {
+  display: flex; flex-direction: column; align-items: center; gap: 2vmin; max-width: 100%;
+  animation: mc-cmst-enter 1.6s ease-out both;
+}
+@keyframes mc-cmst-enter {
+  from { opacity: 0; transform: translateY(3vmin) scale(0.96); filter: blur(9px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+.mc-cmst-card img {
+  max-width: 100%; max-height: 52vh; object-fit: contain;
+  border: 1px solid rgba(200, 164, 77, 0.5); border-radius: 4px;
+  box-shadow: 0 0 3.5vmin rgba(64, 224, 208, 0.22), 0 1.2vmin 4vmin rgba(0, 0, 0, 0.75);
+  background: #0a0d13;
+}
+.mc-cmst-name {
+  font-family: "Cinzel", serif; font-weight: 700; font-size: 4.6vmin; letter-spacing: 0.14em;
+  text-align: center; color: transparent;
+  background: linear-gradient(#f2f5fa, #98a2b3 55%, #dde3ec); -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 0 1.4vmin rgba(64, 224, 208, 0.35)) drop-shadow(0 2px 2px rgba(0, 0, 0, 0.9));
+}
+.mc-cmst-rule { width: 58%; height: 1px; background: linear-gradient(90deg, transparent, rgba(200, 164, 77, 0.75), transparent); }
+
+/* ── §36 the Ghostlight ticket — a life-size ticket that IS the player's phone ──────────
+   Aged paper, ornate ink border, the book's wording in raised silver. Covers the whole
+   shell (z 99000) but stays under the lightning/bell flashes (100000) so table-wide
+   moments still reach the held ticket. */
+.mc-cmticket {
+  position: fixed; inset: 0; z-index: 99000; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, #0c1016 0%, #05070b 78%);
+  animation: mc-cmt-in 0.9s ease-out both;
+}
+@keyframes mc-cmt-in { from { opacity: 0; } to { opacity: 1; } }
+.mc-cmt-paper {
+  position: relative; width: min(92vw, 62vh); height: min(94vh, 150vw);
+  container-type: inline-size; overflow: hidden; /* type scales with the PAPER, not the screen */
+  display: flex; align-items: stretch; justify-content: stretch;
+  background:
+    radial-gradient(ellipse 90% 70% at 30% 20%, rgba(120, 100, 60, 0.10), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 85%, rgba(90, 80, 50, 0.14), transparent 65%),
+    linear-gradient(160deg, #e6dcc2 0%, #d9cda9 48%, #cfc19b 100%);
+  border-radius: 10px;
+  box-shadow: 0 0 5vmin rgba(64, 224, 208, 0.14), 0 2vmin 7vmin rgba(0, 0, 0, 0.85);
+  animation: mc-cmt-hold 6.5s ease-in-out infinite;
+}
+@keyframes mc-cmt-hold { /* held in a hand, not pinned to glass */
+  0%, 100% { transform: rotate(-0.5deg) translateY(0); }
+  50% { transform: rotate(0.4deg) translateY(-0.5vh); }
+}
+/* perforated edges — punched dots down both sides */
+.mc-cmt-paper::before, .mc-cmt-paper::after {
+  content: ""; position: absolute; top: 8px; bottom: 8px; width: 8px;
+  background-image: radial-gradient(circle 3px at 4px 50%, #0a0d12 98%, transparent);
+  background-size: 8px 26px; background-repeat: repeat-y;
+}
+.mc-cmt-paper::before { left: 3px; }
+.mc-cmt-paper::after { right: 3px; }
+.mc-cmt-border {
+  flex: 1; margin: 4.5%; padding: 6% 5%;
+  border: 2px solid #3c342a; outline: 1px solid #3c342a; outline-offset: 4px;
+  border-radius: 6px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3.5vh;
+  text-align: center;
+}
+.mc-cmt-head {
+  font-family: "Cinzel", serif; font-weight: 700; font-size: 7.2cqw; letter-spacing: 0.1em;
+  color: #33291c; text-transform: uppercase;
+  text-shadow: 0 1px 0 rgba(255, 250, 235, 0.6);
+}
+.mc-cmt-orn { color: #6b5c40; font-size: 3.4cqw; letter-spacing: 0.2em; }
+/* the raised silver lettering — "gleam in raised silver lettering" is the book's own line */
+.mc-cmt-one {
+  font-family: "Cinzel", serif; font-weight: 700; font-size: 12cqw; line-height: 1.12; letter-spacing: 0.12em;
+  color: transparent;
+  background: linear-gradient(105deg, #aeb6c2 0%, #f6f8fb 24%, #8f98a6 48%, #e9edf3 70%, #9aa3b1 100%);
+  background-size: 240% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.55)) drop-shadow(0 -1px 0 rgba(40, 36, 28, 0.65)) drop-shadow(0 2px 3px rgba(40, 36, 28, 0.4));
+  animation: mc-cmt-gleam 5.5s ease-in-out infinite;
+}
+@keyframes mc-cmt-gleam { 0%, 100% { background-position: 0% 0; } 50% { background-position: 100% 0; } }
+.mc-cmt-valid {
+  font-family: "Cinzel", serif; font-weight: 700; font-size: 4.3cqw; letter-spacing: 0.16em; text-transform: uppercase;
+  color: transparent;
+  background: linear-gradient(#eef1f6, #97a0ae 60%, #dbe0e9);
+  -webkit-background-clip: text; background-clip: text;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.5)) drop-shadow(0 -1px 0 rgba(40, 36, 28, 0.6));
+}
+.mc-cmt-holder { font-family: "Cinzel", serif; font-size: 4.6cqw; letter-spacing: 0.08em; color: #4a3d2b; }
+.mc-cmt-no { position: absolute; bottom: 6.5%; right: 9%; font-family: monospace; font-size: 3.2cqw; color: #7a2f23; opacity: 0.85; transform: rotate(-3deg); }
+/* the conductor's punch — hidden until boarding */
+.mc-cmt-punch {
+  position: absolute; top: 12%; right: 14%; width: 9vmin; height: 9vmin; border-radius: 50%;
+  background: #0a0d12; opacity: 0;
+  box-shadow: inset 0 0 0 2px rgba(230, 220, 194, 0.25), inset 2px 3px 6px rgba(0, 0, 0, 0.9);
+  clip-path: polygon(50% 0%, 63% 6%, 76% 2%, 84% 14%, 97% 18%, 96% 32%, 100% 45%, 92% 56%, 95% 70%, 84% 77%, 82% 91%, 68% 90%, 57% 100%, 45% 92%, 31% 97%, 24% 85%, 10% 83%, 12% 68%, 2% 58%, 9% 46%, 4% 32%, 16% 26%, 17% 12%, 32% 12%, 39% 2%);
+}
+.mc-cmt-punched { animation: mc-cmt-out 1.7s ease-in 0.35s both; }
+.mc-cmt-punched .mc-cmt-paper { animation: mc-cmt-jolt 0.3s ease-out; }
+.mc-cmt-punched .mc-cmt-punch { animation: mc-cmt-hole 0.22s ease-out both; }
+@keyframes mc-cmt-hole { from { opacity: 0; transform: scale(0.2); } 60% { opacity: 1; transform: scale(1.15); } to { opacity: 1; transform: scale(1); } }
+@keyframes mc-cmt-jolt { 0% { transform: none; } 30% { transform: translate(1.2vmin, -0.8vmin) rotate(1.6deg); } 100% { transform: none; } }
+@keyframes mc-cmt-out { /* torn away by the conductor */
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(110vh) rotate(-14deg); }
+}
+
+/* ── §36 panel rows: name (introduce) + a touch-size ticket button ── */
+.mc-cmb-row { display: flex; gap: 6px; align-items: stretch; }
+.mc-cmb-row .mc-seance-pc { flex: 1 1 auto; min-width: 0; }
+.mc-cmb-ticket {
+  flex: 0 0 auto; min-width: 44px; min-height: 44px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted);
+}
+.mc-cmb-ticket.mc-on { background: #2a2418; border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-cmb-ticket:disabled { opacity: 0.35; cursor: default; }

@@ -7,7 +7,7 @@ import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar
 import { runDmWizard } from "./dm-wizard.js";
 import { startCombatWithMusic } from "./combat-music.js";
 import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist } from "./settings.js";
-import { FX_TABS, FX_DEFS, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js"; // §26 Effects tab
+import { FX_TABS, FX_DEFS, fxActiveMap, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js"; // §26 Effects tab
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 
@@ -349,11 +349,8 @@ function seanceBody() {
   const esc = foundry.utils.escapeHTML;
   const on = fxIsOn("seance");
   // The sitters: player-owned CHARACTERS only — pets/summons don't hold the planchette.
-  // Scoped to the ACTIVE SCENE (DM 2026-07-27: "unless there's a real reason, only list PCs
-  // in the scene"); falls back to every PC when none have tokens placed there.
-  let pcs = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner);
-  const inScene = new Set((game.scenes.active?.tokens ?? []).map(t => t.actor?.id).filter(Boolean));
-  if (pcs.some(a => inScene.has(a.id))) pcs = pcs.filter(a => inScene.has(a.id));
+  // Scene-scoped via scenePcs() (DM 2026-07-27, UI-BIBLE §6.6).
+  const pcs = scenePcs();
   for (const id of [...seanceParty]) if (!pcs.some(a => a.id === id)) seanceParty.delete(id);
   const rows = pcs.map(a => {
     const inParty = seanceParty.has(a.id);
@@ -466,8 +463,61 @@ function cmToolsOn() {
 }
 function crookedTabHTML() {
   return `<div class="mc-dmp-tabfill"><div class="mc-dmp-tabmid">
+    ${dtDrawer("cmBoard", "All aboard", "", allAboardBody())}
     ${dtDrawer("fxSeance", "Séance", "", seanceBody())}
   </div></div>`;
+}
+
+// PC roster, scene-scoped per UI-BIBLE §6.6 — shared by the séance sitters and the boarding
+// rows. Falls back to every PC when the active scene has no PC tokens (campaign start —
+// boarding happens before anyone is placed).
+function scenePcs() {
+  let pcs = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner);
+  const inScene = new Set((game.scenes.active?.tokens ?? []).map(t => t.actor?.id).filter(Boolean));
+  if (pcs.some(a => inScene.has(a.id))) pcs = pcs.filter(a => inScene.has(a.id));
+  return pcs;
+}
+// The PC's player (their user) — the ticket goes to the USER, whatever device they hold.
+function pcUser(a) {
+  return game.users.find(u => !u.isGM && u.character?.id === a?.id)
+    ?? game.users.find(u => !u.isGM && a?.testUserPermission?.(u, "OWNER")) ?? null;
+}
+
+// §36 All aboard: station on the TV, one PC introduced at a time, a life-size ticket on each
+// player's phone, punched by the DM as they board. Tickets survive reloads (fxActive state).
+function allAboardBody() {
+  const esc = foundry.utils.escapeHTML;
+  const stationOn = fxIsOn("cmStation");
+  const introId = fxActiveMap().cmIntro?.actorId ?? null;
+  const pcs = scenePcs();
+  const rows = pcs.map(a => {
+    const u = pcUser(a);
+    const hasTicket = u ? fxIsOnFor("cmTicket", u.id) : false;
+    const isIntro = introId === a.id;
+    return `<div class="mc-cmb-row">
+      <button class="mc-seance-pc ${isIntro ? "mc-on" : ""}" data-cm-intro="${a.id}"
+        title="${isIntro ? `Take ${esc(a.name)}'s card off the display` : `Introduce ${esc(a.name)} — their card on the display`}">
+        <i class="fas fa-circle-user" style="color:${pcColor(a)}"></i><span>${esc(a.name)}</span>
+        ${isIntro ? `<i class="fas fa-masks-theater mc-seance-pc-check"></i>` : ""}
+      </button>
+      <button class="mc-cmb-ticket ${hasTicket ? "mc-on" : ""}" data-cm-ticket="${u?.id ?? ""}" ${u ? "" : "disabled"}
+        title="${!u ? `${esc(a.name)} has no player` : hasTicket ? `${esc(a.name)} boards — punch their ticket` : `Hand ${esc(a.name)} their ticket`}">
+        <i class="fas fa-ticket"></i>
+      </button>
+    </div>`;
+  }).join("");
+  const users = pcs.map(a => pcUser(a)).filter(Boolean);
+  const allHave = users.length > 0 && users.every(u => fxIsOnFor("cmTicket", u.id));
+  return `
+    <button class="mc-fx-btn ${stationOn ? "mc-on" : ""}" data-fx="cmStation" title="${FX_DEFS.cmStation.hint}" style="width:100%"><i class="fas ${FX_DEFS.cmStation.icon}"></i><span>The Station</span></button>
+    <div class="mc-seance-party">${rows || `<div class="mc-dmp-empty">No player characters.</div>`}</div>
+    <div class="mc-fx-voicerow">
+      <button class="mc-fx-btn" data-cm-tickets-all="${allHave ? "off" : "on"}" style="flex:1" ${users.length ? "" : "disabled"}
+        title="${allHave ? "Everyone boards — punch every ticket" : "Hand every player their ticket"}">
+        <i class="fas fa-ticket"></i><span>${allHave ? "Punch All" : "All Tickets"}</span>
+      </button>
+      <button class="mc-fx-btn mc-fx-voicebtn" data-fx-shot="cmWhistle" title="${FX_DEFS.cmWhistle.hint}"><i class="fas fa-bullhorn"></i></button>
+    </div>`;
 }
 
 let dtGearFor = null; // §17.7: actorId whose per-character gear panel is expanded (DM-local)
@@ -3137,6 +3187,33 @@ async function onClick(ev) {
   if (fxpShot) { dmFireFx(fxpShot.dataset.fxpShot, { users: [fxPlayer] }); return; }
   const fxpBtn = ev.target.closest("[data-fxp]");
   if (fxpBtn) { await dmToggleFxFor(fxpBtn.dataset.fxp, fxPlayer); return render(); }
+  // §36 All aboard: introduce one PC on the display (tapping again takes the card down;
+  // introducing also raises the station — one tap, not two).
+  const cmIntro = ev.target.closest("[data-cm-intro]");
+  if (cmIntro) {
+    const id = cmIntro.dataset.cmIntro;
+    const cur = { ...fxActiveMap() };
+    if (cur.cmIntro?.actorId === id) delete cur.cmIntro;
+    else { cur.cmIntro = { actorId: id }; cur.cmStation = true; }
+    await game.settings.set(MODULE_ID, "fxActive", cur);
+    return render();
+  }
+  // §36 one ticket: give, or punch it (boarding).
+  const cmTicket = ev.target.closest("[data-cm-ticket]");
+  if (cmTicket) {
+    if (cmTicket.dataset.cmTicket) await dmToggleFxFor("cmTicket", cmTicket.dataset.cmTicket);
+    return render();
+  }
+  // §36 every ticket at once — hand them out at the top of the scene, or punch the stragglers.
+  const cmAll = ev.target.closest("[data-cm-tickets-all]");
+  if (cmAll) {
+    const users = scenePcs().map(a => pcUser(a)).filter(Boolean).map(u => u.id);
+    const cur = { ...fxActiveMap() };
+    if (cmAll.dataset.cmTicketsAll === "on" && users.length) cur.cmTicket = { users: [...new Set(users)] };
+    else delete cur.cmTicket;
+    await game.settings.set(MODULE_ID, "fxActive", cur);
+    return render();
+  }
   // §30 séance: broadcast the phrase; the TV's planchette does the talking.
   if (ev.target.closest("[data-seance-send]")) return seanceSend();
   const spc = ev.target.closest("[data-seance-pc]");
@@ -3181,7 +3258,14 @@ async function onClick(ev) {
   if (fxBtn) {
     // §30.1: a fresh séance resets the escalation — the die starts back at 1d4.
     if (fxBtn.dataset.fx === "seance" && !fxIsOn("seance")) { seanceStep = 0; seanceArmed = false; seanceLastD10 = null; }
+    // §36: closing the station takes the intro card down with it — no ghost card on re-open.
+    const stationClosing = fxBtn.dataset.fx === "cmStation" && fxIsOn("cmStation");
     await dmToggleFx(fxBtn.dataset.fx);
+    if (stationClosing && fxActiveMap().cmIntro) {
+      const cur = { ...fxActiveMap() };
+      delete cur.cmIntro;
+      await game.settings.set(MODULE_ID, "fxActive", cur);
+    }
     return render();
   }
   // Mark / unmark the current scene as a travel map (the DM's explicit list — no grid guessing).
