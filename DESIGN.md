@@ -2407,6 +2407,32 @@ hidden). Numbered, one at a time, stop on first failure:
 Two-client leg (live table only): reaction/save prompt relay to a real phone; turn-start
 vibration on hardware.
 
+### 28.5.1 Full-stack update sweep (checked 2026-07-29, pre-update for the DM's mod refresh)
+
+Everything verified against live release pages. **The entire stack is already at latest except
+AC5E** (and possibly a Foundry install still on 14.363):
+- **AC5E 14.533.11 → 14.533.13** (Jul 27/28): opt-in flag system features only; commit compare
+  shows NO churn in preRollAttack/geometry/AE application. One behavior change: an effect's
+  `name=` label now REPLACES the AE name instead of appending. The old toClipperPoints crash
+  (#736) was a v13-line issue closed in March; if we reproduce it on v14 (Levels-culled
+  tokens), it's UNREPORTED upstream — file it. → UPDATE, then run §28.4 validation and bump
+  TESTED to 14.533.13.
+- **midi-qol 14.0.11 · DAE 14.0.12 · dnd5e 5.3.3 · CAT 0.0.6 · MISC 2.0.1 · socketlib 1.1.4 ·
+  lib-wrapper 1.13.5.1 · MCD 14.01 · item-piles 3.3.4 · SC Reborn 2.6.1 — ALL current.**
+  MCD's shipping master still has the five methods our camera suppression patches (verified in
+  source); re-check those names on any 14.02+. Grepped our scripts for midi's removed
+  `activity.targets` and renamed `isConcentrationSaveFail` — clean.
+- **Foundry core: 14.365 is latest stable** (Jul 15). 14.365 fixes AE change PRIORITIES being
+  prepared as 0 when unset — relevant to our effect stacks; update any machine still on 14.363.
+  v15: no release, no prototype; not imminent.
+- **dnd5e 6.0 signal (the migration milestone):** NO 5.4 milestone exists; the only open
+  release milestone is 6.0.0 at 83% (270/323). The next system release is the major bump —
+  when it lands, do NOT auto-update: midi/DAE historically lag major bumps by weeks, and our
+  activities/enchantment/spell-list/advancement surfaces are exactly what 6.0 churns.
+- **MISC #89 (our GWM boolean bug): still open, no fix shipped.** CPR 2.0 still prerelease
+  with no automations (stable = 1.5.43, not a V14 line); GPS still v13-only. §28.5 verdicts
+  unchanged.
+
 ### 28.5 Ecosystem watch — the premades modules (checked 2026-07-26)
 
 - **gambits-premades**: last release 2.1.43 (May 27); author (April, 2.1.42): "as-is release for
