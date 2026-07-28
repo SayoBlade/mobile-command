@@ -4,6 +4,7 @@ import { isPhoneClient } from "./shell.js";
 import { isExecutor } from "./settings.js";
 import { seanceSync, seancePhrase } from "./seance.js"; // §30 séance board (TV overlay)
 import { cmStationSync, cmTicketFx, playTrainWhistle } from "./cm-boarding.js"; // §36 All aboard
+import { initCurseSweep } from "./cm-curses.js"; // §33: one GM client lifts expired curses
 
 // §26 Effects tab (spike) — DM-triggered table ambience, three kinds under one catalog:
 //   scene   — shortcuts to Foundry's own scene data (weather particles, darkness). Foundry
@@ -734,6 +735,7 @@ export function registerFxEngine() {
   Hooks.on("deleteActiveEffect", (e) => { if (e.parent?.id === game.user?.character?.id) deathbeatEval(); });
   Hooks.on("ready", () => deathbeatEval()); // rejoin mid-death: the beat resumes where the body is
   deathbeatEval();
+  initCurseSweep(); // §33: no-op unless this client is the activeGM at tick time
   Hooks.on("canvasTearDown", () => {
     // REALLY unmount — don't just forget. canvas.environment and canvas.stage are persistent
     // groups that survive a re-draw, and a WEATHER change is itself a full canvas.draw()

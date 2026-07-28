@@ -9,6 +9,7 @@ import { startCombatWithMusic } from "./combat-music.js";
 import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist } from "./settings.js";
 import { FX_TABS, FX_DEFS, fxActiveMap, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js"; // §26 Effects tab
 import { FATE_THREADS, FATE_STEPS, applyFateReward } from "./fateweaving.js"; // §34 Fateweaving tracker
+import { CURSES, rollCurse, pickCurse, applyCurse, actorCurses, curseTableUuid } from "./cm-curses.js"; // §33 Chaotic Curses
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 
@@ -474,11 +475,63 @@ function cmToolsOn() {
 }
 function crookedTabHTML() {
   return `<div class="mc-dmp-tabfill"><div class="mc-dmp-tabmid">
+    ${dtDrawer("cmCurses", "Chaotic curses", "", curseBody())}
     ${dtDrawer("cmFate", "Fateweaving", "", fateBody())}
     ${dtDrawer("cmTwists", "Twists of fate", "", twistsBody())}
     ${dtDrawer("cmBoard", "All aboard", "", allAboardBody())}
     ${dtDrawer("fxSeance", "Séance", "", seanceBody())}
   </div></div>`;
+}
+
+// §33 Chaotic Curses: pick a victim, roll (or hand-pick) a curse, Accept to land it. Curses
+// lift THEMSELVES after their real-world minutes; every active one is listed with its clock
+// and a ✕ — the DM can always end misfortune early (§8.1 in both directions).
+let curseTarget = null;  // actorId the next curse lands on
+let curseMins = 20;      // real-world minutes (the book's 15–30 band)
+let cursePick = null;    // { n, name, text, builtin } awaiting Accept
+function curseBody() {
+  const esc = foundry.utils.escapeHTML;
+  const pcs = scenePcs();
+  if (!curseTarget || !pcs.some(a => a.id === curseTarget)) curseTarget = pcs[0]?.id ?? null;
+  const targets = pcs.map(a => `<button class="mc-seance-pc ${curseTarget === a.id ? "mc-on" : ""}" data-curse-target="${a.id}"
+      title="The next curse lands on ${esc(a.name)}">
+      <i class="fas fa-circle-user" style="color:${pcColor(a)}"></i><span>${esc(a.name)}</span>
+      ${curseTarget === a.id ? `<i class="fas fa-hand-sparkles mc-seance-pc-check"></i>` : ""}
+    </button>`).join("");
+  const mins = [10, 20, 30].map(m =>
+    `<button class="mc-curse-min ${curseMins === m ? "mc-on" : ""}" data-curse-mins="${m}">${m}m</button>`).join("");
+  const custom = !!curseTableUuid();
+  const pickOpts = custom ? "" : `<select class="mc-fate-select" data-curse-pickn title="Pick a curse instead of rolling">
+      <option value="">Pick instead…</option>
+      ${CURSES.map((c, i) => `<option value="${i + 1}">${i + 1} — ${esc(c.name)}</option>`).join("")}
+    </select>`;
+  const card = cursePick ? `<div class="mc-twist-req mc-curse-card">
+      <div class="mc-twist-reqtext"><b>${cursePick.n ? `${cursePick.n} — ` : ""}${esc(cursePick.name)}</b><br>${esc(cursePick.text)}</div>
+      <button class="mc-cmb-ticket mc-on" data-curse-accept title="Accept — it lands on the chosen character for ${curseMins} real minutes"><i class="fas fa-check"></i></button>
+      <button class="mc-cmb-ticket" data-curse-roll title="Roll again"><i class="fas fa-dice"></i></button>
+      <button class="mc-cmb-ticket" data-curse-cancel title="Never mind"><i class="fas fa-xmark"></i></button>
+    </div>` : "";
+  const active = pcs.flatMap(a => actorCurses(a).map(e => {
+    const left = Math.max(0, Math.ceil(((e.flags[MODULE_ID].expiresAt ?? 0) - Date.now()) / 60000));
+    return `<div class="mc-cmb-row mc-curse-live">
+      <div class="mc-seance-pc mc-twist-pcrow"><i class="fas fa-eye"></i><span>${esc(a.name)} — ${esc(e.name)}</span></div>
+      <span class="mc-twist-n mc-on">${left}m</span>
+      <button class="mc-cmb-ticket" data-curse-x="${a.id}:${e.id}" title="Lift it early"><i class="fas fa-xmark"></i></button>
+    </div>`;
+  })).join("");
+  return `
+    <div class="mc-seance-party">${targets || `<div class="mc-dmp-empty">No player characters.</div>`}</div>
+    <div class="mc-fx-voicerow">
+      <button class="mc-fx-btn" data-curse-roll style="flex:1" ${curseTarget ? "" : "disabled"}
+        title="${custom ? "Roll on the configured curse table" : "Roll the d100 of small misfortunes"}">
+        <i class="fas fa-dice"></i><span>Roll Curse</span></button>
+      <div class="mc-curse-mins">${mins}</div>
+    </div>
+    ${pickOpts}
+    ${card}
+    ${active ? `<div class="mc-curse-list">${active}</div>` : ""}
+    <p class="mc-dmp-set-note">Good moments to reach for one: a natural 1 · combat's end · a long
+      rest · touching something best left alone. Curses lift themselves when their time is up.</p>`;
 }
 
 // §34 Fateweaving: assign each PC a Thread of Fate, then tap the six touchpoint dots as the
@@ -3140,6 +3193,12 @@ function onInput(ev) {
 function onChange(ev) {
   // §26.6: the Player drawer's target picker.
   if (ev.target.matches?.("[data-fx-player]")) { fxPlayer = ev.target.value; return render(); }
+  // §33: the hand-pick dropdown — choosing an entry stages it like a roll would.
+  if (ev.target.matches?.("[data-curse-pickn]")) {
+    const n = Number(ev.target.value);
+    if (n) { cursePick = pickCurse(n); render(); }
+    return;
+  }
   // §34: assign/clear a PC's Thread of Fate. Switching threads restarts the count — a new
   // story starts at its beginning.
   if (ev.target.matches?.("[data-fate-thread]")) {
@@ -3268,6 +3327,28 @@ async function onClick(ev) {
     const cur = { ...fxActiveMap() };
     for (const [id, d] of Object.entries(FX_DEFS)) if (d.player === "state") delete cur[id];
     await game.settings.set(MODULE_ID, "fxActive", cur);
+    return render();
+  }
+  // §33 Chaotic Curses: target pick / duration / roll / accept / lift.
+  const cT = ev.target.closest("[data-curse-target]");
+  if (cT) { curseTarget = cT.dataset.curseTarget; return render(); }
+  const cM = ev.target.closest("[data-curse-mins]");
+  if (cM) { curseMins = Number(cM.dataset.curseMins) || 20; return render(); }
+  if (ev.target.closest("[data-curse-roll]")) {
+    cursePick = await rollCurse();
+    return render();
+  }
+  if (ev.target.closest("[data-curse-cancel]")) { cursePick = null; return render(); }
+  if (ev.target.closest("[data-curse-accept]")) {
+    const a = game.actors.get(curseTarget);
+    if (a && cursePick) await applyCurse(a, cursePick, curseMins);
+    cursePick = null;
+    return render();
+  }
+  const cX = ev.target.closest("[data-curse-x]");
+  if (cX) {
+    const [aid, eid] = cX.dataset.curseX.split(":");
+    await game.actors.get(aid)?.deleteEmbeddedDocuments("ActiveEffect", [eid]).catch(() => {});
     return render();
   }
   // §34 Fateweaving: touchpoint dots. Advance applies each newly crossed step's reward;

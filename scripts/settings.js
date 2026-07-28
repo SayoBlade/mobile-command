@@ -318,6 +318,16 @@ export function registerSettings() {
     default: !!game.modules.get("the-crooked-moon-2014")?.active
   });
 
+  // §33 Chaotic Curses: optional RollTable UUID that replaces the module's built-in
+  // d100 (e.g. the Crooked Moon book's own 1d156 for DMs who own it, or a homebrew
+  // table). Empty = our original list. Set via console/macro for now; UI later.
+  game.settings.register(MODULE_ID, "curseTable", {
+    scope: "world",
+    config: false,
+    type: String,
+    default: ""
+  });
+
   // §16.3 DM first-run wizard: true once the DM finished (or dismissed) the
   // guided setup. Hidden — the wizard flips it; reopen lives on the Preflight tab.
   game.settings.register(MODULE_ID, "dmOnboarded", {

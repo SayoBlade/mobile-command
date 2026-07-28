@@ -5338,3 +5338,17 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   background: var(--mc-panel-2); border: 1px dashed var(--mc-edge); color: var(--mc-muted); font-weight: 800;
 }
 .mc-fate-dot.mc-on { background: #2a2418; border: 1px solid var(--mc-gold); color: var(--mc-gold); }
+
+/* == SS33 Chaotic Curses: dashed muted chip on the phone, mins picker + live list on the panel == */
+.mc-curse-chip { border: 1px dashed var(--mc-muted) !important; font-style: italic; }
+.mc-curse-mins { display: flex; gap: 4px; }
+.mc-curse-min {
+  min-width: 44px; min-height: 44px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); font-weight: 700;
+}
+.mc-curse-min.mc-on { background: #2a2418; border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-curse-card { border-style: solid; border-color: var(--mc-edge); background: #191b22; }
+.mc-curse-card .mc-twist-reqtext b { color: var(--mc-gold); }
+.mc-curse-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.mc-curse-live .mc-twist-pcrow { font-style: italic; }
+.mc-curse-live .fa-eye { color: var(--mc-muted); }

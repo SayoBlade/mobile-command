@@ -537,7 +537,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Tap OR long-press opens the condition detail (DM 2026-07-04: "a tap should
     // open the condition too") — data-action for the tap, data-detail for the hold.
     const condsHTML = effGroups.map(({ e, count }) =>
-      `<span class="mc-chip mc-chip-tap${isEconEffect(e) ? " mc-chip-used" : ""}" data-action="cond-open" data-detail="cond" data-effect-id="${e.id}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}${count > 1 ? `<span class="mc-chip-mult">×${count}</span>` : ""}</span>`
+      `<span class="mc-chip mc-chip-tap${isEconEffect(e) ? " mc-chip-used" : ""}${e.flags?.[MODULE_ID]?.curse ? " mc-curse-chip" : ""}" data-action="cond-open" data-detail="cond" data-effect-id="${e.id}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}${count > 1 ? `<span class="mc-chip-mult">×${count}</span>` : ""}</span>`
     ).join("");
     const condHTML = (fateChip + twistChip + actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
 

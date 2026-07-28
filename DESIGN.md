@@ -2728,6 +2728,21 @@ their module, none of it in ours.
   the phone medium adds over paper — v1 ships text+mechanical only; client-effect keys per
   entry are backlog (performance talk first, per the pets-audio lesson).
 
+**Slice C BUILT + bench-verified 2026-07-28** (`cm-curses.js`). The FULL ORIGINAL d100 shipped:
+1–10 the approved mechanical ladder (Hollowed −50% temp-max HP · Unshelled −2 AC ·
+Palsied Hand · Dimmed darkvision-0 · Cotton Ears), 11–20 the ten approved RP seeds, 21–100
+eighty new entries in the same voice, in the planned variety batches (compulsions 21–36 ·
+perceptions 37–56 · social 57–72 · body-wrongness 73–88 · debts-and-bargains 89–100; none of
+the book's curses reused). Panel drawer: victim row (scene-scoped) · 10/20/30-min real-time
+picker · Roll Curse (or the `curseTable` UUID setting's RollTable — registered, console-set
+v1) · Pick instead… dropdown (staged like a roll) · Accept/Roll again/✕ · live list with
+minutes-left + per-curse ✕. Curse = self-reverting ActiveEffect (icon eye, italic curse text
+in the description → the existing chip-tap detail shows it), REAL-TIME expiresAt flag; the
+activeGM client sweeps every 30 s. Shell renders curses through the normal condition strip
+with a dashed-muted italic chip (`mc-curse-chip`). Bench: pick-3 Unshelled → AC 16→14 live,
+20-min clock listed; backdated expiry → sweep lifted it and AC returned; random roll (63 Old
+Tongue) + cancel. Bargain mode (reroll-for-a-curse toggle) DEFERRED to the phone-roll slice.
+
 ## 34. Fateweaving (DM-requested write-up 2026-07-27 — spec'd, unbuilt)
 
 The book's per-PC story-arc system (ch9): each player picks one of **13 Threads of Fate** (no
