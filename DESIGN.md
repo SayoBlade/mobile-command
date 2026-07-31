@@ -2596,9 +2596,27 @@ Settings" button atop the DM panel's Settings tab. Read-only rows with pointers 
 lives elsewhere (anthem drag-drop, overworld marking, custom paces — panel-owned on purpose).
 Unexposed per DM: heartbeatSeconds, clockStart, softFog + all state objects. registerMenu is
 called from main.js init, NOT settings.js (the app imports preflight → settings.js: cycle).
-**Bench verification PENDING** — the test server sat at the setup screen at build time; verify
-on next world launch (open from both doors, flip a toggle+chip+number, confirm writes + a
-fogStyle change refreshes fog).
+**§29 BENCH VERIFICATION — PASSED (2026-08-01, headless bench per §28.5.2).** All 12 numbered
+results observed, one at a time; every value restored afterwards:
+1. Opens from Foundry's module-settings menu (`mobile-command.settingsApp` shim → MCSettingsApp).
+2. Opens from the DM panel's Settings tab "All Settings" button — same single app.
+3. Display tab: 11 rows, every control mirrors its live registered value.
+4. Toggle (markDeadNpcs) writes true→false, UI reflects it, restores.
+5. Chip (fogStyle Off→Soft) writes AND the registration's onChange fired `refreshFog` exactly
+   once — the side-effect leg of the checklist.
+6. Number (tokenGlow 0.1→0.4) writes.
+7. Combat tab: 9 rows including the three §29-revision music rows (playlist · per-PC anthems
+   read-only pointer · combatPovAudio).
+8. Chip-label→value mapping is right where they differ: "Ask" ⇒ stored `prompt`.
+9. Travel tab: 6 rows; overworld-scenes and custom-paces render as read-only pointers to the
+   panel's Travel tab (panel-owned by design).
+10. System tab: 5 rows; `heartbeatSeconds` correctly ABSENT (unexposed per DM) though registered.
+11. "Run Checks" runs the real preflight (fresh lastRunAt, 9 results, stack ok).
+12. A written value survives a full client reload and the reopened control reads it back.
+
+Not covered (needs a real second client / player role): nothing — the app is GM-restricted.
+"Re-Run Wizard" button present but not fired (it launches the 6-step DialogV2 flow; exercised
+separately at build time).
 
 ---
 
