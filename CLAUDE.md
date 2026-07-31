@@ -6,7 +6,7 @@
 
 **[UI-BIBLE.md](UI-BIBLE.md) is the source of truth for how the UI looks and what each visual choice means** — palette and the meaning of every colour, how names/identity are shown, the button hierarchy (primary/secondary/tertiary/destructive/close), state marking, layout, copy, and class-name hygiene. **Read it before writing any UI, and live by it.** If code and UI-BIBLE.md disagree, the bible wins — fix the code. If a genuinely new need isn't covered, add the rule to the bible first, then build to it.
 
-**Tested stack (chase upstream, don't freeze — DM 2026-07-26):** last validated: Foundry 14.363/14.365 · dnd5e 5.3.3 · midi-qol 14.0.11 · automated-conditions-5e 14.533.10. Beta users will run current releases, so we keep up rather than pin old versions. When the System-health tab flags an unvalidated version: run the combat validation script (DESIGN §28.4), fix what broke, then bump the `TESTED` map in preflight.js AND this line together. Documentation predating this generation is unreliable — check installed module source over training data.
+**Tested stack (chase upstream, don't freeze — DM 2026-07-26):** last validated: Foundry 14.365 · dnd5e 5.3.3 · midi-qol 14.0.11 · automated-conditions-5e 14.533.13.1 · DAE 14.0.13 (bench 2026-07-31). Beta users will run current releases, so we keep up rather than pin old versions. When the System-health tab flags an unvalidated version: run the combat validation script (DESIGN §28.4), fix what broke, then bump the `TESTED` map in preflight.js AND this line together. Documentation predating this generation is unreliable — check installed module source over training data.
 
 ## Test protocol
 

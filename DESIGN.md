@@ -2433,6 +2433,41 @@ AC5E** (and possibly a Foundry install still on 14.363):
   with no automations (stable = 1.5.43, not a V14 line); GPS still v13-only. §28.5 verdicts
   unchanged.
 
+### 28.5.2 Post-update validation run (2026-07-31, solo rig — PASSED, TESTED bumped)
+
+The DM's mod refresh landed **AC5E 14.533.13.1** (the .13 reviewed above + a pt-BR-only
+hotfix) and **DAE 14.0.12 → 14.0.13**; Foundry 14.365, dnd5e/midi/CAT/MISC unchanged. Full
+§28.4 script run on the bench (Bandit Ambush scene — Cave A abandoned: Levels culling +
+position-pinning automation make it useless for combat validation; its "Orc Fury (dead)"
+is an item-piles corpse-pile, correctly unpickable). **All 12 results passed** → TESTED
+now `automated-conditions-5e: 14.533.13.1`. Caveats & findings, none of them regressions:
+
+- **Step 11 is only GM-verifiable in the solo rig**: "Your turn — <name>" + Go hop is
+  gated `!game.user.isGM` (shell.js #turnHudHTML) — GM sees "Up: <name>" by design. The
+  player-role rendering stays on the live-table leg. Step 6's made-save branch also not
+  exercised (dice never rolled a save; failed-save branch verified).
+- **After-DAMAGE stray target (pre-existing nit, worth a fix):** the §28 target hygiene
+  (gmTargetIds snapshot in handleUseActivityStart) + the shell's post-fire clearPreview
+  keep the DM's targets clean after the FIRE — step 8 as written passes. But when the
+  damage tap resolves against a SURVIVING target, midi's own workflow-completion restore
+  re-strands the phone's preview-committed target on the DM (kill → auto-released, clean).
+  Fix candidate: mirror the snapshot/restore in handleItemUseDamage.
+- **0-slot leveled AoE is a dead-end dialog (pre-existing):** the shell's AoE path
+  announces with `slotLevel: null` always (shell.js #pickAction → #announceCast), so
+  placeCast never passes configure:false and midi's usage dialog opens executor-side —
+  with zero slots it's a dialog the DM can only cancel, and the phone gets no "no slots"
+  feedback. Backlog: grey out leveled casts with no remaining slot on the phone (and/or
+  pre-pick slot level for AoE like summons already do — that would ALSO skip the DM-side
+  usage dialog on every leveled AoE, one less DM interaction per cast; DM's call).
+- Solo-rig technique addendum (for the next bench): Foundry can run truly headless via
+  `ELECTRON_RUN_AS_NODE` + a wrapper that `delete process.versions.electron` before
+  importing main.js (isElectron sniffs that key; the desktop app's dataPath lock is
+  dodged with a scratch dataPath whose Data/ is a junction). DM-side template placement
+  drives via `canvas.templates.preview.children[0].document.updateSource({x,y,direction})`
+  + `canvas.stage.emit("mouseup", {})`; the midi usage dialog's Cast Spell button is
+  clickable from DOM. Aim cones at the token EDGE, not center — a center-origin cone
+  catches the caster (the wizard fried himself twice proving it).
+
 ### 28.5 Ecosystem watch — the premades modules (checked 2026-07-26)
 
 - **gambits-premades**: last release 2.1.43 (May 27); author (April, 2.1.42): "as-is release for

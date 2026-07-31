@@ -215,7 +215,7 @@ function checkTeleportRegions() {
 // (The silent 14.0.8→14.0.11 drift is what caused the 2026-07-26 bug wave to land mid-week
 // with no warning — this check exists so an update is always a DECISION, never a surprise.)
 const TESTED = {
-  "dnd5e": "5.3.3", "midi-qol": "14.0.11", "automated-conditions-5e": "14.533.10",
+  "dnd5e": "5.3.3", "midi-qol": "14.0.11", "automated-conditions-5e": "14.533.13.1",
   // The automation-ecosystem pair, deep-dived together 2026-07-26 (§28.6): versions move
   // weekly (CAT is 0.0.x), so any bump gets the same validation treatment as midi's.
   "cat": "0.0.6", "midi-item-showcase-community": "2.0.1"
