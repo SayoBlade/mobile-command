@@ -2468,6 +2468,40 @@ now `automated-conditions-5e: 14.533.13.1`. Caveats & findings, none of them reg
   clickable from DOM. Aim cones at the token EDGE, not center — a center-origin cone
   catches the caster (the wizard fried himself twice proving it).
 
+### 28.7 Hit/miss on the phone card (bench 2026-08-01)
+
+**Verified: a HIT is green.** `mc-hit` → total in `#6FCF7D` on a `#2F5D39` border, label "Hit",
+damage tap offered. Confirmed on weapon (Longsword) and spell (Fire Bolt) attacks, and a nat 20
+correctly reads Hit even against AC 99 (auto-hit).
+
+**FIXED — a miss said "Attack".** The red card rendered `mc-miss` but was labelled with the
+generic word "Attack" (`21 ATTACK` in red) and still offered **Roll damage** — which, tapped,
+rolled and toasted "0" while applying nothing (midi has no hit target to apply to). Now: label
+**"Miss"**, and no damage tap (the ✕ closes it, UI-BIBLE §4.2). A null total still reads the
+neutral "Attack" with no colour — a stale/unresolved read must not claim a miss it can't prove.
+
+**INVESTIGATED, NOT SHIPPED — two deeper fixes that caused a regression.** Attempted in the
+same pass and REVERTED after A/B on the bench:
+- executor: return `ok:false` when an attack produced no workflow AND never rolled (see the
+  MISC finding below), instead of the current `ok:true, needsDamage:false, hit:false`;
+- shell: keep the result card up (instead of closing silently) when an attack resolves with no
+  damage step, using a new `attackTotal` in that executor branch.
+With those in, the **second** phone attack after a damage roll hung on "Rolling…" forever — the
+fire never reached midi (no chat card, no workflow) and no timeout warning appeared. A/B was
+conclusive: baseline survives fire→damage→fire (including a crit first), the patched build hung
+4/4. Root cause NOT found; the render-only fix above ships alone. Whoever picks this up: the
+suspects are the un-awaited `useActivityCancel` added in `#fireAction` and the new
+phase-`attacked`-with-null-`requestId` state, and the repro is just two phone attacks in a row.
+
+**FOUND — a phone attack can vanish with zero feedback (pre-existing, unfixed).** With MISC
+installed, Test Fighter's **Great Weapon Master** automation aborts the use with an
+executor-side error ("The Elwin Helpers setting must be enabled" — a MISC setting that is OFF
+in this world). Result: no attack roll, no chat card, no workflow — and because the executor's
+`!wf` branch reports `ok:true, needsDamage:false`, the phone **closes the action card in
+silence with the action already spent**. This is the "I tapped attack and nothing happened"
+class of bug. Two things to do: (1) a preflight check for MISC automations whose prerequisite
+settings are off, and (2) the executor honesty fix above — once it can be done without the hang.
+
 ### 28.5 Ecosystem watch — the premades modules (checked 2026-07-26)
 
 - **gambits-premades**: last release 2.1.43 (May 27); author (April, 2.1.42): "as-is release for

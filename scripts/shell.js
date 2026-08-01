@@ -4838,16 +4838,25 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (s.phase === "rolling") {
         return head + `<div class="mc-target-note">Rolling…</div>`;
       }
+      // The red card used to be LABELLED "Attack" (bench 2026-08-01: total 21 vs AC 99 read
+      // "21 ATTACK" in red) — say "Miss", the word the player is looking for. A null total
+      // means the attack never resolved on the executor, so assert NEITHER outcome there:
+      // a stale read must not colour itself as a real miss.
+      const known = s.attackTotal != null;
+      const missed = s.hasAttack && s.hit === false && known;
       const attackLine = s.hasAttack
-        ? `<div class="mc-attack-result ${s.hit ? "mc-hit" : "mc-miss"}">
+        ? `<div class="mc-attack-result ${s.hit ? "mc-hit" : missed ? "mc-miss" : ""}">
              <span class="mc-attack-total">${s.attackTotal ?? "—"}</span>
-             <span class="mc-attack-label">${s.hit ? "Hit" : "Attack"}</span>
+             <span class="mc-attack-label">${s.hit ? "Hit" : missed ? "Miss" : "Attack"}</span>
            </div>`
         : "";
-      return head + attackLine + `
+      // Nothing was hit → midi has no damage to apply (verified on the bench: rolling damage
+      // after a miss toasts "0" and moves no HP), so don't offer the tap. The ✕ closes the
+      // card (UI-BIBLE §4.2 — dismiss is the tertiary ✕, never a worded primary).
+      return head + attackLine + (missed ? "" : `
         <button class="mc-fire mc-roll-damage" data-action="roll-damage" ${s.busy ? "disabled" : ""}>
           ${s.busy ? "Rolling…" : "Roll damage"}
-        </button>`;
+        </button>`);
     }
 
     const recMode = s.recommendation?.mode;
