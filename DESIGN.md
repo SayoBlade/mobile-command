@@ -1397,10 +1397,18 @@ property/setting level only, single-browser).
 
 - ~~Darkness curve~~ **RESOLVED (DM 2026-08-02)** — see §18.4 below.
 - Phone "suggest destination" ping — wanted at all, or does pointing at the TV cover it?
-- Calendar: plain `game.time` for now; revisit if a calendar module joins the stack. **NOTE
-  2026-08-02: it has** — Simple Calendar Reborn 2.6.1 is installed and is a recommended companion
-  in the manifest, so this is now a live decision (real dates/seasons/moon phases, which the
-  Crooked Moon material could use) rather than a hypothetical. Treat as a small spike.
+- ~~Calendar: plain `game.time` for now~~ **OBSOLETE — already built** (`gametime.js`, 2026-07-17→24;
+  an earlier 2026-08-02 note here wrongly called it undecided). Simple Calendar Reborn is read when
+  present and the module falls back to its own clock otherwise, capability-checked at every call.
+  What remains UNUSED is SC's richer data, all of which SC Reborn exposes (`sunrise`, `sunset`,
+  `getCurrentSeason`, `getAllMoons`):
+  - **Sunrise/sunset → the §18.4 curve.** Dawn/dusk are currently hardcoded at 06:00/18:00, so
+    every day is an equinox. Reading SC's real sunrise/sunset for the date would give seasonal
+    nights (long winters), degrading to 06/18 without SC. Small, and it improves what §18.4 just
+    shipped — the best-value piece.
+  - **Moon phases.** Thematically loud for a campaign called The Crooked Moon and for §32's
+    residents; needs a decision on what a phase should DO before it's worth wiring.
+  - **Seasons.** Only interesting if weather/ambience should follow them.
 
 ### 18.4 Day/night: one curve everywhere, interiors are regions (DM decision 2026-08-02, BUILT)
 
