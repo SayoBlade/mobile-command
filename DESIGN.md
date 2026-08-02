@@ -2553,6 +2553,26 @@ and every other database was untouched — but the bench now uses a full COPY of
 scratch dir, with only `modules`/`systems`/assets junctioned. That also stops test residue landing
 in the DM's world. Setup is in `scratchpad/bench2`.
 
+### 28.10 After-damage stray target — FIXED (bench 2026-08-02)
+
+The attack half already snapshots/restores `game.user.targets` (§28 target hygiene); the DAMAGE
+half did not, so a target that SURVIVED the hit stayed selected on the DM afterwards — a kill
+auto-releases it, which is why it read as random. The DM then multi-selects from the panel and the
+stale token joins the NPC's attack.
+
+Two things made the naive fix fail, both now handled:
+- **midi re-targets on an async tail** — measured landing ~550ms after the damage click, i.e.
+  after `handleItemUseDamage` has already returned, so a single restore in `finally` was too
+  early. Now swept again at 400/1200/2500ms.
+- **A blanket restore is wrong**: it would wipe a selection the DM made while the damage rolled.
+  The sweep is surgical — it drops only tokens THIS workflow targeted that the DM wasn't already
+  holding, and keeps everything else.
+
+Verified: fire → damage on a SURVIVING target leaves the DM's target set empty (was: the bandit
+stranded). **Known limitation, pre-existing and not introduced here:** a token the DM targets
+*during* the ~1s damage roll is cleared by midi's own restore, which our sweep cannot re-add (by
+the time it runs the selection is already gone). Niche; logged rather than fixed.
+
 ### 28.5 Ecosystem watch — the premades modules (checked 2026-07-26)
 
 - **gambits-premades**: last release 2.1.43 (May 27); author (April, 2.1.42): "as-is release for

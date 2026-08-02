@@ -1283,6 +1283,28 @@ async function handleItemUseDamage({ requestId }) {
     return { ok: false, stage: "expired", reason: "that action is no longer active on the DM's screen — it was cancelled, already resolved, or the DM's client reloaded. Use it again." };
   }
   parkedWorkflows.delete(requestId);
+  // Same target hygiene as the attack half (§28): midi saves and restores game.user.targets around
+  // its own per-target work, which strands the PHONE's target in the DM's target set. The attack
+  // step already snapshots and restores; the damage step did not, so a target that SURVIVED the hit
+  // stayed selected on the DM afterwards (a kill auto-releases it, which is why it looked random —
+  // bench 2026-07-31). The DM then multi-selects from the panel and the stale token joins in.
+  const gmTargetIds = Array.from(game.user?.targets ?? []).map(t => t.id);
+  const phoneTargetIds = new Set(Array.from(wf.targets ?? []).map(t => t?.id ?? t?.document?.id).filter(Boolean));
+  // Surgical, not a blanket reset: drop only tokens THIS workflow targeted that the DM wasn't
+  // already holding. A blanket restore would wipe a selection the DM made while the damage rolled.
+  const restoreGmTargets = () => {
+    try {
+      const cur = Array.from(game.user?.targets ?? []).map(t => t.id);
+      const keep = cur.filter(id => gmTargetIds.includes(id) || !phoneTargetIds.has(id));
+      const want = Array.from(new Set([...gmTargetIds, ...keep]));
+      if (want.length !== cur.length || want.some(id => !cur.includes(id))) {
+        canvas.tokens?.setTargets?.(want, { mode: "replace" });
+      }
+    } catch (e) { /* canvas gone */ }
+  };
+  // midi re-targets on an ASYNC tail — measured landing ~550ms in, i.e. after this handler has
+  // already returned — so one pass in `finally` is not enough. Sweep again past that tail.
+  const sweepLater = () => { for (const ms of [400, 1200, 2500]) setTimeout(restoreGmTargets, ms); };
   try {
     const { captured } = await captureNotifications(async () => {
       await wf.activity.rollDamage({ workflow: wf, midiOptions: { fastForwardDamage: true } });
@@ -1337,7 +1359,7 @@ async function handleItemUseDamage({ requestId }) {
     // otherwise looked like the button "doing nothing" (DM 2026-06-20).
     console.error(`${MODULE_ID} | rollDamage failed`, { item: wf.item?.name, actor: wf.actor?.name, error: e });
     return { ok: false, stage: "damage", reason: `damage errored on ${wf.actor?.name ?? "this PC"}: ${e.message}` };
-  }
+  } finally { restoreGmTargets(); sweepLater(); }
 }
 
 // §28.6 enchant activities from the phone (Flame Tongue etc. — 2024 magic items deliver via
