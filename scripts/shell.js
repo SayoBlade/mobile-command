@@ -5000,7 +5000,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // tells the DM what to drop, midi's own machinery (autoTarget, saves fan-out,
     // autoRemoveInstantaneousTemplate) does the rest. Teleports below keep the placement
     // flow — aiming your OWN destination isn't a template.
-    if (activity.target?.template?.type) return this.#announceCast(activity);
+    if (activity.target?.template?.type) {
+      // A leveled AoE with NO slot left used to sail off the phone and dead-end on the DM: the
+      // announce landed, Place opened midi's usage dialog there, and with nothing to spend the DM
+      // could only cancel — while the player got no feedback at all (bench 2026-07-31). Say it on
+      // the phone instead. Cantrips have no slot and are unaffected.
+      const lvl = activity.item?.system?.level ?? 0;
+      if (lvl >= 1 && !this.#spellSlotOptions(activity).length) {
+        return ui.notifications.warn(`${activity.item?.name ?? "That spell"}: no level ${lvl}+ slots left.`);
+      }
+      return this.#announceCast(activity);
+    }
     // Teleport spells (misty step / dimension door / thunder step …): no template,
     // but the caster MOVES — aim the destination on the TV via the executor.
     if (this.#isTeleportSpell(activity)) return this.#startPlacement(activity, "teleport");
