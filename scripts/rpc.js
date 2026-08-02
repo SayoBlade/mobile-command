@@ -1696,6 +1696,7 @@ async function handleTargetsList({ forTokenId }) {
   if (!origin) return { ok: false, stage: "resolve", reason: `token not found: ${forTokenId}` };
 
   const candidates = [];
+  let anonN = 0;       // numbers the name-hidden tokens so "Unknown 1/2/3" stay tellable apart
   const excluded = []; // diagnostic: why each placeable was dropped from the picker
   for (const token of canvas.tokens.placeables) {
     if (token === origin) continue;
@@ -1709,14 +1710,28 @@ async function handleTargetsList({ forTokenId }) {
       });
       continue;
     }
+    // §5 name leak (pre-beta): don't print what the DM deliberately hid. Only the modes that mean
+    // "nobody reads this nameplate" anonymise — NONE and CONTROL. Full nameplate parity was tried
+    // first and is WRONG in practice: OWNER_HOVER is Foundry's DEFAULT for NPCs, so mirroring it
+    // turned every untouched monster into "Unknown N" — a worse picker for every table, to fix a
+    // leak none of them had. A DM concealing something (the Villager who is a Doppelganger) either
+    // renames the token — which we already honour, we send the TOKEN name, not the actor's — or
+    // sets the nameplate to NONE, which this now respects. Own tokens are never anonymised.
+    // Labels are numbered because three rows of plain "Unknown" is an unusable picker.
+    const pcOwned = !!token.actor?.hasPlayerOwner;
+    const M = CONST.TOKEN_DISPLAY_MODES;
+    const hiddenName = token.document.displayName === M.NONE || token.document.displayName === M.CONTROL;
+    const publicName = pcOwned || !hiddenName;
     candidates.push({
       tokenId: token.id,
       uuid: token.document.uuid,
-      // TODO(§5): respect the token's display-name mode before phones ship —
-      // this must not leak "Doppelganger" when the token shows "Villager".
-      name: token.document.name,
+      name: publicName ? token.document.name : `Unknown ${++anonN}`,
+      anonymous: !publicName,
+      // The token's ARTWORK is already on the shared screen, so showing it leaks nothing that the
+      // table can't see — and UI-BIBLE §3 wants identity carried by the icon, not the text.
+      img: token.document.texture?.src ?? token.actor?.img ?? null,
       disposition: token.document.disposition,
-      pcOwned: !!token.actor?.hasPlayerOwner, // player-controlled (PC or summon) → ally regardless of disposition
+      pcOwned, // player-controlled (PC or summon) → ally regardless of disposition
       distanceFt: MidiQOL.computeDistance(origin, token, { wallsBlock: false })
     });
   }

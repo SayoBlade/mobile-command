@@ -416,6 +416,18 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
 }
 .mc-target-on { border-color: #5db4e6; box-shadow: inset 0 0 0 1px #243042; }
 .mc-target-name { font-size: 15px; }
+/* Token face on a target row (§5 picker, UI-BIBLE §3: identity rides the icon, not the text).
+   The art is already on the shared screen, so it reveals nothing the table can't see. */
+.mc-target-face {
+  width: 34px; height: 34px; flex: 0 0 34px;
+  border-radius: calc(7px * var(--mc-round, 1));
+  object-fit: cover; object-position: top;
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge);
+}
+.mc-target-face-none { display: inline-flex; align-items: center; justify-content: center; color: var(--mc-muted); font-size: 20px; }
+/* A token the map keeps nameless reads as nameless here too — muted + italic so it's clearly a
+   placeholder rather than a creature actually called "Unknown 2". */
+.mc-target-anon { color: var(--mc-muted); font-style: italic; }
 /* In-range badge (B8 / §7.3): a target past the activity's reach reads as
    out-of-range — the row dims and the distance turns red. It stays tappable
    (warnings, not walls); the player can still pick it. */

@@ -4906,8 +4906,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
               <span class="mc-tstep ${this.#targetTotal(s) >= s.maxTargets ? "mc-tstep-max" : ""}" role="button" data-action="target-inc" data-uuid="${c.uuid}" aria-label="One more">+</span>
             </span>`
           : "";
+        // The token's own artwork carries identity (UI-BIBLE §3 — the icon, never the text), and
+        // it's already on the shared screen so it reveals nothing new. A name-hidden token shows
+        // its picture with an anonymous label, exactly like the map does.
+        const face = c.img
+          ? `<img class="mc-target-face" src="${foundry.utils.escapeHTML(c.img)}" alt="">`
+          : `<i class="fas fa-circle-user mc-target-face mc-target-face-none"></i>`;
         return `<button class="mc-target ${on ? "mc-target-on" : ""} ${far ? "mc-target-far" : ""}" data-action="target-toggle" data-uuid="${c.uuid}">
-          <span class="mc-target-name">${foundry.utils.escapeHTML(c.name)}</span>
+          ${face}
+          <span class="mc-target-name ${c.anonymous ? "mc-target-anon" : ""}">${foundry.utils.escapeHTML(c.name)}</span>
           <span class="mc-target-right">
             ${stepper}
             <span class="mc-disp mc-${cls}">${label}</span>

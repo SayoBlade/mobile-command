@@ -2613,6 +2613,28 @@ stranded). **Known limitation, pre-existing and not introduced here:** a token t
 *during* the ~1s damage roll is cleared by midi's own restore, which our sweep cannot re-add (by
 the time it runs the selection is already gone). Niche; logged rather than fixed.
 
+### 28.11 Target picker: token faces + the name-leak guard (pre-beta, BUILT 2026-08-02)
+
+Two backlog items, one change — the picker rows now carry the token's ARTWORK (UI-BIBLE §3: identity
+rides the icon, never the text; the art is already on the shared screen so it reveals nothing the
+table can't see) and no longer print a name the DM deliberately hid.
+
+**The rule, and the version of it that was WRONG.** Full nameplate parity was implemented first —
+anonymise anything whose display mode isn't ALWAYS/HOVER — and measured on the bench: it turned
+*every untouched NPC* into "Unknown N", because **OWNER_HOVER is Foundry's default** for NPC tokens.
+That fixes a leak almost no table has by making the picker worse for all of them. Shipped rule:
+only **NONE** and **CONTROL** anonymise, the two modes that mean "nobody reads this nameplate".
+Player-owned tokens are never anonymised. Labels are numbered ("Unknown 1/2") because three rows of
+plain "Unknown" is an unusable picker, and render muted+italic so they read as placeholders.
+
+Worth recording because the original §5 TODO overstated the leak: we already send the **token**
+name, not the actor's, so a DM who renames the Doppelganger's token to "Villager" was always safe.
+The real gap was only the deliberate no-nameplate case, which is what this closes.
+
+Verified: default/ALWAYS/HOVER → "Bandit"; NONE/CONTROL → "Unknown 1 (anon)"; faces render 34×34
+and all image URLs resolve 200. `loading="lazy"` was dropped — target lists are short and lazy
+images can sit blank.
+
 ### 28.5 Ecosystem watch — the premades modules (checked 2026-07-26)
 
 - **gambits-premades**: last release 2.1.43 (May 27); author (April, 2.1.42): "as-is release for
