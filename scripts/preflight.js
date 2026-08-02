@@ -253,6 +253,38 @@ function checkModuleStack() {
   return { id: "stack", label: "Module stack", status: fatal ? "fail" : "warn", detail: bits.join("; ") + "." };
 }
 
+// Automation prerequisites (bench 2026-08-02). An automation module can ship items whose macros
+// refuse to run unless one of ITS OWN settings is on — and the refusal surfaces only as an error
+// toast on the executor plus a phone action that silently does nothing (§28.7: Great Weapon Master
+// aborting the attack with "The Elwin Helpers setting must be enabled"). MISC ships that switch
+// OFF by default, so this is the out-of-the-box state for anyone who installs it, not a quirk of
+// one world. Warn with a one-click fix rather than let it be found mid-combat.
+const AUTOMATION_PREREQS = [
+  { module: "midi-item-showcase-community", key: "Elwin Helpers", want: true,
+    why: "MISC item automations (Great Weapon Master and friends) abort without it, so the phone tap does nothing" }
+];
+function checkAutomationPrereqs() {
+  const id = "automationPrereqs", label = "Automation prerequisites";
+  const bad = [];
+  for (const p of AUTOMATION_PREREQS) {
+    const mod = game.modules.get(p.module);
+    if (!mod?.active) continue;
+    let cur;
+    try { cur = game.settings.get(p.module, p.key); }
+    catch (e) { continue; } // setting gone (module rename/upgrade) — not our business to guess
+    if (cur !== p.want) bad.push({ ...p, title: mod.title, cur });
+  }
+  if (!bad.length) return { id, label, status: "ok", detail: "Installed automation modules have their prerequisite settings on." };
+  return {
+    id, label, status: "warn",
+    detail: bad.map(b => `${b.title}: "${b.key}" is off — ${b.why}.`).join(" "),
+    fix: {
+      label: "Turn on",
+      run: async () => { for (const b of bad) await game.settings.set(b.module, b.key, b.want); }
+    }
+  };
+}
+
 // §18 travel: an overworld where the WHOLE map stays visible but dims with the clock (DM
 // 2026-07-18: "still lets players see all of it"). Token Vision OFF = no fog / no sight-range
 // circle; darkness still tints the fully-visible scene. Global Illumination OFF (it would cancel
@@ -283,7 +315,8 @@ function checkTravelLighting() {
 
 export async function runPreflight() {
   const checks = [checkExecutor, checkDisplayAccount, checkPresetDrift, checkPromptRouting,
-    checkTokenSight, checkPartyGroup, checkTeleportRegions, checkTravelLighting, checkModuleStack];
+    checkTokenSight, checkPartyGroup, checkTeleportRegions, checkTravelLighting, checkModuleStack,
+    checkAutomationPrereqs];
   const out = [];
   for (const fn of checks) {
     try { out.push(await fn()); }

@@ -474,12 +474,15 @@ function cmToolsOn() {
   try { return !!game.settings.get(MODULE_ID, "crookedMoonTools"); } catch (e) { return false; }
 }
 function crookedTabHTML() {
+  // All five start CLOSED (DM 2026-08-02). Five open drawers made the tab a wall of controls you
+  // had to scroll past to reach the one you wanted; opening the one you're using is one tap, and
+  // the choice sticks for the session (dtDrawers remembers per key).
   return `<div class="mc-dmp-tabfill"><div class="mc-dmp-tabmid">
-    ${dtDrawer("cmCurses", "Chaotic curses", "", curseBody())}
-    ${dtDrawer("cmFate", "Fateweaving", "", fateBody())}
-    ${dtDrawer("cmTwists", "Twists of fate", "", twistsBody())}
-    ${dtDrawer("cmBoard", "All aboard", "", allAboardBody())}
-    ${dtDrawer("fxSeance", "Séance", "", seanceBody())}
+    ${dtDrawer("cmCurses", "Chaotic curses", "", curseBody(), true)}
+    ${dtDrawer("cmFate", "Fateweaving", "", fateBody(), true)}
+    ${dtDrawer("cmTwists", "Twists of fate", "", twistsBody(), true)}
+    ${dtDrawer("cmBoard", "All aboard", "", allAboardBody(), true)}
+    ${dtDrawer("fxSeance", "Séance", "", seanceBody(), true)}
   </div></div>`;
 }
 
