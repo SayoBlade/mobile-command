@@ -7,7 +7,7 @@
 // past the steps already confirmed).
 import { MODULE_ID } from "./preset.js";
 import { diffPreset, applyPreset } from "./enforcer.js";
-import { runPreflight } from "./preflight.js";
+import { runPreflight, pendingAutomationPrereqs, applyAutomationPrereqs } from "./preflight.js";
 
 const D = () => foundry.applications.api.DialogV2;
 const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
@@ -79,21 +79,38 @@ async function stepWelcomeTv() {
 async function stepPreset() {
   let drift = [];
   try { drift = diffPreset(); } catch (e) { /* midi missing — the row explains */ }
-  const body = drift.length
+  // Automation prerequisites belong here too (DM 2026-08-02): an automation module can be enabled
+  // and still refuse to run its items because one of ITS OWN settings is off — MISC ships "Elwin
+  // Helpers" OFF, and without it Great Weapon Master aborts the attack, so the phone tap silently
+  // does nothing. Same genre as the midi preset: make the stack behave before anyone plays.
+  const prereqs = pendingAutomationPrereqs();
+  const presetBody = drift.length
     ? `<p><b>${drift.length} setting${drift.length === 1 ? "" : "s"} differ</b> from the module's midi/dnd5e preset:</p>
-       <ul style="max-height:180px;overflow-y:auto">${drift.slice(0, 12).map(d => `<li><code>${esc(d.path)}</code>: ${esc(JSON.stringify(d.current))} → ${esc(JSON.stringify(d.expected))}</li>`).join("")}${drift.length > 12 ? "<li>…</li>" : ""}</ul>
+       <ul style="max-height:150px;overflow-y:auto">${drift.slice(0, 12).map(d => `<li><code>${esc(d.path)}</code>: ${esc(JSON.stringify(d.current))} → ${esc(JSON.stringify(d.expected))}</li>`).join("")}${drift.length > 12 ? "<li>…</li>" : ""}</ul>
        <p>The preset is what the phone flows are tested against. Deliberate deviations are fine.</p>`
     : `<p><b>All midi/dnd5e settings already match the preset.</b> Nothing to do here.</p>`;
+  const prereqBody = prereqs.length
+    ? `<p style="margin-top:10px"><b>${prereqs.length} automation module${prereqs.length === 1 ? " needs" : "s need"} a switch turned on:</b></p>
+       <ul>${prereqs.map(p => `<li><b>${esc(p.title)}</b> — "${esc(p.key)}" is off; ${esc(p.why)}.</li>`).join("")}</ul>`
+    : "";
+  const todo = drift.length || prereqs.length;
+  const applyLabel = drift.length && prereqs.length ? "Apply preset + switches & continue"
+    : prereqs.length ? "Turn the switches on & continue"
+    : "Apply preset & continue";
   const res = await wizWait({
-    n: 2, title: "midi settings",
-    content: body,
+    n: 2, title: "Module settings",
+    content: presetBody + prereqBody,
     buttons: [
       { action: "cancel", label: "Finish later" },
-      { action: "next", label: drift.length ? "Keep mine & continue" : "Next", default: !drift.length },
-      ...(drift.length ? [{ action: "apply", label: "Apply preset & continue", default: true }] : [])
+      { action: "next", label: todo ? "Keep mine & continue" : "Next", default: !todo },
+      ...(todo ? [{ action: "apply", label: applyLabel, default: true }] : [])
     ]
   }).catch(() => null);
-  if (res === "apply") { await applyPreset(); return true; }
+  if (res === "apply") {
+    if (drift.length) await applyPreset();
+    if (prereqs.length) await applyAutomationPrereqs();
+    return true;
+  }
   return res === "next";
 }
 

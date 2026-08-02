@@ -4853,10 +4853,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // Nothing was hit → midi has no damage to apply (verified on the bench: rolling damage
       // after a miss toasts "0" and moves no HP), so don't offer the tap. The ✕ closes the
       // card (UI-BIBLE §4.2 — dismiss is the tertiary ✕, never a worded primary).
-      return head + attackLine + (missed ? "" : `
+      // No damage tap on a miss, and none without a parked request to roll against (an attack that
+      // resolved on its own has nothing left to ask for) — a button that can't do anything is worse
+      // than no button.
+      const canRollDamage = !missed && !!s.requestId;
+      return head + attackLine + (canRollDamage ? `
         <button class="mc-fire mc-roll-damage" data-action="roll-damage" ${s.busy ? "disabled" : ""}>
           ${s.busy ? "Rolling…" : "Roll damage"}
-        </button>`);
+        </button>` : "");
     }
 
     const recMode = s.recommendation?.mode;
@@ -5598,6 +5602,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // (e.g. Reload). Never prompt "Roll damage" when midi has nothing to ask for; if
       // a workflow was parked anyway, cancel it so it doesn't orphan on the executor.
       if (res.needsDamage && res.requestId) { try { await rpc.useActivityCancel({ requestId: res.requestId }); } catch (e) {} }
+      // An ATTACK that resolved on its own still has a result the player is owed — a clean miss
+      // used to close the card instantly, so a spent action read as "nothing happened" (bench
+      // 2026-08-01). Keep the card up showing Hit/Miss + the total; with no requestId it renders
+      // without a damage tap. Everything else (utility, heal, cast) closes as before.
+      if (res.hasAttack && res.attackTotal != null && res.attackTotal !== -100) {
+        s.busy = false; s.phase = "attacked"; s.requestId = null;
+        s.hasAttack = true; s.hit = res.hit; s.attackTotal = res.attackTotal;
+        this.render();
+        if (res.reason) ui.notifications.info(`${s.name}: ${res.reason}`);
+        return;
+      }
       this.#actionState = null; this.render();
       if (res.reason) ui.notifications.info(`${s.name}: ${res.reason}`);
       return;

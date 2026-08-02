@@ -263,8 +263,9 @@ const AUTOMATION_PREREQS = [
   { module: "midi-item-showcase-community", key: "Elwin Helpers", want: true,
     why: "MISC item automations (Great Weapon Master and friends) abort without it, so the phone tap does nothing" }
 ];
-function checkAutomationPrereqs() {
-  const id = "automationPrereqs", label = "Automation prerequisites";
+// Shared by the System-health check AND the setup wizard, so onboarding and preflight can never
+// disagree about what a working automation stack needs.
+export function pendingAutomationPrereqs() {
   const bad = [];
   for (const p of AUTOMATION_PREREQS) {
     const mod = game.modules.get(p.module);
@@ -274,14 +275,19 @@ function checkAutomationPrereqs() {
     catch (e) { continue; } // setting gone (module rename/upgrade) — not our business to guess
     if (cur !== p.want) bad.push({ ...p, title: mod.title, cur });
   }
+  return bad;
+}
+export async function applyAutomationPrereqs() {
+  for (const b of pendingAutomationPrereqs()) await game.settings.set(b.module, b.key, b.want);
+}
+function checkAutomationPrereqs() {
+  const id = "automationPrereqs", label = "Automation prerequisites";
+  const bad = pendingAutomationPrereqs();
   if (!bad.length) return { id, label, status: "ok", detail: "Installed automation modules have their prerequisite settings on." };
   return {
     id, label, status: "warn",
     detail: bad.map(b => `${b.title}: "${b.key}" is off — ${b.why}.`).join(" "),
-    fix: {
-      label: "Turn on",
-      run: async () => { for (const b of bad) await game.settings.set(b.module, b.key, b.want); }
-    }
+    fix: { label: "Turn on", run: applyAutomationPrereqs }
   };
 }
 

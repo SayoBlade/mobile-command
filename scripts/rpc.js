@@ -1069,13 +1069,15 @@ async function findParkedWorkflow(activityUuid, itemUuid, preIds = new Set(), ti
         || (wf.suspended && wf.currentAction !== wf.WorkflowState_WaitForAttackRoll);
       const attackDone = wf.activity?.type !== "attack" || !!wf.attackRoll;
       if (atDamage && attackDone && wf.needsDamage !== false) return { parked: wf };
-      if (wf.currentAction === wf.WorkflowState_Completed || wf.currentAction === wf.WorkflowState_Abort) return { parked: null };
+      if (wf.currentAction === wf.WorkflowState_Completed || wf.currentAction === wf.WorkflowState_Abort) return { parked: null, seen: wf };
     }
     await new Promise(r => setTimeout(r, 150));
   }
   // Timed out. If the workflow is sitting at WaitForAttackRoll, the attack roll itself died —
   // report it as stuck so the caller can abort it and tell the player the truth.
-  return { parked: null, stuck: lastSeen?.currentAction === lastSeen?.WorkflowState_WaitForAttackRoll ? lastSeen : null };
+  // `seen` rides along either way so the caller can tell a workflow that RAN and simply had no
+  // damage step (a clean miss) from one that never rolled at all (an automation refused it).
+  return { parked: null, seen: lastSeen, stuck: lastSeen?.currentAction === lastSeen?.WorkflowState_WaitForAttackRoll ? lastSeen : null };
 }
 
 // The attack total can lag the park by a tick: on a cold first attack (midi/AC5E
@@ -1220,7 +1222,7 @@ async function handleItemUseStart(payload) {
       return true;
     });
 
-    const { parked: wf, stuck } = await findParkedWorkflow(activity.uuid, activity.item?.uuid, preWfIds);
+    const { parked: wf, stuck, seen } = await findParkedWorkflow(activity.uuid, activity.item?.uuid, preWfIds);
     // Whether the workflow parked for the two-tap. If false for a damage spell that
     // should let the player roll (e.g. Magic Missile), it resolved without a roll
     // step — that's the bug to chase (DM-reported MM didn't roll damage 2026-06-17).
@@ -1234,8 +1236,25 @@ async function handleItemUseStart(payload) {
       return { ok: false, stage: "attack", reason: "the attack roll didn't fire on the DM's screen — tell the DM to check the console, then try again" };
     }
     if (!wf) {
-      // No parked workflow: resolved already (e.g. a miss with no damage) or refused.
-      return { ok: true, needsDamage: false, hasAttack, hit: false,
+      // No parked workflow — two very different worlds, and the phone must not hear the same
+      // thing for both:
+      //   RAN, no damage step (a clean miss, or an attack with nothing to roll) — report the real
+      //     outcome so the phone can SHOW it instead of closing on nothing.
+      //   NEVER ROLLED — an automation on the executor refused or threw, so there is no roll and
+      //     no card anywhere. Bench 2026-08-01: MISC's Great Weapon Master aborts with "The Elwin
+      //     Helpers setting must be enabled" and produces exactly this. Reporting ok:true there
+      //     spent the player's action and closed their card in SILENCE — the "I tapped attack and
+      //     nothing happened" bug. Same philosophy as `stuck` above: tell the player the truth.
+      const rolled = !hasAttack || !!seen?.attackRoll;
+      if (!rolled) {
+        console.error(`${MODULE_ID} | ${activity.item?.name}: no attack roll and no workflow — an automation on the executor refused the use`, { captured });
+        return { ok: false, stage: "attack",
+          reason: captured.join("; ")
+            || "the attack never rolled on the DM's screen — an automation there refused it (DM: check the console)" };
+      }
+      return { ok: true, needsDamage: false, hasAttack,
+        hit: hasAttack ? (seen?.hitTargets?.size ?? 0) > 0 : null,
+        attackTotal: seen?.attackRoll?.total ?? null,
         itemName: activity.item?.name ?? null, reason: captured.join("; ") || null };
     }
     const requestId = foundry.utils.randomID();
