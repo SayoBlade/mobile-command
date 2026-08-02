@@ -120,3 +120,21 @@ export const DOWNTIME_ACTIVITIES = [
   { key: "custom", label: "Custom…", icon: "fa-feather" }
 ];
 export const DOWNTIME_LABEL = Object.fromEntries(DOWNTIME_ACTIVITIES.map(a => [a.key, a.label]));
+
+// ── Day/night curve (DM decision 2026-08-02) ────────────────────────────────
+// "I'd rather have a small curve and keep global lighting in all scenes, I'll mark interior
+// regions myself." So: the clock drives scene darkness EVERYWHERE — not just on maps whose
+// global illumination happens to be off — and interiors are the DM's job, marked with Foundry's
+// own `adjustDarknessLevel` region behaviour (a cave mouth is outdoors, the cave is not). The
+// party arriving at a moor at 02:00 finds it dark; arriving at 10:00 finds it lit.
+// Deliberately GENTLE: a cosine peaking at 0.7, never pitch black, so a fully-visible overworld
+// map stays readable at night. Noon 0 · dawn/dusk (6h/18h) 0.35 · midnight 0.7.
+export const NIGHT_DARKNESS_PEAK = 0.7;
+export function darknessForHour(h) {
+  return Math.max(0, (NIGHT_DARKNESS_PEAK / 2) * (1 + Math.cos((Number(h) || 0) / 24 * 2 * Math.PI)));
+}
+// Global light is the SUN under this model, so it must yield before the curve tops out — a scene
+// whose global-light threshold sits at or above the night peak never actually gets dark. 0.35 is
+// exactly the curve's dawn/dusk value, so the sun is up from 06:00 to 18:00 and down outside it:
+// the threshold and the curve describe the same day rather than two overlapping ones.
+export const GLOBAL_LIGHT_NIGHT_THRESHOLD = 0.35;

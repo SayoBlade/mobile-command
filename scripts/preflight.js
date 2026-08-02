@@ -9,7 +9,7 @@
 // sightless fresh tokens (Round 21), the stale party group (Round 27), and the
 // destination-less teleport region that silently blocked ALL movement on Cave A
 // (Round 32).
-import { MODULE_ID } from "./preset.js";
+import { MODULE_ID, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD } from "./preset.js";
 import { resolveExecutorId, isOverworldScene } from "./settings.js";
 import { diffPreset, applyPreset } from "./enforcer.js";
 import { actorTokenSight } from "./rpc.js";
@@ -294,7 +294,8 @@ function checkAutomationPrereqs() {
 // §18 travel: an overworld where the WHOLE map stays visible but dims with the clock (DM
 // 2026-07-18: "still lets players see all of it"). Token Vision OFF = no fog / no sight-range
 // circle; darkness still tints the fully-visible scene. Global Illumination OFF (it would cancel
-// the dimming); darkness unlocked so the travel loop can drive environment.darknessLevel. Warn.
+// darkness unlocked so the travel loop can drive environment.darknessLevel. Global illumination is
+// WELCOME (it plays the sun) as long as its threshold lets night actually land — see §18.3. Warn.
 function checkTravelLighting() {
   const id = "travelLighting", label = "Travel lighting";
   // The scene you're actually on wins when it's a detected overworld (grid ≥ threshold ft/cell);
@@ -306,14 +307,21 @@ function checkTravelLighting() {
   if (!over) return { id, label, status: "ok", detail: "No overworld map open or set — skipped." };
   const env = over.environment ?? {};
   const problems = [];
-  if (over.tokenVision) problems.push("Token Vision is ON (players only see around their token)");
-  if (env.globalLight?.enabled) problems.push("Global Illumination is ON (it cancels the day/night dimming)");
-  if (env.darknessLock) problems.push("Darkness is locked");
+  const patch = {};
+  if (over.tokenVision) { problems.push("Token Vision is ON (players only see around their token)"); patch.tokenVision = false; }
+  // Global illumination is no longer a fault — it IS the sun (DM 2026-08-02: "keep global lighting
+  // in all scenes, I'll mark interior regions myself"). The fault is a sun that never sets: a
+  // threshold at or above the curve's night peak means the map stays lit at midnight.
+  if (env.globalLight?.enabled && (env.globalLight?.darkness?.max ?? 1) >= NIGHT_DARKNESS_PEAK) {
+    problems.push(`Global Illumination never yields to night (its darkness threshold is ${env.globalLight?.darkness?.max ?? 1}, and night only reaches ${NIGHT_DARKNESS_PEAK})`);
+    patch["environment.globalLight.darkness.max"] = GLOBAL_LIGHT_NIGHT_THRESHOLD;
+  }
+  if (env.darknessLock) { problems.push("Darkness is locked"); patch["environment.darknessLock"] = false; }
   if (!problems.length) return { id, label, status: "ok", detail: `${over.name}: the whole map stays visible and dims with the clock.` };
   return {
     id, label, status: "warn",
     detail: `${over.name}: ${problems.join("; ")} — the party won't see the whole map dim with day/night until fixed.`,
-    fix: { label: "Fix scene", run: async () => { await over.update({ tokenVision: false, "environment.globalLight.enabled": false, "environment.darknessLock": false }); } }
+    fix: { label: "Fix scene", run: async () => { await over.update(patch); } }
   };
 }
 

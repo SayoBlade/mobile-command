@@ -1,6 +1,6 @@
 import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState } from "./rpc.js";
 import { fireAoO } from "./aoo.js";
-import { MODULE_ID } from "./preset.js";
+import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD } from "./preset.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
 import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar } from "./gametime.js";
@@ -1358,7 +1358,7 @@ async function deleteTravelRouteDrawings(exceptSceneId = null) {
 }
 function resetTravelRoute() { travelRouteInfo = null; travelRoutePts = null; }
 // Time-of-day → darkness: sinusoidal, 0 at noon, 1 at midnight (dawn/dusk ≈ 0.5).
-function darknessForHour(h) { return Math.max(0, 0.35 + 0.35 * Math.cos((Number(h) || 0) / 24 * 2 * Math.PI)); } // 0 at noon → ~0.7 at midnight (dim, not pitch-black on a fully-visible map)
+// darknessForHour now lives in preset.js — preflight shares it (DM decision 2026-08-02).
 function travelCumLen(pts) { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y)); return c; }
 function travelPointAt(pts, cum, target) {
   const total = cum[cum.length - 1];
@@ -1391,7 +1391,12 @@ async function maybeAutoLightOverworld(scene) {
     const env = scene.environment ?? {};
     const patch = { [`flags.${MODULE_ID}.travelAutoLit`]: true };
     if (scene.tokenVision) patch.tokenVision = false;                                 // whole map visible, no sight-range circle
-    if (env.globalLight?.enabled) patch["environment.globalLight.enabled"] = false;   // let darkness tint the map
+    // Global light STAYS ON and plays the sun (DM 2026-08-02). It just has to yield before the
+    // curve tops out, or the map never gets dark — so only the threshold is corrected, never the
+    // switch. Interiors are the DM's regions, not our business.
+    if (env.globalLight?.enabled && (env.globalLight?.darkness?.max ?? 1) >= NIGHT_DARKNESS_PEAK) {
+      patch["environment.globalLight.darkness.max"] = GLOBAL_LIGHT_NIGHT_THRESHOLD;
+    }
     if (env.darknessLock) patch["environment.darknessLock"] = false;                  // the travel loop drives darkness
     if (game.settings.get(MODULE_ID, "travelDaylight")) {                             // open at the right time of day
       const c = readClock();
@@ -1421,7 +1426,11 @@ async function runTravelJourney(group) {
   const segReal = totalReal / steps;                 // ms per waypoint
   const segSecs = (totalHours * 3600) / steps;       // game-seconds per waypoint
   const env = scene.environment ?? {};
-  const darknessOn = game.settings.get(MODULE_ID, "travelDaylight") && !env.globalLight?.enabled && !env.darknessLock;
+  // Global illumination no longer disqualifies a scene (DM 2026-08-02: "keep global lighting in
+  // all scenes, I'll mark interior regions myself"). Global light is the SUN here — it yields at
+  // its own darkness threshold — so the clock drives darkness on lit maps too. A LOCKED darkness
+  // still wins: that's the DM freezing a scene on purpose.
+  const darknessOn = game.settings.get(MODULE_ID, "travelDaylight") && !env.darknessLock;
   const wePaused = !game.paused;
   if (wePaused) game.togglePause(true);
   travelJourneyActive = true; travelJourneyStop = false; render();

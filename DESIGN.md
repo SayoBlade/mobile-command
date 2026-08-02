@@ -1395,10 +1395,42 @@ property/setting level only, single-browser).
 
 ### 18.3 Open questions (ledger)
 
-- Darkness curve: what darkness level maps to which hour (flat day/night with dawn/dusk ramps?),
-  and should the toggle live per-scene or per-journey?
+- ~~Darkness curve~~ **RESOLVED (DM 2026-08-02)** — see §18.4 below.
 - Phone "suggest destination" ping — wanted at all, or does pointing at the TV cover it?
-- Calendar: plain `game.time` for now; revisit if a calendar module joins the stack.
+- Calendar: plain `game.time` for now; revisit if a calendar module joins the stack. **NOTE
+  2026-08-02: it has** — Simple Calendar Reborn 2.6.1 is installed and is a recommended companion
+  in the manifest, so this is now a live decision (real dates/seasons/moon phases, which the
+  Crooked Moon material could use) rather than a hypothetical. Treat as a small spike.
+
+### 18.4 Day/night: one curve everywhere, interiors are regions (DM decision 2026-08-02, BUILT)
+
+> DM: *"I can mark a region to not take into account the natural lighting… I'd rather have a small
+> curve and keep global lighting in all scenes, I'll mark interior regions myself."*
+
+The scenario that decided it: a cave map with an **outdoor** and an **indoor** region. The party
+should be able to plan — or blunder into — an arrival at 02:00 and find the outdoors dark, while
+arriving at 10:00 finds it lit, all without the DM touching the lighting.
+
+**The model.**
+- **The clock drives darkness on EVERY scene**, not only maps whose global illumination happens to
+  be off. The old gate (`!env.globalLight?.enabled`) skipped exactly the maps the DM lights, and is
+  gone. A **locked** darkness still wins — that's a deliberate freeze.
+- **Global illumination stays ON and plays the sun.** It is no longer treated as a fault. Its
+  darkness threshold is what makes night land, so the only thing worth policing is a sun that never
+  sets (threshold ≥ the night peak).
+- **Interiors are the DM's job**, marked with Foundry's own `adjustDarknessLevel` region behaviour
+  (confirmed present in 14.365). The module deliberately does not try to guess indoor/outdoor.
+
+**The curve** (`preset.js`, shared by the panel and preflight so they cannot disagree): a gentle
+cosine, `NIGHT_DARKNESS_PEAK = 0.7` — noon 0.00 · dawn/dusk (06/18) 0.35 · midnight 0.70. Never
+pitch black, so a fully-visible overworld map stays readable at night ("a small curve").
+`GLOBAL_LIGHT_NIGHT_THRESHOLD = 0.35` is *exactly* the dawn/dusk value, so the sun is up 06:00–18:00
+and down outside it — threshold and curve describe the same day instead of two overlapping ones.
+
+**Preflight changed accordingly:** "Global Illumination is ON" is no longer a problem; "Global
+Illumination never yields to night" is, and its fix corrects the threshold while **leaving the
+light on**. Verified on the bench: threshold 1 → warn → fix → 0.35, global light still enabled,
+row OK; sun up at 06/12/18, down at 04/19.
 
 ---
 
