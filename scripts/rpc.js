@@ -1552,8 +1552,32 @@ async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenU
   // dnd5e.rollAttackV2 directly (not just the card) — DM 2026-07-12. Stub its single play entry
   // (AutomatedAnimations.PlayAnimation) for the duration of this roll only; restored in finally.
   const AA = globalThis.AutomatedAnimations;
-  const savedAAPlay = (AA && typeof AA.PlayAnimation === "function") ? AA.PlayAnimation : null;
-  if (savedAAPlay) AA.PlayAnimation = async () => {};
+  // The old stub targeted `AA.PlayAnimation` (capital P) — the name in AA's own deprecation
+  // warning, but NOT what it exposes: the live API is `playAnimation` (lowercase), so the stub
+  // silently never installed and the DM watched a phantom swing on every target tap. Worse, the
+  // public entry isn't even the path that animates: bench 2026-08-02 measured ONE Sequencer play
+  // and ZERO public-API calls per preview, because AA animates from its own hook handler.
+  // So suppress where every AA path converges — Sequencer's play() — for the length of the
+  // throwaway only, and stub both API spellings for good measure. Restored in `finally`.
+  const savedAAPlay = {};
+  for (const k of ["playAnimation", "PlayAnimation"]) {
+    if (AA && typeof AA[k] === "function") { savedAAPlay[k] = AA[k]; AA[k] = async () => {}; }
+  }
+  const SeqProto = globalThis.Sequence?.prototype;
+  const savedSeqPlay = (SeqProto && typeof SeqProto.play === "function") ? SeqProto.play : null;
+  if (savedSeqPlay) SeqProto.play = function () { return Promise.resolve(this); }; // AA awaits it
+  // …but a stub alone loses the race: AA's post-roll handler is ASYNC, so it starts on the hook
+  // and only reaches Sequencer ~125ms later — measured 2026-08-02: hook at 85ms, roll returns at
+  // 96ms, animation at 210ms, i.e. well after `finally` put everything back. So ALSO silence the
+  // post-roll hooks for the length of the throwaway, which stops AA before it ever starts. The
+  // array is emptied in place and refilled, so listener ids/order survive (Hooks.off elsewhere
+  // keeps working). Nothing SHOULD react to a phantom roll — that is the point of it.
+  const hookStore = Hooks.events ?? null;
+  const silenced = [];
+  for (const h of ["dnd5e.rollAttackV2", "dnd5e.rollAttack"]) {
+    const arr = hookStore?.[h];
+    if (Array.isArray(arr) && arr.length) { silenced.push([arr, arr.splice(0, arr.length)]); }
+  }
   const msgIdsBefore = new Set(game.messages.keys());
   try {
     await activity.rollAttack({}, { configure: false }, { create: false, rollMode: CONST.DICE_ROLL_MODES.BLIND });
@@ -1562,7 +1586,9 @@ async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenU
     Hooks.off("dnd5e.preRollAttackV2", hookId);
     Hooks.off("diceSoNiceRollStart", dsnHook);
     Hooks.off("preCreateChatMessage", cardHook);
-    if (savedAAPlay) AA.PlayAnimation = savedAAPlay; // restore Automated Animations
+    for (const [k, fn] of Object.entries(savedAAPlay)) AA[k] = fn; // restore Automated Animations
+    if (savedSeqPlay) SeqProto.play = savedSeqPlay;                // and Sequencer
+    for (const [arr, saved] of silenced) arr.push(...saved);       // and the post-roll hooks
     // create:false isn't honored on every midi path — delete any throwaway card it made.
     for (const m of game.messages.filter((mm) => !msgIdsBefore.has(mm.id))) { try { await m.delete(); } catch (e) {} }
     setTargets(wanted, false);

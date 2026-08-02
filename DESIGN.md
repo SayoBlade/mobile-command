@@ -2502,6 +2502,57 @@ silence with the action already spent**. This is the "I tapped attack and nothin
 class of bug. Two things to do: (1) a preflight check for MISC automations whose prerequisite
 settings are off, and (2) the executor honesty fix above — once it can be done without the hang.
 
+### 28.8 The pre-attack "phantom swing" — FIXED (bench 2026-08-02)
+
+**The DM's complaint:** tapping a target on the phone played an attack animation on the canvas/TV
+before the player had actually attacked. `attackPreview` fires a throwaway hidden attack roll to
+read AC5E's adv/dis advice, and §28's suppression was *supposed* to cover the animation.
+
+**It was broken two ways, and had never worked:**
+1. It stubbed `AutomatedAnimations.PlayAnimation` — the name in AA's own deprecation warning, but
+   the live API exposes **`playAnimation`** (lowercase). The stub silently never installed.
+2. The public entry isn't even the animating path. Measured: per preview, **1 Sequencer play and
+   0 public-API calls** — AA animates from its own hook handler.
+
+**And the timing made a naive stub useless anyway:** AA's post-roll handler is ASYNC. Measured
+`dnd5e.rollAttackV2` at 85ms, roll returns 96ms (our `finally` restores everything), animation at
+**210ms** — the suppression window closed ~114ms before the animation started.
+
+**Fix (rpc.js `handleAttackPreview`):** stub Sequencer's `play()` AND both AA API spellings, plus
+empty the `dnd5e.rollAttackV2` / `dnd5e.rollAttack` listener arrays *in place* for the length of
+the throwaway (ids/order preserved, refilled in `finally`) — which stops AA before it ever starts.
+Nothing should react to a phantom roll; that is the point of it. Verified: **0 Sequencer plays**
+across 3 consecutive previews, no chat card, listeners restored, and AC5E still annotates
+correctly (mode `advantage`, reason "Target Cannot See Attacker").
+
+### 28.9 The "Rolling…" hang — NOT reproduced on a clean bench (2026-08-02)
+
+Chasing §28.7's hang. **It did not reproduce today, on either build** — not with the raced recipe
+(tap damage, immediately start the next attack), not with the original recipe (6s wait), on the
+patched build OR baseline. Several clean fire→damage→fire cycles in a row.
+
+What that changes: §28.7's conclusion that "my changes cause the hang" is **not supported**. The
+difference between yesterday and today is the ENVIRONMENT, not the diff — yesterday's runs were
+against the DM's live world while it was also open in the desktop app, with MISC's Great Weapon
+Master throwing on every Test Fighter attack and stale suspended workflows piling up. An exception
+thrown inside a hook handler is a plausible mechanism for a swallowed RPC, and is the lead to pull
+next. Reproduce it with the GWM error present before trying to fix anything.
+
+**Shipped anyway, on its own merits:** `#rollDamage` cleared `#actionState` unconditionally after
+its await. The damage step can take up to 20s, so a player who taps damage and then starts their
+next action owned a NEW picker by the time it returned — and it wiped that one, whose fire reply
+then hit `#actionState !== s` in `#fireAction` and was dropped, stranding the card on "Rolling…".
+It now only clears the state if it is still its own (the toast/warning still fire either way).
+That is a genuine latent race with the exact reported symptom; whether it is THE one the DM hit is
+unproven.
+
+**Bench lesson (important):** the headless bench must NOT junction the DM's real `Data`. Running
+it while the desktop app had the world open collided on the LevelDB locks and triggered Foundry's
+auto-repair on the world's (empty) `effects` database. No data was lost — `lost/` came back empty
+and every other database was untouched — but the bench now uses a full COPY of the world under the
+scratch dir, with only `modules`/`systems`/assets junctioned. That also stops test residue landing
+in the DM's world. Setup is in `scratchpad/bench2`.
+
 ### 28.5 Ecosystem watch — the premades modules (checked 2026-07-26)
 
 - **gambits-premades**: last release 2.1.43 (May 27); author (April, 2.1.42): "as-is release for

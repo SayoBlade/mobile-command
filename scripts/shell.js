@@ -5743,7 +5743,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       console.error("mobile-command | useActivityDamage failed", err);
       res = { ok: false, reason: err?.message ?? "error — see DM console" };
     }
-    this.#actionState = null; this.render();
+    // Only clear the picker if it's STILL this roll's picker. The damage step can take up to 20s,
+    // and a player who taps damage and then starts their next action owns a NEW action state by the
+    // time we get here — clearing unconditionally wiped that one, so the next fire's reply hit
+    // `#actionState !== s` in #fireAction and was dropped, stranding the card on "Rolling…" forever
+    // (bench 2026-08-02: reproduced as "the second attack after a damage roll hangs"). The toast and
+    // any failure warning below still run: the damage really happened, so the player still hears it.
+    if (this.#actionState === s) { this.#actionState = null; this.render(); }
     if (!res?.ok) return ui.notifications.warn(`${s.name}: ${res?.reason ?? "damage failed"}`);
     // Damage toaster (DM 2026-06-19): the damage rolls on the executor and midi's
     // card doesn't reach the phone's chat-roll hook cleanly, so toast the total the
