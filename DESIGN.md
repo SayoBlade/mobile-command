@@ -3110,6 +3110,64 @@ ticket on their phone, and the DM takes each ticket as its holder boards the tra
   bulk · whistle. Tickets target the PC's USER (`pcUser()` — character-assignment first, then
   ownership), so the ticket follows the player to any device.
 
+## 37. The Ghostlight ride — car doors + the rushing Shroud (DM ask 2026-08-04 — BUILT same day, bench-verified)
+
+The DM loaded the ch10 train car scenes and asked for (a) a fog-of-war check, (b) a
+tile-scroll/parallax "train in motion" effect, (c) car-to-car teleports per the book's
+arrangement. Built as `cm-train.js` + a "The Ghostlight ride" drawer on the Crooked Moon tab
+(wire button + ride toggle), plus `MobileCommand.train.{wire,ride,riding}` for macros (§8.1).
+
+**Fog "not working" was a non-bug.** The car scenes ship correct (tokenVision on, `fog.mode`
+1 = INDIVIDUAL, 82 walls on 10.1); the world had ZERO FogExploration docs — no player/TV
+client had ever opened the scene, and the DM had only looked from the GM client, which never
+renders player fog (dmOmniscientVision makes that even more total). On the TV client fog
+draws exactly right (bench 2026-08-04). Check fog on the TV, never as GM. (`real-fow` is
+also innocent: per-scene opt-in flag, not set anywhere.)
+
+**The book's train (ch10 journals):** boarding at G1 Passenger (REAR; its rear door is an
+arcane-locked exterior, boarding stairs on the car's right side), G8 Tender at the FRONT
+with no front door (the locomotive is the Vagrant's). **Front of the train = map RIGHT on
+every car map** (derived: right-side boarding door drawn at map bottom; Tender's only door
+at map left). Both art sets (plain + Colored) are wired as independent chains 10.1⇄…⇄10.8.
+
+**Doors = core Teleport Token regions, with a landing probe.** Each wired car end gets a
+TRIGGER region (full-height vestibule column just inside the end door — walking into the
+vestibule crosses; the closed door itself never needs opening) and a separate LANDING region
+the paired teleport targets (`placement:"center", snap:false, choice:false`;
+`destinations:[<land uuid>]`; schema on 14.365: destinations/placement/snap/choice/revealed/
+dialog/transition). **The landing cell is collision-probed** (pure-data segment-vs-walls
+test, so it works on non-viewed scenes): nearest grid cell to the door that no wall crosses
+AND with a clear straight walk to a mid-car probe row. This matters: a snapped arrival can
+straddle an interior wall (Sleeper Car's cabin partition at x1120) and **a token overlapping
+a wall is completely stuck** (every move update rejected) — found the hard way on the bench.
+Sleeper/Dining land in their corridor row, the rest in the mid aisle. Teleport arrivals do
+NOT retrigger the region they land in (verified, no ping-pong). Existing plumbing picks the
+rest up: preflight's destination check covers these; zoom transitions are selectable per
+teleport.
+
+**The ride = tile-scroll flags on mist tiles.** tile-scroll 5.0.0 (installed, enabled,
+v14-verified) scrolls a tile's TEXTURE in a shader driven by `game.time.serverTime` — all
+config is flags: `flags["tile-scroll"].{enableScroll,scrollSpeed,scrollDirection,repeatx,
+repeaty,parallax}`; speed/10000 = uv per ms; direction 0° = content drifts map-LEFT (correct:
+front is right, the Shroud streams rearward). Two window bands per car (above/below the wall
+hull — car windows are all on the long sides), three layers each: slow dim far Shroud (speed
+3, #4fa8a0), main thick drift (8, #8ff5d2), fast thin streaks (22, #b8ffe9), all
+`mist_*_horizontal.webm` from animated-mist-and-fog-by-mattm ("shifting green smoke swims
+past the glass" — the book's own window text). PIXI caches by src, so 6 tiles per scene cost
+TWO video decodes; bench GM client held ~53 FPS. Idempotent create / flagged delete via the
+panel toggle; only documents flagged `mobile-command.trainMist/trainDoor/trainLand` are ever
+touched.
+
+**The table follows the party (registerTrainFollow, main.js).** Debounced create+delete
+token watcher (teleports are a create+delete whose order isn't contractual): when the active
+scene has no unhidden PC tokens left and a non-active train scene (has trainLand regions)
+holds PCs, that car activates — TV follows, transition plays. Splits hold the shot. Same
+`partyTeleportActivates` gate as the packed-party rule, primary-GM only.
+
+**Bench technique addendum (2026-08-04):** protected-module content (Crooked Moon incl.) fails
+signature validation on a scratch dataPath until the real `Config/license.json` is copied in
+("Invalid signature file for protected module ×90"); with it, packs open clean.
+
 ## 32. Crooked Moon special-effects idea board (mined from the installed book 2026-07-27 — IDEAS, nothing approved)
 
 Source: `the-crooked-moon-2014` module's journal packs, dumped + read in full (extraction

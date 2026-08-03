@@ -11,6 +11,7 @@ import { FX_TABS, FX_DEFS, fxActiveMap, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleF
 import { FATE_THREADS, FATE_STEPS, applyFateReward } from "./fateweaving.js"; // §34 Fateweaving tracker
 import { CURSES, rollCurse, pickCurse, applyCurse, actorCurses, curseTableUuid } from "./cm-curses.js"; // §33 Chaotic Curses
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
+import { trainScenes, trainMistOn, wireTrainDoors, setTrainMist } from "./cm-train.js"; // §37 the Ghostlight ride
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
@@ -482,6 +483,7 @@ function crookedTabHTML() {
     ${dtDrawer("cmFate", "Fateweaving", "", fateBody(), true)}
     ${dtDrawer("cmTwists", "Twists of fate", "", twistsBody(), true)}
     ${dtDrawer("cmBoard", "All aboard", "", allAboardBody(), true)}
+    ${dtDrawer("cmRide", "The Ghostlight ride", "", trainRideBody(), true)}
     ${dtDrawer("fxSeance", "Séance", "", seanceBody(), true)}
   </div></div>`;
 }
@@ -604,6 +606,26 @@ function scenePcs() {
 function pcUser(a) {
   return game.users.find(u => !u.isGM && u.character?.id === a?.id)
     ?? game.users.find(u => !u.isGM && a?.testUserPermission?.(u, "OWNER")) ?? null;
+}
+
+// §37 The Ghostlight ride: wire the car-to-car doors (once per world) and set the Shroud
+// rushing past the windows. Works on the book's 10.x car scenes, both art sets.
+function trainRideBody() {
+  const cars = trainScenes();
+  const wired = cars.filter(s => s.regions.some(r => r.flags[MODULE_ID]?.trainLand)).length;
+  const riding = trainMistOn();
+  return `
+    <button class="mc-fx-btn ${riding ? "mc-on" : ""}" data-cm-mist="${riding ? "off" : "on"}" style="width:100%" ${cars.length ? "" : "disabled"}
+      title="${riding ? "Bring the train to rest — the Shroud outside the windows goes still" : "The train runs — the Shroud rushes past every window"}">
+      <i class="fas fa-train"></i><span>${riding ? "The train is running" : "Start the ride"}</span></button>
+    <div class="mc-fx-voicerow">
+      <button class="mc-fx-btn" data-cm-wire style="flex:1" ${cars.length ? "" : "disabled"}
+        title="Create the car-to-car door teleports on every 10.x car scene (safe to run again — it re-checks, never duplicates)">
+        <i class="fas fa-link"></i><span>${wired ? `Doors wired — ${wired} cars` : "Wire the doors"}</span></button>
+    </div>
+    <p class="mc-dmp-set-note">${cars.length
+    ? "Walking into the vestibule at a car's end carries you to the next car — rear door of 10.1 and the Tender's far end stay sealed, as the book has them. The table follows once the whole party crosses."
+    : "No 10.x car scenes in this world — import the Ghostlight Express scenes from the Crooked Moon module first."}</p>`;
 }
 
 // §36 All aboard: station on the TV, one PC introduced at a time, a life-size ticket on each
@@ -3435,6 +3457,20 @@ async function onClick(ev) {
     if (cmAll.dataset.cmTicketsAll === "on" && users.length) cur.cmTicket = { users: [...new Set(users)] };
     else delete cur.cmTicket;
     await game.settings.set(MODULE_ID, "fxActive", cur);
+    return render();
+  }
+  // §37 the ride: wire every car door (idempotent), toggle the rushing Shroud.
+  if (ev.target.closest("[data-cm-wire]")) {
+    const report = await wireTrainDoors();
+    ui.notifications.info(`Ghostlight Express — ${report.join(" · ") || "no car scenes found"}`);
+    return render();
+  }
+  const cmMist = ev.target.closest("[data-cm-mist]");
+  if (cmMist) {
+    const n = await setTrainMist(cmMist.dataset.cmMist === "on");
+    ui.notifications.info(cmMist.dataset.cmMist === "on"
+      ? `The Ghostlight Express runs — the Shroud rushes past ${n} cars.`
+      : `The train rests — ${n} cars gone still.`);
     return render();
   }
   // §30 séance: broadcast the phrase; the TV's planchette does the talking.
