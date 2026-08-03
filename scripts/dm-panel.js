@@ -3,7 +3,7 @@ import { fireAoO } from "./aoo.js";
 import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD } from "./preset.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
-import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar } from "./gametime.js";
+import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar, sunTimes } from "./gametime.js";
 import { runDmWizard } from "./dm-wizard.js";
 import { startCombatWithMusic } from "./combat-music.js";
 import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist } from "./settings.js";
@@ -1400,7 +1400,7 @@ async function maybeAutoLightOverworld(scene) {
     if (env.darknessLock) patch["environment.darknessLock"] = false;                  // the travel loop drives darkness
     if (game.settings.get(MODULE_ID, "travelDaylight")) {                             // open at the right time of day
       const c = readClock();
-      patch["environment.darknessLevel"] = darknessForHour((Number(c.hour) || 0) + (Number(c.minute) || 0) / 60);
+      patch["environment.darknessLevel"] = darknessForHour((Number(c.hour) || 0) + (Number(c.minute) || 0) / 60, sunTimes());
     }
     await scene.update(patch, { animateDarkness: 800 });
     console.log(`${MODULE_ID} | set up travel map "${scene.name}" (DM-listed) — whole map visible, darkness follows the clock`);
@@ -1431,6 +1431,7 @@ async function runTravelJourney(group) {
   // its own darkness threshold — so the clock drives darkness on lit maps too. A LOCKED darkness
   // still wins: that's the DM freezing a scene on purpose.
   const darknessOn = game.settings.get(MODULE_ID, "travelDaylight") && !env.darknessLock;
+  const sun = sunTimes(); // read once for the journey — sunrise/sunset don't move mid-trip
   const wePaused = !game.paused;
   if (wePaused) game.togglePause(true);
   travelJourneyActive = true; travelJourneyStop = false; render();
@@ -1442,7 +1443,7 @@ async function runTravelJourney(group) {
       await game.time.advance(Math.round(segSecs));
       if (darknessOn) {
         const c = readClock();
-        const d = darknessForHour((Number(c.hour) || 0) + (Number(c.minute) || 0) / 60);
+        const d = darknessForHour((Number(c.hour) || 0) + (Number(c.minute) || 0) / 60, sun);
         if (lastDark === null || Math.abs(d - lastDark) > 0.03) { // throttle scene writes
           lastDark = d;
           try { await scene.update({ "environment.darknessLevel": d }, { animateDarkness: Math.round(segReal) }); } catch (e) { /* darkness is best-effort */ }

@@ -1429,11 +1429,30 @@ arriving at 10:00 finds it lit, all without the DM touching the lighting.
 - **Interiors are the DM's job**, marked with Foundry's own `adjustDarknessLevel` region behaviour
   (confirmed present in 14.365). The module deliberately does not try to guess indoor/outdoor.
 
-**The curve** (`preset.js`, shared by the panel and preflight so they cannot disagree): a gentle
-cosine, `NIGHT_DARKNESS_PEAK = 0.7` — noon 0.00 · dawn/dusk (06/18) 0.35 · midnight 0.70. Never
-pitch black, so a fully-visible overworld map stays readable at night ("a small curve").
-`GLOBAL_LIGHT_NIGHT_THRESHOLD = 0.35` is *exactly* the dawn/dusk value, so the sun is up 06:00–18:00
-and down outside it — threshold and curve describe the same day instead of two overlapping ones.
+**The curve — FOUR phases (DM 2026-08-03: "gradual dark to light, full light, gradual light to dark
+and full dark").** Lives in `preset.js`, shared by the panel and preflight so they cannot disagree:
+
+```
+full dark ──/ dawn ramp /── full light ──\ dusk ramp \── full dark
+```
+
+`NIGHT_DARKNESS_PEAK = 0.7` is "full dark" (deliberately not 1.0 — a fully-visible overworld must
+stay readable at night), full light is 0, and `DAWN_DUSK_RAMP_HOURS = 1` is the gradual bit. The
+ramps are **centred** on sunrise/sunset, so sunrise is the midpoint of getting light — the half
+before is twilight, the half after is the sun climbing — rather than its start.
+
+This replaced a rolling cosine, which was never flat: every hour was a slightly different shade, so
+"daytime" had no plateau and noon was the only true daylight. Verified headlessly (no world needed,
+`scratchpad/curve-test.mjs`): a default day is 661 min full dark · 118 min ramping · 661 min full
+light = 1440/1440, each ramp monotonic, hour wrapping (−1/0/24/25) and NaN all resolve to full dark.
+
+**Sunrise/sunset come from the calendar when there is one.** `gametime.js` `sunTimes()` reads SC's
+date object (`.sunrise`/`.sunset` are timestamps, so each is fed back through `timestampToDate()`
+rather than assuming a unit), range-checks the result and requires sunrise < sunset; anything odd
+returns `{}` and the curve uses a plain 06:00/18:00 day. So a winter date genuinely gets a long
+night. **Caveat: the SC path is written from SC Reborn's source, not yet exercised against a live
+world — the validation means a wrong guess degrades to the default day rather than breaking.**
+`GLOBAL_LIGHT_NIGHT_THRESHOLD = 0.35` = half the night peak, so the sun yields during the ramps.
 
 **Preflight changed accordingly:** "Global Illumination is ON" is no longer a problem; "Global
 Illumination never yields to night" is, and its fix corrects the threshold while **leaving the

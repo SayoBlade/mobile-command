@@ -123,6 +123,33 @@ export function isNight(ts = game.time?.worldTime ?? 0) {
   return h >= 18 || h < 6;
 }
 
+/** Sunrise/sunset as HOURS (e.g. 6.5 = 06:30) for the day containing `ts`, for the §18.4 day/night
+ *  curve. SC's date object carries `.sunrise`/`.sunset` as timestamps, so each is fed back through
+ *  timestampToDate() to read its clock time rather than assuming what unit the number is in.
+ *  Every result is range-checked and must be a sane day (sunrise before sunset) — anything odd
+ *  falls back to a plain 06:00/18:00, because a broken calendar must never break the lighting.
+ *  Returns {} when there's no calendar, which the curve reads as "use the defaults". */
+export function sunTimes(ts = game.time?.worldTime ?? 0) {
+  if (!hasSimpleCalendar()) return {};
+  try {
+    const day = SimpleCalendar.api.timestampToDate(Number(ts) || 0);
+    const asHour = (stamp) => {
+      if (!Number.isFinite(stamp)) return null;
+      const d = SimpleCalendar.api.timestampToDate(stamp);
+      const h = Number(d?.hour), m = Number(d?.minute) || 0;
+      if (!Number.isFinite(h) || h < 0 || h > 23) return null;
+      return h + m / 60;
+    };
+    const sunrise = asHour(day?.sunrise);
+    const sunset = asHour(day?.sunset);
+    if (sunrise == null || sunset == null || sunrise >= sunset) return {};
+    return { sunrise, sunset };
+  } catch (e) {
+    console.warn(`${MODULE_ID} | Simple Calendar sun times unreadable — using the default day`, e);
+    return {};
+  }
+}
+
 /** Advance the world clock. IDENTICAL with or without SC — SC derives from worldTime, so this is
  *  the one call either way. GM-only in Foundry; callers route through the executor. */
 export async function advance(seconds) {

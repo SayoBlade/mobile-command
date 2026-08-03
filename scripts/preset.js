@@ -129,9 +129,31 @@ export const DOWNTIME_LABEL = Object.fromEntries(DOWNTIME_ACTIVITIES.map(a => [a
 // party arriving at a moor at 02:00 finds it dark; arriving at 10:00 finds it lit.
 // Deliberately GENTLE: a cosine peaking at 0.7, never pitch black, so a fully-visible overworld
 // map stays readable at night. Noon 0 · dawn/dusk (6h/18h) 0.35 · midnight 0.7.
-export const NIGHT_DARKNESS_PEAK = 0.7;
-export function darknessForHour(h) {
-  return Math.max(0, (NIGHT_DARKNESS_PEAK / 2) * (1 + Math.cos((Number(h) || 0) / 24 * 2 * Math.PI)));
+// FOUR phases, not a rolling cosine (DM 2026-08-03: "gradual dark to light, full light, gradual
+// light to dark and full dark"). The cosine was never flat — every hour was a slightly different
+// shade, so "daytime" had no plateau and noon was the only true daylight. Now:
+//
+//   full dark ──/ dawn ramp /── full light ──\ dusk ramp \── full dark
+//
+// The ramps are CENTRED on sunrise and sunset, so sunrise is the midpoint of getting light (the
+// half before it is twilight, the half after is the sun climbing) rather than its start.
+export const NIGHT_DARKNESS_PEAK = 0.7;   // "full dark" — deliberately not 1.0, see above
+export const DAWN_DUSK_RAMP_HOURS = 1;    // how long the gradual bit lasts, total
+export const DEFAULT_SUNRISE_HOUR = 6;
+export const DEFAULT_SUNSET_HOUR = 18;
+/** Darkness at a given hour. `sunrise`/`sunset` come from the calendar when there is one
+ *  (gametime.js); without them it's a plain 06:00/18:00 day. */
+export function darknessForHour(hour, opts = {}) {
+  const sunrise = Number.isFinite(opts.sunrise) ? opts.sunrise : DEFAULT_SUNRISE_HOUR;
+  const sunset = Number.isFinite(opts.sunset) ? opts.sunset : DEFAULT_SUNSET_HOUR;
+  const ramp = Math.max(0.01, Number.isFinite(opts.ramp) ? opts.ramp : DAWN_DUSK_RAMP_HOURS);
+  const h = (((Number(hour) || 0) % 24) + 24) % 24;
+  const half = ramp / 2;
+  const N = NIGHT_DARKNESS_PEAK;
+  if (h >= sunrise - half && h <= sunrise + half) return N * (1 - (h - (sunrise - half)) / ramp); // dark → light
+  if (h >= sunset - half && h <= sunset + half) return N * ((h - (sunset - half)) / ramp);        // light → dark
+  if (h > sunrise + half && h < sunset - half) return 0;                                          // full light
+  return N;                                                                                       // full dark
 }
 // Global light is the SUN under this model, so it must yield before the curve tops out — a scene
 // whose global-light threshold sits at or above the night peak never actually gets dark. 0.35 is
