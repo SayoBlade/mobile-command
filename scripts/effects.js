@@ -3,6 +3,7 @@ import { socket } from "./rpc.js";
 import { isPhoneClient } from "./shell.js";
 import { isExecutor } from "./settings.js";
 import { seanceSync, seancePhrase } from "./seance.js"; // §30 séance board (TV overlay)
+import { cardTableSync, registerCardTable } from "./card-table.js"; // §38.4a session-zero card table
 import { cmStationSync, cmTicketFx, playTrainWhistle } from "./cm-boarding.js"; // §36 All aboard
 import { initCurseSweep } from "./cm-curses.js"; // §33: one GM client lifts expired curses
 
@@ -721,12 +722,21 @@ export function syncFx() {
   seanceSync(!!active.seance);
   // §36 the station + intro card: same clients, same gate-inside pattern.
   cmStationSync(!!active.cmStation, active.cmIntro?.actorId ?? null);
+  // §38.4a the card table (session zero). Its own world setting rather than an fxActive key —
+  // it's a session-zero fixture, not an ambience effect — but it rides the same remount path.
+  try { cardTableSync(!!game.settings.get(MODULE_ID, "cardTableOn")); } catch (e) { /* pre-ready */ }
 }
 
 export function registerFxEngine() {
   try { socket?.register("fxOneShot", handleFxOneShot); }
   catch (e) { console.warn(`${MODULE_ID} | could not register fxOneShot`, e); }
-  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive`) syncFx(); });
+  // createSetting too — the first write of a never-stored setting isn't an update (see card-table.js).
+  const onFxSetting = (s) => {
+    if (s?.key === `${MODULE_ID}.fxActive` || s?.key === `${MODULE_ID}.cardTableOn`) syncFx();
+  };
+  Hooks.on("updateSetting", onFxSetting);
+  Hooks.on("createSetting", onFxSetting);
+  registerCardTable(); // §38.4a lockstep + actor-truth listeners for the card table
   Hooks.on("canvasReady", () => syncFx()); // remount whatever fxActive still wants
   // Deathbeat triggers: my character's HP / death-save counters, and the dead status
   // (which arrives as an ActiveEffect, not an actor update).

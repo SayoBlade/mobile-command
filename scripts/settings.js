@@ -212,6 +212,16 @@ export function registerSettings() {
     scope: "world", config: false, type: Object, default: {}
   });
 
+  // §38.4a the card table: which back the dealt cards wear, and whether the board is up.
+  // The back is picked from a gallery (CM's card sets, the module's art/, prior uploads) or
+  // uploaded custom at 5:7 — empty means "the module's default back".
+  game.settings.register(MODULE_ID, "cardBackImage", {
+    scope: "world", config: false, type: String, default: ""
+  });
+  game.settings.register(MODULE_ID, "cardTableOn", {
+    scope: "world", config: false, type: Boolean, default: false
+  });
+
   game.settings.register(MODULE_ID, "dmOmniscientVision", {
     name: "Keep the DM's vision omniscient (shared-screen tables)",
     hint: "When the DM selects/controls a player's token, don't shrink the DM's view to that token's point of view — the DM keeps seeing the whole map. Players and the TV/display are unaffected. On by default.",

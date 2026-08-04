@@ -1831,6 +1831,54 @@ body {
 .mc-st-answering { display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
   font-size: 12px; font-weight: 600; color: var(--mc-gold); }
 .mc-st-answering i:first-child { flex: 0 0 auto; }
+/* ── §38.4a THE CARD TABLE: session zero on the shared screen ───────────────────
+   The TV lies FLAT, so the board is drawn from above: a hand at each seated player's edge,
+   rotated to face them. Cards flip on choice; the seat being written for is highlighted. */
+#mc-cardtable { position: fixed; inset: 0; z-index: 55; background: #07070a;
+  display: flex; align-items: stretch; justify-content: center; }
+.mc-ct-felt { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: space-between;
+  gap: 8px; padding: 14px; background-color: #0d0c10;
+  background-image: var(--mc-ct-table); background-size: cover; background-position: center; }
+/* The square table art centres as a medallion; the vignette melts it into the ground. */
+.mc-ct-felt::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.75) 100%); }
+.mc-ct-row { display: flex; justify-content: space-evenly; gap: 12px; }
+.mc-ct-mid { flex: 1 1 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mc-ct-center { flex: 1 1 auto; }
+.mc-ct-seat { position: relative; z-index: 1; display: flex; flex-direction: column;
+  align-items: center; gap: 6px; padding: 8px 10px; transform: rotate(var(--mc-ct-rot, 0deg));
+  border-radius: calc(12px * var(--mc-round, 1)); transition: box-shadow .25s ease, background .25s ease; }
+.mc-ct-seat-active { background: rgba(200,164,77,.07); box-shadow: 0 0 0 1px var(--mc-seat, var(--mc-gold)) inset; }
+.mc-ct-empty { min-width: 40px; }
+.mc-ct-plate { display: flex; align-items: baseline; gap: 8px;
+  font-family: var(--mc-font-title), serif; text-transform: var(--mc-title-case, none);
+  letter-spacing: var(--mc-title-track, 0); font-size: 17px; color: var(--mc-ink); }
+.mc-ct-who { border-bottom: 2px solid var(--mc-seat, var(--mc-gold)); padding-bottom: 2px; }
+.mc-ct-player { font-family: inherit; font-size: 12px; color: var(--mc-muted); }
+.mc-ct-hand { display: flex; gap: 8px; }
+/* A card is a 5:7 flipper — back until its choice lands, then the item's own artwork. */
+.mc-ct-card { width: 86px; height: 120px; perspective: 700px; }
+.mc-ct-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d;
+  transition: transform .55s cubic-bezier(.2,.7,.3,1); border-radius: calc(8px * var(--mc-round, 1)); }
+.mc-ct-flipped .mc-ct-inner { transform: rotateY(180deg); }
+.mc-ct-back, .mc-ct-face { position: absolute; inset: 0; backface-visibility: hidden;
+  border-radius: calc(8px * var(--mc-round, 1)); border: 1px solid #000;
+  box-shadow: 0 4px 10px rgba(0,0,0,.55); overflow: hidden; }
+.mc-ct-back { background-size: cover; background-position: center; }
+.mc-ct-face { transform: rotateY(180deg); background: var(--mc-panel);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.mc-ct-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mc-ct-art-text { display: flex; align-items: center; justify-content: center;
+  font-family: var(--mc-font-title), serif; font-size: 22px; color: var(--mc-gold);
+  background: var(--mc-sunken); }
+.mc-ct-name { position: relative; width: 100%; padding: 4px 5px; text-align: center;
+  font-family: var(--mc-font-title), serif; font-size: 12px; line-height: 1.15; color: var(--mc-ink);
+  background: linear-gradient(transparent, rgba(0,0,0,.85) 40%); }
+.mc-ct-card.mc-ct-active .mc-ct-inner { box-shadow: 0 0 0 2px var(--mc-gold), 0 0 18px rgba(200,164,77,.5); }
+.mc-ct-writing { max-width: 460px; text-align: center; font-size: 15px; color: var(--mc-gold); }
+.mc-ct-writing i { margin-right: 6px; }
+@media (prefers-reduced-motion: reduce) { .mc-ct-inner { transition: none; } }
+
 /* DM panel: the table map (§38.4b). The TV lies FLAT — two seats along each long side, one at
    each short end — so the map is drawn as the room sees it, from above. */
 .mc-dmp-tablemap { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 10px; }
@@ -1853,6 +1901,16 @@ body {
 .mc-dmp-tv i { font-size: 16px; color: var(--mc-edge); }
 .mc-dmp-seat-tag { font-size: 10px; color: var(--mc-muted); }
 .mc-dmp-seat-live { color: #8fd6a8; font-size: 9px; vertical-align: 2px; }
+/* DM panel: the card-back gallery (§38.4a). Thumbnails are 5:7 like the cards themselves. */
+.mc-dmp-cardbacks { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px;
+  max-height: 190px; overflow-y: auto; }
+.mc-dmp-cardback { width: 44px; height: 62px; padding: 0; overflow: hidden;
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge);
+  border-radius: calc(6px * var(--mc-round, 1)); display: flex; align-items: center;
+  justify-content: center; color: var(--mc-muted); font-size: 9px; }
+.mc-dmp-cardback img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mc-dmp-cardback.mc-on { border-color: var(--mc-gold); box-shadow: 0 0 0 1px var(--mc-gold) inset; }
+.mc-dmp-cardupload { padding: 4px; font-size: 11px; }
 /* DM panel: the Story-questions drawer. */
 .mc-dmp-story-random { width: 100%; margin-bottom: 8px; }
 .mc-dmp-story-status { font-size: 12px; color: var(--mc-muted); margin: 2px 0 8px; }

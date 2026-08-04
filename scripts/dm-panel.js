@@ -318,7 +318,7 @@ function partyTabFull() {
   // the FOOT like the Combat send button (DM 2026-07-25). The Story-questions drawer (§38.4)
   // renders regardless of packing — questions don't need a group.
   return `<div class="mc-dmp-tabfill">
-    <div class="mc-dmp-tabmid">${dtDrawer("players", "Players & seats", "", playersBody(), true)}${dtDrawer("storyQs", "Story questions", "", storyQsBody(), true)}${ownedTokensHTML()}${marching}</div>
+    <div class="mc-dmp-tabmid">${dtDrawer("players", "Players & seats", "", playersBody(), true)}${dtDrawer("cardTable", "Card table", "", cardTableBody(), true)}${dtDrawer("storyQs", "Story questions", "", storyQsBody(), true)}${ownedTokensHTML()}${marching}</div>
     <div class="mc-dmp-tabfoot">${partyMainHTML()}</div>
   </div>`;
 }
@@ -2981,6 +2981,66 @@ function playersBody() {
     </div>`;
 }
 
+// --- §38.4a the card table: on/off + the card-back picker ---------------------------------
+// The back is chosen from a gallery (the Crooked Moon card sets, the module's own art/, and
+// anything previously uploaded) or uploaded custom at 5:7. Gallery scanning is async, so the
+// results are cached and the drawer repaints when they land.
+let cardBackGallery = null; // null = not scanned yet; [] = scanned, nothing found
+const CARD_BACK_SOURCES = [
+  "modules/the-crooked-moon-2014/assets/card/card item",
+  "modules/the-crooked-moon-2014/assets/card/card monster",
+  "modules/the-crooked-moon-2014/assets/card/card npc",
+  "modules/the-crooked-moon-2014/assets/card/card familiar",
+  "modules/mobile-command/art",
+  "mc-cards"
+];
+async function scanCardBacks() {
+  const FP = foundry.applications?.apps?.FilePicker?.implementation ?? FilePicker;
+  const out = [];
+  for (const dir of CARD_BACK_SOURCES) {
+    try {
+      const res = await FP.browse("data", dir);
+      for (const f of res.files ?? []) {
+        if (!/\.(webp|png|jpe?g)$/i.test(f)) continue;
+        // CM's sets pair backs and fronts — only the backs are candidates. Our own art/ and
+        // uploaded customs are taken as-is (that's what the folder is FOR).
+        const own = dir.includes("mobile-command/art") || dir === "mc-cards";
+        if (!own && !/back/i.test(f)) continue;
+        if (own && !/card|back/i.test(f)) continue;
+        out.push(f);
+      }
+    } catch (e) { /* a source that isn't installed is simply skipped */ }
+  }
+  cardBackGallery = out;
+  render();
+}
+function cardTableBody() {
+  const esc = foundry.utils.escapeHTML;
+  const on = (() => { try { return !!game.settings.get(MODULE_ID, "cardTableOn"); } catch (e) { return false; } })();
+  const cur = (() => { try { return game.settings.get(MODULE_ID, "cardBackImage") || ""; } catch (e) { return ""; } })();
+  const seated = Object.keys((() => { try { return game.settings.get(MODULE_ID, "tableSeats") ?? {}; } catch (e) { return {}; } })()).length;
+  if (cardBackGallery === null) scanCardBacks();
+  const thumbs = (cardBackGallery ?? []).map(f => `
+    <button class="mc-dmp-cardback ${f === cur ? "mc-on" : ""}" data-cardback="${esc(f)}" title="${esc(f.split('/').pop())}">
+      <img src="${esc(f)}" alt="" loading="lazy">
+    </button>`).join("");
+  return `
+    <button class="mc-dmp-pf-fix mc-dmp-story-random ${on ? "mc-on" : ""}" data-cardtable-toggle>
+      <i class="fas fa-table-cells-large"></i> ${on ? "Card table is ON the TV" : "Show the card table on the TV"}
+    </button>
+    <div class="mc-dmp-story-status">${seated ? `${seated} seated — deal happens as they choose.` : "Nobody's seated yet — use Players &amp; seats above."}</div>
+    <div class="mc-dmp-story-cat">Card back</div>
+    <div class="mc-dmp-cardbacks">
+      <button class="mc-dmp-cardback ${cur ? "" : "mc-on"}" data-cardback="" title="The module's default back"><span>Default</span></button>
+      ${cardBackGallery === null ? `<span class="mc-dmp-story-none">scanning…</span>` : thumbs}
+    </div>
+    <div class="mc-dmp-story-new">
+      <input class="mc-dmp-story-input mc-dmp-cardupload" type="file" accept="image/webp,image/png,image/jpeg">
+      <button class="mc-dmp-pf-fix" data-cardback-upload>Upload</button>
+    </div>
+    <div class="mc-dmp-story-status">Custom backs: portrait 5:7 (500×700 or larger).</div>`;
+}
+
 // §38.4 slice 2: the DM's story-question deck. One tap pushes a question to every connected
 // phone (the "buy a few seconds" tool); quiet per-player ✓s show for the last push. Custom
 // questions append to the preset deck via the world setting.
@@ -3977,6 +4037,43 @@ async function onClick(ev) {
   }
   const gs = ev.target.closest("[data-group-sheet]");
   if (gs) { game.actors.get(gs.dataset.groupSheet)?.sheet?.render(true); return; }
+  // §38.4a card table: show/hide on the TV, pick a back, upload a custom one.
+  if (ev.target.closest("[data-cardtable-toggle]")) {
+    const on = !!game.settings.get(MODULE_ID, "cardTableOn");
+    await game.settings.set(MODULE_ID, "cardTableOn", !on);
+    return render();
+  }
+  const cb = ev.target.closest("[data-cardback]");
+  if (cb) { await game.settings.set(MODULE_ID, "cardBackImage", cb.dataset.cardback ?? ""); return render(); }
+  if (ev.target.closest("[data-cardback-upload]")) {
+    const input = ev.target.closest(".mc-dmp-story-new")?.querySelector(".mc-dmp-cardupload");
+    const file = input?.files?.[0];
+    if (!file) return ui.notifications.info("Pick an image file first.");
+    const FP = foundry.applications?.apps?.FilePicker?.implementation ?? FilePicker;
+    try {
+      // Warn, don't refuse, when the aspect is far off 5:7 — the DM may know exactly what they want.
+      const dims = await new Promise(res => {
+        const img = new Image(); const url = URL.createObjectURL(file);
+        img.onload = () => { res({ w: img.naturalWidth, h: img.naturalHeight }); URL.revokeObjectURL(url); };
+        img.onerror = () => res(null);
+        img.src = url;
+      });
+      if (dims && Math.abs((dims.w / dims.h) - (5 / 7)) > 0.12) {
+        ui.notifications.warn(`That's ${dims.w}×${dims.h} — cards are 5:7, so it'll be cropped to fit.`);
+      }
+      try { await FP.createDirectory("data", "mc-cards"); } catch (e) { /* exists */ }
+      const up = await FP.upload("data", "mc-cards", file, {}, { notify: false });
+      if (up?.path) {
+        await game.settings.set(MODULE_ID, "cardBackImage", up.path);
+        cardBackGallery = null; // rescan so it joins the gallery
+      } else ui.notifications.warn("Upload failed — check the console.");
+    } catch (e) {
+      console.error(`${MODULE_ID} | card-back upload failed`, e);
+      ui.notifications.warn(`Couldn't upload that: ${e.message}`);
+    }
+    return render();
+  }
+
   // §38.4b Players & seats: pick a player up, drop them in a seat, clear a seat, add an account.
   const spick = ev.target.closest("[data-seat-pick]");
   if (spick) { const id = spick.dataset.seatPick; seatPick = (seatPick === id) ? null : id; return render(); }

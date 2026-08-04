@@ -3302,6 +3302,25 @@ card face-up: the chosen item's artwork with its name under it in the display fa
   status via socket ping; the overlay is an fxActive-style mount on the display client (séance
   pattern), panel toggle in the Story drawer.
 
+**BUILT + bench-verified 11/11 (2026-08-04, `card-table.js`).** Body-level overlay on the display
+client / DM's non-phone client (séance mount pattern), driven by the `cardTableOn` world setting
+so it survives a reload; seats read from `tableSeats`; each seat's hand is rotated by its
+`TABLE_SEATS.rot`. Cards are CSS 3-D flippers (5:7, `.mc-ct-inner` rotateY, reduced-motion
+respected). **Two truths, deliberately:** `szEvent` narrates live (flip/writing/step) AND every
+card is re-derivable from the actor's own items — so a reload, or the DM building a PC at the
+desktop, still shows the right table. Non-casters correctly get 5 cards, casters 6 (verified:
+Brig 5, Abzarax 6). "writing" highlights the seat + its card and prints the QUESTION (never the
+answer); "flip" clears the highlight and turns the card to the item's art + name.
+Panel: a **Card table** drawer (Party tab) — on/off, seated count, and the card-back gallery
+(221 thumbnails found by scanning the CM sets + `art/` + `mc-cards/`), plus custom upload to
+`mc-cards/` with a 5:7 warning (never a refusal). Table art reads `art/card-table.webp` when
+present, CSS ground otherwise.
+
+**Trap found + fixed here (applies module-wide):** a world setting that has NEVER been written has
+no Setting document, so its FIRST write fires **`createSetting`, not `updateSetting`** — listening
+only for updates meant the first card-back pick silently didn't repaint. Both `card-table.js` and
+`effects.js` now listen for both. Worth checking anywhere else we watch settings.
+
 **Journal construction v2 — ONE journal, chapter per PC** (DM preference): a single
 JournalEntry "Player Stories" (flag `storyJournal`), ownership `default: NONE` — the DM reads
 it natively as one book. One PAGE per PC = the chapter; entries carry {question, text, realDate,
