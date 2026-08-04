@@ -2990,11 +2990,17 @@ function playersBody() {
           : `<span class="mc-dmp-seat-empty">${esc(def.label)}</span>`}
     </button>`;
   };
-  // The TV lies flat: two seats along the top, one at each end, two along the bottom.
+  // The table stands on end (DM's sketch 2026-08-05): one seat at the top, two down each side,
+  // one at the bottom, TV flat in the middle. Same six seats — this is the map's orientation,
+  // not a change to the table.
   const map = `<div class="mc-dmp-tablemap">
-    <div class="mc-dmp-seatrow">${slot("n1")}${slot("n2")}</div>
-    <div class="mc-dmp-seatmid">${slot("w")}<div class="mc-dmp-tv"><i class="fas fa-tv"></i><span>TV</span></div>${slot("e")}</div>
-    <div class="mc-dmp-seatrow">${slot("s1")}${slot("s2")}</div>
+    <div class="mc-dmp-seatend">${slot("w")}</div>
+    <div class="mc-dmp-seatmid">
+      <div class="mc-dmp-seatcol">${slot("n1")}${slot("n2")}</div>
+      <div class="mc-dmp-tv"><i class="fas fa-tv"></i><span>TV</span></div>
+      <div class="mc-dmp-seatcol">${slot("s1")}${slot("s2")}</div>
+    </div>
+    <div class="mc-dmp-seatend">${slot("e")}</div>
   </div>`;
   const roster = users.length ? users.map(u => {
     const s = seatOf(u.id);

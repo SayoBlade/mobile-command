@@ -3406,8 +3406,28 @@ button' to choose the active pc"*:
   A DM whose players each have one PC never sees a button at all.
 - `card-table.js` watches `seatActors` alongside `tableSeats`/`cardBackImage`, on **both**
   `createSetting` and `updateSetting` (the first-write trap, §38.4a).
-- **Not visually bench-verified**: the Browser pane timed out twice at 300 s on the static
-  harness, so the new roster CSS has passed the syntax gate but not an eyeball.
+- **The map stands on end (DM's sketch 2026-08-05).** One seat at the top, two down each side,
+  one at the bottom, TV standing in the middle — the same six seats, drawn portrait. `side`/`rot`
+  in `TABLE_SEATS` are UNCHANGED and still describe the physical table (long sides seat two, ends
+  seat one), so the TV board — drawn in the landscape screen's own space — is untouched. Only the
+  labels moved with the drawing: Left top/bottom · Top end · Bottom end · Right top/bottom.
+  Measured: TV 136×162, side seats 86×78, end seats 128×44 centred on the TV's width.
+- **Reseat links: tertiary, not invisible.** First pass set them at `--mc-edge`, which on the dark
+  panel is the border colour — the DM couldn't find them ("WAY too hidden… not too inviting, not
+  invisible"). Now full `--mc-muted` at 10 px with a 55 %-alpha underline, gold on hover. Two of
+  them: on each seated roster row, and right-aligned on the card table's seated count (that one
+  jumps to Players & seats via the new `data-open-drawer` handler, which always OPENS — it's a
+  destination, not a toggle).
+
+**Bench technique worth keeping.** The Browser pane renders files outside the project as static
+snapshots, and Foundry serves `.html` under `modules/` as plain text — but the repo is JUNCTIONED
+into `FoundryVTT/Data/modules/mobile-command`, so a harness in `tools/` is reachable at
+`http://localhost:30000/modules/mobile-command/tools/…`. Fetch it and `document.write` it
+same-origin and it renders live, stylesheet and all, with no world touched:
+`fetch(url).then(r=>r.text()).then(t=>{document.open();document.write(t);document.close()})`.
+[tools/seatmap-harness.html](tools/seatmap-harness.html) is the standing one for the panel's map,
+roster rows and links. Measure with `getBoundingClientRect()` rather than trusting the screenshot —
+the pane's screenshot can lag a repaint, the numbers don't.
 
 - **Future (DM "thought for later", record only): per-seat HUD.** A small strip on the TV at
   each seat, ROTATED to face that player (same rotation as their card hand): HP, conditions,

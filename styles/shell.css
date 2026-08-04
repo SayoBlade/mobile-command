@@ -1889,6 +1889,12 @@ body {
 .mc-dmp-tablemap { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 10px; }
 .mc-dmp-seatrow { display: flex; gap: 6px; }
 .mc-dmp-seatmid { display: flex; gap: 6px; align-items: stretch; }
+/* The table stands on end (§38.4b): a single seat at each end, two stacked down each side. The
+   end seats are narrowed to the TV's width so the map reads as one rectangle, not a cross. */
+.mc-dmp-seatend { display: flex; justify-content: center; }
+.mc-dmp-seatend .mc-dmp-seat { flex: 0 1 128px; }
+.mc-dmp-seatcol { display: flex; flex-direction: column; gap: 6px; flex: 0 0 86px; }
+.mc-dmp-seatcol .mc-dmp-seat { flex: 1 1 auto; }
 .mc-dmp-seat { flex: 1 1 0; min-width: 0; min-height: 44px; display: flex; align-items: center;
   justify-content: center; gap: 6px; padding: 6px 8px;
   background: var(--mc-panel); border: 1px dashed var(--mc-edge);
@@ -1897,21 +1903,31 @@ body {
 .mc-dmp-seat.mc-dmp-seat-open { border-color: var(--mc-gold); }
 .mc-dmp-seat span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-dmp-seat-empty { color: var(--mc-muted); }
-.mc-dmp-seatmid .mc-dmp-seat { flex: 0 0 86px; }
-.mc-dmp-tv { flex: 1 1 auto; min-height: 66px; display: flex; flex-direction: column;
+/* Direct children only — the side seats now live in .mc-dmp-seatcol, and an unscoped
+   descendant selector here would out-specify the column rule above and set their HEIGHT. */
+.mc-dmp-seatmid > .mc-dmp-seat { flex: 0 0 86px; }
+/* Taller than it is wide: with two 86px seat columns the TV lands ~136px across, so it needs
+   ~160px of height to read as the standing rectangle the DM sketched rather than a square. */
+.mc-dmp-tv { flex: 1 1 auto; min-height: 160px; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 2px;
   background: var(--mc-sunken); border: 1px solid var(--mc-edge);
   border-radius: calc(9px * var(--mc-round, 1)); color: var(--mc-muted); font-size: 11px;
   letter-spacing: .08em; text-transform: uppercase; }
 .mc-dmp-tv i { font-size: 16px; color: var(--mc-edge); }
 .mc-dmp-seat-tag { font-size: 10px; color: var(--mc-muted); }
-/* The reseat link on a seated player's row (§38.4b). Tertiary: no border, muted, one word. */
+/* The reseat link (§38.4b). Tertiary — no border, no fill — but it has to READ as a link: at
+   --mc-edge on a dark panel it was invisible (DM 2026-08-05 "not too inviting, not invisible"),
+   so it sits at full muted with an underline, and goes gold on hover. */
 .mc-dmp-seat-move { display: inline-flex; align-items: center; padding: 2px 5px; margin: 0;
   background: none; border: 0; border-radius: calc(5px * var(--mc-round, 1));
   min-height: 20px; line-height: 1.2; cursor: pointer;
-  font-size: 9px; letter-spacing: .05em; text-transform: uppercase; color: var(--mc-edge); }
-.mc-dmp-seat-move:hover { color: var(--mc-gold); background: var(--mc-sunken); }
-.mc-dmp-seat-move.mc-on { color: var(--mc-gold); background: var(--mc-sunken); }
+  font-size: 10px; letter-spacing: .04em; color: var(--mc-muted);
+  text-decoration: underline; text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, var(--mc-muted) 55%, transparent); }
+.mc-dmp-seat-move:hover { color: var(--mc-gold); background: var(--mc-sunken);
+  text-decoration-color: var(--mc-gold); }
+.mc-dmp-seat-move.mc-on { color: var(--mc-gold); background: var(--mc-sunken);
+  text-decoration-color: var(--mc-gold); }
 .mc-dmp-seat-live { color: #8fd6a8; font-size: 9px; vertical-align: 2px; }
 /* DM panel: who a player is playing tonight (§38.4b). Deliberately quiet — one PC is plain
    muted text, and only a player with several gets a tertiary control (no border, icon-led). */

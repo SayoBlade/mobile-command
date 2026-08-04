@@ -156,13 +156,17 @@ export const STORY_QUESTIONS = [
 // Six seats around a TV lying FLAT on the table: one at each short end, two along each long
 // side. `rot` is how far to rotate that seat's cards/HUD so they read upright to the person
 // sitting there — the séance board's word rotation should eventually read this too.
+// Labels describe the PANEL MAP as the DM drew it (2026-08-05): the table stands on end — one
+// seat at the top, two down each side, one at the bottom. `side`/`rot` are unchanged and still
+// describe the physical table (long sides seat two, ends seat one), so the TV board — which is
+// drawn in the landscape screen's own space — keeps working exactly as before.
 export const TABLE_SEATS = [
-  { id: "n1", side: "long", label: "Top left", rot: 180 },
-  { id: "n2", side: "long", label: "Top right", rot: 180 },
-  { id: "w", side: "short", label: "Left end", rot: 90 },
-  { id: "e", side: "short", label: "Right end", rot: 270 },
-  { id: "s1", side: "long", label: "Bottom left", rot: 0 },
-  { id: "s2", side: "long", label: "Bottom right", rot: 0 }
+  { id: "n1", side: "long", label: "Left top", rot: 180 },
+  { id: "n2", side: "long", label: "Left bottom", rot: 180 },
+  { id: "w", side: "short", label: "Top end", rot: 90 },
+  { id: "e", side: "short", label: "Bottom end", rot: 270 },
+  { id: "s1", side: "long", label: "Right top", rot: 0 },
+  { id: "s2", side: "long", label: "Right bottom", rot: 0 }
 ];
 
 // ── Creation beats (§38.4a — the Story wizard's questions) ──────────────────

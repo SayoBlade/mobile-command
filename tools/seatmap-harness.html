@@ -1,0 +1,51 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>seat map harness</title>
+<link rel="stylesheet" href="../styles/shell.css">
+<style>
+:root, body { --mc-panel:#211f24; --mc-gold:#c8a44d; --mc-round:1; --mc-ink:#ece5d6; --mc-muted:#a59b86;
+  --mc-edge:#3b3640; --mc-panel-2:#2a272e; --mc-sunken:#17151b; --mc-font-title:Georgia; }
+html,body { margin:0; background:#191720; font-family:system-ui,sans-serif; color:var(--mc-ink); }
+.wrap { width:320px; padding:14px; background:var(--mc-panel); }
+</style></head><body><div class="wrap">
+
+<div class="mc-dmp-tablemap">
+  <div class="mc-dmp-seatend">
+    <button class="mc-dmp-seat"><span class="mc-dmp-seat-empty">Top end</span></button>
+  </div>
+  <div class="mc-dmp-seatmid">
+    <div class="mc-dmp-seatcol">
+      <button class="mc-dmp-seat mc-full" style="border-color:#7fb069"><i class="fas fa-circle-user" style="color:#7fb069"></i><span>Dana</span></button>
+      <button class="mc-dmp-seat"><span class="mc-dmp-seat-empty">Left bottom</span></button>
+    </div>
+    <div class="mc-dmp-tv"><i class="fas fa-tv"></i><span>TV</span></div>
+    <div class="mc-dmp-seatcol">
+      <button class="mc-dmp-seat mc-full" style="border-color:#8ab8d8"><i class="fas fa-circle-user" style="color:#8ab8d8"></i><span>Marcus</span></button>
+      <button class="mc-dmp-seat mc-full" style="border-color:#c98a8a"><i class="fas fa-circle-user" style="color:#c98a8a"></i><span>Yael</span></button>
+    </div>
+  </div>
+  <div class="mc-dmp-seatend">
+    <button class="mc-dmp-seat"><span class="mc-dmp-seat-empty">Bottom end</span></button>
+  </div>
+</div>
+
+<div class="mc-dmp-story-status">Tap <b>change</b> (or &#9995;), then a seat. A taken seat swaps the two.</div>
+
+<div class="mc-dmp-story-row">
+  <i class="fas fa-circle-user" style="color:#7fb069"></i>
+  <span class="mc-dmp-story-q">Dana <button class="mc-dmp-seat-move">change</button>
+    <span class="mc-dmp-seat-live">&#9679;</span>
+    <span class="mc-dmp-pcname">Selene Duskwarden</span></span>
+  <button class="mc-dmp-pf-fix"><i class="fas fa-hand-pointer"></i></button>
+</div>
+<div class="mc-dmp-story-row">
+  <i class="fas fa-circle-user" style="color:#8ab8d8"></i>
+  <span class="mc-dmp-story-q">Marcus <button class="mc-dmp-seat-move mc-on">pick a seat</button>
+    <button class="mc-dmp-pcpick"><i class="fas fa-masks-theater"></i>Brig Ironfoot</button></span>
+  <button class="mc-dmp-pf-fix mc-on"><i class="fas fa-hand-pointer"></i></button>
+</div>
+
+<div class="mc-dmp-ct-head">
+  <span class="mc-dmp-story-status">3 seated</span>
+  <button class="mc-dmp-seat-move">change</button>
+</div>
+
+</div></body></html>
