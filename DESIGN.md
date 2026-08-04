@@ -3419,6 +3419,23 @@ button' to choose the active pc"*:
   jumps to Players & seats via the new `data-open-drawer` handler, which always OPENS — it's a
   destination, not a toggle).
 
+**1080p check — the end seats collided, now fixed (DM asked 2026-08-05, measured same day).**
+The end seats are rotated 90°/270°, so their hands run DOWN the screen — and **a rotated element
+still occupies its unrotated box in layout**, so nothing stopped them crossing the top and bottom
+hands. Measured at 1920×1080 with the worst case (six casters, six cards each):
+
+| | before | after |
+|---|---|---|
+| card | 123×172 | 123×172 (unchanged) |
+| end seat box | 226×**797** | 406×419 |
+| collisions | **4** — each end seat overlapped its two corner neighbours by 226×99px | **none** |
+
+Fix: `.mc-ct-mid .mc-ct-hand` wraps at three (`max-width: calc(3 * clamp(84px, 6.4vw, 190px) +
+16px)`), so an end player's six cards read as 3+3. Card size is untouched — shrinking the deck
+would have cost every seat legibility to solve a two-seat problem. Re-measured clean at
+**1280×720** (card 84×118, ends 288×307) and **3840×2160** (card 190×266, ends 601×606), so the
+`clamp()` still carries the range. Harness: [tools/cardtable-harness.html](tools/cardtable-harness.html).
+
 **Bench technique worth keeping.** The Browser pane renders files outside the project as static
 snapshots, and Foundry serves `.html` under `modules/` as plain text — but the repo is JUNCTIONED
 into `FoundryVTT/Data/modules/mobile-command`, so a harness in `tools/` is reachable at

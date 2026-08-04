@@ -1856,6 +1856,13 @@ body {
 .mc-ct-who { border-bottom: 2px solid var(--mc-seat, var(--mc-gold)); padding-bottom: 2px; }
 .mc-ct-player { font-family: inherit; font-size: 12px; color: var(--mc-muted); }
 .mc-ct-hand { display: flex; gap: 8px; }
+/* The END seats are ROTATED 90°/270°, so their hand runs DOWN the screen — and a rotated element
+   still occupies its unrotated box in layout, so nothing stops it crossing the top and bottom
+   hands. Measured at 1920×1080 with six casters: the end seats overlapped the corner seats by
+   226×99px, four collisions (bench 2026-08-05). Wrapping their hand at three keeps the cards
+   full size (123×172 at 1080p) and drops the end seat to 406×419 — clear by a wide margin. */
+.mc-ct-mid .mc-ct-hand { flex-wrap: wrap; justify-content: center;
+  max-width: calc(3 * clamp(84px, 6.4vw, 190px) + 16px); }
 /* A card is a 5:7 flipper — back until its choice lands, then the item's own artwork.
    Sized against the VIEWPORT, not in fixed pixels: this is read from across the room on a TV,
    so it grows with the screen (a 4K display gets big cards, a laptop bench gets sane ones). */

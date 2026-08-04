@@ -1,0 +1,64 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>card table harness</title>
+<link rel="stylesheet" href="../styles/shell.css">
+<style>
+:root, body { --mc-panel:#211f24; --mc-gold:#c8a44d; --mc-round:1; --mc-ink:#ece5d6; --mc-muted:#a59b86;
+  --mc-edge:#3b3640; --mc-panel-2:#2a272e; --mc-sunken:#17151b; --mc-font-title:Georgia;
+  --mc-title-case:uppercase; --mc-title-track:.06em; }
+html, body { margin:0; height:100%; background:#000; }
+</style></head><body>
+<script>
+// A faithful stand-in for card-table.js boardHTML() — six seats, worst case: every player a
+// caster (6 cards) with long names. Used to measure the board at a target resolution.
+const SEATS = [
+  { id:"n1", label:"Top left",  rot:180 }, { id:"n2", label:"Top right",   rot:180 },
+  { id:"w",  label:"Left end",  rot:90  }, { id:"e",  label:"Right end",   rot:270 },
+  { id:"s1", label:"Bottom left",rot:0  }, { id:"s2", label:"Bottom right",rot:0   }
+];
+const HAND = ["Species","Background","Class","Abilities","Spells","Gear"];
+const NAMES = ["Abzarax","Brig Brightbelly","Player Character (3)","Forthy","Selene Duskwarden","Thistle Greenbottle"];
+const BACK = "/modules/mobile-command/art/card-back.png";
+const card = (label, i) => `<div class="mc-ct-card ${i < 3 ? "mc-ct-flipped" : ""}"><div class="mc-ct-inner">
+  <div class="mc-ct-back" style="background-image:url('${BACK}')"></div>
+  <div class="mc-ct-face"><div class="mc-ct-art mc-ct-art-text">${label}</div><div class="mc-ct-name">${label}</div></div>
+</div></div>`;
+const seat = (d, n) => `<div class="mc-ct-seat" data-seat="${d.id}" style="--mc-ct-rot:${d.rot}deg;--mc-seat:#c8a44d">
+  <div class="mc-ct-plate"><span class="mc-ct-who">${NAMES[n]}</span><span class="mc-ct-player">Player ${n+1}</span></div>
+  <div class="mc-ct-hand">${HAND.map(card).join("")}</div>
+</div>`;
+const g = id => SEATS.find(s => s.id === id);
+document.body.innerHTML = `<div id="mc-cardtable"><div class="mc-ct-felt"
+  style="--mc-ct-table:url('/modules/mobile-command/art/card-table-wide.jpg')">
+  <div class="mc-ct-row mc-ct-row-n">${seat(g("n1"),0)}${seat(g("n2"),1)}</div>
+  <div class="mc-ct-mid">${seat(g("w"),2)}<div class="mc-ct-center"></div>${seat(g("e"),3)}</div>
+  <div class="mc-ct-row mc-ct-row-s">${seat(g("s1"),4)}${seat(g("s2"),5)}</div>
+</div></div>`;
+
+// Measure: getBoundingClientRect IS transform-aware, so these are the boxes the eye sees.
+window.mcMeasure = () => {
+  const vw = innerWidth, vh = innerHeight;
+  const out = { viewport: [vw, vh], card: null, seats: [], overflow: [] };
+  const c = document.querySelector(".mc-ct-card").getBoundingClientRect();
+  out.card = [Math.round(c.width), Math.round(c.height)];
+  for (const el of document.querySelectorAll(".mc-ct-seat")) {
+    const r = el.getBoundingClientRect();
+    const box = { id: el.dataset.seat, x: Math.round(r.left), y: Math.round(r.top),
+      w: Math.round(r.width), h: Math.round(r.height) };
+    out.seats.push(box);
+    const bleed = [];
+    if (r.left < 0) bleed.push(`left ${Math.round(-r.left)}px`);
+    if (r.top < 0) bleed.push(`top ${Math.round(-r.top)}px`);
+    if (r.right > vw) bleed.push(`right ${Math.round(r.right - vw)}px`);
+    if (r.bottom > vh) bleed.push(`bottom ${Math.round(r.bottom - vh)}px`);
+    if (bleed.length) out.overflow.push(`${box.id}: ${bleed.join(", ")}`);
+  }
+  // Do any two seats visually collide?
+  for (let i = 0; i < out.seats.length; i++) for (let j = i + 1; j < out.seats.length; j++) {
+    const a = out.seats[i], b = out.seats[j];
+    const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+    const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+    if (ox > 2 && oy > 2) out.overflow.push(`${a.id}✕${b.id} overlap ${ox}×${oy}px`);
+  }
+  return JSON.stringify(out);
+};
+</script>
+</body></html>
