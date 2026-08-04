@@ -263,6 +263,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #journalPendingImg = null;  // an image queued to attach to the next entry (from the DM's shared image)
   #journalImage = null;   // fullscreen journal-image viewer src (null = closed)
   #journalTitleEdit = false;  // renaming the open page's title inline
+  // My Story (§38.4): the subject PC's private chapter in the "Player Stories" journal.
+  // The doc is ownership NONE — the phone renders it from synced data and writes via rpc.story*.
+  #storyOpen = false;     // viewing the chapter (journal tab)
+  #storyDraft = "";       // composer text, kept across re-renders
+  #storyBusy = false;     // a story write is in flight
+  #storyEditId = null;    // entry id being edited (null = composing new)
   #enchantState = null;   // §28.6 enchant item-picker: { uuid, name, profileId, rows } | null
   #pmOpen = false;        // §27 Messages overlay (envelope in the header)
   #pmDraft = "";          // Messages composer text, kept across re-renders
@@ -2706,6 +2712,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #userColor() { return game.user?.color?.css ?? null; }
 
   #journalHTML() {
+    if (this.#storyOpen) {
+      const a = this.#storyActor();
+      if (a) return this.#storyPageHTML(a);
+      this.#storyOpen = false; // subject changed to something without a story
+    }
     const entry = this.#partyJournalEntry();
     if (this.#journalPageId) {
       const page = entry?.pages?.get(this.#journalPageId);
@@ -2713,6 +2724,91 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       this.#journalPageId = null; // the open page is gone → fall back to the cover
     }
     return this.#journalCoverHTML(entry);
+  }
+  // --- My Story (§38.4 slice 1): the private chapter -------------------------
+  #storyActor() {
+    const a = this.actor;
+    return (a && a.type === "character" && a.testUserPermission(game.user, "OWNER")) ? a : null;
+  }
+  #storyEntries(actor) {
+    const page = game.journal?.find(j => j.getFlag(MODULE_ID, "storyJournal"))
+      ?.pages?.find(p => p.getFlag(MODULE_ID, "storyChapter") === actor.id);
+    const e = page?.getFlag(MODULE_ID, "entries");
+    return Array.isArray(e) ? e : [];
+  }
+  #storyCoverButtonHTML() {
+    const a = this.#storyActor();
+    if (!a) return "";
+    const esc = foundry.utils.escapeHTML;
+    const n = this.#storyEntries(a).length;
+    return `<button class="mc-jn-pageitem mc-st-cover" data-action="story-open">
+      <span class="mc-jn-page-title"><i class="fas fa-feather"></i> My Story — ${esc(a.name)}</span>
+      <span class="mc-jn-page-meta">${n ? `${n} ${n === 1 ? "entry" : "entries"}` : "Start writing"} · only you and the DM</span>
+    </button>`;
+  }
+  #storyPageHTML(actor) {
+    const esc = foundry.utils.escapeHTML;
+    const fmt = (ts) => { try { return new Date(ts).toLocaleDateString(undefined, { dateStyle: "medium" }); } catch (e) { return ""; } };
+    const entries = this.#storyEntries(actor).slice().reverse(); // newest first on the phone
+    const rows = entries.map(e => {
+      const mine = e.by?.id === game.user.id || game.user.isGM;
+      const editing = this.#storyEditId === e.id;
+      const when = [e.wd, fmt(e.ts)].filter(Boolean).join(" · ");
+      const tools = mine ? `<div class="mc-jn-tools">
+          <button class="mc-jn-tool" data-action="story-entry-edit" data-entry="${e.id}" title="Edit entry" aria-label="Edit entry"><i class="fas fa-pen"></i></button>
+          <button class="mc-jn-tool mc-jn-del" data-action="story-entry-delete" data-entry="${e.id}" title="Delete entry" aria-label="Delete entry"><i class="fas fa-trash"></i></button>
+        </div>` : "";
+      return `<div class="mc-jn-entry ${editing ? "mc-editing" : ""}">
+        ${e.q ? `<div class="mc-st-q">${esc(e.q)}</div>` : ""}
+        <div class="mc-jn-entry-body">${esc(e.text)}</div>
+        <div class="mc-st-meta">${esc(when)}${tools}</div>
+      </div>`;
+    }).join("");
+    const editing = !!this.#storyEditId;
+    return `
+      <section class="mc-journal">
+        <div class="mc-jn-page-head">
+          <button class="mc-back" data-action="story-back" aria-label="Back to the journal"><i class="fas fa-arrow-left"></i></button>
+          <span class="mc-jn-page-name"><i class="fas fa-feather"></i> ${esc(actor.name)} — My Story</span>
+        </div>
+        <div class="mc-st-hint">Only you and the DM can read this.</div>
+        <div class="mc-jn-compose">
+          <textarea class="mc-jn-input mc-st-input" rows="2" placeholder="${editing ? "Edit entry…" : "Add to your story…"}" ${this.#storyBusy ? "disabled" : ""}>${esc(this.#storyDraft)}</textarea>
+          <div class="mc-jn-composebtns">
+            ${editing ? `<button class="mc-jn-cancel" data-action="story-entry-cancel">Cancel</button>` : ""}
+            <button class="mc-jn-post" data-action="story-post" ${this.#storyBusy ? "disabled" : ""}>${this.#storyBusy ? "Saving…" : (editing ? "Save" : "Add entry")}</button>
+          </div>
+        </div>
+        <div class="mc-jn-entries">${rows || `<div class="mc-jn-empty">Nothing yet — your story starts here.</div>`}</div>
+      </section>`;
+  }
+  async #storyPost() {
+    const actor = this.#storyActor();
+    if (!actor || this.#storyBusy) return;
+    const live = this.element?.querySelector(".mc-st-input")?.value;
+    const text = String(live ?? this.#storyDraft).trim();
+    if (!text) return;
+    this.#storyBusy = true; this.#storyDraft = text; this.render();
+    let res;
+    try {
+      res = this.#storyEditId
+        ? await rpc.storyEdit({ actorId: actor.id, entryId: this.#storyEditId, text })
+        : await rpc.storyAdd({ actorId: actor.id, text });
+    } catch (e) { res = { ok: false, reason: e?.message ?? "couldn't reach the DM" }; }
+    this.#storyBusy = false;
+    if (res?.ok) { this.#storyDraft = ""; this.#storyEditId = null; }
+    else ui.notifications.warn(`My Story: ${res?.reason ?? "could not save"}`);
+    this.render();
+  }
+  async #storyDeleteEntry(entryId) {
+    const actor = this.#storyActor();
+    if (!actor) return;
+    let res;
+    try { res = await rpc.storyDelete({ actorId: actor.id, entryId }); }
+    catch (e) { res = { ok: false, reason: e?.message ?? "couldn't reach the DM" }; }
+    if (!res?.ok) ui.notifications.warn(`My Story: ${res?.reason ?? "could not delete"}`);
+    if (this.#storyEditId === entryId) { this.#storyEditId = null; this.#storyDraft = ""; }
+    this.render();
   }
   // COVER: a titled list of pages, each showing its entry count + last-touched date, tinted by the
   // last editor's colour; plus a "new page" composer at the foot.
@@ -2743,6 +2839,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const cal = globalThis.SimpleCalendar?.api?.showCalendar ? `<button class="mc-jn-cal" data-action="open-calendar" title="Open the calendar" aria-label="Open the calendar"><i class="fas fa-calendar-days"></i></button>` : "";
     return `
       <section class="mc-journal">
+        ${this.#storyCoverButtonHTML()}
         <div class="mc-jn-cover-head"><i class="fas fa-book"></i> Party Journal</div>
         ${banner}
         <div class="mc-jn-filterrow"><i class="fas fa-magnifying-glass"></i><input class="mc-jn-filter" type="search" placeholder="Filter pages…" value="${esc(this.#journalFilter)}">${cal}</div>
@@ -6385,6 +6482,25 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#operateInteractable("door", el.dataset.id);
       case "tile-trigger":
         return this.#operateInteractable("tile", el.dataset.id);
+      case "story-open":
+        this.#storyOpen = true; this.#storyDraft = ""; this.#storyEditId = null;
+        return this.render();
+      case "story-back":
+        this.#storyOpen = false; this.#storyDraft = ""; this.#storyEditId = null;
+        return this.render();
+      case "story-post":
+        return this.#storyPost();
+      case "story-entry-edit": {
+        const a = this.#storyActor();
+        const e = a ? this.#storyEntries(a).find(x => x.id === el.dataset.entry) : null;
+        if (e) { this.#storyEditId = e.id; this.#storyDraft = e.text; this.render(); }
+        return;
+      }
+      case "story-entry-cancel":
+        this.#storyEditId = null; this.#storyDraft = "";
+        return this.render();
+      case "story-entry-delete":
+        return this.#storyDeleteEntry(el.dataset.entry);
       case "journal-open-page":
         this.#journalPageId = el.dataset.page; this.#journalDraft = "";
         this.#journalEntryEditId = null; this.#journalTitleEdit = false; this.#journalPageFilter = "";
@@ -7782,7 +7898,10 @@ export function registerShellHooks() {
   // Party journal: re-render so a freshly-posted note shows up — for the poster AND
   // for everyone else watching the Journal tab live. Cheap + rare; harmless off-tab.
   const repaintOnPartyJournal = (page) => {
-    if (page?.parent?.getFlag?.(MODULE_ID, "partyJournal")) shellInstance?.render();
+    // …and the story journal (§38.4): the poster's phone repaints when the write lands, and a
+    // DM edit shows up live on the owner's open chapter. Other players don't render it at all.
+    if (page?.parent?.getFlag?.(MODULE_ID, "partyJournal")
+      || page?.parent?.getFlag?.(MODULE_ID, "storyJournal")) shellInstance?.render();
   };
   Hooks.on("createJournalEntryPage", repaintOnPartyJournal);
   Hooks.on("updateJournalEntryPage", repaintOnPartyJournal); // an edited note repaints on every phone

@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { clockLabel } from "./gametime.js"; // in-world date stamps on story entries (§38.4)
 import { resolveExecutorId, isExecutor, reactionTimeoutMs, DISPLAY_LEVEL } from "./settings.js";
 import * as DT from "./downtime.js"; // §17.7 downtime data model + Rule engine (pure, unit-tested)
 
@@ -95,6 +96,9 @@ export function initSocket() {
   socket.register("partyJournalAdd", handlePartyJournalAdd);
   socket.register("partyJournalEdit", handlePartyJournalEdit);
   socket.register("partyJournalDelete", handlePartyJournalDelete);
+  socket.register("storyAdd", handleStoryAdd);
+  socket.register("storyEdit", handleStoryEdit);
+  socket.register("storyDelete", handleStoryDelete);
   socket.register("portraitUpload", handlePortraitUpload);
   socket.register("wildShapeList", handleWildShapeList);
   socket.register("wildShapeInto", handleWildShapeInto);
@@ -2006,6 +2010,115 @@ async function handlePartyJournalDelete({ pageId, requesterId } = {}) {
   catch (e) { return { ok: false, reason: e?.message ?? "could not delete the note" }; }
 }
 
+// --- Personal Story Journals (§38.4, slice 1) --------------------------------
+// ONE JournalEntry ("Player Stories", flag storyJournal) with a PAGE per PC — the DM reads the
+// whole party as one book, natively. Ownership is default:NONE, which IS the privacy feature:
+// other players can't open it anywhere in Foundry. The owning player's only window is the
+// phone — Foundry syncs world docs to every client, so the shell can RENDER its own chapter,
+// but every WRITE relays here and is permission-checked against actor ownership.
+// Entries reuse the party journal's shape ({id,text,by,ts} in a page flag array) plus
+// {q: the question answered, step: creation-beat tag, wd: in-world date}. Each write re-mirrors
+// the page's text.content so the native journal stays a readable book.
+function storyJournalEntry() { return game.journal.find(j => j.getFlag(MODULE_ID, "storyJournal")); }
+function storyCanWrite(requesterId, actor) {
+  const u = game.users.get(requesterId);
+  return !!u && !!actor && (u.isGM || actor.testUserPermission(u, "OWNER"));
+}
+function storyMirrorHTML(entries) {
+  const esc = foundry.utils.escapeHTML;
+  const block = (e) => {
+    const when = [e.wd, new Date(e.ts).toLocaleDateString()].filter(Boolean).join(" · ");
+    return `${e.q ? `<h4>${esc(e.q)}</h4>` : ""}<p>${esc(e.text)}</p><p><em>${esc(when)}</em></p>`;
+  };
+  const origins = entries.filter(e => e.step), rest = entries.filter(e => !e.step);
+  const html = `${origins.length ? `<h3>Origins</h3>${origins.map(block).join("")}` : ""}`
+    + `${rest.length ? `<h3>The story so far</h3>${rest.map(block).join("")}` : ""}`;
+  return html || "<p></p>";
+}
+async function ensureStoryChapter(actor) {
+  let entry = storyJournalEntry();
+  if (!entry) {
+    entry = await JournalEntry.create({
+      name: "Player Stories",
+      ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.NONE },
+      flags: { [MODULE_ID]: { storyJournal: true } }
+    });
+  }
+  let page = entry.pages.find(p => p.getFlag(MODULE_ID, "storyChapter") === actor.id);
+  if (!page) {
+    const made = await entry.createEmbeddedDocuments("JournalEntryPage", [{
+      name: actor.name, type: "text",
+      title: { show: true, level: 2 },
+      text: { content: "<p></p>", format: 1 },
+      flags: { [MODULE_ID]: { storyChapter: actor.id, ts: Date.now(), entries: [] } }
+    }]);
+    page = made[0];
+  }
+  return page;
+}
+async function handleStoryAdd({ actorId, text, question = null, step = null, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const actor = game.actors.get(actorId);
+  if (!actor) return { ok: false, reason: "character not found" };
+  if (!storyCanWrite(requesterId, actor)) return { ok: false, reason: "not your character" };
+  const clean = String(text ?? "").trim();
+  if (!clean) return { ok: false, reason: "empty entry" };
+  try {
+    const page = await ensureStoryChapter(actor);
+    const u = game.users.get(requesterId);
+    let wd = ""; try { wd = clockLabel(); } catch (e) { /* the clock is optional garnish */ }
+    const e = {
+      id: foundry.utils.randomID(), text: clean.slice(0, 4000),
+      q: question ? String(question).slice(0, 300) : null,
+      step: step ? String(step).slice(0, 40) : null,
+      by: { id: u.id, name: u.name, color: u.color?.css ?? null }, ts: Date.now(), wd
+    };
+    const entries = (page.getFlag(MODULE_ID, "entries") ?? []).slice();
+    // A creation-beat answer REPLACES a prior answer for the same step — redoing a char-gen
+    // choice must not stack two origins for one card.
+    const next = e.step ? entries.filter(x => x.step !== e.step).concat(e) : entries.concat(e);
+    await page.update({ [`flags.${MODULE_ID}.entries`]: next, text: { content: storyMirrorHTML(next) } });
+    return { ok: true, entryId: e.id };
+  } catch (err) {
+    console.warn(`${MODULE_ID} | storyAdd failed`, err);
+    return { ok: false, reason: err?.message ?? "could not save the entry" };
+  }
+}
+async function handleStoryEdit({ actorId, entryId, text, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const actor = game.actors.get(actorId);
+  if (!actor || !storyCanWrite(requesterId, actor)) return { ok: false, reason: "not your character" };
+  const clean = String(text ?? "").trim();
+  if (!clean) return { ok: false, reason: "empty entry" };
+  const page = storyJournalEntry()?.pages?.find(p => p.getFlag(MODULE_ID, "storyChapter") === actor.id);
+  const entries = (page?.getFlag(MODULE_ID, "entries") ?? []).slice();
+  const e = entries.find(x => x.id === entryId);
+  if (!e) return { ok: false, reason: "that entry is gone" };
+  const u = game.users.get(requesterId);
+  if (!u.isGM && e.by?.id !== requesterId) return { ok: false, reason: "not your entry" };
+  try {
+    e.text = clean.slice(0, 4000);
+    await page.update({ [`flags.${MODULE_ID}.entries`]: entries, text: { content: storyMirrorHTML(entries) } });
+    return { ok: true };
+  } catch (err) { return { ok: false, reason: err?.message ?? "could not edit the entry" }; }
+}
+async function handleStoryDelete({ actorId, entryId, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const actor = game.actors.get(actorId);
+  if (!actor || !storyCanWrite(requesterId, actor)) return { ok: false, reason: "not your character" };
+  const page = storyJournalEntry()?.pages?.find(p => p.getFlag(MODULE_ID, "storyChapter") === actor.id);
+  const entries = (page?.getFlag(MODULE_ID, "entries") ?? []).slice();
+  const e = entries.find(x => x.id === entryId);
+  if (!e) return { ok: true }; // already gone
+  const u = game.users.get(requesterId);
+  if (!u.isGM && e.by?.id !== requesterId) return { ok: false, reason: "not your entry" };
+  try {
+    const next = entries.filter(x => x.id !== entryId);
+    await page.update({ [`flags.${MODULE_ID}.entries`]: next, text: { content: storyMirrorHTML(next) } });
+    return { ok: true };
+  } catch (err) { return { ok: false, reason: err?.message ?? "could not delete the entry" }; }
+}
+
 // --- AI portrait upload (idea #2) --------------------------------------------
 // Players can't write files (FILES_UPLOAD is GM-only), so the phone sends the image data
 // here and the executor saves it to a NON-module dir at the data root (mc-portraits/,
@@ -3062,6 +3175,7 @@ function toExecutor(handler, payload) {
       listLoot: handleListLoot, openLoot: handleOpenLoot,
       listInteractables: handleListInteractables, operateInteractable: handleOperateInteractable,
       partyJournalEnsure: handlePartyJournalEnsure, partyJournalAdd: handlePartyJournalAdd, partyJournalEdit: handlePartyJournalEdit, partyJournalDelete: handlePartyJournalDelete, portraitUpload: handlePortraitUpload,
+      storyAdd: handleStoryAdd, storyEdit: handleStoryEdit, storyDelete: handleStoryDelete,
       wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert,
       partyPack: handlePartyPack, partySetCell: handlePartySetCell,
       travelPrepare: handleTravelPrepare, travelDrop: handleTravelDrop,
@@ -3106,6 +3220,9 @@ export const api = {
   partyJournalEdit: (payload = {}) => toExecutor("partyJournalEdit", { ...payload, requesterId: game.user.id }),
   partyJournalDelete: (payload = {}) => toExecutor("partyJournalDelete", { ...payload, requesterId: game.user.id }),
   portraitUpload: (payload = {}) => toExecutor("portraitUpload", payload),
+  storyAdd: (payload = {}) => toExecutor("storyAdd", payload),
+  storyEdit: (payload = {}) => toExecutor("storyEdit", payload),
+  storyDelete: (payload = {}) => toExecutor("storyDelete", payload),
   wildShapeList: (payload = {}) => toExecutor("wildShapeList", payload),
   wildShapeInto: (payload = {}) => toExecutor("wildShapeInto", payload),
   wildShapeRevert: (payload = {}) => toExecutor("wildShapeRevert", payload),

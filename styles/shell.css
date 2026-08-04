@@ -1781,6 +1781,14 @@ body {
 .mc-jn-entry-body { font-size: 14px; line-height: 1.45; color: var(--mc-ink); word-break: break-word; white-space: pre-wrap; }
 .mc-jn-entry-img { display: block; width: 100%; max-height: 240px; object-fit: cover; border-radius: calc(8px * var(--mc-round, 1));
   border: 1px solid var(--mc-edge); margin: 2px 0 8px; cursor: zoom-in; }
+/* --- My Story (§38.4): the private chapter. Reuses the journal look; the few
+   story-only bits are the question header (the prompt an entry answers), the
+   privacy hint, and the cover row's gold feather. --- */
+.mc-st-cover .mc-jn-page-title i { color: var(--mc-gold); }
+.mc-st-hint { flex: 0 0 auto; margin: 0 12px 8px; font-size: 12px; color: var(--mc-muted); }
+.mc-st-q { font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--mc-gold); margin-bottom: 4px; }
+.mc-st-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-top: 6px; font-size: 11px; color: var(--mc-muted); }
 /* Attach-from-shared banner + the pending-image preview above the composer. */
 .mc-jn-attach { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; margin: 0 12px 6px; padding: 8px 10px;
   font-size: 12px; color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-gold); border-radius: calc(9px * var(--mc-round, 1)); }

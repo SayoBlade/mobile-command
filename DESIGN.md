@@ -3346,6 +3346,24 @@ drawer (list, push, ticks, session-zero button); preset.js: `STORY_BASICS` +
 `STORY_QUESTIONS` decks; settings.js: `storyQuestions` (world). Slices: **1** construction +
 manual entries + My Story UI · **2** DM push flow + story card · **3** onboarding runner.
 
+**SLICE 1 BUILT + bench-verified (2026-08-04, 8/8 results).** rpc.js `storyAdd/Edit/Delete` +
+`ensureStoryChapter` (auto-creates "Player Stories" ownership NONE, page per PC, entries-flag
+format shared with the party journal, `storyMirrorHTML` keeps the native page readable with
+Origins above The-story-so-far); shell.js My Story cover row + chapter view + composer with
+edit/delete-own; step-tagged adds REPLACE the same step (char-gen redo can't stack origins);
+repaint hook extended to story pages. Verified: cover row → chapter → post creates
+journal/chapter on demand (ownership.default=0), entry lands with real+in-world dates (the wd
+stamp came from Simple Calendar live — its read path works), edit/step-replace/delete all
+clean, mirror renders. **Not yet verified: cross-player denial (needs two clients — live-table
+leg.)**
+
+**Card-table assets found (2026-08-04, TV = FLAT confirmed):** `the-crooked-moon-2014/assets/
+card/` ships five themed sets WITH back faces (items ×47, monsters ×80, NPCs ×80, familiars
+×13, spells) — backs are per-card numbered so some may carry text; the creation-table back
+becomes a setting defaulting to `card item/Card_items_back1.webp`, DM to eyeball alternatives.
+BONUS for §32: `card tarot/` is a complete 22-card major arcana with bleed — the Fated Tarot
+draw is content-complete before it's even built.
+
 Source: `the-crooked-moon-2014` module's journal packs, dumped + read in full (extraction
 technique: copy pack dirs minus LOCK → classic-level via Foundry's Electron-as-Node; text dumps
 + rolltables.json/cards.json in the session scratchpad, regenerate as needed). "Gate weaving" =
