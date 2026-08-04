@@ -13,8 +13,10 @@
 import { MODULE_ID, TABLE_SEATS } from "./preset.js";
 import { isPhoneClient, isDisplayClient } from "./shell.js";
 
-const DEFAULT_BACK = "modules/the-crooked-moon-2014/assets/card/card item/Card_items_back1.webp";
-const TABLE_ART = "modules/mobile-command/art/card-table.webp"; // optional; CSS ground if absent
+// Our own art is the default now (DM's set, 2026-08-04): the crescent-moon back and the wide
+// rune table. The picker can still choose any of the Crooked Moon backs, or a custom upload.
+const DEFAULT_BACK = "modules/mobile-command/art/card-back.png";
+const TABLE_ART = "modules/mobile-command/art/card-table-wide.jpg";
 
 // The hand, in wizard order. `spells` is dropped for non-casters (5 cards, DM 2026-08-04).
 const HAND = [

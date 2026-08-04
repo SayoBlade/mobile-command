@@ -3006,7 +3006,9 @@ async function scanCardBacks() {
         // uploaded customs are taken as-is (that's what the folder is FOR).
         const own = dir.includes("mobile-command/art") || dir === "mc-cards";
         if (!own && !/back/i.test(f)) continue;
-        if (own && !/card|back/i.test(f)) continue;
+        // Our own art/ holds more than backs (the table, the blank face, séance pieces) — only
+        // the *-back* files are candidates, never the table or the frame.
+        if (own && !/back/i.test(f)) continue;
         out.push(f);
       }
     } catch (e) { /* a source that isn't installed is simply skipped */ }
