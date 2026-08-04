@@ -3088,16 +3088,16 @@ function cardTableBody() {
     <button class="mc-dmp-cardback ${f === cur ? "mc-on" : ""}" data-cardback="${esc(f)}" title="${esc(f.split('/').pop())}">
       <img src="${esc(f)}" alt="" loading="lazy">
     </button>`).join("");
-  // The toggle rides the seated count on one line (DM 2026-08-05: "i want the button where i
-  // colored in red, no need for the explanation") — the count is the only thing worth saying,
-  // and a full-width button above a sentence about it was two rows doing one row's work.
+  // The count line ends in a right-aligned "change" link straight into Players & seats (DM
+  // 2026-08-05) — seating is the thing you want to fix when the count reads wrong, and it lives
+  // in a different drawer. The explanation that used to sit here is gone.
   return `
+    <button class="mc-dmp-pf-fix mc-dmp-story-random ${on ? "mc-on" : ""}" data-cardtable-toggle>
+      <i class="fas fa-table-cells-large"></i> ${on ? "Card table is ON the TV" : "Show the card table on the TV"}
+    </button>
     <div class="mc-dmp-ct-head">
       <span class="mc-dmp-story-status">${seated ? `${seated} seated` : "Nobody's seated yet"}</span>
-      <button class="mc-dmp-pf-fix mc-dmp-story-random ${on ? "mc-on" : ""}" data-cardtable-toggle
-        title="${on ? "Take the card table off the TV" : "Put the card table on the TV"}">
-        <i class="fas fa-table-cells-large"></i> ${on ? "On the TV" : "Show on TV"}
-      </button>
+      <button class="mc-dmp-seat-move" data-open-drawer="players" title="Open Players &amp; seats">change</button>
     </div>
     <div class="mc-dmp-story-cat">Card back</div>
     <div class="mc-dmp-cardbacks">
@@ -3954,6 +3954,20 @@ async function onClick(ev) {
       const on = start.dataset.dtStart === "1";
       if (on) dtDrawers.catalog = false; // authoring's done — get the catalog out of the way (DM 2026-07-16)
       await api.downtime({ op: "startActivities", on });
+      return;
+    }
+    // A cross-drawer jump: open the named drawer and scroll it into view (the card table's
+    // "change" link → Players & seats). Always OPENS — it's a destination, never a toggle.
+    const jump = ev.target.closest("[data-open-drawer]");
+    if (jump) {
+      pinPanelTop();
+      const k = jump.dataset.openDrawer;
+      dtDrawers[k] = true;
+      render();
+      requestAnimationFrame(() => {
+        const head = panelEl?.querySelector(`[data-dt-drawer="${k}"]`);
+        head?.closest(".mc-dt-drawer")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      });
       return;
     }
     const drawer = ev.target.closest("[data-dt-drawer]");
