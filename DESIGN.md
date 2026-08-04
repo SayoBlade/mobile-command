@@ -3206,35 +3206,75 @@ frame (pitch/adjectives/touchstones/principles/distinctions/inciting incident + 
 — for Crooked Moon most of it is extractable from the book), run CATS, convert backstory into
 at-table questions, require one connection per PC pair, keep lines/veils as a living doc.
 
-### 38.3 What the MOD can do that paper can't (ranked, phones + TV)
+### 38.3 The DM's direction (2026-08-04) — Personal Story Journals
 
-A) **Anonymous safety on phones — the killer feature.** Lines & veils typed privately on each
-   phone (inline input per [[phone-input-inline-not-popup]]), aggregated into a merged list with
-   NO attribution (table sees the union; only the DM's panel can see per-player, and maybe not
-   even that). Plus a persistent quiet "pause" control on the shell — an anonymous X-card tap
-   that pings ONLY the DM panel mid-session. Speaking up is the hard part at a physical table;
-   anonymity is exactly what phones add. Rides the PM plumbing (§27). UI: violet is reactions-
-   only, red is destructive — needs its own UI-BIBLE ruling before build.
-B) **Question-deck runner.** DM curates session-zero questions (frame import or defaults); TV
-   shows the current question big; every phone gets an answer box; answers land in the party
-   journal (§ journal exists) tagged by question, DM taps answers "canon". Reuses request/PM
-   plumbing + journal.
-C) **Connections web.** 5e-flavoured connection prompts per class/background; each player owes
-   one connection per other PC, typed on the phone; the TV renders the web (portrait nodes,
-   labelled edges — static SVG, cheap); stored as actor flags. Natural feed for Fateweaving
-   (§34) and the test world's existing "Connection — a friend's blessing" effects.
-D) **Frame presenter + tone dials.** The frame as a journal the TV pages through (pitch, the
-   adjective wall, touchstones); phones vote tone dials (grim↔whimsical, combat↔intrigue…),
-   aggregate shown live, result stored as campaign flags. CATS-in-an-app.
-E) **Backstory map pins.** Players drop "my home / my tragedy happened here" pins on the
-   overworld from the phone — placement session (§Round 33) + travel overworld infra already
-   exist; each pin becomes a journal note the DM can hook.
-F) **Charter sign-off.** Closing artifact: rules + schedule + merged lines/veils + principles in
-   one journal; each phone acknowledges (onboarding-style); preflight warns when a user who
-   never acknowledged joins.
+The original A–F idea list is superseded. **A (safety tools) is REJECTED** — DM: *"avoid
+'emotional safety' features."* The chosen shape instead:
 
-**Build order if greenlit:** A (unique value, moderate) → B (cheap, big table-feel) → C (feeds
-CM systems) → D/E/F polish. Not started — awaiting DM pick.
+> DM: *"a journal for each player with their personal story, partially filled in with the
+> session 0 stuff… filled in either manually, or via a pushed question from the DM… from a
+> pre-defined list, to all players, when the DM wants a few seconds to think… ongoing, fills in
+> details between sessions. DM can access the personal journals, other players can't. Session
+> zero fills in the basics, and it grows every session."*
+
+Parked, not rejected (revisit after this ships): the connections web (C — a natural *question
+category* here instead of its own system), map pins (E), frame presenter (D).
+
+### 38.4 Personal Story Journal — spec v1 (2026-08-04, NOT built)
+
+**Construction (the load-bearing part).** One Foundry `JournalEntry` per PC actor — NOT flags,
+not a custom store — because Foundry's ownership model IS the privacy requirement, and the DM
+reads them with zero new UI (they're ordinary journals in a "Stories" folder in his sidebar):
+- name `«PC name» — Story`, flag `mobile-command.storyJournal = <actorId>`, folder "Stories"
+  (created on demand).
+- **Ownership: `default: NONE`; each qualifying owner of the actor → OWNER.** Qualifying =
+  active player owners minus GMs minus the display account (same exclusion as AoO routing,
+  rpc.js displayOwnerUser pattern) — the TV must never render a story journal. GM sees all
+  natively. Ownership is RECOMPUTED on every ensure (players/claims change).
+- **Two pages, fixed in v1**, using the SAME page/entry format the shell journal already
+  renders (cover→page→entries, composer, edit-own-entry — all of it reused):
+  - **"Who I am"** — the session-zero basics. One entry per basic question; question = entry
+    header, answer = body. Re-running onboarding EDITS these entries rather than appending.
+  - **"My story"** — append-only feed. Each entry: optional `question`, `text`, real date,
+    AND the in-world date (`clockLabel()` — a Crooked Moon campaign stamps entries "Day 12 ·
+    21:40"). Manual entries and pushed-question answers both land here, newest first.
+- **All writes executor-brokered** (phones can't create top-level journals): `storyEnsure(actorId)`
+  · `storyAdd({actorId, text, question?})` · `storyEdit/Delete({actorId, pageId, entryId, …})`,
+  mirroring the partyJournal* RPC family. Permission check per call: requester must OWN the
+  actor (requesterCanAct pattern); the DM edits anything.
+
+**PC onboarding flow (session zero = the basics).**
+- Entry points: DM panel button **"Session zero — push story basics"** (in the Story drawer,
+  below) pushes the runner to every connected phone; AND always self-serve on the phone
+  (Journal tab → My Story → "Start your story"), because latecomers exist.
+- Phone: a card-at-a-time runner in the shell (same pattern as char-gen): ~8 basics, inline
+  input ([[phone-input-inline-not-popup]]), **Skip** on every card, progress saved per-actor
+  flag so it's resumable. Finishing writes "Who I am" and toasts the DM panel a quiet ✓.
+- v1 basics (in `preset.js`, one shared source): Where are you from? · Who raised you? · A
+  childhood memory that shaped you · Why did you take up adventuring? · What do you want most,
+  long-term? · Who do you care about / who waits for you? · A secret you keep · What would you
+  never do?
+
+**DM "push story question" flow (the between-thoughts tool).**
+- Panel: **"Story questions" drawer** (Party tab, dtDrawer, starts CLOSED like the CM drawers).
+  A curated list grouped by category — Memories · People · Goals · Beliefs · The party · The
+  world (~24 defaults in `preset.js`; DM's own questions appended via an inline "New question…"
+  row, stored in a world setting `storyQuestions`).
+- **One tap pushes**: [→] on any row sends it to ALL connected player phones; a **[Push
+  random]** button at the top for the zero-thought case — the whole point is buying the DM a
+  few seconds, so the flow must cost less attention than it saves.
+- Phone receives a **story card** (non-modal, PM-style): the question + inline answer +
+  [Save] / [Later]. "Later" parks it in My Story as an unanswered prompt — no pressure, no
+  timer. Answer → `storyAdd` with the question + both date stamps.
+- Panel shows quiet per-player ✓s for the last push (non-blocking, auto-fades). Per-player
+  targeted pushes: v2 (roster-row action), noted not built.
+
+**Implementation map.** rpc.js: story* RPC family + `storyQuestionPush` (executor→phones) +
+answered-ack; shell.js: My Story section inside the existing Journal tab (reuses the page
+renderer), the onboarding runner, the story card, unanswered queue; dm-panel.js: the Story
+drawer (list, push, ticks, session-zero button); preset.js: `STORY_BASICS` +
+`STORY_QUESTIONS` decks; settings.js: `storyQuestions` (world). Slices: **1** construction +
+manual entries + My Story UI · **2** DM push flow + story card · **3** onboarding runner.
 
 Source: `the-crooked-moon-2014` module's journal packs, dumped + read in full (extraction
 technique: copy pack dirs minus LOCK → classic-level via Foundry's Electron-as-Node; text dumps
