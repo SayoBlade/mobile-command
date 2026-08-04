@@ -3220,7 +3220,51 @@ The original A–F idea list is superseded. **A (safety tools) is REJECTED** —
 Parked, not rejected (revisit after this ships): the connections web (C — a natural *question
 category* here instead of its own system), map pins (E), frame presenter (D).
 
-### 38.4 Personal Story Journal — spec v1 (2026-08-04, NOT built)
+### 38.4a Creation flow v2 (DM refinement 2026-08-04): story beats INSIDE char-gen + TV board
+
+Supersedes v1's separate "onboarding runner". DM: questions should be woven into character
+creation itself ("player picks background → system asks how they ended up with it; sets stats →
+how did you become so dexterous?"), the whole thing needs a TV visual, players may answer aloud
+or privately, and the DM would PREFER one journal with a chapter per PC.
+
+**Story beats ride the existing char-gen checklist** (shell #charGenHTML: bio box · Abilities ·
+Species · Background+gear · Class+gear · Spells · Finish — any order). A beat fires ONCE, right
+after its step first completes, as a card between picker-close and checklist-return: the choice
+echoed ("Background chosen: Soldier ✓"), ONE templated question, inline answer, [Skip] / [Save
+to my story]. Hint copy: "Say it out loud, write it down, or both" — private-vs-table is social,
+not a mode. Skipped beats park as unanswered prompts in My Story. Beat map (templates in
+preset.js, DM-editable later):
+- **Abilities** → keyed to the HIGHEST score: STR "Where did that strength come from?" · DEX
+  "How did you get so quick?" · CON "What made you so hard to kill?" · INT "Where did you learn
+  so much?" · WIS "What taught you to notice what others miss?" · CHA "Why do people listen to
+  you?"
+- **Species** → "Where among the «Elves» did you grow up — and why did you leave?"
+- **Background** → "How did you end up a «Soldier»?" (the DM's example, verbatim shape)
+- **Class** → "Who or what made you a «Ranger»?"
+- **Equipment** (first grant only) → "One thing you carry you'd never sell — what is it, why?"
+- **Finish** → a two-card closer before confirm: "What do you want most, long-term?" · "Who's
+  waiting for you back home?" Then Finish proceeds as today.
+
+**TV creation board** (fxActive-style overlay on the display client, like the séance board):
+one card per building PC — name, portrait when set, picks appearing as they land (species ·
+background · class), top-three abilities once assigned, step pips, and a status line ("choosing
+spells…" / "✍ writing: how did you become a soldier?"). **Questions show on the TV; answers
+NEVER do** — the question fuels table talk, the answer stays in the journal. Data: mechanical
+picks render straight off the actors (create/update hooks — the picks are real embedded items);
+beat status via a lightweight socket ping. Panel: [Creation board on TV] toggle in the Story
+drawer.
+
+**Journal construction v2 — ONE journal, chapter per PC** (DM preference): a single
+JournalEntry "Player Stories" (flag `storyJournal`), ownership `default: NONE` — the DM reads
+it natively as one book. One PAGE per PC = the chapter; entries carry {question, text, realDate,
+worldDate, step-tag}; creation-beat answers render as an "Origins" block (step order) above the
+ongoing "The story so far" feed. Privacy: players never read the doc natively — the PHONE is
+their only window, and the executor-brokered story* RPCs enforce "own actor only" on both read
+and write. (Foundry syncs world docs to all clients regardless of ownership, so console-level
+privacy doesn't exist in ANY construction — acceptable at this table, noted.) The v1
+journal-per-PC layout stays as the documented fallback if per-page rendering fights us.
+
+### 38.4 Personal Story Journal — spec v1 (2026-08-04, superseded by 38.4a where they differ)
 
 **Construction (the load-bearing part).** One Foundry `JournalEntry` per PC actor — NOT flags,
 not a custom store — because Foundry's ownership model IS the privacy requirement, and the DM
