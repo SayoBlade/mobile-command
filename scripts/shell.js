@@ -1,4 +1,4 @@
-import { MODULE_ID } from "./preset.js";
+import { MODULE_ID, CREATION_BEATS } from "./preset.js";
 import { api as rpc, actorTokenSight, reportPresence, remoteState } from "./rpc.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
 import { toggleSimpleCalendar } from "./gametime.js";
@@ -271,6 +271,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #storyEditId = null;    // entry id being edited (null = composing new)
   #storyDraftQ = null;    // the question the composer is answering (from a parked prompt)
   #storyPendingId = null; // id of the parked prompt being answered (removed on save)
+  #szSent = null;         // lockstep events already narrated this session (kind:step keys)
   #enchantState = null;   // §28.6 enchant item-picker: { uuid, name, profileId, rows } | null
   #pmOpen = false;        // §27 Messages overlay (envelope in the header)
   #pmDraft = "";          // Messages composer text, kept across re-renders
@@ -469,7 +470,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Resume after a reload: the charGen flag persists but the workspace state is
     // in-memory, so re-seat #charGen for a flagged PC.
     if (actor.getFlag(MODULE_ID, "charGen") && this.#charGen?.actorId !== actor.id) {
-      this.#charGen = { actorId: actor.id, picking: null };
+      this.#charGen = { actorId: actor.id, picking: null, wizard: !!actor.getFlag(MODULE_ID, "charGenWizard") };
     }
     // Wrap char-gen in a scroll container (the shell root is overflow:hidden and
     // these views render outside .mc-content — long pick lists couldn't scroll).
@@ -807,18 +808,174 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Start screen: blank PC → only Create Character (the header carries the switcher
   // to move between owned PCs, some of which may already be built).
   #charGenStartHTML(actor) {
+    // Two doors (§38.4a): Quick build = the checklist as it's always been; the Story wizard =
+    // guided order with a story beat after each step, feeding the card table on the TV.
     return this.#charGenHeaderHTML(actor, "New character")
       + `<div class="mc-cg-start">
           <i class="fas fa-wand-magic-sparkles mc-cg-bigicon"></i>
           <div class="mc-cg-blurb">This character is blank. Build it together at the table.</div>
-          <button class="mc-cg-create" data-action="char-gen-start"><i class="fas fa-hammer"></i> Create Character</button>
+          <button class="mc-cg-create" data-action="char-gen-wizard"><i class="fas fa-feather"></i> Build with your story</button>
+          <button class="mc-cg-create mc-cg-quick" data-action="char-gen-start"><i class="fas fa-hammer"></i> Quick build</button>
         </div>`;
+  }
+
+  // --- Story wizard (§38.4a): guided order, a beat after each step, lockstep with the TV ----
+  // The wizard REUSES the checklist's pickers wholesale (species/background/class advancement,
+  // point-buy, spells, equipment) — it only owns the ORDER, the stepper, and the beat cards.
+  #wizSteps(actor) {
+    const item = t => actor.items.find(i => i.type === t);
+    const beats = actor.getFlag(MODULE_ID, "charGenBeats") ?? {};
+    const steps = [
+      { id: "species", label: "Species", type: "race", done: !!item("race") },
+      { id: "background", label: "Background", type: "background", done: !!item("background") },
+      { id: "class", label: "Class", type: "class", done: !!item("class") },
+      { id: "abilities", label: "Abilities", done: !!actor.getFlag(MODULE_ID, "wizAbilitiesDone") }
+    ];
+    const si = this.#charGenSpellInfo(actor);
+    if (si) steps.push({ id: "spells", label: "Spells", done: si.haveCantrips >= si.knownCantrips && si.haveSpells >= si.knownSpells });
+    steps.push({ id: "gear", label: "Gear", done: !!actor.getFlag(MODULE_ID, "wizGearDone") });
+    steps.push({ id: "story", label: "Your story", done: !!beats.closer2 });
+    steps.push({ id: "review", label: "Review", done: false });
+    return steps;
+  }
+  // The beat owed by the current state, or null. Fires once per step (charGenBeats flag).
+  #wizPendingBeat(actor, steps) {
+    const beats = actor.getFlag(MODULE_ID, "charGenBeats") ?? {};
+    for (const s of steps) {
+      if (!s.done || beats[s.id]) continue;
+      if (s.type) { // species / background / class — templated on the pick
+        const it = actor.items.find(i => i.type === s.type);
+        if (!it) continue;
+        return { step: s.id, choice: it.name, img: it.img,
+          q: CREATION_BEATS[s.id].replace("«name»", it.name) };
+      }
+      if (s.id === "abilities") {
+        const ab = actor.system?.abilities ?? {};
+        const best = Object.entries(ab).sort((a, b) => (b[1]?.value ?? 0) - (a[1]?.value ?? 0))[0]?.[0] ?? "str";
+        return { step: "abilities", choice: best.toUpperCase(), img: null, q: CREATION_BEATS.abilities[best] ?? CREATION_BEATS.abilities.str };
+      }
+      if (s.id === "gear") return { step: "gear", choice: null, img: null, q: CREATION_BEATS.gear };
+    }
+    return null; // the two closers are driven by the "Your story" step in #wizardHTML
+  }
+  #wizStepperHTML(steps, cur) {
+    const esc = foundry.utils.escapeHTML;
+    // A 3-step window: previous · CURRENT · next, all tappable (warnings-not-walls — a picker
+    // you're not ready for just shows its own empty state).
+    const win = [steps[cur - 1], steps[cur], steps[cur + 1]].filter(Boolean);
+    return `<div class="mc-wiz-stepper">${win.map(s => {
+      const i = steps.indexOf(s);
+      return `<button class="mc-wiz-step ${i === cur ? "mc-wiz-cur" : ""}" data-action="wiz-step" data-step="${i}">
+        ${s.done ? `<i class="fas fa-check"></i> ` : ""}${esc(s.label)}</button>`;
+    }).join(`<span class="mc-wiz-sep">—</span>`)}</div>`;
+  }
+  #wizardHTML(actor) {
+    const esc = foundry.utils.escapeHTML;
+    const steps = this.#wizSteps(actor);
+    let cur = this.#charGen.wstep ?? steps.findIndex(s => !s.done);
+    if (cur < 0 || cur >= steps.length) cur = steps.length - 1;
+    this.#charGen.wstep = cur;
+    const step = steps[cur];
+    const head = this.#charGenHeaderHTML(actor, "Building character…") + this.#wizStepperHTML(steps, cur);
+    // A beat interrupts everything until answered or skipped.
+    const beats = actor.getFlag(MODULE_ID, "charGenBeats") ?? {};
+    let beat = this.#wizPendingBeat(actor, steps);
+    if (!beat && step.id === "story") {
+      if (!beats.closer1) beat = { step: "closer1", choice: null, img: null, q: CREATION_BEATS.closers[0] };
+      else if (!beats.closer2) beat = { step: "closer2", choice: null, img: null, q: CREATION_BEATS.closers[1] };
+    }
+    if (beat) {
+      this.#szNarrate("writing", { step: beat.step, itemName: beat.choice, img: beat.img, q: beat.q });
+      return head + `<div class="mc-wiz-beat">
+        ${beat.choice ? `<div class="mc-wiz-beat-choice">${esc(beat.step === "abilities" ? `Highest: ${beat.choice}` : `Chosen: ${beat.choice}`)} <i class="fas fa-check"></i></div>` : ""}
+        <div class="mc-st-card-q">${esc(beat.q)}</div>
+        <textarea class="mc-jn-input mc-wiz-beat-input" rows="3" placeholder="Say it out loud, write it down, or both…"></textarea>
+        <div class="mc-jn-composebtns">
+          <button class="mc-jn-cancel" data-action="wiz-beat-skip" data-step="${beat.step}">Skip</button>
+          <button class="mc-jn-post" data-action="wiz-beat-save" data-step="${beat.step}" data-q="${esc(beat.q)}" ${this.#storyBusy ? "disabled" : ""}>${this.#storyBusy ? "Saving…" : "Save to my story"}</button>
+        </div>
+      </div>`;
+    }
+    // The step landing: what to do now, using the checklist's own entry points.
+    const item = step.type ? actor.items.find(i => i.type === step.type) : null;
+    let body = "";
+    if (step.type) {
+      body = item
+        ? `<div class="mc-wiz-done"><img class="mc-wiz-doneimg" src="${item.img}" alt=""><span>${esc(item.name)}</span> <i class="fas fa-check"></i></div>`
+        : `<button class="mc-cg-create" data-action="char-gen-pick" data-cgtype="${step.type}"><i class="fas fa-hand-pointer"></i> Choose your ${esc(step.label.toLowerCase())}</button>`;
+    } else if (step.id === "abilities") {
+      body = `<button class="mc-cg-create" data-action="char-gen-abilities"><i class="fas fa-dumbbell"></i> Set ability scores</button>
+        <button class="mc-jn-post mc-wiz-continue" data-action="wiz-continue">Scores are set — continue</button>`;
+    } else if (step.id === "spells") {
+      const si = this.#charGenSpellInfo(actor);
+      body = `<button class="mc-cg-create" data-action="char-gen-spells"><i class="fas fa-book-sparkles"></i> Choose spells (${si.haveCantrips}/${si.knownCantrips} cantrips · ${si.haveSpells}/${si.knownSpells} spells)</button>`;
+    } else if (step.id === "gear") {
+      const granted = actor.getFlag(MODULE_ID, "equipGranted") || {};
+      const row = (src, label) => {
+        const it = actor.items.find(i => i.type === src);
+        if (!it?.system?.startingEquipment?.length) return "";
+        return `<button class="mc-cg-create" data-action="char-gen-equip" data-cgsource="${src}">
+          <i class="fas fa-briefcase"></i> ${esc(label)}${granted[src] ? " ✓" : ""}</button>`;
+      };
+      body = row("background", "Background equipment") + row("class", "Class equipment")
+        + `<button class="mc-jn-post mc-wiz-continue" data-action="wiz-continue">Gear's sorted — continue</button>`;
+    } else if (step.id === "story") {
+      body = `<div class="mc-cg-blurb">Two last questions and you're done.</div>`;
+    } else { // review
+      const rows = steps.filter(s => s.id !== "review").map(s =>
+        `<div class="mc-wiz-review-row">${s.done ? `<i class="fas fa-check mc-cg-check"></i>` : `<i class="fas fa-circle"></i>`} ${esc(s.label)}</div>`).join("");
+      body = `${this.#charGenBioHTML(actor)}<div class="mc-wiz-review">${rows}</div>
+        <button class="mc-cg-finish" data-action="char-gen-finish"><i class="fas fa-check-double"></i> Finish</button>`;
+    }
+    const nav = `<div class="mc-wiz-nav">
+      ${cur > 0 ? `<button class="mc-jn-cancel" data-action="wiz-step" data-step="${cur - 1}"><i class="fas fa-arrow-left"></i> Back</button>` : "<span></span>"}
+      ${step.done && cur < steps.length - 1 ? `<button class="mc-jn-post" data-action="wiz-step" data-step="${cur + 1}">Next <i class="fas fa-arrow-right"></i></button>` : ""}
+    </div>`;
+    return head + `<div class="mc-wiz-body"><div class="mc-wiz-title">${esc(step.label)}</div>${body}</div>` + nav;
+  }
+  // Narrate to the card table, once per (kind, step) — renders repeat, the room shouldn't hear it twice.
+  #szNarrate(kind, extra = {}) {
+    const key = `${kind}:${extra.step ?? ""}:${extra.itemName ?? ""}`;
+    this.#szSent ??= new Set();
+    if (this.#szSent.has(key)) return;
+    this.#szSent.add(key);
+    if (kind === "writing" && extra.itemName) this.#szNarrate("flip", { step: extra.step, itemName: extra.itemName, img: extra.img });
+    try { rpc.szEvent({ kind, actorId: this.#charGen?.actorId, ...extra }); } catch (e) { /* never block the wizard */ }
+  }
+  async #wizBeatResolve(stepId, q, save) {
+    const actor = this.actor;
+    if (!actor) return;
+    if (save) {
+      const text = String(this.element?.querySelector(".mc-wiz-beat-input")?.value ?? "").trim();
+      if (!text) return ui.notifications.info("Write something first — or Skip.");
+      this.#storyBusy = true; this.render();
+      let res;
+      try { res = await rpc.storyAdd({ actorId: actor.id, text, question: q, step: stepId }); }
+      catch (e) { res = { ok: false, reason: e?.message ?? "couldn't reach the DM" }; }
+      this.#storyBusy = false;
+      if (!res?.ok) { ui.notifications.warn(`My Story: ${res?.reason ?? "could not save"}`); return this.render(); }
+    } else {
+      // Skipped → park it in My Story so it's still answerable later.
+      try {
+        const pending = (actor.getFlag(MODULE_ID, "storyPending") ?? []).filter(x => x.q !== q);
+        pending.push({ id: foundry.utils.randomID(), q, ts: Date.now() });
+        await actor.setFlag(MODULE_ID, "storyPending", pending);
+      } catch (e) { /* best effort */ }
+    }
+    await actor.setFlag(MODULE_ID, `charGenBeats.${stepId}`, true);
+    // Advance to the first not-done step past the current one.
+    const steps = this.#wizSteps(actor);
+    const next = steps.findIndex(s => !s.done);
+    this.#charGen.wstep = next < 0 ? steps.length - 1 : next;
+    this.#szNarrate("step", { step: steps[this.#charGen.wstep]?.id });
+    this.render();
   }
 
   // Workspace: pick Species / Background / Class (each → real advancement popup),
   // each row showing the chosen item once added. Ability scores + Finish below.
   #charGenHTML(actor) {
     if (this.#detailCard) return this.#detailCardHTML(); // long-press detail over any char-gen step
+    if (this.#charGen?.wizard && !this.#charGen?.picking) return this.#wizardHTML(actor);
     if (this.#charGen?.picking === "abilities") return this.#abilityPanelHTML(actor);
     if (this.#charGen?.picking === "spells") return this.#spellPickerHTML(actor);
     if (this.#charGen?.picking === "equip") return this.#equipPickerHTML(actor);
@@ -6362,6 +6519,34 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#rollDiceTray();
       case "char-gen-start":
         return this.#startCharGen();
+      case "char-gen-wizard": {
+        // The Story-wizard door (§38.4a): same start as Quick build, plus the wizard flag —
+        // persisted on the actor so a reload resumes the guided flow, not the checklist.
+        const p = this.#startCharGen();
+        Promise.resolve(p).then(() => {
+          if (this.#charGen) this.#charGen.wizard = true;
+          this.actor?.setFlag(MODULE_ID, "charGenWizard", true).catch(() => {});
+          this.#szNarrate("step", { step: "species" });
+          this.render();
+        });
+        return;
+      }
+      case "wiz-step":
+        if (this.#charGen) { this.#charGen.wstep = Number(el.dataset.step) || 0; this.render(); }
+        return;
+      case "wiz-continue": {
+        // Abilities/Gear have no crisp "done" document — the player says when they're set.
+        const a = this.actor;
+        const steps = a ? this.#wizSteps(a) : [];
+        const cur = steps[this.#charGen?.wstep ?? 0];
+        if (a && cur?.id === "abilities") a.setFlag(MODULE_ID, "wizAbilitiesDone", true).then(() => this.render());
+        if (a && cur?.id === "gear") a.setFlag(MODULE_ID, "wizGearDone", true).then(() => this.render());
+        return;
+      }
+      case "wiz-beat-save":
+        return this.#wizBeatResolve(el.dataset.step, el.dataset.q, true);
+      case "wiz-beat-skip":
+        return this.#wizBeatResolve(el.dataset.step, el.closest(".mc-wiz-beat")?.querySelector(".mc-st-card-q")?.textContent ?? "", false);
       case "char-gen-pick":
         return this.#charGenPick(el.dataset.cgtype);
       case "char-gen-add":

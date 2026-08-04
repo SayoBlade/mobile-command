@@ -3239,6 +3239,16 @@ or privately, and the DM would PREFER one journal with a chapter per PC.
   & Finish. The DM's "Session zero" push opens phones straight into the wizard; self-serve
   start screen offers both doors ("Quick build" / "Build with your story").
 
+**The lockstep loop (DM 2026-08-04, after seeing the slice-2 snapshot):** phone and TV must
+"communicate more" — the sequence per step is PICK on the phone → the seat's card FLIPS on the
+TV → the beat QUESTION is pushed → the player ANSWERS → advance to the next step. The wizard
+carries a **stepper showing a 3-step window** — previous · current (highlighted) · next, e.g.
+"Species — **Background** — Class" — and **pressing a step navigates to it**. On the TV, the
+seat's **current card is highlighted** while its player is on that step ("writing…" state).
+Wire protocol: the phone emits `szEvent` {kind: step|flip|writing, actorId, step, itemName,
+img} over socketlib; the board (slice 3b) consumes them; flips also derive from actor updates
+as a fallback.
+
 A beat fires ONCE, right after its step completes, as a card before the wizard advances: the
 choice echoed ("Background chosen: Soldier ✓"), ONE templated question, inline answer, [Skip] /
 [Save to my story]. Hint copy: "Say it out loud, write it down, or both" — private-vs-table is
@@ -3289,6 +3299,25 @@ their only window, and the executor-brokered story* RPCs enforce "own actor only
 and write. (Foundry syncs world docs to all clients regardless of ownership, so console-level
 privacy doesn't exist in ANY construction — acceptable at this table, noted.) The v1
 journal-per-PC layout stays as the documented fallback if per-page rendering fights us.
+
+### 38.4b The table starts with PLAYERS, not PCs (DM 2026-08-04, supersedes seat details above)
+
+> DM: *"go back even further — the DM needs to create player accounts; this is the PLAYER list
+> (not PC list) that the DM uses for sitting position, then we have the session zero flow. But
+> at any point the DM can add, remove or move players at the table."*
+
+- **The table map is keyed to USERS (accounts), not actors.** Order of play: DM creates player
+  accounts → seats them around the flat TV (the player list IS the seat list) → session zero
+  runs on top → PCs get created and attach to seated players. `tableSeats` stays
+  {seatId → userId} as spec'd — this confirms it.
+- **Account creation moves into the module**: a Players drawer on the panel — list of player
+  users, [New player] (name + colour → executor creates the User document; GMs can manage
+  users in-session), tap a seat slot to place them, drag/move/remove ANY time — the map is a
+  living, session-long thing, not a session-zero artifact.
+- **Future (DM "thought for later", record only): per-seat HUD.** A small strip on the TV at
+  each seat, ROTATED to face that player (same rotation as their card hand): HP, conditions,
+  "anything else we decide". The table map is the anchor; cheap DOM; performance-check before
+  building (modest machine).
 
 ### 38.4 Personal Story Journal — spec v1 (2026-08-04, superseded by 38.4a where they differ)
 

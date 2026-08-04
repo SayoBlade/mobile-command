@@ -152,6 +152,25 @@ export const STORY_QUESTIONS = [
   { cat: "The world", q: "What's something ordinary here that would amaze the folk back home?" }
 ];
 
+// ── Creation beats (§38.4a — the Story wizard's questions) ──────────────────
+// One question per wizard step, templated on the actual pick («name» = the chosen item).
+// The abilities beat keys off the HIGHEST score. Closers run at the "Your story" step.
+export const CREATION_BEATS = {
+  species: "Where among the «name» did you grow up — and why did you leave?",
+  background: "How did you end up a «name»?",
+  class: "Who or what made you a «name»?",
+  abilities: {
+    str: "Where did that strength come from?",
+    dex: "How did you get so quick?",
+    con: "What made you so hard to kill?",
+    int: "Where did you learn so much?",
+    wis: "What taught you to notice what others miss?",
+    cha: "Why do people listen to you?"
+  },
+  gear: "One thing you carry you'd never sell — what is it, and why?",
+  closers: ["What do you want most, long-term?", "Who's waiting for you back home?"]
+};
+
 // ── Day/night curve (DM decision 2026-08-02) ────────────────────────────────
 // "I'd rather have a small curve and keep global lighting in all scenes, I'll mark interior
 // regions myself." So: the clock drives scene darkness EVERYWHERE — not just on maps whose

@@ -102,6 +102,7 @@ export function initSocket() {
   socket.register("storyDelete", handleStoryDelete);
   socket.register("storyPrompt", handleStoryPrompt);     // executor → phone: the pushed question
   socket.register("storyAnswered", handleStoryAnswered); // phone → executor: quiet ✓ for the panel
+  socket.register("szEvent", handleSzEvent);             // §38.4a lockstep: wizard → card table
   socket.register("portraitUpload", handlePortraitUpload);
   socket.register("wildShapeList", handleWildShapeList);
   socket.register("wildShapeInto", handleWildShapeInto);
@@ -2158,6 +2159,15 @@ function handleStoryAnswered({ id, actorName, requesterId } = {}) {
   return true;
 }
 
+// --- Session-zero lockstep events (§38.4a) -----------------------------------
+// The Story wizard narrates itself to the room: {kind: "step"|"flip"|"writing", actorId, step,
+// itemName, img}. Broadcast to every other client; the card table (display client) renders
+// them, and the DM panel may too. Fire-and-forget — the wizard never blocks on the TV.
+function handleSzEvent(payload) {
+  Hooks.callAll("mobile-command.szEvent", payload ?? {});
+  return true;
+}
+
 // --- AI portrait upload (idea #2) --------------------------------------------
 // Players can't write files (FILES_UPLOAD is GM-only), so the phone sends the image data
 // here and the executor saves it to a NON-module dir at the data root (mc-portraits/,
@@ -3264,6 +3274,11 @@ export const api = {
   storyEdit: (payload = {}) => toExecutor("storyEdit", payload),
   storyDelete: (payload = {}) => toExecutor("storyDelete", payload),
   storyAnswered: (payload = {}) => toExecutor("storyAnswered", payload),
+  szEvent: (payload = {}) => {
+    const p = { ...payload, userId: game.user.id, ts: Date.now() };
+    try { socket?.executeForOthers("szEvent", p); } catch (e) { /* the TV may be offline — never block the wizard */ }
+    Hooks.callAll("mobile-command.szEvent", p); // solo rig: the same client may host the board
+  },
   wildShapeList: (payload = {}) => toExecutor("wildShapeList", payload),
   wildShapeInto: (payload = {}) => toExecutor("wildShapeInto", payload),
   wildShapeRevert: (payload = {}) => toExecutor("wildShapeRevert", payload),
