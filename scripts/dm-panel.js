@@ -1,6 +1,6 @@
-import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState } from "./rpc.js";
+import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState } from "./rpc.js";
 import { fireAoO } from "./aoo.js";
-import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD } from "./preset.js";
+import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD, STORY_QUESTIONS } from "./preset.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
 import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar, sunTimes } from "./gametime.js";
@@ -315,9 +315,10 @@ function combatTabHTML() {
 function partyTabFull() {
   const marching = packedGroup() ? partyTabHTML() : "";
   // Roster (+ marching order when packed) scrolls in the MID; Form Up / checklist / group pinned to
-  // the FOOT like the Combat send button (DM 2026-07-25).
+  // the FOOT like the Combat send button (DM 2026-07-25). The Story-questions drawer (§38.4)
+  // renders regardless of packing — questions don't need a group.
   return `<div class="mc-dmp-tabfill">
-    <div class="mc-dmp-tabmid">${ownedTokensHTML()}${marching}</div>
+    <div class="mc-dmp-tabmid">${dtDrawer("storyQs", "Story questions", "", storyQsBody(), true)}${ownedTokensHTML()}${marching}</div>
     <div class="mc-dmp-tabfoot">${partyMainHTML()}</div>
   </div>`;
 }
@@ -2919,6 +2920,40 @@ function registerNightEncounterOffer() {
 
 // The "Party order" dock tab body — the grid + rotate + lock-in/rearrange +
 // release/combine (no Form up / Disperse — those stay in the main area).
+// §38.4 slice 2: the DM's story-question deck. One tap pushes a question to every connected
+// phone (the "buy a few seconds" tool); quiet per-player ✓s show for the last push. Custom
+// questions append to the preset deck via the world setting.
+function storyQuestionsAll() {
+  let custom = []; try { custom = game.settings.get(MODULE_ID, "storyQuestions") ?? []; } catch (e) { /* */ }
+  return [...STORY_QUESTIONS, ...custom.map((c, i) => ({ cat: c.cat || "Mine", q: c.q, custom: i }))];
+}
+function storyQsBody() {
+  const esc = foundry.utils.escapeHTML;
+  const all = storyQuestionsAll();
+  const push = storyPushState;
+  const ticks = push ? `<div class="mc-dmp-story-status">Sent: “${esc(push.q)}”
+    ${push.sent.length ? push.sent.map(uid => { const u = game.users.get(uid); const a = push.answered[uid];
+      return `<span class="mc-dmp-story-tick ${a ? "mc-on" : ""}" title="${esc(u?.name ?? "?")}${a ? ` — ${esc(a)}` : ""}">${a ? "✓" : "…"}</span>`; }).join("")
+      : `<span class="mc-dmp-story-none">no phones connected</span>`}</div>` : "";
+  const cats = [...new Set(all.map(x => x.cat))];
+  const groups = cats.map(cat => `
+    <div class="mc-dmp-story-cat">${esc(cat)}</div>
+    ${all.filter(x => x.cat === cat).map(x => `
+      <div class="mc-dmp-story-row">
+        <span class="mc-dmp-story-q">${esc(x.q)}</span>
+        ${x.custom != null ? `<button class="mc-dmp-pf-fix mc-dmp-story-del" data-story-del="${x.custom}" title="Remove this question" aria-label="Remove this question"><i class="fas fa-trash"></i></button>` : ""}
+        <button class="mc-dmp-pf-fix" data-story-push="${esc(x.q)}" title="Push to all phones" aria-label="Push to all phones"><i class="fas fa-paper-plane"></i></button>
+      </div>`).join("")}`).join("");
+  return `
+    <button class="mc-dmp-pf-fix mc-dmp-story-random" data-story-push-random><i class="fas fa-dice"></i> Push a random question</button>
+    ${ticks}
+    ${groups}
+    <div class="mc-dmp-story-new">
+      <input class="mc-dmp-story-input" type="text" placeholder="Your own question…">
+      <button class="mc-dmp-pf-fix" data-story-addq>Add</button>
+    </div>`;
+}
+
 function partyTabHTML() {
   const group = packedGroup();
   if (!group) return `<div class="mc-dmp-empty">Party dispersed.</div>`;
@@ -3881,6 +3916,38 @@ async function onClick(ev) {
   }
   const gs = ev.target.closest("[data-group-sheet]");
   if (gs) { game.actors.get(gs.dataset.groupSheet)?.sheet?.render(true); return; }
+  // §38.4 story-question drawer: push / push-random / add custom / remove custom.
+  const spush = ev.target.closest("[data-story-push]");
+  if (spush) {
+    const r = pushStoryQuestion(spush.dataset.storyPush);
+    if (!r?.ok) ui.notifications.warn(`Story question: ${r?.reason ?? "could not push"}`);
+    return render();
+  }
+  if (ev.target.closest("[data-story-push-random]")) {
+    const all = storyQuestionsAll();
+    const pick = all[Math.floor(Math.random() * all.length)];
+    if (pick) {
+      const r = pushStoryQuestion(pick.q);
+      if (!r?.ok) ui.notifications.warn(`Story question: ${r?.reason ?? "could not push"}`);
+    }
+    return render();
+  }
+  if (ev.target.closest("[data-story-addq]")) {
+    const inp = ev.target.closest(".mc-dmp-story-new")?.querySelector(".mc-dmp-story-input");
+    const q = String(inp?.value ?? "").trim();
+    if (!q) return;
+    const custom = (game.settings.get(MODULE_ID, "storyQuestions") ?? []).slice();
+    custom.push({ cat: "Mine", q: q.slice(0, 300) });
+    await game.settings.set(MODULE_ID, "storyQuestions", custom);
+    return render();
+  }
+  const sdel = ev.target.closest("[data-story-del]");
+  if (sdel) {
+    const custom = (game.settings.get(MODULE_ID, "storyQuestions") ?? []).slice();
+    custom.splice(Number(sdel.dataset.storyDel), 1);
+    await game.settings.set(MODULE_ID, "storyQuestions", custom);
+    return render();
+  }
   if (ev.target.closest("[data-preflight-run]")) {
     await runPreflight();
     return render();
@@ -4023,6 +4090,8 @@ export function registerDMPanel() {
   });
   Hooks.on("mobile-command.pendingCast", () => render());          // a phone announced an AoE cast
   Hooks.on("mobile-command.pendingCastResolved", () => render());  // placed or dismissed
+  Hooks.on("mobile-command.storyPush", () => render());            // §38.4: a question went out
+  Hooks.on("mobile-command.storyAnswered", () => render());        // …and a quiet ✓ came back
   // Manual → OFF (the DM dropping manual, e.g. via Focus) auto-opens the Display tab (§25 2b,
   // DM 2026-07-24). Turning manual ON does not. Tracks the prior state so only the down-edge fires.
   Hooks.on("mobile-command.tvManualChanged", (on) => {

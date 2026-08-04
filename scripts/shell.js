@@ -1,5 +1,5 @@
 import { MODULE_ID } from "./preset.js";
-import { api as rpc, actorTokenSight, reportPresence } from "./rpc.js";
+import { api as rpc, actorTokenSight, reportPresence, remoteState } from "./rpc.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
 import { toggleSimpleCalendar } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
@@ -269,6 +269,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #storyDraft = "";       // composer text, kept across re-renders
   #storyBusy = false;     // a story write is in flight
   #storyEditId = null;    // entry id being edited (null = composing new)
+  #storyDraftQ = null;    // the question the composer is answering (from a parked prompt)
+  #storyPendingId = null; // id of the parked prompt being answered (removed on save)
   #enchantState = null;   // §28.6 enchant item-picker: { uuid, name, profileId, rows } | null
   #pmOpen = false;        // §27 Messages overlay (envelope in the header)
   #pmDraft = "";          // Messages composer text, kept across re-renders
@@ -604,6 +606,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#savePromptHTML()}
       ${this.#reactionPromptHTML()}
       ${this.#rollRequestHTML()}
+      ${this.#storyPromptHTML()}
       ${this.#aooPromptHTML()}
       ${this.#tradePromptHTML()}
       ${this.#colorPickOpen ? this.#colorPickHTML() : ""}
@@ -1909,6 +1912,71 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     </div>`;
   }
 
+  // Story question card (§38.4 slice 2): the DM pushed a question to every phone. Non-modal,
+  // no timer, styled like the save prompt. "Later" parks it on the actor (storyPending flag)
+  // where My Story offers it again; Save answers into the chapter with the question attached.
+  #storyAnswerActor() {
+    const sub = this.#storyActor();
+    if (sub) return sub;
+    const ch = game.user.character;
+    if (ch?.type === "character" && ch.testUserPermission(game.user, "OWNER")) return ch;
+    return game.actors.find(a => a.type === "character" && a.hasPlayerOwner && a.testUserPermission(game.user, "OWNER")) ?? null;
+  }
+  #storyPromptHTML() {
+    const p = remoteState.storyPrompt;
+    if (!p) return "";
+    const esc = foundry.utils.escapeHTML;
+    const actor = this.#storyAnswerActor();
+    const asWho = actor ? `as ${esc(actor.name)}` : "no character to answer as";
+    return `<div class="mc-saveprompt mc-storyprompt">
+      <div class="mc-saveprompt-bar">
+        <span class="mc-saveprompt-title"><i class="fas fa-feather"></i> Story question</span>
+        <button class="mc-saveprompt-x" data-action="story-card-later" aria-label="Answer later"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="mc-saveprompt-body">
+        <div class="mc-st-card-q">${esc(p.q)}</div>
+        <textarea class="mc-jn-input mc-st-card-input" rows="3" placeholder="Say it out loud, write it down, or both…"></textarea>
+        <div class="mc-st-card-row">
+          <span class="mc-st-card-as">${asWho}</span>
+          <div class="mc-jn-composebtns">
+            <button class="mc-jn-cancel" data-action="story-card-later">Later</button>
+            <button class="mc-jn-post" data-action="story-card-save" ${actor && !this.#storyBusy ? "" : "disabled"}>Save to my story</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+  async #storyCardSave() {
+    const p = remoteState.storyPrompt;
+    const actor = this.#storyAnswerActor();
+    if (!p || !actor || this.#storyBusy) return;
+    const text = String(this.element?.querySelector(".mc-st-card-input")?.value ?? "").trim();
+    if (!text) return ui.notifications.info("Write something first — or tap Later.");
+    this.#storyBusy = true; this.render();
+    let res;
+    try { res = await rpc.storyAdd({ actorId: actor.id, text, question: p.q }); }
+    catch (e) { res = { ok: false, reason: e?.message ?? "couldn't reach the DM" }; }
+    this.#storyBusy = false;
+    if (res?.ok) {
+      remoteState.storyPrompt = null;
+      try { await rpc.storyAnswered({ id: p.id, actorName: actor.name }); } catch (e) { /* tick is garnish */ }
+    } else ui.notifications.warn(`Story: ${res?.reason ?? "could not save"}`);
+    this.render();
+  }
+  async #storyCardLater() {
+    const p = remoteState.storyPrompt;
+    remoteState.storyPrompt = null;
+    const actor = this.#storyAnswerActor();
+    if (p && actor) {
+      try {
+        const pending = (actor.getFlag(MODULE_ID, "storyPending") ?? []).filter(x => x.id !== p.id);
+        pending.push({ id: p.id, q: p.q, ts: p.ts ?? Date.now() });
+        await actor.setFlag(MODULE_ID, "storyPending", pending);
+      } catch (e) { console.warn("mobile-command | could not park the story question", e); }
+    }
+    this.render();
+  }
+
   // Reaction chooser (§9): the executor relayed midi's reaction window here because midi's
   // own dialog is dead on the canvasless phone. Each option fires that reaction on the
   // executor (rpc.useActivity) with the attacker pre-targeted + isReaction — so the slot is
@@ -2772,8 +2840,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           <span class="mc-jn-page-name"><i class="fas fa-feather"></i> ${esc(actor.name)} — My Story</span>
         </div>
         <div class="mc-st-hint">Only you and the DM can read this.</div>
+        ${(actor.getFlag(MODULE_ID, "storyPending") ?? []).map(p => `
+          <div class="mc-st-pending">
+            <span class="mc-st-pending-q">${esc(p.q)}</span>
+            <button class="mc-jn-post mc-st-pending-go" data-action="story-pending-answer" data-pending="${p.id}">Answer</button>
+            <button class="mc-jn-tool" data-action="story-pending-dismiss" data-pending="${p.id}" title="Dismiss" aria-label="Dismiss"><i class="fas fa-xmark"></i></button>
+          </div>`).join("")}
         <div class="mc-jn-compose">
-          <textarea class="mc-jn-input mc-st-input" rows="2" placeholder="${editing ? "Edit entry…" : "Add to your story…"}" ${this.#storyBusy ? "disabled" : ""}>${esc(this.#storyDraft)}</textarea>
+          ${this.#storyDraftQ ? `<div class="mc-st-answering"><i class="fas fa-feather"></i> ${esc(this.#storyDraftQ)}
+            <button class="mc-jn-tool" data-action="story-answering-cancel" title="Drop the question" aria-label="Drop the question"><i class="fas fa-xmark"></i></button></div>` : ""}
+          <textarea class="mc-jn-input mc-st-input" rows="2" placeholder="${editing ? "Edit entry…" : (this.#storyDraftQ ? "Your answer…" : "Add to your story…")}" ${this.#storyBusy ? "disabled" : ""}>${esc(this.#storyDraft)}</textarea>
           <div class="mc-jn-composebtns">
             ${editing ? `<button class="mc-jn-cancel" data-action="story-entry-cancel">Cancel</button>` : ""}
             <button class="mc-jn-post" data-action="story-post" ${this.#storyBusy ? "disabled" : ""}>${this.#storyBusy ? "Saving…" : (editing ? "Save" : "Add entry")}</button>
@@ -2793,10 +2869,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     try {
       res = this.#storyEditId
         ? await rpc.storyEdit({ actorId: actor.id, entryId: this.#storyEditId, text })
-        : await rpc.storyAdd({ actorId: actor.id, text });
+        : await rpc.storyAdd({ actorId: actor.id, text, question: this.#storyDraftQ ?? null });
     } catch (e) { res = { ok: false, reason: e?.message ?? "couldn't reach the DM" }; }
     this.#storyBusy = false;
-    if (res?.ok) { this.#storyDraft = ""; this.#storyEditId = null; }
+    if (res?.ok) {
+      // Answered a parked prompt → drop it from the pending list and tick the DM's panel.
+      if (this.#storyPendingId) {
+        const pid = this.#storyPendingId;
+        try {
+          const pending = (actor.getFlag(MODULE_ID, "storyPending") ?? []).filter(x => x.id !== pid);
+          await actor.setFlag(MODULE_ID, "storyPending", pending);
+        } catch (e) { /* the entry saved — pending cleanup is best-effort */ }
+        try { await rpc.storyAnswered({ id: pid, actorName: actor.name }); } catch (e) { /* garnish */ }
+      }
+      this.#storyDraft = ""; this.#storyEditId = null; this.#storyDraftQ = null; this.#storyPendingId = null;
+    }
     else ui.notifications.warn(`My Story: ${res?.reason ?? "could not save"}`);
     this.render();
   }
@@ -6501,6 +6588,27 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.render();
       case "story-entry-delete":
         return this.#storyDeleteEntry(el.dataset.entry);
+      case "story-card-save":
+        return this.#storyCardSave();
+      case "story-card-later":
+        return this.#storyCardLater();
+      case "story-pending-answer": {
+        const a = this.#storyActor();
+        const p = a ? (a.getFlag(MODULE_ID, "storyPending") ?? []).find(x => x.id === el.dataset.pending) : null;
+        if (p) { this.#storyDraftQ = p.q; this.#storyPendingId = p.id; this.#storyEditId = null; this.render(); }
+        return;
+      }
+      case "story-pending-dismiss": {
+        const a = this.#storyActor();
+        if (a) {
+          const pending = (a.getFlag(MODULE_ID, "storyPending") ?? []).filter(x => x.id !== el.dataset.pending);
+          a.setFlag(MODULE_ID, "storyPending", pending).then(() => this.render()).catch(() => {});
+        }
+        return;
+      }
+      case "story-answering-cancel":
+        this.#storyDraftQ = null; this.#storyPendingId = null;
+        return this.render();
       case "journal-open-page":
         this.#journalPageId = el.dataset.page; this.#journalDraft = "";
         this.#journalEntryEditId = null; this.#journalTitleEdit = false; this.#journalPageFilter = "";
@@ -8010,6 +8118,7 @@ export function registerShellHooks() {
   // sessions), so a pick is a one-time thing the DM initiates from the Players tab.
   Hooks.on("mobile-command.colorPick", () => { if (shellInstance) { shellInstance.openColorPick(); } });
   Hooks.on("mobile-command.savePrompt", (payload) => shellInstance?.noteSavePrompt(payload));
+  Hooks.on("mobile-command.storyPrompt", () => shellInstance?.render()); // the pushed question card (§38.4)
   Hooks.on("mobile-command.reactionPrompt", (payload) => shellInstance?.noteReactionPrompt(payload));
   Hooks.on("mobile-command.rollRequest", (payload) => shellInstance?.noteRollRequest(payload));
   Hooks.on("mobile-command.aooPrompt", (payload) => shellInstance?.noteAoOPrompt(payload));

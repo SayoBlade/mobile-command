@@ -1789,6 +1789,34 @@ body {
 .mc-st-q { font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--mc-gold); margin-bottom: 4px; }
 .mc-st-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px;
   margin-top: 6px; font-size: 11px; color: var(--mc-muted); }
+/* Story question card (§38.4 slice 2) — the pushed question's bottom sheet. */
+.mc-storyprompt .mc-st-card-q { font-size: 16px; font-weight: 600; color: var(--mc-ink); margin-bottom: 10px; }
+.mc-storyprompt .mc-st-card-input { width: 100%; }
+.mc-st-card-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.mc-st-card-as { font-size: 12px; color: var(--mc-muted); }
+/* Parked (Later) prompts atop the chapter, and the "answering" banner over the composer. */
+.mc-st-pending { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; margin: 0 12px 8px;
+  padding: 8px 10px; background: var(--mc-panel); border: 1px solid var(--mc-gold);
+  border-radius: calc(9px * var(--mc-round, 1)); }
+.mc-st-pending-q { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--mc-ink); }
+.mc-st-pending-go { flex: 0 0 auto; }
+.mc-st-answering { display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  font-size: 12px; font-weight: 600; color: var(--mc-gold); }
+.mc-st-answering i:first-child { flex: 0 0 auto; }
+/* DM panel: the Story-questions drawer. */
+.mc-dmp-story-random { width: 100%; margin-bottom: 8px; }
+.mc-dmp-story-status { font-size: 12px; color: var(--mc-muted); margin: 2px 0 8px; }
+.mc-dmp-story-tick { display: inline-block; min-width: 18px; text-align: center; margin-left: 4px;
+  color: var(--mc-muted); }
+.mc-dmp-story-tick.mc-on { color: #8fd6a8; }
+.mc-dmp-story-cat { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--mc-muted); margin: 10px 0 4px; }
+.mc-dmp-story-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.mc-dmp-story-q { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--mc-ink); }
+.mc-dmp-story-new { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.mc-dmp-story-input { flex: 1 1 auto; min-width: 0; height: 34px; background: #14171f;
+  border: 1px solid var(--mc-edge); border-radius: calc(8px * var(--mc-round, 1));
+  color: var(--mc-ink); padding: 0 10px; font-size: 14px; }
 /* Attach-from-shared banner + the pending-image preview above the composer. */
 .mc-jn-attach { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; margin: 0 12px 6px; padding: 8px 10px;
   font-size: 12px; color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-gold); border-radius: calc(9px * var(--mc-round, 1)); }

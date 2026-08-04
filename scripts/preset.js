@@ -121,6 +121,37 @@ export const DOWNTIME_ACTIVITIES = [
 ];
 export const DOWNTIME_LABEL = Object.fromEntries(DOWNTIME_ACTIVITIES.map(a => [a.key, a.label]));
 
+// ── Story questions (§38.4 slice 2) ─────────────────────────────────────────
+// The DM's "buy a few seconds" deck: one tap pushes a question to every phone; answers land in
+// each PC's private chapter. Curated to stay STORY questions (memories, people, wants, beliefs
+// — never therapy). The DM's own additions ride a world setting and render after these.
+export const STORY_QUESTIONS = [
+  { cat: "Memories", q: "What childhood memory still shapes you?" },
+  { cat: "Memories", q: "What smell takes you straight back home?" },
+  { cat: "Memories", q: "What's the first thing you remember being proud of?" },
+  { cat: "Memories", q: "What promise did you make that you haven't kept?" },
+  { cat: "People", q: "Who taught you the most important thing you know?" },
+  { cat: "People", q: "Who's waiting for you back home — and do they know where you are?" },
+  { cat: "People", q: "Who do you owe, and what do you owe them?" },
+  { cat: "People", q: "Whose opinion of you actually matters?" },
+  { cat: "Goals", q: "What do you want most, long-term?" },
+  { cat: "Goals", q: "What would you do first if you never had to fight again?" },
+  { cat: "Goals", q: "What would make you walk away from the party tomorrow?" },
+  { cat: "Goals", q: "What do you want written on your grave?" },
+  { cat: "Beliefs", q: "What line will you not cross, no matter the pay?" },
+  { cat: "Beliefs", q: "What's a rule you follow that no one else knows about?" },
+  { cat: "Beliefs", q: "What do you believe that the others would laugh at?" },
+  { cat: "Beliefs", q: "When is stealing the right thing to do?" },
+  { cat: "The party", q: "What do you admire about the person who sat down next to you tonight?" },
+  { cat: "The party", q: "Which party member would you trust with your secret — and which never?" },
+  { cat: "The party", q: "What has a party member done that you still think about?" },
+  { cat: "The party", q: "What lie have you told the party that they absolutely believe?" },
+  { cat: "The world", q: "What place would you go back to if you could?" },
+  { cat: "The world", q: "What's the strangest thing you've ever seen — before all this?" },
+  { cat: "The world", q: "What story do people tell about your home town?" },
+  { cat: "The world", q: "What's something ordinary here that would amaze the folk back home?" }
+];
+
 // ── Day/night curve (DM decision 2026-08-02) ────────────────────────────────
 // "I'd rather have a small curve and keep global lighting in all scenes, I'll mark interior
 // regions myself." So: the clock drives scene darkness EVERYWHERE — not just on maps whose

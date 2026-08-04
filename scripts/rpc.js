@@ -18,7 +18,8 @@ export const remoteState = {
   assignedTargetUuids: [],
   savePrompt: null,
   rollRequest: null,
-  reactionPrompt: null
+  reactionPrompt: null,
+  storyPrompt: null
 };
 
 // Executor-side state: area spells the phone has asked the DM to place (AoE push,
@@ -99,6 +100,8 @@ export function initSocket() {
   socket.register("storyAdd", handleStoryAdd);
   socket.register("storyEdit", handleStoryEdit);
   socket.register("storyDelete", handleStoryDelete);
+  socket.register("storyPrompt", handleStoryPrompt);     // executor → phone: the pushed question
+  socket.register("storyAnswered", handleStoryAnswered); // phone → executor: quiet ✓ for the panel
   socket.register("portraitUpload", handlePortraitUpload);
   socket.register("wildShapeList", handleWildShapeList);
   socket.register("wildShapeInto", handleWildShapeInto);
@@ -2119,6 +2122,42 @@ async function handleStoryDelete({ actorId, entryId, requesterId } = {}) {
   } catch (err) { return { ok: false, reason: err?.message ?? "could not delete the entry" }; }
 }
 
+// --- Story question push (§38.4 slice 2) -------------------------------------
+// The DM's "buy a few seconds" tool: one tap on the panel sends a question to every connected
+// player phone (never the GM, never the display account). The phone shows a non-modal card;
+// the answer comes back through storyAdd with the question attached, plus an ack here so the
+// panel can show quiet per-player ✓s. One push at a time — a new push replaces the last.
+export let storyPushState = null; // executor-side: { id, q, ts, sent: [userId…], answered: {userId: actorName} }
+export function pushStoryQuestion(q) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const clean = String(q ?? "").trim();
+  if (!clean) return { ok: false, reason: "empty question" };
+  let displayUser = ""; try { displayUser = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
+  const targets = game.users.filter(u => u.active && !u.isGM && u.id !== displayUser);
+  const payload = { id: foundry.utils.randomID(), q: clean.slice(0, 300), ts: Date.now() };
+  storyPushState = { ...payload, sent: targets.map(u => u.id), answered: {} };
+  for (const u of targets) {
+    try { socket.executeAsUser("storyPrompt", u.id, payload); } catch (e) { console.warn(`${MODULE_ID} | storyPrompt push failed for ${u.name}`, e); }
+  }
+  Hooks.callAll("mobile-command.storyPush", storyPushState);
+  return { ok: true, sent: targets.length };
+}
+// Phone-side: a question arrived — park it in remoteState and let the shell paint the card.
+function handleStoryPrompt(payload) {
+  console.debug(`${MODULE_ID} | storyPrompt received`, payload);
+  remoteState.storyPrompt = payload ?? null;
+  Hooks.callAll("mobile-command.storyPrompt", payload ?? null);
+  return true;
+}
+// Executor-side: a phone answered (or explicitly parked) the current push — tick the panel.
+function handleStoryAnswered({ id, actorName, requesterId } = {}) {
+  if (!isExecutor()) return false;
+  if (!storyPushState || storyPushState.id !== id) return false;
+  storyPushState.answered[requesterId] = String(actorName ?? "?").slice(0, 60);
+  Hooks.callAll("mobile-command.storyAnswered", storyPushState);
+  return true;
+}
+
 // --- AI portrait upload (idea #2) --------------------------------------------
 // Players can't write files (FILES_UPLOAD is GM-only), so the phone sends the image data
 // here and the executor saves it to a NON-module dir at the data root (mc-portraits/,
@@ -3176,6 +3215,7 @@ function toExecutor(handler, payload) {
       listInteractables: handleListInteractables, operateInteractable: handleOperateInteractable,
       partyJournalEnsure: handlePartyJournalEnsure, partyJournalAdd: handlePartyJournalAdd, partyJournalEdit: handlePartyJournalEdit, partyJournalDelete: handlePartyJournalDelete, portraitUpload: handlePortraitUpload,
       storyAdd: handleStoryAdd, storyEdit: handleStoryEdit, storyDelete: handleStoryDelete,
+      storyAnswered: handleStoryAnswered,
       wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert,
       partyPack: handlePartyPack, partySetCell: handlePartySetCell,
       travelPrepare: handleTravelPrepare, travelDrop: handleTravelDrop,
@@ -3223,6 +3263,7 @@ export const api = {
   storyAdd: (payload = {}) => toExecutor("storyAdd", payload),
   storyEdit: (payload = {}) => toExecutor("storyEdit", payload),
   storyDelete: (payload = {}) => toExecutor("storyDelete", payload),
+  storyAnswered: (payload = {}) => toExecutor("storyAnswered", payload),
   wildShapeList: (payload = {}) => toExecutor("wildShapeList", payload),
   wildShapeInto: (payload = {}) => toExecutor("wildShapeInto", payload),
   wildShapeRevert: (payload = {}) => toExecutor("wildShapeRevert", payload),

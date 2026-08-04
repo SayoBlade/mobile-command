@@ -198,6 +198,12 @@ export function registerSettings() {
     scope: "world", config: false, type: String, default: ""
   });
 
+  // §38.4 slice 2: the DM's own story questions, appended after the preset deck in the panel's
+  // Story-questions drawer. Array of {cat, q}; edited from the drawer's inline "New question…".
+  game.settings.register(MODULE_ID, "storyQuestions", {
+    scope: "world", config: false, type: Array, default: []
+  });
+
   game.settings.register(MODULE_ID, "dmOmniscientVision", {
     name: "Keep the DM's vision omniscient (shared-screen tables)",
     hint: "When the DM selects/controls a player's token, don't shrink the DM's view to that token's point of view — the DM keeps seeing the whole map. Players and the TV/display are unaffected. On by default.",
