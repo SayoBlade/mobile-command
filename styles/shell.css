@@ -1935,6 +1935,12 @@ body {
 .mc-dmp-pcopt.mc-dmp-pcauto { color: var(--mc-muted); background: none; }
 .mc-dmp-pcopt.mc-dmp-pcauto i { width: 22px; text-align: center; }
 
+/* DM panel: the card table's header row — seated count left, the TV toggle right (§38.4a). */
+.mc-dmp-ct-head { display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin: 2px 0 8px; }
+.mc-dmp-ct-head .mc-dmp-story-status { margin: 0; flex: 1 1 auto; }
+.mc-dmp-ct-head button { flex: 0 0 auto; white-space: nowrap; }
+
 /* DM panel: the card-back gallery (§38.4a). Thumbnails are 5:7 like the cards themselves. */
 .mc-dmp-cardbacks { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px;
   max-height: 190px; overflow-y: auto; }
