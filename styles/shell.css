@@ -1905,6 +1905,13 @@ body {
   letter-spacing: .08em; text-transform: uppercase; }
 .mc-dmp-tv i { font-size: 16px; color: var(--mc-edge); }
 .mc-dmp-seat-tag { font-size: 10px; color: var(--mc-muted); }
+/* The reseat link on a seated player's row (§38.4b). Tertiary: no border, muted, one word. */
+.mc-dmp-seat-move { display: inline-flex; align-items: center; padding: 2px 5px; margin: 0;
+  background: none; border: 0; border-radius: calc(5px * var(--mc-round, 1));
+  min-height: 20px; line-height: 1.2; cursor: pointer;
+  font-size: 9px; letter-spacing: .05em; text-transform: uppercase; color: var(--mc-edge); }
+.mc-dmp-seat-move:hover { color: var(--mc-gold); background: var(--mc-sunken); }
+.mc-dmp-seat-move.mc-on { color: var(--mc-gold); background: var(--mc-sunken); }
 .mc-dmp-seat-live { color: #8fd6a8; font-size: 9px; vertical-align: 2px; }
 /* DM panel: who a player is playing tonight (§38.4b). Deliberately quiet — one PC is plain
    muted text, and only a player with several gets a tertiary control (no border, icon-led). */

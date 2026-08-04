@@ -3016,9 +3016,18 @@ function playersBody() {
       <button class="mc-dmp-pcopt mc-dmp-pcauto" data-pc-set="${u.id}|" title="Fall back to the character assigned in Foundry">
         <i class="fas fa-rotate-left"></i><span>Use their assigned character</span></button>
     </div>` : "";
+    // A seated player gets a plain "change" link (DM 2026-08-05: "add change link which lets me
+    // reseat" / "no need for the description"). The ✋ button did this already, but nothing said
+    // so. The seat NAME is deliberately not printed here — the map above already shows where
+    // everyone sits, so repeating it on the row is noise. It stays in the tooltip.
+    const seatLabel = s ? esc(TABLE_SEATS.find(x => x.id === s)?.label ?? s) : "";
+    const seatBit = s
+      ? ` <button class="mc-dmp-seat-move ${on ? "mc-on" : ""}" data-seat-pick="${u.id}"
+            title="${on ? "Cancel — tap a seat to place them" : `Seated at ${seatLabel} — tap to move them`}">${on ? "pick a seat" : "change"}</button>`
+      : "";
     return `<div class="mc-dmp-story-row">
       <i class="fas fa-circle-user" style="color:${u.color?.css ?? "var(--mc-muted)"}"></i>
-      <span class="mc-dmp-story-q">${esc(u.name)}${s ? ` <span class="mc-dmp-seat-tag">${esc(TABLE_SEATS.find(x => x.id === s)?.label ?? s)}</span>` : ""}
+      <span class="mc-dmp-story-q">${esc(u.name)}${seatBit}
         ${u.active ? `<span class="mc-dmp-seat-live" title="connected">●</span>` : ""}
         ${who}</span>
       <button class="mc-dmp-pf-fix ${on ? "mc-on" : ""}" data-seat-pick="${u.id}" title="${on ? "Cancel" : "Pick up, then tap a seat"}"><i class="fas fa-hand-pointer"></i></button>
@@ -3026,7 +3035,7 @@ function playersBody() {
   }).join("") : `<div class="mc-dmp-empty">No player accounts yet — make one below.</div>`;
   const hint = seatPick
     ? `<div class="mc-dmp-story-status">Tap a seat for <b>${esc(game.users.get(seatPick)?.name ?? "…")}</b> — a taken seat swaps the two.</div>`
-    : `<div class="mc-dmp-story-status">Tap ✋ beside a player, then tap a seat — that moves them too, and swaps if it's taken. Tap a filled seat on its own to empty it.</div>`;
+    : `<div class="mc-dmp-story-status">Tap <b>change</b> (or ✋), then a seat. A taken seat swaps the two.</div>`;
   return `${map}${hint}${roster}
     <div class="mc-dmp-story-new">
       <input class="mc-dmp-story-input mc-dmp-newplayer" type="text" placeholder="New player's name…">
