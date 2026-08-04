@@ -3227,13 +3227,23 @@ creation itself ("player picks background → system asks how they ended up with
 how did you become so dexterous?"), the whole thing needs a TV visual, players may answer aloud
 or privately, and the DM would PREFER one journal with a chapter per PC.
 
-**Story beats ride the existing char-gen checklist** (shell #charGenHTML: bio box · Abilities ·
-Species · Background+gear · Class+gear · Spells · Finish — any order). A beat fires ONCE, right
-after its step first completes, as a card between picker-close and checklist-return: the choice
-echoed ("Background chosen: Soldier ✓"), ONE templated question, inline answer, [Skip] / [Save
-to my story]. Hint copy: "Say it out loud, write it down, or both" — private-vs-table is social,
-not a mode. Skipped beats park as unanswered prompts in My Story. Beat map (templates in
-preset.js, DM-editable later):
+**TWO flows from the same start screen (DM 2026-08-04, mid-spec):**
+- **Quick build** — the existing checklist workspace, UNTOUCHED: Foundry-default-5e feel, any
+  order, no story beats. For replacement PCs mid-campaign, table guests, and players who just
+  want a sheet.
+- **Story wizard** — a NEW linear guided flow for session zero: fixed step order, the SAME
+  pickers the checklist already uses (charGenPickerHTML / abilityPanel / spellPicker /
+  equipPicker — reused, not rebuilt) wrapped in a wizard frame with progress pips, and a story
+  beat after each mechanical step. Wizard order: Welcome → Species → Background → Class →
+  Abilities → Spells (casters only) → Equipment → Name/portrait/bio → the two closers → Review
+  & Finish. The DM's "Session zero" push opens phones straight into the wizard; self-serve
+  start screen offers both doors ("Quick build" / "Build with your story").
+
+A beat fires ONCE, right after its step completes, as a card before the wizard advances: the
+choice echoed ("Background chosen: Soldier ✓"), ONE templated question, inline answer, [Skip] /
+[Save to my story]. Hint copy: "Say it out loud, write it down, or both" — private-vs-table is
+social, not a mode. Skipped beats park as unanswered prompts in My Story. Beat map (templates
+in preset.js, DM-editable later):
 - **Abilities** → keyed to the HIGHEST score: STR "Where did that strength come from?" · DEX
   "How did you get so quick?" · CON "What made you so hard to kill?" · INT "Where did you learn
   so much?" · WIS "What taught you to notice what others miss?" · CHA "Why do people listen to
