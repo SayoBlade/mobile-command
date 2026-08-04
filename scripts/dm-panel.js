@@ -1,6 +1,6 @@
 import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState } from "./rpc.js";
 import { fireAoO } from "./aoo.js";
-import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD, STORY_QUESTIONS } from "./preset.js";
+import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD, STORY_QUESTIONS, TABLE_SEATS } from "./preset.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
 import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar, sunTimes } from "./gametime.js";
@@ -318,7 +318,7 @@ function partyTabFull() {
   // the FOOT like the Combat send button (DM 2026-07-25). The Story-questions drawer (§38.4)
   // renders regardless of packing — questions don't need a group.
   return `<div class="mc-dmp-tabfill">
-    <div class="mc-dmp-tabmid">${dtDrawer("storyQs", "Story questions", "", storyQsBody(), true)}${ownedTokensHTML()}${marching}</div>
+    <div class="mc-dmp-tabmid">${dtDrawer("players", "Players & seats", "", playersBody(), true)}${dtDrawer("storyQs", "Story questions", "", storyQsBody(), true)}${ownedTokensHTML()}${marching}</div>
     <div class="mc-dmp-tabfoot">${partyMainHTML()}</div>
   </div>`;
 }
@@ -2920,6 +2920,67 @@ function registerNightEncounterOffer() {
 
 // The "Party order" dock tab body — the grid + rotate + lock-in/rearrange +
 // release/combine (no Form up / Disperse — those stay in the main area).
+// --- §38.4b Players & seats: the table map -----------------------------------------------
+// Players come BEFORE characters (DM 2026-08-04): the DM creates the accounts, seats them
+// around the flat TV, and everything downstream — session zero, the card table, per-seat HUDs —
+// reads this map. Seats key to USER ids so a seat survives any character change. The panel runs
+// on the GM client, so user creation and the setting write happen here directly (no RPC).
+let seatPick = null; // userId the DM picked up, waiting for a seat tap (or "" = clearing)
+function tableSeats() {
+  try { return foundry.utils.deepClone(game.settings.get(MODULE_ID, "tableSeats") ?? {}); } catch (e) { return {}; }
+}
+function playerUsers() {
+  let display = ""; try { display = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
+  return game.users.filter(u => !u.isGM && u.id !== display);
+}
+async function setSeat(seatId, userId) {
+  const seats = tableSeats();
+  for (const [s, u] of Object.entries(seats)) if (u === userId) delete seats[s]; // one seat per player
+  if (userId) seats[seatId] = userId; else delete seats[seatId];
+  await game.settings.set(MODULE_ID, "tableSeats", seats);
+}
+function playersBody() {
+  const esc = foundry.utils.escapeHTML;
+  const seats = tableSeats();
+  const seatOf = uid => Object.entries(seats).find(([, u]) => u === uid)?.[0] ?? null;
+  const users = playerUsers();
+  const slot = (id) => {
+    const def = TABLE_SEATS.find(s => s.id === id);
+    const u = game.users.get(seats[id]);
+    const picked = seatPick != null;
+    return `<button class="mc-dmp-seat ${u ? "mc-full" : ""} ${picked ? "mc-dmp-seat-open" : ""}"
+      data-seat="${id}" title="${esc(u ? `${u.name} — tap to clear` : `${def.label} — ${picked ? "tap to seat" : "empty"}`)}"
+      ${u ? `style="border-color:${u.color?.css ?? "var(--mc-gold)"}"` : ""}>
+      ${u ? `<i class="fas fa-circle-user" style="color:${u.color?.css ?? "var(--mc-gold)"}"></i><span>${esc(u.name)}</span>`
+          : `<span class="mc-dmp-seat-empty">${esc(def.label)}</span>`}
+    </button>`;
+  };
+  // The TV lies flat: two seats along the top, one at each end, two along the bottom.
+  const map = `<div class="mc-dmp-tablemap">
+    <div class="mc-dmp-seatrow">${slot("n1")}${slot("n2")}</div>
+    <div class="mc-dmp-seatmid">${slot("w")}<div class="mc-dmp-tv"><i class="fas fa-tv"></i><span>TV</span></div>${slot("e")}</div>
+    <div class="mc-dmp-seatrow">${slot("s1")}${slot("s2")}</div>
+  </div>`;
+  const roster = users.length ? users.map(u => {
+    const s = seatOf(u.id);
+    const on = seatPick === u.id;
+    return `<div class="mc-dmp-story-row">
+      <i class="fas fa-circle-user" style="color:${u.color?.css ?? "var(--mc-muted)"}"></i>
+      <span class="mc-dmp-story-q">${esc(u.name)}${s ? ` <span class="mc-dmp-seat-tag">${esc(TABLE_SEATS.find(x => x.id === s)?.label ?? s)}</span>` : ""}
+        ${u.active ? `<span class="mc-dmp-seat-live" title="connected">●</span>` : ""}</span>
+      <button class="mc-dmp-pf-fix ${on ? "mc-on" : ""}" data-seat-pick="${u.id}" title="${on ? "Cancel" : "Pick up, then tap a seat"}"><i class="fas fa-hand-pointer"></i></button>
+    </div>`;
+  }).join("") : `<div class="mc-dmp-empty">No player accounts yet — make one below.</div>`;
+  const hint = seatPick
+    ? `<div class="mc-dmp-story-status">Tap a seat for <b>${esc(game.users.get(seatPick)?.name ?? "…")}</b>, or tap an occupied seat to clear it.</div>`
+    : `<div class="mc-dmp-story-status">Tap ✋ beside a player, then tap their seat. Tap a filled seat to empty it.</div>`;
+  return `${map}${hint}${roster}
+    <div class="mc-dmp-story-new">
+      <input class="mc-dmp-story-input mc-dmp-newplayer" type="text" placeholder="New player's name…">
+      <button class="mc-dmp-pf-fix" data-player-add>Add player</button>
+    </div>`;
+}
+
 // §38.4 slice 2: the DM's story-question deck. One tap pushes a question to every connected
 // phone (the "buy a few seconds" tool); quiet per-player ✓s show for the last push. Custom
 // questions append to the preset deck via the world setting.
@@ -3916,6 +3977,35 @@ async function onClick(ev) {
   }
   const gs = ev.target.closest("[data-group-sheet]");
   if (gs) { game.actors.get(gs.dataset.groupSheet)?.sheet?.render(true); return; }
+  // §38.4b Players & seats: pick a player up, drop them in a seat, clear a seat, add an account.
+  const spick = ev.target.closest("[data-seat-pick]");
+  if (spick) { const id = spick.dataset.seatPick; seatPick = (seatPick === id) ? null : id; return render(); }
+  const seatBtn = ev.target.closest("[data-seat]");
+  if (seatBtn) {
+    const id = seatBtn.dataset.seat;
+    if (seatPick) { await setSeat(id, seatPick); seatPick = null; }
+    else await setSeat(id, null); // tapping a filled seat with nobody in hand empties it
+    return render();
+  }
+  if (ev.target.closest("[data-player-add]")) {
+    const inp = ev.target.closest(".mc-dmp-story-new")?.querySelector(".mc-dmp-newplayer");
+    const name = String(inp?.value ?? "").trim();
+    if (!name) return;
+    if (game.users.some(u => u.name === name)) { ui.notifications.warn(`There's already a user called "${name}".`); return; }
+    try {
+      // Colour: the first palette entry no player is using yet, so seats read distinctly.
+      const palette = ["#c8a44d", "#7fb069", "#8ab8d8", "#c98a8a", "#b08ac9", "#d8a86a"];
+      const taken = new Set(game.users.map(u => u.color?.css?.toLowerCase()));
+      const color = palette.find(c => !taken.has(c)) ?? palette[0];
+      await User.create({ name, role: CONST.USER_ROLES.PLAYER, color });
+      if (inp) inp.value = "";
+    } catch (e) {
+      console.error(`${MODULE_ID} | could not create the player account`, e);
+      ui.notifications.warn(`Couldn't create that player: ${e.message}`);
+    }
+    return render();
+  }
+
   // §38.4 story-question drawer: push / push-random / add custom / remove custom.
   const spush = ev.target.closest("[data-story-push]");
   if (spush) {

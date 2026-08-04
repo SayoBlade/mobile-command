@@ -1831,6 +1831,28 @@ body {
 .mc-st-answering { display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
   font-size: 12px; font-weight: 600; color: var(--mc-gold); }
 .mc-st-answering i:first-child { flex: 0 0 auto; }
+/* DM panel: the table map (§38.4b). The TV lies FLAT — two seats along each long side, one at
+   each short end — so the map is drawn as the room sees it, from above. */
+.mc-dmp-tablemap { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 10px; }
+.mc-dmp-seatrow { display: flex; gap: 6px; }
+.mc-dmp-seatmid { display: flex; gap: 6px; align-items: stretch; }
+.mc-dmp-seat { flex: 1 1 0; min-width: 0; min-height: 44px; display: flex; align-items: center;
+  justify-content: center; gap: 6px; padding: 6px 8px;
+  background: var(--mc-panel); border: 1px dashed var(--mc-edge);
+  border-radius: calc(9px * var(--mc-round, 1)); color: var(--mc-ink); font-size: 12px; }
+.mc-dmp-seat.mc-full { border-style: solid; background: var(--mc-panel-2); }
+.mc-dmp-seat.mc-dmp-seat-open { border-color: var(--mc-gold); }
+.mc-dmp-seat span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-dmp-seat-empty { color: var(--mc-muted); }
+.mc-dmp-seatmid .mc-dmp-seat { flex: 0 0 86px; }
+.mc-dmp-tv { flex: 1 1 auto; min-height: 66px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px;
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge);
+  border-radius: calc(9px * var(--mc-round, 1)); color: var(--mc-muted); font-size: 11px;
+  letter-spacing: .08em; text-transform: uppercase; }
+.mc-dmp-tv i { font-size: 16px; color: var(--mc-edge); }
+.mc-dmp-seat-tag { font-size: 10px; color: var(--mc-muted); }
+.mc-dmp-seat-live { color: #8fd6a8; font-size: 9px; vertical-align: 2px; }
 /* DM panel: the Story-questions drawer. */
 .mc-dmp-story-random { width: 100%; margin-bottom: 8px; }
 .mc-dmp-story-status { font-size: 12px; color: var(--mc-muted); margin: 2px 0 8px; }

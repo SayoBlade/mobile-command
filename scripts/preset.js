@@ -152,6 +152,19 @@ export const STORY_QUESTIONS = [
   { cat: "The world", q: "What's something ordinary here that would amaze the folk back home?" }
 ];
 
+// ── The table map (§38.4b) ──────────────────────────────────────────────────
+// Six seats around a TV lying FLAT on the table: one at each short end, two along each long
+// side. `rot` is how far to rotate that seat's cards/HUD so they read upright to the person
+// sitting there — the séance board's word rotation should eventually read this too.
+export const TABLE_SEATS = [
+  { id: "n1", side: "long", label: "Top left", rot: 180 },
+  { id: "n2", side: "long", label: "Top right", rot: 180 },
+  { id: "w", side: "short", label: "Left end", rot: 90 },
+  { id: "e", side: "short", label: "Right end", rot: 270 },
+  { id: "s1", side: "long", label: "Bottom left", rot: 0 },
+  { id: "s2", side: "long", label: "Bottom right", rot: 0 }
+];
+
 // ── Creation beats (§38.4a — the Story wizard's questions) ──────────────────
 // One question per wizard step, templated on the actual pick («name» = the chosen item).
 // The abilities beat keys off the HIGHEST score. Closers run at the "Your story" step.

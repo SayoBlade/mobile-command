@@ -3326,6 +3326,15 @@ journal-per-PC layout stays as the documented fallback if per-page rendering fig
   users, [New player] (name + colour → executor creates the User document; GMs can manage
   users in-session), tap a seat slot to place them, drag/move/remove ANY time — the map is a
   living, session-long thing, not a session-zero artifact.
+**BUILT + bench-verified 8/8 (2026-08-04):** `TABLE_SEATS` (preset.js — six seats with per-seat
+`rot` for the flat TV), `tableSeats` world setting, and a **Players & seats** drawer at the top
+of the panel's Party tab (starts closed): the map drawn as the room sees it (two seats along each
+long side, one at each end, TV in the middle), a roster with connected dots, ✋ pick-up → tap a
+seat to place, tap a filled seat to empty, and [Add player] creating a real User (role PLAYER,
+auto-assigned distinct colour from a six-colour palette). Seating is one-seat-per-player by
+construction — re-seating MOVES rather than duplicating. The display/TV account is excluded from
+the roster, so it can never be seated. Bench residue: a test user "Yaniv" in the bench COPY only.
+
 - **Future (DM "thought for later", record only): per-seat HUD.** A small strip on the TV at
   each seat, ROTATED to face that player (same rotation as their card hand): HP, conditions,
   "anything else we decide". The table map is the anchor; cheap DOM; performance-check before

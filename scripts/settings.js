@@ -204,6 +204,14 @@ export function registerSettings() {
     scope: "world", config: false, type: Array, default: []
   });
 
+  // §38.4b THE TABLE MAP: which player sits where around the flat TV. Keyed to USER ids, not
+  // actors — players are seated before any PC exists, and the seat outlives a character.
+  // {seatId → userId}; seat ids are the fixed six: w · e (short sides) · n1 n2 · s1 s2 (long).
+  // The card table, per-seat rotation and (future) per-seat HUDs all read this one object.
+  game.settings.register(MODULE_ID, "tableSeats", {
+    scope: "world", config: false, type: Object, default: {}
+  });
+
   game.settings.register(MODULE_ID, "dmOmniscientVision", {
     name: "Keep the DM's vision omniscient (shared-screen tables)",
     hint: "When the DM selects/controls a player's token, don't shrink the DM's view to that token's point of view — the DM keeps seeing the whole map. Players and the TV/display are unaffected. On by default.",
