@@ -3255,14 +3255,30 @@ in preset.js, DM-editable later):
 - **Finish** → a two-card closer before confirm: "What do you want most, long-term?" · "Who's
   waiting for you back home?" Then Finish proceeds as today.
 
-**TV creation board** (fxActive-style overlay on the display client, like the séance board):
-one card per building PC — name, portrait when set, picks appearing as they land (species ·
-background · class), top-three abilities once assigned, step pips, and a status line ("choosing
-spells…" / "✍ writing: how did you become a soldier?"). **Questions show on the TV; answers
-NEVER do** — the question fuels table talk, the answer stays in the journal. Data: mechanical
-picks render straight off the actors (create/update hooks — the picks are real embedded items);
-beat status via a lightweight socket ping. Panel: [Creation board on TV] toggle in the Story
-drawer.
+**TV = the CARD TABLE (DM 2026-08-04, supersedes the plain board).** The display becomes a card
+table; each player is dealt a face-down hand at THEIR seat, and every creation choice flips one
+card face-up: the chosen item's artwork with its name under it in the display face (UI-BIBLE
+§11.3 title font). "Choosing Elf flips the first card — elf item image, 'Elf' under it."
+- **The hand: 6 cards — 5 for non-casters.** Species · Background · Class · Abilities · Spells
+  (casters only) · Equipment. Species/background/class faces are the real `item.img` of the pick.
+  Abilities has no item — face = its top scores rendered large (art TBD with the DM). Spells =
+  the first chosen cantrip/spell's art. Equipment = the signature item (ties to the "never
+  sell" beat's answer if given, else the granted pack's icon).
+- **Seats are a first-class module concept: the TABLE MAP.** Six seat slots around the TV
+  rectangle — 1 per short side, up to 2 per long side (1–6 players). The DM assigns seats
+  **each session** from a panel drawer (tap a slot → pick a player; world setting `tableSeats`
+  {seatId→userId}, persisted until changed). Each hand renders AT its seat, ROTATED to face
+  that player — same trick as the séance word rotation (§30 v3), which should eventually READ
+  this map instead of assuming corners. Explicitly built to be reused: DM "maybe we'll do more
+  with it" — obvious future consumers: the Fated Tarot draw (§32) deals from the same table,
+  séance orientation, per-seat prompts.
+- **Deal + flip are the ceremony**: session-zero start deals the backs from table center (card
+  backs themed; Crooked Moon ships a cards pack worth mining for frame art); each completed
+  step flips that seat's card with a brief animation. Status line per seat stays ("✍ writing:
+  how did you become a soldier?") — **questions show on the TV; answers NEVER do.**
+- Data path unchanged: picks render off the actors (they're real embedded items); flips + beat
+  status via socket ping; the overlay is an fxActive-style mount on the display client (séance
+  pattern), panel toggle in the Story drawer.
 
 **Journal construction v2 — ONE journal, chapter per PC** (DM preference): a single
 JournalEntry "Player Stories" (flag `storyJournal`), ownership `default: NONE` — the DM reads
