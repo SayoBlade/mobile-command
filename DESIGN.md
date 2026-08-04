@@ -3284,7 +3284,19 @@ card face-up: the chosen item's artwork with its name under it in the display fa
   séance orientation, per-seat prompts.
 - **Deal + flip are the ceremony**: session-zero start deals the backs from table center (card
   backs themed; Crooked Moon ships a cards pack worth mining for frame art); each completed
-  step flips that seat's card with a brief animation. Status line per seat stays ("✍ writing:
+  step flips that seat's card with a brief animation.
+- **Card-back PICKER (DM 2026-08-04): an interface, not a hardcoded path.** A "Card back" row
+  in the card-table drawer opens a thumbnail gallery + custom upload:
+  - **Gallery** scans known sources: the CM card sets (`assets/card/*/`, files matching
+    /back/i — items ×47, monsters ×80, NPCs ×80, familiars ×13), the module's own `art/`
+    (`card-back*`), and previously uploaded customs. Tap a thumbnail → world setting
+    `cardBackImage`. Render thumbnails small and lazily — some sets are 80 files.
+  - **Custom upload** for bespoke looks: the DM is the GM client, so FilePicker.upload
+    directly into a data-root `mc-cards/` folder (same Sqyre-safe pattern as mc-portraits).
+    **Published spec in the UI: 5:7 portrait, 500×700 px or larger** (cards render 5:7);
+    accept any image but warn when the aspect deviates noticeably from 5:7 rather than
+    refuse — warnings, not walls. Foundry's upload whitelist covers webp/png/jpg.
+  - v1 is ONE back for the whole table; per-seat/per-player backs noted as future polish. Status line per seat stays ("✍ writing:
   how did you become a soldier?") — **questions show on the TV; answers NEVER do.**
 - Data path unchanged: picks render off the actors (they're real embedded items); flips + beat
   status via socket ping; the overlay is an fxActive-style mount on the display client (séance
