@@ -15,6 +15,12 @@ import { isPhoneClient, isDisplayClient } from "./shell.js";
 
 // Our own art is the default now (DM's set, 2026-08-04): the crescent-moon back and the wide
 // rune table. The picker can still choose any of the Crooked Moon backs, or a custom upload.
+//
+// These MUST be absolute (getRoute prepends "/" and any route prefix). A relative path inside a
+// CSS custom property resolves against the STYLESHEET that consumes the var, not the page — so
+// `modules/…/card-table-wide.jpg` in --mc-ct-table became
+// `modules/mobile-command/styles/modules/mobile-command/art/…` → 404 (live 2026-08-05).
+const asset = (p) => { try { return foundry.utils.getRoute(p); } catch (e) { return `/${p.replace(/^\//, "")}`; } };
 const DEFAULT_BACK = "modules/mobile-command/art/card-back.png";
 const TABLE_ART = "modules/mobile-command/art/card-table-wide.jpg";
 
@@ -41,7 +47,9 @@ function seatMap() {
   try { return game.settings.get(MODULE_ID, "tableSeats") ?? {}; } catch (e) { return {}; }
 }
 function cardBack() {
-  try { return game.settings.get(MODULE_ID, "cardBackImage") || DEFAULT_BACK; } catch (e) { return DEFAULT_BACK; }
+  let p = DEFAULT_BACK;
+  try { p = game.settings.get(MODULE_ID, "cardBackImage") || DEFAULT_BACK; } catch (e) { /* default */ }
+  return asset(p); // absolute — see the note on `asset` above
 }
 // The PC a seated player is building: their assigned character, else any character they own
 // that's mid-creation. Seats exist before characters do, so "none yet" is normal.
@@ -132,7 +140,7 @@ function boardHTML() {
     w: TABLE_SEATS.find(s => s.id === "w"),
     e: TABLE_SEATS.find(s => s.id === "e")
   };
-  return `<div class="mc-ct-felt" style="--mc-ct-table:url('${TABLE_ART}')">
+  return `<div class="mc-ct-felt" style="--mc-ct-table:url('${asset(TABLE_ART)}')">
     <div class="mc-ct-row mc-ct-row-n">${rows.n.map(seatHTML).join("")}</div>
     <div class="mc-ct-mid">
       ${seatHTML(rows.w)}

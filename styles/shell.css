@@ -1852,12 +1852,14 @@ body {
 .mc-ct-empty { min-width: 40px; }
 .mc-ct-plate { display: flex; align-items: baseline; gap: 8px;
   font-family: var(--mc-font-title), serif; text-transform: var(--mc-title-case, none);
-  letter-spacing: var(--mc-title-track, 0); font-size: 17px; color: var(--mc-ink); }
+  letter-spacing: var(--mc-title-track, 0); font-size: clamp(15px, 1.3vw, 30px); color: var(--mc-ink); }
 .mc-ct-who { border-bottom: 2px solid var(--mc-seat, var(--mc-gold)); padding-bottom: 2px; }
 .mc-ct-player { font-family: inherit; font-size: 12px; color: var(--mc-muted); }
 .mc-ct-hand { display: flex; gap: 8px; }
-/* A card is a 5:7 flipper — back until its choice lands, then the item's own artwork. */
-.mc-ct-card { width: 86px; height: 120px; perspective: 700px; }
+/* A card is a 5:7 flipper — back until its choice lands, then the item's own artwork.
+   Sized against the VIEWPORT, not in fixed pixels: this is read from across the room on a TV,
+   so it grows with the screen (a 4K display gets big cards, a laptop bench gets sane ones). */
+.mc-ct-card { width: clamp(84px, 6.4vw, 190px); aspect-ratio: 5 / 7; perspective: 900px; }
 .mc-ct-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d;
   transition: transform .55s cubic-bezier(.2,.7,.3,1); border-radius: calc(8px * var(--mc-round, 1)); }
 .mc-ct-flipped .mc-ct-inner { transform: rotateY(180deg); }
@@ -1875,10 +1877,10 @@ body {
   background-image: url("../art/card-face-blank.png");
   background-size: cover; background-position: center; text-shadow: 0 1px 0 rgba(255,255,255,.25); }
 .mc-ct-name { position: relative; width: 100%; padding: 4px 5px; text-align: center;
-  font-family: var(--mc-font-title), serif; font-size: 12px; line-height: 1.15; color: var(--mc-ink);
-  background: linear-gradient(transparent, rgba(0,0,0,.85) 40%); }
+  font-family: var(--mc-font-title), serif; font-size: clamp(11px, .85vw, 20px); line-height: 1.15;
+  color: var(--mc-ink); background: linear-gradient(transparent, rgba(0,0,0,.85) 40%); }
 .mc-ct-card.mc-ct-active .mc-ct-inner { box-shadow: 0 0 0 2px var(--mc-gold), 0 0 18px rgba(200,164,77,.5); }
-.mc-ct-writing { max-width: 460px; text-align: center; font-size: 15px; color: var(--mc-gold); }
+.mc-ct-writing { max-width: 34vw; text-align: center; font-size: clamp(14px, 1.15vw, 26px); color: var(--mc-gold); }
 .mc-ct-writing i { margin-right: 6px; }
 @media (prefers-reduced-motion: reduce) { .mc-ct-inner { transition: none; } }
 
