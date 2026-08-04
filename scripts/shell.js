@@ -835,7 +835,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (si) steps.push({ id: "spells", label: "Spells", done: si.haveCantrips >= si.knownCantrips && si.haveSpells >= si.knownSpells });
     steps.push({ id: "gear", label: "Gear", done: !!actor.getFlag(MODULE_ID, "wizGearDone") });
     steps.push({ id: "story", label: "Your story", done: !!beats.closer2 });
-    steps.push({ id: "review", label: "Review", done: false });
+    // The NAME comes LAST (DM 2026-08-04) — you name them once you know who they are. It's the
+    // closing beat of the wizard, not a form field you fill in before anything exists.
+    steps.push({ id: "name", label: "Name", done: false });
     return steps;
   }
   // The beat owed by the current state, or null. Fires once per step (charGenBeats flag).
@@ -921,10 +923,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         + `<button class="mc-jn-post mc-wiz-continue" data-action="wiz-continue">Gear's sorted — continue</button>`;
     } else if (step.id === "story") {
       body = `<div class="mc-cg-blurb">Two last questions and you're done.</div>`;
-    } else { // review
-      const rows = steps.filter(s => s.id !== "review").map(s =>
+    } else { // name — the closing beat: everything they are, then what they're called
+      const rows = steps.filter(s => s.id !== "name").map(s =>
         `<div class="mc-wiz-review-row">${s.done ? `<i class="fas fa-check mc-cg-check"></i>` : `<i class="fas fa-circle"></i>`} ${esc(s.label)}</div>`).join("");
-      body = `${this.#charGenBioHTML(actor)}<div class="mc-wiz-review">${rows}</div>
+      body = `<div class="mc-cg-blurb">You know who they are now. What are they called?</div>
+        ${this.#charGenBioHTML(actor)}<div class="mc-wiz-review">${rows}</div>
         <button class="mc-cg-finish" data-action="char-gen-finish"><i class="fas fa-check-double"></i> Finish</button>`;
     }
     const nav = `<div class="mc-wiz-nav">
