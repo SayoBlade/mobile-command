@@ -2654,6 +2654,36 @@ Verified: default/ALWAYS/HOVER → "Bandit"; NONE/CONTROL → "Unknown 1 (anon)"
 and all image URLs resolve 200. `loading="lazy"` was dropped — target lists are short and lazy
 images can sit blank.
 
+### 28.12 Remote access: the DuckDNS login hang is NOT the server (measured 2026-08-05)
+
+DM: *"Duckdns link connects to foundry (slower) but doesn't let me log in to a user (it just gets
+stuck) and I'm in the same network."* Four legs measured from the server host, LAN
+(`192.168.1.143:30000`) vs remote (`twistoffate.duckdns.org:47530` → 176.231.186.13):
+
+| leg | LAN | DuckDNS | reading |
+|---|---|---|---|
+| join page `GET /join` | 200, 2607 B | 200, **2607 B** | byte-identical |
+| login `POST /join` (invalid user) | 401 in 74 ms | 401 in 196 ms | the login path itself works |
+| websocket upgrade `/socket.io/…transport=websocket` | 101 in 22 ms | **101 in 7 ms** | no upgrade problem |
+| 3.2 MB asset | 3.13 MB/s | **3.13 MB/s** | no bandwidth penalty |
+
+So every hypothesis that blames Foundry or the forward is dead: the port forward carries HTTP,
+the login POST, and the websocket upgrade equally well. `options.json` is clean for this
+(`port: 30000`, `proxyPort: null`, `routePrefix: null`) and the served HTML contains **no absolute
+URLs and no literal `:30000`** — the client builds everything from `window.location`, so the
+30000↔47530 port mismatch is not the cause either.
+
+What that leaves is the **client device's** path: these measurements all hairpin from the server
+host itself, which routers often short-circuit, while the DM's phone/laptop needs real NAT
+loopback through the Vantiva FGA232APTN. **Workaround (immediate): on the home network use
+`http://192.168.1.143:30000`** — no hairpin at all. To make one URL work everywhere, the fix is
+split-horizon DNS (resolve `twistoffate.duckdns.org` to the LAN IP inside the house), not a
+Foundry setting.
+
+**Still owed** (needs the DM's device, can't be done from the server): the browser console +
+network tab at the moment it hangs. That distinguishes "stalled request" from "loaded but
+socket never authed", which is the only fork left.
+
 ### 28.5 Ecosystem watch — the premades modules (checked 2026-07-26)
 
 - **gambits-premades**: last release 2.1.43 (May 27); author (April, 2.1.42): "as-is release for
@@ -3353,6 +3383,31 @@ seat to place, tap a filled seat to empty, and [Add player] creating a real User
 auto-assigned distinct colour from a six-colour palette). Seating is one-seat-per-player by
 construction — re-seating MOVES rather than duplicating. The display/TV account is excluded from
 the roster, so it can never be seated. Bench residue: a test user "Yaniv" in the bench COPY only.
+
+**Moving players + the active PC (DM 2026-08-05).** Two follow-ups from the DM's first pass over
+the drawer — *"how do i move the players after seating them?"* and *"some players (rarely) have
+more than one pc — give me some sort of 'settings' that's not too obvious a 'tertiary type
+button' to choose the active pc"*:
+
+- **Moving was already the seating gesture** (✋ → tap a seat; `setSeat` drops the old seat first),
+  but dropping onto an OCCUPIED seat used to evict the sitter to nowhere. It now **swaps**: the
+  sitter takes the mover's old seat. Rearranging a full six-seat table is the common case, and a
+  silent eviction costs a seat the DM has to spot and redo. Tapping a filled seat with nothing in
+  hand still empties it. Tooltips and the hint line say which of the three is about to happen.
+- **`seatActors` world setting {userId → actorId}** — which of a player's characters is at the
+  table tonight. Resolution order in `card-table.js actorForUser()`: explicit pick (only if it
+  still resolves to a character that user OWNS) → `user.character` → any owned character flagged
+  mid-creation. A stale pick **falls through** rather than blanking the seat; the pick is a
+  preference, never a requirement, and nothing in Foundry is reassigned.
+- **The control is deliberately near-invisible.** On a roster row: one owned PC (the normal case)
+  is plain muted text under the player's name; **only a player who owns more than one gets a
+  control**, and it's tertiary per UI-BIBLE §127 — no border, icon-led, muted until hover. It
+  expands an inline list of their PCs plus "Use their assigned character" (clears the override).
+  A DM whose players each have one PC never sees a button at all.
+- `card-table.js` watches `seatActors` alongside `tableSeats`/`cardBackImage`, on **both**
+  `createSetting` and `updateSetting` (the first-write trap, §38.4a).
+- **Not visually bench-verified**: the Browser pane timed out twice at 300 s on the static
+  harness, so the new roster CSS has passed the syntax gate but not an eyeball.
 
 - **Future (DM "thought for later", record only): per-seat HUD.** A small strip on the TV at
   each seat, ROTATED to face that player (same rotation as their card hand): HP, conditions,

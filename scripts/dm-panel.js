@@ -2926,6 +2926,7 @@ function registerNightEncounterOffer() {
 // reads this map. Seats key to USER ids so a seat survives any character change. The panel runs
 // on the GM client, so user creation and the setting write happen here directly (no RPC).
 let seatPick = null; // userId the DM picked up, waiting for a seat tap (or "" = clearing)
+let pcPick = null;   // userId whose character list is expanded (only multi-PC players have one)
 function tableSeats() {
   try { return foundry.utils.deepClone(game.settings.get(MODULE_ID, "tableSeats") ?? {}); } catch (e) { return {}; }
 }
@@ -2933,11 +2934,43 @@ function playerUsers() {
   let display = ""; try { display = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
   return game.users.filter(u => !u.isGM && u.id !== display);
 }
+// Seating and re-seating are the same gesture: pick a player up, tap where they should go.
+// Dropping someone onto an OCCUPIED seat swaps the two (the sitter takes the mover's old seat)
+// rather than evicting them — rearranging a full table is the common case, and a silent eviction
+// loses a seat the DM has to notice and redo.
 async function setSeat(seatId, userId) {
   const seats = tableSeats();
-  for (const [s, u] of Object.entries(seats)) if (u === userId) delete seats[s]; // one seat per player
-  if (userId) seats[seatId] = userId; else delete seats[seatId];
+  const from = Object.entries(seats).find(([, u]) => u === userId)?.[0] ?? null;
+  const sitting = seats[seatId] ?? null;
+  if (!userId) { delete seats[seatId]; }
+  else if (sitting && sitting !== userId && from) { seats[from] = sitting; seats[seatId] = userId; }
+  else {
+    if (from) delete seats[from]; // one seat per player
+    seats[seatId] = userId;
+  }
   await game.settings.set(MODULE_ID, "tableSeats", seats);
+}
+
+// §38.4b the active PC. Empty for nearly everyone — see the `seatActors` note in settings.js.
+function seatActors() {
+  try { return foundry.utils.deepClone(game.settings.get(MODULE_ID, "seatActors") ?? {}); } catch (e) { return {}; }
+}
+function ownedPCs(user) {
+  return game.actors.filter(a => a.type === "character" && a.testUserPermission(user, "OWNER"))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+function activePC(user) {
+  const picked = seatActors()[user.id];
+  if (picked) {
+    const a = game.actors.get(picked);
+    if (a?.type === "character" && a.testUserPermission(user, "OWNER")) return a;
+  }
+  return user.character?.type === "character" ? user.character : null;
+}
+async function setActivePC(userId, actorId) {
+  const map = seatActors();
+  if (actorId) map[userId] = actorId; else delete map[userId];
+  await game.settings.set(MODULE_ID, "seatActors", map);
 }
 function playersBody() {
   const esc = foundry.utils.escapeHTML;
@@ -2949,7 +2982,9 @@ function playersBody() {
     const u = game.users.get(seats[id]);
     const picked = seatPick != null;
     return `<button class="mc-dmp-seat ${u ? "mc-full" : ""} ${picked ? "mc-dmp-seat-open" : ""}"
-      data-seat="${id}" title="${esc(u ? `${u.name} — tap to clear` : `${def.label} — ${picked ? "tap to seat" : "empty"}`)}"
+      data-seat="${id}" title="${esc(picked
+        ? (u ? `Swap with ${u.name}` : `Seat ${game.users.get(seatPick)?.name ?? "them"} at ${def.label}`)
+        : (u ? `${u.name} — tap to clear` : `${def.label} — empty`))}"
       ${u ? `style="border-color:${u.color?.css ?? "var(--mc-gold)"}"` : ""}>
       ${u ? `<i class="fas fa-circle-user" style="color:${u.color?.css ?? "var(--mc-gold)"}"></i><span>${esc(u.name)}</span>`
           : `<span class="mc-dmp-seat-empty">${esc(def.label)}</span>`}
@@ -2964,16 +2999,34 @@ function playersBody() {
   const roster = users.length ? users.map(u => {
     const s = seatOf(u.id);
     const on = seatPick === u.id;
+    // Who this player is playing tonight, shown quietly under their name. One PC (the usual
+    // case) is plain text; only a player with several gets a control, and even then it's
+    // tertiary — the DM shouldn't have to think about this unless it applies to them.
+    const owned = ownedPCs(u);
+    const pc = activePC(u);
+    const open = pcPick === u.id;
+    const who = owned.length > 1
+      ? `<button class="mc-dmp-pcpick ${open ? "mc-on" : ""}" data-pc-open="${u.id}"
+           title="Playing ${esc(pc?.name ?? "nobody")} — tap to switch"><i class="fas fa-masks-theater"></i>${esc(pc?.name ?? "choose a character")}</button>`
+      : owned.length === 1 || pc ? `<span class="mc-dmp-pcname">${esc(pc?.name ?? owned[0].name)}</span>` : "";
+    const list = open ? `<div class="mc-dmp-pclist">
+      ${owned.map(a => `<button class="mc-dmp-pcopt ${pc?.id === a.id ? "mc-on" : ""}" data-pc-set="${u.id}|${a.id}">
+        <img src="${esc(a.img ?? "icons/svg/mystery-man.svg")}" alt=""><span>${esc(a.name)}</span>
+        ${pc?.id === a.id ? `<i class="fas fa-check"></i>` : ""}</button>`).join("")}
+      <button class="mc-dmp-pcopt mc-dmp-pcauto" data-pc-set="${u.id}|" title="Fall back to the character assigned in Foundry">
+        <i class="fas fa-rotate-left"></i><span>Use their assigned character</span></button>
+    </div>` : "";
     return `<div class="mc-dmp-story-row">
       <i class="fas fa-circle-user" style="color:${u.color?.css ?? "var(--mc-muted)"}"></i>
       <span class="mc-dmp-story-q">${esc(u.name)}${s ? ` <span class="mc-dmp-seat-tag">${esc(TABLE_SEATS.find(x => x.id === s)?.label ?? s)}</span>` : ""}
-        ${u.active ? `<span class="mc-dmp-seat-live" title="connected">●</span>` : ""}</span>
+        ${u.active ? `<span class="mc-dmp-seat-live" title="connected">●</span>` : ""}
+        ${who}</span>
       <button class="mc-dmp-pf-fix ${on ? "mc-on" : ""}" data-seat-pick="${u.id}" title="${on ? "Cancel" : "Pick up, then tap a seat"}"><i class="fas fa-hand-pointer"></i></button>
-    </div>`;
+    </div>${list}`;
   }).join("") : `<div class="mc-dmp-empty">No player accounts yet — make one below.</div>`;
   const hint = seatPick
-    ? `<div class="mc-dmp-story-status">Tap a seat for <b>${esc(game.users.get(seatPick)?.name ?? "…")}</b>, or tap an occupied seat to clear it.</div>`
-    : `<div class="mc-dmp-story-status">Tap ✋ beside a player, then tap their seat. Tap a filled seat to empty it.</div>`;
+    ? `<div class="mc-dmp-story-status">Tap a seat for <b>${esc(game.users.get(seatPick)?.name ?? "…")}</b> — a taken seat swaps the two.</div>`
+    : `<div class="mc-dmp-story-status">Tap ✋ beside a player, then tap a seat — that moves them too, and swaps if it's taken. Tap a filled seat on its own to empty it.</div>`;
   return `${map}${hint}${roster}
     <div class="mc-dmp-story-new">
       <input class="mc-dmp-story-input mc-dmp-newplayer" type="text" placeholder="New player's name…">
@@ -4079,6 +4132,15 @@ async function onClick(ev) {
   // §38.4b Players & seats: pick a player up, drop them in a seat, clear a seat, add an account.
   const spick = ev.target.closest("[data-seat-pick]");
   if (spick) { const id = spick.dataset.seatPick; seatPick = (seatPick === id) ? null : id; return render(); }
+  const pcOpen = ev.target.closest("[data-pc-open]");
+  if (pcOpen) { const id = pcOpen.dataset.pcOpen; pcPick = (pcPick === id) ? null : id; return render(); }
+  const pcSet = ev.target.closest("[data-pc-set]");
+  if (pcSet) {
+    const [uid, aid] = String(pcSet.dataset.pcSet).split("|");
+    await setActivePC(uid, aid || null);
+    pcPick = null;
+    return render();
+  }
   const seatBtn = ev.target.closest("[data-seat]");
   if (seatBtn) {
     const id = seatBtn.dataset.seat;

@@ -46,16 +46,27 @@ export function cardTableIsUp() { return !!root; }
 function seatMap() {
   try { return game.settings.get(MODULE_ID, "tableSeats") ?? {}; } catch (e) { return {}; }
 }
+function seatActors() {
+  try { return game.settings.get(MODULE_ID, "seatActors") ?? {}; } catch (e) { return {}; }
+}
 function cardBack() {
   let p = DEFAULT_BACK;
   try { p = game.settings.get(MODULE_ID, "cardBackImage") || DEFAULT_BACK; } catch (e) { /* default */ }
   return asset(p); // absolute — see the note on `asset` above
 }
-// The PC a seated player is building: their assigned character, else any character they own
-// that's mid-creation. Seats exist before characters do, so "none yet" is normal.
+// The PC a seated player is building: the DM's explicit pick for tonight if there is one (only
+// the rare multi-PC player needs it, §38.4b), else their assigned character, else any character
+// they own that's mid-creation. Seats exist before characters do, so "none yet" is normal.
 function actorForUser(userId) {
   const u = game.users.get(userId);
   if (!u) return null;
+  const picked = seatActors()[userId];
+  if (picked) {
+    const a = game.actors.get(picked);
+    // A stale id (the actor was deleted, or ownership moved) falls through to the default rather
+    // than blanking the seat — the pick is a preference, never a requirement.
+    if (a?.type === "character" && a.testUserPermission(u, "OWNER")) return a;
+  }
   if (u.character?.type === "character") return u.character;
   return game.actors.find(a => a.type === "character" && a.testUserPermission(u, "OWNER")
     && a.getFlag(MODULE_ID, "charGen")) ?? null;
@@ -217,7 +228,8 @@ export function registerCardTable() {
   // pick (or the first seating) silently doesn't repaint (bench 2026-08-04).
   const onSetting = (s) => {
     if (!root) return;
-    if (s?.key === `${MODULE_ID}.tableSeats` || s?.key === `${MODULE_ID}.cardBackImage`) { rebuild(); repaint(); }
+    const watched = ["tableSeats", "seatActors", "cardBackImage"].map(k => `${MODULE_ID}.${k}`);
+    if (watched.includes(s?.key)) { rebuild(); repaint(); }
   };
   Hooks.on("updateSetting", onSetting);
   Hooks.on("createSetting", onSetting);

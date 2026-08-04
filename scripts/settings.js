@@ -212,6 +212,15 @@ export function registerSettings() {
     scope: "world", config: false, type: Object, default: {}
   });
 
+  // §38.4b WHO'S AT THE TABLE. A seat holds a USER; this says which of that user's characters
+  // they're playing right now. Almost every player owns one PC and this stays empty — Foundry's
+  // own assigned character answers it. It exists for the rare player with several, so the DM can
+  // say which one is at the table tonight without reassigning anything in Foundry.
+  // {userId → actorId}; an id that no longer resolves is ignored, not repaired.
+  game.settings.register(MODULE_ID, "seatActors", {
+    scope: "world", config: false, type: Object, default: {}
+  });
+
   // §38.4a the card table: which back the dealt cards wear, and whether the board is up.
   // The back is picked from a gallery (CM's card sets, the module's art/, prior uploads) or
   // uploaded custom at 5:7 — empty means "the module's default back".
