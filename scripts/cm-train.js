@@ -179,8 +179,10 @@ export async function setTrainMist(on) {
     const hull = wallHull(s);
     const bands = [[0, hull.y0], [hull.y1, s.height - hull.y1]];
     const tiles = bands.flatMap(([y, h]) => MIST_LAYERS.map(([src, speed, alpha, repeatx, tint, sort]) => ({
+      // NOT locked: only GMs can edit tiles anyway, and a locked tile ignores clicks
+      // entirely — the DM couldn't even select one to nudge it (found 2026-08-04).
       texture: { src, tint }, x: 0, y, width: s.width, height: h, alpha,
-      elevation: 0, sort, locked: true,
+      elevation: 0, sort, locked: false,
       flags: {
         "tile-scroll": { enableScroll: true, scrollSpeed: speed, scrollDirection: 0, repeatx, repeaty: 1 },
         [MODULE_ID]: { trainMist: true },
