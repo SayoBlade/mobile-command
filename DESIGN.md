@@ -3168,7 +3168,73 @@ holds PCs, that car activates — TV follows, transition plays. Splits hold the 
 signature validation on a scratch dataPath until the real `Config/license.json` is copied in
 ("Invalid signature file for protected module ×90"); with it, packs open clean.
 
-## 32. Crooked Moon special-effects idea board (mined from the installed book 2026-07-27 — IDEAS, nothing approved)
+## 38. Session Zero suite (research 2026-08-04, DM ask "go deep" — IDEAS, nothing approved)
+
+**The research question:** what does Daggerheart's session zero actually do, what should a 5e
+session zero steal, and what can THIS module do that paper can't?
+
+### 38.1 What Daggerheart ships (the anatomy)
+
+Session zero is a first-class chapter (core book p.169, GM chapter) built from four artifacts:
+1. **CATS opener** (Patrick O'Leary): five minutes on Concept, Aim, Tone, Safety before anything.
+2. **Safety tools as rules, not etiquette**: X-card (John Stavropoulos), **Lines & Veils** (Ron
+   Edwards; lines = never appears, veils = exists off-screen) kept as a LIVING document, and the
+   TTRPG Safety Toolkit (Shaw/Bryant-Monk) linked as a maintained resource.
+3. **The Campaign Frame** — a structured handout per campaign. Exact section list (from the
+   published Witherwild frame): Complexity rating · The Pitch · Tone & Feel (an ADJECTIVE LIST:
+   "Adventurous, Epic, Uncanny, Whimsical…") · Themes · **Touchstones** (media: Mononoke, Zelda,
+   Dark Crystal) · Overview · Communities/Ancestries/Classes guidance · **Player Principles** +
+   **GM Principles** · **Distinctions** (setting truths) · The Inciting Incident · Campaign
+   Mechanics · **Session Zero Questions**.
+4. **Question-driven collaborative worldbuilding**: the GM asks, answers become canon. Witherwild
+   examples — world: "What dangerous animal comes out during the week of night…?"; character:
+   "Your character has witnessed something beautiful that came from the Witherwild — what?"
+   Players also PIN their backstory locations onto a shared map from picklists.
+5. **Group character creation + Connections**: characters are built AT the table (~30 min);
+   each class guide carries background questions and **connection prompts** ("What lie have you
+   told me about yourself that I absolutely believe?"); every player owes ≥1 connection to EACH
+   other PC before play starts.
+
+### 38.2 Why that beats a typical 5e session zero
+
+The 2024 DMG now has a session-zero chapter (campaign details, rules/house rules, character
+creation, social contract, safety) — but it's an agenda to talk through, not a thing you PLAY.
+The gaps: no artifact (frame), no prompts-as-rules, backstories as solo homework instead of
+at-table questions, no connection obligation between PCs, worldbuilding stays GM-side, and
+safety is a paragraph rather than a living tool. 5e fixes, no software needed: write a one-page
+frame (pitch/adjectives/touchstones/principles/distinctions/inciting incident + 6–10 questions
+— for Crooked Moon most of it is extractable from the book), run CATS, convert backstory into
+at-table questions, require one connection per PC pair, keep lines/veils as a living doc.
+
+### 38.3 What the MOD can do that paper can't (ranked, phones + TV)
+
+A) **Anonymous safety on phones — the killer feature.** Lines & veils typed privately on each
+   phone (inline input per [[phone-input-inline-not-popup]]), aggregated into a merged list with
+   NO attribution (table sees the union; only the DM's panel can see per-player, and maybe not
+   even that). Plus a persistent quiet "pause" control on the shell — an anonymous X-card tap
+   that pings ONLY the DM panel mid-session. Speaking up is the hard part at a physical table;
+   anonymity is exactly what phones add. Rides the PM plumbing (§27). UI: violet is reactions-
+   only, red is destructive — needs its own UI-BIBLE ruling before build.
+B) **Question-deck runner.** DM curates session-zero questions (frame import or defaults); TV
+   shows the current question big; every phone gets an answer box; answers land in the party
+   journal (§ journal exists) tagged by question, DM taps answers "canon". Reuses request/PM
+   plumbing + journal.
+C) **Connections web.** 5e-flavoured connection prompts per class/background; each player owes
+   one connection per other PC, typed on the phone; the TV renders the web (portrait nodes,
+   labelled edges — static SVG, cheap); stored as actor flags. Natural feed for Fateweaving
+   (§34) and the test world's existing "Connection — a friend's blessing" effects.
+D) **Frame presenter + tone dials.** The frame as a journal the TV pages through (pitch, the
+   adjective wall, touchstones); phones vote tone dials (grim↔whimsical, combat↔intrigue…),
+   aggregate shown live, result stored as campaign flags. CATS-in-an-app.
+E) **Backstory map pins.** Players drop "my home / my tragedy happened here" pins on the
+   overworld from the phone — placement session (§Round 33) + travel overworld infra already
+   exist; each pin becomes a journal note the DM can hook.
+F) **Charter sign-off.** Closing artifact: rules + schedule + merged lines/veils + principles in
+   one journal; each phone acknowledges (onboarding-style); preflight warns when a user who
+   never acknowledged joins.
+
+**Build order if greenlit:** A (unique value, moderate) → B (cheap, big table-feel) → C (feeds
+CM systems) → D/E/F polish. Not started — awaiting DM pick.
 
 Source: `the-crooked-moon-2014` module's journal packs, dumped + read in full (extraction
 technique: copy pack dirs minus LOCK → classic-level via Foundry's Electron-as-Node; text dumps
