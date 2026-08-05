@@ -179,23 +179,35 @@ function seatHTML(def) {
 // which is what would cost the DM's machine. Instead the glow is a pre-blurred radial gradient
 // (a gradient is free) whose opacity/scale animate, and the shadow is a flat dark ellipse that
 // rotates and stretches. No canvas, no sprites, no images.
+// Wick and body positions measured off the keyed artwork (895×932) and stored as PERCENTAGES,
+// so the cluster can be sized freely — a 4K TV scales it up and the flames stay on the wicks.
+// Wick centroids came from the darkest pixels inside each candle: (496,252) (214,697) (704,705).
+const CANDLES = [
+  { wx: 55.5, wy: 27.1, cx: 55.1, cy: 27.6, r: 26.5, fire: 1, flame: 23 }, // the thick one
+  { wx: 23.9, wy: 74.8, cx: 24.9, cy: 76.9, r: 24.4, fire: 2, flame: 20 },
+  { wx: 78.8, wy: 75.7, cx: 78.2, cy: 78.0, r: 19.0, fire: 3, flame: 19 }
+];
+const FIRE_DIR = "modules/animated-fire-by-mattm/fire_animations";
+
 function candlesHTML() {
   let on = true;
   try { on = !!game.settings.get(MODULE_ID, "cardCandles"); } catch (e) { /* default on */ }
   if (!on) return "";
-  // Three candles, deliberately unequal — same height and rhythm three times reads as wallpaper.
-  const c = [
-    { h: 1, x: -1.0, delay: 0 },
-    { h: 0.74, x: 0, delay: -1.7 },
-    { h: 0.88, x: 1.0, delay: -0.9 }
-  ];
-  return `<div class="mc-ct-candles">${c.map(k => `
-    <div class="mc-ct-candle" style="--mc-cd-h:${k.h};--mc-cd-x:${k.x};--mc-cd-d:${k.delay}s">
-      <div class="mc-ct-cd-shadow"></div>
-      <div class="mc-ct-cd-glow"></div>
-      <div class="mc-ct-cd-body"></div>
-      <div class="mc-ct-cd-flame"></div>
-    </div>`).join("")}</div>`;
+  // The three "small fire" loops from animated-fire-by-mattm (DM 2026-08-05). They're authored
+  // TOP-DOWN as map tiles, which is exactly the view the flat TV needs — a side-on flame would
+  // be wrong for every seat. A different one per wick so the three never pulse in unison.
+  const esc = foundry.utils.escapeHTML;
+  const shadows = CANDLES.map((c, i) => `
+    <div class="mc-ct-cd-shadow" style="--cx:${c.cx}%;--cy:${c.cy}%;--r:${c.r}%;--d:${-i * 0.7}s"></div>`).join("");
+  const flames = CANDLES.map(c => `
+    <video class="mc-ct-cd-fire" style="--wx:${c.wx}%;--wy:${c.wy}%;--fw:${c.flame}%"
+      src="${esc(asset(`${FIRE_DIR}/small_fire_0${c.fire}_420x420.webm`))}"
+      autoplay loop muted playsinline disablepictureinpicture></video>`).join("");
+  return `<div class="mc-ct-candles">
+    ${shadows}
+    <img class="mc-ct-cd-art" src="${esc(asset("modules/mobile-command/art/candles-topdown.png"))}" alt="">
+    ${flames}
+  </div>`;
 }
 
 function boardHTML() {

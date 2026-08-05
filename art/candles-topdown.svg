@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" width="900" height="700">
+  <!--
+    Three thick unlit pillar candles, seen from DIRECTLY overhead (the TV lies flat, and players
+    sit on all four sides — any tilt would be the wrong way round for half the table).
+
+    Drawn as vector rather than rendered against a solid colour and keyed out: there is no
+    background to remove, so no halo and no fringing on the wax edge, and it stays sharp on a 4K
+    TV instead of being resampled. Every part is a named group so pieces can be taken out:
+
+      #contact-shadows  the ambient shadow the candles sit in — the BASIS for the flame's cast
+                        shadow. Warm-dark, directionless, because an unlit candle on a flat
+                        table has no key light yet; the flame that lands on the wick supplies it.
+      #candles          the wax itself
+      #wick-guides      a crosshair at each wick, at the exact centre to drop a flame on.
+                        DELETE THIS GROUP before use — it's a placement aid, not art.
+
+    Wick centres, in viewBox units: (282, 372) · (566, 256) · (528, 520)
+  -->
+  <defs>
+    <!-- Wax read from above: bright where the rim catches ambient light, falling off inward. -->
+    <radialGradient id="wax" cx="42%" cy="38%" r="72%">
+      <stop offset="0%"   stop-color="#f6eeda"/>
+      <stop offset="52%"  stop-color="#e7dbbf"/>
+      <stop offset="84%"  stop-color="#d3c4a3"/>
+      <stop offset="100%" stop-color="#b6a888"/>
+    </radialGradient>
+    <!-- The melted pool: translucent, warmer, always a touch off-centre from the wick. -->
+    <radialGradient id="pool" cx="48%" cy="44%" r="66%">
+      <stop offset="0%"   stop-color="#cbb287"/>
+      <stop offset="60%"  stop-color="#d8c59d"/>
+      <stop offset="100%" stop-color="#e2d3b1"/>
+    </radialGradient>
+    <!-- Ambient occlusion: dense against the wax, gone by the outer edge. -->
+    <radialGradient id="contact" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#120c06" stop-opacity=".62"/>
+      <stop offset="58%"  stop-color="#160f07" stop-opacity=".34"/>
+      <stop offset="82%"  stop-color="#1a1208" stop-opacity=".12"/>
+      <stop offset="100%" stop-color="#1a1208" stop-opacity="0"/>
+    </radialGradient>
+    <!-- The lit lip of the rim, thin and only on one arc. -->
+    <linearGradient id="rim" x1="18%" y1="8%" x2="82%" y2="92%">
+      <stop offset="0%"   stop-color="#fffdf4" stop-opacity=".92"/>
+      <stop offset="38%"  stop-color="#fffdf4" stop-opacity=".22"/>
+      <stop offset="100%" stop-color="#6d6047" stop-opacity=".38"/>
+    </linearGradient>
+    <radialGradient id="wickChar" cx="50%" cy="42%" r="60%">
+      <stop offset="0%"   stop-color="#3a3128"/>
+      <stop offset="70%"  stop-color="#211b15"/>
+      <stop offset="100%" stop-color="#120e0a"/>
+    </radialGradient>
+  </defs>
+
+  <g id="contact-shadows">
+    <ellipse cx="282" cy="378" rx="164" ry="152" fill="url(#contact)"/>
+    <ellipse cx="566" cy="262" rx="128" ry="118" fill="url(#contact)"/>
+    <ellipse cx="528" cy="526" rx="142" ry="132" fill="url(#contact)"/>
+  </g>
+
+  <g id="candles">
+    <!-- ── candle 1 — the thick one ─────────────────────────────────────── -->
+    <g id="candle-1">
+      <circle cx="282" cy="372" r="126" fill="url(#wax)"/>
+      <circle cx="282" cy="372" r="126" fill="none" stroke="url(#rim)" stroke-width="7"/>
+      <circle cx="282" cy="372" r="118" fill="none" stroke="#8e8163" stroke-opacity=".3" stroke-width="2"/>
+      <!-- pool, deliberately off-centre and not quite round: wax never melts evenly -->
+      <path d="M282 276c46 0 84 30 90 66 6 38-22 76-70 84-46 8-92-14-102-54-10-42 26-96 82-96z"
+            fill="url(#pool)"/>
+      <path d="M282 276c46 0 84 30 90 66 6 38-22 76-70 84-46 8-92-14-102-54-10-42 26-96 82-96z"
+            fill="none" stroke="#a8956e" stroke-opacity=".45" stroke-width="2.5"/>
+      <!-- a drip that ran over the rim and set -->
+      <path d="M167 404c-8 22-4 42 6 52 8 8 18 4 20-8 2-14-8-30-26-44z" fill="#ded0b0" opacity=".85"/>
+      <ellipse cx="282" cy="372" rx="7" ry="9" fill="url(#wickChar)"/>
+      <ellipse cx="282" cy="364" rx="3.4" ry="5" fill="#4a4034" opacity=".9"/>
+    </g>
+
+    <!-- ── candle 2 — the short slim one, set back ──────────────────────── -->
+    <g id="candle-2">
+      <circle cx="566" cy="256" r="98" fill="url(#wax)"/>
+      <circle cx="566" cy="256" r="98" fill="none" stroke="url(#rim)" stroke-width="6"/>
+      <circle cx="566" cy="256" r="91" fill="none" stroke="#8e8163" stroke-opacity=".3" stroke-width="1.8"/>
+      <path d="M566 182c36 0 66 24 70 52 4 30-18 60-56 66-36 6-72-12-80-42-8-32 22-76 66-76z"
+            fill="url(#pool)"/>
+      <path d="M566 182c36 0 66 24 70 52 4 30-18 60-56 66-36 6-72-12-80-42-8-32 22-76 66-76z"
+            fill="none" stroke="#a8956e" stroke-opacity=".45" stroke-width="2.2"/>
+      <ellipse cx="566" cy="256" rx="6" ry="8" fill="url(#wickChar)"/>
+      <ellipse cx="566" cy="249" rx="3" ry="4.4" fill="#4a4034" opacity=".9"/>
+    </g>
+
+    <!-- ── candle 3 — mid, front right ──────────────────────────────────── -->
+    <g id="candle-3">
+      <circle cx="528" cy="520" r="110" fill="url(#wax)"/>
+      <circle cx="528" cy="520" r="110" fill="none" stroke="url(#rim)" stroke-width="6.5"/>
+      <circle cx="528" cy="520" r="102" fill="none" stroke="#8e8163" stroke-opacity=".3" stroke-width="2"/>
+      <path d="M528 436c40 0 74 26 78 58 4 34-20 68-62 74-40 6-80-14-88-48-8-36 26-84 72-84z"
+            fill="url(#pool)"/>
+      <path d="M528 436c40 0 74 26 78 58 4 34-20 68-62 74-40 6-80-14-88-48-8-36 26-84 72-84z"
+            fill="none" stroke="#a8956e" stroke-opacity=".45" stroke-width="2.3"/>
+      <path d="M632 552c14 18 16 38 8 48-7 9-17 6-20-6-3-14 3-28 12-42z" fill="#ded0b0" opacity=".8"/>
+      <ellipse cx="528" cy="520" rx="6.5" ry="8.5" fill="url(#wickChar)"/>
+      <ellipse cx="528" cy="512" rx="3.2" ry="4.6" fill="#4a4034" opacity=".9"/>
+    </g>
+  </g>
+
+  <!-- DELETE THIS GROUP — placement aid only. -->
+  <g id="wick-guides" stroke="#ff3ba0" stroke-width="1.6" opacity=".9">
+    <g><path d="M262 372h40M282 352v40"/><circle cx="282" cy="372" r="15" fill="none"/></g>
+    <g><path d="M546 256h40M566 236v40"/><circle cx="566" cy="256" r="15" fill="none"/></g>
+    <g><path d="M508 520h40M528 500v40"/><circle cx="528" cy="520" r="15" fill="none"/></g>
+  </g>
+</svg>

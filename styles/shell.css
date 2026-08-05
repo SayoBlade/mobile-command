@@ -1910,80 +1910,55 @@ body {
 .mc-ct-center { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; }
 
 /* ── CANDLES (§38.4a) ──────────────────────────────────────────────────────────────────────
-   THE RULE THAT KEEPS THIS CHEAP: only `transform` and `opacity` are ever animated. Those two
-   are handled by the compositor without re-rasterising, so the cost is a texture upload once
-   and then nothing. Animating `filter: blur()` (for the glow) or `drop-shadow` (for the cast
-   shadow) is the obvious way to build this and it repaints every element every frame — that is
-   the version that would cost the DM's machine real time. Here the glow is a static radial
-   gradient that only ever changes opacity/scale, and the shadow is a flat ellipse that rotates.
-   `will-change` promotes each moving piece to its own layer so the felt underneath never
-   repaints. Candle height/offset/phase come in as --mc-cd-h / --mc-cd-x / --mc-cd-d so no two
-   burn in step. */
-.mc-ct-candles { position: relative; display: flex; align-items: flex-end; justify-content: center;
-  gap: clamp(10px, 1.1vw, 26px); pointer-events: none; z-index: 2;
-  --mc-cd-w: clamp(9px, .72vw, 17px);          /* candle width; everything scales off it */
-  --mc-cd-flame: 224, 168, 74;                  /* warm tallow — decks override */
-  --mc-cd-wax: #e6dcc4; }
-.mc-ct-candle { position: relative; width: var(--mc-cd-w);
-  height: calc(var(--mc-cd-w) * 5.2 * var(--mc-cd-h, 1));
-  transform: translateX(calc(var(--mc-cd-x, 0) * 2px)); }
-/* The wax column: a lit edge, a body, and a darker side away from the flame. */
-.mc-ct-cd-body { position: absolute; inset: 0; border-radius: calc(var(--mc-cd-w) * .34)
-    calc(var(--mc-cd-w) * .34) calc(var(--mc-cd-w) * .12) calc(var(--mc-cd-w) * .12);
-  background: linear-gradient(90deg, rgba(0,0,0,.42) 0%, var(--mc-cd-wax) 34%,
-    #fffaf0 52%, var(--mc-cd-wax) 68%, rgba(0,0,0,.5) 100%);
-  box-shadow: 0 0 calc(var(--mc-cd-w) * 1.4) rgba(var(--mc-cd-flame), .28); }
-/* The flame sits above the wax, its own teardrop, pinned at the wick so it pivots there. */
-.mc-ct-cd-flame { position: absolute; left: 50%; bottom: 100%;
-  width: calc(var(--mc-cd-w) * .82); height: calc(var(--mc-cd-w) * 2.1);
-  margin-left: calc(var(--mc-cd-w) * -.41); transform-origin: 50% 100%;
-  border-radius: 50% 50% 46% 46% / 62% 62% 38% 38%;
-  background: radial-gradient(ellipse 60% 44% at 50% 78%,
-    #fffdf2 0%, rgba(var(--mc-cd-flame), 1) 42%, rgba(var(--mc-cd-flame), .72) 68%,
-    rgba(var(--mc-cd-flame), 0) 100%);
-  animation: mc-cd-flicker 2.3s ease-in-out infinite alternate;
-  animation-delay: var(--mc-cd-d, 0s); will-change: transform, opacity; }
-/* Pre-blurred by being a gradient — never a filter. Only opacity and scale move. */
-.mc-ct-cd-glow { position: absolute; left: 50%; bottom: 100%;
-  width: calc(var(--mc-cd-w) * 13); height: calc(var(--mc-cd-w) * 13);
-  margin: 0 0 calc(var(--mc-cd-w) * -5.5) calc(var(--mc-cd-w) * -6.5);
-  border-radius: 50%; background: radial-gradient(circle,
-    rgba(var(--mc-cd-flame), .34) 0%, rgba(var(--mc-cd-flame), .13) 34%,
-    rgba(var(--mc-cd-flame), 0) 68%);
-  animation: mc-cd-glow 3.1s ease-in-out infinite alternate;
-  animation-delay: var(--mc-cd-d, 0s); will-change: transform, opacity; }
-/* The cast shadow: a flat ellipse laid on the table, swinging as the flame leans. */
-.mc-ct-cd-shadow { position: absolute; left: 50%; bottom: calc(var(--mc-cd-w) * -.2);
-  width: calc(var(--mc-cd-w) * 1.5); height: calc(var(--mc-cd-w) * 6.5);
-  margin-left: calc(var(--mc-cd-w) * -.75); transform-origin: 50% 0%;
-  border-radius: 50%; background: linear-gradient(rgba(0,0,0,.5), rgba(0,0,0,.16) 55%,
-    rgba(0,0,0,0) 100%);
-  animation: mc-cd-sway 2.9s ease-in-out infinite alternate;
-  animation-delay: var(--mc-cd-d, 0s); will-change: transform; }
-@keyframes mc-cd-flicker {
-  0%   { transform: scale(1, 1) skewX(0deg); opacity: .92; }
-  22%  { transform: scale(.94, 1.1) skewX(-3deg); opacity: 1; }
-  46%  { transform: scale(1.05, .93) skewX(2deg); opacity: .86; }
-  71%  { transform: scale(.97, 1.06) skewX(-1.5deg); opacity: 1; }
-  100% { transform: scale(1.02, .97) skewX(2.5deg); opacity: .94; }
+   Three real candles: keyed artwork (art/candles-topdown.png, shot top-down and cut off its
+   magenta backdrop) with the three "small fire" loops from animated-fire-by-mattm sitting on
+   the wicks. Those clips are authored TOP-DOWN as map tiles, which is the only view that works
+   on a flat TV — a side-on flame is wrong for every seat at once.
+
+   THE RULE THAT KEEPS THE MOTION CHEAP: only transform and opacity are ever animated, so
+   the compositor handles it without re-rasterising. No filter, no blur, no animated drop-shadow
+   — those repaint every frame and that is what would cost a modest machine real time. The video
+   decode is the one genuine cost here, and it's three small clips.
+
+   Everything is positioned in PERCENTAGES of the artwork, so the cluster scales to any screen
+   and the flames stay on their wicks. */
+.mc-ct-candles { position: relative; pointer-events: none; z-index: 2;
+  height: clamp(120px, 26vh, 340px); aspect-ratio: 895 / 932; }
+.mc-ct-cd-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+/* The flame sits ON the wick, centred — a top-down fire has no "up". */
+.mc-ct-cd-fire { position: absolute; left: var(--wx); top: var(--wy);
+  width: var(--fw); height: auto; transform: translate(-50%, -50%);
+  mix-blend-mode: screen; opacity: .95; }
+/* JUMPY, VERY TRANSPARENT (DM 2026-08-05). A candle's shadow doesn't drift, it twitches — so
+   the keyframes SNAP between positions (steps(1, end)) instead of easing between them, and each
+   candle runs on its own offset so the three never twitch together. Opacity stays low: this is
+   a suggestion of a shadow, not a drop shadow. */
+.mc-ct-cd-shadow { position: absolute; left: var(--cx); top: var(--cy);
+  width: calc(var(--r) * 2.6); aspect-ratio: 1; margin: 0; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,0,0,.34) 0%, rgba(0,0,0,.16) 46%, rgba(0,0,0,0) 72%);
+  transform: translate(-50%, -50%); opacity: .3;
+  animation: mc-cd-jump 1.9s steps(1, end) infinite; animation-delay: var(--d, 0s);
+  will-change: transform, opacity; }
+@keyframes mc-cd-jump {
+  0%   { transform: translate(-50%, -50%) scale(1);        opacity: .30; }
+  14%  { transform: translate(-51%, -49%) scale(1.06);     opacity: .22; }
+  27%  { transform: translate(-49.4%, -50.6%) scale(.97);  opacity: .34; }
+  41%  { transform: translate(-50.4%, -49.2%) scale(1.03); opacity: .26; }
+  58%  { transform: translate(-49.6%, -50.2%) scale(1.09); opacity: .19; }
+  72%  { transform: translate(-50.6%, -50.4%) scale(.99);  opacity: .32; }
+  86%  { transform: translate(-49.8%, -49.6%) scale(1.04); opacity: .24; }
+  100% { transform: translate(-50%, -50%) scale(1);        opacity: .30; }
 }
-@keyframes mc-cd-glow {
-  0%   { transform: scale(1); opacity: .78; }
-  40%  { transform: scale(1.07); opacity: 1; }
-  100% { transform: scale(.96); opacity: .72; }
-}
-@keyframes mc-cd-sway {
-  0%   { transform: rotate(2.5deg) scaleY(1); opacity: .85; }
-  50%  { transform: rotate(-2deg) scaleY(1.12); opacity: .7; }
-  100% { transform: rotate(1.5deg) scaleY(.95); opacity: .88; }
-}
-/* Motion on a shared screen people look at for an hour — honour the OS preference. */
+/* Motion on a shared screen people watch for an hour — honour the OS preference. The flames are
+   video, so they're paused rather than hidden. */
 @media (prefers-reduced-motion: reduce) {
-  .mc-ct-cd-flame, .mc-ct-cd-glow, .mc-ct-cd-shadow { animation: none; }
+  .mc-ct-cd-shadow { animation: none; }
 }
-/* Ash burns low and sickly; Hoarfrost burns cold. */
-#mc-cardtable.mc-ct-theme-ash .mc-ct-candles { --mc-cd-flame: 214, 138, 62; --mc-cd-wax: #cdc4b2; }
-#mc-cardtable.mc-ct-theme-hoarfrost .mc-ct-candles { --mc-cd-flame: 150, 210, 245; --mc-cd-wax: #eaf2fa; }
+/* The decks tint the wax and the flame. Static filters only — never animated. */
+#mc-cardtable.mc-ct-theme-ash .mc-ct-cd-art { filter: saturate(.72) brightness(.9); }
+#mc-cardtable.mc-ct-theme-ash .mc-ct-cd-fire { opacity: .82; }
+#mc-cardtable.mc-ct-theme-hoarfrost .mc-ct-cd-art { filter: saturate(.6) hue-rotate(178deg) brightness(1.06); }
+#mc-cardtable.mc-ct-theme-hoarfrost .mc-ct-cd-fire { filter: hue-rotate(150deg) saturate(1.3); }
 .mc-ct-seat { position: relative; z-index: 1; display: flex; flex-direction: column;
   align-items: center; gap: 6px; padding: 8px 10px; transform: rotate(var(--mc-ct-rot, 0deg));
   border-radius: calc(12px * var(--mc-round, 1)); transition: box-shadow .25s ease, background .25s ease; }
@@ -1992,7 +1967,7 @@ body {
 .mc-ct-empty { min-width: 40px; }
 .mc-ct-plate { display: flex; align-items: baseline; gap: 8px;
   font-family: var(--mc-ct-font); letter-spacing: .02em;
-  font-size: clamp(17px, 1.45vw, 32px); color: var(--mc-ink); }
+  font-size: clamp(14px, 1.12vw, 26px); color: var(--mc-ink); }
 .mc-ct-who { border-bottom: 2px solid var(--mc-seat, var(--mc-gold)); padding-bottom: 2px; }
 .mc-ct-player { font-family: inherit; font-size: clamp(11px, .72vw, 16px); color: var(--mc-muted); }
 /* The character's name is the LAST thing the wizard asks, so it arrives with a flourish — it
@@ -2032,7 +2007,7 @@ body {
 /* A card with no item artwork (Abilities, "Packed" gear) wears the blank thorn-frame face and
    prints its value in the middle — same deck, no odd empty rectangle. */
 .mc-ct-art-text { display: flex; align-items: center; justify-content: center;
-  font-family: var(--mc-ct-font); font-size: clamp(18px, 1.5vw, 34px); color: #2b2118;
+  font-family: var(--mc-ct-font); font-size: clamp(14px, 1.15vw, 26px); color: #2b2118;
   background-image: url("../art/card-face-blank.png");
   background-color: var(--mc-ct-frame-tint); background-blend-mode: var(--mc-ct-frame-blend);
   background-size: cover; background-position: center; text-shadow: 0 1px 0 rgba(255,255,255,.25); }
@@ -2046,18 +2021,28 @@ body {
    its INTRINSIC width and drops the opposite offset, so inset-ing a 512px SVG let it render at
    512px and spill across its neighbours (bench 2026-08-05). Keeping it 100%/100% and shrinking
    the content box with border-box padding is what actually bounds `contain`. */
+/* Image UP, text DOWN (DM 2026-08-05), and the image's edge FADES into the parchment instead of
+   ending on a hard rectangle — a static mask, applied once at rasterisation, never animated, so
+   it costs nothing per frame. The ellipse is slightly high because the art sits high. */
 .mc-ct-emblem .mc-ct-art { inset: 0; width: 100%; height: 100%; object-fit: contain;
-  box-sizing: border-box; padding: 12% 12% 26%; }
-/* Dark ink on the parchment, sat inside the frame's painted border rather than edge-to-edge. */
-.mc-ct-emblem .mc-ct-name { background: none; color: #2b2118; padding: 0 14% 8%;
-  text-shadow: 0 1px 0 rgba(255,255,255,.3); }
+  box-sizing: border-box; padding: 7% 11% 34%;
+  -webkit-mask-image: radial-gradient(ellipse 76% 74% at 50% 44%,
+    #000 52%, rgba(0,0,0,.72) 74%, rgba(0,0,0,.22) 90%, transparent 100%);
+  mask-image: radial-gradient(ellipse 76% 74% at 50% 44%,
+    #000 52%, rgba(0,0,0,.72) 74%, rgba(0,0,0,.22) 90%, transparent 100%); }
+/* Pinned to the bottom of the card, ABSOLUTELY — in normal flow a two-line name ("Unarmed
+   Strike") grew the box and the second line was clipped by the face's overflow (live 2026-08-05).
+   Out of flow it can wrap without moving anything. */
+.mc-ct-emblem .mc-ct-name { position: absolute; left: 0; right: 0; bottom: 6%; width: auto;
+  background: none; color: #2b2118; padding: 0 10%;
+  text-shadow: 0 1px 0 rgba(255,255,255,.35); }
 /* border-box, or `width:100%` + padding makes the strip 10px WIDER than the card and the face's
    overflow:hidden quietly clips both ends of the name (measured 315px on a 295px card). */
-/* Read from across a room, over artwork that can be any colour: bigger, serif, and sat on a
-   backdrop that actually reaches the top of the text rather than fading through it. */
-.mc-ct-name { position: relative; width: 100%; box-sizing: border-box; padding: 6px 5px 7px;
-  text-align: center; font-family: var(--mc-ct-font); font-size: clamp(13px, 1.02vw, 24px);
-  line-height: 1.15; color: var(--mc-ct-ink); text-shadow: 0 1px 3px rgba(0,0,0,.9);
+/* Smaller than the first pass (DM 2026-08-05) — at 13→24px a two-word item ran off the card and
+   clipped mid-word ("Zhentarim Mercena…"). Now it wraps to two lines inside the card instead. */
+.mc-ct-name { position: relative; width: 100%; box-sizing: border-box; padding: 5px 5px 6px;
+  text-align: center; font-family: var(--mc-ct-font); font-size: clamp(9px, .72vw, 17px);
+  line-height: 1.08; color: var(--mc-ct-ink); text-shadow: 0 1px 3px rgba(0,0,0,.9);
   background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.82) 30%, rgba(0,0,0,.92) 100%); }
 .mc-ct-card.mc-ct-active .mc-ct-inner { box-shadow: 0 0 0 2px var(--mc-ct-accent),
   0 0 18px color-mix(in srgb, var(--mc-ct-accent) 55%, transparent); }

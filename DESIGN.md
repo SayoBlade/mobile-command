@@ -3554,8 +3554,53 @@ biography picker and its placeholder — and the **name field itself renders EMP
 pre-filled with scaffolding to edit. On the board there are two guards, since either can be true
 alone: mid-creation (`charGen` flag) or a finished PC the DM never renamed (the name test).
 
-**Candles on the table — "how complex is that?" (DM 2026-08-05).** Cheap built one way,
-expensive built the obvious way, and the difference is the whole answer.
+**Candles v2 — real art + the module's fire (DM 2026-08-05, supersedes the CSS-drawn version
+below).** The DM generated a top-down render (three thick unlit pillars, sallow cracked wax,
+charred wicks) on a magenta backdrop and asked for the module's flames on the wicks plus a
+"jumpy" very transparent shadow.
+
+**Keying pipeline** (PowerShell + System.Drawing, compiled C# for speed — a per-pixel PowerShell
+loop over 1M pixels is far too slow). The backdrop is a **gradient** (178,86,133 → 148,56,103),
+so a flat-colour key fails; it keys on the colour RELATIONSHIP instead:
+`m = min(R−G, B−G)` — large on magenta, **negative on warm wax** (measured −22). Alpha ramps
+between `m = −4` (opaque) and `m = 13` (clear).
+
+- First pass used `m = 13..30` for the feather and left **101,390** semi-transparent pixels —
+  the render's own soft shadow on the backdrop (measured m = 21–27), surviving as a dark smear.
+  Dropping the ceiling to 13 cut it to **26,193** (just the outline). The DM is animating his own
+  shadow; a baked one would fight it.
+- **Despill**: where a pixel leans magenta (`m > −8`), clamp `R ≤ G+30` and `B ≤ G+10`. Result:
+  **zero** magenta fringe on solid pixels.
+- The generator's sparkle watermark sat just off the candle's lower-right edge, **on the
+  backdrop** — so it keyed out with it (box-forced to alpha 0 to kill any ghost).
+- Trimmed to content: **895×932** from 1024².
+- **Wick centroids** from the darkest pixels inside each candle, stored as PERCENTAGES so the
+  cluster scales freely: **(55.5%, 27.1%) · (23.9%, 74.8%) · (78.8%, 75.7%)**.
+
+**Flames**: `small_fire_01/02/03_420x420.webm` from `animated-fire-by-mattm` — a different clip
+per wick so the three never pulse in unison. They're authored **top-down as map tiles**, which is
+the only view that works on a flat TV; a side-on flame is wrong for every seat at once.
+`mix-blend-mode: screen`. **The one genuine cost in this whole feature is three webm decoders** —
+everything else is free. `cardCandles` (default on) turns the lot off.
+
+**The "jumpy" shadow** snaps rather than eases: `steps(1, end)` over eight keyframes, each candle
+on its own offset, opacity 0.19–0.34. A candle's shadow twitches; it doesn't drift.
+
+Verified in the harness at 1920×1080: art renders 270×281 inside the middle band, and all three
+flames land at exactly the measured wick percentages.
+
+**Card faces, same pass (DM: "smaller fonts… give the icon image border a bit of fade out, align
+the text down and the image up").** The 13→24px name ran off the card and clipped mid-word
+("Zhentarim Mercena…"), and a two-line name ("Unarmed Strike") grew the box so its second line
+was eaten by the face's `overflow: hidden`. Now: name **9→17px** (plate 14→26px, text cards
+14→26px), and on framed cards the name is **absolutely positioned** at the bottom so it can wrap
+without moving anything. The image sits higher (`padding: 7% 11% 34%`) and its edge **fades into
+the parchment** via a static `mask-image` ellipse — applied once at rasterisation, never
+animated, so it costs nothing per frame. Verified: zero overflowing names.
+
+**Candles v1 — "how complex is that?" (DM 2026-08-05).** Cheap built one way, expensive built the
+obvious way, and the difference is the whole answer. *(Superseded by the art above, but the
+reasoning still governs every animation on the board.)*
 
 The obvious build is `filter: blur()` for the glow and an animated `drop-shadow` for the cast
 shadow. Both **re-rasterise the element every frame** — that's the version that costs a modest
