@@ -93,7 +93,11 @@ function readCards(actor) {
   const spell = actor.items.find(i => i.type === "spell");
   if (spell) out.spells = { name: spell.name, img: spell.img };
   if (actor.getFlag(MODULE_ID, "wizGearDone")) {
-    const gear = actor.items.find(i => i.type === "weapon") ?? actor.items.find(i => i.type === "equipment");
+    // The player NAMES their main weapon on the gear step (DM 2026-08-05) — "the first weapon in
+    // the bag" was arbitrary, and this card is the one the table reads as "who they fight with".
+    const main = actor.getFlag(MODULE_ID, "mainWeapon");
+    const gear = (main && actor.items.get(main))
+      ?? actor.items.find(i => i.type === "weapon") ?? actor.items.find(i => i.type === "equipment");
     out.gear = gear ? { name: gear.name, img: gear.img } : { name: "Packed", img: null };
   }
   return out;
@@ -129,6 +133,11 @@ function cardHTML(seat, def, s) {
   </div>`;
 }
 
+// A seat whose PC has finished creation, so its character name has been revealed at least once.
+// Keyed seat:actor — the reveal animation must play on the render where the name first lands and
+// never again, and repaint() rewrites the whole board on every event.
+const revealed = new Set();
+
 function seatHTML(def) {
   const s = state.get(def.id);
   if (!s) return `<div class="mc-ct-seat mc-ct-empty" data-seat="${def.id}"></div>`;
@@ -137,11 +146,21 @@ function seatHTML(def) {
   const actor = s.actorId ? game.actors.get(s.actorId) : null;
   const hand = HAND.filter(h => h.step !== "spells" || s.caster);
   const writing = s.active ? `<div class="mc-ct-writing"><i class="fas fa-feather"></i> ${esc(s.question ?? "writing…")}</div>` : "";
+  // THE PLAYER's name is up the moment they're seated; the CHARACTER's name is the last thing
+  // the wizard asks, so it arrives late and arrives with a flourish (DM 2026-08-05). While the
+  // PC is mid-creation its name is a placeholder ("Player Character (3)") — the room should
+  // never read that, so the seat keeps showing the player until `charGen` clears at Finish.
+  const building = !!actor?.getFlag(MODULE_ID, "charGen");
+  const named = !!actor && !building;
+  const key = named ? `${def.id}:${actor.id}` : null;
+  const firstReveal = named && !revealed.has(key);
+  if (key) revealed.add(key);
+  const plate = named
+    ? `<span class="mc-ct-who ${firstReveal ? "mc-ct-reveal" : ""}">${esc(actor.name)}</span>
+       <span class="mc-ct-player">${esc(u?.name ?? "")}</span>`
+    : `<span class="mc-ct-who">${esc(u?.name ?? "—")}</span>`;
   return `<div class="mc-ct-seat ${s.active ? "mc-ct-seat-active" : ""}" data-seat="${def.id}" style="--mc-ct-rot:${def.rot}deg;--mc-seat:${u?.color?.css ?? "var(--mc-gold)"}">
-    <div class="mc-ct-plate">
-      <span class="mc-ct-who">${esc(actor?.name ?? u?.name ?? "—")}</span>
-      ${actor && actor.name !== u?.name ? `<span class="mc-ct-player">${esc(u?.name ?? "")}</span>` : ""}
-    </div>
+    <div class="mc-ct-plate">${plate}</div>
     <div class="mc-ct-hand">${hand.map(h => cardHTML(def, h, s)).join("")}</div>
     ${writing}
   </div>`;

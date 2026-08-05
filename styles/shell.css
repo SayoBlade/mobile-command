@@ -1811,6 +1811,20 @@ body {
 .mc-wiz-beat-choice { font-size: 13px; color: var(--mc-muted); }
 .mc-wiz-beat-choice i { color: #6fcf7d; }
 .mc-wiz-continue { margin-top: 4px; }
+/* Main-weapon pick on the gear step (§38.4a). Full-width rows with real artwork — this is a
+   phone, and the 44px tap floor applies (the row runs 52px with its image). */
+.mc-wiz-mainw-lbl { padding: 10px 2px 4px; font-size: 14px; color: var(--mc-muted); }
+.mc-wiz-mainw { display: flex; flex-direction: column; gap: 6px; }
+.mc-wiz-mainw-opt { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px;
+  padding: 6px 10px; background: var(--mc-panel); border: 1px solid var(--mc-edge);
+  border-radius: calc(10px * var(--mc-round, 1)); color: var(--mc-ink); font-size: 15px;
+  text-align: left; cursor: pointer; }
+.mc-wiz-mainw-opt img { width: 38px; height: 38px; flex: 0 0 auto; object-fit: cover;
+  border-radius: calc(8px * var(--mc-round, 1)); border: 1px solid var(--mc-edge); }
+.mc-wiz-mainw-opt span { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; }
+.mc-wiz-mainw-opt.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-wiz-mainw-opt.mc-on i { color: var(--mc-gold); }
 .mc-wiz-review { display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; }
 .mc-wiz-review-row { font-size: 14px; color: var(--mc-ink); }
 .mc-wiz-review-row .fa-circle { color: var(--mc-muted); font-size: 9px; }
@@ -1834,8 +1848,19 @@ body {
 /* ── §38.4a THE CARD TABLE: session zero on the shared screen ───────────────────
    The TV lies FLAT, so the board is drawn from above: a hand at each seated player's edge,
    rotated to face them. Cards flip on choice; the seat being written for is highlighted. */
+/* The board sets its OWN typeface rather than inheriting --mc-font-title (DM 2026-08-05: "the
+   font is too modern… something with a slight serif so it's legible"). Several themes set a
+   condensed geometric title face, which is fine on a phone at arm's length and unreadable on a
+   TV across the room. A transitional serif with open counters and real weight is what carries
+   that distance — and these are all system faces, so nothing has to load. */
 #mc-cardtable { position: fixed; inset: 0; z-index: 55; background: #07070a;
-  display: flex; align-items: stretch; justify-content: center; }
+  display: flex; align-items: stretch; justify-content: center;
+  --mc-ct-font: Georgia, "Palatino Linotype", "Book Antiqua", "Times New Roman", serif;
+  /* Once every hand is two stacks of three, the board is three bands of TWO card-heights, so
+     HEIGHT is what binds — a vw-sized card overflowed the bottom row by 180px at 1920×1080.
+     Solving 6·(1.4w) + plates/gaps/padding ≤ 100vh gives w ≈ (100vh − 220px)/8.6: 100px at
+     1080p, 58px at 720p, capped at 190px so a 4K TV doesn't get absurd cards. */
+  --mc-ct-cardw: clamp(56px, calc((100vh - 220px) / 8.6), 190px); }
 .mc-ct-felt { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: space-between;
   gap: 8px; padding: 14px; background-color: #0d0c10;
   background-image: var(--mc-ct-table); background-size: cover; background-position: center; }
@@ -1851,22 +1876,33 @@ body {
 .mc-ct-seat-active { background: rgba(200,164,77,.07); box-shadow: 0 0 0 1px var(--mc-seat, var(--mc-gold)) inset; }
 .mc-ct-empty { min-width: 40px; }
 .mc-ct-plate { display: flex; align-items: baseline; gap: 8px;
-  font-family: var(--mc-font-title), serif; text-transform: var(--mc-title-case, none);
-  letter-spacing: var(--mc-title-track, 0); font-size: clamp(15px, 1.3vw, 30px); color: var(--mc-ink); }
+  font-family: var(--mc-ct-font); letter-spacing: .02em;
+  font-size: clamp(17px, 1.45vw, 32px); color: var(--mc-ink); }
 .mc-ct-who { border-bottom: 2px solid var(--mc-seat, var(--mc-gold)); padding-bottom: 2px; }
-.mc-ct-player { font-family: inherit; font-size: 12px; color: var(--mc-muted); }
-.mc-ct-hand { display: flex; gap: 8px; }
-/* The END seats are ROTATED 90°/270°, so their hand runs DOWN the screen — and a rotated element
-   still occupies its unrotated box in layout, so nothing stops it crossing the top and bottom
-   hands. Measured at 1920×1080 with six casters: the end seats overlapped the corner seats by
-   226×99px, four collisions (bench 2026-08-05). Wrapping their hand at three keeps the cards
-   full size (123×172 at 1080p) and drops the end seat to 406×419 — clear by a wide margin. */
-.mc-ct-mid .mc-ct-hand { flex-wrap: wrap; justify-content: center;
-  max-width: calc(3 * clamp(84px, 6.4vw, 190px) + 16px); }
+.mc-ct-player { font-family: inherit; font-size: clamp(11px, .72vw, 16px); color: var(--mc-muted); }
+/* The character's name is the LAST thing the wizard asks, so it arrives with a flourish — it
+   swells out of the seat's colour and settles. Plays once per seat:actor (card-table.js keeps
+   the ledger), because repaint() rewrites the board on every event. */
+@keyframes mc-ct-namein {
+  0%   { opacity: 0; transform: scale(.72); filter: blur(6px);
+         text-shadow: 0 0 26px var(--mc-seat, var(--mc-gold)); }
+  55%  { opacity: 1; transform: scale(1.08); filter: blur(0);
+         text-shadow: 0 0 20px var(--mc-seat, var(--mc-gold)); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); text-shadow: none; }
+}
+.mc-ct-reveal { display: inline-block; animation: mc-ct-namein 1.5s cubic-bezier(.2,.8,.25,1) both; }
+@media (prefers-reduced-motion: reduce) { .mc-ct-reveal { animation-duration: .01ms; } }
+/* EVERY hand is two stacks of three (DM 2026-08-05). It started as a fix for the end seats —
+   they're rotated 90°/270° so their hand runs DOWN the screen, and a rotated element still
+   occupies its unrotated box in layout, which put them 226×99px into their corner neighbours at
+   1920×1080 (four collisions). Wrapping at three fixes that AND gives every seat the same
+   silhouette, which a six-wide fan never did. Cards stay full size (123×172 at 1080p). */
+.mc-ct-hand { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+  max-width: calc(3 * var(--mc-ct-cardw) + 16px); }
 /* A card is a 5:7 flipper — back until its choice lands, then the item's own artwork.
    Sized against the VIEWPORT, not in fixed pixels: this is read from across the room on a TV,
    so it grows with the screen (a 4K display gets big cards, a laptop bench gets sane ones). */
-.mc-ct-card { width: clamp(84px, 6.4vw, 190px); aspect-ratio: 5 / 7; perspective: 900px; }
+.mc-ct-card { width: var(--mc-ct-cardw); aspect-ratio: 5 / 7; perspective: 900px; }
 .mc-ct-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d;
   transition: transform .55s cubic-bezier(.2,.7,.3,1); border-radius: calc(8px * var(--mc-round, 1)); }
 .mc-ct-flipped .mc-ct-inner { transform: rotateY(180deg); }
@@ -1880,7 +1916,7 @@ body {
 /* A card with no item artwork (Abilities, "Packed" gear) wears the blank thorn-frame face and
    prints its value in the middle — same deck, no odd empty rectangle. */
 .mc-ct-art-text { display: flex; align-items: center; justify-content: center;
-  font-family: var(--mc-font-title), serif; font-size: 22px; color: #2b2118;
+  font-family: var(--mc-ct-font); font-size: clamp(18px, 1.5vw, 34px); color: #2b2118;
   background-image: url("../art/card-face-blank.png");
   background-size: cover; background-position: center; text-shadow: 0 1px 0 rgba(255,255,255,.25); }
 /* A SQUARE item icon is an emblem, not artwork — cover would crop ~29% off its sides. It gets
@@ -1899,11 +1935,15 @@ body {
   text-shadow: 0 1px 0 rgba(255,255,255,.3); }
 /* border-box, or `width:100%` + padding makes the strip 10px WIDER than the card and the face's
    overflow:hidden quietly clips both ends of the name (measured 315px on a 295px card). */
-.mc-ct-name { position: relative; width: 100%; box-sizing: border-box; padding: 4px 5px; text-align: center;
-  font-family: var(--mc-font-title), serif; font-size: clamp(11px, .85vw, 20px); line-height: 1.15;
-  color: var(--mc-ink); background: linear-gradient(transparent, rgba(0,0,0,.85) 40%); }
+/* Read from across a room, over artwork that can be any colour: bigger, serif, and sat on a
+   backdrop that actually reaches the top of the text rather than fading through it. */
+.mc-ct-name { position: relative; width: 100%; box-sizing: border-box; padding: 6px 5px 7px;
+  text-align: center; font-family: var(--mc-ct-font); font-size: clamp(13px, 1.02vw, 24px);
+  line-height: 1.15; color: #f4ecda; text-shadow: 0 1px 3px rgba(0,0,0,.9);
+  background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.82) 30%, rgba(0,0,0,.92) 100%); }
 .mc-ct-card.mc-ct-active .mc-ct-inner { box-shadow: 0 0 0 2px var(--mc-gold), 0 0 18px rgba(200,164,77,.5); }
-.mc-ct-writing { max-width: 34vw; text-align: center; font-size: clamp(14px, 1.15vw, 26px); color: var(--mc-gold); }
+.mc-ct-writing { max-width: 34vw; text-align: center; font-family: var(--mc-ct-font);
+  font-size: clamp(14px, 1.15vw, 26px); color: var(--mc-gold); }
 .mc-ct-writing i { margin-right: 6px; }
 @media (prefers-reduced-motion: reduce) { .mc-ct-inner { transition: none; } }
 

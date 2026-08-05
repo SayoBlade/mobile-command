@@ -3466,6 +3466,41 @@ resolves to its INTRINSIC width and drops the opposite offset — `inset: 11% 11
 SVG rendered it at 512px, spilling across its neighbours. Bounding `object-fit: contain` needs
 `width/height: 100%` with `box-sizing: border-box` padding, not insets.
 
+**The board reads from a chair — four DM notes, 2026-08-05.**
+
+1. **Every hand is two stacks of three**, not just the end seats. Uniform silhouette at every
+   seat. The consequence is structural: the board becomes three bands of TWO card-heights, so
+   **height binds, not width** — the vw-sized card overflowed the bottom row by 180px the moment
+   the top/bottom hands wrapped. Card width is now height-driven,
+   `--mc-ct-cardw: clamp(56px, calc((100vh - 220px) / 8.6), 190px)`, from solving
+   `6·1.4w + plates/gaps/padding ≤ 100vh`. Measured zero overflow at **1280×720** (card 58×81),
+   **1920×1080** (100×140, seats 336×346) and **3840×2160** (190×266, capped). The honest cost:
+   a 1080p card goes 123px → 100px. Uniformity is worth more than 23px here — but it IS the
+   trade, and if the DM wants the old size back, the top/bottom seats have to go back to a
+   six-wide fan.
+2. **The board sets its own typeface.** It used to inherit `--mc-font-title`, and several themes
+   set a condensed geometric face — fine on a phone at arm's length, unreadable on a TV across a
+   room ("the font is too modern… something with a slight serif so it's legible"). `--mc-ct-font`
+   is now a transitional-serif system stack (Georgia → Palatino → Book Antiqua → Times), used by
+   the plate, card names, text cards and the writing line. Nothing loads.
+3. **Card names were being lost.** Now 13→24px (was 11→20), serif, `#f4ecda` with a shadow, on a
+   backdrop that reaches the top of the text instead of fading through it.
+4. **Player name first, character name last — with a flourish.** The seat shows the PLAYER the
+   moment they're seated. While the PC is mid-creation its name is a placeholder ("Player
+   Character (3)") and the room must never read that, so the seat keeps showing the player until
+   `charGen` clears at Finish — then the character's name blooms in (`mc-ct-namein`, 1.5s, scale
+   + blur + a glow in the seat's colour) and the player's name drops to the sub-line. Plays
+   **once per seat:actor** — `repaint()` rewrites the board on every event, so card-table.js
+   keeps a `revealed` ledger. Honours `prefers-reduced-motion`.
+
+**"How does a player choose his main weapon?" (DM, same message).** They didn't — `readCards()`
+took the first weapon in the bag, and a starting kit hands out a dagger alongside the greataxe.
+The gear step now asks **"Which one do you reach for first?"** and lists the actor's weapons with
+their artwork; the pick stores `mobile-command.mainWeapon` and **flips the gear card immediately**
+(`szNarrate("flip")`) rather than waiting for Finish, so the table watches it happen. `readCards`
+prefers the flagged weapon, falling back to first-weapon then equipment then "Packed". Offered
+only when the character HAS weapons — a pack-only character just continues.
+
 **Bench technique worth keeping.** The Browser pane renders files outside the project as static
 snapshots, and Foundry serves `.html` under `modules/` as plain text — but the repo is JUNCTIONED
 into `FoundryVTT/Data/modules/mobile-command`, so a harness in `tools/` is reachable at

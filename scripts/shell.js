@@ -919,7 +919,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return `<button class="mc-cg-create" data-action="char-gen-equip" data-cgsource="${src}">
           <i class="fas fa-briefcase"></i> ${esc(label)}${granted[src] ? " ✓" : ""}</button>`;
       };
-      body = row("background", "Background equipment") + row("class", "Class equipment")
+      // WHICH weapon is theirs (DM 2026-08-05: "how does a player choose his main weapon for the
+      // gear card?"). The gear card is what the table reads as "this is who they fight with", and
+      // picking the first weapon in the bag made that arbitrary — a starting kit hands out a
+      // dagger alongside the greataxe. Only offered once they HAVE weapons; a pack-only character
+      // just continues and the card says "Packed".
+      const weapons = actor.items.filter(i => i.type === "weapon");
+      const mainId = actor.getFlag(MODULE_ID, "mainWeapon") ?? "";
+      const main = weapons.length ? `<div class="mc-wiz-mainw-lbl">Which one do you reach for first?</div>
+        <div class="mc-wiz-mainw">${weapons.map(w => `<button class="mc-wiz-mainw-opt ${w.id === mainId ? "mc-on" : ""}"
+          data-action="wiz-mainweapon" data-id="${w.id}">
+          <img src="${esc(w.img)}" alt=""><span>${esc(w.name)}</span>
+          ${w.id === mainId ? `<i class="fas fa-check"></i>` : ""}</button>`).join("")}</div>` : "";
+      body = row("background", "Background equipment") + row("class", "Class equipment") + main
         + `<button class="mc-jn-post mc-wiz-continue" data-action="wiz-continue">Gear's sorted — continue</button>`;
     } else if (step.id === "story") {
       body = `<div class="mc-cg-blurb">Two last questions and you're done.</div>`;
@@ -6544,6 +6556,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         const cur = steps[this.#charGen?.wstep ?? 0];
         if (a && cur?.id === "abilities") a.setFlag(MODULE_ID, "wizAbilitiesDone", true).then(() => this.render());
         if (a && cur?.id === "gear") a.setFlag(MODULE_ID, "wizGearDone", true).then(() => this.render());
+        return;
+      }
+      case "wiz-mainweapon": {
+        const a = this.actor;
+        const it = a?.items?.get(el.dataset.id);
+        if (!it) return;
+        a.setFlag(MODULE_ID, "mainWeapon", it.id).then(() => {
+          // Flip the gear card to it now, not at Finish — the table watches the pick happen.
+          this.#szNarrate("flip", { step: "gear", itemName: it.name, img: it.img });
+          this.render();
+        }).catch((e) => console.warn(`${MODULE_ID} | main weapon pick failed`, e));
         return;
       }
       case "wiz-beat-save":
