@@ -1,4 +1,4 @@
-import { MODULE_ID, CREATION_BEATS } from "./preset.js";
+import { MODULE_ID, CREATION_BEATS, pcDisplayName } from "./preset.js";
 import { api as rpc, actorTokenSight, reportPresence, remoteState } from "./rpc.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
 import { toggleSimpleCalendar } from "./gametime.js";
@@ -432,7 +432,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const rows = chars.map(a => `
       <button class="mc-nt-row" data-action="pick-offscene" data-actor-id="${a.id}">
         <img class="mc-nt-img" src="${a.img || "icons/svg/mystery-man.svg"}" alt="">
-        <span class="mc-nt-name">${foundry.utils.escapeHTML(a.name)}</span>
+        <span class="mc-nt-name">${foundry.utils.escapeHTML(pcDisplayName(a))}</span>
         <span class="mc-nt-tag">${this.#isCharGenPC(a) ? "Build" : "View"}</span>
       </button>`).join("");
     // ALWAYS offer a way out. This screen has no header — so with no characters to list it used to
@@ -800,7 +800,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const img = actor.img || "icons/svg/mystery-man.svg";
     return `<header class="mc-header mc-cg-header">
       <img class="mc-portrait" src="${img}" alt="" data-action="portrait-open" title="Generate a portrait">
-      <div class="mc-id"><div class="mc-name"><span class="mc-name-text">${foundry.utils.escapeHTML(actor.name)}</span></div>
+      <div class="mc-id"><div class="mc-name"><span class="mc-name-text">${foundry.utils.escapeHTML(pcDisplayName(actor, game.user?.name ?? "New character"))}</span></div>
         <div class="mc-cg-sub">${sub}</div></div>
     </header>${this.#tokenSwitcherHTML()}`;
   }
@@ -1090,7 +1090,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ${area("Biography", "system.details.biography.value", d.biography?.value)}
       </div>` : "";
     return `<div class="mc-bio-box">
-        <input class="mc-bio-name" type="text" data-bio="name" value="${esc(actor.name)}" placeholder="Character name" aria-label="Character name">
+        <input class="mc-bio-name" type="text" data-bio="name" value="${esc(pcDisplayName(actor, ""))}" placeholder="Character name" aria-label="Character name">
         <button class="mc-bio-toggle" data-action="char-gen-bio-toggle">
           <i class="fas fa-feather"></i> ${open ? "Hide biography & details" : "Biography & details"}
           <i class="fas fa-chevron-${open ? "up" : "down"} mc-bio-chev"></i>
@@ -2099,7 +2099,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!p) return "";
     const esc = foundry.utils.escapeHTML;
     const actor = this.#storyAnswerActor();
-    const asWho = actor ? `as ${esc(actor.name)}` : "no character to answer as";
+    const asWho = actor ? `as ${esc(pcDisplayName(actor, "your new character"))}` : "no character to answer as";
     return `<div class="mc-saveprompt mc-storyprompt">
       <div class="mc-saveprompt-bar">
         <span class="mc-saveprompt-title"><i class="fas fa-feather"></i> Story question</span>
@@ -2474,7 +2474,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       return `<div class="mc-pv-row">
         <img class="mc-pv-img" src="${esc(a.img || "icons/svg/mystery-man.svg")}" alt="">
         <div class="mc-pv-main">
-          <div class="mc-pv-name">${esc(a.name)} <span class="mc-pv-cls">${this.#classIconsHTML(a)}</span></div>
+          <div class="mc-pv-name">${esc(pcDisplayName(a))} <span class="mc-pv-cls">${this.#classIconsHTML(a)}</span></div>
           <div class="mc-pv-bar"><div class="mc-pv-fill${pct <= 33 ? " mc-low" : ""}" style="width:${pct}%"></div></div>
           <div class="mc-pv-sub">HP ${hp.value ?? "—"}/${hp.max ?? "—"}${hp.temp ? ` +${hp.temp}` : ""} · HD ${hd?.value ?? "—"}/${hd?.max ?? "—"}</div>
         </div>
@@ -2982,7 +2982,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const esc = foundry.utils.escapeHTML;
     const n = this.#storyEntries(a).length;
     return `<button class="mc-jn-pageitem mc-st-cover" data-action="story-open">
-      <span class="mc-jn-page-title"><i class="fas fa-feather"></i> My Story — ${esc(a.name)}</span>
+      <span class="mc-jn-page-title"><i class="fas fa-feather"></i> My Story — ${esc(pcDisplayName(a))}</span>
       <span class="mc-jn-page-meta">${n ? `${n} ${n === 1 ? "entry" : "entries"}` : "Start writing"} · only you and the DM</span>
     </button>`;
   }
@@ -3009,7 +3009,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <section class="mc-journal">
         <div class="mc-jn-page-head">
           <button class="mc-back" data-action="story-back" aria-label="Back to the journal"><i class="fas fa-arrow-left"></i></button>
-          <span class="mc-jn-page-name"><i class="fas fa-feather"></i> ${esc(actor.name)} — My Story</span>
+          <span class="mc-jn-page-name"><i class="fas fa-feather"></i> ${esc(pcDisplayName(actor))} — My Story</span>
         </div>
         <div class="mc-st-hint">Only you and the DM can read this.</div>
         ${(actor.getFlag(MODULE_ID, "storyPending") ?? []).map(p => `
@@ -4477,24 +4477,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // it, and 8 names wrapped to three cluttered rows. The name survives as the tooltip and the
     // accessible name, so nothing is lost to a screen reader or a long-press.
     const themes = [
-      ["tavern", "Tavern", "#c8a44d"],
-      ["gothic", "Gothic", "#a34049"],
-      ["frost", "Frost", "#8fd3f4"],
-      ["flame", "Flame", "#f0a52e"],
-      ["tide", "Tide", "#45c4b0"],
-      ["artificer", "Artificer", "#8aa6c4"],
-      ["barbarian", "Barbarian", "#b0342b"],
-      ["bard", "Bard", "#d76ba8"],
-      ["cleric", "Cleric", "#e0d3a0"],
-      ["druid", "Druid", "#6fbf73"],
-      ["fighter", "Fighter", "#93a3b8"],
-      ["monk", "Monk", "#52c2a5"],
-      ["paladin", "Paladin", "#fffd86"],
-      ["ranger", "Ranger", "#9fbf5f"],
-      ["rogue", "Rogue", "#a580ca"],
-      ["sorcerer", "Sorcerer", "#ee6a28"],
-      ["warlock", "Warlock", "#9a5fd0"],
-      ["wizard", "Wizard", "#7f8fe0"]
+      // THREE, deliberately (DM 2026-08-05: "choose three themes to keep and let's develop
+      // them"). Eighteen swatches was a paint chart, and the twelve class themes were the
+      // weakest of them — palette swaps of one shape, and a theme tied to your class is a
+      // choice already made for you (a multiclass has no answer at all). These three each have
+      // their own type, corner radius and bar pattern, and they span the range: warm, severe,
+      // cold. The retired blocks stay in shell.css, so a player who already picked one keeps it.
+      ["tavern", "Tavern", "#c8a44d"],   // the house style: candlelight, gold, worn wood
+      ["gothic", "Gothic", "#a34049"],   // blackletter, blood, hard corners — the horror register
+      ["frost", "Frost", "#8fd3f4"]      // pale, round, wide-tracked — the clean cold one
     ];
     return themes.map(([id, label, sw]) =>
       `<button class="mc-theme-opt ${cur === id ? "mc-on" : ""}" data-action="set-theme" data-theme="${id}" title="${label}" aria-label="${label}" aria-pressed="${cur === id}"><span class="mc-theme-sw" style="background-color:${sw}"></span></button>`).join("");
@@ -7578,7 +7569,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ? paras.map(p => `<p class="mc-bio-para">${foundry.utils.escapeHTML(p).replace(/\n/g, "<br>")}</p>`).join("")
       : `<div class="mc-jn-empty">${canEdit ? "No biography yet — tap Edit to write one." : "No biography."}</div>`;
     const body = this.#bioEditing
-      ? `<textarea class="mc-bio-edit" rows="10" placeholder="Write ${foundry.utils.escapeHTML((actor?.name ?? "your character") + "'s")} story…" ${this.#bioBusy ? "disabled" : ""}>${foundry.utils.escapeHTML(this.#bioDraft)}</textarea>`
+      ? `<textarea class="mc-bio-edit" rows="10" placeholder="Write ${foundry.utils.escapeHTML(pcDisplayName(actor, "your character") + "'s")} story…" ${this.#bioBusy ? "disabled" : ""}>${foundry.utils.escapeHTML(this.#bioDraft)}</textarea>`
       : `<div class="mc-bio-read">${readBody}</div>`;
     const foot = this.#bioEditing
       ? `<div class="mc-bio-foot">
@@ -7588,7 +7579,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       : (canEdit ? `<button class="mc-jn-post" data-action="bio-edit"><i class="fas fa-feather"></i> Edit biography</button>` : "");
     return `<div class="mc-picker-head">
         <button class="mc-back mc-picker-x" data-action="bio-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
-        <span class="mc-picker-title">${foundry.utils.escapeHTML(actor?.name ?? "Biography")}</span>
+        <span class="mc-picker-title">${foundry.utils.escapeHTML(pcDisplayName(actor, "Biography"))}</span>
       </div>
       <section class="mc-journal mc-bio-view">
         ${this.#bioEditing ? "" : `<div class="mc-jn-filterrow"><i class="fas fa-magnifying-glass"></i><input class="mc-bio-filter" type="search" placeholder="Search the biography…" value="${foundry.utils.escapeHTML(this.#bioFilter)}"></div>`}

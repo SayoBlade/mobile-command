@@ -3501,6 +3501,48 @@ their artwork; the pick stores `mobile-command.mainWeapon` and **flips the gear 
 prefers the flagged weapon, falling back to first-weapon then equipment then "Packed". Offered
 only when the character HAS weapons — a pack-only character just continues.
 
+**Three themes, not eighteen (DM 2026-08-05: "choose three themes to keep and let's develop
+them").** Kept: **Tavern** (the house style — candlelight, gold, worn wood, Modesto Condensed),
+**Gothic** (blackletter, blood red, `--mc-round: 0.3`, battlement bar pattern — the horror
+register, and the campaign is Crooked Moon) and **Frost** (pale blue, `--mc-round: 1.4`,
+uppercase tracked Titillium, snowflake pattern — the clean cold one). They span warm / severe /
+cold and each already carries its own type, radius and pattern.
+
+Retired: flame, tide, and the twelve class themes. The class set was the weakest — palette swaps
+of one shape, and a theme tied to your class is a choice already made for you (a multiclass has
+no answer at all). **Their CSS blocks stay in shell.css**, so a player who already picked one
+keeps it; only the picker narrowed. Nothing was deleted.
+
+Development plan for the three (DM sign-off wanted before the deep pass): reach the surfaces a
+theme currently doesn't — the **card table** (the board is fixed dark; it should take the display
+client's theme, with a per-theme card back), the **DM panel**, and per-theme card noises (a
+Gothic flip wants more room tone than a Frost one).
+
+**Card noises — MADE, not sampled ("can you get/make them or should I?").** Neither: they're
+synthesised in WebAudio at play time ([scripts/card-audio.js](scripts/card-audio.js)). A card is a
+short burst of bandpass-filtered noise with a fast attack and a falling centre frequency, plus a
+sine "knock" for the table — which is exactly what a synth does well. That buys three things a
+sample pack doesn't: nothing to download or license, no files for a modest machine to hold, and
+per-play jitter on pitch and length so a six-card deal doesn't sound like one click stamped six
+times. Voices: `deal` (slide + knock), `flip` (corner lift, face slap, knock), `place`.
+
+Measured offline-rendered `flip`: peak **0.263** (no clipping), silent by ~150ms, brightness
+~3.2kHz over the first 80ms — the short bright transient a real flip is. Volume is a world
+setting (`cardVolume`, 0–1, default 0.6) multiplied by Foundry's own interface slider; 0 is a
+silent table. A flip only sounds when the card actually TURNS (a repeat event for the same item
+is a re-render), and raising the board deals the whole table, staggered ~110ms.
+**If the DM would rather have real recordings**, `SAMPLES` at the top of card-audio.js is the
+whole hook — point each kind at a file and it wins over the synth.
+
+**"Player Character (4)" must never reach a player (DM 2026-08-05).** Duplicating a blank actor
+in Foundry names it `Player Character (n)` — the DM's scaffolding, not a character.
+`pcDisplayName()` in preset.js (with `isPlaceholderPCName`) now guards every player-facing print:
+the char-gen header (falls back to the PLAYER's own name, matching the card table), the
+off-scene character list, the party view, both My Story titles, the "answering as X" line, the
+biography picker and its placeholder — and the **name field itself renders EMPTY** rather than
+pre-filled with scaffolding to edit. On the board there are two guards, since either can be true
+alone: mid-creation (`charGen` flag) or a finished PC the DM never renamed (the name test).
+
 **Bench technique worth keeping.** The Browser pane renders files outside the project as static
 snapshots, and Foundry serves `.html` under `modules/` as plain text — but the repo is JUNCTIONED
 into `FoundryVTT/Data/modules/mobile-command`, so a harness in `tools/` is reachable at

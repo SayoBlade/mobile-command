@@ -10,8 +10,9 @@
 // client (or the DM's non-phone client), driven by a world flag so it survives a reload.
 // Input: `tableSeats` (who sits where) + `mobile-command.szEvent` (the wizard narrating itself)
 // + actor items as the fallback truth for what's been chosen.
-import { MODULE_ID, TABLE_SEATS } from "./preset.js";
+import { MODULE_ID, TABLE_SEATS, isPlaceholderPCName } from "./preset.js";
 import { isPhoneClient, isDisplayClient } from "./shell.js";
+import { cardSound, dealSound } from "./card-audio.js";
 
 // Our own art is the default now (DM's set, 2026-08-04): the crescent-moon back and the wide
 // rune table. The picker can still choose any of the Crooked Moon backs, or a custom upload.
@@ -150,8 +151,11 @@ function seatHTML(def) {
   // the wizard asks, so it arrives late and arrives with a flourish (DM 2026-08-05). While the
   // PC is mid-creation its name is a placeholder ("Player Character (3)") — the room should
   // never read that, so the seat keeps showing the player until `charGen` clears at Finish.
+  // Two guards, because either can be true on its own: mid-creation (the wizard hasn't reached
+  // the name step) or a PC that finished but still wears Foundry's duplicate name. Neither is a
+  // character, and the TV is the most public surface there is.
   const building = !!actor?.getFlag(MODULE_ID, "charGen");
-  const named = !!actor && !building;
+  const named = !!actor && !building && !isPlaceholderPCName(actor.name);
   const key = named ? `${def.id}:${actor.id}` : null;
   const firstReveal = named && !revealed.has(key);
   if (key) revealed.add(key);
@@ -218,6 +222,9 @@ export function cardTableSync(on) {
     document.body.appendChild(root);
     rebuild();
     repaint();
+    // The board coming up IS the deal — one card per seated player's hand, staggered.
+    const cards = [...state.values()].reduce((n, s) => n + (s.caster ? HAND.length : HAND.length - 1), 0);
+    if (cards) dealSound(Math.min(cards, 12));
   } else if (!on && root) {
     root.remove(); root = null; state = new Map();
   }
@@ -237,6 +244,9 @@ export function cardTableEvent(p = {}) {
     s.cards = readCards(actor); s.caster = isCaster(actor);
   }
   if (p.kind === "flip" && p.step) {
+    // Only when the card actually TURNS. A repeat flip for a card already showing that item is
+    // a re-render, and the room shouldn't hear the same card twice (§38.4a).
+    if (s.cards[p.step]?.name !== (p.itemName ?? "")) cardSound("flip");
     s.cards[p.step] = { name: p.itemName ?? "", img: p.img ?? null };
     s.active = null; s.question = null;
   } else if (p.kind === "writing") {

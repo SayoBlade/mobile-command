@@ -156,6 +156,21 @@ export const STORY_QUESTIONS = [
 // Six seats around a TV lying FLAT on the table: one at each short end, two along each long
 // side. `rot` is how far to rotate that seat's cards/HUD so they read upright to the person
 // sitting there — the séance board's word rotation should eventually read this too.
+// ── The blank-PC placeholder name ──────────────────────────────────────────
+// Duplicating a blank actor in Foundry gives "Player Character", "Player Character (2)", … —
+// the DM's scaffolding, not a character. It must never reach a player-facing surface (DM
+// 2026-08-05: "shouldn't appear anywhere for players"), so every place the shell or the board
+// prints a PC's name runs it through pcDisplayName first.
+const PLACEHOLDER_PC_NAME = /^player character(\s*\(\d+\))?\s*$/i;
+export function isPlaceholderPCName(name) {
+  return PLACEHOLDER_PC_NAME.test(String(name ?? "").trim());
+}
+/** The name to SHOW for a PC — `fallback` whenever it's still the placeholder (or blank). */
+export function pcDisplayName(actor, fallback = "New character") {
+  const n = String(actor?.name ?? "").trim();
+  return (!n || isPlaceholderPCName(n)) ? fallback : n;
+}
+
 // Labels describe the PANEL MAP as the DM drew it (2026-08-05): the table stands on end — one
 // seat at the top, two down each side, one at the bottom. `side`/`rot` are unchanged and still
 // describe the physical table (long sides seat two, ends seat one), so the TV board — which is

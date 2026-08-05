@@ -231,6 +231,18 @@ export function registerSettings() {
     scope: "world", config: false, type: Boolean, default: false
   });
 
+  // §38.4a card noises. Synthesised at play time (card-audio.js), so this is a level, not a
+  // file path. Rides Foundry's own interface-volume slider on top. 0 = silent.
+  game.settings.register(MODULE_ID, "cardVolume", {
+    name: "Card table sound",
+    hint: "How loud the dealing and flipping of session-zero cards is on the shared screen. The sounds are generated, not sampled — nothing to download. Set to 0 for a silent table.",
+    scope: "world",
+    config: true,
+    type: Number,
+    range: { min: 0, max: 1, step: 0.05 },
+    default: 0.6
+  });
+
   game.settings.register(MODULE_ID, "dmOmniscientVision", {
     name: "Keep the DM's vision omniscient (shared-screen tables)",
     hint: "When the DM selects/controls a player's token, don't shrink the DM's view to that token's point of view — the DM keeps seeing the whole map. Players and the TV/display are unaffected. On by default.",
