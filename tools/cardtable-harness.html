@@ -47,7 +47,7 @@ const g = id => SEATS.find(s => s.id === id);
 document.body.innerHTML = `<div id="mc-cardtable"><div class="mc-ct-felt"
   style="--mc-ct-table:url('/modules/mobile-command/art/card-table-wide.jpg')">
   <div class="mc-ct-row mc-ct-row-n">${seat(g("n1"),0)}${seat(g("n2"),1)}</div>
-  <div class="mc-ct-mid">${seat(g("w"),2)}<div class="mc-ct-center"></div>${seat(g("e"),3)}</div>
+  <div class="mc-ct-mid">${seat(g("w"),2)}<div class="mc-ct-center"><div class="mc-ct-candles"><div class="mc-ct-candle" style="--mc-cd-h:1;--mc-cd-x:-1;--mc-cd-d:0s"><div class="mc-ct-cd-shadow"></div><div class="mc-ct-cd-glow"></div><div class="mc-ct-cd-body"></div><div class="mc-ct-cd-flame"></div></div><div class="mc-ct-candle" style="--mc-cd-h:0.74;--mc-cd-x:0;--mc-cd-d:-1.7s"><div class="mc-ct-cd-shadow"></div><div class="mc-ct-cd-glow"></div><div class="mc-ct-cd-body"></div><div class="mc-ct-cd-flame"></div></div><div class="mc-ct-candle" style="--mc-cd-h:0.88;--mc-cd-x:1;--mc-cd-d:-0.9s"><div class="mc-ct-cd-shadow"></div><div class="mc-ct-cd-glow"></div><div class="mc-ct-cd-body"></div><div class="mc-ct-cd-flame"></div></div></div></div>${seat(g("e"),3)}</div>
   <div class="mc-ct-row mc-ct-row-s">${seat(g("s1"),4)}${seat(g("s2"),5)}</div>
 </div></div>`;
 

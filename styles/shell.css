@@ -1907,7 +1907,83 @@ body {
     radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,var(--mc-ct-vignette)) 100%); }
 .mc-ct-row { display: flex; justify-content: space-evenly; gap: 12px; }
 .mc-ct-mid { flex: 1 1 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.mc-ct-center { flex: 1 1 auto; }
+.mc-ct-center { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; }
+
+/* ── CANDLES (§38.4a) ──────────────────────────────────────────────────────────────────────
+   THE RULE THAT KEEPS THIS CHEAP: only `transform` and `opacity` are ever animated. Those two
+   are handled by the compositor without re-rasterising, so the cost is a texture upload once
+   and then nothing. Animating `filter: blur()` (for the glow) or `drop-shadow` (for the cast
+   shadow) is the obvious way to build this and it repaints every element every frame — that is
+   the version that would cost the DM's machine real time. Here the glow is a static radial
+   gradient that only ever changes opacity/scale, and the shadow is a flat ellipse that rotates.
+   `will-change` promotes each moving piece to its own layer so the felt underneath never
+   repaints. Candle height/offset/phase come in as --mc-cd-h / --mc-cd-x / --mc-cd-d so no two
+   burn in step. */
+.mc-ct-candles { position: relative; display: flex; align-items: flex-end; justify-content: center;
+  gap: clamp(10px, 1.1vw, 26px); pointer-events: none; z-index: 2;
+  --mc-cd-w: clamp(9px, .72vw, 17px);          /* candle width; everything scales off it */
+  --mc-cd-flame: 224, 168, 74;                  /* warm tallow — decks override */
+  --mc-cd-wax: #e6dcc4; }
+.mc-ct-candle { position: relative; width: var(--mc-cd-w);
+  height: calc(var(--mc-cd-w) * 5.2 * var(--mc-cd-h, 1));
+  transform: translateX(calc(var(--mc-cd-x, 0) * 2px)); }
+/* The wax column: a lit edge, a body, and a darker side away from the flame. */
+.mc-ct-cd-body { position: absolute; inset: 0; border-radius: calc(var(--mc-cd-w) * .34)
+    calc(var(--mc-cd-w) * .34) calc(var(--mc-cd-w) * .12) calc(var(--mc-cd-w) * .12);
+  background: linear-gradient(90deg, rgba(0,0,0,.42) 0%, var(--mc-cd-wax) 34%,
+    #fffaf0 52%, var(--mc-cd-wax) 68%, rgba(0,0,0,.5) 100%);
+  box-shadow: 0 0 calc(var(--mc-cd-w) * 1.4) rgba(var(--mc-cd-flame), .28); }
+/* The flame sits above the wax, its own teardrop, pinned at the wick so it pivots there. */
+.mc-ct-cd-flame { position: absolute; left: 50%; bottom: 100%;
+  width: calc(var(--mc-cd-w) * .82); height: calc(var(--mc-cd-w) * 2.1);
+  margin-left: calc(var(--mc-cd-w) * -.41); transform-origin: 50% 100%;
+  border-radius: 50% 50% 46% 46% / 62% 62% 38% 38%;
+  background: radial-gradient(ellipse 60% 44% at 50% 78%,
+    #fffdf2 0%, rgba(var(--mc-cd-flame), 1) 42%, rgba(var(--mc-cd-flame), .72) 68%,
+    rgba(var(--mc-cd-flame), 0) 100%);
+  animation: mc-cd-flicker 2.3s ease-in-out infinite alternate;
+  animation-delay: var(--mc-cd-d, 0s); will-change: transform, opacity; }
+/* Pre-blurred by being a gradient — never a filter. Only opacity and scale move. */
+.mc-ct-cd-glow { position: absolute; left: 50%; bottom: 100%;
+  width: calc(var(--mc-cd-w) * 13); height: calc(var(--mc-cd-w) * 13);
+  margin: 0 0 calc(var(--mc-cd-w) * -5.5) calc(var(--mc-cd-w) * -6.5);
+  border-radius: 50%; background: radial-gradient(circle,
+    rgba(var(--mc-cd-flame), .34) 0%, rgba(var(--mc-cd-flame), .13) 34%,
+    rgba(var(--mc-cd-flame), 0) 68%);
+  animation: mc-cd-glow 3.1s ease-in-out infinite alternate;
+  animation-delay: var(--mc-cd-d, 0s); will-change: transform, opacity; }
+/* The cast shadow: a flat ellipse laid on the table, swinging as the flame leans. */
+.mc-ct-cd-shadow { position: absolute; left: 50%; bottom: calc(var(--mc-cd-w) * -.2);
+  width: calc(var(--mc-cd-w) * 1.5); height: calc(var(--mc-cd-w) * 6.5);
+  margin-left: calc(var(--mc-cd-w) * -.75); transform-origin: 50% 0%;
+  border-radius: 50%; background: linear-gradient(rgba(0,0,0,.5), rgba(0,0,0,.16) 55%,
+    rgba(0,0,0,0) 100%);
+  animation: mc-cd-sway 2.9s ease-in-out infinite alternate;
+  animation-delay: var(--mc-cd-d, 0s); will-change: transform; }
+@keyframes mc-cd-flicker {
+  0%   { transform: scale(1, 1) skewX(0deg); opacity: .92; }
+  22%  { transform: scale(.94, 1.1) skewX(-3deg); opacity: 1; }
+  46%  { transform: scale(1.05, .93) skewX(2deg); opacity: .86; }
+  71%  { transform: scale(.97, 1.06) skewX(-1.5deg); opacity: 1; }
+  100% { transform: scale(1.02, .97) skewX(2.5deg); opacity: .94; }
+}
+@keyframes mc-cd-glow {
+  0%   { transform: scale(1); opacity: .78; }
+  40%  { transform: scale(1.07); opacity: 1; }
+  100% { transform: scale(.96); opacity: .72; }
+}
+@keyframes mc-cd-sway {
+  0%   { transform: rotate(2.5deg) scaleY(1); opacity: .85; }
+  50%  { transform: rotate(-2deg) scaleY(1.12); opacity: .7; }
+  100% { transform: rotate(1.5deg) scaleY(.95); opacity: .88; }
+}
+/* Motion on a shared screen people look at for an hour — honour the OS preference. */
+@media (prefers-reduced-motion: reduce) {
+  .mc-ct-cd-flame, .mc-ct-cd-glow, .mc-ct-cd-shadow { animation: none; }
+}
+/* Ash burns low and sickly; Hoarfrost burns cold. */
+#mc-cardtable.mc-ct-theme-ash .mc-ct-candles { --mc-cd-flame: 214, 138, 62; --mc-cd-wax: #cdc4b2; }
+#mc-cardtable.mc-ct-theme-hoarfrost .mc-ct-candles { --mc-cd-flame: 150, 210, 245; --mc-cd-wax: #eaf2fa; }
 .mc-ct-seat { position: relative; z-index: 1; display: flex; flex-direction: column;
   align-items: center; gap: 6px; padding: 8px 10px; transform: rotate(var(--mc-ct-rot, 0deg));
   border-radius: calc(12px * var(--mc-round, 1)); transition: box-shadow .25s ease, background .25s ease; }

@@ -3554,6 +3554,35 @@ biography picker and its placeholder — and the **name field itself renders EMP
 pre-filled with scaffolding to edit. On the board there are two guards, since either can be true
 alone: mid-creation (`charGen` flag) or a finished PC the DM never renamed (the name test).
 
+**Candles on the table — "how complex is that?" (DM 2026-08-05).** Cheap built one way,
+expensive built the obvious way, and the difference is the whole answer.
+
+The obvious build is `filter: blur()` for the glow and an animated `drop-shadow` for the cast
+shadow. Both **re-rasterise the element every frame** — that's the version that costs a modest
+machine real time, and it's what "animated flame + moving shadow" usually means. Built here so
+that **only `transform` and `opacity` ever animate**: those two are composited on their own
+thread, so the cost is one texture upload and then effectively nothing. The glow is a static
+radial gradient (a gradient is free) whose opacity and scale move; the cast shadow is a flat dark
+ellipse that rotates and stretches; `will-change` promotes each moving piece so the felt beneath
+never repaints. **No canvas, no sprite sheet, no video, no images at all** — three candles are
+~30 lines of CSS.
+
+Verified programmatically (an FPS sample wasn't possible — the Browser pane throttles rAF when
+it isn't compositing — so the property discipline was checked instead, which is what actually
+determines the cost): all three keyframe sets (`mc-cd-flicker`, `mc-cd-glow`, `mc-cd-sway`)
+animate **only transform and opacity**, zero offending properties, and **no `filter` is in use
+anywhere on a candle**. 9 animated elements across 3 candles.
+
+Details: heights, x-offsets and animation delays vary per candle (`--mc-cd-h/-x/-d`) so no two
+burn in step — three identical flames read as wallpaper. Decks recolour the flame (Ash burns low
+and sickly, Hoarfrost burns cold). `prefers-reduced-motion` stops them dead. World setting
+`cardCandles` (default on) is the escape hatch — it's still motion on a screen people stare at
+for an hour.
+
+**Still unmeasured:** actual frame time on the DM's machine with a Foundry canvas alive
+underneath. The static analysis says it should be free; a real FPS check at the table is the
+honest confirmation.
+
 **Bench technique worth keeping.** The Browser pane renders files outside the project as static
 snapshots, and Foundry serves `.html` under `modules/` as plain text — but the repo is JUNCTIONED
 into `FoundryVTT/Data/modules/mobile-command`, so a harness in `tools/` is reachable at

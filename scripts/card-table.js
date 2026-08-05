@@ -170,6 +170,34 @@ function seatHTML(def) {
   </div>`;
 }
 
+// §38.4a CANDLES — the middle of the table (DM 2026-08-05, "how complex is that?").
+//
+// Cheap by construction. Every animated property here is `transform` or `opacity`, which the
+// compositor handles on its own thread without re-rasterising anything. The expensive way to
+// build this — and the obvious one — is an animated `filter: blur()` for the glow and an
+// animated `drop-shadow` for the cast shadow: both force a repaint of the element EVERY FRAME,
+// which is what would cost the DM's machine. Instead the glow is a pre-blurred radial gradient
+// (a gradient is free) whose opacity/scale animate, and the shadow is a flat dark ellipse that
+// rotates and stretches. No canvas, no sprites, no images.
+function candlesHTML() {
+  let on = true;
+  try { on = !!game.settings.get(MODULE_ID, "cardCandles"); } catch (e) { /* default on */ }
+  if (!on) return "";
+  // Three candles, deliberately unequal — same height and rhythm three times reads as wallpaper.
+  const c = [
+    { h: 1, x: -1.0, delay: 0 },
+    { h: 0.74, x: 0, delay: -1.7 },
+    { h: 0.88, x: 1.0, delay: -0.9 }
+  ];
+  return `<div class="mc-ct-candles">${c.map(k => `
+    <div class="mc-ct-candle" style="--mc-cd-h:${k.h};--mc-cd-x:${k.x};--mc-cd-d:${k.delay}s">
+      <div class="mc-ct-cd-shadow"></div>
+      <div class="mc-ct-cd-glow"></div>
+      <div class="mc-ct-cd-body"></div>
+      <div class="mc-ct-cd-flame"></div>
+    </div>`).join("")}</div>`;
+}
+
 function boardHTML() {
   const rows = {
     n: TABLE_SEATS.filter(s => s.id.startsWith("n")),
@@ -181,7 +209,7 @@ function boardHTML() {
     <div class="mc-ct-row mc-ct-row-n">${rows.n.map(seatHTML).join("")}</div>
     <div class="mc-ct-mid">
       ${seatHTML(rows.w)}
-      <div class="mc-ct-center"></div>
+      <div class="mc-ct-center">${candlesHTML()}</div>
       ${seatHTML(rows.e)}
     </div>
     <div class="mc-ct-row mc-ct-row-s">${rows.s.map(seatHTML).join("")}</div>

@@ -237,6 +237,18 @@ export function registerSettings() {
     scope: "world", config: false, type: String, default: DEFAULT_CARD_THEME
   });
 
+  // §38.4a candles in the middle of the table. Compositor-only animation (transform/opacity),
+  // but it's still motion on a shared screen — this is the escape hatch if a machine struggles
+  // or the DM just wants the table still.
+  game.settings.register(MODULE_ID, "cardCandles", {
+    name: "Candles on the card table",
+    hint: "Three candles burning in the middle of the shared card table, with a slight moving shadow. Drawn in CSS — no images, no video. Turn off for a still table.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
   // §38.4a card noises. Synthesised at play time (card-audio.js), so this is a level, not a
   // file path. Rides Foundry's own interface-volume slider on top. 0 = silent.
   game.settings.register(MODULE_ID, "cardVolume", {
