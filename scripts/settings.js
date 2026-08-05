@@ -237,6 +237,36 @@ export function registerSettings() {
     scope: "world", config: false, type: String, default: DEFAULT_CARD_THEME
   });
 
+  // §38.5 the opening: has the show already run this session? A board raised again (or a client
+  // that reloads) must land already-lit rather than replaying the whole thing at the room.
+  game.settings.register(MODULE_ID, "szOpened", {
+    scope: "world", config: false, type: Boolean, default: false
+  });
+
+  // §38.5 whether the board animates even when the OS asks for reduced motion. Default ON: the
+  // DM's own machine reports "reduce" (Windows turns animation effects off for PERFORMANCE, not
+  // for access) and it silently cancelled the entire opening — cards appeared with no deal, the
+  // candle shadows never moved. Turn this off to defer to the OS again.
+  game.settings.register(MODULE_ID, "szMotion", {
+    name: "Animate the card table",
+    hint: "Play the session-zero opening and the candle shadows even if Windows has animation effects switched off. Turn this off to follow the system's reduced-motion setting instead.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
+  // §38.5 the soft music under the opening. A Foundry PLAYLIST NAME — the DM's own music, chosen
+  // by them; the module ships none and never picks for them. Empty = silence.
+  game.settings.register(MODULE_ID, "szMusic", {
+    name: "Session zero music",
+    hint: "Name of a Foundry playlist to start softly as the candles are lit. Leave empty for no music.",
+    scope: "world",
+    config: true,
+    type: String,
+    default: ""
+  });
+
   // §38.4a candles in the middle of the table. Compositor-only animation (transform/opacity),
   // but it's still motion on a shared screen — this is the escape hatch if a machine struggles
   // or the DM just wants the table still.

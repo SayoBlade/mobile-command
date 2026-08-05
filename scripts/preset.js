@@ -156,6 +156,19 @@ export const STORY_QUESTIONS = [
 // Six seats around a TV lying FLAT on the table: one at each short end, two along each long
 // side. `rot` is how far to rotate that seat's cards/HUD so they read upright to the person
 // sitting there — the séance board's word rotation should eventually read this too.
+// ── Ability icons (§38.4a — the abilities card) ────────────────────────────
+// dnd5e ships one per ability. The card shows the icon and the ability's NAME — never the score
+// (DM 2026-08-05: "no need for the number"). A number is a character-sheet fact; what the table
+// wants to read across the room is "this one is STRONG".
+export const ABILITY_ICONS = {
+  str: "systems/dnd5e/icons/svg/abilities/strength.svg",
+  dex: "systems/dnd5e/icons/svg/abilities/dexterity.svg",
+  con: "systems/dnd5e/icons/svg/abilities/constitution.svg",
+  int: "systems/dnd5e/icons/svg/abilities/intelligence.svg",
+  wis: "systems/dnd5e/icons/svg/abilities/wisdom.svg",
+  cha: "systems/dnd5e/icons/svg/abilities/charisma.svg"
+};
+
 // ── Card themes (§38.4a — the DECK's look on the shared screen) ────────────
 // Not the phone's theme (that's the 18-swatch picker in the shell, untouched). This dresses the
 // card table: the felt's colour cast, how the parchment frame and the card back are tinted, the

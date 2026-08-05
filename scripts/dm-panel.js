@@ -318,7 +318,7 @@ function partyTabFull() {
   // the FOOT like the Combat send button (DM 2026-07-25). The Story-questions drawer (§38.4)
   // renders regardless of packing — questions don't need a group.
   return `<div class="mc-dmp-tabfill">
-    <div class="mc-dmp-tabmid">${dtDrawer("players", "Players & seats", "", playersBody(), true)}${dtDrawer("cardTable", "Card table", "", cardTableBody(), true)}${dtDrawer("storyQs", "Story questions", "", storyQsBody(), true)}${ownedTokensHTML()}${marching}</div>
+    <div class="mc-dmp-tabmid">${dtDrawer("players", "Players & seats", "", playersBody(), true)}${dtDrawer("cardTable", "Session zero", "", cardTableBody(), true)}${dtDrawer("storyQs", "Story questions", "", storyQsBody(), true)}${ownedTokensHTML()}${marching}</div>
     <div class="mc-dmp-tabfoot">${partyMainHTML()}</div>
   </div>`;
 }
@@ -3090,6 +3090,7 @@ function cardTableBody() {
   const cur = (() => { try { return game.settings.get(MODULE_ID, "cardBackImage") || ""; } catch (e) { return ""; } })();
   const seated = Object.keys((() => { try { return game.settings.get(MODULE_ID, "tableSeats") ?? {}; } catch (e) { return {}; } })()).length;
   const deck = (() => { try { return game.settings.get(MODULE_ID, "cardTheme") || DEFAULT_CARD_THEME; } catch (e) { return DEFAULT_CARD_THEME; } })();
+  const opened = (() => { try { return !!game.settings.get(MODULE_ID, "szOpened"); } catch (e) { return false; } })();
   if (cardBackGallery === null) scanCardBacks();
   const thumbs = (cardBackGallery ?? []).map(f => `
     <button class="mc-dmp-cardback ${f === cur ? "mc-on" : ""}" data-cardback="${esc(f)}" title="${esc(f.split('/').pop())}">
@@ -3106,6 +3107,11 @@ function cardTableBody() {
       <span class="mc-dmp-story-status">${seated ? `${seated} seated` : "Nobody's seated yet"}</span>
       <button class="mc-dmp-seat-move" data-open-drawer="players" title="Open Players &amp; seats">change</button>
     </div>
+    <button class="mc-dmp-sz-begin" data-sz-open ${seated ? "" : "disabled"}
+      title="${seated ? "Light the candles, start the music, deal the cards" : "Seat someone first"}">
+      <i class="fas fa-fire"></i> ${opened ? "Run the opening again" : "Begin session zero"}
+    </button>
+    <div class="mc-dmp-story-status mc-dmp-sz-hint">Candles catch, the music comes up, the shadows reach out, then the cards are dealt.</div>
     <div class="mc-dmp-story-cat">Deck</div>
     <div class="mc-dmp-decks">${CARD_THEMES.map(t => `
       <button class="mc-dmp-deck ${t.id === deck ? "mc-on" : ""}" data-cardtheme="${t.id}" title="${esc(t.label)}">
@@ -4136,6 +4142,19 @@ async function onClick(ev) {
   if (ev.target.closest("[data-cardtable-toggle]")) {
     const on = !!game.settings.get(MODULE_ID, "cardTableOn");
     await game.settings.set(MODULE_ID, "cardTableOn", !on);
+    return render();
+  }
+  if (ev.target.closest("[data-sz-open]")) {
+    // Make sure the board is actually up before the show starts, then cue every client.
+    try {
+      if (!game.settings.get(MODULE_ID, "cardTableOn")) await game.settings.set(MODULE_ID, "cardTableOn", true);
+      await game.settings.set(MODULE_ID, "szOpened", true);
+      api.szEvent({ kind: "opening" });
+      Hooks.callAll(`${MODULE_ID}.szEvent`, { kind: "opening" }); // this client too
+    } catch (e) {
+      console.error(`${MODULE_ID} | could not start session zero`, e);
+      ui.notifications.warn(`Couldn't start session zero: ${e.message}`);
+    }
     return render();
   }
   const deckBtn = ev.target.closest("[data-cardtheme]");

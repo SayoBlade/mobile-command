@@ -3554,6 +3554,70 @@ biography picker and its placeholder — and the **name field itself renders EMP
 pre-filled with scaffolding to edit. On the board there are two guards, since either can be true
 alone: mid-creation (`charGen` flag) or a finished PC the DM never renamed (the name test).
 
+### 38.5 The opening — session zero's first minute (DM 2026-08-05, BUILT + verified in the DM's own world)
+
+> DM: *"I want this to be an amazing moment, the first encounter with the system. The table starts
+> off empty, candles unlit, DM sets up players' location and activates the flow, candle is lit,
+> soft music starts as the candles illuminate the table, shadows stretch out and the cards are
+> dealt. This should be the table the players sit down to for session zero — in fact this drawer
+> and flow is called session zero."*
+
+The panel drawer is renamed **Session zero**, and it carries one primary button: **Begin session
+zero** (disabled until somebody is seated). Staged, not simultaneous — a room needs a beat to
+look up:
+
+| t | phase | what the table sees |
+|---|---|---|
+| 0 ms | `.mc-ct-dark` | cold wood, unlit wicks, no cards, plates at 25% |
+| 600 ms | `.mc-ct-lit` | candles catch 0.5s apart; music comes up; the vignette lifts |
+| 2400 ms | `.mc-ct-shadows` | the shadows reach out and start breathing |
+| 4200 ms | `.mc-ct-dealt` | the cards leave the middle of the table |
+
+Raising the BOARD is deliberately not the opening — the DM can put the table up while still
+seating people. `szOpened` records that the show has run, so a reload or a re-raise lands
+already-lit instead of replaying it at the room.
+
+**Music is the DM's own**: `szMusic` holds a Foundry PLAYLIST NAME (his world has the Michael
+Ghelfi ambience sets). The module ships no audio and never picks.
+
+**🔴 THE BUG THAT ATE EVERY ANIMATION — `prefers-reduced-motion` (live, 2026-08-05).** The DM
+reported "I didn't see the card distribution animation, only heard the sounds". Measured on his
+own client: `matchMedia('(prefers-reduced-motion: reduce)').matches === **true**`. On Windows
+that's Accessibility → Visual effects → **Animation effects**, which people routinely switch off
+for PERFORMANCE, not for access — and every `@media (prefers-reduced-motion: reduce)` fallback in
+this module was therefore live on his machine, silently cancelling the deal AND the candle-shadow
+motion (`animationName` read `none` for both). Fix: the board carries `.mc-ct-motion` when the DM
+has asked for the show, and the reduced-motion rules are scoped to `:not(.mc-ct-motion)`; new
+`szMotion` setting, **default on**. A deliberately-requested centrepiece outranks a performance
+toggle. **Worth auditing the rest of the module for the same assumption.**
+
+**The deal radiates from the middle (DM: "I want the card distribution to be from inside out").**
+First pass staggered on each hand's own left-to-right index, so six seats dealt in parallel and
+it read as six little rows. `orderDealFromCentre()` now measures every card on the board and
+ranks it by actual distance from the table's centre, so `--i` describes one wave leaving the
+candles. Verified live: 22 cards, **strictly monotonic outward** — nearest 180px → `--i 0`,
+farthest 518px → `--i 21` — the whole wave ~1.0s at 48ms apart.
+
+**Shadow alignment (DM: "shadows are a bit misaligned").** The first angles came off eyeballed
+centres and a guessed centroid. The candle geometry is now MEASURED by flood-filling the keyed
+PNG's three opaque blobs: centres **(56.0%, 28.1%) · (25.2%, 75.8%) · (78.8%, 77.7%)**, true
+cluster centroid **(50.9%, 55.7%)** — my guess had been (52.7%, 60.8%). Throw angles are
+`atan2(centre − centroid)` in PIXELS (the art is 895×932, so percentages are anisotropic and
+would skew the angle): **−80° · 141° · 39°**, splayed ±18 for two shadows each.
+
+**Card names, third pass (DM: "text is still mostly unreadable").** At `.72vw` they had stopped
+clipping but were too small to read at the table. Size alone can't fix a ~100px-wide card, so the
+ART gives up height instead: emblem padding `5% 12% 43%`, and the type comes back to
+`clamp(11px, .95vw, 22px)` at weight 600 with tighter tracking and a stronger shadow. Live:
+**18.24px**, up from 13.8, with **zero** overflowing names across all 22 cards.
+
+**The abilities card** shows dnd5e's own icon (`systems/dnd5e/icons/svg/abilities/*.svg`) and the
+ability NAME — no score (DM: "no need for the number"). Ties stack, one per line, up to three:
+a 16/16/16 character is three things at once. Verified live: `STR`, stacked, icon loaded, framed.
+
+**Still owed:** the DM's scribbled shadow-placement image never arrived with the message — the
+current angles are physically derived (straight out from the cluster), not his sketch.
+
 **Candles v2 — real art + the module's fire (DM 2026-08-05, supersedes the CSS-drawn version
 below).** The DM generated a top-down render (three thick unlit pillars, sallow cracked wax,
 charred wicks) on a magenta backdrop and asked for the module's flames on the wicks plus a

@@ -1938,27 +1938,93 @@ body {
    the keyframes SNAP between positions (steps(1, end)) instead of easing between them, and each
    candle runs on its own offset so the three never twitch together. Opacity stays low: this is
    a suggestion of a shadow, not a drop shadow. */
+/* A CAST shadow, not a blob: it starts at the candle and runs OUTWARD, thrown away from the
+   flame, fading to nothing at the far end (DM 2026-08-05 — "alpha gradient disappearing
+   completely away from candle"). Anchored at the candle (transform-origin: 0 50%) so the near
+   end stays pinned and only the far end moves — which is how a real shadow behaves. --a is the
+   direction it's thrown, away from the cluster's middle.
+
+   The "shaken vertexes" are done with rotate + skewY + scaleX rather than by animating a
+   clip-path or a filter: a polygon's points can't be animated on the compositor, and both of
+   those repaint every frame. Rotating about the anchored end swings the far end through several
+   pixels while the candle end stays put, which is what the eye reads as wind. */
 .mc-ct-cd-shadow { position: absolute; left: var(--cx); top: var(--cy);
-  width: calc(var(--r) * 2.6); aspect-ratio: 1; margin: 0; border-radius: 50%;
-  background: radial-gradient(circle, rgba(0,0,0,.34) 0%, rgba(0,0,0,.16) 46%, rgba(0,0,0,0) 72%);
-  transform: translate(-50%, -50%); opacity: .3;
-  animation: mc-cd-jump 1.9s steps(1, end) infinite; animation-delay: var(--d, 0s);
-  will-change: transform, opacity; }
-@keyframes mc-cd-jump {
-  0%   { transform: translate(-50%, -50%) scale(1);        opacity: .30; }
-  14%  { transform: translate(-51%, -49%) scale(1.06);     opacity: .22; }
-  27%  { transform: translate(-49.4%, -50.6%) scale(.97);  opacity: .34; }
-  41%  { transform: translate(-50.4%, -49.2%) scale(1.03); opacity: .26; }
-  58%  { transform: translate(-49.6%, -50.2%) scale(1.09); opacity: .19; }
-  72%  { transform: translate(-50.6%, -50.4%) scale(.99);  opacity: .32; }
-  86%  { transform: translate(-49.8%, -49.6%) scale(1.04); opacity: .24; }
-  100% { transform: translate(-50%, -50%) scale(1);        opacity: .30; }
+  width: calc(var(--r) * 4.6); height: calc(var(--r) * 1.55);
+  transform-origin: 0 50%;
+  transform: rotate(var(--a, 0deg)) translateY(-50%);
+  background: linear-gradient(90deg,
+    rgba(0,0,0,.5) 0%, rgba(0,0,0,.34) 18%, rgba(0,0,0,.17) 44%,
+    rgba(0,0,0,.06) 72%, rgba(0,0,0,0) 100%);
+  border-radius: 50% 42% 46% 50% / 50% 44% 56% 50%;
+  animation: mc-cd-wind 2.7s ease-in-out infinite alternate;
+  animation-delay: var(--d, 0s); will-change: transform; }
+@keyframes mc-cd-wind {
+  0%   { transform: rotate(var(--a)) translateY(-50%) scaleX(1)    skewY(0deg); }
+  23%  { transform: rotate(calc(var(--a) + 2.2deg)) translateY(-50%) scaleX(1.07) skewY(1.4deg); }
+  47%  { transform: rotate(calc(var(--a) - 1.6deg)) translateY(-50%) scaleX(.94)  skewY(-1deg); }
+  68%  { transform: rotate(calc(var(--a) + 3deg))   translateY(-50%) scaleX(1.11) skewY(1.9deg); }
+  85%  { transform: rotate(calc(var(--a) - .8deg))  translateY(-50%) scaleX(.98)  skewY(-.6deg); }
+  100% { transform: rotate(calc(var(--a) + 1.4deg)) translateY(-50%) scaleX(1.04) skewY(.8deg); }
 }
-/* Motion on a shared screen people watch for an hour — honour the OS preference. The flames are
-   video, so they're paused rather than hidden. */
+/* Same rule as the opening: defer to the OS only when the DM hasn't asked for the show. */
 @media (prefers-reduced-motion: reduce) {
-  .mc-ct-cd-shadow { animation: none; }
+  #mc-cardtable:not(.mc-ct-motion) .mc-ct-cd-shadow { animation: none; }
 }
+/* ── SESSION ZERO: THE OPENING (§38.5) ─────────────────────────────────────────────────────
+   Staged by classes the JS adds on a timeline: .mc-ct-dark → .mc-ct-lit → .mc-ct-shadows →
+   .mc-ct-dealt. Every transition is transform/opacity, so the whole show is composited. The
+   table starts cold and empty; the candles catch; the light spreads; the shadows reach out;
+   the cards come off the middle of the table to each seat in turn. */
+
+/* Cold table: felt dimmed right down, no flames, no shadows, no cards. */
+#mc-cardtable .mc-ct-felt::after { transition: opacity 2.4s ease; }
+#mc-cardtable.mc-ct-dark .mc-ct-plate { opacity: .25; }
+
+/* The candles catch — 20% transparency on the fire (DM 2026-08-05), fading up one after another
+   so the three never ignite as one block. */
+#mc-cardtable .mc-ct-cd-fire { opacity: 0; transition: opacity 1.4s ease; }
+#mc-cardtable.mc-ct-lit .mc-ct-cd-fire { opacity: .8; }
+#mc-cardtable.mc-ct-lit .mc-ct-cd-fire:nth-of-type(2) { transition-delay: .5s; }
+#mc-cardtable.mc-ct-lit .mc-ct-cd-fire:nth-of-type(3) { transition-delay: 1s; }
+#mc-cardtable .mc-ct-plate { transition: opacity 1.8s ease .6s; }
+#mc-cardtable.mc-ct-lit .mc-ct-plate { opacity: 1; }
+/* Candlelight reaching the wood: the vignette lifts as the room warms. */
+#mc-cardtable.mc-ct-lit .mc-ct-felt::after { opacity: .84; }
+
+/* The shadows STRETCH out, then keep breathing in the draught. */
+#mc-cardtable .mc-ct-cd-shadow { opacity: 0; transition: opacity 1.6s ease; }
+#mc-cardtable.mc-ct-shadows .mc-ct-cd-shadow { opacity: 1; }
+
+/* The deal: each card comes OFF THE MIDDLE OF THE TABLE to its seat. Every seat is rotated so
+   its player faces it, which makes "toward the centre" the SAME local direction for all six —
+   so one translate serves the whole table. --i staggers them a beat apart. */
+#mc-cardtable .mc-ct-card { opacity: 0; }
+#mc-cardtable.mc-ct-dealt .mc-ct-card {
+  animation: mc-ct-deal .62s cubic-bezier(.16,.84,.28,1) both;
+  animation-delay: calc(var(--i, 0) * 48ms); }  /* --i now ranks ALL cards by distance from the
+     middle of the table (card-table.js orderDealFromCentre), so this is one wave across the
+     whole board — at 22 cards the last lands ~1.1s after the first, which is a deal, not a queue. */
+@keyframes mc-ct-deal {
+  0%   { opacity: 0; transform: translateY(-260%) scale(.72) rotate(-8deg); }
+  62%  { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+}
+/* The DM's machine reports prefers-reduced-motion: reduce (Windows → Accessibility → Visual
+   effects → Animation effects, routinely switched off for performance rather than for access).
+   Honouring it blindly silently killed the ENTIRE show — the deal never ran and the candle
+   shadows never moved, which is exactly the "I only heard the sounds" report (live 2026-08-05).
+   So the board carries `mc-ct-motion` when the DM has asked for the show, and only defers to the
+   OS when they haven't. A deliberately-requested centrepiece outranks a performance toggle. */
+@media (prefers-reduced-motion: reduce) {
+  #mc-cardtable:not(.mc-ct-motion).mc-ct-dealt .mc-ct-card { animation: none; opacity: 1; }
+  #mc-cardtable:not(.mc-ct-motion) .mc-ct-cd-fire,
+  #mc-cardtable:not(.mc-ct-motion) .mc-ct-cd-shadow { transition: none; }
+}
+
+/* Ability names stack one per line (STR / DEX / CON), no score. */
+.mc-ct-name-stack { display: flex; flex-direction: column; gap: 1px; line-height: 1; }
+.mc-ct-name-stack span { letter-spacing: .08em; }
+
 /* The decks tint the wax and the flame. Static filters only — never animated. */
 #mc-cardtable.mc-ct-theme-ash .mc-ct-cd-art { filter: saturate(.72) brightness(.9); }
 #mc-cardtable.mc-ct-theme-ash .mc-ct-cd-fire { opacity: .82; }
@@ -2030,7 +2096,8 @@ body {
    ending on a hard rectangle — a static mask, applied once at rasterisation, never animated, so
    it costs nothing per frame. The ellipse is slightly high because the art sits high. */
 .mc-ct-emblem .mc-ct-art { inset: 0; width: 100%; height: 100%; object-fit: contain;
-  box-sizing: border-box; padding: 7% 11% 34%;
+  box-sizing: border-box; padding: 5% 12% 43%;  /* art higher and smaller — the bottom 43% is
+     the name's, because at this card size legibility beats icon size */
   -webkit-mask-image: radial-gradient(ellipse 76% 74% at 50% 44%,
     #000 52%, rgba(0,0,0,.72) 74%, rgba(0,0,0,.22) 90%, transparent 100%);
   mask-image: radial-gradient(ellipse 76% 74% at 50% 44%,
@@ -2045,10 +2112,15 @@ body {
    overflow:hidden quietly clips both ends of the name (measured 315px on a 295px card). */
 /* Smaller than the first pass (DM 2026-08-05) — at 13→24px a two-word item ran off the card and
    clipped mid-word ("Zhentarim Mercena…"). Now it wraps to two lines inside the card instead. */
-.mc-ct-name { position: relative; width: 100%; box-sizing: border-box; padding: 5px 5px 6px;
-  text-align: center; font-family: var(--mc-ct-font); font-size: clamp(9px, .72vw, 17px);
-  line-height: 1.08; color: var(--mc-ct-ink); text-shadow: 0 1px 3px rgba(0,0,0,.9);
-  background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.82) 30%, rgba(0,0,0,.92) 100%); }
+/* Third pass on this (DM: "text is still mostly unreadable"). It stopped CLIPPING at .72vw but
+   the words were then too small to read at the table. The card is only ~100px wide at 1080p, so
+   size alone can't fix it — the art gives up height instead (see the emblem padding below) and
+   the type comes back up with tighter tracking and a heavier weight. */
+.mc-ct-name { position: relative; width: 100%; box-sizing: border-box; padding: 4px 3px 5px;
+  text-align: center; font-family: var(--mc-ct-font); font-size: clamp(11px, .95vw, 22px);
+  line-height: 1.04; letter-spacing: -.01em; font-weight: 600;
+  color: var(--mc-ct-ink); text-shadow: 0 1px 3px rgba(0,0,0,.95), 0 0 8px rgba(0,0,0,.7);
+  background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.86) 26%, rgba(0,0,0,.95) 100%); }
 .mc-ct-card.mc-ct-active .mc-ct-inner { box-shadow: 0 0 0 2px var(--mc-ct-accent),
   0 0 18px color-mix(in srgb, var(--mc-ct-accent) 55%, transparent); }
 .mc-ct-writing { max-width: 34vw; text-align: center; font-family: var(--mc-ct-font);
@@ -2128,6 +2200,17 @@ body {
   gap: 8px; margin: 2px 0 8px; }
 .mc-dmp-ct-head .mc-dmp-story-status { margin: 0; flex: 1 1 auto; }
 .mc-dmp-ct-head button { flex: 0 0 auto; white-space: nowrap; }
+
+/* DM panel: the one button that starts the whole show (§38.5). Primary weight — this is the
+   moment the table is built around, not a utility toggle. */
+.mc-dmp-sz-begin { display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; min-height: 44px; margin: 2px 0 4px; padding: 8px 12px;
+  background: linear-gradient(var(--mc-cta-top, #6a4a1e), var(--mc-cta-bot, #3d2a10));
+  border: 1px solid var(--mc-cta-edge, var(--mc-gold)); color: var(--mc-cta-ink, var(--mc-ink));
+  border-radius: calc(10px * var(--mc-round, 1)); font-size: 14px; cursor: pointer; }
+.mc-dmp-sz-begin i { color: var(--mc-gold); }
+.mc-dmp-sz-begin:disabled { opacity: .45; cursor: default; }
+.mc-dmp-sz-hint { margin-bottom: 8px; }
 
 /* DM panel: the deck picker (§38.4a) — three named decks, swatch + label. */
 .mc-dmp-decks { display: flex; gap: 6px; margin: 4px 0 8px; }

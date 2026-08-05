@@ -10,7 +10,7 @@
 // client (or the DM's non-phone client), driven by a world flag so it survives a reload.
 // Input: `tableSeats` (who sits where) + `mobile-command.szEvent` (the wizard narrating itself)
 // + actor items as the fallback truth for what's been chosen.
-import { MODULE_ID, TABLE_SEATS, isPlaceholderPCName, DEFAULT_CARD_THEME } from "./preset.js";
+import { MODULE_ID, TABLE_SEATS, isPlaceholderPCName, DEFAULT_CARD_THEME, ABILITY_ICONS } from "./preset.js";
 import { isPhoneClient, isDisplayClient } from "./shell.js";
 import { cardSound, dealSound } from "./card-audio.js";
 
@@ -87,9 +87,16 @@ function readCards(actor) {
   if (bg) out.background = { name: bg.name, img: bg.img };
   if (cls) out.class = { name: cls.name, img: cls.img };
   if (actor.getFlag(MODULE_ID, "wizAbilitiesDone")) {
+    // The TOP ability, and every ability tied with it — a 16/16/16 character is three things at
+    // once and the card should say so. No score (DM 2026-08-05): the number is a sheet fact, the
+    // table wants "this one is STRONG". Icon comes from dnd5e's own set.
     const ab = actor.system?.abilities ?? {};
-    const top = Object.entries(ab).sort((a, b) => (b[1]?.value ?? 0) - (a[1]?.value ?? 0))[0];
-    out.abilities = { name: top ? `${top[0].toUpperCase()} ${top[1]?.value ?? ""}` : "Set", img: null };
+    const entries = Object.entries(ab).filter(([k]) => ABILITY_ICONS[k]);
+    const best = Math.max(...entries.map(([, v]) => Number(v?.value) || 0), 0);
+    const top = entries.filter(([, v]) => (Number(v?.value) || 0) === best).slice(0, 3).map(([k]) => k);
+    out.abilities = top.length
+      ? { name: top.map(k => k.toUpperCase()).join("\n"), img: ABILITY_ICONS[top[0]], abilities: top }
+      : { name: "Set", img: null };
   }
   const spell = actor.items.find(i => i.type === "spell");
   if (spell) out.spells = { name: spell.name, img: spell.img };
@@ -113,17 +120,27 @@ function rebuild() {
   }
 }
 
-function cardHTML(seat, def, s) {
+function cardHTML(seat, def, s, i = 0) {
   const face = s.cards[def.step];
   const flipped = !!face;
   const esc = foundry.utils.escapeHTML;
-  const art = face?.img
-    ? `<img class="mc-ct-art" src="${esc(face.img)}" alt="">`
-    : `<div class="mc-ct-art mc-ct-art-text">${esc(face?.name ?? "")}</div>`;
+  // The abilities card is the one card whose "name" is a stack of short words, so it gets its
+  // own treatment: dnd5e's icon up top, the ability names beneath it, one per line.
+  const art = face?.abilities
+    ? `<img class="mc-ct-art" src="${esc(asset(face.img))}" alt="">`
+    : face?.img
+      ? `<img class="mc-ct-art" src="${esc(face.img)}" alt="">`
+      : `<div class="mc-ct-art mc-ct-art-text">${esc(face?.name ?? "")}</div>`;
   // A text card (Abilities, "Packed" gear) already prints its value large on the thorn frame —
   // repeating it in the name strip printed it twice on the same card (live 2026-08-05).
-  const nameStrip = flipped && !face?.img ? "" : `<div class="mc-ct-name">${esc(face?.name ?? def.label)}</div>`;
-  return `<div class="mc-ct-card ${flipped ? "mc-ct-flipped" : ""} ${s.active === def.step ? "mc-ct-active" : ""}" data-step="${def.step}">
+  const label = face?.name ?? def.label;
+  // Ability names stack one per line; everything else is a single wrapping name.
+  const nameHTML = face?.abilities
+    ? label.split("\n").map(l => `<span>${esc(l)}</span>`).join("")
+    : esc(label);
+  const nameStrip = flipped && !face?.img ? "" : `<div class="mc-ct-name ${face?.abilities ? "mc-ct-name-stack" : ""}">${nameHTML}</div>`;
+  // --i drives the deal: each card leaves the middle of the table a beat after the last.
+  return `<div class="mc-ct-card ${flipped ? "mc-ct-flipped" : ""} ${s.active === def.step ? "mc-ct-active" : ""}" data-step="${def.step}" style="--i:${i}">
     <div class="mc-ct-inner">
       <div class="mc-ct-back" style="background-image:url('${esc(cardBack())}')"></div>
       <div class="mc-ct-face">
@@ -165,7 +182,7 @@ function seatHTML(def) {
     : `<span class="mc-ct-who">${esc(u?.name ?? "—")}</span>`;
   return `<div class="mc-ct-seat ${s.active ? "mc-ct-seat-active" : ""}" data-seat="${def.id}" style="--mc-ct-rot:${def.rot}deg;--mc-seat:${u?.color?.css ?? "var(--mc-gold)"}">
     <div class="mc-ct-plate">${plate}</div>
-    <div class="mc-ct-hand">${hand.map(h => cardHTML(def, h, s)).join("")}</div>
+    <div class="mc-ct-hand">${hand.map((h, i) => cardHTML(def, h, s, i)).join("")}</div>
     ${writing}
   </div>`;
 }
@@ -182,11 +199,21 @@ function seatHTML(def) {
 // Wick and body positions measured off the keyed artwork (895×932) and stored as PERCENTAGES,
 // so the cluster can be sized freely — a 4K TV scales it up and the flames stay on the wicks.
 // Wick centroids came from the darkest pixels inside each candle: (496,252) (214,697) (704,705).
+// `a` is the angle the shadow is thrown: straight out from the cluster's centroid (52.7, 60.8),
+// i.e. away from the other two flames — atan2(dy, dx) in screen space, which is already CSS's
+// rotate convention. Two shadows per candle, splayed either side of that, because the candle is
+// lit by its neighbours as well as itself and a single hard finger reads as a pointer.
+// Centres and radii MEASURED off the keyed PNG by flood-filling its three opaque blobs, not
+// eyeballed — the first pass was 1–5% out and the shadows visibly missed their candles (DM
+// 2026-08-05, "shadows are a bit misaligned"). True cluster centroid: (50.9%, 55.7%).
+// `a` = atan2 of (candle centre − centroid) in PIXELS (the art is 895×932, so percentages are
+// not isotropic and would skew the angle) — which is already CSS's rotate convention.
 const CANDLES = [
-  { wx: 55.5, wy: 27.1, cx: 55.1, cy: 27.6, r: 26.5, fire: 1, flame: 23 }, // the thick one
-  { wx: 23.9, wy: 74.8, cx: 24.9, cy: 76.9, r: 24.4, fire: 2, flame: 20 },
-  { wx: 78.8, wy: 75.7, cx: 78.2, cy: 78.0, r: 19.0, fire: 3, flame: 19 }
+  { wx: 55.5, wy: 27.1, cx: 56.0, cy: 28.1, r: 27.6, fire: 1, flame: 23, a: -80 }, // the thick one
+  { wx: 23.9, wy: 74.8, cx: 25.2, cy: 75.8, r: 25.1, fire: 2, flame: 20, a: 141 },
+  { wx: 78.8, wy: 75.7, cx: 78.8, cy: 77.7, r: 21.1, fire: 3, flame: 19, a: 39 }
 ];
+const SHADOW_SPLAY = [-19, 17];
 const FIRE_DIR = "modules/animated-fire-by-mattm/fire_animations";
 
 function candlesHTML() {
@@ -197,8 +224,8 @@ function candlesHTML() {
   // TOP-DOWN as map tiles, which is exactly the view the flat TV needs — a side-on flame would
   // be wrong for every seat. A different one per wick so the three never pulse in unison.
   const esc = foundry.utils.escapeHTML;
-  const shadows = CANDLES.map((c, i) => `
-    <div class="mc-ct-cd-shadow" style="--cx:${c.cx}%;--cy:${c.cy}%;--r:${c.r}%;--d:${-i * 0.7}s"></div>`).join("");
+  const shadows = CANDLES.flatMap((c, i) => SHADOW_SPLAY.map((s, j) => `
+    <div class="mc-ct-cd-shadow" style="--cx:${c.cx}%;--cy:${c.cy}%;--r:${c.r}%;--a:${c.a + s}deg;--d:${-(i * 0.9 + j * 0.4)}s"></div>`)).join("");
   const flames = CANDLES.map(c => `
     <video class="mc-ct-cd-fire" style="--wx:${c.wx}%;--wy:${c.wy}%;--fw:${c.flame}%"
       src="${esc(asset(`${FIRE_DIR}/small_fire_0${c.fire}_420x420.webm`))}"
@@ -258,8 +285,83 @@ function repaint() {
   const t = cardTheme();
   for (const c of [...root.classList]) if (c.startsWith("mc-ct-theme-")) root.classList.remove(c);
   if (t && t !== DEFAULT_CARD_THEME) root.classList.add(`mc-ct-theme-${t}`);
+  // See the note in shell.css: the DM's own machine reports prefers-reduced-motion, which was
+  // silently cancelling the whole show. This class opts the board back in.
+  let motion = true;
+  try { motion = !!game.settings.get(MODULE_ID, "szMotion"); } catch (e) { /* default on */ }
+  root.classList.toggle("mc-ct-motion", motion);
   root.innerHTML = boardHTML();
   markEmblems();
+}
+
+// §38.5 THE OPENING — the first thing a table ever sees of this system (DM 2026-08-05).
+//
+// "The table starts off empty, candles unlit, DM sets up players' locations and activates the
+// flow, candle is lit, soft music starts as the candles illuminate the table, shadows stretch
+// out and the cards are dealt."
+//
+// Staged rather than simultaneous, because a room needs a beat to look up. Each phase is a class
+// on the root; all the motion is CSS, so the timeline here is only deciding WHEN.
+const OPENING = [
+  { at: 0,    cls: "mc-ct-dark" },    // wick cold, no cards, table barely lit
+  { at: 600,  cls: "mc-ct-lit",    do: () => { cardSound("place"); openingMusic(); } },
+  { at: 2400, cls: "mc-ct-shadows" }, // the light reaches the table and the shadows reach out
+  { at: 4200, cls: "mc-ct-dealt",  do: () => { orderDealFromCentre(); dealSound(8); } }
+];
+let openingTimers = [];
+
+// INSIDE OUT (DM 2026-08-05). The stagger was each hand's own left-to-right index, so six seats
+// dealt in parallel and it read as six little rows rather than one wave leaving the middle of
+// the table. Ranking every card on the board by its actual distance from the table's centre
+// makes the deal radiate: the cards closest to the candles land first, the far corners last.
+function orderDealFromCentre() {
+  if (!root) return;
+  const cards = [...root.querySelectorAll(".mc-ct-card")];
+  if (!cards.length) return;
+  const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+  cards
+    .map(el => {
+      const r = el.getBoundingClientRect();
+      return { el, d: Math.hypot(r.left + r.width / 2 - cx, r.top + r.height / 2 - cy) };
+    })
+    .sort((a, b) => a.d - b.d)
+    .forEach((c, i) => c.el.style.setProperty("--i", i));
+}
+
+function clearOpening() {
+  for (const t of openingTimers) clearTimeout(t);
+  openingTimers = [];
+}
+/** The DM's soft cue. A named Foundry playlist, so the DM chooses the music — we never ship any. */
+function openingMusic() {
+  let name = "";
+  try { name = String(game.settings.get(MODULE_ID, "szMusic") ?? "").trim(); } catch (e) { /* none */ }
+  if (!name) return;
+  try {
+    const pl = game.playlists?.find(p => p.name === name);
+    if (!pl) return void console.warn(`${MODULE_ID} | session-zero playlist "${name}" not found`);
+    if (!pl.playing) pl.playAll();
+  } catch (e) { console.warn(`${MODULE_ID} | could not start the session-zero playlist`, e); }
+}
+
+/** Run the opening from the top. Idempotent — a second call restarts it cleanly. */
+export function runOpening() {
+  if (!root) return;
+  clearOpening();
+  root.classList.remove("mc-ct-lit", "mc-ct-shadows", "mc-ct-dealt");
+  for (const step of OPENING) {
+    openingTimers.push(setTimeout(() => {
+      if (!root) return;
+      root.classList.add(step.cls);
+      try { step.do?.(); } catch (e) { /* never let a cue break the sequence */ }
+    }, step.at));
+  }
+}
+/** Jump straight to the finished state — for a reload mid-session, or a DM who wants it now. */
+function settleOpening() {
+  if (!root) return;
+  clearOpening();
+  root.classList.add("mc-ct-dark", "mc-ct-lit", "mc-ct-shadows", "mc-ct-dealt");
 }
 
 /** Show/hide the table. Called from the panel toggle and by syncFx-style state restore. */
@@ -271,10 +373,14 @@ export function cardTableSync(on) {
     document.body.appendChild(root);
     rebuild();
     repaint();
-    // The board coming up IS the deal — one card per seated player's hand, staggered.
-    const cards = [...state.values()].reduce((n, s) => n + (s.caster ? HAND.length : HAND.length - 1), 0);
-    if (cards) dealSound(Math.min(cards, 12));
+    // Putting the board UP is not the opening. The board can go up while the DM is still seating
+    // people — the opening is a separate, deliberate cue (§38.5). A board raised mid-session
+    // (or after a reload) lands already-lit rather than replaying the show at the room.
+    let ran = false;
+    try { ran = !!game.settings.get(MODULE_ID, "szOpened"); } catch (e) { /* treat as fresh */ }
+    if (ran) settleOpening(); else root.classList.add("mc-ct-dark");
   } else if (!on && root) {
+    clearOpening();
     root.remove(); root = null; state = new Map();
   }
 }
@@ -310,7 +416,10 @@ export function cardTableEvent(p = {}) {
 
 /** Wire the board's live inputs once, at ready. */
 export function registerCardTable() {
-  Hooks.on("mobile-command.szEvent", (p) => cardTableEvent(p));
+  Hooks.on("mobile-command.szEvent", (p) => {
+    if (p?.kind === "opening") return runOpening();  // the DM's cue, broadcast to the display
+    cardTableEvent(p);
+  });
   // Actor truth: an item landing (species/class/…) flips its card even with no szEvent — the
   // board must be right after a reload or when the DM builds a PC from the desktop.
   const onActorish = (doc) => {
