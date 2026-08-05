@@ -3583,6 +3583,13 @@ the only view that works on a flat TV; a side-on flame is wrong for every seat a
 `mix-blend-mode: screen`. **The one genuine cost in this whole feature is three webm decoders** —
 everything else is free. `cardCandles` (default on) turns the lot off.
 
+**The cluster is centred on the TABLE, not on the leftover flex space** (DM: "not centered in my
+screen"). In flow inside `.mc-ct-center` — a flex child between the two end seats — the candles
+sat midway between whatever those seats left behind, so an occupied left seat and an empty right
+one pushed them right by half the difference. Measured on the DM's exact configuration:
+**138px right** in flow, **0px** absolute against the full-screen container. Verified at 0px with
+all seats filled, right end empty, and both ends empty.
+
 **The "jumpy" shadow** snaps rather than eases: `steps(1, end)` over eight keyframes, each candle
 on its own offset, opacity 0.19–0.34. A candle's shadow twitches; it doesn't drift.
 
