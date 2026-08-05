@@ -3436,6 +3436,36 @@ would have cost every seat legibility to solve a two-seat problem. Re-measured c
 **1280×720** (card 84×118, ends 288×307) and **3840×2160** (card 190×266, ends 601×606), so the
 `clamp()` still carries the range. Harness: [tools/cardtable-harness.html](tools/cardtable-harness.html).
 
+**What the card FRONT is for (DM asked 2026-08-05: "why do we have a card front if the item-icon
+fills the card?").** Fair question — it was barely earning its keep. `card-face-blank.png` only
+appeared on cards with **no** item image at all (Abilities, "Packed" gear), so 1–2 cards in six.
+Everything else was full bleed. Measuring the actual art explains why that was wrong:
+
+| source | natural size | ratio | card is 5:7 = 0.71 |
+|---|---|---|---|
+| `icons/svg/mystery-man.svg` | 512×512 | 1.00 | cover crops ~29% off the sides |
+| `icons/skills/…-yellow.webp` | 256×256 | 1.00 | same |
+| dnd5e `icons/svg/items/class.svg` | 373×355 | 1.05 | same |
+| Crooked Moon portraits (Bugbear, Bogborn) | portrait | ~0.67 | full bleed suits them |
+
+Foundry's stock item icons are **square emblems**; compendium artwork is **portrait**. One
+treatment can't serve both. So `markEmblem()` measures each image once it loads and, if it isn't
+clearly taller than it is wide (`w/h > 0.85`), sits it inside the same thorn frame the text cards
+wear. Real artwork keeps its full bleed. The front now earns its keep on roughly half the deck,
+and a Barbarian emblem stops reading as bare clip-art beside a Bugbear portrait.
+
+Two bugs fell out of the same pass, both visible in the DM's screenshot:
+- **The name printed twice** on text cards — the thorn frame prints the value large AND the name
+  strip repeated it ("STR 17" over "STR 17"). The strip is now dropped when there's no image.
+- **The name strip was 10px wider than the card** — `width:100%` plus padding with no
+  `box-sizing`, so `.mc-ct-face`'s `overflow:hidden` was quietly clipping both ends of every
+  name on every card. Measured 315px on a 295px card.
+
+**CSS trap worth remembering:** an absolutely-positioned **replaced** element with `width:auto`
+resolves to its INTRINSIC width and drops the opposite offset — `inset: 11% 11% 25%` on a 512px
+SVG rendered it at 512px, spilling across its neighbours. Bounding `object-fit: contain` needs
+`width/height: 100%` with `box-sizing: border-box` padding, not insets.
+
 **Bench technique worth keeping.** The Browser pane renders files outside the project as static
 snapshots, and Foundry serves `.html` under `modules/` as plain text — but the repo is JUNCTIONED
 into `FoundryVTT/Data/modules/mobile-command`, so a harness in `tools/` is reachable at

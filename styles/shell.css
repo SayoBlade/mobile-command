@@ -1883,7 +1883,23 @@ body {
   font-family: var(--mc-font-title), serif; font-size: 22px; color: #2b2118;
   background-image: url("../art/card-face-blank.png");
   background-size: cover; background-position: center; text-shadow: 0 1px 0 rgba(255,255,255,.25); }
-.mc-ct-name { position: relative; width: 100%; padding: 4px 5px; text-align: center;
+/* A SQUARE item icon is an emblem, not artwork — cover would crop ~29% off its sides. It gets
+   the same thorn frame the text cards wear, sat inside it whole (card-table.js markEmblem
+   measures the loaded image and adds this class). Portrait artwork keeps its full bleed. */
+.mc-ct-face.mc-ct-emblem { background-image: url("../art/card-face-blank.png");
+  background-size: cover; background-position: center; }
+/* PADDING, not insets: an absolutely-positioned replaced element with `width:auto` resolves to
+   its INTRINSIC width and drops the opposite offset, so inset-ing a 512px SVG let it render at
+   512px and spill across its neighbours (bench 2026-08-05). Keeping it 100%/100% and shrinking
+   the content box with border-box padding is what actually bounds `contain`. */
+.mc-ct-emblem .mc-ct-art { inset: 0; width: 100%; height: 100%; object-fit: contain;
+  box-sizing: border-box; padding: 12% 12% 26%; }
+/* Dark ink on the parchment, sat inside the frame's painted border rather than edge-to-edge. */
+.mc-ct-emblem .mc-ct-name { background: none; color: #2b2118; padding: 0 14% 8%;
+  text-shadow: 0 1px 0 rgba(255,255,255,.3); }
+/* border-box, or `width:100%` + padding makes the strip 10px WIDER than the card and the face's
+   overflow:hidden quietly clips both ends of the name (measured 315px on a 295px card). */
+.mc-ct-name { position: relative; width: 100%; box-sizing: border-box; padding: 4px 5px; text-align: center;
   font-family: var(--mc-font-title), serif; font-size: clamp(11px, .85vw, 20px); line-height: 1.15;
   color: var(--mc-ink); background: linear-gradient(transparent, rgba(0,0,0,.85) 40%); }
 .mc-ct-card.mc-ct-active .mc-ct-inner { box-shadow: 0 0 0 2px var(--mc-gold), 0 0 18px rgba(200,164,77,.5); }

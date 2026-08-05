@@ -115,12 +115,15 @@ function cardHTML(seat, def, s) {
   const art = face?.img
     ? `<img class="mc-ct-art" src="${esc(face.img)}" alt="">`
     : `<div class="mc-ct-art mc-ct-art-text">${esc(face?.name ?? "")}</div>`;
+  // A text card (Abilities, "Packed" gear) already prints its value large on the thorn frame —
+  // repeating it in the name strip printed it twice on the same card (live 2026-08-05).
+  const nameStrip = flipped && !face?.img ? "" : `<div class="mc-ct-name">${esc(face?.name ?? def.label)}</div>`;
   return `<div class="mc-ct-card ${flipped ? "mc-ct-flipped" : ""} ${s.active === def.step ? "mc-ct-active" : ""}" data-step="${def.step}">
     <div class="mc-ct-inner">
       <div class="mc-ct-back" style="background-image:url('${esc(cardBack())}')"></div>
       <div class="mc-ct-face">
         ${flipped ? art : ""}
-        <div class="mc-ct-name">${esc(face?.name ?? def.label)}</div>
+        ${nameStrip}
       </div>
     </div>
   </div>`;
@@ -162,9 +165,29 @@ function boardHTML() {
   </div>`;
 }
 
+// Foundry's stock item icons are SQUARE emblems (mystery-man 512², the skill/magic webps 256²,
+// dnd5e's class.svg 373×355) while a card is 5:7 — object-fit:cover crops ~29% off their sides
+// and they read as bare clip-art next to real artwork. Compendium portraits (Bugbear, Bogborn)
+// are genuinely portrait and full bleed suits them, so decide per image once it has loaded:
+// anything not clearly taller than it is wide gets sat inside the same thorn frame the text
+// cards wear. One deck, whatever the item's art happens to be (DM 2026-08-05).
+const EMBLEM_RATIO = 0.85; // width/height above this = emblem, not artwork
+function markEmblem(img) {
+  const w = img.naturalWidth, h = img.naturalHeight;
+  if (!w || !h) return;
+  if (w / h > EMBLEM_RATIO) img.closest(".mc-ct-face")?.classList.add("mc-ct-emblem");
+}
+function markEmblems() {
+  for (const img of root.querySelectorAll("img.mc-ct-art")) {
+    if (img.complete) markEmblem(img);
+    else img.addEventListener("load", () => markEmblem(img), { once: true });
+  }
+}
+
 function repaint() {
   if (!root) return;
   root.innerHTML = boardHTML();
+  markEmblems();
 }
 
 /** Show/hide the table. Called from the panel toggle and by syncFx-style state restore. */

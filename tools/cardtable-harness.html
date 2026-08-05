@@ -15,12 +15,30 @@ const SEATS = [
   { id:"s1", label:"Bottom left",rot:0  }, { id:"s2", label:"Bottom right",rot:0   }
 ];
 const HAND = ["Species","Background","Class","Abilities","Spells","Gear"];
+// Real art shapes, so emblem-vs-artwork detection is exercised: square icons must land in the
+// thorn frame, portrait artwork must stay full bleed, and a null img must print once, not twice.
+const ART = {
+  Species: "/icons/svg/mystery-man.svg",                          // 512² — emblem
+  Background: "/icons/skills/melee/weapons-crossed-swords-yellow.webp", // 256² — emblem
+  Class: "/systems/dnd5e/icons/svg/items/class.svg",              // 373×355 — emblem
+  Abilities: null,                                                // text card
+  Spells: "/modules/mobile-command/art/card-face-blank.png",      // 1024×1536 — artwork
+  Gear: "/modules/mobile-command/art/card-back.png"               // 1054×1492 — artwork
+};
 const NAMES = ["Abzarax","Brig Brightbelly","Player Character (3)","Forthy","Selene Duskwarden","Thistle Greenbottle"];
 const BACK = "/modules/mobile-command/art/card-back.png";
-const card = (label, i) => `<div class="mc-ct-card ${i < 3 ? "mc-ct-flipped" : ""}"><div class="mc-ct-inner">
-  <div class="mc-ct-back" style="background-image:url('${BACK}')"></div>
-  <div class="mc-ct-face"><div class="mc-ct-art mc-ct-art-text">${label}</div><div class="mc-ct-name">${label}</div></div>
-</div></div>`;
+// Mirrors card-table.js cardHTML(): image cards keep the name strip, text cards drop it (the
+// thorn frame already prints the value large — printing both showed "STR 17" twice, live).
+const card = (label) => {
+  const img = ART[label];
+  const name = label === "Abilities" ? "STR 17" : label;
+  const art = img ? `<img class="mc-ct-art" src="${img}" alt="">`
+                  : `<div class="mc-ct-art mc-ct-art-text">${name}</div>`;
+  return `<div class="mc-ct-card mc-ct-flipped"><div class="mc-ct-inner">
+    <div class="mc-ct-back" style="background-image:url('${BACK}')"></div>
+    <div class="mc-ct-face">${art}${img ? `<div class="mc-ct-name">${name}</div>` : ""}</div>
+  </div></div>`;
+};
 const seat = (d, n) => `<div class="mc-ct-seat" data-seat="${d.id}" style="--mc-ct-rot:${d.rot}deg;--mc-seat:#c8a44d">
   <div class="mc-ct-plate"><span class="mc-ct-who">${NAMES[n]}</span><span class="mc-ct-player">Player ${n+1}</span></div>
   <div class="mc-ct-hand">${HAND.map(card).join("")}</div>
@@ -32,6 +50,14 @@ document.body.innerHTML = `<div id="mc-cardtable"><div class="mc-ct-felt"
   <div class="mc-ct-mid">${seat(g("w"),2)}<div class="mc-ct-center"></div>${seat(g("e"),3)}</div>
   <div class="mc-ct-row mc-ct-row-s">${seat(g("s1"),4)}${seat(g("s2"),5)}</div>
 </div></div>`;
+
+// Same emblem rule as card-table.js markEmblem().
+const EMBLEM_RATIO = 0.85;
+for (const img of document.querySelectorAll("img.mc-ct-art")) {
+  const mark = () => { const w = img.naturalWidth, h = img.naturalHeight;
+    if (w && h && w / h > EMBLEM_RATIO) img.closest(".mc-ct-face")?.classList.add("mc-ct-emblem"); };
+  if (img.complete) mark(); else img.addEventListener("load", mark, { once: true });
+}
 
 // Measure: getBoundingClientRect IS transform-aware, so these are the boxes the eye sees.
 window.mcMeasure = () => {
