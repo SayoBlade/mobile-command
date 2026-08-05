@@ -1,4 +1,4 @@
-import { MODULE_ID, SAVE_TIMEOUT_SETTING } from "./preset.js";
+import { MODULE_ID, SAVE_TIMEOUT_SETTING, DEFAULT_CARD_THEME } from "./preset.js";
 import { makeConfirmMenuClass, deactivate, reactivate, hasBackup, hasReactivateSnapshot } from "./enforcer.js";
 
 export function registerSettings() {
@@ -229,6 +229,12 @@ export function registerSettings() {
   });
   game.settings.register(MODULE_ID, "cardTableOn", {
     scope: "world", config: false, type: Boolean, default: false
+  });
+
+  // §38.4a which DECK is on the table — see CARD_THEMES. Dresses the felt, the frame and the
+  // back with blend modes over the same art, so a custom back still belongs to the deck.
+  game.settings.register(MODULE_ID, "cardTheme", {
+    scope: "world", config: false, type: String, default: DEFAULT_CARD_THEME
   });
 
   // §38.4a card noises. Synthesised at play time (card-audio.js), so this is a level, not a

@@ -53,6 +53,12 @@ function volume() {
   return Math.max(0, Math.min(1, v)) * (Number.isFinite(iface) ? iface : 1);
 }
 
+// Brightness multiplier for the deck in play. Ash reads as heavier stock, Hoarfrost as thinner.
+const TONE = { moonlit: 1, ash: 0.82, hoarfrost: 1.22 };
+function tone() {
+  try { return TONE[game.settings.get(MODULE_ID, "cardTheme")] ?? 1; } catch (e) { return 1; }
+}
+
 // A burst of noise shaped by a bandpass that falls as it decays — the sound of card stock
 // sliding against card stock. `jitter` keeps repeats from sounding stamped.
 function swish(c, out, { at = 0, dur = 0.14, from = 1900, to = 520, gain = 0.5, q = 0.8 } = {}) {
@@ -106,17 +112,21 @@ export function cardSound(kind = "deal", { at = 0 } = {}) {
     const out = c.createGain();
     out.gain.value = vol;
     out.connect(c.destination);
+    // Each deck sounds like what it's made of (§38.4a): Ash is thick, soft-cornered stock that
+    // lands dull and low; Hoarfrost is thin and glassy and rings higher. `b` shifts every
+    // filter and oscillator together, so one number carries the whole character.
+    const b = tone();
     if (kind === "flip") {
       // Two transients: the corner lifting, then the face slapping down.
-      swish(c, out, { at, dur: 0.07, from: 2600, to: 900, gain: 0.42, q: 1.1 });
-      swish(c, out, { at: at + 0.055, dur: 0.1, from: 1500, to: 420, gain: 0.5 });
-      knock(c, out, { at: at + 0.06, freq: 124, gain: 0.2, dur: 0.08 });
+      swish(c, out, { at, dur: 0.07, from: 2600 * b, to: 900 * b, gain: 0.42, q: 1.1 });
+      swish(c, out, { at: at + 0.055, dur: 0.1, from: 1500 * b, to: 420 * b, gain: 0.5 });
+      knock(c, out, { at: at + 0.06, freq: 124 * b, gain: 0.2, dur: 0.08 });
     } else if (kind === "place") {
-      knock(c, out, { at, freq: 96, gain: 0.34 });
-      swish(c, out, { at, dur: 0.09, from: 1200, to: 380, gain: 0.28 });
+      knock(c, out, { at, freq: 96 * b, gain: 0.34 });
+      swish(c, out, { at, dur: 0.09, from: 1200 * b, to: 380 * b, gain: 0.28 });
     } else {
-      swish(c, out, { at });
-      knock(c, out, { at: at + 0.05, gain: 0.18, dur: 0.08 });
+      swish(c, out, { at, from: 1900 * b, to: 520 * b });
+      knock(c, out, { at: at + 0.05, freq: 104 * b, gain: 0.18, dur: 0.08 });
     }
   } catch (e) { /* decoration — never let it reach the table */ }
 }

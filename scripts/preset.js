@@ -156,6 +156,21 @@ export const STORY_QUESTIONS = [
 // Six seats around a TV lying FLAT on the table: one at each short end, two along each long
 // side. `rot` is how far to rotate that seat's cards/HUD so they read upright to the person
 // sitting there — the séance board's word rotation should eventually read this too.
+// ── Card themes (§38.4a — the DECK's look on the shared screen) ────────────
+// Not the phone's theme (that's the 18-swatch picker in the shell, untouched). This dresses the
+// card table: the felt's colour cast, how the parchment frame and the card back are tinted, the
+// corner radius, the highlight colour, and how dry or bright the card noises are.
+//
+// All three are built from the SAME art with blend modes rather than three sets of images — a
+// modest machine shouldn't hold three tables and three decks, and it means a custom back the DM
+// uploads still reads as part of whichever deck is in play.
+export const CARD_THEMES = [
+  { id: "moonlit", label: "Moonlit", accent: "#c8a44d" },  // the house deck: candlelit parchment, gold
+  { id: "ash", label: "Ash", accent: "#a34049" },          // grey parchment, blood highlight, hard corners
+  { id: "hoarfrost", label: "Hoarfrost", accent: "#8fd3f4" } // cold, pale, round-cornered
+];
+export const DEFAULT_CARD_THEME = "moonlit";
+
 // ── The blank-PC placeholder name ──────────────────────────────────────────
 // Duplicating a blank actor in Foundry gives "Player Character", "Player Character (2)", … —
 // the DM's scaffolding, not a character. It must never reach a player-facing surface (DM

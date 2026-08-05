@@ -10,7 +10,7 @@
 // client (or the DM's non-phone client), driven by a world flag so it survives a reload.
 // Input: `tableSeats` (who sits where) + `mobile-command.szEvent` (the wizard narrating itself)
 // + actor items as the fallback truth for what's been chosen.
-import { MODULE_ID, TABLE_SEATS, isPlaceholderPCName } from "./preset.js";
+import { MODULE_ID, TABLE_SEATS, isPlaceholderPCName, DEFAULT_CARD_THEME } from "./preset.js";
 import { isPhoneClient, isDisplayClient } from "./shell.js";
 import { cardSound, dealSound } from "./card-audio.js";
 
@@ -207,8 +207,17 @@ function markEmblems() {
   }
 }
 
+function cardTheme() {
+  try { return game.settings.get(MODULE_ID, "cardTheme") || DEFAULT_CARD_THEME; } catch (e) { return DEFAULT_CARD_THEME; }
+}
+
 function repaint() {
   if (!root) return;
+  // The deck's dress is a class on the root; everything else is CSS variables, so switching
+  // decks never re-fetches the table image or the backs.
+  const t = cardTheme();
+  for (const c of [...root.classList]) if (c.startsWith("mc-ct-theme-")) root.classList.remove(c);
+  if (t && t !== DEFAULT_CARD_THEME) root.classList.add(`mc-ct-theme-${t}`);
   root.innerHTML = boardHTML();
   markEmblems();
 }
@@ -280,7 +289,7 @@ export function registerCardTable() {
   // pick (or the first seating) silently doesn't repaint (bench 2026-08-04).
   const onSetting = (s) => {
     if (!root) return;
-    const watched = ["tableSeats", "seatActors", "cardBackImage"].map(k => `${MODULE_ID}.${k}`);
+    const watched = ["tableSeats", "seatActors", "cardBackImage", "cardTheme"].map(k => `${MODULE_ID}.${k}`);
     if (watched.includes(s?.key)) { rebuild(); repaint(); }
   };
   Hooks.on("updateSetting", onSetting);

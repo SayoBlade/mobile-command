@@ -3501,22 +3501,33 @@ their artwork; the pick stores `mobile-command.mainWeapon` and **flips the gear 
 prefers the flagged weapon, falling back to first-weapon then equipment then "Packed". Offered
 only when the character HAS weapons — a pack-only character just continues.
 
-**Three themes, not eighteen (DM 2026-08-05: "choose three themes to keep and let's develop
-them").** Kept: **Tavern** (the house style — candlelight, gold, worn wood, Modesto Condensed),
-**Gothic** (blackletter, blood red, `--mc-round: 0.3`, battlement bar pattern — the horror
-register, and the campaign is Crooked Moon) and **Frost** (pale blue, `--mc-round: 1.4`,
-uppercase tracked Titillium, snowflake pattern — the clean cold one). They span warm / severe /
-cold and each already carries its own type, radius and pattern.
+**Three CARD themes (DM 2026-08-05: "choose three themes to keep and let's develop them" →
+clarified: "I meant card themes, return the app themes").** The phone's 18-swatch theme picker is
+**untouched** — I narrowed it on the first reading and put it straight back. What was missing was
+a look for the DECK on the shared screen, which had exactly one dress.
 
-Retired: flame, tide, and the twelve class themes. The class set was the weakest — palette swaps
-of one shape, and a theme tied to your class is a choice already made for you (a multiclass has
-no answer at all). **Their CSS blocks stay in shell.css**, so a player who already picked one
-keeps it; only the picker narrowed. Nothing was deleted.
+`CARD_THEMES` in preset.js, world setting `cardTheme`, picked from a **Deck** row above the card
+back gallery in the panel's Card table drawer:
 
-Development plan for the three (DM sign-off wanted before the deep pass): reach the surfaces a
-theme currently doesn't — the **card table** (the board is fixed dark; it should take the display
-client's theme, with a per-theme card back), the **DM panel**, and per-theme card noises (a
-Gothic flip wants more room tone than a Frost one).
+| deck | accent | corner | vignette | parchment | back |
+|---|---|---|---|---|---|
+| **Moonlit** (default) | gold `#c8a44d` | 8px | .75 | as painted | as painted |
+| **Ash** | blood `#a34049` | **2px** | .9 | `#8f8b86` multiply — grey | `#6f5a5e` multiply |
+| **Hoarfrost** | ice `#8fd3f4` | **16px** | .66 | `#cfe6f5` multiply — cold | `#7fa6c8` multiply |
+
+**Built from ONE set of art, with blend modes** — not three tables and three decks. A modest
+machine shouldn't hold nine images to show six cards, and it means a custom back the DM uploads
+still reads as part of whichever deck is in play. Switching decks is a class swap on
+`#mc-cardtable` plus CSS variables; nothing re-fetches. Every hard-coded gold on the board now
+routes through `--mc-ct-accent` (seat highlight, active card glow, the writing line), and the
+felt's colour cast rides the same overlay as the vignette.
+
+**The decks sound different too.** `TONE` in card-audio.js shifts every filter and oscillator by
+one multiplier: Ash **0.82** (thicker stock, lands dull and low), Moonlit 1, Hoarfrost **1.22**
+(thin and glassy, rings higher). One number carries the character.
+
+Verified in the harness: all three resolve distinctly (accent, radius 8/2/16px, vignette
+.75/.9/.66, frame tint + multiply blend, back blend).
 
 **Card noises — MADE, not sampled ("can you get/make them or should I?").** Neither: they're
 synthesised in WebAudio at play time ([scripts/card-audio.js](scripts/card-audio.js)). A card is a

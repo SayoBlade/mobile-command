@@ -1,6 +1,6 @@
 import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState } from "./rpc.js";
 import { fireAoO } from "./aoo.js";
-import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD, STORY_QUESTIONS, TABLE_SEATS } from "./preset.js";
+import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD, STORY_QUESTIONS, TABLE_SEATS, CARD_THEMES, DEFAULT_CARD_THEME } from "./preset.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
 import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar, sunTimes } from "./gametime.js";
@@ -3089,6 +3089,7 @@ function cardTableBody() {
   const on = (() => { try { return !!game.settings.get(MODULE_ID, "cardTableOn"); } catch (e) { return false; } })();
   const cur = (() => { try { return game.settings.get(MODULE_ID, "cardBackImage") || ""; } catch (e) { return ""; } })();
   const seated = Object.keys((() => { try { return game.settings.get(MODULE_ID, "tableSeats") ?? {}; } catch (e) { return {}; } })()).length;
+  const deck = (() => { try { return game.settings.get(MODULE_ID, "cardTheme") || DEFAULT_CARD_THEME; } catch (e) { return DEFAULT_CARD_THEME; } })();
   if (cardBackGallery === null) scanCardBacks();
   const thumbs = (cardBackGallery ?? []).map(f => `
     <button class="mc-dmp-cardback ${f === cur ? "mc-on" : ""}" data-cardback="${esc(f)}" title="${esc(f.split('/').pop())}">
@@ -3105,6 +3106,10 @@ function cardTableBody() {
       <span class="mc-dmp-story-status">${seated ? `${seated} seated` : "Nobody's seated yet"}</span>
       <button class="mc-dmp-seat-move" data-open-drawer="players" title="Open Players &amp; seats">change</button>
     </div>
+    <div class="mc-dmp-story-cat">Deck</div>
+    <div class="mc-dmp-decks">${CARD_THEMES.map(t => `
+      <button class="mc-dmp-deck ${t.id === deck ? "mc-on" : ""}" data-cardtheme="${t.id}" title="${esc(t.label)}">
+        <span class="mc-dmp-deck-sw" style="background-color:${t.accent}"></span>${esc(t.label)}</button>`).join("")}</div>
     <div class="mc-dmp-story-cat">Card back</div>
     <div class="mc-dmp-cardbacks">
       <button class="mc-dmp-cardback ${cur ? "" : "mc-on"}" data-cardback="" title="The module's default back"><span>Default</span></button>
@@ -4133,6 +4138,8 @@ async function onClick(ev) {
     await game.settings.set(MODULE_ID, "cardTableOn", !on);
     return render();
   }
+  const deckBtn = ev.target.closest("[data-cardtheme]");
+  if (deckBtn) { await game.settings.set(MODULE_ID, "cardTheme", deckBtn.dataset.cardtheme); return render(); }
   const cb = ev.target.closest("[data-cardback]");
   if (cb) { await game.settings.set(MODULE_ID, "cardBackImage", cb.dataset.cardback ?? ""); return render(); }
   if (ev.target.closest("[data-cardback-upload]")) {

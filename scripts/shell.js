@@ -4477,15 +4477,24 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // it, and 8 names wrapped to three cluttered rows. The name survives as the tooltip and the
     // accessible name, so nothing is lost to a screen reader or a long-press.
     const themes = [
-      // THREE, deliberately (DM 2026-08-05: "choose three themes to keep and let's develop
-      // them"). Eighteen swatches was a paint chart, and the twelve class themes were the
-      // weakest of them — palette swaps of one shape, and a theme tied to your class is a
-      // choice already made for you (a multiclass has no answer at all). These three each have
-      // their own type, corner radius and bar pattern, and they span the range: warm, severe,
-      // cold. The retired blocks stay in shell.css, so a player who already picked one keeps it.
-      ["tavern", "Tavern", "#c8a44d"],   // the house style: candlelight, gold, worn wood
-      ["gothic", "Gothic", "#a34049"],   // blackletter, blood, hard corners — the horror register
-      ["frost", "Frost", "#8fd3f4"]      // pale, round, wide-tracked — the clean cold one
+      ["tavern", "Tavern", "#c8a44d"],
+      ["gothic", "Gothic", "#a34049"],
+      ["frost", "Frost", "#8fd3f4"],
+      ["flame", "Flame", "#f0a52e"],
+      ["tide", "Tide", "#45c4b0"],
+      ["artificer", "Artificer", "#8aa6c4"],
+      ["barbarian", "Barbarian", "#b0342b"],
+      ["bard", "Bard", "#d76ba8"],
+      ["cleric", "Cleric", "#e0d3a0"],
+      ["druid", "Druid", "#6fbf73"],
+      ["fighter", "Fighter", "#93a3b8"],
+      ["monk", "Monk", "#52c2a5"],
+      ["paladin", "Paladin", "#fffd86"],
+      ["ranger", "Ranger", "#9fbf5f"],
+      ["rogue", "Rogue", "#a580ca"],
+      ["sorcerer", "Sorcerer", "#ee6a28"],
+      ["warlock", "Warlock", "#9a5fd0"],
+      ["wizard", "Wizard", "#7f8fe0"]
     ];
     return themes.map(([id, label, sw]) =>
       `<button class="mc-theme-opt ${cur === id ? "mc-on" : ""}" data-action="set-theme" data-theme="${id}" title="${label}" aria-label="${label}" aria-pressed="${cur === id}"><span class="mc-theme-sw" style="background-color:${sw}"></span></button>`).join("");

@@ -1860,20 +1860,59 @@ body {
      HEIGHT is what binds — a vw-sized card overflowed the bottom row by 180px at 1920×1080.
      Solving 6·(1.4w) + plates/gaps/padding ≤ 100vh gives w ≈ (100vh − 220px)/8.6: 100px at
      1080p, 58px at 720p, capped at 190px so a 4K TV doesn't get absurd cards. */
-  --mc-ct-cardw: clamp(56px, calc((100vh - 220px) / 8.6), 190px); }
+  --mc-ct-cardw: clamp(56px, calc((100vh - 220px) / 8.6), 190px);
+  /* CARD THEME defaults = Moonlit, the house deck. The other two re-declare only these. Tints
+     are BLEND MODES over the same art rather than three sets of images — a modest machine
+     shouldn't hold three tables and three decks, and a back the DM uploads still reads as part
+     of whichever deck is in play. */
+  --mc-ct-accent: var(--mc-gold, #c8a44d);
+  --mc-ct-wash: transparent;        /* colour cast over the felt */
+  --mc-ct-vignette: .75;            /* how hard the edges fall away */
+  --mc-ct-frame-tint: transparent;  /* over the parchment frame */
+  --mc-ct-frame-blend: normal;
+  --mc-ct-back-tint: transparent;   /* over the card back */
+  --mc-ct-back-blend: normal;
+  --mc-ct-radius: calc(8px * var(--mc-round, 1));
+  --mc-ct-ink: #f4ecda; }
+/* Ash — the folk-horror deck. Parchment goes grey, the felt goes cold and dark, corners come to
+   a point, and the highlight is blood rather than gold. */
+#mc-cardtable.mc-ct-theme-ash {
+  --mc-ct-accent: #a34049;
+  --mc-ct-wash: rgba(26, 8, 11, .42);
+  --mc-ct-vignette: .9;
+  --mc-ct-frame-tint: #8f8b86; --mc-ct-frame-blend: multiply;
+  --mc-ct-back-tint: #6f5a5e; --mc-ct-back-blend: multiply;
+  --mc-ct-radius: 2px;
+  --mc-ct-ink: #ece2e2;
+}
+/* Hoarfrost — the cold deck. Everything pales and cools, corners round right off, the highlight
+   is ice. The vignette lifts because a bright table shouldn't be crushed at the edges. */
+#mc-cardtable.mc-ct-theme-hoarfrost {
+  --mc-ct-accent: #8fd3f4;
+  --mc-ct-wash: rgba(24, 62, 88, .38);
+  --mc-ct-vignette: .66;
+  --mc-ct-frame-tint: #cfe6f5; --mc-ct-frame-blend: multiply;
+  --mc-ct-back-tint: #7fa6c8; --mc-ct-back-blend: multiply;
+  --mc-ct-radius: 16px;
+  --mc-ct-ink: #eaf6ff;
+}
 .mc-ct-felt { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: space-between;
   gap: 8px; padding: 14px; background-color: #0d0c10;
   background-image: var(--mc-ct-table); background-size: cover; background-position: center; }
 /* The square table art centres as a medallion; the vignette melts it into the ground. */
+/* One overlay carries both the deck's colour cast and the vignette, so a theme change is a
+   variable swap and never a repaint of the table image. */
 .mc-ct-felt::after { content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.75) 100%); }
+  background: linear-gradient(var(--mc-ct-wash), var(--mc-ct-wash)),
+    radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,var(--mc-ct-vignette)) 100%); }
 .mc-ct-row { display: flex; justify-content: space-evenly; gap: 12px; }
 .mc-ct-mid { flex: 1 1 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .mc-ct-center { flex: 1 1 auto; }
 .mc-ct-seat { position: relative; z-index: 1; display: flex; flex-direction: column;
   align-items: center; gap: 6px; padding: 8px 10px; transform: rotate(var(--mc-ct-rot, 0deg));
   border-radius: calc(12px * var(--mc-round, 1)); transition: box-shadow .25s ease, background .25s ease; }
-.mc-ct-seat-active { background: rgba(200,164,77,.07); box-shadow: 0 0 0 1px var(--mc-seat, var(--mc-gold)) inset; }
+.mc-ct-seat-active { background: color-mix(in srgb, var(--mc-ct-accent) 8%, transparent);
+  box-shadow: 0 0 0 1px var(--mc-seat, var(--mc-ct-accent)) inset; }
 .mc-ct-empty { min-width: 40px; }
 .mc-ct-plate { display: flex; align-items: baseline; gap: 8px;
   font-family: var(--mc-ct-font); letter-spacing: .02em;
@@ -1907,9 +1946,10 @@ body {
   transition: transform .55s cubic-bezier(.2,.7,.3,1); border-radius: calc(8px * var(--mc-round, 1)); }
 .mc-ct-flipped .mc-ct-inner { transform: rotateY(180deg); }
 .mc-ct-back, .mc-ct-face { position: absolute; inset: 0; backface-visibility: hidden;
-  border-radius: calc(8px * var(--mc-round, 1)); border: 1px solid #000;
+  border-radius: var(--mc-ct-radius); border: 1px solid #000;
   box-shadow: 0 4px 10px rgba(0,0,0,.55); overflow: hidden; }
-.mc-ct-back { background-size: cover; background-position: center; }
+.mc-ct-back { background-size: cover; background-position: center;
+  background-color: var(--mc-ct-back-tint); background-blend-mode: var(--mc-ct-back-blend); }
 .mc-ct-face { transform: rotateY(180deg); background: var(--mc-panel);
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
 .mc-ct-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -1918,11 +1958,13 @@ body {
 .mc-ct-art-text { display: flex; align-items: center; justify-content: center;
   font-family: var(--mc-ct-font); font-size: clamp(18px, 1.5vw, 34px); color: #2b2118;
   background-image: url("../art/card-face-blank.png");
+  background-color: var(--mc-ct-frame-tint); background-blend-mode: var(--mc-ct-frame-blend);
   background-size: cover; background-position: center; text-shadow: 0 1px 0 rgba(255,255,255,.25); }
 /* A SQUARE item icon is an emblem, not artwork — cover would crop ~29% off its sides. It gets
    the same thorn frame the text cards wear, sat inside it whole (card-table.js markEmblem
    measures the loaded image and adds this class). Portrait artwork keeps its full bleed. */
 .mc-ct-face.mc-ct-emblem { background-image: url("../art/card-face-blank.png");
+  background-color: var(--mc-ct-frame-tint); background-blend-mode: var(--mc-ct-frame-blend);
   background-size: cover; background-position: center; }
 /* PADDING, not insets: an absolutely-positioned replaced element with `width:auto` resolves to
    its INTRINSIC width and drops the opposite offset, so inset-ing a 512px SVG let it render at
@@ -1939,11 +1981,12 @@ body {
    backdrop that actually reaches the top of the text rather than fading through it. */
 .mc-ct-name { position: relative; width: 100%; box-sizing: border-box; padding: 6px 5px 7px;
   text-align: center; font-family: var(--mc-ct-font); font-size: clamp(13px, 1.02vw, 24px);
-  line-height: 1.15; color: #f4ecda; text-shadow: 0 1px 3px rgba(0,0,0,.9);
+  line-height: 1.15; color: var(--mc-ct-ink); text-shadow: 0 1px 3px rgba(0,0,0,.9);
   background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.82) 30%, rgba(0,0,0,.92) 100%); }
-.mc-ct-card.mc-ct-active .mc-ct-inner { box-shadow: 0 0 0 2px var(--mc-gold), 0 0 18px rgba(200,164,77,.5); }
+.mc-ct-card.mc-ct-active .mc-ct-inner { box-shadow: 0 0 0 2px var(--mc-ct-accent),
+  0 0 18px color-mix(in srgb, var(--mc-ct-accent) 55%, transparent); }
 .mc-ct-writing { max-width: 34vw; text-align: center; font-family: var(--mc-ct-font);
-  font-size: clamp(14px, 1.15vw, 26px); color: var(--mc-gold); }
+  font-size: clamp(14px, 1.15vw, 26px); color: var(--mc-ct-accent); }
 .mc-ct-writing i { margin-right: 6px; }
 @media (prefers-reduced-motion: reduce) { .mc-ct-inner { transition: none; } }
 
@@ -2019,6 +2062,16 @@ body {
   gap: 8px; margin: 2px 0 8px; }
 .mc-dmp-ct-head .mc-dmp-story-status { margin: 0; flex: 1 1 auto; }
 .mc-dmp-ct-head button { flex: 0 0 auto; white-space: nowrap; }
+
+/* DM panel: the deck picker (§38.4a) — three named decks, swatch + label. */
+.mc-dmp-decks { display: flex; gap: 6px; margin: 4px 0 8px; }
+.mc-dmp-deck { flex: 1 1 0; min-height: 34px; display: flex; align-items: center;
+  justify-content: center; gap: 6px; padding: 4px 6px; background: var(--mc-panel);
+  border: 1px solid var(--mc-edge); border-radius: calc(8px * var(--mc-round, 1));
+  color: var(--mc-muted); font-size: 11px; cursor: pointer; }
+.mc-dmp-deck-sw { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 auto;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.5) inset; }
+.mc-dmp-deck.mc-on { border-color: var(--mc-gold); color: var(--mc-ink); }
 
 /* DM panel: the card-back gallery (§38.4a). Thumbnails are 5:7 like the cards themselves. */
 .mc-dmp-cardbacks { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px;
