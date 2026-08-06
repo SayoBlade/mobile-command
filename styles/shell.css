@@ -1811,6 +1811,11 @@ body {
 .mc-wiz-beat-choice { font-size: 13px; color: var(--mc-muted); }
 .mc-wiz-beat-choice i { color: #6fcf7d; }
 .mc-wiz-continue { margin-top: 4px; }
+/* The portrait step's preview — round, like the token it becomes on the table. */
+.mc-wiz-portrait { display: block; width: 148px; height: 148px; margin: 10px auto 12px;
+  border-radius: 50%; object-fit: cover; object-position: center top;
+  border: 2px solid var(--mc-gold); box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+.mc-wiz-portrait-empty { border-color: var(--mc-edge); opacity: .5; }
 /* Main-weapon pick on the gear step (§38.4a). Full-width rows with real artwork — this is a
    phone, and the 44px tap floor applies (the row runs 52px with its image). */
 .mc-wiz-mainw-lbl { padding: 10px 2px 4px; font-size: 14px; color: var(--mc-muted); }
@@ -1976,7 +1981,14 @@ body {
    table starts cold and empty; the candles catch; the light spreads; the shadows reach out;
    the cards come off the middle of the table to each seat in turn. */
 
-/* Cold table: felt dimmed right down, no flames, no shadows, no cards. */
+/* Cold table: dimmed right down, no flames, no shadows, no cards. The dim is a flat black sheet
+   OVER everything (z-index above the seats and the candles, so the wax goes dark too) whose
+   OPACITY fades — a brightness filter would have repainted the whole table every frame of the
+   2.2s fade. It lifts as the candles catch, so the light in the room comes from them. */
+#mc-cardtable::before { content: ""; position: absolute; inset: 0; z-index: 3;
+  pointer-events: none; background: #04030a; opacity: 0; transition: opacity 2.2s ease; }
+#mc-cardtable.mc-ct-dark::before { opacity: .58; }
+#mc-cardtable.mc-ct-lit::before { opacity: 0; }
 #mc-cardtable .mc-ct-felt::after { transition: opacity 2.4s ease; }
 #mc-cardtable.mc-ct-dark .mc-ct-plate { opacity: .25; }
 
@@ -2019,6 +2031,27 @@ body {
   #mc-cardtable:not(.mc-ct-motion).mc-ct-dealt .mc-ct-card { animation: none; opacity: 1; }
   #mc-cardtable:not(.mc-ct-motion) .mc-ct-cd-fire,
   #mc-cardtable:not(.mc-ct-motion) .mc-ct-cd-shadow { transition: none; }
+}
+
+/* The portrait token, landing above the name (§38.5). It falls from off-table, overshoots, and
+   settles — transform and opacity only, so the drop is composited. The ring and the shadow are
+   static; only the disc moves. */
+.mc-ct-token { width: calc(var(--mc-ct-cardw) * .92); aspect-ratio: 1; border-radius: 50%;
+  background-size: cover; background-position: center top;
+  border: 2px solid var(--mc-seat, var(--mc-ct-accent));
+  box-shadow: 0 3px 10px rgba(0,0,0,.7), 0 0 0 1px rgba(0,0,0,.8) inset;
+  margin-bottom: 2px; flex: 0 0 auto; }
+.mc-ct-token-drop { animation: mc-ct-tokendrop .72s cubic-bezier(.3,1.5,.4,1) both;
+  will-change: transform, opacity; }
+@keyframes mc-ct-tokendrop {
+  0%   { opacity: 0; transform: translateY(-190%) scale(1.5); }
+  55%  { opacity: 1; }
+  78%  { transform: translateY(0) scale(1); }
+  88%  { transform: translateY(-14%) scale(.99); }   /* the bounce off the wood */
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #mc-cardtable:not(.mc-ct-motion) .mc-ct-token-drop { animation: none; }
 }
 
 /* Ability names stack one per line (STR / DEX / CON), no score. */

@@ -121,6 +121,21 @@ export function cardSound(kind = "deal", { at = 0 } = {}) {
       swish(c, out, { at, dur: 0.07, from: 2600 * b, to: 900 * b, gain: 0.42, q: 1.1 });
       swish(c, out, { at: at + 0.055, dur: 0.1, from: 1500 * b, to: 420 * b, gain: 0.5 });
       knock(c, out, { at: at + 0.06, freq: 124 * b, gain: 0.2, dur: 0.08 });
+    } else if (kind === "clank") {
+      // A metal token hitting wood: a hard tick, then two detuned partials ringing briefly on
+      // top of each other. Inharmonic on purpose — a harmonic pair reads as a bell, not metal.
+      swish(c, out, { at, dur: 0.045, from: 5200 * b, to: 1800 * b, gain: 0.34, q: 1.6 });
+      knock(c, out, { at, freq: 210 * b, gain: 0.26, dur: 0.07 });
+      for (const [f, g, d] of [[1180, 0.16, 0.34], [1637, 0.11, 0.26], [2570, 0.06, 0.19]]) {
+        const o = c.createOscillator(); o.type = "triangle";
+        const t = c.currentTime + at + 0.004;
+        o.frequency.setValueAtTime(f * b * (0.99 + Math.random() * 0.02), t);
+        const gg = c.createGain();
+        gg.gain.setValueAtTime(0.0001, t);
+        gg.gain.exponentialRampToValueAtTime(g, t + 0.005);
+        gg.gain.exponentialRampToValueAtTime(0.0001, t + d);
+        o.connect(gg).connect(out); o.start(t); o.stop(t + d + 0.02);
+      }
     } else if (kind === "place") {
       knock(c, out, { at, freq: 96 * b, gain: 0.34 });
       swish(c, out, { at, dur: 0.09, from: 1200 * b, to: 380 * b, gain: 0.28 });

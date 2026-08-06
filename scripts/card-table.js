@@ -168,6 +168,16 @@ function cardHTML(seat, def, s, i = 0) {
 // Keyed seat:actor — the reveal animation must play on the render where the name first lands and
 // never again, and repaint() rewrites the whole board on every event.
 const revealed = new Set();
+// Seats whose portrait token has already dropped, keyed seat:actor:img — the drop plays once,
+// and again if the DM regenerates the portrait (the img is part of the key).
+const dropped = new Set();
+// Foundry's placeholders are not a face. A portrait counts only once the player has actually
+// made one, which is what the wizard's last step is for.
+const PLACEHOLDER_IMG = /(mystery-man|^$)/i;
+function hasPortrait(actor) {
+  const img = String(actor?.img ?? "").trim();
+  return !!img && !PLACEHOLDER_IMG.test(img) && !img.endsWith("/icons/svg/mystery-man.svg");
+}
 
 function seatHTML(def) {
   const s = state.get(def.id);
@@ -193,7 +203,19 @@ function seatHTML(def) {
     ? `<span class="mc-ct-who ${firstReveal ? "mc-ct-reveal" : ""}">${esc(actor.name)}</span>
        <span class="mc-ct-player">${esc(u?.name ?? "")}</span>`
     : `<span class="mc-ct-who">${esc(u?.name ?? "—")}</span>`;
+  // The PORTRAIT lands as a token above the name (DM 2026-08-06) — the last thing the wizard
+  // asks for, so it arrives after everything else and drops onto the table with a clank. Only
+  // a REAL portrait counts; Foundry's mystery-man placeholder is not a face.
+  const portrait = actor && hasPortrait(actor) ? actor.img : null;
+  const tokenKey = portrait ? `${def.id}:${actor.id}:${portrait}` : null;
+  const tokenNew = tokenKey && !dropped.has(tokenKey);
+  if (tokenKey) dropped.add(tokenKey);
+  const token = portrait
+    ? `<div class="mc-ct-token ${tokenNew ? "mc-ct-token-drop" : ""}"
+         style="background-image:url('${esc(portrait)}')"></div>`
+    : "";
   return `<div class="mc-ct-seat ${s.active ? "mc-ct-seat-active" : ""}" data-seat="${def.id}" style="--mc-ct-rot:${def.rot}deg;--mc-seat:${u?.color?.css ?? "var(--mc-gold)"}">
+    ${token}
     <div class="mc-ct-plate">${plate}</div>
     <div class="mc-ct-hand">${hand.map((h, i) => cardHTML(def, h, s, i)).join("")}</div>
     ${writing}
@@ -291,6 +313,14 @@ function cardTheme() {
   try { return game.settings.get(MODULE_ID, "cardTheme") || DEFAULT_CARD_THEME; } catch (e) { return DEFAULT_CARD_THEME; }
 }
 
+// A token that just landed needs its clank at the moment it lands, not when the markup is built
+// — the drop takes .72s and the sound belongs at the bottom of it.
+function soundNewTokens() {
+  const dropping = root?.querySelectorAll(".mc-ct-token-drop");
+  if (!dropping?.length) return;
+  setTimeout(() => cardSound("clank"), 620);
+}
+
 function repaint() {
   if (!root) return;
   // The deck's dress is a class on the root; everything else is CSS variables, so switching
@@ -305,6 +335,7 @@ function repaint() {
   root.classList.toggle("mc-ct-motion", motion);
   root.innerHTML = boardHTML();
   markEmblems();
+  soundNewTokens();
 }
 
 // §38.5 THE OPENING — the first thing a table ever sees of this system (DM 2026-08-05).

@@ -3554,6 +3554,36 @@ biography picker and its placeholder — and the **name field itself renders EMP
 pre-filled with scaffolding to edit. On the board there are two guards, since either can be true
 alone: mid-creation (`charGen` flag) or a finished PC the DM never renamed (the name test).
 
+### 38.6 "Coming back to the table" — the level-up sitting (DM 2026-08-06, FUTURE — recorded, not built)
+
+> DM: *"Players can see each-others cards after they leveled up, show subclass, additional
+> class/subclass, and allow DM to drag an item into each character's 'favorite item' on DM panel
+> to update it. So if a 1st level barbarian has 5 cards and chose a two handed axe, he could
+> later be a barbarian / sorcerer with subclasses in both with 9 cards and his new weapon is a
+> fire ax (which dm dragged from players inventory to the relevant place in the dm widget)."*
+
+Session zero is the FIRST sitting; this is every one after it. The board becomes a standing
+record of the party that grows as they do, rather than a one-night artifact.
+
+- **The hand grows with the character.** Level 1 barbarian = 5 cards. Barbarian/Sorcerer with a
+  subclass in each = 9. So `HAND` stops being a fixed six and becomes DERIVED from the actor:
+  one card per class, one per subclass, plus the fixed species/background/abilities/gear. The
+  card table already reads the actor as its source of truth (`readCards`), so this is an
+  extension of that function rather than a new mechanism — but the two-stacks-of-three layout
+  and the height-driven card sizing both assume ≤6 and will need revisiting at 9+.
+- **Everyone sees everyone.** During session zero a seat shows only its own hand; at this sitting
+  the point is comparing. Open question: all hands face-up at once, or a "show me theirs" focus?
+- **Subclass cards** need art — dnd5e subclass items carry their own `img`, so the existing
+  emblem-vs-artwork rule should already handle them.
+- **Favourite item, DM-dragged.** A drop target per character in the panel, taking an item from
+  that character's inventory (a Foundry drag payload → uuid → resolve → store on a flag, same
+  shape as `mainWeapon` in §38.4a). This *replaces* asking the player: the DM curates what the
+  table sees. `mainWeapon` is the natural precedent — likely the same flag, re-labelled.
+
+**Depends on:** nothing new; every piece has an existing precedent in §38.4a/§38.5. **Sequenced
+after** the live-table leg (a real phone, cross-player denial, the whole loop on the real TV),
+because a standing record is worth less than a working first night.
+
 ### 38.5 The opening — session zero's first minute (DM 2026-08-05, BUILT + verified in the DM's own world)
 
 > DM: *"I want this to be an amazing moment, the first encounter with the system. The table starts

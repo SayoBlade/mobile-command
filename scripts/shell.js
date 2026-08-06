@@ -837,7 +837,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     steps.push({ id: "story", label: "Your story", done: !!beats.closer2 });
     // The NAME comes LAST (DM 2026-08-04) — you name them once you know who they are. It's the
     // closing beat of the wizard, not a form field you fill in before anything exists.
-    steps.push({ id: "name", label: "Name", done: false });
+    steps.push({ id: "name", label: "Name", done: !!actor.getFlag(MODULE_ID, "wizNamed") });
+    // …and the FACE last of all (DM 2026-08-06). Once they're named, they get a portrait — and
+    // the moment one exists it drops onto the shared table as a token above their name.
+    steps.push({ id: "portrait", label: "Portrait", done: false });
     return steps;
   }
   // The beat owed by the current state, or null. Fires once per step (charGenBeats flag).
@@ -859,6 +862,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (s.id === "gear") return { step: "gear", choice: null, img: null, q: CREATION_BEATS.gear };
     }
     return null; // the two closers are driven by the "Your story" step in #wizardHTML
+  }
+  // Same rule the card table uses: Foundry's placeholder isn't a face.
+  #hasPortrait(actor) {
+    const img = String(actor?.img ?? "").trim();
+    return !!img && !/mystery-man/i.test(img);
   }
   #wizStepperHTML(steps, cur) {
     const esc = foundry.utils.escapeHTML;
@@ -935,12 +943,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         + `<button class="mc-jn-post mc-wiz-continue" data-action="wiz-continue">Gear's sorted — continue</button>`;
     } else if (step.id === "story") {
       body = `<div class="mc-cg-blurb">Two last questions and you're done.</div>`;
-    } else { // name — the closing beat: everything they are, then what they're called
-      const rows = steps.filter(s => s.id !== "name").map(s =>
+    } else if (step.id === "name") { // the closing beat: everything they are, then what they're called
+      const rows = steps.filter(s => s.id !== "name" && s.id !== "portrait").map(s =>
         `<div class="mc-wiz-review-row">${s.done ? `<i class="fas fa-check mc-cg-check"></i>` : `<i class="fas fa-circle"></i>`} ${esc(s.label)}</div>`).join("");
       body = `<div class="mc-cg-blurb">You know who they are now. What are they called?</div>
         ${this.#charGenBioHTML(actor)}<div class="mc-wiz-review">${rows}</div>
-        <button class="mc-cg-finish" data-action="char-gen-finish"><i class="fas fa-check-double"></i> Finish</button>`;
+        <button class="mc-jn-post mc-wiz-continue" data-action="wiz-named">Named — now their face</button>`;
+    } else { // portrait — the very last thing, and the one the table watches for
+      const has = this.#hasPortrait(actor);
+      body = `<div class="mc-cg-blurb">${has ? "This is the face the table will see." : "Give them a face. It lands on the table as your token."}</div>
+        <img class="mc-wiz-portrait ${has ? "" : "mc-wiz-portrait-empty"}" src="${esc(actor.img || "icons/svg/mystery-man.svg")}" alt="">
+        <button class="mc-cg-create" data-action="portrait-open"><i class="fas fa-wand-magic-sparkles"></i> ${has ? "Try another portrait" : "Create a portrait"}</button>
+        <button class="mc-cg-finish" data-action="char-gen-finish"><i class="fas fa-check-double"></i> ${has ? "Finish" : "Finish without one"}</button>`;
     }
     const nav = `<div class="mc-wiz-nav">
       ${cur > 0 ? `<button class="mc-jn-cancel" data-action="wiz-step" data-step="${cur - 1}"><i class="fas fa-arrow-left"></i> Back</button>` : "<span></span>"}
@@ -6556,6 +6570,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         const cur = steps[this.#charGen?.wstep ?? 0];
         if (a && cur?.id === "abilities") a.setFlag(MODULE_ID, "wizAbilitiesDone", true).then(() => this.render());
         if (a && cur?.id === "gear") a.setFlag(MODULE_ID, "wizGearDone", true).then(() => this.render());
+        return;
+      }
+      case "wiz-named": {
+        // The name step has no document of its own to mark done — the player says when.
+        const a = this.actor;
+        if (!a) return;
+        a.setFlag(MODULE_ID, "wizNamed", true).then(() => {
+          if (this.#charGen) this.#charGen.wstep = (this.#wizSteps(a).length - 1);
+          this.render();
+        }).catch((e) => console.warn(`${MODULE_ID} | could not advance to the portrait step`, e));
         return;
       }
       case "wiz-mainweapon": {
