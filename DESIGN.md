@@ -3611,6 +3611,8 @@ ART gives up height instead: emblem padding `5% 12% 43%`, and the type comes bac
 `clamp(11px, .95vw, 22px)` at weight 600 with tighter tracking and a stronger shadow. Live:
 **18.24px**, up from 13.8, with **zero** overflowing names across all 22 cards.
 
+**Card names, fourth pass (DM 2026-08-06: "move title, shrink font").** At bottom: 6% the name landed ON the thorn frame painted border and its descenders were sliced — the frame eats roughly the outer 12% of the card. Name moved to bottom: 15% with 13% side padding (inside the parchment panel), font eased to clamp(9px, .8vw, 19px), art padding to 5% 13% 46%. Live at 1920x1080: card 100x140, name 15.36px, every name on ONE line, 22px clear of the card edge.
+
 **The abilities card** shows dnd5e's own icon (`systems/dnd5e/icons/svg/abilities/*.svg`) and the
 ability NAME — no score (DM: "no need for the number"). Ties stack, one per line, up to three:
 a 16/16/16 character is three things at once. Verified live: `STR`, stacked, icon loaded, framed.
