@@ -2105,10 +2105,11 @@ body {
 /* Pinned to the bottom of the card, ABSOLUTELY — in normal flow a two-line name ("Unarmed
    Strike") grew the box and the second line was clipped by the face's overflow (live 2026-08-05).
    Out of flow it can wrap without moving anything. */
-/* Sat INSIDE the parchment panel, clear of the frame's painted border. At bottom: 6% the text
-   landed on the border itself and the descenders were sliced off (DM 2026-08-06, "move title,
-   shrink font") — the thorn frame eats roughly the outer 12% of the card. */
-.mc-ct-emblem .mc-ct-name { position: absolute; left: 0; right: 0; bottom: 15%; width: auto;
+/* Sat well INSIDE the parchment panel. Three positions were wrong before this: 6% put the text
+   on the thorn frame's painted border and sliced the descenders, and 15% was still low enough
+   to read as "falling off". The DM's marked-up card puts it around 28% up from the bottom —
+   tucked under the artwork, floating in the parchment, not hugging an edge. */
+.mc-ct-emblem .mc-ct-name { position: absolute; left: 0; right: 0; bottom: 27%; width: auto;
   background: none; color: #2b2118; padding: 0 13%;
   text-shadow: 0 1px 0 rgba(255,255,255,.35); }
 /* border-box, or `width:100%` + padding makes the strip 10px WIDER than the card and the face's
@@ -2120,7 +2121,7 @@ body {
    size alone can't fix it — the art gives up height instead (see the emblem padding below) and
    the type comes back up with tighter tracking and a heavier weight. */
 .mc-ct-name { position: relative; width: 100%; box-sizing: border-box; padding: 4px 3px 5px;
-  text-align: center; font-family: var(--mc-ct-font); font-size: clamp(9px, .8vw, 19px);
+  text-align: center; font-family: var(--mc-ct-font); font-size: clamp(8px, .62vw, 15px);
   line-height: 1.04; letter-spacing: -.01em; font-weight: 600;
   color: var(--mc-ct-ink); text-shadow: 0 1px 3px rgba(0,0,0,.95), 0 0 8px rgba(0,0,0,.7);
   background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.86) 26%, rgba(0,0,0,.95) 100%); }
