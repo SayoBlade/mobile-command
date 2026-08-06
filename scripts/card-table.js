@@ -120,6 +120,19 @@ function rebuild() {
   }
 }
 
+// Every seat's actor, re-checked against the world. The board caches what it has been told
+// (szEvent carries an actorId, and readCards runs once per rebuild), so a PC deleted while the
+// board is up used to sit there as a ghost — cards and all — until something unrelated forced a
+// rebuild. The DM wiped his PCs to start over and session zero dealt him one of the dead
+// (live 2026-08-06). Called before the opening and on every actor create/delete.
+function dropDeadActors() {
+  let changed = false;
+  for (const [, s] of state) {
+    if (s.actorId && !game.actors.get(s.actorId)) { s.actorId = null; s.cards = {}; s.caster = false; changed = true; }
+  }
+  return changed;
+}
+
 function cardHTML(seat, def, s, i = 0) {
   const face = s.cards[def.step];
   const flipped = !!face;
@@ -348,6 +361,12 @@ function openingMusic() {
 export function runOpening() {
   if (!root) return;
   clearOpening();
+  // Re-read the world before the show. "Begin session zero" is the one moment the board must be
+  // certain it is showing what EXISTS, not what it was last told — the DM may have spent the
+  // gap deleting and remaking characters, which is exactly what session zero is for.
+  rebuild();
+  dropDeadActors();
+  repaint();
   root.classList.remove("mc-ct-lit", "mc-ct-shadows", "mc-ct-dealt");
   for (const step of OPENING) {
     openingTimers.push(setTimeout(() => {
@@ -394,8 +413,9 @@ export function cardTableEvent(p = {}) {
   const s = state.get(seatId);
   if (!s) return;
   if (p.actorId && s.actorId !== p.actorId) { // first event tells us which PC this seat is building
-    s.actorId = p.actorId;
     const actor = game.actors.get(p.actorId);
+    if (!actor) return; // an event about a PC that no longer exists — never seat a ghost
+    s.actorId = p.actorId;
     s.cards = readCards(actor); s.caster = isCaster(actor);
   }
   if (p.kind === "flip" && p.step) {
@@ -433,6 +453,11 @@ export function registerCardTable() {
   Hooks.on("createItem", onActorish);
   Hooks.on("deleteItem", onActorish);
   Hooks.on("updateActor", onActorish);
+  // A PC appearing or being deleted changes WHO is at a seat, not just what's on their cards —
+  // so these rebuild from scratch rather than patching one seat. Without deleteActor the board
+  // kept dealing a character that no longer existed (live 2026-08-06).
+  Hooks.on("deleteActor", () => { if (!root) return; rebuild(); dropDeadActors(); repaint(); });
+  Hooks.on("createActor", () => { if (!root) return; rebuild(); repaint(); });
   // BOTH create and update: a setting that has never been written has no Setting document, so
   // its FIRST write fires createSetting — listening only for updates means the first card-back
   // pick (or the first seating) silently doesn't repaint (bench 2026-08-04).

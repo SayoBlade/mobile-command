@@ -3615,6 +3615,32 @@ ART gives up height instead: emblem padding `5% 12% 43%`, and the type comes bac
 ability NAME — no score (DM: "no need for the number"). Ties stack, one per line, up to three:
 a 16/16/16 character is three things at once. Verified live: `STR`, stacked, icon loaded, framed.
 
+**🔴 The "phantom PC" (DM 2026-08-06: "I erased all PCs to start over, when I enter session zero
+I get a phantom pc that's already been erased!?").** Investigated in his world; **two different
+things**, only one of them a bug.
+
+*Not a bug:* **Brig Brightbelly still existed** (`oxYbF6qHTgUZaeks`) and was still `user.character`
+for Player 1, who is seated at s2 — so the board was correctly showing a PC that had survived the
+purge. Player 1 also still owned Belnor Brightshield, Player Character (3) and Test Wizard. Also
+found: **Greeny and Player 2 hold dangling `character` ids** (`vcLaLkxEBDAPeFP3`,
+`9v51lZei4Mr04ma1`) pointing at actors that ARE gone — Foundry keeps the raw id on the user
+document after deletion. Those resolve to null and fall through correctly, but they're worth
+clearing (a DM decision — assignment is theirs, so nothing was changed).
+
+*The real bug:* the board had **no `deleteActor` listener at all**. It listens for
+create/deleteItem and updateActor, so a PC deleted while the board was up stayed in `state` —
+cards and name intact — until something unrelated forced a rebuild. Three fixes:
+- `deleteActor` / `createActor` hooks now rebuild from scratch (these change WHO is at a seat,
+  not just what's on their cards).
+- `dropDeadActors()` clears any cached seat whose actor no longer resolves.
+- **`runOpening()` rebuilds before the show.** "Begin session zero" is the one moment the board
+  must be certain it shows what EXISTS — the DM may have spent the gap deleting and remaking
+  characters, which is precisely what session zero is for.
+- `cardTableEvent` refuses an szEvent naming an actor that isn't there — it never seats a ghost.
+
+Verified live: a forged flip event for actor `DEADBEEFDEADBEEF` produced **0** cards, the opening
+re-derived the seats correctly, and `deleteActor`/`createActor` are registered (4 and 3 handlers).
+
 **Still owed:** the DM's scribbled shadow-placement image never arrived with the message — the
 current angles are physically derived (straight out from the cluster), not his sketch.
 
