@@ -2977,30 +2977,32 @@ function playersBody() {
   const seats = tableSeats();
   const seatOf = uid => Object.entries(seats).find(([, u]) => u === uid)?.[0] ?? null;
   const users = playerUsers();
+  // A seat says WHO, not where — the map's geometry already says where, so an empty seat is a
+  // quiet "+" rather than "Left bottom" spelled out (DM 2026-08-06). The position name survives
+  // in the tooltip, where it costs nothing.
   const slot = (id) => {
     const def = TABLE_SEATS.find(s => s.id === id);
     const u = game.users.get(seats[id]);
     const picked = seatPick != null;
-    return `<button class="mc-dmp-seat ${u ? "mc-full" : ""} ${picked ? "mc-dmp-seat-open" : ""}"
+    const col = u?.color?.css ?? "var(--mc-gold)";
+    return `<button class="mc-dmp-seat mc-seat-${id} ${u ? "mc-full" : ""} ${picked ? "mc-dmp-seat-open" : ""}"
       data-seat="${id}" title="${esc(picked
         ? (u ? `Swap with ${u.name}` : `Seat ${game.users.get(seatPick)?.name ?? "them"} at ${def.label}`)
-        : (u ? `${u.name} — tap to clear` : `${def.label} — empty`))}"
-      ${u ? `style="border-color:${u.color?.css ?? "var(--mc-gold)"}"` : ""}>
-      ${u ? `<i class="fas fa-circle-user" style="color:${u.color?.css ?? "var(--mc-gold)"}"></i><span>${esc(u.name)}</span>`
-          : `<span class="mc-dmp-seat-empty">${esc(def.label)}</span>`}
+        : (u ? `${u.name} — ${def.label}, tap to clear` : `${def.label} — empty`))}"
+      ${u ? `style="--seat-col:${col}"` : ""}>
+      ${u ? `<i class="fas fa-circle-user"></i><span>${esc(u.name)}</span>`
+          : `<i class="fas fa-plus mc-dmp-seat-empty"></i>`}
     </button>`;
   };
   // The table stands on end (DM's sketch 2026-08-05): one seat at the top, two down each side,
-  // one at the bottom, TV flat in the middle. Same six seats — this is the map's orientation,
-  // not a change to the table.
+  // one at the bottom, TV flat in the middle. A 3x4 GRID rather than nested flex rows — the old
+  // version had the two seat columns and the TV competing for width in a 320px panel and the TV
+  // ended up a sliver with its label turned on its side.
   const map = `<div class="mc-dmp-tablemap">
-    <div class="mc-dmp-seatend">${slot("w")}</div>
-    <div class="mc-dmp-seatmid">
-      <div class="mc-dmp-seatcol">${slot("n1")}${slot("n2")}</div>
-      <div class="mc-dmp-tv"><i class="fas fa-tv"></i><span>TV</span></div>
-      <div class="mc-dmp-seatcol">${slot("s1")}${slot("s2")}</div>
-    </div>
-    <div class="mc-dmp-seatend">${slot("e")}</div>
+    ${slot("w")}
+    ${slot("n1")}<div class="mc-dmp-tv"><i class="fas fa-tv"></i><span>TV</span></div>${slot("s1")}
+    ${slot("n2")}${slot("s2")}
+    ${slot("e")}
   </div>`;
   const roster = users.length ? users.map(u => {
     const s = seatOf(u.id);

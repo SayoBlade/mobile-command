@@ -2167,34 +2167,50 @@ body {
 
 /* DM panel: the table map (§38.4b). The TV lies FLAT — two seats along each long side, one at
    each short end — so the map is drawn as the room sees it, from above. */
-.mc-dmp-tablemap { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 10px; }
-.mc-dmp-seatrow { display: flex; gap: 6px; }
-.mc-dmp-seatmid { display: flex; gap: 6px; align-items: stretch; }
-/* The table stands on end (§38.4b): a single seat at each end, two stacked down each side. The
-   end seats are narrowed to the TV's width so the map reads as one rectangle, not a cross. */
-.mc-dmp-seatend { display: flex; justify-content: center; }
-.mc-dmp-seatend .mc-dmp-seat { flex: 0 1 128px; }
-.mc-dmp-seatcol { display: flex; flex-direction: column; gap: 6px; flex: 0 0 86px; }
-.mc-dmp-seatcol .mc-dmp-seat { flex: 1 1 auto; }
-.mc-dmp-seat { flex: 1 1 0; min-width: 0; min-height: 44px; display: flex; align-items: center;
-  justify-content: center; gap: 6px; padding: 6px 8px;
+/* THE TABLE MAP (§38.4b, redesigned 2026-08-06). A 3x4 GRID, not nested flex rows: the old
+   version had two seat columns and the TV all competing for width in a ~310px panel, which
+   squeezed the TV to a sliver with its label turned on its side, and every seat spelled out its
+   own position ("Left bottom") when the grid already says exactly that. Now the geometry carries
+   the position and the seat carries only WHO — an empty one is a quiet "+".
+     row 1  .   w   .        the end seats sit over the TV's own column, so the map reads as one
+     row 2  n1  TV  s1       rectangle rather than a cross
+     row 3  n2  TV  s2
+     row 4  .   e   .                                                                          */
+.mc-dmp-tablemap { display: grid; gap: 6px; margin: 2px 0 10px;
+  grid-template-columns: 1fr 1.05fr 1fr;
+  grid-template-rows: auto 46px 46px auto;
+  grid-template-areas: ".  w  ." "n1 tv s1" "n2 tv s2" ".  e  ."; }
+.mc-seat-w  { grid-area: w; }
+.mc-seat-n1 { grid-area: n1; }
+.mc-seat-n2 { grid-area: n2; }
+.mc-seat-s1 { grid-area: s1; }
+.mc-seat-s2 { grid-area: s2; }
+.mc-seat-e  { grid-area: e; }
+.mc-dmp-tv  { grid-area: tv; }
+.mc-dmp-seat { min-width: 0; min-height: 44px; display: flex; align-items: center;
+  justify-content: center; gap: 5px; padding: 4px 6px;
   background: var(--mc-panel); border: 1px dashed var(--mc-edge);
-  border-radius: calc(9px * var(--mc-round, 1)); color: var(--mc-ink); font-size: 12px; }
-.mc-dmp-seat.mc-full { border-style: solid; background: var(--mc-panel-2); }
-.mc-dmp-seat.mc-dmp-seat-open { border-color: var(--mc-gold); }
-.mc-dmp-seat span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mc-dmp-seat-empty { color: var(--mc-muted); }
-/* Direct children only — the side seats now live in .mc-dmp-seatcol, and an unscoped
-   descendant selector here would out-specify the column rule above and set their HEIGHT. */
-.mc-dmp-seatmid > .mc-dmp-seat { flex: 0 0 86px; }
-/* Taller than it is wide: with two 86px seat columns the TV lands ~136px across, so it needs
-   ~160px of height to read as the standing rectangle the DM sketched rather than a square. */
-.mc-dmp-tv { flex: 1 1 auto; min-height: 160px; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 2px;
-  background: var(--mc-sunken); border: 1px solid var(--mc-edge);
   border-radius: calc(9px * var(--mc-round, 1)); color: var(--mc-muted); font-size: 11px;
-  letter-spacing: .08em; text-transform: uppercase; }
-.mc-dmp-tv i { font-size: 16px; color: var(--mc-edge); }
+  cursor: pointer; }
+/* Occupied: the player's own colour carries it — solid edge, their tint on the icon and a hint
+   of it in the fill, so a glance reads the table by colour rather than by reading five names. */
+.mc-dmp-seat.mc-full { border-style: solid; border-color: var(--seat-col, var(--mc-gold));
+  background: color-mix(in srgb, var(--seat-col, var(--mc-gold)) 12%, var(--mc-panel-2));
+  color: var(--mc-ink); }
+.mc-dmp-seat.mc-full i { color: var(--seat-col, var(--mc-gold)); }
+.mc-dmp-seat.mc-dmp-seat-open { border-color: var(--mc-gold); border-style: solid; }
+.mc-dmp-seat span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* An empty seat must still read as a THING you can tap — at --mc-edge on the panel it all but
+   vanished, and a map with two invisible chairs looks like a four-seat table. */
+.mc-dmp-seat:not(.mc-full) { border-color: color-mix(in srgb, var(--mc-edge) 55%, var(--mc-muted)); }
+.mc-dmp-seat-empty { font-size: 14px; opacity: .75; }
+.mc-dmp-seat:hover .mc-dmp-seat-empty { opacity: 1; color: var(--mc-gold); }
+/* The TV spans both middle rows, so it's a block in the centre rather than a strip. */
+.mc-dmp-tv { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; background: var(--mc-sunken); border: 1px solid var(--mc-edge);
+  border-radius: calc(9px * var(--mc-round, 1)); color: var(--mc-muted); font-size: 10px;
+  letter-spacing: .1em; text-transform: uppercase; }
+.mc-dmp-tv i { font-size: 18px; color: var(--mc-edge); }
 .mc-dmp-seat-tag { font-size: 10px; color: var(--mc-muted); }
 /* The reseat link (§38.4b). Tertiary — no border, no fill — but it has to READ as a link: at
    --mc-edge on a dark panel it was invisible (DM 2026-08-05 "not too inviting, not invisible"),
