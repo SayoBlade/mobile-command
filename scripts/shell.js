@@ -2907,12 +2907,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#lootBusy) return;
     this.#lootBusy = true; this.render();
     const actorUuid = this.actor?.uuid;
-    let piles = [], doors = [], tiles = [], travel = [], reached = false;
+    let piles = [], doors = [], tiles = [], travel = [], reached = false, lootRes = null, interRes = null;
     try {
       const [loot, inter] = await Promise.all([
-        rpc.listLoot({ forActorUuid: actorUuid }).catch(() => ({ ok: false })),
-        rpc.listInteractables({ forActorUuid: actorUuid }).catch(() => ({ ok: false }))
+        rpc.listLoot({ forActorUuid: actorUuid }).catch((e) => ({ ok: false, reason: e?.message })),
+        rpc.listInteractables({ forActorUuid: actorUuid }).catch((e) => ({ ok: false, reason: e?.message }))
       ]);
+      lootRes = loot; interRes = inter;
       reached = !!(loot?.ok || inter?.ok);
       piles = loot?.ok ? (loot.piles ?? []) : [];
       doors = inter?.ok ? (inter.doors ?? []) : [];
@@ -2921,7 +2922,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     } finally {
       this.#lootBusy = false;
     }
-    if (!reached) { this.render(); return ui.notifications.warn("Use: couldn't reach the DM — is its screen reloaded since the update?"); }
+    if (!reached) {
+      // "Couldn't reach the DM" hid three different faults and sent the DM hunting the wrong one
+      // (2026-08-07). The executor answers with a REASON — say which it was.
+      const why = [lootRes, interRes].map(r => r?.reason).find(Boolean) ?? "";
+      let msg;
+      if (/not the DM client/i.test(why)) msg = "Use: the DM's screen isn't acting as the display — reload it, or check who the executor is.";
+      else if (/active scene/i.test(why)) msg = "Use: the DM's screen is looking at a different scene than the one in play.";
+      else if (!game.users.some(u => u.isGM && u.active)) msg = "Use: no DM is connected — the shared screen has to be online.";
+      else msg = `Use: couldn't reach the DM${why ? ` — ${why}` : " — is its screen reloaded since the update?"}`;
+      this.render();
+      return ui.notifications.warn(msg);
+    }
     const total = piles.length + doors.length + tiles.length + travel.length;
     if (total === 0) { this.#clearNearby(); this.render(); return this.#useNote("Nothing to use."); }
     if (total === 1) { // operate the single hit directly — no list step
