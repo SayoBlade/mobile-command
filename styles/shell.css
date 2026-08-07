@@ -5859,11 +5859,16 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-twist-pcrow { cursor: default; }
 .mc-twist-n { flex: 0 0 auto; min-width: 28px; align-self: center; text-align: center; font-weight: 800; color: var(--mc-muted); }
 .mc-twist-n.mc-on { color: var(--mc-gold); }
+/* Text ON TOP, buttons UNDER it (DM 2026-08-07: "move buttons under text"). These were a single
+   flex row — text and three 44px tickets side by side — so in a ~200px panel the curse's prose
+   was squeezed into a ~50px column and came out one word per line. The text now claims a full
+   row of its own and the buttons wrap beneath it, sharing the width so they're properly tappable. */
 .mc-twist-req {
-  display: flex; gap: 6px; align-items: center; padding: 8px; margin-bottom: 6px;
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px; margin-bottom: 6px;
   border-radius: calc(8px * var(--mc-round, 1)); background: #2a2418; border: 1px dashed var(--mc-gold);
 }
-.mc-twist-reqtext { flex: 1 1 auto; min-width: 0; font-size: 12.5px; line-height: 1.4; color: var(--mc-ink); }
+.mc-twist-reqtext { flex: 1 1 100%; min-width: 0; font-size: 12.5px; line-height: 1.4; color: var(--mc-ink); }
+.mc-twist-req .mc-cmb-ticket { flex: 1 1 0; min-width: 0; }
 .mc-twist-reqtext .fa-shuffle { color: var(--mc-gold); margin-right: 2px; }
 
 /* == SS34 Fateweaving: thread chip, spoiler-safe card steps, DM dots row == */
