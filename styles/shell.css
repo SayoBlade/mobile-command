@@ -4585,13 +4585,24 @@ body.mc-fxp-woozy #mobile-command-shell {
 .mc-sa-row:last-child { border-bottom: none; }
 .mc-sa-lbl { flex: 1 1 auto; min-width: 0; }
 .mc-sa-hint { color: var(--mc-muted); font-size: 12px; max-width: 55%; text-align: right; }
-.mc-sa-toggle {
-  flex: none; width: 36px; height: 20px; border-radius: 999px; position: relative; cursor: pointer;
+/* The switch is a <button>, so Foundry's core button styling applies to it — and core sets
+   `min-height: 28px` plus `padding: 0 8px`. min-height BEATS height, so the pill rendered 36×28
+   instead of 36×20 while the knob stayed pinned at top:2px: a stretched lozenge with the dot
+   off-centre, which is the "crescent" the DM photographed (live 2026-08-08).
+   Two defences: ID-scoped so it out-specifies `.application button`, and the knob is centred by
+   transform rather than a fixed top, so it can never drift again if the height changes. */
+#mc-settings-app .mc-sa-toggle {
+  flex: none; width: 36px; height: 20px; min-height: 0; min-width: 0; padding: 0; margin: 0;
+  border-radius: 999px; position: relative; cursor: pointer; line-height: 1;
   background: var(--mc-sunken); border: 1px solid var(--mc-edge);
 }
-.mc-sa-toggle::after { content: ""; position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--mc-muted); transition: left .12s; }
-.mc-sa-toggle.mc-on { border-color: var(--mc-gold); }
-.mc-sa-toggle.mc-on::after { left: 18px; background: var(--mc-gold); }
+#mc-settings-app .mc-sa-toggle::after {
+  content: ""; position: absolute; left: 2px; top: 50%; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--mc-muted);
+  transform: translateY(-50%); transition: left .12s ease, background .12s ease;
+}
+#mc-settings-app .mc-sa-toggle.mc-on { border-color: var(--mc-gold); }
+#mc-settings-app .mc-sa-toggle.mc-on::after { left: 18px; background: var(--mc-gold); }
 .mc-sa-chips { display: flex; gap: 5px; flex: none; }
 .mc-sa-chip {
   padding: 4px 10px; font-size: 12px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer;
