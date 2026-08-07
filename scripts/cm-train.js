@@ -60,7 +60,7 @@ export function trainScenes() {
 
 // Pure-data segment-vs-walls test (movement sense) — works on NON-VIEWED scenes, where
 // canvas collision backends are useless. Open doors and non-blocking walls don't block.
-function wallsBlock(scene, a, b) {
+export function wallsBlock(scene, a, b) {
   return scene.walls.contents.some(w => {
     if (w.door > 0 && w.ds === 1) return false;
     if ((w.move ?? 20) === 0) return false;

@@ -7247,7 +7247,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // green (within speed) / yellow (within dash) / red (beyond), like the drag
     // ruler. Out of combat → blank (no turn budget to show). Persist it in
     // #moveBudget so the next combat re-render keeps the readout (see #moveHTML).
-    if (!res?.ok) this.#moveBudget = { text: res?.ok === false ? "Blocked" : (res?.reason ?? "Blocked"), cls: "mc-move-note mc-move-red" };
+    // Every refusal used to read "Blocked" — the ternary tested res.ok === false, which is true
+    // for ALL failures, so a scene/permission refusal masqueraded as a wall and sent the DM
+    // hunting for one (live 2026-08-07). A real collision still says "Blocked"; anything else
+    // says what it actually was.
+    if (!res?.ok) this.#moveBudget = { text: res?.stage === "collision" ? "Blocked" : (res?.reason ?? "Blocked"), cls: "mc-move-note mc-move-red" };
     else if (res.speed) this.#moveBudget = { text: `${res.used} / ${res.speed} ft`, cls: `mc-move-note mc-move-${res.color}` };
     else this.#moveBudget = null;
     // Update the note in place so the readout is snappy (no full re-render needed).

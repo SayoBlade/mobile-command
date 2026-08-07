@@ -2,6 +2,9 @@ import { MODULE_ID } from "./preset.js";
 import { clockLabel } from "./gametime.js"; // in-world date stamps on story entries (§38.4)
 import { resolveExecutorId, isExecutor, reactionTimeoutMs, DISPLAY_LEVEL } from "./settings.js";
 import * as DT from "./downtime.js"; // §17.7 downtime data model + Rule engine (pure, unit-tested)
+// Pure-data wall test: works on scenes the DM isn't looking at, where the canvas collision
+// backends only know the VIEWED scene. Used by movement and by travel-point landings.
+import { wallsBlock } from "./cm-train.js";
 
 // §5 Service RPC contract, Phase 1 subset, running on the executor client
 // (§2.1: the DM Screen GM client). All Spike 3 findings are baked in:
@@ -1516,8 +1519,10 @@ function partyTokensOn(scene) {
 async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
-  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
-
+  // NO onActiveScene guard (2026-08-07) — same reasoning as the Use path. A player must be able
+  // to walk while the DM's camera is on another scene, and the canvas-based collision backend
+  // only knows the VIEWED scene's walls, so this falls back to the pure-data wall test that
+  // cm-train already uses for exactly this situation.
   const tokenDoc = game.scenes.active.tokens.get(tokenId);
   if (!tokenDoc) return { ok: false, stage: "resolve", reason: `token not found: ${tokenId}` };
   if (!requesterCanAct(requesterId, tokenDoc)) {
@@ -1531,11 +1536,19 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
     if (!memberOwner) return { ok: false, stage: "permission", reason: "requester does not own the token" };
   }
 
-  const grid = canvas.scene.grid.size;
-  const from = tokenDoc.object?.center ?? { x: tokenDoc.x, y: tokenDoc.y };
+  const scene = game.scenes.active;
+  const grid = scene.grid.size;
+  // The token's CENTRE from document data. `tokenDoc.object` only exists while that scene is the
+  // one on canvas; the old fallback used the token's top-left CORNER, which sits on the cell
+  // boundary and clipped walls — every direction came back "Blocked" (live 2026-08-07).
+  const from = tokenDoc.object?.center
+    ?? { x: tokenDoc.x + (tokenDoc.width * grid) / 2, y: tokenDoc.y + (tokenDoc.height * grid) / 2 };
   const to = { x: from.x + dxGrid * grid, y: from.y + dyGrid * grid };
 
-  const blocked = CONFIG.Canvas.polygonBackends.move.testCollision(from, to, { type: "move", mode: "any" });
+  const viewing = canvas?.scene?.id === scene.id;
+  const blocked = viewing
+    ? CONFIG.Canvas.polygonBackends.move.testCollision(from, to, { type: "move", mode: "any" })
+    : wallsBlock(scene, from, to);
   if (blocked) return { ok: false, stage: "collision", reason: "Blocked" };
 
   // §37 NOTE: walking into a vestibule no longer does anything (DM 2026-08-07). Crossing is a
@@ -2008,11 +2021,30 @@ async function handleTravelTo({ regionId, group, forActorUuid, requesterId } = {
 
   const sameScene = landing.scene.id === scene.id;
   const grid = landing.scene.grid?.size ?? scene.grid.size;
+  // Fan a group out from the landing WITHOUT dropping anyone inside a wall. The first pass
+  // offset blindly by grid multiples and put the second traveller in the vestibule wall, where
+  // a token is completely stuck — every move update is rejected (live 2026-08-07, and the same
+  // trap cm-train's landing prober exists to avoid). Candidates are tried in rings around the
+  // landing and each must be reachable from it in a straight line.
+  const taken = new Set();
+  const spot = (i) => {
+    if (i === 0) { taken.add(`${landing.x},${landing.y}`); return { x: landing.x, y: landing.y }; }
+    const ring = [[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1],[2,0],[0,2],[-2,0],[0,-2]];
+    for (const [ox, oy] of ring) {
+      const x = landing.x + ox * grid, y = landing.y + oy * grid;
+      if (taken.has(`${x},${y}`)) continue;
+      const c = { x: x + grid / 2, y: y + grid / 2 };
+      const lc = { x: landing.x + grid / 2, y: landing.y + grid / 2 };
+      if (wallsBlock(landing.scene, { x: x + 2, y: y + 2 }, { x: x + grid - 2, y: y + grid - 2 })) continue; // wall through the cell
+      if (wallsBlock(landing.scene, lc, c)) continue;                                                        // can't walk there from the landing
+      taken.add(`${x},${y}`);
+      return { x, y };
+    }
+    return { x: landing.x, y: landing.y }; // nowhere clear — stack rather than wall someone in
+  };
   let moved = 0;
   for (const [i, t] of movers.entries()) {
-    // Fan a group out from the landing square so they don't stack on one cell.
-    const x = landing.x + (i % 3) * grid;
-    const y = landing.y + Math.floor(i / 3) * grid;
+    const { x, y } = spot(i);
     try {
       if (sameScene) { await t.update({ x, y }, { animate: false }); }
       else {
