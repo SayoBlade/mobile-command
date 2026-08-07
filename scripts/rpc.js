@@ -1438,7 +1438,30 @@ Hooks.on("updateCombat", (combat, changed) => {
 Hooks.on("combatStart", () => { if (isExecutor()) turnMove.clear(); });
 Hooks.on("deleteCombat", () => { if (isExecutor()) turnMove.clear(); });
 
-async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
+// §37 A door is a one-way trip to another scene, so the phone asks first (DM 2026-08-07).
+// The vestibule trigger fires on ENTRY — by design you never open the door, you just walk in —
+// which makes it very easy to cross by accident while shuffling a token around. This returns
+// the door the given destination point lands in, or null.
+function trainDoorAt(scene, point) {
+  for (const region of scene?.regions ?? []) {
+    if (!region.getFlag(MODULE_ID, "trainDoor")) continue;
+    const tp = [...region.behaviors].find(b => b.type === "teleportToken" && !b.disabled);
+    if (!tp) continue; // a bare marker (10.1's locked rear door) is not a crossing
+    let inside = false;
+    try { inside = region.testPoint(point); } catch (e) { inside = false; }
+    if (!inside) continue;
+    // Name the far side, so the prompt can say where they're going rather than "continue?".
+    let to = null;
+    try {
+      const dest = tp.system?.destination ?? tp.system?.destinations?.[0];
+      if (dest) to = fromUuidSync(String(dest))?.parent?.name ?? null;
+    } catch (e) { /* unnamed is still a valid prompt */ }
+    return { region, to };
+  }
+  return null;
+}
+
+async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId, confirmTeleport }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
   if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
@@ -1462,6 +1485,14 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
 
   const blocked = CONFIG.Canvas.polygonBackends.move.testCollision(from, to, { type: "move", mode: "any" });
   if (blocked) return { ok: false, stage: "collision", reason: "Blocked" };
+
+  // Ask before leaving the car. Only the player is asked — the DM dragging a token on the
+  // desktop never routes through here, and the group token carries the whole party, so it is
+  // the one move where an accidental step costs the most.
+  if (!confirmTeleport) {
+    const door = trainDoorAt(game.scenes.active, { ...to, elevation: tokenDoc.elevation ?? 0 });
+    if (door) return { ok: false, stage: "confirmTeleport", to: door.to, reason: door.to ? `Go through to ${door.to}?` : "Go through the door?" };
+  }
 
   await tokenDoc.update(
     { x: tokenDoc.x + dxGrid * grid, y: tokenDoc.y + dyGrid * grid },

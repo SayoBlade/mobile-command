@@ -251,6 +251,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #twistNote = "";        // "whose roll" context draft, kept across re-renders
   #moveBudget = null;     // last D-pad move readout { text, cls } — persisted so a combat
                           //   re-render doesn't wipe the counter (it lived only in the DOM)
+  #teleportAsk = null;    // §37 held step at a train door { dx, dy, to, text } — the pad is
+                          //   replaced by a confirm while this is set
   #collapsedActionGroups = new Set(); // Actions tab: accordion groups the user/use closed
   #nearbyLoot = null;     // Item Piles loot: null (not checked) | [] (none) | [{uuid,name,img,itemCount,distance}]
   #nearbyDoors = null;    // doors within reach: [{id, ds, distance}]
@@ -4549,6 +4551,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // (frequent — every updateCombat/updateCombatant) would otherwise reset the note
     // to empty right after #move set it, so the counter "vanished" mid-turn.
     const nb = this.#moveBudget;
+    // §37 The door prompt REPLACES the pad while it's up: the step is already held, and
+    // leaving the arrows live invites a second stray tap in the moment you're deciding.
+    const ask = this.#teleportAsk;
+    if (ask) {
+      const esc = foundry.utils.escapeHTML;
+      return `<div class="mc-tp-ask">
+        <div class="mc-tp-ask-title"><i class="fas fa-door-open"></i> ${esc(ask.text)}</div>
+        ${ask.to ? `<div class="mc-tp-ask-sub">You'll leave this car for <b>${esc(ask.to)}</b>.</div>` : ""}
+        <div class="mc-tp-ask-btns">
+          <button class="mc-jn-cancel" data-action="teleport-stay">Stay</button>
+          <button class="mc-jn-post" data-action="teleport-go"><i class="fas fa-arrow-right"></i> Go through</button>
+        </div>
+      </div>`;
+    }
     // Readout ABOVE the pad (over the Up key), not below: under the down row it sat
     // right where the thumb rests during a move, so the DM couldn't see it (2026-06-21).
     return `
@@ -6948,6 +6964,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       }
       case "move":
         return this.#move(Number(el.dataset.dx), Number(el.dataset.dy));
+      case "teleport-go": {
+        const ask = this.#teleportAsk;
+        this.#teleportAsk = null;
+        if (!ask) return this.render();
+        return this.#move(ask.dx, ask.dy, true); // repeat the exact step, this time cleared
+      }
+      case "teleport-stay":
+        this.#teleportAsk = null;
+        return this.render();
       case "move-toggle":
         this.#movePickerOpen = !this.#movePickerOpen;
         return this.#showCharacterDetails(); // rebuild the card with the picker open/closed
@@ -7141,8 +7166,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     await actor.update({ "system.attributes.inspiration": !actor.system.attributes?.inspiration });
   }
 
-  async #move(dx, dy) {
-    const res = await rpc.moveToken({ tokenId: this.originTokenId, dxGrid: dx, dyGrid: dy });
+  async #move(dx, dy, confirmTeleport = false) {
+    const res = await rpc.moveToken({ tokenId: this.originTokenId, dxGrid: dx, dyGrid: dy, confirmTeleport });
+    // §37 A car door is a one-way trip to another scene and it triggers on ENTRY, so the step
+    // is held and the phone asks first (DM 2026-08-07). Remembering dx/dy means confirming
+    // repeats the exact step rather than making them aim again.
+    if (res?.stage === "confirmTeleport") {
+      this.#teleportAsk = { dx, dy, to: res.to ?? null, text: res.reason ?? "Go through the door?" };
+      this.#moveBudget = null;
+      return this.render();
+    }
     // Blocked → red reason. In combat on your turn → "used / speed ft" coloured
     // green (within speed) / yellow (within dash) / red (beyond), like the drag
     // ruler. Out of combat → blank (no turn budget to show). Persist it in
