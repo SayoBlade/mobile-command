@@ -3175,6 +3175,8 @@ NOT retrigger the region they land in (verified, no ping-pong). Existing plumbin
 rest up: preflight's destination check covers these; zoom transitions are selectable per
 teleport.
 
+**Live re-verified in the DM's world (2026-08-07, DM asked "can you change the doors to act as teleporters" — they already were).** All 17 ch10 scenes present. Cars 10.1–10.7 carry 2 door + 2 landing regions each, the Tender 1 + 1 (no front door, per the book), in BOTH art sets. Every teleport enabled with a resolving destination, paired in both directions: 10.1⇄10.2⇄10.3⇄10.4⇄10.5⇄10.6⇄10.7⇄10.8. **10.1 rear carries ZERO behaviours** — a bare marker for the arcane-locked exterior door, NOT the Cave A landmine (an enabled teleport with an unset destination, which silently rejects every move); worth re-checking with this exact probe whenever doors are rewired. One real gap: **10.8 Tender (Colored) has 0 mist tiles** where every other scene has 6, and it is the active scene.
+
 **The ride = tile-scroll flags on mist tiles.** tile-scroll 5.0.0 (installed, enabled,
 v14-verified) scrolls a tile's TEXTURE in a shader driven by `game.time.serverTime` — all
 config is flags: `flags["tile-scroll"].{enableScroll,scrollSpeed,scrollDirection,repeatx,
