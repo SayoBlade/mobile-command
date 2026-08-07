@@ -3592,6 +3592,16 @@ record of the party that grows as they do, rather than a one-night artifact.
 after** the live-table leg (a real phone, cross-player denial, the whole loop on the real TV),
 because a standing record is worth less than a working first night.
 
+### 20.5 Travel points + the Use path (verified end-to-end 2026-08-07)
+
+Tested from a REAL player client (Player 1, second browser) with a GM online in another — the setup that finally reproduced the bug.
+
+**Root cause of "couldn't reach the DM":** listLoot and listInteractables both carried an  guard, so whenever the DM's CAMERA sat on a scene other than the active one, BOTH calls returned ok:false and the phone concluded the executor was unreachable. The DM was told to reload a client that was working. The whole Use path now reads the active scene's DOCUMENTS (walls / tiles / regions / tokens) and never the canvas, so it works wherever the DM is looking.
+
+**Verified with the GM camera parked on 10.1 while 10.3 was active:** Use returned "Open door 3 ft" and "Travel to next car 0 ft" with no warning. Choosing the travel point raised the prompt (title from the point's own label, buttons Cancel / Travel alone / Travel as group, D-pad correctly replaced). "Travel alone" moved Gorbon from 10.3 to 10.4 — one token, no duplicate — and the active scene FOLLOWED to 10.4 via registerTrainFollow.
+
+**Seat rotation live on the player client:** Player 1 is in seat n1 (180°), so UP maps to map-down and RIGHT to map-left. Confirmed on the phone itself, not just in theory.
+
 ### 38.5 The opening — session zero's first minute (DM 2026-08-05, BUILT + verified in the DM's own world)
 
 > DM: *"I want this to be an amazing moment, the first encounter with the system. The table starts
