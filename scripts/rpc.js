@@ -93,6 +93,8 @@ export function initSocket() {
   socket.register("openLoot", handleOpenLoot);
   socket.register("listInteractables", handleListInteractables);
   socket.register("operateInteractable", handleOperateInteractable);
+  socket.register("travelTo", handleTravelTo);
+  socket.register("travelMark", handleTravelMark);
   socket.register("partyJournalEnsure", handlePartyJournalEnsure);
   socket.register("partyJournalAdd", handlePartyJournalAdd);
   socket.register("partyJournalEdit", handlePartyJournalEdit);
@@ -1438,29 +1440,67 @@ Hooks.on("updateCombat", (combat, changed) => {
 Hooks.on("combatStart", () => { if (isExecutor()) turnMove.clear(); });
 Hooks.on("deleteCombat", () => { if (isExecutor()) turnMove.clear(); });
 
-// §37 A door is a one-way trip to another scene, so the phone asks BEFORE anything moves
-// (DM 2026-08-07). The vestibule trigger fires on ENTRY — by design you never open the door,
-// you just walk in — which makes it very easy to cross by accident.
+// ── TRAVEL POINTS (§20.5) ──────────────────────────────────────────────────────────────────
+// A square you STAND ON and USE to go somewhere else. Deliberately generic (DM 2026-08-07:
+// "is this a custom feature for one specific adventure? I'm looking for more flexible solutions
+// which could handle different move-from-place-to-place scenarios") — a train vestibule, a
+// staircase, a cave mouth, a ship's gangplank and a magic circle are all the same thing:
 //
-// The test is a CROSSING, not a position: outside → inside. Testing only the destination was
-// wrong and produced the DM's "you ask DURING teleportation" — a token already standing in the
-// vestibule (walked in by any route the phone doesn't gate) re-prompted on every further step,
-// by which time core had already carried out the real teleport.
-function trainCrossing(scene, from, to) {
-  for (const region of scene?.regions ?? []) {
-    if (!region.getFlag(MODULE_ID, "trainDoor")) continue;
-    const tp = [...region.behaviors].find(b => b.type === "teleportToken" && !b.disabled);
-    if (!tp) continue; // a bare marker (10.1's locked rear door) is not a crossing
-    let entering = false;
-    try { entering = region.testPoint(to) && !region.testPoint(from); } catch (e) { entering = false; }
-    if (!entering) continue;
-    return { region };
+//   region flagged  mobile-command.travelPoint = { label, dest }
+//     label  what the phone offers  ("Travel to next car", "Climb down", "Step through")
+//     dest   a Region UUID (land on that exact square) or a Scene UUID (land at its centre)
+//
+// Nothing about it knows what a train is. The Ghostlight cars are simply the first content that
+// uses it, and they're recognised by a COMPATIBILITY branch below so the existing wiring keeps
+// working without a migration: a `trainLand` region takes its destination from the co-located
+// `trainDoor` region's teleport behaviour, which stays in place as the record of where that end
+// leads. New travel points should carry the generic flag and never the train ones.
+const TRAVEL_FLAG = "travelPoint";
+
+/** {label, dest} for a region, or null if it isn't a travel point. */
+function travelPointOf(scene, region) {
+  const tp = region.getFlag(MODULE_ID, TRAVEL_FLAG);
+  if (tp?.dest) return { label: tp.label || "Travel", dest: String(tp.dest) };
+  // Compatibility: the Ghostlight cars, wired before travel points existed.
+  if (region.getFlag(MODULE_ID, "trainLand")) {
+    const end = /back/i.test(region.name) ? "back" : "front";
+    const door = [...(scene?.regions ?? [])].find(r =>
+      r.getFlag(MODULE_ID, "trainDoor") && new RegExp(end, "i").test(r.name));
+    const b = door && [...door.behaviors].find(x => x.type === "teleportToken");
+    const dest = b?.system?.destination ?? b?.system?.destinations?.[0];
+    if (dest) return { label: "Travel to next car", dest: String(dest) };
   }
   return null;
 }
 
+function travelPointsNear(scene, center, reach) {
+  const out = [];
+  for (const region of scene?.regions ?? []) {
+    const tp = travelPointOf(scene, region);
+    if (!tp) continue; // a dead end (10.1 rear) offers nothing to use
+    const sh = region.shapes?.[0];
+    if (!sh) continue;
+    const dist = rectDistPx(center.x, center.y, sh.x, sh.y, sh.width, sh.height);
+    if (dist > reach) continue;
+    out.push({ id: region.id, label: tp.label, distance: dist });
+  }
+  return out;
+}
+
+/** Where a travel point lands you: {scene, x, y}. Accepts a Region or a Scene uuid. */
+function travelLanding(destUuid) {
+  const doc = destUuid ? fromUuidSync(String(destUuid)) : null;
+  if (!doc) return null;
+  if (doc.documentName === "Scene") {                       // whole-scene destination
+    return { scene: doc, x: Math.round(doc.width / 2), y: Math.round(doc.height / 2) };
+  }
+  const sh = doc.shapes?.[0];                               // a specific square
+  if (!doc.parent) return null;
+  return { scene: doc.parent, x: sh?.x ?? 0, y: sh?.y ?? 0 };
+}
+
 /** Every player character standing in this car — who "travel as group" takes along. */
-function carPartyTokens(scene) {
+function partyTokensOn(scene) {
   let display = "";
   try { display = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* none */ }
   return [...(scene?.tokens ?? [])].filter(t => {
@@ -1473,7 +1513,7 @@ function carPartyTokens(scene) {
   });
 }
 
-async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId, confirmTeleport, travelGroup }) {
+async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
   if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
@@ -1498,27 +1538,9 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId, confirm
   const blocked = CONFIG.Canvas.polygonBackends.move.testCollision(from, to, { type: "move", mode: "any" });
   if (blocked) return { ok: false, stage: "collision", reason: "Blocked" };
 
-  // Ask before leaving the car — nothing has moved at this point. The DM dragging a token on
-  // the desktop never routes through here and is unaffected.
-  const el = tokenDoc.elevation ?? 0;
-  const crossing = trainCrossing(game.scenes.active, { ...from, elevation: el }, { ...to, elevation: el });
-  if (crossing && !confirmTeleport && !travelGroup) {
-    return { ok: false, stage: "confirmTeleport" };
-  }
-  // "Travel as group": everyone in the car walks through together. Each token is placed in the
-  // vestibule itself, which is what core's region behaviour listens for — so every one of them
-  // teleports by the same route the walker would have taken, rather than being special-cased.
-  if (crossing && travelGroup) {
-    const dest = { x: tokenDoc.x + dxGrid * grid, y: tokenDoc.y + dyGrid * grid };
-    const party = carPartyTokens(game.scenes.active).filter(t => t.id !== tokenDoc.id);
-    await tokenDoc.update(dest, { animate: false });
-    let taken = 1;
-    for (const t of party) {
-      try { await t.update({ x: dest.x, y: dest.y }, { animate: false }); taken++; }
-      catch (e) { console.warn(`${MODULE_ID} | ${t.name} could not follow through the door`, e); }
-    }
-    return { ok: true, travelled: taken };
-  }
+  // §37 NOTE: walking into a vestibule no longer does anything (DM 2026-08-07). Crossing is a
+  // deliberate USE on the travel square, so there is nothing to intercept here any more — the
+  // confirm-on-entry gate that lived at this point is gone with the entry trigger it guarded.
 
   await tokenDoc.update(
     { x: tokenDoc.x + dxGrid * grid, y: tokenDoc.y + dyGrid * grid },
@@ -1937,6 +1959,8 @@ async function handleListInteractables({ forActorUuid } = {}) {
     if (dist > reach) continue;
     doors.push({ id: d.id, ds: d.ds, distance: ft(dist) });
   }
+  // §37 the train's travel squares, offered like any other thing you can reach.
+  const travel = travelPointsNear(canvas.scene, c, reach).map(t => ({ ...t, distance: ft(t.distance) }));
   const tiles = [];
   if (game.modules.get("monks-active-tiles")?.active) {
     for (const t of (canvas.tiles?.placeables ?? [])) {
@@ -1950,7 +1974,69 @@ async function handleListInteractables({ forActorUuid } = {}) {
       tiles.push({ id: t.id, label: f.name || "Interactable", distance: ft(dist) });
     }
   }
-  return { ok: true, doors, tiles };
+  return { ok: true, doors, tiles, travel };
+}
+
+// Carry out a travel-point crossing. Nothing triggers on entry any more, so the move is ours:
+// create the token on the far scene FIRST, then delete it here. That order matters — a failure
+// half-way leaves a duplicate the DM can see and remove, rather than a token that has stopped
+// existing anywhere. Same-scene destinations are a plain move, no create/delete at all.
+async function handleTravelTo({ regionId, group, forActorUuid, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
+  const scene = canvas.scene;
+  const region = scene?.regions?.get(regionId);
+  if (!region) return { ok: false, reason: "that way isn't here anymore" };
+  const tp = travelPointOf(scene, region);
+  const landing = tp && travelLanding(tp.dest);
+  if (!landing?.scene) return { ok: false, reason: "that way leads nowhere yet" };
+
+  const myTok = forActorUuid ? fromUuidSync(forActorUuid)?.getActiveTokens?.()[0]?.document ?? null : null;
+  if (!myTok) return { ok: false, reason: "your token isn't on this scene" };
+  if (!requesterCanAct(requesterId, myTok)) return { ok: false, reason: "requester does not own the token" };
+
+  const movers = group ? partyTokensOn(scene) : [myTok];
+  if (group && !movers.some(t => t.id === myTok.id)) movers.push(myTok);
+
+  const sameScene = landing.scene.id === scene.id;
+  const grid = landing.scene.grid?.size ?? scene.grid.size;
+  let moved = 0;
+  for (const [i, t] of movers.entries()) {
+    // Fan a group out from the landing square so they don't stack on one cell.
+    const x = landing.x + (i % 3) * grid;
+    const y = landing.y + Math.floor(i / 3) * grid;
+    try {
+      if (sameScene) { await t.update({ x, y }, { animate: false }); }
+      else {
+        const data = t.toObject();
+        delete data._id;
+        data.x = x; data.y = y;
+        await landing.scene.createEmbeddedDocuments("Token", [data]);
+        await t.delete();
+      }
+      moved++;
+    } catch (e) {
+      console.error(`${MODULE_ID} | ${t.name} could not travel`, e);
+    }
+  }
+  if (!moved) return { ok: false, reason: "nobody could make the crossing" };
+  return { ok: true, moved, to: landing.scene.name };
+}
+
+/**
+ * Mark a region as a travel point, or clear it. Content-agnostic — this is how a DM (or a macro)
+ * turns any square into a way out: MobileCommand.travel.mark(regionId, {label, dest}).
+ */
+async function handleTravelMark({ regionId, sceneId, label, dest, clear } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const scene = sceneId ? game.scenes.get(sceneId) : canvas.scene;
+  const region = scene?.regions?.get(regionId);
+  if (!region) return { ok: false, reason: "no such region on that scene" };
+  if (clear) { await region.unsetFlag(MODULE_ID, TRAVEL_FLAG); return { ok: true, cleared: true }; }
+  if (!dest) return { ok: false, reason: "a travel point needs a destination" };
+  if (!travelLanding(dest)) return { ok: false, reason: "that destination doesn't resolve" };
+  await region.setFlag(MODULE_ID, TRAVEL_FLAG, { label: label || "Travel", dest: String(dest) });
+  return { ok: true, label: label || "Travel", dest: String(dest) };
 }
 
 async function handleOperateInteractable({ kind, id, forActorUuid } = {}) {
@@ -3280,6 +3366,7 @@ function toExecutor(handler, payload) {
       previewTargets: handlePreviewTargets, endTurn: handleEndTurn, announceCast: handleAnnounceCast,
       listLoot: handleListLoot, openLoot: handleOpenLoot,
       listInteractables: handleListInteractables, operateInteractable: handleOperateInteractable,
+      travelTo: handleTravelTo, travelMark: handleTravelMark,
       partyJournalEnsure: handlePartyJournalEnsure, partyJournalAdd: handlePartyJournalAdd, partyJournalEdit: handlePartyJournalEdit, partyJournalDelete: handlePartyJournalDelete, portraitUpload: handlePortraitUpload,
       storyAdd: handleStoryAdd, storyEdit: handleStoryEdit, storyDelete: handleStoryDelete,
       storyAnswered: handleStoryAnswered,
@@ -3322,6 +3409,8 @@ export const api = {
   openLoot: (payload = {}) => toExecutor("openLoot", payload),
   listInteractables: (payload = {}) => toExecutor("listInteractables", payload),
   operateInteractable: (payload = {}) => toExecutor("operateInteractable", payload),
+  travelTo: (payload = {}) => toExecutor("travelTo", payload),
+  travelMark: (payload = {}) => toExecutor("travelMark", payload),
   partyJournalEnsure: (payload = {}) => toExecutor("partyJournalEnsure", payload),
   partyJournalAdd: (payload = {}) => toExecutor("partyJournalAdd", payload),
   partyJournalEdit: (payload = {}) => toExecutor("partyJournalEdit", { ...payload, requesterId: game.user.id }),

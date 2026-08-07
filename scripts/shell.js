@@ -1,4 +1,4 @@
-import { MODULE_ID, CREATION_BEATS, pcDisplayName } from "./preset.js";
+import { MODULE_ID, CREATION_BEATS, pcDisplayName, TABLE_SEATS } from "./preset.js";
 import { api as rpc, actorTokenSight, reportPresence, remoteState } from "./rpc.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
 import { toggleSimpleCalendar } from "./gametime.js";
@@ -257,6 +257,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #nearbyLoot = null;     // Item Piles loot: null (not checked) | [] (none) | [{uuid,name,img,itemCount,distance}]
   #nearbyDoors = null;    // doors within reach: [{id, ds, distance}]
   #nearbyTiles = null;    // active-tile interactables within reach: [{id, label, distance}]
+  #nearbyTravel = null;   // 37 train travel squares within reach: [{id, label, distance}]
+  #travelAsk = null;      // 37 the open travel question { regionId }
   #lootBusy = false;      // a nearby-scan round-trip is in flight
   #journalDraft = "";     // entry composer text, kept across re-renders so typing isn't wiped
   #journalBusy = false;   // a journal write is in flight
@@ -2835,7 +2837,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // and operates them on the phone's behalf. Triggered by the D-pad Use hand.
   #lootHTML() {
     const loot = this.#nearbyLoot, doors = this.#nearbyDoors, tiles = this.#nearbyTiles;
-    const checked = loot != null || doors != null || tiles != null;
+    const travel = this.#nearbyTravel;
+    const checked = loot != null || doors != null || tiles != null || travel != null;
     const pileRows = (loot ?? []).map(p => {
       const merchant = p.kind === "merchant";
       const dist = p.distance != null ? `${p.distance} ft` : "";
@@ -2870,7 +2873,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <span class="mc-loot-name">${foundry.utils.escapeHTML(t.label)}</span>
       <span class="mc-loot-meta">${t.distance} ft</span>
     </button>`).join("");
-    const all = pileRows + doorRows + tileRows;
+    // §37 The travel square reads like anything else in reach, but choosing it opens the
+    // alone/group/cancel question rather than acting — leaving the scene is never a first tap.
+    const travelRows = (travel ?? []).map(t => `<button class="mc-loot-row" data-action="travel-open" data-id="${t.id}" data-label="${foundry.utils.escapeHTML(t.label)}">
+      <span class="mc-loot-ico"><i class="fas fa-person-walking-arrow-right"></i></span>
+      <span class="mc-loot-name">${foundry.utils.escapeHTML(t.label)}</span>
+      <span class="mc-loot-meta">${t.distance} ft</span>
+    </button>`).join("");
+    const all = pileRows + doorRows + tileRows + travelRows;
     // List-only section (Use rework, DM 2026-07-04): shown ONLY when Use found
     // MORE than one interactable — a single hit is operated directly, none shows
     // a note over the pad. The rows keep their existing form.
@@ -2879,7 +2889,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   // Clear the Use list (after an interaction, or when nothing is around).
-  #clearNearby() { this.#nearbyLoot = null; this.#nearbyDoors = null; this.#nearbyTiles = null; }
+  #clearNearby() { this.#nearbyLoot = null; this.#nearbyDoors = null; this.#nearbyTiles = null; this.#nearbyTravel = null; }
 
   // A small readout over the pad — same slot as the move budget, so Use feedback
   // ("Nothing nearby to use.", "The door is locked.") appears where the eye already is.
@@ -2897,7 +2907,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#lootBusy) return;
     this.#lootBusy = true; this.render();
     const actorUuid = this.actor?.uuid;
-    let piles = [], doors = [], tiles = [], reached = false;
+    let piles = [], doors = [], tiles = [], travel = [], reached = false;
     try {
       const [loot, inter] = await Promise.all([
         rpc.listLoot({ forActorUuid: actorUuid }).catch(() => ({ ok: false })),
@@ -2907,14 +2917,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       piles = loot?.ok ? (loot.piles ?? []) : [];
       doors = inter?.ok ? (inter.doors ?? []) : [];
       tiles = inter?.ok ? (inter.tiles ?? []) : [];
+      travel = inter?.ok ? (inter.travel ?? []) : [];
     } finally {
       this.#lootBusy = false;
     }
     if (!reached) { this.render(); return ui.notifications.warn("Use: couldn't reach the DM — is its screen reloaded since the update?"); }
-    const total = piles.length + doors.length + tiles.length;
+    const total = piles.length + doors.length + tiles.length + travel.length;
     if (total === 0) { this.#clearNearby(); this.render(); return this.#useNote("Nothing to use."); }
     if (total === 1) { // operate the single hit directly — no list step
-      this.#clearNearby(); this.render(); this.#useNote("");
+      this.#clearNearby(); this.#useNote("");
+      // §37 Travelling is the one "use" that never happens on the first tap: it leaves the
+      // scene, so it always stops to ask alone/group/cancel.
+      if (travel.length) { this.#travelAsk = { regionId: travel[0].id, label: travel[0].label }; return this.render(); }
+      this.render();
       if (piles.length) return this.#openLoot(piles[0].uuid);
       if (doors.length) {
         if (doors[0].ds === 2) return this.#useNote("The door is locked.");
@@ -2923,7 +2938,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       return this.#operateInteractable("tile", tiles[0].id);
     }
     // several → show the pick list under the pad
-    this.#nearbyLoot = piles; this.#nearbyDoors = doors; this.#nearbyTiles = tiles;
+    this.#nearbyLoot = piles; this.#nearbyDoors = doors; this.#nearbyTiles = tiles; this.#nearbyTravel = travel;
     this.render();
   }
 
@@ -4553,17 +4568,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const nb = this.#moveBudget;
     // §37 The door prompt REPLACES the pad while it's up: the step is already held, and
     // leaving the arrows live invites a second stray tap in the moment you're deciding.
-    const ask = this.#teleportAsk;
-    if (ask) {
-      // The DM's wording, and NO destination name (2026-08-07): which car is next is something
-      // the party should learn by walking into it, not read off a phone before they commit.
+    // §37 The travel question replaces the pad while it's open — the answer is a scene change,
+    // and leaving the arrows live invites a stray tap mid-decision. No destination name: which
+    // car is next is something the party should find out by going there.
+    if (this.#travelAsk) {
       return `<div class="mc-tp-ask">
-        <div class="mc-tp-ask-title"><i class="fas fa-door-open"></i> Travel alone to the next cart?</div>
+        <div class="mc-tp-ask-title"><i class="fas fa-person-walking-arrow-right"></i> ${foundry.utils.escapeHTML(this.#travelAsk.label ?? "Travel")}?</div>
         <div class="mc-tp-ask-btns">
-          <button class="mc-jn-cancel" data-action="teleport-stay">Stay</button>
-          <button class="mc-jn-post" data-action="teleport-go">Travel alone</button>
+          <button class="mc-jn-cancel" data-action="travel-cancel">Cancel</button>
+          <button class="mc-jn-post" data-action="travel-alone">Travel alone</button>
         </div>
-        <button class="mc-cg-create mc-tp-ask-group" data-action="teleport-group">
+        <button class="mc-cg-create mc-tp-ask-group" data-action="travel-group">
           <i class="fas fa-people-group"></i> Travel as group
         </button>
       </div>`;
@@ -6967,28 +6982,28 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       }
       case "move":
         return this.#move(Number(el.dataset.dx), Number(el.dataset.dy));
-      case "teleport-go": {
-        const ask = this.#teleportAsk;
-        this.#teleportAsk = null;
-        if (!ask) return this.render();
-        return this.#move(ask.dx, ask.dy, true); // repeat the exact step, this time cleared
-      }
-      case "teleport-group": {
+      case "travel-open":
+        this.#travelAsk = { regionId: el.dataset.id, label: el.dataset.label };
+        this.#clearNearby();
+        return this.render();
+      case "travel-cancel":
+        this.#travelAsk = null;
+        return this.render();
+      case "travel-alone":
+      case "travel-group": {
         // #onClick is not async — every other case here hands off with .then() for the same reason.
-        const ask = this.#teleportAsk;
-        this.#teleportAsk = null;
+        const ask = this.#travelAsk;
+        const group = action === "travel-group";
+        this.#travelAsk = null;
         if (!ask) return this.render();
-        rpc.moveToken({ tokenId: this.originTokenId, dxGrid: ask.dx, dyGrid: ask.dy, travelGroup: true })
+        rpc.travelTo({ regionId: ask.regionId, group, forActorUuid: this.actor?.uuid })
           .then((res) => {
-            if (res?.ok && res.travelled > 1) ui.notifications.info(`${res.travelled} travelled through together.`);
-            else if (res && !res.ok) ui.notifications.warn(`Travel: ${res.reason ?? "failed"}`);
+            if (res?.ok) { if (group && res.moved > 1) ui.notifications.info(`${res.moved} travelled together.`); }
+            else ui.notifications.warn(`Travel: ${res?.reason ?? "failed"}`);
           })
-          .catch((e) => console.warn(`${MODULE_ID} | group travel failed`, e));
+          .catch((e) => console.warn(`${MODULE_ID} | travel failed`, e));
         return this.render();
       }
-      case "teleport-stay":
-        this.#teleportAsk = null;
-        return this.render();
       case "move-toggle":
         this.#movePickerOpen = !this.#movePickerOpen;
         return this.#showCharacterDetails(); // rebuild the card with the picker open/closed
@@ -7182,8 +7197,32 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     await actor.update({ "system.attributes.inspiration": !actor.system.attributes?.inspiration });
   }
 
-  async #move(dx, dy, confirmTeleport = false) {
-    const res = await rpc.moveToken({ tokenId: this.originTokenId, dxGrid: dx, dyGrid: dy, confirmTeleport });
+  // §38.4b Your seat decides which way is "up". Six people sit around a flat TV, so the map's
+  // up is only up for the players at the bottom edge — the ones opposite are pressing away from
+  // themselves and watching their token come toward them (DM 2026-08-07). The arrows on the
+  // phone stay put; what changes is what they MEAN, rotated by the seat the DM assigned.
+  // Unseated players are untouched, which is every table that isn't using the shared screen.
+  #seatRotation() {
+    try {
+      const seats = game.settings.get(MODULE_ID, "tableSeats") ?? {};
+      const seatId = Object.entries(seats).find(([, uid]) => uid === game.user?.id)?.[0];
+      return TABLE_SEATS.find(s => s.id === seatId)?.rot ?? 0;
+    } catch (e) { return 0; }
+  }
+  // Screen coordinates: y grows downward, so this is a clockwise turn by the seat's angle.
+  // Checks out at the corners: a 90° seat (left end, facing right) turns "up" (0,-1) into
+  // (1,0) — press away from yourself, the token goes right across the map.
+  #rotateStep(dx, dy) {
+    const rot = this.#seatRotation();
+    if (!rot) return { dx, dy };
+    const rad = rot * Math.PI / 180;
+    const cos = Math.round(Math.cos(rad)), sin = Math.round(Math.sin(rad));
+    return { dx: dx * cos - dy * sin, dy: dx * sin + dy * cos };
+  }
+
+  async #move(dx, dy) {
+    const r = this.#rotateStep(dx, dy);
+    const res = await rpc.moveToken({ tokenId: this.originTokenId, dxGrid: r.dx, dyGrid: r.dy });
     // §37 A car door is a one-way trip to another scene and it triggers on ENTRY, so the step
     // is held and the phone asks first (DM 2026-08-07). Remembering dx/dy means confirming
     // repeats the exact step rather than making them aim again.
