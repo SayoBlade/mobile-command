@@ -3000,7 +3000,7 @@ function playersBody() {
   // ended up a sliver with its label turned on its side.
   const map = `<div class="mc-dmp-tablemap">
     ${slot("w")}
-    ${slot("n1")}<div class="mc-dmp-tv"><i class="fas fa-tv"></i><span>TV</span></div>${slot("s1")}
+    ${slot("n1")}<div class="mc-dmp-tv"><i class="fas fa-tv"></i><span>TV</span><b class="mc-dmp-tv-up">UP</b></div>${slot("s1")}
     ${slot("n2")}${slot("s2")}
     ${slot("e")}
   </div>`;
@@ -3137,6 +3137,10 @@ function storyQuestionsAll() {
   let custom = []; try { custom = game.settings.get(MODULE_ID, "storyQuestions") ?? []; } catch (e) { /* */ }
   return [...STORY_QUESTIONS, ...custom.map((c, i) => ({ cat: c.cat || "Mine", q: c.q, custom: i }))];
 }
+// Questions already put to the table this session. Kept in memory rather than in a setting: a
+// new session is a new sitting, and the DM can always ask one again by tapping its ✓.
+const storyAsked = new Set();
+
 function storyQsBody() {
   const esc = foundry.utils.escapeHTML;
   const all = storyQuestionsAll();
@@ -3150,12 +3154,20 @@ function storyQsBody() {
     <div class="mc-dmp-story-cat">${esc(cat)}</div>
     ${all.filter(x => x.cat === cat).map(x => `
       <div class="mc-dmp-story-row">
-        <span class="mc-dmp-story-q">${esc(x.q)}</span>
+        <span class="mc-dmp-story-q ${storyAsked.has(x.q) ? "mc-dmp-story-done" : ""}">${esc(x.q)}</span>
         ${x.custom != null ? `<button class="mc-dmp-pf-fix mc-dmp-story-del" data-story-del="${x.custom}" title="Remove this question" aria-label="Remove this question"><i class="fas fa-trash"></i></button>` : ""}
-        <button class="mc-dmp-pf-fix" data-story-push="${esc(x.q)}" title="Push to all phones" aria-label="Push to all phones"><i class="fas fa-paper-plane"></i></button>
+        <button class="mc-dmp-pf-fix ${storyAsked.has(x.q) ? "mc-dmp-story-sent" : ""}" data-story-push="${esc(x.q)}"
+          title="${storyAsked.has(x.q) ? "Already asked — tap to ask it again" : "Push to all phones"}"
+          aria-label="${storyAsked.has(x.q) ? "Already asked" : "Push to all phones"}"><i class="fas ${storyAsked.has(x.q) ? "fa-check" : "fa-paper-plane"}"></i></button>
       </div>`).join("")}`).join("");
+  // The random button only draws from questions that have NOT been asked (DM 2026-08-07) — a
+  // random push that repeats one the table already answered wastes the moment. When they're all
+  // spent it says so rather than silently re-asking.
+  const unasked = all.filter(x => !storyAsked.has(x.q)).length;
   return `
-    <button class="mc-dmp-pf-fix mc-dmp-story-random" data-story-push-random><i class="fas fa-dice"></i> Push a random question</button>
+    <button class="mc-dmp-pf-fix mc-dmp-story-random" data-story-push-random ${unasked ? "" : "disabled"}>
+      <i class="fas fa-dice"></i> ${unasked ? `Push a random question (${unasked} left)` : "All questions asked"}
+    </button>
     ${ticks}
     ${groups}
     <div class="mc-dmp-story-new">
@@ -4233,17 +4245,19 @@ async function onClick(ev) {
   // §38.4 story-question drawer: push / push-random / add custom / remove custom.
   const spush = ev.target.closest("[data-story-push]");
   if (spush) {
+    // A manual tap always sends, asked before or not — the ✓ is a record, not a lock.
     const r = pushStoryQuestion(spush.dataset.storyPush);
-    if (!r?.ok) ui.notifications.warn(`Story question: ${r?.reason ?? "could not push"}`);
+    if (r?.ok) storyAsked.add(spush.dataset.storyPush);
+    else ui.notifications.warn(`Story question: ${r?.reason ?? "could not push"}`);
     return render();
   }
   if (ev.target.closest("[data-story-push-random]")) {
-    const all = storyQuestionsAll();
-    const pick = all[Math.floor(Math.random() * all.length)];
-    if (pick) {
-      const r = pushStoryQuestion(pick.q);
-      if (!r?.ok) ui.notifications.warn(`Story question: ${r?.reason ?? "could not push"}`);
-    }
+    const pool = storyQuestionsAll().filter(x => !storyAsked.has(x.q)); // never repeat by chance
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (!pick) { ui.notifications.info("Every question has been asked — tap one to ask it again."); return render(); }
+    const r = pushStoryQuestion(pick.q);
+    if (r?.ok) storyAsked.add(pick.q);
+    else ui.notifications.warn(`Story question: ${r?.reason ?? "could not push"}`);
     return render();
   }
   if (ev.target.closest("[data-story-addq]")) {

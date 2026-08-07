@@ -50,12 +50,31 @@ export function toggleSimpleCalendar() {
  *  `.app.simple-calendar .fsc-xf`) — Notes/Search/Today/Configure all remain reachable from
  *  Module Settings, where SC registers its own menu buttons. Here: the retitle. The main app
  *  is a V1 FormApplication (class MainApp) → hook renderMainApp; html is jQuery on V1. */
+// The same rule as shell.js isPhoneClient(), re-derived rather than imported: shell.js already
+// imports THIS file, and importing back would make the cycle resolve to undefined at call time.
+function onAPhone() {
+  try {
+    const role = game.settings.get(MODULE_ID, "role");
+    if (role === "phone") return true;
+    if (game.user.id === (game.settings.get(MODULE_ID, "displayOwnerUser") || "")) return false;
+    return role === "auto" && !game.user.isGM;
+  } catch (e) { return false; }
+}
+
 export function setupCalendarSkin() {
   Hooks.on("renderMainApp", (app) => {
     try {
       const root = app?.element?.[0] ?? app?.element;
       const t = root?.querySelector?.(".window-title");
       if (t) t.textContent = "Calendar";
+      // On a PHONE the calendar opens over the shell and has to be dismissed before anything can
+      // be tapped — and SC opens it by itself on load (DM 2026-08-07: "close the calendar by
+      // default in the mobile app"). Closed on sight, once: the player can still open it from
+      // the shell's clock, and this never touches the DM's or the TV's calendar.
+      if (onAPhone() && !app._mcAutoClosed) {
+        app._mcAutoClosed = true;
+        setTimeout(() => { try { app.close(); } catch (e) { /* already gone */ } }, 0);
+      }
     } catch (e) { /* skin only — never break the calendar */ }
   });
 }

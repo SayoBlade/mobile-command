@@ -2242,6 +2242,15 @@ body {
   box-shadow: 0 0 10px rgba(0,0,0,.6); font-size: 13px; color: var(--mc-gold); }
 .mc-dmp-tv span { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center;
   font-size: 8px; letter-spacing: .12em; text-transform: uppercase; color: var(--mc-muted); }
+/* WHICH SIDE IS UP (DM 2026-08-07). The table stands on end in this map but the TV lying on it
+   is landscape, so the screen's own "up" is 90° from the map's — and nothing said so. This runs
+   the word UP along the screen's left edge, reading bottom-to-top, which is exactly the
+   direction the top of the picture faces. Rotated text, not an arrow: it says which way is up
+   AND which way round the image is. */
+.mc-dmp-tv-up { position: absolute; left: 3px; top: 50%; z-index: 1;
+  transform: translateY(-50%) rotate(180deg); writing-mode: vertical-rl;
+  font-size: 8px; font-weight: 700; letter-spacing: .18em;
+  color: var(--mc-gold); opacity: .75; }
 .mc-dmp-seat-tag { font-size: 10px; color: var(--mc-muted); }
 /* The reseat link (§38.4b). Tertiary — no border, no fill — but it has to READ as a link: at
    --mc-edge on a dark panel it was invisible (DM 2026-08-05 "not too inviting, not invisible"),
@@ -2295,6 +2304,11 @@ body {
 .mc-dmp-sz-begin i { color: var(--mc-gold); }
 .mc-dmp-sz-begin:disabled { opacity: .45; cursor: default; }
 .mc-dmp-sz-hint { margin-bottom: 8px; }
+
+/* A question already put to the table: the send plane becomes a ✓ and the text settles back.
+   Still tappable — the ✓ is a record of what's been asked, not a lock (DM 2026-08-07). */
+.mc-dmp-story-sent i { color: #6fcf7d; }
+.mc-dmp-story-done { color: var(--mc-muted); }
 
 /* DM panel: the deck picker (§38.4a) — three named decks, swatch + label. */
 .mc-dmp-decks { display: flex; gap: 6px; margin: 4px 0 8px; }
