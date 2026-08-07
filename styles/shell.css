@@ -2177,9 +2177,13 @@ body {
      row 3  n2  TV  s2
      row 4  .   e   .                                                                          */
 .mc-dmp-tablemap { display: grid; gap: 6px; margin: 2px 0 10px;
-  grid-template-columns: 1fr 1.05fr 1fr;
-  grid-template-rows: auto 46px 46px auto;
-  grid-template-areas: ".  w  ." "n1 tv s1" "n2 tv s2" ".  e  ."; }
+  grid-template-columns: 1fr 82px 1fr;
+  grid-template-rows: auto 58px 58px auto;
+  grid-template-areas: "w  w  w" "n1 tv s1" "n2 tv s2" "e  e  e"; }
+/* The ends span the full width but are CAPPED and centred, so the chair at the head of the
+   table can be wider than the table itself — which is true of a real table, and which stops
+   "Player 2" truncating to "Play…" the way it did when the end seat was one column wide. */
+.mc-seat-w, .mc-seat-e { justify-self: center; width: min(168px, 100%); }
 .mc-seat-w  { grid-area: w; }
 .mc-seat-n1 { grid-area: n1; }
 .mc-seat-n2 { grid-area: n2; }
@@ -2205,12 +2209,25 @@ body {
 .mc-dmp-seat:not(.mc-full) { border-color: color-mix(in srgb, var(--mc-edge) 55%, var(--mc-muted)); }
 .mc-dmp-seat-empty { font-size: 14px; opacity: .75; }
 .mc-dmp-seat:hover .mc-dmp-seat-empty { opacity: 1; color: var(--mc-gold); }
-/* The TV spans both middle rows, so it's a block in the centre rather than a strip. */
-.mc-dmp-tv { display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 3px; background: var(--mc-sunken); border: 1px solid var(--mc-edge);
-  border-radius: calc(9px * var(--mc-round, 1)); color: var(--mc-muted); font-size: 10px;
-  letter-spacing: .1em; text-transform: uppercase; }
-.mc-dmp-tv i { font-size: 18px; color: var(--mc-edge); }
+/* THE TABLE ITSELF, standing on end, spanning both middle rows (DM 2026-08-07: "I want something
+   like this to show proper seating" — his sketch draws a tall rectangle in the middle). It wears
+   the real table art so the map says "this is your table", not "here is a grey box", and the TV
+   is drawn as a landscape screen lying on it — which is exactly how it sits in the room. */
+.mc-dmp-tv { position: relative; display: flex; align-items: center; justify-content: center;
+  background-color: var(--mc-sunken); background-image: url("../art/card-table-wide.jpg");
+  background-size: cover; background-position: center;
+  border: 1px solid var(--mc-edge); border-radius: calc(7px * var(--mc-round, 1));
+  overflow: hidden; }
+/* Darken the art so the screen reads on top of it. */
+.mc-dmp-tv::before { content: ""; position: absolute; inset: 0; background: rgba(6,5,10,.52); }
+/* The screen: landscape, lying flat on the standing table. */
+.mc-dmp-tv i, .mc-dmp-tv span { position: relative; z-index: 1; }
+.mc-dmp-tv i { display: flex; align-items: center; justify-content: center;
+  width: 74%; aspect-ratio: 16 / 9; border-radius: 2px;
+  background: rgba(10,12,18,.85); border: 1px solid color-mix(in srgb, var(--mc-gold) 45%, transparent);
+  box-shadow: 0 0 10px rgba(0,0,0,.6); font-size: 13px; color: var(--mc-gold); }
+.mc-dmp-tv span { position: absolute; bottom: 4px; left: 0; right: 0; text-align: center;
+  font-size: 8px; letter-spacing: .12em; text-transform: uppercase; color: var(--mc-muted); }
 .mc-dmp-seat-tag { font-size: 10px; color: var(--mc-muted); }
 /* The reseat link (§38.4b). Tertiary — no border, no fill — but it has to READ as a link: at
    --mc-edge on a dark panel it was invisible (DM 2026-08-05 "not too inviting, not invisible"),
