@@ -1944,15 +1944,22 @@ function rectDistPx(px, py, x, y, w, h) {
 
 async function handleListInteractables({ forActorUuid } = {}) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
-  if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
-  const myTok = forActorUuid ? fromUuidSync(forActorUuid)?.getActiveTokens?.()[0] ?? null : null;
-  if (!myTok) return { ok: true, doors: [], tiles: [] };
-  const grid = canvas.scene.grid, c = myTok.center;
+  // NO onActiveScene guard (2026-08-07). Whether a player can open the door in front of them
+  // must not depend on which scene the DM happens to be LOOKING at — that guard was the whole
+  // of the reproduced "couldn't reach the DM" report (it made BOTH list calls fail, so the phone
+  // concluded the executor was unreachable). Everything below reads the active scene's
+  // DOCUMENTS, which are loaded whatever the canvas is showing.
+  const scene = game.scenes.active;
+  if (!scene) return { ok: false, reason: "no active scene" };
+  const actor = forActorUuid ? fromUuidSync(forActorUuid) : null;
+  const myTok = actor ? [...scene.tokens].find(t => t.actor?.id === actor.id) ?? null : null;
+  if (!myTok) return { ok: true, doors: [], tiles: [], travel: [] };
+  const grid = scene.grid;
+  const c = { x: myTok.x + (myTok.width * grid.size) / 2, y: myTok.y + (myTok.height * grid.size) / 2 };
   const reach = grid.size * 1.1; // ~one square away = "right next to it"
   const ft = (px) => Math.round((px / grid.size) * grid.distance);
   const doors = [];
-  for (const w of (canvas.walls?.placeables ?? [])) {
-    const d = w.document;
+  for (const d of scene.walls) {
     if (d.door !== CONST.WALL_DOOR_TYPES.DOOR) continue; // regular doors only — never reveal SECRET doors
     const [x0, y0, x1, y1] = d.c;
     const dist = nearestPointDistPx(c.x, c.y, x0, y0, x1, y1);
@@ -1960,18 +1967,17 @@ async function handleListInteractables({ forActorUuid } = {}) {
     doors.push({ id: d.id, ds: d.ds, distance: ft(dist) });
   }
   // §37 the train's travel squares, offered like any other thing you can reach.
-  const travel = travelPointsNear(canvas.scene, c, reach).map(t => ({ ...t, distance: ft(t.distance) }));
+  const travel = travelPointsNear(scene, c, reach).map(t => ({ ...t, distance: ft(t.distance) }));
   const tiles = [];
   if (game.modules.get("monks-active-tiles")?.active) {
-    for (const t of (canvas.tiles?.placeables ?? [])) {
-      const f = t.document.flags?.["monks-active-tiles"];
+    for (const d of scene.tiles) {
+      const f = d.flags?.["monks-active-tiles"];
       if (!f?.active || !(f.actions?.length)) continue;
       const trig = Array.isArray(f.trigger) ? f.trigger : [f.trigger];
       if (!trig.some(m => ["click", "dblclick", "manual"].includes(m))) continue; // only player-operable
-      const d = t.document;
       const dist = rectDistPx(c.x, c.y, d.x, d.y, d.width, d.height);
       if (dist > reach) continue;
-      tiles.push({ id: t.id, label: f.name || "Interactable", distance: ft(dist) });
+      tiles.push({ id: d.id, label: f.name || "Interactable", distance: ft(dist) });
     }
   }
   return { ok: true, doors, tiles, travel };
@@ -1983,15 +1989,17 @@ async function handleListInteractables({ forActorUuid } = {}) {
 // existing anywhere. Same-scene destinations are a plain move, no create/delete at all.
 async function handleTravelTo({ regionId, group, forActorUuid, requesterId } = {}) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
-  if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
-  const scene = canvas.scene;
+  // Active scene, not the viewed one — a player travelling must not depend on where the DM's
+  // camera happens to be pointed (2026-08-07).
+  const scene = game.scenes.active;
   const region = scene?.regions?.get(regionId);
   if (!region) return { ok: false, reason: "that way isn't here anymore" };
   const tp = travelPointOf(scene, region);
   const landing = tp && travelLanding(tp.dest);
   if (!landing?.scene) return { ok: false, reason: "that way leads nowhere yet" };
 
-  const myTok = forActorUuid ? fromUuidSync(forActorUuid)?.getActiveTokens?.()[0]?.document ?? null : null;
+  const trav = forActorUuid ? fromUuidSync(forActorUuid) : null;
+  const myTok = trav ? [...(scene?.tokens ?? [])].find(t => t.actor?.id === trav.id) ?? null : null;
   if (!myTok) return { ok: false, reason: "your token isn't on this scene" };
   if (!requesterCanAct(requesterId, myTok)) return { ok: false, reason: "requester does not own the token" };
 
@@ -2042,7 +2050,7 @@ async function handleTravelMark({ regionId, sceneId, label, dest, clear } = {}) 
 async function handleOperateInteractable({ kind, id, forActorUuid } = {}) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
   if (kind === "door") {
-    const w = canvas.scene?.walls?.get(id);
+    const w = game.scenes.active?.walls?.get(id);
     if (!w) return { ok: false, reason: "that door isn't here anymore" };
     if (w.ds === CONST.WALL_DOOR_STATES.LOCKED) return { ok: false, reason: "that door is locked" };
     const next = w.ds === CONST.WALL_DOOR_STATES.OPEN ? CONST.WALL_DOOR_STATES.CLOSED : CONST.WALL_DOOR_STATES.OPEN;
@@ -2050,9 +2058,11 @@ async function handleOperateInteractable({ kind, id, forActorUuid } = {}) {
     return { ok: true, ds: next };
   }
   if (kind === "tile") {
-    const tile = canvas.scene?.tiles?.get(id);
+    const tile = game.scenes.active?.tiles?.get(id);
     if (!tile?.trigger) return { ok: false, reason: "interactables need Monk's Active Tiles enabled" };
-    const tok = forActorUuid ? fromUuidSync(forActorUuid)?.getActiveTokens?.()[0]?.document ?? null : null;
+    // Active scene, not the viewed one — same reason as listInteractables above.
+    const a0 = forActorUuid ? fromUuidSync(forActorUuid) : null;
+    const tok = a0 ? [...(game.scenes.active?.tokens ?? [])].find(t => t.actor?.id === a0.id) ?? null : null;
     try {
       await tile.trigger({ tokens: tok ? [tok] : [], method: "click", pt: { x: tile.x + tile.width / 2, y: tile.y + tile.height / 2 } });
       return { ok: true };
