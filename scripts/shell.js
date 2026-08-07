@@ -4555,14 +4555,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // leaving the arrows live invites a second stray tap in the moment you're deciding.
     const ask = this.#teleportAsk;
     if (ask) {
-      const esc = foundry.utils.escapeHTML;
+      // The DM's wording, and NO destination name (2026-08-07): which car is next is something
+      // the party should learn by walking into it, not read off a phone before they commit.
       return `<div class="mc-tp-ask">
-        <div class="mc-tp-ask-title"><i class="fas fa-door-open"></i> ${esc(ask.text)}</div>
-        ${ask.to ? `<div class="mc-tp-ask-sub">You'll leave this car for <b>${esc(ask.to)}</b>.</div>` : ""}
+        <div class="mc-tp-ask-title"><i class="fas fa-door-open"></i> Travel alone to the next cart?</div>
         <div class="mc-tp-ask-btns">
           <button class="mc-jn-cancel" data-action="teleport-stay">Stay</button>
-          <button class="mc-jn-post" data-action="teleport-go"><i class="fas fa-arrow-right"></i> Go through</button>
+          <button class="mc-jn-post" data-action="teleport-go">Travel alone</button>
         </div>
+        <button class="mc-cg-create mc-tp-ask-group" data-action="teleport-group">
+          <i class="fas fa-people-group"></i> Travel as group
+        </button>
       </div>`;
     }
     // Readout ABOVE the pad (over the Up key), not below: under the down row it sat
@@ -6970,6 +6973,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         if (!ask) return this.render();
         return this.#move(ask.dx, ask.dy, true); // repeat the exact step, this time cleared
       }
+      case "teleport-group": {
+        // #onClick is not async — every other case here hands off with .then() for the same reason.
+        const ask = this.#teleportAsk;
+        this.#teleportAsk = null;
+        if (!ask) return this.render();
+        rpc.moveToken({ tokenId: this.originTokenId, dxGrid: ask.dx, dyGrid: ask.dy, travelGroup: true })
+          .then((res) => {
+            if (res?.ok && res.travelled > 1) ui.notifications.info(`${res.travelled} travelled through together.`);
+            else if (res && !res.ok) ui.notifications.warn(`Travel: ${res.reason ?? "failed"}`);
+          })
+          .catch((e) => console.warn(`${MODULE_ID} | group travel failed`, e));
+        return this.render();
+      }
       case "teleport-stay":
         this.#teleportAsk = null;
         return this.render();
@@ -7172,7 +7188,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // is held and the phone asks first (DM 2026-08-07). Remembering dx/dy means confirming
     // repeats the exact step rather than making them aim again.
     if (res?.stage === "confirmTeleport") {
-      this.#teleportAsk = { dx, dy, to: res.to ?? null, text: res.reason ?? "Go through the door?" };
+      this.#teleportAsk = { dx, dy };
       this.#moveBudget = null;
       return this.render();
     }

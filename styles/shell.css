@@ -1819,10 +1819,11 @@ body {
   border-radius: calc(12px * var(--mc-round, 1)); }
 .mc-tp-ask-title { font-size: 16px; color: var(--mc-ink); line-height: 1.3; }
 .mc-tp-ask-title i { color: var(--mc-gold); margin-right: 6px; }
-.mc-tp-ask-sub { font-size: 13px; color: var(--mc-muted); }
-.mc-tp-ask-sub b { color: var(--mc-ink); }
 .mc-tp-ask-btns { display: flex; gap: 8px; margin-top: 2px; }
 .mc-tp-ask-btns button { flex: 1 1 0; min-height: 48px; font-size: 15px; }
+/* Taking the whole party is the bigger, rarer commitment, so it sits on its own line under the
+   two immediate answers rather than competing with them for width. */
+.mc-tp-ask-group { width: 100%; min-height: 46px; margin: 0; }
 
 /* The portrait step's preview — round, like the token it becomes on the table. */
 .mc-wiz-portrait { display: block; width: 148px; height: 148px; margin: 10px auto 12px;

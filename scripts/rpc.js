@@ -1438,30 +1438,42 @@ Hooks.on("updateCombat", (combat, changed) => {
 Hooks.on("combatStart", () => { if (isExecutor()) turnMove.clear(); });
 Hooks.on("deleteCombat", () => { if (isExecutor()) turnMove.clear(); });
 
-// §37 A door is a one-way trip to another scene, so the phone asks first (DM 2026-08-07).
-// The vestibule trigger fires on ENTRY — by design you never open the door, you just walk in —
-// which makes it very easy to cross by accident while shuffling a token around. This returns
-// the door the given destination point lands in, or null.
-function trainDoorAt(scene, point) {
+// §37 A door is a one-way trip to another scene, so the phone asks BEFORE anything moves
+// (DM 2026-08-07). The vestibule trigger fires on ENTRY — by design you never open the door,
+// you just walk in — which makes it very easy to cross by accident.
+//
+// The test is a CROSSING, not a position: outside → inside. Testing only the destination was
+// wrong and produced the DM's "you ask DURING teleportation" — a token already standing in the
+// vestibule (walked in by any route the phone doesn't gate) re-prompted on every further step,
+// by which time core had already carried out the real teleport.
+function trainCrossing(scene, from, to) {
   for (const region of scene?.regions ?? []) {
     if (!region.getFlag(MODULE_ID, "trainDoor")) continue;
     const tp = [...region.behaviors].find(b => b.type === "teleportToken" && !b.disabled);
     if (!tp) continue; // a bare marker (10.1's locked rear door) is not a crossing
-    let inside = false;
-    try { inside = region.testPoint(point); } catch (e) { inside = false; }
-    if (!inside) continue;
-    // Name the far side, so the prompt can say where they're going rather than "continue?".
-    let to = null;
-    try {
-      const dest = tp.system?.destination ?? tp.system?.destinations?.[0];
-      if (dest) to = fromUuidSync(String(dest))?.parent?.name ?? null;
-    } catch (e) { /* unnamed is still a valid prompt */ }
-    return { region, to };
+    let entering = false;
+    try { entering = region.testPoint(to) && !region.testPoint(from); } catch (e) { entering = false; }
+    if (!entering) continue;
+    return { region };
   }
   return null;
 }
 
-async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId, confirmTeleport }) {
+/** Every player character standing in this car — who "travel as group" takes along. */
+function carPartyTokens(scene) {
+  let display = "";
+  try { display = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* none */ }
+  return [...(scene?.tokens ?? [])].filter(t => {
+    const a = t.actor;
+    if (!a || t.hidden) return false;
+    if (a.type === "group") return true; // a packed party token carries everyone already
+    if (a.type !== "character") return false;
+    // Owned by a real player, not just by the TV account.
+    return game.users.some(u => !u.isGM && u.id !== display && a.testUserPermission(u, "OWNER"));
+  });
+}
+
+async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId, confirmTeleport, travelGroup }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
   if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
@@ -1486,12 +1498,26 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId, confirm
   const blocked = CONFIG.Canvas.polygonBackends.move.testCollision(from, to, { type: "move", mode: "any" });
   if (blocked) return { ok: false, stage: "collision", reason: "Blocked" };
 
-  // Ask before leaving the car. Only the player is asked — the DM dragging a token on the
-  // desktop never routes through here, and the group token carries the whole party, so it is
-  // the one move where an accidental step costs the most.
-  if (!confirmTeleport) {
-    const door = trainDoorAt(game.scenes.active, { ...to, elevation: tokenDoc.elevation ?? 0 });
-    if (door) return { ok: false, stage: "confirmTeleport", to: door.to, reason: door.to ? `Go through to ${door.to}?` : "Go through the door?" };
+  // Ask before leaving the car — nothing has moved at this point. The DM dragging a token on
+  // the desktop never routes through here and is unaffected.
+  const el = tokenDoc.elevation ?? 0;
+  const crossing = trainCrossing(game.scenes.active, { ...from, elevation: el }, { ...to, elevation: el });
+  if (crossing && !confirmTeleport && !travelGroup) {
+    return { ok: false, stage: "confirmTeleport" };
+  }
+  // "Travel as group": everyone in the car walks through together. Each token is placed in the
+  // vestibule itself, which is what core's region behaviour listens for — so every one of them
+  // teleports by the same route the walker would have taken, rather than being special-cased.
+  if (crossing && travelGroup) {
+    const dest = { x: tokenDoc.x + dxGrid * grid, y: tokenDoc.y + dyGrid * grid };
+    const party = carPartyTokens(game.scenes.active).filter(t => t.id !== tokenDoc.id);
+    await tokenDoc.update(dest, { animate: false });
+    let taken = 1;
+    for (const t of party) {
+      try { await t.update({ x: dest.x, y: dest.y }, { animate: false }); taken++; }
+      catch (e) { console.warn(`${MODULE_ID} | ${t.name} could not follow through the door`, e); }
+    }
+    return { ok: true, travelled: taken };
   }
 
   await tokenDoc.update(
