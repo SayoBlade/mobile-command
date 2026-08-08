@@ -3592,6 +3592,28 @@ record of the party that grows as they do, rather than a one-night artifact.
 after** the live-table leg (a real phone, cross-player denial, the whole loop on the real TV),
 because a standing record is worth less than a working first night.
 
+### 20.6 Phone audio — what actually reaches a player's phone (2026-08-08)
+
+The DM heard environmental sound from his phone and guessed it happens "when a player doesn't
+have a token in the scene". **The source says the opposite**, read from the running client
+bundle (`SoundsLayer`):
+
+- `getListenerPositions()` returns controlled tokens, else — for non-GMs — every owned, visible
+  token on the scene. **A player with no token gets an empty list.**
+- `_syncPositions()` then never enters its per-listener loop, so each path keeps `volume: 0`,
+  and the tail calls `config.object.sync(config.volume > 0, config.volume, …)` → `sync(false, 0)`.
+  `_configurePlayback` says the same thing outright: no listener → `volume = 0`.
+
+So a token-less player hears **less** positional ambience, not more — it is silenced entirely.
+
+What DOES reach every client regardless of tokens is **non-positional** audio: playlists
+(including a **scene playlist**, which is what the DM had just configured — the timing fits), and
+video tiles, which take their level from `globalAmbientVolume`. That is the likely source.
+
+Either way the fix covers all of it: phone clients zero `core.globalPlaylistVolume` and
+`core.globalAmbientVolume` and leave `globalInterfaceVolume` alone (§ phone audio, main.js).
+Worth remembering the general shape — **"no token" makes positional audio quieter, never louder**.
+
 ### 20.5 Travel points + the Use path (verified end-to-end 2026-08-07)
 
 Tested from a REAL player client (Player 1, second browser) with a GM online in another — the setup that finally reproduced the bug.
