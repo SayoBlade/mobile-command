@@ -645,6 +645,24 @@ Hooks.once("ready", () => {
         const m = document.createElement("meta"); m.name = name; m.content = content; document.head.appendChild(m);
       }
     }
+    // THE ROOM HAS ONE SET OF SPEAKERS, AND IT ISN'T IN ANYONE'S POCKET (DM 2026-08-08: "I'm
+    // getting environmental sound from my phone, that's no good"). Six phones each playing the
+    // same ambience half a second apart is worse than silence — the TV is the speaker. Music and
+    // environment go to zero; INTERFACE stays, so the player still hears their own dice and UI.
+    // Client-scoped settings, so this is per-device and the sliders remain in Foundry's audio
+    // controls if someone wants them back. World setting `phoneSilentAudio` turns it off.
+    try {
+      let silent = true;
+      try { silent = !!game.settings.get(MODULE_ID, "phoneSilentAudio"); } catch (e) { /* default on */ }
+      if (silent) {
+        for (const key of ["globalPlaylistVolume", "globalAmbientVolume"]) {
+          if (game.settings.get("core", key) !== 0) {
+            game.settings.set("core", key, 0);
+            console.log(`${MODULE_ID} | phone client — ${key} silenced (the TV is the room's speaker)`);
+          }
+        }
+      }
+    } catch (e) { console.warn(`${MODULE_ID} | could not silence phone audio`, e); }
     // Players can't reach the chat roll-mode dropdown from the shell, so pin their
     // default to PUBLIC — every roll then shows on the shared TV (and in chat).
     try {

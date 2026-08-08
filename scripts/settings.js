@@ -237,6 +237,17 @@ export function registerSettings() {
     scope: "world", config: false, type: String, default: DEFAULT_CARD_THEME
   });
 
+  // Phones stay quiet. Music and ambience belong to the room's speakers — the TV — not to six
+  // pockets playing the same loop slightly out of step. Interface sound (dice, UI) is untouched.
+  game.settings.register(MODULE_ID, "phoneSilentAudio", {
+    name: "Phones stay silent",
+    hint: "Music and ambient sound play on the shared screen only; phone clients mute those two channels. Interface sounds (dice, notifications) still play. Turn off if a player wants audio on their own device.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
   // §38.5 the opening: has the show already run this session? A board raised again (or a client
   // that reloads) must land already-lit rather than replaying the whole thing at the room.
   game.settings.register(MODULE_ID, "szOpened", {
