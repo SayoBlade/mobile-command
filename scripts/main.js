@@ -17,7 +17,7 @@ import { registerCombatMusic } from "./combat-music.js";
 import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "./camera-frame.js";
 import { registerFxEngine } from "./effects.js"; // §26 Effects tab engine
 import { cardTableRefreshMode } from "./card-table.js"; // §39: re-lay the board when the table mode changes
-import { registerBossIntro, dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
+import { dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { registerSettingsMenu } from "./settings-app.js"; // §29 settings mini-app (menu button)
 
 Hooks.once("init", () => {
@@ -772,7 +772,6 @@ Hooks.once("ready", () => {
   initSocket(); // idempotent fallback in case socketlib.ready raced or didn't fire
   registerFxEngine(); // §26 Effects tab: apply/remove screen filters + ambience loops as fxActive changes (all clients; phones flash-only)
   initPauseGuard();
-  registerBossIntro(); // §40: a boss entrance claims the pause and gives it back (see boss-intro.js)
   if (!isPhoneClient()) initPauseOverlay(); // corner spinners replace the "GAME PAUSED" bar (phones have their own overlay)
   if (!isPhoneClient()) initHeartbeat();    // critical-HP heartbeat pulse on PC token rings (canvas only)
   startHeartbeat();

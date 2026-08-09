@@ -77,16 +77,26 @@ const FACING = { down: 180, right: 90, top: 0 };
 function facings() {
   return isOnlineTable() ? [FACING.down, FACING.down] : [FACING.down, FACING.right, FACING.top];
 }
-/** How long the whole thing runs — the DM side needs this to know when to lift the pause. */
-export function bossIntroDuration() {
-  const seq = facings();
-  let ms = BEAT.in;
-  for (let i = 0; i < seq.length; i++) {
-    if (i > 0) ms += (seq[i] === seq[i - 1] ? BEAT.gap : BEAT.turn);
-    ms += BEAT.wiggle;
-  }
-  return ms + BEAT.out;
-}
+// TWO ROARS, whatever the table (DM 2026-08-09: "keep it at 2"). The rule that gives both modes
+// two is the FIRST AND LAST beat: in person that's the arrival facing down and the last turn to
+// the top, with the middle turn silent — exactly the DM's original wording — and online, where
+// there are only two beats, both of them.
+function roarsOn(i, total) { return i === 0 || i === total - 1; }
+
+// THE NAME, on three sides at once (DM 2026-08-09: "add name on all three sides at once"). Not on
+// the turning box — the boss turns, the name does not. Three fixed labels around the picture, each
+// rotated so it reads right way up to the people on that side, so the whole table can read it the
+// moment it appears instead of waiting their turn. The left is skipped for the same reason the
+// boss never turns there: that's the DM's chair.
+//
+// Text reads correctly when its TOP points AWAY from the reader, which is why these are not the
+// same numbers as the token's facings: the reader at the screen's right needs 270°, not 90°.
+// (This is the same convention as TABLE_SEATS.rot — seat `e` at 270 is the right-hand seat.)
+const NAME_SIDES = [
+  { cls: "mc-bi-name-down", rot: 0 },
+  { cls: "mc-bi-name-right", rot: 270 },
+  { cls: "mc-bi-name-top", rot: 180 }
+];
 
 // In person this is the ROOM's screen and nothing else — six phones roaring a half-second apart
 // is the same mess that took music off the phones in the first place (§20.6). Online every
@@ -98,7 +108,6 @@ function eligible() {
 
 let root = null;
 let timers = [];
-let pausedByIntro = false; // did WE put the game on pause for this entrance? (see dmPlayBossIntro)
 function clearTimers() { for (const t of timers) clearTimeout(t); timers = []; }
 function teardown() {
   clearTimers();
@@ -123,10 +132,18 @@ function roar(src) {
   catch (e) { console.warn(`${MODULE_ID} | boss intro: could not play ${src}`, e); }
 }
 
-/** Run the entrance on THIS client. `{ img, sound }` — everything else is read from the world. */
-export function bossIntroPlay({ img, sound } = {}) {
+/** Run the entrance on THIS client. `{ img, sound, name }` — the rest is read from the world. */
+export function bossIntroPlay({ img, sound, name } = {}) {
   if (!eligible() || !img) return;
   teardown(); // a second trigger restarts cleanly rather than stacking two bosses
+
+  const esc = foundry.utils.escapeHTML;
+  // Online everyone is square on to their own screen, so three copies of the name would just be
+  // two upside-down ones — the down-facing label is the only one that means anything.
+  const sides = isOnlineTable() ? NAME_SIDES.slice(0, 1) : NAME_SIDES;
+  const nameHTML = name
+    ? sides.map(s => `<div class="mc-bi-name ${s.cls}" style="--mc-bi-nrot:${s.rot}deg">${esc(name)}</div>`).join("")
+    : "";
 
   root = document.createElement("div");
   root.id = "mc-bossintro";
@@ -135,9 +152,10 @@ export function bossIntroPlay({ img, sound } = {}) {
     <div class="mc-bi-stage">
       <div class="mc-bi-turn">
         <div class="mc-bi-shakebox">
-          <img class="mc-bi-img" src="${foundry.utils.escapeHTML(img)}" alt="">
+          <img class="mc-bi-img" src="${esc(img)}" alt="">
         </div>
       </div>
+      ${nameHTML}
     </div>`;
   document.body.appendChild(root);
 
@@ -161,7 +179,8 @@ export function bossIntroPlay({ img, sound } = {}) {
       t += gap;
     }
     const at = t;
-    timers.push(setTimeout(() => { shudder(shake); roar(bossSoundSrc(sound)); }, at));
+    const loud = roarsOn(i, seq.length);
+    timers.push(setTimeout(() => { shudder(shake); if (loud) roar(bossSoundSrc(sound)); }, at));
     t += BEAT.wiggle;
   }
   timers.push(setTimeout(() => root?.classList.add("mc-bi-out"), t));
@@ -185,31 +204,15 @@ export async function dmPlayBossIntro(bossId) {
   const img = bossImage(actor);
   if (!img) { ui.notifications?.warn(`Mobile Command: ${actor.name} has no token art to show.`); return false; }
 
-  // THE PAUSE COMES FIRST (the DM's word). It is not decoration: the entrance runs for the better
-  // part of ten seconds on the shared screen, and a player tapping through their turn underneath
-  // it would be acting on a board nobody can see. We only lift a pause we put on ourselves —
-  // the pause-guard's rule, for the same reason (a DM's own pause is theirs).
-  const wePaused = !game.paused;
-  if (wePaused) { pausedByIntro = true; game.togglePause(true, { broadcast: true }); }
+  // THE PAUSE COMES FIRST, AND IT STAYS (DM 2026-08-09: "no unpause"). The entrance is the beat
+  // before the fight, not a cutscene the table walks out of — the DM starts the game again when
+  // they're ready to roll initiative. So this only ever pauses; nothing here gives the game back,
+  // which also means there is no claim to track and no timer that could fire over a DM who
+  // already resumed.
+  if (!game.paused) game.togglePause(true, { broadcast: true });
 
-  const payload = { id: "bossIntro", img, sound: boss?.sound ?? null };
+  const payload = { id: "bossIntro", img, name: actor.name, sound: boss?.sound ?? null };
   if (socket) socket.executeForEveryone("fxOneShot", payload);
   else bossIntroPlay(payload); // socketlib missing — at least the DM's own screen performs it
-
-  if (wePaused) {
-    setTimeout(() => {
-      // Only if the pause is still OURS. A DM who reached for the space bar mid-roar meant it,
-      // and a table that un-pauses itself under them is worse than one that stays paused.
-      if (!pausedByIntro) return;
-      pausedByIntro = false;
-      if (game.paused) game.togglePause(false, { broadcast: true });
-    }, bossIntroDuration() + 400);
-  }
   return true;
-}
-
-// Anyone touching the pause takes it off our hands — the same claim-and-release the pause guard
-// uses (pause-guard.js).
-export function registerBossIntro() {
-  Hooks.on("pauseGame", (paused) => { if (!paused) pausedByIntro = false; });
 }

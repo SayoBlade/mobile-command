@@ -6027,6 +6027,32 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   filter: drop-shadow(0 0 18px rgba(0,0,0,.95)) drop-shadow(0 0 64px rgba(0,0,0,.75));
 }
 
+/* THE NAME, on three sides at once (DM 2026-08-09). Outside the turning box, so the boss turns
+   and the name doesn't — the whole table reads who this is the moment it lands, rather than
+   waiting for the figure to come round to them.
+
+   One transform serves all three: centre the label, rotate it to face its side, then push it out
+   along its OWN "down". Because the push happens after the rotation it follows the label's local
+   axes, so the same positive distance puts the 0° label below the picture, the 180° label above
+   it, and the 270° label to its right. The left is skipped — that's the DM's chair.
+
+   The angles are NOT the token's facings: text reads correctly when its top points AWAY from the
+   reader, so the person at the screen's right needs 270°, not 90°. Same convention as
+   TABLE_SEATS.rot, where seat `e` at 270 is the right-hand seat. */
+.mc-bi-name {
+  position: absolute; left: 50%; top: 50%; white-space: nowrap;
+  font-family: var(--mc-font-title); font-size: clamp(18px, 2.6vh, 44px);
+  letter-spacing: .04em; color: var(--mc-ink);
+  text-shadow: 0 2px 14px rgba(0,0,0,.95), 0 0 30px rgba(0,0,0,.8);
+  opacity: 0; transition: opacity .5s ease .45s;   /* the picture is the reveal; the name confirms it */
+  transform:
+    translate(-50%, -50%)
+    rotate(var(--mc-bi-nrot, 0deg))
+    translateY(calc(min(31vh, 31vw) + 26px));
+}
+#mc-bossintro.mc-bi-up .mc-bi-name { opacity: 1; }
+#mc-bossintro.mc-bi-out .mc-bi-name { opacity: 0; transition: opacity .35s ease; }
+
 /* == §40 Boss intro drawer (DM panel) =======================================================
    A boss is a monster plus a noise, so the row shows both and says which half is missing. Same
    drop-target grammar as the combat-theme rows above: dashed = still wants something, solid =

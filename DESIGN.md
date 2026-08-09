@@ -4099,13 +4099,44 @@ track and takes the row from dashed to solid.
 Bench residue: one boss (Adela Druskenvald + "04 Booming Waves Cave") left on the list as a
 working example — delete it from the drawer if it's in the way.
 
-### 40.4 Decisions taken, worth re-asking at the table
+### 40.4 The three open calls — ANSWERED (DM 2026-08-09)
 
-1. **The sound plays on every beat**, not just the first and last. The DM's text says "sound" on
-   the down beat and "the wiggle and sound again" at the top, and is silent about the right turn;
-   three roars reads as the boss addressing each side, which is the point of the turn. One line
-   in `boss-intro.js` if it's one too many.
-2. **The game un-pauses itself** when the entrance ends. The alternative — staying paused for a
-   beat before initiative — is one deleted `setTimeout`.
-3. **No name is shown.** The DM asked for the token's image and nothing else, and a name is a
-   spoiler on a shared screen.
+Asked as "sound on all three beats? auto-unpause? no name?" and answered *"keep it at 2, no
+unpause, add name on all three sides at once."* All three are built and bench-verified.
+
+1. **Two roars, not three.** The rule that gives both modes two is **the first and last beat**:
+   in person the arrival facing down and the last turn to the top, with the middle turn silent —
+   which is exactly what the DM's original wording described — and online, where there are only
+   two beats, both of them. `roarsOn(i, total)`.
+2. **The pause stays.** The entrance is the beat *before* the fight, not a cutscene the table
+   walks out of; the DM starts the game again when they're ready for initiative. This deleted the
+   release timer, the `pausedByIntro` claim flag, the `pauseGame` hook and `registerBossIntro()`
+   entirely — with nothing to give back there is no claim to track and no timer that could fire
+   over a DM who already resumed.
+3. **The name shows on three sides at once.** It sits *outside* the turning box, so the boss turns
+   and the name doesn't: the whole table reads who this is the moment it lands, rather than waiting
+   for the figure to come round to them. Left is skipped for the same reason the boss never turns
+   there. Online renders the down-facing label only — three copies would be two upside-down ones.
+
+**The label angles are NOT the token's facings, and that is the easy thing to get wrong.** Text
+reads correctly when its top points **away** from the reader, so the person at the screen's right
+needs **270°**, not the 90° the boss turns to face them. This is the same convention as
+`TABLE_SEATS.rot`, where seat `e` (270) is the right-hand seat and `w` (90) is the left — the DM's
+own chair, which is why "on the left would be the default DM seat".
+
+One transform serves all three labels: centre, rotate to face the side, then push out along the
+label's **own** down-axis — because the push happens after the rotation it follows the label's
+local frame, so the same positive distance puts 0° below the picture, 180° above it and 270° to
+its right. Measured on the bench at 1440×900: stage 558px, each label centred 305px out
+(279 + a 26px gap) on its own axis, dead on centre in the other.
+
+### 40.5 Second bench run (2026-08-09, after the three answers)
+
+Roars fired at 709ms and 5952ms — two, with the middle beat silent — on the `interface` channel.
+`game.paused` stayed true through every sample and after teardown at 10.5s (the old build lifted
+it at ~9.2s, so this is a real confirmation and not a trivially-paused world). All three labels
+present from t=400 at 0°/270°/180°, unchanged while the turn box went 180 → 90 → 0.
+
+Found in the wild on the same run: the DM had already replaced the bench's example boss with his
+own — "Oak of Many Faces" + a thunder `.mp3` stored as a bare path, so the file-picker route works
+outside the drag gesture too.
