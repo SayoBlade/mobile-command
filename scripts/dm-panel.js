@@ -360,6 +360,12 @@ async function bossDrop(el, data) {
     const doc = await fromUuid(data.uuid);
     const actor = doc?.documentName === "Token" ? doc.actor : doc;
     if (!actor) return void ui.notifications.warn(`${MODULE_ID} | couldn't read that actor.`);
+    // A COMPENDIUM monster is not a monster at this table yet. Its id is pack-internal, so
+    // game.actors.get() would never find it again and the row would read "that monster is gone"
+    // the moment it was made. Say what to do instead rather than storing a boss that can't play.
+    if (actor.pack || !game.actors.get(actor.id)) {
+      return void ui.notifications.warn(`${MODULE_ID} | ${actor.name} is still in a compendium — drag it into your Actors list (or onto the map) first, then drop it here.`);
+    }
     if (bossId) {
       const b = list.find(x => x.id === bossId);
       if (b) b.actorId = actor.id;
