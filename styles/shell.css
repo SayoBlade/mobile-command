@@ -1928,6 +1928,30 @@ body {
 .mc-ct-mid { flex: 1 1 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .mc-ct-center { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; }
 
+/* ── §39 ONLINE: the same table with its geometry taken out ────────────────────────────────
+   In person the board IS the room — six edges, six rotations, cards dealt face down so your
+   neighbour can't read your hand. Online none of those three facts is true: nobody has an edge,
+   everyone is square on to their own screen, and the only people the backs hide the board from
+   are the people it is for. So the hands become one wrapping row under the candles, every hand
+   upright, every card already face up (the FACE is what a card with no choice yet shows — the
+   step's name — so "face up" costs nothing and the flip animation is simply never needed).
+   Nothing else changes: same felt, same deck, same deal, same candles. */
+.mc-ct-felt-online { justify-content: flex-start; }
+.mc-ct-felt-online .mc-ct-center { flex: 0 0 auto; height: clamp(104px, 19vh, 236px); }
+/* The cluster is absolute against the whole board (see the note above .mc-ct-candles), so online
+   it is lifted out of the middle rather than laid out around — the hands own the middle now. */
+#mc-cardtable.mc-ct-online .mc-ct-candles { top: clamp(60px, 10vh, 128px);
+  height: clamp(92px, 18vh, 220px); }
+/* Width binds here, not height: up to six hands three cards wide sit side by side and wrap. */
+#mc-cardtable.mc-ct-online { --mc-ct-cardw: clamp(48px, calc((100vh - 340px) / 8.4), 150px); }
+.mc-ct-grid { flex: 1 1 auto; display: flex; flex-wrap: wrap; z-index: 1;
+  align-content: center; justify-content: center; gap: 14px 26px; }
+.mc-ct-nobody { font-family: var(--mc-ct-font); color: var(--mc-muted);
+  font-size: clamp(14px, 1.1vw, 24px); align-self: center; }
+/* Face up: the card's face is authored on the far side of the flip, so showing it is the same
+   half-turn the flip already does — one rule, no second markup path. */
+#mc-cardtable.mc-ct-faceup .mc-ct-inner { transform: rotateY(180deg); }
+
 /* ── CANDLES (§38.4a) ──────────────────────────────────────────────────────────────────────
    Three real candles: keyed artwork (art/candles-topdown.png, shot top-down and cut off its
    magenta backdrop) with the three "small fire" loops from animated-fire-by-mattm sitting on
@@ -5943,3 +5967,102 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-curse-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .mc-curse-live .mc-twist-pcrow { font-style: italic; }
 .mc-curse-live .fa-eye { color: var(--mc-muted); }
+
+/* == §40 THE BOSS INTRO — an entrance on the table's own screen ==============================
+   The boss fills the screen, addresses each side of the table in turn, and shrinks away. Every
+   animated property here is `transform` or `opacity`, so the whole thing is composited and the
+   modest machine under the TV never re-rasterises a frame of it. The one `filter` is STATIC (a
+   drop shadow, applied once) — an animated filter is what would actually cost, and the candles
+   taught us that already (§38.4a).
+
+   z 99500: over the séance board, the station and the card table, so the entrance owns the
+   screen — but under the lightning/bell flashes at 100000, which are table-wide moments that
+   should still be able to strike across it. */
+#mc-bossintro {
+  position: fixed; inset: 0; z-index: 99500; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.mc-bi-scrim {
+  position: absolute; inset: 0; opacity: 0; transition: opacity .55s ease;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,.62) 0%, rgba(0,0,0,.93) 72%);
+}
+#mc-bossintro.mc-bi-up .mc-bi-scrim { opacity: 1; }
+#mc-bossintro.mc-bi-out .mc-bi-scrim { opacity: 0; }
+
+/* THE STAGE swells up out of nothing and, at the end, shrinks back into it — "the image zooms
+   out and shrinks" (DM 2026-08-09). Square, because a top-down token is, and sized off the
+   SHORTER viewport edge so a landscape TV and a phone held upright both get the same figure. */
+.mc-bi-stage {
+  position: relative; width: min(62vh, 62vw); aspect-ratio: 1;
+  transform: scale(.18); opacity: 0; will-change: transform, opacity;
+  transition: transform .7s cubic-bezier(.2,.9,.3,1.15), opacity .5s ease;
+}
+#mc-bossintro.mc-bi-up .mc-bi-stage { transform: scale(1); opacity: 1; }
+#mc-bossintro.mc-bi-out .mc-bi-stage {
+  transform: scale(.04); opacity: 0;
+  transition: transform .9s cubic-bezier(.5,0,.75,0), opacity .9s ease-in;
+}
+
+/* THE TURN. Its own element, because the wiggle inside it is also a transform and the two would
+   otherwise overwrite each other — the box turns, the figure shudders within it. The easing is
+   deliberately weighted at both ends: something heavy coming round to look at you. */
+.mc-bi-turn {
+  width: 100%; height: 100%;
+  transform: rotate(var(--mc-bi-rot, 180deg));
+  transition: transform .62s cubic-bezier(.5,0,.2,1);
+}
+.mc-bi-shakebox { width: 100%; height: 100%; }
+.mc-bi-shake { animation: mc-bi-wiggle .11s linear 18; will-change: transform; }
+/* Eighteen turns of a tenth of a second ≈ the two seconds the DM asked for. Small and ragged —
+   a held breath, not a dance: the figure never leaves its footprint by more than about 1%. */
+@keyframes mc-bi-wiggle {
+  0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
+  25%  { transform: translate(-1.1%, .6%) rotate(-1.6deg) scale(1.012); }
+  50%  { transform: translate(.9%, -.8%) rotate(1.4deg) scale(.994); }
+  75%  { transform: translate(1.2%, .7%) rotate(1.9deg) scale(1.008); }
+  100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+}
+.mc-bi-img {
+  width: 100%; height: 100%; object-fit: contain;
+  filter: drop-shadow(0 0 18px rgba(0,0,0,.95)) drop-shadow(0 0 64px rgba(0,0,0,.75));
+}
+
+/* == §40 Boss intro drawer (DM panel) =======================================================
+   A boss is a monster plus a noise, so the row shows both and says which half is missing. Same
+   drop-target grammar as the combat-theme rows above: dashed = still wants something, solid =
+   ready, gold = something is dragging over it. */
+.mc-boss-row {
+  display: flex; align-items: center; gap: 8px; min-height: 31px; box-sizing: border-box;
+  padding: 4px 8px; border-radius: calc(8px * var(--mc-round, 1));
+  background: var(--mc-panel); border: 1px solid var(--mc-edge);
+  font-size: 13px; color: var(--mc-ink);
+}
+.mc-boss-row + .mc-boss-row { margin-top: 4px; }
+.mc-boss-row.mc-boss-mute { border-style: dashed; }
+.mc-boss-row.mc-drag-over { border-color: var(--mc-gold); border-style: solid; background: var(--mc-panel-2); }
+.mc-boss-thumb {
+  flex: 0 0 auto; width: 26px; height: 26px; border-radius: calc(5px * var(--mc-round, 1));
+  object-fit: cover; background: var(--mc-sunken); text-align: center; line-height: 26px;
+  color: var(--mc-muted);
+}
+.mc-boss-name {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.25;
+  overflow: hidden;
+}
+/* The sound sits under the name as a hint, not beside it as a second name (§3: one name per row). */
+.mc-boss-name small { color: var(--mc-muted); font-size: 10.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-boss-mute .mc-boss-name small { font-style: italic; }
+.mc-boss-gone { border-style: dashed; border-color: #7a3a35; }
+.mc-boss-gone .mc-boss-name { color: #ffb4a8; }
+.mc-boss-del:hover { color: #ffb4a8; }   /* destructive = red on hover only (bible §4) */
+.mc-boss-play { flex: 0 0 auto; }
+/* The container the DM drags a monster into. Empty states point at the next step (§7). */
+.mc-boss-new {
+  display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px;
+  min-height: 44px; padding: 6px 10px; border-radius: calc(9px * var(--mc-round, 1));
+  border: 1px dashed var(--mc-edge); background: var(--mc-sunken);
+  color: var(--mc-muted); font-size: 12px; text-align: center;
+}
+.mc-boss-new i { color: var(--mc-gold); opacity: .75; }
+.mc-boss-new.mc-drag-over { border-color: var(--mc-gold); border-style: solid; background: var(--mc-panel-2); color: var(--mc-ink); }

@@ -12,6 +12,7 @@
 // + actor items as the fallback truth for what's been chosen.
 import { MODULE_ID, TABLE_SEATS, isPlaceholderPCName, DEFAULT_CARD_THEME, ABILITY_ICONS } from "./preset.js";
 import { isPhoneClient, isDisplayClient } from "./shell.js";
+import { isOnlineTable } from "./settings.js";
 import { cardSound, dealSound } from "./card-audio.js";
 
 // Our own art is the default now (DM's set, 2026-08-04): the crescent-moon back and the wide
@@ -111,12 +112,31 @@ function readCards(actor) {
   return out;
 }
 
+// §39 WHO the board deals to, and which way their cards face.
+//
+// In person the answer is the table map: six fixed places around a screen lying flat, each with
+// a compass rotation, and only the ones the DM has filled hold a hand. Online there is no table
+// — every player is looking at their own copy of the same board, head-on — so the places are
+// simply the player accounts, in roster order, all upright. Everything below this line works in
+// "slots" and never has to ask which mode it is in.
+function onlineSlots() {
+  let display = "";
+  try { display = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* none set */ }
+  return game.users.filter(u => !u.isGM && u.id !== display)
+    .map(u => ({ id: `u:${u.id}`, rot: 0, label: u.name, userId: u.id }));
+}
+function slotDefs() {
+  if (isOnlineTable()) return onlineSlots();
+  const seats = seatMap();
+  return TABLE_SEATS.map(s => ({ ...s, userId: seats[s.id] ?? null }));
+}
+
 function rebuild() {
   state = new Map();
-  const seats = seatMap();
-  for (const [seatId, userId] of Object.entries(seats)) {
-    const actor = actorForUser(userId);
-    state.set(seatId, { userId, actorId: actor?.id ?? null, cards: readCards(actor), active: null, caster: isCaster(actor) });
+  for (const def of slotDefs()) {
+    if (!def.userId) continue; // an empty seat is drawn, but it holds nothing
+    const actor = actorForUser(def.userId);
+    state.set(def.id, { userId: def.userId, actorId: actor?.id ?? null, cards: readCards(actor), active: null, caster: isCaster(actor) });
   }
 }
 
@@ -273,20 +293,29 @@ function candlesHTML() {
 }
 
 function boardHTML() {
-  const rows = {
-    n: TABLE_SEATS.filter(s => s.id.startsWith("n")),
-    s: TABLE_SEATS.filter(s => s.id.startsWith("s")),
-    w: TABLE_SEATS.find(s => s.id === "w"),
-    e: TABLE_SEATS.find(s => s.id === "e")
-  };
-  return `<div class="mc-ct-felt" style="--mc-ct-table:url('${asset(TABLE_ART)}')">
-    <div class="mc-ct-row mc-ct-row-n">${rows.n.map(seatHTML).join("")}</div>
-    <div class="mc-ct-mid">
-      ${seatHTML(rows.w)}
+  const felt = `--mc-ct-table:url('${asset(TABLE_ART)}')`;
+  // §39 Online: no edges to sit at, so the hands are a plain wrapping row with the candles above
+  // them. The felt, the deck and the deal are all unchanged — what goes is the geometry that only
+  // means something when six people are physically around one screen.
+  if (isOnlineTable()) {
+    const slots = slotDefs();
+    return `<div class="mc-ct-felt mc-ct-felt-online" style="${felt}">
       <div class="mc-ct-center">${candlesHTML()}</div>
-      ${seatHTML(rows.e)}
+      <div class="mc-ct-grid">${slots.length
+        ? slots.map(seatHTML).join("")
+        : `<div class="mc-ct-nobody">No player accounts yet.</div>`}</div>
+    </div>`;
+  }
+  const seats = slotDefs();
+  const at = id => seats.find(s => s.id === id);
+  return `<div class="mc-ct-felt" style="${felt}">
+    <div class="mc-ct-row mc-ct-row-n">${seats.filter(s => s.id.startsWith("n")).map(seatHTML).join("")}</div>
+    <div class="mc-ct-mid">
+      ${seatHTML(at("w"))}
+      <div class="mc-ct-center">${candlesHTML()}</div>
+      ${seatHTML(at("e"))}
     </div>
-    <div class="mc-ct-row mc-ct-row-s">${rows.s.map(seatHTML).join("")}</div>
+    <div class="mc-ct-row mc-ct-row-s">${seats.filter(s => s.id.startsWith("s")).map(seatHTML).join("")}</div>
   </div>`;
 }
 
@@ -333,6 +362,12 @@ function repaint() {
   let motion = true;
   try { motion = !!game.settings.get(MODULE_ID, "szMotion"); } catch (e) { /* default on */ }
   root.classList.toggle("mc-ct-motion", motion);
+  // §39 A face-down hand is a physical courtesy: your neighbour can't read your cards across the
+  // table. Online nobody is beside anybody, so the backs only hide the board from the people it
+  // is for — the cards start face up and simply fill in as choices land.
+  const online = isOnlineTable();
+  root.classList.toggle("mc-ct-online", online);
+  root.classList.toggle("mc-ct-faceup", online);
   root.innerHTML = boardHTML();
   markEmblems();
   soundNewTokens();
@@ -435,13 +470,20 @@ export function cardTableSync(on) {
   }
 }
 
+/** §39 The DM changed how this table plays — re-lay the board from scratch, seats and all. */
+export function cardTableRefreshMode() {
+  if (!root) return;
+  rebuild();
+  repaint();
+}
+
 /** The wizard narrating itself (§38.4a lockstep): step | flip | writing. */
 export function cardTableEvent(p = {}) {
   if (!root) return;
-  const seats = seatMap();
-  const seatId = Object.entries(seats).find(([, uid]) => uid === p.userId)?.[0];
-  if (!seatId) return; // that player isn't seated — nothing to narrate
-  const s = state.get(seatId);
+  // Find the player's PLACE on the board, whichever kind of place this table has (§39): a seat
+  // in person, their own slot online. Reading `state` rather than the seat map means one lookup
+  // serves both — and a player with no place on the board simply has nothing to narrate.
+  const s = [...state.values()].find(x => x.userId === p.userId);
   if (!s) return;
   if (p.actorId && s.actorId !== p.actorId) { // first event tells us which PC this seat is building
     const actor = game.actors.get(p.actorId);
@@ -494,7 +536,7 @@ export function registerCardTable() {
   // pick (or the first seating) silently doesn't repaint (bench 2026-08-04).
   const onSetting = (s) => {
     if (!root) return;
-    const watched = ["tableSeats", "seatActors", "cardBackImage", "cardTheme"].map(k => `${MODULE_ID}.${k}`);
+    const watched = ["tableSeats", "seatActors", "cardBackImage", "cardTheme", "tableMode"].map(k => `${MODULE_ID}.${k}`);
     if (watched.includes(s?.key)) { rebuild(); repaint(); }
   };
   Hooks.on("updateSetting", onSetting);

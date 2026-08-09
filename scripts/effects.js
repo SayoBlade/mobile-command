@@ -5,6 +5,7 @@ import { isExecutor } from "./settings.js";
 import { seanceSync, seancePhrase } from "./seance.js"; // §30 séance board (TV overlay)
 import { cardTableSync, registerCardTable } from "./card-table.js"; // §38.4a session-zero card table
 import { cmStationSync, cmTicketFx, playTrainWhistle } from "./cm-boarding.js"; // §36 All aboard
+import { bossIntroPlay } from "./boss-intro.js"; // §40 the boss's entrance (one-shot, no state)
 import { initCurseSweep } from "./cm-curses.js"; // §33: one GM client lifts expired curses
 
 // §26 Effects tab (spike) — DM-triggered table ambience, three kinds under one catalog:
@@ -69,6 +70,10 @@ export const FX_DEFS = {
   cmIntro: { label: "Introduce", icon: "fa-masks-theater", state: true, hint: "Put one character's card on the display" },
   cmTicket: { label: "Ticket", icon: "fa-ticket", player: "state", hint: "A life-size ticket fills their phone until they board" },
   cmWhistle: { label: "Whistle", icon: "fa-bullhorn", oneShot: true, hint: "Two blasts of the Ghostlight's whistle" },
+  // §40 the boss's entrance. A one-shot with { img, sound } — the Combat tab's Boss intro drawer
+  // owns its UI (a roster of bosses with drop targets is more than a grid chip), and it is fired
+  // through dmPlayBossIntro rather than dmFireFx because the pause has to come first.
+  bossIntro: { label: "Boss intro", icon: "fa-dragon", oneShot: true, hint: "The boss fills the screen and turns to face the table" },
   rainbow: { label: "Rainbow", icon: "fa-rainbow", filter: "rainbow", hint: "The whole scene cycles through hues" },
   invert: { label: "Invert", icon: "fa-circle-half-stroke", filter: "invert", hint: "Negative — an unsettling other-side look" },
   dreamy: { label: "Dreamy", icon: "fa-cloud-moon", filter: "dreamy", hint: "Soft blur — dream sequences, visions" },
@@ -156,7 +161,8 @@ export function dmFireFx(id, extra = {}) {
 /*  One-shots                                   */
 /* -------------------------------------------- */
 
-export function handleFxOneShot({ id, users, soft, text, level } = {}) {
+export function handleFxOneShot(payload = {}) {
+  const { id, users, soft, text, level } = payload;
   // A targeted one-shot names its audience; everyone else drops it silently.
   if (Array.isArray(users) && users.length && !users.includes(game.user.id)) return;
   if (id === "lightning") lightningLocal(!!soft);
@@ -164,6 +170,8 @@ export function handleFxOneShot({ id, users, soft, text, level } = {}) {
   else if (id === "static") staticLocal(level);
   else if (id === "seancePhrase") seancePhrase(text); // no-op on clients without the board
   else if (id === "cmWhistle") playTrainWhistle();    // §36 — canvas clients only, gates itself
+  // §40 carries a whole boss ({ img, sound }), so it gets the payload rather than named bits.
+  else if (id === "bossIntro") bossIntroPlay(payload);
 }
 
 function overlayShot(className, ttlMs) {

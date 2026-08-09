@@ -204,6 +204,24 @@ export function registerSettings() {
     scope: "world", config: false, type: Array, default: []
   });
 
+  // §39 HOW THIS TABLE PLAYS. The whole shared-screen half of the module assumes a television
+  // lying FLAT with people sitting around it: seats have a compass direction, cards are dealt to
+  // an edge and rotated to face the person there, the phone's d-pad is turned so "away from me"
+  // means the same thing in every chair, and the phones stay silent because the room has one set
+  // of speakers. None of that is true when the table is a voice call — there is no "left", no
+  // "opposite", and every player IS their own room. One setting decides which world we're in, and
+  // everything downstream reads it rather than each feature growing its own toggle.
+  game.settings.register(MODULE_ID, "tableMode", {
+    scope: "world", config: false, type: String, default: "person",
+    choices: { person: "In person", online: "Online" },
+    // Seats, rotation and the deal are all rendered from this — a live board must re-lay itself
+    // the moment the DM flips the mode, not on the next reload.
+    onChange: () => {
+      try { globalThis.MobileCommand?.refreshPanel?.(); } catch (e) { /* no panel here */ }
+      try { globalThis.MobileCommand?.refreshTableMode?.(); } catch (e) { /* no board here */ }
+    }
+  });
+
   // §38.4b THE TABLE MAP: which player sits where around the flat TV. Keyed to USER ids, not
   // actors — players are seated before any PC exists, and the seat outlives a character.
   // {seatId → userId}; seat ids are the fixed six: w · e (short sides) · n1 n2 · s1 s2 (long).
@@ -246,6 +264,20 @@ export function registerSettings() {
     config: true,
     type: Boolean,
     default: true
+  });
+
+  // §40 THE BOSSES. `[{ id, actorId, sound }]` — built by dragging an actor and a track into the
+  // Combat tab's Boss intro drawer. Name and art are deliberately NOT stored: they're read off
+  // the actor when the entrance plays, so renaming a monster or repainting its token is enough.
+  game.settings.register(MODULE_ID, "bosses", {
+    scope: "world", config: false, type: Array, default: []
+  });
+
+  // Did WE silence this phone's music/ambience? Per-device, because the volumes we zero are
+  // themselves client settings. Only a phone we muted is a phone we may un-mute (the pause-guard
+  // rule): a player who slid their own music to zero keeps it there when the table goes online.
+  game.settings.register(MODULE_ID, "phoneAudioSilenced", {
+    scope: "client", config: false, type: Boolean, default: false
   });
 
   // §38.5 the opening: has the show already run this session? A board raised again (or a client
@@ -731,6 +763,16 @@ export function combatMusicPlaylist() {
     return uuid ? (fromUuidSync(uuid) ?? null) : null;
   } catch (e) { return null; }
 }
+
+// §39 the one question every shared-screen feature asks. Defaults to in person: that is the
+// module's primary use case (DESIGN, line 4) and it's the mode whose extras a table can simply
+// ignore, whereas an in-person table silently robbed of its seats would look broken.
+export function tableMode() {
+  try { return game.settings.get(MODULE_ID, "tableMode") === "online" ? "online" : "person"; }
+  catch (e) { return "person"; }
+}
+export function isOnlineTable() { return tableMode() === "online"; }
+export function isInPersonTable() { return tableMode() === "person"; }
 
 // The configured display/TV account, or null when the feature is off.
 export function displayUserId() {

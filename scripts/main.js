@@ -1,5 +1,5 @@
 import { MODULE_ID } from "./preset.js";
-import { registerSettings, resolveExecutorId, isExecutor, displayUserId, isDisplayShared, syncDisplayObserver, DISPLAY_LEVEL, setTvAudioState, setTvSoftFogState } from "./settings.js";
+import { registerSettings, resolveExecutorId, isExecutor, displayUserId, isDisplayShared, syncDisplayObserver, DISPLAY_LEVEL, setTvAudioState, setTvSoftFogState, isOnlineTable } from "./settings.js";
 import { diffPreset, applyPreset, checkAndPrompt, deactivate, reactivate, hasBackup } from "./enforcer.js";
 import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, registerReactionNotifier, registerSummonOwnership, api, actorTokenSight } from "./rpc.js";
 import { initPauseGuard } from "./pause-guard.js";
@@ -16,6 +16,8 @@ import { registerFog, refreshFog } from "./fog-soft.js";
 import { registerCombatMusic } from "./combat-music.js";
 import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "./camera-frame.js";
 import { registerFxEngine } from "./effects.js"; // §26 Effects tab engine
+import { cardTableRefreshMode } from "./card-table.js"; // §39: re-lay the board when the table mode changes
+import { registerBossIntro, dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { registerSettingsMenu } from "./settings-app.js"; // §29 settings mini-app (menu button)
 
 Hooks.once("init", () => {
@@ -651,18 +653,33 @@ Hooks.once("ready", () => {
     // environment go to zero; INTERFACE stays, so the player still hears their own dice and UI.
     // Client-scoped settings, so this is per-device and the sliders remain in Foundry's audio
     // controls if someone wants them back. World setting `phoneSilentAudio` turns it off.
+    // §39 …UNLESS THE ROOM IS A CALL. Online, there is no shared set of speakers and no one else
+    // to be out of step with — the phone (or the browser next to it) is the only thing the player
+    // can hear, so silencing it silences the game. The mode decides; the setting stays the
+    // in-person preference. And we only ever un-mute a phone we muted ourselves.
     try {
       let silent = true;
       try { silent = !!game.settings.get(MODULE_ID, "phoneSilentAudio"); } catch (e) { /* default on */ }
+      if (isOnlineTable()) silent = false;
+      const keys = ["globalPlaylistVolume", "globalAmbientVolume"];
       if (silent) {
-        for (const key of ["globalPlaylistVolume", "globalAmbientVolume"]) {
+        let did = false;
+        for (const key of keys) {
           if (game.settings.get("core", key) !== 0) {
             game.settings.set("core", key, 0);
+            did = true;
             console.log(`${MODULE_ID} | phone client — ${key} silenced (the TV is the room's speaker)`);
           }
         }
+        if (did) game.settings.set(MODULE_ID, "phoneAudioSilenced", true);
+      } else if (game.settings.get(MODULE_ID, "phoneAudioSilenced")) {
+        // Foundry's own default level — we zeroed these without recording what they were, and a
+        // level the player never chose is better restored to the one Foundry ships than left dead.
+        for (const key of keys) if (game.settings.get("core", key) === 0) game.settings.set("core", key, 0.5);
+        game.settings.set(MODULE_ID, "phoneAudioSilenced", false);
+        console.log(`${MODULE_ID} | phone client — music/ambience restored (this table plays online)`);
       }
-    } catch (e) { console.warn(`${MODULE_ID} | could not silence phone audio`, e); }
+    } catch (e) { console.warn(`${MODULE_ID} | could not set phone audio`, e); }
     // Players can't reach the chat roll-mode dropdown from the shell, so pin their
     // default to PUBLIC — every roll then shows on the shared TV (and in chat).
     try {
@@ -755,6 +772,7 @@ Hooks.once("ready", () => {
   initSocket(); // idempotent fallback in case socketlib.ready raced or didn't fire
   registerFxEngine(); // §26 Effects tab: apply/remove screen filters + ambience loops as fxActive changes (all clients; phones flash-only)
   initPauseGuard();
+  registerBossIntro(); // §40: a boss entrance claims the pause and gives it back (see boss-intro.js)
   if (!isPhoneClient()) initPauseOverlay(); // corner spinners replace the "GAME PAUSED" bar (phones have their own overlay)
   if (!isPhoneClient()) initHeartbeat();    // critical-HP heartbeat pulse on PC token rings (canvas only)
   startHeartbeat();
@@ -808,6 +826,8 @@ Hooks.once("ready", () => {
     tvFrameInfo: () => ({ scale: tvFrameScale, clearanceFt: tvClearanceFt, measuredFt: canvas?.ready ? measureClearanceFt() : null }),
     refreshCombatVision,                 // re-apply combat POV vision on the display (settings onChange + manual)
     refreshPanel,                        // repaint the DM panel (used by the display's audio report)
+    refreshTableMode: cardTableRefreshMode, // §39 in person ⇄ online: re-lay the card table's seats
+    playBossIntro: dmPlayBossIntro,      // §40 macro/Stream Deck access to a boss's entrance (§8.1)
     syncPartyTokenSight,                 // GM: set each PC token's sight/detection from its dnd5e senses
     resolveExecutorId,
     isExecutor

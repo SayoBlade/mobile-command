@@ -6,13 +6,14 @@ import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRun
 import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar, sunTimes } from "./gametime.js";
 import { runDmWizard } from "./dm-wizard.js";
 import { startCombatWithMusic } from "./combat-music.js";
-import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist } from "./settings.js";
+import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist, isOnlineTable } from "./settings.js";
 import { FX_TABS, FX_DEFS, fxActiveMap, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js"; // §26 Effects tab
 import { FATE_THREADS, FATE_STEPS, applyFateReward } from "./fateweaving.js"; // §34 Fateweaving tracker
 import { CURSES, rollCurse, pickCurse, applyCurse, actorCurses, curseTableUuid } from "./cm-curses.js"; // §33 Chaotic Curses
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { trainScenes, trainMistOn, wireTrainDoors, setTrainMist } from "./cm-train.js"; // §37 the Ghostlight ride
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
+import { bossList, bossSave, bossImage, bossSoundSrc, bossSoundLabel, dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -307,8 +308,98 @@ function combatTabHTML() {
     + rollsToolHTML()
     + combatHTML()
     + splitPartyHTML()
+    + dtDrawer("bossIntro", "Boss intro", "", bossBody(), true)
     + (pending.length ? pendingHTML(pending) : "")
     + `</div>`;
+}
+
+// --- §40 Boss intro: build a boss, then give it an entrance -------------------------------
+// A boss is a MONSTER PLUS A NOISE, and the DM makes one the way they'd expect to: drag the
+// actor into the container, drag a track onto it. Nothing is stored but the two ids — the name
+// and the token art are read off the actor when it plays, so renaming or repainting is enough.
+function bossBody() {
+  const esc = foundry.utils.escapeHTML;
+  const online = isOnlineTable();
+  const rows = bossList().map(b => {
+    const actor = game.actors.get(b.actorId);
+    // A boss whose actor was deleted stays on the list and says so, rather than vanishing —
+    // the DM chose this monster once and should be told it's gone, not quietly lose the row.
+    if (!actor) {
+      return `<div class="mc-boss-row mc-boss-gone" data-boss-drop="${b.id}">
+        <i class="fas fa-ghost mc-boss-thumb"></i>
+        <span class="mc-boss-name">That monster is gone<small>drag a new one here</small></span>
+        <button class="mc-dt-icon-only mc-boss-del" data-boss-del="${b.id}" title="Remove this boss"><i class="fas fa-xmark"></i></button>
+      </div>`;
+    }
+    const img = bossImage(actor);
+    const sound = b.sound ? esc(bossSoundLabel(b.sound)) : "no sound yet — drag a track here";
+    return `<div class="mc-boss-row ${b.sound ? "" : "mc-boss-mute"}" data-boss-drop="${b.id}">
+      <img class="mc-boss-thumb" src="${esc(img ?? "icons/svg/mystery-man.svg")}" alt="">
+      <span class="mc-boss-name">${esc(actor.name)}<small>${sound}</small></span>
+      <button class="mc-dmp-mini" data-boss-sound="${b.id}" title="Pick a sound file instead"><i class="fas fa-folder-open"></i></button>
+      <button class="mc-dmp-mini mc-boss-play" data-boss-play="${b.id}" title="${online
+        ? "Pause, fill the screen, two roars, then away"
+        : "Pause, fill the screen, and turn to face each side of the table"}"><i class="fas fa-play"></i> Play</button>
+      <button class="mc-dt-icon-only mc-boss-del" data-boss-del="${b.id}" title="Remove this boss"><i class="fas fa-xmark"></i></button>
+    </div>`;
+  }).join("");
+  return `${rows}
+    <div class="mc-boss-new" data-boss-drop="">
+      <i class="fas fa-dragon"></i>
+      <span>Drag a monster here, then drop a track on it</span>
+    </div>
+    <div class="mc-dmp-story-status">${online
+      ? "Online: it faces the table and roars twice — no turning."
+      : "It faces down, then right, then top — never left, that's your chair."}</div>`;
+}
+
+async function bossDrop(el, data) {
+  const bossId = el.dataset.bossDrop;
+  const list = bossList();
+  if (data?.type === "Actor" || data?.type === "Token") {
+    const doc = await fromUuid(data.uuid);
+    const actor = doc?.documentName === "Token" ? doc.actor : doc;
+    if (!actor) return void ui.notifications.warn(`${MODULE_ID} | couldn't read that actor.`);
+    if (bossId) {
+      const b = list.find(x => x.id === bossId);
+      if (b) b.actorId = actor.id;
+    } else {
+      if (list.some(x => x.actorId === actor.id)) return void ui.notifications.info(`${MODULE_ID} | ${actor.name} is already a boss.`);
+      list.push({ id: foundry.utils.randomID(), actorId: actor.id, sound: "" });
+    }
+    await bossSave(list);
+    return void render();
+  }
+  if (data?.type === "PlaylistSound") {
+    if (!bossId) return void ui.notifications.warn(`${MODULE_ID} | drop the track ON a boss — drag the monster in first.`);
+    const b = list.find(x => x.id === bossId);
+    if (!b) return;
+    b.sound = data.uuid;
+    await bossSave(list);
+    return void render();
+  }
+  ui.notifications.warn(`${MODULE_ID} | drag a monster, or a playlist TRACK for its sound.`);
+}
+
+// The manual way in, for audio that doesn't live in a playlist (UI-BIBLE §8.1: the gesture is
+// the ritual, the button is the authority).
+async function bossPickSound(bossId) {
+  const FP = foundry.applications?.apps?.FilePicker?.implementation ?? FilePicker;
+  const list = bossList();
+  const b = list.find(x => x.id === bossId);
+  if (!b) return;
+  new FP({
+    type: "audio",
+    current: bossSoundSrc(b.sound) ?? "",
+    callback: async (path) => {
+      const fresh = bossList();
+      const target = fresh.find(x => x.id === bossId);
+      if (!target) return;
+      target.sound = path;
+      await bossSave(fresh);
+      render();
+    }
+  }).browse();
 }
 
 // --- Party tab (§25 2b): the roster grid + marching order (while packed) + Form Up pinned at the foot.
@@ -318,7 +409,7 @@ function partyTabFull() {
   // the FOOT like the Combat send button (DM 2026-07-25). The Story-questions drawer (§38.4)
   // renders regardless of packing — questions don't need a group.
   return `<div class="mc-dmp-tabfill">
-    <div class="mc-dmp-tabmid">${dtDrawer("players", "Players & seats", "", playersBody(), true)}${dtDrawer("cardTable", "Session zero", "", cardTableBody(), true)}${dtDrawer("storyQs", "Story questions", "", storyQsBody(), true)}${ownedTokensHTML()}${marching}</div>
+    <div class="mc-dmp-tabmid">${dtDrawer("players", isOnlineTable() ? "Players" : "Players & seats", "", playersBody(), true)}${dtDrawer("cardTable", "Session zero", "", cardTableBody(), true)}${dtDrawer("storyQs", "Story questions", "", storyQsBody(), true)}${ownedTokensHTML()}${marching}</div>
     <div class="mc-dmp-tabfoot">${partyMainHTML()}</div>
   </div>`;
 }
@@ -1820,10 +1911,12 @@ function ensureEl() {
   });
   panelEl.addEventListener("dragstart", onTokenDragStart); // Owned-tokens → canvas
   panelEl.addEventListener("dblclick", onTokenDblClick);   // Owned-tokens → sheet
-  // Combat-music theme drop targets (§25.2): drag a PlaylistSound onto a PC row.
-  panelEl.addEventListener("dragover", (ev) => { const c = ev.target.closest("[data-theme-drop]"); if (c) { ev.preventDefault(); c.classList.add("mc-drag-over"); } });
-  panelEl.addEventListener("dragleave", (ev) => { const c = ev.target.closest("[data-theme-drop]"); if (c && !c.contains(ev.relatedTarget)) c.classList.remove("mc-drag-over"); });
-  panelEl.addEventListener("drop", onThemeDrop);
+  // Drop targets: a PlaylistSound onto a PC row for its combat theme (§25.2), and a monster or a
+  // track onto the Boss intro drawer (§40). One pair of listeners, one selector list.
+  const DROPPABLE = "[data-theme-drop], [data-boss-drop]";
+  panelEl.addEventListener("dragover", (ev) => { const c = ev.target.closest(DROPPABLE); if (c) { ev.preventDefault(); c.classList.add("mc-drag-over"); } });
+  panelEl.addEventListener("dragleave", (ev) => { const c = ev.target.closest(DROPPABLE); if (c && !c.contains(ev.relatedTarget)) c.classList.remove("mc-drag-over"); });
+  panelEl.addEventListener("drop", onPanelDrop);
   panelEl.addEventListener("pointerdown", onPointerDown); // drag from the grip handle
   // Outside-click closes any open transient dropdown (DM 2026-07-09: "clicking
   // outside the dropdown should close it"). The selection is already live in
@@ -2974,6 +3067,7 @@ async function setActivePC(userId, actorId) {
 }
 function playersBody() {
   const esc = foundry.utils.escapeHTML;
+  const online = isOnlineTable(); // §39 no table, no seats — the roster is the whole drawer
   const seats = tableSeats();
   const seatOf = uid => Object.entries(seats).find(([, u]) => u === uid)?.[0] ?? null;
   const users = playerUsers();
@@ -2998,7 +3092,7 @@ function playersBody() {
   // one at the bottom, TV flat in the middle. A 3x4 GRID rather than nested flex rows — the old
   // version had the two seat columns and the TV competing for width in a 320px panel and the TV
   // ended up a sliver with its label turned on its side.
-  const map = `<div class="mc-dmp-tablemap">
+  const map = online ? "" : `<div class="mc-dmp-tablemap">
     ${slot("w")}
     ${slot("n1")}<div class="mc-dmp-tv"><i class="fas fa-tv"></i><span>TV</span><b class="mc-dmp-tv-up">UP</b></div>${slot("s1")}
     ${slot("n2")}${slot("s2")}
@@ -3029,21 +3123,25 @@ function playersBody() {
     // so. The seat NAME is deliberately not printed here — the map above already shows where
     // everyone sits, so repeating it on the row is noise. It stays in the tooltip.
     const seatLabel = s ? esc(TABLE_SEATS.find(x => x.id === s)?.label ?? s) : "";
-    const seatBit = s
+    const seatBit = (s && !online)
       ? ` <button class="mc-dmp-seat-move ${on ? "mc-on" : ""}" data-seat-pick="${u.id}"
             title="${on ? "Cancel — tap a seat to place them" : `Seated at ${seatLabel} — tap to move them`}">${on ? "pick a seat" : "change"}</button>`
       : "";
+    const pickBtn = online ? "" : `<button class="mc-dmp-pf-fix ${on ? "mc-on" : ""}" data-seat-pick="${u.id}" title="${on ? "Cancel" : "Pick up, then tap a seat"}"><i class="fas fa-hand-pointer"></i></button>`;
     return `<div class="mc-dmp-story-row">
       <i class="fas fa-circle-user" style="color:${u.color?.css ?? "var(--mc-muted)"}"></i>
       <span class="mc-dmp-story-q">${esc(u.name)}${seatBit}
         ${u.active ? `<span class="mc-dmp-seat-live" title="connected">●</span>` : ""}
         ${who}</span>
-      <button class="mc-dmp-pf-fix ${on ? "mc-on" : ""}" data-seat-pick="${u.id}" title="${on ? "Cancel" : "Pick up, then tap a seat"}"><i class="fas fa-hand-pointer"></i></button>
+      ${pickBtn}
     </div>${list}`;
   }).join("") : `<div class="mc-dmp-empty">No player accounts yet — make one below.</div>`;
-  const hint = seatPick
-    ? `<div class="mc-dmp-story-status">Tap a seat for <b>${esc(game.users.get(seatPick)?.name ?? "…")}</b> — a taken seat swaps the two.</div>`
-    : `<div class="mc-dmp-story-status">Tap <b>change</b> (or ✋), then a seat. A taken seat swaps the two.</div>`;
+  // Online the drawer is a roster and nothing else, so there is no gesture to explain (UI-BIBLE §7:
+  // a line of prose that teaches a control the view doesn't have is pure noise).
+  const hint = online ? ""
+    : seatPick
+      ? `<div class="mc-dmp-story-status">Tap a seat for <b>${esc(game.users.get(seatPick)?.name ?? "…")}</b> — a taken seat swaps the two.</div>`
+      : `<div class="mc-dmp-story-status">Tap <b>change</b> (or ✋), then a seat. A taken seat swaps the two.</div>`;
   return `${map}${hint}${roster}
     <div class="mc-dmp-story-new">
       <input class="mc-dmp-story-input mc-dmp-newplayer" type="text" placeholder="New player's name…">
@@ -3090,7 +3188,13 @@ function cardTableBody() {
   const esc = foundry.utils.escapeHTML;
   const on = (() => { try { return !!game.settings.get(MODULE_ID, "cardTableOn"); } catch (e) { return false; } })();
   const cur = (() => { try { return game.settings.get(MODULE_ID, "cardBackImage") || ""; } catch (e) { return ""; } })();
-  const seated = Object.keys((() => { try { return game.settings.get(MODULE_ID, "tableSeats") ?? {}; } catch (e) { return {}; } })()).length;
+  // §39 what "ready to deal" means depends on the table. In person it's how many chairs the DM
+  // has filled; online everyone with an account is already at the board, so the count is simply
+  // the roster and the opening is never gated on a seating step that doesn't exist.
+  const online = isOnlineTable();
+  const seated = online
+    ? playerUsers().length
+    : Object.keys((() => { try { return game.settings.get(MODULE_ID, "tableSeats") ?? {}; } catch (e) { return {}; } })()).length;
   const deck = (() => { try { return game.settings.get(MODULE_ID, "cardTheme") || DEFAULT_CARD_THEME; } catch (e) { return DEFAULT_CARD_THEME; } })();
   const opened = (() => { try { return !!game.settings.get(MODULE_ID, "szOpened"); } catch (e) { return false; } })();
   if (cardBackGallery === null) scanCardBacks();
@@ -3106,11 +3210,13 @@ function cardTableBody() {
       <i class="fas fa-table-cells-large"></i> ${on ? "Card table is ON the TV" : "Show the card table on the TV"}
     </button>
     <div class="mc-dmp-ct-head">
-      <span class="mc-dmp-story-status">${seated ? `${seated} seated` : "Nobody's seated yet"}</span>
-      <button class="mc-dmp-seat-move" data-open-drawer="players" title="Open Players &amp; seats">change</button>
+      <span class="mc-dmp-story-status">${seated
+        ? (online ? `${seated} at the board` : `${seated} seated`)
+        : (online ? "No player accounts yet" : "Nobody's seated yet")}</span>
+      <button class="mc-dmp-seat-move" data-open-drawer="players" title="Open ${online ? "Players" : "Players &amp; seats"}">change</button>
     </div>
     <button class="mc-dmp-sz-begin" data-sz-open ${seated ? "" : "disabled"}
-      title="${seated ? "Light the candles, start the music, deal the cards" : "Seat someone first"}">
+      title="${seated ? "Light the candles, start the music, deal the cards" : (online ? "Make a player account first" : "Seat someone first")}">
       <i class="fas fa-fire"></i> ${opened ? "Run the opening again" : "Begin session zero"}
     </button>
     <div class="mc-dmp-story-status mc-dmp-sz-hint">Candles catch, the music comes up, the shadows reach out, then the cards are dealt.</div>
@@ -3426,14 +3532,16 @@ function onTokenDragStart(ev) {
   if (!a) return;
   try { ev.dataTransfer.setData("text/plain", JSON.stringify(a.toDragData())); ev.dataTransfer.effectAllowed = "copy"; } catch (e) { /* */ }
 }
-// Drop a PlaylistSound onto a PC row → set their combat theme (§25.2).
-async function onThemeDrop(ev) {
-  const cont = ev.target.closest("[data-theme-drop]");
+// One drop handler for the panel, routed by which kind of target caught it: a PC row wanting a
+// combat theme (§25.2), or the Boss intro drawer wanting a monster or its roar (§40).
+async function onPanelDrop(ev) {
+  const cont = ev.target.closest("[data-theme-drop], [data-boss-drop]");
   if (!cont) return;
   ev.preventDefault();
   cont.classList.remove("mc-drag-over");
   let data;
   try { data = JSON.parse(ev.dataTransfer.getData("text/plain")); } catch (e) { return; }
+  if (cont.hasAttribute("data-boss-drop")) return bossDrop(cont, data);
   if (data?.type !== "PlaylistSound" || !data.uuid) { ui.notifications.warn(`${MODULE_ID} | drag a playlist TRACK (a sound), not a whole playlist.`); return; }
   const actor = game.actors.get(cont.dataset.themeDrop);
   if (actor) { await actor.setFlag(MODULE_ID, "combatTheme", data.uuid); render(); }
@@ -4152,6 +4260,13 @@ async function onClick(ev) {
   }
   const gs = ev.target.closest("[data-group-sheet]");
   if (gs) { game.actors.get(gs.dataset.groupSheet)?.sheet?.render(true); return; }
+  // §40 boss intro: play one, give it a sound from disk, or take it off the list.
+  const bossPlay = ev.target.closest("[data-boss-play]");
+  if (bossPlay) { await dmPlayBossIntro(bossPlay.dataset.bossPlay); return; }
+  const bossSnd = ev.target.closest("[data-boss-sound]");
+  if (bossSnd) return bossPickSound(bossSnd.dataset.bossSound);
+  const bossDel = ev.target.closest("[data-boss-del]");
+  if (bossDel) { await bossSave(bossList().filter(b => b.id !== bossDel.dataset.bossDel)); return render(); }
   // §38.4a card table: show/hide on the TV, pick a back, upload a custom one.
   if (ev.target.closest("[data-cardtable-toggle]")) {
     const on = !!game.settings.get(MODULE_ID, "cardTableOn");

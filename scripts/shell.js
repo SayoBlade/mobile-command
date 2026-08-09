@@ -1,4 +1,5 @@
 import { MODULE_ID, CREATION_BEATS, pcDisplayName, TABLE_SEATS } from "./preset.js";
+import { isOnlineTable } from "./settings.js"; // §39 in person ⇄ online (settings.js imports nothing of ours but preset/enforcer — no cycle)
 import { api as rpc, actorTokenSight, reportPresence, remoteState } from "./rpc.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
 import { toggleSimpleCalendar } from "./gametime.js";
@@ -7216,6 +7217,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Unseated players are untouched, which is every table that isn't using the shared screen.
   #seatRotation() {
     try {
+      // §39 Online there is no chair to sit the other way round in — the player is square on to
+      // their own screen and the map's up is their up. A seat map left over from an in-person
+      // session must not keep turning their d-pad, so the mode answers before the map does.
+      if (isOnlineTable()) return 0;
       const seats = game.settings.get(MODULE_ID, "tableSeats") ?? {};
       const seatId = Object.entries(seats).find(([, uid]) => uid === game.user?.id)?.[0];
       return TABLE_SEATS.find(s => s.id === seatId)?.rot ?? 0;

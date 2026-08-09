@@ -103,7 +103,16 @@ export class MCSettingsApp extends ApplicationV2 {
 
   #displayPane() {
     const users = [["", "— none —"], ...game.users.filter(u => !u.isGM).map(u => [u.id, u.name])];
-    return this.#sec("The shared screen")
+    // §39 the first thing to decide about a table, so it sits above everything the shared screen
+    // does — every seat, rotation and dealt card downstream is an answer to this one question.
+    const online = this.#get("tableMode") === "online";
+    return this.#sec("The table")
+      + this.#chips("tableMode", "This table plays", { person: "In person", online: "Online" },
+        "In person assumes a TV lying flat with people around it; online drops the seating, the rotation and the face-down deal.")
+      + this.#hintRow("What changes", online
+        ? "No seats, no rotated controls, cards face up — and phones keep their own sound."
+        : "Seats around the flat screen, rotated cards and controls, and the deal starts face down.")
+      + this.#sec("The shared screen")
       + this.#select("displayOwnerUser", "TV / display account", users, "The account the shared display logs in as; PCs are auto-shared with it at Observer.")
       + this.#toggle("dmOmniscientVision", "Keep the DM's vision omniscient", "Shared-screen tables: the DM sees everything regardless of token vision.")
       + this.#toggle("combatPovVision", "Combat: only the active player's POV on the TV")

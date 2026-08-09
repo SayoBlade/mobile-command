@@ -3976,3 +3976,136 @@ secret-confession gate (cheap, phone-native) → Druskenvald clock + clocktower.
 ideas (directional caws, room-wide loops) need the performance-cost talk first (modest
 machine). RESOLVED 2026-07-27: campaign not started yet (no chapter urgency) — the DM chose
 the suite now spec'd as §31/§33/§34/§35; tarot + clock remain the top future residents.
+
+---
+
+## 39. In person vs. Online — one setting the whole shared-screen half reads (DM ask 2026-08-09, BUILT + bench-verified)
+
+The DM asked for "two versions based on one setting: online vs in person. Online disables player
+seating / rotated controls / session 0 cards all facing down / etc. While in person has all the
+previously developed features relevant for a tv-table-top view."
+
+### 39.1 The premise, stated once
+
+Everything we built for the shared screen assumes **a television lying flat with people sitting
+around it**. That single physical fact is what makes seats have a compass direction (§38.4b),
+what makes a hand of cards get rotated to face the person at that edge (§38.4a), what makes the
+phone's d-pad turn so "away from me" means the same thing in every chair, and what makes the
+phones stay silent because the room has one set of speakers (§20.6).
+
+None of it is true on a voice call. There is no left, no opposite, no neighbour who can read your
+cards, and every player **is** their own room. So the module now asks the question once —
+`tableMode`: `"person"` (default) | `"online"` — and every feature downstream reads it instead of
+growing a toggle of its own. Default is in person: it's the primary use case (line 4 of this
+document) and it's the mode whose extras an online table can simply ignore, whereas an in-person
+table silently robbed of its seats would look broken.
+
+`settings.js` exports `tableMode()` / `isOnlineTable()` / `isInPersonTable()`. The setting is
+`config:false` and lives at the top of the Settings app's **Display** tab (§29) — above everything
+about the shared screen, because it's the question all of that is an answer to.
+
+### 39.2 What online actually turns off
+
+| In person | Online | Where |
+|---|---|---|
+| Six seats around the flat screen, a table map to fill them | Drawer is a plain roster, titled **Players** | `dm-panel.js playersBody()` |
+| The d-pad is rotated by the player's seat | Rotation is 0 — the player is square on to their own screen | `shell.js #seatRotation()` |
+| Hands sit at the screen's edges, rotated to their seat | One wrapping row of upright hands under the candles | `card-table.js boardHTML()` |
+| Cards dealt **face down**, flipping as choices land | Cards start **face up** — the face of an unchosen card is the step's name, so it costs nothing | `.mc-ct-faceup` |
+| Session zero is gated on someone being seated | Gated on a player account existing | `cardTableBody()` |
+| Phones mute music + ambience (the TV is the speaker) | Phones keep their own sound | `main.js` ready hook |
+
+The card table's slot model is the load-bearing change: `rebuild()` and `boardHTML()` now work in
+**slots**, which are seats in person and player accounts online, so one code path renders both and
+`cardTableEvent` finds a player by their place rather than by the seat map.
+
+**Un-muting is claim-and-release.** We only restore a phone's music/ambience if *we* zeroed it —
+a new client setting `phoneAudioSilenced` records that, the same rule the pause guard follows.
+A player who slid their own music to zero keeps it there.
+
+### 39.3 Bench run (2026-08-09, Offline test world, GM client)
+
+All eleven expected results passed. Notable: online the board renders `mc-ct-online mc-ct-faceup`,
+every slot at `--mc-ct-rot: 0deg`, card inner transform `rotateY(180deg)` (face up); in person the
+board is unchanged after the refactor — 2 rows + the mid band, seats at 180/90/0, unflipped cards
+at `transform: none` (face down).
+
+**Bench limitation, recorded so it isn't re-discovered:** the in-app browser pane runs with
+`document.hidden === true` and fires **zero** rAF frames, so **no CSS transition or animation
+advances there**. A control element (a plain 2s opacity transition) sat at 0 after a full second,
+which is how this was separated from a real bug. Motion must be judged by eye on a real screen;
+what the bench *can* prove is the target each class lands on, read with `transition: none`.
+
+---
+
+## 40. The boss intro — an entrance on the table's own screen (DM ask 2026-08-09, BUILT + bench-verified)
+
+The DM's words: "first pause, then have the selected token's image appear enlarged on the screen
+first facing down playing a predetermined sound (set in widget by dragging a token and a sound
+into a container to 'create' a boss) and wiggles a little for about 2 seconds, then the token
+turns to face right, does the same wiggle, turns to top does the wiggle and sound again. Then the
+image zooms out and shrinks. On the left would be the default DM seat making the turn to it
+pointless. In online mode, the animation is wiggle and sound twice facing down."
+
+### 40.1 Why it turns
+
+A screen lying flat has people on **three** of its four sides — the fourth is the DM's chair. A
+top-down token that only ever faces one way has its back to two thirds of the table, so the boss
+addresses each side in turn: **down → right → top**, never left, and always the short way round so
+it never sweeps past the DM. This is the same geometry the seats are built on (§38.4b), which is
+why online — where nobody has an edge — drops the turn entirely and plays the beat twice facing
+down (§39).
+
+Screen degrees, clockwise, for a token drawn facing up (the Foundry convention): 180 points it at
+the bottom edge, 90 at the right, 0 at the top.
+
+### 40.2 The shape
+
+- **A boss is a monster plus a noise.** `bosses` world setting: `[{ id, actorId, sound }]`. Name
+  and art are deliberately **not** stored — they're read off the actor when it plays, so renaming
+  a monster or repainting its token is enough. `sound` is a PlaylistSound uuid or a bare file path.
+- **The widget** is a drawer on the Combat tab: drag an actor into the container to make a boss,
+  drop a playlist track onto the row to give it a voice, plus a file-picker button for audio that
+  isn't in a playlist (§8.1 — the gesture is the ritual, the button is the authority).
+- **The trigger** pauses first, then fires a one-shot (`bossIntro` with `{ img, sound }`) over the
+  same socket channel as the other one-shots (§26). Nothing persists: an entrance is a moment, not
+  a state, so a client that reloads mid-roar simply misses it.
+- **The pause is claim-and-release.** We pause only if the game was running, and lift it only if
+  the pause is still ours — a DM who reached for the space bar mid-roar meant it (pause-guard rule).
+- **Who sees it.** In person, canvas clients only (TV + DM): six phones roaring half a second apart
+  is exactly the mess that took music off the phones (§20.6). Online, everyone — each player has
+  their own screen and there's no room to be out of step with.
+- **Sound rides the INTERFACE channel.** It's the one channel the phone-silencing rule leaves
+  alone, and it's still governed by the DM's mirrored TV volume — so the roar lands at the level
+  the DM set, not at whatever the file was mastered to.
+- **Cost.** Every animated property is `transform` or `opacity`, so the whole thing is composited;
+  the single `filter` is a static drop shadow. Nothing here re-rasterises per frame (§38.4a).
+
+The turn and the wiggle are separate elements: both are transforms, and one element cannot carry
+two. The box turns; the figure shudders inside it.
+
+Timings live in one `BEAT` table in `boss-intro.js`: in 700 · wiggle 2000 (0.11s × 18 keyframes) ·
+turn 620 · online gap 240 · out 900. Total ≈ **8.84s** in person, **5.84s** online.
+
+### 40.3 Bench run (2026-08-09)
+
+Sampled live: overlay up and paused at t=250 facing 180° → 90° at 3400 → 0° at 6200 → `mc-bi-out`
+at 8000 → torn down at 9000 → pause lifted at 9800. Online: 180° throughout, out at 5300, pause
+lifted at 6600. Class targets read with transitions disabled: rest `scale(.18)` opacity 0 → up
+`scale(1)` opacity 1 (558px stage on a 900px-tall viewport) → out `scale(.04)` opacity 0. Drops
+verified end to end: an Actor drop creates the boss, a PlaylistSound drop onto the row names its
+track and takes the row from dashed to solid.
+
+Bench residue: one boss (Adela Druskenvald + "04 Booming Waves Cave") left on the list as a
+working example — delete it from the drawer if it's in the way.
+
+### 40.4 Decisions taken, worth re-asking at the table
+
+1. **The sound plays on every beat**, not just the first and last. The DM's text says "sound" on
+   the down beat and "the wiggle and sound again" at the top, and is silent about the right turn;
+   three roars reads as the boss addressing each side, which is the point of the turn. One line
+   in `boss-intro.js` if it's one too many.
+2. **The game un-pauses itself** when the entrance ends. The alternative — staying paused for a
+   beat before initiative — is one deleted `setTimeout`.
+3. **No name is shown.** The DM asked for the token's image and nothing else, and a name is a
+   spoiler on a shared screen.
