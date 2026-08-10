@@ -128,7 +128,13 @@ export async function dmToggleFx(id) {
   const wantOn = !fxIsOn(id);
   if (def.darkness) {
     // A slow astronomical fade, not a light switch. 0.05 not 0 so "day" still reads as lit.
-    await sc?.update({ "environment.darknessLevel": wantOn ? 0.85 : 0.05 }, { animateDarkness: 5000 });
+    // §41 THE DM IS DRIVING NOW. Without this the clock's next tick would quietly undo the Night
+    // toggle and the DM would watch their own choice evaporate. Turning Night ON takes the wheel;
+    // turning it OFF hands it back, and the scene rejoins the clock at the next tick.
+    await sc?.update({
+      "environment.darknessLevel": wantOn ? 0.85 : 0.05,
+      [`flags.${MODULE_ID}.daylightHold`]: wantOn ? true : null
+    }, { animateDarkness: 5000 });
     return;
   }
   if (def.weather !== undefined && sc) await sc.update({ weather: wantOn ? def.weather : "" });

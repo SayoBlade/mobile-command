@@ -18,6 +18,7 @@ import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "
 import { registerFxEngine } from "./effects.js"; // §26 Effects tab engine
 import { cardTableRefreshMode } from "./card-table.js"; // §39: re-lay the board when the table mode changes
 import { dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
+import { registerDaylight, applyDaylight } from "./daylight.js"; // §41 the clock drives scene darkness
 import { registerSettingsMenu } from "./settings-app.js"; // §29 settings mini-app (menu button)
 
 Hooks.once("init", () => {
@@ -772,6 +773,7 @@ Hooks.once("ready", () => {
   initSocket(); // idempotent fallback in case socketlib.ready raced or didn't fire
   registerFxEngine(); // §26 Effects tab: apply/remove screen filters + ambience loops as fxActive changes (all clients; phones flash-only)
   initPauseGuard();
+  registerDaylight(); // §41: scene darkness follows the world clock (executor-gated inside)
   if (!isPhoneClient()) initPauseOverlay(); // corner spinners replace the "GAME PAUSED" bar (phones have their own overlay)
   if (!isPhoneClient()) initHeartbeat();    // critical-HP heartbeat pulse on PC token rings (canvas only)
   startHeartbeat();
@@ -827,6 +829,9 @@ Hooks.once("ready", () => {
     refreshPanel,                        // repaint the DM panel (used by the display's audio report)
     refreshTableMode: cardTableRefreshMode, // §39 in person ⇄ online: re-lay the card table's seats
     playBossIntro: dmPlayBossIntro,      // §40 macro/Stream Deck access to a boss's entrance (§8.1)
+    // §41 put the CURRENT scene at the clock's darkness right now — the manual trigger beside the
+    // automatic one (§8.1), and what the setting's onChange calls when you switch it back on.
+    applyDaylightNow: () => applyDaylight(canvas?.scene ?? game.scenes?.active, { animate: 1200 }),
     syncPartyTokenSight,                 // GM: set each PC token's sight/detection from its dnd5e senses
     resolveExecutorId,
     isExecutor

@@ -150,7 +150,9 @@ export class MCSettingsApp extends ApplicationV2 {
   #travelPane() {
     const marked = (this.#get("travelOverworldSceneIds") || [])
       .map(id => game.scenes.get(id)?.name).filter(Boolean).map(foundry.utils.escapeHTML).join(", ");
-    return this.#sec("Travel maps")
+    return this.#sec("Day & night")
+      + this.#toggle("clockDaylight", "Daylight follows the clock", "Every scene's darkness moves with the time of day. Mark indoor areas with Foundry's \"Adjust Darkness Level\" region behaviour (Override) to opt them out; a scene with darkness LOCKED is left alone.")
+      + this.#sec("Travel maps")
       + this.#hintRow("Overworld scenes", marked ? `Marked: ${marked}` : "None marked — mark scenes from the DM panel's Travel tab.")
       + this.#toggle("travelAutoLight", "Auto-set overworld lighting on load")
       + this.#toggle("travelDaylight", "Daylight follows the clock")

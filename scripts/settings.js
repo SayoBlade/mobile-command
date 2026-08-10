@@ -545,6 +545,20 @@ export function registerSettings() {
     ]
   });
 
+  // §41 the clock drives the light on EVERY map (DM 2026-08-09: "keep every map with
+  // environmental light by default"). Interiors are the DM's own `adjustDarknessLevel` regions in
+  // Override mode, which pin darkness locally regardless of the scene — so this and those compose
+  // rather than fight. Per-scene escape hatches: darknessLock, or the Effects Night toggle's hold.
+  game.settings.register(MODULE_ID, "clockDaylight", {
+    name: "Daylight follows the clock",
+    hint: "As game time passes, every scene's darkness moves with the time of day — dawn, full light, dusk, night. Mark indoor areas with Foundry's \"Adjust Darkness Level\" region behaviour (Override mode) and they'll ignore it. A scene with its darkness LOCKED is left alone. Off: light only changes when you change it.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: () => { try { globalThis.MobileCommand?.applyDaylightNow?.(); } catch (e) { /* pre-ready */ } }
+  });
+
   // §18 travel: during a journey the scene's darkness sweeps to match the clock. Moved out of the
   // Travel tab into settings (DM 2026-07-18 — the inline toggle read as unclear).
   game.settings.register(MODULE_ID, "travelDaylight", {

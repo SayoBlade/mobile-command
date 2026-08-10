@@ -4140,3 +4140,91 @@ present from t=400 at 0°/270°/180°, unchanged while the turn box went 180 →
 Found in the wild on the same run: the DM had already replaced the bench's example boss with his
 own — "Oak of Many Faces" + a thunder `.mp3` stored as a bare path, so the file-picker route works
 outside the drag gesture too.
+
+---
+
+## 41. The clock actually drives the light (DM report 2026-08-09 — BUILT + bench-verified)
+
+> DM: *"I don't see any change in lighting over time, am I doing something wrong?"*
+
+No. **Nothing in the module changed lighting as time passed.**
+
+### 41.1 The gap
+
+The day/night curve has existed since 2026-08-02 and is exactly right — four phases, a gentle
+peak at 0.7, never pitch black. What was never built is the thing that CALLS it. `darknessForHour`
+had precisely two call sites, both inside travel:
+
+- `dm-panel.js` — the one-shot when a DM-marked travel map is first opened
+- `dm-panel.js` — the per-waypoint sweep inside `runTravelJourney`
+
+and the module's only `updateWorldTime` hook repainted the panel's clock chip. So the clock moved
+and the light never did, on any map, unless the party was literally walking.
+
+preset.js already recorded the decision as settled — *"the clock drives scene darkness EVERYWHERE
+… the party arriving at a moor at 02:00 finds it dark; arriving at 10:00 finds it lit"* — so the
+comment read as though this were done. It wasn't. That mismatch is what made the DM ask whether he
+was holding it wrong.
+
+### 41.2 The decision, reconfirmed (DM 2026-08-09)
+
+> *"Maps that have indoor and outdoor areas will have the indoor region marked to ignore the
+> environmental lighting, so keep every map with environmental light by default."*
+
+So the loop runs on **every** scene. Interiors are the DM's own Foundry regions carrying the
+`adjustDarknessLevel` behaviour in **Override** mode, which pins darkness inside the region
+regardless of the scene value — verified present in installed 14.365
+(`client/data/region-behaviors/adjust-darkness-level.mjs`, MODES = OVERRIDE | BRIGHTEN | DARKEN,
+initial OVERRIDE). The two compose: outdoors follows the sun, the cave doesn't.
+
+### 41.3 `daylight.js`
+
+One hook, three ways out, two guards.
+
+- **Hooks.** `updateWorldTime` → the ACTIVE scene (not `canvas.scene`: the DM peeking at next
+  week's dungeon shouldn't re-light it). `canvasReady` and scene-activation → apply with **no
+  fade**, because an arrival should already BE that dark rather than dawning into it in front of
+  the room.
+- **Ways out.** `environment.darknessLock` (the DM froze this map — oldest rule, still wins) · a
+  `daylightHold` scene flag, set by the Effects tab's Night toggle so the clock stops arguing with
+  a DM who took manual control, cleared when they turn it off · the `clockDaylight` world setting.
+- **Travel still owns the trip.** `setDaylightSuspended(true/false)` around `runTravelJourney`, so
+  two writers never animate the same field at different durations (that reads as a stutter).
+  dm-panel imports daylight.js and never the reverse — no cycle.
+
+**`_source`, never prepared — a bug this file shipped with for ten minutes.** During an
+`animateDarkness` fade Foundry writes the animation's CURRENT FRAME back onto
+`scene.environment.darknessLevel`, so the prepared value is wherever the fade has got to. The
+throttle compared against it, which meant a tick landing mid-fade re-wrote a scene that was already
+correct. effects.js learned this exact lesson in 2026-07 (its Night toggle read stale-day for five
+seconds). Caught on the bench by an "idempotent" check returning `wrote: true`.
+
+**The write-rate floor (`MIN_WRITE_MS` 4000).** The delta gate alone assumes time passes at the
+speed a DM taps it. It doesn't have to. A running real-time clock at 60× crosses `MIN_STEP` about
+thirty-five times during a one-game-hour dawn ramp — thirty-five database writes plus thirty-five
+broadcasts in sixty real seconds, on a machine we know is modest. The floor caps that at ~15, a
+skipped tick schedules ONE trailing catch-up so nothing goes stale, and the fade is timed to the
+same interval so the steps blend into a continuous sunrise instead of a staircase. Arrivals pass
+`force: true`.
+
+**The second reason a DM sees nothing.** A scene whose Global Illumination never yields stays lit
+through midnight no matter what we write. It's invisible from the outside, so `daylight.js` says it
+out loud — once per scene per session, GM-only, pointing at Preflight → Travel lighting.
+
+### 41.4 Bench (2026-08-09, Offline test)
+
+Verified across the curve with Simple Calendar Reborn providing the clock (sunrise 6 / sunset 18):
+13:29 → 0 · 17:29 → 0 · 21:29 → 0.7 · 01:29 → 0.7 · 05:29 → 0.7, and back down on a manual nudge
+(0.47 → 0.7 → restored). Guard matrix, all five: idempotent when already correct · `darknessLock`
+blocks · `daylightHold` blocks · applies when both are cleared (0 → 0.7) · idempotent again.
+
+**Two bench traps recorded so they aren't re-discovered:**
+
+1. **Read `_source`, not `environment`, when judging scene darkness** — see above. The hidden pane
+   makes it worse (no rAF, so the prepared value freezes at the fade's start value forever), but
+   the trap is real on a live client for the length of the fade.
+2. **Large `game.time.advance()` rewinds make Simple Calendar catch up in a burst.** Undoing ~47
+   game-hours of test advances left world time briefly moving at ~60 game-seconds per real second,
+   which read exactly like a running real-time clock and prompted the write-rate floor above. A
+   later measurement with the world at rest read **0** — the world clock is not self-running. The
+   floor stays: it is correct defensive work for any table that does run one.

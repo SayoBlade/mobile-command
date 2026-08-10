@@ -14,6 +14,7 @@ import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §2
 import { trainScenes, trainMistOn, wireTrainDoors, setTrainMist } from "./cm-train.js"; // §37 the Ghostlight ride
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 import { bossList, bossSave, bossImage, bossSoundSrc, bossSoundLabel, dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
+import { setDaylightSuspended } from "./daylight.js"; // §41 travel owns the light for the length of a journey
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -1554,6 +1555,10 @@ async function runTravelJourney(group) {
   const sun = sunTimes(); // read once for the journey — sunrise/sunset don't move mid-trip
   const wePaused = !game.paused;
   if (wePaused) game.togglePause(true);
+  // §41 the journey drives darkness itself, waypoint by waypoint, with its animation timed to the
+  // walk — so the clock loop stands down for the trip rather than animating the same field at a
+  // different duration underneath it (that reads as a stutter on the map).
+  setDaylightSuspended(true);
   travelJourneyActive = true; travelJourneyStop = false; render();
   try {
     let lastDark = null;
@@ -1574,6 +1579,7 @@ async function runTravelJourney(group) {
   } catch (e) { console.error(`${MODULE_ID} | journey failed`, e); }
   const arrived = !travelJourneyStop;
   travelJourneyActive = false; travelJourneyStop = false;
+  setDaylightSuspended(false); // §41 the clock has the light back — including if the journey threw
   if (arrived) {
     const end = pts[pts.length - 1], g = scene.grid.size;
     await scene.setFlag(MODULE_ID, "travelPos", { x: Math.round(end.x - (gt.width || 1) * g / 2), y: Math.round(end.y - (gt.height || 1) * g / 2) });
