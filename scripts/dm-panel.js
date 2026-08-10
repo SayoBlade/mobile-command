@@ -1,6 +1,6 @@
 import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState } from "./rpc.js";
 import { fireAoO } from "./aoo.js";
-import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD, STORY_QUESTIONS, TABLE_SEATS, CARD_THEMES, DEFAULT_CARD_THEME } from "./preset.js";
+import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD, STORY_QUESTIONS, TABLE_SEATS, CARD_THEMES, DEFAULT_CARD_THEME, DEFAULT_CARD_BACK } from "./preset.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
 import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar, sunTimes } from "./gametime.js";
@@ -15,6 +15,7 @@ import { trainScenes, trainMistOn, wireTrainDoors, setTrainMist } from "./cm-tra
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 import { bossList, bossSave, bossImage, bossSoundSrc, bossSoundLabel, dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { setDaylightSuspended } from "./daylight.js"; // §41 travel owns the light for the length of a journey
+import { dealTarot, actorCard, revealActorCard, setActorCard, hasBookArt } from "./tarot.js"; // §42 the Fated Tarot
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -491,6 +492,48 @@ function seanceSend() {
   render();
 }
 
+// --- §42 The Fated Tarot: one Major Arcana per character, kept for the campaign -------------
+// Same roster shape as the séance's sitters (§30.1, UI-BIBLE §3/§6.6): scene-scoped PCs, tap to
+// include. Deal turns every chosen card face DOWN; turning them over is a second, deliberate act,
+// because the turn is the whole ritual. A card already held shows on its row so the DM can see
+// the table's whole reading at a glance months later.
+const tarotParty = new Set();
+function tarotBody() {
+  const esc = foundry.utils.escapeHTML;
+  const pcs = scenePcs();
+  for (const id of [...tarotParty]) if (!pcs.some(a => a.id === id)) tarotParty.delete(id);
+  if (!pcs.length) return `<div class="mc-dmp-empty">No player characters in this scene.</div>`;
+  const rows = pcs.map(a => {
+    const inRead = tarotParty.has(a.id);
+    const card = actorCard(a);
+    // The card's NAME is the readout; the plate is only shown if the book is installed. A card
+    // still face down reads as such rather than spoiling itself on the DM's own panel.
+    const held = card
+      ? `<span class="mc-tarot-held ${card.shown ? "" : "mc-tarot-down"}">${card.shown ? esc(card.name) : "face down"}</span>`
+      : "";
+    return `<div class="mc-tarot-row">
+      <button class="mc-seance-pc ${inRead ? "mc-on" : ""}" data-tarot-pc="${a.id}" title="${inRead ? `${esc(a.name)} is in the reading` : `Deal ${esc(a.name)} a card`}">
+        <i class="fas fa-circle-user" style="color:${pcColor(a)}"></i><span>${esc(a.name)}</span>
+        ${inRead ? `<i class="fas fa-check mc-seance-pc-check"></i>` : ""}
+      </button>
+      ${held}
+      ${card ? `<button class="mc-dmp-mini" data-tarot-flip="${a.id}" title="${card.shown ? "Turn it back down" : "Turn it over"}"><i class="fas ${card.shown ? "fa-eye-slash" : "fa-eye"}"></i></button>` : ""}
+      ${card ? `<button class="mc-dt-icon-only mc-boss-del" data-tarot-clear="${a.id}" title="Take ${esc(a.name)}'s card back — it returns to the deck"><i class="fas fa-xmark"></i></button>` : ""}
+    </div>`;
+  }).join("");
+  const chosen = tarotParty.size;
+  const anyDown = pcs.some(a => { const c = actorCard(a); return c && !c.shown; });
+  const left = 22 - [...(game.actors ?? [])].filter(a => a.getFlag(MODULE_ID, "tarot")?.key).length;
+  return `${rows}
+    <button class="mc-dmp-sz-begin" data-tarot-deal ${chosen ? "" : "disabled"}
+      title="${chosen ? "Deal each of them one Major Arcana, face down" : "Choose who's having their cards read"}">
+      <i class="fas fa-wand-sparkles"></i> ${chosen ? `Deal ${chosen} ${chosen === 1 ? "Card" : "Cards"}` : "Deal the Cards"}
+    </button>
+    ${anyDown ? `<button class="mc-dmp-pf-fix mc-dmp-story-random" data-tarot-flipall><i class="fas fa-eye"></i> Turn Them Over</button>` : ""}
+    <div class="mc-dmp-story-status">${left} of 22 arcana still in the deck${hasBookArt() ? "" : " · no book art installed, so cards read by name"}</div>
+    ${backPickerHTML("tarotBackImage", "Tarot back")}`;
+}
+
 // §26.6 Player drawer: pick the victim, then per-phone toggles/shots. Same roster row shape as
 // the Party tab's picker (§3: identity icon in the player's colour).
 function fxPlayerBody() {
@@ -581,6 +624,7 @@ function crookedTabHTML() {
     ${dtDrawer("cmCurses", "Chaotic curses", "", curseBody(), true)}
     ${dtDrawer("cmFate", "Fateweaving", "", fateBody(), true)}
     ${dtDrawer("cmTwists", "Twists of fate", "", twistsBody(), true)}
+    ${dtDrawer("cmTarot", "Fated tarot", "", tarotBody(), true)}
     ${dtDrawer("cmBoard", "All aboard", "", allAboardBody(), true)}
     ${dtDrawer("cmRide", "The Ghostlight ride", "", trainRideBody(), true)}
     ${dtDrawer("fxSeance", "Séance", "", seanceBody(), true)}
@@ -3161,45 +3205,33 @@ function playersBody() {
     </div>`;
 }
 
-// --- §38.4a the card table: on/off + the card-back picker ---------------------------------
-// The back is chosen from a gallery (the Crooked Moon card sets, the module's own art/, and
-// anything previously uploaded) or uploaded custom at 5:7. Gallery scanning is async, so the
-// results are cached and the drawer repaints when they land.
-let cardBackGallery = null; // null = not scanned yet; [] = scanned, nothing found
-const CARD_BACK_SOURCES = [
-  "modules/the-crooked-moon-2014/assets/card/card item",
-  "modules/the-crooked-moon-2014/assets/card/card monster",
-  "modules/the-crooked-moon-2014/assets/card/card npc",
-  "modules/the-crooked-moon-2014/assets/card/card familiar",
-  "modules/mobile-command/art",
-  "mc-cards"
-];
-async function scanCardBacks() {
-  const FP = foundry.applications?.apps?.FilePicker?.implementation ?? FilePicker;
-  const out = [];
-  for (const dir of CARD_BACK_SOURCES) {
-    try {
-      const res = await FP.browse("data", dir);
-      for (const f of res.files ?? []) {
-        if (!/\.(webp|png|jpe?g)$/i.test(f)) continue;
-        // CM's sets pair backs and fronts — only the backs are candidates. Our own art/ and
-        // uploaded customs are taken as-is (that's what the folder is FOR).
-        const own = dir.includes("mobile-command/art") || dir === "mc-cards";
-        if (!own && !/back/i.test(f)) continue;
-        // Our own art/ holds more than backs (the table, the blank face, séance pieces) — only
-        // the *-back* files are candidates, never the table or the frame.
-        if (own && !/back/i.test(f)) continue;
-        out.push(f);
-      }
-    } catch (e) { /* a source that isn't installed is simply skipped */ }
-  }
-  cardBackGallery = out;
-  render();
+// --- The card back: OURS, plus a file ------------------------------------------------------
+// (DM 2026-08-09: "remove the million card backs in session 0, and keep the one we have with an
+// option to choose a file, and do the same for tarot.")
+//
+// This replaced a gallery that scanned four Crooked Moon card sets plus two folders and laid out
+// dozens of thumbnails. It was a lot of screen and a lot of async machinery spent asking a
+// question nobody had: the module's own back is the right answer, and a DM who wants a different
+// one wants THEIR file, not a pick from someone else's set. So: the current back, one button to
+// choose a file, and a way back to ours. Shared by session zero and the tarot deck (§42) —
+// `key` is whichever setting holds that deck's back.
+function backPickerHTML(key, label = "Card back") {
+  const esc = foundry.utils.escapeHTML;
+  const cur = (() => { try { return game.settings.get(MODULE_ID, key) || ""; } catch (e) { return ""; } })();
+  return `<div class="mc-dmp-story-cat">${esc(label)}</div>
+    <div class="mc-dmp-backpick">
+      <img class="mc-dmp-backpick-img" src="${esc(cur || DEFAULT_CARD_BACK)}" alt="">
+      <div class="mc-dmp-backpick-side">
+        <button class="mc-dmp-pf-fix" data-back-pick="${key}"><i class="fas fa-folder-open"></i> Choose a File</button>
+        ${cur
+          ? `<button class="mc-dmp-seat-move" data-back-clear="${key}" title="Back to the module's own back">use the default</button>`
+          : `<span class="mc-dmp-story-none">the module's own</span>`}
+      </div>
+    </div>`;
 }
 function cardTableBody() {
   const esc = foundry.utils.escapeHTML;
   const on = (() => { try { return !!game.settings.get(MODULE_ID, "cardTableOn"); } catch (e) { return false; } })();
-  const cur = (() => { try { return game.settings.get(MODULE_ID, "cardBackImage") || ""; } catch (e) { return ""; } })();
   // §39 what "ready to deal" means depends on the table. In person it's how many chairs the DM
   // has filled; online everyone with an account is already at the board, so the count is simply
   // the roster and the opening is never gated on a seating step that doesn't exist.
@@ -3209,11 +3241,6 @@ function cardTableBody() {
     : Object.keys((() => { try { return game.settings.get(MODULE_ID, "tableSeats") ?? {}; } catch (e) { return {}; } })()).length;
   const deck = (() => { try { return game.settings.get(MODULE_ID, "cardTheme") || DEFAULT_CARD_THEME; } catch (e) { return DEFAULT_CARD_THEME; } })();
   const opened = (() => { try { return !!game.settings.get(MODULE_ID, "szOpened"); } catch (e) { return false; } })();
-  if (cardBackGallery === null) scanCardBacks();
-  const thumbs = (cardBackGallery ?? []).map(f => `
-    <button class="mc-dmp-cardback ${f === cur ? "mc-on" : ""}" data-cardback="${esc(f)}" title="${esc(f.split('/').pop())}">
-      <img src="${esc(f)}" alt="" loading="lazy">
-    </button>`).join("");
   // The count line ends in a right-aligned "change" link straight into Players & seats (DM
   // 2026-08-05) — seating is the thing you want to fix when the count reads wrong, and it lives
   // in a different drawer. The explanation that used to sit here is gone.
@@ -3236,16 +3263,8 @@ function cardTableBody() {
     <div class="mc-dmp-decks">${CARD_THEMES.map(t => `
       <button class="mc-dmp-deck ${t.id === deck ? "mc-on" : ""}" data-cardtheme="${t.id}" title="${esc(t.label)}">
         <span class="mc-dmp-deck-sw" style="background-color:${t.accent}"></span>${esc(t.label)}</button>`).join("")}</div>
-    <div class="mc-dmp-story-cat">Card back</div>
-    <div class="mc-dmp-cardbacks">
-      <button class="mc-dmp-cardback ${cur ? "" : "mc-on"}" data-cardback="" title="The module's default back"><span>Default</span></button>
-      ${cardBackGallery === null ? `<span class="mc-dmp-story-none">scanning…</span>` : thumbs}
-    </div>
-    <div class="mc-dmp-story-new">
-      <input class="mc-dmp-story-input mc-dmp-cardupload" type="file" accept="image/webp,image/png,image/jpeg">
-      <button class="mc-dmp-pf-fix" data-cardback-upload>Upload</button>
-    </div>
-    <div class="mc-dmp-story-status">Custom backs: portrait 5:7 (500×700 or larger).</div>`;
+    ${backPickerHTML("cardBackImage")}
+    <div class="mc-dmp-story-status">A custom back reads best portrait, 5:7 (500×700 or larger).</div>`;
 }
 
 // §38.4 slice 2: the DM's story-question deck. One tap pushes a question to every connected
@@ -4272,6 +4291,33 @@ async function onClick(ev) {
   }
   const gs = ev.target.closest("[data-group-sheet]");
   if (gs) { game.actors.get(gs.dataset.groupSheet)?.sheet?.render(true); return; }
+  // §42 Fated tarot: choose who's read, deal, turn cards over, take one back.
+  const tPc = ev.target.closest("[data-tarot-pc]");
+  if (tPc) {
+    const id = tPc.dataset.tarotPc;
+    if (tarotParty.has(id)) tarotParty.delete(id); else tarotParty.add(id);
+    return render();
+  }
+  if (ev.target.closest("[data-tarot-deal]")) {
+    const actors = [...tarotParty].map(id => game.actors.get(id)).filter(Boolean);
+    const dealt = await dealTarot(actors);
+    if (dealt.length < actors.length) ui.notifications.warn(`${MODULE_ID} | the deck ran out — only ${dealt.length} of ${actors.length} could be dealt.`);
+    tarotParty.clear(); // the reading happened; the roster is for the NEXT one
+    return render();
+  }
+  const tFlip = ev.target.closest("[data-tarot-flip]");
+  if (tFlip) {
+    const a = game.actors.get(tFlip.dataset.tarotFlip);
+    await revealActorCard(a, !actorCard(a)?.shown);
+    return render();
+  }
+  if (ev.target.closest("[data-tarot-flipall]")) {
+    for (const a of scenePcs()) { if (actorCard(a) && !actorCard(a).shown) await revealActorCard(a, true); }
+    return render();
+  }
+  const tClear = ev.target.closest("[data-tarot-clear]");
+  if (tClear) { await setActorCard(game.actors.get(tClear.dataset.tarotClear), null); return render(); }
+
   // §40 boss intro: play one, give it a sound from disk, or take it off the list.
   const bossPlay = ev.target.closest("[data-boss-play]");
   if (bossPlay) { await dmPlayBossIntro(bossPlay.dataset.bossPlay); return; }
@@ -4300,36 +4346,37 @@ async function onClick(ev) {
   }
   const deckBtn = ev.target.closest("[data-cardtheme]");
   if (deckBtn) { await game.settings.set(MODULE_ID, "cardTheme", deckBtn.dataset.cardtheme); return render(); }
-  const cb = ev.target.closest("[data-cardback]");
-  if (cb) { await game.settings.set(MODULE_ID, "cardBackImage", cb.dataset.cardback ?? ""); return render(); }
-  if (ev.target.closest("[data-cardback-upload]")) {
-    const input = ev.target.closest(".mc-dmp-story-new")?.querySelector(".mc-dmp-cardupload");
-    const file = input?.files?.[0];
-    if (!file) return ui.notifications.info("Pick an image file first.");
+  // The card back for either deck: choose a file, or go back to the module's own. FilePicker
+  // browses AND uploads, so this one button replaces the old gallery + separate upload row.
+  const backPick = ev.target.closest("[data-back-pick]");
+  if (backPick) {
+    const key = backPick.dataset.backPick;
     const FP = foundry.applications?.apps?.FilePicker?.implementation ?? FilePicker;
-    try {
-      // Warn, don't refuse, when the aspect is far off 5:7 — the DM may know exactly what they want.
-      const dims = await new Promise(res => {
-        const img = new Image(); const url = URL.createObjectURL(file);
-        img.onload = () => { res({ w: img.naturalWidth, h: img.naturalHeight }); URL.revokeObjectURL(url); };
-        img.onerror = () => res(null);
-        img.src = url;
-      });
-      if (dims && Math.abs((dims.w / dims.h) - (5 / 7)) > 0.12) {
-        ui.notifications.warn(`That's ${dims.w}×${dims.h} — cards are 5:7, so it'll be cropped to fit.`);
+    let current = ""; try { current = game.settings.get(MODULE_ID, key) || ""; } catch (e) { /* unset */ }
+    new FP({
+      type: "image",
+      current,
+      callback: async (path) => {
+        await game.settings.set(MODULE_ID, key, path);
+        // Warn, never refuse — the DM may know exactly what they want (UI-BIBLE §8).
+        try {
+          const dims = await new Promise(res => {
+            const img = new Image();
+            img.onload = () => res({ w: img.naturalWidth, h: img.naturalHeight });
+            img.onerror = () => res(null);
+            img.src = foundry.utils.getRoute(path);
+          });
+          if (dims && Math.abs((dims.w / dims.h) - (5 / 7)) > 0.12) {
+            ui.notifications.warn(`That's ${dims.w}×${dims.h} — cards are 5:7, so it'll be cropped to fit.`);
+          }
+        } catch (e) { /* the size check is a courtesy, never a gate */ }
+        render();
       }
-      try { await FP.createDirectory("data", "mc-cards"); } catch (e) { /* exists */ }
-      const up = await FP.upload("data", "mc-cards", file, {}, { notify: false });
-      if (up?.path) {
-        await game.settings.set(MODULE_ID, "cardBackImage", up.path);
-        cardBackGallery = null; // rescan so it joins the gallery
-      } else ui.notifications.warn("Upload failed — check the console.");
-    } catch (e) {
-      console.error(`${MODULE_ID} | card-back upload failed`, e);
-      ui.notifications.warn(`Couldn't upload that: ${e.message}`);
-    }
-    return render();
+    }).browse();
+    return;
   }
+  const backClear = ev.target.closest("[data-back-clear]");
+  if (backClear) { await game.settings.set(MODULE_ID, backClear.dataset.backClear, ""); return render(); }
 
   // §38.4b Players & seats: pick a player up, drop them in a seat, clear a seat, add an account.
   const spick = ev.target.closest("[data-seat-pick]");

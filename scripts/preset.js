@@ -177,6 +177,12 @@ export const ABILITY_ICONS = {
 // All three are built from the SAME art with blend modes rather than three sets of images — a
 // modest machine shouldn't hold three tables and three decks, and it means a custom back the DM
 // uploads still reads as part of whichever deck is in play.
+// The house card back. ONE back, ours, plus a file if the DM wants their own (DM 2026-08-09:
+// "remove the million card backs in session 0, and keep the one we have with an option to choose
+// a file, and do the same for tarot"). The old gallery scanned four Crooked Moon sets plus two
+// folders and offered dozens of thumbnails to answer a question nobody was asking.
+export const DEFAULT_CARD_BACK = "modules/mobile-command/art/card-back.png";
+
 export const CARD_THEMES = [
   { id: "moonlit", label: "Moonlit", accent: "#c8a44d" },  // the house deck: candlelit parchment, gold
   { id: "ash", label: "Ash", accent: "#a34049" },          // grey parchment, blood highlight, hard corners
@@ -247,7 +253,12 @@ export const CREATION_BEATS = {
 //
 // The ramps are CENTRED on sunrise and sunset, so sunrise is the midpoint of getting light (the
 // half before it is twilight, the half after is the sun climbing) rather than its start.
-export const NIGHT_DARKNESS_PEAK = 0.7;   // "full dark" — deliberately not 1.0, see above
+// "Full dark" — deliberately not 1.0, see above. Raised 0.7 → 0.8 (DM 2026-08-09, "make night a
+// bit darker") once §41 made the curve actually visible at the table: with the light finally
+// moving on every map, 0.7 read as dusk that never quite arrived. 0.8 is a real night and still
+// short of pitch black, so a fully-visible overworld stays readable. This is THE knob for how
+// dark night gets — everything else here is derived from it.
+export const NIGHT_DARKNESS_PEAK = 0.8;
 export const DAWN_DUSK_RAMP_HOURS = 1;    // how long the gradual bit lasts, total
 export const DEFAULT_SUNRISE_HOUR = 6;
 export const DEFAULT_SUNSET_HOUR = 18;
@@ -266,7 +277,10 @@ export function darknessForHour(hour, opts = {}) {
   return N;                                                                                       // full dark
 }
 // Global light is the SUN under this model, so it must yield before the curve tops out — a scene
-// whose global-light threshold sits at or above the night peak never actually gets dark. 0.35 is
-// exactly the curve's dawn/dusk value, so the sun is up from 06:00 to 18:00 and down outside it:
-// the threshold and the curve describe the same day rather than two overlapping ones.
-export const GLOBAL_LIGHT_NIGHT_THRESHOLD = 0.35;
+// whose global-light threshold sits at or above the night peak never actually gets dark. The
+// threshold is exactly the curve's dawn/dusk value, so the sun is up from 06:00 to 18:00 and down
+// outside it: the threshold and the curve describe the same day rather than two overlapping ones.
+// DERIVED, not a second constant (2026-08-09): it was written as a literal 0.35 next to a peak of
+// 0.7, which is the same number said twice — so raising the peak silently broke the invariant the
+// comment above promises. Now the peak is the only knob and this follows it.
+export const GLOBAL_LIGHT_NIGHT_THRESHOLD = NIGHT_DARKNESS_PEAK / 2;

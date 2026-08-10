@@ -6092,3 +6092,26 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 }
 .mc-boss-new i { color: var(--mc-gold); opacity: .75; }
 .mc-boss-new.mc-drag-over { border-color: var(--mc-gold); border-style: solid; background: var(--mc-panel-2); color: var(--mc-ink); }
+
+/* == §42 Fated tarot ======================================================================== */
+/* The player's card, as a chip beside their conditions. Face down is deliberately QUIET — the
+   card exists, it has a name, and they can't read it yet. Gold arrives with the reveal. */
+.mc-tarot-chip { border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-tarot-chip.mc-tarot-facedown { border-style: dashed; border-color: var(--mc-muted); color: var(--mc-muted); }
+
+/* Panel rows: identity button, the held card, turn it, take it back. */
+.mc-tarot-row { display: flex; align-items: center; gap: 6px; }
+.mc-tarot-row + .mc-tarot-row { margin-top: 4px; }
+.mc-tarot-row .mc-seance-pc { flex: 1 1 auto; min-width: 0; }
+.mc-tarot-held { flex: 0 0 auto; font-size: 11.5px; color: var(--mc-gold); white-space: nowrap;
+  max-width: 40%; overflow: hidden; text-overflow: ellipsis; }
+.mc-tarot-held.mc-tarot-down { color: var(--mc-muted); font-style: italic; }
+
+/* == The card back picker (session zero + tarot) — one back, ours, plus a file =============== */
+.mc-dmp-backpick { display: flex; align-items: center; gap: 10px; margin: 4px 0 2px; }
+.mc-dmp-backpick-img {
+  flex: 0 0 auto; width: 46px; aspect-ratio: 5 / 7; object-fit: cover;
+  border-radius: calc(6px * var(--mc-round, 1)); border: 1px solid var(--mc-edge);
+  background: var(--mc-sunken);
+}
+.mc-dmp-backpick-side { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }

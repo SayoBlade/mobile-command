@@ -10,7 +10,7 @@
 // client (or the DM's non-phone client), driven by a world flag so it survives a reload.
 // Input: `tableSeats` (who sits where) + `mobile-command.szEvent` (the wizard narrating itself)
 // + actor items as the fallback truth for what's been chosen.
-import { MODULE_ID, TABLE_SEATS, isPlaceholderPCName, DEFAULT_CARD_THEME, ABILITY_ICONS } from "./preset.js";
+import { MODULE_ID, TABLE_SEATS, isPlaceholderPCName, DEFAULT_CARD_THEME, ABILITY_ICONS, DEFAULT_CARD_BACK } from "./preset.js";
 import { isPhoneClient, isDisplayClient } from "./shell.js";
 import { isOnlineTable } from "./settings.js";
 import { cardSound, dealSound } from "./card-audio.js";
@@ -23,7 +23,7 @@ import { cardSound, dealSound } from "./card-audio.js";
 // `modules/…/card-table-wide.jpg` in --mc-ct-table became
 // `modules/mobile-command/styles/modules/mobile-command/art/…` → 404 (live 2026-08-05).
 const asset = (p) => { try { return foundry.utils.getRoute(p); } catch (e) { return `/${p.replace(/^\//, "")}`; } };
-const DEFAULT_BACK = "modules/mobile-command/art/card-back.png";
+const DEFAULT_BACK = DEFAULT_CARD_BACK; // one definition, shared with the panel's picker and tarot
 const TABLE_ART = "modules/mobile-command/art/card-table-wide.jpg";
 
 // The hand, in wizard order. `spells` is dropped for non-casters (5 cards, DM 2026-08-04).

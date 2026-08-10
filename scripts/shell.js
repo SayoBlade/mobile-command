@@ -5,6 +5,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure he
 import { toggleSimpleCalendar } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 the player's thread card
+import { actorCard as tarotCard, cardFace as tarotFace, tarotBack } from "./tarot.js"; // §42 the Fated Tarot
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -545,6 +546,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ? `<span class="mc-chip mc-chip-tap mc-fate-chip" data-action="fate-open" title="Your Thread of Fate">
           <i class="fas fa-scroll"></i>${foundry.utils.escapeHTML(FATE_THREADS[fateThread.key].name)}</span>`
       : "";
+    // §42 The Fated Tarot: the card this character was dealt. It appears the moment it's dealt —
+    // FACE DOWN, because the player is holding it before anyone has turned it over, and that wait
+    // is the reading. Once the DM turns it, the chip names the arcana and the card is theirs for
+    // the campaign.
+    const tCard = tarotCard(actor);
+    const tarotChip = tCard
+      ? `<span class="mc-chip mc-chip-tap mc-tarot-chip ${tCard.shown ? "" : "mc-tarot-facedown"}" data-action="tarot-open" title="${tCard.shown ? "Your card" : "Your card — still face down"}">
+          <i class="fas fa-star"></i>${tCard.shown ? foundry.utils.escapeHTML(tCard.name) : "Your card"}</span>`
+      : "";
     // Every effect-backed chip is long-pressable for its detail (#showEffectDetails
     // picks rules reference → own description → change summary). The synthetic
     // "Action used" chip has no backing effect, so it isn't pressable.
@@ -553,7 +563,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const condsHTML = effGroups.map(({ e, count }) =>
       `<span class="mc-chip mc-chip-tap${isEconEffect(e) ? " mc-chip-used" : ""}${e.flags?.[MODULE_ID]?.curse ? " mc-curse-chip" : ""}" data-action="cond-open" data-detail="cond" data-effect-id="${e.id}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}${count > 1 ? `<span class="mc-chip-mult">×${count}</span>` : ""}</span>`
     ).join("");
-    const condHTML = (fateChip + twistChip + actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
+    const condHTML = (tarotChip + fateChip + twistChip + actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
 
     // B7: HP & temp are tap-to-edit. Tapping opens a roomy editor row with
     // on-screen − / + / Set so it works on the iOS numeric keypad (which has no
@@ -4891,6 +4901,27 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.render();
   }
 
+  // §42: the card this character was dealt, full screen. Face down until the DM turns it over —
+  // and the back is deliberately the whole card, because a player holding a card they can't read
+  // yet is the reading. Once turned, the plate (or, without the book's art, the name) is theirs.
+  #openTarotCard(actor) {
+    const c = tarotCard(actor);
+    if (!c) return;
+    const esc = foundry.utils.escapeHTML;
+    this.#detailCard = c.shown
+      ? {
+        kind: "tarot", name: c.name, img: tarotFace(c) || null, glyph: "fa-star",
+        subtitle: "Your card in the Fated Tarot",
+        desc: `<p><em>Drawn for you, and yours to keep. What it means is not written down yet.</em></p>`
+      }
+      : {
+        kind: "tarot", name: "Face down", img: tarotBack(), glyph: "fa-star",
+        subtitle: "Your card in the Fated Tarot",
+        desc: `<p><em>Dealt to ${esc(actor.name)}. Nobody has turned it over.</em></p>`
+      };
+    this.render();
+  }
+
   // §31: the spend request / its withdrawal (async pair — #onClick itself is not async).
   async #twistSend(actor) {
     if (Number(actor.getFlag(MODULE_ID, "twists") ?? 0) <= 0) return;
@@ -6715,6 +6746,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "twist-send": return this.#twistSend(actor);
       case "twist-withdraw": return this.#twistWithdraw(actor);
       case "fate-open": return this.#openFateCard(actor);
+      case "tarot-open": return this.#openTarotCard(actor);
       case "toggle-levels":
         this.#showLevels = !this.#showLevels; this.#levelUp = null; return this.render();
       case "level-up-open": return this.#openLevelUp();

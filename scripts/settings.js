@@ -249,6 +249,12 @@ export function registerSettings() {
     scope: "world", config: false, type: Boolean, default: false
   });
 
+  // §42 the tarot deck's back. Same rule as the session-zero back: ours by default, or a file the
+  // DM picks. The book's tarot set ships 22 faces and NO back, so ours is the only sensible one.
+  game.settings.register(MODULE_ID, "tarotBackImage", {
+    scope: "world", config: false, type: String, default: ""
+  });
+
   // §38.4a which DECK is on the table — see CARD_THEMES. Dresses the felt, the frame and the
   // back with blend modes over the same art, so a custom back still belongs to the deck.
   game.settings.register(MODULE_ID, "cardTheme", {
