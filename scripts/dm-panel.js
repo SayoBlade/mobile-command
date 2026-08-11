@@ -16,6 +16,7 @@ import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 import { bossList, bossSave, bossImage, bossSoundSrc, bossSoundLabel, dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { setDaylightSuspended } from "./daylight.js"; // §41 travel owns the light for the length of a journey
 import { dealTarot, actorCard, revealActorCard, setActorCard, hasBookArt } from "./tarot.js"; // §42 the Fated Tarot
+import { DRUSK_HOURS, currentHour, isDruskScene, druskSceneIds, markDruskScene, advanceToNextHour } from "./druskenvald.js"; // §43 the clock
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -492,6 +493,38 @@ function seanceSend() {
   render();
 }
 
+// --- §43 The Druskenvald clock: eternal night, told in six named hours ----------------------
+// The panel's job is small on purpose: say which hour it is in words the DM can read aloud, mark
+// which scenes are under the eternal night, and let the DM push the hour on when the story wants
+// it. The darkness itself is §41's loop with a second curve — nothing here writes a scene.
+function druskBody() {
+  const esc = foundry.utils.escapeHTML;
+  const here = currentHour();
+  const scene = canvas?.scene;
+  const marked = isDruskScene(scene);
+  const ids = druskSceneIds();
+  const names = ids.map(id => game.scenes.get(id)?.name).filter(Boolean);
+  const dial = DRUSK_HOURS.map(h => `
+    <span class="mc-drusk-pip ${h.key === here.key ? "mc-on" : ""}" title="${esc(h.name)}"
+      style="--pip:${h.sky}"></span>`).join("");
+  return `
+    <div class="mc-drusk-now">
+      <span class="mc-drusk-nowname">${esc(here.name)}</span>
+      <span class="mc-drusk-dial">${dial}</span>
+    </div>
+    <button class="mc-dmp-pf-fix mc-dmp-story-random" data-drusk-next
+      title="Push the clock to the start of the next named hour">
+      <i class="fas fa-forward"></i> Next Hour</button>
+    <button class="mc-dmp-pf-fix ${marked ? "mc-on" : ""}" data-drusk-mark
+      title="${scene ? (marked ? `“${esc(scene.name)}” is under the eternal night — tap to release it` : `Put “${esc(scene.name)}” under the eternal night`) : "No scene"}"
+      ${scene ? "" : "disabled"}>
+      <i class="fas fa-moon"></i> ${marked ? "This Map Is Druskenvald" : "Mark This Map"}
+    </button>
+    <div class="mc-dmp-story-status">${names.length
+      ? `Eternal night on: ${esc(names.join(", "))}`
+      : "No maps marked — everywhere still has a sun."}</div>`;
+}
+
 // --- §42 The Fated Tarot: one Major Arcana per character, kept for the campaign -------------
 // Same roster shape as the séance's sitters (§30.1, UI-BIBLE §3/§6.6): scene-scoped PCs, tap to
 // include. Deal turns every chosen card face DOWN; turning them over is a second, deliberate act,
@@ -624,6 +657,7 @@ function crookedTabHTML() {
     ${dtDrawer("cmCurses", "Chaotic curses", "", curseBody(), true)}
     ${dtDrawer("cmFate", "Fateweaving", "", fateBody(), true)}
     ${dtDrawer("cmTwists", "Twists of fate", "", twistsBody(), true)}
+    ${dtDrawer("cmClock", "Druskenvald clock", "", druskBody(), true)}
     ${dtDrawer("cmTarot", "Fated tarot", "", tarotBody(), true)}
     ${dtDrawer("cmBoard", "All aboard", "", allAboardBody(), true)}
     ${dtDrawer("cmRide", "The Ghostlight ride", "", trainRideBody(), true)}
@@ -4291,6 +4325,21 @@ async function onClick(ev) {
   }
   const gs = ev.target.closest("[data-group-sheet]");
   if (gs) { game.actors.get(gs.dataset.groupSheet)?.sheet?.render(true); return; }
+  // §43 Druskenvald clock: push the hour on, or put this map under the eternal night.
+  if (ev.target.closest("[data-drusk-next]")) {
+    const landed = await advanceToNextHour();
+    if (landed) ui.notifications.info(`Druskenvald: it is now ${landed.name}.`);
+    return render();
+  }
+  if (ev.target.closest("[data-drusk-mark]")) {
+    const sc = canvas?.scene;
+    if (!sc) return;
+    await markDruskScene(sc.id, !isDruskScene(sc));
+    // Re-light it immediately on the new curve rather than waiting for the clock to move.
+    try { await globalThis.MobileCommand?.applyDaylightNow?.(); } catch (e) { /* best-effort */ }
+    return render();
+  }
+
   // §42 Fated tarot: choose who's read, deal, turn cards over, take one back.
   const tPc = ev.target.closest("[data-tarot-pc]");
   if (tPc) {

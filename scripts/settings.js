@@ -249,6 +249,25 @@ export function registerSettings() {
     scope: "world", config: false, type: Boolean, default: false
   });
 
+  // §43 which scenes are under Druskenvald's eternal night. An EXPLICIT DM list, never a guess —
+  // the same rule as the travel maps. A scene not on it is an ordinary place with an ordinary sun.
+  game.settings.register(MODULE_ID, "druskenvaldSceneIds", {
+    scope: "world", config: false, type: Array, default: []
+  });
+
+  // §27.4 a DM note arrives OVER whatever the player is looking at (DM 2026-08-10: "I like the
+  // always toaster, DM's discretion"). The envelope badge alone is something you have to think to
+  // look at, and the notes that matter most stop being true if they're read late. This is the
+  // discretion half: off, and it goes back to the quiet badge.
+  game.settings.register(MODULE_ID, "pmToast", {
+    name: "Personal notes pop up on the player's phone",
+    hint: "A private note from you slides over whatever the player is doing, instead of only lighting the envelope in their header. Turn it off for the quiet badge.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
   // §42 the tarot deck's back. Same rule as the session-zero back: ours by default, or a file the
   // DM picks. The book's tarot set ships 22 faces and NO back, so ours is the only sensible one.
   game.settings.register(MODULE_ID, "tarotBackImage", {

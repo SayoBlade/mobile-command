@@ -19,6 +19,7 @@ import { registerFxEngine } from "./effects.js"; // §26 Effects tab engine
 import { cardTableRefreshMode } from "./card-table.js"; // §39: re-lay the board when the table mode changes
 import { dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { registerDaylight, applyDaylight } from "./daylight.js"; // §41 the clock drives scene darkness
+import { registerDruskenvald } from "./druskenvald.js"; // §43 eternal night, told in six named hours
 import { registerSettingsMenu } from "./settings-app.js"; // §29 settings mini-app (menu button)
 
 Hooks.once("init", () => {
@@ -774,6 +775,7 @@ Hooks.once("ready", () => {
   registerFxEngine(); // §26 Effects tab: apply/remove screen filters + ambience loops as fxActive changes (all clients; phones flash-only)
   initPauseGuard();
   registerDaylight(); // §41: scene darkness follows the world clock (executor-gated inside)
+  registerDruskenvald(); // §43: the named hour + sky on the shared screen (gates itself)
   if (!isPhoneClient()) initPauseOverlay(); // corner spinners replace the "GAME PAUSED" bar (phones have their own overlay)
   if (!isPhoneClient()) initHeartbeat();    // critical-HP heartbeat pulse on PC token rings (canvas only)
   startHeartbeat();

@@ -284,3 +284,34 @@ export function darknessForHour(hour, opts = {}) {
 // 0.7, which is the same number said twice — so raising the peak silently broke the invariant the
 // comment above promises. Now the peak is the only knob and this follows it.
 export const GLOBAL_LIGHT_NIGHT_THRESHOLD = NIGHT_DARKNESS_PEAK / 2;
+
+// ── §43 The Druskenvald clock: eternal night, told in six named hours ───────────────────────
+// Lives HERE, beside darknessForHour, for the same reason that one does: it is pure data plus a
+// pure function, and preset.js imports nothing — so the hour math is reachable from the panel,
+// from daylight.js and from a headless test without dragging the shell in behind it.
+//
+// Four world-hours each. The cycle is anchored so MIDNIGHT contains actual midnight — the one
+// name that would read as a lie anywhere else — which puts Twilight at 06:00, where dawn would
+// be if this place had one. Darkness never reaches daylight and never exceeds NIGHT_DARKNESS_PEAK:
+// this is a different SHAPE of night, not a darker one nobody tuned.
+export const DRUSK_HOURS = [
+  { key: "twilight",  name: "Twilight",  from: 6,  darkness: 0.58, sky: "#3a2b4d" }, // bruised violet
+  { key: "dusk",      name: "Dusk",      from: 10, darkness: 0.66, sky: "#2b2c4f" }, // deep indigo
+  { key: "nightfall", name: "Nightfall", from: 14, darkness: 0.72, sky: "#1d2438" }, // blue-black
+  { key: "evening",   name: "Evening",   from: 18, darkness: 0.74, sky: "#222a33" }, // cold grey-blue
+  { key: "midnight",  name: "Midnight",  from: 22, darkness: NIGHT_DARKNESS_PEAK, sky: "#12161c" },
+  { key: "witching",  name: "Witching",  from: 2,  darkness: 0.78, sky: "#17251f" }  // a sickly green cast
+];
+export const DRUSK_HOUR_SPAN = 4;
+
+/** Which named hour a world-hour falls in. Written as a scan rather than arithmetic because the
+ *  Witching block WRAPS midnight — 02:00 sits after 22:00 in the cycle, not before it. */
+export function druskHourAt(worldHour) {
+  const h = (((Number(worldHour) || 0) % 24) + 24) % 24;
+  for (const b of DRUSK_HOURS) {
+    const end = (b.from + DRUSK_HOUR_SPAN) % 24;
+    if (b.from < end ? (h >= b.from && h < end) : (h >= b.from || h < end)) return b;
+  }
+  return DRUSK_HOURS[0]; // unreachable — the six blocks tile the day
+}
+

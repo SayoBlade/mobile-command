@@ -1,6 +1,7 @@
 import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK } from "./preset.js";
 import { readClock, sunTimes } from "./gametime.js";
 import { isExecutor } from "./settings.js";
+import { isDruskScene, druskDarkness } from "./druskenvald.js"; // §43 the same loop, a second curve
 
 // §41 THE CLOCK ACTUALLY DRIVES THE LIGHT (DM report 2026-08-09: "I don't see any change in
 // lighting over time, am I doing something wrong?" — no).
@@ -52,8 +53,13 @@ export function daylightEnabled() {
   try { return !!game.settings.get(MODULE_ID, "clockDaylight"); } catch (e) { return true; }
 }
 
-/** The darkness the clock says it should be right now. Exported so the panel can show it. */
-export function darknessNow() {
+/** The darkness the clock says this scene should be right now. Exported so the panel can show it.
+ *  §43: a scene the DM marked as Druskenvald answers with the eternal-night curve instead of the
+ *  day one. That is the ONLY thing the Crooked Moon clock changes here — it gets no writer, no
+ *  hook and no opinion about scene data of its own, so the write-rate floor, darknessLock, the
+ *  manual hold and travel's claim all keep applying to it and cannot drift out of sync. */
+export function darknessNow(scene = null) {
+  if (scene && isDruskScene(scene)) return druskDarkness();
   const c = readClock();
   return darknessForHour((Number(c.hour) || 0) + (Number(c.minute) || 0) / 60, sunTimes());
 }
@@ -86,7 +92,7 @@ export async function applyDaylight(scene, { animate = null, force = false } = {
     const env = scene._source?.environment ?? scene.environment ?? {};
     if (env.darknessLock) return false;                              // the DM froze this map
     if (scene.getFlag(MODULE_ID, "daylightHold")) return false;      // the DM is driving it by hand
-    const want = darknessNow();
+    const want = darknessNow(scene);
     const have = Number(env.darknessLevel) || 0;
     if (Math.abs(want - have) <= MIN_STEP) return false;
     // The write-rate floor. A skipped tick schedules ONE trailing catch-up rather than being

@@ -6115,3 +6115,41 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   background: var(--mc-sunken);
 }
 .mc-dmp-backpick-side { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+
+/* == §43 Druskenvald: the sky, and the hour on the shared screen ============================= */
+/* The sky sits UNDER everything of ours (card table 55, a boss entrance 99500) and over the
+   canvas, so it tints the map and never the things we deliberately put on top of it. A flat
+   colour at low opacity — no filter, no shader, nothing per-frame. */
+#mc-drusk { position: fixed; inset: 0; z-index: 4; pointer-events: none; }
+.mc-drusk-sky { position: absolute; inset: 0; opacity: .30; mix-blend-mode: multiply;
+  transition: background 6s linear; }
+/* The hour, named, where the room can read it. Bottom-right so it never fights the compass. */
+.mc-drusk-plate {
+  position: absolute; right: 2.2vw; bottom: 2.2vh;
+  padding: 6px 16px 7px; border-radius: 999px;
+  background: rgba(0,0,0,.52); border: 1px solid var(--mc-edge);
+  color: var(--mc-ink); font-family: var(--mc-font-title), "Modesto Condensed", serif;
+  font-size: clamp(15px, 1.9vh, 32px); letter-spacing: .07em;
+  text-shadow: 0 1px 10px rgba(0,0,0,.9);
+}
+/* The hour turning is a thing the room didn't ask for, so it gets a small lift to be noticed. */
+.mc-drusk-turn { animation: mc-drusk-turn 2.4s cubic-bezier(.2,.8,.3,1) both; }
+@keyframes mc-drusk-turn {
+  0%   { opacity: 0; transform: translateY(35%) scale(.94); }
+  22%  { opacity: 1; transform: translateY(0) scale(1.04); }
+  40%  { transform: scale(1); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* Panel: the hour now, and the six-hour dial as swatches of their own sky. */
+.mc-drusk-now { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.mc-drusk-nowname { font-family: var(--mc-font-title), serif; font-size: 16px; color: var(--mc-gold); letter-spacing: .04em; }
+.mc-drusk-dial { display: flex; gap: 4px; }
+.mc-drusk-pip { width: 12px; height: 12px; border-radius: 50%;
+  background: var(--pip, var(--mc-sunken)); border: 1px solid var(--mc-edge); opacity: .5; }
+.mc-drusk-pip.mc-on { opacity: 1; border-color: var(--mc-gold); box-shadow: 0 0 0 2px rgba(200,164,77,.28); }
+
+/* == §27.4 a DM note, over whatever they're doing ============================================ */
+/* Same toast furniture as a roll: envelope where the number goes, the note underneath. */
+.mc-toast-pm .mc-roll-toast-total { font-size: 22px; color: var(--mc-gold); }
+.mc-toast-pm .mc-roll-toast-formula { white-space: normal; font-style: italic; opacity: .95; }

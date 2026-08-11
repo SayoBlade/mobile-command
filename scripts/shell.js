@@ -2031,6 +2031,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const fromDm = message.author?.isGM && (message.whisper ?? []).includes(game.user.id);
     if (!fromDm) return;
     if (this.#pmOpen) game.user.setFlag(MODULE_ID, "pmLastRead", Date.now());
+    // §27.4 THE NOTE COMES TO THEM (DM 2026-08-10: "I like the always toaster, DM's discretion").
+    // The envelope alone is a badge you have to think to look at, and the notes that matter most
+    // are the ones that stop being true if they're read ten minutes late — "you are charmed, get
+    // the party out of this room". So a note from the DM now arrives over whatever they're doing.
+    // The DM's discretion is the setting: turn `pmToast` off and it goes back to the quiet badge.
+    if (!this.#pmOpen && this.rendered) {
+      let toast = true;
+      try { toast = !!game.settings.get(MODULE_ID, "pmToast"); } catch (e) { /* default on */ }
+      if (toast) this.#showPmToast(message);
+    }
     if (this.rendered) this.render();
   }
 
@@ -8172,7 +8182,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const toast = this.#ensureToast();
     const tag = entry.outcome === "nat20" ? "Natural 20"
       : entry.outcome === "nat1" ? "Natural 1" : "";
-    toast.classList.remove("nat20", "nat1", "mc-toast-damage", "mc-toast-save");
+    toast.classList.remove("nat20", "nat1", "mc-toast-damage", "mc-toast-save", "mc-toast-pm");
     if (entry.outcome) toast.classList.add(entry.outcome);
     if (entry.kind === "damage") toast.classList.add("mc-toast-damage");
     else if (entry.kind === "save") toast.classList.add("mc-toast-save");
@@ -8186,6 +8196,27 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     toast.classList.add("mc-show");
     clearTimeout(this.#toastTimer);
     this.#toastTimer = setTimeout(() => this.#hideToast(), ROLL_TOAST_MS);
+  }
+
+  // §27.4 A note from the DM, over whatever they're looking at. Same toast furniture as a roll —
+  // one element, one animation, one timer — with the envelope where the number goes and the note
+  // itself underneath. It stays up roughly twice as long as a roll: a number is read at a glance,
+  // a sentence is not. Truncated, because this is a nudge to go and read it, not the reading.
+  #showPmToast(message) {
+    const toast = this.#ensureToast();
+    toast.classList.remove("nat20", "nat1", "mc-toast-damage", "mc-toast-save");
+    toast.classList.add("mc-toast-pm");
+    const text = pmText(message);
+    toast.innerHTML = `
+      <div class="mc-roll-toast-total"><i class="fas fa-envelope"></i></div>
+      <div class="mc-roll-toast-meta">
+        <div class="mc-roll-toast-label">A note from the DM</div>
+        <div class="mc-roll-toast-formula">${foundry.utils.escapeHTML(text.length > 120 ? `${text.slice(0, 120)}…` : text)}</div>
+      </div>`;
+    toast.classList.add("mc-show");
+    try { navigator.vibrate?.([25, 60, 25]); } catch (e) { /* not supported */ }
+    clearTimeout(this.#toastTimer);
+    this.#toastTimer = setTimeout(() => this.#hideToast(), ROLL_TOAST_MS * 2);
   }
 
   #hideToast() {
