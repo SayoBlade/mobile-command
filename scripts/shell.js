@@ -5,7 +5,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure he
 import { toggleSimpleCalendar } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 the player's thread card
-import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCard } from "./tarot.js"; // §42 the Fated Tarot
+import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCard, tarotCanDismiss, TAROT_HOLD_MS, TAROT_FLIP_MS } from "./tarot.js"; // §42 the Fated Tarot
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -281,7 +281,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #enchantState = null;   // §28.6 enchant item-picker: { uuid, name, profileId, rows } | null
   #pmOpen = false;        // §27 Messages overlay (envelope in the header)
   #tarotHeldDismissed = false; // §42.2 they've put the turned card away (the chip reopens it)
-  #tarotCanClose = true;  // §42.2 the 5s guard after a turn (see #tarotHandHTML)
+  #tarotTurning = false;  // §42.2 mid-flip: the animation is running on the live element
   #pmDraft = "";          // Messages composer text, kept across re-renders
   #pmBusy = false;        // a message send is in flight
   #bioOpen = false;       // biography editor overlay (long-press the portrait/name)
@@ -6773,7 +6773,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "twist-send": return this.#twistSend(actor);
       case "twist-withdraw": return this.#twistWithdraw(actor);
       case "fate-open": return this.#openFateCard(actor);
-      case "tarot-open": { this.#tarotHeldDismissed = false; this.#tarotCanClose = true; return this.render(); }
+      case "tarot-open": { this.#tarotHeldDismissed = false; return this.render(); }
       // §42.2 one target, two meanings: face down it turns over, face up it goes away. The
       // player owns their own actor, so the reveal is a direct flag write — no RPC, same as a
       // twist spend.
@@ -6781,12 +6781,26 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         const held = tarotCard(actor);
         if (!held) return;
         if (!held.shown) {
-          this.#tarotCanClose = false;
-          revealActorCard(actor, true);
-          setTimeout(() => { this.#tarotCanClose = true; if (this.rendered) this.render(); }, 5000);
+          if (this.#tarotTurning) return; // a touch screen sends a second, synthesised click
+          this.#tarotTurning = true;
+          // TURN THE ELEMENT THAT IS ALREADY ON SCREEN. Writing the flag first would re-render the
+          // shell, rebuilding the card with the turned class already applied — a CSS transition
+          // needs an element that PERSISTS across the change, so the flip would be replaced by a
+          // jump cut. So: animate the live card, and only persist once it has finished turning.
+          el.closest(".mc-tarot-hand")?.classList.add("mc-tarot-turned");
+          setTimeout(() => {
+            this.#tarotTurning = false;
+            revealActorCard(actor, true); // now the re-render lands on an already-finished flip
+            // …and wake up once the hold expires, so it becomes dismissible with no further input.
+            setTimeout(() => { if (this.rendered) this.render(); }, TAROT_HOLD_MS + 60);
+          }, TAROT_FLIP_MS);
           return;
         }
-        if (this.#tarotCanClose) { this.#tarotHeldDismissed = true; this.render(); }
+        // The guard is read from the card itself, so a ghost click arriving after the reveal has
+        // landed cannot put away a card nobody has looked at yet.
+        if (!tarotCanDismiss(held)) return;
+        this.#tarotHeldDismissed = true;
+        this.render();
         return;
       }
       case "toggle-levels":

@@ -116,5 +116,23 @@ for (let i = 0; i < 300 && !sawOwnAgain; i++) {
 }
 ok("re-dealing can return their OWN previous card (it goes back in the deck)", sawOwnAgain);
 
+// 8. SS42.2 the 5s hold — the guard that stops a ghost click dismissing an unseen card
+const g = mkActor("Guard");
+globalThis.game.actors = [g];
+await tarot.dealOne(g);
+ok("a face-down card can never be dismissed", tarot.tarotCanDismiss(tarot.actorCard(g)) === false);
+await tarot.revealActorCard(g, true);
+ok("nor a card turned a moment ago", tarot.tarotCanDismiss(tarot.actorCard(g)) === false);
+ok("the reveal stamps WHEN it was turned", tarot.actorCard(g).shownAt > 0);
+// …and once the hold has passed, it can be put away. Simulated by ageing the stamp rather than
+// waiting five real seconds in a test suite.
+const aged = { ...g.getFlag(), shownAt: Date.now() - tarot.TAROT_HOLD_MS - 1 };
+g.setFlag(null, null, aged);
+ok("after the hold it can be dismissed", tarot.tarotCanDismiss(tarot.actorCard(g)) === true);
+// A card revealed by an older build has no stamp at all; it must not be stuck undismissable.
+g.setFlag(null, null, { key: "moon", shown: true });
+ok("a card from before the stamp existed is dismissible", tarot.tarotCanDismiss(tarot.actorCard(g)) === true);
+ok("the flip duration matches the CSS transition", tarot.TAROT_FLIP_MS === 1050);
+
 console.log(fails ? `\n${fails} FAILED` : "\nall green");
 process.exit(fails ? 1 : 0);

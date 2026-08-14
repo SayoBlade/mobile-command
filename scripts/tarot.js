@@ -89,7 +89,7 @@ export function actorCard(actor) {
     const f = actor?.getFlag(MODULE_ID, "tarot");
     if (!f?.key) return null;
     const card = cardByKey(f.key);
-    return card ? { ...card, at: f.at ?? 0, shown: !!f.shown } : null;
+    return card ? { ...card, at: f.at ?? 0, shown: !!f.shown, shownAt: Number(f.shownAt) || 0 } : null;
   } catch (e) { return null; }
 }
 export async function setActorCard(actor, key, { shown = false } = {}) {
@@ -97,10 +97,26 @@ export async function setActorCard(actor, key, { shown = false } = {}) {
   if (!key) return void await actor.unsetFlag(MODULE_ID, "tarot");
   await actor.setFlag(MODULE_ID, "tarot", { key, at: Date.now(), shown });
 }
+// WHEN it was turned, not just that it was. The phone's 5s guard reads this rather than an
+// in-memory flag: a single tap on a touch screen can deliver a second, synthesised click ~300ms
+// later, and by then the reveal has landed and re-rendered — so a guard held in a field the
+// re-render doesn't reset let that ghost click dismiss a card the player never saw (DM
+// 2026-08-11: "clicking it returns to the main UI"). A timestamp on the document cannot drift
+// out of step with the thing it's guarding.
 export async function revealActorCard(actor, shown = true) {
   const f = actor?.getFlag(MODULE_ID, "tarot");
   if (!f?.key) return;
-  await actor.setFlag(MODULE_ID, "tarot", { ...f, shown: !!shown });
+  await actor.setFlag(MODULE_ID, "tarot", { ...f, shown: !!shown, shownAt: shown ? Date.now() : 0 });
+}
+
+/** How long the turn itself takes — must match the CSS transition on .mc-tarot-hand-inner. */
+export const TAROT_FLIP_MS = 1050;
+/** How long a freshly-turned card refuses to be dismissed (§42.2), measured from the reveal. */
+export const TAROT_HOLD_MS = 5000;
+/** Has a turned card been up long enough to be put away? Face-down cards are never dismissible. */
+export function tarotCanDismiss(card) {
+  if (!card?.shown) return false;
+  return (Date.now() - (card.shownAt || 0)) >= TAROT_HOLD_MS;
 }
 
 /* -------------------------------------------- */
