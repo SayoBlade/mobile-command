@@ -4940,19 +4940,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     }
     const words = c.shown && this.#adelaFor === c.key && this.#adelaText
       ? `<div class="mc-tarot-words">${esc(this.#adelaText)}</div>` : "";
-    return `<div class="mc-tarot-held ${c.shown ? "mc-tarot-turned" : ""}">
-      <div class="mc-tarot-held-card" ${c.shown ? "" : `data-action="tarot-flip"`}>
-        <div class="mc-tarot-held-inner">
-          <div class="mc-tarot-held-back" style="background-image:url('${esc(tarotBack())}')"></div>
-          <div class="mc-tarot-held-face">
+    return `<div class="mc-tarot-hand ${c.shown ? "mc-tarot-turned" : ""}">
+      <div class="mc-tarot-hand-card" ${c.shown ? "" : `data-action="tarot-flip"`}>
+        <div class="mc-tarot-hand-inner">
+          <div class="mc-tarot-hand-back" style="background-image:url('${esc(tarotBack())}')"></div>
+          <div class="mc-tarot-hand-face">
             ${face ? `<img src="${esc(face)}" alt="">` : ""}
-            <div class="mc-tarot-held-name">${esc(c.name)}</div>
+            <div class="mc-tarot-hand-name">${esc(c.name)}</div>
           </div>
         </div>
       </div>
       ${c.shown
-        ? `${words}<button class="mc-tarot-held-done" data-action="tarot-dismiss">Keep It</button>`
-        : `<div class="mc-tarot-held-hint">Tap the card to turn it over</div>`}
+        ? `${words}<button class="mc-tarot-hand-done" data-action="tarot-dismiss">Keep It</button>`
+        : `<div class="mc-tarot-hand-hint">Tap the card to turn it over</div>`}
     </div>`;
   }
 

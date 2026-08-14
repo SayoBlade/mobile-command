@@ -544,27 +544,35 @@ function tarotBody() {
   const rows = pcs.map(a => {
     const card = actorCard(a);
     const chosen = tarotPick.get(a.id) ?? "";
-    // A card still face down reads as such rather than spoiling itself on the DM's own panel —
-    // though the DM can always look: they dealt it.
-    const held = card
-      ? `<span class="mc-tarot-hold ${card.shown ? "" : "mc-tarot-down"}" title="${esc(card.name)}">${card.shown ? esc(card.name) : "in their hand"}</span>`
-      : "";
+    // THE CARD'S NAME IS NOT SHOWN HERE (DM 2026-08-11: "remove the card name, there's no real
+    // reason for the DM to know beforehand now"). It was a leftover from the spread, where the
+    // DM's foreknowledge was the point — they were laying five out and steering someone toward
+    // one. Now the deal goes straight into a hand, so the panel only needs to say WHETHER they're
+    // holding one; what it is belongs to the player until they turn it over.
+    const holds = !!card;
     // Arcana someone else holds are struck from the list — the book's no-duplicates rule, made
     // visible rather than enforced silently at deal time.
     const opts = ARCANA.map(c => {
       const gone = taken.has(c.key) && card?.key !== c.key;
       return `<option value="${c.key}" ${c.key === chosen ? "selected" : ""} ${gone ? "disabled" : ""}>${esc(c.name)}${gone ? " ·held" : ""}</option>`;
     }).join("");
+    // TWO LINES, because one doesn't fit. The panel is ~320px and a name, a dropdown, a Deal and
+    // a ✕ on one row pushed the button past the drawer's edge (DM 2026-08-11, screenshot). Name
+    // and its ✕ on top, the controls beneath — each line then has room to be itself.
     return `<div class="mc-tarot-row">
-      <span class="mc-tarot-who"><i class="fas fa-circle-user" style="color:${pcColor(a)}"></i>${esc(a.name)}</span>
-      ${held}
-      <select class="mc-tarot-force" data-tarot-pick="${a.id}" title="Decide what they draw, or let the cards choose">
-        <option value="">— let the cards decide —</option>${opts}
-      </select>
-      <button class="mc-dmp-mini mc-boss-play" data-tarot-deal="${a.id}"
-        title="${card ? `Deal ${esc(a.name)} another card — their current one goes back` : `Put a card in ${esc(a.name)}'s hand, face down`}">
-        <i class="fas fa-hand-sparkles"></i> ${card ? "Again" : "Deal"}</button>
-      ${card ? `<button class="mc-dt-icon-only mc-boss-del" data-tarot-clear="${a.id}" title="Take ${esc(a.name)}'s card back — it returns to the deck"><i class="fas fa-xmark"></i></button>` : ""}
+      <div class="mc-tarot-line">
+        <span class="mc-tarot-who"><i class="fas fa-circle-user" style="color:${pcColor(a)}"></i>${esc(a.name)}</span>
+        ${holds ? `<span class="mc-tarot-hold" title="They're holding a card — what it is, is theirs">holding</span>` : ""}
+        ${holds ? `<button class="mc-dt-icon-only mc-boss-del" data-tarot-clear="${a.id}" title="Take ${esc(a.name)}'s card back — it returns to the deck"><i class="fas fa-xmark"></i></button>` : ""}
+      </div>
+      <div class="mc-tarot-line">
+        <select class="mc-tarot-force" data-tarot-pick="${a.id}" title="Decide what they draw, or let the cards choose">
+          <option value="">— let the cards decide —</option>${opts}
+        </select>
+        <button class="mc-dmp-mini mc-boss-play" data-tarot-deal="${a.id}"
+          title="${holds ? `Deal ${esc(a.name)} another card — their current one goes back` : `Put a card in ${esc(a.name)}'s hand, face down`}">
+          <i class="fas fa-hand-sparkles"></i> ${holds ? "Again" : "Deal"}</button>
+      </div>
     </div>`;
   }).join("");
   return `${rows}
