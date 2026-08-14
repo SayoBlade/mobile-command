@@ -6152,43 +6152,35 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-toast-pm .mc-roll-toast-formula { white-space: normal; font-style: italic; opacity: .95; }
 
 /* == §42.2 The card in their hand ============================================================
-   The ticket model (§36): the phone IS the card. Full screen, face down, and the player turns it
-   over themselves — nothing on the shared screen, nothing to aim.
+   The card and nothing else (DM 2026-08-11): no name, no caption, no button. The back fills the
+   phone, a tap turns it, and a tap after that puts it away.
 
    THE FLIP IS VERTICAL (rotateX), on purpose. A horizontal flip is how a UI reveals a panel;
-   lifting the near edge of a card toward you is how a hand actually turns one over at a table. */
-.mc-tarot-hand { position: fixed; inset: 0; z-index: 9998; display: flex;
-  flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px;
+   lifting the near edge of a card toward you is how a hand turns one over at a table.
+
+   Sized off BOTH axes: 94vw would be right on a narrow phone and absurd on a tablet held wide,
+   so the height cap (63vh → ~88vh of card) is what actually binds in landscape. */
+.mc-tarot-hand { position: fixed; inset: 0; z-index: 9998;
+  display: flex; align-items: center; justify-content: center;
   background: radial-gradient(ellipse at center, #0d0a12 0%, #050407 78%);
-  animation: mc-tarot-in .5s ease-out both; }
+  animation: mc-tarot-in .45s ease-out both; }
 @keyframes mc-tarot-in { from { opacity: 0; } to { opacity: 1; } }
-.mc-tarot-hand-card { width: min(72vw, 46vh); aspect-ratio: 5 / 7; perspective: 1400px;
+.mc-tarot-hand-card { width: min(94vw, 63vh); aspect-ratio: 5 / 7; perspective: 1600px;
   cursor: pointer; }
 .mc-tarot-hand-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d;
   transition: transform 1.05s cubic-bezier(.24,.86,.28,1); }
 .mc-tarot-turned .mc-tarot-hand-inner { transform: rotateX(180deg); }
 .mc-tarot-hand-back, .mc-tarot-hand-face {
   position: absolute; inset: 0; backface-visibility: hidden; overflow: hidden;
+  background-size: cover; background-position: center;
   border-radius: calc(12px * var(--mc-round, 1)); border: 1px solid #000;
-  box-shadow: 0 14px 40px rgba(0,0,0,.85), 0 0 0 1px rgba(255,255,255,.05) inset; }
-.mc-tarot-hand-back { background-size: cover; background-position: center; }
-/* The face is pre-flipped on the SAME axis as the turn, or it lands upside down. */
-.mc-tarot-hand-face { transform: rotateX(180deg); background: var(--mc-panel);
+  box-shadow: 0 14px 44px rgba(0,0,0,.85), 0 0 0 1px rgba(255,255,255,.05) inset; }
+/* The face is pre-rotated on the SAME axis as the turn, or it lands upside down. */
+.mc-tarot-hand-face { transform: rotateX(180deg); background-color: var(--mc-panel);
   display: flex; align-items: center; justify-content: center; }
-.mc-tarot-hand-face img { width: 100%; height: 100%; object-fit: cover; }
-.mc-tarot-hand-name { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 12px 12px;
-  background: linear-gradient(transparent, rgba(0,0,0,.9) 45%);
-  font-family: var(--mc-font-title), serif; color: var(--mc-ink);
-  font-size: 20px; letter-spacing: .04em; text-align: center; }
-.mc-tarot-hand-hint { color: var(--mc-muted); font-size: 13px; font-style: italic; }
-/* Adela's reading, in her voice — read out of the book at runtime, never bundled (§32.1). */
-.mc-tarot-words { max-width: min(88vw, 520px); color: var(--mc-ink); font-size: 14px;
-  line-height: 1.5; text-align: center; font-style: italic; opacity: .94;
-  animation: mc-tarot-words .7s ease-out .55s both; }
-@keyframes mc-tarot-words { from { opacity: 0; transform: translateY(8px); } to { opacity: .94; transform: none; } }
-.mc-tarot-hand-done { min-height: 48px; padding: 0 26px; border-radius: calc(10px * var(--mc-round, 1));
-  background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge); color: var(--mc-cta-ink);
-  font-weight: 700; font-size: 15px; }
+/* Only ever seen without the book's plates: the name standing in for art that isn't installed. */
+.mc-tarot-hand-bare { padding: 12%; text-align: center; font-family: var(--mc-font-title), serif;
+  color: var(--mc-ink); font-size: clamp(20px, 7vw, 46px); line-height: 1.1; letter-spacing: .03em; }
 
 /* The DM's row, on TWO LINES. The panel is ~320px: a name, a dropdown, a Deal and a ✕ on one
    line pushed the button clean past the drawer's edge (DM 2026-08-11). Name and its ✕ on top,

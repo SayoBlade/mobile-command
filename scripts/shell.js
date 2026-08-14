@@ -5,7 +5,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure he
 import { toggleSimpleCalendar } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 the player's thread card
-import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCard, adelaWords } from "./tarot.js"; // §42 the Fated Tarot
+import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCard } from "./tarot.js"; // §42 the Fated Tarot
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -281,8 +281,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #enchantState = null;   // §28.6 enchant item-picker: { uuid, name, profileId, rows } | null
   #pmOpen = false;        // §27 Messages overlay (envelope in the header)
   #tarotHeldDismissed = false; // §42.2 they've put the turned card away (the chip reopens it)
-  #adelaFor = null;       // §42.2 which card Adela's words were fetched for
-  #adelaText = "";        // …and the words themselves (a compendium read, so cached)
+  #tarotCanClose = true;  // §42.2 the 5s guard after a turn (see #tarotHandHTML)
   #pmDraft = "";          // Messages composer text, kept across re-renders
   #pmBusy = false;        // a message send is in flight
   #bioOpen = false;       // biography editor overlay (long-press the portrait/name)
@@ -619,7 +618,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#initPromptHTML()}
       ${this.#turnHudHTML()}
       <nav class="mc-tabs">${this.#tabBarHTML()}</nav>
-      ${this.#tarotHeldHTML(actor)}
+      ${this.#tarotHandHTML(actor)}
       ${this.#imagePopupHTML(actor)}
       ${this.#sharedImageHTML()}
       ${this.#journalImageHTML()}
@@ -4915,66 +4914,39 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.render();
   }
 
-  // §42.2 THE CARD IN THEIR HAND (DM 2026-08-11: "give the players the card like the train
-  // ticket, show a full screen card back on the phone and flip it over (vertically not
-  // horizontally) to let the player see the card in their hand").
+  // §42.2 THE CARD IN THEIR HAND (DM 2026-08-11: "a full size card back, no text, when clicked
+  // it animates a flip to the full sized card front, no text, nothing more, freeze for 5 seconds,
+  // and then an additional click closes the card").
   //
-  // This replaced a spread on the TV with a highlight the player drove by remote control. The
-  // ticket (§36) was always the better model: the phone IS the object. Nothing on the shared
-  // screen, nothing to aim — the DM hands one character a card, it fills that player's phone
-  // face down, and they turn it over themselves. The turn is theirs, which is the entire moment.
+  // The card and nothing else. No name, no caption, no button, no reading — Adela's words are the
+  // DM's to say out loud, and every label we added was the interface talking over them. What is
+  // left is the object: a back that fills the phone, a turn, and a face.
   //
-  // VERTICAL, on purpose. A horizontal flip is how a UI reveals a panel; lifting the near edge of
-  // a card toward you is how a hand actually turns one over at a table.
-  #tarotHeldHTML(actor) {
+  // VERTICAL FLIP, on purpose. A horizontal flip is how a UI reveals a panel; lifting the near
+  // edge of a card toward you is how a hand actually turns one over at a table.
+  //
+  // The one exception to "no text": a table WITHOUT the Crooked Moon module has no plate to show,
+  // and flipping to a blank rectangle is not a reveal. There the name isn't a caption printed over
+  // the art — it IS the card. With the book installed (the DM's own table) it never renders.
+  //
+  // THE FIVE SECONDS ARE A GUARD, not a delay. The tap that turns the card and the tap that puts
+  // it away are the same gesture in the same place — without a dead window, the second half of an
+  // eager double-tap dismisses the card the player never actually saw.
+  #tarotHandHTML(actor) {
     const c = tarotCard(actor);
-    if (!c) return "";
-    if (c.shown && this.#tarotHeldDismissed) return ""; // put away; the chip brings it back
+    if (!c || (c.shown && this.#tarotHeldDismissed)) return "";
     const esc = foundry.utils.escapeHTML;
     const face = tarotFace(c);
-    // Adela's own words, read out of the book at runtime when the table owns it (§32.1). Fetched
-    // lazily and stashed, because the render path is synchronous and this is a compendium read.
-    if (c.shown && this.#adelaFor !== c.key) {
-      this.#adelaFor = c.key;
-      adelaWords(c).then(w => { if (w) { this.#adelaText = w; this.render(); } }).catch(() => {});
-    }
-    const words = c.shown && this.#adelaFor === c.key && this.#adelaText
-      ? `<div class="mc-tarot-words">${esc(this.#adelaText)}</div>` : "";
     return `<div class="mc-tarot-hand ${c.shown ? "mc-tarot-turned" : ""}">
-      <div class="mc-tarot-hand-card" ${c.shown ? "" : `data-action="tarot-flip"`}>
+      <div class="mc-tarot-hand-card" data-action="tarot-card">
         <div class="mc-tarot-hand-inner">
           <div class="mc-tarot-hand-back" style="background-image:url('${esc(tarotBack())}')"></div>
-          <div class="mc-tarot-hand-face">
-            ${face ? `<img src="${esc(face)}" alt="">` : ""}
-            <div class="mc-tarot-hand-name">${esc(c.name)}</div>
+          <div class="mc-tarot-hand-face" ${face ? `style="background-image:url('${esc(face)}')"` : ""}>
+            ${face ? "" : `<span class="mc-tarot-hand-bare">${esc(c.name)}</span>`}
           </div>
         </div>
       </div>
-      ${c.shown
-        ? `${words}<button class="mc-tarot-hand-done" data-action="tarot-dismiss">Keep It</button>`
-        : `<div class="mc-tarot-hand-hint">Tap the card to turn it over</div>`}
     </div>`;
-  }
-
-  // §42: the card this character was dealt, full screen. Face down until the DM turns it over —
-  // and the back is deliberately the whole card, because a player holding a card they can't read
-  // yet is the reading. Once turned, the plate (or, without the book's art, the name) is theirs.
-  #openTarotCard(actor) {
-    const c = tarotCard(actor);
-    if (!c) return;
-    const esc = foundry.utils.escapeHTML;
-    this.#detailCard = c.shown
-      ? {
-        kind: "tarot", name: c.name, img: tarotFace(c) || null, glyph: "fa-star",
-        subtitle: "Your card in the Fated Tarot",
-        desc: `<p><em>Drawn for you, and yours to keep. What it means is not written down yet.</em></p>`
-      }
-      : {
-        kind: "tarot", name: "Face down", img: tarotBack(), glyph: "fa-star",
-        subtitle: "Your card in the Fated Tarot",
-        desc: `<p><em>Dealt to ${esc(actor.name)}. Nobody has turned it over.</em></p>`
-      };
-    this.render();
   }
 
   // §31: the spend request / its withdrawal (async pair — #onClick itself is not async).
@@ -6801,14 +6773,22 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "twist-send": return this.#twistSend(actor);
       case "twist-withdraw": return this.#twistWithdraw(actor);
       case "fate-open": return this.#openFateCard(actor);
-      case "tarot-open": { this.#tarotHeldDismissed = false; return this.render(); }
-      // §42.2 the card in their hand: tap the back and it turns over. The player owns their own
-      // actor, so this is a direct flag write — no RPC, same as a twist spend.
-      case "tarot-flip": {
-        if (!tarotCard(actor)?.shown) revealActorCard(actor, true);
+      case "tarot-open": { this.#tarotHeldDismissed = false; this.#tarotCanClose = true; return this.render(); }
+      // §42.2 one target, two meanings: face down it turns over, face up it goes away. The
+      // player owns their own actor, so the reveal is a direct flag write — no RPC, same as a
+      // twist spend.
+      case "tarot-card": {
+        const held = tarotCard(actor);
+        if (!held) return;
+        if (!held.shown) {
+          this.#tarotCanClose = false;
+          revealActorCard(actor, true);
+          setTimeout(() => { this.#tarotCanClose = true; if (this.rendered) this.render(); }, 5000);
+          return;
+        }
+        if (this.#tarotCanClose) { this.#tarotHeldDismissed = true; this.render(); }
         return;
       }
-      case "tarot-dismiss": { this.#tarotHeldDismissed = true; return this.render(); }
       case "toggle-levels":
         this.#showLevels = !this.#showLevels; this.#levelUp = null; return this.render();
       case "level-up-open": return this.#openLevelUp();

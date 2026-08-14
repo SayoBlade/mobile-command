@@ -167,36 +167,7 @@ export async function dealOne(actor, key = null) {
   return chosen;
 }
 
-/* -------------------------------------------- */
-/*  Adela's words                               */
-/* -------------------------------------------- */
-
-// The book ships an interpretation for each card, written in Adela Druskenvald's own voice, to be
-// read aloud — no mechanics in it at all (DESIGN §32.1). It is the best thing about the reading,
-// and it is THEIRS: read at runtime out of the player's own installed module, never copied into
-// our source. Same rule the station art follows (§36, "we bundle nothing of theirs") — which is
-// both the licence-safe answer and the reason a table without the book degrades quietly instead
-// of shipping someone else's prose to people who never bought it.
-const CM_TABLE = "Compendium.the-crooked-moon-2014.tcm2014-rollable-tables.RollTable.PgDCRgyABMbAxork";
-let adelaCache = null;
-
-/** Adela's reading for a card, or "" when the book isn't installed. Cached after the first hit. */
-export async function adelaWords(card) {
-  if (!card || !hasBookArt()) return "";
-  try {
-    if (!adelaCache) {
-      const table = await fromUuid(CM_TABLE);
-      if (!table) return "";
-      adelaCache = new Map();
-      for (const r of table.results ?? []) {
-        // The table's own ordering is NOT ours (it runs Magician 1 … Fool 22, while the deck
-        // numbers the Fool 0), so match on the NAME rather than the index — the one join that
-        // can't silently shift if either list is re-ordered.
-        const nm = String(r.name ?? r.text ?? "").trim().toLowerCase();
-        const hit = ARCANA.find(c => c.name.toLowerCase() === nm);
-        if (hit) adelaCache.set(hit.key, String(r.description ?? r.text ?? "").trim());
-      }
-    }
-    return adelaCache.get(card.key) ?? "";
-  } catch (e) { return ""; }
-}
+// (Adela's per-card interpretation used to be fetched from the book and shown under the turned
+// card. Removed 2026-08-11 — "no need for the text, the DM reads that": her words are the DM's to
+// say out loud, and printing them under the art was the interface talking over the person whose
+// scene it is. All 22 are transcribed in DESIGN §32.1 if the panel ever wants them.)
