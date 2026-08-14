@@ -15,7 +15,8 @@ import { trainScenes, trainMistOn, wireTrainDoors, setTrainMist } from "./cm-tra
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 import { bossList, bossSave, bossImage, bossSoundSrc, bossSoundLabel, dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { setDaylightSuspended } from "./daylight.js"; // §41 travel owns the light for the length of a journey
-import { dealTarot, actorCard, revealActorCard, setActorCard, hasBookArt } from "./tarot.js"; // §42 the Fated Tarot
+import { dealTarot, actorCard, revealActorCard, setActorCard, hasBookArt, ARCANA, cardByKey,
+  reading as tarotReading, layoutSpread, closeReading, setTurn as tarotSetTurn, saveReading } from "./tarot.js"; // §42 the Fated Tarot
 import { DRUSK_HOURS, currentHour, isDruskScene, druskSceneIds, markDruskScene, advanceToNextHour } from "./druskenvald.js"; // §43 the clock
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
@@ -531,6 +532,56 @@ function druskBody() {
 // because the turn is the whole ritual. A card already held shows on its row so the DM can see
 // the table's whole reading at a glance months later.
 const tarotParty = new Set();
+// §42.1 The reading, from the DM's side: lay five out, see all five, hand someone the turn, and
+// decide privately what any of them is actually going to get.
+function tarotReadingBody() {
+  const esc = foundry.utils.escapeHTML;
+  const r = tarotReading();
+  const pcs = scenePcs();
+  const userOf = (a) => game.users.find(u => !u.isGM && (u.character?.id === a.id || a.testUserPermission(u, "OWNER")));
+  if (!r.open) {
+    return `<button class="mc-dmp-sz-begin" data-tarot-lay>
+        <i class="fas fa-layer-group"></i> Lay the Spread</button>
+      <div class="mc-dmp-story-status">Five cards face down on the shared screen. You'll see all five; the players won't.</div>`;
+  }
+  // THE DM'S FOREKNOWLEDGE (DM 2026-08-11: "make sure the DM has the cards' details before
+  // selection regardless"). Every position, named, in order, with who has taken it.
+  const slots = r.spread.map((k, i) => {
+    const c = cardByKey(k);
+    const by = r.flipped[i] ? game.users.get(r.flipped[i]) : null;
+    const here = r.turn && !by && i === r.cursor;
+    return `<div class="mc-tarot-slot ${by ? "mc-tarot-slot-gone" : ""} ${here ? "mc-on" : ""}">
+      <span class="mc-tarot-slot-n">${i + 1}</span>
+      <span class="mc-tarot-slot-name">${esc(c?.name ?? "—")}</span>
+      ${by ? `<span class="mc-tarot-slot-by" style="color:${by.color?.css ?? "var(--mc-muted)"}">${esc(by.name)}</span>` : ""}
+    </div>`;
+  }).join("");
+  // Whose turn, and the cheat beside each name: a forced card is what they'll get no matter which
+  // position they land on (UI-BIBLE §8.1 — the draw is the ritual, the DM is the authority).
+  const rows = pcs.map(a => {
+    const u = userOf(a);
+    if (!u) return "";
+    const isTurn = r.turn === u.id;
+    const forced = r.forced?.[u.id];
+    const opts = ARCANA.map(c => `<option value="${c.key}" ${c.key === forced ? "selected" : ""}>${esc(c.name)}</option>`).join("");
+    return `<div class="mc-tarot-row">
+      <button class="mc-seance-pc ${isTurn ? "mc-on" : ""}" data-tarot-turn="${u.id}"
+        title="${isTurn ? "They're choosing now — tap to take the turn back" : `Hand the turn to ${esc(a.name)}`}">
+        <i class="fas fa-circle-user" style="color:${pcColor(a)}"></i><span>${esc(a.name)}</span>
+        ${isTurn ? `<i class="fas fa-hand-pointer mc-seance-pc-check"></i>` : ""}
+      </button>
+      <select class="mc-tarot-force" data-tarot-force="${u.id}" title="Decide what they get, whichever card they turn over">
+        <option value="">— let the cards decide —</option>${opts}
+      </select>
+    </div>`;
+  }).join("");
+  return `<div class="mc-tarot-slots">${slots}</div>
+    ${rows || `<div class="mc-dmp-empty">No player characters in this scene.</div>`}
+    <button class="mc-dmp-pf-fix" data-tarot-close><i class="fas fa-xmark"></i> Close the Reading</button>
+    <div class="mc-dmp-story-status">Tap a name to give them the turn. Their phone gets ← Use →; the table sees the highlight move.</div>
+    ${backPickerHTML("tarotBackImage", "Tarot back")}`;
+}
+
 function tarotBody() {
   const esc = foundry.utils.escapeHTML;
   const pcs = scenePcs();
@@ -658,7 +709,8 @@ function crookedTabHTML() {
     ${dtDrawer("cmFate", "Fateweaving", "", fateBody(), true)}
     ${dtDrawer("cmTwists", "Twists of fate", "", twistsBody(), true)}
     ${dtDrawer("cmClock", "Druskenvald clock", "", druskBody(), true)}
-    ${dtDrawer("cmTarot", "Fated tarot", "", tarotBody(), true)}
+    ${dtDrawer("cmTarot", "Fated tarot — the reading", "", tarotReadingBody(), true)}
+    ${dtDrawer("cmTarotHands", "Fated tarot — who holds what", "", tarotBody(), true)}
     ${dtDrawer("cmBoard", "All aboard", "", allAboardBody(), true)}
     ${dtDrawer("cmRide", "The Ghostlight ride", "", trainRideBody(), true)}
     ${dtDrawer("fxSeance", "Séance", "", seanceBody(), true)}
@@ -3658,6 +3710,15 @@ function onInput(ev) {
 function onChange(ev) {
   // §26.6: the Player drawer's target picker.
   if (ev.target.matches?.("[data-fx-player]")) { fxPlayer = ev.target.value; return render(); }
+  // §42.1 THE CHEAT. What this player will actually receive, whichever card they turn over.
+  // Silent by design — no toast, no chat line: the only person who should know is the DM.
+  if (ev.target.matches?.("[data-tarot-force]")) {
+    const uid = ev.target.dataset.tarotForce, key = ev.target.value;
+    const r = tarotReading();
+    if (key) r.forced[uid] = key; else delete r.forced[uid];
+    saveReading(r).then(() => render());
+    return;
+  }
   // §33: the hand-pick dropdown — choosing an entry stages it like a roll would.
   if (ev.target.matches?.("[data-curse-pickn]")) {
     const n = Number(ev.target.value);
@@ -4337,6 +4398,16 @@ async function onClick(ev) {
     await markDruskScene(sc.id, !isDruskScene(sc));
     // Re-light it immediately on the new curve rather than waiting for the clock to move.
     try { await globalThis.MobileCommand?.applyDaylightNow?.(); } catch (e) { /* best-effort */ }
+    return render();
+  }
+
+  // §42.1 the reading: lay the spread, hand out the turn, close it.
+  if (ev.target.closest("[data-tarot-lay]")) { await layoutSpread(); return render(); }
+  if (ev.target.closest("[data-tarot-close]")) { await closeReading(); return render(); }
+  const tTurn = ev.target.closest("[data-tarot-turn]");
+  if (tTurn) {
+    const id = tTurn.dataset.tarotTurn;
+    await tarotSetTurn(tarotReading().turn === id ? null : id);
     return render();
   }
 

@@ -63,6 +63,20 @@ export function tarotBack() {
 
 export function cardByKey(key) { return ARCANA.find(c => c.key === key) ?? null; }
 
+/** The character a player is playing tonight — the DM's explicit pick if there is one (§38.4b),
+ *  else their assigned character. Seats and readings both key to USERS, so this is the bridge. */
+export function userActor(user) {
+  if (!user) return null;
+  try {
+    const picked = (game.settings.get(MODULE_ID, "seatActors") ?? {})[user.id];
+    if (picked) {
+      const a = game.actors.get(picked);
+      if (a?.type === "character") return a;
+    }
+  } catch (e) { /* no seating in play */ }
+  return user.character ?? null;
+}
+
 /* -------------------------------------------- */
 /*  What a character is holding                 */
 /* -------------------------------------------- */
@@ -130,4 +144,92 @@ export async function dealTarot(actors = []) {
     out.push({ actor, card });
   }
   return out;
+}
+
+/* -------------------------------------------- */
+/*  §42.1 THE READING — a spread, and a choice  */
+/* -------------------------------------------- */
+
+// The first version dealt each PC a card and told them what it was. The DM's verdict (2026-08-11)
+// was that this isn't a reading at all: "the table isn't shown" and "the player has no choice —
+// they get a card chosen for them." Both true. A tarot reading is a piece of theatre with three
+// beats, and we had none of them: cards laid out where everyone can see, a person deciding which
+// one is theirs, and the turn.
+//
+// So: five cards face down on the shared screen, the player moves a highlight along them from
+// their phone with ← Use →, and Use turns that card over. The choice is real to them and the
+// reveal is public.
+//
+// AND THE DM SEES EVERYTHING FIRST, AND CAN CHEAT. They know all five before anyone picks, and
+// they can decide what a given player will get regardless of which card that player lands on —
+// the flipped card simply IS the one the DM chose. That's UI-BIBLE §8.1 applied to a fortune:
+// the draw is the ritual, the DM is the authority. A real fortune teller was never shuffling
+// honestly either.
+
+export const SPREAD_SIZE = 5;
+
+const EMPTY_READING = { open: false, spread: [], flipped: [], turn: null, cursor: 0, forced: {} };
+
+export function reading() {
+  try {
+    const r = game.settings.get(MODULE_ID, "tarotReading") ?? {};
+    return {
+      open: !!r.open,
+      spread: Array.isArray(r.spread) ? r.spread : [],
+      flipped: Array.isArray(r.flipped) ? r.flipped : [],
+      turn: r.turn ?? null,
+      cursor: Number(r.cursor) || 0,
+      forced: r.forced && typeof r.forced === "object" ? r.forced : {}
+    };
+  } catch (e) { return { ...EMPTY_READING }; }
+}
+export async function saveReading(r) {
+  await game.settings.set(MODULE_ID, "tarotReading", r);
+}
+
+/** Lay a fresh spread of face-down cards, drawn from what nobody holds yet. */
+export async function layoutSpread(size = SPREAD_SIZE) {
+  const taken = takenKeys([]);
+  const pool = ARCANA.filter(c => !taken.has(c.key));
+  const spread = [];
+  for (let i = 0; i < size && pool.length; i++) {
+    const j = Math.floor(Math.random() * pool.length);
+    spread.push(pool.splice(j, 1)[0].key);
+  }
+  await saveReading({ open: true, spread, flipped: spread.map(() => null), turn: null, cursor: 0, forced: {} });
+  return spread;
+}
+
+export async function closeReading() { await saveReading({ ...EMPTY_READING }); }
+
+/** Whose turn it is to choose. Setting a turn puts the highlight on the first unflipped card. */
+export async function setTurn(userId) {
+  const r = reading();
+  r.turn = userId ?? null;
+  r.cursor = firstFree(r);
+  await saveReading(r);
+}
+function firstFree(r) {
+  const i = r.flipped.findIndex(f => !f);
+  return i < 0 ? 0 : i;
+}
+
+/** Move the highlight, skipping cards already turned over. Wraps, because a highlight that jams
+ *  at the end of a row reads as broken input on a phone with two arrows. */
+export function nextFree(r, from, dir) {
+  const n = r.spread.length;
+  if (!n) return 0;
+  for (let step = 1; step <= n; step++) {
+    const i = ((from + dir * step) % n + n) % n;
+    if (!r.flipped[i]) return i;
+  }
+  return from; // everything is turned — nowhere to go
+}
+
+/** The card this user will actually receive: the DM's choice if they made one, else where the
+ *  highlight is sitting. */
+export function resolveFor(r, userId) {
+  const forced = r.forced?.[userId];
+  if (forced && ARCANA.some(c => c.key === forced)) return forced;
+  return r.spread[r.cursor] ?? null;
 }

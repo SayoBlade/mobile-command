@@ -5,7 +5,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure he
 import { toggleSimpleCalendar } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 the player's thread card
-import { actorCard as tarotCard, cardFace as tarotFace, tarotBack } from "./tarot.js"; // §42 the Fated Tarot
+import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, reading as tarotReading } from "./tarot.js"; // §42 the Fated Tarot
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -606,6 +606,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>
       ${this.#condEditing && !this.#detailCard ? this.#conditionPaletteHTML(actor) : ""}
       ${this.#twistOpen && !this.#detailCard ? this.#twistPanelHTML(actor) : ""}
+      ${this.#detailCard ? "" : this.#tarotChooserHTML()}
       ${this.#diceTrayOpen ? this.#diceTrayHTML() : ""}
       ${this.#atZeroHP(actor) && this.#deathSaveDismissed
         ? `<button class="mc-death-reopen" data-action="death-reopen"><i class="fas fa-skull"></i> At 0 HP — death saves</button>` : ""}
@@ -4911,6 +4912,26 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.render();
   }
 
+  // §42.1 THE CHOOSER. When it's this player's turn at the reading, three big buttons and nothing
+  // else: ← Use →. Deliberately not a picture of the cards — the cards are on the shared screen
+  // where the whole table is looking, and duplicating them on the phone would split the room's
+  // attention at the exact moment the reading is asking for it (the same reason the séance's
+  // letters are on the board and not in six pockets). The phone is the hand, not the eyes.
+  #tarotChooserHTML() {
+    const r = tarotReading();
+    if (!r.open || r.turn !== game.user.id) return "";
+    const left = r.spread.filter((_, i) => !r.flipped[i]).length;
+    return `<div class="mc-tarot-chooser">
+      <div class="mc-tarot-chooser-head">Choose your card
+        <span class="mc-tarot-chooser-sub">${left} still face down · look at the table</span></div>
+      <div class="mc-tarot-chooser-row">
+        <button class="mc-tarot-arrow" data-action="tarot-left" aria-label="Move left"><i class="fas fa-chevron-left"></i></button>
+        <button class="mc-tarot-use" data-action="tarot-use"><i class="fas fa-hand-sparkles"></i> Use</button>
+        <button class="mc-tarot-arrow" data-action="tarot-right" aria-label="Move right"><i class="fas fa-chevron-right"></i></button>
+      </div>
+    </div>`;
+  }
+
   // §42: the card this character was dealt, full screen. Face down until the DM turns it over —
   // and the back is deliberately the whole card, because a player holding a card they can't read
   // yet is the reading. Once turned, the plate (or, without the book's art, the name) is theirs.
@@ -6757,6 +6778,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "twist-withdraw": return this.#twistWithdraw(actor);
       case "fate-open": return this.#openFateCard(actor);
       case "tarot-open": return this.#openTarotCard(actor);
+      // §42.1 the chooser. #onClick is NOT async (a known trap), so these fire and forget and the
+      // updateSetting hook repaints both this phone and the table when the write lands.
+      case "tarot-left": { rpc.tarotMove({ dir: -1 }); return; }
+      case "tarot-right": { rpc.tarotMove({ dir: 1 }); return; }
+      case "tarot-use": {
+        rpc.tarotUse({}).then(res => {
+          if (res?.ok) { try { navigator.vibrate?.([30, 50, 60]); } catch (e) { /* not supported */ } }
+          else if (res?.reason) ui.notifications?.info?.(res.reason);
+        }).catch(() => {});
+        return;
+      }
       case "toggle-levels":
         this.#showLevels = !this.#showLevels; this.#levelUp = null; return this.render();
       case "level-up-open": return this.#openLevelUp();
@@ -8370,6 +8402,15 @@ export function registerShellHooks() {
   // (renderApplication) so no prompt (reactions, config) hides under the shell.
   Hooks.on("renderApplicationV2", liftDialogAboveShell);
   Hooks.on("renderApplication", liftDialogAboveShell);
+  // §42.1 the reading is a world setting, so the chooser's phone repaints when the DM lays a
+  // spread, hands them the turn, or their own arrow press lands. createSetting too — a setting
+  // that has never been written has no document, so its first write is a CREATE, not an update.
+  const onTarotSetting = (s) => {
+    if (s?.key !== `${MODULE_ID}.tarotReading`) return;
+    if (shellInstance?.rendered) shellInstance.render();
+  };
+  Hooks.on("updateSetting", onTarotSetting);
+  Hooks.on("createSetting", onTarotSetting);
   // Guaranteed close X for journal sheets on a phone (DM 2026-07-11): the SRD class/subclass
   // reference journal renders no visible close and traps the player. This runs on EVERY app
   // render (independent of liftDialogAboveShell, which early-returns for a frameless journal

@@ -75,8 +75,38 @@ ok("no repeats even at capacity", new Set(big.map(d => d.card.key)).size === 22)
 ok("night peak is 0.8", preset.NIGHT_DARKNESS_PEAK === 0.8, String(preset.NIGHT_DARKNESS_PEAK));
 ok("global-light threshold is half the peak", preset.GLOBAL_LIGHT_NIGHT_THRESHOLD === 0.4, String(preset.GLOBAL_LIGHT_NIGHT_THRESHOLD));
 ok("midnight = peak", preset.darknessForHour(0) === 0.8);
-ok("noon = 0", preset.darknessForHour(12) === 0);
-ok("dawn midpoint = half peak", Math.abs(preset.darknessForHour(6) - 0.4) < 1e-9, String(preset.darknessForHour(6)));
+// SS41.1 daylight is a FLOOR now, not zero — a world with no real sun.
+ok("noon sits at the day floor", preset.darknessForHour(12) === preset.DAY_DARKNESS_FLOOR,
+  String(preset.darknessForHour(12)));
+ok("noon is still much lighter than night", preset.darknessForHour(12) < preset.NIGHT_DARKNESS_PEAK - 0.4);
+ok("dawn midpoint sits between floor and peak", (() => {
+  const d = preset.darknessForHour(6);
+  return d > preset.DAY_DARKNESS_FLOOR && d < preset.NIGHT_DARKNESS_PEAK;
+})(), String(preset.darknessForHour(6)));
+ok("an explicit day floor of 0 restores true daylight", preset.darknessForHour(12, { day: 0 }) === 0);
+ok("the curve never leaves [floor, peak]", (() => {
+  for (let h = 0; h < 24; h += 0.25) {
+    const d = preset.darknessForHour(h);
+    if (d < preset.DAY_DARKNESS_FLOOR - 1e-9 || d > preset.NIGHT_DARKNESS_PEAK + 1e-9) return false;
+  }
+  return true;
+})());
+
+// 7. SS42.1 the reading: the spread, the highlight, and the DM's cheat
+const R = { open: true, spread: ["fool", "star", "moon", "sun", "tower"], flipped: [null, null, null, null, null], turn: "u1", cursor: 0, forced: {} };
+ok("right moves along", tarot.nextFree(R, 0, 1) === 1);
+ok("left wraps to the end", tarot.nextFree(R, 0, -1) === 4);
+const R2 = { ...R, flipped: [null, "x", "y", null, null] };
+ok("the highlight skips turned cards", tarot.nextFree(R2, 0, 1) === 3, String(tarot.nextFree(R2, 0, 1)));
+ok("and skips them going left too", tarot.nextFree(R2, 4, -1) === 3, String(tarot.nextFree(R2, 4, -1)));
+const R3 = { ...R, flipped: ["a", "b", null, "d", "e"] };
+ok("one card left = nowhere to move", tarot.nextFree(R3, 2, 1) === 2);
+ok("no cheat = the card under the highlight", tarot.resolveFor({ ...R, cursor: 3 }, "u1") === "sun");
+ok("a cheat overrides wherever they land",
+  tarot.resolveFor({ ...R, cursor: 3, forced: { u1: "death" } }, "u1") === "death");
+ok("a cheat for someone else doesn't leak", tarot.resolveFor({ ...R, cursor: 3, forced: { u2: "death" } }, "u1") === "sun");
+ok("a nonsense forced key falls back to the spread",
+  tarot.resolveFor({ ...R, cursor: 3, forced: { u1: "not-a-card" } }, "u1") === "sun");
 
 console.log(fails ? `\n${fails} FAILED` : "\nall green");
 process.exit(fails ? 1 : 0);

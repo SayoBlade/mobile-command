@@ -264,6 +264,25 @@ export const DEFAULT_SUNRISE_HOUR = 6;
 export const DEFAULT_SUNSET_HOUR = 18;
 /** Darkness at a given hour. `sunrise`/`sunset` come from the calendar when there is one
  *  (gametime.js); without them it's a plain 06:00/18:00 day. */
+// A DAY IN A WORLD WITH NO SUN (DM 2026-08-11: "'daylight' is too bright for a world with no
+// sun, keep the current night lighting, but make the light time less bright"). The curve used to
+// bottom out at 0 — true, flat noon — which is right for a normal campaign and wrong for a book
+// whose whole premise is an overcast, sunless country. So full light is now a FLOOR rather than
+// zero: even the brightest hour keeps a little weight on it. Night is untouched.
+// Set it to 0 in the settings to get real daylight back.
+export const DAY_DARKNESS_FLOOR = 0.22;
+export function dayFloor() {
+  try {
+    const raw = game.settings.get(MODULE_ID, "dayDarknessFloor");
+    // `Number("")` is 0, and 0 is FINITE — so a blank or missing value would sail through a plain
+    // isFinite guard and quietly mean "true daylight", which is the opposite of the default and
+    // indistinguishable from the DM having chosen it. Reject the empties before coercing.
+    if (raw === "" || raw === null || raw === undefined) return DAY_DARKNESS_FLOOR;
+    const v = Number(raw);
+    return Number.isFinite(v) ? Math.max(0, Math.min(0.6, v)) : DAY_DARKNESS_FLOOR;
+  } catch (e) { return DAY_DARKNESS_FLOOR; }
+}
+
 export function darknessForHour(hour, opts = {}) {
   const sunrise = Number.isFinite(opts.sunrise) ? opts.sunrise : DEFAULT_SUNRISE_HOUR;
   const sunset = Number.isFinite(opts.sunset) ? opts.sunset : DEFAULT_SUNSET_HOUR;
@@ -271,10 +290,13 @@ export function darknessForHour(hour, opts = {}) {
   const h = (((Number(hour) || 0) % 24) + 24) % 24;
   const half = ramp / 2;
   const N = NIGHT_DARKNESS_PEAK;
-  if (h >= sunrise - half && h <= sunrise + half) return N * (1 - (h - (sunrise - half)) / ramp); // dark → light
-  if (h >= sunset - half && h <= sunset + half) return N * ((h - (sunset - half)) / ramp);        // light → dark
-  if (h > sunrise + half && h < sunset - half) return 0;                                          // full light
-  return N;                                                                                       // full dark
+  // The ramps now run between the DAY FLOOR and the night peak rather than between 0 and the
+  // peak, so "full light" is the brightest the world gets rather than an absence of darkness.
+  const D = Number.isFinite(opts.day) ? opts.day : dayFloor();
+  if (h >= sunrise - half && h <= sunrise + half) return N + (D - N) * ((h - (sunrise - half)) / ramp); // dark → light
+  if (h >= sunset - half && h <= sunset + half) return D + (N - D) * ((h - (sunset - half)) / ramp);    // light → dark
+  if (h > sunrise + half && h < sunset - half) return D;                                                // full light
+  return N;                                                                                             // full dark
 }
 // Global light is the SUN under this model, so it must yield before the curve tops out — a scene
 // whose global-light threshold sits at or above the night peak never actually gets dark. The

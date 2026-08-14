@@ -1,4 +1,4 @@
-import { MODULE_ID, SAVE_TIMEOUT_SETTING, DEFAULT_CARD_THEME } from "./preset.js";
+import { MODULE_ID, SAVE_TIMEOUT_SETTING, DEFAULT_CARD_THEME, DAY_DARKNESS_FLOOR } from "./preset.js";
 import { makeConfirmMenuClass, deactivate, reactivate, hasBackup, hasReactivateSnapshot } from "./enforcer.js";
 
 export function registerSettings() {
@@ -247,6 +247,29 @@ export function registerSettings() {
   });
   game.settings.register(MODULE_ID, "cardTableOn", {
     scope: "world", config: false, type: Boolean, default: false
+  });
+
+  // §41.1 how bright the brightest hour is (DM 2026-08-11: "'daylight' is too bright for a world
+  // with no sun"). The curve used to bottom out at a flat 0 — right for a normal campaign, wrong
+  // for an overcast, sunless country. 0 restores true daylight.
+  game.settings.register(MODULE_ID, "dayDarknessFloor", {
+    name: "How bright daylight gets",
+    hint: "The darkness the world sits at during full daylight. 0 is a clear noon; higher is permanently overcast — for a setting where the sun never really arrives. Night is unaffected.",
+    scope: "world",
+    config: true,
+    type: Number,
+    range: { min: 0, max: 0.6, step: 0.02 },
+    default: DAY_DARKNESS_FLOOR,
+    onChange: () => { try { globalThis.MobileCommand?.applyDaylightNow?.(); } catch (e) { /* pre-ready */ } }
+  });
+
+  // §42.1 THE READING IN PROGRESS: the five face-down cards, who is choosing, where their
+  // highlight sits, which positions are already turned, and any card the DM has decided a given
+  // player will get regardless of what they land on. A world setting because all three surfaces
+  // (shared screen, the chooser's phone, the DM panel) must agree and survive a reload mid-reading.
+  game.settings.register(MODULE_ID, "tarotReading", {
+    scope: "world", config: false, type: Object,
+    default: { open: false, spread: [], flipped: [], turn: null, cursor: 0, forced: {} }
   });
 
   // §43 which scenes are under Druskenvald's eternal night. An EXPLICIT DM list, never a guess —

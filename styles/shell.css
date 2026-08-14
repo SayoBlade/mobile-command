@@ -6153,3 +6153,70 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* Same toast furniture as a roll: envelope where the number goes, the note underneath. */
 .mc-toast-pm .mc-roll-toast-total { font-size: 22px; color: var(--mc-gold); }
 .mc-toast-pm .mc-roll-toast-formula { white-space: normal; font-style: italic; opacity: .95; }
+
+/* == §42.1 The tarot table — five cards, face down, where the room can see them ============== */
+#mc-tarottable { position: fixed; inset: 0; z-index: 60; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh;
+  --mc-tt-cardw: clamp(70px, 15vh, 210px); }
+.mc-tt-veil { position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, rgba(4,4,7,.72) 0%, rgba(3,3,5,.93) 75%); }
+.mc-tt-spread { position: relative; display: flex; gap: clamp(10px, 2.2vw, 34px); }
+.mc-tt-card { width: var(--mc-tt-cardw); aspect-ratio: 5 / 7; perspective: 1100px;
+  position: relative; transition: transform .35s cubic-bezier(.2,.8,.3,1); }
+.mc-tt-inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d;
+  transition: transform .75s cubic-bezier(.2,.7,.3,1);
+  border-radius: calc(9px * var(--mc-round, 1)); }
+.mc-tt-flipped .mc-tt-inner { transform: rotateY(180deg); }
+.mc-tt-back, .mc-tt-face { position: absolute; inset: 0; backface-visibility: hidden;
+  border-radius: calc(9px * var(--mc-round, 1)); border: 1px solid #000; overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0,0,0,.7); }
+.mc-tt-back { background-size: cover; background-position: center; }
+.mc-tt-face { transform: rotateY(180deg); background: var(--mc-panel);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.mc-tt-art { width: 100%; height: 100%; object-fit: cover; }
+.mc-tt-art-text { display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 8%; font-family: var(--mc-font-title), serif; color: var(--mc-ink);
+  font-size: clamp(12px, 1.5vh, 26px); line-height: 1.15; }
+.mc-tt-name { position: absolute; left: 0; right: 0; bottom: 0; padding: 4% 6% 5%;
+  background: linear-gradient(transparent, rgba(0,0,0,.86) 45%);
+  font-family: var(--mc-font-title), serif; color: var(--mc-ink);
+  font-size: clamp(10px, 1.25vh, 21px); text-align: center; letter-spacing: .04em; }
+/* THE HIGHLIGHT: the one moving part, driven by the chooser's phone. It lifts as well as glows,
+   so it reads from across a room and not only up close. */
+.mc-tt-here { transform: translateY(-9%); }
+.mc-tt-here .mc-tt-inner { box-shadow: 0 0 0 3px var(--mc-gold), 0 0 34px 6px rgba(200,164,77,.5),
+  0 14px 26px rgba(0,0,0,.75); }
+.mc-tt-claim { position: absolute; left: 50%; bottom: -2.4em; transform: translateX(-50%);
+  white-space: nowrap; font-family: var(--mc-font-title), serif; color: var(--who, var(--mc-gold));
+  font-size: clamp(10px, 1.25vh, 20px); text-shadow: 0 1px 8px rgba(0,0,0,.9); }
+.mc-tt-caption { position: relative; font-family: var(--mc-font-title), serif;
+  color: var(--mc-ink); font-size: clamp(13px, 1.9vh, 30px); letter-spacing: .05em;
+  text-shadow: 0 2px 12px rgba(0,0,0,.9); }
+
+/* The chooser on the phone: three targets, thumb-sized, nothing else (UI-BIBLE §4.1 — 44px min,
+   48px for the primary). No pictures of the cards; the cards are on the shared screen. */
+.mc-tarot-chooser { margin: 8px 10px 0; padding: 10px 12px 12px;
+  border-radius: calc(12px * var(--mc-round, 1));
+  background: var(--mc-panel); border: 1px solid var(--mc-gold); }
+.mc-tarot-chooser-head { font-family: var(--mc-font-title), serif; color: var(--mc-gold);
+  font-size: 16px; letter-spacing: .03em; display: flex; flex-direction: column; gap: 2px; }
+.mc-tarot-chooser-sub { font-family: inherit; font-size: 11.5px; color: var(--mc-muted); letter-spacing: 0; }
+.mc-tarot-chooser-row { display: flex; gap: 8px; margin-top: 10px; }
+.mc-tarot-arrow { flex: 0 0 auto; width: 64px; min-height: 48px;
+  border-radius: calc(10px * var(--mc-round, 1));
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 18px; }
+.mc-tarot-use { flex: 1 1 auto; min-height: 48px; border-radius: calc(10px * var(--mc-round, 1));
+  background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge); color: var(--mc-cta-ink);
+  font-weight: 700; font-size: 15px; }
+
+/* The DM's foreknowledge: every position named, in order, before anyone picks. */
+.mc-tarot-slots { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+.mc-tarot-slot { display: flex; align-items: center; gap: 8px; padding: 3px 8px;
+  border-radius: calc(6px * var(--mc-round, 1)); background: var(--mc-sunken);
+  border: 1px solid transparent; font-size: 12px; color: var(--mc-ink); }
+.mc-tarot-slot.mc-on { border-color: var(--mc-gold); }
+.mc-tarot-slot-gone { opacity: .5; text-decoration: line-through; }
+.mc-tarot-slot-n { color: var(--mc-muted); font-weight: 700; min-width: 12px; }
+.mc-tarot-slot-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-tarot-slot-by { font-size: 10.5px; }
+.mc-tarot-force { flex: 0 0 auto; max-width: 44%; font-size: 11px; }

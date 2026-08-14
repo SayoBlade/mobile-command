@@ -5,6 +5,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime data model + Rule engine
 // Pure-data wall test: works on scenes the DM isn't looking at, where the canvas collision
 // backends only know the VIEWED scene. Used by movement and by travel-point landings.
 import { wallsBlock } from "./cm-train.js";
+import * as TAROT from "./tarot.js"; // §42.1 the reading's state lives there; the writes happen here
 
 // §5 Service RPC contract, Phase 1 subset, running on the executor client
 // (§2.1: the DM Screen GM client). All Spike 3 findings are baked in:
@@ -108,6 +109,8 @@ export function initSocket() {
   socket.register("storyPrompt", handleStoryPrompt);     // executor → phone: the pushed question
   socket.register("storyAnswered", handleStoryAnswered); // phone → executor: quiet ✓ for the panel
   socket.register("szEvent", handleSzEvent);             // §38.4a lockstep: wizard → card table
+  socket.register("tarotMove", handleTarotMove);         // §42.1 the chooser slides the highlight
+  socket.register("tarotUse", handleTarotUse);           // §42.1 …and turns that card over
   socket.register("portraitUpload", handlePortraitUpload);
   socket.register("wildShapeList", handleWildShapeList);
   socket.register("wildShapeInto", handleWildShapeInto);
@@ -2273,6 +2276,38 @@ async function handleStoryAdd({ actorId, text, question = null, step = null, req
     return { ok: false, reason: err?.message ?? "could not save the entry" };
   }
 }
+// §42.1 THE READING. The spread is a world setting, which only a GM may write — so the player's
+// ← and → and their Use come here, to the one client that owns it. Both refuse anyone who isn't
+// the player whose turn it is, because "whose turn" is the entire structure of a reading: without
+// that check any phone could walk the highlight along while someone else is choosing.
+async function handleTarotMove({ dir, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const r = TAROT.reading();
+  if (!r.open || r.turn !== requesterId) return { ok: false, reason: "not your turn" };
+  r.cursor = TAROT.nextFree(r, r.cursor, Number(dir) < 0 ? -1 : 1);
+  await TAROT.saveReading(r);
+  return { ok: true, cursor: r.cursor };
+}
+
+async function handleTarotUse({ requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const r = TAROT.reading();
+  if (!r.open || r.turn !== requesterId) return { ok: false, reason: "not your turn" };
+  if (r.flipped[r.cursor]) return { ok: false, reason: "that one is already turned" };
+  const key = TAROT.resolveFor(r, requesterId);
+  if (!key) return { ok: false, reason: "there is no card there" };
+  // The DM's choice, if they made one, becomes what is UNDER the card the player picked — so the
+  // reveal stays honest to what everyone is looking at, and the cheat is invisible from the table.
+  r.spread[r.cursor] = key;
+  r.flipped[r.cursor] = requesterId;
+  r.turn = null;
+  await TAROT.saveReading(r);
+  const user = game.users.get(requesterId);
+  const actor = TAROT.userActor(user);
+  if (actor) await TAROT.setActorCard(actor, key, { shown: true });
+  return { ok: true, key, position: r.cursor };
+}
+
 async function handleStoryEdit({ actorId, entryId, text, requesterId } = {}) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
   const actor = game.actors.get(actorId);
@@ -3410,6 +3445,7 @@ function toExecutor(handler, payload) {
       listInteractables: handleListInteractables, operateInteractable: handleOperateInteractable,
       travelTo: handleTravelTo, travelMark: handleTravelMark,
       partyJournalEnsure: handlePartyJournalEnsure, partyJournalAdd: handlePartyJournalAdd, partyJournalEdit: handlePartyJournalEdit, partyJournalDelete: handlePartyJournalDelete, portraitUpload: handlePortraitUpload,
+      tarotMove: handleTarotMove, tarotUse: handleTarotUse,
       storyAdd: handleStoryAdd, storyEdit: handleStoryEdit, storyDelete: handleStoryDelete,
       storyAnswered: handleStoryAnswered,
       wildShapeList: handleWildShapeList, wildShapeInto: handleWildShapeInto, wildShapeRevert: handleWildShapeRevert,
@@ -3458,6 +3494,8 @@ export const api = {
   partyJournalEdit: (payload = {}) => toExecutor("partyJournalEdit", { ...payload, requesterId: game.user.id }),
   partyJournalDelete: (payload = {}) => toExecutor("partyJournalDelete", { ...payload, requesterId: game.user.id }),
   portraitUpload: (payload = {}) => toExecutor("portraitUpload", payload),
+  tarotMove: (payload = {}) => toExecutor("tarotMove", payload), // §42.1 ← / →
+  tarotUse: (payload = {}) => toExecutor("tarotUse", payload),   // §42.1 turn it over
   storyAdd: (payload = {}) => toExecutor("storyAdd", payload),
   storyEdit: (payload = {}) => toExecutor("storyEdit", payload),
   storyDelete: (payload = {}) => toExecutor("storyDelete", payload),
