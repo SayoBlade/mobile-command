@@ -15,8 +15,7 @@ import { trainScenes, trainMistOn, wireTrainDoors, setTrainMist } from "./cm-tra
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 import { bossList, bossSave, bossImage, bossSoundSrc, bossSoundLabel, dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { setDaylightSuspended } from "./daylight.js"; // §41 travel owns the light for the length of a journey
-import { dealTarot, actorCard, revealActorCard, setActorCard, hasBookArt, ARCANA, cardByKey,
-  reading as tarotReading, layoutSpread, closeReading, setTurn as tarotSetTurn, saveReading } from "./tarot.js"; // §42 the Fated Tarot
+import { dealOne, actorCard, revealActorCard, setActorCard, hasBookArt, ARCANA } from "./tarot.js"; // §42 the Fated Tarot
 import { DRUSK_HOURS, currentHour, isDruskScene, druskSceneIds, markDruskScene, advanceToNextHour } from "./druskenvald.js"; // §43 the clock
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
@@ -526,95 +525,50 @@ function druskBody() {
       : "No maps marked — everywhere still has a sun."}</div>`;
 }
 
-// --- §42 The Fated Tarot: one Major Arcana per character, kept for the campaign -------------
-// Same roster shape as the séance's sitters (§30.1, UI-BIBLE §3/§6.6): scene-scoped PCs, tap to
-// include. Deal turns every chosen card face DOWN; turning them over is a second, deliberate act,
-// because the turn is the whole ritual. A card already held shows on its row so the DM can see
-// the table's whole reading at a glance months later.
-const tarotParty = new Set();
-// §42.1 The reading, from the DM's side: lay five out, see all five, hand someone the turn, and
-// decide privately what any of them is actually going to get.
-function tarotReadingBody() {
-  const esc = foundry.utils.escapeHTML;
-  const r = tarotReading();
-  const pcs = scenePcs();
-  const userOf = (a) => game.users.find(u => !u.isGM && (u.character?.id === a.id || a.testUserPermission(u, "OWNER")));
-  if (!r.open) {
-    return `<button class="mc-dmp-sz-begin" data-tarot-lay>
-        <i class="fas fa-layer-group"></i> Lay the Spread</button>
-      <div class="mc-dmp-story-status">Five cards face down on the shared screen. You'll see all five; the players won't.</div>`;
-  }
-  // THE DM'S FOREKNOWLEDGE (DM 2026-08-11: "make sure the DM has the cards' details before
-  // selection regardless"). Every position, named, in order, with who has taken it.
-  const slots = r.spread.map((k, i) => {
-    const c = cardByKey(k);
-    const by = r.flipped[i] ? game.users.get(r.flipped[i]) : null;
-    const here = r.turn && !by && i === r.cursor;
-    return `<div class="mc-tarot-slot ${by ? "mc-tarot-slot-gone" : ""} ${here ? "mc-on" : ""}">
-      <span class="mc-tarot-slot-n">${i + 1}</span>
-      <span class="mc-tarot-slot-name">${esc(c?.name ?? "—")}</span>
-      ${by ? `<span class="mc-tarot-slot-by" style="color:${by.color?.css ?? "var(--mc-muted)"}">${esc(by.name)}</span>` : ""}
-    </div>`;
-  }).join("");
-  // Whose turn, and the cheat beside each name: a forced card is what they'll get no matter which
-  // position they land on (UI-BIBLE §8.1 — the draw is the ritual, the DM is the authority).
-  const rows = pcs.map(a => {
-    const u = userOf(a);
-    if (!u) return "";
-    const isTurn = r.turn === u.id;
-    const forced = r.forced?.[u.id];
-    const opts = ARCANA.map(c => `<option value="${c.key}" ${c.key === forced ? "selected" : ""}>${esc(c.name)}</option>`).join("");
-    return `<div class="mc-tarot-row">
-      <button class="mc-seance-pc ${isTurn ? "mc-on" : ""}" data-tarot-turn="${u.id}"
-        title="${isTurn ? "They're choosing now — tap to take the turn back" : `Hand the turn to ${esc(a.name)}`}">
-        <i class="fas fa-circle-user" style="color:${pcColor(a)}"></i><span>${esc(a.name)}</span>
-        ${isTurn ? `<i class="fas fa-hand-pointer mc-seance-pc-check"></i>` : ""}
-      </button>
-      <select class="mc-tarot-force" data-tarot-force="${u.id}" title="Decide what they get, whichever card they turn over">
-        <option value="">— let the cards decide —</option>${opts}
-      </select>
-    </div>`;
-  }).join("");
-  return `<div class="mc-tarot-slots">${slots}</div>
-    ${rows || `<div class="mc-dmp-empty">No player characters in this scene.</div>`}
-    <button class="mc-dmp-pf-fix" data-tarot-close><i class="fas fa-xmark"></i> Close the Reading</button>
-    <div class="mc-dmp-story-status">Tap a name to give them the turn. Their phone gets ← Use →; the table sees the highlight move.</div>
-    ${backPickerHTML("tarotBackImage", "Tarot back")}`;
-}
-
+// --- §42 The Fated Tarot: one card, into one character's hand ------------------------------
+// ONE AT A TIME (DM 2026-08-11). The DM picks a character and deals; that card fills THAT
+// player's phone face down, and they turn it over themselves. Nothing goes to the shared screen —
+// the phone is the card (§36's ticket, which was always the better model than a spread with a
+// remote-controlled highlight).
+//
+// THE CHEAT IS THE DROPDOWN BESIDE THE NAME, and it is just an argument to the deal — there is no
+// "forced card" state to keep in sync with anything, and nothing to clean up if the DM changes
+// their mind. "— let the cards decide —" rolls from what nobody holds; naming an arcana deals
+// exactly that (UI-BIBLE §8.1: the draw is the ritual, the DM is the authority).
+const tarotPick = new Map(); // actorId → the arcana the DM has chosen for their next draw
 function tarotBody() {
   const esc = foundry.utils.escapeHTML;
   const pcs = scenePcs();
-  for (const id of [...tarotParty]) if (!pcs.some(a => a.id === id)) tarotParty.delete(id);
   if (!pcs.length) return `<div class="mc-dmp-empty">No player characters in this scene.</div>`;
+  const taken = new Set([...(game.actors ?? [])].map(a => a.getFlag(MODULE_ID, "tarot")?.key).filter(Boolean));
   const rows = pcs.map(a => {
-    const inRead = tarotParty.has(a.id);
     const card = actorCard(a);
-    // The card's NAME is the readout; the plate is only shown if the book is installed. A card
-    // still face down reads as such rather than spoiling itself on the DM's own panel.
+    const chosen = tarotPick.get(a.id) ?? "";
+    // A card still face down reads as such rather than spoiling itself on the DM's own panel —
+    // though the DM can always look: they dealt it.
     const held = card
-      ? `<span class="mc-tarot-held ${card.shown ? "" : "mc-tarot-down"}">${card.shown ? esc(card.name) : "face down"}</span>`
+      ? `<span class="mc-tarot-hold ${card.shown ? "" : "mc-tarot-down"}" title="${esc(card.name)}">${card.shown ? esc(card.name) : "in their hand"}</span>`
       : "";
+    // Arcana someone else holds are struck from the list — the book's no-duplicates rule, made
+    // visible rather than enforced silently at deal time.
+    const opts = ARCANA.map(c => {
+      const gone = taken.has(c.key) && card?.key !== c.key;
+      return `<option value="${c.key}" ${c.key === chosen ? "selected" : ""} ${gone ? "disabled" : ""}>${esc(c.name)}${gone ? " ·held" : ""}</option>`;
+    }).join("");
     return `<div class="mc-tarot-row">
-      <button class="mc-seance-pc ${inRead ? "mc-on" : ""}" data-tarot-pc="${a.id}" title="${inRead ? `${esc(a.name)} is in the reading` : `Deal ${esc(a.name)} a card`}">
-        <i class="fas fa-circle-user" style="color:${pcColor(a)}"></i><span>${esc(a.name)}</span>
-        ${inRead ? `<i class="fas fa-check mc-seance-pc-check"></i>` : ""}
-      </button>
+      <span class="mc-tarot-who"><i class="fas fa-circle-user" style="color:${pcColor(a)}"></i>${esc(a.name)}</span>
       ${held}
-      ${card ? `<button class="mc-dmp-mini" data-tarot-flip="${a.id}" title="${card.shown ? "Turn it back down" : "Turn it over"}"><i class="fas ${card.shown ? "fa-eye-slash" : "fa-eye"}"></i></button>` : ""}
+      <select class="mc-tarot-force" data-tarot-pick="${a.id}" title="Decide what they draw, or let the cards choose">
+        <option value="">— let the cards decide —</option>${opts}
+      </select>
+      <button class="mc-dmp-mini mc-boss-play" data-tarot-deal="${a.id}"
+        title="${card ? `Deal ${esc(a.name)} another card — their current one goes back` : `Put a card in ${esc(a.name)}'s hand, face down`}">
+        <i class="fas fa-hand-sparkles"></i> ${card ? "Again" : "Deal"}</button>
       ${card ? `<button class="mc-dt-icon-only mc-boss-del" data-tarot-clear="${a.id}" title="Take ${esc(a.name)}'s card back — it returns to the deck"><i class="fas fa-xmark"></i></button>` : ""}
     </div>`;
   }).join("");
-  const chosen = tarotParty.size;
-  const anyDown = pcs.some(a => { const c = actorCard(a); return c && !c.shown; });
-  const left = 22 - [...(game.actors ?? [])].filter(a => a.getFlag(MODULE_ID, "tarot")?.key).length;
   return `${rows}
-    <button class="mc-dmp-sz-begin" data-tarot-deal ${chosen ? "" : "disabled"}
-      title="${chosen ? "Deal each of them one Major Arcana, face down" : "Choose who's having their cards read"}">
-      <i class="fas fa-wand-sparkles"></i> ${chosen ? `Deal ${chosen} ${chosen === 1 ? "Card" : "Cards"}` : "Deal the Cards"}
-    </button>
-    ${anyDown ? `<button class="mc-dmp-pf-fix mc-dmp-story-random" data-tarot-flipall><i class="fas fa-eye"></i> Turn Them Over</button>` : ""}
-    <div class="mc-dmp-story-status">${left} of 22 arcana still in the deck${hasBookArt() ? "" : " · no book art installed, so cards read by name"}</div>
+    <div class="mc-dmp-story-status">${22 - taken.size} of 22 arcana still in the deck${hasBookArt() ? "" : " · no book art installed, so cards read by name"}</div>
     ${backPickerHTML("tarotBackImage", "Tarot back")}`;
 }
 
@@ -709,8 +663,7 @@ function crookedTabHTML() {
     ${dtDrawer("cmFate", "Fateweaving", "", fateBody(), true)}
     ${dtDrawer("cmTwists", "Twists of fate", "", twistsBody(), true)}
     ${dtDrawer("cmClock", "Druskenvald clock", "", druskBody(), true)}
-    ${dtDrawer("cmTarot", "Fated tarot — the reading", "", tarotReadingBody(), true)}
-    ${dtDrawer("cmTarotHands", "Fated tarot — who holds what", "", tarotBody(), true)}
+    ${dtDrawer("cmTarot", "Fated tarot", "", tarotBody(), true)}
     ${dtDrawer("cmBoard", "All aboard", "", allAboardBody(), true)}
     ${dtDrawer("cmRide", "The Ghostlight ride", "", trainRideBody(), true)}
     ${dtDrawer("fxSeance", "Séance", "", seanceBody(), true)}
@@ -3720,14 +3673,11 @@ function onInput(ev) {
 function onChange(ev) {
   // §26.6: the Player drawer's target picker.
   if (ev.target.matches?.("[data-fx-player]")) { fxPlayer = ev.target.value; return render(); }
-  // §42.1 THE CHEAT. What this player will actually receive, whichever card they turn over.
-  // Silent by design — no toast, no chat line: the only person who should know is the DM.
-  if (ev.target.matches?.("[data-tarot-force]")) {
-    const uid = ev.target.dataset.tarotForce, key = ev.target.value;
-    const r = tarotReading();
-    if (key) r.forced[uid] = key; else delete r.forced[uid];
-    saveReading(r).then(() => render());
-    return;
+  // §42 which arcana the DM has decided this character will draw next (the cheat).
+  if (ev.target.matches?.("[data-tarot-pick]")) {
+    const id = ev.target.dataset.tarotPick, key = ev.target.value;
+    if (key) tarotPick.set(id, key); else tarotPick.delete(id);
+    return render();
   }
   // §33: the hand-pick dropdown — choosing an entry stages it like a roll would.
   if (ev.target.matches?.("[data-curse-pickn]")) {
@@ -4411,38 +4361,14 @@ async function onClick(ev) {
     return render();
   }
 
-  // §42.1 the reading: lay the spread, hand out the turn, close it.
-  if (ev.target.closest("[data-tarot-lay]")) { await layoutSpread(); return render(); }
-  if (ev.target.closest("[data-tarot-close]")) { await closeReading(); return render(); }
-  const tTurn = ev.target.closest("[data-tarot-turn]");
-  if (tTurn) {
-    const id = tTurn.dataset.tarotTurn;
-    await tarotSetTurn(tarotReading().turn === id ? null : id);
-    return render();
-  }
-
-  // §42 Fated tarot: choose who's read, deal, turn cards over, take one back.
-  const tPc = ev.target.closest("[data-tarot-pc]");
-  if (tPc) {
-    const id = tPc.dataset.tarotPc;
-    if (tarotParty.has(id)) tarotParty.delete(id); else tarotParty.add(id);
-    return render();
-  }
-  if (ev.target.closest("[data-tarot-deal]")) {
-    const actors = [...tarotParty].map(id => game.actors.get(id)).filter(Boolean);
-    const dealt = await dealTarot(actors);
-    if (dealt.length < actors.length) ui.notifications.warn(`${MODULE_ID} | the deck ran out — only ${dealt.length} of ${actors.length} could be dealt.`);
-    tarotParty.clear(); // the reading happened; the roster is for the NEXT one
-    return render();
-  }
-  const tFlip = ev.target.closest("[data-tarot-flip]");
-  if (tFlip) {
-    const a = game.actors.get(tFlip.dataset.tarotFlip);
-    await revealActorCard(a, !actorCard(a)?.shown);
-    return render();
-  }
-  if (ev.target.closest("[data-tarot-flipall]")) {
-    for (const a of scenePcs()) { if (actorCard(a) && !actorCard(a).shown) await revealActorCard(a, true); }
+  // §42 Fated tarot: deal one into a character's hand, or take it back.
+  const tDeal = ev.target.closest("[data-tarot-deal]");
+  if (tDeal) {
+    const a = game.actors.get(tDeal.dataset.tarotDeal);
+    const card = await dealOne(a, tarotPick.get(a?.id) || null);
+    if (!card) ui.notifications.warn(`${MODULE_ID} | the deck is out of arcana.`);
+    else ui.notifications.info(`${a.name} draws ${card.name} — it's face down on their phone.`);
+    tarotPick.delete(a?.id); // the choice was for THAT draw; don't let it silently repeat
     return render();
   }
   const tClear = ev.target.closest("[data-tarot-clear]");

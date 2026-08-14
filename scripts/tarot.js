@@ -146,90 +146,57 @@ export async function dealTarot(actors = []) {
   return out;
 }
 
+/**
+ * §42.2 Hand ONE character their card, face down (DM 2026-08-11). `key` is the DM's choice when
+ * they've made one — the cheat is just this argument, so there is no "forced card" state to keep
+ * in sync with anything. Without it the deck decides, skipping every arcana already spoken for.
+ * Returns the card dealt, or null when the deck is out.
+ */
+export async function dealOne(actor, key = null) {
+  if (!actor) return null;
+  const chosen = key ? cardByKey(key) : null;
+  if (!chosen) {
+    const taken = takenKeys([actor]); // their own current card goes back in the deck
+    const pool = ARCANA.filter(c => !taken.has(c.key));
+    if (!pool.length) return null;
+    const card = pool[Math.floor(Math.random() * pool.length)];
+    await setActorCard(actor, card.key, { shown: false });
+    return card;
+  }
+  await setActorCard(actor, chosen.key, { shown: false });
+  return chosen;
+}
+
 /* -------------------------------------------- */
-/*  §42.1 THE READING — a spread, and a choice  */
+/*  Adela's words                               */
 /* -------------------------------------------- */
 
-// The first version dealt each PC a card and told them what it was. The DM's verdict (2026-08-11)
-// was that this isn't a reading at all: "the table isn't shown" and "the player has no choice —
-// they get a card chosen for them." Both true. A tarot reading is a piece of theatre with three
-// beats, and we had none of them: cards laid out where everyone can see, a person deciding which
-// one is theirs, and the turn.
-//
-// So: five cards face down on the shared screen, the player moves a highlight along them from
-// their phone with ← Use →, and Use turns that card over. The choice is real to them and the
-// reveal is public.
-//
-// AND THE DM SEES EVERYTHING FIRST, AND CAN CHEAT. They know all five before anyone picks, and
-// they can decide what a given player will get regardless of which card that player lands on —
-// the flipped card simply IS the one the DM chose. That's UI-BIBLE §8.1 applied to a fortune:
-// the draw is the ritual, the DM is the authority. A real fortune teller was never shuffling
-// honestly either.
+// The book ships an interpretation for each card, written in Adela Druskenvald's own voice, to be
+// read aloud — no mechanics in it at all (DESIGN §32.1). It is the best thing about the reading,
+// and it is THEIRS: read at runtime out of the player's own installed module, never copied into
+// our source. Same rule the station art follows (§36, "we bundle nothing of theirs") — which is
+// both the licence-safe answer and the reason a table without the book degrades quietly instead
+// of shipping someone else's prose to people who never bought it.
+const CM_TABLE = "Compendium.the-crooked-moon-2014.tcm2014-rollable-tables.RollTable.PgDCRgyABMbAxork";
+let adelaCache = null;
 
-export const SPREAD_SIZE = 5;
-
-const EMPTY_READING = { open: false, spread: [], flipped: [], turn: null, cursor: 0, forced: {} };
-
-export function reading() {
+/** Adela's reading for a card, or "" when the book isn't installed. Cached after the first hit. */
+export async function adelaWords(card) {
+  if (!card || !hasBookArt()) return "";
   try {
-    const r = game.settings.get(MODULE_ID, "tarotReading") ?? {};
-    return {
-      open: !!r.open,
-      spread: Array.isArray(r.spread) ? r.spread : [],
-      flipped: Array.isArray(r.flipped) ? r.flipped : [],
-      turn: r.turn ?? null,
-      cursor: Number(r.cursor) || 0,
-      forced: r.forced && typeof r.forced === "object" ? r.forced : {}
-    };
-  } catch (e) { return { ...EMPTY_READING }; }
-}
-export async function saveReading(r) {
-  await game.settings.set(MODULE_ID, "tarotReading", r);
-}
-
-/** Lay a fresh spread of face-down cards, drawn from what nobody holds yet. */
-export async function layoutSpread(size = SPREAD_SIZE) {
-  const taken = takenKeys([]);
-  const pool = ARCANA.filter(c => !taken.has(c.key));
-  const spread = [];
-  for (let i = 0; i < size && pool.length; i++) {
-    const j = Math.floor(Math.random() * pool.length);
-    spread.push(pool.splice(j, 1)[0].key);
-  }
-  await saveReading({ open: true, spread, flipped: spread.map(() => null), turn: null, cursor: 0, forced: {} });
-  return spread;
-}
-
-export async function closeReading() { await saveReading({ ...EMPTY_READING }); }
-
-/** Whose turn it is to choose. Setting a turn puts the highlight on the first unflipped card. */
-export async function setTurn(userId) {
-  const r = reading();
-  r.turn = userId ?? null;
-  r.cursor = firstFree(r);
-  await saveReading(r);
-}
-function firstFree(r) {
-  const i = r.flipped.findIndex(f => !f);
-  return i < 0 ? 0 : i;
-}
-
-/** Move the highlight, skipping cards already turned over. Wraps, because a highlight that jams
- *  at the end of a row reads as broken input on a phone with two arrows. */
-export function nextFree(r, from, dir) {
-  const n = r.spread.length;
-  if (!n) return 0;
-  for (let step = 1; step <= n; step++) {
-    const i = ((from + dir * step) % n + n) % n;
-    if (!r.flipped[i]) return i;
-  }
-  return from; // everything is turned — nowhere to go
-}
-
-/** The card this user will actually receive: the DM's choice if they made one, else where the
- *  highlight is sitting. */
-export function resolveFor(r, userId) {
-  const forced = r.forced?.[userId];
-  if (forced && ARCANA.some(c => c.key === forced)) return forced;
-  return r.spread[r.cursor] ?? null;
+    if (!adelaCache) {
+      const table = await fromUuid(CM_TABLE);
+      if (!table) return "";
+      adelaCache = new Map();
+      for (const r of table.results ?? []) {
+        // The table's own ordering is NOT ours (it runs Magician 1 … Fool 22, while the deck
+        // numbers the Fool 0), so match on the NAME rather than the index — the one join that
+        // can't silently shift if either list is re-ordered.
+        const nm = String(r.name ?? r.text ?? "").trim().toLowerCase();
+        const hit = ARCANA.find(c => c.name.toLowerCase() === nm);
+        if (hit) adelaCache.set(hit.key, String(r.description ?? r.text ?? "").trim());
+      }
+    }
+    return adelaCache.get(card.key) ?? "";
+  } catch (e) { return ""; }
 }

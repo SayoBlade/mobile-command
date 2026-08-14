@@ -5,7 +5,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure he
 import { toggleSimpleCalendar } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 the player's thread card
-import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, reading as tarotReading } from "./tarot.js"; // §42 the Fated Tarot
+import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCard, adelaWords } from "./tarot.js"; // §42 the Fated Tarot
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -280,6 +280,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #szSent = null;         // lockstep events already narrated this session (kind:step keys)
   #enchantState = null;   // §28.6 enchant item-picker: { uuid, name, profileId, rows } | null
   #pmOpen = false;        // §27 Messages overlay (envelope in the header)
+  #tarotHeldDismissed = false; // §42.2 they've put the turned card away (the chip reopens it)
+  #adelaFor = null;       // §42.2 which card Adela's words were fetched for
+  #adelaText = "";        // …and the words themselves (a compendium read, so cached)
   #pmDraft = "";          // Messages composer text, kept across re-renders
   #pmBusy = false;        // a message send is in flight
   #bioOpen = false;       // biography editor overlay (long-press the portrait/name)
@@ -606,7 +609,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>
       ${this.#condEditing && !this.#detailCard ? this.#conditionPaletteHTML(actor) : ""}
       ${this.#twistOpen && !this.#detailCard ? this.#twistPanelHTML(actor) : ""}
-      ${this.#detailCard ? "" : this.#tarotChooserHTML()}
       ${this.#diceTrayOpen ? this.#diceTrayHTML() : ""}
       ${this.#atZeroHP(actor) && this.#deathSaveDismissed
         ? `<button class="mc-death-reopen" data-action="death-reopen"><i class="fas fa-skull"></i> At 0 HP — death saves</button>` : ""}
@@ -617,6 +619,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#initPromptHTML()}
       ${this.#turnHudHTML()}
       <nav class="mc-tabs">${this.#tabBarHTML()}</nav>
+      ${this.#tarotHeldHTML(actor)}
       ${this.#imagePopupHTML(actor)}
       ${this.#sharedImageHTML()}
       ${this.#journalImageHTML()}
@@ -4912,23 +4915,44 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.render();
   }
 
-  // §42.1 THE CHOOSER. When it's this player's turn at the reading, three big buttons and nothing
-  // else: ← Use →. Deliberately not a picture of the cards — the cards are on the shared screen
-  // where the whole table is looking, and duplicating them on the phone would split the room's
-  // attention at the exact moment the reading is asking for it (the same reason the séance's
-  // letters are on the board and not in six pockets). The phone is the hand, not the eyes.
-  #tarotChooserHTML() {
-    const r = tarotReading();
-    if (!r.open || r.turn !== game.user.id) return "";
-    const left = r.spread.filter((_, i) => !r.flipped[i]).length;
-    return `<div class="mc-tarot-chooser">
-      <div class="mc-tarot-chooser-head">Choose your card
-        <span class="mc-tarot-chooser-sub">${left} still face down · look at the table</span></div>
-      <div class="mc-tarot-chooser-row">
-        <button class="mc-tarot-arrow" data-action="tarot-left" aria-label="Move left"><i class="fas fa-chevron-left"></i></button>
-        <button class="mc-tarot-use" data-action="tarot-use"><i class="fas fa-hand-sparkles"></i> Use</button>
-        <button class="mc-tarot-arrow" data-action="tarot-right" aria-label="Move right"><i class="fas fa-chevron-right"></i></button>
+  // §42.2 THE CARD IN THEIR HAND (DM 2026-08-11: "give the players the card like the train
+  // ticket, show a full screen card back on the phone and flip it over (vertically not
+  // horizontally) to let the player see the card in their hand").
+  //
+  // This replaced a spread on the TV with a highlight the player drove by remote control. The
+  // ticket (§36) was always the better model: the phone IS the object. Nothing on the shared
+  // screen, nothing to aim — the DM hands one character a card, it fills that player's phone
+  // face down, and they turn it over themselves. The turn is theirs, which is the entire moment.
+  //
+  // VERTICAL, on purpose. A horizontal flip is how a UI reveals a panel; lifting the near edge of
+  // a card toward you is how a hand actually turns one over at a table.
+  #tarotHeldHTML(actor) {
+    const c = tarotCard(actor);
+    if (!c) return "";
+    if (c.shown && this.#tarotHeldDismissed) return ""; // put away; the chip brings it back
+    const esc = foundry.utils.escapeHTML;
+    const face = tarotFace(c);
+    // Adela's own words, read out of the book at runtime when the table owns it (§32.1). Fetched
+    // lazily and stashed, because the render path is synchronous and this is a compendium read.
+    if (c.shown && this.#adelaFor !== c.key) {
+      this.#adelaFor = c.key;
+      adelaWords(c).then(w => { if (w) { this.#adelaText = w; this.render(); } }).catch(() => {});
+    }
+    const words = c.shown && this.#adelaFor === c.key && this.#adelaText
+      ? `<div class="mc-tarot-words">${esc(this.#adelaText)}</div>` : "";
+    return `<div class="mc-tarot-held ${c.shown ? "mc-tarot-turned" : ""}">
+      <div class="mc-tarot-held-card" ${c.shown ? "" : `data-action="tarot-flip"`}>
+        <div class="mc-tarot-held-inner">
+          <div class="mc-tarot-held-back" style="background-image:url('${esc(tarotBack())}')"></div>
+          <div class="mc-tarot-held-face">
+            ${face ? `<img src="${esc(face)}" alt="">` : ""}
+            <div class="mc-tarot-held-name">${esc(c.name)}</div>
+          </div>
+        </div>
       </div>
+      ${c.shown
+        ? `${words}<button class="mc-tarot-held-done" data-action="tarot-dismiss">Keep It</button>`
+        : `<div class="mc-tarot-held-hint">Tap the card to turn it over</div>`}
     </div>`;
   }
 
@@ -6777,18 +6801,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "twist-send": return this.#twistSend(actor);
       case "twist-withdraw": return this.#twistWithdraw(actor);
       case "fate-open": return this.#openFateCard(actor);
-      case "tarot-open": return this.#openTarotCard(actor);
-      // §42.1 the chooser. #onClick is NOT async (a known trap), so these fire and forget and the
-      // updateSetting hook repaints both this phone and the table when the write lands.
-      case "tarot-left": { rpc.tarotMove({ dir: -1 }); return; }
-      case "tarot-right": { rpc.tarotMove({ dir: 1 }); return; }
-      case "tarot-use": {
-        rpc.tarotUse({}).then(res => {
-          if (res?.ok) { try { navigator.vibrate?.([30, 50, 60]); } catch (e) { /* not supported */ } }
-          else if (res?.reason) ui.notifications?.info?.(res.reason);
-        }).catch(() => {});
+      case "tarot-open": { this.#tarotHeldDismissed = false; return this.render(); }
+      // §42.2 the card in their hand: tap the back and it turns over. The player owns their own
+      // actor, so this is a direct flag write — no RPC, same as a twist spend.
+      case "tarot-flip": {
+        if (!tarotCard(actor)?.shown) revealActorCard(actor, true);
         return;
       }
+      case "tarot-dismiss": { this.#tarotHeldDismissed = true; return this.render(); }
       case "toggle-levels":
         this.#showLevels = !this.#showLevels; this.#levelUp = null; return this.render();
       case "level-up-open": return this.#openLevelUp();
@@ -8402,15 +8422,6 @@ export function registerShellHooks() {
   // (renderApplication) so no prompt (reactions, config) hides under the shell.
   Hooks.on("renderApplicationV2", liftDialogAboveShell);
   Hooks.on("renderApplication", liftDialogAboveShell);
-  // §42.1 the reading is a world setting, so the chooser's phone repaints when the DM lays a
-  // spread, hands them the turn, or their own arrow press lands. createSetting too — a setting
-  // that has never been written has no document, so its first write is a CREATE, not an update.
-  const onTarotSetting = (s) => {
-    if (s?.key !== `${MODULE_ID}.tarotReading`) return;
-    if (shellInstance?.rendered) shellInstance.render();
-  };
-  Hooks.on("updateSetting", onTarotSetting);
-  Hooks.on("createSetting", onTarotSetting);
   // Guaranteed close X for journal sheets on a phone (DM 2026-07-11): the SRD class/subclass
   // reference journal renders no visible close and traps the player. This runs on EVERY app
   // render (independent of liftDialogAboveShell, which early-returns for a frameless journal

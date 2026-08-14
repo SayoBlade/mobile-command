@@ -263,15 +263,6 @@ export function registerSettings() {
     onChange: () => { try { globalThis.MobileCommand?.applyDaylightNow?.(); } catch (e) { /* pre-ready */ } }
   });
 
-  // §42.1 THE READING IN PROGRESS: the five face-down cards, who is choosing, where their
-  // highlight sits, which positions are already turned, and any card the DM has decided a given
-  // player will get regardless of what they land on. A world setting because all three surfaces
-  // (shared screen, the chooser's phone, the DM panel) must agree and survive a reload mid-reading.
-  game.settings.register(MODULE_ID, "tarotReading", {
-    scope: "world", config: false, type: Object,
-    default: { open: false, spread: [], flipped: [], turn: null, cursor: 0, forced: {} }
-  });
-
   // §43 which scenes are under Druskenvald's eternal night. An EXPLICIT DM list, never a guess —
   // the same rule as the travel maps. A scene not on it is an ordinary place with an ordinary sun.
   game.settings.register(MODULE_ID, "druskenvaldSceneIds", {

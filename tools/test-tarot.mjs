@@ -92,21 +92,29 @@ ok("the curve never leaves [floor, peak]", (() => {
   return true;
 })());
 
-// 7. SS42.1 the reading: the spread, the highlight, and the DM's cheat
-const R = { open: true, spread: ["fool", "star", "moon", "sun", "tower"], flipped: [null, null, null, null, null], turn: "u1", cursor: 0, forced: {} };
-ok("right moves along", tarot.nextFree(R, 0, 1) === 1);
-ok("left wraps to the end", tarot.nextFree(R, 0, -1) === 4);
-const R2 = { ...R, flipped: [null, "x", "y", null, null] };
-ok("the highlight skips turned cards", tarot.nextFree(R2, 0, 1) === 3, String(tarot.nextFree(R2, 0, 1)));
-ok("and skips them going left too", tarot.nextFree(R2, 4, -1) === 3, String(tarot.nextFree(R2, 4, -1)));
-const R3 = { ...R, flipped: ["a", "b", null, "d", "e"] };
-ok("one card left = nowhere to move", tarot.nextFree(R3, 2, 1) === 2);
-ok("no cheat = the card under the highlight", tarot.resolveFor({ ...R, cursor: 3 }, "u1") === "sun");
-ok("a cheat overrides wherever they land",
-  tarot.resolveFor({ ...R, cursor: 3, forced: { u1: "death" } }, "u1") === "death");
-ok("a cheat for someone else doesn't leak", tarot.resolveFor({ ...R, cursor: 3, forced: { u2: "death" } }, "u1") === "sun");
-ok("a nonsense forced key falls back to the spread",
-  tarot.resolveFor({ ...R, cursor: 3, forced: { u1: "not-a-card" } }, "u1") === "sun");
+// 7. SS42.2 dealing ONE card into a hand — the cheat is just the argument
+const solo = mkActor("Solo");
+globalThis.game.actors = [solo];
+const c1 = await tarot.dealOne(solo);
+ok("a solo deal lands a card", !!c1 && solo.getFlag().key === c1.key);
+ok("and it lands FACE DOWN", solo.getFlag().shown === false);
+const c2 = await tarot.dealOne(solo, "death");
+ok("the DM's choice is dealt exactly", c2?.key === "death" && solo.getFlag().key === "death");
+const other = mkActor("Other");
+await tarot.setActorCard(other, "moon");
+globalThis.game.actors = [solo, other];
+let clash = false;
+for (let i = 0; i < 60; i++) { const c = await tarot.dealOne(solo); if (c.key === "moon") clash = true; }
+ok("a random deal never takes a card someone else holds", !clash);
+// Their OWN current card must go back in the deck on a re-deal, or a player who re-draws can
+// never land on what they already had — a subtle bias, and the reason takenKeys excludes by WHO.
+await tarot.setActorCard(solo, "tower");
+let sawOwnAgain = false;
+for (let i = 0; i < 300 && !sawOwnAgain; i++) {
+  await tarot.setActorCard(solo, "tower");
+  if ((await tarot.dealOne(solo)).key === "tower") sawOwnAgain = true;
+}
+ok("re-dealing can return their OWN previous card (it goes back in the deck)", sawOwnAgain);
 
 console.log(fails ? `\n${fails} FAILED` : "\nall green");
 process.exit(fails ? 1 : 0);
