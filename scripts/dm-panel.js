@@ -2059,6 +2059,16 @@ function ensureEl() {
   panelEl.addEventListener("dragover", (ev) => { const c = ev.target.closest(DROPPABLE); if (c) { ev.preventDefault(); c.classList.add("mc-drag-over"); } });
   panelEl.addEventListener("dragleave", (ev) => { const c = ev.target.closest(DROPPABLE); if (c && !c.contains(ev.relatedTarget)) c.classList.remove("mc-drag-over"); });
   panelEl.addEventListener("drop", onPanelDrop);
+  // …and when they're done with the dropdown, run whatever the timers wanted meanwhile. Without
+  // this the deferred repaint is simply dropped and the panel sits stale until the next hook.
+  // focusout fires as the select gives up focus, which is also when its popup closes.
+  panelEl.addEventListener("focusout", () => {
+    if (!idleRenderPending) return;
+    idleRenderPending = false;
+    // A tick, so focus has actually moved before we tear the DOM down — running synchronously
+    // inside focusout would yank the element out from under the very event that's still firing.
+    setTimeout(() => { if (!selectFocused()) render(); }, 0);
+  });
   panelEl.addEventListener("pointerdown", onPointerDown); // drag from the grip handle
   // Outside-click closes any open transient dropdown (DM 2026-07-09: "clicking
   // outside the dropdown should close it"). The selection is already live in
@@ -4659,6 +4669,27 @@ async function onClick(ev) {
 /** Repaint the panel from outside (the display's audio report arrives over the socket). */
 export function refreshPanel() { try { if (panelEl) render(); } catch (e) { /* not mounted */ } }
 
+// A BACKGROUND repaint — one nobody asked for (the 5s away ticker, presence, a connect, the
+// clock). DM 2026-08-11: "when i open the travel location-dropdown after a few seconds it closes
+// on its own." An open native <select> popup belongs to the element; the moment a repaint swaps
+// that element out the popup is gone, and the away ticker fires every 5 seconds whenever ANY
+// player's phone is backgrounded — which at a real table is most of the time.
+//
+// render() deliberately does NOT guard SELECTs: a dropdown's own change event has to be able to
+// drive a repaint, or the downtime rule form's Kind/Roll pickers stop working ("can't set rules",
+// v0.1.x). So the fix can't live in render() — it has to distinguish WHO ASKED. A repaint the DM
+// caused goes through immediately; one a timer caused waits until they've finished with the
+// control and then runs, so nothing goes stale either.
+let idleRenderPending = false;
+function selectFocused() {
+  const ae = document.activeElement;
+  return !!(ae && panelEl?.contains(ae) && ae.tagName === "SELECT");
+}
+function renderIdle() {
+  if (selectFocused()) { idleRenderPending = true; return; }
+  render();
+}
+
 export function registerDMPanel() {
   if (!game.user.isGM) return;
   // Preflight auto-run (§16): one pass shortly after the canvas settles so the
@@ -4681,10 +4712,12 @@ export function registerDMPanel() {
   // Combat doc's creation, not each combatant, so it never re-opens while the DM adds monsters.
   Hooks.on("createCombat", () => { dockTab = "combat"; render(); });
   Hooks.on("updateScene", (_s, ch) => { if ("active" in ch || (dockTab === "effects" && ("weather" in ch || "environment" in ch))) render(); }); // split-party chips follow activation; fx toggles follow the scene
-  Hooks.on("userConnected", () => render());                       // presence: connect/disconnect
-  Hooks.on("updateUser", () => render());                          // presence: a player changed scene (viewedScene)
-  Hooks.on("updateWorldTime", () => render());                     // the clock chip follows the world time
-  Hooks.on("mobile-command.presence", () => render());             // away-timer: a phone reported fg/bg
+  // These four are the noisy, un-asked-for ones — they fire on their own schedule while the DM is
+  // mid-gesture, so they go through renderIdle and wait for an open dropdown (see renderIdle).
+  Hooks.on("userConnected", () => renderIdle());                   // presence: connect/disconnect
+  Hooks.on("updateUser", () => renderIdle());                      // presence: a player changed scene (viewedScene)
+  Hooks.on("updateWorldTime", () => renderIdle());                 // the clock chip follows the world time
+  Hooks.on("mobile-command.presence", () => renderIdle());         // away-timer: a phone reported fg/bg
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.downtimeState`) render(); }); // §17.7: activities/window changed
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive` && (dockTab === "effects" || dockTab === "crooked")) render(); }); // §26/§35: fx toggles follow the world state (séance lives on the Crooked Moon tab)
   Hooks.on("updateActor", (_a, ch) => { if (dockTab === "crooked" && ch.flags?.[MODULE_ID]) render(); }); // §31: a phone's twist spend/withdraw lands as a chip live
@@ -4695,7 +4728,7 @@ export function registerDMPanel() {
   let awayTimer = null;
   const awayTick = () => {
     const anyHidden = [...presenceState.values()].some(p => p?.hidden);
-    if (anyHidden && !awayTimer) awayTimer = setInterval(() => { render(); awayTick(); }, 5000);
+    if (anyHidden && !awayTimer) awayTimer = setInterval(() => { renderIdle(); awayTick(); }, 5000);
     else if (!anyHidden && awayTimer) { clearInterval(awayTimer); awayTimer = null; }
   };
   Hooks.on("mobile-command.presence", awayTick);
