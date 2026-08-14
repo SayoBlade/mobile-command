@@ -4228,3 +4228,93 @@ blocks · `daylightHold` blocks · applies when both are cleared (0 → 0.7) · 
    which read exactly like a running real-time clock and prompted the write-rate floor above. A
    later measurement with the world at rest read **0** — the world clock is not self-running. The
    floor stays: it is correct defensive work for any table that does run one.
+
+---
+
+### 32.1 The Fated Tarot — what the BOOK actually does (extracted 2026-08-11, DM asked for context)
+
+Extracted from the installed `the-crooked-moon-2014` packs (rollable-tables + journal), read in
+full rather than recalled. Technique per §32: copy the pack dirs minus `LOCK` (and skipping
+LevelDB's `lost/` directory — `copyFileSync` throws EPERM on it), open with `classic-level` under
+Electron-as-node, pointing at Foundry's own bundled copy of the library by absolute path.
+
+#### Mechanically: the card is a KEY, not a prize
+
+The reading happens in **ch10, aboard the Ghostlight Express** (G3, the Lounge Car), but the rules
+for it live in **ch9, "Fated Tarot Reading"**. Adela Druskenvald — a clairvoyant "with a passion
+for the occult" — pulls **one Major Arcana per character, always upright, no duplicates**.
+
+The card does nothing at the moment it is drawn. What it does is **gate a Fabled Heirloom** — a
+magic item that levels up with its owner — or a powerful boon, which becomes available at one
+specific, named point later in the adventure. The book's own reasoning, verbatim:
+
+> *"provisioning the characters with a veritable treasure trove of powerful items could quickly
+> trivialize the threats that await them. Therefore, the Fated Tarot Reading provides a method to
+> determine which of the Fabled Heirlooms the characters can acquire."*
+
+So it is a **rationing mechanism dressed as a fortune**. Throughout the book, sections titled
+"Fated Tarot Reading" each name a card, its item, and where it is found. The DM implements **only
+the sections whose cards were actually drawn** and ignores every other instance. A party of four
+unlocks four of the twenty-two heirlooms for the whole campaign.
+
+**There is also a lite version**, which is what runs if the DM doesn't want the campaign-long
+machinery: roll on the table per character, reroll duplicates, and every participant gains
+**Bless for 1 hour**. That's the whole mechanical effect at the table.
+
+#### The full map (all 22 — this is the thing worth having)
+
+| Card | key | What it unlocks | Where / when |
+|---|---|---|---|
+| The Fool | `fool` | Whistle of the Vagrant | Conclusion: The Last Stop |
+| The Magician | `magician` | Marotte of the Lord of Fools | Phase 2: Carnival of Chaos |
+| The High Priestess | `priestess` | Mask of Lethica Nightborne | L19: Lethica's Quarters |
+| The Empress | `empress` | Cauldron of the Vermintoll Coven | Conclusion: Dreaming No More |
+| The Emperor | `emperor` | Blunderbuss of the Grinning Sinner | Phase 2: Double Down |
+| The Hierophant | `hierophant` | Sword of the Crimson Abbot | Phase 2: Beneath a Blood Moon |
+| The Lovers | `lovers` | Planchette of Adela Druskenvald | The Green Queen Inn |
+| The Chariot | `chariot` | Scythe of the Harvest Terror | Phase 2: Demon of Secrets |
+| Strength | `strength` | Shovel of Yorgrim | Y9: Shadestone Sanctuary |
+| The Hermit | `hermit` | Staff of Farryn of the Greenwood | F10: Befouled Wellspring |
+| Wheel of Fortune | `wheel` | Cutlass of Briggsy Kratch | To the Sinner's Shack |
+| Justice | `justice` | Shield of Marius Renathyr | M2: Stables |
+| The Hanged Man | `hanged` | Banjo of Ol' Jericho Sticks | J9b: Windmill Cellar |
+| Death | `death` | Idol of the Beast of Blight | Phase 2: Dead and Gone |
+| Temperance | `temperance` | Veil of the Weeping Widow | Phase 2: Desperate Measures |
+| The Devil | `devil` | Cane of Phillip Druskenvald | Encounter 5: Live Deliciously |
+| The Tower | `tower` | Visage of the Old Ways | Phase 2: Dying Embers |
+| The Star | `star` | **A feat** of their choice they qualify for | S7: Stonoga's Laboratory — after defeating Stonoga Blackstinger |
+| The Moon | `moon` | **Three Twists of Fate** (→ our §31) | H17: Cauldron Room — after defeating Vessla Browntooth |
+| The Sun | `sun` | **+2 to one ability score** (max 24) | R2: Pigeon Roost — after defeating Golub Graygullet |
+| Judgement | `judgement` | Lantern of the Chained Reaper | Phase 2: Cold Fire |
+| The World | `world` | **Cast Wish, once** | Phase 2: Wrath of the Crooked Queen — after defeating the Horned King |
+
+Eighteen are named Fabled Heirlooms in `tcm2014-treasury`; four (Star, Moon, Sun, World) are pure
+boons with no item. **The Moon lands directly on machinery we already built** — three Twists of
+Fate is §31, counters, spend flow and all.
+
+#### Story-wise: it is a scene, not a die roll
+
+Two RollTables ship, and they are different things:
+
+- **`PgDCRgyABMbAxork` "Fated Tarot" (1d22)** — Adela's *interpretation* of each card, written in
+  her voice ("Awww, the Lovers! There sure ain't nothin' better than love…", "DEATH!! How spooky!
+  Oh, don't worry! It ain't as scary as all that!"). Pure flavour: **no mechanics whatsoever**,
+  meant to be read aloud. Indexed 1–22 with **The Magician at 1 and The Fool at 22** — note this
+  is NOT the conventional Fool = 0 ordering our `ARCANA` table uses.
+- **`M9wdb1sObnJHpTFG` "Tarot Reading" (1d12)** — a lighter, repeatable fortune-teller toy.
+
+Adela is "eager to show off her talents with any willing soul" and "It is challenging to dissuade
+her." The reading is a party scene in a lounge car, performed by an NPC who enjoys it — which is
+exactly why the first build read wrong: it delivered a result where the book stages a performance.
+
+#### What this means for our build (DM 2026-08-11)
+
+1. **The character draws, not the account.** The book says "one for each character" and every
+   gated section reads "the character this card was pulled for". Our state keyed to `userId`;
+   it must key to the **actor**. The player is only holding the phone.
+2. **The card must carry its consequence.** Storing a name and a pretty picture wastes the entire
+   mechanic. Each card should carry its heirloom/boon and where it is found, so the DM's own view
+   answers "what did this unlock and when do I hand it over" months later — that is the actual
+   job the book asks the DM to track by hand across a whole campaign.
+3. **Adela's words are content we already have.** The 1d22 interpretation should be what the
+   table hears at the reveal — read aloud by the DM, or shown on the card.
