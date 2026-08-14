@@ -15,7 +15,7 @@ import { trainScenes, trainMistOn, wireTrainDoors, setTrainMist } from "./cm-tra
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 import { bossList, bossSave, bossImage, bossSoundSrc, bossSoundLabel, dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { setDaylightSuspended } from "./daylight.js"; // §41 travel owns the light for the length of a journey
-import { dealOne, actorCard, revealActorCard, setActorCard, hasBookArt, ARCANA } from "./tarot.js"; // §42 the Fated Tarot
+import { dealOne, actorCard, revealActorCard, setActorCard, ARCANA, hasBookArt } from "./tarot.js"; // §42 the Fated Tarot
 import { DRUSK_HOURS, currentHour, isDruskScene, druskSceneIds, markDruskScene, advanceToNextHour } from "./druskenvald.js"; // §43 the clock
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
@@ -575,8 +575,12 @@ function tarotBody() {
       </div>
     </div>`;
   }).join("");
+  // The tools can be switched on without the book (the setting is a default, not a lock), and
+  // then every plate 404s to a blank card. Say so here rather than let it look broken on a phone.
+  const noArt = hasBookArt() ? "" : `<div class="mc-dmp-story-status mc-bad">The Crooked Moon isn't installed — the cards have no faces to show.</div>`;
   return `${rows}
-    <div class="mc-dmp-story-status">${22 - taken.size} of 22 arcana still in the deck${hasBookArt() ? "" : " · no book art installed, so cards read by name"}</div>
+    <div class="mc-dmp-story-status">${22 - taken.size} of 22 arcana still in the deck</div>
+    ${noArt}
     ${backPickerHTML("tarotBackImage", "Tarot back")}`;
 }
 

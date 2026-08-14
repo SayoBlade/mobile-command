@@ -5,7 +5,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure he
 import { toggleSimpleCalendar } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 the player's thread card
-import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCard, tarotCanDismiss, TAROT_HOLD_MS, TAROT_FLIP_MS } from "./tarot.js"; // §42 the Fated Tarot
+import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCard, tarotCanDismiss, tarotEnabled, TAROT_HOLD_MS, TAROT_FLIP_MS } from "./tarot.js"; // §42 the Fated Tarot
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -280,7 +280,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #szSent = null;         // lockstep events already narrated this session (kind:step keys)
   #enchantState = null;   // §28.6 enchant item-picker: { uuid, name, profileId, rows } | null
   #pmOpen = false;        // §27 Messages overlay (envelope in the header)
-  #tarotHeldDismissed = false; // §42.2 they've put the turned card away (the chip reopens it)
+  // §42.2 WHICH card has been put away — not merely THAT one was. A bare boolean outlived the
+  // card it described: dismiss one, get dealt another, and the new card vanished the instant it
+  // turned face up, because the stale flag still said "dismissed" (DM 2026-08-11, "cards now flip
+  // and immediately disappear"). Keyed on the arcana AND the moment it was dealt, so a re-deal of
+  // the same card is still a new card.
+  #tarotDismissed = null;
   #tarotTurning = false;  // §42.2 mid-flip: the animation is running on the live element
   #pmDraft = "";          // Messages composer text, kept across re-renders
   #pmBusy = false;        // a message send is in flight
@@ -552,7 +557,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // FACE DOWN, because the player is holding it before anyone has turned it over, and that wait
     // is the reading. Once the DM turns it, the chip names the arcana and the card is theirs for
     // the campaign.
-    const tCard = tarotCard(actor);
+    const tCard = tarotEnabled() ? tarotCard(actor) : null;
     const tarotChip = tCard
       ? `<span class="mc-chip mc-chip-tap mc-tarot-chip ${tCard.shown ? "" : "mc-tarot-facedown"}" data-action="tarot-open" title="${tCard.shown ? "Your card" : "Your card — still face down"}">
           <i class="fas fa-star"></i>${tCard.shown ? foundry.utils.escapeHTML(tCard.name) : "Your card"}</span>`
@@ -4924,26 +4929,22 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   //
   // VERTICAL FLIP, on purpose. A horizontal flip is how a UI reveals a panel; lifting the near
   // edge of a card toward you is how a hand actually turns one over at a table.
-  //
-  // The one exception to "no text": a table WITHOUT the Crooked Moon module has no plate to show,
-  // and flipping to a blank rectangle is not a reveal. There the name isn't a caption printed over
-  // the art — it IS the card. With the book installed (the DM's own table) it never renders.
+
   //
   // THE FIVE SECONDS ARE A GUARD, not a delay. The tap that turns the card and the tap that puts
   // it away are the same gesture in the same place — without a dead window, the second half of an
   // eager double-tap dismisses the card the player never actually saw.
   #tarotHandHTML(actor) {
+    if (!tarotEnabled()) return "";
     const c = tarotCard(actor);
-    if (!c || (c.shown && this.#tarotHeldDismissed)) return "";
+    if (!c || (c.shown && this.#tarotDismissed === `${c.key}:${c.at}`)) return "";
     const esc = foundry.utils.escapeHTML;
     const face = tarotFace(c);
     return `<div class="mc-tarot-hand ${c.shown ? "mc-tarot-turned" : ""}">
       <div class="mc-tarot-hand-card" data-action="tarot-card">
         <div class="mc-tarot-hand-inner">
           <div class="mc-tarot-hand-back" style="background-image:url('${esc(tarotBack())}')"></div>
-          <div class="mc-tarot-hand-face" ${face ? `style="background-image:url('${esc(face)}')"` : ""}>
-            ${face ? "" : `<span class="mc-tarot-hand-bare">${esc(c.name)}</span>`}
-          </div>
+          <div class="mc-tarot-hand-face" style="background-image:url('${esc(face)}')"></div>
         </div>
       </div>
     </div>`;
@@ -6773,7 +6774,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "twist-send": return this.#twistSend(actor);
       case "twist-withdraw": return this.#twistWithdraw(actor);
       case "fate-open": return this.#openFateCard(actor);
-      case "tarot-open": { this.#tarotHeldDismissed = false; return this.render(); }
+      case "tarot-open": { this.#tarotDismissed = null; return this.render(); }
       // §42.2 one target, two meanings: face down it turns over, face up it goes away. The
       // player owns their own actor, so the reveal is a direct flag write — no RPC, same as a
       // twist spend.
@@ -6799,7 +6800,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         // The guard is read from the card itself, so a ghost click arriving after the reveal has
         // landed cannot put away a card nobody has looked at yet.
         if (!tarotCanDismiss(held)) return;
-        this.#tarotHeldDismissed = true;
+        this.#tarotDismissed = `${held.key}:${held.at}`;
         this.render();
         return;
       }

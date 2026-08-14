@@ -9,11 +9,19 @@ import { MODULE_ID, DEFAULT_CARD_BACK } from "./preset.js";
 // one Wish). So the draw has to persist on the actor, survive everything, and be readable months
 // later — which is why it lives on an actor flag and not in some reading-session state.
 //
-// THE DECK IS NAMES, THE ART IS OPTIONAL. The 22 arcana are public domain and the module ships no
-// tarot art of its own; the Crooked Moon book ships all 22 faces, so we use those WHEN THEY ARE
-// INSTALLED and fall back to a named card on our own blank face when they aren't. A table without
-// the book still gets a working tarot draw — it just reads the name instead of seeing the plate.
+// THIS IS A CROOKED MOON FEATURE, and it is switched off without it (DM 2026-08-11: "if the DM
+// doesn't have CM installed there's no real reason to have it active"). The reading is a scene
+// from one specific adventure — Adela, on the Ghostlight Express — and every card's meaning is a
+// pointer into that book's chapters. Offering it to a table running something else would be
+// twenty-two pretty pictures wired to nothing. So it rides `crookedMoonTools`, the same gate as
+// the DM panel's Crooked Moon tab, which itself defaults on exactly when the book is installed.
+// That also retires the "no art" fallback: if the book is here, so are all 22 plates.
 // (The book's tarot deck ships no BACK art at all, which is why the back is ours by default.)
+
+/** Is the Fated Tarot available at this table? Gated on the Crooked Moon tools setting. */
+export function tarotEnabled() {
+  try { return !!game.settings.get(MODULE_ID, "crookedMoonTools"); } catch (e) { return false; }
+}
 
 export const ARCANA = [
   { n: 0, key: "fool", name: "The Fool" },
@@ -48,12 +56,15 @@ function cmPlate(card) {
   const bare = card.name.replace(/^The\s+/i, "");
   return `${CM_DIR}/1_${card.n} - ${bare}_Bleed.webp`;
 }
+/** Is the book itself installed? The tools setting defaults from this, but a DM can turn the
+ *  tools on without it — in which case the plates 404 and the card is a blank rectangle, which is
+ *  worth saying out loud on the panel rather than leaving them to wonder. */
 export function hasBookArt() {
   try { return !!game.modules.get("the-crooked-moon-2014")?.active; } catch (e) { return false; }
 }
-/** The face to show for a card, or null when we have no plate and the name must carry it. */
+/** The card's face. The feature is gated on the book being present, so the plate always exists. */
 export function cardFace(card) {
-  return hasBookArt() ? cmPlate(card) : null;
+  return card ? cmPlate(card) : null;
 }
 /** The back of the tarot deck: ours, unless the DM chose a file (§38.4a's rule, same picker). */
 export function tarotBack() {

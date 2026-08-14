@@ -6172,15 +6172,14 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-tarot-turned .mc-tarot-hand-inner { transform: rotateX(180deg); }
 .mc-tarot-hand-back, .mc-tarot-hand-face {
   position: absolute; inset: 0; backface-visibility: hidden; overflow: hidden;
-  background-size: cover; background-position: center;
+  background-repeat: no-repeat; background-position: center;
   border-radius: calc(12px * var(--mc-round, 1)); border: 1px solid #000;
   box-shadow: 0 14px 44px rgba(0,0,0,.85), 0 0 0 1px rgba(255,255,255,.05) inset; }
 /* The face is pre-rotated on the SAME axis as the turn, or it lands upside down. */
-.mc-tarot-hand-face { transform: rotateX(180deg); background-color: var(--mc-panel);
-  display: flex; align-items: center; justify-content: center; }
-/* Only ever seen without the book's plates: the name standing in for art that isn't installed. */
-.mc-tarot-hand-bare { padding: 12%; text-align: center; font-family: var(--mc-font-title), serif;
-  color: var(--mc-ink); font-size: clamp(20px, 7vw, 46px); line-height: 1.1; letter-spacing: .03em; }
+/* The book's plates are "_Bleed" exports — printer's art at a wider aspect than the 5:7 the card
+   is drawn at — so `cover` cropped the sides off every face (DM 2026-08-11). `contain` shows the
+   whole plate and letterboxes it against the card's own colour instead of eating the art. */
+.mc-tarot-hand-face { transform: rotateX(180deg); background-color: #0b0910; background-size: contain; }
 
 /* The DM's row, on TWO LINES. The panel is ~320px: a name, a dropdown, a Deal and a ✕ on one
    line pushed the button clean past the drawer's edge (DM 2026-08-11). Name and its ✕ on top,
