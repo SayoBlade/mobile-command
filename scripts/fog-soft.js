@@ -195,9 +195,40 @@ function gpuFilterClass() {
   if (!Stock) return null;
   StockVisibilityFilter = Stock;
   GpuVisibilityFilter = class MCSoftFogVisibilityFilter extends Stock {
-    /** Extra uniform: the gather radius, tunable live on the filter instance. */
+    /** Extra uniforms: the gather radius, and the scene rectangle to crop the bleed to.
+     *  uSceneUV defaults to the whole screen, so if apply() ever fails to compute it the filter
+     *  behaves exactly as it did before the crop existed — a no-op, never a black canvas. */
     static get defaultUniforms() {
-      return { ...super.defaultUniforms, uSoftRadiusPx: GPU_FOG_RADIUS_PX };
+      return { ...super.defaultUniforms, uSoftRadiusPx: GPU_FOG_RADIUS_PX, uSceneUV: [0, 0, 1, 1] };
+    }
+
+    // THE CROP (DM 2026-08-11: "its actually the GPU mode that's causing it… crop the map").
+    //
+    // The halo is the bleed doing exactly what it was asked to do. A fragment sitting OUTSIDE the
+    // map still runs the 24-tap gather, and its disc reaches back over the map edge and picks up
+    // "explored" from inside — so the padding around the scene lights up in the shape of the map.
+    // The reach is ~1.6 × the 100px radius, which is precisely the width of the glow.
+    //
+    // The bleed is wanted INSIDE the map and meaningless outside it, so the scene rectangle is the
+    // natural boundary. Recomputed per frame because it moves with every pan and zoom.
+    apply(filterManager, input, output, clear, currentState) {
+      try {
+        const r = canvas?.dimensions?.sceneRect;
+        const t = canvas?.stage?.worldTransform;
+        const [sw, sh] = canvas?.screenDimensions ?? [window.innerWidth, window.innerHeight];
+        if (r && t && sw && sh) {
+          // Corners through the stage transform — both, because a rotated or flipped stage would
+          // make "top-left" and "bottom-right" swap places.
+          const px = (x, y) => [x * t.a + y * t.c + t.tx, x * t.b + y * t.d + t.ty];
+          const [ax, ay] = px(r.x, r.y);
+          const [bx, by] = px(r.x + r.width, r.y + r.height);
+          this.uniforms.uSceneUV = [
+            Math.min(ax, bx) / sw, Math.min(ay, by) / sh,
+            Math.max(ax, bx) / sw, Math.max(ay, by) / sh
+          ];
+        }
+      } catch (e) { /* leave the default full-screen rect: the crop simply doesn't apply */ }
+      return super.apply(filterManager, input, output, clear, currentState);
     }
 
     // The stock 14.365 fragment (rendering/filters/visibility.mjs) with the single-tap `r`/`v` reads
@@ -218,6 +249,7 @@ function gpuFilterClass() {
       uniform vec4 inputSize;          /* PIXI: (w, h, 1/w, 1/h) of the filter input */
       uniform vec2 screenDimensions;   /* refreshed each apply() by AbstractBaseMaskFilter */
       uniform float uSoftRadiusPx;
+      uniform vec4 uSceneUV;           /* the map's rectangle, screen-normalised (see apply()) */
       ${options.persistentVision ? `` : `uniform sampler2D visionTexture;
        uniform vec3 exploredColor;`}
       ${this.CONSTANTS}
@@ -292,10 +324,21 @@ function gpuFilterClass() {
         return smoothstep(0.04, 0.55, d + (wisp - 0.4375) * ${GPU_FOG_NOISE_AMP.toFixed(3)});
       }
 
+      // 1.0 inside the map, 0.0 outside it. vMaskTextureCoord is screen-normalised, which is the
+      // same space apply() puts uSceneUV in, so this is a plain rectangle test.
+      float mcInScene(in vec2 uv) {
+        return step(uSceneUV.x, uv.x) * step(uv.x, uSceneUV.z)
+             * step(uSceneUV.y, uv.y) * step(uv.y, uSceneUV.w);
+      }
+
       void main() {
         float wisp = mcFbm(vMaskTextureCoord * screenDimensions / ${GPU_FOG_NOISE_PX.toFixed(1)});
-        float r = mcEdge(mcGatherR(vTextureCoord), wisp);                 // Revealed, feathered
-        ${options.persistentVision ? `` : `float v = mcEdge(mcGatherV(vMaskTextureCoord), wisp);`} // Live vision, feathered
+        // Crop the bleed to the map. Zeroing the DENSITIES (rather than the final colour) means
+        // the fragment falls through the normal path and comes out as ordinary unexplored fog —
+        // the same black the rest of the off-map area already is, with no seam where they meet.
+        float inScene = mcInScene(vMaskTextureCoord);
+        float r = mcEdge(mcGatherR(vTextureCoord), wisp) * inScene;       // Revealed, feathered
+        ${options.persistentVision ? `` : `float v = mcEdge(mcGatherV(vMaskTextureCoord), wisp) * inScene;`} // Live vision, feathered
         vec4 baseColor = texture2D(primaryTexture, vMaskTextureCoord);
         vec4 fogColor = hasOverlayTexture
                         ? texture2D(overlayTexture, vOverlayTilingCoord) * getClip(vOverlayCoord)
