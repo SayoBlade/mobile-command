@@ -5,7 +5,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure he
 import { toggleSimpleCalendar } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 the player's thread card
-import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCard, tarotCanDismiss, tarotEnabled, TAROT_HOLD_MS, TAROT_FLIP_MS } from "./tarot.js"; // §42 the Fated Tarot
+import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCard, tarotCanDismiss, tarotEnabled, TAROT_FLIP_MS } from "./tarot.js"; // §42 the Fated Tarot
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -6792,9 +6792,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           setTimeout(() => {
             this.#tarotTurning = false;
             revealActorCard(actor, true); // now the re-render lands on an already-finished flip
-            // …and wake up once the hold expires, so it becomes dismissible with no further input.
-            setTimeout(() => { if (this.rendered) this.render(); }, TAROT_HOLD_MS + 60);
           }, TAROT_FLIP_MS);
+          // NO WAKE-UP RE-RENDER when the hold expires. There was one, and it was pointless as
+          // well as visible: nothing about the card CHANGES at five seconds — tarotCanDismiss is
+          // read at click time, from the card's own timestamp — so the render had nothing to
+          // repaint. What it did do was rebuild .mc-tarot-hand, which replays its entrance
+          // animation: the card faded out and back in for no reason, five seconds after the turn
+          // (DM 2026-08-11). Deleting the timer is the whole fix.
           return;
         }
         // The guard is read from the card itself, so a ghost click arriving after the reveal has
