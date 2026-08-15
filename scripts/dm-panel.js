@@ -15,6 +15,7 @@ import { trainScenes, trainMistOn, wireTrainDoors, setTrainMist } from "./cm-tra
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 import { bossList, bossSave, bossImage, bossSoundSrc, bossSoundLabel, dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { setDaylightSuspended } from "./daylight.js"; // §41 travel owns the light for the length of a journey
+import { compileCharacterFiles, lastCompile } from "./character-file.js"; // §44 a book per PC
 import { dealOne, actorCard, revealActorCard, setActorCard, ARCANA, hasBookArt } from "./tarot.js"; // §42 the Fated Tarot
 import { DRUSK_HOURS, currentHour, isDruskScene, druskSceneIds, markDruskScene, advanceToNextHour } from "./druskenvald.js"; // §43 the clock
 
@@ -418,7 +419,7 @@ function partyTabFull() {
   // the FOOT like the Combat send button (DM 2026-07-25). The Story-questions drawer (§38.4)
   // renders regardless of packing — questions don't need a group.
   return `<div class="mc-dmp-tabfill">
-    <div class="mc-dmp-tabmid">${dtDrawer("players", isOnlineTable() ? "Players" : "Players & seats", "", playersBody(), true)}${dtDrawer("cardTable", "Session zero", "", cardTableBody(), true)}${dtDrawer("storyQs", "Story questions", "", storyQsBody(), true)}${ownedTokensHTML()}${marching}</div>
+    <div class="mc-dmp-tabmid">${dtDrawer("players", isOnlineTable() ? "Players" : "Players & seats", "", playersBody(), true)}${dtDrawer("cardTable", "Session zero", "", cardTableBody(), true)}${dtDrawer("storyQs", "Story questions", "", storyQsBody(), true)}${dtDrawer("charFiles", "Character files", "", charFilesBody(), true)}${ownedTokensHTML()}${marching}</div>
     <div class="mc-dmp-tabfoot">${partyMainHTML()}</div>
   </div>`;
 }
@@ -523,6 +524,25 @@ function druskBody() {
     <div class="mc-dmp-story-status">${names.length
       ? `Eternal night on: ${esc(names.join(", "))}`
       : "No maps marked — everywhere still has a sun."}</div>`;
+}
+
+// --- §44 Character files: the compiled book per PC ----------------------------------------
+// The compile runs itself every few minutes and writes only what changed, so this drawer is
+// mostly a window onto that — plus the button, because the first thing anyone wants from a
+// generated document is to regenerate it right now (UI-BIBLE §8.1).
+function charFilesBody() {
+  const esc = foundry.utils.escapeHTML;
+  const index = game.journal.find(j => j.getFlag(MODULE_ID, "charFileIndex"));
+  const books = game.journal.filter(j => j.getFlag(MODULE_ID, "charFile"));
+  const when = lastCompile.at
+    ? `updated ${new Date(lastCompile.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+    : "not compiled yet";
+  return `
+    <button class="mc-dmp-pf-fix mc-dmp-story-random" data-cf-compile>
+      <i class="fas fa-book-open"></i> Compile Now</button>
+    <div class="mc-dmp-story-status">${books.length} ${books.length === 1 ? "file" : "files"} · ${esc(when)}</div>
+    ${index ? `<button class="mc-dmp-seat-move" data-cf-open="${index.id}">open the party index</button>` : ""}
+    <div class="mc-dmp-story-status">Rebuilds itself every few minutes, writing only what changed. Your own notes are never touched.</div>`;
 }
 
 // --- §42 The Fated Tarot: one card, into one character's hand ------------------------------
@@ -4366,6 +4386,15 @@ async function onClick(ev) {
   }
   const gs = ev.target.closest("[data-group-sheet]");
   if (gs) { game.actors.get(gs.dataset.groupSheet)?.sheet?.render(true); return; }
+  // §44 character files: compile now, or open the index.
+  if (ev.target.closest("[data-cf-compile]")) {
+    const n = await compileCharacterFiles();
+    ui.notifications.info(n ? `Character files: ${n} page${n === 1 ? "" : "s"} updated.` : "Character files: already up to date.");
+    return render();
+  }
+  const cfOpen = ev.target.closest("[data-cf-open]");
+  if (cfOpen) { game.journal.get(cfOpen.dataset.cfOpen)?.sheet?.render(true); return; }
+
   // §43 Druskenvald clock: push the hour on, or put this map under the eternal night.
   if (ev.target.closest("[data-drusk-next]")) {
     const landed = await advanceToNextHour();

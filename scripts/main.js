@@ -20,6 +20,7 @@ import { cardTableRefreshMode } from "./card-table.js"; // §39: re-lay the boar
 import { dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { registerDaylight, applyDaylight } from "./daylight.js"; // §41 the clock drives scene darkness
 import { registerDruskenvald } from "./druskenvald.js"; // §43 eternal night, told in six named hours
+import { registerCharacterFiles, compileCharacterFiles } from "./character-file.js"; // §44 a book per PC
 import { registerSettingsMenu } from "./settings-app.js"; // §29 settings mini-app (menu button)
 
 Hooks.once("init", () => {
@@ -776,6 +777,7 @@ Hooks.once("ready", () => {
   initPauseGuard();
   registerDaylight(); // §41: scene darkness follows the world clock (executor-gated inside)
   registerDruskenvald(); // §43: the named hour + sky on the shared screen (gates itself)
+  registerCharacterFiles(); // §44: compile each PC's book on a timer (executor-only, dirty-checked)
   if (!isPhoneClient()) initPauseOverlay(); // corner spinners replace the "GAME PAUSED" bar (phones have their own overlay)
   if (!isPhoneClient()) initHeartbeat();    // critical-HP heartbeat pulse on PC token rings (canvas only)
   startHeartbeat();
@@ -834,6 +836,7 @@ Hooks.once("ready", () => {
     // §41 put the CURRENT scene at the clock's darkness right now — the manual trigger beside the
     // automatic one (§8.1), and what the setting's onChange calls when you switch it back on.
     applyDaylightNow: () => applyDaylight(canvas?.scene ?? game.scenes?.active, { animate: 1200 }),
+    compileCharacterFiles,               // §44 rebuild every PC's file now (macro access)
     syncPartyTokenSight,                 // GM: set each PC token's sight/detection from its dnd5e senses
     resolveExecutorId,
     isExecutor

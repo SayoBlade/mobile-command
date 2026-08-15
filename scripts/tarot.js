@@ -74,6 +74,41 @@ export function tarotBack() {
 
 export function cardByKey(key) { return ARCANA.find(c => c.key === key) ?? null; }
 
+// §32.1 WHAT EACH CARD IS ACTUALLY FOR. The card does nothing when drawn — it GATES one Fabled
+// Heirloom (an item that levels with its owner) or a boon, available at one named point later in
+// the adventure. The book's own reason is rationing: handing out every heirloom "could quickly
+// trivialize the threats that await them", so a party of four unlocks four of twenty-two.
+//
+// Extracted from the installed module's journal pack (DESIGN §32.1), not recalled. This map is
+// DM-SIDE ONLY: it is never written to an actor and never reaches a phone, so there is nothing on
+// the player's side that could leak what their card means. The card key is the pointer; this is
+// the lookup, and it lives in a DM-owned book.
+export const ARCANA_REWARD = {
+  fool:       { item: "Whistle of the Vagrant",           where: "Conclusion: The Last Stop" },
+  magician:   { item: "Marotte of the Lord of Fools",     where: "Phase 2: Carnival of Chaos" },
+  priestess:  { item: "Mask of Lethica Nightborne",       where: "L19: Lethica's Quarters" },
+  empress:    { item: "Cauldron of the Vermintoll Coven", where: "Conclusion: Dreaming No More" },
+  emperor:    { item: "Blunderbuss of the Grinning Sinner", where: "Phase 2: Double Down" },
+  hierophant: { item: "Sword of the Crimson Abbot",       where: "Phase 2: Beneath a Blood Moon" },
+  lovers:     { item: "Planchette of Adela Druskenvald",  where: "The Green Queen Inn" },
+  chariot:    { item: "Scythe of the Harvest Terror",     where: "Phase 2: Demon of Secrets" },
+  strength:   { item: "Shovel of Yorgrim",                where: "Y9: Shadestone Sanctuary" },
+  hermit:     { item: "Staff of Farryn of the Greenwood", where: "F10: Befouled Wellspring" },
+  wheel:      { item: "Cutlass of Briggsy Kratch",        where: "To the Sinner's Shack" },
+  justice:    { item: "Shield of Marius Renathyr",        where: "M2: Stables" },
+  hanged:     { item: "Banjo of Ol' Jericho Sticks",      where: "J9b: Windmill Cellar" },
+  death:      { item: "Idol of the Beast of Blight",      where: "Phase 2: Dead and Gone" },
+  temperance: { item: "Veil of the Weeping Widow",        where: "Phase 2: Desperate Measures" },
+  devil:      { item: "Cane of Phillip Druskenvald",      where: "Encounter 5: Live Deliciously" },
+  tower:      { item: "Visage of the Old Ways",           where: "Phase 2: Dying Embers" },
+  // The four boons — no item, and The Moon lands straight on machinery we already built (§31).
+  star:       { item: "A feat of their choice",           where: "S7: Stonoga's Laboratory — after defeating Stonoga Blackstinger" },
+  moon:       { item: "Three Twists of Fate",             where: "H17: Cauldron Room — after defeating Vessla Browntooth" },
+  sun:        { item: "+2 to one ability score (max 24)", where: "R2: Pigeon Roost — after defeating Golub Graygullet" },
+  judgement:  { item: "Lantern of the Chained Reaper",    where: "Phase 2: Cold Fire" },
+  world:      { item: "Cast Wish, once",                  where: "Phase 2: Wrath of the Crooked Queen — after defeating the Horned King" }
+};
+
 /** The character a player is playing tonight — the DM's explicit pick if there is one (§38.4b),
  *  else their assigned character. Seats and readings both key to USERS, so this is the bridge. */
 export function userActor(user) {

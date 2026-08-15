@@ -6195,3 +6195,46 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-tarot-line .mc-tarot-force { flex: 1 1 auto; min-width: 0; max-width: none; font-size: 11px; }
 .mc-tarot-line .mc-boss-play { flex: 0 0 auto; }
 
+
+/* == §44 The Character File — how the compiled book reads ==================================== */
+/* These style JOURNAL content, which lives outside the shell and the panel, so they are the one
+   place in this file that can't lean on the module's roots for tokens — a journal page is Foundry's
+   sheet, not ours. Written to degrade gracefully: strip the module and every page is still plain,
+   readable HTML, which is the whole reason the file is a journal and not a custom app. */
+.mc-cf-cover { text-align: center; padding: 8px 0 4px; }
+.mc-cf-portrait { display: block; margin: 0 auto 10px; max-width: 260px; width: 60%;
+  border-radius: 6px; border: 1px solid rgba(0,0,0,.35); box-shadow: 0 6px 22px rgba(0,0,0,.35); }
+.mc-cf-cover-name { font-size: 2em; line-height: 1.1; font-variant: small-caps; letter-spacing: .03em; }
+.mc-cf-cover-sub { font-size: 1.05em; opacity: .8; }
+.mc-cf-cover-player { font-size: .9em; opacity: .65; font-style: italic; margin-top: 2px; }
+.mc-cf-cover-link { margin-top: 10px; font-size: .9em; }
+
+/* Facts as a definition list: label left, value right, one per line. */
+.mc-cf-facts { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 0; }
+.mc-cf-facts dt { font-variant: small-caps; letter-spacing: .04em; opacity: .7; }
+.mc-cf-facts dd { margin: 0; }
+
+/* Their own words. The QUESTION is the quiet part and the ANSWER is the loud one — the opposite
+   of how a form looks, because this is a book and the answer is what you came to read. */
+.mc-cf-entry { margin: 0 0 14px; padding: 6px 0 6px 12px; border-left: 3px solid rgba(0,0,0,.18); }
+.mc-cf-q { font-size: .85em; opacity: .6; font-style: italic; margin-bottom: 3px; }
+.mc-cf-a { white-space: pre-wrap; }
+.mc-cf-when { font-size: .78em; opacity: .5; margin-top: 4px; }
+.mc-cf-step { font-variant: small-caps; letter-spacing: .06em; font-size: .85em; opacity: .75; }
+.mc-cf-quiet { opacity: .6; font-size: .9em; }
+
+/* Fate: the card beside what it means. The plate is small on purpose — this page is a reference,
+   not a reveal; the reveal already happened in the player's hand. */
+.mc-cf-tarot { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 12px; }
+.mc-cf-card { width: 120px; flex: 0 0 auto; border-radius: 6px; border: 1px solid rgba(0,0,0,.4); }
+.mc-cf-tarot-name { font-size: 1.3em; font-variant: small-caps; }
+.mc-cf-unlock { margin-top: 6px; }
+.mc-cf-block { margin: 12px 0; }
+.mc-cf-downtime { padding-left: 18px; }
+
+/* The index: portraits, because a party is faces before it is names. */
+.mc-cf-index { display: flex; flex-wrap: wrap; gap: 16px; }
+.mc-cf-idx-card { width: 140px; text-align: center; }
+.mc-cf-idx-card img { width: 100%; aspect-ratio: 1; object-fit: cover; object-position: center top;
+  border-radius: 6px; border: 1px solid rgba(0,0,0,.35); }
+.mc-cf-idx-name { margin-top: 5px; font-variant: small-caps; letter-spacing: .02em; }
