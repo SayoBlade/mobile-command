@@ -2027,13 +2027,14 @@ function ensureEl() {
   // …and when they're done with the dropdown, run whatever the timers wanted meanwhile. Without
   // this the deferred repaint is simply dropped and the panel sits stale until the next hook.
   // focusout fires as the select gives up focus, which is also when its popup closes.
-  panelEl.addEventListener("focusout", () => {
-    if (!idleRenderPending) return;
-    idleRenderPending = false;
-    // A tick, so focus has actually moved before we tear the DOM down — running synchronously
-    // inside focusout would yank the element out from under the very event that's still firing.
-    setTimeout(() => { if (!selectFocused()) render(); }, 0);
-  });
+  panelEl.addEventListener("focusout", (ev) => { if (ev.target === openSelect) releaseSelect(); });
+  // The open-dropdown window (see noteSelectOpen). pointerdown on a select opens the popup;
+  // choosing, leaving, escaping or clicking anything else closes it.
+  panelEl.addEventListener("pointerdown", (ev) => {
+    if (openSelect && !ev.target?.closest?.("select")) releaseSelect();
+    noteSelectOpen(ev);
+  }, true);
+  panelEl.addEventListener("keydown", (ev) => { if (ev.key === "Escape" || ev.key === "Enter") releaseSelect(); });
   panelEl.addEventListener("pointerdown", onPointerDown); // drag from the grip handle
   // Outside-click closes any open transient dropdown (DM 2026-07-09: "clicking
   // outside the dropdown should close it"). The selection is already live in
@@ -3581,6 +3582,10 @@ function render() {
   const ae = document.activeElement;
   if (ae && el.contains(ae) && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA") && /^(text|number|search|textarea|)$/.test(ae.type || "textarea")
       && (ae.closest(".mc-dt-addform") || ae.closest(".mc-dt-tmplform") || ae.closest(".mc-rf"))) return;
+  // …and never while a dropdown is actually open: rebuilding the DOM destroys the element that
+  // owns the popup, so the list vanishes under the DM's cursor. Deferred, not dropped — whatever
+  // wanted to repaint runs the moment they're done choosing (see noteSelectOpen).
+  if (openSelect) { pendingRender = true; return; }
   // (targeting/pending now live in the Combat tab — §25 2b — so the floor no longer computes them.)
   // The floor's top chrome is a bare slim drag rail — no "Mobile Command" title, no X (DM 2026-07-24:
   // "no need for the primary top bar… remove the Mobile Command header… make the top panel shorter").
@@ -3683,6 +3688,9 @@ function onInput(ev) {
   if (kph) { const m = panelEl?.querySelector("[data-pace-mph]"); if (m) m.value = kph.value ? (Number(kph.value) / KPH_PER_MPH).toFixed(1) : ""; return; }
 }
 function onChange(ev) {
+  // The popup is gone the instant a value is chosen — release BEFORE any handler below calls
+  // render(), or the dropdown's own repaint would be the one thing the guard blocked.
+  releaseSelect();
   // §26.6: the Player drawer's target picker.
   if (ev.target.matches?.("[data-fx-player]")) { fxPlayer = ev.target.value; return render(); }
   // §42 which arcana the DM has decided this character will draw next (the cheat).
@@ -4618,14 +4626,39 @@ export function refreshPanel() { try { if (panelEl) render(); } catch (e) { /* n
 // v0.1.x). So the fix can't live in render() — it has to distinguish WHO ASKED. A repaint the DM
 // caused goes through immediately; one a timer caused waits until they've finished with the
 // control and then runs, so nothing goes stale either.
-let idleRenderPending = false;
-function selectFocused() {
-  const ae = document.activeElement;
-  return !!(ae && panelEl?.contains(ae) && ae.tagName === "SELECT");
+// WHICH DROPDOWN IS OPEN — not merely focused (DM 2026-08-11, and again 2026-08-15: "still
+// closes after a while"). The first attempt routed the four noisiest hooks through a guarded
+// render. There are ~170 render() calls in this file and roughly thirty hooks behind them, so
+// that was always going to leave holes — targeting, token movement, chat, combat, an actor
+// update, any of them lands while the DM is reading a list of scenes.
+//
+// So the guard moves INSIDE render(), where every caller must pass. The subtlety that made this
+// awkward the first time: render() must NOT be blocked merely because a select has focus, or a
+// dropdown's own change event can't repaint the panel and the downtime rule form stops working
+// (the old "can't set rules" bug). Focus is the wrong signal — what matters is whether the POPUP
+// is up, and the popup opens on pointerdown and closes on change, blur or escape. Tracking that
+// window exactly gives a guard that blocks background repaints and permits the DM's own.
+let openSelect = null;
+let pendingRender = false;
+let openSelectFailsafe = null;
+function noteSelectOpen(ev) {
+  const sel = ev.target?.closest?.("select");
+  if (!sel || !panelEl?.contains(sel)) return;
+  openSelect = sel;
+  // A dropdown clicked open and then clicked shut again fires no change and no blur — the select
+  // simply keeps focus. Without a failsafe the panel would stop repainting for the rest of the
+  // session, which is far worse than the bug being fixed.
+  clearTimeout(openSelectFailsafe);
+  openSelectFailsafe = setTimeout(() => releaseSelect(), 15000);
 }
-function renderIdle() {
-  if (selectFocused()) { idleRenderPending = true; return; }
-  render();
+function releaseSelect() {
+  if (!openSelect) return;
+  openSelect = null;
+  clearTimeout(openSelectFailsafe);
+  if (!pendingRender) return;
+  pendingRender = false;
+  // A tick, so the browser has finished with the element before we replace it.
+  setTimeout(() => render(), 0);
 }
 
 export function registerDMPanel() {
@@ -4650,12 +4683,10 @@ export function registerDMPanel() {
   // Combat doc's creation, not each combatant, so it never re-opens while the DM adds monsters.
   Hooks.on("createCombat", () => { dockTab = "combat"; render(); });
   Hooks.on("updateScene", (_s, ch) => { if ("active" in ch || (dockTab === "effects" && ("weather" in ch || "environment" in ch))) render(); }); // split-party chips follow activation; fx toggles follow the scene
-  // These four are the noisy, un-asked-for ones — they fire on their own schedule while the DM is
-  // mid-gesture, so they go through renderIdle and wait for an open dropdown (see renderIdle).
-  Hooks.on("userConnected", () => renderIdle());                   // presence: connect/disconnect
-  Hooks.on("updateUser", () => renderIdle());                      // presence: a player changed scene (viewedScene)
-  Hooks.on("updateWorldTime", () => renderIdle());                 // the clock chip follows the world time
-  Hooks.on("mobile-command.presence", () => renderIdle());         // away-timer: a phone reported fg/bg
+  Hooks.on("userConnected", () => render());                       // presence: connect/disconnect
+  Hooks.on("updateUser", () => render());                          // presence: a player changed scene (viewedScene)
+  Hooks.on("updateWorldTime", () => render());                     // the clock chip follows the world time
+  Hooks.on("mobile-command.presence", () => render());             // away-timer: a phone reported fg/bg
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.downtimeState`) render(); }); // §17.7: activities/window changed
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive` && (dockTab === "effects" || dockTab === "crooked")) render(); }); // §26/§35: fx toggles follow the world state (séance lives on the Crooked Moon tab)
   Hooks.on("updateActor", (_a, ch) => { if (dockTab === "crooked" && ch.flags?.[MODULE_ID]) render(); }); // §31: a phone's twist spend/withdraw lands as a chip live
@@ -4666,7 +4697,7 @@ export function registerDMPanel() {
   let awayTimer = null;
   const awayTick = () => {
     const anyHidden = [...presenceState.values()].some(p => p?.hidden);
-    if (anyHidden && !awayTimer) awayTimer = setInterval(() => { renderIdle(); awayTick(); }, 5000);
+    if (anyHidden && !awayTimer) awayTimer = setInterval(() => { render(); awayTick(); }, 5000);
     else if (!anyHidden && awayTimer) { clearInterval(awayTimer); awayTimer = null; }
   };
   Hooks.on("mobile-command.presence", awayTick);

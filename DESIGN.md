@@ -4381,8 +4381,9 @@ spell, and anything cool you can come up with."*
 
 **"Big" is relative to the character, not absolute.** A CR 5 is a story at level 3 and a speed bump
 at level 11, so every record stores the creature's **CR** *and* the PC's **level at the time**.
-The bar for "worthy" is `CR ≥ level`; the ranking is `CR − level`, which is what surfaces the
-biggest thing anyone ever punched above their weight.
+The bar for "worthy" is **`CR > level`** (DM 2026-08-15 — strictly above, so an even-CR fight
+isn't a trophy); the ranking is `CR − level`, which is what surfaces the biggest thing anyone ever
+punched above their weight.
 
 **Recorded:**
 
@@ -4422,14 +4423,33 @@ boundary so it can be lifted out later without surgery.
 - Generated pages carry a flag and are **overwritten** on every compile.
 - **Anything the DM adds by hand is left alone.**
 - **DM's Notes is never touched**, ever.
-- Compile is **on demand** (a button), so there is no background cost at all.
+- Compile runs **automatically**, on a timer (DM 2026-08-15: "automatically updated… once a
+  minute or even 3-5"), on the **executor only** — five GM clients each compiling the same book
+  is five times the writes and a guaranteed race.
 
 Get this wrong and the feature is dangerous rather than useful: a DM who annotates a generated
 page and loses it once will never trust the book again.
 
-### 44.6 Cost
+### 44.6 Cost — and the correction the automatic compile forces
 
-- The compile: on demand, reads documents, writes pages. Zero ongoing cost.
+A timed recompile is NOT free the way an on-demand one is, and the naive version is genuinely
+expensive: nine chapters × five PCs is ~45 journal-page writes, and every one is a document update
+broadcast to every connected client. Once a minute, all session, that is a real load — the exact
+"drain" the DM asked about, arriving through the back door.
+
+**So the compile is DIRTY-CHECKED, not unconditional.** Each chapter's HTML is built in memory
+(cheap — reading flags and a journal), hashed, and compared with a hash stored on the page. A page
+is written **only when its content actually changed**. On a normal minute nothing has: no story
+answer, no level-up, no kill. Zero writes.
+
+That inverts the cost. The timer's real expense becomes the compile itself — string building over
+a handful of documents, a millisecond or two — and writes happen only when there is genuinely
+something new to record, which is exactly when the DM wants them.
+
+A 3-minute cadence is specified rather than 1: the difference is imperceptible for a document
+nobody is staring at, and it thirds the idle work.
+
+- The compile: timed, dirty-checked, executor-only. Writes only on real change.
 - The recorder: **event-driven** — a few hundred writes across a whole session, against the fog
   shader's sixty a second. This is not in the same class of expense as anything we've had to worry
   about, and the DM's "not a big drain" condition is comfortably met.
@@ -4437,10 +4457,13 @@ page and loses it once will never trust the book again.
 
 ### 44.7 Open
 
-- **Compile trigger** — a button is specified. Auto-compile at session end (or on world load) is
-  possible; unasked, so unbuilt.
-- **The worthy bar** — `CR ≥ level` is a proposal, not a measured value. It wants a session's data
-  before it's fixed.
+- **Compile trigger** — RESOLVED 2026-08-15: automatic, timed, dirty-checked, executor-only. A
+  manual "compile now" stays alongside it, because the first thing anyone does with a generated
+  document is want it regenerated this instant (§8.1 — the ritual is automatic, the button is the
+  authority).
+- **The worthy bar** — RESOLVED 2026-08-15: `CR > level`. Still worth a session's data before it
+  is treated as final; a party that fights nothing above its level would get an empty chapter,
+  which is a signal about the bar rather than about the party.
 - **Export (§44.8, future)** — markdown/JSON out, so an agent can mine the file alongside a
   session transcript. Deliberately kept OUTSIDE the module: no API keys, no network, no cost, and
   the export is useful on its own. That boundary is the test of whether it's in the right place.
