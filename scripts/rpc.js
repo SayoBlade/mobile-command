@@ -1118,9 +1118,15 @@ async function resolveAttackTotal(wf, timeoutMs = 5000) {
 // AC5E (visibilityChecks) forces midi's Attack-Roll dialog onto the EXECUTOR for an unseen
 // attacker/target by overriding our `configure:false` (its forceDialogConfigureForOptins). We
 // already surface AND confirm the adv/dis on the phone (attackPreview), so the executor must not
-// re-prompt. This listener runs AFTER AC5E's (added dynamically → last) and undoes the forced
-// configure — AC5E's computed advantageMode is set earlier and left intact, so only the confirmation
-// dialog is skipped, not the visibility adv/dis. Returns off() to unregister. (DM 2026-07-17.)
+// re-prompt. This listener runs AFTER AC5E's and undoes the forced configure — AC5E's computed
+// advantageMode is set earlier and left intact, so only the confirmation dialog is skipped, not the
+// visibility adv/dis. Returns off() to unregister. (DM 2026-07-17.)
+//   Why we always run second (re-verified against AC5E 14.533.15, 2026-08-19 — the original note
+//   here said "added dynamically → last", i.e. registration order, which is NOT the reason and would
+//   be fragile if it were): AC5E registers `dnd5e.preRollAttack`, and dnd5e fires
+//   `dnd5e.preRoll<Name>` immediately before `dnd5e.preRoll<Name>V2` (dnd5e.mjs:68411-68412). We are
+//   on the V2 one, so their force always lands first and ours always undoes it — a guarantee from
+//   the hook NAMES, not from who registered when.
 function suppressAc5eAttackDialog() {
   const id = Hooks.on("dnd5e.preRollAttackV2", (config, dialog) => {
     if (dialog && typeof dialog === "object") dialog.configure = false;

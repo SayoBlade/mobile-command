@@ -2492,6 +2492,49 @@ AC5E** (and possibly a Foundry install still on 14.363):
   with no automations (stable = 1.5.43, not a V14 line); GPS still v13-only. §28.5 verdicts
   unchanged.
 
+### 28.5.3 Drift sweep 2026-08-19 — AC5E 14.533.15, MISC 2.0.2 (SOURCE-CHECKED, NOT validated)
+
+Preflight flagged two upward drifts. A world was active, so BENCH RULE #0 held and §28.4 could not
+run; what follows is the source-level pre-check that *can* be done without one, so the eventual run
+knows where to look. **The `TESTED` pin was deliberately NOT bumped — a pin means validated.**
+
+**MISC 2.0.1 → 2.0.2 (2026-08-06) — low risk, content only.** Item fixes (v14 durations on Corpse
+Slayer, Flames of Phlegethos, Poisoner, Spiny Shield, Unwavering Mark), new 2014 Ancestral Guardian
+features, new 2024 Monk's Focus / Astral Self / Drunken Master, Deflect Attacks gaining Deflect
+Energy, and one Elwin Helpers fix (`insertTextIntoMidiItemCard` beforeHitsDisplay). Nothing in the
+workflow pipeline we hold mid-flight. **Verified in `dist/`: `game.settings.register(moduleName,
+"Elwin Helpers", …)` still exists** — so preflight's `AUTOMATION_PREREQS` key (§28.7) is unaffected.
+**MISC#89 is still OPEN** (last touched 2026-07-26): the maintainer reads the GWM boolean crash as a
+midi v14 value-handling change, intends to report it upstream, and may switch the effect to
+`override` mode to dodge `midiCustomEffect`. Not fixed in 2.0.2 — keep GWM off the table.
+
+**AC5E 14.533.13.1 → 14.533.15 (four releases) — this one touches our pipeline.**
+
+Our two integration points were checked against the installed source and are **intact**:
+
+- `forceDialogConfigureForOptins` (`scripts/hooks/ac5e-hooks-roll-dialog-configure.mjs`) still sets
+  `dialog.configure = true` and `config.dialog.configure = true` — precisely what
+  `suppressAc5eAttackDialog()` undoes.
+- The ordering still works, **but not for the reason the code comment gave**. AC5E registers
+  `dnd5e.preRollAttack`; dnd5e 5.3.3 fires `dnd5e.preRoll<Name>` and then
+  `dnd5e.preRoll<Name>V2` back to back (dnd5e.mjs:68411-68412), and we are on the **V2** one. So our
+  undo lands after their force because of the hook *names*, not because of registration order.
+  That is sturdier than what the comment claimed; comment corrected 2026-08-19.
+
+Where a phone attack could actually move:
+
+- **Simple Cover 5e integration (14.533.14.1) — and `simplecover5e` IS installed here.** Cover
+  selections in the attack dialog now feed the AC used for hit checks and chat-card targets, cover
+  combines with `modifyAC` effects, Total Cover no longer blocks other AC modifiers, and cover uses
+  the system's configured values. Our Hit/Miss badge and the two-tap read the workflow's
+  adjudication, so a changed AC changes what the player sees. **First thing to exercise in the run.**
+- **14.533.14 "modified target AC handling so attack dialogs, results, and tooltips remain in
+  sync"** — same surface, same reason.
+- **14.533.14.3 "keep new roll messages smaller"** — we read workflow objects, not AC5E's card, so
+  no direct exposure; worth an eye on anything that parses messages (§44's deed recorder).
+- **14.533.15** is additive (an `isMagical` sandbox property, a `prepareEvaluationState` hook for
+  integrations). No action.
+
 ### 28.5.2 Post-update validation run (2026-07-31, solo rig — PASSED, TESTED bumped)
 
 The DM's mod refresh landed **AC5E 14.533.13.1** (the .13 reviewed above + a pt-BR-only
