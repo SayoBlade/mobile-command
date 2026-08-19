@@ -342,6 +342,19 @@ Adding/removing an element must not shove everything else. If a layout change is
 **animate it** (the drawer transition is the reference). A silent jump reads as a bug
 (DM 2026-07-16).
 
+**And a repaint is not a navigation.** Both surfaces rebuild by rewriting `innerHTML`, and both are
+driven by hooks that fire on a timer — the world clock above all. Two rules, and neither is
+optional (DM 2026-08-19: *"when i scroll down and try to read something it snaps back up to the
+top"*):
+
+1. **A repaint that would change nothing must touch nothing.** Compare the generated markup and
+   skip the swap outright. It is cheaper than the rebuild, and it makes the whole class of bug
+   impossible for the common case.
+2. **When markup does change, every scroller goes back where it was** — found by observation
+   (`repaint.js`), never from a hand-written list of selectors. The list version shipped naming two
+   containers and missed the one that actually scrolls inside a tab, so the fix read as no fix at
+   all. Only a genuine *navigation* — a new tab, a detail card, a picker — resets to the top.
+
 ### 6.5 The DM panel — a fixed floor and a tab that grows up (DM 2026-07-24)
 
 The DM panel is **one assembly, stacked vertically**, not two side-by-side windows. This supersedes

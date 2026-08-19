@@ -7,6 +7,7 @@ import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §2
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 the player's thread card
 import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCard, tarotCanDismiss, tarotEnabled, TAROT_FLIP_MS } from "./tarot.js"; // §42 the Fated Tarot
 import { masteryOf, masteryReminder } from "./masteries.js"; // §45 weapon mastery reminder
+import { watchScroll, captureScrolls, restoreScrolls, sameHTML } from "./repaint.js"; // §46 don't jump
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -400,6 +401,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // render after the field blurs repaints normally.
     const ae = document.activeElement;
     if (ae && (ae.classList?.contains("mc-dt-new-name") || ae.classList?.contains("mc-dt-new-plan"))) return;
+    watchScroll(content); // start recording scroll positions (idempotent)
+    const html = typeof result === "string" ? result : "";
+    const prevKey = this.#viewKey;
+    const nextKey = this.#currentViewKey();
+    // A repaint that would produce identical markup touches NOTHING. Background hooks fire on a
+    // timer (the world clock, presence, combat) and most of those ticks change nothing the player
+    // can see — but the innerHTML swap still reset every scroller, so reading a journal page meant
+    // being yanked to the top every few seconds (DM 2026-08-19). Skipping is also strictly cheaper
+    // than the rebuild it replaces. The theme/colour writes below still run: they read state that
+    // doesn't live in the markup.
+    const unchanged = sameHTML(content, html) && nextKey === prevKey;
+    this.#applyTheme(); // keep the saved theme's body class in sync each render
+    content.style.setProperty("--mc-user", game.user?.color?.css ?? "var(--mc-gold)"); // personal color accent
+    this.element?.style?.setProperty("--mc-user", game.user?.color?.css ?? "var(--mc-gold)");
+    if (unchanged) { this.#viewKey = nextKey; return; }
     // Detach the live toast first so the innerHTML swap doesn't destroy an
     // in-flight roll toast on an unrelated re-render (e.g. an HP/condition
     // update). The recent-rolls strip is rebuilt from #recentRolls below.
@@ -408,23 +424,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Preserve scroll across SAME-view re-renders (open a container, toggle a
     // drawer/prepared/equip, edit HP) so the player stays put (DM 2026-06-19).
     // A view change (tab / detail card / picker) resets to top.
-    const prevTop = content.querySelector(".mc-content, .mc-cg-scroll")?.scrollTop ?? 0;
-    const prevKey = this.#viewKey;
-    const nextKey = this.#currentViewKey();
-    content.innerHTML = typeof result === "string" ? result : "";
+    // Every scroller, not just .mc-content: the journal, the travel list, a PM thread and the
+    // char-gen pane all scroll inside their own boxes, and the old two-selector version silently
+    // left all of them to snap back (DM 2026-08-19).
+    const prevScrolls = captureScrolls(content);
+    content.innerHTML = html;
     this.#attachListeners(content);
     this.#attachImageZoom(content); // pinch/drag on any fullscreen image now on screen
-    this.#applyTheme(); // keep the saved theme's body class in sync each render
-    content.style.setProperty("--mc-user", game.user?.color?.css ?? "var(--mc-gold)"); // personal color accent
-    // Also on the shell ROOT so the app's 1px player-colour outline can read it (UI-BIBLE §3):
-    // a glance tells you whose phone you're holding.
-    this.element?.style?.setProperty("--mc-user", game.user?.color?.css ?? "var(--mc-gold)");
+    // The --mc-user accent is written above (it has to survive the skip too); the shell ROOT gets
+    // it as well so the app's 1px player-colour outline can read it (UI-BIBLE §3): a glance tells
+    // you whose phone you're holding.
     try { this.#applyMyTokenRing(); } catch (e) { console.warn(`${MODULE_ID} | ring paint skipped`, e); } // never let a token-visual write break the render
     if (toast) content.appendChild(toast);
-    if (nextKey === prevKey) {
-      const scroller = content.querySelector(".mc-content, .mc-cg-scroll");
-      if (scroller && prevTop) scroller.scrollTop = prevTop;
-    }
+    if (nextKey === prevKey) restoreScrolls(content, prevScrolls);
     this.#viewKey = nextKey;
     if (this.#searchOpen && this.#searchQuery) this.#applySearch(this.#searchQuery); // keep the filter after a re-render
     // Journal filters survive background re-renders too (HP ticks etc. repaint the whole shell).

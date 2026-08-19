@@ -4561,3 +4561,71 @@ something applying it), and `masteryOf`'s mirror of dnd5e's pick. **All green 20
 - **Pre-attack chip.** A gold mastery name in the picker head, before committing. Deliberately
   left out of this slice: the reminder's job is the moment the mastery is live, and a title that
   teaches is the thing UI-BIBLE §7.1 exists to stop.
+
+---
+
+## 46. The repaint that ate the scroll position (DM report 2026-08-19, FIXED)
+
+**The report.** *"the fact the app 'resets' every few seconds is very annoying, when i scroll down
+and try to read something it snaps back up to the top, stop this!"*
+
+### 46.1 Cause
+
+Both surfaces repaint by rewriting `innerHTML`, and both are driven by background hooks that fire
+on a timer. The loudest is `updateWorldTime` — `dm-panel.js` re-renders the whole panel on every
+tick of it, and since §41 the daylight loop and Simple Calendar's real-time clock both tick it
+constantly. Rewriting `innerHTML` zeroes `scrollTop` on every scroll container inside.
+
+Both surfaces already *had* scroll preservation. Both were written as a **hand-listed pair of
+selectors**, and both had since been outgrown:
+
+- **DM panel** kept `.mc-dmp-fly-body` and `.mc-dmp-scroll`. But a tab's markup is
+  `.mc-dmp-fly-body > .mc-dmp-tabfill > .mc-dmp-tabmid`, and it is the **innermost** that carries
+  `overflow-y: auto`. The flyout's own `scrollTop` was therefore always `0`, and restoring it
+  restored nothing. Every tab in the panel was affected — which is the whole panel.
+- **Phone shell** kept `.mc-content` and `.mc-cg-scroll` — leaving the journal (`.mc-jn-list`,
+  `.mc-jn-pagelist`), the travel list, a PM thread and the settings pane to snap back.
+
+A list of scrollers is a list somebody has to remember to extend, and nobody did. That is the
+actual defect; the missing selector is just where it surfaced.
+
+### 46.2 The fix — `scripts/repaint.js`, shared by both surfaces
+
+**1. A repaint that would change nothing touches nothing.** `sameHTML(root, html)` compares the
+generated markup against what that root was last painted with; identical means skip the swap
+whole. Most timer-driven repaints change nothing visible, so this removes the problem at source —
+and it is strictly cheaper than the rebuild it replaces, which matters on the DM's machine.
+
+It compares the **generated string, not the live DOM**, deliberately: transient state applied
+outside a repaint (a search filter hiding rows, a drag-over class, a focused input's value) is
+state we want to survive, and comparing against the DOM would discard it every tick.
+
+Safe because every listener on both surfaces is **delegated to the root** (`panelEl` at
+dm-panel.js:2033ff, the shell's `#attachListeners`), so nothing depends on the swap happening.
+
+**2. When markup does change, every scroller goes back.** `watchScroll` puts one capture-phase
+`scroll` listener on the root (scroll doesn't bubble) and remembers the last few elements that
+actually scrolled — bounded at 6, most-recent-first. `captureScrolls` keys each live one by
+**class selector + index among same-class peers**, which is an identity that survives an
+`innerHTML` swap even though the nodes don't; `restoreScrolls` puts them back.
+
+Observation rather than a walk: reading `scrollTop` off every node would force a layout on each
+repaint. This costs nothing on the hot path.
+
+The shell still resets to top on a genuine **navigation** (`#currentViewKey` — tab, detail card,
+picker, stat editor). A repaint is not a navigation; that distinction is the whole rule.
+
+### 46.3 Tests
+
+`tools/test-repaint.mjs` — 17 headless assertions against a hand-rolled DOM stand-in: the no-op
+gate, per-root isolation, capture of the *inner* scroller (with the exact
+fly-body/tabfill/tabmid nesting that defeated the old code), ordinal matching across repeated
+rows, detached and vanished scrollers, and a genuine scroll-to-top never being undone. **All green
+2026-08-19.**
+
+### 46.4 Open
+
+- **Not yet seen at the table.** The fix is unit-tested and reasoned from the markup, but the DM's
+  "every few seconds" cadence should be confirmed gone on the real panel.
+- **The rule is now in UI-BIBLE §6.3**, so the next surface that repaints inherits it instead of
+  re-deriving it.

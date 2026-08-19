@@ -18,6 +18,7 @@ import { setDaylightSuspended } from "./daylight.js"; // §41 travel owns the li
 import { compileCharacterFiles, lastCompile } from "./character-file.js"; // §44 a book per PC
 import { dealOne, actorCard, revealActorCard, setActorCard, ARCANA, hasBookArt } from "./tarot.js"; // §42 the Fated Tarot
 import { DRUSK_HOURS, currentHour, isDruskScene, druskSceneIds, markDruskScene, advanceToNextHour } from "./druskenvald.js"; // §43 the clock
+import { watchScroll, captureScrolls, restoreScrolls, sameHTML } from "./repaint.js"; // §46 don't jump
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -3626,15 +3627,28 @@ function render() {
   // the bottom edge (DM 2026-07-13).
   const pTop = el.getBoundingClientRect().top || parseInt(el.style.top, 10) || 0;
   flyUp = pTop > window.innerHeight * 0.5;
+  // Main content scrolls inside; the tab rail + flyout stick out the right edge.
+  const html = `${grip}<div class="mc-dmp-scroll">${main}</div><div class="mc-dmp-rail"></div>${tabRailHTML()}${dockTab ? flyoutHTML() : ""}`;
+  // A repaint that would produce identical markup touches NOTHING. `updateWorldTime` re-renders
+  // this panel on every clock tick (Simple Calendar's real-time clock, the §41 daylight loop), and
+  // presence/combat/targeting hooks pile on — so the panel was rebuilding itself every few seconds
+  // and dumping the DM back to the top of whatever tab he was reading (DM 2026-08-19). Most of
+  // those ticks change nothing visible, so the cheapest correct answer is not to repaint at all.
+  // Geometry still runs on the skip path: it reads the WINDOW, not the markup, so a resize must
+  // still re-clamp a panel that would otherwise sit off the edge.
+  watchScroll(el);
+  if (sameHTML(el, html)) { el.classList.add("mc-show"); applyWorkspaceBounds(); clampPos(el); return; }
   // Preserve scroll across the innerHTML rebuild — background hooks re-render often, and losing
   // the flyout/main scroll to the top mid-interaction is maddening (DM 2026-07-13: "the scroll bar
   // jumps to the top").
-  const flyTop = el.querySelector(".mc-dmp-fly-body")?.scrollTop ?? 0;
-  const mainTop = el.querySelector(".mc-dmp-scroll")?.scrollTop ?? 0;
-  // Main content scrolls inside; the tab rail + flyout stick out the right edge.
-  el.innerHTML = `${grip}<div class="mc-dmp-scroll">${main}</div><div class="mc-dmp-rail"></div>${tabRailHTML()}${dockTab ? flyoutHTML() : ""}`;
-  const fb = el.querySelector(".mc-dmp-fly-body"); if (fb && flyTop) fb.scrollTop = flyTop;
-  const ms = el.querySelector(".mc-dmp-scroll"); if (ms && mainTop) ms.scrollTop = mainTop;
+  // Now EVERY scroller, found by observation. The old version named two by hand and missed the one
+  // that actually scrolls in a tab: `.mc-dmp-fly-body` wraps `.mc-dmp-tabfill` > `.mc-dmp-tabmid`,
+  // and it's the innermost that carries `overflow-y:auto` — so the flyout's own scrollTop was
+  // always 0 and restoring it restored nothing. Same for the roster, the target list, the settings
+  // pane. A hand-kept list of scrollers is a list someone forgets to extend.
+  const prevScrolls = captureScrolls(el);
+  el.innerHTML = html;
+  restoreScrolls(el, prevScrolls);
   el.classList.add("mc-show");
   applyWorkspaceBounds(); // cap the workspace to 95% of the window BEFORE clamping (stops the DC loop)
   clampPos(el);
