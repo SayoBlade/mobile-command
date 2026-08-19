@@ -355,6 +355,26 @@ top"*):
    containers and missed the one that actually scrolls inside a tab, so the fix read as no fix at
    all. Only a genuine *navigation* — a new tab, a detail card, a picker — resets to the top.
 
+### 6.8 Fade, never cut (DM 2026-08-19)
+
+**A full-screen table overlay never appears or disappears in one frame.** The station, the séance
+board, the card table, anything that takes over the shared screen — it fades, both directions.
+
+> *"when ever switching screens for features like this use a fade of some sort, don't cut."*
+
+A cut on a TV in a dark room reads as a fault: everyone at the table looks up to check whether
+something broke. A fade reads as the scene changing, which is what it actually is.
+
+`mountFaded()` / `unmountFaded()` in `repaint.js` do the whole job and every overlay uses them —
+this is not a per-feature flourish to reinvent. Two details they exist to get right:
+
+- **Mount transparent, then let a frame pass before lighting up.** With no frame in between, the
+  browser has nothing to transition *from* and the fade-in silently becomes the cut.
+- **On the way out, remove only after the fade has run.** Removing the element and *then* fading is
+  the same cut with extra steps.
+
+---
+
 ### 6.5 The DM panel — a fixed floor and a tab that grows up (DM 2026-07-24)
 
 The DM panel is **one assembly, stacked vertically**, not two side-by-side windows. This supersedes

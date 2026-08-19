@@ -1,5 +1,6 @@
 import { MODULE_ID } from "./preset.js";
 import { isPhoneClient, isDisplayClient } from "./shell.js";
+import { mountFaded, unmountFaded } from "./repaint.js"; // §6.8 fade, never cut
 
 // §36 All aboard — the Ghostlight Express boarding ritual (DM 2026-07-27). Campaign onboarding
 // for the Crooked Moon: the DM puts the STATION on the table display (fog + the book's train
@@ -32,11 +33,12 @@ let trainShown = null; // JSON of the last train state applied (so the arrival p
 // the corner from the moment it opened, so there was nothing to arrive — the book's whole beat is
 // that it "emerges from the gloom" while everyone is listening to the fog.
 //
-// Layers, back to front: three SWIRL sheets · the mist rails · the aimed train (behind fog) · two
-// foreground fog sheets · the introduction card · vignette. The swirl is transform-only — big
-// blurred blobs rotating and drifting at different rates — so the GPU caches each blurred sheet as
-// a texture and only re-composites it. No per-frame JS, no canvas: this has to run on the DM's
-// machine next to everything else ([[flag-performance-cost]]).
+// Layers, back to front: three SWIRL sheets · the aimed train, itself carrying a mist sheet over
+// the art · two more swirl sheets in front of it · the two drift bands · the introduction card ·
+// vignette. All of it is transform-only — big blurred blobs rotating at rates that share no common
+// factor, so the pattern where they overlap never visibly repeats — which means the GPU rasterises
+// each blurred sheet once and then only re-composites it. No per-frame JS, no canvas: this has to
+// run on the DM's machine next to everything else ([[flag-performance-cost]]).
 export function cmStationSync(on, introActorId, train = null) {
   if (!eligible()) on = false;
   if (on && !stationRoot) {
@@ -45,22 +47,26 @@ export function cmStationSync(on, introActorId, train = null) {
     stationRoot.innerHTML = `
       <div class="mc-cmst-swirl mc-cmst-sw1"></div>
       <div class="mc-cmst-swirl mc-cmst-sw2"></div>
-      <div class="mc-cmst-rails"></div>
+      <div class="mc-cmst-swirl mc-cmst-sw4"></div>
       <div class="mc-cmst-aim">
         <div class="mc-cmst-trainwrap">
           <div class="mc-cmst-beam"></div>
           <img class="mc-cmst-train" src="${TRAIN_ART}" alt="" onerror="this.remove()">
+          <div class="mc-cmst-overmist"></div>
         </div>
       </div>
       <div class="mc-cmst-swirl mc-cmst-sw3"></div>
+      <div class="mc-cmst-swirl mc-cmst-sw5"></div>
       <div class="mc-cmst-fog mc-cmst-fog-a"></div>
       <div class="mc-cmst-fog mc-cmst-fog-b"></div>
       <div class="mc-cmst-intro"></div>
       <div class="mc-cmst-vignette"></div>`;
-    document.body.appendChild(stationRoot);
+    mountFaded(stationRoot);
     introShown = null; trainShown = null;
   } else if (!on && stationRoot) {
-    stationRoot.remove(); stationRoot = null; introShown = null; trainShown = null;
+    // Fade out, then remove — the DM's rule is that these never cut, in either direction.
+    unmountFaded(stationRoot);
+    stationRoot = null; introShown = null; trainShown = null;
   }
   if (!stationRoot) return;
   applyTrain(train);

@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { mountFaded, unmountFaded } from "./repaint.js"; // §6.8 fade, never cut
 import { isPhoneClient, isDisplayClient } from "./shell.js";
 
 // §30 Séance board (DM-idea 2026-07-26, for a Crooked Moon game — "might be useful for others";
@@ -172,7 +173,7 @@ export function seanceSync(on) {
     root = document.createElement("div");
     root.id = "mc-seance";
     root.innerHTML = boardHTML();
-    document.body.appendChild(root);
+    mountFaded(root);
     planch = root.querySelector(".mc-seance-planchette");
     cur = { a: -Math.PI / 2, r: 0.22 }; from = { ...cur }; to = { ...cur };
     phase = "rest"; queue = []; lastKey = null;
@@ -182,7 +183,7 @@ export function seanceSync(on) {
     place();
   } else if (!on && root) {
     cancelAnimationFrame(raf);
-    raf = 0; root.remove(); root = null; planch = null; queue = [];
+    raf = 0; unmountFaded(root); root = null; planch = null; queue = [];
     scrapeStop();
   }
 }

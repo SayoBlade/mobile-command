@@ -943,17 +943,28 @@ function allAboardBody() {
   }).join("");
   const users = pcs.map(a => pcUser(a)).filter(Boolean);
   const allHave = users.length > 0 && users.every(u => fxIsOnFor("cmTicket", u.id));
+  // The order is the ORDER OF THE SCENE (DM 2026-08-19), so the drawer reads top to bottom the way
+  // the moment plays: raise the mist · start the distant engine · the whistle · bring it in · stop.
+  // Buttons in the sequence you perform them beats buttons grouped by what they technically are.
   return `
-    <button class="mc-fx-btn ${stationOn ? "mc-on" : ""}" data-fx="cmStation" title="${FX_DEFS.cmStation.hint}" style="width:100%"><i class="fas ${FX_DEFS.cmStation.icon}"></i><span>The Station</span></button>
+    <button class="mc-fx-btn ${stationOn ? "mc-on" : ""}" data-fx="cmStation" style="width:100%"
+      title="${stationOn ? "Let the fog fade away" : "The fog rises on the shared screen"}">
+      <i class="fas fa-smog"></i><span>${stationOn ? "Stop mist" : "Start mist"}</span>
+    </button>
+    <button class="mc-fx-btn" data-cm-cue="approach" style="width:100%"
+      title="A distant engine, fading in — leave it running under the narration">
+      <i class="fas fa-volume-low"></i><span>Start sound</span>
+    </button>
+    <button class="mc-fx-btn" data-cm-cue="whistle" style="width:100%" title="${FX_DEFS.cmWhistle.hint}">
+      <i class="fas fa-bullhorn"></i><span>Whistle</span>
+    </button>
     <button class="mc-fx-btn ${train?.in ? "mc-on" : ""}" data-cm-train="${train?.in ? "off" : "on"}" style="width:100%"
       title="${train?.in ? "Back into the fog" : "It emerges from the gloom, aimed at whoever you last chose"}">
       <i class="fas fa-train"></i><span>${train?.in ? "Take it away" : "Bring in the train"}</span>
     </button>
-    <div class="mc-fx-voicerow">
-      <button class="mc-fx-btn" data-cm-cue="approach" style="flex:1" title="A distant engine, fading in — leave it running under the narration"><i class="fas fa-volume-low"></i><span>Approach</span></button>
-      <button class="mc-fx-btn" data-cm-cue="whistle" style="flex:1" title="${FX_DEFS.cmWhistle.hint}"><i class="fas fa-bullhorn"></i><span>Whistle</span></button>
-      <button class="mc-fx-btn" data-cm-cue="stop" style="flex:1" title="Brakes — it squeals, sighs, and halts"><i class="fas fa-hand"></i><span>Stop</span></button>
-    </div>
+    <button class="mc-fx-btn" data-cm-cue="stop" style="width:100%" title="Brakes — it squeals, sighs, and halts">
+      <i class="fas fa-hand"></i><span>Stop</span>
+    </button>
     <div class="mc-seance-party">${rows || `<div class="mc-dmp-empty">No player characters.</div>`}</div>
     <div class="mc-fx-voicerow">
       <button class="mc-fx-btn" data-cm-tickets-all="${allHave ? "off" : "on"}" style="flex:1" ${users.length ? "" : "disabled"}

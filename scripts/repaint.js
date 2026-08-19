@@ -100,3 +100,27 @@ export function sameHTML(root, html) {
   lastHTML.set(root, html);
   return same;
 }
+
+// ── Fade, never cut (UI-BIBLE §6.8) ─────────────────────────────────────────
+// DM 2026-08-19: "when ever switching screens for features like this use a fade of some sort,
+// don't cut." Full-screen table overlays — the station, the séance board, the card table — were
+// each created and removed outright, so the shared screen snapped between worlds. These two do the
+// whole job: mount transparent and let a frame pass before lighting up (with no frame in between
+// the browser has nothing to transition FROM, and the fade-in silently becomes the cut), and on
+// the way out drop the class, then remove only once the fade has actually run.
+const FADE_MS = 1400;
+
+/** Append `el` to the body and fade it in. */
+export function mountFaded(el, parent = document.body) {
+  el.classList.add("mc-fade-mount");
+  parent.appendChild(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add("mc-on")));
+  return el;
+}
+
+/** Fade `el` out and remove it. Returns immediately — the caller drops its reference now. */
+export function unmountFaded(el, ms = FADE_MS) {
+  if (!el) return;
+  el.classList.remove("mc-on");
+  setTimeout(() => { try { el.remove(); } catch (e) { /* already gone */ } }, ms + 100);
+}

@@ -5747,6 +5747,10 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
    Night sky + drifting fog + the book's train art (loaded at runtime from the player's OWN
    installed the-crooked-moon-2014 module — never bundled; onerror removes the img and the
    fog + beam carry the scene). Sits UNDER the séance board (z 60) — the board wins. */
+/* The station FADES in and out — never cuts (DM 2026-08-19: "when ever switching screens for
+   features like this use a fade of some sort, don't cut"; now UI-BIBLE §6.8). The element is
+   created transparent, gets `mc-on` a frame later, and on the way out loses it and is removed only
+   after the fade has actually run. */
 #mc-cmstation {
   position: fixed; inset: 0; z-index: 55; pointer-events: none; overflow: hidden;
   background:
@@ -5767,7 +5771,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* Not on stage until the DM brings it in. The station opens as fog and sound alone — the book's
    beat is that the train EMERGES from the gloom, which needs a gloom to emerge from. */
 .mc-cmst-trainwrap {
-  position: relative; width: 78%; height: 72%;
+  position: relative; width: 62%; height: 58%;   /* DM 2026-08-19: about 20% smaller */
   display: flex; align-items: center; justify-content: center;
   opacity: 0; visibility: hidden;
 }
@@ -5783,10 +5787,31 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   62%  { opacity: 0.92; transform: scale(0.86) translateY(1%); filter: blur(2px) brightness(0.95); }
   100% { opacity: 1;    transform: scale(1)    translateY(0);  filter: blur(0)   brightness(1); }
 }
+/* The art is a rectangular plate with a ragged chroma-key edge, and on a dark stage you can see
+   exactly where it stops. The DM drew a circle round the locomotive: "give it a strong blur on
+   everything outside the circle so it fades into the background".
+   A mask is the cheapest way and the best-looking: an elliptical alpha ramp that holds the engine
+   at full strength, softens through the tender, and reaches nothing well before the plate edge.
+   Nothing to blur, nothing to re-composite per frame — the edge simply stops existing. */
 .mc-cmst-train {
   max-width: 100%; max-height: 100%; object-fit: contain;
   filter: drop-shadow(0 0 34px rgba(64, 224, 208, 0.35)) drop-shadow(0 0 90px rgba(64, 224, 208, 0.16));
   animation: mc-cmst-breathe 7s ease-in-out infinite;
+  -webkit-mask-image: radial-gradient(ellipse 58% 60% at 46% 52%, #000 34%, rgba(0,0,0,0.85) 56%, rgba(0,0,0,0.35) 76%, transparent 92%);
+          mask-image: radial-gradient(ellipse 58% 60% at 46% 52%, #000 34%, rgba(0,0,0,0.85) 56%, rgba(0,0,0,0.35) 76%, transparent 92%);
+}
+/* Mist ON the train, not only behind it (DM: "can you get the mist over the image"). Sized and
+   positioned to the wrapper, so it tracks the arrival scale instead of sitting in front of a train
+   that is still far away. */
+.mc-cmst-overmist {
+  position: absolute; inset: -18%;
+  pointer-events: none; opacity: 0.55; will-change: transform;
+  background:
+    radial-gradient(ellipse 30% 26% at 32% 58%, rgba(176, 206, 210, 0.30), transparent 66%),
+    radial-gradient(ellipse 26% 20% at 68% 44%, rgba(150, 186, 196, 0.26), transparent 68%),
+    radial-gradient(ellipse 36% 18% at 52% 76%, rgba(190, 216, 220, 0.22), transparent 70%);
+  filter: blur(22px);
+  animation: mc-cmst-turn 97s linear infinite reverse;
 }
 /* The DM asked to keep the up-down float, so it lives on the IMG while the arrival lives on the
    wrapper — two animations on one element would fight over `transform`. */
@@ -5835,10 +5860,15 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
     radial-gradient(ellipse 20% 26% at 80% 68%, rgba(150, 185, 190, 0.13), transparent 70%);
   filter: blur(26px);
 }
-.mc-cmst-sw1 { opacity: 0.85; animation: mc-cmst-turn 168s linear infinite; }
-.mc-cmst-sw2 { opacity: 0.7;  animation: mc-cmst-turn 233s linear infinite reverse; transform-origin: 42% 58%; }
-/* The one in FRONT of the train, so the Ghostlight arrives behind weather rather than on top of it. */
-.mc-cmst-sw3 { opacity: 0.5;  animation: mc-cmst-turn 121s linear infinite; transform-origin: 61% 38%; filter: blur(38px); }
+/* Five sheets, not three (DM 2026-08-19: "more swirly mist"). The extra pair turn at rates that
+   share no common factor with the others, so the pattern where they overlap never repeats on any
+   timescale a table would notice — that non-repetition is most of what sells fog as weather. */
+.mc-cmst-sw1 { opacity: 0.95; animation: mc-cmst-turn 168s linear infinite; }
+.mc-cmst-sw2 { opacity: 0.85; animation: mc-cmst-turn 233s linear infinite reverse; transform-origin: 42% 58%; }
+.mc-cmst-sw4 { opacity: 0.75; animation: mc-cmst-turn 89s linear infinite; transform-origin: 28% 34%; filter: blur(18px); }
+/* The two in FRONT of the train, so the Ghostlight arrives behind weather rather than on top of it. */
+.mc-cmst-sw3 { opacity: 0.62; animation: mc-cmst-turn 121s linear infinite; transform-origin: 61% 38%; filter: blur(38px); }
+.mc-cmst-sw5 { opacity: 0.45; animation: mc-cmst-turn 149s linear infinite reverse; transform-origin: 74% 66%; filter: blur(46px); }
 @keyframes mc-cmst-turn {
   0%   { transform: rotate(0deg)   scale(1.00) translate(0, 0); }
   25%  { transform: rotate(90deg)  scale(1.09) translate(1.5%, -1%); }
@@ -5849,16 +5879,12 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 
 /* "on rails made of mist" — the book's line, and the thing that tells the eye the train has
    somewhere to arrive FROM before it arrives. Two pale converging streaks, low and slow. */
-.mc-cmst-rails {
-  position: absolute; left: 0; right: 0; bottom: 6%; height: 34%;
-  pointer-events: none; opacity: 0.5;
-  background:
-    linear-gradient(96deg, transparent 42%, rgba(170, 235, 228, 0.16) 49%, transparent 56%),
-    linear-gradient(84deg, transparent 44%, rgba(170, 235, 228, 0.13) 51%, transparent 58%);
-  filter: blur(3px);
-  animation: mc-cmst-railshim 9s ease-in-out infinite;
-}
-@keyframes mc-cmst-railshim { 0%, 100% { opacity: 0.42; } 50% { opacity: 0.62; } }
+/* The "rails made of mist" are GONE (DM 2026-08-19: "what is this thing, and why do we need it").
+   Fair question, and the honest answer is that it was a bug wearing a book quote. I wanted two
+   rails receding into the fog and wrote the gradients at 96deg/84deg — which is nearly straight
+   ACROSS, so what actually rendered was one pale vertical smudge parked in the middle of an
+   otherwise empty stage. Nothing about the scene needs it: the arrival animation already carries
+   "it came from somewhere". Deliberately not replaced. */
 .mc-cmst-vignette { position: absolute; inset: 0; box-shadow: inset 0 0 18vmin 6vmin rgba(2, 3, 6, 0.9); }
 
 /* The introduction card — one character at a time, entering out of the fog. */
@@ -6396,3 +6422,8 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 }
 .mc-cmb-story-acts { display: flex; gap: 8px; margin-top: 8px; }
 .mc-cmb-story-acts .mc-fx-btn { flex: 1 1 0; }
+
+/* Fade, never cut (UI-BIBLE §6.8). One pair of rules for every full-screen table overlay — the
+   station, the séance board, the card table — so a shared screen never snaps between worlds. */
+.mc-fade-mount { opacity: 0; transition: opacity 1400ms ease; }
+.mc-fade-mount.mc-on { opacity: 1; }

@@ -11,6 +11,7 @@
 // Input: `tableSeats` (who sits where) + `mobile-command.szEvent` (the wizard narrating itself)
 // + actor items as the fallback truth for what's been chosen.
 import { MODULE_ID, TABLE_SEATS, isPlaceholderPCName, DEFAULT_CARD_THEME, ABILITY_ICONS, DEFAULT_CARD_BACK } from "./preset.js";
+import { mountFaded, unmountFaded } from "./repaint.js"; // §6.8 fade, never cut
 import { isPhoneClient, isDisplayClient } from "./shell.js";
 import { isOnlineTable } from "./settings.js";
 import { cardSound, dealSound } from "./card-audio.js";
@@ -455,7 +456,7 @@ export function cardTableSync(on) {
   if (on && !root) {
     root = document.createElement("div");
     root.id = "mc-cardtable";
-    document.body.appendChild(root);
+    mountFaded(root);
     rebuild();
     repaint();
     // Putting the board UP is not the opening. The board can go up while the DM is still seating
@@ -466,7 +467,7 @@ export function cardTableSync(on) {
     if (ran) settleOpening(); else root.classList.add("mc-ct-dark");
   } else if (!on && root) {
     clearOpening();
-    root.remove(); root = null; state = new Map();
+    unmountFaded(root); root = null; state = new Map();
   }
 }
 

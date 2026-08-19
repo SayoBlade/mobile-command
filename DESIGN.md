@@ -4891,7 +4891,26 @@ the module writes nothing. Each PC row in the All-aboard drawer opens a pane hol
 - **Arrive for them** — one tap that raises the station, aims at that player's seat and brings the
   train in, because that is the beat he is actually performing.
 
-### 36.1.5 Open
+### 36.1.5 Second pass (DM 2026-08-19, same day)
+
+- **The vertical smudge was mine.** *"what is this thing, and why do we need it"* — the "rails made
+  of mist", written at 96deg/84deg, which is nearly straight ACROSS, so instead of rails receding
+  into the fog it rendered as one pale bar parked in the centre of an empty stage. **Removed and
+  deliberately not replaced**; the arrival already carries "it came from somewhere".
+- **Mask, not crop.** The art is a rectangular plate with a ragged chroma-key border, visible on a
+  dark stage. An elliptical alpha mask holds the engine, softens through the tender and reaches
+  nothing before the plate edge — cheaper than any blur, and the edge stops existing rather than
+  being hidden.
+- **Mist over the art**, in the train wrapper so it scales with the arrival rather than sitting in
+  front of a train that is still far away. **Five swirl sheets** instead of three, at rates sharing
+  no common factor so the overlap pattern never visibly repeats. **Train 20% smaller.**
+- **The buttons are in the order of the scene**: Start mist · Start sound · Whistle · Bring in the
+  train · Stop. Sequence-you-perform beats grouped-by-what-they-are.
+- **Fade, never cut — now a rule (UI-BIBLE §6.8).** The station, the séance board and the card table
+  all created and removed their roots outright. All three now share  / 
+  (). A cut on a TV in a dark room reads as a fault; a fade reads as the scene changing.
+
+### 36.1.6 Open
 
 - **Not seen at the table.** A world was active, so BENCH RULE #0 held. A standalone preview page
   went to the DM instead, since motion is the whole point and the in-app browser pane advances no
