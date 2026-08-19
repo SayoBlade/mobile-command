@@ -505,6 +505,25 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
 .mc-attack-result.mc-miss { border-color: #5c2f2c; }
 .mc-attack-result.mc-miss .mc-attack-total { color: #e2584a; }
 
+/* §45 weapon mastery reminder — sits under the attack result, above the damage tap.
+   Gold accent, not green/red: a mastery is a thing the character HAS (brand), never a
+   hit/miss state (UI-BIBLE §2.3). Sunken so it reads as a note attached to the result
+   rather than a second result competing with it. */
+.mc-mastery {
+  padding: 10px 12px; margin: -6px 0 14px;
+  background: var(--mc-sunken);
+  border: 1px solid var(--mc-edge); border-left: 3px solid var(--mc-gold);
+  border-radius: calc(10px * var(--mc-round, 1));
+}
+.mc-mastery-head {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--mc-gold);
+}
+.mc-mastery-head i { font-size: 11px; }
+.mc-mastery-line { margin-top: 4px; font-size: 13px; line-height: 1.35; color: var(--mc-ink); }
+.mc-mastery-foot { margin-top: 4px; font-size: 12px; color: var(--mc-muted); }
+
 /* --- placeholder panels --- */
 .mc-placeholder {
   display: flex; align-items: center; justify-content: center;

@@ -1268,6 +1268,7 @@ async function handleItemUseStart(payload) {
       return { ok: true, needsDamage: false, hasAttack,
         hit: hasAttack ? (seen?.hitTargets?.size ?? 0) > 0 : null,
         attackTotal: seen?.attackRoll?.total ?? null,
+        mastery: hasAttack ? masteryOfWorkflow(seen) : null, masteryAuto: masteriesAutomated(),
         itemName: activity.item?.name ?? null, reason: captured.join("; ") || null };
     }
     const requestId = foundry.utils.randomID();
@@ -1290,9 +1291,31 @@ async function handleItemUseStart(payload) {
       // waiting for the total means we never read hitTargets mid-processing (the "rolled well
       // over the AC but no green" report, 2026-07-26).
       hit: hasAttack ? (wf.hitTargets?.size ?? 0) > 0 : null,
-      attackTotal
+      attackTotal,
+      // §45: read the mastery AFTER the total resolved, for the same reason the hits are — before
+      // that the roll may not be on the workflow yet, and a null here reads on the phone as
+      // "this weapon has no mastery", which is a lie the player can't tell from the truth.
+      mastery: hasAttack ? masteryOfWorkflow(wf) : null,
+      masteryAuto: masteriesAutomated()
     };
   } finally { ac5eOff(); restoreGmTargets(); }
+}
+
+// §45 weapon mastery. dnd5e stamps the mastery it chose onto the attack roll's options — that is
+// the authoritative answer (it survives a mastery swap, a dialog pick, anything an automation did),
+// so the phone reads it back from here rather than re-deriving it.
+function masteryOfWorkflow(wf) {
+  return wf?.attackRoll?.options?.mastery ?? null;
+}
+// Is wm5e applying masteries automatically? `autoMasteries` is USER-scoped, so the only value that
+// matters is the EXECUTOR's — and this is the executor: every phone attack rolls on this client, so
+// this client's setting decides whether Sap/Slow/Vex/Push/Topple/Graze land on their own. The phone
+// uses it to choose between "Applied for you" and "Ask the DM to apply it"; it must never claim an
+// effect landed when nothing applied it. Preflight offers to turn it on (§45.2).
+function masteriesAutomated() {
+  if (!game.modules.get("wm5e")?.active) return false;
+  try { return !!game.settings.get("wm5e", "autoMasteries"); }
+  catch (e) { return false; } // setting renamed away in a wm5e upgrade — assume manual, never over-promise
 }
 
 // Recently-resolved damage rolls, kept ~5 min. A slow executor (DSN + saves) can outlive the

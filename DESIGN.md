@@ -4467,3 +4467,97 @@ nobody is staring at, and it thirds the idle work.
 - **Export (§44.8, future)** — markdown/JSON out, so an agent can mine the file alongside a
   session transcript. Deliberately kept OUTSIDE the module: no API keys, no network, no cost, and
   the export is useful on its own. That boundary is the test of whether it's in the right place.
+
+---
+
+## 45. The weapon mastery reminder — the 2024 rule the phone could not see (DM ask 2026-08-19, BUILT)
+
+**The ask.** The DM pointed at FutureHax's *Weapon Mastery Effects Reminder* (Forge bazaar,
+v1.3.2, Foundry v13–v14): *"i want a reminder to use the masteries effects when a pc uses the
+mobile app to attack."*
+
+### 45.1 The gap, stated exactly
+
+dnd5e already chooses a mastery for every attack a mastery-trained PC makes. It stamps the choice
+on the roll (`attackRoll.options.mastery`, dnd5e.mjs ~28558) and prints it as a supplement line on
+the **chat card** (`_enrichAttackTargets`, ~69446). Every automation module in this space —
+FutureHax's, and `wm5e` (*Automated Masteries 5e*), which the DM already has installed — hangs its
+Apply controls off that same chat card.
+
+A phone player sees none of it. They tap the weapon, a number lands, and the mastery quietly never
+happens. It is not a missing feature so much as a rule that falls through the one seam our
+architecture has: **the card lives on the executor's screen, and the player is not at that screen.**
+
+### 45.2 The decision: remind on the phone, let wm5e apply
+
+Three ways were put to the DM (2026-08-19); he chose the middle one.
+
+| | What it means | Verdict |
+|---|---|---|
+| Reminder only | Informational card, nothing applies | Too little — the player is handed homework |
+| **Reminder + wm5e auto-apply** | **Phone card + flip wm5e's `autoMasteries` on the executor** | **CHOSEN** |
+| Reminder + our own Apply tap | We re-implement Sap/Slow/Vex/Topple/Graze/Push | Duplicates wm5e; doubles the surface that drifts with dnd5e/midi |
+
+**We do not re-implement a single mastery effect.** The lever that makes this cheap: `wm5e`'s
+`autoMasteries` setting is **user-scoped**, and *every phone attack rolls on the executor client*.
+Turned on there, wm5e's own midi hooks fire the masteries for phone attacks with no code from us:
+
+- on midi's **attack-roll-complete** — `graze` (miss), `nick`, `push` / `sap` / `topple` (hit)
+- on the **damage roll** (our second tap) — `cleave`, `slow`, `vex` (hit)
+
+That is all eight, so the phone card can speak in the past tense. It ships as an entry in
+preflight's existing `AUTOMATION_PREREQS` (the MISC "Elwin Helpers" mechanism, §28.7) — a **warn
+with a one-tap fix**, never auto-applied. Preflight runs on the DM panel, which *is* the executor,
+so the fix writes the setting on exactly the right user.
+
+### 45.3 The shape
+
+`scripts/masteries.js` — copy + gating only, no effects.
+
+- `MASTERIES` — the eight, each with the consequence in one sentence-case line (UI-BIBLE §7),
+  the outcome it cares about (`hit` / `miss` / `any`), and its `kind`.
+- `masteryLabel(key)` — dnd5e's own localized label, key-cased fallback.
+- `masteryOf(activity)` — the phone-side fallback, mirroring dnd5e's own choice: the remembered
+  pick (`last.<activityId>.mastery`) if still offered, else `masteryOptions[0]`. `masteryOptions`
+  is null unless the actor genuinely has mastery with that base weapon, so it doubles as the
+  eligibility gate — no separate proficiency check.
+- `masteryReminder(key, {hit, auto})` — the card, or null.
+
+**The gate is the feature.** Graze shows only on a miss, the other seven hit masteries only on a
+hit, Nick either way. A card that fires on every swing regardless is one the eye learns to skip —
+the same reasoning as the Hit/Miss badge (§28, bench 2026-08-01). An unknown outcome (`hit: null`,
+the attack resolved but no total came back) asserts **neither**, exactly as the badge does.
+
+**Where it sits:** between the attack result and the "Roll damage" tap — the one screen the player
+is already reading, and the moment the mastery is live. **Gold, never green or red**: a mastery is
+something the character *has* (brand), not an outcome (state) — UI-BIBLE §2.3.
+
+**The footer never over-promises.** `auto` on → *"Applied for you."*; off → *"Ask the DM to apply
+it."* Cleave inverts with automation: manual it tells the player to take the free second swing,
+automated it says *"The DM picks the second target"*, because wm5e opens that prompt on the
+executor and two people resolving one attack is worse than none.
+
+**Executor half** (`rpc.js`): both attack return paths now carry `mastery` (read off the roll
+*after* the total resolves — same reason the hits are, §28) and `masteryAuto`. The phone seeds
+`mastery` **locally** at picker time and only overwrites on a defined answer, so the reminder still
+works against a DM client still running pre-§45 `rpc.js` (the standing executor-reload trap).
+
+### 45.4 Tests
+
+`tools/test-masteries.mjs` — 40 headless assertions under the Electron-as-node runner, no world.
+Covers the full outcome gate, copy hygiene, the footer's honesty (nothing claims "applied" without
+something applying it), and `masteryOf`'s mirror of dnd5e's pick. **All green 2026-08-19.**
+
+### 45.5 Open
+
+- **Live/bench pass** — the card by eye on a real phone, and the wm5e auto-apply leg end to end
+  (Sap on a hit, Graze on a miss, Vex landing on the damage tap).
+- **`wm5e` is not in preflight's `TESTED` map yet.** It hooks the same midi pipeline we hold
+  mid-flight (§28.6's criterion for the watch list), so it belongs there — but the pin must mean
+  *validated*, and it has not been through §28.4. Add it with the version that passes that run.
+- **Mastery CHOICE.** A PC with `mastery.bonus` (a swap feature) has more than one option; dnd5e
+  would offer a dialog, and our `configure:false` path silently takes the first. A picker in the
+  target card is the natural home. Not built — no such PC at the table yet.
+- **Pre-attack chip.** A gold mastery name in the picker head, before committing. Deliberately
+  left out of this slice: the reminder's job is the moment the mastery is live, and a title that
+  teaches is the thing UI-BIBLE §7.1 exists to stop.

@@ -6,6 +6,7 @@ import { toggleSimpleCalendar } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 the player's thread card
 import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCard, tarotCanDismiss, tarotEnabled, TAROT_FLIP_MS } from "./tarot.js"; // §42 the Fated Tarot
+import { masteryOf, masteryReminder } from "./masteries.js"; // §45 weapon mastery reminder
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -5326,6 +5327,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
              <span class="mc-attack-label">${s.hit ? "Hit" : missed ? "Miss" : "Attack"}</span>
            </div>`
         : "";
+      // §45 weapon mastery: the reminder sits between the result and the damage tap — the one
+      // screen the player is already reading, and the moment the mastery is actually live. It
+      // never colours itself hit-green or miss-red: the mastery is a property of the weapon, not
+      // an outcome, and gold is the accent for "this is yours" (UI-BIBLE §2.2).
+      // Gated on the outcome (Graze only on a miss, the rest only on a hit) — a card that fires
+      // every swing regardless is one the eye learns to skip. An unknown total asserts NEITHER
+      // outcome, exactly as the Hit/Miss badge above does.
+      const rem = s.hasAttack ? masteryReminder(s.mastery, { hit: known ? s.hit : null, auto: s.masteryAuto }) : null;
+      const masteryCard = rem ? `
+        <div class="mc-mastery">
+          <div class="mc-mastery-head"><i class="fas fa-hand-fist"></i>${foundry.utils.escapeHTML(rem.label)}</div>
+          <div class="mc-mastery-line">${foundry.utils.escapeHTML(rem.line)}</div>
+          <div class="mc-mastery-foot">${foundry.utils.escapeHTML(rem.foot)}</div>
+        </div>` : "";
       // Nothing was hit → midi has no damage to apply (verified on the bench: rolling damage
       // after a miss toasts "0" and moves no HP), so don't offer the tap. The ✕ closes the
       // card (UI-BIBLE §4.2 — dismiss is the tertiary ✕, never a worded primary).
@@ -5333,7 +5348,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // resolved on its own has nothing left to ask for) — a button that can't do anything is worse
       // than no button.
       const canRollDamage = !missed && !!s.requestId;
-      return head + attackLine + (canRollDamage ? `
+      return head + attackLine + masteryCard + (canRollDamage ? `
         <button class="mc-fire mc-roll-damage" data-action="roll-damage" ${s.busy ? "disabled" : ""}>
           ${s.busy ? "Rolling…" : "Roll damage"}
         </button>` : "");
@@ -5564,6 +5579,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       candidates: selfTarget ? [] : null, selected: new Set(assigned), counts: {}, adv: "normal",
       assignedByDM: assigned.length ? this.#assignedBy : null,
       busy: false, phase: "pick", requestId: null, hit: null, attackTotal: null,
+      // §45 weapon mastery. Seeded LOCALLY (the phone owns this actor, so it can read the same
+      // choice dnd5e would make) so the reminder still appears against an executor still running
+      // pre-§45 rpc.js — the stale-executor trap that has bitten every RPC addition. The executor's
+      // answer overwrites it in #fireAction: it knows what the roll actually used.
+      mastery: activity.type === "attack" ? masteryOf(activity) : null, masteryAuto: false,
       targetError: null, recommendation: null, recPending: false };
     this.render();
     if (assigned.length) { this.#pushPreview(); this.#refreshAttackPreview(); } // reflect the assigned selection on the TV + recommend
@@ -6102,6 +6122,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (res.hasAttack && res.attackTotal != null && res.attackTotal !== -100) {
         s.busy = false; s.phase = "attacked"; s.requestId = null;
         s.hasAttack = true; s.hit = res.hit; s.attackTotal = res.attackTotal;
+        this.#applyMastery(s, res);
         this.render();
         if (res.reason) ui.notifications.info(`${s.name}: ${res.reason}`);
         return;
@@ -6119,7 +6140,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // so guard here too: show "—" (with the Hit/Attack label + Roll-damage step)
     // rather than a bogus -100, no matter what the executor returns.
     s.attackTotal = res.attackTotal === -100 ? null : res.attackTotal;
+    this.#applyMastery(s, res);
     this.render();
+  }
+
+  // §45: fold the executor's mastery answer into the action state. The executor is authoritative
+  // (it read the mastery off the roll dnd5e actually made), but a DM client still on pre-§45
+  // rpc.js sends neither field — `undefined` there must NOT wipe the locally-seeded mastery, so
+  // this only overwrites when the executor genuinely answered.
+  #applyMastery(s, res) {
+    if (res?.mastery !== undefined) s.mastery = res.mastery;
+    if (res?.masteryAuto !== undefined) s.masteryAuto = !!res.masteryAuto;
   }
 
   // --- §28.6 enchant activities: pick the item to enchant on the PHONE ------

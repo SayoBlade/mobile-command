@@ -261,7 +261,15 @@ function checkModuleStack() {
 // one world. Warn with a one-click fix rather than let it be found mid-combat.
 const AUTOMATION_PREREQS = [
   { module: "midi-item-showcase-community", key: "Elwin Helpers", want: true,
-    why: "MISC item automations (Great Weapon Master and friends) abort without it, so the phone tap does nothing" }
+    why: "MISC item automations (Great Weapon Master and friends) abort without it, so the phone tap does nothing" },
+  // §45. Same shape, one wrinkle: wm5e's autoMasteries is USER-scoped, not world. Off (its
+  // default) it waits for a click on the chat card — a card a phone player cannot reach, so the
+  // mastery silently never happens on any phone attack. The value that matters is the EXECUTOR's,
+  // because every phone attack rolls on that client; this check runs on the DM panel, which is
+  // that client, so reading and writing it here targets exactly the right user. (A second GM
+  // running the fix would set their own copy — harmless, but it's the executor's that counts.)
+  { module: "wm5e", key: "autoMasteries", want: true,
+    why: "weapon masteries wait for a click on the DM's chat card, which no phone can reach — the phone's mastery reminder then has to tell the player to ask you" }
 ];
 // Shared by the System-health check AND the setup wizard, so onboarding and preflight can never
 // disagree about what a working automation stack needs.
