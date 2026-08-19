@@ -12,7 +12,6 @@ import { FATE_THREADS, FATE_STEPS, applyFateReward } from "./fateweaving.js"; //
 import { CURSES, rollCurse, pickCurse, applyCurse, actorCurses, curseTableUuid } from "./cm-curses.js"; // §33 Chaotic Curses
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { trainScenes, trainMistOn, wireTrainDoors, setTrainMist } from "./cm-train.js"; // §37 the Ghostlight ride
-import { trainApproachPlaying } from "./cm-boarding.js"; // §36.1 is the approach bed running?
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 import { bossList, bossSave, bossImage, bossSoundSrc, bossSoundLabel, dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { setDaylightSuspended } from "./daylight.js"; // §41 travel owns the light for the length of a journey
@@ -857,6 +856,10 @@ function trainRideBody() {
 // sheet to make it easier for the DM, but the story is theirs and the player's". So we store and
 // show it, put the character's own material next to the box so he is not hunting through sheets
 // mid-sentence, and never write a word of it.
+// Whether the DM has the distant-engine bed running. Panel state, not a question for another
+// module: the cue is fired at every client, so "is it playing" is only meaningful as "did I ask
+// for it", and importing the answer from cm-boarding.js would drag shell.js into the panel.
+let cmSoundOn = false;
 let cmStoryFor = null;   // actorId whose arrival script is open (DM-local)
 let cmStoryDraft = null; // the text being edited, so a background repaint can't eat it
 
@@ -951,9 +954,9 @@ function allAboardBody() {
       title="${stationOn ? "Let the fog fade away" : "The fog rises on the shared screen"}">
       <i class="fas fa-smog"></i><span>${stationOn ? "Stop mist" : "Start mist"}</span>
     </button>
-    <button class="mc-fx-btn" data-cm-cue="approach" style="width:100%"
-      title="A distant engine, fading in — leave it running under the narration">
-      <i class="fas fa-volume-low"></i><span>Start sound</span>
+    <button class="mc-fx-btn ${cmSoundOn ? "mc-on" : ""}" data-cm-cue="approach" style="width:100%"
+      title="${cmSoundOn ? "Fade the engine out" : "A distant engine, fading in — leave it running under the narration"}">
+      <i class="fas fa-volume-low"></i><span>${cmSoundOn ? "Stop sound" : "Start sound"}</span>
     </button>
     <button class="mc-fx-btn" data-cm-cue="whistle" style="width:100%" title="${FX_DEFS.cmWhistle.hint}">
       <i class="fas fa-bullhorn"></i><span>Whistle</span>
@@ -3693,7 +3696,32 @@ async function onPartyClick(ev) {
   return false;
 }
 
+// ONE repaint per frame (DM 2026-08-19: "the UI glitches out, the container stays and the text and
+// buttons disappear and reappear in the widget").
+//
+// The panel is driven by ~30 hooks, and several of them fire in the same tick all the time — a
+// token update is an updateToken AND a targetToken AND a combat refresh; writing one setting fires
+// updateSetting alongside whatever caused it. Every one of those called render() and every render()
+// rewrote the panel's innerHTML, so a burst tore the contents down and rebuilt them several times
+// in a row, and the browser is entitled to paint any of the in-between states. That is exactly what
+// the DM saw: the frame holding still while the text and buttons blink.
+//
+// Leading edge stays SYNCHRONOUS — 184 call sites, and some read the DOM straight after — but every
+// further call inside the same frame collapses into a single follow-up. So at most two repaints per
+// frame instead of N, and §46's no-op check usually swallows the follow-up entirely.
+let renderRaf = 0;
+let renderAgain = false;
+
 function render() {
+  if (renderRaf) { renderAgain = true; return; }
+  renderNow();
+  renderRaf = requestAnimationFrame(() => {
+    renderRaf = 0;
+    if (renderAgain) { renderAgain = false; render(); }
+  });
+}
+
+function renderNow() {
   const el = ensureEl();
   applyDmTheme(); // keep the widget on its fixed theme
   // Don't rebuild the panel while the DM is typing in a downtime TEXT field — background hooks
@@ -4058,8 +4086,8 @@ async function onClick(ev) {
   if (cmCue) {
     const cue = cmCue.dataset.cmCue;
     if (cue === "whistle") dmFireFx("cmWhistle");
-    else if (cue === "stop") dmFireFx("cmTrainStop");
-    else dmFireFx("cmTrainApproach", { on: !trainApproachPlaying() });
+    else if (cue === "stop") { dmFireFx("cmTrainStop"); cmSoundOn = false; return render(); } // the stop ducks the bed out
+    else { cmSoundOn = !cmSoundOn; dmFireFx("cmTrainApproach", { on: cmSoundOn }); return render(); }
     return;
   }
   // §36.1 open / close one character's arrival script.

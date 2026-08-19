@@ -5771,7 +5771,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* Not on stage until the DM brings it in. The station opens as fog and sound alone — the book's
    beat is that the train EMERGES from the gloom, which needs a gloom to emerge from. */
 .mc-cmst-trainwrap {
-  position: relative; width: 62%; height: 58%;   /* DM 2026-08-19: about 20% smaller */
+  position: relative; width: 52%; height: 48%;   /* DM 2026-08-19: 20% smaller, then smaller again */
   display: flex; align-items: center; justify-content: center;
   opacity: 0; visibility: hidden;
 }
@@ -5797,8 +5797,13 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   max-width: 100%; max-height: 100%; object-fit: contain;
   filter: drop-shadow(0 0 34px rgba(64, 224, 208, 0.35)) drop-shadow(0 0 90px rgba(64, 224, 208, 0.16));
   animation: mc-cmst-breathe 7s ease-in-out infinite;
-  -webkit-mask-image: radial-gradient(ellipse 58% 60% at 46% 52%, #000 34%, rgba(0,0,0,0.85) 56%, rgba(0,0,0,0.35) 76%, transparent 92%);
-          mask-image: radial-gradient(ellipse 58% 60% at 46% 52%, #000 34%, rgba(0,0,0,0.85) 56%, rgba(0,0,0,0.35) 76%, transparent 92%);
+  /* Pulled in and shifted right (DM 2026-08-19). The first ramp still had ~20% alpha at the plate's
+     left edge, which is exactly where the painted headlight beam is cut off square — so the one
+     hard edge left on screen was the brightest thing in the frame. The mask now reaches full
+     transparency well before it, and the beam is drawn by .mc-cmst-beam instead, where it can be
+     properly soft. */
+  -webkit-mask-image: radial-gradient(ellipse 50% 58% at 54% 52%, #000 30%, rgba(0,0,0,0.88) 52%, rgba(0,0,0,0.4) 70%, transparent 84%);
+          mask-image: radial-gradient(ellipse 50% 58% at 54% 52%, #000 30%, rgba(0,0,0,0.88) 52%, rgba(0,0,0,0.4) 70%, transparent 84%);
 }
 /* Mist ON the train, not only behind it (DM: "can you get the mist over the image"). Sized and
    positioned to the wrapper, so it tracks the arrival scale instead of sitting in front of a train
@@ -5819,10 +5824,17 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   0%, 100% { transform: translateY(0) rotate(0.0deg); }
   50% { transform: translateY(-1.2%) rotate(-0.35deg); }
 }
+/* The headlight beam, drawn rather than painted. The art's own beam ends in a square cut, so the
+   mask above fades that away and this replaces it: a soft cone anchored at the lamp, thrown out to
+   the left, blurred hard enough that it has no edge at all (DM 2026-08-19: "the headlight needs
+   some blur too"). Two stacked ellipses — a tight bright core at the lamp and a long weak throw —
+   because a single gradient reads as a smudge rather than a beam. */
 .mc-cmst-beam {
-  position: absolute; left: 2%; top: 42%; width: 46%; height: 26%;
-  background: radial-gradient(ellipse at 92% 50%, rgba(140, 255, 240, 0.28), rgba(64, 224, 208, 0.08) 45%, transparent 72%);
-  filter: blur(6px);
+  position: absolute; left: -14%; top: 26%; width: 62%; height: 42%;
+  background:
+    radial-gradient(ellipse 34% 42% at 96% 50%, rgba(168, 255, 244, 0.34), transparent 72%),
+    radial-gradient(ellipse 78% 26% at 92% 50%, rgba(96, 232, 216, 0.16), transparent 78%);
+  filter: blur(26px);
   animation: mc-cmst-flicker 5.2s ease-in-out infinite;
 }
 @keyframes mc-cmst-flicker {

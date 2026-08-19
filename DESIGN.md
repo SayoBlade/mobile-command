@@ -4910,7 +4910,36 @@ the module writes nothing. Each PC row in the All-aboard drawer opens a pane hol
   all created and removed their roots outright. All three now share `mountFaded` / `unmountFaded`
   (`repaint.js`). A cut on a TV in a dark room reads as a fault; a fade reads as the scene changing.
 
-### 36.1.6 Open
+### 36.1.6 Third pass (DM 2026-08-19) — the blinking widget, the headlight, size
+
+**"The UI glitches out, the container stays and the text and buttons disappear and reappear."**
+Not the station: the DM panel. It is driven by ~30 hooks and several fire in the same tick as a
+matter of course — a token update is an `updateToken` *and* a `targetToken` *and* a combat refresh;
+writing one setting fires `updateSetting` alongside whatever caused it. Each called `render()`, and
+each `render()` rewrote `innerHTML`, so a burst tore the contents down and rebuilt them several
+times in a row — and the browser may paint any of the in-between states. Frame still, contents
+blinking.
+
+`render()` is now a **coalescer** around `renderNow()`. The leading edge stays **synchronous** (184
+call sites, some of which read the DOM immediately after), but every further call inside the same
+frame collapses into one follow-up on the next frame: at most two repaints per frame instead of N,
+and §46's no-op check usually swallows the follow-up. **This is the fix §46 should have had** —
+skipping no-op repaints does nothing about a burst of repaints that each genuinely differ.
+
+The panel also dropped its new `cm-boarding` import (which drags `shell.js` in behind it) for a
+question that was never another module's to answer: whether the distant-engine bed is running is
+*panel state* — did I ask for it — because the cue fires at every client. It also makes the button
+honest, since the grinding stop ducks the bed out and the label now follows.
+
+**The headlight.** The mask's first ramp still left ~20% alpha at the plate's left edge, which is
+exactly where the painted beam is cut off square — so the one hard edge left on screen was also the
+brightest thing in the frame. The mask now reaches full transparency well before it, and the beam is
+**drawn**: two stacked ellipses, a tight bright core at the lamp and a long weak throw, blurred to
+26px so it has no edge at all. One gradient reads as a smudge; two read as a beam.
+
+**Size** down again to 52%/48% of the stage.
+
+### 36.1.7 Open
 
 - **Not seen at the table.** A world was active, so BENCH RULE #0 held. A standalone preview page
   went to the DM instead, since motion is the whole point and the in-app browser pane advances no
