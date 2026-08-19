@@ -396,3 +396,135 @@ export function playTrainStop() {
     src.start(at); src.stop(at + 0.6);
   }
 }
+
+/* -------------------------------------------- */
+/*  The fiddle (§36.1.8, DM 2026-08-19)          */
+/* -------------------------------------------- */
+
+// The book's FIRST beat — before the engine, before anything: "The haunting tune of a lone fiddle
+// pierces through the fog." And it never really leaves the scene: the Vagrant steps out fiddle in
+// hand, so unlike the engine bed the grinding stop does NOT duck it — the train dies, the fiddler
+// plays on. A bed like the approach: toggled, loops until stopped, fades in from nothing (it
+// pierces the fog; it doesn't walk into the room). File override `sndTrainFiddle` wins when set.
+//
+// The synth is a bowed string reduced to what survives fog and a TV speaker: a sawtooth (a bow IS
+// a sawtooth — stick, slip) through a lowpass + one body-formant peak; vibrato that arrives a beat
+// AFTER each note lands (players do this — a synth that vibratos from t0 reads as an organ); a
+// whisper of highpassed noise riding the same envelope (the bow's breath); and a slow minor air in
+// D — a call and a darker answer, rubato'd differently on every pass so a long scene never hears
+// the loop. Notes slide into each other within a phrase (a finger, not a keyboard).
+let fiddle = null;
+
+export function trainFiddlePlaying() { return !!fiddle; }
+
+export function playTrainFiddle({ fadeS = 3.5 } = {}) {
+  if (isPhoneClient()) return;      // phones would echo the table
+  if (fiddle) return;               // already playing
+  const file = cueFile("sndTrainFiddle");
+  if (file) {
+    const snd = playFile(file, { loop: true, volume: 0.02 });
+    fiddle = { file: snd };
+    Promise.resolve(snd).then((s) => {
+      try { s?.fade?.(0.8, { duration: fadeS * 1000 }); } catch (e) { /* older sound api — it just starts quiet */ }
+    });
+    return;
+  }
+  const out = audioOut();
+  if (!out) return;
+  const { ctx, dest } = out;
+  const master = ctx.createGain(); master.gain.value = 0.0001;
+  master.connect(dest);
+  master.gain.exponentialRampToValueAtTime(0.8, ctx.currentTime + fadeS);
+
+  // The instrument's fixed half — built once, shared by every note.
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2800; lp.Q.value = 0.7;
+  const body = ctx.createBiquadFilter(); body.type = "peaking"; body.frequency.value = 980; body.Q.value = 1.6; body.gain.value = 7;
+  lp.connect(body).connect(master);
+  // The bow's breath: one looped noise source; its gain follows each note far underneath it.
+  const nlen = Math.floor(1.5 * ctx.sampleRate);
+  const nbuf = ctx.createBuffer(1, nlen, ctx.sampleRate);
+  const nd = nbuf.getChannelData(0);
+  for (let i = 0; i < nlen; i++) nd[i] = Math.random() * 2 - 1;
+  const nsrc = ctx.createBufferSource(); nsrc.buffer = nbuf; nsrc.loop = true;
+  const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 3600;
+  const ngain = ctx.createGain(); ngain.gain.value = 0;
+  nsrc.connect(hp).connect(ngain).connect(master);
+  nsrc.start();
+
+  const state = { ctx, master, ngain, nsrc, notes: [], timer: null };
+  fiddle = state;
+
+  // D minor, drooping — G4..F5, the fiddle's speaking range. [frequency, base duration].
+  const A = [[587.33, 1.5], [440, 0.7], [587.33, 0.7], [659.25, 0.9], [698.46, 1.3], [659.25, 0.7], [587.33, 0.7], [554.37, 1.5], [587.33, 2.4]];
+  const B = [[698.46, 1.2], [659.25, 0.7], [587.33, 0.9], [440, 1.3], [466.16, 1.2], [440, 0.7], [392, 0.9], [440, 2.6]];
+
+  const note = (f, t0, durS, prevF) => {
+    const o = ctx.createOscillator(); o.type = "sawtooth";
+    o.frequency.setValueAtTime(prevF || f * 0.985, t0);
+    o.frequency.exponentialRampToValueAtTime(f, t0 + 0.07);
+    const vib = ctx.createOscillator(); vib.type = "sine"; vib.frequency.value = 5.7;
+    const vibG = ctx.createGain(); vibG.gain.value = 0;
+    vib.connect(vibG).connect(o.frequency);
+    vibG.gain.setValueAtTime(0, t0);
+    vibG.gain.linearRampToValueAtTime(f * 0.008, t0 + Math.min(0.45, durS * 0.5));
+    const g = ctx.createGain(); g.gain.value = 0;
+    o.connect(g).connect(lp);
+    // Levels measured offline (2026-08-19): at 0.16/0.55 the sustained RMS sat at 0.05 — under the
+    // engine bed it is supposed to pierce. 0.2/0.8 lands ~0.09 RMS, peak ~0.28, still clip-free.
+    const lvl = 0.2 * (0.92 + Math.random() * 0.16);
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(lvl, t0 + 0.11);                          // the bow catching
+    g.gain.setValueAtTime(lvl, Math.max(t0 + 0.12, t0 + durS - 0.22));
+    g.gain.setTargetAtTime(0, Math.max(t0 + 0.14, t0 + durS - 0.18), 0.09);  // lifted, not cut
+    ngain.gain.setValueAtTime(0.012, t0 + 0.04);
+    ngain.gain.setTargetAtTime(0.0001, Math.max(t0 + 0.15, t0 + durS - 0.15), 0.1);
+    o.start(t0); o.stop(t0 + durS + 0.6);
+    vib.start(t0); vib.stop(t0 + durS + 0.6);
+    state.notes.push(o, vib);
+    return f;
+  };
+
+  const pass = () => {
+    if (fiddle !== state) return;   // stopped while the timer was pending
+    let t = ctx.currentTime + 0.05;
+    let prev = 0;
+    for (const phrase of [A, B]) {
+      for (const [f, d] of phrase) {
+        const dur = d * (0.9 + Math.random() * 0.25);   // rubato — no two passes agree
+        prev = note(f, t, dur, prev);
+        t += dur + 0.05;
+      }
+      t += 1.4 + Math.random() * 1.6;                   // the fiddler breathes
+      prev = 0;                                         // a rest breaks the slide
+    }
+    state.notes = state.notes.slice(-8);                // keep refs only to what may still sound
+    state.timer = setTimeout(pass, Math.max(200, (t - ctx.currentTime - 0.6) * 1000));
+  };
+  pass();
+}
+
+export function stopTrainFiddle({ fadeS = 2.2 } = {}) {
+  const f = fiddle;
+  fiddle = null;
+  if (!f) return;
+  if (f.file) {
+    Promise.resolve(f.file).then((s) => {
+      try {
+        s?.fade?.(0, { duration: fadeS * 1000 });
+        setTimeout(() => { try { s?.stop?.(); } catch (e) { /* already gone */ } }, fadeS * 1000 + 60);
+      } catch (e) { try { s?.stop?.(); } catch (e2) { /* already gone */ } }
+    });
+    return;
+  }
+  try {
+    if (f.timer) clearTimeout(f.timer);
+    const t = f.ctx.currentTime;
+    f.master.gain.cancelScheduledValues(t);
+    f.master.gain.setValueAtTime(Math.max(0.0001, f.master.gain.value), t);
+    f.master.gain.exponentialRampToValueAtTime(0.0001, t + fadeS);
+    setTimeout(() => {
+      for (const n of f.notes) { try { n.stop(); } catch (e) { /* already stopped */ } }
+      try { f.nsrc.stop(); } catch (e) { /* already stopped */ }
+    }, fadeS * 1000 + 80);
+  } catch (e) { console.warn(`${MODULE_ID} | fiddle stop`, e); }
+}

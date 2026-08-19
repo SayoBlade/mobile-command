@@ -59,6 +59,7 @@ export function registerSettings() {
   // recording instead, and the file wins wherever it is set. File pickers, not free text: a typo in
   // a path is a cue that silently does nothing at the table.
   for (const [key, name] of [
+    ["sndTrainFiddle", "The Vagrant's fiddle"],
     ["sndTrainApproach", "Train approaching"],
     ["sndTrainWhistle", "Train whistle"],
     ["sndTrainStop", "Train grinding to a stop"]

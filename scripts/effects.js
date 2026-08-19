@@ -4,7 +4,7 @@ import { isPhoneClient } from "./shell.js";
 import { isExecutor } from "./settings.js";
 import { seanceSync, seancePhrase } from "./seance.js"; // §30 séance board (TV overlay)
 import { cardTableSync, registerCardTable } from "./card-table.js"; // §38.4a session-zero card table
-import { cmStationSync, cmTicketFx, playTrainWhistle, playTrainApproach, stopTrainApproach, playTrainStop } from "./cm-boarding.js"; // §36 All aboard
+import { cmStationSync, cmTicketFx, playTrainWhistle, playTrainApproach, stopTrainApproach, playTrainStop, playTrainFiddle, stopTrainFiddle } from "./cm-boarding.js"; // §36 All aboard
 import { bossIntroPlay } from "./boss-intro.js"; // §40 the boss's entrance (one-shot, no state)
 import { initCurseSweep } from "./cm-curses.js"; // §33: one GM client lifts expired curses
 
@@ -75,6 +75,7 @@ export const FX_DEFS = {
   cmTrain: { label: "Bring in the train", icon: "fa-train", state: true, hint: "The Ghostlight emerges from the fog, facing whoever it came for" },
   cmTrainApproach: { label: "Approach", icon: "fa-volume-low", oneShot: true, hint: "A distant engine, fading in under the narration" },
   cmTrainStop: { label: "Grinding stop", icon: "fa-hand", oneShot: true, hint: "Brakes: it squeals, sighs, and halts" },
+  cmFiddle: { label: "Fiddle", icon: "fa-music", oneShot: true, hint: "A lone fiddle through the fog — plays until stopped" },
   // §40 the boss's entrance. A one-shot with { img, sound } — the Combat tab's Boss intro drawer
   // owns its UI (a roster of bosses with drop targets is more than a grid chip), and it is fired
   // through dmPlayBossIntro rather than dmFireFx because the pause has to come first.
@@ -183,6 +184,7 @@ export function handleFxOneShot(payload = {}) {
   else if (id === "cmWhistle") playTrainWhistle();    // §36 — canvas clients only, gates itself
   else if (id === "cmTrainApproach") { if (payload?.on === false) stopTrainApproach(); else playTrainApproach(); }
   else if (id === "cmTrainStop") playTrainStop();
+  else if (id === "cmFiddle") { if (payload?.on === false) stopTrainFiddle(); else playTrainFiddle(); } // §36.1.8 — the stop cue never ducks this one
   // §40 carries a whole boss ({ img, sound }), so it gets the payload rather than named bits.
   else if (id === "bossIntro") bossIntroPlay(payload);
 }

@@ -1959,11 +1959,10 @@ ELECTRON_RUN_AS_NODE=1 NODE_OPTIONS=--experimental-vm-modules \
 
 Questions only the DM can answer; re-ask when he asks what's outstanding:
 
-1. **The fiddle (§36.1.7).** The book's herald for the Ghostlight is *a lone fiddle*, not a
-   whistle — build it (synth or a file slot)? Already raised, unanswered.
-2. **Séance scrape (§30.1)** — keep or cut, by ear ("we'll see if I like it").
-3. **Player-side Crooked Moon tab (§35)** — a shell tab holding the player's CM "stuff"
-   (thread, twists, curses, tarot card), or stay with chips-in-shell? DM said undecided.
+1. ~~The fiddle~~ — **ANSWERED 2026-08-19 ("add a fiddle button") and BUILT, §36.1.8.**
+2. ~~Séance scrape~~ — **ANSWERED 2026-08-19: KEEP ("definitely keep, its amazing!").**
+3. ~~Player-side Crooked Moon tab (§35)~~ — **ANSWERED 2026-08-19: build it** ("add it to the
+   list of things to do") → moved to the §22.6 queued backlog.
 4. **Phone "suggest destination" ping (§18.3)** — wanted at all, or does pointing at the TV
    cover it?
 5. **Moon phases / seasons (§18.3)** — SC Reborn exposes both; needs a decision on what a phase
@@ -1973,7 +1972,8 @@ Questions only the DM can answer; re-ask when he asks what's outstanding:
 7. **Per-seat rotated HUD on the TV (§38.5 future note)** — HP/conditions strip at each seat;
    performance-check first (modest machine).
 8. **`feedbackEmail` alias (§48.3)** — a plain address in a public module is scrapeable; pick an
-   alias before wider release?
+   alias before wider release? *(DM 2026-08-19: on the to-be-discussed list — this list. Re-raise
+   before any release that widens the audience.)*
 9. **Level-up sitting (§38.6)** — sequenced after the live-table pass by design; confirm when.
 
 ### 22.4 Built but never tested with real devices (extended 2026-08-19)
@@ -2016,11 +2016,12 @@ auto-recognises them, so travel lighting will not fire until he does.
    source-checked but NOT validated — run §28.4 (first thing to exercise: Simple Cover 5e's AC
    changes on the Hit/Miss badge), then bump `TESTED` + the CLAUDE.md line. **wm5e** joins
    `TESTED` with whatever version passes that same run (§45.5).
-3. **Crooked Moon polish** (campaign not started — no chapter urgency): table feedback on the
-   built suite · §33's bargain-mode reroll toggle (deferred) · `curseTable` UUID is console-set
-   only (needs a settings row if the DM adopts the book table) · §31 v2 (midi hook to literally
-   set the declared d20) · §32's unmined remainder (Dark Bargains, lair-pulse engine, ch10–13
-   scene packs).
+3. **Crooked Moon polish** (campaign not started — no chapter urgency): **player-side CM tab
+   (§35) — DM-approved 2026-08-19, queued** (their thread, twists, curses, tarot card in one
+   shell tab) · table feedback on the built suite · §33's bargain-mode reroll toggle (deferred) ·
+   `curseTable` UUID is console-set only (needs a settings row if the DM adopts the book table) ·
+   §31 v2 (midi hook to literally set the declared d20) · §32's unmined remainder (Dark Bargains,
+   lair-pulse engine, ch10–13 scene packs).
 4. **Backlog (DM-pruned 2026-08-09 — this list, nothing re-added unasked):**
    - PM extras (§27.4): group notes · push-to-sleeping-phone.
    - Effects extras (§26.5, APPROVED): per-effect volume → surround thunder → more looks
@@ -2046,7 +2047,7 @@ auto-recognises them, so travel lighting will not fire until he does.
   DM-side dialog per leveled AoE cast).
 - **§28.12** — remote access: needs the DM's device console/network at the hang moment;
   split-horizon DNS is the real fix; TLS + DynDNS still open.
-- **§36.1.7** — train art chroma-key pass (teal fringing) · fiddle (DM question, §22.3).
+- **§36.1.7** — train art chroma-key pass (teal fringing). *(The fiddle: built, §36.1.8.)*
 - **§37** — 10.8 Tender (Colored) has 0 mist tiles where every other car has 6.
 - **§19** — the phones' shared running-rest header · one-time migration of a legacy open
   downtime window / night flag into a `rest` envelope.
@@ -3224,7 +3225,7 @@ one-word constant in dm-panel if the table rules otherwise.)
 - **The scrape:** synthesized (no assets, §26.2) — a narrow noise band whose gain follows the
   planchette's ACTUAL frame-to-frame speed, with 90ms granular gain kicks (the grain is what
   makes it scrape, not hiss). Faint by design (0.045 ceiling); silent at rest and during
-  holds. Provisional per DM ("we'll see if I like it").
+  holds. ~~Provisional~~ **KEEPER — DM verdict 2026-08-19: "definitely keep, its amazing!"**
 - **Bench-verified:** sitter roster (13 PCs, zero pets), Enter-send, natural 1 on roll 15 →
   armed 1d4 → both sitters −2 (equal, HP-checked), GM's own screen did NOT glitch (targeting),
   re-arm showed 1d6. Untestable solo: the glitch landing on a real phone (same verified §26.6
@@ -3600,10 +3601,10 @@ Player side: NO new tab v1 — the shell already carries the chips (twist counte
 thread card in the character area). UI-BIBLE needs a section for the campaign tab + the twist/
 curse marks BEFORE building (bible-first, per CLAUDE.md).
 
-**Player-side tab (DM 2026-07-27, OPTION — undecided):** the DM is considering a player-facing
-Crooked Moon tab in the shell holding their CM "stuff" — destiny/thread, prop, twists, curse
-details. Keep the design flexible so the chips-in-shell v1 can grow a dedicated tab later;
-don't build until he decides.
+**Player-side tab (DM 2026-07-27, OPTION → APPROVED 2026-08-19: "add it to the list of things
+to do"):** a player-facing Crooked Moon tab in the shell holding their CM "stuff" —
+destiny/thread, prop, twists, curse details, tarot card (§42). Queued in the §22.6 ledger;
+the chips-in-shell v1 stays until it's built.
 
 **Slice A BUILT + bench-verified 2026-07-27:** `crookedMoonTools` world setting (defaults ON
 when the-crooked-moon-2014 module is active, else OFF; toggle in panel Settings → Campaign
@@ -3784,10 +3785,37 @@ brightest thing in the frame. The mask now reaches full transparency well before
 - **Not seen at the table.** A world was active, so BENCH RULE #0 held. A standalone preview page
   went to the DM instead, since motion is the whole point and the in-app browser pane advances no
   CSS animation at all (§40's trap).
-- **The fiddle is not built.** The book's herald is *a lone fiddle*, not a whistle — arguably the
-  most distinctive sound in the scene, and the one cue that wasn't asked for. Raised with the DM.
+- ~~The fiddle is not built~~ — **BUILT, §36.1.8** (DM 2026-08-19: "add a fiddle button").
 - **The train art has a rough alpha** (teal fringing, ragged mask on the cropped plate). The fog
   hides much of it; a chroma-key pass like the séance art would fix the rest.
+
+### 36.1.8 The fiddle (DM 2026-08-19: "add a fiddle button" — BUILT)
+
+The book's FIRST beat, restored to first place: *"The haunting tune of a lone fiddle pierces
+through the fog"* comes before the engine, before everything — and it never leaves, because the
+Vagrant steps out fiddle in hand. Three consequences in the build:
+
+- **A bed, not a stab** — toggled like the approach (`playTrainFiddle`/`stopTrainFiddle`,
+  cm-boarding.js; fx one-shot `cmFiddle {on}`; panel state `cmFiddleOn`, label follows). It fades
+  in from nothing over 3.5 s — it pierces the fog, it doesn't walk into the room.
+- **The grinding stop ducks the ENGINE only.** The fiddle deliberately survives the halt — the
+  train dies, the fiddler plays on. Only its own button silences it.
+- **Button order = the book's order:** Start mist · **Start fiddle** · Start sound · Whistle ·
+  Bring in the train · Stop.
+
+**The synth** (file override `sndTrainFiddle` wins when set, like every cue): a sawtooth — a bow
+IS a sawtooth, stick-slip — through a 2.8 kHz lowpass + one 980 Hz body-formant peak; vibrato
+that arrives a beat AFTER each note lands (players do this; a synth that vibratos from t0 reads
+as an organ); notes slide into each other within a phrase (a finger, not a keyboard); a whisper
+of high-passed noise rides each note's envelope (the bow's breath). The air is D minor — a call
+and a darker answer with a rest between, every duration rubato'd per pass so a long scene never
+hears the loop (~24 s a pass).
+
+**Measured offline** (OfflineAudioContext, the §26.2 practice — no ear can reach the bench):
+fade-in lands by second 3, sustained RMS **0.092**, peak **0.245** (clip-free), the phrase gap
+reads as a true silence. First cut sat at 0.05 RMS — under the engine bed it is supposed to
+pierce — so the levels were raised (0.2/0.8) and re-measured before shipping. By ear at the
+table still owed, like every cue.
 
 
 ---

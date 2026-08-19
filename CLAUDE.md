@@ -14,6 +14,10 @@
 - Run tests **one at a time** — never batch steps and check at the end.
 - **Stop on the first failure.** Record which numbered result failed and what was observed instead; do not continue to later steps or "try variations" past a failure.
 
+## Doc housekeeping (DM 2026-08-19: "I'm giving you control of housekeeping")
+
+These .md files are written for **Claude, not the DM** — he will ask rather than read them, so optimize for machine retrieval, not presentation: dated statuses corrected in place, superseded text struck rather than erased, history compressed into banners once a section closes, one open ledger (DESIGN §22.6) updated on every open/close. When the DM asks what's open or what something means, answer from the docs **in plain words in chat** — never send him to a section number. Periodic sweeps (structure, stale statuses, contradictions, archive/) are Claude's job to initiate: don't ask permission, report what changed.
+
 ## Conduct
 
 - Write operations are allowed **in the test world only** — the local **"Offline test"** world (Restored Keep v14 demo content) at `localhost:30000`, or a bench COPY of it per DESIGN §28.9. Never the DM's live campaign world. **BENCH RULE #0:** if the DM's Foundry has a world ACTIVE, do not start the bench at all.

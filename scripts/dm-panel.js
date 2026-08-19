@@ -860,6 +860,9 @@ function trainRideBody() {
 // module: the cue is fired at every client, so "is it playing" is only meaningful as "did I ask
 // for it", and importing the answer from cm-boarding.js would drag shell.js into the panel.
 let cmSoundOn = false;
+// §36.1.8: the fiddle bed, same rule. Separate from the engine because they end differently —
+// the grinding stop kills the engine and leaves the fiddler playing (he steps out fiddle in hand).
+let cmFiddleOn = false;
 let cmStoryFor = null;   // actorId whose arrival script is open (DM-local)
 let cmStoryDraft = null; // the text being edited, so a background repaint can't eat it
 
@@ -947,12 +950,16 @@ function allAboardBody() {
   const users = pcs.map(a => pcUser(a)).filter(Boolean);
   const allHave = users.length > 0 && users.every(u => fxIsOnFor("cmTicket", u.id));
   // The order is the ORDER OF THE SCENE (DM 2026-08-19), so the drawer reads top to bottom the way
-  // the moment plays: raise the mist · start the distant engine · the whistle · bring it in · stop.
-  // Buttons in the sequence you perform them beats buttons grouped by what they technically are.
+  // the book plays it: raise the mist · the fiddle pierces it · the distant engine · the whistle ·
+  // bring it in · stop. Buttons in the sequence you perform them beats grouped-by-what-they-are.
   return `
     <button class="mc-fx-btn ${stationOn ? "mc-on" : ""}" data-fx="cmStation" style="width:100%"
       title="${stationOn ? "Let the fog fade away" : "The fog rises on the shared screen"}">
       <i class="fas fa-smog"></i><span>${stationOn ? "Stop mist" : "Start mist"}</span>
+    </button>
+    <button class="mc-fx-btn ${cmFiddleOn ? "mc-on" : ""}" data-cm-cue="fiddle" style="width:100%"
+      title="${cmFiddleOn ? "The fiddler falls silent" : "A lone fiddle pierces through the fog — the book's first beat; leave it playing"}">
+      <i class="fas fa-music"></i><span>${cmFiddleOn ? "Stop fiddle" : "Start fiddle"}</span>
     </button>
     <button class="mc-fx-btn ${cmSoundOn ? "mc-on" : ""}" data-cm-cue="approach" style="width:100%"
       title="${cmSoundOn ? "Fade the engine out" : "A distant engine, fading in — leave it running under the narration"}">
@@ -4086,7 +4093,9 @@ async function onClick(ev) {
   if (cmCue) {
     const cue = cmCue.dataset.cmCue;
     if (cue === "whistle") dmFireFx("cmWhistle");
-    else if (cue === "stop") { dmFireFx("cmTrainStop"); cmSoundOn = false; return render(); } // the stop ducks the bed out
+    // The stop ducks the ENGINE only — the fiddle plays on (the Vagrant steps out fiddle in hand).
+    else if (cue === "stop") { dmFireFx("cmTrainStop"); cmSoundOn = false; return render(); }
+    else if (cue === "fiddle") { cmFiddleOn = !cmFiddleOn; dmFireFx("cmFiddle", { on: cmFiddleOn }); return render(); }
     else { cmSoundOn = !cmSoundOn; dmFireFx("cmTrainApproach", { on: cmSoundOn }); return render(); }
     return;
   }
