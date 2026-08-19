@@ -4907,8 +4907,8 @@ the module writes nothing. Each PC row in the All-aboard drawer opens a pane hol
 - **The buttons are in the order of the scene**: Start mist · Start sound · Whistle · Bring in the
   train · Stop. Sequence-you-perform beats grouped-by-what-they-are.
 - **Fade, never cut — now a rule (UI-BIBLE §6.8).** The station, the séance board and the card table
-  all created and removed their roots outright. All three now share  / 
-  (). A cut on a TV in a dark room reads as a fault; a fade reads as the scene changing.
+  all created and removed their roots outright. All three now share `mountFaded` / `unmountFaded`
+  (`repaint.js`). A cut on a TV in a dark room reads as a fault; a fade reads as the scene changing.
 
 ### 36.1.6 Open
 
