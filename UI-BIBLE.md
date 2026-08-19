@@ -146,7 +146,8 @@ hourglass read as "end the day and pass time").
 (`✨ Set the rule`), not an icon. Icon-only buttons get missed — that exact mistake made the DM think
 the panel was dead (v0.1.149).
 
-**Disabled** states explain themselves: `Start activities — nobody's chosen yet`, not a dead button.
+**Disabled** states explain themselves: `Start Activities — nobody's chosen yet`, not a dead button
+(label half Title Case per §4.3; the explainer half is a sentence, so sentence case per §7).
 
 ### 4.1 Button geometry — the rule that stops "arranged badly"
 
@@ -253,8 +254,9 @@ lives in the two words plus the icon, and the tooltip carries any nuance.
   cut them: `Start the Night` → `Start Night`, `Show the Welcome Tips` → `Welcome Tips`.
 - **"Absolutely required"** is a high bar, not an excuse. It's for the rare label that genuinely
   loses its meaning shorter — and even then, prefer moving the detail to the tooltip.
-- **Disabled explainers are exempt** — `Start Activities — Nobody's Chosen Yet` is a *sentence doing
-  a job* (§4), not a resting label. The two-word rule is for the button at rest.
+- **Disabled explainers are exempt** — `Start Activities — nobody's chosen yet` is a *sentence doing
+  a job* (§4), not a resting label: the label half keeps its Title Case, the explainer half is
+  sentence-case copy (§7). The two-word rule is for the button at rest.
 
 > Count the words on every button. Three or more? Either two of them are one idea (`Full Screen`),
 > or a little word is padding (drop it), or the third word belongs in the tooltip.
@@ -440,7 +442,8 @@ just never bundle it.
 
 ## 7. Copy
 
-- **Sentence case.** Not Title Case, not SHOUTING.
+- **Sentence case.** Not Title Case, not SHOUTING. *(One carve-out: button LABELS are Title Case —
+  that's §4.3's rule, and it wins on a button at rest.)*
 - Say the **consequence**, not the mechanism: "Rest the whole party", not "Execute rest".
 - **Explanations live outside buttons** — a button is a verb; put the "a watch, an evening, a few
   hours" underneath as a hint, not inside the label.

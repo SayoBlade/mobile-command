@@ -1,51 +1,56 @@
 # Mobile Command — Phone Controller for FoundryVTT
 
-Phones as full Foundry clients with a touch-first UI replacement layer. [DESIGN.md](DESIGN.md) is the source of truth — architecture decisions, the settings preset, the RPC contract, and all live-world spike findings live there.
+Play D&D 5e at a real table: the DM runs Foundry, a TV lying flat (or on the wall) shows the
+shared map, and **every player runs their whole character from their phone** — attacks, spells,
+saves and reactions, movement, rests, inventory, journals — without ever touching the laptop.
+Phones are full Foundry clients running a touch-first UI replacement layer (no canvas on the
+phone; everything spatial executes on the DM's client and midi-qol routes prompts to the right
+device).
 
-**Pinned stack:** Foundry 14.363 · dnd5e 5.3.3 · midi-qol 14.0.8. Requires midi-qol and socketlib.
+Beyond the combat loop it ships a DM panel (combat, party, rest, travel, effects, system health),
+character creation on the phone, a session-zero card table dealt onto the TV, day/night driven by
+the game clock, party marching order + travel mode, downtime, personal messages, and a set of
+campaign tools for *The Crooked Moon* (séance board, tarot, twists, curses) that stay hidden
+unless that module is installed.
 
-## Status: Phase 1 (plumbing — no UI yet, test with console/macros)
+## Install
 
-What exists:
+Install via manifest URL in Foundry's **Add-on Modules → Install Module**:
 
-- **Settings Enforcer** (`MobileCommand.enforcer`) — validates the canonical preset (D4, all values live-verified 2026-06-12) on world ready; shows a drift table with one-click apply. Never writes without a click.
-- **Executor RPC** over socketlib (§5 subset): `itemUse`, `moveRequest`, `measure`, `targetsList`, `assignTargets`, `heartbeat`. The executor is the active GM client by default (two-client topology, §2.1); a dedicated user can be configured later without protocol changes.
-- **`item.use` wrapper** with the Spike 3 lessons baked in: explicit `targetUuids` in `usage.midiOptions`, area-target activities refused (midi ignores explicit targets for AoE — DM template flow instead), refusal reasons captured from executor-side notifications and returned as `{ok:false, stage, reason}`.
-- **Pause guard** — auto-pauses when the executor leaves the active scene, auto-resumes on return; manual pauses are never auto-resumed.
-- **Phone niceties:** clients with role "phone" suppress core's 1024×768 window-size nag.
+```
+https://github.com/SayoBlade/mobile-command/releases/latest/download/module.json
+```
 
-## Install for development
+**Requires:** midi-qol, DAE, socketlib, libWrapper. **Recommended:** Automated Conditions 5e,
+Item Piles, Simple Calendar Reborn, Monk's Common Display (for the shared screen).
 
-The repo doubles as the module directory. Link it into Foundry's data folder (run from an elevated or developer-mode PowerShell):
+**Stack:** built against Foundry 14 · dnd5e 5.3.x · midi-qol 14.x. The module tracks current
+releases ("chase upstream"): the System-health tab warns when an installed version hasn't been
+validated with this app yet — usually fine, and there's a one-tap "Message for dev" report if
+anything misbehaves.
+
+## Quick start (DM)
+
+1. Enable the module; the first-run **setup wizard** walks the shared-table config (display/TV
+   account, midi settings preset, vision sync, party group).
+2. Players join from their phones with their own Foundry users — the touch shell opens
+   automatically for player-role clients.
+3. The **System health** tab on the DM panel checks the table before each session and offers
+   one-tap fixes.
+
+## Development
+
+The repo doubles as the module directory. Link it into Foundry's data folder (elevated or
+developer-mode PowerShell):
 
 ```powershell
 New-Item -ItemType Junction -Path "$env:LOCALAPPDATA\FoundryVTT\Data\modules\mobile-command" -Target "C:\Users\User\Documents\Claude\Code\mobile-command"
 ```
 
-Then restart/refresh Foundry and enable **Mobile Command** in the test world (Restored Keep / "Offline test") only.
-
-## Phase 1 smoke tests (console, per test protocol: numbered, one at a time, stop on failure)
-
-With the module enabled, executor = DM app, one player client (no-canvas is fine):
-
-1. **Enforcer:** on the GM client, `MobileCommand.enforcer.diff()` returns `[]` (after the preset has been applied once via the startup prompt).
-2. **Heartbeat:** on the player client, `MobileCommand.state.lastHeartbeat` is non-null and recent, with the active scene id.
-3. **Item use from the player client:**
-   ```js
-   // as the Wizard's owner:
-   var wiz = game.actors.getName("Wizard (Level 3, Evoker)");
-   var act = wiz.items.getName("Magic Missile").system.activities.contents.find(a => a.type === "damage");
-   var spider = game.scenes.active.tokens.find(t => t.name === "Giant Spider");
-   await MobileCommand.useActivity({ activityUuid: act.uuid, targetUuids: [spider.uuid], consume: false,
-     midiOptions: { fastForward: true, fastForwardDamage: true, autoRollDamage: "always" } });
-   ```
-   Resolves `{ok:true, ...}` with the spider in `targets`, HP drops, no dialog on the executor.
-4. **Refusal surfacing:** same call with `consume: true` and zero remaining L1 slots → `{ok:false, stage:"use", reason:"…spell slots…"}` (not a silent nothing).
-5. **AoE guard:** same call shape with a Thunderwave save activity → `{ok:false, stage:"validate", reason:"area-target activity…"}`.
-6. **Move validation:** `await MobileCommand.moveToken({ tokenId: "<own token id>", dxGrid: 1, dyGrid: 0 })` → token steps right; against a wall → `{ok:false, stage:"collision"}`.
-7. **Targets list:** `await MobileCommand.listTargets({ forTokenId: "<own token id>" })` → distance-sorted candidates, hidden tokens absent.
-8. **Pause guard:** DM views another scene → PAUSED banner everywhere and phone RPCs return `{ok:false, …"paused"}`; DM returns → auto-resume.
-
-## Conduct
-
-Write operations in the test world only. Never delete anything. New findings go into DESIGN.md, dated.
+- **[DESIGN.md](DESIGN.md)** is the source of truth — architecture, per-feature specs, live-world
+  findings, and the open ledger (§22). **[UI-BIBLE.md](UI-BIBLE.md)** governs how everything looks
+  and what each visual choice means.
+- Syntax gate before every commit (JS **and** CSS): `tools/check-syntax.js` under Foundry's
+  Electron-as-node (see CLAUDE.md). Headless test suites live in `tools/test-*.mjs`.
+- Write operations in the test world only. Never delete anything. New findings go into DESIGN.md,
+  dated.

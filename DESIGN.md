@@ -1,13 +1,81 @@
 # Phone Controller for FoundryVTT — Design Document
 
-**Status:** Pre-spike draft · **Last updated:** 2026-06-11
-**Primary use case:** In-person play. DM at a laptop, one shared "players" screen (TV) showing all player POVs, each player controlling their character from their phone. Online play (screen for map, phone for control) is a secondary, lower-priority use case.
+**Status:** Live module — released (v0.2.0, 2026-07-26, GitHub Releases) and in continuous
+development. This document began as the pre-spike design (2026-06-11) and grew by accretion into
+the project's memory: sections are appended as features are built, each carrying its own dated
+status notes. **Header + section map rebuilt 2026-08-19** (housecleaning: misfiled sections
+re-homed, the duplicate §21 renumbered §49, stale statuses corrected, §32/§42/§43 given the
+sections their cross-references always claimed).
 
-**PINNED VERSION TRIPLE (freeze point — confirmed against live world 2026-06-11):** Foundry **14.363** · dnd5e system **5.3.3** · midi-qol **14.0.8**. Current-generation: dnd5e 5.x means the Activities system is fully in play, so the adapter layer (D6) is load-bearing from line one. Documentation predating this generation is unreliable — CC must check installed module source over training data.
+**How to read this document (fresh session):**
 
-**Live-world verification already done (2026-06-11):** `MidiQOL.canSense(token, target)` confirmed present and returning correct per-character, selection-independent results in the actual world — this is the core of Spike 4's visibility computation, passed early. Restored Keep v14 demo serves as the test world; 4 PCs + hostiles + walls + Levels floors already set up.
+- **Current policy lives in:** §28.4 (stack: *chase upstream, don't freeze* — validate with the
+  combat script, then bump `TESTED` in preflight.js + the CLAUDE.md line together) · §11
+  (warnings-not-walls) · §2/§2.1 (topology: two clients — DM = executor, display account at
+  OBSERVER, never Owner) · §22 (standing rules + the open ledger) · **UI-BIBLE.md** (every
+  look/meaning rule; read it before touching UI).
+- **Inside a section, the latest dated note wins.** Superseded text is kept deliberately — it
+  records why the surviving decision won. A section's headline status can lag its body; the
+  section map below is corrected as of 2026-08-19.
+- **§§8–10 and §§12–14 are history** (spikes, early UI rounds, resolved risks). Banners at their
+  tops say what still binds. The git log is the fine-grained history; don't duplicate it here.
+- **Any "pinned version triple / freeze" language in early sections is DEAD** — §28.4's
+  chase-upstream policy (DM 2026-07-26) superseded it. The live validated stack is the `TESTED`
+  map in [preflight.js](scripts/preflight.js).
+
+**Section map** (status corrected 2026-08-19):
+
+| § | What | Status |
+|---|---|---|
+| 1 | Goals / non-goals | Historical framing; MVP long since shipped |
+| 2, 2.1 | Table topology; display account at OBSERVER | **Current** — load-bearing |
+| 3 | Architecture decisions D1–D7 | Current; **D6's freeze half superseded by §28.4** |
+| 4 | Required modules | Historical — superseded by preflight `TESTED` + §28.5 watch |
+| 5 | Service RPC contract | Historical origin; the live surface is [rpc.js](scripts/rpc.js) |
+| 6, 6.1, 6.2 | Popup taxonomy; reaction relay; resource strategy | Current (Shield-class pre-attack reactions stay DM-side by decision) |
+| 7 | UI specification v1 | Historical spec; UI-BIBLE + shell.js govern now (7.6's dialog-lift rules still bind) |
+| 8–10 | Spike plan · build phases · risks/questions | **Resolved history** (Route B won; all spikes passed) |
+| 11 | Warnings, not walls + AoE push | **Current philosophy** |
+| 12 | UI rounds log (Rounds 3–61) | Historical log; traps digest at its top |
+| 13 | "Consolidated backlog" (2026-06-14) | Historical; the living ledger is §22 |
+| 14 | Why the phone has adv/dis buttons | Resolved — attack preview shipped (§28.8 hardened) |
+| 15 | Party Mode / marching order | Built |
+| 16 | DM wizard + session preflight | **Shipped** (both halves; wizard resized §48.1) |
+| 17 | Downtime | Built — the v0.1.171 "CURRENT STATE" block is the model |
+| 18, 18.1–18.4 | Travel mode; day/night curve | Built (curve numbers now live in preset.js — peak 0.8, derived threshold, day floor 0.22) |
+| 19 | Rest (downtime + watches folded) | Built |
+| 20, 20.1–20.3 | Item transfers | Built (stash + p2p) |
+| 20.5 / 20.6 / 20.9 | Travel points · phone audio · dead-code sweep | Standalone records (misnumbered at birth; numbers kept — code references them) |
+| 21 | Sound (Settings › Sound, TV audio) | Built |
+| 22 | Standing rules + open ledger | **Current — the ledger** |
+| 23 | TV camera clearance model | Built (geometry unit-tested) |
+| 24 | Fog-of-war edges (soft + GPU) | Done — DM signed off 2026-07-26 |
+| 25 | DM panel restructure + combat music | Built; §25.4 leftovers pruned by DM 2026-08-09 |
+| 26, 26.6, 26.7 | Effects tab; targeted effects; deathbeat | Built; extras APPROVED 2026-08-09 (stop-all done; volume/surround/looks queued) |
+| 27 | Personal messages | Built (+ pmToast 2026-08-10/11) |
+| 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records |
+| 29 | Settings mini-app | Built + bench-verified 12/12 (2026-08-01) |
+| 30, 30.1, 30.2 | Séance board + the bite | Built — the quality bar |
+| 31 | Twists of Fate (book RAW) | Built |
+| 32, 32.1 | Crooked Moon idea board; Fated Tarot book extract | Reference (mined 2026-07-27 / 2026-08-11) |
+| 33 / 34 / 35 | Chaotic Curses / Fateweaving / CM tab | **All built** (slices C/D/A; headers said "unbuilt" — corrected) |
+| 36, 36.1 | All aboard; the arrival | Built (36.1 not yet seen at the table) |
+| 37 | The Ghostlight ride | Built (10.8 Colored mist-tile gap open) |
+| 38, 38.1–38.6 | Session Zero suite (story journals, card table, seats) | Built through 38.5; 38.6 recorded-future |
+| 39 | In person vs. Online (`tableMode`) | Built |
+| 40 | Boss intro | Built (motion unjudged by eye) |
+| 41 | Daylight loop (clock drives light) | Built |
+| 42 | Fated Tarot — the build | Built 2026-08-10/11 (tarot.js) |
+| 43 | Druskenvald clock — the build | Built 2026-08-10/11 (druskenvald.js) |
+| 44 | Character File | **Slice A built** (2026-08-15, character-file.js); Deeds recorder unbuilt |
+| 45 | Weapon mastery reminder | Built (bench pass owed) |
+| 46 | Repaint / scroll preservation | Fixed — DM confirmed |
+| 47 | Message for dev | Built (§48 added the phone entry point) |
+| 48 | Feedback window | Built (mailto leg untested) |
+| 49 | Pending-action queue + attention bell | Built (renumbered from a duplicate "§21", 2026-08-19) |
 
 ---
+
 
 ## 1. Goals and non-goals
 
@@ -33,6 +101,10 @@
 ---
 
 ## 2. Table topology
+
+> **Read with §2.1:** the dedicated headless "Service" user below was folded into the DM's own GM
+> client (the *executor*) in 2026-06-12's revision, and the display account sits at **OBSERVER,
+> never Owner** (the 2026-07-21 resolution at the end of §2.1 — load-bearing for prompt routing).
 
 | Device | Foundry user | Role | Permissions |
 |---|---|---|---|
@@ -145,8 +217,14 @@ System-side: `dnd5e.encumbrance` = `"none"` (already off in the test world). **`
 - **Route A:** the phone triggers the midi workflow programmatically with **explicit target UUIDs** (instead of canvas-derived user targets, which cannot exist on a no-canvas client). midi's own canvas-touching extras (range check, cover check) disabled in settings. Workflow runs on the phone; dialogs render there.
 - **Route B:** the phone collects all choices up front (our own big-button Adv/Normal/Dis + situational bonus screen), sends one fully-resolved request; the **Service client** runs the fast-forwarded workflow. Save/reaction prompts still reach target owners' phones (standard midi behavior for GM-initiated attacks). Requires the **dialog watchdog** (§6) because an unexpected dialog on a headless client stalls silently.
 
-### D6 — Pin versions and freeze; isolate system churn behind an adapter
-The dnd5e system churns hard (the Activities rework changed item usage and where target/range data lives) and midi tracks it with lag. Pick one known-good Foundry/dnd5e/midi triple in Spike 0, version-gate the module, and confine system-version knowledge to one adapter file: `getActivation(item)`, `getTargetSpec(item)`, `getRange(item)`, `useItem(item, options)`.
+### D6 — ~~Pin versions and freeze~~; isolate system churn behind an adapter
+
+> **The freeze half is DEAD (DM 2026-07-26): §28.4's *chase upstream, don't freeze* replaced it.**
+> The validated stack lives in preflight.js's `TESTED` map; an unvalidated version warns, gets the
+> §28.4 combat validation, then the pin bumps. The churn-isolation half survives in spirit —
+> system-version knowledge stays concentrated (rpc.js/preset.js), read from installed source.
+
+*(Original text, for the record:)* The dnd5e system churns hard (the Activities rework changed item usage and where target/range data lives) and midi tracks it with lag. Pick one known-good Foundry/dnd5e/midi triple in Spike 0, version-gate the module, and confine system-version knowledge to one adapter file: `getActivation(item)`, `getTargetSpec(item)`, `getRange(item)`, `useItem(item, options)`.
 
 ### D7 — One module, role-switched per user
 A per-user setting selects behavior: `phone` / `service` / `display` / `dm`. The display role is mostly inert (Monk's Common Display does the TV); the dm role adds the assign-targets button and status surfaces.
@@ -154,6 +232,12 @@ A per-user setting selects behavior: `phone` / `service` / `display` / `dm`. The
 ---
 
 ## 4. Required modules
+
+> **HISTORICAL (2026-06).** The living authority on module versions/health is preflight.js
+> (`TESTED` map + the module-stack check) and §28.5's ecosystem watch. Standing corrections to
+> this table: the "carousel initiative tracker" was never adopted (the DM panel's combat strip +
+> the TV carry turn order); Monk's Common Display runs on the display account with its camera
+> methods suppressed by us (§12 Round 60); AC5E/CAT/MISC joined the stack later (§28.5/§28.6).
 
 | Module | Why | Notes |
 |---|---|---|
@@ -169,6 +253,14 @@ A per-user setting selects behavior: `phone` / `service` / `display` / `dm`. The
 ---
 
 ## 5. Service RPC contract
+
+> **HISTORICAL ORIGIN (2026-06).** This table is the founding contract, not the live surface — the
+> real RPC family in [rpc.js](scripts/rpc.js) is an order of magnitude larger (item use two-tap,
+> saves/reaction relays, party pack/deploy, journals/stories, downtime ops, transfers, placement
+> sessions, …). What survives unchanged: phones never trust their own spatial math; everything
+> spatial runs on the executor; "the Service user" resolved into the executor capability on the
+> DM's GM client (§2.1). `targets.push` shipped as a pull (`listTargets`); the candidate-image
+> guard it promises was built in §28.11.
 
 All calls via socketlib, addressed to the Service user by ID. Phones never trust their own spatial math (they have none).
 
@@ -243,6 +335,11 @@ Route A is dead (Spike 2), so **every workflow runs on the executor** and any di
 
 ## 7. UI specification
 
+> **HISTORICAL v1 SPEC (2026-06).** The shipped UI (shell.js + UI-BIBLE.md) long since outgrew
+> this; where they differ, the code + bible win. Still load-bearing here: §7.6's dialog-lift
+> rules (the phone-dialog skin, the inline-input rule, the TJS caveats) and §7.8's presence
+> model. The rest is the original sketch, kept for rationale.
+
 Two modes, switched automatically: **Combat Mode** when a combat is active and the user has a combatant; **Explore Mode** otherwise. Two subject references are kept separate from day one: the *movement subject* (group token out of combat; own token in combat) and the *roll/sheet subject* (always the chosen actor) — the Tokens switcher manipulates exactly these.
 
 ### 7.1 Controller Shell
@@ -315,6 +412,15 @@ Ships the recommended midi/dnd5e settings preset; validates on world ready; loud
 
 ## 8. Spike plan (run in order; each ≤ half a day)
 
+> **RESOLVED HISTORY (all spikes concluded by 2026-06).** Outcomes: Spike 0/1 — stack stood up ·
+> Spike 2 — **Route A is dead** (midi Workflows need a canvas; the PlaceableObject crash below) ·
+> Spike 3 — **Route B passed** and became the architecture (executor runs the workflow, phones
+> pre-collect + two-tap) · Spike 4 — folded into Phase-1 smoke tests (Levels-aware `canSense`
+> candidates proven) · Spike 5 — real phones proven across the whole UI era · Spike 6 — TV
+> reticles resolved differently (native colored target pips + player-colored dynamic rings,
+> §12 Round 10c/10d). The findings embedded below (call shapes, `checkRange`/`wallsBlockRange`
+> keys, movement-automation setting) all shipped into preset.js and still bind.
+
 | # | Spike | Pass criteria | On fail |
 |---|---|---|---|
 | 0 | **Pin the stack.** Choose Foundry/dnd5e/midi triple; world + 4 users; install module stack; midi full automation; pick carousel tracker + condition automation; verify favorites entry types | Plain desktop attack flows end-to-end: attack → damage applied → save prompt on player client | Iterate version triple until baseline passes |
@@ -325,7 +431,7 @@ Ships the recommended midi/dnd5e settings preset; validates on world ready; loud
 
 **✅ Spike 2, in-canvas half: PASSED (2026-06-12).** `completeActivityUse` with code-supplied `targetUuids` → manual attack click rolled against the Giant Spider, hit auto-checked vs AC, damage rolled, **auto-applied 13 (26→13)** with the compact GM notification. The phone design's core mechanism is proven in-world. **Remaining: the identical call from a no-canvas client** — first CC task.
 
-**Spike 2, no-canvas half — PREPARED, not yet run (2026-06-12, overnight).** Full test package in [SPIKE2_NO_CANVAS_TEST.md](SPIKE2_NO_CANVAS_TEST.md) (snippet, no-canvas client setup, 8 numbered expected results). Two findings from source verification while preparing it:
+**Spike 2, no-canvas half — PREPARED, not yet run (2026-06-12, overnight).** Full test package in [SPIKE2_NO_CANVAS_TEST.md](archive/SPIKE2_NO_CANVAS_TEST.md) (snippet, no-canvas client setup, 8 numbered expected results). Two findings from source verification while preparing it:
 - **Call-shape correction:** in midi-qol 14.0.8 the signature is `completeActivityUse(activityOrUuid, usage, dialog, message)` and `targetUuids` rides in **`usage.midiOptions.targetUuids`** (the *second* argument) — the earlier note's third-argument `{ targetUuids }` slot is actually `dialog`. (The in-canvas pass evidently still targeted correctly; on the in-canvas client the user-target fallback can mask a misplaced option — the no-canvas run must use the corrected shape.)
 - **Pre-analysis risk (R1, sharpened):** midi's `getToken()` (midi-qol.js:20003) resolves token UUIDs via `TokenDocument.object` — a **canvas placeable, `null` on a no-canvas client**. `completeActivityUse` builds its target set exclusively through `getToken` (midi-qol.js:15738–15745). Predicted no-canvas failure mode is therefore **silent target loss** (workflow fires target-less), not an exception. The test's result 5 is the decision point; if it fails as predicted, Route A needs either Route B or a libWrapper fallback patch of `getToken` (TokenDocument when `.object` is null) — weigh against D6 before patching midi internals.
 
@@ -378,7 +484,7 @@ Uncaught (in promise) Error: You must provide an embedded Document instance as t
 **DM preference (confirmed):** keep the compact GM damage notification ("-13, 26→13") — automation must show its work to the DM.
 | 3 | **Route B.** Service client executes item use on the player's behalf, adv/dis passed in config | Prompts fan out to target owners; a deliberately-injected dialog is caught by a prototype watchdog and reported | → hidden-canvas fallback plan (known to work, costs phone perf) |
 
-**✅ Spike 3: PASSED (2026-06-12, live, two-client topology).** Full record in [SPIKE3_ROUTE_B_TEST.md](SPIKE3_ROUTE_B_TEST.md). What was proven end-to-end:
+**✅ Spike 3: PASSED (2026-06-12, live, two-client topology).** Full record in [SPIKE3_ROUTE_B_TEST.md](archive/SPIKE3_ROUTE_B_TEST.md). What was proven end-to-end:
 - **Relay (Test A):** `MidiQOL.completeActivityUse(activityUuid, { midiOptions: { asUser: <executor user id>, targetUuids, ... } })` from a **no-canvas player client** executes the workflow on the executor (DM Screen) with explicit targets, fully fast-forwarded, damage auto-applied. The triggering client never constructs a Workflow (midi-qol.js:15823 / handler :22285) — the §5 `item.use` RPC reduces to a thin validation wrapper over midi's own transport.
 - **Save fan-out (Test B):** executor-created workflow → save request whispered to the target's owner → **workflow holds** → owner rolls the save *from their sheet on a no-canvas client* (roll dialog renders fine there) → midi intercepts the roll, evaluates vs DC, applies half/full damage at the instant the die lands. **This is the load-bearing proof for D1.**
 - **Watchdog (Test C):** a single `renderApplicationV2` hook + whispered ChatMessage catches and reports every application render cross-client (proven by accidental live deployment on the player client).
@@ -392,13 +498,17 @@ Spike 4's endpoints are needed in **all** outcomes — build the Service endpoin
 
 ## 9. Build phases
 
+> **RESOLVED HISTORY.** All five phases shipped (plumbing → shell → combat loop → polish); phase 5's
+> "real session" happened many times over — its running successor is the **live-table pass** in the
+> §22 ledger.
+
 1. **Plumbing:** Service endpoints + Settings Enforcer. No UI; test with macros. *(Skeleton shipped 2026-06-12: module scaffold in this repo, junction-linked into `Data/modules/mobile-command`. Settings Enforcer with the full verified preset incl. nested `optionalRules.*` keys; socketlib RPC — `itemUse` wrapper with AoE guard + refusal surfacing, `moveRequest` with wall collision, `measure`, `targetsList` via per-pair `canSense`, `targetsAssign` into module state (phones can't hold user targets), `heartbeat`; §2.1 pause guard; phone-role window-size-nag suppression. Smoke tests 1–8 in README.md.)*
 
    **Phase 1 live smoke-test results (2026-06-12, two-client topology, no-canvas player client):** ✅ **tests 1–8 ALL PASS** — enforcer drift detection/apply, heartbeat over socketlib, item-use round trip, refusal surfacing, AoE guard, wall-validated move (apply + reject), Levels-aware candidate list, and the pause guard (auto-pause on leaving the active scene + auto-resume on return, refusing phone actions while paused). Phase 1 plumbing validated end-to-end. Findings/fixes during testing: (a) socketlib needs `"socket": true` in the manifest AND a full **Foundry app restart** (not world relaunch, not F5) to register — server caches manifests at process start; (b) heartbeat uses `executeForOthers`, so the executor never sees its own beat (it's null on the DM by design — check on a player client); (c) `consume` in the dnd5e usage config must be `false` or **omitted** — a boolean `true` throws (`config.consume ??= {}` leaves the `true`, then `.action=` fails); RPC now omits it for normal consumption. Refusal surfacing confirmed: out-of-slots cast returns `{ok:false, stage:"use", reason:"You have no available 1st Level spell slots…"}`. **Bonus: `targetsList` is Levels/elevation-aware** — a Rogue one floor up (10 ft straight-line) is correctly excluded via `canSense`, alongside wall-LOS exclusion of an adjacent-but-walled Cleric. Confirms the candidate cache will respect floors for free (relevant to R5 / Spike 4).
 2. **Shell + Touch Sheet (read-only first):** Favorites landing, ability-grid roll surface (check/save), tools row, HP strip, conditions. Already table-usable. *(In progress 2026-06-13: ControllerShell shipped — full-screen frameless ApplicationV2 for phone clients, read-only sheet [portrait/HP, condition chips, six-ability grid with Check/Save, common-skills strip], Actions/Journal tabs stubbed. Rolls use dnd5e document methods; render verified on desktop. **iOS finding (D2 confirmed on real hardware):** loading the canvas crashes iPhone Safari on world entry — so the module force-writes `core.noCanvas` in the `setup` hook (before the canvas draws) to match the client role. **Gotcha + guard (2026-06-13):** `core.noCanvas` is **per-browser localStorage, not per-user** — so logging a browser into a phone account (no-canvas) and then switching the *same browser* to the DM stranded the DM without a canvas (the leftover `true` persisted). The setup hook now **reconciles both directions on every load** — phone role → `noCanvas=true`, any other role (DM/TV) → `noCanvas=false` — so a browser self-corrects whenever it loads a world as a given role (a role switch always reloads the page, re-running `setup`). Net: phones are always canvasless, DM/TV always have a canvas, regardless of what the browser was last used for. Favorites-data integration, tools row, and HP steppers (write) are the next sub-steps.)*
    **Finding (2026-06-13): the full-screen shell hides Foundry's native chat**, so a phone player can't see their own roll result (the roll posts fine — verified via the DM's chat). The shell needs an in-shell **roll-result surface** (a toast on the player's own rolls, and/or a compact recent-rolls strip) — render-hook on `createChatMessage` filtered to this user's rolls. Near-term Phase 2/4 item; pairs with the Prompt Restyler (§7.6) which restyles the roll *dialog* but not its *output*.
    **Built (commit `e6c906e`, refined in `8451154`):** roll-result surface shipped in `shell.js`. A `createChatMessage` hook (`registerShellHooks`) routes roll messages to the open shell, filtered to *this user's rolls* — `message.author?.id === game.user.id` **OR** `message.speaker?.actor ===` the controlled actor's id, and only messages with `rolls.length`. Two read-only surfaces, styled in `shell.css` to the dark/thumb-first palette: (1) a **transient toast** over the sheet — big total + flavor label + formula, auto-dismiss ~4.5 s, tap to dismiss, natural-20/natural-1 highlighting (read from the kept d20's active result, no dnd5e internals); (2) a persistent **recent-rolls strip** above the tab bar (last 6, newest-first pills, horizontally scrollable). The toast is an overlay node detached/re-appended across full re-renders (so an HP/condition update doesn't wipe an in-flight toast); the strip lives in the flex flow (rebuilt from `#recentRolls` on re-render, updated in place per roll) so it never overlaps the sheet. Timer cleared + history reset on `_onClose`. Now load-bearing for Phase 3 (item-use results echo here). **Not yet exercised in the live world** — verified by code review only; needs the numbered live test (own check/save/skill → toast + pill; another player's roll → nothing; nat-20 highlight).
-3. **Combat loop:** Turn HUD, move pad → `move.request`, Target Cycler → candidate cache + reticle broadcast, item use via the winning Route. *(In progress 2026-06-13 — Step 1: Actions tab lists the actor's usable offensive activities [attack/save/damage, AoE excluded], tapping opens a target picker fed by the `listTargets` RPC [tap-to-select up to the activity's target count, adv/normal/dis], and Fire calls `useActivity` (Route B) **fully resolved** for now. Results echo via the roll-result surface; refusals surface as toasts. **✅ Step 2 DONE (2026-06-13, verified live):** the Q5 two-tap cadence works — tap **Use** fires the attack (executor parks the workflow at WaitForDamageRoll via the held-workflow mechanism, RPCs `itemUseStart`/`itemUseDamage`/`itemUseCancel`), the phone shows the attack result, and a deliberate **Roll damage** tap triggers the held workflow's damage. Verified: Greatsword → Gnoll, attack rolled 20/hit as a separate step. UI hardened with timeout/try-catch so a hung RPC can't strand the shell on "Rolling…". Target UI is a tappable list for now; the prev/next Cycler is the later MVP skin. **Move pad + Turn HUD built 2026-06-13 (untested, see §12 overnight-build note + MORNING_REPORT.md):** Move tab D-pad → `move.request`; Turn HUD banner with owner-gated End turn → `endTurn` RPC.)*
+3. **Combat loop:** Turn HUD, move pad → `move.request`, Target Cycler → candidate cache + reticle broadcast, item use via the winning Route. *(In progress 2026-06-13 — Step 1: Actions tab lists the actor's usable offensive activities [attack/save/damage, AoE excluded], tapping opens a target picker fed by the `listTargets` RPC [tap-to-select up to the activity's target count, adv/normal/dis], and Fire calls `useActivity` (Route B) **fully resolved** for now. Results echo via the roll-result surface; refusals surface as toasts. **✅ Step 2 DONE (2026-06-13, verified live):** the Q5 two-tap cadence works — tap **Use** fires the attack (executor parks the workflow at WaitForDamageRoll via the held-workflow mechanism, RPCs `itemUseStart`/`itemUseDamage`/`itemUseCancel`), the phone shows the attack result, and a deliberate **Roll damage** tap triggers the held workflow's damage. Verified: Greatsword → Gnoll, attack rolled 20/hit as a separate step. UI hardened with timeout/try-catch so a hung RPC can't strand the shell on "Rolling…". Target UI is a tappable list for now; the prev/next Cycler is the later MVP skin. **Move pad + Turn HUD built 2026-06-13 (untested, see §12 overnight-build note + archive/MORNING_REPORT.md):** Move tab D-pad → `move.request`; Turn HUD banner with owner-gated End turn → `endTurn` RPC.)*
 
 **B9 — ✅ DONE (interim DM-side preview, verified live 2026-06-13). Target commits on the player's tap, not at attack time.** Was: candidate selection was local highlight state on the phone; the real Foundry target was only set when the workflow fired with `targetUuids`. Now: on target-toggle the phone calls `previewTargets`, and the executor reflects the selection on the active-scene canvas via `canvas.tokens.setTargets(ids, {mode:"replace"})` (v14 API; `User#updateTokenTargets` is gone). Shows in the DM's targeting color for now; the **player-colored TV reticle** (§5 broadcast trick) supersedes it once the TV client is up. The DM wants the target to **switch live as the player taps** — which is precisely §5's `targets.push`/reticle-broadcast and §7.3's "TV reticle follows your cycling." Implementation: on target-toggle, push the selection to the executor so it reflects on the active-scene canvas / TV, ideally as a **player-colored reticle** via the TV client (§5 user-activity broadcast trick) rather than polluting the DM's own targets. Needs the TV (Monk's Common Display) client to test the colored-reticle path; an interim DM-side preview is possible but should not hijack the DM's targeting. This is the next combat-loop increment after Step 2.
 4. **Load-bearing polish:** restyled save/reaction prompts, pre-roll screen (if Route B), journal composer, Connection Guard, dialog watchdog (if Route B).
@@ -407,6 +517,14 @@ Spike 4's endpoints are needed in **all** outcomes — build the Service endpoin
 ---
 
 ## 10. Risks & open questions
+
+> **ALL RESOLVED.** R1 — negative, Route A dead (Spike 2) · R2 — watchdog built (Round 39) + §6.1
+> routing; long tail stays DM-side by design · R3 — superseded by §28.4 chase-upstream ·
+> R4 — never material; moves feel fine at the table · R5 — candidate list is executor-filtered and
+> §28.11 closed the name/face leak · Q1 — native dnd5e Group actor adopted, pack/unpack is ours
+> (§15) · Q2 — favorites cover activities/items/skills/tools (Round 30) · Q3 — dissolved with the
+> two-client topology (§2.1) · Q4 — `playerSaveTimeout` 60s + `reactionTimeoutPct` 120% (§49.3) ·
+> Q5 — two-tap cadence, built and standing (D4/§6.1).
 
 - **R1 — midi on no-canvas clients (Route A) is unverified.** The whole architecture's cheapest path hangs on Spike 2.
 - **R2 — Route B headless stalls.** Mitigated by the dialog watchdog; watchdog "safe defaults" list needs curation per dialog type.
@@ -464,9 +582,36 @@ D&D's actual rules engine is the DM. Every automatic gate in this module advises
 
 ## 12. UI backlog — real-device feedback (do not action until UI-design phase)
 
+> **HISTORICAL LOG (Rounds 3–61, 2026-06-13 → 2026-07-01, reverse-chronological).** Everything
+> here was either built, superseded, or triaged into later sections; do NOT treat inline "OPEN"/
+> "pending" markers as live — the ledger is §22. What this section still owes a reader is its
+> TRAPS, so they're indexed here:
+>
+> - **`detectionModes` is an OBJECT keyed by id, not an array** (Round 60) — array writes are
+>   silently dropped.
+> - **Sense sync must run on a GM client** — player clients silently skip tokens they can't
+>   update (Round 60); `actorTokenSight()` (rpc.js) is the one shared computation (Round 21 §15-era).
+> - **midi's `isValidTarget` hard-rejects `document.hidden` tokens** — the DM practice for
+>   "attack what you can't see" is the Invisible CONDITION, never the Hide toggle (§11).
+> - **`MidiQOL.Workflow.workflows` is a Map** — `Object.values()` on it is always `[]` (§13's
+>   two-tap root cause).
+> - **rpc.js runs on the executor: fixes activate only after the DM client reloads** (Round 22).
+> - **MCD also drives the display camera** — `suppressMcdCamera()` no-ops its three camera
+>   methods on our display only (Round 60).
+> - **`core.noCanvas` is per-BROWSER localStorage** — the setup hook reconciles it by role both
+>   directions (Phase 2 note, §9).
+> - iOS quirks: `<button>` flex mis-centering (Round 20) · no Fullscreen API (Round 23 §15-era) ·
+>   `selectNodeContents` on a `<textarea>` selects 0 chars — the "iOS copy bug" that wasn't
+>   (Round 59).
+> - **Round 61 items whose final state lives elsewhere:** weapon-attack stalls → stale-executor +
+>   §28 pipeline fixes · fresh-caster 0 slots → fixed (advancement hook) · Bender/homebrew spell
+>   lists → DM decision recorded in Round 32's backlog note ("DM picks from suggested lists"),
+>   **not yet built** · Cloak of Invisibility utility-effect gap → never re-verified, in the §22
+>   ledger.
+
 Captured 2026-06-13 from live iOS Safari testing of the Phase 2 shell (read-only sheet, Fighter). Logged, not yet implemented; the read-only sheet is functionally verified. The L&F overhaul (B5) is the umbrella that several of these fold into.
 
-**⏳ Overnight build status (2026-06-13, BUILT BUT UNTESTED — verify per MORNING_REPORT.md):** L&F pass (B5) applied as a dark-fantasy "character sheet" theme (Modesto Condensed display font, gold/crimson accents) layered over the existing DOM so functionality is preserved. Folded in: **B1** (tab bar enlarged + `env(safe-area-inset-*)` via a `viewport-fit=cover` meta the module now sets on phones), **B3** (inspiration star toggle in the header), **B4** (AC in the header), **B7** (HP & temp are tap-to-edit, absolute or relative `±` — the −/+ steppers + Damage/Heal row are removed). Also built the Phase 3 **Move pad** (Move tab, 3×3 D-pad → `move.request`) and **Turn HUD** (banner when combat is active; End turn → new `endTurn` RPC, executor-side `nextTurn`, owner-gated). **Deferred:** B2 (swipe between tabs), B8 (in-range badge — still needs the activity's range passed into `listTargets`), action-economy pips on the HUD, and out-of-combat group-token binding for the move pad (currently moves the controlled actor's own token). All of this is UNVERIFIED — built without a live client; the morning report lists the exact tests.
+**⏳ Overnight build status (2026-06-13, BUILT BUT UNTESTED — verify per archive/MORNING_REPORT.md):** L&F pass (B5) applied as a dark-fantasy "character sheet" theme (Modesto Condensed display font, gold/crimson accents) layered over the existing DOM so functionality is preserved. Folded in: **B1** (tab bar enlarged + `env(safe-area-inset-*)` via a `viewport-fit=cover` meta the module now sets on phones), **B3** (inspiration star toggle in the header), **B4** (AC in the header), **B7** (HP & temp are tap-to-edit, absolute or relative `±` — the −/+ steppers + Damage/Heal row are removed). Also built the Phase 3 **Move pad** (Move tab, 3×3 D-pad → `move.request`) and **Turn HUD** (banner when combat is active; End turn → new `endTurn` RPC, executor-side `nextTurn`, owner-gated). **Deferred:** B2 (swipe between tabs), B8 (in-range badge — still needs the activity's range passed into `listTargets`), action-economy pips on the HUD, and out-of-combat group-token binding for the move pad (currently moves the controlled actor's own token). All of this is UNVERIFIED — built without a live client; the morning report lists the exact tests.
 
 **⏳ Round 2 (2026-06-14, from DM feedback on the first build — also UNTESTED):** Move pad **moved into the renamed "Explore" tab** (was "Sheet"; the dedicated Move tab is gone) and the **D-pad enlarged + tightened**. **HP/Temp editor reworked for iOS** — the iOS numeric keypad has no +/− or reliable return, so tapping HP/Temp now opens a roomy row with on-screen **− / + / Set** buttons (− and + apply the typed amount as a delta; Set is absolute); inputs enlarged. **Actions broadened** beyond weapons/offensive spells to include **features** (Action Surge=utility, Second Wind=heal) and any non-AoE activity; no-target features skip the target picker. **Each action row now shows the item/feature icon** (`item.img`). **Still deferred (logged, not built):** inventory use (lamp/equip toggles, potions) as a Sheet/inventory surface; long-press detail card + context menu (§7.2 v2); swipe between tabs (B2); in-range badge (B8); action-economy pips on the Turn HUD; out-of-combat group-token movement; **grouping the Actions list by activation type (Action / Bonus / Reaction)** — DM-requested 2026-06-14, group via `activity.activation.type` with section headers.
 
@@ -815,6 +960,10 @@ Verified live as GM: all three render; pause toggles + lights; next/prev advance
 
 ## 13. Consolidated open backlog (as of 2026-06-14)
 
+> **HISTORICAL — this was the June backlog; the living ledger is §22.** Kept for its findings
+> (the Map-vs-`Object.values` two-tap root cause, the AC5E adoption story, the long-press suite,
+> the light-source items MVP). Inline "TODO/owed" markers here are not live.
+
 Single list so a fresh session can pick up. UI rounds 1–7 (§12) are built; details/rationale for each are in §12 and the git log. Source of truth remains this doc.
 
 **2026-06-18 DM feedback batch (live test of the Magic Missile fix + a stream of observations):**
@@ -912,6 +1061,13 @@ a Light Crossbow). `handleSetTokenLight` (rpc.js, executor, owner-gated) writes 
 
 ## 14. Why the phone has its own adv/dis buttons — and the spike to remove them
 
+> **RESOLVED.** The buttons stay (Route B makes midi's native attack dialog unreachable from a
+> phone — the analysis below is still the definitive why), and the recommendation gap closed via
+> the hidden AC5E pre-roll (`attackPreview`), which was then hardened twice: the AC5E
+> forced-dialog hang fix (2026-07-17 note below) and the phantom-swing animation suppression
+> (§28.8). Checks/saves get AC5E's advice natively in their dialog; attacks get the starred
+> recommendation + named reasons in the picker.
+
 **Question (DM, 2026-06-14):** midi's roll dialog already has Advantage/Normal/Disadvantage and now renders full-screen — why keep our own adv/dis buttons; can't we just use midi's popup?
 
 **Reason it's not trivial — Route B workflow locality:**
@@ -982,7 +1138,7 @@ Probed the world's rebuilt group `bTNHugymMcYIqpqz` ("Group", 4 PCs: Aurelio Bri
 - **Feature 2 — deferred (High):** live formation-locked travel movement (the "forward" arrow drives ongoing group movement). Overlaps Follow-the-Leader / Squadron; pairs with the §13 "Follow leader" / "out-of-combat group-token movement" backlog items.
 - **Verification:** needs a multi-client live pass (≥2 phones + executor + TV) — the shared-grid sync and the deploy-into-facing are the parts to watch.
 
-**Build status (2026-07-02).**
+**Build status (2026-07-02 → 2026-07-10; the rounds below run OLDEST-FIRST then jump around — trust §22/§25 for anything panel-shaped).** Party Mode is BUILT end-to-end: pack/arrange/lock-in/travel/deploy, scout release/combine, auto-facing, the Party-OS tabs, group checks, travel pace, night/guard-duty (later folded into §19 Rest), and the DM panel's Party tab (§25 restructure superseded the dock/flyout layout described in the later rounds here). Reading note: this block also hosts Rounds 22–47 of general (non-party) work — the numbering is a session counter, not a party-mode sequence.
 - ✅ **Executor RPCs built + wired** ([rpc.js](scripts/rpc.js)): `partyPack` (cluster-check → pre-fill formation from current layout → group-token vision/dispo write → delete member tokens), `partySetCell` (owner-gated flag broker), `partySetForward` (GM-only), `partyDeploy` (rotate+place with bounds/wall/occupancy validation → `nofit` abort → recreate members, delete group token). Registered + added to the `toExecutor` map + `api.party*`. **Untested end-to-end** — the token delete/recreate is destructive + canvas-bound, so it needs a supervised executor session (same "reload the GM client" caveat as every other rpc.js change).
 - ✅ **Phone editor built + verified live end-to-end** ([shell.js](scripts/shell.js)/[shell.css](styles/shell.css)): `#partyGroup`/`#partyModeHTML` + the `#tabContent` overlay + `party-cell`/`party-done`/`party-forward`/`party-disperse` handlers + `updateActor`/create+deleteToken re-render hooks. **Verified on a reloaded Player-1 client against a REAL pack** (DM ran `MobileCommand.partyPack` live): the 3×3 renders with member portraits, the player's own PC is gold-highlighted, FORWARD arrow + hint + Done show, and **tapping an empty cell moved the PC via the real executor** — `partySetCell` wrote the server flag and every client re-rendered (full round-trip confirmed).
 - 🐞 **Fixed during that test** (2026-07-02): while packed, member tokens are deleted, so the group token was the only owned token on-scene and `get actor()` bound the phone's subject to the **group** — breaking per-player placement (the editor keys "my PC" off the subject). Fix: `#ownedTokens()` now excludes `type==="group"`, and `get actor()` binds to the player's own **member PC** (assigned if a member, else first owned) while packed. Verified: subject resolves to a real PC, own-cell highlight + Done work. *(Multi-PC-owner test rigs can only place their primary from one phone — a real game is one PC per user.)*
@@ -1030,7 +1186,7 @@ Probed the world's rebuilt group `bTNHugymMcYIqpqz` ("Group", 4 PCs: Aurelio Bri
   - **Round 27 (2026-07-07, v0.1.84 — batch 3, built overnight for local testing):** (1) **Phones auto-disable Sequencer canvas effects** (client-scoped `sequencer.effectsEnabled` → false on phone ready; takes effect next reload) — kills the PlaceableObject error family on canvas-less clients, including the Shield-reaction error (FINDINGS B3); sounds stay on. (2) **Char-gen grants AUTO-EQUIP**: all granted weapons + the first body armor + first shield equip on grant (unless already worn) — fixes wrong AC (armor in the bag) and the AoO "no weapon" blindness at the source. (3) **DM panel: rebuild-party button** — when a candidate group exists but the scene's PCs aren't all members (the stale "איפה הגרוק שלי" trap), a ⟳ appears beside Form up: confirm-gated, replaces `system.members` with the scene's PCs. (4) **Player onboarding v1**: a one-time full-screen welcome overlay on phones (localStorage `mc-onboarded` per device) — step 1 fullscreen (live button on Android, Add-to-Home-Screen how-to on iPhone, ✓ when standalone), step 2 the three gestures (tap/hold/Use-hand), step 3 "eyes on the TV"; reopenable from Details ("Show the welcome tips"). **AoO fixes earlier the same night (v0.1.83):** prompts no longer route to the TV account (it auto-owns every PC and has no shell — the DM's solo test died there; no phone owner online → DM dialog fallback), and the reach filter falls back to carried-but-unequipped melee weapons. **Live-verified via the DM's Chrome:** wolf beside Grukk → combat → plain move away → console `AoO: Dire Wolf leaves Grukk BattleToad's reach (Flail)` + the DM dialog. All local-symlink; DM tests tomorrow.
   - **Round 26 (DM 2026-07-06, v0.1.82): IN-HOUSE OPPORTUNITY ATTACKS (the Gambit's-Premades alternative).** CPR/Gambit's are still v13-only (checked live: CPR 1.5.40 verified 13; GP 2.1.43 verified 13.351), so the long-parked "custom executor-side movement watcher" shipped: **[aoo.js](scripts/aoo.js)**. `preUpdateToken` on the EXECUTOR (all movement flows through it — pad moves + DM drags) detects leave-reach in combat: threat = attacker's **largest-reach equipped melee weapon attack activity** (activities with `range.reach`; +size pads for big tokens; `canvas.grid.measurePath` so the table's diagonal rule holds), threatened at start AND outside at end, attacker hostile + in combat + reaction unspent (`flags.midi-qol.actions.reaction`) + not incapacitated, mover not Disengaged (status/effect-name match). One prompt per attacker-mover-turn; never blocks the move (warnings-not-walls). **Player attacker** → socket card on their phone (violet reaction styling): "X is escaping Y's reach — Attack with <weapon>" → taps into the NORMAL two-tap attack flow with the mover PRE-TARGETED (assigned-targets path); **midi's `recordAOO` (already in the preset) charges the reaction on roll**. **NPC attacker** → `aooNpcMode` world setting: **Ask the DM** (DialogV2 confirm, default) / auto-roll (fully fast-forwarded completeActivityUse) / off. Master toggle `aooEnabled` (default on; combat-only regardless). **v1 limits (documented, revisit if Gambit's lands v14):** no movement interruption mid-path; no vision/cover check; melee weapons only (no unarmed-strike feature items, no Sentinel/Polearm-Master triggers); teleports skip it naturally (region teleports don't updateToken). **✅ LIVE-VALIDATED (2026-07-06, CC-driven GM client, local offline-test/Cave A):** teleported the Dire Wolf (temp friendly) adjacent to Orc Fury in a throwaway combat, moved it out of reach → the watcher fired end-to-end: console `mobile-command | AoO: Dire Wolf leaves Orc Fury's reach (Haymaker Greataxe)` + the NPC DialogV2 "Opportunity attack — …Take the opportunity attack with Haymaker Greataxe? Yes/No" on the GM screen. Detection/decision math also verified read-only (reach-weapon ID; effReach 5.5ft; fires on adjacent→away & diagonal-out; holds on within-reach shuffle & never-threatened). Test world fully restored (combat deleted, wolf disp/pos back). **Two v14 gotchas found:** (1) programmatic `token.update({x,y})` is WALL-CONSTRAINED in Foundry 14 — a scripted/dragged move clamps along a valid path, so a token may not actually cross inside-reach→outside-reach as expected (use `{teleport:true}` for exact test placement; likely why the DM's first manual test saw no popup — the move didn't genuinely leave reach). (2) `game.modules.get().version` shows a STALE cached manifest string on the LOCAL symlinked world (read 0.1.81 while the scripts were 0.1.82) — the version string only refreshes on a world RELAUNCH (Return to Setup), not a client reload; the actual scripts DO load fresh (confirmed via the `aooEnabled`/`aooNpcMode` settings existing). Sqyre release installs update the string normally. Player phone-card path still needs a real 2nd client (cookie-isolated) to eyeball.
   - **Round 25 (DM 2026-07-06, v0.1.81): ZOOM scene transitions + party travel links via core Regions.** The DM wants map-scale storytelling: world map ⇄ local scenes ("show the PC's boat during travel, zoom in for the deck scene"). Findings from core (Foundry 14 source): `CONFIG.Canvas.sceneTransitions` is an OPEN registry — entries carry their own `filterClass`; the Scene config Ambience→Transition dropdown AND core's **Teleport Token region behavior** per-teleport transition picker are both built from it; the engine (`TransitionContainer`) snapshots outgoing+incoming scenes and animates a shader `progress` uniform. So the whole "step on the town marker → confirm popup → switch scene with a zoom" flow is **native**: a Region with a Teleport Token behavior (cross-scene destination Region, `choice` = the confirmation dialog, per-teleport transition override). We ship only: (a) **`MCZoomTransitionFilter`** ([transitions.js](scripts/transitions.js)) subclassing core's `TextureTransitionFilter` — own fragment shader (zoomIn: old scene magnifies ~12× around the `anchor` uniform while the new scene resolves under the back half; zoomOut: old scene shrinks into the anchor over the new map, then dissolves) — registered as **mcZoomIn/mcZoomOut** (labels "Zoom In/Out (Mobile Command)", 1600ms default); (b) **`registerPartyTeleportActivation`**: primary-GM `createToken` hook — when the PACKED party token arrives on a non-active scene (teleport/DM drag), `scene.activate()` so the TV + phones follow and the destination's transition plays for everyone (world setting `partyTeleportActivates`, default on). **Convention (DM design): SMALL maps set scene transition = Zoom In; BIG maps (overworld) = Zoom Out** — arrival direction is then automatic everywhere, teleports can override per-gate. Needs a live TV tuning pass (zoom factor/easing are feel constants: 11.0 / smoothstep 0.45–1.0 / 0.75–1.0 in the shader). Core caveat: `TransitionContainer` is @internal — a Foundry minor could wiggle; registry+dropdown are config-level.
-  - **Round 24 (2026-07-05, PLAYTEST FINDINGS batch 2 — v0.1.80).** Transcript-driven fixes (FINDINGS_2026-07-05.md is the ledger): (1) **Finish = rested**: char-gen Finish runs a silent `longRest` then a direct fill-UP of HP+slots (dnd5e's `allowRests=false` gate silently refuses a player's rest, so the fill-up guarantees the outcome; never reduces). (2) **Redo choices**: each picked source row (species/background/class) carries a ⟳ chip → `AdvancementManager.forModifyChoices` — a cancelled wizard is no longer a dead end (the "empty sheet" root cause). (3) **Multi-instance targeting** (DM design): count>1 activities grow a "− [n] +" stepper on selected target rows; duplicates ride to the executor as repeated uuids; the workflow runs on the unique set and each extra instance gets a fresh roll of the damage formula applied via `applyDamage` (resistances respected) + a GM-whispered audit line. Known limit: upcast doesn't grow the cap live. (4) **AC breakdown** now mirrors `prepareArmorClass` (flat/default/formula calcs; dnd5e nulls `ac.label` when unarmored — that's why Mage Armor vanished) + a "From effects:" line naming AC-touching effects. (5) **Merchant round 2**: left pane fully hidden on phones; any item arriving on the controlled actor toasts (suppressed during char-gen). (6) **Dialog fit**: bottom-sheets capped 88dvh, footers (form-footer/dialog-buttons) STICKY so Continue can't scroll out of reach; advancement inner heights unclamped. (7) **Shield error TRACED**: "must provide an embedded Document instance" = Foundry core PlaceableObject ctor — an animation/canvas module firing on the No-Canvas phone, NOT our pipeline → onboarding: disable Sequencer effects client-side on phones. All executor-affecting (rpc.js) → DM reload; release v0.1.80 for Sqyre.
+  - **Round 24 (2026-07-05, PLAYTEST FINDINGS batch 2 — v0.1.80).** Transcript-driven fixes (archive/FINDINGS_2026-07-05.md is the ledger): (1) **Finish = rested**: char-gen Finish runs a silent `longRest` then a direct fill-UP of HP+slots (dnd5e's `allowRests=false` gate silently refuses a player's rest, so the fill-up guarantees the outcome; never reduces). (2) **Redo choices**: each picked source row (species/background/class) carries a ⟳ chip → `AdvancementManager.forModifyChoices` — a cancelled wizard is no longer a dead end (the "empty sheet" root cause). (3) **Multi-instance targeting** (DM design): count>1 activities grow a "− [n] +" stepper on selected target rows; duplicates ride to the executor as repeated uuids; the workflow runs on the unique set and each extra instance gets a fresh roll of the damage formula applied via `applyDamage` (resistances respected) + a GM-whispered audit line. Known limit: upcast doesn't grow the cap live. (4) **AC breakdown** now mirrors `prepareArmorClass` (flat/default/formula calcs; dnd5e nulls `ac.label` when unarmored — that's why Mage Armor vanished) + a "From effects:" line naming AC-touching effects. (5) **Merchant round 2**: left pane fully hidden on phones; any item arriving on the controlled actor toasts (suppressed during char-gen). (6) **Dialog fit**: bottom-sheets capped 88dvh, footers (form-footer/dialog-buttons) STICKY so Continue can't scroll out of reach; advancement inner heights unclamped. (7) **Shield error TRACED**: "must provide an embedded Document instance" = Foundry core PlaceableObject ctor — an animation/canvas module firing on the No-Canvas phone, NOT our pipeline → onboarding: disable Sequencer effects client-side on phones. All executor-affecting (rpc.js) → DM reload; release v0.1.80 for Sqyre.
   - **Round 23 (2026-07-05, PLAYTEST FINDINGS batch 1 — v0.1.79).** First real 2-tester session ("The Peddler's Music Box" on Sqyre) went sideways in instructive ways; fixes for the four confirmed setup/char-gen killers (transcript triage still pending): (1) **Empty group = invisible Party Mode**: the DM panel's Form up only rendered for a group WITH members, and an empty/missing group rendered NOTHING — no hint, no way in-app to add members (the DM forgot the manual sheet-drag step and was stranded). Now a no-candidate panel offers **one-tap populate**: "Add N PCs to <group>" fills an empty group with the active scene's player-owned PCs via dnd5e's own `group.system.addMember` (idempotent), or "Create party (N PCs)" creates the group first. (2) **Advancement popups didn't lock the shell** — players kept tapping the workspace under an open wizard ("horrible"). Every lifted dialog now mounts a full-screen **backdrop** one z below it (`#mc-shell-backdrop`, tracked per-app in `liftedApps`, cleared via closeApplication/V2 hooks when the last closes) — the step must be finished or closed before the shell is tappable. (3) **Grant double-fire**: `#applyEquip` awaits compendium loads BEFORE the granted-flag write, so Yaniv's triple-tap granted 3× everything; `#charGenAdd` could likewise open two advancement managers. Both now share an in-flight `#cgBusy` lock (swallow repeats, release in finally). (4) **Fullscreen** (testers played with browser chrome eating the screen): a **"Go full screen" button above Leave/Log out** (Details tab) using the Fullscreen API + a `fullscreenchange` re-render; **iPhone Safari has NO Fullscreen API**, so there the button shows the Add-to-Home-Screen how-to, and phone clients inject `apple-mobile-web-app-capable` metas so a home-screen launch is chromeless. Also queued for the future onboarding flow. **Still open from the session:** Psychic Blade (Soulknife) damage routed to the DM instead of the player — needs a live repro with the exact item before touching the executor.
   - **Round 22 (DM 2026-07-04): condition chips tap-to-open + an editable biography.** (a) Condition chips in the header now **open their rules/detail on a plain TAP** (`data-action="cond-open"` → `#showEffectDetails`), not only on long-press — the hold still works too. (b) The biography (long-press the portrait/name) became a **journal-style editor** rather than a read-only card: a search box filters the read paragraphs (DOM show/hide, like the journal note filter), an **Edit** button swaps to a plain-text textarea, and **Save** writes back to the PC's own `system.details.biography.value` (player owns their actor → direct `actor.update`, no executor). Formatting-free by design (DM: "no need for formatting"): stored HTML is stripped to text for editing via `#htmlToText`, and saved text is re-wrapped as simple `<p>`/`<br>` so it still reads on Foundry's native sheet. New state `#bioOpen/#bioEditing/#bioDraft/#bioFilter`; the draft survives the shell's frequent re-renders like the journal composer. Phone-side only. Shipped alongside the earlier v0.1.72–75 Explore polish (Use hand, edge-pinned stats, lever icon).
   - **Round 21 (DM 2026-07-04): deployed/released PCs were BLIND in the dark — senses now sync at token creation.** Live report: Ember walked away from the group and "into the darkness" with no line of sight on the TV (ownership was fine — all four PCs owned by the TV account). Root cause: `partyDeploy` and `partyRelease` build member tokens from `actor.getTokenDocument()` = the **prototype token**, whose sight is typically `range 0 / basic` — the only thing that ever pushed real dnd5e senses onto tokens was `syncPartyTokenSight`, which runs at **combat start** (with combatPovVision) or manually. Out-of-combat exploration — the exact party-mode use case — never got it. Fix (v0.1.71): the senses→sight/detection computation now lives in ONE exported helper, **`actorTokenSight(actor)` (rpc.js)** — numeric `senses.ranges` + the "Special Senses" free-text fallback, darkvision visionMode, id-keyed `detectionModes` object — applied at **token creation in deploy AND scout-release**, and reused by `syncPartyTokenSight` (main.js) and char-gen's `#syncFinishedTokenSight` (shell.js), which previously carried two more diverging copies of the same logic. Side effect: the combat sync's old `saturation:-1` (full greyscale, 2026-06-28) is superseded by the newer **DARKVISION_SAT −0.8** everywhere (DM 2026-07-03: "-0.6 too colorful; halfway to full gray"). Executor-side (rpc.js) → **needs a DM-client reload**, then re-test: disperse → walk a darkvision PC into an unlit area → their sight radius shows on the TV. Note: a PC with NO darkvision correctly stays blind in darkness — that's D&D, not a bug.
@@ -1061,9 +1217,9 @@ Probed the world's rebuilt group `bTNHugymMcYIqpqz` ("Group", 4 PCs: Aurelio Bri
   - **Round 9b (DM 2026-07-03): colored ring under night vision.** Finding: vision-mode grayscale is a scene-wide saturation shader on the primary canvas group — the dynamic token ring is part of the token mesh and can't be exempted directly; the INTERFACE layer (nameplates/bars) is exempt. Fix applied: pack sets `sight.saturation: -0.6` (not core's -1) → muted color survives, ring stays legible. Dispersed PCs: the same dial exists natively per token (Token config → Vision → Saturation). The TRUE gray-world/colored-rings fix = interface-layer ring overlay on the display client — the **same mechanism as Spike-6 TV reticles**; build both together as one later chunk. Core ring-shader patching rejected (fragile, anti copy-Foundry).
   - **Round 6b (DM 2026-07-03): Lock in and Disperse never share a row.** "You can't disperse before you lock in the order" — and 4 buttons overflowed the row anyway. Now: **arrange** = rotate ◀▶ + a **gold Lock in** (disabled until everyone is placed on unique cells — the one-per-cell gate moved here, its natural home); **travel** = rotate ◀▶ + Rearrange, with **Disperse full-width on its own row**. Same structure on the phone DM row and the DM panel. Verified visually on the live client (temporary client-side GM override to render the DM row; reverted): arrange shows gold enabled Lock in + no Disperse; travel shows Rearrange + full-width Disperse + pad, no overflow.
 
-## 16. DM onboarding wizard + session preflight (PLANNED 2026-07-08 — milestone after reactions)
+## 16. DM onboarding wizard + session preflight (PLANNED 2026-07-08 → **BOTH SHIPPED**: preflight v0.1.92, wizard v0.1.94)
 
-DM directive (2026-07-08): plan this next; build order after reactions = this → downtime/guard-duty → inventory transfers. Two deliverables sharing one checks engine.
+DM directive (2026-07-08): plan this next; build order after reactions = this → downtime/guard-duty → inventory transfers. Two deliverables sharing one checks engine. **Shipped state:** the Preflight tab became **System health** (§47 re-worded every check to plain language), grew the `AUTOMATION_PREREQS` warn-with-fix mechanism (§28.7/§45.2) and the Message-for-dev/feedback buttons (§47/§48); the wizard got fixed-size steps + its own `mc-swiz-*` classes (§48.1). Its one queued improvement: ask **in-person vs online first** (§39 — the whole shared-screen half hangs on that answer).
 
 **16.1 Checks engine (`scripts/preflight.js`).** Pure functions, each returning `{id, label, status: ok|warn|fail, detail, fix?: () => Promise}`. Planned checks, all read-only with opt-in one-tap fixes:
 1. **Executor online** — resolveExecutorId() user active (fail = nothing works).
@@ -1083,6 +1239,12 @@ DM directive (2026-07-08): plan this next; build order after reactions = this �
 **Not in scope v1:** per-player device setup (the player onboarding covers it), Sqyre account provisioning, module installation.
 
 ## 17. Downtime activities (milestone #2 after preflight — seeded 2026-07-08)
+
+> **Read the "CURRENT STATE (v0.1.171)" block near the end of this section first** — it is the
+> shipped model (DM catalog → players pick ONE → Start activities → push-roll/tick → progress
+> persists). Everything between here and there is the archaeology of getting to it: §17.5's
+> catalog (mostly retired), §17.6's day-budget board (**a dud, retired**), §17.7's montage
+> research and the pivots. The guard-duty half (§17.4) was later folded into §19 Rest.
 
 DM scope so far: downtime + guard-duty roster live in the Party-mode tabs (Round 7 FUTURE note); **spell learning is a downtime activity, not an instant button** (DM 2026-07-08, redirecting the scroll question — a started in-card "Scribe" button was reverted the same day).
 
@@ -1326,72 +1488,6 @@ vs. the secret goblin village the DM can move clandestinely).
 - **T5 (maybe) — terrain regions.** Painted terrain regions auto-multiply segment cost in the
   estimate; only if the DM actually wants to paint overmaps.
 
-## 20.9 Dead-code sweep (2026-07-22)
-
-DM: *"just like the themes stayed behind, i don't want stray mentions of the 'active PC' and
-multiple owners code showing up… be careful when trimming."*
-
-Removed, each verified unreferenced first:
-
-- **DM-assign chip list** (`assignHTML` + `activePlayers` + the `[data-user]` and
-  `[data-action="clear"]` handlers + 9 CSS rules). It was the only producer of `data-user`, and
-  nothing called it — superseded by the Rolls tab's per-PC crosshair, which calls the same
-  `api.assignTargets`. The panel's own header still advertised it as job #1.
-- **`bonusActivities` / `WINDOW_SLOTS` / `slotsFor()`** — the "extra activities per beat" stepper.
-  Downtime became ONE activity per player on 2026-07-14 (`selectActivity`), which superseded the
-  whole slots idea, and **nothing ever read `slotsFor()`**: the DM could set +2 and no code
-  consumed it. A control that silently does nothing is worse than no control. `showMechanicsByDefault`
-  stays — it is read when authoring a Rule.
-- **`formatValue`** (enforcer.js), unreferenced.
-- **50 CSS rules** from the retired Phase-1a downtime (`mc-dt-item*`, `mc-dt-days*`, `mc-dt-lock*`,
-  `mc-dt-budget`, …).
-
-**Kept deliberately, with the reasons, so they are not re-trimmed later:**
-
-- **`user.character` is NOT dead.** What was retired (§2) is *routing* on it. It remains a
-  legitimate **preference**: player colour, panel labels, the phone's default subject, and the
-  default watch subject. Preflight's warning that the display account must not have one is also
-  still correct — midi's `playerForActor` branch 1 matches an assigned character *ignoring
-  ownership*, so a TV with one really would swallow prompts.
-- **`craftSuggest`** — unwired, but documented shipped API (§17.7) awaiting the item-value picker.
-  The authoring form's comment was corrected: it claimed scribe/craft "use the pure suggesters",
-  when craft never calls `craftSuggest` and scribe only calls its suggester once a spell is picked.
-
-**Method note — a naive CSS sweep is unsafe here.** Class names are built by interpolation
-(`mc-dmp-pf-${c.status}`, `mc-coin-${k}`, `mc-def-${cls}`, `mc-econ-${…}`, `mc-enc-${tier}`,
-`mc-prof-${…}`, `mc-rec-${…}`, `mc-event-${…}`, `mc-move-${…}`, `mc-theme-${…}`, `mc-fly-${…}`).
-A static grep flags those as orphans and deleting them would have broken preflight status colours,
-currency and defence chips. Only prefixes with **no** interpolated form (verified per-prefix) may be
-swept, and grouped selectors must be skipped rather than edited.
-
----
-
-## 21. Sound — Settings › Sound (DM 2026-07-22, BUILT)
-
-> DM: *"once sound works, I think we'll need the settings tab back for a sound accordion drawer."*
-
-**BUILT 2026-07-22** across commits 935596d / 71f33c6 / 0379534 / da9dd7e / 9faffd9. What shipped:
-
-- **The TV can play positional sound again.** The Observer change (e50c1ef) had left the display
-  with zero listeners — it controls nothing (releaseAll keeps merged vision) and Observer ≠ Owner —
-  so all positional audio was silent. `setupDisplayAudioListeners` (main.js) gives the display its
-  listeners from the party's tokens (pets included). Loudness stays core's rule: CLOSEST listener
-  wins per source (`_syncPositions` keeps the max), never an average, never the last token moved.
-- **One-tap audio unlock** — a browser plays no audio until a gesture, and a TV never gets one;
-  `setupDisplayAudioUnlock` shows a full-bleed "Tap to enable sound" on the display until unlocked.
-- **Settings › Sound** (the tab is back, accordion drawers): the three Foundry channels (Music /
-  Environment / Interface) as sliders that set the **display's** volume via a world setting the TV
-  mirrors into its own client volumes; **Mute the table** (globalMute); **Who the display hears
-  through** — per-token deafen chips + Ignore/Listen-through-everyone; **combat audio POV** (world
-  setting `combatPovAudio`, off by default — hear from the active combatant in combat, the mirror of
-  `combatPovVision`); and a **display audio status line** (the TV reports {locked, muted} over the
-  socket so the DM can tell "muted" from "never tapped, can't play" from their chair).
-
-**Still open (small, if wanted):** phone SFX opt-outs (dice / prompt / combat-start are always-on
-core sounds); a second-client live confirmation that Mute actually silences the room (verified at the
-property/setting level only, single-browser).
-
----
 
 ### 18.3 Open questions (ledger)
 
@@ -1409,6 +1505,7 @@ property/setting level only, single-browser).
   - **Moon phases.** Thematically loud for a campaign called The Crooked Moon and for §32's
     residents; needs a decision on what a phase should DO before it's worth wiring.
   - **Seasons.** Only interesting if weather/ambience should follow them.
+
 
 ### 18.4 Day/night: one curve everywhere, interiors are regions (DM decision 2026-08-02, BUILT)
 
@@ -1436,8 +1533,12 @@ and full dark").** Lives in `preset.js`, shared by the panel and preflight so th
 full dark ──/ dawn ramp /── full light ──\ dusk ramp \── full dark
 ```
 
-`NIGHT_DARKNESS_PEAK = 0.7` is "full dark" (deliberately not 1.0 — a fully-visible overworld must
-stay readable at night), full light is 0, and `DAWN_DUSK_RAMP_HOURS = 1` is the gradual bit. The
+`NIGHT_DARKNESS_PEAK` is "full dark" (deliberately not 1.0 — a fully-visible overworld must
+stay readable at night) — **0.7 when written; raised to 0.8 (DM 2026-08-09) with
+`GLOBAL_LIGHT_NIGHT_THRESHOLD` now DERIVED as peak/2, and "full light" later became a floor of
+0.22 rather than 0 (DM 2026-08-11, sunless-country tuning — `dayDarknessFloor` setting; see §43
+and [preset.js](scripts/preset.js), which is the authority on the numbers)** — and
+`DAWN_DUSK_RAMP_HOURS = 1` is the gradual bit. The
 ramps are **centred** on sunrise/sunset, so sunrise is the midpoint of getting light — the half
 before is twilight, the half after is the sun climbing — rather than its start.
 
@@ -1452,7 +1553,7 @@ rather than assuming a unit), range-checks the result and requires sunrise < sun
 returns `{}` and the curve uses a plain 06:00/18:00 day. So a winter date genuinely gets a long
 night. **Caveat: the SC path is written from SC Reborn's source, not yet exercised against a live
 world — the validation means a wrong guess degrades to the default day rather than breaking.**
-`GLOBAL_LIGHT_NIGHT_THRESHOLD = 0.35` = half the night peak, so the sun yields during the ramps.
+`GLOBAL_LIGHT_NIGHT_THRESHOLD` = half the night peak (derived since 2026-08-09, not a literal), so the sun yields during the ramps.
 
 **Preflight changed accordingly:** "Global Illumination is ON" is no longer a problem; "Global
 Illumination never yields to night" is, and its fix corrects the threshold while **leaving the
@@ -1460,6 +1561,7 @@ light on**. Verified on the bench: threshold 1 → warn → fix → 0.35, global
 row OK; sun up at 06/12/18, down at 04/19.
 
 ---
+
 
 ## 19. REST — folding Downtime and Watches into one thing (DM-idea, spec 2026-07-17)
 
@@ -1630,6 +1732,7 @@ means, and it removes the need for a separate count setting. SHORT ⇒ exactly o
   not in-scene tokens (a camped party is off-map — a PC's pick wasn't registering, "nobody has
   chosen yet"); "Start activities — nobody's chosen yet" → "Start Activities" (state → tooltip).
 
+
 ## 20. Item transfers (DM-idea, spec 2026-07-18)
 
 One-way transfers of items + coins between a PC and another PC, or between a PC and the party
@@ -1660,8 +1763,9 @@ NPCs (merchants already work via Item Piles). NO two-way swap — a transfer mov
   decrements/deletes on the source, moves coins by denomination (validates the source can cover
   them). `handleTransferStash({actorId, dir:"put"|"take", itemMoves, coins})` — resolves the PC's
   group, moves instantly, owner-gated. Registered as `api.transferStash`.
-- **T-stash UI.** Equipment-tab "Transfer" button → composer with a put/take toggle over the stash;
-  item toggles + qty steppers + coin amounts → api.transferStash.
+- **T-stash UI — BUILT** (shell.js: one "Transfer" button in the Equipment header, shown only when
+  a party stash exists → composer with a put/take toggle over the stash; item toggles + qty
+  steppers + coin amounts → api.transferStash).
 - **T-p2p — BUILT 2026-07-20 (Milestone B).** Same composer, destination = a **nearby PC ally** — the
   composer lists allies within ~10 ft (`#nearbyAllies`, computed client-side from scene token
   positions; NPCs excluded), each a "Give to …" button. Commit → `handleTransferOffer` (executor):
@@ -1687,69 +1791,122 @@ NPCs (merchants already work via Item Piles). NO two-way swap — a transfer mov
   "5 arrows as a bonus action", "the armor is your whole turn") — the app never consumes an
   action or checks the economy for a transfer.
 
-## 21. Pending-action queue + attention bell (DM-idea, spec + BUILT 2026-07-19)
 
-The problem (surfaced by a wizard + familiar + summon hit by fireball): the phone stored **one**
-save prompt, one reaction, one AoO — each a single slot that **clobbered** on a burst. Three saves →
-you saw one; two AoOs → you got one. Fix: a **unified queue** + a header **bell** that navigates it.
+> **Numbering note (2026-08-19):** §20.5, §20.6 and §20.9 are standalone records that were
+> misnumbered at birth — none of them is about item transfers. Their numbers are KEPT because
+> code comments reference them ([rpc.js](scripts/rpc.js) §20.5, [boss-intro.js](scripts/boss-intro.js) §20.6);
+> they are simply gathered here so §20's neighbourhood is where you find them.
 
-### 21.1 Findings that shaped it
 
-- **Reactions and AoOs are self-contained.** `#useReaction`/`aoo-attack` fire off the activity's
-  **UUID** (`rpc.useActivityStart`), not the viewed subject — so, like saves, they roll on the right
-  creature regardless of which token is on screen. So the "switch to the token" leg is a UI nicety
-  (context/clarity), not a mechanical requirement. The real bug in all cases was the single-slot
-  clobber.
-- Each prompt already carries its actor: save `actorUuid`, reaction `reactorUuid`; AoO now carries
-  `reactorUuid` + `reactorTokenUuid` (added to `dispatchAoO`).
+### 20.5 Travel points + the Use path (verified end-to-end 2026-08-07)
 
-### 21.2 Model (BUILT, shell.js)
+Tested from a REAL player client (Player 1, second browser) with a GM online in another — the setup that finally reproduced the bug.
 
-- `#pending = []` replaces `#savePrompt`/`#reactionPrompt`/`#aooPrompt`. Entry:
-  `{id, kind:"save"|"reaction"|"aoo", actorId, tokenId, payload, expiresAt, timer}`.
-- `#enqueue(kind, payload, actorUuid)` resolves actor→tokenId, de-dupes by kind+actor, sets a
-  per-entry expiry timer, plays the attention sfx **once per burst** (only when the queue was empty).
-- `#cur(kind)` = the entry for the **current subject** (or a null-actor entry, so an unresolved one
-  is never stranded); the `#savePromptHTML`/`#reactionPromptHTML`/`#aooPromptHTML` popups render it.
-- `#resolve(kind)` drops the current entry on roll/fire/dismiss; a rolled save clears **only the
-  creature that rolled** (by `message.speaker.actor`), so rolling the wizard's save keeps the pet's.
-- **Combat feeds the bell too (DM 2026-07-19).** The "Roll initiative" prompt and the auto-follow-the-turn
-  switch only apply to the current subject, so a secondary token (summon/familiar) that owes initiative
-  OR whose turn it now is was invisible when you were parked on another token (e.g. mid-action, when
-  auto-follow is skipped). `#attentionActorIds()` now unions the pending queue with, for owned tokens on
-  the active scene: **(a) the active combatant when it's another of your tokens' turn**, and **(b) any
-  combatant whose initiative is null**. Bell lights and hops just like a save/reaction; clears as you
-  switch / roll (`updateCombat`/`updateCombatant` re-render). An NPC's turn never lights it.
-- **Bell:** `#bellActive()` ⟺ `#attentionActorIds()` is non-empty (a queued prompt OR an unrolled
-  initiative on a token whose actor ≠ current subject). Header
-  button `.mc-bell` (by the dice tray): greyed + `disabled` when idle, gold-outlined + pulsing when
-  live. `attention-next` hops to the next such token (`#subjectId` = its token) → its popup shows.
-  Greys again once the only remaining business is on the token you're viewing; relights if you switch
-  away (DM 2026-07-19 rule: keyed to viewed-vs-elsewhere, not a raw count).
+**Root cause of "couldn't reach the DM":** listLoot and listInteractables both carried an `onActiveScene()` guard, so whenever the DM's CAMERA sat on a scene other than the active one, BOTH calls returned ok:false and the phone concluded the executor was unreachable. The DM was told to reload a client that was working. The whole Use path now reads the active scene's DOCUMENTS (walls / tiles / regions / tokens) and never the canvas, so it works wherever the DM is looking.
 
-### 21.3 Reaction timeout (BUILT)
+**Verified with the GM camera parked on 10.1 while 10.3 was active:** Use returned "Open door 3 ft" and "Travel to next car 0 ft" with no warning. Choosing the travel point raised the prompt (title from the point's own label, buttons Cancel / Travel alone / Travel as group, D-pad correctly replaced). "Travel alone" moved Gorbon from 10.3 to 10.4 — one token, no duplicate — and the active scene FOLLOWED to 10.4 via registerTrainFollow.
 
-Phone players need a beat to **notice** a prompt light up before tapping — midi's timeout assumes the
-dialog is already on screen. New world setting **`reactionTimeoutPct`** (default **120** = +20%)
-multiplies midi's `reactionTimeout` for the prompts the module relays to phones (reaction relay +
-AoO). Single source of truth: `reactionTimeoutMs()` in settings.js. It never writes midi's own
-setting (so the enforcer is unaffected) and never touches the DM's rolls. AoO moved from
-`playerSaveTimeout` onto this (an AoO is a reaction). Saves keep midi's `playerSaveTimeout`.
+**Seat rotation live on the player client:** Player 1 is in seat n1 (180°), so UP maps to map-down and RIGHT to map-left. Confirmed on the phone itself, not just in theory.
 
-### 21.4 Not yet / next
 
-- **Trades fold in later:** Transfer Milestone B (§20 T-p2p) registers an incoming offer as a
-  `kind:"trade"` entry so the bell surfaces it; **same-owner transfers commit instantly** (no
-  self-accept — you don't accept a gift from yourself), matching the stash.
-- Needs a live table test (numbered protocol handed to the DM 2026-07-19).
+### 20.6 Phone audio — what actually reaches a player's phone (2026-08-08)
+
+The DM heard environmental sound from his phone and guessed it happens "when a player doesn't
+have a token in the scene". **The source says the opposite**, read from the running client
+bundle (`SoundsLayer`):
+
+- `getListenerPositions()` returns controlled tokens, else — for non-GMs — every owned, visible
+  token on the scene. **A player with no token gets an empty list.**
+- `_syncPositions()` then never enters its per-listener loop, so each path keeps `volume: 0`,
+  and the tail calls `config.object.sync(config.volume > 0, config.volume, …)` → `sync(false, 0)`.
+  `_configurePlayback` says the same thing outright: no listener → `volume = 0`.
+
+So a token-less player hears **less** positional ambience, not more — it is silenced entirely.
+
+What DOES reach every client regardless of tokens is **non-positional** audio: playlists
+(including a **scene playlist**, which is what the DM had just configured — the timing fits), and
+video tiles, which take their level from `globalAmbientVolume`. That is the likely source.
+
+Either way the fix covers all of it: phone clients zero `core.globalPlaylistVolume` and
+`core.globalAmbientVolume` and leave `globalInterfaceVolume` alone (§ phone audio, main.js).
+Worth remembering the general shape — **"no token" makes positional audio quieter, never louder**.
+
+
+## 20.9 Dead-code sweep (2026-07-22)
+
+DM: *"just like the themes stayed behind, i don't want stray mentions of the 'active PC' and
+multiple owners code showing up… be careful when trimming."*
+
+Removed, each verified unreferenced first:
+
+- **DM-assign chip list** (`assignHTML` + `activePlayers` + the `[data-user]` and
+  `[data-action="clear"]` handlers + 9 CSS rules). It was the only producer of `data-user`, and
+  nothing called it — superseded by the Rolls tab's per-PC crosshair, which calls the same
+  `api.assignTargets`. The panel's own header still advertised it as job #1.
+- **`bonusActivities` / `WINDOW_SLOTS` / `slotsFor()`** — the "extra activities per beat" stepper.
+  Downtime became ONE activity per player on 2026-07-14 (`selectActivity`), which superseded the
+  whole slots idea, and **nothing ever read `slotsFor()`**: the DM could set +2 and no code
+  consumed it. A control that silently does nothing is worse than no control. `showMechanicsByDefault`
+  stays — it is read when authoring a Rule.
+- **`formatValue`** (enforcer.js), unreferenced.
+- **50 CSS rules** from the retired Phase-1a downtime (`mc-dt-item*`, `mc-dt-days*`, `mc-dt-lock*`,
+  `mc-dt-budget`, …).
+
+**Kept deliberately, with the reasons, so they are not re-trimmed later:**
+
+- **`user.character` is NOT dead.** What was retired (§2) is *routing* on it. It remains a
+  legitimate **preference**: player colour, panel labels, the phone's default subject, and the
+  default watch subject. Preflight's warning that the display account must not have one is also
+  still correct — midi's `playerForActor` branch 1 matches an assigned character *ignoring
+  ownership*, so a TV with one really would swallow prompts.
+- **`craftSuggest`** — unwired, but documented shipped API (§17.7) awaiting the item-value picker.
+  The authoring form's comment was corrected: it claimed scribe/craft "use the pure suggesters",
+  when craft never calls `craftSuggest` and scribe only calls its suggester once a spell is picked.
+
+**Method note — a naive CSS sweep is unsafe here.** Class names are built by interpolation
+(`mc-dmp-pf-${c.status}`, `mc-coin-${k}`, `mc-def-${cls}`, `mc-econ-${…}`, `mc-enc-${tier}`,
+`mc-prof-${…}`, `mc-rec-${…}`, `mc-event-${…}`, `mc-move-${…}`, `mc-theme-${…}`, `mc-fly-${…}`).
+A static grep flags those as orphans and deleting them would have broken preflight status colours,
+currency and defence chips. Only prefixes with **no** interpolated form (verified per-prefix) may be
+swept, and grouped selectors must be skipped rather than edited.
 
 ---
 
-## 22. Standing rules and open decisions (consolidated 2026-07-24)
 
-Written at the end of the 2026-07-21→24 run so a fresh session doesn't re-derive them. The *history*
-of that run lives in the git log (~34 commits, all pushed, none released); this section is only the
-parts that outlive their commits.
+## 21. Sound — Settings › Sound (DM 2026-07-22, BUILT)
+
+> DM: *"once sound works, I think we'll need the settings tab back for a sound accordion drawer."*
+
+**BUILT 2026-07-22** across commits 935596d / 71f33c6 / 0379534 / da9dd7e / 9faffd9. What shipped:
+
+- **The TV can play positional sound again.** The Observer change (e50c1ef) had left the display
+  with zero listeners — it controls nothing (releaseAll keeps merged vision) and Observer ≠ Owner —
+  so all positional audio was silent. `setupDisplayAudioListeners` (main.js) gives the display its
+  listeners from the party's tokens (pets included). Loudness stays core's rule: CLOSEST listener
+  wins per source (`_syncPositions` keeps the max), never an average, never the last token moved.
+- **One-tap audio unlock** — a browser plays no audio until a gesture, and a TV never gets one;
+  `setupDisplayAudioUnlock` shows a full-bleed "Tap to enable sound" on the display until unlocked.
+- **Settings › Sound** (the tab is back, accordion drawers): the three Foundry channels (Music /
+  Environment / Interface) as sliders that set the **display's** volume via a world setting the TV
+  mirrors into its own client volumes; **Mute the table** (globalMute); **Who the display hears
+  through** — per-token deafen chips + Ignore/Listen-through-everyone; **combat audio POV** (world
+  setting `combatPovAudio`, off by default — hear from the active combatant in combat, the mirror of
+  `combatPovVision`); and a **display audio status line** (the TV reports {locked, muted} over the
+  socket so the DM can tell "muted" from "never tapped, can't play" from their chair).
+
+**Still open (small, if wanted):** phone SFX opt-outs (dice / prompt / combat-start are always-on
+core sounds); a second-client live confirmation that Mute actually silences the room (verified at the
+property/setting level only, single-browser).
+
+---
+
+
+## 22. Standing rules and THE OPEN LEDGER (consolidated 2026-07-24; ledger refreshed 2026-08-19)
+
+Written at the end of the 2026-07-21→24 run so a fresh session doesn't re-derive them, and since
+2026-08-19 also the home of **§22.6, the one consolidated open-items ledger** — when something
+opens or closes anywhere in this document, reflect it there. The *history* lives in the git log;
+this section is only the parts that outlive their commits.
 
 ### 22.1 Who counts as "the party" — decided PER SUBSYSTEM, not globally
 
@@ -1798,36 +1955,115 @@ ELECTRON_RUN_AS_NODE=1 NODE_OPTIONS=--experimental-vm-modules \
   tools/check-syntax.js scripts/*.js styles/*.css
 ```
 
-### 22.3 Open decisions — awaiting the DM, do not build unasked
+### 22.3 Open decisions — awaiting the DM, do not build unasked (refreshed 2026-08-19)
 
-1. ~~**Camera zoom margin.**~~ **RESOLVED 2026-07-24** — the DM rejected both options and gave a
-   third: hold the *clearance*, not a margin. See **§23**.
-2. **real-fow replication — ✅ DONE (DM sign-off 2026-07-26: "looks great").** Both tiers shipped as
-   the three-way `fogStyle` (off / soft / gpu); the full story, deep dive, and final tuning live in
-   **§24**. Tier 1 became `MCSoftFogVisibilityFilter` — the visibility shader replaced via
-   `CONFIG.Canvas.visibilityFilter`, inward-fading density gathers + FBM wisps (no drifting animation:
-   static wisps read right and cost nothing per-frame beyond the filter pass). Default-off, display
-   only; the test world runs `gpu` at radius 100, mask ×4, explored 22%.
-3. **§18.3 travel questions are still open** (darkness curve per hour; per-scene vs per-journey; the
-   phone "suggest destination" ping). Re-ask when the DM next asks what's outstanding.
+Questions only the DM can answer; re-ask when he asks what's outstanding:
 
-### 22.4 Built but never tested with real devices
+1. **The fiddle (§36.1.7).** The book's herald for the Ghostlight is *a lone fiddle*, not a
+   whistle — build it (synth or a file slot)? Already raised, unanswered.
+2. **Séance scrape (§30.1)** — keep or cut, by ear ("we'll see if I like it").
+3. **Player-side Crooked Moon tab (§35)** — a shell tab holding the player's CM "stuff"
+   (thread, twists, curses, tarot card), or stay with chips-in-shell? DM said undecided.
+4. **Phone "suggest destination" ping (§18.3)** — wanted at all, or does pointing at the TV
+   cover it?
+5. **Moon phases / seasons (§18.3)** — SC Reborn exposes both; needs a decision on what a phase
+   should DO before wiring anything.
+6. **Downtime progress surfaced to players (§17.6/§17.7)** — opt-in via the party Journal was
+   the DM's rule; never switched on. Want it?
+7. **Per-seat rotated HUD on the TV (§38.5 future note)** — HP/conditions strip at each seat;
+   performance-check first (modest machine).
+8. **`feedbackEmail` alias (§48.3)** — a plain address in a public module is scrapeable; pick an
+   alias before wider release?
+9. **Level-up sitting (§38.6)** — sequenced after the live-table pass by design; confirm when.
 
-All of these are verified at the mechanism level on a single browser, which cannot prove them. Say so
+### 22.4 Built but never tested with real devices (extended 2026-08-19)
+
+All verified at the mechanism level on a single browser/bench, which cannot prove them. Say so
 plainly rather than reporting them as working:
 
 - TV **combat-POV vision** across a PC turn → a summon's turn → an NPC turn.
-- **Two-phone prompt delivery**: a save on a PC, a save on a summon, a reaction on another player.
+- **Two-phone prompt delivery**: a save on a PC, a save on a summon, a reaction on another player;
+  **MISC Gloves of Missile Snaring** reaction (§28.6's live-table question).
 - The phone **watch-board subject switcher** for a pet.
-- **Sound follows the party** as heard on the TV (needs DM + TV clients at once).
-- **Mute the table** actually silencing a second client (only the setting/property was checked).
+- **Sound follows the party** on the TV; **Mute the table** on a second client; thunder v3 / doom
+  bell / heartbeat / card noises / train cues **by ear**; séance scrape + glitch levels **by eye
+  and ear**.
+- **§45 mastery card** on a real phone + the wm5e auto-apply leg (Sap on hit, Graze on miss, Vex
+  on the damage tap).
+- **§36.1 arrival** and **§40 boss intro** motion by eye on the real TV (the bench pane renders no
+  CSS animation at all).
+- **§46 scroll fix** and **§36.1.6 repaint coalescer** at the DM's real cadence.
+- **§47/§48 feedback flow** end-to-end, incl. mailto against a real mail client.
+- **Card table cross-player denial** (story* RPCs refusing another player's actor) — needs two
+  phones.
+- **Turn-start vibration** on hardware.
 
-### 22.5 Release state
+### 22.5 Release state (refreshed 2026-08-19)
 
-~41 commits are unreleased. Cutting one means posting the release
-tag URL *and* the manifest install URL. Before that release: the DM must mark their real overworld
-map(s) with the Travel tab toggle (§18.1a) — the retired grid heuristic no longer auto-recognises them,
-so travel lighting will not fire until they do.
+Last release: **v0.2.0, 2026-07-26**; everything since is pushed but unreleased. The next cut
+must: include `art/` in module.zip (§30 note — séance/candle/planchette art shipped after
+v0.2.0) · post the release-tag URL **and** the manifest install URL · and the DM must mark his
+real overworld map(s) with the Travel-tab toggle (§18.1a) — the retired grid heuristic no longer
+auto-recognises them, so travel lighting will not fire until he does.
+
+### 22.6 The open ledger (consolidated 2026-08-19 — the ONE list; keep it current)
+
+**Priority order (standing):**
+
+1. **The live-table pass** — the standing top item; its payload is §22.4 in full, plus the
+   v0.2.0+ shakedown and the midi reaction relay to a real phone.
+2. **Stack validation owed (§28.5.3):** AC5E **14.533.15** + MISC **2.0.2** are installed and
+   source-checked but NOT validated — run §28.4 (first thing to exercise: Simple Cover 5e's AC
+   changes on the Hit/Miss badge), then bump `TESTED` + the CLAUDE.md line. **wm5e** joins
+   `TESTED` with whatever version passes that same run (§45.5).
+3. **Crooked Moon polish** (campaign not started — no chapter urgency): table feedback on the
+   built suite · §33's bargain-mode reroll toggle (deferred) · `curseTable` UUID is console-set
+   only (needs a settings row if the DM adopts the book table) · §31 v2 (midi hook to literally
+   set the declared d20) · §32's unmined remainder (Dark Bargains, lair-pulse engine, ch10–13
+   scene packs).
+4. **Backlog (DM-pruned 2026-08-09 — this list, nothing re-added unasked):**
+   - PM extras (§27.4): group notes · push-to-sleeping-phone.
+   - Effects extras (§26.5, APPROVED): per-effect volume → surround thunder → more looks
+     (stop-all done).
+   - Enchant consumption — only if a CHARGED enchanter shows up (deliberate, rpc.js:1401).
+   - Paralyzed auto-crit midi setting (§28.6 friction 4 — real observed miss).
+   - Onboarding wizard polish: ask in-person-vs-online FIRST (§39).
+   - Séance standalone module spin-off (§30).
+   - dnd5e 6.x migration milestone (when the ecosystem forces it — §28.5.1: 6.0.0 at 83%,
+     no 5.4 exists).
+5. **Watches:** MISC#89 (GWM boolean, still open) · CPR 2.0 leaving pre-release · GPS first V14
+   tag · CAT 0.0.x churn · MCD camera-method names on any 14.02+ (§28.5.1).
+
+**Smaller opens swept from the sections (2026-08-19 deep dive):**
+
+- **§44 slice B** — the Deeds recorder (+ the compile timer judged at a real table).
+- **§45** — mastery-swap picker (when a `mastery.bonus` PC exists) · pre-attack chip (deliberately
+  later).
+- **§28.7** — the executor honesty fix (`ok:false` when an attack produced no workflow), blocked
+  on reproducing the §28.9 hang with the GWM error present. Until then, a MISC-aborted attack
+  still closes the card silently with the action spent.
+- **§28.5.2** — grey out 0-slot leveled casts on the phone; pre-pick slot level for AoE (kills a
+  DM-side dialog per leveled AoE cast).
+- **§28.12** — remote access: needs the DM's device console/network at the hang moment;
+  split-horizon DNS is the real fix; TLS + DynDNS still open.
+- **§36.1.7** — train art chroma-key pass (teal fringing) · fiddle (DM question, §22.3).
+- **§37** — 10.8 Tender (Colored) has 0 mist tiles where every other car has 6.
+- **§19** — the phones' shared running-rest header · one-time migration of a legacy open
+  downtime window / night flag into a `rest` envelope.
+- **§17** — teacher→learner auto-link · scribe/craft pickers reading real sheet data for generic
+  templates · between-sessions progress view.
+- **§18.3/§41** — SC sunrise/sunset path written from source but never exercised against a live
+  SC world (degrades safely).
+- **§20.3** — transfer merge-key revisit (identical-name items with different data).
+- **§12 Round 61 residue, never re-verified:** Cloak of Invisibility-style utility-activity
+  transfer effects from the phone · homebrew spell-list picker ("DM picks from suggested lists" —
+  decided, unbuilt) · "an Ashborn" article grammar in the portrait prompt.
+- **§16.1 check 9** ("phone hygiene": Sequencer flag + No-Canvas state via socket ping) — specced,
+  never confirmed built; verify against preflight.js before assuming.
+- **§15** — walk-in-formation travel (Feature 2, deferred) · per-token follow picks / follow
+  through teleports (Follow v2 candidates).
+- **Monetization + feedback loop** — FUTURE by standing decision; do not action until the DM
+  revisits (the §48 window + GitHub issues are the seeds).
 
 ---
 
@@ -2111,13 +2347,14 @@ makes (it never touches a player's own client).
 - **Only visible where there IS fog.** A `tokenVision:false` scene (the current test scene, Cave A)
   has no fog edge to soften. Needs a vision-enabled scene.
 
-### 24.4 State
+### 24.4 State — FINAL (2026-07-26)
 
-Blur applied but ×4 was too weak to see (DM 2026-07-24) — replaced with the `softFogStrength` slider
-(§24.1) so the DM dials the feather in live rather than me guessing blind. Still to confirm on the TV:
-what value reads right, and whether high values band before they're soft enough (if so, the fix is
-more blur passes = more GPU, not more strength). Tier 1 (a drifting-noise shader, permanent per-frame
-GPU cost) stays unbuilt until the DM has judged this.
+*(The paragraph this replaced described the mid-build state — slider tuning pending, Tier 1 unbuilt —
+which §24.0a overtook the same week.)* Final: the three-way **`fogStyle`** shipped (`off` / `soft` /
+`gpu`), the GPU tier is the signed-off look ("looks great", "95% happy"), and the test world runs
+`gpu` at radius 100, mask ×4, explored 22% (`fogExploredLevel` dial). `soft` still requires High
+performance mode (Foundry only builds blur filters there — §24.2), which the panel reports rather
+than forces. Display client only; default off.
 
 ---
 
@@ -2191,7 +2428,11 @@ Foundry hooks: `PlaylistSound#update({playing})` drives playback and syncs to al
 TV; run on `game.users.activeGM` / the executor (playlist writes are GM-only). Turn hooks:
 `combatStart`, `updateCombat` (turn/round), `deleteCombat` (end).
 
-### 25.3 Build slices (panel usable at every step)
+### 25.3 Build slices (panel usable at every step) — ALL SHIPPED
+
+*(Slices 2–6 all landed over 2026-07-24→26: the floor/workspace layout is the standing rule in
+UI-BIBLE §6.5; Display/Party/Combat tabs exist as specced; combat music runs with the §28.2
+anthem hardening. §46/§36.1.6 later fixed the repaint scroll-snap and the render-burst blink.)*
 
 1. ✅ **Fog softness** (done — §24; not strictly part of the restructure, but the live blocker).
 2. **Layout reposition** — floor fixed at bottom, workspace grows up, tab strip as the seam. Delete
@@ -2206,6 +2447,10 @@ TV; run on `game.users.activeGM` / the executor (playlist writes are GM-only). T
    engine.
 
 ### 25.4 Open / deferred
+
+> **Pruned by the DM 2026-08-09** — "combat-music polish" left the backlog wholesale (with the
+> `MED` file, removed f9782b4). The items below are recorded so they aren't re-invented, but they
+> are NOT queued work; don't re-add them unasked.
 
 - **Pets in combat music** — a pet/summon's turn playing its owner's theme needs a token→owner-PC map;
   deferred until the core loop is proven.
@@ -2273,61 +2518,17 @@ Filters + loops: canvas clients only (DM + display). Phones skip both — no can
 playing one loop at different latencies is an echo. **The lightning FLASH is the exception:** a DOM
 overlay, so every phone at the table blinks white together — that's the feature.
 
-### 26.5 Spike scope + open questions
+### 26.5 Spike scope + open questions — VERDICT IN (DM 2026-08-09: deepen it)
 
-- BUILT: the 10 weather + 4 magical effects above, as a DM-panel tab (Weather/Magical drawers).
-- OPEN: should thunder also hit phones (surround-thunder vs echo)? More magical looks (underwater
-  wobble, sepia flashback)? Per-effect volume? A "stop everything" button? Awaiting DM verdict on
-  whether the direction is worth deepening.
+- BUILT: the 10 weather + 4 magical effects above, as a DM-panel tab (Weather/Magical drawers) —
+  then §26.6's targeted/per-player batch and §26.7's deathbeat.
+- **Effects extras APPROVED 2026-08-09, in this build order:** stop-all (**done** — the
+  "stuck heartbeat" fix in §26.6) → **per-effect volume** → **surround thunder** (§26.6's parked
+  idea 15 — needs the seating order, which §38.4b's table map now supplies) → **more looks**.
+  Phones-too thunder is subsumed by surround thunder.
 
 ---
 
-## 27. Personal messages — DM ⇄ player private notes (DM-idea 2026-07-26, BUILT)
-
-**The ask:** "DM selects a player and writes a message — 'you are charmed, and want to get the
-party to leave this room' — player can respond to clarify. This can ride on foundry's chat
-reskinned for phone."
-
-### 27.1 It rides chat WHISPERS — no new storage, no RPC
-
-ChatMessage documents sync to every client and filter client-side (`ChatMessage#visible` =
-author or whisper target, verified 14.363), so both ends read the thread straight out of
-`game.messages`; `createChatMessage` is the live push; persistence and permissions are free.
-A note the DM types as `/w` in the native sidebar joins the same thread.
-
-- **`pm.js`** is the one shared definition (filter + send + text/time) so the two ends can never
-  disagree. "Personal" = carries our `pm` flag, OR any whisper with **no rolls and no
-  midi-qol/dnd5e flags** — that lets hand-typed `/w` in while keeping the automated whisper
-  machinery (midi save cards, roll results) out.
-- A **thread** = personal messages between one player user and the DM seat (any GM), either way.
-- Sends are text → `escapeHTML` → `<br>` newlines; renders strip to plain text (`pmText`), so a
-  bubble can never smuggle markup into either UI.
-
-### 27.2 Phone side (shell)
-
-Envelope in the header tool row (same 30px circle as dice tray/bell). Unread → gold outline +
-count badge; unread = DM-authored thread messages newer than the **`pmLastRead` USER flag** (a
-flag, not a client setting, so "read" follows the player across devices). Tap → a full-screen
-Messages overlay (same standing as the bio overlay; death saves outrank it): bubble thread —
-DM left with dragon icon in the DM's colour (§3), mine right — plus an inline composer
-(textarea + send, drafts survive re-renders via the `#onInput` stash pattern). The list is
-**`column-reverse`** with newest-first source order: it opens pinned to the latest message with
-zero scroll bookkeeping.
-
-### 27.3 DM side (panel, Party tab)
-
-An envelope beside the palette button in the player-picker row toggles the selected player's
-thread inline (last 20, same bubble classes at panel scale) + composer. Switching the player
-in the dropdown re-targets the open thread. Player replies land via the createChatMessage hook
-(and in the DM's native sidebar, as ever).
-
-### 27.4 Open
-
-- No push notification when the phone is asleep/backgrounded — the badge lights on next look.
-- Should a fresh DM note TOAST over the sheet (like damage), not just light the envelope? Waiting
-  on table feel.
-- Group notes (one message to several players) — trivially `whisper: [ids…]`, but the thread
-  model is 1:1 today; unspecced.
 
 ### 26.6 Targeted effects + batch 2 (DM-picked 2026-07-26: ideas 3/5/8/10/12/16, BUILT)
 
@@ -2378,6 +2579,59 @@ fxActive entry (automatic + local, so it can never be left stuck like a manual t
   deathbeat runs and resumes after (`syncFx` guard) — never two rhythms in one chest.
 - Bench (two clients, 2026-07-28): 0 HP → 1050 ms auto-start; failures 1/2 → 1500/2100 ms;
   failure 3 → element gone; heal + reset → stays silent.
+
+---
+
+
+## 27. Personal messages — DM ⇄ player private notes (DM-idea 2026-07-26, BUILT)
+
+**The ask:** "DM selects a player and writes a message — 'you are charmed, and want to get the
+party to leave this room' — player can respond to clarify. This can ride on foundry's chat
+reskinned for phone."
+
+### 27.1 It rides chat WHISPERS — no new storage, no RPC
+
+ChatMessage documents sync to every client and filter client-side (`ChatMessage#visible` =
+author or whisper target, verified 14.363), so both ends read the thread straight out of
+`game.messages`; `createChatMessage` is the live push; persistence and permissions are free.
+A note the DM types as `/w` in the native sidebar joins the same thread.
+
+- **`pm.js`** is the one shared definition (filter + send + text/time) so the two ends can never
+  disagree. "Personal" = carries our `pm` flag, OR any whisper with **no rolls and no
+  midi-qol/dnd5e flags** — that lets hand-typed `/w` in while keeping the automated whisper
+  machinery (midi save cards, roll results) out.
+- A **thread** = personal messages between one player user and the DM seat (any GM), either way.
+- Sends are text → `escapeHTML` → `<br>` newlines; renders strip to plain text (`pmText`), so a
+  bubble can never smuggle markup into either UI.
+
+### 27.2 Phone side (shell)
+
+Envelope in the header tool row (same 30px circle as dice tray/bell). Unread → gold outline +
+count badge; unread = DM-authored thread messages newer than the **`pmLastRead` USER flag** (a
+flag, not a client setting, so "read" follows the player across devices). Tap → a full-screen
+Messages overlay (same standing as the bio overlay; death saves outrank it): bubble thread —
+DM left with dragon icon in the DM's colour (§3), mine right — plus an inline composer
+(textarea + send, drafts survive re-renders via the `#onInput` stash pattern). The list is
+**`column-reverse`** with newest-first source order: it opens pinned to the latest message with
+zero scroll bookkeeping.
+
+### 27.3 DM side (panel, Party tab)
+
+An envelope beside the palette button in the player-picker row toggles the selected player's
+thread inline (last 20, same bubble classes at panel scale) + composer. Switching the player
+in the dropdown re-targets the open thread. Player replies land via the createChatMessage hook
+(and in the DM's native sidebar, as ever).
+
+### 27.4 Open
+
+- ~~Should a fresh DM note TOAST over the sheet?~~ **BUILT 2026-08-10/11** — PMs always toast on
+  the phone, gated by the `pmToast` world setting (the DM's discretion).
+- No push notification when the phone is asleep/backgrounded — the badge/toast lands on next look
+  ("push-to-sleeping-phone" sits in the §22 ledger's backlog).
+- Group notes (one message to several players) — trivially `whisper: [ids…]`, but the thread
+  model is 1:1 today; unspecced.
+- "Deliver dramatically" (idea 7, §26.6) — spec when messages have table mileage.
+
 
 ---
 
@@ -2466,6 +2720,41 @@ hidden). Numbered, one at a time, stop on first failure:
 Two-client leg (live table only): reaction/save prompt relay to a real phone; turn-start
 vibration on hardware.
 
+
+### 28.5 Ecosystem watch — the premades modules (checked 2026-07-26)
+
+- **gambits-premades**: last release 2.1.43 (May 27); author (April, 2.1.42): "as-is release for
+  V13 + 5e 5.3.x… I will not be doing any 5.3 bug fixes… focus will be on V14 + 5e 6.x." They are
+  SKIPPING our exact stack (V14 + 5e 5.3) — GPS will likely never run on it.
+- **chris-premades**: actively shipping 1.5.x (1.5.43 on July 25) but "not a V14 update… still a
+  work in progress"; the 2.0.x pre-releases are the rewrite with NO automations ported yet (only
+  generic features/summon animations, new "CAT" dependency).
+- **midi-item-showcase-community (MISC)** — *the live one (added 2026-07-26, DM ask)*: 2.0.0
+  (July 11) is "the first release for Foundry v14 and dnd5e v5.3" — OUR EXACT STACK, today.
+  Community item automations (Posney's Discord); old deps (Times Up, Active Token Effects)
+  "absorbed by DAE and Foundry". **Integration candidate**: MISC items should ride our two-tap
+  executor flow as ordinary midi automations, but two known risk classes need a validation pass
+  first — automations that open caster-side dialogs (they'd land on the EXECUTOR; the dialog
+  watchdog catches, doesn't prevent) and reaction-style automations (must route through our
+  relay). Validate a handful of MISC items through the phone flow (§28.4-style) before
+  recommending it to tables. Preflight warns if a v13-era MISC 1.x is installed.
+- **CAT (Coven's Automation Toolkit)** — *checked 2026-07-26*: CPR's author (chrisk123999)
+  extracting CPR's internals into a shared automation API; both CPR 2.0 and MISC 2.0 build on it
+  — the ecosystem's V14 era converges here. Manifest facts: **Foundry 14-only** (min/verified/max
+  14 — born on V14), **dnd5e min 5.3** / verified 6.0.0 / max 6.9.9 (spans our stack AND the 6.x
+  era — the bridge module), requires only midi-qol + DAE. At 0.0.6 (weekly releases since
+  June 17) its API is still moving — treat any install like AC5E: pin-watch it. Integration
+  note: CAT extends the SAME midi workflow objects our two-tap flow holds mid-flight, so its
+  event-timing hooks and dialog utilities hit exactly the two §28.5 MISC risk classes — one
+  MISC+CAT validation pass covers the whole new ecosystem, since they travel together.
+- **Consequences (revised 2026-07-26, DM: "we'll be pushing versions too — don't count Gambit
+  out"):** our home-built AoO/reaction machinery stays load-bearing TODAY, and MISC is the first
+  possible complement on the current stack. GPS isn't dead to us — chase-upstream (§28.4) means
+  we'll reach V14 + dnd5e 6.x ourselves; GPS re-enters the picture at that milestone. Plan the
+  5.3→6.x migration as its own milestone (full §28.4 run + real porting), don't discover it
+  under pressure.
+
+
 ### 28.5.1 Full-stack update sweep (checked 2026-07-29, pre-update for the DM's mod refresh)
 
 Everything verified against live release pages. **The entire stack is already at latest except
@@ -2491,6 +2780,43 @@ AC5E** (and possibly a Foundry install still on 14.363):
 - **MISC #89 (our GWM boolean bug): still open, no fix shipped.** CPR 2.0 still prerelease
   with no automations (stable = 1.5.43, not a V14 line); GPS still v13-only. §28.5 verdicts
   unchanged.
+
+
+### 28.5.2 Post-update validation run (2026-07-31, solo rig — PASSED, TESTED bumped)
+
+The DM's mod refresh landed **AC5E 14.533.13.1** (the .13 reviewed above + a pt-BR-only
+hotfix) and **DAE 14.0.12 → 14.0.13**; Foundry 14.365, dnd5e/midi/CAT/MISC unchanged. Full
+§28.4 script run on the bench (Bandit Ambush scene — Cave A abandoned: Levels culling +
+position-pinning automation make it useless for combat validation; its "Orc Fury (dead)"
+is an item-piles corpse-pile, correctly unpickable). **All 12 results passed** → TESTED
+now `automated-conditions-5e: 14.533.13.1`. Caveats & findings, none of them regressions:
+
+- **Step 11 is only GM-verifiable in the solo rig**: "Your turn — <name>" + Go hop is
+  gated `!game.user.isGM` (shell.js #turnHudHTML) — GM sees "Up: <name>" by design. The
+  player-role rendering stays on the live-table leg. Step 6's made-save branch also not
+  exercised (dice never rolled a save; failed-save branch verified).
+- **After-DAMAGE stray target — since FIXED in §28.10 (2026-08-02):** the §28 target hygiene
+  (gmTargetIds snapshot in handleUseActivityStart) + the shell's post-fire clearPreview
+  keep the DM's targets clean after the FIRE — step 8 as written passes. But when the
+  damage tap resolves against a SURVIVING target, midi's own workflow-completion restore
+  re-strands the phone's preview-committed target on the DM (kill → auto-released, clean).
+  Fix candidate: mirror the snapshot/restore in handleItemUseDamage.
+- **0-slot leveled AoE is a dead-end dialog (pre-existing):** the shell's AoE path
+  announces with `slotLevel: null` always (shell.js #pickAction → #announceCast), so
+  placeCast never passes configure:false and midi's usage dialog opens executor-side —
+  with zero slots it's a dialog the DM can only cancel, and the phone gets no "no slots"
+  feedback. Backlog: grey out leveled casts with no remaining slot on the phone (and/or
+  pre-pick slot level for AoE like summons already do — that would ALSO skip the DM-side
+  usage dialog on every leveled AoE, one less DM interaction per cast; DM's call).
+- Solo-rig technique addendum (for the next bench): Foundry can run truly headless via
+  `ELECTRON_RUN_AS_NODE` + a wrapper that `delete process.versions.electron` before
+  importing main.js (isElectron sniffs that key; the desktop app's dataPath lock is
+  dodged with a scratch dataPath whose Data/ is a junction). DM-side template placement
+  drives via `canvas.templates.preview.children[0].document.updateSource({x,y,direction})`
+  + `canvas.stage.emit("mouseup", {})`; the midi usage dialog's Cast Spell button is
+  clickable from DOM. Aim cones at the token EDGE, not center — a center-origin cone
+  catches the caster (the wizard fried himself twice proving it).
+
 
 ### 28.5.3 Drift sweep 2026-08-19 — AC5E 14.533.15, MISC 2.0.2 (SOURCE-CHECKED, NOT validated)
 
@@ -2535,230 +2861,6 @@ Where a phone attack could actually move:
 - **14.533.15** is additive (an `isMagical` sandbox property, a `prepareEvaluationState` hook for
   integrations). No action.
 
-### 28.5.2 Post-update validation run (2026-07-31, solo rig — PASSED, TESTED bumped)
-
-The DM's mod refresh landed **AC5E 14.533.13.1** (the .13 reviewed above + a pt-BR-only
-hotfix) and **DAE 14.0.12 → 14.0.13**; Foundry 14.365, dnd5e/midi/CAT/MISC unchanged. Full
-§28.4 script run on the bench (Bandit Ambush scene — Cave A abandoned: Levels culling +
-position-pinning automation make it useless for combat validation; its "Orc Fury (dead)"
-is an item-piles corpse-pile, correctly unpickable). **All 12 results passed** → TESTED
-now `automated-conditions-5e: 14.533.13.1`. Caveats & findings, none of them regressions:
-
-- **Step 11 is only GM-verifiable in the solo rig**: "Your turn — <name>" + Go hop is
-  gated `!game.user.isGM` (shell.js #turnHudHTML) — GM sees "Up: <name>" by design. The
-  player-role rendering stays on the live-table leg. Step 6's made-save branch also not
-  exercised (dice never rolled a save; failed-save branch verified).
-- **After-DAMAGE stray target (pre-existing nit, worth a fix):** the §28 target hygiene
-  (gmTargetIds snapshot in handleUseActivityStart) + the shell's post-fire clearPreview
-  keep the DM's targets clean after the FIRE — step 8 as written passes. But when the
-  damage tap resolves against a SURVIVING target, midi's own workflow-completion restore
-  re-strands the phone's preview-committed target on the DM (kill → auto-released, clean).
-  Fix candidate: mirror the snapshot/restore in handleItemUseDamage.
-- **0-slot leveled AoE is a dead-end dialog (pre-existing):** the shell's AoE path
-  announces with `slotLevel: null` always (shell.js #pickAction → #announceCast), so
-  placeCast never passes configure:false and midi's usage dialog opens executor-side —
-  with zero slots it's a dialog the DM can only cancel, and the phone gets no "no slots"
-  feedback. Backlog: grey out leveled casts with no remaining slot on the phone (and/or
-  pre-pick slot level for AoE like summons already do — that would ALSO skip the DM-side
-  usage dialog on every leveled AoE, one less DM interaction per cast; DM's call).
-- Solo-rig technique addendum (for the next bench): Foundry can run truly headless via
-  `ELECTRON_RUN_AS_NODE` + a wrapper that `delete process.versions.electron` before
-  importing main.js (isElectron sniffs that key; the desktop app's dataPath lock is
-  dodged with a scratch dataPath whose Data/ is a junction). DM-side template placement
-  drives via `canvas.templates.preview.children[0].document.updateSource({x,y,direction})`
-  + `canvas.stage.emit("mouseup", {})`; the midi usage dialog's Cast Spell button is
-  clickable from DOM. Aim cones at the token EDGE, not center — a center-origin cone
-  catches the caster (the wizard fried himself twice proving it).
-
-### 28.7 Hit/miss on the phone card (bench 2026-08-01)
-
-**Verified: a HIT is green.** `mc-hit` → total in `#6FCF7D` on a `#2F5D39` border, label "Hit",
-damage tap offered. Confirmed on weapon (Longsword) and spell (Fire Bolt) attacks, and a nat 20
-correctly reads Hit even against AC 99 (auto-hit).
-
-**FIXED — a miss said "Attack".** The red card rendered `mc-miss` but was labelled with the
-generic word "Attack" (`21 ATTACK` in red) and still offered **Roll damage** — which, tapped,
-rolled and toasted "0" while applying nothing (midi has no hit target to apply to). Now: label
-**"Miss"**, and no damage tap (the ✕ closes it, UI-BIBLE §4.2). A null total still reads the
-neutral "Attack" with no colour — a stale/unresolved read must not claim a miss it can't prove.
-
-**INVESTIGATED, NOT SHIPPED — two deeper fixes that caused a regression.** Attempted in the
-same pass and REVERTED after A/B on the bench:
-- executor: return `ok:false` when an attack produced no workflow AND never rolled (see the
-  MISC finding below), instead of the current `ok:true, needsDamage:false, hit:false`;
-- shell: keep the result card up (instead of closing silently) when an attack resolves with no
-  damage step, using a new `attackTotal` in that executor branch.
-With those in, the **second** phone attack after a damage roll hung on "Rolling…" forever — the
-fire never reached midi (no chat card, no workflow) and no timeout warning appeared. A/B was
-conclusive: baseline survives fire→damage→fire (including a crit first), the patched build hung
-4/4. Root cause NOT found; the render-only fix above ships alone. Whoever picks this up: the
-suspects are the un-awaited `useActivityCancel` added in `#fireAction` and the new
-phase-`attacked`-with-null-`requestId` state, and the repro is just two phone attacks in a row.
-
-**FOUND — a phone attack can vanish with zero feedback (pre-existing, unfixed).** With MISC
-installed, Test Fighter's **Great Weapon Master** automation aborts the use with an
-executor-side error ("The Elwin Helpers setting must be enabled" — a MISC setting that is OFF
-in this world). Result: no attack roll, no chat card, no workflow — and because the executor's
-`!wf` branch reports `ok:true, needsDamage:false`, the phone **closes the action card in
-silence with the action already spent**. This is the "I tapped attack and nothing happened"
-class of bug. Two things to do: (1) a preflight check for MISC automations whose prerequisite
-settings are off, and (2) the executor honesty fix above — once it can be done without the hang.
-
-### 28.8 The pre-attack "phantom swing" — FIXED (bench 2026-08-02)
-
-**The DM's complaint:** tapping a target on the phone played an attack animation on the canvas/TV
-before the player had actually attacked. `attackPreview` fires a throwaway hidden attack roll to
-read AC5E's adv/dis advice, and §28's suppression was *supposed* to cover the animation.
-
-**It was broken two ways, and had never worked:**
-1. It stubbed `AutomatedAnimations.PlayAnimation` — the name in AA's own deprecation warning, but
-   the live API exposes **`playAnimation`** (lowercase). The stub silently never installed.
-2. The public entry isn't even the animating path. Measured: per preview, **1 Sequencer play and
-   0 public-API calls** — AA animates from its own hook handler.
-
-**And the timing made a naive stub useless anyway:** AA's post-roll handler is ASYNC. Measured
-`dnd5e.rollAttackV2` at 85ms, roll returns 96ms (our `finally` restores everything), animation at
-**210ms** — the suppression window closed ~114ms before the animation started.
-
-**Fix (rpc.js `handleAttackPreview`):** stub Sequencer's `play()` AND both AA API spellings, plus
-empty the `dnd5e.rollAttackV2` / `dnd5e.rollAttack` listener arrays *in place* for the length of
-the throwaway (ids/order preserved, refilled in `finally`) — which stops AA before it ever starts.
-Nothing should react to a phantom roll; that is the point of it. Verified: **0 Sequencer plays**
-across 3 consecutive previews, no chat card, listeners restored, and AC5E still annotates
-correctly (mode `advantage`, reason "Target Cannot See Attacker").
-
-### 28.9 The "Rolling…" hang — NOT reproduced on a clean bench (2026-08-02)
-
-Chasing §28.7's hang. **It did not reproduce today, on either build** — not with the raced recipe
-(tap damage, immediately start the next attack), not with the original recipe (6s wait), on the
-patched build OR baseline. Several clean fire→damage→fire cycles in a row.
-
-What that changes: §28.7's conclusion that "my changes cause the hang" is **not supported**. The
-difference between yesterday and today is the ENVIRONMENT, not the diff — yesterday's runs were
-against the DM's live world while it was also open in the desktop app, with MISC's Great Weapon
-Master throwing on every Test Fighter attack and stale suspended workflows piling up. An exception
-thrown inside a hook handler is a plausible mechanism for a swallowed RPC, and is the lead to pull
-next. Reproduce it with the GWM error present before trying to fix anything.
-
-**Shipped anyway, on its own merits:** `#rollDamage` cleared `#actionState` unconditionally after
-its await. The damage step can take up to 20s, so a player who taps damage and then starts their
-next action owned a NEW picker by the time it returned — and it wiped that one, whose fire reply
-then hit `#actionState !== s` in `#fireAction` and was dropped, stranding the card on "Rolling…".
-It now only clears the state if it is still its own (the toast/warning still fire either way).
-That is a genuine latent race with the exact reported symptom; whether it is THE one the DM hit is
-unproven.
-
-**Bench lesson (important):** the headless bench must NOT junction the DM's real `Data`. Running
-it while the desktop app had the world open collided on the LevelDB locks and triggered Foundry's
-auto-repair on the world's (empty) `effects` database. No data was lost — `lost/` came back empty
-and every other database was untouched — but the bench now uses a full COPY of the world under the
-scratch dir, with only `modules`/`systems`/assets junctioned. That also stops test residue landing
-in the DM's world. Setup is in `scratchpad/bench2`.
-
-### 28.10 After-damage stray target — FIXED (bench 2026-08-02)
-
-The attack half already snapshots/restores `game.user.targets` (§28 target hygiene); the DAMAGE
-half did not, so a target that SURVIVED the hit stayed selected on the DM afterwards — a kill
-auto-releases it, which is why it read as random. The DM then multi-selects from the panel and the
-stale token joins the NPC's attack.
-
-Two things made the naive fix fail, both now handled:
-- **midi re-targets on an async tail** — measured landing ~550ms after the damage click, i.e.
-  after `handleItemUseDamage` has already returned, so a single restore in `finally` was too
-  early. Now swept again at 400/1200/2500ms.
-- **A blanket restore is wrong**: it would wipe a selection the DM made while the damage rolled.
-  The sweep is surgical — it drops only tokens THIS workflow targeted that the DM wasn't already
-  holding, and keeps everything else.
-
-Verified: fire → damage on a SURVIVING target leaves the DM's target set empty (was: the bandit
-stranded). **Known limitation, pre-existing and not introduced here:** a token the DM targets
-*during* the ~1s damage roll is cleared by midi's own restore, which our sweep cannot re-add (by
-the time it runs the selection is already gone). Niche; logged rather than fixed.
-
-### 28.11 Target picker: token faces + the name-leak guard (pre-beta, BUILT 2026-08-02)
-
-Two backlog items, one change — the picker rows now carry the token's ARTWORK (UI-BIBLE §3: identity
-rides the icon, never the text; the art is already on the shared screen so it reveals nothing the
-table can't see) and no longer print a name the DM deliberately hid.
-
-**The rule, and the version of it that was WRONG.** Full nameplate parity was implemented first —
-anonymise anything whose display mode isn't ALWAYS/HOVER — and measured on the bench: it turned
-*every untouched NPC* into "Unknown N", because **OWNER_HOVER is Foundry's default** for NPC tokens.
-That fixes a leak almost no table has by making the picker worse for all of them. Shipped rule:
-only **NONE** and **CONTROL** anonymise, the two modes that mean "nobody reads this nameplate".
-Player-owned tokens are never anonymised. Labels are numbered ("Unknown 1/2") because three rows of
-plain "Unknown" is an unusable picker, and render muted+italic so they read as placeholders.
-
-Worth recording because the original §5 TODO overstated the leak: we already send the **token**
-name, not the actor's, so a DM who renames the Doppelganger's token to "Villager" was always safe.
-The real gap was only the deliberate no-nameplate case, which is what this closes.
-
-Verified: default/ALWAYS/HOVER → "Bandit"; NONE/CONTROL → "Unknown 1 (anon)"; faces render 34×34
-and all image URLs resolve 200. `loading="lazy"` was dropped — target lists are short and lazy
-images can sit blank.
-
-### 28.12 Remote access: the DuckDNS login hang is NOT the server (measured 2026-08-05)
-
-DM: *"Duckdns link connects to foundry (slower) but doesn't let me log in to a user (it just gets
-stuck) and I'm in the same network."* Four legs measured from the server host, LAN
-(`192.168.1.143:30000`) vs remote (`twistoffate.duckdns.org:47530` → 176.231.186.13):
-
-| leg | LAN | DuckDNS | reading |
-|---|---|---|---|
-| join page `GET /join` | 200, 2607 B | 200, **2607 B** | byte-identical |
-| login `POST /join` (invalid user) | 401 in 74 ms | 401 in 196 ms | the login path itself works |
-| websocket upgrade `/socket.io/…transport=websocket` | 101 in 22 ms | **101 in 7 ms** | no upgrade problem |
-| 3.2 MB asset | 3.13 MB/s | **3.13 MB/s** | no bandwidth penalty |
-
-So every hypothesis that blames Foundry or the forward is dead: the port forward carries HTTP,
-the login POST, and the websocket upgrade equally well. `options.json` is clean for this
-(`port: 30000`, `proxyPort: null`, `routePrefix: null`) and the served HTML contains **no absolute
-URLs and no literal `:30000`** — the client builds everything from `window.location`, so the
-30000↔47530 port mismatch is not the cause either.
-
-What that leaves is the **client device's** path: these measurements all hairpin from the server
-host itself, which routers often short-circuit, while the DM's phone/laptop needs real NAT
-loopback through the Vantiva FGA232APTN. **Workaround (immediate): on the home network use
-`http://192.168.1.143:30000`** — no hairpin at all. To make one URL work everywhere, the fix is
-split-horizon DNS (resolve `twistoffate.duckdns.org` to the LAN IP inside the house), not a
-Foundry setting.
-
-**Still owed** (needs the DM's device, can't be done from the server): the browser console +
-network tab at the moment it hangs. That distinguishes "stalled request" from "loaded but
-socket never authed", which is the only fork left.
-
-### 28.5 Ecosystem watch — the premades modules (checked 2026-07-26)
-
-- **gambits-premades**: last release 2.1.43 (May 27); author (April, 2.1.42): "as-is release for
-  V13 + 5e 5.3.x… I will not be doing any 5.3 bug fixes… focus will be on V14 + 5e 6.x." They are
-  SKIPPING our exact stack (V14 + 5e 5.3) — GPS will likely never run on it.
-- **chris-premades**: actively shipping 1.5.x (1.5.43 on July 25) but "not a V14 update… still a
-  work in progress"; the 2.0.x pre-releases are the rewrite with NO automations ported yet (only
-  generic features/summon animations, new "CAT" dependency).
-- **midi-item-showcase-community (MISC)** — *the live one (added 2026-07-26, DM ask)*: 2.0.0
-  (July 11) is "the first release for Foundry v14 and dnd5e v5.3" — OUR EXACT STACK, today.
-  Community item automations (Posney's Discord); old deps (Times Up, Active Token Effects)
-  "absorbed by DAE and Foundry". **Integration candidate**: MISC items should ride our two-tap
-  executor flow as ordinary midi automations, but two known risk classes need a validation pass
-  first — automations that open caster-side dialogs (they'd land on the EXECUTOR; the dialog
-  watchdog catches, doesn't prevent) and reaction-style automations (must route through our
-  relay). Validate a handful of MISC items through the phone flow (§28.4-style) before
-  recommending it to tables. Preflight warns if a v13-era MISC 1.x is installed.
-- **CAT (Coven's Automation Toolkit)** — *checked 2026-07-26*: CPR's author (chrisk123999)
-  extracting CPR's internals into a shared automation API; both CPR 2.0 and MISC 2.0 build on it
-  — the ecosystem's V14 era converges here. Manifest facts: **Foundry 14-only** (min/verified/max
-  14 — born on V14), **dnd5e min 5.3** / verified 6.0.0 / max 6.9.9 (spans our stack AND the 6.x
-  era — the bridge module), requires only midi-qol + DAE. At 0.0.6 (weekly releases since
-  June 17) its API is still moving — treat any install like AC5E: pin-watch it. Integration
-  note: CAT extends the SAME midi workflow objects our two-tap flow holds mid-flight, so its
-  event-timing hooks and dialog utilities hit exactly the two §28.5 MISC risk classes — one
-  MISC+CAT validation pass covers the whole new ecosystem, since they travel together.
-- **Consequences (revised 2026-07-26, DM: "we'll be pushing versions too — don't count Gambit
-  out"):** our home-built AoO/reaction machinery stays load-bearing TODAY, and MISC is the first
-  possible complement on the current stack. GPS isn't dead to us — chase-upstream (§28.4) means
-  we'll reach V14 + dnd5e 6.x ourselves; GPS re-enters the picture at that milestone. Plan the
-  5.3→6.x migration as its own milestone (full §28.4 run + real porting), don't discover it
-  under pressure.
 
 ### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
 
@@ -2809,7 +2911,175 @@ tolerate typed change values (or MISC avoid them). The console noise is known an
 
 ---
 
-## 29. Settings mini-app (spec v2, 2026-07-26 — wireframes rebuilt, awaiting DM layout approval)
+
+### 28.7 Hit/miss on the phone card (bench 2026-08-01)
+
+**Verified: a HIT is green.** `mc-hit` → total in `#6FCF7D` on a `#2F5D39` border, label "Hit",
+damage tap offered. Confirmed on weapon (Longsword) and spell (Fire Bolt) attacks, and a nat 20
+correctly reads Hit even against AC 99 (auto-hit).
+
+**FIXED — a miss said "Attack".** The red card rendered `mc-miss` but was labelled with the
+generic word "Attack" (`21 ATTACK` in red) and still offered **Roll damage** — which, tapped,
+rolled and toasted "0" while applying nothing (midi has no hit target to apply to). Now: label
+**"Miss"**, and no damage tap (the ✕ closes it, UI-BIBLE §4.2). A null total still reads the
+neutral "Attack" with no colour — a stale/unresolved read must not claim a miss it can't prove.
+
+**INVESTIGATED, NOT SHIPPED — two deeper fixes that caused a regression.** Attempted in the
+same pass and REVERTED after A/B on the bench:
+- executor: return `ok:false` when an attack produced no workflow AND never rolled (see the
+  MISC finding below), instead of the current `ok:true, needsDamage:false, hit:false`;
+- shell: keep the result card up (instead of closing silently) when an attack resolves with no
+  damage step, using a new `attackTotal` in that executor branch.
+With those in, the **second** phone attack after a damage roll hung on "Rolling…" forever — the
+fire never reached midi (no chat card, no workflow) and no timeout warning appeared. A/B was
+conclusive: baseline survives fire→damage→fire (including a crit first), the patched build hung
+4/4. Root cause NOT found; the render-only fix above ships alone. Whoever picks this up: the
+suspects are the un-awaited `useActivityCancel` added in `#fireAction` and the new
+phase-`attacked`-with-null-`requestId` state, and the repro is just two phone attacks in a row.
+
+**FOUND — a phone attack can vanish with zero feedback (pre-existing, unfixed).** With MISC
+installed, Test Fighter's **Great Weapon Master** automation aborts the use with an
+executor-side error ("The Elwin Helpers setting must be enabled" — a MISC setting that is OFF
+in this world). Result: no attack roll, no chat card, no workflow — and because the executor's
+`!wf` branch reports `ok:true, needsDamage:false`, the phone **closes the action card in
+silence with the action already spent**. This is the "I tapped attack and nothing happened"
+class of bug. Two things to do: (1) ~~a preflight check for MISC automations whose prerequisite
+settings are off~~ — **BUILT as `AUTOMATION_PREREQS`** (warn + one-tap fix; §45.2 reuses the same
+mechanism for wm5e), and (2) the executor honesty fix above — once it can be done without the hang
+(§28.9: the hang did not reproduce on a clean bench; reproduce WITH the GWM error present first).
+
+
+### 28.8 The pre-attack "phantom swing" — FIXED (bench 2026-08-02)
+
+**The DM's complaint:** tapping a target on the phone played an attack animation on the canvas/TV
+before the player had actually attacked. `attackPreview` fires a throwaway hidden attack roll to
+read AC5E's adv/dis advice, and §28's suppression was *supposed* to cover the animation.
+
+**It was broken two ways, and had never worked:**
+1. It stubbed `AutomatedAnimations.PlayAnimation` — the name in AA's own deprecation warning, but
+   the live API exposes **`playAnimation`** (lowercase). The stub silently never installed.
+2. The public entry isn't even the animating path. Measured: per preview, **1 Sequencer play and
+   0 public-API calls** — AA animates from its own hook handler.
+
+**And the timing made a naive stub useless anyway:** AA's post-roll handler is ASYNC. Measured
+`dnd5e.rollAttackV2` at 85ms, roll returns 96ms (our `finally` restores everything), animation at
+**210ms** — the suppression window closed ~114ms before the animation started.
+
+**Fix (rpc.js `handleAttackPreview`):** stub Sequencer's `play()` AND both AA API spellings, plus
+empty the `dnd5e.rollAttackV2` / `dnd5e.rollAttack` listener arrays *in place* for the length of
+the throwaway (ids/order preserved, refilled in `finally`) — which stops AA before it ever starts.
+Nothing should react to a phantom roll; that is the point of it. Verified: **0 Sequencer plays**
+across 3 consecutive previews, no chat card, listeners restored, and AC5E still annotates
+correctly (mode `advantage`, reason "Target Cannot See Attacker").
+
+
+### 28.9 The "Rolling…" hang — NOT reproduced on a clean bench (2026-08-02)
+
+Chasing §28.7's hang. **It did not reproduce today, on either build** — not with the raced recipe
+(tap damage, immediately start the next attack), not with the original recipe (6s wait), on the
+patched build OR baseline. Several clean fire→damage→fire cycles in a row.
+
+What that changes: §28.7's conclusion that "my changes cause the hang" is **not supported**. The
+difference between yesterday and today is the ENVIRONMENT, not the diff — yesterday's runs were
+against the DM's live world while it was also open in the desktop app, with MISC's Great Weapon
+Master throwing on every Test Fighter attack and stale suspended workflows piling up. An exception
+thrown inside a hook handler is a plausible mechanism for a swallowed RPC, and is the lead to pull
+next. Reproduce it with the GWM error present before trying to fix anything.
+
+**Shipped anyway, on its own merits:** `#rollDamage` cleared `#actionState` unconditionally after
+its await. The damage step can take up to 20s, so a player who taps damage and then starts their
+next action owned a NEW picker by the time it returned — and it wiped that one, whose fire reply
+then hit `#actionState !== s` in `#fireAction` and was dropped, stranding the card on "Rolling…".
+It now only clears the state if it is still its own (the toast/warning still fire either way).
+That is a genuine latent race with the exact reported symptom; whether it is THE one the DM hit is
+unproven.
+
+**Bench lesson (important):** the headless bench must NOT junction the DM's real `Data`. Running
+it while the desktop app had the world open collided on the LevelDB locks and triggered Foundry's
+auto-repair on the world's (empty) `effects` database. No data was lost — `lost/` came back empty
+and every other database was untouched — but the bench now uses a full COPY of the world under the
+scratch dir, with only `modules`/`systems`/assets junctioned. That also stops test residue landing
+in the DM's world. Setup is in `scratchpad/bench2`.
+
+
+### 28.10 After-damage stray target — FIXED (bench 2026-08-02)
+
+The attack half already snapshots/restores `game.user.targets` (§28 target hygiene); the DAMAGE
+half did not, so a target that SURVIVED the hit stayed selected on the DM afterwards — a kill
+auto-releases it, which is why it read as random. The DM then multi-selects from the panel and the
+stale token joins the NPC's attack.
+
+Two things made the naive fix fail, both now handled:
+- **midi re-targets on an async tail** — measured landing ~550ms after the damage click, i.e.
+  after `handleItemUseDamage` has already returned, so a single restore in `finally` was too
+  early. Now swept again at 400/1200/2500ms.
+- **A blanket restore is wrong**: it would wipe a selection the DM made while the damage rolled.
+  The sweep is surgical — it drops only tokens THIS workflow targeted that the DM wasn't already
+  holding, and keeps everything else.
+
+Verified: fire → damage on a SURVIVING target leaves the DM's target set empty (was: the bandit
+stranded). **Known limitation, pre-existing and not introduced here:** a token the DM targets
+*during* the ~1s damage roll is cleared by midi's own restore, which our sweep cannot re-add (by
+the time it runs the selection is already gone). Niche; logged rather than fixed.
+
+
+### 28.11 Target picker: token faces + the name-leak guard (pre-beta, BUILT 2026-08-02)
+
+Two backlog items, one change — the picker rows now carry the token's ARTWORK (UI-BIBLE §3: identity
+rides the icon, never the text; the art is already on the shared screen so it reveals nothing the
+table can't see) and no longer print a name the DM deliberately hid.
+
+**The rule, and the version of it that was WRONG.** Full nameplate parity was implemented first —
+anonymise anything whose display mode isn't ALWAYS/HOVER — and measured on the bench: it turned
+*every untouched NPC* into "Unknown N", because **OWNER_HOVER is Foundry's default** for NPC tokens.
+That fixes a leak almost no table has by making the picker worse for all of them. Shipped rule:
+only **NONE** and **CONTROL** anonymise, the two modes that mean "nobody reads this nameplate".
+Player-owned tokens are never anonymised. Labels are numbered ("Unknown 1/2") because three rows of
+plain "Unknown" is an unusable picker, and render muted+italic so they read as placeholders.
+
+Worth recording because the original §5 TODO overstated the leak: we already send the **token**
+name, not the actor's, so a DM who renames the Doppelganger's token to "Villager" was always safe.
+The real gap was only the deliberate no-nameplate case, which is what this closes.
+
+Verified: default/ALWAYS/HOVER → "Bandit"; NONE/CONTROL → "Unknown 1 (anon)"; faces render 34×34
+and all image URLs resolve 200. `loading="lazy"` was dropped — target lists are short and lazy
+images can sit blank.
+
+
+### 28.12 Remote access: the DuckDNS login hang is NOT the server (measured 2026-08-05)
+
+DM: *"Duckdns link connects to foundry (slower) but doesn't let me log in to a user (it just gets
+stuck) and I'm in the same network."* Four legs measured from the server host, LAN
+(`192.168.1.143:30000`) vs remote (`twistoffate.duckdns.org:47530` → 176.231.186.13):
+
+| leg | LAN | DuckDNS | reading |
+|---|---|---|---|
+| join page `GET /join` | 200, 2607 B | 200, **2607 B** | byte-identical |
+| login `POST /join` (invalid user) | 401 in 74 ms | 401 in 196 ms | the login path itself works |
+| websocket upgrade `/socket.io/…transport=websocket` | 101 in 22 ms | **101 in 7 ms** | no upgrade problem |
+| 3.2 MB asset | 3.13 MB/s | **3.13 MB/s** | no bandwidth penalty |
+
+So every hypothesis that blames Foundry or the forward is dead: the port forward carries HTTP,
+the login POST, and the websocket upgrade equally well. `options.json` is clean for this
+(`port: 30000`, `proxyPort: null`, `routePrefix: null`) and the served HTML contains **no absolute
+URLs and no literal `:30000`** — the client builds everything from `window.location`, so the
+30000↔47530 port mismatch is not the cause either.
+
+What that leaves is the **client device's** path: these measurements all hairpin from the server
+host itself, which routers often short-circuit, while the DM's phone/laptop needs real NAT
+loopback through the Vantiva FGA232APTN. **Workaround (immediate): on the home network use
+`http://192.168.1.143:30000`** — no hairpin at all. To make one URL work everywhere, the fix is
+split-horizon DNS (resolve `twistoffate.duckdns.org` to the LAN IP inside the house), not a
+Foundry setting.
+
+**Still owed** (needs the DM's device, can't be done from the server): the browser console +
+network tab at the moment it hangs. That distinguishes "stalled request" from "loaded but
+socket never authed", which is the only fork left.
+
+
+---
+
+## 29. Settings mini-app (spec 2026-07-26 → **BUILT same day; bench-verified 12/12 2026-08-01**)
 
 The v1 wireframes lived only in a chat session and were LOST (DM couldn't find them) — spec
 recorded here now, wireframes regenerable from it (`settings-wireframes.html`, sent 2026-07-26).
@@ -2879,6 +3149,7 @@ separately at build time).
 
 ---
 
+
 ## 30. Séance board (DM-idea 2026-07-26, for a Crooked Moon game — BUILT)
 
 **The ask:** a spirit-board table on the TV; the DM types a phrase, the planchette spins to each
@@ -2906,8 +3177,9 @@ center rest. Backdrop per DM: bland near-black radial ground; the round table is
 image edge.
 
 **Release note:** the module.zip build must now include `art/` (next release).
-**Open:** creaking-wood sound on movement (procedural, §26.2-style) if the DM wants it; a
-"clear the board" wipe animation; number ring (explicitly kept out — "no other layer").
+**Open:** ~~creaking-wood sound~~ — superseded by §30.1's synthesized SCRAPE (provisional, DM
+verdict by ear owed); a "clear the board" wipe animation (minor, unasked-again); number ring —
+resolved differently: the full board (digits + printed words) shipped in v2 below.
 
 **§30 v2 (DM notes 2026-07-27):** the heart is DEAD STILL at rest — no tremble, no rotation
 wobble at start or end (tremble only while alive). A phrase from idle begins with a WAKE-UP:
@@ -3026,7 +3298,203 @@ die 1 + note "the hag's save" → pending chip on panel → Apply → count 1, p
 phone back to idle. NB: shell's `#onClick` is NOT async — async twist work lives in
 `#twistSend`/`#twistWithdraw` (an inline `await` broke the class parse).
 
-## 33. Chaotic Curses (DM-approved 2026-07-27 — spec'd with §31 pivot, unbuilt)
+
+---
+
+## 32. The Crooked Moon idea board — mined from the book (2026-07-27)
+
+> **Section assembled 2026-08-19.** This content always existed and was always cited as "§32"
+> (by [druskenvald.js](scripts/druskenvald.js), [tarot.js](scripts/tarot.js), §35, §38.4a), but it
+> lived headerless inside §38.4 — a housecleaning casualty, now given the heading its references
+> assume. Status: §31/§33/§34/§35 + §36/§37 are built; the tarot draw (§42) and the Druskenvald
+> clock (§43) — the two "next-up residents" — are built too. What remains below is the UNMINED
+> remainder: Dark Bargains, the lair-pulse engine, and the ch10–13 scene packs.
+
+
+Source: `the-crooked-moon-2014` module's journal packs, dumped + read in full (extraction
+technique: copy pack dirs minus LOCK → classic-level via Foundry's Electron-as-Node; text dumps
++ rolltables.json/cards.json in the session scratchpad, regenerate as needed). "Gate weaving" =
+the book's **Fateweaving** (ch9). The séance board (§30) is the ch12 Parlor scene (H3) — its
+source confirmed, Q&A ladder + 1d10/escalating-die bite match our build.
+
+**Campaign-wide systems (the séance-board-sized features):**
+- **Fated Tarot reading (ch9+10) — top candidate.** Adela pulls one Major Arcana per PC on the
+  Ghostlight Express (always upright, no duplicate cards; each PC keeps their card; each card
+  unlocks a chapter-keyed Fabled Heirloom/boon later — Lovers = Adela's PLANCHETTE ch24, Moon =
+  3 Twists of Fate ch12 → ties into §31, Star = free feat, Sun = +2 ability, World = one Wish).
+  ALL 22 card faces ship in the module (`assets/card/card tarot/1_<n> - <Name>_Bleed.webp`, no
+  back art for this deck); Foundry docs exist: deck `tcm2014-cards…hE6QSAetov5iFigA`, 1d22
+  RollTable `PgDCRgyABMbAxork` (rewards), light 1d12 fortune table `M9wdb1sObnJHpTFG` (flavor
+  only — good for a repeatable "fortune teller" toy). UX sketch: TV card-flip reveal, each
+  player's card drawn face-down on THEIR phone first; persistent per-PC card chip.
+- **Chaotic Curses (App C).** 156 fleeting RP curses (15–30 real minutes), tarot-card-indexed
+  (78×upright/reversed), RollTable `MFPMY4JfgYwbN31l` (1d156). Many are PERCEPTION curses —
+  one-phone effects: grayscale filter, whisper-only, footsteps-audio only you hear, button-eyes
+  on portraits, roll d12 instead of d20. Rides on §31's infrastructure (self-reverting effects
+  + chips + DM roll/accept flow) almost unchanged.
+- **Fateweaving (ch9).** Per-PC story arc: 13 Threads of Fate, 6 touchpoints with fixed rewards
+  (Inspiration → ally+Bless → a Twist of Fate → +2 ability → free feat → catharsis). The
+  threads carry phone-prop-shaped devices: soul compass that points/pulses, doppelganger in
+  mirrors, self-writing demonic tome, dream journal, shadow offering games of chance, entity in
+  a flask. Module fit = private per-player widgets + a DM touchpoint tracker, not automation.
+- **Dark Bargains (ch6).** 13 unique boon+bane pacts; offered AT DEATH ("deny death by
+  accepting a Dark Bargain"). Phone fit: a devil's-deal prompt on the dying player's phone;
+  chip-tracked banes (Crooked Fortune's "next 3 saves at disadvantage" debt counter; Red Haze
+  forced-targeting; Watery Doom wet-state). Also ch8's Book of the Horned King (sign your name
+  = pledge your soul) as a signing UI.
+- **Druskenvald clock.** Eternal night, 6 named hours (Twilight/Dusk/Nightfall/Evening/
+  Midnight/Witching) each with a sky colour — a TV time-of-day HUD + ambient tint; NPC copy
+  uses the hour names. Feeds the Wickermoor clocktower haunt (below).
+- **"Lair pulse" engine (infrastructure).** The book runs on initiative-count-20 environmental
+  pulses (clock chimes, rising blood, baby wails, psychic bear, phantom feast, mill tremors)
+  and escalating-die ladders (séance bite 1d4→1d12; trophy-room DC10→13). One generic
+  executor-side pulse/ladder engine covers ~10 scenes across ch10–13.
+
+**Ch10 Ghostlight Express (party's next stop if early):** silver ticket pushed to each phone
+(PRC DC 13 gets it early) · haint-freeing skill challenge ×6 (3 successes before 3 failures,
+DC12, +2 per reused skill — calm↔rage meter on TV, per-skill "spent" marks on phones, exactly
+séance-board energy) · Soul Cans/bottle-trap ghost capture (hold-to-seal phone gesture; cans
+pay off in the boss fight as objective markers he eats for 20 HP) · 6-car token↔haint matching
+board (phonograph→Songstress etc.) · phantasmal food — free-text order materializes on the TV
+table (steak & eggs is a puzzle key; inline input per phone-input rule) · Vagrant train-PA
+(crackly intercom voice channel, reusable for any GM announcement) · Switcheroo mist-wipe
+random-car transition · don't-wake-the-tiger ring-slip (steady-hand slider, 2d6 fire on fail)
+· crash + first sight of the crone-faced Crooked Moon (shake + vibration burst + persistent
+moon skybox that gets closer/brighter across the campaign).
+
+**Ch11 Wickermoor (hub):** haunted clocktower — module rolls d12 secretly at long rest, fires
+a real-time wrong-hour bell + haunt that even the DM can't predict · Insight whisper-lane
+(passed checks push private "his smile doesn't reach his eyes" lines) · the Lottery draw
+(tumbling tickets on TV, each phone holds one — Shirley Jackson energy, trivial build) ·
+Gaston's degrading paintings (image series that corrupts act by act — fits the saved-image
+journal) · Bloody Cup carnival-games anthology (phone minigames + TV scoreboard; also serves
+ch21 Fool's Day tickets) · Oak of Many Faces solo night ambush (lone player's phone gets the
+creaks first).
+
+**Ch12 Crooked House (séance's home):** Crooked Teeth — ANY failed search finds a single human
+tooth (hook the roll, show the tooth on the failing phone, count them) · cursed foyer portrait
+= the party toothless (generate from their token art; cursed viewer gets a silent nat-1
+jumpscare flag) · check-for-monsters — 1-of-6 hide-and-seek with directional scraping audio as
+miss feedback, ceiling jumpscare on attempt 6 (Lurking Shadows table `6MD0TbD49MCv1CIK`) ·
+bathroom fills with blood — trapped players' PHONE SCREENS fill red over 4 rounds + muffled
+audio · haunted harpsichord forced-dance (house-wide discordant track; seated player gets a
+rhythm minigame as the DC 15 Performance; Patrini assists non-proficient — séance callback) ·
+6-memento tracker + rune-door slotting (chapter progress bar) · grandfather-clock chime
+spawner · Wisp's delayed betrayal (story told at table → 5-min-later charm takeover flag) ·
+false-Adela private guess commit · Crooked Man one-tap haunt button (three scripted
+apparitions + at-will).
+
+**Ch13 Fields of the Crow:** pay-a-secret gate — each entrant TYPES a confession privately;
+module flags who paid; Crowsong events later taunt THAT player with their own secret; +1
+legendary resistance per paid secret (the design question — does the table hear it? — is the
+drama) · 3-hour doom clock over the whole demiplane · crow-caw audio NAVIGATION (loudest of
+three directions is correct; check quality gates how much acoustic info: full/quietest-only/
+noise) · windmill 9-round collapse countdown + rotating-cog hazard · bucket-brigade
+firefighting (gallons per blaze, pump/carry/douse from phones) · crow-catching boss scoreboard
+(catch 6 before he eats 3; whispered-secret audio sting per catch) · amber-wristband
+auto-revive (Tender Secrets) · black-coin one-player whisper.
+
+**Triage note (2026-07-27, mine):** build-first shortlist = Fated Tarot (assets + tables
+already ship; recurs all campaign; feeds §31) → Chaotic Curses (near-free on §31 slice 1) →
+ch10 pack (ticket, haint meter, soul cans, crash/moon — if the party is pre-Express) →
+secret-confession gate (cheap, phone-native) → Druskenvald clock + clocktower. The audio-heavy
+ideas (directional caws, room-wide loops) need the performance-cost talk first (modest
+machine). RESOLVED 2026-07-27: campaign not started yet (no chapter urgency) — the DM chose
+the suite now spec'd as §31/§33/§34/§35; tarot + clock remain the top future residents.
+
+
+### 32.1 The Fated Tarot — what the BOOK actually does (extracted 2026-08-11, DM asked for context)
+
+Extracted from the installed `the-crooked-moon-2014` packs (rollable-tables + journal), read in
+full rather than recalled. Technique per §32: copy the pack dirs minus `LOCK` (and skipping
+LevelDB's `lost/` directory — `copyFileSync` throws EPERM on it), open with `classic-level` under
+Electron-as-node, pointing at Foundry's own bundled copy of the library by absolute path.
+
+#### Mechanically: the card is a KEY, not a prize
+
+The reading happens in **ch10, aboard the Ghostlight Express** (G3, the Lounge Car), but the rules
+for it live in **ch9, "Fated Tarot Reading"**. Adela Druskenvald — a clairvoyant "with a passion
+for the occult" — pulls **one Major Arcana per character, always upright, no duplicates**.
+
+The card does nothing at the moment it is drawn. What it does is **gate a Fabled Heirloom** — a
+magic item that levels up with its owner — or a powerful boon, which becomes available at one
+specific, named point later in the adventure. The book's own reasoning, verbatim:
+
+> *"provisioning the characters with a veritable treasure trove of powerful items could quickly
+> trivialize the threats that await them. Therefore, the Fated Tarot Reading provides a method to
+> determine which of the Fabled Heirlooms the characters can acquire."*
+
+So it is a **rationing mechanism dressed as a fortune**. Throughout the book, sections titled
+"Fated Tarot Reading" each name a card, its item, and where it is found. The DM implements **only
+the sections whose cards were actually drawn** and ignores every other instance. A party of four
+unlocks four of the twenty-two heirlooms for the whole campaign.
+
+**There is also a lite version**, which is what runs if the DM doesn't want the campaign-long
+machinery: roll on the table per character, reroll duplicates, and every participant gains
+**Bless for 1 hour**. That's the whole mechanical effect at the table.
+
+#### The full map (all 22 — this is the thing worth having)
+
+| Card | key | What it unlocks | Where / when |
+|---|---|---|---|
+| The Fool | `fool` | Whistle of the Vagrant | Conclusion: The Last Stop |
+| The Magician | `magician` | Marotte of the Lord of Fools | Phase 2: Carnival of Chaos |
+| The High Priestess | `priestess` | Mask of Lethica Nightborne | L19: Lethica's Quarters |
+| The Empress | `empress` | Cauldron of the Vermintoll Coven | Conclusion: Dreaming No More |
+| The Emperor | `emperor` | Blunderbuss of the Grinning Sinner | Phase 2: Double Down |
+| The Hierophant | `hierophant` | Sword of the Crimson Abbot | Phase 2: Beneath a Blood Moon |
+| The Lovers | `lovers` | Planchette of Adela Druskenvald | The Green Queen Inn |
+| The Chariot | `chariot` | Scythe of the Harvest Terror | Phase 2: Demon of Secrets |
+| Strength | `strength` | Shovel of Yorgrim | Y9: Shadestone Sanctuary |
+| The Hermit | `hermit` | Staff of Farryn of the Greenwood | F10: Befouled Wellspring |
+| Wheel of Fortune | `wheel` | Cutlass of Briggsy Kratch | To the Sinner's Shack |
+| Justice | `justice` | Shield of Marius Renathyr | M2: Stables |
+| The Hanged Man | `hanged` | Banjo of Ol' Jericho Sticks | J9b: Windmill Cellar |
+| Death | `death` | Idol of the Beast of Blight | Phase 2: Dead and Gone |
+| Temperance | `temperance` | Veil of the Weeping Widow | Phase 2: Desperate Measures |
+| The Devil | `devil` | Cane of Phillip Druskenvald | Encounter 5: Live Deliciously |
+| The Tower | `tower` | Visage of the Old Ways | Phase 2: Dying Embers |
+| The Star | `star` | **A feat** of their choice they qualify for | S7: Stonoga's Laboratory — after defeating Stonoga Blackstinger |
+| The Moon | `moon` | **Three Twists of Fate** (→ our §31) | H17: Cauldron Room — after defeating Vessla Browntooth |
+| The Sun | `sun` | **+2 to one ability score** (max 24) | R2: Pigeon Roost — after defeating Golub Graygullet |
+| Judgement | `judgement` | Lantern of the Chained Reaper | Phase 2: Cold Fire |
+| The World | `world` | **Cast Wish, once** | Phase 2: Wrath of the Crooked Queen — after defeating the Horned King |
+
+Eighteen are named Fabled Heirlooms in `tcm2014-treasury`; four (Star, Moon, Sun, World) are pure
+boons with no item. **The Moon lands directly on machinery we already built** — three Twists of
+Fate is §31, counters, spend flow and all.
+
+#### Story-wise: it is a scene, not a die roll
+
+Two RollTables ship, and they are different things:
+
+- **`PgDCRgyABMbAxork` "Fated Tarot" (1d22)** — Adela's *interpretation* of each card, written in
+  her voice ("Awww, the Lovers! There sure ain't nothin' better than love…", "DEATH!! How spooky!
+  Oh, don't worry! It ain't as scary as all that!"). Pure flavour: **no mechanics whatsoever**,
+  meant to be read aloud. Indexed 1–22 with **The Magician at 1 and The Fool at 22** — note this
+  is NOT the conventional Fool = 0 ordering our `ARCANA` table uses.
+- **`M9wdb1sObnJHpTFG` "Tarot Reading" (1d12)** — a lighter, repeatable fortune-teller toy.
+
+Adela is "eager to show off her talents with any willing soul" and "It is challenging to dissuade
+her." The reading is a party scene in a lounge car, performed by an NPC who enjoys it — which is
+exactly why the first build read wrong: it delivered a result where the book stages a performance.
+
+#### What this means for our build (DM 2026-08-11)
+
+1. **The character draws, not the account.** The book says "one for each character" and every
+   gated section reads "the character this card was pulled for". Our state keyed to `userId`;
+   it must key to the **actor**. The player is only holding the phone.
+2. **The card must carry its consequence.** Storing a name and a pretty picture wastes the entire
+   mechanic. Each card should carry its heirloom/boon and where it is found, so the DM's own view
+   answers "what did this unlock and when do I hand it over" months later — that is the actual
+   job the book asks the DM to track by hand across a whole campaign.
+3. **Adela's words are content we already have.** The 1d22 interpretation should be what the
+   table hears at the reveal — read aloud by the DM, or shown on the card.
+
+---
+
+
+## 33. Chaotic Curses (DM-approved 2026-07-27 — **BUILT 2026-07-28**, slice C at the end of this section)
 
 Fleeting, RP-focused curses per the book's Appendix C: designed to last **15–30 REAL-WORLD
 minutes**, alter perception/behavior/appearance, and stay light on combat math. Book examples:
@@ -3081,7 +3549,7 @@ with a dashed-muted italic chip (`mc-curse-chip`). Bench: pick-3 Unshelled → A
 20-min clock listed; backdated expiry → sweep lifted it and AC returned; random roll (63 Old
 Tongue) + cancel. Bargain mode (reroll-for-a-curse toggle) DEFERRED to the phone-roll slice.
 
-## 34. Fateweaving (DM-requested write-up 2026-07-27 — spec'd, unbuilt)
+## 34. Fateweaving (DM-requested write-up 2026-07-27 — **BUILT 2026-07-28**, slice D at the end of this section)
 
 The book's per-PC story-arc system (ch9): each player picks one of **13 Threads of Fate** (no
 duplicates) — a personal destiny (Deliverance, Duality, Immortality, Malediction, Slaughter…)
@@ -3119,7 +3587,7 @@ retract ✓, shell chip + card ✓. BENCH TRAP (cost 20 min): Foundry sessions a
 logging a second pane tab in as another user overwrites the cookie, and the next reload of the
 first tab rejoins as THAT user; the "vanished" DM panel was just a Player 2 login.
 
-## 35. The Crooked Moon tab (DM-requested 2026-07-27 — spec'd, unbuilt)
+## 35. The Crooked Moon tab (DM-requested 2026-07-27 — **BUILT**: slice A 2026-07-27; the whole §§30–36 suite is in)
 
 A campaign-tools tab on the **DM panel**, gated behind a module setting ("Campaign tools: The
 Crooked Moon", default OFF) so non-Crooked-Moon tables never see it. V1 residents:
@@ -3148,6 +3616,7 @@ currentColor mask (`.mc-icon-cmoon`, styles/shell.css) — never the book's art.
 (counter, chips, spend/apply flow) → C) curses (effects + real-time expiry + DM flow + the
 original d100 in batches) → D) fateweaving tracker. Each slice ships/commits separately.
 (§36 All aboard jumped the queue by DM request 2026-07-27 — built 2026-07-28.)
+
 
 ## 36. All aboard — the Ghostlight boarding ritual (DM-idea 2026-07-27 — BUILT 2026-07-28, bench-verified)
 
@@ -3182,6 +3651,146 @@ ticket on their phone, and the DM takes each ticket as its holder boards the tra
   placed) with introduce (name button) + ticket (44px icon button) · All Tickets / Punch All
   bulk · whistle. Tickets target the PC's USER (`pcUser()` — character-assignment first, then
   ownership), so the ticket follows the player to any device.
+
+
+## 36.1 The arrival — swirl, bringing the train in, and one story per PC (DM 2026-08-19)
+
+*"all abord is very weak, I want some kind of swirling fog and the ability to 'bring in' the
+train… I want a personal story for each PC… a foggy background (preferably animated slowly), a
+train sound, grinding stop, a train whistle, and the image to appear (centered and aiming the right
+way) behind the fog when requested (you can keep the up down animation)."*
+
+### 36.1.1 What the book actually says (extracted 2026-08-19, ch10 "All Aboard" + "Quest Hooks")
+
+The arrival read-aloud, and its beat order — which is not the order we had:
+
+> *"The haunting tune of a lone fiddle pierces through the fog… A dark steel train, bathed in an
+> eerie glow, emerges from the gloom on rails made of mist. Its smokestack belches plumes of ghastly
+> blue-green smoke that wail with the faces and voices of the damned. The locomotive rumbles,
+> squeals, and creaks as it slows to a halt, and a passenger car looms directly before you."*
+
+So: **fiddle → emerges from the gloom → wailing smoke → rumbles, squeals, creaks → halt → looms.**
+Then the Vagrant steps out fiddle in hand, and a **DC 13 Perception** check makes a character feel
+the unfamiliar ticket already in their pocket — the beat our existing ticket fx was built for, now
+reachable in its right place.
+
+**The per-PC arrival is the book's own suggestion, not a departure from it.** Quest Hooks: *"They
+may be picked up together or individually… For a full-length campaign, talk with your players to
+establish the circumstances that lead their character to embark when the train arrives."* Its three
+framings are **Fate** (each has a ticket and their own reason), **Death** (they all died and are
+reincarnated), **Homeward Bound** (Druskenvald natives trying to get home).
+
+### 36.1.2 The stage
+
+The old station raised fog **with the train already parked in the corner**, which is why it felt
+weak: nothing could arrive, because it was already there. Now:
+
+- **Fog first.** Three oversized blurred blob sheets that **rotate** (168s / 233s / 121s a
+  revolution, one reversed, each about its own centre) over the two original drift bands. Rotation
+  is what makes it swirl — the old version only slid sideways, which reads as a curtain, not
+  weather. Transform-only, so each blurred sheet is rasterised once and then re-composited;
+  `will-change: transform` pins that promotion. Slow on purpose: fast fog reads as smoke.
+- **"On rails made of mist"** — two pale converging streaks, low, slowly shimmering. The book's own
+  line, and the thing that gives the eye somewhere for the train to arrive *from*.
+- **The train is hidden until asked for.** `cmTrain` fx state `{ in, rot, actorId }` — a state, so a
+  reloading TV puts it back. Bringing it in runs a 7s emerge: far, small, dim, blurred → growing and
+  sharpening → settled. The DM's up-down float is kept, on the `<img>`, while the arrival runs on
+  the wrapper — two animations on one element would fight over `transform`.
+- **Aiming.** The screen lies flat with people around it, and §38.4b already stores a `rot` per seat:
+  the angle at which that seat's own UI reads right-way-up for the person sitting there. Rotating
+  the train layer by that same angle is the whole trick — the Ghostlight pulls in correctly oriented
+  for the person it came for, and upside-down for the person opposite, which is exactly true of a
+  real train at a real platform. Online table or nobody seated → 0°.
+
+### 36.1.3 The three cues
+
+Synthesized, so the module ships with sound and nothing licensed is bundled (§26) — **and every cue
+first checks a file-picker setting** (`sndTrainApproach` / `sndTrainWhistle` / `sndTrainStop`) and
+plays that instead when set. Drop a recording in and it wins.
+
+- **Approach** — a bed that FADES IN over 6s and **loops until stopped**, because nobody can time a
+  one-shot to a sentence they are still improvising. Three voices are what make an engine rather
+  than a hum: a very low rolling rumble, a chuff on an LFO-gated band of noise (the exhaust beat,
+  quickening across the fade — approaching, not idling), and the far ring of steel on rail.
+- **Whistle** — unchanged (the existing D#4/F#4/A#4 steam chord), now with a file override.
+- **Grinding stop** — the book's order exactly: two detuned resonant peaks **squealing** downward
+  over 2.6s, the rumble under them slowing and dying, a long **steam sigh** once the wheels stop,
+  and one iron **clank** as the couplings take up the slack. Firing it also ducks the approach bed
+  out — an engine still running behind a visibly stopped train is worse than no sound at all.
+
+### 36.1.4 The arrival script — the DM's words, and only his
+
+Asked who should write the per-PC stories, the DM was unambiguous: **"purely the DM's job — you
+could open the sheet to make it easier for the DM, but the story is theirs and the player's."** So
+the module writes nothing. Each PC row in the All-aboard drawer opens a pane holding:
+
+- their own **material** on one line (species · classes · background · origin), so he is not hunting
+  through sheets mid-sentence, and a button that opens the actual sheet;
+- a **text box** for their arrival, stored on the actor (`boardingStory` flag), draft-stashed and
+  typing-guarded so the panel's clock-tick repaints can never eat a half-written sentence;
+- **Arrive for them** — one tap that raises the station, aims at that player's seat and brings the
+  train in, because that is the beat he is actually performing.
+
+### 36.1.5 Second pass (DM 2026-08-19, same day)
+
+- **The vertical smudge was mine.** *"what is this thing, and why do we need it"* — the "rails made
+  of mist", written at 96deg/84deg, which is nearly straight ACROSS, so instead of rails receding
+  into the fog it rendered as one pale bar parked in the centre of an empty stage. **Removed and
+  deliberately not replaced**; the arrival already carries "it came from somewhere".
+- **Mask, not crop.** The art is a rectangular plate with a ragged chroma-key border, visible on a
+  dark stage. An elliptical alpha mask holds the engine, softens through the tender and reaches
+  nothing before the plate edge — cheaper than any blur, and the edge stops existing rather than
+  being hidden.
+- **Mist over the art**, in the train wrapper so it scales with the arrival rather than sitting in
+  front of a train that is still far away. **Five swirl sheets** instead of three, at rates sharing
+  no common factor so the overlap pattern never visibly repeats. **Train 20% smaller.**
+- **The buttons are in the order of the scene**: Start mist · Start sound · Whistle · Bring in the
+  train · Stop. Sequence-you-perform beats grouped-by-what-they-are.
+- **Fade, never cut — now a rule (UI-BIBLE §6.8).** The station, the séance board and the card table
+  all created and removed their roots outright. All three now share `mountFaded` / `unmountFaded`
+  (`repaint.js`). A cut on a TV in a dark room reads as a fault; a fade reads as the scene changing.
+
+### 36.1.6 Third pass (DM 2026-08-19) — the blinking widget, the headlight, size
+
+**"The UI glitches out, the container stays and the text and buttons disappear and reappear."**
+Not the station: the DM panel. It is driven by ~30 hooks and several fire in the same tick as a
+matter of course — a token update is an `updateToken` *and* a `targetToken` *and* a combat refresh;
+writing one setting fires `updateSetting` alongside whatever caused it. Each called `render()`, and
+each `render()` rewrote `innerHTML`, so a burst tore the contents down and rebuilt them several
+times in a row — and the browser may paint any of the in-between states. Frame still, contents
+blinking.
+
+`render()` is now a **coalescer** around `renderNow()`. The leading edge stays **synchronous** (184
+call sites, some of which read the DOM immediately after), but every further call inside the same
+frame collapses into one follow-up on the next frame: at most two repaints per frame instead of N,
+and §46's no-op check usually swallows the follow-up. **This is the fix §46 should have had** —
+skipping no-op repaints does nothing about a burst of repaints that each genuinely differ.
+
+The panel also dropped its new `cm-boarding` import (which drags `shell.js` in behind it) for a
+question that was never another module's to answer: whether the distant-engine bed is running is
+*panel state* — did I ask for it — because the cue fires at every client. It also makes the button
+honest, since the grinding stop ducks the bed out and the label now follows.
+
+**The headlight.** The mask's first ramp still left ~20% alpha at the plate's left edge, which is
+exactly where the painted beam is cut off square — so the one hard edge left on screen was also the
+brightest thing in the frame. The mask now reaches full transparency well before it, and the beam is
+**drawn**: two stacked ellipses, a tight bright core at the lamp and a long weak throw, blurred to
+26px so it has no edge at all. One gradient reads as a smudge; two read as a beam.
+
+**Size** down again to 52%/48% of the stage.
+
+### 36.1.7 Open
+
+- **Not seen at the table.** A world was active, so BENCH RULE #0 held. A standalone preview page
+  went to the DM instead, since motion is the whole point and the in-app browser pane advances no
+  CSS animation at all (§40's trap).
+- **The fiddle is not built.** The book's herald is *a lone fiddle*, not a whistle — arguably the
+  most distinctive sound in the scene, and the one cue that wasn't asked for. Raised with the DM.
+- **The train art has a rough alpha** (teal fringing, ragged mask on the cropped plate). The fog
+  hides much of it; a chroma-key pass like the séance art would fix the rest.
+
+
+---
 
 ## 37. The Ghostlight ride — car doors + the rushing Shroud (DM ask 2026-08-04 — BUILT same day, bench-verified)
 
@@ -3249,7 +3858,8 @@ holds PCs, that car activates — TV follows, transition plays. Splits hold the 
 signature validation on a scratch dataPath until the real `Config/license.json` is copied in
 ("Invalid signature file for protected module ×90"); with it, packs open clean.
 
-## 38. Session Zero suite (research 2026-08-04, DM ask "go deep" — IDEAS, nothing approved)
+
+## 38. Session Zero suite (research 2026-08-04 → **BUILT through §38.5**: story journals, wizard, card table, seats, the opening)
 
 **The research question:** what does Daggerheart's session zero actually do, what should a 5e
 session zero steal, and what can THIS module do that paper can't?
@@ -3300,6 +3910,82 @@ The original A–F idea list is superseded. **A (safety tools) is REJECTED** —
 
 Parked, not rejected (revisit after this ships): the connections web (C — a natural *question
 category* here instead of its own system), map pins (E), frame presenter (D).
+
+
+### 38.4 Personal Story Journal — spec v1 (2026-08-04, superseded by 38.4a where they differ)
+
+**Construction (the load-bearing part).** One Foundry `JournalEntry` per PC actor — NOT flags,
+not a custom store — because Foundry's ownership model IS the privacy requirement, and the DM
+reads them with zero new UI (they're ordinary journals in a "Stories" folder in his sidebar):
+- name `«PC name» — Story`, flag `mobile-command.storyJournal = <actorId>`, folder "Stories"
+  (created on demand).
+- **Ownership: `default: NONE`; each qualifying owner of the actor → OWNER.** Qualifying =
+  active player owners minus GMs minus the display account (same exclusion as AoO routing,
+  rpc.js displayOwnerUser pattern) — the TV must never render a story journal. GM sees all
+  natively. Ownership is RECOMPUTED on every ensure (players/claims change).
+- **Two pages, fixed in v1**, using the SAME page/entry format the shell journal already
+  renders (cover→page→entries, composer, edit-own-entry — all of it reused):
+  - **"Who I am"** — the session-zero basics. One entry per basic question; question = entry
+    header, answer = body. Re-running onboarding EDITS these entries rather than appending.
+  - **"My story"** — append-only feed. Each entry: optional `question`, `text`, real date,
+    AND the in-world date (`clockLabel()` — a Crooked Moon campaign stamps entries "Day 12 ·
+    21:40"). Manual entries and pushed-question answers both land here, newest first.
+- **All writes executor-brokered** (phones can't create top-level journals): `storyEnsure(actorId)`
+  · `storyAdd({actorId, text, question?})` · `storyEdit/Delete({actorId, pageId, entryId, …})`,
+  mirroring the partyJournal* RPC family. Permission check per call: requester must OWN the
+  actor (requesterCanAct pattern); the DM edits anything.
+
+**PC onboarding flow (session zero = the basics).**
+- Entry points: DM panel button **"Session zero — push story basics"** (in the Story drawer,
+  below) pushes the runner to every connected phone; AND always self-serve on the phone
+  (Journal tab → My Story → "Start your story"), because latecomers exist.
+- Phone: a card-at-a-time runner in the shell (same pattern as char-gen): ~8 basics, inline
+  input ([[phone-input-inline-not-popup]]), **Skip** on every card, progress saved per-actor
+  flag so it's resumable. Finishing writes "Who I am" and toasts the DM panel a quiet ✓.
+- v1 basics (in `preset.js`, one shared source): Where are you from? · Who raised you? · A
+  childhood memory that shaped you · Why did you take up adventuring? · What do you want most,
+  long-term? · Who do you care about / who waits for you? · A secret you keep · What would you
+  never do?
+
+**DM "push story question" flow (the between-thoughts tool).**
+- Panel: **"Story questions" drawer** (Party tab, dtDrawer, starts CLOSED like the CM drawers).
+  A curated list grouped by category — Memories · People · Goals · Beliefs · The party · The
+  world (~24 defaults in `preset.js`; DM's own questions appended via an inline "New question…"
+  row, stored in a world setting `storyQuestions`).
+- **One tap pushes**: [→] on any row sends it to ALL connected player phones; a **[Push
+  random]** button at the top for the zero-thought case — the whole point is buying the DM a
+  few seconds, so the flow must cost less attention than it saves.
+- Phone receives a **story card** (non-modal, PM-style): the question + inline answer +
+  [Save] / [Later]. "Later" parks it in My Story as an unanswered prompt — no pressure, no
+  timer. Answer → `storyAdd` with the question + both date stamps.
+- Panel shows quiet per-player ✓s for the last push (non-blocking, auto-fades). Per-player
+  targeted pushes: v2 (roster-row action), noted not built.
+
+**Implementation map.** rpc.js: story* RPC family + `storyQuestionPush` (executor→phones) +
+answered-ack; shell.js: My Story section inside the existing Journal tab (reuses the page
+renderer), the onboarding runner, the story card, unanswered queue; dm-panel.js: the Story
+drawer (list, push, ticks, session-zero button); preset.js: `STORY_BASICS` +
+`STORY_QUESTIONS` decks; settings.js: `storyQuestions` (world). Slices: **1** construction +
+manual entries + My Story UI · **2** DM push flow + story card · **3** onboarding runner.
+
+**SLICE 1 BUILT + bench-verified (2026-08-04, 8/8 results).** rpc.js `storyAdd/Edit/Delete` +
+`ensureStoryChapter` (auto-creates "Player Stories" ownership NONE, page per PC, entries-flag
+format shared with the party journal, `storyMirrorHTML` keeps the native page readable with
+Origins above The-story-so-far); shell.js My Story cover row + chapter view + composer with
+edit/delete-own; step-tagged adds REPLACE the same step (char-gen redo can't stack origins);
+repaint hook extended to story pages. Verified: cover row → chapter → post creates
+journal/chapter on demand (ownership.default=0), entry lands with real+in-world dates (the wd
+stamp came from Simple Calendar live — its read path works), edit/step-replace/delete all
+clean, mirror renders. **Not yet verified: cross-player denial (needs two clients — live-table
+leg.)**
+
+**Card-table assets found (2026-08-04, TV = FLAT confirmed):** `the-crooked-moon-2014/assets/
+card/` ships five themed sets WITH back faces (items ×47, monsters ×80, NPCs ×80, familiars
+×13, spells) — backs are per-card numbered so some may carry text; the creation-table back
+becomes a setting defaulting to `card item/Card_items_back1.webp`, DM to eyeball alternatives.
+BONUS for §32: `card tarot/` is a complete 22-card major arcana with bleed — the Fated Tarot
+draw is content-complete before it's even built.
+
 
 ### 38.4a Creation flow v2 (DM refinement 2026-08-04): story beats INSIDE char-gen + TV board
 
@@ -3366,7 +4052,10 @@ card face-up: the chosen item's artwork with its name under it in the display fa
 - **Deal + flip are the ceremony**: session-zero start deals the backs from table center (card
   backs themed; Crooked Moon ships a cards pack worth mining for frame art); each completed
   step flips that seat's card with a brief animation.
-- **Card-back PICKER (DM 2026-08-04): an interface, not a hardcoded path.** A "Card back" row
+- **Card-back PICKER (DM 2026-08-04): an interface, not a hardcoded path.** *(The thumbnail
+  GALLERY described below was REPLACED 2026-08-10/11 by one default back + a plain file picker,
+  shared with the tarot §42 — 221 lazy thumbnails weren't worth their weight. The 5:7
+  warn-never-refuse rule and the `mc-cards/` upload survive.)* A "Card back" row
   in the card-table drawer opens a thumbnail gallery + custom upload:
   - **Gallery** scans known sources: the CM card sets (`assets/card/*/`, files matching
     /back/i — items ×47, monsters ×80, NPCs ×80, familiars ×13), the module's own `art/`
@@ -3412,6 +4101,7 @@ and write. (Foundry syncs world docs to all clients regardless of ownership, so 
 privacy doesn't exist in ANY construction — acceptable at this table, noted.) The v1
 journal-per-PC layout stays as the documented fallback if per-page rendering fights us.
 
+
 ### 38.4b The table starts with PLAYERS, not PCs (DM 2026-08-04, supersedes seat details above)
 
 > DM: *"go back even further — the DM needs to create player accounts; this is the PLAYER list
@@ -3452,7 +4142,7 @@ button' to choose the active pc"*:
   preference, never a requirement, and nothing in Foundry is reassigned.
 - **The control is deliberately near-invisible.** On a roster row: one owned PC (the normal case)
   is plain muted text under the player's name; **only a player who owns more than one gets a
-  control**, and it's tertiary per UI-BIBLE §127 — no border, icon-led, muted until hover. It
+  control**, and it's tertiary per UI-BIBLE §4 — no border, icon-led, muted until hover. It
   expands an inline list of their PCs plus "Use their assigned character" (clears the override).
   A DM whose players each have one PC never sees a button at all.
 - `card-table.js` watches `seatActors` alongside `tableSeats`/`cardBackImage`, on **both**
@@ -3605,67 +4295,6 @@ biography picker and its placeholder — and the **name field itself renders EMP
 pre-filled with scaffolding to edit. On the board there are two guards, since either can be true
 alone: mid-creation (`charGen` flag) or a finished PC the DM never renamed (the name test).
 
-### 38.6 "Coming back to the table" — the level-up sitting (DM 2026-08-06, FUTURE — recorded, not built)
-
-> DM: *"Players can see each-others cards after they leveled up, show subclass, additional
-> class/subclass, and allow DM to drag an item into each character's 'favorite item' on DM panel
-> to update it. So if a 1st level barbarian has 5 cards and chose a two handed axe, he could
-> later be a barbarian / sorcerer with subclasses in both with 9 cards and his new weapon is a
-> fire ax (which dm dragged from players inventory to the relevant place in the dm widget)."*
-
-Session zero is the FIRST sitting; this is every one after it. The board becomes a standing
-record of the party that grows as they do, rather than a one-night artifact.
-
-- **The hand grows with the character.** Level 1 barbarian = 5 cards. Barbarian/Sorcerer with a
-  subclass in each = 9. So `HAND` stops being a fixed six and becomes DERIVED from the actor:
-  one card per class, one per subclass, plus the fixed species/background/abilities/gear. The
-  card table already reads the actor as its source of truth (`readCards`), so this is an
-  extension of that function rather than a new mechanism — but the two-stacks-of-three layout
-  and the height-driven card sizing both assume ≤6 and will need revisiting at 9+.
-- **Everyone sees everyone.** During session zero a seat shows only its own hand; at this sitting
-  the point is comparing. Open question: all hands face-up at once, or a "show me theirs" focus?
-- **Subclass cards** need art — dnd5e subclass items carry their own `img`, so the existing
-  emblem-vs-artwork rule should already handle them.
-- **Favourite item, DM-dragged.** A drop target per character in the panel, taking an item from
-  that character's inventory (a Foundry drag payload → uuid → resolve → store on a flag, same
-  shape as `mainWeapon` in §38.4a). This *replaces* asking the player: the DM curates what the
-  table sees. `mainWeapon` is the natural precedent — likely the same flag, re-labelled.
-
-**Depends on:** nothing new; every piece has an existing precedent in §38.4a/§38.5. **Sequenced
-after** the live-table leg (a real phone, cross-player denial, the whole loop on the real TV),
-because a standing record is worth less than a working first night.
-
-### 20.6 Phone audio — what actually reaches a player's phone (2026-08-08)
-
-The DM heard environmental sound from his phone and guessed it happens "when a player doesn't
-have a token in the scene". **The source says the opposite**, read from the running client
-bundle (`SoundsLayer`):
-
-- `getListenerPositions()` returns controlled tokens, else — for non-GMs — every owned, visible
-  token on the scene. **A player with no token gets an empty list.**
-- `_syncPositions()` then never enters its per-listener loop, so each path keeps `volume: 0`,
-  and the tail calls `config.object.sync(config.volume > 0, config.volume, …)` → `sync(false, 0)`.
-  `_configurePlayback` says the same thing outright: no listener → `volume = 0`.
-
-So a token-less player hears **less** positional ambience, not more — it is silenced entirely.
-
-What DOES reach every client regardless of tokens is **non-positional** audio: playlists
-(including a **scene playlist**, which is what the DM had just configured — the timing fits), and
-video tiles, which take their level from `globalAmbientVolume`. That is the likely source.
-
-Either way the fix covers all of it: phone clients zero `core.globalPlaylistVolume` and
-`core.globalAmbientVolume` and leave `globalInterfaceVolume` alone (§ phone audio, main.js).
-Worth remembering the general shape — **"no token" makes positional audio quieter, never louder**.
-
-### 20.5 Travel points + the Use path (verified end-to-end 2026-08-07)
-
-Tested from a REAL player client (Player 1, second browser) with a GM online in another — the setup that finally reproduced the bug.
-
-**Root cause of "couldn't reach the DM":** listLoot and listInteractables both carried an `onActiveScene()` guard, so whenever the DM's CAMERA sat on a scene other than the active one, BOTH calls returned ok:false and the phone concluded the executor was unreachable. The DM was told to reload a client that was working. The whole Use path now reads the active scene's DOCUMENTS (walls / tiles / regions / tokens) and never the canvas, so it works wherever the DM is looking.
-
-**Verified with the GM camera parked on 10.1 while 10.3 was active:** Use returned "Open door 3 ft" and "Travel to next car 0 ft" with no warning. Choosing the travel point raised the prompt (title from the point's own label, buttons Cancel / Travel alone / Travel as group, D-pad correctly replaced). "Travel alone" moved Gorbon from 10.3 to 10.4 — one token, no duplicate — and the active scene FOLLOWED to 10.4 via registerTrainFollow.
-
-**Seat rotation live on the player client:** Player 1 is in seat n1 (180°), so UP maps to map-down and RIGHT to map-left. Confirmed on the phone itself, not just in theory.
 
 ### 38.5 The opening — session zero's first minute (DM 2026-08-05, BUILT + verified in the DM's own world)
 
@@ -3855,170 +4484,37 @@ the pane's screenshot can lag a repaint, the numbers don't.
   "anything else we decide". The table map is the anchor; cheap DOM; performance-check before
   building (modest machine).
 
-### 38.4 Personal Story Journal — spec v1 (2026-08-04, superseded by 38.4a where they differ)
 
-**Construction (the load-bearing part).** One Foundry `JournalEntry` per PC actor — NOT flags,
-not a custom store — because Foundry's ownership model IS the privacy requirement, and the DM
-reads them with zero new UI (they're ordinary journals in a "Stories" folder in his sidebar):
-- name `«PC name» — Story`, flag `mobile-command.storyJournal = <actorId>`, folder "Stories"
-  (created on demand).
-- **Ownership: `default: NONE`; each qualifying owner of the actor → OWNER.** Qualifying =
-  active player owners minus GMs minus the display account (same exclusion as AoO routing,
-  rpc.js displayOwnerUser pattern) — the TV must never render a story journal. GM sees all
-  natively. Ownership is RECOMPUTED on every ensure (players/claims change).
-- **Two pages, fixed in v1**, using the SAME page/entry format the shell journal already
-  renders (cover→page→entries, composer, edit-own-entry — all of it reused):
-  - **"Who I am"** — the session-zero basics. One entry per basic question; question = entry
-    header, answer = body. Re-running onboarding EDITS these entries rather than appending.
-  - **"My story"** — append-only feed. Each entry: optional `question`, `text`, real date,
-    AND the in-world date (`clockLabel()` — a Crooked Moon campaign stamps entries "Day 12 ·
-    21:40"). Manual entries and pushed-question answers both land here, newest first.
-- **All writes executor-brokered** (phones can't create top-level journals): `storyEnsure(actorId)`
-  · `storyAdd({actorId, text, question?})` · `storyEdit/Delete({actorId, pageId, entryId, …})`,
-  mirroring the partyJournal* RPC family. Permission check per call: requester must OWN the
-  actor (requesterCanAct pattern); the DM edits anything.
+### 38.6 "Coming back to the table" — the level-up sitting (DM 2026-08-06, FUTURE — recorded, not built)
 
-**PC onboarding flow (session zero = the basics).**
-- Entry points: DM panel button **"Session zero — push story basics"** (in the Story drawer,
-  below) pushes the runner to every connected phone; AND always self-serve on the phone
-  (Journal tab → My Story → "Start your story"), because latecomers exist.
-- Phone: a card-at-a-time runner in the shell (same pattern as char-gen): ~8 basics, inline
-  input ([[phone-input-inline-not-popup]]), **Skip** on every card, progress saved per-actor
-  flag so it's resumable. Finishing writes "Who I am" and toasts the DM panel a quiet ✓.
-- v1 basics (in `preset.js`, one shared source): Where are you from? · Who raised you? · A
-  childhood memory that shaped you · Why did you take up adventuring? · What do you want most,
-  long-term? · Who do you care about / who waits for you? · A secret you keep · What would you
-  never do?
+> DM: *"Players can see each-others cards after they leveled up, show subclass, additional
+> class/subclass, and allow DM to drag an item into each character's 'favorite item' on DM panel
+> to update it. So if a 1st level barbarian has 5 cards and chose a two handed axe, he could
+> later be a barbarian / sorcerer with subclasses in both with 9 cards and his new weapon is a
+> fire ax (which dm dragged from players inventory to the relevant place in the dm widget)."*
 
-**DM "push story question" flow (the between-thoughts tool).**
-- Panel: **"Story questions" drawer** (Party tab, dtDrawer, starts CLOSED like the CM drawers).
-  A curated list grouped by category — Memories · People · Goals · Beliefs · The party · The
-  world (~24 defaults in `preset.js`; DM's own questions appended via an inline "New question…"
-  row, stored in a world setting `storyQuestions`).
-- **One tap pushes**: [→] on any row sends it to ALL connected player phones; a **[Push
-  random]** button at the top for the zero-thought case — the whole point is buying the DM a
-  few seconds, so the flow must cost less attention than it saves.
-- Phone receives a **story card** (non-modal, PM-style): the question + inline answer +
-  [Save] / [Later]. "Later" parks it in My Story as an unanswered prompt — no pressure, no
-  timer. Answer → `storyAdd` with the question + both date stamps.
-- Panel shows quiet per-player ✓s for the last push (non-blocking, auto-fades). Per-player
-  targeted pushes: v2 (roster-row action), noted not built.
+Session zero is the FIRST sitting; this is every one after it. The board becomes a standing
+record of the party that grows as they do, rather than a one-night artifact.
 
-**Implementation map.** rpc.js: story* RPC family + `storyQuestionPush` (executor→phones) +
-answered-ack; shell.js: My Story section inside the existing Journal tab (reuses the page
-renderer), the onboarding runner, the story card, unanswered queue; dm-panel.js: the Story
-drawer (list, push, ticks, session-zero button); preset.js: `STORY_BASICS` +
-`STORY_QUESTIONS` decks; settings.js: `storyQuestions` (world). Slices: **1** construction +
-manual entries + My Story UI · **2** DM push flow + story card · **3** onboarding runner.
+- **The hand grows with the character.** Level 1 barbarian = 5 cards. Barbarian/Sorcerer with a
+  subclass in each = 9. So `HAND` stops being a fixed six and becomes DERIVED from the actor:
+  one card per class, one per subclass, plus the fixed species/background/abilities/gear. The
+  card table already reads the actor as its source of truth (`readCards`), so this is an
+  extension of that function rather than a new mechanism — but the two-stacks-of-three layout
+  and the height-driven card sizing both assume ≤6 and will need revisiting at 9+.
+- **Everyone sees everyone.** During session zero a seat shows only its own hand; at this sitting
+  the point is comparing. Open question: all hands face-up at once, or a "show me theirs" focus?
+- **Subclass cards** need art — dnd5e subclass items carry their own `img`, so the existing
+  emblem-vs-artwork rule should already handle them.
+- **Favourite item, DM-dragged.** A drop target per character in the panel, taking an item from
+  that character's inventory (a Foundry drag payload → uuid → resolve → store on a flag, same
+  shape as `mainWeapon` in §38.4a). This *replaces* asking the player: the DM curates what the
+  table sees. `mainWeapon` is the natural precedent — likely the same flag, re-labelled.
 
-**SLICE 1 BUILT + bench-verified (2026-08-04, 8/8 results).** rpc.js `storyAdd/Edit/Delete` +
-`ensureStoryChapter` (auto-creates "Player Stories" ownership NONE, page per PC, entries-flag
-format shared with the party journal, `storyMirrorHTML` keeps the native page readable with
-Origins above The-story-so-far); shell.js My Story cover row + chapter view + composer with
-edit/delete-own; step-tagged adds REPLACE the same step (char-gen redo can't stack origins);
-repaint hook extended to story pages. Verified: cover row → chapter → post creates
-journal/chapter on demand (ownership.default=0), entry lands with real+in-world dates (the wd
-stamp came from Simple Calendar live — its read path works), edit/step-replace/delete all
-clean, mirror renders. **Not yet verified: cross-player denial (needs two clients — live-table
-leg.)**
+**Depends on:** nothing new; every piece has an existing precedent in §38.4a/§38.5. **Sequenced
+after** the live-table leg (a real phone, cross-player denial, the whole loop on the real TV),
+because a standing record is worth less than a working first night.
 
-**Card-table assets found (2026-08-04, TV = FLAT confirmed):** `the-crooked-moon-2014/assets/
-card/` ships five themed sets WITH back faces (items ×47, monsters ×80, NPCs ×80, familiars
-×13, spells) — backs are per-card numbered so some may carry text; the creation-table back
-becomes a setting defaulting to `card item/Card_items_back1.webp`, DM to eyeball alternatives.
-BONUS for §32: `card tarot/` is a complete 22-card major arcana with bleed — the Fated Tarot
-draw is content-complete before it's even built.
-
-Source: `the-crooked-moon-2014` module's journal packs, dumped + read in full (extraction
-technique: copy pack dirs minus LOCK → classic-level via Foundry's Electron-as-Node; text dumps
-+ rolltables.json/cards.json in the session scratchpad, regenerate as needed). "Gate weaving" =
-the book's **Fateweaving** (ch9). The séance board (§30) is the ch12 Parlor scene (H3) — its
-source confirmed, Q&A ladder + 1d10/escalating-die bite match our build.
-
-**Campaign-wide systems (the séance-board-sized features):**
-- **Fated Tarot reading (ch9+10) — top candidate.** Adela pulls one Major Arcana per PC on the
-  Ghostlight Express (always upright, no duplicate cards; each PC keeps their card; each card
-  unlocks a chapter-keyed Fabled Heirloom/boon later — Lovers = Adela's PLANCHETTE ch24, Moon =
-  3 Twists of Fate ch12 → ties into §31, Star = free feat, Sun = +2 ability, World = one Wish).
-  ALL 22 card faces ship in the module (`assets/card/card tarot/1_<n> - <Name>_Bleed.webp`, no
-  back art for this deck); Foundry docs exist: deck `tcm2014-cards…hE6QSAetov5iFigA`, 1d22
-  RollTable `PgDCRgyABMbAxork` (rewards), light 1d12 fortune table `M9wdb1sObnJHpTFG` (flavor
-  only — good for a repeatable "fortune teller" toy). UX sketch: TV card-flip reveal, each
-  player's card drawn face-down on THEIR phone first; persistent per-PC card chip.
-- **Chaotic Curses (App C).** 156 fleeting RP curses (15–30 real minutes), tarot-card-indexed
-  (78×upright/reversed), RollTable `MFPMY4JfgYwbN31l` (1d156). Many are PERCEPTION curses —
-  one-phone effects: grayscale filter, whisper-only, footsteps-audio only you hear, button-eyes
-  on portraits, roll d12 instead of d20. Rides on §31's infrastructure (self-reverting effects
-  + chips + DM roll/accept flow) almost unchanged.
-- **Fateweaving (ch9).** Per-PC story arc: 13 Threads of Fate, 6 touchpoints with fixed rewards
-  (Inspiration → ally+Bless → a Twist of Fate → +2 ability → free feat → catharsis). The
-  threads carry phone-prop-shaped devices: soul compass that points/pulses, doppelganger in
-  mirrors, self-writing demonic tome, dream journal, shadow offering games of chance, entity in
-  a flask. Module fit = private per-player widgets + a DM touchpoint tracker, not automation.
-- **Dark Bargains (ch6).** 13 unique boon+bane pacts; offered AT DEATH ("deny death by
-  accepting a Dark Bargain"). Phone fit: a devil's-deal prompt on the dying player's phone;
-  chip-tracked banes (Crooked Fortune's "next 3 saves at disadvantage" debt counter; Red Haze
-  forced-targeting; Watery Doom wet-state). Also ch8's Book of the Horned King (sign your name
-  = pledge your soul) as a signing UI.
-- **Druskenvald clock.** Eternal night, 6 named hours (Twilight/Dusk/Nightfall/Evening/
-  Midnight/Witching) each with a sky colour — a TV time-of-day HUD + ambient tint; NPC copy
-  uses the hour names. Feeds the Wickermoor clocktower haunt (below).
-- **"Lair pulse" engine (infrastructure).** The book runs on initiative-count-20 environmental
-  pulses (clock chimes, rising blood, baby wails, psychic bear, phantom feast, mill tremors)
-  and escalating-die ladders (séance bite 1d4→1d12; trophy-room DC10→13). One generic
-  executor-side pulse/ladder engine covers ~10 scenes across ch10–13.
-
-**Ch10 Ghostlight Express (party's next stop if early):** silver ticket pushed to each phone
-(PRC DC 13 gets it early) · haint-freeing skill challenge ×6 (3 successes before 3 failures,
-DC12, +2 per reused skill — calm↔rage meter on TV, per-skill "spent" marks on phones, exactly
-séance-board energy) · Soul Cans/bottle-trap ghost capture (hold-to-seal phone gesture; cans
-pay off in the boss fight as objective markers he eats for 20 HP) · 6-car token↔haint matching
-board (phonograph→Songstress etc.) · phantasmal food — free-text order materializes on the TV
-table (steak & eggs is a puzzle key; inline input per phone-input rule) · Vagrant train-PA
-(crackly intercom voice channel, reusable for any GM announcement) · Switcheroo mist-wipe
-random-car transition · don't-wake-the-tiger ring-slip (steady-hand slider, 2d6 fire on fail)
-· crash + first sight of the crone-faced Crooked Moon (shake + vibration burst + persistent
-moon skybox that gets closer/brighter across the campaign).
-
-**Ch11 Wickermoor (hub):** haunted clocktower — module rolls d12 secretly at long rest, fires
-a real-time wrong-hour bell + haunt that even the DM can't predict · Insight whisper-lane
-(passed checks push private "his smile doesn't reach his eyes" lines) · the Lottery draw
-(tumbling tickets on TV, each phone holds one — Shirley Jackson energy, trivial build) ·
-Gaston's degrading paintings (image series that corrupts act by act — fits the saved-image
-journal) · Bloody Cup carnival-games anthology (phone minigames + TV scoreboard; also serves
-ch21 Fool's Day tickets) · Oak of Many Faces solo night ambush (lone player's phone gets the
-creaks first).
-
-**Ch12 Crooked House (séance's home):** Crooked Teeth — ANY failed search finds a single human
-tooth (hook the roll, show the tooth on the failing phone, count them) · cursed foyer portrait
-= the party toothless (generate from their token art; cursed viewer gets a silent nat-1
-jumpscare flag) · check-for-monsters — 1-of-6 hide-and-seek with directional scraping audio as
-miss feedback, ceiling jumpscare on attempt 6 (Lurking Shadows table `6MD0TbD49MCv1CIK`) ·
-bathroom fills with blood — trapped players' PHONE SCREENS fill red over 4 rounds + muffled
-audio · haunted harpsichord forced-dance (house-wide discordant track; seated player gets a
-rhythm minigame as the DC 15 Performance; Patrini assists non-proficient — séance callback) ·
-6-memento tracker + rune-door slotting (chapter progress bar) · grandfather-clock chime
-spawner · Wisp's delayed betrayal (story told at table → 5-min-later charm takeover flag) ·
-false-Adela private guess commit · Crooked Man one-tap haunt button (three scripted
-apparitions + at-will).
-
-**Ch13 Fields of the Crow:** pay-a-secret gate — each entrant TYPES a confession privately;
-module flags who paid; Crowsong events later taunt THAT player with their own secret; +1
-legendary resistance per paid secret (the design question — does the table hear it? — is the
-drama) · 3-hour doom clock over the whole demiplane · crow-caw audio NAVIGATION (loudest of
-three directions is correct; check quality gates how much acoustic info: full/quietest-only/
-noise) · windmill 9-round collapse countdown + rotating-cog hazard · bucket-brigade
-firefighting (gallons per blaze, pump/carry/douse from phones) · crow-catching boss scoreboard
-(catch 6 before he eats 3; whispered-secret audio sting per catch) · amber-wristband
-auto-revive (Tender Secrets) · black-coin one-player whisper.
-
-**Triage note (2026-07-27, mine):** build-first shortlist = Fated Tarot (assets + tables
-already ship; recurs all campaign; feeds §31) → Chaotic Curses (near-free on §31 slice 1) →
-ch10 pack (ticket, haint meter, soul cans, crash/moon — if the party is pre-Express) →
-secret-confession gate (cheap, phone-native) → Druskenvald clock + clocktower. The audio-heavy
-ideas (directional caws, room-wide loops) need the performance-cost talk first (modest
-machine). RESOLVED 2026-07-27: campaign not started yet (no chapter urgency) — the DM chose
-the suite now spec'd as §31/§33/§34/§35; tarot + clock remain the top future residents.
 
 ---
 
@@ -4195,7 +4691,7 @@ No. **Nothing in the module changed lighting as time passed.**
 ### 41.1 The gap
 
 The day/night curve has existed since 2026-08-02 and is exactly right — four phases, a gentle
-peak at 0.7, never pitch black. What was never built is the thing that CALLS it. `darknessForHour`
+peak (0.7 then; 0.8 since 2026-08-09, §43), never pitch black. What was never built is the thing that CALLS it. `darknessForHour`
 had precisely two call sites, both inside travel:
 
 - `dm-panel.js` — the one-shot when a DM-marked travel map is first opened
@@ -4274,97 +4770,65 @@ blocks · `daylightHold` blocks · applies when both are cleared (0 → 0.7) · 
 
 ---
 
-### 32.1 The Fated Tarot — what the BOOK actually does (extracted 2026-08-11, DM asked for context)
 
-Extracted from the installed `the-crooked-moon-2014` packs (rollable-tables + journal), read in
-full rather than recalled. Technique per §32: copy the pack dirs minus `LOCK` (and skipping
-LevelDB's `lost/` directory — `copyFileSync` throws EPERM on it), open with `classic-level` under
-Electron-as-node, pointing at Foundry's own bundled copy of the library by absolute path.
+## 42. The Fated Tarot — the build (2026-08-10/11, [tarot.js](scripts/tarot.js))
 
-#### Mechanically: the card is a KEY, not a prize
+> **Section written 2026-08-19** — the feature shipped with only commit messages and code comments
+> (SS42 / SS42.2); memory and code referenced "§42" but the section was never written. The book
+> mechanics + the full 22-card reward map live in §32.1; this records what was built.
 
-The reading happens in **ch10, aboard the Ghostlight Express** (G3, the Lounge Car), but the rules
-for it live in **ch9, "Fated Tarot Reading"**. Adela Druskenvald — a clairvoyant "with a passion
-for the occult" — pulls **one Major Arcana per character, always upright, no duplicates**.
+- **Keyed to the ACTOR, never the user** (§32.1 directive 1) — the character draws; the player is
+  only holding the phone. The draw persists as an actor flag: it's a thread carried for the whole
+  campaign, not reading-session state.
+- **22 arcana, no duplicates, always upright. Dealt FACE DOWN to the player's phone; the DM turns
+  each card over** — the reveal is the DM's beat, not an animation that fires itself.
+- **The card carries its consequence** (§32.1 directive 2): the heirloom/boon it gates and where
+  it unlocks, so the DM's view answers "what did this card unlock" months later. Adela's own 1d22
+  interpretation text (§32.1 directive 3) is the reveal copy.
+- **Gated on `crookedMoonTools`** (DM 2026-08-11: "if the DM doesn't have CM installed there's no
+  real reason to have it active") — the reading is a scene from one specific adventure, and every
+  card's meaning points into that book. With the book installed, all 22 face plates are the book's
+  own art read at runtime (never bundled, UI-BIBLE §6.7). The book's tarot deck ships **no back
+  art**, so the back is ours: the shared `cardBackImage` setting — **one back + a file picker**
+  (2026-08-10/11, REPLACING the old 221-thumbnail gallery; shared with the session-zero card table).
+- **SS42.2 fix round (2026-08-11, commits 5e4adf5 / ed73716 / 259f9f7):** the card closed itself
+  and never actually flipped · a card dismissed once hid every card after it · faces were cropped ·
+  a card faded out and back in five seconds after the turn. All fixed.
+- **Headless tests: `tools/test-tarot.mjs` (18)** under the Electron-as-node runner, no world
+  needed — caught a duplicate-card leak before it shipped. Run them; they earn their keep.
 
-The card does nothing at the moment it is drawn. What it does is **gate a Fabled Heirloom** — a
-magic item that levels up with its owner — or a powerful boon, which becomes available at one
-specific, named point later in the adventure. The book's own reasoning, verbatim:
+## 43. The Druskenvald clock — eternal night in six named hours (2026-08-10/11, [druskenvald.js](scripts/druskenvald.js))
 
-> *"provisioning the characters with a veritable treasure trove of powerful items could quickly
-> trivialize the threats that await them. Therefore, the Fated Tarot Reading provides a method to
-> determine which of the Fabled Heirlooms the characters can acquire."*
+> **Section written 2026-08-19** — same story as §42: shipped with commit SS43 (646a6dc) and code
+> comments, cited as "§43", never given a section.
 
-So it is a **rationing mechanism dressed as a fortune**. Throughout the book, sections titled
-"Fated Tarot Reading" each name a card, its item, and where it is found. The DM implements **only
-the sections whose cards were actually drawn** and ignores every other instance. A party of four
-unlocks four of the twenty-two heirlooms for the whole campaign.
-
-**There is also a lite version**, which is what runs if the DM doesn't want the campaign-long
-machinery: roll on the table per character, reroll duplicates, and every participant gains
-**Bless for 1 hour**. That's the whole mechanical effect at the table.
-
-#### The full map (all 22 — this is the thing worth having)
-
-| Card | key | What it unlocks | Where / when |
-|---|---|---|---|
-| The Fool | `fool` | Whistle of the Vagrant | Conclusion: The Last Stop |
-| The Magician | `magician` | Marotte of the Lord of Fools | Phase 2: Carnival of Chaos |
-| The High Priestess | `priestess` | Mask of Lethica Nightborne | L19: Lethica's Quarters |
-| The Empress | `empress` | Cauldron of the Vermintoll Coven | Conclusion: Dreaming No More |
-| The Emperor | `emperor` | Blunderbuss of the Grinning Sinner | Phase 2: Double Down |
-| The Hierophant | `hierophant` | Sword of the Crimson Abbot | Phase 2: Beneath a Blood Moon |
-| The Lovers | `lovers` | Planchette of Adela Druskenvald | The Green Queen Inn |
-| The Chariot | `chariot` | Scythe of the Harvest Terror | Phase 2: Demon of Secrets |
-| Strength | `strength` | Shovel of Yorgrim | Y9: Shadestone Sanctuary |
-| The Hermit | `hermit` | Staff of Farryn of the Greenwood | F10: Befouled Wellspring |
-| Wheel of Fortune | `wheel` | Cutlass of Briggsy Kratch | To the Sinner's Shack |
-| Justice | `justice` | Shield of Marius Renathyr | M2: Stables |
-| The Hanged Man | `hanged` | Banjo of Ol' Jericho Sticks | J9b: Windmill Cellar |
-| Death | `death` | Idol of the Beast of Blight | Phase 2: Dead and Gone |
-| Temperance | `temperance` | Veil of the Weeping Widow | Phase 2: Desperate Measures |
-| The Devil | `devil` | Cane of Phillip Druskenvald | Encounter 5: Live Deliciously |
-| The Tower | `tower` | Visage of the Old Ways | Phase 2: Dying Embers |
-| The Star | `star` | **A feat** of their choice they qualify for | S7: Stonoga's Laboratory — after defeating Stonoga Blackstinger |
-| The Moon | `moon` | **Three Twists of Fate** (→ our §31) | H17: Cauldron Room — after defeating Vessla Browntooth |
-| The Sun | `sun` | **+2 to one ability score** (max 24) | R2: Pigeon Roost — after defeating Golub Graygullet |
-| Judgement | `judgement` | Lantern of the Chained Reaper | Phase 2: Cold Fire |
-| The World | `world` | **Cast Wish, once** | Phase 2: Wrath of the Crooked Queen — after defeating the Horned King |
-
-Eighteen are named Fabled Heirlooms in `tcm2014-treasury`; four (Star, Moon, Sun, World) are pure
-boons with no item. **The Moon lands directly on machinery we already built** — three Twists of
-Fate is §31, counters, spend flow and all.
-
-#### Story-wise: it is a scene, not a die roll
-
-Two RollTables ship, and they are different things:
-
-- **`PgDCRgyABMbAxork` "Fated Tarot" (1d22)** — Adela's *interpretation* of each card, written in
-  her voice ("Awww, the Lovers! There sure ain't nothin' better than love…", "DEATH!! How spooky!
-  Oh, don't worry! It ain't as scary as all that!"). Pure flavour: **no mechanics whatsoever**,
-  meant to be read aloud. Indexed 1–22 with **The Magician at 1 and The Fool at 22** — note this
-  is NOT the conventional Fool = 0 ordering our `ARCANA` table uses.
-- **`M9wdb1sObnJHpTFG` "Tarot Reading" (1d12)** — a lighter, repeatable fortune-teller toy.
-
-Adela is "eager to show off her talents with any willing soul" and "It is challenging to dissuade
-her." The reading is a party scene in a lounge car, performed by an NPC who enjoys it — which is
-exactly why the first build read wrong: it delivered a result where the book stages a performance.
-
-#### What this means for our build (DM 2026-08-11)
-
-1. **The character draws, not the account.** The book says "one for each character" and every
-   gated section reads "the character this card was pulled for". Our state keyed to `userId`;
-   it must key to the **actor**. The player is only holding the phone.
-2. **The card must carry its consequence.** Storing a name and a pretty picture wastes the entire
-   mechanic. Each card should carry its heirloom/boon and where it is found, so the DM's own view
-   answers "what did this unlock and when do I hand it over" months later — that is the actual
-   job the book asks the DM to track by hand across a whole campaign.
-3. **Adela's words are content we already have.** The 1d22 interpretation should be what the
-   table hears at the reveal — read aloud by the DM, or shown on the card.
+- **The point is the NAME.** Where the sun never rises, "half past four" means nothing and "come
+  back at Witching" means everything. Six hours — Twilight / Dusk / Nightfall / Evening / Midnight /
+  Witching — each four world-hours with its own darkness + sky colour; the shared screen shows the
+  hour, the panel reads it, NPC copy can name it.
+- **It is §41's loop with a second CURVE, not a second writer.** daylight.js stays the only thing
+  that writes scene darkness; Druskenvald answers `darknessFor` differently for marked scenes. All
+  of §41's machinery (write-rate floor, `darknessLock`, `daylightHold`, travel's claim) applies for
+  free and cannot drift.
+- **Scene-scoped from an EXPLICIT DM-set list, never a heuristic** — the same rule travel maps
+  learned (§18.1a: "misidentification of a map as a travel map is very bad"). Walk out of
+  Druskenvald and the sun comes back on its own.
+- **The hour table + block maths live in [preset.js](scripts/preset.js)** beside `darknessForHour`
+  (pure data + pure function, importable headless). Anchored so MIDNIGHT contains actual midnight;
+  the Witching block WRAPS midnight (02:00 sits after 22:00 — the lookup is a scan, not arithmetic).
+- **Same round, same file:** night peak raised **0.7 → 0.8** (DM 2026-08-09, "make night a bit
+  darker") · `GLOBAL_LIGHT_NIGHT_THRESHOLD` became **DERIVED as peak/2** (it was a literal 0.35
+  beside a 0.7 peak — the same number said twice, and raising one silently broke the other) · and
+  `DAY_DARKNESS_FLOOR = 0.22` (DM 2026-08-11: a sunless country's "full light" is a floor, not
+  zero; `dayDarknessFloor` setting, 0 restores true daylight).
+- **Headless tests: `tools/test-druskenvald.mjs` (17).** Together with §42's file they caught a
+  **temporal-dead-zone in preset.js that would have bricked the entire module** — a `const` read
+  above its declaration: valid syntax, so check-syntax.js cannot see it; only actually IMPORTING
+  the module catches it. That class of break is why the headless tests must run before shipping.
 
 ---
 
-## 44. The Character File — an auto-compiled book per PC (DM ask 2026-08-11, SPEC — unbuilt)
+## 44. The Character File — an auto-compiled book per PC (DM ask 2026-08-11 — **slice A BUILT 2026-08-15**, [character-file.js](scripts/character-file.js) + `tools/test-character-file.mjs`; the Deeds recorder (§44.4/slice B) is the unbuilt half)
 
 > DM: *"I'd like automatically generated PC notes for the DM, compiling all the answers they gave,
 > things like tarot, fate, and other sources to have a clear file of each character in the game…
@@ -4730,8 +5194,9 @@ own reports.
 
 ### 47.3 Open
 
-- **A phone-side entry point.** Console-only today. The shell's header has no room for another
-  icon, so it needs a home rather than a button squeezed in.
+- ~~A phone-side entry point~~ — **RESOLVED by §48** the same day: the feedback window opens from
+  the phone's Details tab (and Foundry's module settings, `restricted: false`), carrying the full
+  technical report with it.
 - **Not yet seen at the table** — a world was active, so BENCH RULE #0 held.
 
 
@@ -4813,138 +5278,66 @@ wider release.
 
 ---
 
-## 36.1 The arrival — swirl, bringing the train in, and one story per PC (DM 2026-08-19)
 
-*"all abord is very weak, I want some kind of swirling fog and the ability to 'bring in' the
-train… I want a personal story for each PC… a foggy background (preferably animated slowly), a
-train sound, grinding stop, a train whistle, and the image to appear (centered and aiming the right
-way) behind the fog when requested (you can keep the up down animation)."*
+## 49. Pending-action queue + attention bell (DM-idea, spec + BUILT 2026-07-19)
 
-### 36.1.1 What the book actually says (extracted 2026-08-19, ch10 "All Aboard" + "Quest Hooks")
+> **Renumbered 2026-08-19** — this section was born as a second "§21" while §21 (Sound) already
+> existed. No prose or code referenced the queue by number (the one "§21" cross-reference in §26.2
+> means Sound), so this side took the new number.
 
-The arrival read-aloud, and its beat order — which is not the order we had:
+The problem (surfaced by a wizard + familiar + summon hit by fireball): the phone stored **one**
+save prompt, one reaction, one AoO — each a single slot that **clobbered** on a burst. Three saves →
+you saw one; two AoOs → you got one. Fix: a **unified queue** + a header **bell** that navigates it.
 
-> *"The haunting tune of a lone fiddle pierces through the fog… A dark steel train, bathed in an
-> eerie glow, emerges from the gloom on rails made of mist. Its smokestack belches plumes of ghastly
-> blue-green smoke that wail with the faces and voices of the damned. The locomotive rumbles,
-> squeals, and creaks as it slows to a halt, and a passenger car looms directly before you."*
+### 49.1 Findings that shaped it
 
-So: **fiddle → emerges from the gloom → wailing smoke → rumbles, squeals, creaks → halt → looms.**
-Then the Vagrant steps out fiddle in hand, and a **DC 13 Perception** check makes a character feel
-the unfamiliar ticket already in their pocket — the beat our existing ticket fx was built for, now
-reachable in its right place.
+- **Reactions and AoOs are self-contained.** `#useReaction`/`aoo-attack` fire off the activity's
+  **UUID** (`rpc.useActivityStart`), not the viewed subject — so, like saves, they roll on the right
+  creature regardless of which token is on screen. So the "switch to the token" leg is a UI nicety
+  (context/clarity), not a mechanical requirement. The real bug in all cases was the single-slot
+  clobber.
+- Each prompt already carries its actor: save `actorUuid`, reaction `reactorUuid`; AoO now carries
+  `reactorUuid` + `reactorTokenUuid` (added to `dispatchAoO`).
 
-**The per-PC arrival is the book's own suggestion, not a departure from it.** Quest Hooks: *"They
-may be picked up together or individually… For a full-length campaign, talk with your players to
-establish the circumstances that lead their character to embark when the train arrives."* Its three
-framings are **Fate** (each has a ticket and their own reason), **Death** (they all died and are
-reincarnated), **Homeward Bound** (Druskenvald natives trying to get home).
+### 49.2 Model (BUILT, shell.js)
 
-### 36.1.2 The stage
+- `#pending = []` replaces `#savePrompt`/`#reactionPrompt`/`#aooPrompt`. Entry:
+  `{id, kind:"save"|"reaction"|"aoo", actorId, tokenId, payload, expiresAt, timer}`.
+- `#enqueue(kind, payload, actorUuid)` resolves actor→tokenId, de-dupes by kind+actor, sets a
+  per-entry expiry timer, plays the attention sfx **once per burst** (only when the queue was empty).
+- `#cur(kind)` = the entry for the **current subject** (or a null-actor entry, so an unresolved one
+  is never stranded); the `#savePromptHTML`/`#reactionPromptHTML`/`#aooPromptHTML` popups render it.
+- `#resolve(kind)` drops the current entry on roll/fire/dismiss; a rolled save clears **only the
+  creature that rolled** (by `message.speaker.actor`), so rolling the wizard's save keeps the pet's.
+- **Combat feeds the bell too (DM 2026-07-19).** The "Roll initiative" prompt and the auto-follow-the-turn
+  switch only apply to the current subject, so a secondary token (summon/familiar) that owes initiative
+  OR whose turn it now is was invisible when you were parked on another token (e.g. mid-action, when
+  auto-follow is skipped). `#attentionActorIds()` now unions the pending queue with, for owned tokens on
+  the active scene: **(a) the active combatant when it's another of your tokens' turn**, and **(b) any
+  combatant whose initiative is null**. Bell lights and hops just like a save/reaction; clears as you
+  switch / roll (`updateCombat`/`updateCombatant` re-render). An NPC's turn never lights it.
+- **Bell:** `#bellActive()` ⟺ `#attentionActorIds()` is non-empty (a queued prompt OR an unrolled
+  initiative on a token whose actor ≠ current subject). Header
+  button `.mc-bell` (by the dice tray): greyed + `disabled` when idle, gold-outlined + pulsing when
+  live. `attention-next` hops to the next such token (`#subjectId` = its token) → its popup shows.
+  Greys again once the only remaining business is on the token you're viewing; relights if you switch
+  away (DM 2026-07-19 rule: keyed to viewed-vs-elsewhere, not a raw count).
 
-The old station raised fog **with the train already parked in the corner**, which is why it felt
-weak: nothing could arrive, because it was already there. Now:
+### 49.3 Reaction timeout (BUILT)
 
-- **Fog first.** Three oversized blurred blob sheets that **rotate** (168s / 233s / 121s a
-  revolution, one reversed, each about its own centre) over the two original drift bands. Rotation
-  is what makes it swirl — the old version only slid sideways, which reads as a curtain, not
-  weather. Transform-only, so each blurred sheet is rasterised once and then re-composited;
-  `will-change: transform` pins that promotion. Slow on purpose: fast fog reads as smoke.
-- **"On rails made of mist"** — two pale converging streaks, low, slowly shimmering. The book's own
-  line, and the thing that gives the eye somewhere for the train to arrive *from*.
-- **The train is hidden until asked for.** `cmTrain` fx state `{ in, rot, actorId }` — a state, so a
-  reloading TV puts it back. Bringing it in runs a 7s emerge: far, small, dim, blurred → growing and
-  sharpening → settled. The DM's up-down float is kept, on the `<img>`, while the arrival runs on
-  the wrapper — two animations on one element would fight over `transform`.
-- **Aiming.** The screen lies flat with people around it, and §38.4b already stores a `rot` per seat:
-  the angle at which that seat's own UI reads right-way-up for the person sitting there. Rotating
-  the train layer by that same angle is the whole trick — the Ghostlight pulls in correctly oriented
-  for the person it came for, and upside-down for the person opposite, which is exactly true of a
-  real train at a real platform. Online table or nobody seated → 0°.
+Phone players need a beat to **notice** a prompt light up before tapping — midi's timeout assumes the
+dialog is already on screen. New world setting **`reactionTimeoutPct`** (default **120** = +20%)
+multiplies midi's `reactionTimeout` for the prompts the module relays to phones (reaction relay +
+AoO). Single source of truth: `reactionTimeoutMs()` in settings.js. It never writes midi's own
+setting (so the enforcer is unaffected) and never touches the DM's rolls. AoO moved from
+`playerSaveTimeout` onto this (an AoO is a reaction). Saves keep midi's `playerSaveTimeout`.
 
-### 36.1.3 The three cues
+### 49.4 Not yet / next
 
-Synthesized, so the module ships with sound and nothing licensed is bundled (§26) — **and every cue
-first checks a file-picker setting** (`sndTrainApproach` / `sndTrainWhistle` / `sndTrainStop`) and
-plays that instead when set. Drop a recording in and it wins.
+- **Trades fold in later:** Transfer Milestone B (§20 T-p2p) registers an incoming offer as a
+  `kind:"trade"` entry so the bell surfaces it; **same-owner transfers commit instantly** (no
+  self-accept — you don't accept a gift from yourself), matching the stash.
+- Needs a live table test (numbered protocol handed to the DM 2026-07-19).
 
-- **Approach** — a bed that FADES IN over 6s and **loops until stopped**, because nobody can time a
-  one-shot to a sentence they are still improvising. Three voices are what make an engine rather
-  than a hum: a very low rolling rumble, a chuff on an LFO-gated band of noise (the exhaust beat,
-  quickening across the fade — approaching, not idling), and the far ring of steel on rail.
-- **Whistle** — unchanged (the existing D#4/F#4/A#4 steam chord), now with a file override.
-- **Grinding stop** — the book's order exactly: two detuned resonant peaks **squealing** downward
-  over 2.6s, the rumble under them slowing and dying, a long **steam sigh** once the wheels stop,
-  and one iron **clank** as the couplings take up the slack. Firing it also ducks the approach bed
-  out — an engine still running behind a visibly stopped train is worse than no sound at all.
+---
 
-### 36.1.4 The arrival script — the DM's words, and only his
-
-Asked who should write the per-PC stories, the DM was unambiguous: **"purely the DM's job — you
-could open the sheet to make it easier for the DM, but the story is theirs and the player's."** So
-the module writes nothing. Each PC row in the All-aboard drawer opens a pane holding:
-
-- their own **material** on one line (species · classes · background · origin), so he is not hunting
-  through sheets mid-sentence, and a button that opens the actual sheet;
-- a **text box** for their arrival, stored on the actor (`boardingStory` flag), draft-stashed and
-  typing-guarded so the panel's clock-tick repaints can never eat a half-written sentence;
-- **Arrive for them** — one tap that raises the station, aims at that player's seat and brings the
-  train in, because that is the beat he is actually performing.
-
-### 36.1.5 Second pass (DM 2026-08-19, same day)
-
-- **The vertical smudge was mine.** *"what is this thing, and why do we need it"* — the "rails made
-  of mist", written at 96deg/84deg, which is nearly straight ACROSS, so instead of rails receding
-  into the fog it rendered as one pale bar parked in the centre of an empty stage. **Removed and
-  deliberately not replaced**; the arrival already carries "it came from somewhere".
-- **Mask, not crop.** The art is a rectangular plate with a ragged chroma-key border, visible on a
-  dark stage. An elliptical alpha mask holds the engine, softens through the tender and reaches
-  nothing before the plate edge — cheaper than any blur, and the edge stops existing rather than
-  being hidden.
-- **Mist over the art**, in the train wrapper so it scales with the arrival rather than sitting in
-  front of a train that is still far away. **Five swirl sheets** instead of three, at rates sharing
-  no common factor so the overlap pattern never visibly repeats. **Train 20% smaller.**
-- **The buttons are in the order of the scene**: Start mist · Start sound · Whistle · Bring in the
-  train · Stop. Sequence-you-perform beats grouped-by-what-they-are.
-- **Fade, never cut — now a rule (UI-BIBLE §6.8).** The station, the séance board and the card table
-  all created and removed their roots outright. All three now share `mountFaded` / `unmountFaded`
-  (`repaint.js`). A cut on a TV in a dark room reads as a fault; a fade reads as the scene changing.
-
-### 36.1.6 Third pass (DM 2026-08-19) — the blinking widget, the headlight, size
-
-**"The UI glitches out, the container stays and the text and buttons disappear and reappear."**
-Not the station: the DM panel. It is driven by ~30 hooks and several fire in the same tick as a
-matter of course — a token update is an `updateToken` *and* a `targetToken` *and* a combat refresh;
-writing one setting fires `updateSetting` alongside whatever caused it. Each called `render()`, and
-each `render()` rewrote `innerHTML`, so a burst tore the contents down and rebuilt them several
-times in a row — and the browser may paint any of the in-between states. Frame still, contents
-blinking.
-
-`render()` is now a **coalescer** around `renderNow()`. The leading edge stays **synchronous** (184
-call sites, some of which read the DOM immediately after), but every further call inside the same
-frame collapses into one follow-up on the next frame: at most two repaints per frame instead of N,
-and §46's no-op check usually swallows the follow-up. **This is the fix §46 should have had** —
-skipping no-op repaints does nothing about a burst of repaints that each genuinely differ.
-
-The panel also dropped its new `cm-boarding` import (which drags `shell.js` in behind it) for a
-question that was never another module's to answer: whether the distant-engine bed is running is
-*panel state* — did I ask for it — because the cue fires at every client. It also makes the button
-honest, since the grinding stop ducks the bed out and the label now follows.
-
-**The headlight.** The mask's first ramp still left ~20% alpha at the plate's left edge, which is
-exactly where the painted beam is cut off square — so the one hard edge left on screen was also the
-brightest thing in the frame. The mask now reaches full transparency well before it, and the beam is
-**drawn**: two stacked ellipses, a tight bright core at the lamp and a long weak throw, blurred to
-26px so it has no edge at all. One gradient reads as a smudge; two read as a beam.
-
-**Size** down again to 52%/48% of the stage.
-
-### 36.1.7 Open
-
-- **Not seen at the table.** A world was active, so BENCH RULE #0 held. A standalone preview page
-  went to the DM instead, since motion is the whole point and the in-app browser pane advances no
-  CSS animation at all (§40's trap).
-- **The fiddle is not built.** The book's herald is *a lone fiddle*, not a whistle — arguably the
-  most distinctive sound in the scene, and the one cue that wasn't asked for. Raised with the DM.
-- **The train art has a rough alpha** (teal fringing, ragged mask on the cropped plate). The fog
-  hides much of it; a chroma-key pass like the séance art would fix the rest.

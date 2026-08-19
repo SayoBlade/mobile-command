@@ -2,7 +2,7 @@
 
 ## Source of truth
 
-**[DESIGN.md](DESIGN.md) is the source of truth for this project.** Architecture decisions (D1–D7), the midi-qol settings preset (D4), the Service RPC contract, the spike plan, and all live-world findings live there. When code, notes, or memory disagree with DESIGN.md, DESIGN.md wins. New findings (spike results, setting-key discoveries, DM preference decisions) must be written back into DESIGN.md in the relevant section, dated.
+**[DESIGN.md](DESIGN.md) is the source of truth for this project.** Architecture decisions (D1–D7), the midi-qol settings preset (D4), per-feature sections with dated statuses, all live-world findings, and **the open ledger (§22.6)** live there. Start from its header's section map. When code, notes, or memory disagree with DESIGN.md, DESIGN.md wins. New findings (bench results, setting-key discoveries, DM preference decisions) must be written back into DESIGN.md in the relevant section, dated — and anything that opens or closes must be reflected in the §22.6 ledger.
 
 **[UI-BIBLE.md](UI-BIBLE.md) is the source of truth for how the UI looks and what each visual choice means** — palette and the meaning of every colour, how names/identity are shown, the button hierarchy (primary/secondary/tertiary/destructive/close), state marking, layout, copy, and class-name hygiene. **Read it before writing any UI, and live by it.** If code and UI-BIBLE.md disagree, the bible wins — fix the code. If a genuinely new need isn't covered, add the rule to the bible first, then build to it.
 
@@ -16,6 +16,6 @@
 
 ## Conduct
 
-- Write operations are allowed **in the test world only** (Restored Keep v14 demo).
+- Write operations are allowed **in the test world only** — the local **"Offline test"** world (Restored Keep v14 demo content) at `localhost:30000`, or a bench COPY of it per DESIGN §28.9. Never the DM's live campaign world. **BENCH RULE #0:** if the DM's Foundry has a world ACTIVE, do not start the bench at all.
 - **Never delete anything** — no documents, no settings, no files.
 - Prefer logging a blocker over guessing.
