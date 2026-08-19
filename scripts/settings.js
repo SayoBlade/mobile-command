@@ -54,6 +54,18 @@ export function registerSettings() {
     default: true
   });
 
+  // §48 where "Send feedback" addresses its mail. A setting rather than a constant so a table can
+  // point it at their own maintainer — and so the address can be changed without a release if it
+  // ever needs to be (it ships in a public module, where a plain address is scrapeable).
+  game.settings.register(MODULE_ID, "feedbackEmail", {
+    name: "MOBILECOMMAND.FeedbackEmail.Name",
+    hint: "MOBILECOMMAND.FeedbackEmail.Hint",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "michael.rudich@gmail.com"
+  });
+
   game.settings.register(MODULE_ID, "heartbeatSeconds", {
     name: "MOBILECOMMAND.Heartbeat.Name",
     hint: "MOBILECOMMAND.Heartbeat.Hint",

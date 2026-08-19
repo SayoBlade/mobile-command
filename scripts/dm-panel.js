@@ -19,7 +19,7 @@ import { compileCharacterFiles, lastCompile } from "./character-file.js"; // §4
 import { dealOne, actorCard, revealActorCard, setActorCard, ARCANA, hasBookArt } from "./tarot.js"; // §42 the Fated Tarot
 import { DRUSK_HOURS, currentHour, isDruskScene, druskSceneIds, markDruskScene, advanceToNextHour } from "./druskenvald.js"; // §43 the clock
 import { watchScroll, captureScrolls, restoreScrolls, sameHTML } from "./repaint.js"; // §46 don't jump
-import { buildDevReport } from "./devreport.js"; // §47 "Message for dev"
+import { openFeedback } from "./feedback.js"; // §48 the feedback window
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -1386,36 +1386,18 @@ function preflightHTML() {
     </div>`).join("");
   const stamp = preflightRunAt ? preflightRunAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
   // Checks scroll in the MID; the action buttons pin to the FOOT (DM 2026-07-25).
-  return `<div class="mc-dmp-tabfill"><div class="mc-dmp-tabmid">${rows}${devNoteHTML()}</div>
+  return `<div class="mc-dmp-tabfill"><div class="mc-dmp-tabmid">${rows}</div>
     <div class="mc-dmp-tabfoot">
       <button class="mc-dmp-preflight-run" data-preflight-run><i class="fas fa-rotate"></i> Run again${stamp ? ` <span class="mc-dmp-pf-stamp">last ${stamp}</span>` : ""}</button>
       <button class="mc-dmp-preflight-run" data-dm-wizard><i class="fas fa-hat-wizard"></i> Setup Wizard</button>
-      <button class="mc-dmp-preflight-run" data-devnote="${devNote.open ? "0" : "1"}"><i class="fas fa-envelope"></i> Message for dev</button>
+      <button class="mc-dmp-preflight-run" data-feedback><i class="fas fa-envelope"></i> Send feedback</button>
     </div></div>`;
 }
 
-// §47 "Message for dev". Something is wrong, the DM types one line about it, and this hands him a
-// block to paste that already answers every question I'd otherwise have to ask — versions, every
-// active module, the health checks, our settings, and whatever has thrown on this client since it
-// loaded. It lives INSIDE the tab (UI-BIBLE §10 — not a floating window over the panel) and the
-// note field is inline, the same rule the phone follows: a lifted popup fights the keyboard.
-let devNote = { open: false, text: "", built: "" };
-
-function devNoteHTML() {
-  if (!devNote.open) return "";
-  const esc = foundry.utils.escapeHTML;
-  return `<div class="mc-dmp-dev">
-    <div class="mc-dmp-head"><span>Message for dev</span></div>
-    <div class="mc-dmp-dev-hint">Say what went wrong in your own words, then copy and send it.</div>
-    <textarea class="mc-dmp-dev-note" data-devnote-text rows="3"
-      placeholder="e.g. tapped Longsword on the phone, nothing happened">${esc(devNote.text)}</textarea>
-    <div class="mc-dmp-dev-row">
-      <button class="mc-dmp-dev-copy" data-devnote-copy><i class="fas fa-copy"></i> Copy</button>
-      <button class="mc-dmp-dev-close" data-devnote="0">Close</button>
-    </div>
-    ${devNote.built ? `<textarea class="mc-dmp-dev-out" data-devnote-out readonly rows="8">${esc(devNote.built)}</textarea>` : ""}
-  </div>`;
-}
+// §48 "Send feedback" opens a WINDOW (feedback.js), not a section of this panel. The first
+// version put a note field and an output box inside the tab; the panel rebuilds itself on every
+// clock tick, so anything living in here has to survive that, and a player could never reach it
+// anyway. A dialog has neither problem.
 
 function rollsToolHTML() {
   const esc = foundry.utils.escapeHTML;
@@ -3627,7 +3609,7 @@ function render() {
   // guarded, or the rule form's own Kind/Roll dropdowns can't drive a re-render ("can't set rules").
   const ae = document.activeElement;
   if (ae && el.contains(ae) && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA") && /^(text|number|search|textarea|)$/.test(ae.type || "textarea")
-      && (ae.closest(".mc-dt-addform") || ae.closest(".mc-dt-tmplform") || ae.closest(".mc-rf") || ae.matches("[data-devnote-text]"))) return;
+      && (ae.closest(".mc-dt-addform") || ae.closest(".mc-dt-tmplform") || ae.closest(".mc-rf"))) return;
   // …and never while a dropdown is actually open: rebuilding the DOM destroys the element that
   // owns the popup, so the list vanishes under the DM's cursor. Deferred, not dropped — whatever
   // wanted to repaint runs the moment they're done choosing (see noteSelectOpen).
@@ -3726,8 +3708,6 @@ function onInput(ev) {
   if (ev.target?.matches?.("[data-dm-msg-text]")) { dmMsgDraft = ev.target.value; return; }
   // §30: same for the séance phrase.
   if (ev.target?.matches?.("[data-seance-text]")) { seanceDraft = ev.target.value; return; }
-  // §47: and the "Message for dev" note — the panel repaints on every clock tick.
-  if (ev.target?.matches?.("[data-devnote-text]")) { devNote.text = ev.target.value; return; }
   // Volume sliders: update the % readout live while dragging, but DON'T write the world setting on
   // every input event — that would be a document write per pixel of drag. The commit happens on
   // `change` (pointer release) in onChange. Purely local echo, no re-render, so the drag is smooth.
@@ -4600,35 +4580,8 @@ async function onClick(ev) {
     await runPreflight();
     return render();
   }
-  const dn = ev.target.closest("[data-devnote]");
-  if (dn) {
-    devNote.open = dn.dataset.devnote === "1";
-    if (!devNote.open) devNote.built = "";
-    return render();
-  }
-  if (ev.target.closest("[data-devnote-copy]")) {
-    // Build fresh on every copy: the point is a snapshot of RIGHT NOW, and the DM may have typed
-    // the note after opening the panel.
-    devNote.built = buildDevReport(devNote.text);
-    render();
-    // Copy, then SAY HOW MANY CHARACTERS LANDED. A silent "Copied" is what let an empty clipboard
-    // masquerade as a platform limitation once already — report the mechanism's actual result, and
-    // if it's zero the block is still on screen to select by hand.
-    const out = panelEl?.querySelector("[data-devnote-out]");
-    const text = devNote.built;
-    let n = 0;
-    try {
-      await navigator.clipboard.writeText(text);
-      n = text.length;
-    } catch (e) {
-      // No clipboard permission (http, or an older browser) — fall back to the selection route.
-      try {
-        out?.focus(); out?.select();
-        n = document.execCommand("copy") ? (out?.value?.length ?? 0) : 0;
-      } catch (e2) { n = 0; }
-    }
-    if (n > 0) ui.notifications.info(`Copied ${n} characters — paste it to the dev.`);
-    else ui.notifications.warn("Couldn't copy automatically — select the text below and copy it.");
+  if (ev.target.closest("[data-feedback]")) {
+    openFeedback().catch(e => console.error(`${MODULE_ID} | feedback window failed`, e));
     return;
   }
   if (ev.target.closest("[data-dm-wizard]")) {

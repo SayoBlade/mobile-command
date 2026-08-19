@@ -4733,3 +4733,79 @@ own reports.
 - **A phone-side entry point.** Console-only today. The shell's header has no room for another
   icon, so it needs a home rather than a button squeezed in.
 - **Not yet seen at the table** — a world was active, so BENCH RULE #0 held.
+
+
+---
+
+## 48. The feedback window — and the wizard that changed size (DM 2026-08-19)
+
+Three things in one round. *"make sure the setup wizard popup remains the same size over the
+different steps, message for dev doesn't do anything, open some kind of feedback window that mails
+me with a unique title that i can filter, so people can write feedback as well as send the relevant
+log/s"*.
+
+### 48.1 The wizard's size
+
+`.mc-wiz-body` had **`min-height: 208px`** — a floor, not a height. The preset-drift list (up to 12
+rows) and the final health check both outgrew it, so the window jumped between steps, which is
+exactly what the 2026-07-17 round was supposed to have fixed ("look like one setup wizard with
+steps and not several different sized popups"). A floor only fixes the steps that are too *short*.
+
+Now a **fixed** `height: clamp(200px, 42vh, 340px)` with its own `overflow-y`, so every step is the
+same size and long ones scroll inside it. Viewport-relative, so it still fits a laptop. The opening
+"walk through setup?" prompt got the same chrome and the same body, because it is the first thing
+in the flow and it was the odd one out.
+
+**And the classes were renamed `mc-wiz-*` → `mc-swiz-*`.** The DM setup wizard shared
+`mc-wiz-body`, `mc-wiz-step` and `mc-wiz-title` with the PHONE's character-creation wizard (§38):
+two unrelated features, one set of names, each silently restyling the other. It also *blocked the
+fix* — a fixed height on the shared name would have wrecked the phone's flow. UI-BIBLE §9 exists
+for exactly this.
+
+### 48.2 "Message for dev doesn't do anything"
+
+§47 put the note field and output box **inside the System-health tab**. That was the wrong shape
+regardless of the specific fault: the panel rebuilds itself on every clock tick, so anything living
+in it has to survive that (draft-stashing, typing guards, the §46 skip), and a **player can never
+reach it at all** — while the people who hit bugs are mostly not the GM.
+
+So it was rebuilt as a window rather than debugged in place. A `DialogV2` touches none of the
+panel's repaint machinery, and it opens from anywhere.
+
+### 48.3 The window (`scripts/feedback.js`)
+
+Kind (broken / idea / question) · what happened · include-technical-details (on by default) ·
+**Copy** · **Save file** · **Open email**.
+
+Three things it has to get right:
+
+1. **A subject that filters.** `[MOBILE-COMMAND] <kind> · <ID>` — one constant prefix so a single
+   mail rule catches every report, plus a six-character id (readable aloud, not a uuid) to refer
+   back to.
+2. **Getting the log out.** mailto: bodies are capped by the OS/browser somewhere around 2000
+   characters; a report is far larger. So the draft carries the person's own words plus a one-line
+   version stamp, and the log travels **by clipboard or as a saved `.txt`** to attach
+   (`foundry.utils.saveDataToFile`). Pushing 30KB through a mailto would silently truncate it, and
+   a truncated log is worse than one never promised.
+3. **Never claiming success it didn't have.** Copy returns the **character count that actually
+   landed** and the toast says it; zero says so and points at Save file. The clipboard write happens
+   **before** the mail draft opens, because opening it steals focus and a write after that can be
+   refused outright.
+
+**Three ways in**, because the reporter is usually not the GM: the System-health tab's *Send
+feedback* button · the phone's Details tab, above Welcome Tips (the dialog lifts above the shell
+like every other one) · Foundry's module-settings menu, registered **`restricted: false`**. Plus
+`MobileCommand.feedback()` for a macro.
+
+**The address is a world setting** (`feedbackEmail`), not a constant — so a table can point it at
+their own maintainer, and it can be changed without a release. It ships defaulted to the DM's
+address; a plain address in a public module is scrapeable, so an alias is worth considering before
+wider release.
+
+### 48.4 Open
+
+- **Not yet seen at the table** — a world was active, so BENCH RULE #0 held. `feedback.js` imports,
+  opens and registers cleanly under the Electron-as-node runner with `DialogV2` stubbed.
+- **The mailto route is untested against a real mail client.** If it doesn't open one (no handler
+  registered on the machine), Copy + Save file still carry the whole report.
+- **Consider an alias address** before the module goes wider.

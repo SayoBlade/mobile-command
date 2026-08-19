@@ -23,12 +23,12 @@ function wizPos() {
 }
 function wizChrome(n, title, inner) {
   const dots = Array.from({ length: WIZ_STEPS }, (_, i) =>
-    `<span class="mc-wiz-dot ${i + 1 < n ? "mc-done" : i + 1 === n ? "mc-on" : ""}"></span>`).join("");
+    `<span class="mc-swiz-dot ${i + 1 < n ? "mc-done" : i + 1 === n ? "mc-on" : ""}"></span>`).join("");
   const label = n > WIZ_STEPS ? "Final check" : `Step ${n} of ${WIZ_STEPS}`;
-  return `<div class="mc-wiz">
-    <div class="mc-wiz-head"><div class="mc-wiz-dots">${dots}</div>
-      <div class="mc-wiz-step"><span class="mc-wiz-n">${label}</span><span class="mc-wiz-title">${esc(title)}</span></div></div>
-    <div class="mc-wiz-body">${inner}</div>
+  return `<div class="mc-swiz">
+    <div class="mc-swiz-head"><div class="mc-swiz-dots">${dots}</div>
+      <div class="mc-swiz-step"><span class="mc-swiz-n">${label}</span><span class="mc-swiz-title">${esc(title)}</span></div></div>
+    <div class="mc-swiz-body">${inner}</div>
   </div>`;
 }
 // Bible §4.1.1 — right is forward. DialogV2 renders `buttons[]` LEFT TO RIGHT in array order, so
@@ -239,7 +239,12 @@ export function maybePromptDmWizard() {
     const res = await D().wait({
       window: { title: "Mobile Command — Setup" },
       position: { width: 480 },
-      content: `<div class="mc-wiz"><div class="mc-wiz-body" style="min-height:0"><p style="margin-top:0">Walk through the shared-table setup? Six short steps — the TV account,
+      // Same chrome and same fixed body as every step, so the first thing the DM sees is the size
+      // the whole flow will be (DM 2026-08-19: "make sure the setup wizard popup remains the same
+      // size over the different steps").
+      content: `<div class="mc-swiz">
+        <div class="mc-swiz-head"><div class="mc-swiz-step"><span class="mc-swiz-n">Setup</span><span class="mc-swiz-title">Before we start</span></div></div>
+        <div class="mc-swiz-body"><p style="margin-top:0">Walk through the shared-table setup? Six short steps — the TV account,
         midi settings, table toggles, token vision, combat music, the party — then a live health check.</p></div></div>`,
       buttons: [
         { action: "never", label: "Don't ask again" },

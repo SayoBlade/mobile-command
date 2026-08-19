@@ -9,6 +9,8 @@
   "MOBILECOMMAND.ExecutorUser.Hint": "User id or name of the GM client that runs phone actions and answers spatial queries. Leave blank to use whichever GM is active (the two-client topology). Set this if you later run a dedicated headless Service user.",
   "MOBILECOMMAND.PauseGuard.Name": "Auto-pause when the DM leaves the active scene",
   "MOBILECOMMAND.PauseGuard.Hint": "Phone actions need the DM viewing the active scene. When it navigates away the game pauses; it resumes automatically when the DM returns (manual pauses are never auto-resumed).",
+  "MOBILECOMMAND.FeedbackEmail.Name": "Feedback address",
+  "MOBILECOMMAND.FeedbackEmail.Hint": "Where the Send feedback button addresses its email. Change it if your table has its own maintainer.",
   "MOBILECOMMAND.Heartbeat.Name": "Heartbeat interval (seconds)",
   "MOBILECOMMAND.Heartbeat.Hint": "How often the DM client broadcasts its liveness to phones. 0 disables.",
   "MOBILECOMMAND.SaveTimeout.Name": "Expected save prompt timeout (seconds)",

@@ -22,7 +22,8 @@ import { registerDaylight, applyDaylight } from "./daylight.js"; // §41 the clo
 import { registerDruskenvald } from "./druskenvald.js"; // §43 eternal night, told in six named hours
 import { registerCharacterFiles, compileCharacterFiles } from "./character-file.js"; // §44 a book per PC
 import { registerSettingsMenu } from "./settings-app.js"; // §29 settings mini-app (menu button)
-import { installErrorCapture, buildDevReport } from "./devreport.js"; // §47 "Message for dev"
+import { installErrorCapture, buildDevReport } from "./devreport.js"; // §47 the technical report
+import { openFeedback, registerFeedbackMenu } from "./feedback.js"; // §48 the feedback window
 
 Hooks.once("init", () => {
   // FIRST thing, before anything of ours can throw: the errors worth having are the ones nobody was
@@ -30,6 +31,7 @@ Hooks.once("init", () => {
   installErrorCapture();
   registerSettings();
   registerSettingsMenu(); // §29: registered from here, not settings.js — the app imports preflight, which imports settings.js (cycle)
+  registerFeedbackMenu(); // §48: unrestricted — the people who hit bugs are mostly not the GM
   registerSceneTransitions(); // zoom in/out entries in CONFIG.Canvas.sceneTransitions (scene config + teleport pickers)
   // TV clean-canvas toggle (DM 2026-06-19): hide ALL Foundry UI so the shared
   // display shows only the canvas. Auto-on for the "display" role; this keybinding
@@ -844,6 +846,9 @@ Hooks.once("ready", () => {
     // §47: the same block the panel's "Message for dev" button produces, for anyone on any client —
     // a player on a phone can run this from a macro and paste the result.
     devReport: (note = "") => buildDevReport(note),
+    // §48: the feedback window, openable from anywhere — a macro a player can be handed, the
+    // console, or a keybinding.
+    feedback: openFeedback,
     syncPartyTokenSight,                 // GM: set each PC token's sight/detection from its dnd5e senses
     resolveExecutorId,
     isExecutor

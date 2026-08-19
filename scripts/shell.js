@@ -8,6 +8,7 @@ import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 the player'
 import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCard, tarotCanDismiss, tarotEnabled, TAROT_FLIP_MS } from "./tarot.js"; // §42 the Fated Tarot
 import { masteryOf, masteryReminder } from "./masteries.js"; // §45 weapon mastery reminder
 import { watchScroll, captureScrolls, restoreScrolls, sameHTML } from "./repaint.js"; // §46 don't jump
+import { openFeedback } from "./feedback.js"; // §48 report a bug from the phone
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -4454,6 +4455,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>
       <div class="mc-profile-acts">
         ${this.#fullscreenBtnHTML()}
+        <button class="mc-profile-act" data-action="feedback"><i class="fas fa-envelope"></i> Send feedback</button>
         <button class="mc-profile-act" data-action="onboard-open"><i class="fas fa-circle-question"></i> Welcome Tips</button>
         <button class="mc-profile-act mc-act-exit" data-action="exit"><i class="fas fa-right-from-bracket"></i> Leave Mobile Command</button>
         <button class="mc-profile-act mc-act-exit" data-action="logout"><i class="fas fa-power-off"></i> Log Out</button>
@@ -6353,6 +6355,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#onboardOpen = false; return this.render();
       case "onboard-open":
         this.#onboardOpen = true; return this.render();
+      // §48: the dialog lifts above the shell the same way every other one does (liftDialogAboveShell),
+      // so a player can file a report without leaving the app or finding the DM.
+      case "feedback":
+        openFeedback().catch((e) => console.error(`${MODULE_ID} | feedback window failed`, e));
+        return;
       case "logout": return game.logOut?.(); // temp: switching Foundry users on a phone is painful
       case "set-theme":
         try { window.localStorage.setItem("mc-theme", el.dataset.theme); } catch (e) { /* private mode */ }
