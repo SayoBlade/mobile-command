@@ -6257,3 +6257,23 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-cf-idx-card img { width: 100%; aspect-ratio: 1; object-fit: cover; object-position: center top;
   border-radius: 6px; border: 1px solid rgba(0,0,0,.35); }
 .mc-cf-idx-name { margin-top: 5px; font-variant: small-caps; letter-spacing: .02em; }
+
+/* §47 "Message for dev" — an inline block inside the System-health tab, never a floating window
+   (UI-BIBLE §10), with the note field inline so it doesn't fight a keyboard. Everything technical
+   lives in the read-only output box; the visible chrome stays plain. */
+.mc-dmp-dev {
+  margin-top: 10px; padding: 10px;
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge);
+  border-radius: calc(9px * var(--mc-round, 1));
+}
+.mc-dmp-dev-hint { font-size: 11px; color: var(--mc-muted); margin-bottom: 6px; line-height: 1.35; }
+.mc-dmp-dev-note, .mc-dmp-dev-out {
+  width: 100%; box-sizing: border-box; resize: vertical;
+  padding: 7px 8px; font-size: 12px; line-height: 1.4;
+  color: var(--mc-ink); background: var(--mc-panel);
+  border: 1px solid var(--mc-edge); border-radius: calc(7px * var(--mc-round, 1));
+}
+.mc-dmp-dev-out { margin-top: 8px; font-family: var(--mc-font-mono, monospace); font-size: 10px; color: var(--mc-muted); }
+.mc-dmp-dev-row { display: flex; gap: 8px; margin-top: 8px; }
+.mc-dmp-dev-row button { flex: 1 1 0; padding: 7px; border-radius: calc(8px * var(--mc-round, 1)); font-weight: 700; }
+.mc-dmp-dev-copy { border-color: var(--mc-gold); color: var(--mc-gold); }

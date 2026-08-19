@@ -45,16 +45,16 @@ function displayUserId() {
 function checkExecutor() {
   const id = resolveExecutorId();
   const user = id ? game.users.get(id) : null;
-  if (!user) return { id: "executor", label: "Executor client", status: "fail", detail: "No executor user resolved — phone actions have nowhere to run." };
-  if (!user.active) return { id: "executor", label: "Executor client", status: "fail", detail: `${user.name} (executor) is not connected.` };
-  return { id: "executor", label: "Executor client", status: "ok", detail: `${user.name} is online.` };
+  if (!user) return { id: "executor", label: "This computer", status: "fail", detail: "Nothing is set to run phone actions — nothing the players tap will happen." };
+  if (!user.active) return { id: "executor", label: "This computer", status: "fail", detail: `${user.name} runs the players' actions, and isn't connected.` };
+  return { id: "executor", label: "This computer", status: "ok", detail: `${user.name} is online.` };
 }
 
 function checkDisplayAccount() {
   const id = displayUserId();
-  if (!id) return { id: "display", label: "TV / display account", status: "warn", detail: "No display account set — shared-screen features (TV camera, party vision) are off." };
+  if (!id) return { id: "display", label: "The shared screen", status: "warn", detail: "No display account set — shared-screen features (TV camera, party vision) are off." };
   const user = game.users.get(id);
-  if (!user) return { id: "display", label: "TV / display account", status: "fail", detail: "The configured display user no longer exists." };
+  if (!user) return { id: "display", label: "The shared screen", status: "fail", detail: "The configured display user no longer exists." };
   const bits = [];
   if (!user.active) bits.push("not connected");
   // The two ways a display account still steals prompts, both checked against midi's
@@ -67,25 +67,25 @@ function checkDisplayAccount() {
   if (owns.length) bits.push(`holds Owner (not Observer) on ${owns.length}: ${owns.slice(0, 3).join(", ")}${owns.length > 3 ? ", …" : ""} — it can intercept their save prompts`);
   if (bits.length) {
     return {
-      id: "display", label: "TV / display account", status: "warn", detail: `${user.name}: ${bits.join("; ")}.`,
+      id: "display", label: "The shared screen", status: "warn", detail: `${user.name}: ${bits.join("; ")}.`,
       fix: owns.length ? {
         label: `Lower ${owns.length} to Observer`,
         run: async () => { const { syncDisplayObserver } = await import("./settings.js"); await syncDisplayObserver(user.id); }
       } : null
     };
   }
-  return { id: "display", label: "TV / display account", status: "ok", detail: `${user.name} is online, sees the party as Observer, no character assigned.` };
+  return { id: "display", label: "The shared screen", status: "ok", detail: `${user.name} is online, sees the party as Observer, no character assigned.` };
 }
 
 function checkPresetDrift() {
   let drift;
   try { drift = diffPreset(); } catch (e) {
-    return { id: "preset", label: "midi settings preset", status: "warn", detail: `Couldn't diff: ${e.message}` };
+    return { id: "preset", label: "Midi settings", status: "warn", detail: `Couldn't compare: ${e.message}` };
   }
-  if (!drift.length) return { id: "preset", label: "midi settings preset", status: "ok", detail: "All preset values match." };
+  if (!drift.length) return { id: "preset", label: "Midi settings", status: "ok", detail: "All preset values match." };
   const names = drift.slice(0, 4).map(d => d.path).join(", ");
   return {
-    id: "preset", label: "midi settings preset", status: "warn",
+    id: "preset", label: "Midi settings", status: "warn",
     detail: `${drift.length} value${drift.length === 1 ? "" : "s"} drifted (${names}${drift.length > 4 ? ", …" : ""}). Deliberate deviations are fine — apply only if unintended.`,
     fix: { label: "Apply preset", run: () => applyPreset() }
   };
@@ -102,7 +102,7 @@ function checkPresetDrift() {
 // connected human who owns this creature? Note this deliberately does NOT filter on disposition:
 // a neutral pet is exactly as routable-or-not as a friendly one.
 function checkPromptRouting() {
-  const id = "prompts", label = "Player prompts";
+  const id = "prompts", label = "Reaching the phones";
   const tvId = displayUserId();
   const owned = [];
   const seen = new Set();
@@ -140,7 +140,7 @@ function checkPromptRouting() {
 
 function checkTokenSight() {
   const pcs = partyPCs();
-  if (!pcs.length) return { id: "sight", label: "PC token senses", status: "warn", detail: "No party PCs on the active scene to check." };
+  if (!pcs.length) return { id: "sight", label: "What the party can see", status: "warn", detail: "No party characters on this scene to check." };
   const stale = [];
   for (const { actor, token } of pcs) {
     let expected;
@@ -152,10 +152,10 @@ function checkTokenSight() {
     const haveMode = token.sight?.visionMode ?? "basic";
     if (wantRange !== haveRange || wantMode !== haveMode) stale.push({ token, expected });
   }
-  if (!stale.length) return { id: "sight", label: "PC token senses", status: "ok", detail: "Placed PC tokens match their actors' senses." };
+  if (!stale.length) return { id: "sight", label: "What the party can see", status: "ok", detail: "Every character's token matches their sheet." };
   return {
-    id: "sight", label: "PC token senses", status: "fail",
-    detail: `${stale.map(s => s.token.name).join(", ")}: token sight doesn't match the sheet (blind-on-the-TV bug).`,
+    id: "sight", label: "What the party can see", status: "fail",
+    detail: `${stale.map(s => s.token.name).join(", ")}: the token can't see what the sheet says it should — the shared screen will show too little.`,
     fix: { label: "Sync senses", run: async () => { for (const s of stale) await s.token.update(s.expected); } }
   };
 }
@@ -164,19 +164,19 @@ function checkPartyGroup() {
   const pcs = partyPCs();
   const groups = game.actors.filter(a => a.type === "group");
   if (!groups.length) {
-    if (!pcs.length) return { id: "party", label: "Party group", status: "warn", detail: "No group actor and no party PCs on the active scene yet." };
-    return { id: "party", label: "Party group", status: "warn", detail: "No group actor — Form up / party mode unavailable. The panel's Create party button sets one up." };
+    if (!pcs.length) return { id: "party", label: "The party", status: "warn", detail: "No group actor and no party PCs on the active scene yet." };
+    return { id: "party", label: "The party", status: "warn", detail: "No group actor — Form up / party mode unavailable. The panel's Create party button sets one up." };
   }
   const g = groups.find(x => (x.system?.members ?? []).some(m => m.actor)) ?? groups[0];
   const memberIds = new Set((g.system?.members ?? []).map(m => m.actor?.id).filter(Boolean));
   const missing = pcs.filter(p => !memberIds.has(p.actor.id)).map(p => p.actor.name);
   const sceneActorIds = new Set((game.scenes.active?.tokens ?? []).map(t => t.actor?.id).filter(Boolean));
   const gone = (g.system?.members ?? []).map(m => m.actor).filter(a => a && !sceneActorIds.has(a.id)).map(a => a.name);
-  if (!missing.length && !gone.length) return { id: "party", label: "Party group", status: "ok", detail: `${g.name}: members match the active scene.` };
+  if (!missing.length && !gone.length) return { id: "party", label: "The party", status: "ok", detail: `${g.name}: members match the active scene.` };
   const bits = [];
   if (missing.length) bits.push(`not members: ${missing.join(", ")}`);
   if (gone.length) bits.push(`members with no token here: ${gone.join(", ")}`);
-  return { id: "party", label: "Party group", status: "warn", detail: `${g.name} is stale (${bits.join("; ")}) — use the panel's ⟳ / checklist.` };
+  return { id: "party", label: "The party", status: "warn", detail: `${g.name} is stale (${bits.join("; ")}) — use the panel's ⟳ / checklist.` };
 }
 
 // The Cave A landmine (Round 32): an ENABLED teleportToken behavior with no
@@ -199,9 +199,9 @@ function checkTeleportRegions() {
       }
     }
   }
-  if (!bad.length) return { id: "teleport", label: "Teleport regions", status: "ok", detail: "No enabled teleport behaviors with missing destinations." };
+  if (!bad.length) return { id: "teleport", label: "Map doorways", status: "ok", detail: "No enabled teleport behaviors with missing destinations." };
   return {
-    id: "teleport", label: "Teleport regions", status: "fail",
+    id: "teleport", label: "Map doorways", status: "fail",
     detail: bad.map(x => `${x.scene.name} / ${x.region.name}`).join(", ") + ": enabled teleport with no valid destination — SILENTLY BLOCKS token movement on that scene.",
     fix: { label: `Disable ${bad.length}`, run: async () => { for (const x of bad) await x.behavior.update({ disabled: true }); } }
   };
@@ -221,36 +221,43 @@ const TESTED = {
   "cat": "0.0.6", "midi-item-showcase-community": "2.0.1"
 };
 
+// The DM reads this at the table, so it says the plain thing in plain words (UI-BIBLE §7.2): what
+// changed, and whether it matters. Version pins, our own section numbers and the name of the
+// validation script are NOT his problem — they live in "Message for dev" and in the docs.
+const title = (id) => game.modules.get(id)?.title ?? id;
+
 function checkModuleStack() {
   const bits = [];
-  const chase = (v, key) => `${key} ${v} ≠ last-validated ${TESTED[key]} — run the combat validation (DESIGN §28.4), then bump the tested pin`;
+  const untested = (v, key, name) => `${name} updated to ${v} — not tested with this app yet (last tested ${TESTED[key]})`;
   const dnd = game.system.version;
-  if (!dnd.startsWith("5.")) bits.push(`dnd5e ${dnd} (validated: 5.3.x)`);
-  else if (dnd !== TESTED.dnd5e) bits.push(chase(dnd, "dnd5e"));
+  if (!dnd.startsWith("5.")) bits.push(`D&D 5e ${dnd} — this app is built for 5.3`);
+  else if (dnd !== TESTED.dnd5e) bits.push(untested(dnd, "dnd5e", "D&D 5e"));
   const midi = game.modules.get("midi-qol");
-  if (!midi?.active) bits.push("midi-qol inactive");
-  else if (!String(midi.version).startsWith("14.")) bits.push(`midi-qol ${midi.version} (validated: 14.x — note: version string can read stale on symlinked worlds)`);
-  else if (midi.version !== TESTED["midi-qol"]) bits.push(chase(midi.version, "midi-qol"));
+  if (!midi?.active) bits.push("Midi QOL is off — attacks from a phone won't work");
+  else if (!String(midi.version).startsWith("14.")) bits.push(`${midi.title} ${midi.version} — this app is built for 14`);
+  else if (midi.version !== TESTED["midi-qol"]) bits.push(untested(midi.version, "midi-qol", midi.title));
   // Optional-but-watched: modules that hook the same combat pipeline we hold mid-flight.
   // AC5E's preRollAttack can crash the whole attack roll (toClipperPoints, §28.1); CAT/MISC
   // extend midi workflows directly (§28.6). Only checked when actually active.
   for (const id of ["automated-conditions-5e", "cat", "midi-item-showcase-community"]) {
     const m = game.modules.get(id);
-    if (m?.active && m.version !== TESTED[id]) bits.push(chase(m.version, id));
+    if (m?.active && m.version !== TESTED[id]) bits.push(untested(m.version, id, m.title));
   }
-  if (!game.modules.get("socketlib")?.active) bits.push("socketlib inactive (RPC dead)");
+  if (!game.modules.get("socketlib")?.active) bits.push("socketlib is off — phones can't reach this computer at all");
   for (const legacy of ["chris-premades", "gambits-premades"]) {
     const m = game.modules.get(legacy);
-    if (m?.active) bits.push(`${m.title} is v13-era — expect breakage on Foundry 14`);
+    if (m?.active) bits.push(`${m.title} is built for Foundry 13 — expect trouble on 14`);
   }
   // MISC went V14-ready at 2.0.0 (first V14 + dnd5e 5.3 release, 2026-07-11) — but a leftover
   // 1.x install is still v13-era and belongs with the warning above (§28.5 ecosystem watch).
   const misc = game.modules.get("midi-item-showcase-community");
   if (misc?.active && !foundry.utils.isNewerVersion(misc.version, "2.0.0") && misc.version !== "2.0.0")
-    bits.push(`${misc.title} ${misc.version} is v13-era — 2.0.0+ is the Foundry 14 line`);
-  if (!bits.length) return { id: "stack", label: "Module stack", status: "ok", detail: `dnd5e ${dnd}, midi-qol ${midi?.version}, socketlib on.` };
-  const fatal = bits.some(b => b.includes("inactive"));
-  return { id: "stack", label: "Module stack", status: fatal ? "fail" : "warn", detail: bits.join("; ") + "." };
+    bits.push(`${misc.title} ${misc.version} is built for Foundry 13 — 2.0.0 and up is the Foundry 14 line`);
+  if (!bits.length) return { id: "stack", label: "Other modules", status: "ok",
+    detail: `D&D 5e ${dnd} and ${midi?.title ?? "Midi QOL"} ${midi?.version} — both tested with this app.` };
+  const fatal = bits.some(b => b.includes(" is off"));
+  return { id: "stack", label: "Other modules", status: fatal ? "fail" : "warn",
+    detail: bits.join(". ") + (fatal ? "." : ". Probably fine — tell the dev if anything misbehaves.") };
 }
 
 // Automation prerequisites (bench 2026-08-02). An automation module can ship items whose macros
@@ -261,7 +268,7 @@ function checkModuleStack() {
 // one world. Warn with a one-click fix rather than let it be found mid-combat.
 const AUTOMATION_PREREQS = [
   { module: "midi-item-showcase-community", key: "Elwin Helpers", want: true,
-    why: "MISC item automations (Great Weapon Master and friends) abort without it, so the phone tap does nothing" },
+    why: "some of its item automations (Great Weapon Master and friends) do nothing without it, so the phone tap looks broken" },
   // §45. Same shape, one wrinkle: wm5e's autoMasteries is USER-scoped, not world. Off (its
   // default) it waits for a click on the chat card — a card a phone player cannot reach, so the
   // mastery silently never happens on any phone attack. The value that matters is the EXECUTOR's,
@@ -269,7 +276,7 @@ const AUTOMATION_PREREQS = [
   // that client, so reading and writing it here targets exactly the right user. (A second GM
   // running the fix would set their own copy — harmless, but it's the executor's that counts.)
   { module: "wm5e", key: "autoMasteries", want: true,
-    why: "weapon masteries wait for a click on the DM's chat card, which no phone can reach — the phone's mastery reminder then has to tell the player to ask you" }
+    why: "weapon masteries wait for a click on your chat card, which a phone can't reach" }
 ];
 // Shared by the System-health check AND the setup wizard, so onboarding and preflight can never
 // disagree about what a working automation stack needs.
@@ -289,9 +296,9 @@ export async function applyAutomationPrereqs() {
   for (const b of pendingAutomationPrereqs()) await game.settings.set(b.module, b.key, b.want);
 }
 function checkAutomationPrereqs() {
-  const id = "automationPrereqs", label = "Automation prerequisites";
+  const id = "automationPrereqs", label = "Settings other modules need";
   const bad = pendingAutomationPrereqs();
-  if (!bad.length) return { id, label, status: "ok", detail: "Installed automation modules have their prerequisite settings on." };
+  if (!bad.length) return { id, label, status: "ok", detail: "Every module that needs a setting turned on has it on." };
   return {
     id, label, status: "warn",
     detail: bad.map(b => `${b.title}: "${b.key}" is off — ${b.why}.`).join(" "),
@@ -305,7 +312,7 @@ function checkAutomationPrereqs() {
 // darkness unlocked so the travel loop can drive environment.darknessLevel. Global illumination is
 // WELCOME (it plays the sun) as long as its threshold lets night actually land — see §18.3. Warn.
 function checkTravelLighting() {
-  const id = "travelLighting", label = "Travel lighting";
+  const id = "travelLighting", label = "Overworld light";
   // The scene you're actually on wins when it's a detected overworld (grid ≥ threshold ft/cell);
   // else fall back to the hand-picked overworld. Auto-detection means any big map is covered.
   const active = canvas?.scene;

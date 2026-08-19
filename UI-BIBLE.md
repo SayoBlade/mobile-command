@@ -431,6 +431,32 @@ just never bundle it.
   character" didn't help; adding the `(token icon) Name` did. The caption came out; the icon went
   in.)
 
+### 7.2 Nothing internal reaches the screen (DM 2026-08-19)
+
+**The UI never mentions anything that only exists inside this project.** No `DESIGN §28.4`, no
+"bump the tested pin", no raw module ids, no hook names, no file names, no version-pin vocabulary.
+The DM is reading this at a table with players waiting; a warning that sends him to a document is
+a warning that gets ignored.
+
+His words: *"dont use language like design.md on the user facing ui, keep it very simple."*
+
+| ❌ Was | ✅ Is |
+|---|---|
+| `automated-conditions-5e 14.533.15 ≠ last-validated 14.533.13.1 — run the combat validation (DESIGN §28.4), then bump the tested pin` | `Automated Conditions 5e updated to 14.533.15 — not tested with this app yet (last tested 14.533.13.1).` |
+| `socketlib inactive (RPC dead)` | `socketlib is off — phones can't reach this computer at all.` |
+| `midi settings preset` | `Midi settings` |
+| `PC token senses` | `What the party can see` |
+| `Automation prerequisites` | `Settings other modules need` |
+
+Use the module's **title**, never its id. Say what it means for the table, not what it means for
+the code. If a warning is only a heads-up, say so — *"Probably fine — tell the dev if anything
+misbehaves"* beats a technical sentence the DM has to decode.
+
+**Where the technical half goes:** the System-health tab's **Message for dev** button (§47). It
+builds every version, every active module, the health checks, our settings and the recent errors
+into one block to copy and paste. That block is allowed to be as long and as technical as it needs
+to be, *because nobody reads it as UI*. Anything you were tempted to put on a card belongs there.
+
 ### 7.1 No explanations in titles — ever
 
 **A title names the thing. It never teaches.** (DM 2026-07-16.)

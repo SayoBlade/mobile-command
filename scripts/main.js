@@ -22,8 +22,12 @@ import { registerDaylight, applyDaylight } from "./daylight.js"; // §41 the clo
 import { registerDruskenvald } from "./druskenvald.js"; // §43 eternal night, told in six named hours
 import { registerCharacterFiles, compileCharacterFiles } from "./character-file.js"; // §44 a book per PC
 import { registerSettingsMenu } from "./settings-app.js"; // §29 settings mini-app (menu button)
+import { installErrorCapture, buildDevReport } from "./devreport.js"; // §47 "Message for dev"
 
 Hooks.once("init", () => {
+  // FIRST thing, before anything of ours can throw: the errors worth having are the ones nobody was
+  // watching the console for, and a report is only useful if it caught the start of the session.
+  installErrorCapture();
   registerSettings();
   registerSettingsMenu(); // §29: registered from here, not settings.js — the app imports preflight, which imports settings.js (cycle)
   registerSceneTransitions(); // zoom in/out entries in CONFIG.Canvas.sceneTransitions (scene config + teleport pickers)
@@ -837,6 +841,9 @@ Hooks.once("ready", () => {
     // automatic one (§8.1), and what the setting's onChange calls when you switch it back on.
     applyDaylightNow: () => applyDaylight(canvas?.scene ?? game.scenes?.active, { animate: 1200 }),
     compileCharacterFiles,               // §44 rebuild every PC's file now (macro access)
+    // §47: the same block the panel's "Message for dev" button produces, for anyone on any client —
+    // a player on a phone can run this from a macro and paste the result.
+    devReport: (note = "") => buildDevReport(note),
     syncPartyTokenSight,                 // GM: set each PC token's sight/detection from its dnd5e senses
     resolveExecutorId,
     isExecutor

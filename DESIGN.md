@@ -4672,3 +4672,64 @@ rows, detached and vanished scrollers, and a genuine scroll-to-top never being u
   "every few seconds" cadence should be confirmed gone on the real panel.
 - **The rule is now in UI-BIBLE §6.3**, so the next surface that repaints inherits it instead of
   re-deriving it.
+
+---
+
+## 47. "Message for dev" — and the rule it exists to enforce (DM 2026-08-19, BUILT)
+
+**The trigger.** The Module-stack warning read: *"automated-conditions-5e 14.533.15 ≠
+last-validated 14.533.13.1 — run the combat validation (DESIGN §28.4), then bump the tested pin"*.
+The DM: *"dont use language like design.md on the user facing ui, keep it very simple, lets add a
+'message for dev' … and avoid this sort of thing going forward."*
+
+He is right, and the failure is a design one, not a typo. That string was written for a reader who
+has this repository open. The DM is reading it at a table with players waiting.
+
+### 47.1 The rule (now UI-BIBLE §7.2)
+
+The UI never names anything that only exists inside this project — no section numbers, no
+"tested pin", no raw module ids, no hook or file names. Module **titles**, not ids. Say what it
+means for the table. If a warning is only a heads-up, say so.
+
+Every preflight check was re-worded to it: labels (`PC token senses` → `What the party can see`,
+`Automation prerequisites` → `Settings other modules need`, `Executor client` → `This computer`)
+and details alike. The stack check now says *"Automated Conditions 5e updated to 14.533.15 — not
+tested with this app yet (last tested 14.533.13.1). Probably fine — tell the dev if anything
+misbehaves."*
+
+### 47.2 Where the technical half goes instead
+
+`scripts/devreport.js` + a **Message for dev** button in the System-health tab. The DM types one
+line about what went wrong; the button produces a block to paste that already answers everything
+that would otherwise be a round of questions:
+
+versions (Foundry + build, system, this module, language, user agent, screen) · this client (user,
+role, is-it-the-executor, canvas ready, paused, in-person vs online) · every user with online /
+GM / executor / assigned-character state · the active scene (id, viewed-or-not, grid, token and PC
+counts, **source** darkness — the §41 trap — token vision) · combat · every system-health check
+with its status and detail · every one of this module's settings, with long structured values
+collapsed to `object(n)` so a seat map can't drown the report · **every error this client has seen
+since it loaded** · every active module with its version.
+
+That block is allowed to be as long and technical as it likes **because nobody reads it as UI**.
+Anything tempting to put on a card belongs there instead.
+
+**Error capture** is installed as the very first statement of `init`, before anything of ours can
+throw — the errors worth having are the ones nobody was watching the console for. It wraps
+`console.error` and listens for `error` / `unhandledrejection`, keeps a ring of 30, truncates each
+entry to 600 chars, and is wrapped so the recorder can never itself be the error.
+
+**Copying reports its own result.** `navigator.clipboard.writeText` first, then a select +
+`execCommand` fallback, and the toast names the **character count** that actually landed. A silent
+"Copied" is exactly what once let an empty clipboard masquerade as an iOS limitation; if the count
+is zero the block stays on screen to select by hand.
+
+`MobileCommand.devReport(note)` produces the same text on any client, so a player's phone can be
+asked for one via a macro. A phone-side button is the obvious next slice if players ever file their
+own reports.
+
+### 47.3 Open
+
+- **A phone-side entry point.** Console-only today. The shell's header has no room for another
+  icon, so it needs a home rather than a button squeezed in.
+- **Not yet seen at the table** — a world was active, so BENCH RULE #0 held.
