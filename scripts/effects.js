@@ -4,7 +4,7 @@ import { isPhoneClient } from "./shell.js";
 import { isExecutor } from "./settings.js";
 import { seanceSync, seancePhrase } from "./seance.js"; // §30 séance board (TV overlay)
 import { cardTableSync, registerCardTable } from "./card-table.js"; // §38.4a session-zero card table
-import { cmStationSync, cmTicketFx, playTrainWhistle } from "./cm-boarding.js"; // §36 All aboard
+import { cmStationSync, cmTicketFx, playTrainWhistle, playTrainApproach, stopTrainApproach, playTrainStop } from "./cm-boarding.js"; // §36 All aboard
 import { bossIntroPlay } from "./boss-intro.js"; // §40 the boss's entrance (one-shot, no state)
 import { initCurseSweep } from "./cm-curses.js"; // §33: one GM client lifts expired curses
 
@@ -70,6 +70,11 @@ export const FX_DEFS = {
   cmIntro: { label: "Introduce", icon: "fa-masks-theater", state: true, hint: "Put one character's card on the display" },
   cmTicket: { label: "Ticket", icon: "fa-ticket", player: "state", hint: "A life-size ticket fills their phone until they board" },
   cmWhistle: { label: "Whistle", icon: "fa-bullhorn", oneShot: true, hint: "Two blasts of the Ghostlight's whistle" },
+  // §36.1 the arrival. cmTrain is a STATE ({ in, rot, actorId }) so a reloading TV puts the train
+  // back where it was; the two sound cues are one-shots fired by hand as the narration lands.
+  cmTrain: { label: "Bring in the train", icon: "fa-train", state: true, hint: "The Ghostlight emerges from the fog, facing whoever it came for" },
+  cmTrainApproach: { label: "Approach", icon: "fa-volume-low", oneShot: true, hint: "A distant engine, fading in under the narration" },
+  cmTrainStop: { label: "Grinding stop", icon: "fa-hand", oneShot: true, hint: "Brakes: it squeals, sighs, and halts" },
   // §40 the boss's entrance. A one-shot with { img, sound } — the Combat tab's Boss intro drawer
   // owns its UI (a roster of bosses with drop targets is more than a grid chip), and it is fired
   // through dmPlayBossIntro rather than dmFireFx because the pause has to come first.
@@ -176,6 +181,8 @@ export function handleFxOneShot(payload = {}) {
   else if (id === "static") staticLocal(level);
   else if (id === "seancePhrase") seancePhrase(text); // no-op on clients without the board
   else if (id === "cmWhistle") playTrainWhistle();    // §36 — canvas clients only, gates itself
+  else if (id === "cmTrainApproach") { if (payload?.on === false) stopTrainApproach(); else playTrainApproach(); }
+  else if (id === "cmTrainStop") playTrainStop();
   // §40 carries a whole boss ({ img, sound }), so it gets the payload rather than named bits.
   else if (id === "bossIntro") bossIntroPlay(payload);
 }
@@ -735,7 +742,7 @@ export function syncFx() {
   // §30 séance board: mounts on the display + the DM's client (seance.js gates itself).
   seanceSync(!!active.seance);
   // §36 the station + intro card: same clients, same gate-inside pattern.
-  cmStationSync(!!active.cmStation, active.cmIntro?.actorId ?? null);
+  cmStationSync(!!active.cmStation, active.cmIntro?.actorId ?? null, active.cmTrain ?? null);
   // §38.4a the card table (session zero). Its own world setting rather than an fxActive key —
   // it's a session-zero fixture, not an ambience effect — but it rides the same remount path.
   try { cardTableSync(!!game.settings.get(MODULE_ID, "cardTableOn")); } catch (e) { /* pre-ready */ }

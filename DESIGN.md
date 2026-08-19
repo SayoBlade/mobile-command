@@ -4809,3 +4809,94 @@ wider release.
 - **The mailto route is untested against a real mail client.** If it doesn't open one (no handler
   registered on the machine), Copy + Save file still carry the whole report.
 - **Consider an alias address** before the module goes wider.
+
+
+---
+
+## 36.1 The arrival — swirl, bringing the train in, and one story per PC (DM 2026-08-19)
+
+*"all abord is very weak, I want some kind of swirling fog and the ability to 'bring in' the
+train… I want a personal story for each PC… a foggy background (preferably animated slowly), a
+train sound, grinding stop, a train whistle, and the image to appear (centered and aiming the right
+way) behind the fog when requested (you can keep the up down animation)."*
+
+### 36.1.1 What the book actually says (extracted 2026-08-19, ch10 "All Aboard" + "Quest Hooks")
+
+The arrival read-aloud, and its beat order — which is not the order we had:
+
+> *"The haunting tune of a lone fiddle pierces through the fog… A dark steel train, bathed in an
+> eerie glow, emerges from the gloom on rails made of mist. Its smokestack belches plumes of ghastly
+> blue-green smoke that wail with the faces and voices of the damned. The locomotive rumbles,
+> squeals, and creaks as it slows to a halt, and a passenger car looms directly before you."*
+
+So: **fiddle → emerges from the gloom → wailing smoke → rumbles, squeals, creaks → halt → looms.**
+Then the Vagrant steps out fiddle in hand, and a **DC 13 Perception** check makes a character feel
+the unfamiliar ticket already in their pocket — the beat our existing ticket fx was built for, now
+reachable in its right place.
+
+**The per-PC arrival is the book's own suggestion, not a departure from it.** Quest Hooks: *"They
+may be picked up together or individually… For a full-length campaign, talk with your players to
+establish the circumstances that lead their character to embark when the train arrives."* Its three
+framings are **Fate** (each has a ticket and their own reason), **Death** (they all died and are
+reincarnated), **Homeward Bound** (Druskenvald natives trying to get home).
+
+### 36.1.2 The stage
+
+The old station raised fog **with the train already parked in the corner**, which is why it felt
+weak: nothing could arrive, because it was already there. Now:
+
+- **Fog first.** Three oversized blurred blob sheets that **rotate** (168s / 233s / 121s a
+  revolution, one reversed, each about its own centre) over the two original drift bands. Rotation
+  is what makes it swirl — the old version only slid sideways, which reads as a curtain, not
+  weather. Transform-only, so each blurred sheet is rasterised once and then re-composited;
+  `will-change: transform` pins that promotion. Slow on purpose: fast fog reads as smoke.
+- **"On rails made of mist"** — two pale converging streaks, low, slowly shimmering. The book's own
+  line, and the thing that gives the eye somewhere for the train to arrive *from*.
+- **The train is hidden until asked for.** `cmTrain` fx state `{ in, rot, actorId }` — a state, so a
+  reloading TV puts it back. Bringing it in runs a 7s emerge: far, small, dim, blurred → growing and
+  sharpening → settled. The DM's up-down float is kept, on the `<img>`, while the arrival runs on
+  the wrapper — two animations on one element would fight over `transform`.
+- **Aiming.** The screen lies flat with people around it, and §38.4b already stores a `rot` per seat:
+  the angle at which that seat's own UI reads right-way-up for the person sitting there. Rotating
+  the train layer by that same angle is the whole trick — the Ghostlight pulls in correctly oriented
+  for the person it came for, and upside-down for the person opposite, which is exactly true of a
+  real train at a real platform. Online table or nobody seated → 0°.
+
+### 36.1.3 The three cues
+
+Synthesized, so the module ships with sound and nothing licensed is bundled (§26) — **and every cue
+first checks a file-picker setting** (`sndTrainApproach` / `sndTrainWhistle` / `sndTrainStop`) and
+plays that instead when set. Drop a recording in and it wins.
+
+- **Approach** — a bed that FADES IN over 6s and **loops until stopped**, because nobody can time a
+  one-shot to a sentence they are still improvising. Three voices are what make an engine rather
+  than a hum: a very low rolling rumble, a chuff on an LFO-gated band of noise (the exhaust beat,
+  quickening across the fade — approaching, not idling), and the far ring of steel on rail.
+- **Whistle** — unchanged (the existing D#4/F#4/A#4 steam chord), now with a file override.
+- **Grinding stop** — the book's order exactly: two detuned resonant peaks **squealing** downward
+  over 2.6s, the rumble under them slowing and dying, a long **steam sigh** once the wheels stop,
+  and one iron **clank** as the couplings take up the slack. Firing it also ducks the approach bed
+  out — an engine still running behind a visibly stopped train is worse than no sound at all.
+
+### 36.1.4 The arrival script — the DM's words, and only his
+
+Asked who should write the per-PC stories, the DM was unambiguous: **"purely the DM's job — you
+could open the sheet to make it easier for the DM, but the story is theirs and the player's."** So
+the module writes nothing. Each PC row in the All-aboard drawer opens a pane holding:
+
+- their own **material** on one line (species · classes · background · origin), so he is not hunting
+  through sheets mid-sentence, and a button that opens the actual sheet;
+- a **text box** for their arrival, stored on the actor (`boardingStory` flag), draft-stashed and
+  typing-guarded so the panel's clock-tick repaints can never eat a half-written sentence;
+- **Arrive for them** — one tap that raises the station, aims at that player's seat and brings the
+  train in, because that is the beat he is actually performing.
+
+### 36.1.5 Open
+
+- **Not seen at the table.** A world was active, so BENCH RULE #0 held. A standalone preview page
+  went to the DM instead, since motion is the whole point and the in-app browser pane advances no
+  CSS animation at all (§40's trap).
+- **The fiddle is not built.** The book's herald is *a lone fiddle*, not a whistle — arguably the
+  most distinctive sound in the scene, and the one cue that wasn't asked for. Raised with the DM.
+- **The train art has a rough alpha** (teal fringing, ragged mask on the cropped plate). The fog
+  hides much of it; a chroma-key pass like the séance art would fix the rest.

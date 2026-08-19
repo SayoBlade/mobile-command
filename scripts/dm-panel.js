@@ -12,6 +12,7 @@ import { FATE_THREADS, FATE_STEPS, applyFateReward } from "./fateweaving.js"; //
 import { CURSES, rollCurse, pickCurse, applyCurse, actorCurses, curseTableUuid } from "./cm-curses.js"; // §33 Chaotic Curses
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { trainScenes, trainMistOn, wireTrainDoors, setTrainMist } from "./cm-train.js"; // §37 the Ghostlight ride
+import { trainApproachPlaying } from "./cm-boarding.js"; // §36.1 is the approach bed running?
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 import { bossList, bossSave, bossImage, bossSoundSrc, bossSoundLabel, dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { setDaylightSuspended } from "./daylight.js"; // §41 travel owns the light for the length of a journey
@@ -846,38 +847,119 @@ function trainRideBody() {
 
 // §36 All aboard: station on the TV, one PC introduced at a time, a life-size ticket on each
 // player's phone, punched by the DM as they board. Tickets survive reloads (fxActive state).
+// §36.1 The arrival (DM 2026-08-19). The station used to be a backdrop you switched on with the
+// train already parked in the corner; the book's beat is that the fog comes first and the train
+// EMERGES from it while the DM narrates. So the drawer is now a small stage desk: raise the fog,
+// pick whose arrival this is, bring the train in aimed at their seat, and fire the three cues by
+// hand as the sentences land.
+//
+// The story itself is the DM's, deliberately — his call: "purely the DM's job, you could open the
+// sheet to make it easier for the DM, but the story is theirs and the player's". So we store and
+// show it, put the character's own material next to the box so he is not hunting through sheets
+// mid-sentence, and never write a word of it.
+let cmStoryFor = null;   // actorId whose arrival script is open (DM-local)
+let cmStoryDraft = null; // the text being edited, so a background repaint can't eat it
+
+function boardingStory(actor) {
+  try { return String(actor?.getFlag(MODULE_ID, "boardingStory") ?? ""); } catch (e) { return ""; }
+}
+// Which way does the Ghostlight face for this character? Their player's seat angle (§38.4b), or
+// straight-on when nobody is seated — an online table has no "their side of the screen".
+function pcSeatRot(actor) {
+  const u = pcUser(actor);
+  if (!u || isOnlineTable()) return 0;
+  const seatId = Object.entries(tableSeats()).find(([, uid]) => uid === u.id)?.[0] ?? null;
+  return TABLE_SEATS.find(s => s.id === seatId)?.rot ?? 0;
+}
+function trainState() { return fxActiveMap().cmTrain ?? null; }
+
+// The character's own material, one line, so the DM can write their arrival without leaving the
+// panel: species, class(es), background. Everything here is already on their sheet — the point is
+// only that it is HERE, next to the box he is typing into.
+function pcMaterial(a) {
+  const sys = a.system ?? {};
+  const bits = [];
+  const species = a.items?.find(i => i.type === "race")?.name;
+  if (species) bits.push(species);
+  const classes = (a.items ?? []).filter(i => i.type === "class").map(i => `${i.name} ${i.system?.levels ?? ""}`.trim());
+  if (classes.length) bits.push(classes.join(" / "));
+  const bg = a.items?.find(i => i.type === "background")?.name;
+  if (bg) bits.push(bg);
+  const home = sys.details?.origin || sys.details?.faith;
+  if (home) bits.push(home);
+  return bits.join(" · ");
+}
+
+function cmStoryPane(a) {
+  const esc = foundry.utils.escapeHTML;
+  const text = cmStoryDraft ?? boardingStory(a);
+  const mat = pcMaterial(a);
+  const rot = pcSeatRot(a);
+  const seated = rot !== 0 || !isOnlineTable();
+  return `<div class="mc-cmb-story">
+    <div class="mc-cmb-story-head">
+      <span>${esc(a.name)}</span>
+      <button class="mc-cmb-sheet" data-cm-sheet="${a.id}" title="Open the character sheet"><i class="fas fa-address-card"></i></button>
+    </div>
+    ${mat ? `<div class="mc-cmb-material">${esc(mat)}</div>` : ""}
+    <textarea class="mc-cmb-script" data-cm-story-text rows="7"
+      placeholder="Their arrival, in your words. Write it once, read it at the table.">${esc(text)}</textarea>
+    <div class="mc-cmb-story-acts">
+      <button class="mc-fx-btn" data-cm-story-save="${a.id}"><i class="fas fa-floppy-disk"></i><span>Save</span></button>
+      <button class="mc-fx-btn" data-cm-arrive="${a.id}" title="${seated ? "The train pulls in facing their seat" : "Nobody is seated — the train arrives facing you"}">
+        <i class="fas fa-train"></i><span>Arrive for them</span>
+      </button>
+    </div>
+  </div>`;
+}
+
 function allAboardBody() {
   const esc = foundry.utils.escapeHTML;
   const stationOn = fxIsOn("cmStation");
   const introId = fxActiveMap().cmIntro?.actorId ?? null;
+  const train = trainState();
   const pcs = scenePcs();
   const rows = pcs.map(a => {
     const u = pcUser(a);
     const hasTicket = u ? fxIsOnFor("cmTicket", u.id) : false;
     const isIntro = introId === a.id;
+    const isStory = cmStoryFor === a.id;
+    const hasStory = !!boardingStory(a);
     return `<div class="mc-cmb-row">
       <button class="mc-seance-pc ${isIntro ? "mc-on" : ""}" data-cm-intro="${a.id}"
         title="${isIntro ? `Take ${esc(a.name)}'s card off the display` : `Introduce ${esc(a.name)} — their card on the display`}">
         <i class="fas fa-circle-user" style="color:${pcColor(a)}"></i><span>${esc(a.name)}</span>
         ${isIntro ? `<i class="fas fa-masks-theater mc-seance-pc-check"></i>` : ""}
       </button>
+      <button class="mc-cmb-ticket ${isStory ? "mc-on" : ""}" data-cm-story="${a.id}"
+        title="${isStory ? "Close the arrival" : hasStory ? `${esc(a.name)}'s arrival` : `Write ${esc(a.name)}'s arrival`}">
+        <i class="fas ${hasStory ? "fa-book-open" : "fa-feather"}"></i>
+      </button>
       <button class="mc-cmb-ticket ${hasTicket ? "mc-on" : ""}" data-cm-ticket="${u?.id ?? ""}" ${u ? "" : "disabled"}
         title="${!u ? `${esc(a.name)} has no player` : hasTicket ? `${esc(a.name)} boards — punch their ticket` : `Hand ${esc(a.name)} their ticket`}">
         <i class="fas fa-ticket"></i>
       </button>
-    </div>`;
+    </div>${isStory ? cmStoryPane(a) : ""}`;
   }).join("");
   const users = pcs.map(a => pcUser(a)).filter(Boolean);
   const allHave = users.length > 0 && users.every(u => fxIsOnFor("cmTicket", u.id));
   return `
     <button class="mc-fx-btn ${stationOn ? "mc-on" : ""}" data-fx="cmStation" title="${FX_DEFS.cmStation.hint}" style="width:100%"><i class="fas ${FX_DEFS.cmStation.icon}"></i><span>The Station</span></button>
+    <button class="mc-fx-btn ${train?.in ? "mc-on" : ""}" data-cm-train="${train?.in ? "off" : "on"}" style="width:100%"
+      title="${train?.in ? "Back into the fog" : "It emerges from the gloom, aimed at whoever you last chose"}">
+      <i class="fas fa-train"></i><span>${train?.in ? "Take it away" : "Bring in the train"}</span>
+    </button>
+    <div class="mc-fx-voicerow">
+      <button class="mc-fx-btn" data-cm-cue="approach" style="flex:1" title="A distant engine, fading in — leave it running under the narration"><i class="fas fa-volume-low"></i><span>Approach</span></button>
+      <button class="mc-fx-btn" data-cm-cue="whistle" style="flex:1" title="${FX_DEFS.cmWhistle.hint}"><i class="fas fa-bullhorn"></i><span>Whistle</span></button>
+      <button class="mc-fx-btn" data-cm-cue="stop" style="flex:1" title="Brakes — it squeals, sighs, and halts"><i class="fas fa-hand"></i><span>Stop</span></button>
+    </div>
     <div class="mc-seance-party">${rows || `<div class="mc-dmp-empty">No player characters.</div>`}</div>
     <div class="mc-fx-voicerow">
       <button class="mc-fx-btn" data-cm-tickets-all="${allHave ? "off" : "on"}" style="flex:1" ${users.length ? "" : "disabled"}
         title="${allHave ? "Everyone boards — punch every ticket" : "Hand every player their ticket"}">
         <i class="fas fa-ticket"></i><span>${allHave ? "Punch All" : "All Tickets"}</span>
       </button>
-      <button class="mc-fx-btn mc-fx-voicebtn" data-fx-shot="cmWhistle" title="${FX_DEFS.cmWhistle.hint}"><i class="fas fa-bullhorn"></i></button>
     </div>`;
 }
 
@@ -3609,7 +3691,7 @@ function render() {
   // guarded, or the rule form's own Kind/Roll dropdowns can't drive a re-render ("can't set rules").
   const ae = document.activeElement;
   if (ae && el.contains(ae) && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA") && /^(text|number|search|textarea|)$/.test(ae.type || "textarea")
-      && (ae.closest(".mc-dt-addform") || ae.closest(".mc-dt-tmplform") || ae.closest(".mc-rf"))) return;
+      && (ae.closest(".mc-dt-addform") || ae.closest(".mc-dt-tmplform") || ae.closest(".mc-rf") || ae.matches("[data-cm-story-text]"))) return;
   // …and never while a dropdown is actually open: rebuilding the DOM destroys the element that
   // owns the popup, so the list vanishes under the DM's cursor. Deferred, not dropped — whatever
   // wanted to repaint runs the moment they're done choosing (see noteSelectOpen).
@@ -3708,6 +3790,8 @@ function onInput(ev) {
   if (ev.target?.matches?.("[data-dm-msg-text]")) { dmMsgDraft = ev.target.value; return; }
   // §30: same for the séance phrase.
   if (ev.target?.matches?.("[data-seance-text]")) { seanceDraft = ev.target.value; return; }
+  // §36.1: and the arrival script the DM is writing.
+  if (ev.target?.matches?.("[data-cm-story-text]")) { cmStoryDraft = ev.target.value; return; }
   // Volume sliders: update the % readout live while dragging, but DON'T write the world setting on
   // every input event — that would be a document write per pixel of drag. The commit happens on
   // `change` (pointer release) in onChange. Purely local echo, no re-render, so the drag is smooth.
@@ -3946,6 +4030,59 @@ async function onClick(ev) {
   }
   // §36 All aboard: introduce one PC on the display (tapping again takes the card down;
   // introducing also raises the station — one tap, not two).
+  // §36.1 the stage: bring the train in / take it away. The aim it arrives at is whatever the last
+  // "Arrive for them" set, so raising it from here after choosing someone keeps facing them.
+  const cmTrain = ev.target.closest("[data-cm-train]");
+  if (cmTrain) {
+    const on = cmTrain.dataset.cmTrain === "on";
+    const cur = { ...fxActiveMap() };
+    if (on) { cur.cmTrain = { in: true, rot: cur.cmTrain?.rot ?? 0 }; cur.cmStation = true; }
+    else delete cur.cmTrain;
+    await game.settings.set(MODULE_ID, "fxActive", cur);
+    return render();
+  }
+  // §36.1 the three cues, fired by hand as the sentences land. Approach TOGGLES — it is a bed the
+  // DM leaves running under the narration, not a stab.
+  const cmCue = ev.target.closest("[data-cm-cue]");
+  if (cmCue) {
+    const cue = cmCue.dataset.cmCue;
+    if (cue === "whistle") dmFireFx("cmWhistle");
+    else if (cue === "stop") dmFireFx("cmTrainStop");
+    else dmFireFx("cmTrainApproach", { on: !trainApproachPlaying() });
+    return;
+  }
+  // §36.1 open / close one character's arrival script.
+  const cmStory = ev.target.closest("[data-cm-story]");
+  if (cmStory) {
+    const id = cmStory.dataset.cmStory;
+    cmStoryFor = cmStoryFor === id ? null : id;
+    cmStoryDraft = null;
+    return render();
+  }
+  const cmSheet = ev.target.closest("[data-cm-sheet]");
+  if (cmSheet) { game.actors.get(cmSheet.dataset.cmSheet)?.sheet?.render(true); return; }
+  const cmSave = ev.target.closest("[data-cm-story-save]");
+  if (cmSave) {
+    const a = game.actors.get(cmSave.dataset.cmStorySave);
+    // Read the live field, not the stashed draft: a save must never lose the last word typed
+    // because a repaint happened to land between the keystroke and the tap.
+    const live = panelEl?.querySelector("[data-cm-story-text]")?.value;
+    if (a) await a.setFlag(MODULE_ID, "boardingStory", String(live ?? cmStoryDraft ?? ""));
+    cmStoryDraft = null;
+    ui.notifications.info(`${a?.name ?? "Arrival"} saved.`);
+    return render();
+  }
+  // "Arrive for them": raise the station, aim at their seat, and bring it in — one tap for the beat
+  // the DM is actually performing, instead of three.
+  const cmArrive = ev.target.closest("[data-cm-arrive]");
+  if (cmArrive) {
+    const a = game.actors.get(cmArrive.dataset.cmArrive);
+    const cur = { ...fxActiveMap() };
+    cur.cmStation = true;
+    cur.cmTrain = { in: true, rot: pcSeatRot(a), actorId: a?.id ?? null };
+    await game.settings.set(MODULE_ID, "fxActive", cur);
+    return render();
+  }
   const cmIntro = ev.target.closest("[data-cm-intro]");
   if (cmIntro) {
     const id = cmIntro.dataset.cmIntro;

@@ -25,25 +25,45 @@ function eligible() {
 
 let stationRoot = null;
 let introShown = null; // actorId currently on the card (to animate only on change)
+let trainShown = null; // JSON of the last train state applied (so the arrival plays once, on change)
 
-export function cmStationSync(on, introActorId) {
+// The stage is fog FIRST and train second (DM 2026-08-19: "all abord is very weak, I want some kind
+// of swirling fog and the ability to 'bring in' the train"). The old station had the train pinned to
+// the corner from the moment it opened, so there was nothing to arrive — the book's whole beat is
+// that it "emerges from the gloom" while everyone is listening to the fog.
+//
+// Layers, back to front: three SWIRL sheets · the mist rails · the aimed train (behind fog) · two
+// foreground fog sheets · the introduction card · vignette. The swirl is transform-only — big
+// blurred blobs rotating and drifting at different rates — so the GPU caches each blurred sheet as
+// a texture and only re-composites it. No per-frame JS, no canvas: this has to run on the DM's
+// machine next to everything else ([[flag-performance-cost]]).
+export function cmStationSync(on, introActorId, train = null) {
   if (!eligible()) on = false;
   if (on && !stationRoot) {
     stationRoot = document.createElement("div");
     stationRoot.id = "mc-cmstation";
     stationRoot.innerHTML = `
+      <div class="mc-cmst-swirl mc-cmst-sw1"></div>
+      <div class="mc-cmst-swirl mc-cmst-sw2"></div>
+      <div class="mc-cmst-rails"></div>
+      <div class="mc-cmst-aim">
+        <div class="mc-cmst-trainwrap">
+          <div class="mc-cmst-beam"></div>
+          <img class="mc-cmst-train" src="${TRAIN_ART}" alt="" onerror="this.remove()">
+        </div>
+      </div>
+      <div class="mc-cmst-swirl mc-cmst-sw3"></div>
       <div class="mc-cmst-fog mc-cmst-fog-a"></div>
-      <img class="mc-cmst-train" src="${TRAIN_ART}" alt="" onerror="this.remove()">
-      <div class="mc-cmst-beam"></div>
       <div class="mc-cmst-fog mc-cmst-fog-b"></div>
       <div class="mc-cmst-intro"></div>
       <div class="mc-cmst-vignette"></div>`;
     document.body.appendChild(stationRoot);
-    introShown = null;
+    introShown = null; trainShown = null;
   } else if (!on && stationRoot) {
-    stationRoot.remove(); stationRoot = null; introShown = null;
+    stationRoot.remove(); stationRoot = null; introShown = null; trainShown = null;
   }
   if (!stationRoot) return;
+  applyTrain(train);
   // The introduction card: one PC at a time, swapped by the DM as each player takes the stage.
   const box = stationRoot.querySelector(".mc-cmst-intro");
   const actor = introActorId ? game.actors.get(introActorId) : null;
@@ -57,6 +77,29 @@ export function cmStationSync(on, introActorId) {
       <div class="mc-cmst-name">${esc(actor.name)}</div>
       <div class="mc-cmst-rule"></div>
     </div>`;
+}
+
+// Bring the train in — or take it away again — and aim it.
+//
+// AIMING (DM 2026-08-19: "centered and aiming the right way… aimed at relevant players location").
+// The shared screen lies FLAT on the table with people around it (§39 in-person mode), and §38.4b
+// already stores who sits where along with a `rot` per seat — the angle at which that seat's own UI
+// reads right-way-up for them. Rotating the whole train layer by that same angle is therefore the
+// entire trick: the Ghostlight pulls up the right way round for the person whose turn it is, and
+// upside-down for the person opposite, which is exactly true of a real train at a real platform.
+// No seat (online table, nobody seated) → 0°, i.e. the DM's own orientation.
+function applyTrain(train) {
+  const key = JSON.stringify(train ?? null);
+  if (trainShown === key) return; // same state — don't restart the arrival
+  trainShown = key;
+  const aim = stationRoot.querySelector(".mc-cmst-aim");
+  const wrap = stationRoot.querySelector(".mc-cmst-trainwrap");
+  if (!aim || !wrap) return;
+  aim.style.setProperty("--mc-aim", `${Number(train?.rot) || 0}deg`);
+  // Restart the arrival animation on every fresh "bring it in": remove the class, force a reflow,
+  // add it back. Without the reflow the browser coalesces remove+add into no change at all.
+  wrap.classList.remove("mc-in");
+  if (train?.in) { void wrap.offsetWidth; wrap.classList.add("mc-in"); }
 }
 
 /* -------------------------------------------- */
@@ -137,6 +180,8 @@ function punchSound() {
 // departure ("two short blasts… like the shrill note of a violin").
 export function playTrainWhistle() {
   if (isPhoneClient()) return;
+  const file = cueFile("sndTrainWhistle");
+  if (file) { playFileCue(file, 0.9); return; }
   const out = audioOut();
   if (!out) return;
   const { ctx, dest } = out;
@@ -173,4 +218,175 @@ export function playTrainWhistle() {
   const t0 = ctx.currentTime + 0.03;
   blast(t0, 0.55);
   blast(t0 + 0.95, 1.1);
+}
+
+/* -------------------------------------------- */
+/*  The arrival cues (approach · stop)           */
+/* -------------------------------------------- */
+
+// Everything here is SYNTHESIZED so it ships with the module and nothing licensed is bundled (§26).
+// But a synth steam engine is a stand-in for a real recording, so every cue first looks for a file
+// the DM has pointed a setting at (`sndTrainApproach` / `sndTrainWhistle` / `sndTrainStop`, all
+// file-picker settings) and plays that instead. Drop a recording in and it wins; drop nothing in and
+// the table still hears a train. (DM 2026-08-19: "if possible put it in the mod, if not, just for me".)
+export function cueFile(key) {
+  try { return String(game.settings.get(MODULE_ID, key) || "").trim(); } catch (e) { return ""; }
+}
+function playFileCue(src, volume = 0.8, loop = false) {
+  return playFile(src, { loop, volume });
+}
+function playFile(src, { loop = false, volume = 0.8 } = {}) {
+  try { return foundry.audio.AudioHelper.play({ src, volume, loop, channel: "environment" }, false); }
+  catch (e) { console.warn(`${MODULE_ID} | couldn't play ${src}`, e); return null; }
+}
+
+// The approach: a bed that FADES IN, so the DM can start it under the narration and let it grow
+// while they talk ("in the distance you hear a mechanical sound"). It loops until stopped, because
+// nobody can time a one-shot to a sentence they are still improvising.
+//   Three parts, which is what makes an engine rather than a hum: a very low rolling rumble, a CHUFF
+//   on a slow pulse (band-passed noise — the exhaust beat), and the far ring of steel wheels on
+//   rail. The chuff rate creeps up across the fade: approaching, not idling.
+let approach = null;
+
+export function trainApproachPlaying() { return !!approach; }
+
+export function playTrainApproach({ fadeS = 6 } = {}) {
+  if (isPhoneClient()) return;      // phones would echo the table
+  if (approach) return;             // already running
+  const file = cueFile("sndTrainApproach");
+  if (file) {
+    const snd = playFile(file, { loop: true, volume: 0.02 });
+    approach = { file: snd };
+    Promise.resolve(snd).then((s) => {
+      try { s?.fade?.(0.85, { duration: fadeS * 1000 }); } catch (e) { /* older sound api — it just starts quiet */ }
+    });
+    return;
+  }
+  const out = audioOut();
+  if (!out) return;
+  const { ctx, dest } = out;
+  const t0 = ctx.currentTime + 0.02;
+  const master = ctx.createGain(); master.gain.value = 0.0001;
+  master.connect(dest);
+  master.gain.exponentialRampToValueAtTime(0.9, t0 + fadeS);
+
+  // One noise buffer, reused by every voice — one allocation instead of three.
+  const len = Math.floor(2 * ctx.sampleRate);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const voice = (freq, q, gain, type = "bandpass") => {
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = ctx.createGain(); g.gain.value = gain;
+    src.connect(f).connect(g).connect(master);
+    src.start(t0);
+    return { src, g, f };
+  };
+  const rumble = voice(58, 0.7, 0.5, "lowpass");   // the mass of the thing
+  const rail = voice(3100, 1.4, 0.035);            // steel on steel, far off
+  const chuff = voice(420, 1.1, 0);                // the exhaust beat, gated by the LFO below
+
+  const lfo = ctx.createOscillator(); lfo.type = "sawtooth"; lfo.frequency.value = 1.5;
+  const lfoG = ctx.createGain(); lfoG.gain.value = 0.16;
+  lfo.connect(lfoG).connect(chuff.g.gain);
+  lfo.frequency.linearRampToValueAtTime(2.6, t0 + fadeS);
+  lfo.start(t0);
+
+  approach = { ctx, master, nodes: [rumble.src, rail.src, chuff.src], lfo };
+}
+
+export function stopTrainApproach({ fadeS = 1.4 } = {}) {
+  const a = approach;
+  approach = null;
+  if (!a) return;
+  if (a.file) {
+    Promise.resolve(a.file).then((s) => {
+      try {
+        s?.fade?.(0, { duration: fadeS * 1000 });
+        setTimeout(() => { try { s?.stop?.(); } catch (e) { /* already gone */ } }, fadeS * 1000 + 60);
+      } catch (e) { try { s?.stop?.(); } catch (e2) { /* already gone */ } }
+    });
+    return;
+  }
+  try {
+    const t = a.ctx.currentTime;
+    a.master.gain.cancelScheduledValues(t);
+    a.master.gain.setValueAtTime(Math.max(0.0001, a.master.gain.value), t);
+    a.master.gain.exponentialRampToValueAtTime(0.0001, t + fadeS);
+    setTimeout(() => {
+      for (const n of a.nodes) { try { n.stop(); } catch (e) { /* already stopped */ } }
+      try { a.lfo.stop(); } catch (e) { /* already stopped */ }
+    }, fadeS * 1000 + 80);
+  } catch (e) { console.warn(`${MODULE_ID} | approach stop`, e); }
+}
+
+// The grinding stop: brakes. A steel SQUEAL sliding down in pitch while the rumble under it slows
+// and dies, then the long hiss of released steam, then one iron clank as the couplings take up the
+// slack. The book's own words are "rumbles, squeals, and creaks as it slows to a halt" — that is
+// the order these are scheduled in.
+export function playTrainStop() {
+  if (isPhoneClient()) return;
+  const file = cueFile("sndTrainStop");
+  if (file) { stopTrainApproach({ fadeS: 2.6 }); playFile(file, { volume: 0.9 }); return; }
+  const out = audioOut();
+  if (!out) return;
+  const { ctx, dest } = out;
+  const t0 = ctx.currentTime + 0.02;
+  // Whatever was approaching has arrived — duck it out under the brakes, rather than leaving an
+  // engine running behind a train that has visibly stopped.
+  stopTrainApproach({ fadeS: 2.8 });
+
+  const len = Math.floor(3 * ctx.sampleRate);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+
+  // 1. The squeal — two detuned resonant peaks sliding down together.
+  for (const [f0, f1, q, lvl] of [[2350, 640, 16, 0.16], [3120, 880, 22, 0.10]]) {
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = f0; bp.Q.value = q;
+    const g = ctx.createGain(); g.gain.value = 0;
+    src.connect(bp).connect(g).connect(dest);
+    bp.frequency.setValueAtTime(f0, t0);
+    bp.frequency.exponentialRampToValueAtTime(f1, t0 + 2.6);
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(lvl, t0 + 0.35);
+    g.gain.setValueAtTime(lvl, t0 + 1.7);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + 2.9);
+    src.start(t0); src.stop(t0 + 3.1);
+  }
+  // 2. The rumble slowing under it.
+  {
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 150;
+    const g = ctx.createGain(); g.gain.value = 0.45;
+    src.connect(lp).connect(g).connect(dest);
+    lp.frequency.exponentialRampToValueAtTime(40, t0 + 2.8);
+    g.gain.setValueAtTime(0.45, t0 + 1.2);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + 3.0);
+    src.start(t0); src.stop(t0 + 3.2);
+  }
+  // 3. Steam released — a long sigh once the wheels have stopped.
+  {
+    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 1800;
+    const g = ctx.createGain(); g.gain.value = 0;
+    src.connect(hp).connect(g).connect(dest);
+    g.gain.setValueAtTime(0, t0 + 2.5);
+    g.gain.linearRampToValueAtTime(0.12, t0 + 2.9);
+    g.gain.setTargetAtTime(0, t0 + 3.4, 0.9);
+    src.start(t0 + 2.5); src.stop(t0 + 6.2);
+  }
+  // 4. The couplings taking up the slack — one iron clank, and it has stopped.
+  {
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 180; bp.Q.value = 3.5;
+    const g = ctx.createGain(); g.gain.value = 0;
+    src.connect(bp).connect(g).connect(dest);
+    const at = t0 + 3.05;
+    g.gain.setValueAtTime(0.5, at);
+    g.gain.exponentialRampToValueAtTime(0.001, at + 0.5);
+    src.start(at); src.stop(at + 0.6);
+  }
 }

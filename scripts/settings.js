@@ -54,6 +54,26 @@ export function registerSettings() {
     default: true
   });
 
+  // §36.1 the Ghostlight's arrival cues. All three are synthesized so the module ships with sound
+  // and nothing licensed is bundled (§26) — these settings let a DM point any cue at a real
+  // recording instead, and the file wins wherever it is set. File pickers, not free text: a typo in
+  // a path is a cue that silently does nothing at the table.
+  for (const [key, name] of [
+    ["sndTrainApproach", "Train approaching"],
+    ["sndTrainWhistle", "Train whistle"],
+    ["sndTrainStop", "Train grinding to a stop"]
+  ]) {
+    game.settings.register(MODULE_ID, key, {
+      name: `${name} (sound file)`,
+      hint: "Leave empty to use the built-in synthesized cue.",
+      scope: "world",
+      config: true,
+      type: String,
+      filePicker: "audio",
+      default: ""
+    });
+  }
+
   // §48 where "Send feedback" addresses its mail. A setting rather than a constant so a table can
   // point it at their own maintainer — and so the address can be changed without a release if it
   // ever needs to be (it ships in a public module, where a plain address is scrapeable).

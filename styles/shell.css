@@ -5753,17 +5753,49 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
     radial-gradient(ellipse 120% 60% at 78% 88%, rgba(64, 224, 208, 0.10), transparent 55%),
     linear-gradient(#04060b 0%, #070b13 55%, #0a1018 100%);
 }
+/* The aim frame. Rotating this by the seat angle is the whole of "aimed at the relevant player's
+   location": the screen lies flat on the table, and §38.4b already knows the angle at which each
+   seat's own UI reads right-way-up for the person sitting there. Rotate the train by that and it
+   pulls in correctly oriented for them — and upside-down for the person opposite, which is exactly
+   what a real train at a real platform does. */
+.mc-cmst-aim {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  transform: rotate(var(--mc-aim, 0deg));
+  transition: transform 1.6s cubic-bezier(.22,.61,.36,1);
+}
+/* Not on stage until the DM brings it in. The station opens as fog and sound alone — the book's
+   beat is that the train EMERGES from the gloom, which needs a gloom to emerge from. */
+.mc-cmst-trainwrap {
+  position: relative; width: 78%; height: 72%;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden;
+}
+.mc-cmst-trainwrap.mc-in {
+  visibility: visible;
+  animation: mc-cmst-arrive 7s cubic-bezier(.16,.62,.3,1) both;
+}
+/* Out of the depth of the fog, growing as it nears, and finally settling. Scale + opacity only,
+   so the browser composites it rather than re-laying it out every frame. */
+@keyframes mc-cmst-arrive {
+  0%   { opacity: 0;    transform: scale(0.34) translateY(6%); filter: blur(9px) brightness(0.5); }
+  22%  { opacity: 0.35; transform: scale(0.5)  translateY(4%); filter: blur(6px) brightness(0.7); }
+  62%  { opacity: 0.92; transform: scale(0.86) translateY(1%); filter: blur(2px) brightness(0.95); }
+  100% { opacity: 1;    transform: scale(1)    translateY(0);  filter: blur(0)   brightness(1); }
+}
 .mc-cmst-train {
-  position: absolute; right: -4%; bottom: 4%; width: 74%; max-height: 86%; object-fit: contain;
+  max-width: 100%; max-height: 100%; object-fit: contain;
   filter: drop-shadow(0 0 34px rgba(64, 224, 208, 0.35)) drop-shadow(0 0 90px rgba(64, 224, 208, 0.16));
   animation: mc-cmst-breathe 7s ease-in-out infinite;
 }
+/* The DM asked to keep the up-down float, so it lives on the IMG while the arrival lives on the
+   wrapper — two animations on one element would fight over `transform`. */
 @keyframes mc-cmst-breathe {
   0%, 100% { transform: translateY(0) rotate(0.0deg); }
   50% { transform: translateY(-1.2%) rotate(-0.35deg); }
 }
 .mc-cmst-beam {
-  position: absolute; right: 46%; bottom: 26%; width: 46%; height: 26%;
+  position: absolute; left: 2%; top: 42%; width: 46%; height: 26%;
   background: radial-gradient(ellipse at 92% 50%, rgba(140, 255, 240, 0.28), rgba(64, 224, 208, 0.08) 45%, transparent 72%);
   filter: blur(6px);
   animation: mc-cmst-flicker 5.2s ease-in-out infinite;
@@ -5784,6 +5816,49 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 @keyframes mc-cmst-drift {
   0% { transform: translateX(-6%); } 50% { transform: translateX(6%); } 100% { transform: translateX(-6%); }
 }
+
+/* SWIRL (DM 2026-08-19: the old station was "very weak"). The two drift bands above only slid
+   sideways, which reads as a curtain, not weather. These are oversized blurred blob sheets that
+   ROTATE, each at its own rate and its own centre, so where they overlap the density curls and
+   breaks — the eye reads that as fog turning over itself.
+   Cost: three composited layers whose only animated property is `transform`, so each blurred sheet
+   is rasterised once and then just re-composited. `will-change` pins that promotion. Deliberately
+   slow (2–4 minutes a revolution): fast fog looks like smoke, and the DM asked for slow. */
+.mc-cmst-swirl {
+  position: absolute; left: -55%; right: -55%; top: -55%; bottom: -55%;
+  pointer-events: none; will-change: transform;
+  background:
+    radial-gradient(ellipse 26% 20% at 30% 38%, rgba(150, 185, 190, 0.20), transparent 68%),
+    radial-gradient(ellipse 34% 24% at 66% 30%, rgba(120, 160, 172, 0.16), transparent 70%),
+    radial-gradient(ellipse 22% 30% at 52% 66%, rgba(160, 190, 196, 0.15), transparent 68%),
+    radial-gradient(ellipse 30% 18% at 22% 74%, rgba(110, 150, 165, 0.14), transparent 72%),
+    radial-gradient(ellipse 20% 26% at 80% 68%, rgba(150, 185, 190, 0.13), transparent 70%);
+  filter: blur(26px);
+}
+.mc-cmst-sw1 { opacity: 0.85; animation: mc-cmst-turn 168s linear infinite; }
+.mc-cmst-sw2 { opacity: 0.7;  animation: mc-cmst-turn 233s linear infinite reverse; transform-origin: 42% 58%; }
+/* The one in FRONT of the train, so the Ghostlight arrives behind weather rather than on top of it. */
+.mc-cmst-sw3 { opacity: 0.5;  animation: mc-cmst-turn 121s linear infinite; transform-origin: 61% 38%; filter: blur(38px); }
+@keyframes mc-cmst-turn {
+  0%   { transform: rotate(0deg)   scale(1.00) translate(0, 0); }
+  25%  { transform: rotate(90deg)  scale(1.09) translate(1.5%, -1%); }
+  50%  { transform: rotate(180deg) scale(1.00) translate(0, 1.5%); }
+  75%  { transform: rotate(270deg) scale(1.07) translate(-1.5%, 0); }
+  100% { transform: rotate(360deg) scale(1.00) translate(0, 0); }
+}
+
+/* "on rails made of mist" — the book's line, and the thing that tells the eye the train has
+   somewhere to arrive FROM before it arrives. Two pale converging streaks, low and slow. */
+.mc-cmst-rails {
+  position: absolute; left: 0; right: 0; bottom: 6%; height: 34%;
+  pointer-events: none; opacity: 0.5;
+  background:
+    linear-gradient(96deg, transparent 42%, rgba(170, 235, 228, 0.16) 49%, transparent 56%),
+    linear-gradient(84deg, transparent 44%, rgba(170, 235, 228, 0.13) 51%, transparent 58%);
+  filter: blur(3px);
+  animation: mc-cmst-railshim 9s ease-in-out infinite;
+}
+@keyframes mc-cmst-railshim { 0%, 100% { opacity: 0.42; } 50% { opacity: 0.62; } }
 .mc-cmst-vignette { position: absolute; inset: 0; box-shadow: inset 0 0 18vmin 6vmin rgba(2, 3, 6, 0.9); }
 
 /* The introduction card — one character at a time, entering out of the fog. */
@@ -6298,3 +6373,26 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-fb-row { display: flex; gap: 8px; margin-top: 8px; }
 .mc-fb-row button { flex: 1 1 0; }
 .mc-fb-note { margin: 8px 0 0; font-size: 11px; line-height: 1.4; opacity: .7; }
+
+/* §36.1 the arrival script — one character's story, written by the DM, kept next to their own
+   material so he is not hunting through sheets mid-sentence. Sits inside the All-aboard drawer,
+   under the row it belongs to (UI-BIBLE §10: one thing, one shape). */
+.mc-cmb-story {
+  margin: 4px 0 8px; padding: 10px;
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge);
+  border-left: 3px solid var(--mc-gold); border-radius: 0;
+}
+.mc-cmb-story-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-family: var(--mc-font-title), serif; font-size: 14px; color: var(--mc-ink);
+}
+.mc-cmb-sheet { flex: 0 0 auto; width: 30px; height: 30px; border-radius: calc(7px * var(--mc-round, 1)); }
+.mc-cmb-material { margin: 4px 0 8px; font-size: 11px; color: var(--mc-muted); line-height: 1.35; }
+.mc-cmb-script {
+  width: 100%; box-sizing: border-box; resize: vertical;
+  padding: 8px; font-size: 12px; line-height: 1.45;
+  color: var(--mc-ink); background: var(--mc-panel);
+  border: 1px solid var(--mc-edge); border-radius: calc(7px * var(--mc-round, 1));
+}
+.mc-cmb-story-acts { display: flex; gap: 8px; margin-top: 8px; }
+.mc-cmb-story-acts .mc-fx-btn { flex: 1 1 0; }
