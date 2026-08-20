@@ -1,6 +1,6 @@
 import { MODULE_ID } from "./preset.js";
 import { isPhoneClient, isDisplayClient } from "./shell.js";
-import { isOnlineTable } from "./settings.js";
+import { isOnlineTable, hasSharedScreen } from "./settings.js";
 import { socket } from "./rpc.js"; // the same one-shot channel effects.js fires on — importing
                                    // effects.js instead would close a cycle (it imports this file)
 
@@ -99,10 +99,12 @@ const NAME_SIDES = [
 ];
 
 // In person this is the ROOM's screen and nothing else — six phones roaring a half-second apart
-// is the same mess that took music off the phones in the first place (§20.6). Online every
-// player has their own screen and there is no room to be out of step with, so everyone gets it.
+// is the same mess that took music off the phones in the first place (§20.6). Online the rule
+// follows the SCREEN, not the room (§39.5): with a streamed display account the STREAM carries
+// the entrance, and phones playing it too would double it against the stream's own audio. Only
+// a table with no shared screen at all sends it to every player's own client.
 function eligible() {
-  if (isOnlineTable()) return true;
+  if (isOnlineTable() && !hasSharedScreen()) return true;
   return !isPhoneClient() && (isDisplayClient() || game.user?.isGM);
 }
 

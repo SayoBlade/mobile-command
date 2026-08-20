@@ -1219,7 +1219,7 @@ Probed the world's rebuilt group `bTNHugymMcYIqpqz` ("Group", 4 PCs: Aurelio Bri
 
 ## 16. DM onboarding wizard + session preflight (PLANNED 2026-07-08 → **BOTH SHIPPED**: preflight v0.1.92, wizard v0.1.94)
 
-DM directive (2026-07-08): plan this next; build order after reactions = this → downtime/guard-duty → inventory transfers. Two deliverables sharing one checks engine. **Shipped state:** the Preflight tab became **System health** (§47 re-worded every check to plain language), grew the `AUTOMATION_PREREQS` warn-with-fix mechanism (§28.7/§45.2) and the Message-for-dev/feedback buttons (§47/§48); the wizard got fixed-size steps + its own `mc-swiz-*` classes (§48.1). Its one queued improvement — ask **in-person vs online first** — landed 2026-08-20 (§39.4): the mode is now step 1 and the shared-screen step exists only on the in-person path.
+DM directive (2026-07-08): plan this next; build order after reactions = this → downtime/guard-duty → inventory transfers. Two deliverables sharing one checks engine. **Shipped state:** the Preflight tab became **System health** (§47 re-worded every check to plain language), grew the `AUTOMATION_PREREQS` warn-with-fix mechanism (§28.7/§45.2) and the Message-for-dev/feedback buttons (§47/§48); the wizard got fixed-size steps + its own `mc-swiz-*` classes (§48.1). Its one queued improvement — ask **in-person vs online first** — landed 2026-08-20 (§39.4, then corrected same day by §39.5): the mode is step 1, and the shared-screen step runs in BOTH modes with mode-aware copy (a streamed display window IS the shared screen).
 
 **16.1 Checks engine (`scripts/preflight.js`).** Pure functions, each returning `{id, label, status: ok|warn|fail, detail, fix?: () => Promise}`. Planned checks, all read-only with opt-in one-tap fixes:
 1. **Executor online** — resolveExecutorId() user active (fail = nothing works).
@@ -1975,10 +1975,14 @@ Questions only the DM can answer; re-ask when he asks what's outstanding:
    alias before wider release? *(DM 2026-08-19: on the to-be-discussed list — this list. Re-raise
    before any release that widens the audience.)*
 9. **Level-up sitting (§38.6)** — sequenced after the live-table pass by design; confirm when.
-10. **Online theatre distribution (§39.4, raised 2026-08-20 — real now that the first session
-    will be online):** séance / station / card table render only on the DM's + display's
-    screens, so online they exist only via screenshare; the boss intro already broadcasts to
-    every player's own screen. Should the other theatre pieces do the same in online mode?
+10. ~~Online theatre distribution~~ — **ANSWERED same day (§39.5): the DM streams the display
+    account's window; screenshare of the display IS the model.** The theatre pieces stay on the
+    display (which the stream carries), and the boss intro's everyone-broadcast now applies only
+    to stream-less online tables.
+11. **Remote-phone audio when a shared screen exists online (§39.5):** silence them like
+    at-table phones (right if the stream carries game audio) or leave them sounding (right if
+    the stream is video-only)? Depends on whether the DM's stream carries audio — one answer,
+    one line.
 
 ### 22.4 Built but never tested with real devices (extended 2026-08-19; pruned after the 2026-08-20 bench)
 
@@ -4718,10 +4722,64 @@ bench-verified 5/5 (fresh scratch bench, 2026-08-20):
    geometry (§30 v3); online viewers watch an upright screen. Verified: online rotations
    1/0/−1/−2° (jitter only), in person −224/−135/44/−47° (unchanged).
 
-**Still open, now on the §22.3 discussion list because online-first makes it real:** the theatre
-pieces (séance, station, card table) render only on the DM's + display's screens — online that
-means "the DM screenshares". The boss intro already broadcasts to every player's own screen
-(§40); should the others follow suit in online mode?
+**Still open, now on the §22.3 discussion list because online-first makes it real:** ~~the theatre
+distribution question~~ — **ANSWERED the same day, §39.5 below** (the DM streams the display
+account's window; screenshare of the display IS the model, and the morning build's "online has no
+shared screen" framing lasted exactly one day).
+
+### 39.5 The stream IS the table (DM 2026-08-20, same day — supersedes §39.4's framing)
+
+> DM: *"I will still be using the TV user (which is there) to stream the game online. I don't
+> want players to see the DM screen. It's the SAME experience — screen play with phone — only
+> they are all watching the screen from the same direction, and not in the same room."*
+
+That statement splits what §39 had welded together. **Two axes, not one:**
+
+- **`tableMode`** answers the GEOMETRY question — one room with people AROUND a flat screen, or
+  one viewing direction with everyone remote. Seats, control rotation, facing directions and the
+  boss's three-sided turn follow this.
+- **`hasSharedScreen()`** (settings.js — the display account is configured) answers whether a
+  shared screen EXISTS. A TV at the table and a streamed display window are the same screen in
+  every sense that matters. Theatre placement, the face-down deal, and phone-audio doubling
+  follow THIS.
+
+The display account's Observer invariant (§2.1) is what makes the stream safe: it cannot even
+RECEIVE hidden tokens, GM whispers, or unexplored map, so streaming its window can never leak
+the DM screen.
+
+**What changed (all bench-verified 2026-08-20, second run, 4/4):**
+
+1. **The wizard's shared-screen step is back in BOTH paths** (the §39.4 skip lasted one day).
+   Online, its copy flips to "Which account runs the screen you stream?" and explains that the
+   deals/séance/entrances play there, never on the DM screen; "— none —" covers the stream-less
+   table. Step 2 of 7 in both modes.
+2. **The face-down deal follows the SCREEN, not the room** (card-table.js): online + streamed
+   display → dealt face down, flipping as choices land, exactly as in person (the upright
+   single-row layout stays — orientation is geometry). Only online + no screen at all starts
+   face up. The board also watches `displayOwnerUser` now, so the change repaints live.
+3. **The boss intro's audience follows the screen too** (boss-intro.js): online + streamed
+   display → canvas clients only, like in person — the STREAM carries the entrance, and phones
+   playing it too would double it against the stream's audio (§20.6's lesson). Online + no
+   screen → every client, as before. The two-beat facing-down shape stays in both online cases
+   (one viewing direction).
+4. **Health-check copy** (preflight.js): online + none = OK, "No shared screen configured — fine
+   online. Streaming one? Pick its account in setup so it gets checked." A configured account
+   gets the full validation in either mode (bench: correctly warned "not connected" for a
+   configured-but-offline streamed display).
+
+**Found and fixed on the same bench — a pre-existing wizard bug:** "Finish later" on the
+shared-screen and combat-music steps resolved with the button's ACTION STRING, and the old
+`typeof picked !== "string"` guard let it through — **writing the literal word "cancel" into
+`displayOwnerUser` / `combatMusicPlaylist`**. This is also the retraction of §39.4-day's "the
+bench world's display account points at a deleted user" finding: that was THIS bug, tripped by
+the previous bench run's own cancel click, in the bench COPY. The DM's real world was never
+touched and needs no fixing. Both steps now reject the cancel string.
+
+**Open (asked, awaiting the DM):** should REMOTE PHONES be silenced like at-table phones when a
+shared screen exists online? Right if the stream carries the game's audio (phone + stream =
+offset doubling); wrong if the stream is video-only (silent phones = silent game, and the
+silencer re-zeroes player sliders every reload). Depends on whether his stream carries audio —
+one answer, one line to change (main.js phone-audio gate).
 
 ---
 

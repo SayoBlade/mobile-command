@@ -13,7 +13,7 @@
 import { MODULE_ID, TABLE_SEATS, isPlaceholderPCName, DEFAULT_CARD_THEME, ABILITY_ICONS, DEFAULT_CARD_BACK } from "./preset.js";
 import { mountFaded, unmountFaded } from "./repaint.js"; // §6.8 fade, never cut
 import { isPhoneClient, isDisplayClient } from "./shell.js";
-import { isOnlineTable } from "./settings.js";
+import { isOnlineTable, hasSharedScreen } from "./settings.js";
 import { cardSound, dealSound } from "./card-audio.js";
 
 // Our own art is the default now (DM's set, 2026-08-04): the crescent-moon back and the wide
@@ -364,11 +364,13 @@ function repaint() {
   try { motion = !!game.settings.get(MODULE_ID, "szMotion"); } catch (e) { /* default on */ }
   root.classList.toggle("mc-ct-motion", motion);
   // §39 A face-down hand is a physical courtesy: your neighbour can't read your cards across the
-  // table. Online nobody is beside anybody, so the backs only hide the board from the people it
-  // is for — the cards start face up and simply fill in as choices land.
+  // table. Online the courtesy follows the SCREEN, not the room (§39.5, DM 2026-08-20): a
+  // streamed display account IS the table, so the deal lands face down there and flips as
+  // choices land, exactly as in person. Only a table with no shared screen at all starts face
+  // up — there, backs would hide the board from the very people it is for.
   const online = isOnlineTable();
   root.classList.toggle("mc-ct-online", online);
-  root.classList.toggle("mc-ct-faceup", online);
+  root.classList.toggle("mc-ct-faceup", online && !hasSharedScreen());
   root.innerHTML = boardHTML();
   markEmblems();
   soundNewTokens();
@@ -537,7 +539,7 @@ export function registerCardTable() {
   // pick (or the first seating) silently doesn't repaint (bench 2026-08-04).
   const onSetting = (s) => {
     if (!root) return;
-    const watched = ["tableSeats", "seatActors", "cardBackImage", "cardTheme", "tableMode"].map(k => `${MODULE_ID}.${k}`);
+    const watched = ["tableSeats", "seatActors", "cardBackImage", "cardTheme", "tableMode", "displayOwnerUser"].map(k => `${MODULE_ID}.${k}`);
     if (watched.includes(s?.key)) { rebuild(); repaint(); }
   };
   Hooks.on("updateSetting", onSetting);

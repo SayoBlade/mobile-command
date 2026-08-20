@@ -865,6 +865,14 @@ export function displayUserId() {
   try { return game.settings.get(MODULE_ID, "displayOwnerUser") || null; } catch (e) { return null; }
 }
 
+// §39.5 (DM 2026-08-20): "shared screen" and "in person" are SEPARATE axes. tableMode answers the
+// GEOMETRY question — one room with people around a flat screen, or one viewing direction with
+// everyone remote. Whether a shared screen EXISTS is answered by the display account alone: a TV
+// at the table and a streamed display window are the same screen in every sense that matters
+// ("it's the SAME experience... only they are all watching the screen from the same direction").
+// Theatre placement and phone-audio doubling follow THIS; seats/rotation/facing follow tableMode.
+export function hasSharedScreen() { return !!displayUserId(); }
+
 // OBSERVER, not OWNER — the level the TV actually needs (2026-07-21). Foundry 14 builds vision
 // from OBSERVER (`Token#_isVisionSource`: `testUserPermission(game.user, "OBSERVER")`), so the
 // shared screen sees the party's merged view at this level. OWNER bought only two things beyond

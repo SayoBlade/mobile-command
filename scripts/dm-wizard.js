@@ -18,11 +18,12 @@ const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
 // opens at the SAME width, the SAME place, with the SAME step chrome — so it reads as a single
 // window advancing, not a scatter of differently-sized popups. Fixed body min-height means short
 // steps are as tall as the tallest, so nothing resizes between steps.
-// The step count is a PATH, not a constant (§39): the first question is how the table plays,
-// and an online table has no shared-screen step — so the total is set by the mode answer
-// (in person: mode · screen · preset · toggles · vision · music · party = 7; online skips the
-// screen = 6; preflight is the finale either way).
-let wizTotal = 7;
+// §39.5: the mode question leads, but BOTH paths keep the shared-screen step — an online table
+// that streams the display account's window has a shared screen in every sense that matters
+// (DM 2026-08-20: "the SAME experience… only they are all watching the screen from the same
+// direction"). The step's copy adapts to the mode; "— none —" covers the stream-less table.
+// (The 2026-08-20 morning build skipped the step online; that lasted one day.)
+let wizTotal = 7; // mode · screen · preset · toggles · vision · music · party; preflight is the finale
 function wizPos() {
   return { width: 480, left: Math.max(20, Math.round((window.innerWidth - 480) / 2)), top: Math.max(40, Math.round(window.innerHeight * 0.14)) };
 }
@@ -71,8 +72,9 @@ async function stepTableMode(n) {
         stay silent — the room has the speakers.</span></span></label>
       <label style="display:flex;gap:8px;align-items:flex-start">
         <input type="radio" name="mode" value="online" ${online ? "checked" : ""} style="margin-top:3px">
-        <span><b>Online</b><br><span style="opacity:.8">Everyone is their own room: no seats or
-        rotation, cards deal face up, and each phone keeps its own sound.</span></span></label>
+        <span><b>Online</b><br><span style="opacity:.8">Everyone is their own room: no seats, no
+        rotated controls. A shared screen still works — stream the display account's window and
+        the table (deals, séances, entrances) plays there just like in person.</span></span></label>
       <p style="opacity:.8;margin-bottom:0">You can change this any time in All Settings — everything
       that cares reads it live.</p>`,
     buttons: [
@@ -89,12 +91,16 @@ async function stepTableMode(n) {
 
 async function stepWelcomeTv(n) {
   const current = game.settings.get(MODULE_ID, "displayOwnerUser") || "";
+  const online = isOnlineTable();
   const opts = [`<option value="" ${current ? "" : "selected"}>— none / skip —</option>`]
     .concat(game.users.filter(u => !u.isGM).map(u =>
       `<option value="${u.id}" ${u.id === current ? "selected" : ""}>${esc(u.name)}${u.character ? ` (has a character: ${esc(u.character.name)})` : ""}</option>`));
   const picked = await wizWait({
     n, title: "The shared screen",
-    content: `<p><b>Which account runs your TV / shared display?</b></p>
+    content: `<p><b>${online ? "Which account runs the screen you stream?" : "Which account runs your TV / shared display?"}</b></p>
+      ${online ? `<p>Stream that account's window and players watch it exactly like a TV at the
+      table — the map, the deals, the séance and the boss entrances all play there, never on your
+      own DM screen. Pick <b>— none —</b> only if you'll play with no shared screen at all.</p>` : ""}
       <p>Every PC is shared with that account as <b>Observer</b>, which is what lets the TV show the
       party's merged vision. Observer and not Owner is deliberate: it keeps save and reaction prompts
       going to players' phones instead of the television. It should be a dedicated account —
@@ -106,7 +112,11 @@ async function stepWelcomeTv(n) {
       { action: "next", label: "Next", default: true, callback: (_e, b) => b.form.elements.tv.value }
     ]
   }).catch(() => null);
-  if (typeof picked !== "string") return false;
+  // "Finish later" resolves with its ACTION STRING — which is still a string, and the old
+  // `typeof picked !== "string"` guard let it through, writing the literal word "cancel" into
+  // the setting (found on the 2026-08-20 bench when the display account read "cancel"). A real
+  // pick is "" or a 16-char user id, never the button's name.
+  if (typeof picked !== "string" || picked === "cancel") return false;
   await game.settings.set(MODULE_ID, "displayOwnerUser", picked);
   return true;
 }
@@ -215,7 +225,8 @@ async function stepCombatMusic(n) {
       { action: "next", label: "Next", default: true, callback: (_e, b) => b.form.elements.pl.value }
     ]
   }).catch(() => null);
-  if (typeof picked !== "string") return false;
+  // Same cancel-is-a-string trap as the display step: don't write the button's name as a playlist.
+  if (typeof picked !== "string" || picked === "cancel") return false;
   await game.settings.set(MODULE_ID, "combatMusicPlaylist", picked);
   return true;
 }
@@ -256,17 +267,11 @@ async function stepPreflight(n) {
 
 export async function runDmWizard() {
   if (!game.user.isGM) return;
-  // The mode question comes first and sets the path (§39): online has no shared-screen step.
-  // wizTotal starts from the CURRENT mode so a re-run shows the right count from step 1, and is
-  // re-set after the answer so switching modes mid-wizard renumbers the rest correctly.
-  wizTotal = isOnlineTable() ? 6 : 7;
-  if (!await stepTableMode(1)) return;
-  const rest = isOnlineTable()
-    ? [stepPreset, stepToggles, stepVision, stepCombatMusic, stepParty]
-    : [stepWelcomeTv, stepPreset, stepToggles, stepVision, stepCombatMusic, stepParty];
-  wizTotal = rest.length + 1;
-  let n = 2;
-  for (const step of rest) {
+  // One fixed path (§39.5): the mode question leads so every later step can adapt its copy, and
+  // the shared-screen step runs in BOTH modes — a streamed display window IS the shared screen.
+  const steps = [stepTableMode, stepWelcomeTv, stepPreset, stepToggles, stepVision, stepCombatMusic, stepParty];
+  let n = 1;
+  for (const step of steps) {
     const cont = await step(n++);
     if (!cont) return; // "Finish later" / closed — leave dmOnboarded as-is so the prompt returns
   }
