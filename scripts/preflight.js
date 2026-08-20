@@ -220,13 +220,19 @@ function checkTeleportRegions() {
 // (The silent 14.0.8→14.0.11 drift is what caused the 2026-07-26 bug wave to land mid-week
 // with no warning — this check exists so an update is always a DECISION, never a surprise.)
 const TESTED = {
-  // AC5E 14.533.15 + MISC 2.0.2 validated on the bench 2026-08-20 (DESIGN §28.5.4): 10 of §28.4's
-  // 12 steps run and passed, including every step that touches the surface those releases changed —
-  // attack adjudication, target AC, damage, the parked-workflow two-tap, target hygiene, AoO.
-  "dnd5e": "5.3.3", "midi-qol": "14.0.11", "automated-conditions-5e": "14.533.15",
+  // AC5E 14.533.15.3 + CAT 0.0.7 validated on the bench 2026-08-20 EVENING (DESIGN §28.5.6, the
+  // DM's same-day module refresh): the full §28.4 combat run again — two-tap, MM darts, save
+  // spell both branches, the previously-skipped AoE Place leg and music recovery matrix, AoO
+  // chip, target hygiene (incl. the new corpse-filter sweep).
+  "dnd5e": "5.3.3", "midi-qol": "14.0.11", "automated-conditions-5e": "14.533.15.3",
   // The automation-ecosystem pair, deep-dived together 2026-07-26 (§28.6): versions move
   // weekly (CAT is 0.0.x), so any bump gets the same validation treatment as midi's.
-  "cat": "0.0.6", "midi-item-showcase-community": "2.0.2"
+  "cat": "0.0.7", "midi-item-showcase-community": "2.0.2",
+  // §45.5's owed entry: wm5e hooks the same midi pipeline we hold mid-flight; its auto-apply leg
+  // was proven at this version (bench 2026-08-20 morning). simplecover5e feeds the AC that our
+  // Hit/Miss badge reads (via AC5E's integration); enabled on the bench + pipeline-validated
+  // 2026-08-20 evening (the cover-bonus-shifts-AC case itself still wants a geometry pass).
+  "wm5e": "14.533.6", "simplecover5e": "2.2.1"
 };
 
 // The DM reads this at the table, so it says the plain thing in plain words (UI-BIBLE §7.2): what
@@ -247,7 +253,7 @@ function checkModuleStack() {
   // Optional-but-watched: modules that hook the same combat pipeline we hold mid-flight.
   // AC5E's preRollAttack can crash the whole attack roll (toClipperPoints, §28.1); CAT/MISC
   // extend midi workflows directly (§28.6). Only checked when actually active.
-  for (const id of ["automated-conditions-5e", "cat", "midi-item-showcase-community"]) {
+  for (const id of ["automated-conditions-5e", "cat", "midi-item-showcase-community", "wm5e", "simplecover5e"]) {
     const m = game.modules.get(id);
     if (m?.active && m.version !== TESTED[id]) bits.push(untested(m.version, id, m.title));
   }

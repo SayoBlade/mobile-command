@@ -2025,13 +2025,15 @@ yet, so "the live-table pass" stops being one blocking event and splits by what 
 actually needs):**
 
 1. **Bench-provable, still owed (no humans or table needed — Claude runs these in quiet
-   windows):** the **simplecover5e leg** (it's INACTIVE in the bench world but ACTIVE in the
-   DM's campaign world — enable it on the bench, re-run the cover-relevant §28.4 steps; the one
-   gap the 2026-08-20 validation carried) · the two §28.4 steps not run 2026-08-20 (AoE DM-Place
-   leg; combat-music self-heal/reload/end matrix) · the fiddle cue fired end-to-end in-world ·
-   **two-client delivery without people**: automation pane as Player 1 + the DM's own Chrome as
-   Player 2 (separate cookie jars — the one thing the solo rig can't fake); covers prompt
-   relays, transfers, cross-player denial.
+   windows):** *(the 2026-08-20 EVENING run — §28.5.6 — closed most of this bucket:
+   ~~simplecover leg~~ enabled + pipeline-validated · ~~AoE DM-Place leg~~ · ~~music recovery
+   matrix~~ · ~~phone-hush as a real player~~.)* Remaining: the **fiddle (and all cues) by
+   ear/bus-meter** (needs a displayed pane for the audio-unlock gesture) · **two-client delivery
+   without people**: automation pane as Player 1 + the DM's own Chrome as Player 2 (prompt
+   relays, transfers, cross-player denial) · a deliberate **cover-geometry pass** (a wall giving
+   half cover shifting the hit-check AC) · the **utility-item effect ghost** (the June Cloak
+   case) · feedback **mailto vs a real mail client** · tiny hardening: an `updatePlaylistSound`
+   listener so even embedded-path stops self-heal (§28.5.6 watch-note).
 2. **Parked until the TV-TABLE exists ("the first-session shakedown"):** everything by eye and
    by ear in §22.4 — motion on the real screen, all cues through real speakers, seat rotations
    physically, settings app on the real display, camera/fog/POV on the real TV, mute-the-room.
@@ -2048,8 +2050,11 @@ actually needs):**
    2026-08-20: OUR d100 is the table ("I like ours more", after seeing samples of both).** No
    picker row; the `curseTable` UUID stays as the undocumented console-set escape hatch ·
    §32's unmined remainder (Dark Bargains, lair-pulse engine, ch10–13 scene packs).
-5. **Backlog (DM-pruned 2026-08-09 — this list, nothing re-added unasked):**
-   - PM extras (§27.4): group notes · push-to-sleeping-phone.
+5. **Backlog (DM-pruned 2026-08-09 and again 2026-08-20 — this list, nothing re-added unasked):**
+   - ~~PM extras (group notes · push-to-sleeping-phone)~~ — **PRUNED by the DM 2026-08-20**
+     ("not sure 5 is needed").
+   - ~~Homebrew spell-list picker~~ — **PRUNED by the DM 2026-08-20** ("spells can just be
+     added by DM"). The old Bender-style empty-picker case is handled by hand, deliberately.
    - Effects extras (§26.5, APPROVED): per-effect volume → surround thunder → more looks
      (stop-all done).
    - Enchant consumption — only if a CHARGED enchanter shows up (deliberate, rpc.js:1401).
@@ -2086,8 +2091,8 @@ actually needs):**
   SC world (degrades safely).
 - **§20.3** — transfer merge-key revisit (identical-name items with different data).
 - **§12 Round 61 residue, never re-verified:** Cloak of Invisibility-style utility-activity
-  transfer effects from the phone · homebrew spell-list picker ("DM picks from suggested lists" —
-  decided, unbuilt) · "an Ashborn" article grammar in the portrait prompt.
+  transfer effects from the phone · ~~homebrew spell-list picker~~ (PRUNED 2026-08-20 — the DM
+  adds spells by hand) · "an Ashborn" article grammar in the portrait prompt.
 - **§16.1 check 9** ("phone hygiene": Sequencer flag + No-Canvas state via socket ping) — specced,
   never confirmed built; verify against preflight.js before assuming.
 - **§15** — walk-in-formation travel (Feature 2, deferred) · per-token follow picks / follow
@@ -2656,10 +2661,8 @@ in the dropdown re-targets the open thread. Player replies land via the createCh
 
 - ~~Should a fresh DM note TOAST over the sheet?~~ **BUILT 2026-08-10/11** — PMs always toast on
   the phone, gated by the `pmToast` world setting (the DM's discretion).
-- No push notification when the phone is asleep/backgrounded — the badge/toast lands on next look
-  ("push-to-sleeping-phone" sits in the §22 ledger's backlog).
-- Group notes (one message to several players) — trivially `whisper: [ids…]`, but the thread
-  model is 1:1 today; unspecced.
+- ~~Push-to-sleeping-phone · group notes~~ — **PRUNED by the DM 2026-08-20** ("not sure 5 is
+  needed"); the badge/toast on next look is the model. Don't re-add unasked.
 - "Deliver dramatically" (idea 7, §26.6) — spec when messages have table mileage.
 
 
@@ -2962,6 +2965,77 @@ was for.
 **Bench residue (conduct: never delete — DM to clear):** two Combat encounters created (one on
 Restored Keep, unstarted; one on 12.3, started), damage on Boogleswarm / Mimic / Gnoll Warrior, a
 self-expiring Vex effect on the Mimic, and one spent 1st-level slot on the sample Wizard.
+
+### 28.5.6 Bench run 2026-08-20 EVENING — the DM's same-day refresh validated, simplecover gap closed, a stray-target hole fixed
+
+The DM updated modules again the same day ("I left the DM free… check if there's anything
+significant") and left the Offline-test world serving with the GM seat open. What moved:
+**AC5E 14.533.15 → 14.533.15.3** (changelog read: flag-system refinements — damage-modifier
+targeting, opt-in selections carrying attack→damage across one workflow, autocompletion fixes;
+our two integration points verified intact in source, and the attack→damage opt-in fix sits
+exactly on our two-tap seam, so the run exercised it) and **CAT 0.0.6 → 0.0.7** (ships no
+changelog — judged by the run). Also present: wm5e 14.533.6, simplecover5e 2.2.1 (installed,
+inactive). Foundry core unchanged at 14.365.
+
+**The world had been REBUILT under us:** the three Test PCs were deleted; a fresh roster of
+premade PCs (Cleric/Fighter/Rogue/Wizard ×L1–3 + the DM's Gorbon) replaces them. The premades
+carry pack-data quirks every future bench must fix up FIRST:
+- **no player owners** → Foundry's own Roll-NPCs counts them as NPCs (step 1 "failed" until
+  ownership was granted — core semantics, not a module bug);
+- **0 spell slots** and **0 prepared leveled spells** (the Round-61 fresh-caster gap, in pack
+  form) — casts refuse honestly until slots are topped and spells prepared;
+- **stale prototype token names** ("Fighter L1" on the L3 champion) — our own sync rename
+  corrected it mid-run;
+- the world Bandit actor's CURRENT hp is what unlinked spawns copy — a damaged base spawns
+  dead-on-arrival tokens (one confused stretch of the run until the base was reset).
+
+**§28.4: effectively 12/12** once preconditions were corrected, including BOTH legs the morning
+run skipped: the **AoE DM-Place flow end to end** (announce → panel row → Place → the
+executor-side usage dialog (the documented §28.5.2 slot nit, confirmed again — the ledger's
+grey-out/pre-pick item) → cone placed by document-drive → both targets caught, one failed save
+full damage, one save half, slot spent, **template auto-removed**) and the **combat-music
+recovery matrix** (turn-change re-asserts the track · a parent-path kill self-heals in <4s · a
+mid-combat reload re-arms the driver · end restores silence with repeat intact). Also passed:
+initiative both halves, melee two-tap with the parked-workflow check mid-tap, MM darts with the
+extra-instance audit, Mind Sliver's failed-save branch, the AoO chip ("Bandit ⚔ Fighter") on the
+reaction widget, and preflight all-green after the pin bump.
+
+**A REAL HOLE FOUND AND FIXED — the corpse that stays targeted (rpc.js).** After a save-spell's
+damage tap, the PREVIOUS action's now-dead target reappeared in the DM's target set: midi tears
+down the prior workflow when the same actor starts a new one, and that teardown restores the OLD
+start-snapshot — landing after every sweep and reading to the surgical rule as "a token the DM
+was holding". Fix: **corpses are dropped unconditionally at both restore sites** (the module
+never offers corpses as targets, so one held during a phone-action window is residue by
+definition), plus a 4th sweep pass at 5000ms for slow teardown tails. Re-verified: a follow-up
+action with the teardown firing mid-flight left zero strays. (Noted, not failed: a LIVE target
+left on the DM after a DM-placed AoE is native midi behavior for the placing user.)
+
+**Two watch-notes, not failures:** the AoO dedup is per attacker-mover-TURN, so repeated bench
+attempts in one turn go silent after the first — a bench artifact, but worth remembering when a
+"the watcher stopped working" report arrives. And the music self-heal watcher rides the PARENT
+playlist delta by design; a raw `PlaylistSound#update({playing:false})` (embedded path) slips
+past it — no real table produces that vector, but a one-line `updatePlaylistSound` listener
+would close it (ledger, tiny).
+
+**Also verified this run:** `simplecover5e` **ENABLED in the bench world** (closing the carried
+gap) — every attack of the run went through AC5E's cover integration with the pipeline unmoved;
+the specific cover-bonus-shifts-AC case still wants a deliberate wall-geometry pass. And the
+**§39.5 phone-hush gate live as a real player**: with `tableMode: online` + the TV account
+configured, Player 1's phone client zeroed music+ambience and set the claim flag.
+
+**TESTED bumped:** AC5E 14.533.15.3 · CAT 0.0.7 · **wm5e 14.533.6 and simplecover5e 2.2.1 join
+the map and the watch loop** (wm5e's auto-apply leg was proven at this version on the morning
+run; §45.5's condition met). CLAUDE.md line updated; the carried-gap sentence retired.
+
+**Bench residue (conduct: never delete — DM to clear):** five Bandit corpse tokens + three
+actorless Test-PC husk tokens on Bandit Ambush (their actors were deleted in the DM's own
+cleanup — the tokens are safe for HIM to remove) · Mind Sliver added and three spells set
+prepared on Wizard (Level 3, Abjurer), its slots topped then partly spent · Forthy granted
+ownership of Fighter (L3, Champion) + Wizard (L3, Abjurer) — deliberate, makes them proper bench
+PCs · the Fighter's token renamed to its actor's name by our sync · simplecover5e left ENABLED
+(deliberate) · my test combat was ended by the end-combat flow itself; the two older stale
+combats untouched. World state restored: active scene 12.3, tableMode person, TV as display
+account, GM character cleared.
 
 ### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
 

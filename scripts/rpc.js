@@ -1221,9 +1221,17 @@ async function handleItemUseStart(payload) {
   // the DM's own target set — invisibly. The DM then targets a PC from the panel (releaseOthers:
   // false, to allow multi-select) and the stale token joins the NPC's attack. Snapshot the DM's
   // real targets here and put exactly those back when the fire settles.
-  const gmTargetIds = Array.from(game.user?.targets ?? []).map(t => t.id);
+  // Corpses never count as "held" (bench 2026-08-20): midi tears the PREVIOUS workflow down when
+  // the same actor starts a new one, and that teardown restores the OLD start-snapshot — which
+  // can re-strand the last action's now-dead target on the DM after every sweep here has run.
+  // The module already refuses corpses as targets everywhere else (isDeadCorpse), so a dead token
+  // in the snapshot is by definition residue, not a DM choice.
+  const gmTargetIds = Array.from(game.user?.targets ?? []).filter(t => !isDeadCorpse(t)).map(t => t.id);
   const restoreGmTargets = () => {
-    try { canvas.tokens?.setTargets?.(gmTargetIds, { mode: "replace" }); } catch (e) { /* canvas gone */ }
+    try {
+      const keep = gmTargetIds.filter(id => { const t = canvas.tokens?.get?.(id); return t && !isDeadCorpse(t); });
+      canvas.tokens?.setTargets?.(keep, { mode: "replace" });
+    } catch (e) { /* canvas gone */ }
   };
   try {
     // Fire attack-only; do NOT await (the workflow parks at WaitForDamageRoll).
@@ -1356,8 +1364,13 @@ async function handleItemUseDamage({ requestId }) {
   const restoreGmTargets = () => {
     try {
       const cur = Array.from(game.user?.targets ?? []).map(t => t.id);
-      const keep = cur.filter(id => gmTargetIds.includes(id) || !phoneTargetIds.has(id));
-      const want = Array.from(new Set([...gmTargetIds, ...keep]));
+      // Corpses are dropped unconditionally (bench 2026-08-20): a previous workflow's teardown
+      // can re-strand its now-dead target here, and it reads to the surgical rule below as "a
+      // token the DM was holding". The module never offers corpses as targets, so one in the
+      // target set during a phone-action window is residue by definition.
+      const alive = (id) => { const t = canvas.tokens?.get?.(id); return t && !isDeadCorpse(t); };
+      const keep = cur.filter(id => (gmTargetIds.includes(id) || !phoneTargetIds.has(id)) && alive(id));
+      const want = Array.from(new Set([...gmTargetIds.filter(alive), ...keep]));
       if (want.length !== cur.length || want.some(id => !cur.includes(id))) {
         canvas.tokens?.setTargets?.(want, { mode: "replace" });
       }
@@ -1365,7 +1378,9 @@ async function handleItemUseDamage({ requestId }) {
   };
   // midi re-targets on an ASYNC tail — measured landing ~550ms in, i.e. after this handler has
   // already returned — so one pass in `finally` is not enough. Sweep again past that tail.
-  const sweepLater = () => { for (const ms of [400, 1200, 2500]) setTimeout(restoreGmTargets, ms); };
+  // 5000ms added (bench 2026-08-20): the previous workflow's teardown restore can land later
+  // than midi's own ~550ms re-target tail when the next action triggers it.
+  const sweepLater = () => { for (const ms of [400, 1200, 2500, 5000]) setTimeout(restoreGmTargets, ms); };
   try {
     const { captured } = await captureNotifications(async () => {
       await wf.activity.rollDamage({ workflow: wf, midiOptions: { fastForwardDamage: true } });
