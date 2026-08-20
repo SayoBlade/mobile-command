@@ -1976,26 +1976,28 @@ Questions only the DM can answer; re-ask when he asks what's outstanding:
    before any release that widens the audience.)*
 9. **Level-up sitting (§38.6)** — sequenced after the live-table pass by design; confirm when.
 
-### 22.4 Built but never tested with real devices (extended 2026-08-19)
+### 22.4 Built but never tested with real devices (extended 2026-08-19; pruned after the 2026-08-20 bench)
 
 All verified at the mechanism level on a single browser/bench, which cannot prove them. Say so
-plainly rather than reporting them as working:
+plainly rather than reporting them as working. *(The 2026-08-20 bench run — §28.5.4/§28.5.5 —
+closed the mechanism half of several: ~~the wm5e auto-apply leg~~ (Vex landed, Cleave fired and
+declined), ~~the §46/§36.1.6 repaint pair~~ (burst-measured), §47's copy honesty, §48's window.
+What remains below is genuinely device- or human-bound.)*
 
 - TV **combat-POV vision** across a PC turn → a summon's turn → an NPC turn.
 - **Two-phone prompt delivery**: a save on a PC, a save on a summon, a reaction on another player;
-  **MISC Gloves of Missile Snaring** reaction (§28.6's live-table question).
+  **MISC Gloves of Missile Snaring** reaction (§28.6's live-table question). *(Possible without
+  people: the automation pane as one player + the DM's own Chrome as a second cookie jar.)*
 - The phone **watch-board subject switcher** for a pet.
 - **Sound follows the party** on the TV; **Mute the table** on a second client; thunder v3 / doom
   bell / heartbeat / card noises / train cues **by ear**; séance scrape + glitch levels **by eye
-  and ear**.
-- **§45 mastery card** on a real phone + the wm5e auto-apply leg (Sap on hit, Graze on miss, Vex
-  on the damage tap).
+  and ear** (the scrape is a KEEPER by verdict; levels still tunable at the table).
+- **§45 mastery card** rendered on a real phone (mechanics proven 2026-08-20).
 - **§36.1 arrival** and **§40 boss intro** motion by eye on the real TV (the bench pane renders no
   CSS animation at all).
-- **§46 scroll fix** and **§36.1.6 repaint coalescer** at the DM's real cadence.
-- **§47/§48 feedback flow** end-to-end, incl. mailto against a real mail client.
+- **§47/§48**: mailto against a real mail client; copy-to-clipboard under a real (trusted) tap.
 - **Card table cross-player denial** (story* RPCs refusing another player's actor) — needs two
-  phones.
+  clients.
 - **Turn-start vibration** on hardware.
 
 ### 22.5 Release state (refreshed 2026-08-19)
@@ -2008,21 +2010,32 @@ auto-recognises them, so travel lighting will not fire until he does.
 
 ### 22.6 The open ledger (consolidated 2026-08-19 — the ONE list; keep it current)
 
-**Priority order (standing):**
+**Priority order (standing — RE-SCOPED 2026-08-20: the DM has NO TV-table and NO players/testers
+yet, so "the live-table pass" stops being one blocking event and splits by what each check
+actually needs):**
 
-1. **The live-table pass** — the standing top item; its payload is §22.4 in full, plus the
-   v0.2.0+ shakedown and the midi reaction relay to a real phone.
-2. **Stack validation owed (§28.5.3):** AC5E **14.533.15** + MISC **2.0.2** are installed and
-   source-checked but NOT validated — run §28.4 (first thing to exercise: Simple Cover 5e's AC
-   changes on the Hit/Miss badge), then bump `TESTED` + the CLAUDE.md line. **wm5e** joins
-   `TESTED` with whatever version passes that same run (§45.5).
-3. **Crooked Moon polish** (campaign not started — no chapter urgency): **player-side CM tab
+1. **Bench-provable, still owed (no humans or table needed — Claude runs these in quiet
+   windows):** the **simplecover5e leg** (it's INACTIVE in the bench world but ACTIVE in the
+   DM's campaign world — enable it on the bench, re-run the cover-relevant §28.4 steps; the one
+   gap the 2026-08-20 validation carried) · the two §28.4 steps not run 2026-08-20 (AoE DM-Place
+   leg; combat-music self-heal/reload/end matrix) · the fiddle cue fired end-to-end in-world ·
+   **two-client delivery without people**: automation pane as Player 1 + the DM's own Chrome as
+   Player 2 (separate cookie jars — the one thing the solo rig can't fake); covers prompt
+   relays, transfers, cross-player denial.
+2. **Parked until the TV-TABLE exists ("the first-session shakedown"):** everything by eye and
+   by ear in §22.4 — motion on the real screen, all cues through real speakers, seat rotations
+   physically, settings app on the real display, camera/fog/POV on the real TV, mute-the-room.
+3. **Parked until PLAYERS/TESTERS exist:** multi-human interplay at pace, vibration across real
+   handsets, the v0.2.0+ shakedown with strangers' devices.
+   *(2 and 3 need no preparation from the DM today — they trigger when the hardware/humans
+   arrive.)*
+4. **Crooked Moon polish** (campaign not started — no chapter urgency): **player-side CM tab
    (§35) — DM-approved 2026-08-19, queued** (their thread, twists, curses, tarot card in one
    shell tab) · table feedback on the built suite · §33's bargain-mode reroll toggle (deferred) ·
    `curseTable` UUID is console-set only (needs a settings row if the DM adopts the book table) ·
    §31 v2 (midi hook to literally set the declared d20) · §32's unmined remainder (Dark Bargains,
    lair-pulse engine, ch10–13 scene packs).
-4. **Backlog (DM-pruned 2026-08-09 — this list, nothing re-added unasked):**
+5. **Backlog (DM-pruned 2026-08-09 — this list, nothing re-added unasked):**
    - PM extras (§27.4): group notes · push-to-sleeping-phone.
    - Effects extras (§26.5, APPROVED): per-effect volume → surround thunder → more looks
      (stop-all done).
@@ -2032,8 +2045,10 @@ auto-recognises them, so travel lighting will not fire until he does.
    - Séance standalone module spin-off (§30).
    - dnd5e 6.x migration milestone (when the ecosystem forces it — §28.5.1: 6.0.0 at 83%,
      no 5.4 exists).
-5. **Watches:** MISC#89 (GWM boolean, still open) · CPR 2.0 leaving pre-release · GPS first V14
-   tag · CAT 0.0.x churn · MCD camera-method names on any 14.02+ (§28.5.1).
+6. **Watches:** MISC#89 (GWM boolean, still open) · CPR 2.0 leaving pre-release · GPS first V14
+   tag · CAT 0.0.x churn · MCD camera-method names on any 14.02+ (§28.5.1). *(Stack validation
+   for AC5E 14.533.15 + MISC 2.0.2: DONE 2026-08-20, pins bumped — §28.5.4; only the
+   simplecover5e leg above remains. wm5e still joins `TESTED` once a run covers it — §45.5.)*
 
 **Smaller opens swept from the sections (2026-08-19 deep dive):**
 
@@ -3883,10 +3898,13 @@ and a darker answer with a rest between, every duration rubato'd per pass so a l
 hears the loop (~24 s a pass).
 
 **Measured offline** (OfflineAudioContext, the §26.2 practice — no ear can reach the bench):
-fade-in lands by second 3, sustained RMS **0.092**, peak **0.245** (clip-free), the phrase gap
-reads as a true silence. First cut sat at 0.05 RMS — under the engine bed it is supposed to
-pierce — so the levels were raised (0.2/0.8) and re-measured before shipping. By ear at the
-table still owed, like every cue.
+sustained RMS **0.092–0.10**, peak **~0.24** (clip-free), the phrase gap reads as a true
+silence. First cut sat at 0.05 RMS — under the engine bed it is supposed to pierce — so the
+levels were raised (0.2/0.8) and re-measured before shipping. **Ramp corrected next day
+(2026-08-20):** the approach bed's inaudible-exponential lesson (§28.5.5) applied here verbatim —
+the single exponential fade left the fiddle's first ~2s below hearing, so it's now two linear
+ramps (0.14 floor by 0.6s, full by 3.5s); re-measured 0.018 RMS in the first second, was 0.000.
+By ear at the table still owed, like every cue.
 
 
 ---

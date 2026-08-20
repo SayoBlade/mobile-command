@@ -443,9 +443,15 @@ export function playTrainFiddle({ fadeS = 3.5 } = {}) {
   const out = audioOut();
   if (!out) return;
   const { ctx, dest } = out;
+  // TWO ramps, not one exponential — the approach bed's measured lesson (bench 2026-08-20)
+  // applies here verbatim: a single exponential from near-zero spends its first ~2s below
+  // hearing, and a button that plays nothing for two seconds reads as a button that didn't
+  // work. Fast linear rise to a faint-but-present floor within the first bow stroke, then the
+  // slow climb that makes it "pierce through the fog".
   const master = ctx.createGain(); master.gain.value = 0.0001;
   master.connect(dest);
-  master.gain.exponentialRampToValueAtTime(0.8, ctx.currentTime + fadeS);
+  master.gain.linearRampToValueAtTime(0.14, ctx.currentTime + 0.6);
+  master.gain.linearRampToValueAtTime(0.8, ctx.currentTime + fadeS);
 
   // The instrument's fixed half — built once, shared by every note.
   const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2800; lp.Q.value = 0.7;
