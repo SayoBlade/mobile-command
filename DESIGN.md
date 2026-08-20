@@ -2044,10 +2044,10 @@ actually needs):**
    2026-08-19, queued** (their thread, twists, curses, tarot card in one shell tab) · **§31 v2
    twist auto-apply — APPROVED 2026-08-20 ("yes")**: on the DM's Apply, force the declared 1/20
    onto that creature's next qualifying d20 instead of by-hand · table feedback on the built
-   suite · §33's bargain-mode reroll toggle (deferred) · `curseTable` UUID is console-set only
-   (settings row only if the DM adopts the book table — he was shown our d100's contents
-   2026-08-20, decision open) · §32's unmined remainder (Dark Bargains, lair-pulse engine,
-   ch10–13 scene packs).
+   suite · §33's bargain-mode reroll toggle (deferred) · ~~curseTable settings row~~ — **DECIDED
+   2026-08-20: OUR d100 is the table ("I like ours more", after seeing samples of both).** No
+   picker row; the `curseTable` UUID stays as the undocumented console-set escape hatch ·
+   §32's unmined remainder (Dark Bargains, lair-pulse engine, ch10–13 scene packs).
 5. **Backlog (DM-pruned 2026-08-09 — this list, nothing re-added unasked):**
    - PM extras (§27.4): group notes · push-to-sleeping-phone.
    - Effects extras (§26.5, APPROVED): per-effect volume → surround thunder → more looks
@@ -3602,6 +3602,11 @@ Fleeting, RP-focused curses per the book's Appendix C: designed to last **15–3
 minutes**, alter perception/behavior/appearance, and stay light on combat math. Book examples:
 button eyes on everyone you see, footsteps only you hear, 1d8 human teeth in every meal,
 whisper-only voice, grayscale vision, your d20s are secretly d12s.
+
+**DECIDED (DM 2026-08-20, after reading samples of both tables): the module's own d100 is the
+table for his campaign** — the book's is louder/theatrical (tarot-indexed performance curses),
+ours quieter with the mechanical ladder; he prefers ours. The `curseTable` escape hatch stays,
+console-set, unadvertised.
 
 **Content & legal:** we NEVER ship the book's curse text. The module ships its OWN original
 d100 table — seeded by the approved 15 entries (mechanical ladder 1–10: Hollowed −50% max HP ·
