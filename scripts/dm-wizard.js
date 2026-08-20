@@ -6,6 +6,7 @@
 // panel's Preflight tab. Closing any step mid-way = "Later" (nothing written
 // past the steps already confirmed).
 import { MODULE_ID } from "./preset.js";
+import { isOnlineTable } from "./settings.js"; // §39: the mode decides the wizard's own path
 import { diffPreset, applyPreset } from "./enforcer.js";
 import { runPreflight, pendingAutomationPrereqs, applyAutomationPrereqs } from "./preflight.js";
 
@@ -17,14 +18,18 @@ const esc = (s) => foundry.utils.escapeHTML(String(s ?? ""));
 // opens at the SAME width, the SAME place, with the SAME step chrome — so it reads as a single
 // window advancing, not a scatter of differently-sized popups. Fixed body min-height means short
 // steps are as tall as the tallest, so nothing resizes between steps.
-const WIZ_STEPS = 6; // welcome · preset · toggles · vision · combat music · party  (preflight is the finale)
+// The step count is a PATH, not a constant (§39): the first question is how the table plays,
+// and an online table has no shared-screen step — so the total is set by the mode answer
+// (in person: mode · screen · preset · toggles · vision · music · party = 7; online skips the
+// screen = 6; preflight is the finale either way).
+let wizTotal = 7;
 function wizPos() {
   return { width: 480, left: Math.max(20, Math.round((window.innerWidth - 480) / 2)), top: Math.max(40, Math.round(window.innerHeight * 0.14)) };
 }
 function wizChrome(n, title, inner) {
-  const dots = Array.from({ length: WIZ_STEPS }, (_, i) =>
+  const dots = Array.from({ length: wizTotal }, (_, i) =>
     `<span class="mc-swiz-dot ${i + 1 < n ? "mc-done" : i + 1 === n ? "mc-on" : ""}"></span>`).join("");
-  const label = n > WIZ_STEPS ? "Final check" : `Step ${n} of ${WIZ_STEPS}`;
+  const label = n > wizTotal ? "Final check" : `Step ${n} of ${wizTotal}`;
   return `<div class="mc-swiz">
     <div class="mc-swiz-head"><div class="mc-swiz-dots">${dots}</div>
       <div class="mc-swiz-step"><span class="mc-swiz-n">${label}</span><span class="mc-swiz-title">${esc(title)}</span></div></div>
@@ -52,13 +57,43 @@ const TOGGLES = [
   ["partyTeleportActivates", "Party travel activates the scene", "When the PACKED party token crosses to another scene, that scene becomes active for the table (lone scouts never move the screen)."]
 ];
 
-async function stepWelcomeTv() {
+// §39: the question everything about the shared screen is an answer to, asked FIRST — a DM
+// setting up an online table shouldn't be greeted with a question about a TV they don't have.
+async function stepTableMode(n) {
+  const online = isOnlineTable();
+  const res = await wizWait({
+    n, title: "The table",
+    content: `<p><b>How does this table play?</b></p>
+      <label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">
+        <input type="radio" name="mode" value="person" ${online ? "" : "checked"} style="margin-top:3px">
+        <span><b>In person</b><br><span style="opacity:.8">One shared screen at a real table:
+        seats around it, controls rotate to face each player, cards deal face down, and phones
+        stay silent — the room has the speakers.</span></span></label>
+      <label style="display:flex;gap:8px;align-items:flex-start">
+        <input type="radio" name="mode" value="online" ${online ? "checked" : ""} style="margin-top:3px">
+        <span><b>Online</b><br><span style="opacity:.8">Everyone is their own room: no seats or
+        rotation, cards deal face up, and each phone keeps its own sound.</span></span></label>
+      <p style="opacity:.8;margin-bottom:0">You can change this any time in All Settings — everything
+      that cares reads it live.</p>`,
+    buttons: [
+      { action: "cancel", label: "Finish later" },
+      { action: "next", label: "Next", default: true, callback: (_e, b) => b.form.elements.mode.value }
+    ]
+  }).catch(() => null);
+  if (res !== "person" && res !== "online") return false;
+  if ((game.settings.get(MODULE_ID, "tableMode") === "online" ? "online" : "person") !== res) {
+    await game.settings.set(MODULE_ID, "tableMode", res);
+  }
+  return true;
+}
+
+async function stepWelcomeTv(n) {
   const current = game.settings.get(MODULE_ID, "displayOwnerUser") || "";
   const opts = [`<option value="" ${current ? "" : "selected"}>— none / skip —</option>`]
     .concat(game.users.filter(u => !u.isGM).map(u =>
       `<option value="${u.id}" ${u.id === current ? "selected" : ""}>${esc(u.name)}${u.character ? ` (has a character: ${esc(u.character.name)})` : ""}</option>`));
   const picked = await wizWait({
-    n: 1, title: "The shared screen",
+    n, title: "The shared screen",
     content: `<p><b>Which account runs your TV / shared display?</b></p>
       <p>Every PC is shared with that account as <b>Observer</b>, which is what lets the TV show the
       party's merged vision. Observer and not Owner is deliberate: it keeps save and reaction prompts
@@ -76,7 +111,7 @@ async function stepWelcomeTv() {
   return true;
 }
 
-async function stepPreset() {
+async function stepPreset(n) {
   let drift = [];
   try { drift = diffPreset(); } catch (e) { /* midi missing — the row explains */ }
   // Automation prerequisites belong here too (DM 2026-08-02): an automation module can be enabled
@@ -98,7 +133,7 @@ async function stepPreset() {
     : prereqs.length ? "Turn the switches on & continue"
     : "Apply preset & continue";
   const res = await wizWait({
-    n: 2, title: "Module settings",
+    n, title: "Module settings",
     content: presetBody + prereqBody,
     buttons: [
       { action: "cancel", label: "Finish later" },
@@ -114,7 +149,7 @@ async function stepPreset() {
   return res === "next";
 }
 
-async function stepToggles() {
+async function stepToggles(n) {
   const modes = game.settings.settings.get(`${MODULE_ID}.aooNpcMode`)?.choices ?? {};
   const rows = TOGGLES.map(([key, label, hint]) => `<label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">
       <input type="checkbox" name="${key}" ${game.settings.get(MODULE_ID, key) ? "checked" : ""} style="margin-top:3px">
@@ -124,7 +159,7 @@ async function stepToggles() {
       <select name="aooNpcMode" style="width:100%">${Object.entries(modes).map(([k, v]) =>
         `<option value="${k}" ${game.settings.get(MODULE_ID, "aooNpcMode") === k ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>`;
   const res = await wizWait({
-    n: 3, title: "Table toggles",
+    n, title: "Table toggles",
     content: rows + npc,
     buttons: [
       { action: "cancel", label: "Finish later" },
@@ -139,9 +174,9 @@ async function stepToggles() {
   return true;
 }
 
-async function stepVision() {
+async function stepVision(n) {
   const res = await wizWait({
-    n: 4, title: "Token vision",
+    n, title: "Token vision",
     content: `<p><b>Sync every PC token's sight from its sheet.</b></p>
       <p>Darkvision, tremorsense and friends live on the ACTOR — freshly placed tokens often
       carry none of it, which reads as "my player is blind on the TV". This pushes the real
@@ -162,13 +197,13 @@ async function stepVision() {
   return res === "next";
 }
 
-async function stepCombatMusic() {
+async function stepCombatMusic(n) {
   const current = game.settings.get(MODULE_ID, "combatMusicPlaylist") || "";
   const opts = [`<option value="" ${current ? "" : "selected"}>— none / skip —</option>`]
     .concat(game.playlists.contents.slice().sort((a, b) => a.name.localeCompare(b.name))
       .map(p => `<option value="${p.uuid}" ${p.uuid === current ? "selected" : ""}>${esc(p.name)} (${p.sounds.size} track${p.sounds.size === 1 ? "" : "s"})</option>`));
   const picked = await wizWait({
-    n: 5, title: "Combat music",
+    n, title: "Combat music",
     content: `<p><b>Which playlist holds your battle music?</b></p>
       <p>When you start a combat you'll pick one track from it to loop for that fight — played on foe
       turns and for any hero without their own theme. Give a PC a personal <b>anthem</b> later by
@@ -185,7 +220,7 @@ async function stepCombatMusic() {
   return true;
 }
 
-async function stepParty() {
+async function stepParty(n) {
   const groups = game.actors.filter(a => a.type === "group");
   const g = groups.find(x => (x.system?.members ?? []).some(m => m.actor)) ?? groups[0];
   const members = g ? (g.system?.members ?? []).map(m => m.actor?.name).filter(Boolean) : [];
@@ -196,7 +231,7 @@ async function stepParty() {
     : `<p><b>No party group exists yet.</b> Once your PCs stand on the active scene, the DM panel
        offers a one-tap <b>Create party</b> (or the checklist to pick members). Nothing to do here now.</p>`;
   const res = await wizWait({
-    n: 6, title: "The party",
+    n, title: "The party",
     content: body,
     buttons: [
       { action: "cancel", label: "Finish later" },
@@ -206,12 +241,12 @@ async function stepParty() {
   return res === "next";
 }
 
-async function stepPreflight() {
+async function stepPreflight(n) {
   const results = await runPreflight();
   const mark = { ok: "✅", warn: "⚠️", fail: "❌" };
   const rows = results.map(c => `<li>${mark[c.status] ?? "•"} <b>${esc(c.label)}</b> — ${esc(c.detail)}</li>`).join("");
   await wizWait({
-    n: 7, title: "System health",
+    n, title: "System health",
     content: `<p>Final check of the live table:</p><ul style="max-height:220px;overflow-y:auto;margin:0">${rows}</ul>
       <p>Anything ⚠️/❌ stays visible on the DM panel's <b>System health tab</b> (clipboard icon), each with a one-tap fix where one is safe.</p>`,
     buttons: [{ action: "done", label: "Done", default: true }]
@@ -221,11 +256,21 @@ async function stepPreflight() {
 
 export async function runDmWizard() {
   if (!game.user.isGM) return;
-  const steps = [stepWelcomeTv, stepPreset, stepToggles, stepVision, stepCombatMusic, stepParty, stepPreflight];
-  for (const step of steps) {
-    const cont = await step();
+  // The mode question comes first and sets the path (§39): online has no shared-screen step.
+  // wizTotal starts from the CURRENT mode so a re-run shows the right count from step 1, and is
+  // re-set after the answer so switching modes mid-wizard renumbers the rest correctly.
+  wizTotal = isOnlineTable() ? 6 : 7;
+  if (!await stepTableMode(1)) return;
+  const rest = isOnlineTable()
+    ? [stepPreset, stepToggles, stepVision, stepCombatMusic, stepParty]
+    : [stepWelcomeTv, stepPreset, stepToggles, stepVision, stepCombatMusic, stepParty];
+  wizTotal = rest.length + 1;
+  let n = 2;
+  for (const step of rest) {
+    const cont = await step(n++);
     if (!cont) return; // "Finish later" / closed — leave dmOnboarded as-is so the prompt returns
   }
+  await stepPreflight(wizTotal + 1); // n past the total → the "Final check" chrome
   await game.settings.set(MODULE_ID, "dmOnboarded", true);
 }
 
@@ -244,8 +289,9 @@ export function maybePromptDmWizard() {
       // size over the different steps").
       content: `<div class="mc-swiz">
         <div class="mc-swiz-head"><div class="mc-swiz-step"><span class="mc-swiz-n">Setup</span><span class="mc-swiz-title">Before we start</span></div></div>
-        <div class="mc-swiz-body"><p style="margin-top:0">Walk through the shared-table setup? Six short steps — the TV account,
-        midi settings, table toggles, token vision, combat music, the party — then a live health check.</p></div></div>`,
+        <div class="mc-swiz-body"><p style="margin-top:0">Walk through the table setup? A few short steps — how your table plays,
+        the shared screen (in-person tables), midi settings, table toggles, token vision, combat music,
+        the party — then a live health check.</p></div></div>`,
       buttons: [
         { action: "never", label: "Don't ask again" },
         { action: "later", label: "Later" },

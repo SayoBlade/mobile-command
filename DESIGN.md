@@ -1219,7 +1219,7 @@ Probed the world's rebuilt group `bTNHugymMcYIqpqz` ("Group", 4 PCs: Aurelio Bri
 
 ## 16. DM onboarding wizard + session preflight (PLANNED 2026-07-08 → **BOTH SHIPPED**: preflight v0.1.92, wizard v0.1.94)
 
-DM directive (2026-07-08): plan this next; build order after reactions = this → downtime/guard-duty → inventory transfers. Two deliverables sharing one checks engine. **Shipped state:** the Preflight tab became **System health** (§47 re-worded every check to plain language), grew the `AUTOMATION_PREREQS` warn-with-fix mechanism (§28.7/§45.2) and the Message-for-dev/feedback buttons (§47/§48); the wizard got fixed-size steps + its own `mc-swiz-*` classes (§48.1). Its one queued improvement: ask **in-person vs online first** (§39 — the whole shared-screen half hangs on that answer).
+DM directive (2026-07-08): plan this next; build order after reactions = this → downtime/guard-duty → inventory transfers. Two deliverables sharing one checks engine. **Shipped state:** the Preflight tab became **System health** (§47 re-worded every check to plain language), grew the `AUTOMATION_PREREQS` warn-with-fix mechanism (§28.7/§45.2) and the Message-for-dev/feedback buttons (§47/§48); the wizard got fixed-size steps + its own `mc-swiz-*` classes (§48.1). Its one queued improvement — ask **in-person vs online first** — landed 2026-08-20 (§39.4): the mode is now step 1 and the shared-screen step exists only on the in-person path.
 
 **16.1 Checks engine (`scripts/preflight.js`).** Pure functions, each returning `{id, label, status: ok|warn|fail, detail, fix?: () => Promise}`. Planned checks, all read-only with opt-in one-tap fixes:
 1. **Executor online** — resolveExecutorId() user active (fail = nothing works).
@@ -1975,6 +1975,10 @@ Questions only the DM can answer; re-ask when he asks what's outstanding:
    alias before wider release? *(DM 2026-08-19: on the to-be-discussed list — this list. Re-raise
    before any release that widens the audience.)*
 9. **Level-up sitting (§38.6)** — sequenced after the live-table pass by design; confirm when.
+10. **Online theatre distribution (§39.4, raised 2026-08-20 — real now that the first session
+    will be online):** séance / station / card table render only on the DM's + display's
+    screens, so online they exist only via screenshare; the boss intro already broadcasts to
+    every player's own screen. Should the other theatre pieces do the same in online mode?
 
 ### 22.4 Built but never tested with real devices (extended 2026-08-19; pruned after the 2026-08-20 bench)
 
@@ -2041,7 +2045,8 @@ actually needs):**
      (stop-all done).
    - Enchant consumption — only if a CHARGED enchanter shows up (deliberate, rpc.js:1401).
    - Paralyzed auto-crit midi setting (§28.6 friction 4 — real observed miss).
-   - Onboarding wizard polish: ask in-person-vs-online FIRST (§39).
+   - ~~Onboarding wizard polish: ask in-person-vs-online FIRST~~ — **BUILT 2026-08-20 (§39.4)**,
+     with the online-quiet health check and the upright séance words in the same pass.
    - Séance standalone module spin-off (§30).
    - dnd5e 6.x migration milestone (when the ecosystem forces it — §28.5.1: 6.0.0 at 83%,
      no 5.4 exists).
@@ -4691,6 +4696,32 @@ at `transform: none` (face down).
 advances there**. A control element (a plain 2s opacity transition) sat at 0 after a full second,
 which is how this was separated from a real bug. Motion must be judged by eye on a real screen;
 what the bench *can* prove is the target each class lands on, read with `transition: none`.
+
+### 39.4 Online-first (DM 2026-08-20: "first session will most likely be online") — the three gaps closed
+
+The audit that answered "does everything support both modes?" found the switch honored by all
+seven built surfaces but ignored by three in-person assumptions. All three fixed and
+bench-verified 5/5 (fresh scratch bench, 2026-08-20):
+
+1. **The wizard now asks FIRST.** New step 1, "The table" — In person / Online radios with the
+   consequences spelled out — and the path follows the answer: online **skips the shared-screen
+   step entirely** and renumbers (Step 2 of 6 vs 2 of 7; `wizTotal` replaced the step constant).
+   A re-run opens with the current mode pre-selected and the right count from step 1; switching
+   modes mid-wizard renumbers the rest. This closes the backlog item "ask in-person-vs-online
+   first" — and it mattered doubly, because the wizard used to GREET an online DM with a question
+   about a TV they don't have.
+2. **The health check stops nagging online tables.** "No display account" while online is now an
+   OK row ("Online table — no shared screen expected"), not a permanent un-clearable warning. A
+   display account that IS configured while online (a streamed display client) still gets the
+   full validation. In-person behavior unchanged (warn).
+3. **The séance's printed words stand upright online.** The corner-facing rotation is flat-table
+   geometry (§30 v3); online viewers watch an upright screen. Verified: online rotations
+   1/0/−1/−2° (jitter only), in person −224/−135/44/−47° (unchanged).
+
+**Still open, now on the §22.3 discussion list because online-first makes it real:** the theatre
+pieces (séance, station, card table) render only on the DM's + display's screens — online that
+means "the DM screenshares". The boss intro already broadcasts to every player's own screen
+(§40); should the others follow suit in online mode?
 
 ---
 

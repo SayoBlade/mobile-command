@@ -10,7 +10,7 @@
 // destination-less teleport region that silently blocked ALL movement on Cave A
 // (Round 32).
 import { MODULE_ID, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD } from "./preset.js";
-import { resolveExecutorId, isOverworldScene } from "./settings.js";
+import { resolveExecutorId, isOverworldScene, isOnlineTable } from "./settings.js";
 import { diffPreset, applyPreset } from "./enforcer.js";
 import { actorTokenSight } from "./rpc.js";
 
@@ -52,6 +52,10 @@ function checkExecutor() {
 
 function checkDisplayAccount() {
   const id = displayUserId();
+  // §39: an ONLINE table has no shared screen, so "no display account" is the correct state
+  // there, not a fault — a permanent warning the DM can never clear reads as a broken app.
+  // If one IS configured while online (a streamed display client), it still gets validated.
+  if (!id && isOnlineTable()) return { id: "display", label: "The shared screen", status: "ok", detail: "Online table — no shared screen expected." };
   if (!id) return { id: "display", label: "The shared screen", status: "warn", detail: "No display account set — shared-screen features (TV camera, party vision) are off." };
   const user = game.users.get(id);
   if (!user) return { id: "display", label: "The shared screen", status: "fail", detail: "The configured display user no longer exists." };

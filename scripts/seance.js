@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { isOnlineTable } from "./settings.js"; // §39: word rotation is flat-table geometry
 import { mountFaded, unmountFaded } from "./repaint.js"; // §6.8 fade, never cut
 import { isPhoneClient, isDisplayClient } from "./shell.js";
 
@@ -148,8 +149,10 @@ function boardHTML() {
   const words = Object.entries(WORDS).map(([w, p], i) => {
     const x = 50 + Math.cos(p.a) * p.r * 50;
     const y = 50 + Math.sin(p.a) * p.r * 50;
-    // Face the reader beyond this corner: glyph-tops toward the board center.
-    const deg = p.a / D2R - 90 + jig(i + 51, 2);
+    // Face the reader beyond this corner: glyph-tops toward the board center — a FLAT table's
+    // geometry (§30 v3). An online table's viewers all watch an upright screen (§39), so there
+    // the words simply stand upright; only the hand-scratched jitter stays.
+    const deg = (isOnlineTable() ? 0 : p.a / D2R - 90) + jig(i + 51, 2);
     const lineH = p.size * 1.15;
     const spans = p.lines.map((ln, li) =>
       `<tspan x="${x}" dy="${li === 0 ? -((p.lines.length - 1) * lineH) / 2 : lineH}">${ln}</tspan>`).join("");
