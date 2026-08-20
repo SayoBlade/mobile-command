@@ -1,5 +1,5 @@
 import { MODULE_ID } from "./preset.js";
-import { registerSettings, resolveExecutorId, isExecutor, displayUserId, isDisplayShared, syncDisplayObserver, DISPLAY_LEVEL, setTvAudioState, setTvSoftFogState, isOnlineTable } from "./settings.js";
+import { registerSettings, resolveExecutorId, isExecutor, displayUserId, isDisplayShared, syncDisplayObserver, DISPLAY_LEVEL, setTvAudioState, setTvSoftFogState, isOnlineTable, hasSharedScreen } from "./settings.js";
 import { diffPreset, applyPreset, checkAndPrompt, deactivate, reactivate, hasBackup } from "./enforcer.js";
 import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, registerReactionNotifier, registerSummonOwnership, api, actorTokenSight } from "./rpc.js";
 import { initPauseGuard } from "./pause-guard.js";
@@ -662,14 +662,16 @@ Hooks.once("ready", () => {
     // environment go to zero; INTERFACE stays, so the player still hears their own dice and UI.
     // Client-scoped settings, so this is per-device and the sliders remain in Foundry's audio
     // controls if someone wants them back. World setting `phoneSilentAudio` turns it off.
-    // §39 …UNLESS THE ROOM IS A CALL. Online, there is no shared set of speakers and no one else
-    // to be out of step with — the phone (or the browser next to it) is the only thing the player
-    // can hear, so silencing it silences the game. The mode decides; the setting stays the
-    // in-person preference. And we only ever un-mute a phone we muted ourselves.
+    // §39.5 …AND ONLINE, THE STREAM IS THE SPEAKERS. The SCREEN decides, not the room: the DM
+    // confirmed (2026-08-20) his stream carries the game's audio, so a shared screen online
+    // means phone + stream would play the same soundscape at an offset — the same doubling the
+    // at-table rule exists for. Phones keep their own sound ONLY at a table with no shared
+    // screen at all, where they are the player's one speaker. We only ever un-mute a phone we
+    // muted ourselves.
     try {
       let silent = true;
       try { silent = !!game.settings.get(MODULE_ID, "phoneSilentAudio"); } catch (e) { /* default on */ }
-      if (isOnlineTable()) silent = false;
+      if (isOnlineTable() && !hasSharedScreen()) silent = false;
       const keys = ["globalPlaylistVolume", "globalAmbientVolume"];
       if (silent) {
         let did = false;

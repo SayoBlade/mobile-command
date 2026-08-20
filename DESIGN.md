@@ -1979,10 +1979,8 @@ Questions only the DM can answer; re-ask when he asks what's outstanding:
     account's window; screenshare of the display IS the model.** The theatre pieces stay on the
     display (which the stream carries), and the boss intro's everyone-broadcast now applies only
     to stream-less online tables.
-11. **Remote-phone audio when a shared screen exists online (§39.5):** silence them like
-    at-table phones (right if the stream carries game audio) or leave them sounding (right if
-    the stream is video-only)? Depends on whether the DM's stream carries audio — one answer,
-    one line.
+11. ~~Remote-phone audio online~~ — **ANSWERED (DM 2026-08-20: the stream carries game audio)
+    and BUILT: online + shared screen silences phones like at-table (§39.5).**
 
 ### 22.4 Built but never tested with real devices (extended 2026-08-19; pruned after the 2026-08-20 bench)
 
@@ -4775,11 +4773,12 @@ bench world's display account points at a deleted user" finding: that was THIS b
 the previous bench run's own cancel click, in the bench COPY. The DM's real world was never
 touched and needs no fixing. Both steps now reject the cancel string.
 
-**Open (asked, awaiting the DM):** should REMOTE PHONES be silenced like at-table phones when a
-shared screen exists online? Right if the stream carries the game's audio (phone + stream =
-offset doubling); wrong if the stream is video-only (silent phones = silent game, and the
-silencer re-zeroes player sliders every reload). Depends on whether his stream carries audio —
-one answer, one line to change (main.js phone-audio gate).
+~~Open: remote-phone silencing~~ — **ANSWERED (DM 2026-08-20: "yes", the stream carries game
+audio) and BUILT the same day:** the phone-audio gate (main.js) now follows the screen like
+everything else — online + shared screen → phones silenced exactly as at the table (the stream
+is the speakers); phones keep their own sound only at a table with no shared screen at all.
+Bench-untested (a world was active — BENCH RULE #0); the predicate is the same one §39.5's
+bench proved twice, and the silencing machinery itself is the long-verified in-person path.
 
 ---
 
