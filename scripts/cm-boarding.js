@@ -272,9 +272,15 @@ export function playTrainApproach({ fadeS = 6 } = {}) {
   if (!out) return;
   const { ctx, dest } = out;
   const t0 = ctx.currentTime + 0.02;
+  // TWO ramps, not one exponential (bench 2026-08-20, measured at the environment bus). A single
+  // exponential from near-zero spends almost all its time inaudible — metered, this bed was SILENT
+  // for its first four seconds and only reached 0.013 RMS, against 0.087 for the whistle. The DM's
+  // use is "in the distance you hear a mechanical sound" and then he keeps talking, so it has to be
+  // faint-but-PRESENT almost at once and grow from there: a fast rise to a floor, then a slow climb.
   const master = ctx.createGain(); master.gain.value = 0.0001;
   master.connect(dest);
-  master.gain.exponentialRampToValueAtTime(0.9, t0 + fadeS);
+  master.gain.linearRampToValueAtTime(0.18, t0 + 0.5);
+  master.gain.linearRampToValueAtTime(1.0, t0 + fadeS);
 
   // One noise buffer, reused by every voice — one allocation instead of three.
   const len = Math.floor(2 * ctx.sampleRate);
@@ -289,12 +295,17 @@ export function playTrainApproach({ fadeS = 6 } = {}) {
     src.start(t0);
     return { src, g, f };
   };
-  const rumble = voice(58, 0.7, 0.5, "lowpass");   // the mass of the thing
-  const rail = voice(3100, 1.4, 0.035);            // steel on steel, far off
-  const chuff = voice(420, 1.1, 0);                // the exhaust beat, gated by the LFO below
+  // Levels set by measurement, not by ear-in-the-head (bench 2026-08-20). The rumble was at 58Hz,
+  // which is far enough into the sub-bass that a lowpass threw away nearly all of its energy — and
+  // most laptop and TV speakers cannot reproduce it anyway, so the "mass of the thing" was mass
+  // nobody could hear. At 150Hz it carries. Plateau now measures ~0.038 RMS: level with the
+  // grinding stop, under the whistle, which is where a bed belongs.
+  const rumble = voice(150, 0.7, 0.75, "lowpass");  // the mass of the thing
+  const rail = voice(3100, 1.4, 0.09);              // steel on steel, far off
+  const chuff = voice(420, 1.1, 0);                 // the exhaust beat, gated by the LFO below
 
   const lfo = ctx.createOscillator(); lfo.type = "sawtooth"; lfo.frequency.value = 1.5;
-  const lfoG = ctx.createGain(); lfoG.gain.value = 0.16;
+  const lfoG = ctx.createGain(); lfoG.gain.value = 0.30;
   lfo.connect(lfoG).connect(chuff.g.gain);
   lfo.frequency.linearRampToValueAtTime(2.6, t0 + fadeS);
   lfo.start(t0);

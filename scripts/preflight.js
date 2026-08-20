@@ -215,10 +215,13 @@ function checkTeleportRegions() {
 // (The silent 14.0.8→14.0.11 drift is what caused the 2026-07-26 bug wave to land mid-week
 // with no warning — this check exists so an update is always a DECISION, never a surprise.)
 const TESTED = {
-  "dnd5e": "5.3.3", "midi-qol": "14.0.11", "automated-conditions-5e": "14.533.13.1",
+  // AC5E 14.533.15 + MISC 2.0.2 validated on the bench 2026-08-20 (DESIGN §28.5.4): 10 of §28.4's
+  // 12 steps run and passed, including every step that touches the surface those releases changed —
+  // attack adjudication, target AC, damage, the parked-workflow two-tap, target hygiene, AoO.
+  "dnd5e": "5.3.3", "midi-qol": "14.0.11", "automated-conditions-5e": "14.533.15",
   // The automation-ecosystem pair, deep-dived together 2026-07-26 (§28.6): versions move
   // weekly (CAT is 0.0.x), so any bump gets the same validation treatment as midi's.
-  "cat": "0.0.6", "midi-item-showcase-community": "2.0.1"
+  "cat": "0.0.6", "midi-item-showcase-community": "2.0.2"
 };
 
 // The DM reads this at the table, so it says the plain thing in plain words (UI-BIBLE §7.2): what

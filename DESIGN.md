@@ -2863,6 +2863,77 @@ Where a phone attack could actually move:
   integrations). No action.
 
 
+### 28.5.4 Bench run 2026-08-20 — AC5E 14.533.15 + MISC 2.0.2 VALIDATED, pin bumped
+
+Run on the DM's own "Offline test" world (he closed his campaign and left the bench up), GM client +
+`MobileCommand.openShell()`, ticker pump + `game.dice3d = null` + rAF shim. Audio unlocked with a
+real click so the sound cues could be **measured**, not assumed.
+
+**§28.4 result: 10 of 12 passed, 2 not run.**
+
+| # | Step | Result |
+|---|---|---|
+| 1 | Roll NPCs rolls only NPC initiative | **PASS** — Boogleswarm 12, Gorbon untouched |
+| 2 | Phone initiative prompt | **PASS** — "Init +1" tapped → null → 12 |
+| 3 | Phone melee two-tap | **PASS** — 20 vs AC 12, green Hit, HP 20→15, toast "10 Greataxe — damage" |
+| 4 | Attack pipeline health | **PASS** — parked, suspended, `attackRoll` 20 non-null, mastery stamped |
+| 5 | Magic Missile multi-instance | **PASS** — base `1d4+1`=2 + whispered "extra instances: Mimic 3, Mimic 3" = 8, HP 39→31 |
+| 6 | Save spell (Mind Sliver) | **NOT RUN** — the spell does not exist in this world |
+| 7 | AoE | **PARTIAL** — the executor guard refuses with the documented reason; the DM-Place leg not run |
+| 8 | No stray targets | **PASS** — `game.user.targets` empty after every phone fire |
+| 9 | AoO | **PASS** — stepping out of the swarm's reach fired "Boogleswarm ⚔ Gorbon Grayslayer" |
+| 10 | Combat music | **PASS (start)** — music bus 0 → 0.024 RMS on start; the self-heal/reload/end matrix not run |
+| 11 | Turn HUD | **PASS** — "Your turn / End turn" on his turn, End turn advanced it |
+| 12 | Preflight stack | **PASS** — named exactly the versions under test |
+
+**The pin is bumped on this basis.** Every step touching what AC5E 14.533.14–15 actually changed —
+attack adjudication, target AC, damage, the parked two-tap, target hygiene, reactions — ran and
+passed. AC5E was visibly live throughout (chat carried `ADV: AC5E Target Cannot See Attacker`,
+`DIS: AC5E …`) and our `preRollAttackV2` dialog suppression held: no fire stalled on a dialog.
+
+**The one gap, and it matters:** `simplecover5e` is **INACTIVE in the bench world** and **ACTIVE in
+the DM's campaign world**, so AC5E's new Simple Cover integration — the single riskiest item in
+§28.5.3 — is still unvalidated. Carried into CLAUDE.md rather than buried here.
+
+### 28.5.5 What the run found
+
+**The approach bed was inaudible — a real defect, caught only by metering.** §36.1's engine used one
+`exponentialRampToValueAtTime` from 0.0001, which spends nearly all its time below hearing: measured
+at the environment bus it was **silent for four full seconds** and plateaued at **0.013 RMS**,
+against 0.087 for the whistle. Its rumble also sat at 58 Hz, deep enough that the lowpass threw away
+most of its energy and most laptop/TV speakers could not reproduce what was left.
+
+Fixed by measurement, not by ear: two linear ramps (a fast rise to a 0.18 floor at 0.5 s, then a slow
+climb to full) and the rumble moved to 150 Hz with the voices lifted. Re-measured in the real code
+path after a reload: **1 s → 0.0079** (was 0), **3 s → 0.0158** (was 0.0001), **plateau 0.0349** —
+level with the grinding stop, under the whistle, which is where a bed belongs. Clean stop to 0.
+
+**§45 weapon mastery, proven end to end.** The executor returns `mastery: "cleave"` /
+`masteryAuto: true`; the phone card renders head **Cleave**, the right line, and the automation-aware
+footer *"The DM picks the second target."* And the auto-apply leg is real: a **Vex** ActiveEffect
+landed on the Mimic from a phone attack with nobody touching a chat card, and Cleave fired on the
+damage roll and correctly declined with wm5e's own *"No valid targets in range for Cleave."*
+surfacing through our notification capture.
+
+**§46 + the repaint coalescer, measured.** Ten background hook fires in one tick → **0** DOM swaps.
+The same burst with a real change → **1** swap, not ten. Scroll held at 150 px across two genuine
+repaints of `.mc-dmp-tabmid` — the exact container the old hand-listed version missed.
+
+**§47/§48.** Every health-check label now reads in plain words with module titles, not ids. The
+feedback window opens with all controls and a reference id. **Copy could not be verified here** — the
+automation pane refuses `clipboard.writeText` outright and `execCommand` needs a trusted gesture a
+scripted click cannot give — but the failure path is proven correct: it reported *"Couldn't copy —
+use Save file instead."* rather than claiming success. `devReport()` produced 9,736 characters
+carrying modules, checks and versions.
+
+**Wizard sizing.** A 1-line step and a 60-line step both render at exactly **340 px** with
+`overflow-y: auto`; the phone wizard is unaffected at 900 px, which is what the `mc-swiz-` rename
+was for.
+
+**Bench residue (conduct: never delete — DM to clear):** two Combat encounters created (one on
+Restored Keep, unstarted; one on 12.3, started), damage on Boogleswarm / Mimic / Gnoll Warrior, a
+self-expiring Vex effect on the Mimic, and one spent 1st-level slot on the sample Wizard.
+
 ### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
 
 Bench: MISC 2.0.1 + CAT 0.0.6 on midi 14.0.11 / DAE 14.0.12, run through the REAL phone flow
