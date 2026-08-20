@@ -1492,7 +1492,8 @@ vs. the secret goblin village the DM can move clandestinely).
 ### 18.3 Open questions (ledger)
 
 - ~~Darkness curve~~ **RESOLVED (DM 2026-08-02)** — see §18.4 below.
-- Phone "suggest destination" ping — wanted at all, or does pointing at the TV cover it?
+- ~~Phone "suggest destination" ping~~ — **RESOLVED NO (DM 2026-08-20):** his own core ping +
+  table talk ("here?" — "2 squares up") covers it, in the room or over the stream.
 - ~~Calendar: plain `game.time` for now~~ **OBSOLETE — already built** (`gametime.js`, 2026-07-17→24;
   an earlier 2026-08-02 note here wrongly called it undecided). Simple Calendar Reborn is read when
   present and the module falls back to its own clock otherwise, capability-checked at every call.
@@ -1963,17 +1964,18 @@ Questions only the DM can answer; re-ask when he asks what's outstanding:
 2. ~~Séance scrape~~ — **ANSWERED 2026-08-19: KEEP ("definitely keep, its amazing!").**
 3. ~~Player-side Crooked Moon tab (§35)~~ — **ANSWERED 2026-08-19: build it** ("add it to the
    list of things to do") → moved to the §22.6 queued backlog.
-4. **Phone "suggest destination" ping (§18.3)** — wanted at all, or does pointing at the TV
-   cover it?
-5. **Moon phases / seasons (§18.3)** — SC Reborn exposes both; needs a decision on what a phase
-   should DO before wiring anything.
-6. **Downtime progress surfaced to players (§17.6/§17.7)** — opt-in via the party Journal was
-   the DM's rule; never switched on. Want it?
+4. ~~Phone "suggest destination" / map-ping~~ — **ANSWERED (DM 2026-08-20): NO.** "I can ping a
+   location 'here?' — player: '2 squares up'." The DM's own core ping + table talk covers it, in
+   the room or over the stream. Closes §18.3's last travel question. Don't rebuild unasked.
+5. ~~Moon phases / seasons~~ — **ANSWERED (DM 2026-08-20): "no need."** SC's richer data stays
+   unread; don't re-raise unless he does.
+6. ~~Downtime progress surfaced to players~~ — **ANSWERED (DM 2026-08-20): "keep it DM only for
+   now."** The opt-in journal surfacing stays unbuilt.
 7. **Per-seat rotated HUD on the TV (§38.5 future note)** — HP/conditions strip at each seat;
    performance-check first (modest machine).
-8. **`feedbackEmail` alias (§48.3)** — a plain address in a public module is scrapeable; pick an
-   alias before wider release? *(DM 2026-08-19: on the to-be-discussed list — this list. Re-raise
-   before any release that widens the audience.)*
+8. ~~`feedbackEmail` alias~~ — **ANSWERED (DM 2026-08-20): "I'll probably open a new email —
+   keep it as something for pre-launch."** Moved to the §22.5 release checklist; no longer a
+   discussion item.
 9. **Level-up sitting (§38.6)** — sequenced after the live-table pass by design; confirm when.
 10. ~~Online theatre distribution~~ — **ANSWERED same day (§39.5): the DM streams the display
     account's window; screenshare of the display IS the model.** The theatre pieces stay on the
@@ -2012,7 +2014,9 @@ Last release: **v0.2.0, 2026-07-26**; everything since is pushed but unreleased.
 must: include `art/` in module.zip (§30 note — séance/candle/planchette art shipped after
 v0.2.0) · post the release-tag URL **and** the manifest install URL · and the DM must mark his
 real overworld map(s) with the Travel-tab toggle (§18.1a) — the retired grid heuristic no longer
-auto-recognises them, so travel lighting will not fire until he does.
+auto-recognises them, so travel lighting will not fire until he does. **Pre-launch (wider than
+his own table): swap `feedbackEmail`'s default to the new address the DM will open** (his call
+2026-08-20 — the Gmail default stays until then).
 
 ### 22.6 The open ledger (consolidated 2026-08-19 — the ONE list; keep it current)
 
@@ -2035,12 +2039,15 @@ actually needs):**
    handsets, the v0.2.0+ shakedown with strangers' devices.
    *(2 and 3 need no preparation from the DM today — they trigger when the hardware/humans
    arrive.)*
-4. **Crooked Moon polish** (campaign not started — no chapter urgency): **player-side CM tab
-   (§35) — DM-approved 2026-08-19, queued** (their thread, twists, curses, tarot card in one
-   shell tab) · table feedback on the built suite · §33's bargain-mode reroll toggle (deferred) ·
-   `curseTable` UUID is console-set only (needs a settings row if the DM adopts the book table) ·
-   §31 v2 (midi hook to literally set the declared d20) · §32's unmined remainder (Dark Bargains,
-   lair-pulse engine, ch10–13 scene packs).
+4. **Crooked Moon polish** (campaign not started — no chapter urgency; **build order is
+   Claude's pick — DM 2026-08-20 "no preference"**): **player-side CM tab (§35) — approved
+   2026-08-19, queued** (their thread, twists, curses, tarot card in one shell tab) · **§31 v2
+   twist auto-apply — APPROVED 2026-08-20 ("yes")**: on the DM's Apply, force the declared 1/20
+   onto that creature's next qualifying d20 instead of by-hand · table feedback on the built
+   suite · §33's bargain-mode reroll toggle (deferred) · `curseTable` UUID is console-set only
+   (settings row only if the DM adopts the book table — he was shown our d100's contents
+   2026-08-20, decision open) · §32's unmined remainder (Dark Bargains, lair-pulse engine,
+   ch10–13 scene packs).
 5. **Backlog (DM-pruned 2026-08-09 — this list, nothing re-added unasked):**
    - PM extras (§27.4): group notes · push-to-sleeping-phone.
    - Effects extras (§26.5, APPROVED): per-effect volume → surround thunder → more looks
@@ -3378,8 +3385,9 @@ the ch12 boss). The DM may grant more at will.
   fate-twist chat card (table theater — everyone should see fate snap); [Dismiss] refunds.
   The DM applies the declared die to the roll by hand v1 — no midi workflow surgery.
 - DM panel (Crooked Moon tab, §35): per-PC counters with +/− grant/revoke.
-- v2 (backlog): midi hook that literally sets the next roll's d20 for the chosen creature so
-  automated saves/attacks resolve with the declared die.
+- v2 ~~(backlog)~~ **APPROVED (DM 2026-08-20: "yes")**: midi hook that literally sets the next
+  roll's d20 for the chosen creature so automated saves/attacks resolve with the declared die —
+  armed by the DM's Apply, one-shot, in the §22.6 CM queue.
 
 **Slice B BUILT + bench-verified 2026-07-28.** Shell: dashed chip (crossed-arrows mark, ×N,
 pulses while a spend waits) → inline spend panel under the condition strip (rule text, big
