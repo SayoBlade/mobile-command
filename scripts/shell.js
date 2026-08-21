@@ -10,6 +10,7 @@ import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCa
 import { masteryOf, masteryReminder } from "./masteries.js"; // §45 weapon mastery reminder
 import { watchScroll, captureScrolls, restoreScrolls, sameHTML } from "./repaint.js"; // §46 don't jump
 import { openFeedback } from "./feedback.js"; // §48 report a bug from the phone
+import { isEmberWorld, emberReady, EMBER_CREATION_SHEET } from "./campaigns.js"; // §50 Ember: creation door + rest copy
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -824,6 +825,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Start screen: blank PC → only Create Character (the header carries the switcher
   // to move between owned PCs, some of which may already be built).
   #charGenStartHTML(actor) {
+    // §50.7: an Ember world creates heroes through EMBER'S OWN fullscreen creator (ancestry →
+    // class → culture → path → attunement → the token maker) — our checklist/wizard would build
+    // a PC outside the campaign's rules, so the one door here is Ember's ("try the original",
+    // DM 2026-08-21). The widget is sized for big screens; on a phone we scale it to fit
+    // (campaigns.js), which reads best sideways — say so up front.
+    if (isEmberWorld() && emberReady()) {
+      return this.#charGenHeaderHTML(actor, "New hero")
+        + `<div class="mc-cg-start">
+            <i class="fas fa-fire mc-cg-bigicon"></i>
+            <div class="mc-cg-blurb">This world makes heroes its own way — ancestry, class, culture, path, and your look.</div>
+            <button class="mc-cg-create" data-action="ember-create"><i class="fas fa-wand-magic-sparkles"></i> Create your hero</button>
+            <div class="mc-cg-hint">Small screen? Turn your phone sideways — it fits better.</div>
+          </div>`;
+    }
     // Two doors (§38.4a): Quick build = the checklist as it's always been; the Story wizard =
     // guided order with a story beat after each step, feeding the card table on the TV.
     return this.#charGenHeaderHTML(actor, "New character")
@@ -833,6 +848,29 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           <button class="mc-cg-create" data-action="char-gen-wizard"><i class="fas fa-feather"></i> Build with your story</button>
           <button class="mc-cg-create mc-cg-quick" data-action="char-gen-start"><i class="fas fa-hammer"></i> Quick build</button>
         </div>`;
+  }
+
+  // §50.7: open Ember's character creation for the current blank PC, full-screen, and get the
+  // shell out of its way. The shell (z 9999) covers Ember's fullscreen apps (z 30), so it HIDES
+  // while creation runs — the file-scope closeEmberCharacterCreationSheet hook below restores
+  // it whether creation completed, was exited, or the sheet died. Ember normally stamps every
+  // new character's sheetClass itself at preCreateActor; the write here only repairs an actor
+  // made before Ember was enabled (owner permission suffices — it's a flag on our own actor).
+  async #openEmberCreation() {
+    const actor = this.actor; if (!actor) return;
+    if (actor.getFlag("ember", "characterCreation")) return; // already a finished hero — the blank check shouldn't let us here
+    try {
+      if (actor.getFlag("core", "sheetClass") !== EMBER_CREATION_SHEET) {
+        await actor.setFlag("core", "sheetClass", EMBER_CREATION_SHEET);
+        actor._sheet = undefined; // drop the cached sheet so the class change takes
+      }
+      this.element?.style?.setProperty("display", "none"); // yield BEFORE render — no flash of shell-behind
+      await actor.sheet.render(true);
+    } catch (e) {
+      console.warn(`${MODULE_ID} | Ember creation failed to open`, e);
+      this.element?.style?.removeProperty("display");
+      ui.notifications?.warn?.("Ember's character creator didn't open — tell the DM.");
+    }
   }
 
   // --- Story wizard (§38.4a): guided order, a beat after each step, lockstep with the TV ----
@@ -3664,7 +3702,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     </${tag}>`;
   }
 
+  // §50.6: dnd5e's "Allow Player Rests" gate (Ember forces it OFF — rests happen through the
+  // campaign's own flow). The system's own sheets HIDE their rest buttons for non-GMs then, and
+  // calling longRest() anyway just warns and does nothing — so mirror the system's rule
+  // ([[copy-foundry-flows]]) instead of showing two buttons that lie.
+  #selfRestsAllowed() {
+    try { return game.user.isGM || game.settings.get("dnd5e", "allowRests") !== false; } catch (e) { return true; }
+  }
   #restsHTML() {
+    if (!this.#selfRestsAllowed()) {
+      return `<div class="mc-section-label">Rest</div>
+      <div class="mc-rests-gated">Resting here happens through the story — the DM calls it${isEmberWorld() ? ", usually when you make camp" : ""}.</div>`;
+    }
     return `<div class="mc-section-label">Rest</div>
     <div class="mc-rests">
       <button class="mc-rest" data-action="short-rest"><i class="fas fa-mug-hot"></i> Short Rest</button>
@@ -6783,6 +6832,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#rollDiceTray();
       case "char-gen-start":
         return this.#startCharGen();
+      case "ember-create": // §50.7: the one door in Ember worlds — the campaign's own creator
+        return this.#openEmberCreation();
       case "char-gen-wizard": {
         // The Story-wizard door (§38.4a): same start as Quick build, plus the wizard flag —
         // persisted on the actor so a reload resumes the guided flow, not the checklist.
@@ -7358,6 +7409,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // a raw "lacks permission to update Actor" error. The shell only navigates to owned actors,
     // so this is the safety net for an ownership that drops mid-session. DM 2026-06-27.
     if (!actor.isOwner) { ui.notifications?.warn?.(`You don't have permission to rest ${actor.name}.`); return; }
+    // §50.6 safety net under the hidden buttons: dnd5e would warn-and-return anyway; say it our way.
+    if (!this.#selfRestsAllowed()) { ui.notifications?.info?.("Resting here happens through the story — ask the DM."); return; }
     const before = this.#restSnapshot(actor);
     let result;
     try { result = await (kind === "long" ? actor.longRest() : actor.shortRest()); }
@@ -8547,6 +8600,13 @@ export function registerShellHooks() {
   // (renderApplication) so no prompt (reactions, config) hides under the shell.
   Hooks.on("renderApplicationV2", liftDialogAboveShell);
   Hooks.on("renderApplication", liftDialogAboveShell);
+  // §50.7: the shell hid itself to let Ember's fullscreen creator through (it's frameless, so
+  // the lift above skips it) — bring the shell back the moment creation closes, however it
+  // closed (Complete, Exit, or a crash-close). Fires only in Ember worlds by construction.
+  Hooks.on("closeEmberCharacterCreationSheet", () => {
+    const el = shellInstance?.element;
+    if (el?.style?.display === "none") { el.style.removeProperty("display"); shellInstance.render(); }
+  });
   // Guaranteed close X for journal sheets on a phone (DM 2026-07-11): the SRD class/subclass
   // reference journal renders no visible close and traps the player. This runs on EVERY app
   // render (independent of liftDialogAboveShell, which early-returns for a frameless journal

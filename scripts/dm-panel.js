@@ -3,9 +3,10 @@ import { fireAoO } from "./aoo.js";
 import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD, STORY_QUESTIONS, TABLE_SEATS, CARD_THEMES, DEFAULT_CARD_THEME, DEFAULT_CARD_BACK } from "./preset.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
 import { runPreflight, runPreflightFix, lastResults as preflightResults, lastRunAt as preflightRunAt, preflightFailCount } from "./preflight.js";
-import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar, sunTimes } from "./gametime.js";
+import { clockLabel, isNight, readClock, hasSimpleCalendar, hasWorldCalendar, toggleSimpleCalendar, sunTimes } from "./gametime.js";
 import { runDmWizard } from "./dm-wizard.js";
-import { startCombatWithMusic } from "./combat-music.js";
+import { startCombatWithMusic, combatMusicMode } from "./combat-music.js";
+import { emberSky } from "./campaigns.js"; // §50 campaign recognition: Ember runs music/rests/calendar
 import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist, isOnlineTable } from "./settings.js";
 import { FX_TABS, FX_DEFS, FX_VOLUME_KEYS, fxActiveMap, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js"; // §26 Effects tab (+ §26.5 loudness keys)
 import { FATE_THREADS, FATE_STEPS, applyFateReward } from "./fateweaving.js"; // §34 Fateweaving tracker
@@ -2577,7 +2578,13 @@ function combatHTML() {
     const cur = (() => { try { return game.settings.get(MODULE_ID, "combatBattleTrack") || ""; } catch (e) { return ""; } })();
     const pl = combatMusicPlaylist();
     const sounds = pl ? pl.sounds.contents.slice().sort((a, b) => a.name.localeCompare(b.name)) : [];
-    if (!pl) {
+    if (combatMusicMode() === "ember") {
+      // §50.3: Ember picks themed battle music from what you're fighting and swaps it as the
+      // fight turns. Our takeover would silence its channels for the whole combat, so the app
+      // stands down — say so instead of showing a picker that would do nothing.
+      staging = `<label class="mc-dmp-battle-lbl"><i class="fas fa-music"></i> Battle music</label>
+        <div class="mc-dmp-empty">Ember plays themed battle music on its own for this world.</div>`;
+    } else if (!pl) {
       staging = `<label class="mc-dmp-battle-lbl"><i class="fas fa-music"></i> Battle music</label>
         <div class="mc-dmp-empty">Set a <b>Combat-music playlist</b> in Settings to pick a battle track.</div>`;
     } else {
@@ -4614,6 +4621,66 @@ async function onClick(ev) {
     // SC keeps the time, so the chip toggles its calendar (a second tap closes it) instead of the
     // old dead "set it there" notice (DM 2026-07-24).
     if (hasSimpleCalendar()) { toggleSimpleCalendar(); return; }
+    // §50.4: a world calendar (Ember's, or any system's) owns the label, so re-anchoring our
+    // clockStart would change nothing — here setting the time MOVES worldTime (advance, which
+    // may be negative: Ember's own controls rewind too, and its engines are built for it). In
+    // an Ember world the same card carries the sky — sun, the six moons, the three realms —
+    // the "moons and effects" the DM asked onto the clock (2026-08-21).
+    if (hasWorldCalendar()) {
+      const cal = game.time.calendar;
+      const o = cal.timeToComponents(game.time.worldTime);
+      const spm = Number(cal.days?.secondsPerMinute) || 60;
+      const sph = spm * (Number(cal.days?.minutesPerHour) || 60);
+      const spd = sph * (Number(cal.days?.hoursPerDay) || 24);
+      const sky = emberSky();
+      const esc = foundry.utils.escapeHTML;
+      const skyHTML = !sky ? "" : `<div class="mc-dmp-sky">
+        <div class="mc-dmp-sky-row"><i class="fas fa-${sky.sunPhase === "night" ? "moon" : sky.sunPhase === "day" ? "sun" : "cloud-sun"}"></i>
+          <b>${esc(sky.sunLabel)}</b>${sky.season ? ` · ${esc(sky.season)}` : ""}</div>
+        <div class="mc-dmp-sky-moons">${sky.moons.map((m) => `
+          <span class="mc-dmp-moon ${m.lit ? "" : "mc-dark"}" title="${esc(m.name)} — ${esc(m.label)}">
+            <span class="mc-dmp-moon-dot" style="background:${esc(m.color)}"></span>${esc(m.name)}
+            <span class="mc-dmp-moon-phase">${esc(m.label)}</span></span>`).join("")}</div>
+        ${sky.realms.length ? `<div class="mc-dmp-sky-realms">${sky.realms.map((r) =>
+          `<span class="mc-dmp-realm ${r.lit ? "mc-lit" : ""}">${esc(r.name)} · ${esc(r.label)}</span>`).join("")}</div>` : ""}
+        <div class="mc-dmp-sky-hint">Full moons colour the night and stir what wanders.</div>
+      </div>`;
+      const row = (key, label, val, max) => `<div class="mc-dmp-tset-row">
+        <span class="mc-dmp-tset-lbl">${label}</span>
+        <button type="button" class="mc-dmp-tset-b" data-step="${key}" data-d="-1"><i class="fas fa-minus"></i></button>
+        <input class="mc-dmp-tset-in" name="${key}" value="${val}" data-max="${max}" data-base="0" inputmode="numeric" readonly>
+        <button type="button" class="mc-dmp-tset-b" data-step="${key}" data-d="1"><i class="fas fa-plus"></i></button>
+      </div>`;
+      const start = { day: o.dayOfMonth + 1, hour: o.hour, minute: o.minute };
+      const result = await foundry.applications.api.DialogV2.wait({
+        window: { title: "The clock and the sky" },
+        content: `${skyHTML}<div class="mc-dmp-tset">
+          ${row("day", "Day", start.day, 0)}
+          ${row("hour", "Hour", start.hour, (Number(cal.days?.hoursPerDay) || 24))}
+          ${row("minute", "Minute", start.minute, (Number(cal.days?.minutesPerHour) || 60))}
+        </div>`,
+        buttons: [ // bible §4.1.1: right is forward
+          { action: "cancel", label: "Cancel" },
+          { action: "set", label: "Set", default: true, callback: (_e, btn) => ({
+              day: Number(btn.form.elements.day.value), hour: Number(btn.form.elements.hour.value), minute: Number(btn.form.elements.minute.value) }) }
+        ],
+        render: (_e, dialog) => {
+          dialog.element.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", (e) => {
+            e.preventDefault();
+            const inp = dialog.element.querySelector(`input[name="${b.dataset.step}"]`);
+            const max = Number(inp.dataset.max);
+            let v = Number(inp.value) + Number(b.dataset.d);
+            if (max > 0) v = ((v % max) + max) % max; // wrap hour/minute inside the calendar's day
+            inp.value = v;                            // day steps free — negative = rewind
+          }));
+        }
+      }).catch(() => null);
+      if (result && typeof result === "object") {
+        const delta = ((result.day - start.day) * spd) + ((result.hour - start.hour) * sph) + ((result.minute - start.minute) * spm);
+        if (delta && game.user.isGM) await game.time.advance(delta); // updateWorldTime re-renders (and Ember's sky follows)
+      }
+      return;
+    }
     const c = readClock();
     // Day / Hour / Minute steppers. SET (re-anchors clockStart so no time "passes" and no effects
     // fire) vs the chip's ±10 which PASSES time. − / + bump each field; wrap hour/minute, floor day.

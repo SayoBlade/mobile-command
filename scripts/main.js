@@ -14,6 +14,7 @@ import { registerAoO } from "./aoo.js";
 import { setupCalendarSkin } from "./gametime.js";
 import { registerFog, refreshFog } from "./fog-soft.js";
 import { registerCombatMusic } from "./combat-music.js";
+import { registerCampaigns } from "./campaigns.js"; // §50 campaign recognition (Ember creation fit-shim)
 import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "./camera-frame.js";
 import { registerFxEngine } from "./effects.js"; // §26 Effects tab engine
 import { cardTableRefreshMode } from "./card-table.js"; // §39: re-lay the board when the table mode changes
@@ -823,6 +824,7 @@ Hooks.once("ready", () => {
   registerAoO(); // opportunity-attack movement watcher (executor-gated inside; see aoo.js)
   registerFog(); // fog-of-war edge styles on the display (off/soft/gpu via `fogStyle`; see fog-soft.js)
   registerCombatMusic(); // per-PC themes + battle track over combat turns (primary GM drives; see combat-music.js)
+  registerCampaigns();   // §50: Ember's creation sheet gets the small-screen fit-shim (no-op elsewhere)
 
   globalThis.MobileCommand = {
     ...api,

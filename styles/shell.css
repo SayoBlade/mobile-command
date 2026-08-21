@@ -1315,6 +1315,8 @@ body {
 .mc-cg-start { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 36px 20px; text-align: center; }
 .mc-cg-bigicon { font-size: 46px; color: var(--mc-gold); opacity: .9; }
 .mc-cg-blurb { color: var(--mc-muted); font-size: 14px; line-height: 1.5; max-width: 18em; }
+/* §50.7: the small print under the Ember door — the widget reads best in landscape. */
+.mc-cg-hint { color: var(--mc-muted); font-size: 12px; line-height: 1.4; max-width: 18em; opacity: .85; }
 .mc-cg-create { min-height: 54px; padding: 14px 24px; border-radius: calc(12px * var(--mc-round, 1)); font-size: 17px; font-weight: 800;
   background: #2a4634; border: 1px solid #2f5d39; color: var(--mc-ink); display: inline-flex; align-items: center; gap: 9px; }
 .mc-cg-create:active { background: #335640; }
@@ -1693,6 +1695,11 @@ body {
   color: var(--mc-ink); font-size: 14px; font-weight: 600;
 }
 .mc-rest:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
+/* §50.6: the world disallows self-serve rests (Ember calls them through the story) — one quiet
+   explaining line where the two buttons were, same slot, no dead controls (bible §4). */
+.mc-rests-gated { margin-top: 8px; padding: 12px 14px; border-radius: calc(10px * var(--mc-round, 1));
+  background: var(--mc-panel); border: 1px dashed var(--mc-edge); color: var(--mc-muted);
+  font-size: 13px; line-height: 1.45; }
 .mc-rest i { color: var(--mc-gold); }
 
 /* Use pick list (Explore tab; opened by the D-pad Use hand). */
@@ -4322,6 +4329,20 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-tset-b { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; color: var(--mc-ink); background: var(--mc-panel-2); border: 1px solid var(--mc-edge); }
 .mc-dmp-tset-b:hover { border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-dmp-tset-in { flex: 0 0 52px; width: 52px; text-align: center; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; padding: 5px 0; border-radius: 8px; background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge); }
+/* §50.4: the sky block atop the clock card in Ember worlds — sun + season, the six moons with
+   their own colours and phases, the three realms. Read-only; the steppers below set the time. */
+.mc-dmp-sky { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; padding: 10px 12px;
+  border-radius: 10px; background: var(--mc-sunken); border: 1px solid var(--mc-edge); }
+.mc-dmp-sky-row { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--mc-ink); }
+.mc-dmp-sky-moons { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.mc-dmp-moon { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mc-ink); }
+.mc-dmp-moon.mc-dark { opacity: .45; }
+.mc-dmp-moon-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto;
+  box-shadow: 0 0 6px 0 currentColor; border: 1px solid rgba(255, 255, 255, .25); }
+.mc-dmp-moon-phase { color: var(--mc-muted); }
+.mc-dmp-sky-realms { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12px; color: var(--mc-muted); }
+.mc-dmp-realm.mc-lit { color: var(--mc-gold); }
+.mc-dmp-sky-hint { font-size: 11px; color: var(--mc-muted); opacity: .8; }
 
 /* (.mc-dmp-pause removed 2026-07-17 — Pause + Show left the DM window; nothing renders it.) */
 /* The Players picker follows §3 too: the ICON carries the player's colour, the NAME sits in the

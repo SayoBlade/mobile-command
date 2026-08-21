@@ -2,6 +2,7 @@ import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK } from "./preset.js";
 import { readClock, sunTimes } from "./gametime.js";
 import { isExecutor } from "./settings.js";
 import { isDruskScene, druskDarkness } from "./druskenvald.js"; // §43 the same loop, a second curve
+import { campaignManagedScene } from "./campaigns.js"; // §50.5 Ember owns the sky on its own scenes
 
 // §41 THE CLOCK ACTUALLY DRIVES THE LIGHT (DM report 2026-08-09: "I don't see any change in
 // lighting over time, am I doing something wrong?" — no).
@@ -92,6 +93,7 @@ export async function applyDaylight(scene, { animate = null, force = false } = {
     const env = scene._source?.environment ?? scene.environment ?? {};
     if (env.darknessLock) return false;                              // the DM froze this map
     if (scene.getFlag(MODULE_ID, "daylightHold")) return false;      // the DM is driving it by hand
+    if (campaignManagedScene(scene)) return false;                   // §50.5: Ember's sun runs its own scenes — two hands, one dial
     const want = darknessNow(scene);
     const have = Number(env.darknessLevel) || 0;
     if (Math.abs(want - have) <= MIN_STEP) return false;

@@ -17,6 +17,7 @@
 // time of day — which is why "show the current game-time" had no source before this file existed.
 
 import { MODULE_ID } from "./preset.js";
+import { emberSun } from "./campaigns.js";
 
 const DAY = 86400;
 
@@ -79,6 +80,46 @@ export function setupCalendarSkin() {
   });
 }
 
+/** §50.4 (Ember dive, 2026-08-21): the SECOND backend — Foundry v14's own world calendar.
+ *  A system or campaign module (Ember replaces CONFIG.time.worldCalendarClass; core keeps the
+ *  instance at game.time.calendar and feeds it every worldTime change itself) is a deliberate
+ *  statement about what dates MEAN in this world, so when SC is absent we read it before
+ *  falling back to our own Day-N clock. The untouched core DEFAULT ("Simplified Gregorian",
+ *  plain CalendarData) is NOT such a statement — worlds with no calendar of their own keep our
+ *  Day-N label and the DM's clockStart anchoring exactly as before. */
+function coreCalendar() {
+  try {
+    const c = game.time?.calendar;
+    if (!c?.months?.values?.length || !c?.days?.hoursPerDay) return null;
+    const isDefault = (c.constructor === foundry.data.CalendarData) && (c.name === "Simplified Gregorian");
+    return isDefault ? null : c;
+  } catch (e) { return null; }
+}
+
+/** Does a deliberate world calendar keep this world's dates? (The panel's chip tap branches on
+ *  this: setting the time must MOVE worldTime — the calendar owns the label, clockStart is
+ *  meaningless there.) */
+export function hasWorldCalendar() {
+  return !!coreCalendar();
+}
+
+/** Read worldTime through the world calendar: "47 Blooming 2523 · 22:00" in an Ember world.
+ *  Built generically from components + month names so ANY custom calendar renders; day is the
+ *  day of the month (0-based in components, 1-based on screen). */
+function coreClock(ts) {
+  const cal = coreCalendar();
+  const o = cal.timeToComponents(Math.max(0, Math.floor(Number(ts) || 0)));
+  const monthName = (() => {
+    try { return game.i18n.localize(cal.months.values[o.month]?.name ?? "") || ""; } catch (e) { return ""; }
+  })();
+  const time = `${String(o.hour ?? 0).padStart(2, "0")}:${String(o.minute ?? 0).padStart(2, "0")}`;
+  const date = [`${(o.dayOfMonth ?? 0) + 1}`, monthName, `${o.year ?? ""}`].filter(Boolean).join(" ");
+  return {
+    day: (o.day ?? 0) + 1, hour: o.hour ?? 0, minute: o.minute ?? 0,
+    time, date, label: [date, time].filter(Boolean).join(" · "), source: "core-calendar"
+  };
+}
+
 /** Our clock's zero: the offset (in seconds) added to worldTime to get game time. Encodes a full
  *  date, not just a time of day, so the DM can re-anchor to any Day·HH:MM. SC ignores it. */
 function startOffset() {
@@ -119,6 +160,10 @@ export function readClock(ts = game.time?.worldTime ?? 0) {
       console.warn(`${MODULE_ID} | Simple Calendar read failed — falling back to our own clock`, e);
     }
   }
+  if (hasWorldCalendar()) {
+    try { return coreClock(ts); }
+    catch (e) { console.warn(`${MODULE_ID} | world-calendar read failed — falling back to our own clock`, e); }
+  }
   return ownClock(ts);
 }
 
@@ -138,6 +183,12 @@ export function isNight(ts = game.time?.worldTime ?? 0) {
       if (Number.isFinite(sunrise) && Number.isFinite(sunset)) return now < sunrise || now >= sunset;
     } catch (e) { /* fall through */ }
   }
+  // Ember keeps a real sun: phase "night" is exactly its [before 05:00 / after 19:00] band, and
+  // sun.animate(ts) computes any timestamp without touching the live sky (§50.4).
+  const sun = emberSun();
+  if (sun) {
+    try { return sun.animate(Number(ts) || 0).phase === "night"; } catch (e) { /* fall through */ }
+  }
   const h = readClock(ts).hour;
   return h >= 18 || h < 6;
 }
@@ -149,7 +200,14 @@ export function isNight(ts = game.time?.worldTime ?? 0) {
  *  falls back to a plain 06:00/18:00, because a broken calendar must never break the lighting.
  *  Returns {} when there's no calendar, which the curve reads as "use the defaults". */
 export function sunTimes(ts = game.time?.worldTime ?? 0) {
-  if (!hasSimpleCalendar()) return {};
+  if (!hasSimpleCalendar()) {
+    // Ember's sun eases dawn 05–09 and twilight 17–21 (its getDarkness curve) — the midpoints
+    // are the honest sunrise/sunset for our §18.4 day/night curve. (On Ember-MANAGED scenes the
+    // daylight writer stands down entirely, §50.5 — this feeds the DM's own maps and the travel
+    // day/night bands in Ember worlds.)
+    if (emberSun()) return { sunrise: 7, sunset: 19 };
+    return {};
+  }
   try {
     const day = SimpleCalendar.api.timestampToDate(Number(ts) || 0);
     const asHour = (stamp) => {

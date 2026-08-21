@@ -13,6 +13,7 @@ import { MODULE_ID, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD } from "./
 import { resolveExecutorId, isOverworldScene, isOnlineTable } from "./settings.js";
 import { diffPreset, applyPreset } from "./enforcer.js";
 import { actorTokenSight } from "./rpc.js";
+import { isEmberWorld } from "./campaigns.js"; // §50.8: campaign-aware advisories
 
 export let lastResults = null; // null until the first run; then Check[]
 export let lastRunAt = null;
@@ -354,15 +355,31 @@ function checkTravelLighting() {
   };
 }
 
+// §50.8: name the campaign module that runs parts of this world, and what the app hands over
+// to it — so the DM reads WHY combat music/rests/daylight behave differently here, instead of
+// hunting for a bug. Returns nothing in plain worlds (the runner skips falsy rows).
+function checkCampaign() {
+  if (!isEmberWorld()) return null;
+  return {
+    id: "campaign", label: "Campaign module", status: "ok",
+    detail: "Ember runs this world. It plays its own combat and ambience music, calls rests through the story, "
+      + "keeps the calendar (the clock chip reads it), and drives light on its own maps — this app steps back from "
+      + "all four there. Character creation on phones opens Ember's own creator."
+  };
+}
+
 // ── Runner ──────────────────────────────────────────────────────────────────
 
 export async function runPreflight() {
-  const checks = [checkExecutor, checkDisplayAccount, checkPresetDrift, checkPromptRouting,
+  const checks = [checkCampaign, checkExecutor, checkDisplayAccount, checkPresetDrift, checkPromptRouting,
     checkTokenSight, checkPartyGroup, checkTeleportRegions, checkTravelLighting, checkModuleStack,
     checkAutomationPrereqs];
   const out = [];
   for (const fn of checks) {
-    try { out.push(await fn()); }
+    try {
+      const r = await fn();
+      if (r) out.push(r); // a check may answer "not relevant in this world" with null
+    }
     catch (e) {
       console.error(`${MODULE_ID} | preflight check ${fn.name} threw`, e);
       out.push({ id: fn.name, label: fn.name.replace(/^check/, ""), status: "warn", detail: `Check errored: ${e.message}` });

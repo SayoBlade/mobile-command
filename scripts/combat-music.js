@@ -18,6 +18,7 @@
 // staging from the `combatMusicPlaylist` (set in mod settings / the onboarding wizard).
 
 import { MODULE_ID } from "./preset.js";
+import { isEmberWorld } from "./campaigns.js";
 
 let _combatPlaying = null; // the Playlist or PlaylistSound combat music is currently playing (to stop on switch)
 let _resumeAfter = [];     // PlaylistSound uuids that were playing BEFORE combat, to resume when it ends
@@ -38,6 +39,23 @@ function serialize(fn) { const p = _lock.then(fn, fn); _lock = p.catch(() => {})
 
 function battleTrackUuid() {
   try { return game.settings.get(MODULE_ID, "combatBattleTrack") || ""; } catch (e) { return ""; }
+}
+
+/** Who drives combat music in this world (§50.3). "ember": the Ember campaign module runs its
+ *  own themed combat soundscapes AND treats its channels' `playing` flags as GM master switches
+ *  it never re-asserts — our takeover would leave the whole combat DEAD SILENT, so we stand
+ *  down entirely ("let ember control music", DM 2026-08-21). "unconfigured": no battle track
+ *  and no PC has an anthem — there is nothing to play, so taking over would only pause the
+ *  room's ambience for silence (this bit EVERY unconfigured world, not just Ember's).
+ *  "ours": the takeover model as designed. Exported for the panel's staging row and tests. */
+export function combatMusicMode() {
+  if (isEmberWorld()) return "ember";
+  const anyTheme = (() => {
+    try { return game.actors.some((a) => a.type === "character" && a.getFlag(MODULE_ID, "combatTheme")); }
+    catch (e) { return false; }
+  })();
+  if (!battleTrackUuid() && !anyTheme) return "unconfigured";
+  return "ours";
 }
 
 // Reconfigure a combat track before playing it: a PC anthem must LOOP (DM 2026-07-25: "player's
@@ -139,6 +157,7 @@ async function play(uuid) {
 
 async function startCombatMusic() {
   if (!isMusicDriver() || !game.combat || _active) return;
+  if (combatMusicMode() !== "ours") return; // §50.3: Ember's world, or nothing configured — don't touch the room's audio
   _active = true; // set FIRST so a racing updateCombat waits for us (it guards on _active)
   // Take over: remember + pause everything currently playing, to resume on combat end.
   _resumeAfter = [];
@@ -211,7 +230,7 @@ export function registerCombatMusic() {
   // re-arm directly — a Hooks.once("ready") here would register after ready and never fire.
   // (_resumeAfter is gone for good on a reload — the pre-combat ambience won't auto-resume
   // after combat; an accepted cost of reloading.)
-  if (isMusicDriver() && game.combat?.started) {
+  if (isMusicDriver() && game.combat?.started && combatMusicMode() === "ours") {
     serialize(async () => {
       if (_active) return;
       _active = true;
