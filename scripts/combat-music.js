@@ -186,16 +186,24 @@ export function registerCombatMusic() {
   // (stopCurrent nulls _combatPlaying first, so "still ours + playing:false" = not us —
   // the file ended un-looped, failed to load, someone clicked the playlist…), put the
   // right track back on. This is the safety net under the play() liveness check above.
-  // Playback state rides the PARENT playlist update as an embedded `sounds` delta —
-  // updatePlaylistSound never fires for play/stop (verified live, 14.363).
+  // Playback state rides the PARENT playlist update as an embedded `sounds` delta when it
+  // comes through Foundry's own UI (verified live, 14.363) — but a DIRECT API write to the
+  // embedded PlaylistSound (another module, a macro) fires updatePlaylistSound INSTEAD, so
+  // both doors are watched (§28.5.6 watch-note, hardened 2026-08-21). Both funnel into the
+  // same serialized heal; a second event for the same stop finds _combatPlaying already
+  // null (or re-pointed) and drops out.
+  const oursNow = (id) => {
+    const cur = _combatPlaying;
+    return !!cur && (cur.documentName === "PlaylistSound" ? id === cur.id : !!cur.sounds?.has?.(id));
+  };
+  const heal = () => serialize(() => { _combatPlaying = null; return play(trackForActive()); });
   Hooks.on("updatePlaylist", (doc, ch) => {
     if (!isMusicDriver() || !_active || !Array.isArray(ch.sounds)) return;
-    const cur = _combatPlaying;
-    if (!cur) return;
-    const curId = cur.documentName === "PlaylistSound" ? cur.id : null;
-    const stoppedOurs = ch.sounds.some(s => s.playing === false
-      && (curId ? s._id === curId : cur.sounds?.has?.(s._id)));
-    if (stoppedOurs) serialize(() => { _combatPlaying = null; return play(trackForActive()); });
+    if (ch.sounds.some(s => s.playing === false && oursNow(s._id))) heal(); // one heal per event, as before
+  });
+  Hooks.on("updatePlaylistSound", (doc, ch) => {
+    if (!isMusicDriver() || !_active || ch.playing !== false) return;
+    if (oursNow(doc.id)) heal();
   });
   // Reload resilience: this module state is per-client memory — a mid-combat reload of the
   // DM client forgot _active, so turn changes stopped driving music entirely (and combat

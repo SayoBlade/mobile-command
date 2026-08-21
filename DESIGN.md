@@ -2038,8 +2038,12 @@ actually needs):**
    without people**: automation pane as Player 1 + the DM's own Chrome as Player 2 (prompt
    relays, transfers, cross-player denial) · a deliberate **cover-geometry pass** (a wall giving
    half cover shifting the hit-check AC) · the **utility-item effect ghost** (the June Cloak
-   case) · feedback **mailto vs a real mail client** · tiny hardening: an `updatePlaylistSound`
-   listener so even embedded-path stops self-heal (§28.5.6 watch-note).
+   case) · feedback **mailto vs a real mail client** · ~~tiny hardening: an `updatePlaylistSound`
+   listener so even embedded-path stops self-heal~~ — **BUILT 2026-08-21** (both doors watched,
+   one shared serialized heal; the §28.4 music matrix re-covers it at the next bench) · NEW
+   bench legs from today's builds: **§31-v2 panel pick + forced ATTACK through midi** · **§44
+   deeds through a real workflow** · **§28.5.6 AoE leg re-run** (slot picked on the phone, no
+   executor dialog) · **paralyzed auto-crit on current AC5E** (§28.6 item 4 re-scope).
 2. **Parked until the TV-TABLE exists ("the first-session shakedown"):** everything by eye and
    by ear in §22.4 — motion on the real screen, all cues through real speakers, seat rotations
    physically, settings app on the real display, camera/fog/POV on the real TV, mute-the-room.
