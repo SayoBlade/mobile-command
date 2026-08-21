@@ -226,7 +226,7 @@ function staticLocal(level = 0.65) {
   d.style.setProperty("--fxk", String(0.3 + 0.7 * k));
   d.style.animationDuration = `${0.35 + 0.65 * k}s`;
   try { navigator.vibrate?.(k < 0.35 ? [30] : k < 0.7 ? [40, 30, 80] : [40, 30, 80, 30, 40]); } catch (e) { /* not supported */ }
-  const out = audioOut();
+  const out = audioOut("static");
   if (!out) return;
   const { ctx, dest } = out;
   const src = noiseSource(ctx, false);
@@ -253,12 +253,51 @@ function staticLocal(level = 0.65) {
 const noiseBuffers = new WeakMap(); // AudioContext -> 2s white-noise buffer, built once
 const brownBuffers = new WeakMap(); // AudioContext -> 2s brown-noise buffer, built once
 
+// §26.5 per-effect volume. Every sound this file makes was hand-tuned once; these keys let the
+// DM push each one up or down from that tuning AT HIS TABLE without re-tuning code. The keys
+// are the PANEL rows a DM would look at, not internal sound names: "lightning" owns thunder
+// (the Lightning button AND the storm's rolled strikes both arrive through it), "heartbeat"
+// also scales §26.7's deathbeat (same lub-dub). Visual-only effects have no key on purpose.
+export const FX_VOLUME_KEYS = ["rain", "rainStorm", "blizzard", "dust", "lightning", "bell", "heartbeat", "static"];
+
+// 1 = the tuned level; 0..2 so the DM can silence or double. Missing key = 1.
+export function fxVolume(id) {
+  try {
+    const v = Number((game.settings.get(MODULE_ID, "fxVolumes") ?? {})[id]);
+    return Number.isFinite(v) ? Math.max(0, Math.min(2, v)) : 1;
+  } catch (e) { return 1; }
+}
+
+// One GainNode per effect, sitting between that effect's sounds and the ambient bus — the
+// single seam every maker already passes through (audioOut). Cached per context; a rebuilt
+// audio context (relock/unlock) just mints fresh taps.
+const volumeTaps = new Map(); // fx id -> { ctx, node }
+
+export function applyFxVolumes() {
+  for (const [id, tap] of volumeTaps) {
+    try { tap.node.gain.setTargetAtTime(fxVolume(id), tap.ctx.currentTime, 0.05); }
+    catch (e) { volumeTaps.delete(id); } // context died — next audioOut rebuilds
+  }
+}
+
 // Foundry's ambient channel: an AudioContext whose gainNode tracks the Ambient volume
 // slider. Null until the first user gesture unlocks audio (core AudioHelper).
-function audioOut() {
+// Pass the effect's PANEL id to route through its volume tap (§26.5); bare calls keep the
+// raw bus (CM sounds keep their own tuning until they grow keys of their own).
+function audioOut(fxId) {
   const a = game.audio;
   if (!a || a.locked || !a.environment?.gainNode) return null;
-  return { ctx: a.environment, dest: a.environment.gainNode };
+  const ctx = a.environment;
+  if (!fxId) return { ctx, dest: ctx.gainNode };
+  let tap = volumeTaps.get(fxId);
+  if (!tap || tap.ctx !== ctx) {
+    const node = ctx.createGain();
+    node.gain.value = fxVolume(fxId);
+    node.connect(ctx.gainNode);
+    tap = { ctx, node };
+    volumeTaps.set(fxId, tap);
+  }
+  return { ctx, dest: tap.node };
 }
 
 let audioRetryQueued = false;
@@ -360,7 +399,7 @@ const SOUND_MAKERS = {
 // sweep for chest weight on speakers that can reach it. delayMs ≈ distance; scale (0..1) is how
 // far away it FEELS — the storm's ambient strikes come in at 0.4.
 function playThunder(delayMs, scale = 1) {
-  const out = audioOut();
+  const out = audioOut("lightning"); // §26.5: one key for thunder — the button and the storm's strikes alike
   if (!out) return; // pre-gesture — a silent strike beats a console error
   const { ctx, dest } = out;
   const t0 = ctx.currentTime + delayMs / 1000;
@@ -425,7 +464,7 @@ function playThunder(delayMs, scale = 1) {
 // nominal — each dying at its own rate, plus a noise thud at the strike. Low fundamental,
 // long decay: a bell you hear with your chest.
 function playBell() {
-  const out = audioOut();
+  const out = audioOut("bell");
   if (!out) return;
   const { ctx, dest } = out;
   const t0 = ctx.currentTime + 0.02;
@@ -576,7 +615,7 @@ function unmountFilter(id) {
 
 function startLoop(id, def) {
   if (activeLoops.has(id)) return;
-  const out = audioOut();
+  const out = audioOut(id); // §26.5: the loop rides its own effect's volume tap
   if (!out) { queueAudioRetry(); return; }
   try { activeLoops.set(id, SOUND_MAKERS[def.sound](out.ctx, out.dest)); }
   catch (e) { console.error(`${MODULE_ID} | fx sound ${id} failed to start`, e); }
@@ -599,7 +638,7 @@ function stopLoop(id) {
 // `strength` scales the audio only; the vibration pattern stays (a weak buzz reads as broken).
 function heartBeatOnce(strength = 1) {
   try { navigator.vibrate?.([70, 110, 50]); } catch (e) { /* not supported */ }
-  const out = audioOut();
+  const out = audioOut("heartbeat"); // §26.5: the DM's heartbeat AND the deathbeat share this key
   if (!out) return;
   const { ctx, dest } = out;
   const t0 = ctx.currentTime;
@@ -756,6 +795,7 @@ export function registerFxEngine() {
   // createSetting too — the first write of a never-stored setting isn't an update (see card-table.js).
   const onFxSetting = (s) => {
     if (s?.key === `${MODULE_ID}.fxActive` || s?.key === `${MODULE_ID}.cardTableOn`) syncFx();
+    if (s?.key === `${MODULE_ID}.fxVolumes`) applyFxVolumes(); // §26.5: running loops re-level live, every client
   };
   Hooks.on("updateSetting", onFxSetting);
   Hooks.on("createSetting", onFxSetting);

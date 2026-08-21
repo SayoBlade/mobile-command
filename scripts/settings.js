@@ -479,6 +479,16 @@ export function registerSettings() {
     default: {}
   });
 
+  // §26.5 per-effect loudness: { fxId: 0..2 }, 1 = the tuned level, missing = 1. World-scoped so
+  // every client (the TV's loops, a phone's heartbeat) plays at the level the DM set, and the
+  // panel's Loudness drawer shows what is actually stored.
+  game.settings.register(MODULE_ID, "fxVolumes", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {}
+  });
+
   // Silence the table in one tap — a break, a phone call, someone talking over the ambience.
   // Applied on the display as `game.audio.globalMute`, which zeroes all three gains and restores
   // them from the settings on unmute (core AudioHelper), so the levels above survive the round trip.

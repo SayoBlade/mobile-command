@@ -7,7 +7,7 @@ import { clockLabel, isNight, readClock, hasSimpleCalendar, toggleSimpleCalendar
 import { runDmWizard } from "./dm-wizard.js";
 import { startCombatWithMusic } from "./combat-music.js";
 import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist, isOnlineTable } from "./settings.js";
-import { FX_TABS, FX_DEFS, fxActiveMap, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js"; // §26 Effects tab
+import { FX_TABS, FX_DEFS, FX_VOLUME_KEYS, fxActiveMap, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js"; // §26 Effects tab (+ §26.5 loudness keys)
 import { FATE_THREADS, FATE_STEPS, applyFateReward } from "./fateweaving.js"; // §34 Fateweaving tracker
 import { CURSES, rollCurse, pickCurse, applyCurse, actorCurses, curseTableUuid } from "./cm-curses.js"; // §33 Chaotic Curses
 import { armTwist } from "./twists.js"; // §31 v2: Apply arms the declared face on a chosen creature
@@ -442,7 +442,26 @@ function effectsTabHTML() {
     ${dtDrawer("fxMoments", "Moments", "", grid(FX_TABS.moments))}
     ${dtDrawer("fxMagic", "Magical", "", grid(FX_TABS.magical))}
     ${dtDrawer("fxPlayer", "Player", "", fxPlayerBody())}
+    ${dtDrawer("fxLoudness", "Loudness", "", fxLoudnessBody())}
   </div>`;
+}
+
+// §26.5: one slider per sound-carrying effect. 100% is the level each sound was tuned to;
+// the range runs to 200% so a big room can push as well as pull. Same slider mechanics as
+// the display volumes: live % echo on drag, the world-setting write lands on release.
+function fxLoudnessBody() {
+  let vols = {}; try { vols = game.settings.get(MODULE_ID, "fxVolumes") ?? {}; } catch (e) { /* pre-ready */ }
+  const row = (id) => {
+    const d = FX_DEFS[id];
+    const pct = Math.round(Math.max(0, Math.min(2, Number(vols[id]) || 1)) * 100);
+    return `<div class="mc-dmp-vol mc-fxvol">
+      <div class="mc-dmp-vol-top"><span class="mc-dmp-vol-label"><i class="fas ${d.icon}"></i> ${d.label}</span><span class="mc-dmp-vol-val">${pct}%</span></div>
+      <input class="mc-dmp-vol-slider" type="range" min="0" max="200" step="5" value="${pct}" data-fx-vol="${id}" aria-label="${d.label} loudness">
+    </div>`;
+  };
+  return `${FX_VOLUME_KEYS.map(row).join("")}
+    <p class="mc-dmp-set-note">100% is the tuned level. Lightning also covers the storm's thunder;
+    Heartbeat also sets the dying heartbeat. Changes reach sounds that are already playing.</p>`;
 }
 
 // §30 the séance drawer: board toggle, who's at the board, the phrase, and the module's
@@ -3895,6 +3914,12 @@ function onInput(ev) {
     if (out) out.textContent = `${vol.value}%`;
     return;
   }
+  const fxv = ev.target.closest("[data-fx-vol]");
+  if (fxv) { // §26.5: live % echo while dragging; the world-setting write lands on `change`
+    const out = fxv.closest(".mc-dmp-vol")?.querySelector(".mc-dmp-vol-val");
+    if (out) out.textContent = `${fxv.value}%`;
+    return;
+  }
   const fex = ev.target.closest("[data-fog-explored]");
   if (fex) { // live % echo while dragging; the world-setting write lands on `change` (release)
     const out = fex.closest(".mc-dmp-vol")?.querySelector(".mc-dmp-vol-val");
@@ -3941,6 +3966,16 @@ function onChange(ev) {
     const next = { music: 0.5, ambient: 0.5, interface: 0.5, ...(tvVolume() || {}) };
     next[vol.dataset.tvVol] = Math.max(0, Math.min(1, Number(vol.value) / 100));
     game.settings.set(MODULE_ID, "tvVolume", next);
+    return;
+  }
+  // §26.5: per-effect loudness committed → one world setting; every client re-levels its
+  // running taps via the fx engine's setting hook. 100% stores nothing (1 is the default).
+  const fxv = ev.target.closest("[data-fx-vol]");
+  if (fxv) {
+    let next = {}; try { next = { ...(game.settings.get(MODULE_ID, "fxVolumes") ?? {}) }; } catch (e) { /* fresh world */ }
+    const val = Math.max(0, Math.min(2, Number(fxv.value) / 100));
+    if (val === 1) delete next[fxv.dataset.fxVol]; else next[fxv.dataset.fxVol] = val;
+    game.settings.set(MODULE_ID, "fxVolumes", next);
     return;
   }
   const fex = ev.target.closest("[data-fog-explored]");

@@ -3303,6 +3303,9 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-dmp-vol { margin-bottom: 14px; }
 .mc-dmp-vol-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
 .mc-dmp-vol-label { font-size: 13px; font-weight: 700; color: var(--mc-ink); }
+/* §26.5: the Loudness drawer reuses these rows; each row's effect icon rides its label */
+.mc-fxvol .mc-dmp-vol-label i { margin-right: 5px; color: var(--mc-muted); }
+.mc-fxvol { margin-bottom: 8px; }
 .mc-dmp-vol-val { font-size: 12px; font-weight: 700; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
 .mc-dmp-vol-hint { margin-top: 3px; font-size: 11px; color: var(--mc-muted); line-height: 1.35; }
 .mc-dmp-vol-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: none; cursor: pointer; }

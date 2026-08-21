@@ -2066,8 +2066,8 @@ actually needs):**
      ("not sure 5 is needed").
    - ~~Homebrew spell-list picker~~ — **PRUNED by the DM 2026-08-20** ("spells can just be
      added by DM"). The old Bender-style empty-picker case is handled by hand, deliberately.
-   - Effects extras (§26.5, APPROVED): per-effect volume → surround thunder → more looks
-     (stop-all done).
+   - Effects extras (§26.5, APPROVED): ~~per-effect volume~~ **BUILT 2026-08-21** (Loudness
+     drawer, `fxVolumes` taps) → surround thunder → more looks (stop-all done).
    - Enchant consumption — only if a CHARGED enchanter shows up (deliberate, rpc.js:1401).
    - Paralyzed auto-crit midi setting (§28.6 friction 4 — real observed miss).
    - ~~Onboarding wizard polish: ask in-person-vs-online FIRST~~ — **BUILT 2026-08-20 (§39.4)**,
@@ -2581,9 +2581,24 @@ overlay, so every phone at the table blinks white together — that's the featur
 - BUILT: the 10 weather + 4 magical effects above, as a DM-panel tab (Weather/Magical drawers) —
   then §26.6's targeted/per-player batch and §26.7's deathbeat.
 - **Effects extras APPROVED 2026-08-09, in this build order:** stop-all (**done** — the
-  "stuck heartbeat" fix in §26.6) → **per-effect volume** → **surround thunder** (§26.6's parked
-  idea 15 — needs the seating order, which §38.4b's table map now supplies) → **more looks**.
-  Phones-too thunder is subsumed by surround thunder.
+  "stuck heartbeat" fix in §26.6) → ~~per-effect volume~~ **BUILT 2026-08-21** (below) →
+  **surround thunder** (§26.6's parked idea 15 — needs the seating order, which §38.4b's table
+  map now supplies) → **more looks**. Phones-too thunder is subsumed by surround thunder.
+
+**Per-effect volume BUILT 2026-08-21.** One `fxVolumes` world setting (`{fxId: 0..2}`, 1 = the
+tuned level, missing = 1); a per-effect GainNode TAP between each sound and the ambient bus,
+minted inside `audioOut(fxId)` — the single seam every maker already passes through, so five
+call-site keys cover all module audio: the four loops (rain/rainStorm/blizzard/dust ride their
+own fx id via `startLoop`), **lightning** (owns thunder from the button AND the storm's rolled
+strikes — the storm row deliberately has no slider), **bell**, **heartbeat** (also scales
+§26.7's deathbeat — same lub-dub), **static** (multiplies on top of the séance's escalation
+`level`). Panel: a **Loudness** drawer on the Effects tab — 8 sliders (0–200%, step 5) in the
+`tvVolume` slider idiom (live % echo on drag, world write on release, no re-render); 100%
+stores nothing. Running loops re-level live on every client via the fx engine's existing
+create/updateSetting hook (`applyFxVolumes` ramps each tap ~50ms). CM sounds (whistle, train,
+fiddle, scrape) keep bare `audioOut()` on purpose — parked with CM; the tap mechanism is ready
+when they grow keys. **Owed: by-ear judgment at a real speaker** (the pane can't composite →
+no unlock → no meter), same quiet-window list as the fiddle.
 
 ---
 
