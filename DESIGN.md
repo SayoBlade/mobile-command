@@ -3848,6 +3848,13 @@ section — core's button height rule pinning the `<button>` to form-field heigh
 image spilled out centered, the exact §15 party-grid trap. Fix: explicit `height: auto` on
 `.mc-cm-card` (+ `max-width: 100%` on the img), commented at the site so nobody trims it.
 
+**DM follow-up (2026-08-21): "keep the exploration tab in the center (or as close to it as
+possible)."** The seventh tab had pushed Explore — the shell's home/default tab — one left of
+center. Explore now seats 4th (Actions · Details · Spells · **Explore** · Equipment · Journal ·
+Crooked Moon): exact-center at 7 tabs, tied-closest at 6 (gate off) and 8 (packed + campaign).
+Standing rule written as UI-BIBLE §6.9: optional tabs (campaign tab, Party toggle) join only at
+the EDGES of the bar, never inside — the core six never shift under muscle memory.
+
 **Slice A BUILT + bench-verified 2026-07-27:** `crookedMoonTools` world setting (defaults ON
 when the-crooked-moon-2014 module is active, else OFF; toggle in panel Settings → Campaign
 drawer); "crooked" tab on the rail between Effects and System health, gated live (open tab

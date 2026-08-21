@@ -448,6 +448,17 @@ licensed content. Referencing the book's art **at runtime from the player's own 
 module** (the Ghostlight train on the station backdrop) is fine — gated tables own it; we
 just never bundle it.
 
+### 6.9 Explore holds the center of the tab bar (DM 2026-08-21)
+
+**The Explore tab sits at the visual CENTER of the shell's bottom bar — dead-center when the
+count is odd, tied-closest when it is even.** Explore is the shell's home (the default tab,
+every fallback's landing, the one icon drawn bigger); its seat should say so. Seated 4th it is
+exact-center at 7 tabs (Crooked Moon on) and tied-closest at 6 (base) or 8 (packed + campaign) —
+which yields the standing rule: **optional tabs (a campaign tab, the Party toggle) join at the
+EDGES of the bar, never inside it**, so the core never shifts under muscle memory when a gate
+flips. The packed party bar already complies (Exploration 3rd of 6, tied-closest). A future
+tab that would break the balance re-opens this section before it ships.
+
 ---
 
 ## 7. Copy

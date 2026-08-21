@@ -2364,7 +2364,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   // Bottom bar. Packed party view gets its own tab set (Party OS, DESIGN §15
   // Round 7); "My sheet" flips to the full normal PC UI, which then carries a
-  // "Party" tab to flip back. Unpacked = the classic six.
+  // "Party" tab to flip back.
+  // Explore holds the CENTER of the bar (DM 2026-08-21, UI-BIBLE §6.9): seated
+  // 4th it is dead-center at 7 tabs and tied-closest at 6 or 8, so the optional
+  // tabs (Crooked Moon, Party) may only join at the EDGES, never inside.
   #tabBarHTML() {
     const packed = this.#partyGroup();
     const pbtn = (id, icon, label) =>
@@ -2386,8 +2389,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       : "";
     return `${this.#tabButton("actions", "fa-hand-fist", "Actions")}
       ${this.#tabButton("details", "fa-user", "Details")}
-      ${this.#tabButton("sheet", "fa-compass", "Explore")}
       ${this.#tabButton("spells", "fa-wand-sparkles", "Spells")}
+      ${this.#tabButton("sheet", "fa-compass", "Explore")}
       ${this.#tabButton("equipment", "fa-suitcase", "Equipment")}
       ${this.#tabButton("journal", "fa-feather", "Journal")}
       ${cmTab}
