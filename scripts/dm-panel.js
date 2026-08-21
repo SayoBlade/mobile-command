@@ -2677,9 +2677,16 @@ function quickHpHTML() {
 /** AoE-push / summon section: a Place (or Summon) button per pending cast. */
 function pendingHTML(pending) {
   const esc = foundry.utils.escapeHTML;
+  // §28.5.6: show the level the player picked — the DM is about to spend THEIR slot.
+  const slotTag = (s) => {
+    if (!s) return "";
+    if (s === "pact") return " · pact";
+    const m = /^spell(\d)$/.exec(s);
+    return m ? ` · ${["", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"][Number(m[1])]}` : "";
+  };
   const rows = pending.map(pc => `
     <div class="mc-dmp-cast" data-cast="${pc.id}">
-      <span class="mc-dmp-cast-info"><b>${esc(pc.casterName)}</b> — ${esc(pc.spellName)}</span>
+      <span class="mc-dmp-cast-info"><b>${esc(pc.casterName)}</b> — ${esc(pc.spellName)}${esc(slotTag(pc.slotLevel))}</span>
       <button class="mc-dmp-place" data-place="${pc.id}">${pc.kind === "summon" ? "Summon" : "Place"}</button>
       <button class="mc-dmp-cast-x" data-dismiss="${pc.id}" aria-label="Dismiss">✕</button>
     </div>`).join("");

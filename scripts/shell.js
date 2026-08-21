@@ -5573,10 +5573,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // could only cancel — while the player got no feedback at all (bench 2026-07-31). Say it on
       // the phone instead. Cantrips have no slot and are unaffected.
       const lvl = activity.item?.system?.level ?? 0;
-      if (lvl >= 1 && !this.#spellSlotOptions(activity).length) {
+      const slotOptions = this.#spellSlotOptions(activity);
+      if (lvl >= 1 && !slotOptions.length) {
         return ui.notifications.warn(`${activity.item?.name ?? "That spell"}: no level ${lvl}+ slots left.`);
       }
-      return this.#announceCast(activity);
+      // §28.5.6 nit closed 2026-08-21: a leveled AoE collects its SLOT on the phone first (the
+      // summon pattern), so the DM's Place is only ever the placement click — no usage dialog
+      // on the executor. A single castable tier (or a cantrip) has nothing to ask.
+      if (slotOptions.length > 1) return this.#openAoeConfig(activity, slotOptions);
+      return this.#announceCast(activity, "aoe", { slotLevel: slotOptions[0]?.id ?? null });
     }
     // Teleport spells (misty step / dimension door / thunder step …): no template,
     // but the caster MOVES — aim the destination on the TV via the executor.
@@ -5770,6 +5775,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Summon options the player picks BEFORE the DM places (slot level + creature
   // profile). The cast/placement still runs on the DM's canvas, but pre-configured —
   // so the DM only drops the token instead of also making the player's decisions.
+  // §28.5.6: the AoE twin of the summon config — the same screen with no creature list, just
+  // the slot chips and the ask. Only opened when there is a REAL choice (2+ castable tiers).
+  #openAoeConfig(activity, slotOptions) {
+    this.#summonConfig = {
+      uuid: activity.uuid, name: activity.item?.name ?? "spell",
+      slotOptions, slotId: slotOptions[0]?.id ?? null, profiles: [], kind: "aoe"
+    };
+    this.render();
+  }
+
   async #openSummonConfig(activity) {
     const slotOptions = this.#spellSlotOptions(activity);
     // Resolve each profile's LINKED STATBLOCK so the options render as normal item
@@ -5790,6 +5805,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
   #summonConfigHTML() {
     const sc = this.#summonConfig;
+    const aoe = sc.kind === "aoe"; // §28.5.6: the same screen carries AoE slot picks
     const slotRow = sc.slotOptions.length > 1 ? `
       <div class="mc-section-label">Cast at level</div>
       <div class="mc-sm-row">${sc.slotOptions.map(o => `
@@ -5808,10 +5824,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
             <span class="mc-action-sub">${creatureSub(p)}</span>
           </span>
         </button>`).join("")}</div>`
-      : `<button class="mc-ws-bar mc-ws-open" data-action="summon-pick" data-profile=""><i class="fas fa-paw"></i> Ask the DM to place it</button>`;
+      : `<button class="mc-ws-bar mc-ws-open" data-action="summon-pick" data-profile=""><i class="fas ${aoe ? "fa-wand-magic-sparkles" : "fa-paw"}"></i> Ask the DM to place it</button>`;
     return `<div class="mc-ws-head">
         <button class="mc-ws-back" data-action="summon-cancel" aria-label="Back"><i class="fas fa-chevron-left"></i></button>
-        <span class="mc-section-label">Summon — ${foundry.utils.escapeHTML(sc.name)}</span>
+        <span class="mc-section-label">${aoe ? "Cast" : "Summon"} — ${foundry.utils.escapeHTML(sc.name)}</span>
       </div>
       ${slotRow}${body}`;
   }
@@ -5819,9 +5835,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const sc = this.#summonConfig;
     if (!sc) return;
     const activity = await fromUuid(sc.uuid);
-    const extra = { slotLevel: sc.slotId, profileId: profileId || null };
+    const kind = sc.kind === "aoe" ? "aoe" : "summon";
+    const extra = { slotLevel: sc.slotId, ...(kind === "summon" ? { profileId: profileId || null } : {}) };
     this.#summonConfig = null; this.render();
-    if (activity) await this.#announceCast(activity, "summon", extra);
+    if (activity) await this.#announceCast(activity, kind, extra);
   }
 
   // Idea #2 (slice 2b) — the portrait generator screen. The body/portrait toggle drives

@@ -568,7 +568,7 @@ D&D's actual rules engine is the DM. Every automatic gate in this module advises
 - **DM panel ([dm-panel.js](scripts/dm-panel.js)):** now wakes on held targets **or** pending casts; renders a "Place spell(s)" section above the assign section — one `Player — Spell` row each with **Place** + a ✕ dismiss. Hooks: `mobile-command.pendingCast` / `pendingCastResolved` re-render.
 - **🔬 Live test 1 (2026-06-16):** announce → DM prompted → DM placed the template → it showed on the TV → **then nothing happened (no targets / no damage / no saves).** Root cause was **not** combat (a spell isn't combat-gated): the preset had **`autoTarget:"none"`** so the placed template selected no tokens (midi-qol.js:13655–13656 returns early on `"none"`), and **`autoRollDamage:"none"`** so even a targeted workflow parked at WaitForDamageRoll with no phone follow-up. **Fixes (this session, re-test owed):** (1) preset **`autoTarget` → `"wallsBlockIgnoreDefeated"`** — only affects DM-placed templates since phones make none (§D4); **the DM must re-apply the preset via the enforcer.** (2) `placeCast` passes the damage fast-forward midiOptions above (per-cast; the global `autoRollDamage:"none"` stays for the two-tap flow). midi honors `usage.midiOptions` on native `use` (midi-qol.js:7597).
 - **Out of combat:** the AoE cast is not combat-gated and should resolve the same once targeting/damage are fixed. *(Still combat-only, by design: the Turn HUD, the ACT/BA/RE economy strip, and the DM panel's "· turn" highlight.)*
-- **Impl notes still open:** (a) `activity.use()` uses default dialog config — an upcast dialog (if any) shows on the DM screen; phone upcast is §7.5-deferred (base level otherwise). (b) pending casts have **no auto-expiry** (DM dismisses with ✕). (c) Place is blocked while paused (consistent with the other executor RPCs).
+- **Impl notes still open:** ~~(a) `activity.use()` uses default dialog config — an upcast dialog (if any) shows on the DM screen; phone upcast is §7.5-deferred (base level otherwise).~~ **(a) CLOSED 2026-08-21 (the §28.5.6 "executor slot-dialog nit"):** a leveled AoE now collects its slot ON THE PHONE first — the summon-config screen generalized (`#openAoeConfig`, `kind:"aoe"`: slot chips + "Ask the DM to place it", no creature list; skipped when only one tier is castable or for cantrips) — and `placeCast` always runs `dialog.configure = false`: the DM's click is the placement, never a decision. An announce from an old phone (no slotLevel) consumes dnd5e's default base slot, this flow's documented v1 behavior. The panel's pending chip now shows the picked tier ("Fireball · 3rd"). **Bench leg owed** (§28.4 AoE leg re-run on a reloaded executor). (b) pending casts have **no auto-expiry** (DM dismisses with ✕). (c) Place is blocked while paused (consistent with the other executor RPCs).
 
 **Agreed design (2026-06-16):**
 1. Player taps an area spell on the phone → phone sends an **`announceCast`** RPC to the executor (instead of the current refusal) with `{activityUuid, casterName, spellName, casterTokenUuid}`; phone shows "Asked the DM to place it."
@@ -2049,8 +2049,10 @@ actually needs):**
    arrive.)*
 4. **Crooked Moon polish** — **PARKED by the DM 2026-08-21** (*"focus on non-CM stuff first,
    let's get the base working perfectly and then return to CM"*): everything in this item
-   waits behind the base queue (per-effect volume → combat polish → AoE executor slot-dialog
-   nit → paralyzed auto-crit → the verification legs). Pre-parking state (campaign not
+   waits behind the base queue — ~~per-effect volume~~ **BUILT** (§26.5) → ~~AoE executor
+   slot-dialog nit~~ **BUILT same day** (§11 impl-note (a); phone slot pick + Place never
+   dialogs; bench leg owed) → ~~paralyzed auto-crit~~ **RE-SCOPED to a bench leg** (§28.6
+   item 4: AC5E-native, no midi setting exists) → the verification legs. Pre-parking state (campaign not
    started — no chapter urgency; **build order was Claude's pick — DM 2026-08-20 "no
    preference"**): ~~player-side CM tab~~ — **BUILT +
    bench-verified 2026-08-21 (§35.1, planned with the DM: sealed card · verbal arrival ·
@@ -3102,8 +3104,16 @@ legacy-5e packs roughly double it but don't match our rules generation.
    `flags.midi-qol.optional.GWM.displayBonusRolls` to boolean `false`; midi 14.0.11's
    midiCustomEffect calls `.trim()` on it → console error on EVERY data-prep of a GWM carrier.
    Noisy, not fatal. Local fix: string `"false"` on the effect change.
-4. Paralyzed auto-crit within 5 ft didn't double damage — a midi optional setting to chase,
-   not a MISC fault.
+4. Paralyzed auto-crit within 5 ft didn't double damage — ~~a midi optional setting to chase,
+   not a MISC fault~~. **Hypothesis corrected 2026-08-21 (source-read): there is NO midi
+   setting for this — it is AC5E's own machinery** (`ac5e-setpieces.mjs` paralyzed →
+   `damage.opponent: 'critical'` when `hasDamage && distance ≤ 1 unit`), and both relevant
+   fixes (hasDamage gate 13.503.10; distance-unit check 13.511x) predate the installed
+   14.533.15.3. Why the 2026-07-26 bench (on that day's version) saw no crit is unresolved —
+   version-of-the-day, actual distance, or the two-tap damage resume. **Re-scoped to a bench
+   verification leg** (paralyze adjacent target → phone melee attack → damage dice doubled),
+   quiet-window list; only if CURRENT AC5E still misses through the two-tap does this become
+   a build item.
 
 **Verdict:** worth adopting for the table — the save/condition/passive classes are real wins at
 zero integration cost, and the ecosystem (CAT) is where V14 automation is consolidating. Gate

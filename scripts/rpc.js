@@ -523,12 +523,15 @@ export async function placeCast(id) {
       workflowOptions: { targetConfirmation: "none" } // phone can't answer midi's target-confirm dialog
     }
   };
-  const dialog = {};
-  if (pc.slotLevel) { usage.spell = { slot: pc.slotLevel }; dialog.configure = false; }
+  // §28.5.6 (2026-08-21): the DM's click is the PLACEMENT — never a decision dialog. The
+  // choices are made on the phone (slot chips before the announce; summon profile/slot since
+  // 2026-06-23); an announce from a pre-slot-picker phone simply consumes dnd5e's default
+  // (base) slot, which was this flow's documented v1 behavior anyway.
+  const dialog = { configure: false };
+  if (pc.slotLevel) usage.spell = { slot: pc.slotLevel };
   if (pc.kind === "summon") {
     usage.create = { summons: true };
     if (pc.profileId) usage.summons = { profile: pc.profileId };
-    dialog.configure = false;
   }
   await activity.use(usage, dialog, {});
   // Don't leave the caster token selected on the executor — the DM rolls the
