@@ -73,6 +73,7 @@ sections their cross-references always claimed).
 | 47 | Message for dev | Built (§48 added the phone entry point) |
 | 48 | Feedback window | Built (mailto leg untested) |
 | 49 | Pending-action queue + attention bell | Built (renumbered from a duplicate "§21", 2026-08-19) |
+| 50 | **Ember compatibility** (deep dive + build queue) | **Investigated 2026-08-21** — boots clean; fixes queued (music guard, rest gate, core-calendar clock, campaign registry + Ember tab, creation-widget phone story) |
 
 ---
 
@@ -2081,6 +2082,25 @@ actually needs):**
    - Séance standalone module spin-off (§30).
    - dnd5e 6.x migration milestone (when the ecosystem forces it — §28.5.1: 6.0.0 at 83%,
      no 5.4 exists).
+5b. **Ember support package (NEW 2026-08-21 — §50; DM initiated the dive and directed the tab
+   + recognition design; build order awaiting his go, recommended order below):**
+   - **Combat-music takeover guard** (§50.3a — GENERAL correctness: no configured music ⇒ no
+     takeover; today combat start silences an Ember world completely, and silences ambience
+     for nothing in any unconfigured world) — smallest, highest-value, first.
+   - **Rest-gate conformance** (§50.6 — hide phone self-serve rests when dnd5e `allowRests`
+     is off, matching the system's own sheets; Ember forces it off).
+   - **Clock chip core-calendar source** (§50.4 — DM asked "consider the clock/date features";
+     general v14 fallback, lights the chip in Ember worlds; SC keeps precedence).
+   - **Campaign registry + ONE campaign-tab slot** (§50.8 — DM: "the ember tab replaces the
+     CM tab"; "the mod recognizes supported modules (ember, CM and whatever we add)");
+     preflight becomes campaign-aware off the same registry.
+   - **Daylight stand-down on Ember-managed scenes** (§50.5).
+   - **Creation-widget phone story** (§50.7 — DECISION NEEDED from the DM: landscape+scale
+     shim ("as is", squinty) vs. reflow stylesheet vs. Ember-fed §38 wizard; TV/desktop
+     already works as-is with zero changes).
+   - **Ember tab contents** (§50.8 — quest log/discoveries/attunement via the `ember` API) —
+     after the slot exists.
+   - Owed validation: a §28.4-style combat run on an Ember scene (§50.9) once fixes land.
 6. **Watches:** MISC#89 (GWM boolean, still open) · CPR 2.0 leaving pre-release · GPS first V14
    tag · CAT 0.0.x churn · MCD camera-method names on any 14.02+ (§28.5.1). *(Stack validation
    for AC5E 14.533.15 + MISC 2.0.2: DONE 2026-08-20, pins bumped — §28.5.4; only the
@@ -2089,10 +2109,11 @@ actually needs):**
    (2026-08-18); DM runs 14.365. Release notes for .366/.367 scanned against our seams —
    nothing touches dice/Roll modifiers (twists safe), chat, journals, Cards, audio, or fog.
    Two notes: (a) 14.366 fixes spurious `TOKEN_MOVE_WITHIN` at region boundaries — likely
-   helps, but spot-check the Ghostlight train doors (§37) after updating; (b) **14.366
-   converts the join screen's user select to an autocompleted TEXT input — the bench login
-   technique (`select[name=userid]` + change + join) breaks past 14.365; adapt the driver
-   when the DM updates.** Preflight's `TESTED` map watches MODULES only — core lives in the
+   helps, but spot-check the Ghostlight train doors (§37) after updating; (b) ~~14.366
+   converts the join screen's user select to an autocompleted TEXT input — adapt the driver
+   when the DM updates~~ — **ADAPTED 2026-08-21 on the live 14.367 ember world (§50.2):**
+   `input[name="username"]` + input/change events + `form#join-game-form.requestSubmit()`.
+   Preflight's `TESTED` map watches MODULES only — core lives in the
    CLAUDE.md line + module.json `verified`; after the DM updates core, run §28.4 + a
    train-door check, then bump both. No v15 exists in any channel (not even prototype).
 
@@ -5803,3 +5824,223 @@ setting (so the enforcer is unaffected) and never touches the DM's rolls. AoO mo
 
 ---
 
+
+## 50. Ember compatibility (deep dive 2026-08-21 — DM ask: "check compatibility, emphasis on the character creation widget")
+
+**Method:** full source read of the installed Ember module (`Data/modules/ember`, readable
+unminified bundle, ~145K lines) + a live session on the DM's served "Ember" world (he left it
+running with mobile-command already enabled; joined as Michael — his seat was free — my pane
+client was the activeGM throughout; game found paused, left paused).
+
+### 50.1 What Ember actually is
+
+**Ember is NOT a game system — it's Foundry's own premium campaign MODULE** (by Atropos,
+`protected: true`, Early Access) that runs ON TOP of **dnd5e ≥ 5.3.3** (or Crucible). The DM's
+ember world: core **14.367**, **dnd5e 5.3.3** (exactly our tested pin), ember **0.6.1**. So
+compatibility is module-vs-module — our dnd5e system lock is satisfied and everything
+dnd5e-shaped in our stack (activities, midi workflows, AC5E) applies unchanged.
+
+**The DM's ember world has enabled (checked live):** ember · mobile-command · midi-qol ·
+socketlib · dae · lib-wrapper · automated-conditions-5e · item-piles. **Not enabled:** Simple
+Calendar (either), dice-so-nice, wm5e, CAT, MISC, simplecover5e, combat-music-master.
+
+**Ember forces dnd5e settings on setup** (verified live): `rulesVersion: "modern"` (2024 rules),
+**`allowRests: false`**, `restVariant: "normal"`, `levelingMode: "noxp"` (milestone points are
+Ember's own party-level system). It also **disables the dnd5e calendar app and replaces the
+core world calendar** (`CONFIG.time.worldCalendarClass = EmberCalendar`).
+
+**Its machinery (for future reference):** custom JournalEntryPage types (ancestry/culture/
+class/cosmos/deity/biome/location/lore/organization/quest/questEvent/questFlowchart/
+standaloneEvent) · RegionBehavior types (trapTrigger, areaEffect, footstepSurface,
+suppressEnvironmentFilter) · a per-scene `EmberSceneManager` hierarchy (vistas, hex region
+maps, area maps with scripted interactables) · dynamic composited tokens (replaces token art;
+per-actor opt-out flag) · weather + events probability engines · a Party group actor
+(`PARTY_ACTOR_ID`) that travels the hex map as ONE token · milestone leveling · attunement
+progression (custom AE change type `boostAttunement`) · `globalThis.ember` API + `ember.api.*`.
+
+### 50.2 Live result — the module BOOTS CLEAN next to Ember
+
+Joined the served world: **zero console errors from the coexistence** (only my own pane's 0×0
+resolution note + a bad login attempt). Full RPC surface registered, `MobileCommand` global
+present, shell opens and renders its correct empty state on an Ember Vista scene ("No token on
+this scene…"), closes clean. No CSS bleed either way. **14.367 join screen confirmed: the user
+field is a plain TEXT input named `username`** — the bench login driver is now
+`input[name="username"]` + input/change events + `form#join-game-form.requestSubmit()` (worked
+first try; the select-based driver is dead).
+
+### 50.3 Combat music — the DM was right, Ember automates it; ONE hard clash found (ours)
+
+**Ember's engine:** one master playlist (4 PlaylistSounds = channels: music / environment /
+weather / effects), each an `EmberSoundOrchestration` (client-side layered arrangements;
+`EmberSoundscape` singleton). The PlaylistSound docs are only sync anchors — **the `playing`
+flag is a GM-toggled MASTER SWITCH that Ember's code never re-asserts**. State lives in the
+`ember.soundscape` world setting; scene/biome/location supply defaults; moods calm/tension +
+journal enrichers. **Combat:** on `combatTurnChange` where the ROUND changed, the activeGM
+client buckets surviving non-friendly combatants by creature type (or per-actor
+`flags.ember.combatTheme`), ranks by summed CR → count → size, saves `priorSoundscape` on a
+combat flag, and swaps its music channel to a random arrangement of the dominant themed
+soundscape (undeadCombat, pirateCombat, …). Re-evaluated every round (themes shift as enemies
+die; all-defeated = early restore). `deleteCombat` restores the prior soundscape. Ember's
+playlist watchers are scoped to ITS playlist only — no code-level fight with our self-heal
+(ours is scoped to OUR track; verified both directions).
+
+**THE CLASH (ours, and it also bites vanilla worlds):** `startCombatMusic()` in
+combat-music.js has **no "anything configured?" guard** — on `combatStart` it pauses EVERY
+playing PlaylistSound world-wide (the take-over capture), then plays our track — which, with
+nothing configured, is `play("")` = nothing. In an Ember world that pauses Ember's channel
+docs; because of the master-switch model above **Ember stays silent for the entire combat**
+(its per-round re-arrangement computes against `playing:false` → null) — ambience AND its
+combat theme. Our deleteCombat resume does put the channels back. Net: **combat = dead
+silence in an Ember world as shipped.** Fix (queued, awaiting go): (a) GENERAL guard — no
+battle track AND no combatant theme ⇒ skip the takeover entirely (also stops us silencing
+ambience for nothing in ANY unconfigured world); (b) campaign-aware refinement — when Ember
+is active and the DM DID configure our music, pause only Ember's MUSIC channel (leave
+environment/weather/effects), and preflight should advise "Ember automates combat music —
+leave ours unconfigured unless you want to override it."
+
+### 50.4 Clock/date (DM flagged mid-dive: "consider the clock/date features")
+
+Ember implements core v14 `CalendarData` properly: 360-day year, six 60-day season-months
+(Seeding→Stilling), 24h days, year epoch "AS" (live sample: "47 Blooming AS2523, 10:00pm"),
+sun/moon phase models (moon phases even re-prepare actor mechanics), its own GM calendar HUD
+(`EmberCalendarNavigation`) with Advance/Rewind. **Our gametime.js reads Simple Calendar ONLY**
+— no SC in ember worlds ⇒ no clock chip, `sunTimes()` = {} (06:00/18:00 defaults), `isNight()`
+falls back. **Fix design (general, not Ember-specific): add a core-calendar source to
+`readClock()`/`isNight()`/`sunTimes()`** — `game.time.calendar.timeToComponents()` + its
+formatters when SC is absent (covers Ember AND any vanilla v14 calendar world; SC keeps
+precedence when present). Time ADVANCEMENT is already compatible: travel/rest use
+`game.time.advance()`, which is exactly what Ember's own controls do — Ember's weather/events/
+sun react to worldTime like they should. The chip's tap action (opens SC) gets a no-op or an
+info card when the source is core. Druskenvald (§43) is CM-only and unaffected.
+
+### 50.5 Daylight loop / weather / effects — stand down where Ember owns the sky
+
+- **§41 daylight:** `clockDaylight` defaults ON; on `updateWorldTime` we write active-scene
+  darkness. Ember scenes are `EmberSceneManager`-managed (skybox/sun/environment filters) —
+  two hands on one dial. Fix: the daylight writer skips scenes whose `canvas.manager` is an
+  Ember scene manager / whose scene is Ember-flagged (cheap check: `ember.scene` non-null or
+  `game.modules.get("ember")?.active` + scene in Ember's registry) — same family as the
+  existing darknessLock/daylightHold outs.
+- **Weather/effects (§26):** Ember runs its own weather engine + environment/weather audio
+  channels. Our rain/thunder/etc. would LAYER on top. No crash; just doubled atmosphere.
+  Preflight advisory + DM habit, not a code gate (he may deliberately use ours on non-Ember
+  scenes in the same world).
+
+### 50.6 Rests — Ember turns OFF self-serve rests; our phone buttons currently no-op silently
+
+dnd5e's `initiateRest` refuses non-GM rests when `allowRests` is false (warn + return), and the
+system's own sheets HIDE rest buttons then (`showRests` = isGM || (isOwner && allowRests)).
+Ember forces it false (rests are gameplay-gated: its long-rest flow hooks + camps). Our shell
+rest runs on the PHONE client (`actor.longRest()`, shell.js #doRest) ⇒ in Ember worlds a
+player's Rest tap = system warning toast, nothing else; panel/GM rests fine. **Fix (general
+dnd5e conformance, mirrors-Foundry rule): shell hides/disables self-serve rest controls when
+`!game.settings.get("dnd5e","allowRests")` && !isGM** — with the §19 copy explaining rests are
+DM-called in this world. Do NOT route around via the executor: the gate is the campaign's
+intent, not an obstacle.
+
+### 50.7 Character creation widget — the emphasis item. Verdict: importable, with one real gap
+
+**How it works (source-read + live-verified end to end):** `EmberCharacterCreationSheet
+extends HandlebarsApplicationMixin(ActorSheetV2)` — id `ember-character-creation`, frameless,
+non-positioned, **fullscreen dark takeover** (classes `ember ember-fullscreen`). Six steps:
+Ancestry (18 + Aster special) → Class (all 12, sourced from the dnd5e class registry,
+preferring official 2024 compendia; 27-point buy + tap +/− steppers) → Culture (10) → Path
+(22 + Soulbound toggle; 3 ability boosts) → Attunement (11 cosmos spheres, rank-1 feat) →
+Token (embedded `EmberDynamicTokenConfig` sub-app: PIXI layer compositor — body/stance/hair/
+eyes/…, anatomy/equipment, color pickers). Data comes from world journals the adventure
+import creates (`emberAncestries0`, `emberCultures000`, `emberCosmos00000`, class journal) +
+the `ember.character` pack. **Launch is automatic:** Ember's `preCreateActor` stamps every new
+world character actor with `flags.core.sheetClass = "ember.EmberCharacterCreationSheet"` —
+opening the actor's sheet IS the widget. Cycles its own soundscapes (local override) while
+open. **Complete** = one actor.update (abilities/name/flags incl. attunement award + dynamic
+token) → dnd5e **AdvancementManager** with `automaticApplication: true` for ancestry/class/
+combined-background(culture+path)/attunement grants → `flags.ember.characterCreation = true`
+re-entry guard + sheetClass removed → auto-assigns as `game.user.character` if the user has
+none → chat "add them to the Party?" prompt. Player-local everything (needs actor OWNER;
+FILES_UPLOAD only for the token art export, degrades without).
+
+**Live walk:** created "Compat Test Hero" (residue, see 50.10) → whole flow driven by clicks
+to the token maker; PIXI compositor rendered fine in the pane; Complete button appeared. Did
+NOT complete (would assign the DM-user's character + commit a full hero).
+
+**Phone verdict ("can we import it pretty much as is"):**
+
+- **Desktop / TV / any ≥1024×768 client: YES — exactly as-is**, zero work. All-click
+  interactions (touch-fine), self-contained fullscreen.
+- **Phone portrait: NO as-is.** The `.ember-fullscreen` system is designed for 1920×1080 and
+  responds by transform-scaling the whole layout (`--ui-scale`, floor 0.7 at ≤800px height).
+  At 375×812 the nav wraps into a jumble + Foundry's own 1024×768 minimum warning fires.
+  Doesn't crash; isn't usable.
+- **Phone landscape + a ONE-LINE shim: functional.** Setting `--ui-scale =
+  min(vw/1440, vh/830)` (measured live: 0.45 at 812×375) renders the ENTIRE layout intact —
+  all steps, point-buy, token maker. Cost: small text ≈ 7 CSS px (squinty but tappable; the
+  tiles/headers carry the flow). This is the honest "pretty much as is" ceiling.
+- **Phone-GOOD portrait needs a reflow layer** — our own override stylesheet stacking the
+  3-column steps (the DOM is clean: `.selection-menu` / `.selection-details` /
+  `.details-section`), or feeding Ember's data (same journals/packs/APIs the widget reads)
+  through our §38 wizard pattern. Both are real builds; the override sheet fights Early
+  Access markup churn (0.6.x), the wizard route is ours to keep stable. Decision for the DM
+  when Ember support gets built.
+- **Integration mechanics measured:** our shell (z 9999) covers Ember fullscreen apps (z 30)
+  ⇒ the shell must yield (hide) while creation runs, restore on close; the AdvancementManager
+  finale is a standard dnd5e window on the phone (same beast §38 already lives with,
+  automaticApplication auto-advances most steps); re-open after Exit resets to step 1
+  (state is per-render, no persistence loss risk).
+
+### 50.8 Campaign-module recognition + the Ember tab (DM directives, 2026-08-21 mid-dive)
+
+DM: *"make sure the ember tab replaces the CM tab, and that the mod recognizes supported
+modules (ember, CM and whatever we add)"*. Design (queued):
+
+- **A small campaign registry** in the module: `{ id, detect(), tabSpec, advisories,
+  behaviors }` per supported campaign module — Ember (`game.modules.get("ember")?.active &&
+  ember.ready`), Crooked Moon (`crookedMoonTools` setting, as today), future entries.
+- **ONE campaign tab slot** in the shell (UI-BIBLE §6.9: optional tabs at the EDGES): the
+  detected campaign's tab renders there — **the Ember tab REPLACES the CM tab** in an Ember
+  world. Both "active" simultaneously is near-impossible (CM is 2014 content; Ember forces
+  modern rules) — if it ever happens, priority: the campaign whose ADVENTURE owns the world
+  (ember), with a console-set override, no UI row.
+- **Ember tab contents (candidate, build later):** the phone-relevant player surfaces — quest
+  log/journal/discoveries (Ember's codex data via the `ember` API), attunement rank/progress,
+  milestone/level-up state. Ember's own Codex app is another `ember-fullscreen` (same phone
+  problem) — a native tab reading its data beats embedding it.
+- **Preflight/System-health becomes campaign-aware:** in an Ember world — don't recommend
+  Simple Calendar (Ember replaces the calendar), advise leaving our combat music unconfigured
+  (50.3), note rests are DM-called (50.6), skip CM-specific checks; and the reverse for CM
+  worlds. The registry's `advisories` feed the existing preflight list.
+- **Behavior gates keyed on detection:** combat-music channel-scoped takeover (50.3b),
+  daylight stand-down (50.5), clock source (50.4 — general, not gated).
+
+### 50.9 Watch items / non-issues (recorded so nobody re-derives them)
+
+- **midi-qol + Ember coexist** — Ember touches no attack workflow hooks (only rests/death
+  saves for its Soulbound feats + preRollDeathSave disadvantage riders). Two-tap flow,
+  masteries (wm5e off here anyway), AC5E all unaffected in principle; a full §28.4-style
+  combat validation ON AN EMBER SCENE is still owed before betting a session on it
+  (region/area scene managers + dynamic tokens are novel canvas territory for the executor
+  client).
+- **Region-map travel:** Ember's overworld moves ONE Party group token on hexes — phones have
+  no per-player token there (our Explore d-pad correctly shows its no-token state, verified
+  live on a Vista). Our §18 travel is for the DM's own maps; Ember worlds use Ember travel.
+  No fight; different scenes. Phone UX on region maps (e.g. surfacing Ember travel status) =
+  future Ember-tab material.
+- **Dynamic tokens** replace token art via preCreateToken/updateToken — orthogonal to our
+  flows; per-actor opt-out exists (`disableDynamicToken`).
+- **Party actor:** scene-scoped rosters (UI-BIBLE §6.6) fall back to the full PC list on
+  token-less scenes — correct behavior on region maps.
+- **`renderPlaylistDirectory` mood selector, codex/calendar HUD injections** — GM-side core
+  UI, invisible under the phone shell; no interference observed.
+- **Fonts/CSS:** Ember registers two editor fonts + scoped `.ember` styles; no bleed into
+  `.mc-*` (shell smoke clean).
+- **Ember is 14.366+ ONLY** (module.json minimum) — it can never run on the DM's 14.365
+  campaign install; Ember worlds live on current core by construction. Keeps our
+  chase-upstream policy honest.
+
+### 50.10 Residue + session hygiene (2026-08-21 live session)
+
+In the DM's ember world: **one actor "Compat Test Hero"** (id HM7XK4IIrVFw5p9x), mid-creation
+(no items, no user assignment; opening it relaunches the widget — handy for the DM to try it;
+safe for HIM to delete). Nothing else written: no combat run, no scene changes, game left
+PAUSED as found, shell closed, no Ember soundscape channels touched (all were playing:false
+throughout). Bench conduct note: this was the DM's SERVED world driven at his invitation ("I
+left a game running"), not a bench copy — write ops were held to that one actor.
