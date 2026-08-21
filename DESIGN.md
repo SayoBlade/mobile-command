@@ -73,7 +73,7 @@ sections their cross-references always claimed).
 | 47 | Message for dev | Built (§48 added the phone entry point) |
 | 48 | Feedback window | Built (mailto leg untested) |
 | 49 | Pending-action queue + attention bell | Built (renumbered from a duplicate "§21", 2026-08-19) |
-| 50 | **Ember compatibility** (deep dive + build queue) | **Investigated 2026-08-21** — boots clean; fixes queued (music guard, rest gate, core-calendar clock, campaign registry + Ember tab, creation-widget phone story) |
+| 50 | **Ember compatibility** (deep dive + support layer) | **Investigated AND built 2026-08-21** — campaigns.js registry; music/rests/daylight stand down; clock+sky card off Ember's calendar (§50.11 = the time-engine record); creation door opens Ember's own widget with a fit-shim. Open: the campaign-tab slot + Ember tab contents; owed legs in §22.6 item 5b |
 
 ---
 
@@ -2082,25 +2082,31 @@ actually needs):**
    - Séance standalone module spin-off (§30).
    - dnd5e 6.x migration milestone (when the ecosystem forces it — §28.5.1: 6.0.0 at 83%,
      no 5.4 exists).
-5b. **Ember support package (NEW 2026-08-21 — §50; DM initiated the dive and directed the tab
-   + recognition design; build order awaiting his go, recommended order below):**
-   - **Combat-music takeover guard** (§50.3a — GENERAL correctness: no configured music ⇒ no
-     takeover; today combat start silences an Ember world completely, and silences ambience
-     for nothing in any unconfigured world) — smallest, highest-value, first.
-   - **Rest-gate conformance** (§50.6 — hide phone self-serve rests when dnd5e `allowRests`
-     is off, matching the system's own sheets; Ember forces it off).
-   - **Clock chip core-calendar source** (§50.4 — DM asked "consider the clock/date features";
-     general v14 fallback, lights the chip in Ember worlds; SC keeps precedence).
-   - **Campaign registry + ONE campaign-tab slot** (§50.8 — DM: "the ember tab replaces the
-     CM tab"; "the mod recognizes supported modules (ember, CM and whatever we add)");
-     preflight becomes campaign-aware off the same registry.
-   - **Daylight stand-down on Ember-managed scenes** (§50.5).
-   - **Creation-widget phone story** (§50.7 — DECISION NEEDED from the DM: landscape+scale
-     shim ("as is", squinty) vs. reflow stylesheet vs. Ember-fed §38 wizard; TV/desktop
-     already works as-is with zero changes).
-   - **Ember tab contents** (§50.8 — quest log/discoveries/attunement via the `ember` API) —
-     after the slot exists.
-   - Owed validation: a §28.4-style combat run on an Ember scene (§50.9) once fixes land.
+5b. **Ember support package (§50; opened AND largely CLOSED 2026-08-21 — the DM answered the
+   queue same evening: "try the original" creator · "let ember control music" · "Ember
+   controls" rests · "dig deeper" into time/moons):**
+   - ~~Combat-music takeover guard + Ember stand-down~~ **BUILT** (§50.3: `combatMusicMode()`
+     ember/unconfigured/ours; staging row says Ember plays its own).
+   - ~~Rest-gate conformance~~ **BUILT** (§50.6: shell mirrors dnd5e's showRests; quiet
+     explaining line). *Owed: see the player-seat leg below.*
+   - ~~Clock chip core-calendar source~~ **BUILT + live-verified** (§50.4/§50.11: chip read
+     "47 Blooming 2523 · 22:00"; "The clock and the sky" card — sun/season/moons/realms +
+     advance-based steppers; deep time-engine record in §50.11).
+   - ~~Campaign registry~~ **BUILT** (§50.8: campaigns.js; preflight "Campaign module" row).
+     **The campaign-TAB SLOT + Ember tab contents (codex/quests/attunement surfaces) remain
+     the open build** — `activeCampaign()` is the switch the slot will read; ember replaces
+     CM there when it exists.
+   - ~~Daylight stand-down~~ **BUILT** (§50.5: `campaignManagedScene` via
+     CONFIG.Canvas.managedScenes; the DM's own scenes in Ember worlds keep the loop).
+   - ~~Creation-widget phone story~~ **DECIDED ("the original") + BUILT + live round-trip
+     verified** (§50.7: one door → shell yields → Ember's widget with the fit-shim → shell
+     returns on close).
+   - 34 headless tests: `tools/test-ember.mjs` (all green with the full battery).
+   - **Owed legs (next quiet window / bench):** a §28.4-style combat run on an Ember battle
+     map (§50.9 — scene managers + dynamic tokens are new territory for the executor) · the
+     rest-gate + creation door + phone-hush seen from a REAL PLAYER seat (this run drove
+     everything as the GM user; needs a free player seat or a second cookie jar) · the sky
+     card's Set path exercised beyond the +10-min nudge (same primitive, but see it once).
 6. **Watches:** MISC#89 (GWM boolean, still open) · CPR 2.0 leaving pre-release · GPS first V14
    tag · CAT 0.0.x churn · MCD camera-method names on any 14.02+ (§28.5.1). *(Stack validation
    for AC5E 14.533.15 + MISC 2.0.2: DONE 2026-08-20, pins bumped — §28.5.4; only the
@@ -5891,12 +5897,15 @@ nothing configured, is `play("")` = nothing. In an Ember world that pauses Ember
 docs; because of the master-switch model above **Ember stays silent for the entire combat**
 (its per-round re-arrangement computes against `playing:false` → null) — ambience AND its
 combat theme. Our deleteCombat resume does put the channels back. Net: **combat = dead
-silence in an Ember world as shipped.** Fix (queued, awaiting go): (a) GENERAL guard — no
-battle track AND no combatant theme ⇒ skip the takeover entirely (also stops us silencing
-ambience for nothing in ANY unconfigured world); (b) campaign-aware refinement — when Ember
-is active and the DM DID configure our music, pause only Ember's MUSIC channel (leave
-environment/weather/effects), and preflight should advise "Ember automates combat music —
-leave ours unconfigured unless you want to override it."
+silence in an Ember world as shipped.** ~~Fix (queued, awaiting go)~~ **BUILT 2026-08-21
+(evening) — DM: "Let ember control music":** `combatMusicMode()` (combat-music.js, exported)
+answers "ember" / "unconfigured" / "ours" — in Ember worlds the driver stands down ENTIRELY
+(no takeover, no pause, Ember's themes run), and in ANY world with no battle track and no PC
+anthem the takeover is skipped (the general guard). The panel's pre-start staging row says
+"Ember plays themed battle music on its own for this world" instead of a picker. Anthem/track
+CONFIG stays writable everywhere (deliberate — it survives a world moving off Ember; the mode
+gate decides at combat start). The (b) refinement — pause only Ember's music channel when the
+DM explicitly overrides — was NOT built: the DM chose full stand-down.
 
 ### 50.4 Clock/date (DM flagged mid-dive: "consider the clock/date features")
 
@@ -5905,22 +5914,25 @@ Ember implements core v14 `CalendarData` properly: 360-day year, six 60-day seas
 sun/moon phase models (moon phases even re-prepare actor mechanics), its own GM calendar HUD
 (`EmberCalendarNavigation`) with Advance/Rewind. **Our gametime.js reads Simple Calendar ONLY**
 — no SC in ember worlds ⇒ no clock chip, `sunTimes()` = {} (06:00/18:00 defaults), `isNight()`
-falls back. **Fix design (general, not Ember-specific): add a core-calendar source to
-`readClock()`/`isNight()`/`sunTimes()`** — `game.time.calendar.timeToComponents()` + its
-formatters when SC is absent (covers Ember AND any vanilla v14 calendar world; SC keeps
-precedence when present). Time ADVANCEMENT is already compatible: travel/rest use
-`game.time.advance()`, which is exactly what Ember's own controls do — Ember's weather/events/
-sun react to worldTime like they should. The chip's tap action (opens SC) gets a no-op or an
-info card when the source is core. Druskenvald (§43) is CM-only and unaffected.
+falls back. ~~Fix design~~ **BUILT 2026-08-21 (evening), live-verified — see §50.11 for the
+full time-engine record.** gametime.js gained the core-calendar backend (SC → world calendar →
+own Day-N clock; the untouched core Gregorian default deliberately does NOT count, so plain
+worlds keep Day-N + clockStart anchoring); `isNight` reads Ember's sun phase via the pure
+`animate(ts)`; `sunTimes` answers {7, 19} from Ember's light-curve midpoints. The panel chip
+tap in world-calendar worlds opens **"The clock and the sky"** — Ember's sun/season/moons/
+realms above Day/Hour/Minute steppers that MOVE worldTime (advance; rewind allowed, Ember's
+own controls rewind too) instead of re-anchoring clockStart, which a world calendar ignores.
+Druskenvald (§43) is CM-only and unaffected.
 
 ### 50.5 Daylight loop / weather / effects — stand down where Ember owns the sky
 
 - **§41 daylight:** `clockDaylight` defaults ON; on `updateWorldTime` we write active-scene
   darkness. Ember scenes are `EmberSceneManager`-managed (skybox/sun/environment filters) —
-  two hands on one dial. Fix: the daylight writer skips scenes whose `canvas.manager` is an
-  Ember scene manager / whose scene is Ember-flagged (cheap check: `ember.scene` non-null or
-  `game.modules.get("ember")?.active` + scene in Ember's registry) — same family as the
-  existing darknessLock/daylightHold outs.
+  two hands on one dial. ~~Fix: skip Ember-managed scenes~~ **BUILT 2026-08-21 (evening):**
+  `campaignManagedScene(scene)` (campaigns.js) reads `CONFIG.Canvas.managedScenes` — core's
+  scene-manager registry, which only Ember populates in its worlds — and applyDaylight skips
+  those beside darknessLock/daylightHold. The DM's own scenes in an Ember world still get the
+  loop (they're unmanaged), which is the right split.
 - **Weather/effects (§26):** Ember runs its own weather engine + environment/weather audio
   channels. Our rain/thunder/etc. would LAYER on top. No crash; just doubled atmosphere.
   Preflight advisory + DM habit, not a code gate (he may deliberately use ours on non-Ember
@@ -5932,11 +5944,14 @@ dnd5e's `initiateRest` refuses non-GM rests when `allowRests` is false (warn + r
 system's own sheets HIDE rest buttons then (`showRests` = isGM || (isOwner && allowRests)).
 Ember forces it false (rests are gameplay-gated: its long-rest flow hooks + camps). Our shell
 rest runs on the PHONE client (`actor.longRest()`, shell.js #doRest) ⇒ in Ember worlds a
-player's Rest tap = system warning toast, nothing else; panel/GM rests fine. **Fix (general
-dnd5e conformance, mirrors-Foundry rule): shell hides/disables self-serve rest controls when
-`!game.settings.get("dnd5e","allowRests")` && !isGM** — with the §19 copy explaining rests are
-DM-called in this world. Do NOT route around via the executor: the gate is the campaign's
-intent, not an obstacle.
+player's Rest tap = system warning toast, nothing else; panel/GM rests fine. ~~Fix~~ **BUILT
+2026-08-21 (evening) — DM: "Ember controls" rests:** `#selfRestsAllowed()` in shell.js mirrors
+dnd5e's own `showRests` rule (GM, or owner + allowRests); gated, the two buttons become one
+quiet line — "Resting here happens through the story — the DM calls it, usually when you make
+camp" — plus a safety-net info toast under #doRest for stale DOM. Deliberately NOT routed via
+the executor: the gate is the campaign's intent, not an obstacle. GM clients keep their
+buttons (dnd5e exempts GMs). Live leg on a real player seat owed (next bench with a free
+player user).
 
 ### 50.7 Character creation widget — the emphasis item. Verdict: importable, with one real gap
 
@@ -5979,8 +5994,19 @@ NOT complete (would assign the DM-user's character + commit a full hero).
   3-column steps (the DOM is clean: `.selection-menu` / `.selection-details` /
   `.details-section`), or feeding Ember's data (same journals/packs/APIs the widget reads)
   through our §38 wizard pattern. Both are real builds; the override sheet fights Early
-  Access markup churn (0.6.x), the wizard route is ours to keep stable. Decision for the DM
-  when Ember support gets built.
+  Access markup churn (0.6.x), the wizard route is ours to keep stable. **DECIDED 2026-08-21:
+  the DM chose the ORIGINAL, as-is ("I want to at least try the original") → BUILT same
+  evening:** in Ember worlds the blank-PC start screen's two build doors become ONE — "Create
+  your hero" (+ "turn your phone sideways" hint) → the shell HIDES (it out-stacks Ember's
+  fullscreen apps, z 9999 vs 30; the dialog-lift skips frameless apps so it can't help) →
+  Ember's own sheet renders → campaigns.js's fit-shim sets `--ui-scale =
+  min(vw/1440, vh/830)` on viewports under 1024×768 and re-fits on resize/rotation → on ANY
+  close (Complete / Exit / crash) `closeEmberCharacterCreationSheet` restores the shell.
+  Door self-repairs a missing sheetClass flag (actors made before Ember was enabled).
+  Live-verified round-trip on the served world: door → yield → widget (scale 0.45 at
+  812×375, layout whole) → Exit → shell back on the start screen. First render takes a few
+  seconds (compendium load) — the widget's own doing, acceptable. Reflow/wizard routes stay
+  recorded above if squinty stops being fun at a real table.
 - **Integration mechanics measured:** our shell (z 9999) covers Ember fullscreen apps (z 30)
   ⇒ the shell must yield (hide) while creation runs, restore on close; the AdvancementManager
   finale is a standard dnd5e window on the phone (same beast §38 already lives with,
@@ -5990,7 +6016,15 @@ NOT complete (would assign the DM-user's character + commit a full hero).
 ### 50.8 Campaign-module recognition + the Ember tab (DM directives, 2026-08-21 mid-dive)
 
 DM: *"make sure the ember tab replaces the CM tab, and that the mod recognizes supported
-modules (ember, CM and whatever we add)"*. Design (queued):
+modules (ember, CM and whatever we add)"*. **Registry BUILT 2026-08-21 (evening):**
+`campaigns.js` — `isEmberWorld()` / `emberReady()` / `activeCampaign()` ("ember" outranks
+"crooked-moon"; both-at-once is near-impossible and ember wins) / `campaignManagedScene()` /
+`emberSun()` / `emberSky()` + the creation fit-shim. Consumers live today: combat-music mode,
+shell rest copy + creation door, gametime backend, daylight writer, preflight's "Campaign
+module" ok-row (names everything the app hands over to Ember). **The TAB SLOT itself — an
+Ember tab in the shell replacing the CM tab — is NOT built yet** (there is no Ember tab
+content until the codex/attunement surfaces get built); `activeCampaign()` is the one switch
+it will read. Original design (still the plan for the slot):
 
 - **A small campaign registry** in the module: `{ id, detect(), tabSpec, advisories,
   behaviors }` per supported campaign module — Ember (`game.modules.get("ember")?.active &&
@@ -6044,3 +6078,73 @@ safe for HIM to delete). Nothing else written: no combat run, no scene changes, 
 PAUSED as found, shell closed, no Ember soundscape channels touched (all were playing:false
 throughout). Bench conduct note: this was the DM's SERVED world driven at his invitation ("I
 left a game running"), not a bench copy — write ops were held to that one actor.
+
+### 50.11 The Ember time engine, in full (deep dive 2026-08-21, DM ask: "I want the ember time management including moons and effects")
+
+**Wiring.** Core v14 owns the loop: the `worldTime` setting's onChange calls
+`game.time.onUpdateWorldTime` → `calendar.onUpdateWorldTime` (client/helpers/time.mjs:212) —
+so the configured world calendar hears every time change FROM CORE, no module hooks involved.
+Ember's calendar then: updates sun/moons/realms true positions → detects lunar phase-boundary
+crossings (fires **`Hooks.callAll("ember.lunarPhaseChange", {changed, phases})`** — a public
+hook we can ride later, plus re-preparing party + assigned-character actors) → advances its
+weather engine → calls the active EmberSceneManager's `onTimeChange` → then ANIMATES the
+transition (duration `log10(220·days+1)·ANIMATION_MS_PER_HOUR`, per-tick re-positioning +
+scene `animateTimeChange`). `EmberSynchronizedClock` is NTP-style client↔server sampling for
+cross-client ANIMATION sync only — **Ember has NO auto-advancing real-time clock**; time moves
+via its calendar HUD (±1M/±30M/±1H/±8H/±1D/±7D, rewind supported), region-map travel
+(`game.time.advance(hexCost·3600)`), and rests (1h short / restedHours long) — all the same
+`game.time.advance` primitive our travel/watch/±10-min-nudge use. Fully compatible.
+
+**The calendar.** 360-day year = six 60-day season-months (Seeding, Blooming, Steading,
+Gleaning, Withering, Stilling), 7-day weeks (Sat+Sun flagged rest days), 24h days, epoch "AS",
+`campaignDay` derived from `CAMPAIGN_START` (year 2523, day 106, hour 22 — the quickstart
+world boots at exactly campaign day 0, 10pm).
+
+**The sun.** Phases: NIGHT [00–05) & (19–24], DAWN [05–06], DAY (06–18), DUSK [18–19];
+influence ramps 04→08 up and 18→22 down. `sun.getDarkness()`: full dark 21:00–05:00, eased
+dawn 05→09, full day 09→17, eased twilight 17→21, night color #0f0c1c. That feeds
+`configureEnvironment(scene)` — Ember's own §41: darkness level from the sun, **`darknessLock`
+respected** (their escape hatch = ours), base-darkness blended, and the night TINTED by a
+weighted average of the lit moons' colours (influence³ weights × per-moon modifiers ragen 1.3 /
+cora 1.2 / mayis 1.1 / aura 0.9 / orbis 0.8).
+
+**The moons — six, each with an orbital period, a colour, and a damage type** (the affix map):
+
+| Moon | Period | Colour | Damage type | Notes |
+|---|---|---|---|---|
+| Ragen | 29d | red #b92517 | fire | strongest night-tint modifier (1.3) |
+| Cora | 32d | green #25751e | acid | |
+| Mayis | 32d | cyan #17b8db | cold | full Mayis = morale −2 (Duskmaw weapons) |
+| Aura | 28d | violet #93527b | lightning | |
+| Orbis | 29d | silver #d4d3d6 | psychic | full Orbis = morale −2 (Duskmaw weapons) |
+| Akon | 33d | pale gold #a8a96c | piercing | **emits no light** — a dark moon |
+
+Phase model (per moon): influence 0 = **Dormant** ("none"), >0.75 = **Full**, else
+Waxing/Waning by orbit half. **The three realms** (annual period 360d, offset by
+`SIGNARA_OFFSET`): Signara, Luxarum, Primordis — phases Dormant / Ascending / **Dominant**
+(≥0.66) / Descending; Primordis is Dominant at campaign start. These are the attunement
+cosmology's inner spheres.
+
+**What the sky DRIVES (the "effects").** (1) **Event probability** — the random-event engine's
+coefficient vector includes `day`/`night` (sun influence), `sun_<phase>`, per-moon influence,
+`<moon>_<phase>` flags, and moon×event-type interaction terms alongside hex/biome/terrain/
+weather/pace — wandering encounters genuinely change under the moons, in BOTH systems.
+(2) **Scene light + night colour** per configureEnvironment above. (3) **Item mechanics** —
+today all Crucible-side (the `lunarShield` affix: +tier resistance per waxing/waning moon's
+damage type, ×2 on full, nothing when dormant; Duskmaw weapons: morale −2 per full Orbis/
+Mayis on hit), with the actor re-preparation + public hook infrastructure already in place for
+dnd5e content as EA grows. (4) **Soundscape arrangements** pick day/night variants. (5)
+Cosmetic: `ember-lunar-dice` (+DSN) lights dice on full moons — both off in the DM's worlds.
+
+**What we BUILT against it (all live-verified on the served ember world, 2026-08-21 evening):**
+gametime's core-calendar backend (§50.4 — chip read "47 Blooming 2523 · 22:00" live; SC keeps
+precedence; the untouched core Gregorian default stays on our Day-N clock + clockStart
+anchoring), `isNight` through `sun.animate(ts).phase` (pure — never disturbs the live sky),
+`sunTimes` {sunrise 7, sunset 19} from Ember's ease midpoints, the panel chip's **"The clock
+and the sky" card** (sun phase + season · six moon dots in their own colours with phase labels,
+dark moons dimmed · realms line with the dominant one lit gold · steppers that MOVE worldTime
+via advance — verified +10min: our chip 22:10, Ember's HUD animated to match), and the §50.5
+daylight stand-down keyed on `CONFIG.Canvas.managedScenes` (Ember's scenes are its own; the
+DM's hand-made scenes in the same world still get our loop). 34 headless tests in
+`tools/test-ember.mjs` cover the decisions (music mode, calendar-backend selection, managed-
+scene recognition, sky-card shape, fallbacks).
