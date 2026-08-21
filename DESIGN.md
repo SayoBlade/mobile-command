@@ -2117,13 +2117,16 @@ actually needs):**
      campaign-tab slot (flame replaces the crone, activeCampaign() decides) + sky/party-level/
      attunements/story-so-far cards; 49 headless tests total. **Slice B open:** discoveries/
      bestiary counts, per-quest grouping.
-   - **Owed legs — now behind a HARD GATE (§50.15: exactly ONE GM client connected, running
-     current code — the DM's desktop client sat connected with pre-tonight code, and our
-     executor election is USER-level, so a second Michael session means BOTH clients execute):**
-     the Ember combat run (numbered protocol written in §50.15, ready to execute) · the sky
-     card's Set path · phone-hush with a shared screen. **Standing trap recorded:** two
-     clients of one GM user = double executor/music/daylight drivers; a session-level
-     election is a future hardening candidate.
+   - ~~Owed legs behind the hard gate~~ **ALL CLOSED 2026-08-22 (§50.15.1 — the DM freed the
+     seat: "the world is yours"): the Ember combat run PASSED ALL TEN** (two-tap on a managed
+     scene, Ember's themed music start/re-arrange/restore with ZERO writes from us, daylight
+     stand-down through a 10-hour jump, dynamic tokens clean) · **sky-card Set PASSED** (+10h
+     exact, Ember glided night→morning) · **phone-hush CLOSED BY RE-SCOPE** (no
+     Ember-specific surface; the §39.5 proof stands). **Still open in the package:** Ember
+     tab slice B · the §50.13 doorway-follow questions (DM) · two small §50.15.1 filings —
+     prototype-token name sync after creation, a "collect your starting gear" nudge for
+     weaponless 2024 heroes. **Standing trap (unchanged):** two clients of one GM user =
+     double executor/music/daylight drivers; session-level election = future hardening.
 6. **Watches:** MISC#89 (GWM boolean, still open) · CPR 2.0 leaving pre-release · GPS first V14
    tag · CAT 0.0.x churn · MCD camera-method names on any 14.02+ (§28.5.1). *(Stack validation
    for AC5E 14.533.15 + MISC 2.0.2: DONE 2026-08-20, pins bumped — §28.5.4; only the
@@ -6287,7 +6290,7 @@ plain-text journal) — `tools/test-ember.mjs` now 49 green.
 `ember.state.discoveries` step === 2 + gazetteer pages), a per-quest grouping view, and
 whatever live play shows players actually reach for.
 
-### 50.15 The Ember combat validation — protocol written, run PARKED on a hard gate
+### 50.15 The Ember combat validation — ~~protocol written, run PARKED on a hard gate~~ **RUN 2026-08-22, ALL TEN PASSED** (results in 50.15.1 below; the gate + protocol kept for re-runs)
 
 **Why it did not run tonight (found the hard way, nothing harmed):** the DM's desktop client
 was CONNECTED as Michael while I held a second Michael session — and **our executor identity
@@ -6328,3 +6331,64 @@ the token delta, the original actor untouched) · unpause.
 9. Dynamic-token check: the hostile's Ember dynamic token animated/behaved through damage
    and defeat without executor-side errors.
 10. Residue report: spawned token (+ possible item-piles corpse), chat cards, world time.
+
+#### 50.15.1 The run (2026-08-22, DM: "the world is yours… the foundry one anyway")
+
+Gate verified open (join screen: NOBODY connected, world served) → solo rig as Michael
+(ticker pump; midi preset drift = 0 — the DM's setup was already clean). Arena: **Marlstone
+Manor - First Floor** (empty of tokens), Torren Vale + one spawned **Abyssal Eel** (CR ⅛,
+unlinked — damage stays on the token delta) on the grand-hall floor. Torren was weaponless
+(the 2024 gear model, §50.12) — granted a Longsword for the test, kept after.
+
+**Results (numbered, all PASS):**
+1. Scene loads under `EmberAreaMap`; ZERO mobile-command errors. (One error from EMBER's own
+   Vista manager during the scene switch — `EmberSceneManager _onTearDown … reading 'stop'`,
+   its audio-less teardown, EA bug, not ours; the DM may see it in consoles.)
+2. Shell binds Torren on the managed scene; d-pad moves him a cell across the Wood Floors
+   footstep region, clean.
+3. Target picker lists the eel "Foe · 5 ft" (range math right on the Ember grid); AC5E's
+   advantage strip renders.
+4. Two-tap attack end to end: Hit → damage → eel 7→0. Repeated later against the living eel:
+   Hit → 7→2 with dnd5e's **bloodied** status flowing. Auto-application, no stray dialogs.
+5. Combat start: Ember's automation reads the eel (aberration) and writes its themed
+   soundscape — `abyssalCombat.abyssalFightRises` — prior state saved on the combat flag.
+   **Our driver: `combatMusicMode()`="ember" live, zero playlist writes, `combatMusicTouched`
+   empty.** The stand-down holds in a real fight.
+6. Round advance FROM THE SHELL's End-turn button; Ember re-arranges on the round change
+   (`abyssalFightRises → abyssalFightInterlude`). Still zero writes from us.
+7. Combat end (delete): **Ember restores its prior soundscape** (abyssal → null/calm) from
+   the combat flag; tracker gone clean.
+8. Daylight: through a TEN-HOUR clock jump the managed scene's
+   `_source.environment.darknessLevel` never moved (0→0) — our writer stood down; Ember
+   repainted the SAME hall from pitch night to warm morning at canvas level (before/after
+   screenshots in the run). The old code would have written the doc.
+9. Dynamic tokens: Torren wears an Ember dynamic token (creation-built); turn-change
+   animation calls ran through the fight with no errors.
+10. Residue (all reported to the DM): Torren + eel tokens on the Manor (eel 2/7, bloodied) ·
+    Torren's Longsword (kept — fresh 2024 heroes are weaponless, he needs one anyway) ·
+    world time moved to **campaign Day 1, 08:10am** (the +10-min nudge and the sky-card Set
+    jump ARE time writes by nature) · a few attack/damage chat cards · nothing deleted ·
+    Vista re-activated · game re-paused · Michael's user.character restored to none.
+
+**The sky-card Set leg (owed since §50.4): PASS in the same run** — the dialog carried the
+full sky block, Day+1/Hour=8 advanced exactly +10h, the chip read "48 Blooming 2523 · 08:10",
+Ember's HUD glided through dawn to "Day 1 – 8:10am" (long jumps ANIMATE — the live sun phase
+reads mid-flight until the glide lands; read after, not during).
+
+**Phone-hush leg: CLOSED BY RE-SCOPE** — the hush gate (`isOnlineTable() && !hasSharedScreen()`,
+main.js) has no Ember-specific surface at all; the §39.5 bench proof on offline-test stands
+for every world. Creating a display user in the DM's ember world just to re-prove it wasn't
+warranted; when he sets up streaming there for real, the §16 wizard path covers it.
+
+**Bench lessons (rig, not bugs):** reviving a downed NPC for a re-test needs the **dead
+STATUS cleared, not just HP** — midi skips auto-apply against dead-flagged targets (our §28.5.6
+corpse hygiene working) and AC5E gives attackers advantage on the "corpse". A SPAWNED NPC
+token ships with `sight.enabled: false` — AC5E then reads "target can't see its attacker"
+and grants advantage (the eel's 30-ft blindsight never engages); enable token vision when a
+leg depends on the defender's senses.
+
+**Two small opens filed from the run (ledger):** (a) Ember's creation widget renames the
+ACTOR but not the PROTOTYPE TOKEN — tokens drop as "Blue's hero"; a courtesy sync on our
+creation-close hook would fix what Ember forgot (tiny, unbuilt). (b) Fresh 2024 heroes are
+WEAPONLESS until the sheet's equipment flow — a phone player's Actions tab starts bare;
+worth a "collect your starting gear" nudge someday (slice-B-adjacent).
