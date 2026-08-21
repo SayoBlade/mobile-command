@@ -2072,7 +2072,9 @@ actually needs):**
 
 **Smaller opens swept from the sections (2026-08-19 deep dive):**
 
-- **§44 slice B** — the Deeds recorder (+ the compile timer judged at a real table).
+- ~~§44 slice B — the Deeds recorder~~ — **BUILT 2026-08-21** (`deeds.js`, §44.4 banner; live
+  leg through a reloaded executor owed). Still open here: the compile timer judged at a real
+  table.
 - **§45** — mastery-swap picker (when a `mastery.bonus` PC exists) · pre-attack chip (deliberately
   later).
 - **§28.7** — the executor honesty fix (`ok:false` when an attack produced no workflow), blocked
@@ -5211,7 +5213,7 @@ blocks · `daylightHold` blocks · applies when both are cleared (0 → 0.7) · 
 
 ---
 
-## 44. The Character File — an auto-compiled book per PC (DM ask 2026-08-11 — **slice A BUILT 2026-08-15**, [character-file.js](scripts/character-file.js) + `tools/test-character-file.mjs`; the Deeds recorder (§44.4/slice B) is the unbuilt half)
+## 44. The Character File — an auto-compiled book per PC (DM ask 2026-08-11 — **slice A BUILT 2026-08-15**, [character-file.js](scripts/character-file.js) + `tools/test-character-file.mjs`; **slice B Deeds recorder BUILT 2026-08-21**, [deeds.js](scripts/deeds.js) + `tools/test-deeds.mjs` — see the §44.4 banner)
 
 > DM: *"I'd like automatically generated PC notes for the DM, compiling all the answers they gave,
 > things like tarot, fate, and other sources to have a clear file of each character in the game…
@@ -5275,9 +5277,28 @@ The bar for "worthy" is **`CR > level`** (DM 2026-08-15 — strictly above, so a
 isn't a trophy); the ranking is `CR − level`, which is what surfaces the biggest thing anyone ever
 punched above their weight.
 
+> **BUILT 2026-08-21 (`deeds.js`; 33 headless reducer tests green; chapter 8 added to
+> `character-file.js`'s CHAPTERS).** Everything below shipped as specced, with these
+> implementation facts: ONE `deeds` flag per PC — counters, maxima, and capped `[name, n]`
+> PAIR ARRAYS for weapons/spells/nemesis, arrays because a flag update MERGES objects (an
+> evicted nemesis key would resurrect) but REPLACES arrays wholesale. Sources: (1)
+> `midi-qol.RollComplete` — damage/heal/drops/nemesis/foe-totals/turn/hit + weapon/spell use
+> counts, read from the workflow's `damageList` (`hpDamage`+`tempDamage` = what actually
+> landed; negative `hpDamage` = healing that mattered, overheal excluded by midi's clamp);
+> runs on the client that ran the workflow, which is exactly the client that can write. (2)
+> `updateActor` HP→0 for the kill, attributed via a per-client `lastDamager` map — only the
+> client holding the claim records, once per corpse, healed-back-up re-arms. (3)
+> `createChatMessage` on the EXECUTOR for death saves + luck (`flags.dnd5e.roll.type`, first
+> die faces-20) — one authoritative writer, no cross-client races; known undercount: midi
+> merge-cards that attach the attack roll after creation slip the luck tally. `deleteCombat`
+> clears the per-fight memory. Nemesis records only NPC→PC damage (PC-on-PC is noise).
+> A twist-forced natural 20 counts as luck — fate-made luck is still luck. **Live leg owed:**
+> a real workflow through the DM's reloaded executor (same quiet-window list as §31 v2).
+
 **Recorded:**
 
-- **Worthy kills** — the killing blow on a CR ≥ level creature: name, CR, level, scene, date.
+- **Worthy kills** — the killing blow on a CR > level creature (the strict §44.4 bar; an
+  earlier draft of this line said ≥): name, CR, level, scene, date.
 - **Most damage to a worthy foe** — the largest total a PC dealt to one such creature.
 - **Biggest turn** — largest damage in a single turn, and **biggest single hit**.
 - **Signature weapon / signature spell** — most-used, by count. (The DM's "favourite".)

@@ -22,6 +22,7 @@ import { registerDaylight, applyDaylight } from "./daylight.js"; // §41 the clo
 import { registerTwists } from "./twists.js"; // §31 v2: an armed twist forces the creature's next d20
 import { registerDruskenvald } from "./druskenvald.js"; // §43 eternal night, told in six named hours
 import { registerCharacterFiles, compileCharacterFiles } from "./character-file.js"; // §44 a book per PC
+import { registerDeeds } from "./deeds.js"; // §44.4 slice B: the Deeds recorder feeding chapter 8
 import { registerSettingsMenu } from "./settings-app.js"; // §29 settings mini-app (menu button)
 import { installErrorCapture, buildDevReport } from "./devreport.js"; // §47 the technical report
 import { openFeedback, registerFeedbackMenu } from "./feedback.js"; // §48 the feedback window
@@ -788,6 +789,7 @@ Hooks.once("ready", () => {
   registerTwists(); // §31 v2: armed twists land on the next d20 (all clients — the roller forces its own die)
   registerDruskenvald(); // §43: the named hour + sky on the shared screen (gates itself)
   registerCharacterFiles(); // §44: compile each PC's book on a timer (executor-only, dirty-checked)
+  registerDeeds(); // §44.4: the Deeds recorder — event-driven, bounded flag per PC (chapter 8 reads it)
   if (!isPhoneClient()) initPauseOverlay(); // corner spinners replace the "GAME PAUSED" bar (phones have their own overlay)
   if (!isPhoneClient()) initHeartbeat();    // critical-HP heartbeat pulse on PC token rings (canvas only)
   startHeartbeat();

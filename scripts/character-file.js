@@ -4,6 +4,7 @@ import * as DT from "./downtime.js";
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js";
 import { actorCurses } from "./cm-curses.js";
 import { actorCard, cardFace, ARCANA_REWARD, tarotEnabled } from "./tarot.js";
+import { DEEDS_FLAG, topPair } from "./deeds.js"; // §44.4 slice B: the recorder's flag, read here
 
 // §44 THE CHARACTER FILE — a book per PC, compiled from what the game already knows.
 //
@@ -159,6 +160,41 @@ function chFate(actor) {
   return bits.join("");
 }
 
+// §44.4 slice B: the Deeds chapter — a read over the recorder's one bounded flag. Only what
+// happened is shown; a subsection with nothing to say is omitted, and no flag means no chapter.
+function chDeeds(actor) {
+  const d = actor.getFlag(MODULE_ID, DEEDS_FLAG);
+  if (!d) return "";
+  const n = (v) => Number(v ?? 0);
+  const crShow = (cr) => Number.isFinite(cr) ? (cr === 0.125 ? "⅛" : cr === 0.25 ? "¼" : cr === 0.5 ? "½" : String(cr)) : "?";
+
+  const rows = [];
+  if (n(d.totalKills)) rows.push(["Creatures slain", n(d.totalKills)]);
+  if (d.maxHit) rows.push(["Biggest single hit", `${n(d.maxHit.amount)}${d.maxHit.name ? ` — to ${d.maxHit.name}` : ""}`]);
+  if (d.maxTurn) rows.push(["Biggest turn", n(d.maxTurn.amount)]);
+  if (d.maxFoe) rows.push(["Most damage to a worthy foe", `${n(d.maxFoe.total)} — ${d.maxFoe.name} (CR ${crShow(d.maxFoe.cr)}, at level ${n(d.maxFoe.level)})`]);
+  const wpn = topPair(d.weapons); const spl = topPair(d.spells);
+  if (wpn) rows.push(["Signature weapon", `${wpn[0]} (${wpn[1]} uses)`]);
+  if (spl) rows.push(["Signature spell", `${spl[0]} (${spl[1]} casts)`]);
+  if (n(d.healGiven)) rows.push(["Healing given", `${n(d.healGiven)}${d.maxHeal ? ` — biggest ${n(d.maxHeal.amount)}${d.maxHeal.name ? ` to ${d.maxHeal.name}` : ""}` : ""}`]);
+  if (n(d.drops)) rows.push(["Times dropped to 0 HP", n(d.drops)]);
+  if (n(d.dsMade) || n(d.dsFail)) rows.push(["Death saves", `${n(d.dsMade)} made · ${n(d.dsFail)} failed`]);
+  if (n(d.nat20) || n(d.nat1)) rows.push(["Luck", `${n(d.nat20)} natural 20s · ${n(d.nat1)} natural 1s`]);
+
+  const nemesis = [...(d.nemesis ?? [])].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const kills = d.kills ?? [];
+
+  if (!rows.length && !nemesis.length && !kills.length) return "";
+  return `<div class="mc-cf-deeds">
+    ${rows.length ? `<dl class="mc-cf-facts">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : ""}
+    ${nemesis.length ? `<h3>Nemesis</h3><p>${nemesis.map(([name, amt]) => `<b>${esc(name)}</b> (${esc(amt)} damage dealt to them)`).join(" · ")}</p>` : ""}
+    ${kills.length ? `<h3>Worthy kills</h3><ul class="mc-cf-kills">${kills.map(k => `
+      <li><b>${esc(k.name)}</b> — CR ${esc(crShow(k.cr))} at level ${esc(k.level)}
+        <span class="mc-cf-quiet">${esc([k.scene, k.wd].filter(Boolean).join(" · "))}</span></li>`).join("")}</ul>` : ""}
+    <p class="mc-cf-quiet">Records begin the day the recorder shipped; kill credit follows the last blow, which a shared kill can mis-award.</p>
+  </div>`;
+}
+
 function chDowntime(actor) {
   let st; try { st = DT.normalizeState(game.settings.get(MODULE_ID, "downtimeState")); } catch (e) { return ""; }
   const list = st.activities?.[actor.id] ?? [];
@@ -176,7 +212,8 @@ const CHAPTERS = [
   { key: "words", name: "In Their Own Words", build: chWords },
   { key: "creation", name: "Creation", build: chCreation },
   { key: "fate", name: "Fate", build: chFate },
-  { key: "downtime", name: "Downtime", build: chDowntime }
+  { key: "downtime", name: "Downtime", build: chDowntime },
+  { key: "deeds", name: "Deeds", build: chDeeds } // §44.4 slice B — the spec's chapter 8
 ];
 
 /* -------------------------------------------- */
