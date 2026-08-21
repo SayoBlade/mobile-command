@@ -2102,11 +2102,22 @@ actually needs):**
      verified** (§50.7: one door → shell yields → Ember's widget with the fit-shim → shell
      returns on close).
    - 34 headless tests: `tools/test-ember.mjs` (all green with the full battery).
+   - **The Blue run (2026-08-21 late, §50.12) — the DM's player-seat test, passed twice:**
+     two heroes created end-to-end from a phone-size player client (Torren Vale the Fighter,
+     Mira Quenlin the Wizard); two gaps found + fixed mid-run (the no-characters "Create your
+     hero" door · native actor sheets close instead of lifting on phones — the shell IS the
+     sheet). ~~rest-gate + creation door from a REAL PLAYER seat~~ **CLOSED by that run.**
+   - **Preflight doorway false-alarm FIXED (§50.13, DM caught it):** the Map-doorways check
+     skips campaign-managed scenes — Ember's destination-less stairs/elevators are scripted
+     by its scene managers; "Disable 8" would have broken the campaign.
+   - **OPEN — the doorway "one or all?" follow idea (DM, "maybe"):** specced in §50.13
+     (recommended: DM-panel chip on cross-SCENE teleports, §37-probed group landing, scripted
+     Ember doors left alone). Three design questions for the DM in §50.13 before building.
    - **Owed legs (next quiet window / bench):** a §28.4-style combat run on an Ember battle
      map (§50.9 — scene managers + dynamic tokens are new territory for the executor) · the
-     rest-gate + creation door + phone-hush seen from a REAL PLAYER seat (this run drove
-     everything as the GM user; needs a free player seat or a second cookie jar) · the sky
-     card's Set path exercised beyond the +10-min nudge (same primitive, but see it once).
+     sky card's Set path exercised beyond the +10-min nudge (same primitive, but see it once)
+     · phone-hush in an Ember world with a shared screen configured (no display account in
+     the ember test world yet).
 6. **Watches:** MISC#89 (GWM boolean, still open) · CPR 2.0 leaving pre-release · GPS first V14
    tag · CAT 0.0.x churn · MCD camera-method names on any 14.02+ (§28.5.1). *(Stack validation
    for AC5E 14.533.15 + MISC 2.0.2: DONE 2026-08-20, pins bumped — §28.5.4; only the
@@ -6148,3 +6159,87 @@ daylight stand-down keyed on `CONFIG.Canvas.managedScenes` (Ember's scenes are i
 DM's hand-made scenes in the same world still get our loop). 34 headless tests in
 `tools/test-ember.mjs` cover the decisions (music mode, calendar-backend selection, managed-
 scene recognition, sky-card shape, fallbacks).
+
+### 50.12 The Blue run (2026-08-21, late) — two heroes created from a player phone, end to end
+
+The DM added a PLAYER user "Blue" and asked for a self-test ("use blue to create a couple of
+PCs, and see if it all goes smooth on the mobile app"). Driven at real phone sizes (375×812
+portrait for the doors, 812×375 landscape for the widget), with the DM's own client live as
+the executor the whole time.
+
+**Two gaps found and fixed mid-run:**
+1. **A player with NO characters had no way in.** The Ember door lived only on an existing
+   blank PC — Blue (who has `ACTOR_CREATE`; this world grants players actor creation) landed
+   on "No token on this scene" and was stuck waiting for a DM. Now: the no-token screen in an
+   Ember world offers **"Create your hero"** (or **"Create another hero"** under the
+   character list) when the user can create actors — one tap makes the blank actor (Ember
+   stamps its creation sheet via preCreateActor), pins it as the tokenless subject, and walks
+   straight into the widget. Gated on `isEmberWorld() && emberReady() && can(ACTOR_CREATE)`
+   && not the display client; worlds that DON'T allow player creation keep the wait-for-DM
+   screen unchanged.
+2. **Completion dumped the player on the DESKTOP sheet.** dnd5e's AdvancementManager finishes
+   by re-rendering the actor's (now normal) sheet — over the shell, full desktop UI. New
+   standing rule in `liftDialogAboveShell`: **a framed native ACTOR SHEET on a phone client is
+   closed, not lifted — the shell IS the player's sheet** (the module's premise, §2). The
+   frameless check above it already passes Ember's fullscreen creator through; configs,
+   prompts and the AdvancementManager itself are not ActorSheetV2 and keep their lift.
+   Verified on the second hero: no sheet flash, shell landing clean.
+
+**What the run proved (evidence in the run itself, both heroes in the DM's ember world):**
+- **Torren Vale** — Human Fighter 1, "Arcturian Caravanner" (the culture+path merged
+  background), Heart attunement (rank-1 feat granted), point-buy 15/13/14/11/11/8 + boosts →
+  17/13/15/11/11/8 on the sheet, HP 12, weapon masteries chosen, an Ember language (Cascal)
+  — 21 AdvancementManager steps, every choice made by tap in the bottom-sheet skin, manager
+  auto-advanced the rest. `flags.ember.characterCreation` set, core sheetClass cleared,
+  **auto-assigned as Blue's `user.character`**.
+- **Mira Quenlin** — Thornling Wizard 1, "Kithil Academy Dropout", Cora attunement, 17 steps
+  incl. a second Ember language (Arcden); Thornling brings Lunar Tattoos (a moon-touched
+  dnd5e feature — the cosmos reaching character sheets already). Torren KEPT the
+  user.character slot (the only-if-empty guard held).
+- The rest gate seen from a REAL PLAYER seat: Blue's sheet tab shows "Resting here happens
+  through the story — the DM calls it, usually when you make camp" — no buttons. (Owed leg
+  from 50.6: CLOSED.)
+- The fit-shim held through the whole flow (0.45 at 812×375), point-buy +/− taps, six-step
+  nav, token maker (PIXI) all fine at phone scale. First widget open takes a few seconds
+  (`ember.character` pack load) — Ember's own cost, acceptable, unchanged.
+- Foundry's one-time **User Configuration prompt** (core, first-ever login of a new user)
+  opened over the widget mid-run — the dialog-lift's bottom-sheet skin made it usable;
+  dismissed and never returned. Not ours; left alone.
+- 2024-rules note: neither hero gets STARTING EQUIPMENT items during creation — dnd5e 5.x
+  grants gear via the sheet's later "starting equipment" flow, and Ember's paths carry
+  startingEquipment data the system reads there. Content behavior, not a module gap; worth
+  remembering when a tester asks where their sword is.
+
+### 50.13 Ember doorways in preflight — fixed; the "one or all?" follow idea — specced, not built
+
+**The wrong warning (DM caught it live: "preflight suggests disabling doorways, I'm not sure
+that's the right call"):** the Map-doorways check flagged 8 destination-less teleport regions
+— ALL on Ember-managed scenes (Marlstone Manor's four stairways, the Repurposed Quarry's
+elevators) — and offered "Disable 8". Those are DELIBERATE: Ember's scene managers
+(`RepurposedQuarry`, `EmberElevator`, …) run those doors in code at runtime; disabling them
+would have broken the campaign's stairs. **Fixed 2026-08-21 (late): the check skips
+campaign-managed scenes entirely** and says so in its detail ("Ember's own doorways (stairs,
+elevators — N regions) run themselves and were left alone" — reads OK on the live world now).
+The DM's own scenes keep the full check + fix; the original Cave-A trap this check exists for
+is still covered.
+
+**The piggyback ("maybe we can piggyback over them and ask if one player or all are moving
+maps?") — SPEC ONLY, deliberately not built tonight:**
+- Two door species, different answers. Ember's SCRIPTED doors (the 8 above + its elevators/
+  platforms) are choreography — riding those means fighting its scene managers: leave them.
+  The ~72 RESOLVED teleport regions (stairs/doors between scenes and levels) are core
+  behaviors that move ONE token — the mover — and that's where "did the whole party just
+  change maps?" is a real table question.
+- **Recommended shape:** when a player-owned token teleports through a region to a DIFFERENT
+  SCENE ("moving maps", the DM's phrase — same-scene stairs stay quiet), the DM panel grows a
+  §49-idiom pending chip: "Torren crossed to Marlstone Manor — bring the rest?" One tap
+  teleports the remaining party tokens to collision-PROBED free cells around the arrival
+  (the §37 landing technique — naive multi-token drops strand tokens in walls), skipping
+  tokens already there. No player-side prompt: the mover already voted by walking through,
+  and the DM adjudicates the rest — matches §8.1 (the DM can always cheat) and keeps phones
+  quiet.
+- **Open questions for the DM before building (§22.6):** (a) DM-panel chip (recommended) or
+  a "Follow Torren?" prompt on each player's phone? (b) should Party Mode marching order
+  (§15) auto-follow with no ask at all? (c) any interest in the same chip for Ember's
+  region-map location travel, or is that fully Ember's party-token flow? (leaning: fully
+  Ember's).

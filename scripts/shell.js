@@ -464,6 +464,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <span class="mc-nt-name">${foundry.utils.escapeHTML(pcDisplayName(a))}</span>
         <span class="mc-nt-tag">${this.#isCharGenPC(a) ? "Build" : "View"}</span>
       </button>`).join("");
+    // §50.7 (found on Blue's first run, 2026-08-21): in an Ember world where the DM lets players
+    // create their own actors, a player with NO characters was still stuck waiting — the Ember
+    // door only lived on an existing blank PC. Offer creation right here: one tap makes the
+    // blank hero and walks straight into Ember's creator.
+    const canMake = isEmberWorld() && emberReady() && game.user?.can?.("ACTOR_CREATE") && !isDisplayClient();
+    const emberDoor = canMake
+      ? `<button class="mc-cg-create mc-nt-create" data-action="ember-create-new">
+          <i class="fas fa-wand-magic-sparkles"></i> Create ${rows ? "another" : "your"} hero</button>`
+      : "";
     // ALWAYS offer a way out. This screen has no header — so with no characters to list it used to
     // render a title and nothing else, and a device that landed here was simply stuck (DM
     // 2026-07-22: "I'm completely stuck as I can't even change in the no character view"). The TV
@@ -471,9 +480,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // empty. Right is forward per bible §4.1.1, and "This is the TV" is the committing answer.
     return `<div class="mc-notoken">
       <div class="mc-nt-badge"><i class="fa-solid fa-location-dot"></i></div>
-      <div class="mc-nt-title">No token on this scene</div>
-      <div class="mc-nt-sub">The DM hasn't placed a token for you on <b>${foundry.utils.escapeHTML(scene)}</b> yet. This updates automatically the moment they do.</div>
-      ${rows ? `<div class="mc-nt-listhead">Your characters</div><div class="mc-nt-list">${rows}</div>` : ""}
+      <div class="mc-nt-title">${(emberDoor && !rows) ? "No hero yet" : "No token on this scene"}</div>
+      <div class="mc-nt-sub">${(emberDoor && !rows)
+        ? "This world makes heroes its own way — ancestry, class, culture, path, and your look. Make yours now."
+        : `The DM hasn't placed a token for you on <b>${foundry.utils.escapeHTML(scene)}</b> yet. This updates automatically the moment they do.`}</div>
+      ${rows ? "" : emberDoor}
+      ${rows ? `<div class="mc-nt-listhead">Your characters</div><div class="mc-nt-list">${rows}</div>${emberDoor}` : ""}
       <div class="mc-nt-escape">
         <div class="mc-nt-escape-hint">${rows ? "Not what you expected?" : "Is this the table's shared screen?"}</div>
         <div class="mc-nt-escape-btns">
@@ -856,6 +868,23 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // it whether creation completed, was exited, or the sheet died. Ember normally stamps every
   // new character's sheetClass itself at preCreateActor; the write here only repairs an actor
   // made before Ember was enabled (owner permission suffices — it's a flag on our own actor).
+  // §50.7: a player with no characters in a world that lets players create actors — one tap
+  // makes the blank hero (Ember's preCreateActor stamps the creation sheet on it), pins it as
+  // the tokenless subject (same pattern as #finishCharGen — no token exists yet), and opens
+  // Ember's creator directly. The player names the hero inside the widget.
+  async #createEmberHero() {
+    try {
+      const actor = await Actor.implementation.create({ name: `${game.user.name}'s hero`, type: "character" });
+      if (!actor) return;
+      this.#subjectActorId = actor.id; this.#subjectId = null;
+      await this.#openEmberCreation();
+    } catch (e) {
+      console.warn(`${MODULE_ID} | player-side hero creation failed`, e);
+      ui.notifications?.warn?.("Couldn't create a character — ask the DM to make you one.");
+      this.render();
+    }
+  }
+
   async #openEmberCreation() {
     const actor = this.actor; if (!actor) return;
     if (actor.getFlag("ember", "characterCreation")) return; // already a finished hero — the blank check shouldn't let us here
@@ -6834,6 +6863,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#startCharGen();
       case "ember-create": // §50.7: the one door in Ember worlds — the campaign's own creator
         return this.#openEmberCreation();
+      case "ember-create-new": // §50.7: no characters at all — make the blank hero, then walk in
+        return this.#createEmberHero();
       case "char-gen-wizard": {
         // The Story-wizard door (§38.4a): same start as Quick build, plus the wizard flag —
         // persisted on the actor so a reload resumes the guided flow, not the checklist.
@@ -8488,6 +8519,18 @@ function liftDialogAboveShell(app) {
   // out unanswered). DM/Sqyre 2026-06-22.
   const el = app.element instanceof HTMLElement ? app.element : (app.element?.[0] ?? null);
   if (!(el instanceof HTMLElement)) return;
+  // A native ACTOR SHEET on a phone is the desktop UI leaking through — the shell IS the
+  // player's sheet (the module's whole premise). Found on Blue's first Ember creation run
+  // (§50.7): dnd5e's AdvancementManager finishes by re-rendering the actor's normal sheet,
+  // which landed the player on the full desktop sheet over the shell. Close it instead of
+  // lifting it. The frameless check above already let Ember's fullscreen creator through,
+  // and configs/prompts/the AdvancementManager itself are not ActorSheetV2 — untouched.
+  const ASV2 = foundry.applications.sheets?.ActorSheetV2;
+  if (ASV2 && (app instanceof ASV2)) {
+    el.style.display = "none"; // hide instantly so it doesn't flash
+    setTimeout(() => { try { app.close(); } catch (e) { /* already gone */ } }, 0);
+    return;
+  }
   // DM "Show Players" image: the mod mirrors it into its OWN full-screen overlay
   // (#sharedImage), so Foundry's native ImagePopout is a redundant SECOND popup stacked over
   // it on a phone (DM-reported two-over-each-other, 2026-06-26). If the overlay is already up

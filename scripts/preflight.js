@@ -13,7 +13,7 @@ import { MODULE_ID, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD } from "./
 import { resolveExecutorId, isOverworldScene, isOnlineTable } from "./settings.js";
 import { diffPreset, applyPreset } from "./enforcer.js";
 import { actorTokenSight } from "./rpc.js";
-import { isEmberWorld } from "./campaigns.js"; // §50.8: campaign-aware advisories
+import { isEmberWorld, campaignManagedScene } from "./campaigns.js"; // §50.8: campaign-aware advisories
 
 export let lastResults = null; // null until the first run; then Check[]
 export let lastRunAt = null;
@@ -190,7 +190,18 @@ function checkPartyGroup() {
 // silently no-op'ing every token move whose path tests against the region.
 function checkTeleportRegions() {
   const bad = [];
+  let campaignSkipped = 0;
   for (const scene of game.scenes) {
+    // §50.9 (DM caught it live, 2026-08-21): a campaign module's OWN scenes run their doors
+    // themselves — Ember's stairs and elevators are destination-less regions its scene managers
+    // operate at runtime (Marlstone Manor, the Repurposed Quarry: 8 of them, all deliberate).
+    // Offering "Disable" there would break the bought campaign, so its scenes are its business.
+    if (campaignManagedScene(scene)) {
+      for (const region of scene.regions ?? []) {
+        if (region.behaviors?.some?.(b => b.type === "teleportToken" && !b.disabled)) campaignSkipped++;
+      }
+      continue;
+    }
     for (const region of scene.regions ?? []) {
       for (const b of region.behaviors ?? []) {
         if (b.type !== "teleportToken" || b.disabled) continue;
@@ -205,10 +216,14 @@ function checkTeleportRegions() {
       }
     }
   }
-  if (!bad.length) return { id: "teleport", label: "Map doorways", status: "ok", detail: "No enabled teleport behaviors with missing destinations." };
+  const skippedNote = campaignSkipped
+    ? ` Ember's own doorways (stairs, elevators — ${campaignSkipped} region${campaignSkipped === 1 ? "" : "s"}) run themselves and were left alone.`
+    : "";
+  if (!bad.length) return { id: "teleport", label: "Map doorways", status: "ok",
+    detail: `No enabled teleport behaviors with missing destinations.${skippedNote}` };
   return {
     id: "teleport", label: "Map doorways", status: "fail",
-    detail: bad.map(x => `${x.scene.name} / ${x.region.name}`).join(", ") + ": enabled teleport with no valid destination — SILENTLY BLOCKS token movement on that scene.",
+    detail: bad.map(x => `${x.scene.name} / ${x.region.name}`).join(", ") + `: enabled teleport with no valid destination — SILENTLY BLOCKS token movement on that scene.${skippedNote}`,
     fix: { label: `Disable ${bad.length}`, run: async () => { for (const x of bad) await x.behavior.update({ disabled: true }); } }
   };
 }

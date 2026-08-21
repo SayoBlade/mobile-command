@@ -1317,6 +1317,8 @@ body {
 .mc-cg-blurb { color: var(--mc-muted); font-size: 14px; line-height: 1.5; max-width: 18em; }
 /* §50.7: the small print under the Ember door — the widget reads best in landscape. */
 .mc-cg-hint { color: var(--mc-muted); font-size: 12px; line-height: 1.4; max-width: 18em; opacity: .85; }
+/* §50.7: the same door on the no-characters screen (player-created heroes allowed). */
+.mc-nt-create { margin: 14px auto 4px; }
 .mc-cg-create { min-height: 54px; padding: 14px 24px; border-radius: calc(12px * var(--mc-round, 1)); font-size: 17px; font-weight: 800;
   background: #2a4634; border: 1px solid #2f5d39; color: var(--mc-ink); display: inline-flex; align-items: center; gap: 9px; }
 .mc-cg-create:active { background: #335640; }
