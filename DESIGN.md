@@ -27,7 +27,7 @@ sections their cross-references always claimed).
 
 | § | What | Status |
 |---|---|---|
-| 1 | Goals / non-goals | Historical framing; MVP long since shipped |
+| 1 | Goals / non-goals | Historical framing; MVP long since shipped (**the §1 scope table itself corrected 2026-08-21** after it misled the DM cold) |
 | 2, 2.1 | Table topology; display account at OBSERVER | **Current** — load-bearing |
 | 3 | Architecture decisions D1–D7 | Current; **D6's freeze half superseded by §28.4** |
 | 4 | Required modules | Historical — superseded by preflight `TESTED` + §28.5 watch |
@@ -56,7 +56,7 @@ sections their cross-references always claimed).
 | 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records |
 | 29 | Settings mini-app | Built + bench-verified 12/12 (2026-08-01) |
 | 30, 30.1, 30.2 | Séance board + the bite | Built — the quality bar |
-| 31 | Twists of Fate (book RAW) | Built |
+| 31 | Twists of Fate (book RAW) | Built (+ **v2 auto-apply 2026-08-21** — the forced d20) |
 | 32, 32.1 | Crooked Moon idea board; Fated Tarot book extract | Reference (mined 2026-07-27 / 2026-08-11) |
 | 33 / 34 / 35 | Chaotic Curses / Fateweaving / CM tab | **All built** (slices C/D/A; headers said "unbuilt" — corrected) |
 | 36, 36.1 | All aboard; the arrival | Built (36.1 not yet seen at the table) |
@@ -67,8 +67,8 @@ sections their cross-references always claimed).
 | 41 | Daylight loop (clock drives light) | Built |
 | 42 | Fated Tarot — the build | Built 2026-08-10/11 (tarot.js) |
 | 43 | Druskenvald clock — the build | Built 2026-08-10/11 (druskenvald.js) |
-| 44 | Character File | **Slice A built** (2026-08-15, character-file.js); Deeds recorder unbuilt |
-| 45 | Weapon mastery reminder | Built (bench pass owed) |
+| 44 | Character File | **Both slices built** — A 2026-08-15, Deeds recorder 2026-08-21 (+ fate links same day; live workflow leg owed) |
+| 45 | Weapon mastery reminder | Built + **bench-proven 2026-08-20** (Vex landed, Cleave fired — §28.5.6) |
 | 46 | Repaint / scroll preservation | Fixed — DM confirmed |
 | 47 | Message for dev | Built (§48 added the phone entry point) |
 | 48 | Feedback window | Built (mailto leg untested) |
@@ -83,18 +83,24 @@ sections their cross-references always claimed).
 
 **Explicitly out of scope for MVP** (handled by the DM or deferred):
 
-| Deferred item | MVP handling | Planned for |
+> **CORRECTED 2026-08-21 — the DM read this table cold and it lied to him** ("how did this
+> get so messed up!?"). It was the ORIGINAL June scope-cut list; nearly everything on it has
+> since shipped, but nobody came back to say so — the 2026-08-19 housecleaning corrected
+> section HEADERS only and skipped this body. Statuses below are now dated truth, verified
+> against the code, and this table is history + one live item, not a roadmap.
+
+| Deferred item (June framing) | MVP handling then | Where it stands (2026-08-21) |
 |---|---|---|
-| AoE template placement | DM places templates | v2 (own design effort) |
-| Item transfers between players | DM moves items | v2 |
-| Handouts pushed to phones | Players look at the TV | v2 |
-| Physical dice / manual roll entry | Digital rolls only | v2 (adoption driver) |
-| Map ping/marker from phone | Players point at the literal screen | v2 |
-| Advanced movement (path drawing, tap-to-move) | Arrow pad only | v2 |
-| List-style target picker with portraits | Cycle widget only | v2 (online play) |
-| Adventure-log metadata/structure | Plain shared journal | v2 |
-| Rich journal editing from phone | Append-only composer | v2 (ProseMirror collab editing exists in core) |
-| Environment interaction (doors, levers, loot) | DM handles | not planned |
+| AoE template placement | DM places templates | **Built** — the phone announces the area cast, the panel's Place button drops the template (§11 AoE push); validated end-to-end in the §28.4 runs (2026-08-20 twice). The executor slot-dialog nit is the one open edge (§22.6) |
+| Item transfers between players | DM moves items | **Built** — stash + player-to-player (§20) |
+| Handouts pushed to phones | Players look at the TV | **Built 2026-07-25** — pushed images with pinch-zoom + the multi-page saved-images journal |
+| Physical dice / manual roll entry | Digital rolls only | **Still deferred — the one live survivor of this table** (adoption driver, unbuilt) |
+| Map ping/marker from phone | Players point at the literal screen | **Declined by the DM 2026-08-20** ("no") — core's ping + table talk cover it; don't rebuild |
+| Advanced movement (path drawing, tap-to-move) | Arrow pad only | **Retired 2026-08-21** — the DM never asked for this; it was this table's own speculation. Not to be confused with the DM's **"draw to travel" line** (§18 travel), which exists and is his tool, not a player movement mode |
+| List-style target picker with portraits | Cycle widget only | **Built** — the target picker IS a portrait list (token art per row, ally/foe/neutral, range hints, multi-target steppers for Magic Missile) |
+| Adventure-log metadata/structure | Plain shared journal | Superseded — journals grew real shapes instead (§38 story journals, §44 character files); no separate adventure-log planned |
+| Rich journal editing from phone | Append-only composer | Append-only **by design** — phone keyboards; §44 compiles the permanent record |
+| Environment interaction (doors, levers, loot) | DM handles | **Built, deeply** — the move pad's hand button works doors, levers and loot next to you; merchants, body looting (corpses auto-become lootable piles), Item Piles throughout. "Not planned" aged worst of the lot |
 
 **v2 hardware idea — Stream Deck DM console:** physical buttons on the DM side for the highest-frequency GM actions: Undo last workflow, Assign targets to current player, Next turn, Pause. Pairs naturally with the DM-assign panel (§11). Tactile console suits running this at a physical table.
 
@@ -2041,8 +2047,12 @@ actually needs):**
    handsets, the v0.2.0+ shakedown with strangers' devices.
    *(2 and 3 need no preparation from the DM today — they trigger when the hardware/humans
    arrive.)*
-4. **Crooked Moon polish** (campaign not started — no chapter urgency; **build order is
-   Claude's pick — DM 2026-08-20 "no preference"**): ~~player-side CM tab~~ — **BUILT +
+4. **Crooked Moon polish** — **PARKED by the DM 2026-08-21** (*"focus on non-CM stuff first,
+   let's get the base working perfectly and then return to CM"*): everything in this item
+   waits behind the base queue (per-effect volume → combat polish → AoE executor slot-dialog
+   nit → paralyzed auto-crit → the verification legs). Pre-parking state (campaign not
+   started — no chapter urgency; **build order was Claude's pick — DM 2026-08-20 "no
+   preference"**): ~~player-side CM tab~~ — **BUILT +
    bench-verified 2026-08-21 (§35.1, planned with the DM: sealed card · verbal arrival ·
    tab-only chips)** · ~~§31 v2 twist auto-apply~~ — **BUILT 2026-08-21** (Apply asks whose
    die → arms `twistArmed` → `dnd5e.preRollD20Test` forces the face via options.minimum/
