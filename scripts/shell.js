@@ -10,7 +10,7 @@ import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCa
 import { masteryOf, masteryReminder } from "./masteries.js"; // §45 weapon mastery reminder
 import { watchScroll, captureScrolls, restoreScrolls, sameHTML } from "./repaint.js"; // §46 don't jump
 import { openFeedback } from "./feedback.js"; // §48 report a bug from the phone
-import { isEmberWorld, emberReady, EMBER_CREATION_SHEET } from "./campaigns.js"; // §50 Ember: creation door + rest copy
+import { isEmberWorld, emberReady, EMBER_CREATION_SHEET, activeCampaign, emberSky, emberPartyStatus, emberAttunements, emberJournal } from "./campaigns.js"; // §50 Ember: creation door + rest copy + the Ember tab
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -2447,13 +2447,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ${pbtn("journal", "fa-feather", "Journal")}
         <button class="mc-tab" data-action="party-view-toggle" data-on="0" title="My sheet" aria-label="My sheet"><i class="fas fa-user"></i></button>`;
     }
-    // §35.1: the campaign tab — gated like the DM's (§6.7, off = never existed), wearing the
-    // same crone glyph. A pending twist spend lights a dot on the icon (the §6.5 badge idiom):
-    // with the pulsing chip gone from the header, this is how the tab asks for attention.
-    const cmDot = this.#cmToolsOn() && this.actor?.getFlag(MODULE_ID, "twistPending");
-    const cmTab = this.#cmToolsOn()
-      ? `<button class="mc-tab ${this.#tab === "crooked" ? "mc-active" : ""}" data-action="tab" data-tab="crooked" title="The Crooked Moon" aria-label="The Crooked Moon"><i class="fas mc-icon-cmoon"></i>${cmDot ? `<span class="mc-tab-dot"></span>` : ""}</button>`
-      : "";
+    // §35.1 + §50.8: ONE campaign-tab slot at the edge (DM 2026-08-21: "the ember tab replaces
+    // the CM tab"). campaigns.js's activeCampaign() decides who wears it — Ember's flame in an
+    // Ember world, the crone where Crooked Moon tools are on, nothing otherwise. The CM tab
+    // keeps its twist-pending dot (the §6.5 badge idiom).
+    const campaign = activeCampaign();
+    const cmDot = campaign === "crooked-moon" && this.actor?.getFlag(MODULE_ID, "twistPending");
+    const cmTab = campaign === "ember"
+      ? `<button class="mc-tab ${this.#tab === "ember" ? "mc-active" : ""}" data-action="tab" data-tab="ember" title="Ember" aria-label="Ember"><i class="fas fa-fire"></i></button>`
+      : campaign === "crooked-moon"
+        ? `<button class="mc-tab ${this.#tab === "crooked" ? "mc-active" : ""}" data-action="tab" data-tab="crooked" title="The Crooked Moon" aria-label="The Crooked Moon"><i class="fas mc-icon-cmoon"></i>${cmDot ? `<span class="mc-tab-dot"></span>` : ""}</button>`
+        : "";
     return `${this.#tabButton("actions", "fa-hand-fist", "Actions")}
       ${this.#tabButton("details", "fa-user", "Details")}
       ${this.#tabButton("spells", "fa-wand-sparkles", "Spells")}
@@ -2513,6 +2517,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#tab === "journal") return this.#journalHTML();
     // §35.1: the gate can flip live — a stranded "crooked" tab falls back to the sheet.
     if (this.#tab === "crooked") return this.#cmToolsOn() ? this.#crookedTabHTML(actor) : this.#exploreHTML(actor);
+    // §50.8: the Ember tab — same stranded-tab fallback rule as the crone's.
+    if (this.#tab === "ember") return activeCampaign() === "ember" ? this.#emberTabHTML(actor) : this.#exploreHTML(actor);
     return this.#exploreHTML(actor); // "Explore" tab: move pad + the sheet
   }
 
@@ -5000,6 +5006,79 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // §35.1 THE CROOKED MOON TAB (planned with the DM 2026-08-21) — a HOME, not a new system.
   // The arc is deliberate: fate dealt → destiny chosen → fate's currency → fate's price.
   // Everything here is DM-granted, so an empty tab never nags — quiet lines, no instructions.
+  // §50.8 slice A — the Ember tab: the sky tonight, where the party stands, this hero's
+  // attunements, and the story so far (Ember's completed events, the same bar its Codex
+  // uses). Read-only mirrors via campaigns.js; a missing piece costs its card, not the tab.
+  #emberLogAll = false;
+  #emberTabHTML(actor) {
+    const esc = foundry.utils.escapeHTML;
+    const parts = [];
+
+    // The sky — sun phase + season, the six moons with their colours and phases.
+    const sky = emberSky();
+    if (sky) {
+      const sunIcon = sky.sunPhase === "night" ? "fa-moon" : sky.sunPhase === "day" ? "fa-sun" : "fa-cloud-sun";
+      parts.push(`<div class="mc-section-label">The sky</div>
+      <div class="mc-em-sky">
+        <div class="mc-em-sun"><i class="fas ${sunIcon}"></i> <b>${esc(sky.sunLabel)}</b>${sky.season ? ` · ${esc(sky.season)}` : ""}</div>
+        <div class="mc-em-moons">${sky.moons.map((m) => `
+          <span class="mc-em-moon ${m.lit ? "" : "mc-dark"}">
+            <span class="mc-em-moon-dot" style="background:${esc(m.color)}"></span>${esc(m.name)}
+            <span class="mc-em-moon-phase">${esc(m.label)}</span></span>`).join("")}</div>
+      </div>`);
+    }
+
+    // The party — milestone level, and whether THIS hero has levels waiting.
+    const party = emberPartyStatus(actor);
+    if (party) {
+      parts.push(`<div class="mc-section-label">The party</div>
+      <div class="mc-em-card">
+        <div class="mc-em-party-row"><i class="fas fa-people-group"></i>
+          <b>Level ${party.level}</b>
+          <span class="mc-em-muted">${party.points} milestone point${party.points === 1 ? "" : "s"}${party.nextAt != null ? ` · next level at ${party.nextAt}` : ""}</span></div>
+        ${party.canLevel ? `<div class="mc-em-levelup"><i class="fas fa-arrow-up"></i> ${esc(actor?.name ?? "Your hero")} has levels waiting — level up from your sheet.</div>` : ""}
+      </div>`);
+    }
+
+    // Attunements — the active one leads; bars run toward the next rank.
+    const attunements = emberAttunements(actor);
+    if (attunements.length) {
+      parts.push(`<div class="mc-section-label">Your attunements</div>
+      <div class="mc-em-card mc-em-attunements">${attunements.map((a) => `
+        <div class="mc-em-att ${a.active ? "mc-em-att-active" : ""}">
+          <div class="mc-em-att-head">
+            <span class="mc-em-att-name">${esc(a.label)}${a.active ? ` <i class="fas fa-circle-dot" title="Active"></i>` : ""}</span>
+            <span class="mc-em-att-rank">Rank ${a.rank}</span>
+          </div>
+          <div class="mc-em-att-bar"><div class="mc-em-att-fill" style="width:${Math.round(a.pct * 100)}%"></div></div>
+          <div class="mc-em-att-nums">${a.current}${a.next != null ? ` / ${a.next}` : ""}</div>
+        </div>`).join("")}</div>`);
+    }
+
+    // The story so far — newest day first; two days by default, the rest behind one tap.
+    const journal = emberJournal();
+    parts.push(`<div class="mc-section-label">The story so far</div>`);
+    if (!journal.length) {
+      parts.push(`<div class="mc-em-card mc-em-empty">Nothing written yet — the journal fills itself as your story happens.</div>`);
+    } else {
+      const shown = this.#emberLogAll ? journal : journal.slice(0, 2);
+      for (const day of shown) {
+        parts.push(`<div class="mc-em-day">
+          <div class="mc-em-day-head">${esc(day.header)}</div>
+          ${day.entries.map((e) => `<div class="mc-em-entry">
+            <div class="mc-em-entry-head"><b>${esc(e.label)}</b><span class="mc-em-muted">${esc(e.context)}</span></div>
+            ${e.summary ? `<div class="mc-em-entry-sum">${esc(e.summary)}</div>` : ""}
+          </div>`).join("")}
+        </div>`);
+      }
+      if (journal.length > 2) {
+        parts.push(`<button class="mc-em-more" data-action="ember-log-toggle">${this.#emberLogAll ? "Fewer days" : `Earlier days (${journal.length - 2} more)`}</button>`);
+      }
+    }
+
+    return `<div class="mc-scroll mc-em-tab">${parts.join("")}</div>`;
+  }
+
   #crookedTabHTML(actor) {
     const esc = foundry.utils.escapeHTML;
     const sections = [];
@@ -6865,6 +6944,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#openEmberCreation();
       case "ember-create-new": // §50.7: no characters at all — make the blank hero, then walk in
         return this.#createEmberHero();
+      case "ember-log-toggle": // §50.8: the story list unfolds/refolds
+        this.#emberLogAll = !this.#emberLogAll; return this.render();
       case "char-gen-wizard": {
         // The Story-wizard door (§38.4a): same start as Quick build, plus the wizard flag —
         // persisted on the actor so a reload resumes the guided flow, not the checklist.

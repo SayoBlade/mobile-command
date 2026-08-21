@@ -6535,3 +6535,41 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   padding: 28px 16px; text-align: center;
   font-size: 13.5px; font-style: italic; color: var(--mc-muted);
 }
+
+/* ── §50.8 the Ember tab (slice A): sky strip, party card, attunements, the story ─────────
+   Same card family as the crone's tab (.mc-cm-sec): panel cards on the shell background. */
+.mc-em-tab { display: flex; flex-direction: column; gap: 10px; padding: 12px 12px 20px; }
+.mc-em-card, .mc-em-sky, .mc-em-day {
+  background: var(--mc-panel); border: 1px solid var(--mc-edge);
+  border-radius: calc(10px * var(--mc-round, 1)); padding: 12px;
+}
+.mc-em-sky { display: flex; flex-direction: column; gap: 8px; }
+.mc-em-sun { font-size: 14px; color: var(--mc-ink); }
+.mc-em-sun i { margin-right: 4px; color: var(--mc-gold); }
+.mc-em-moons { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.mc-em-moon { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mc-ink); }
+.mc-em-moon.mc-dark { opacity: .45; }
+.mc-em-moon-dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto;
+  box-shadow: 0 0 6px 0 currentColor; border: 1px solid rgba(255, 255, 255, .25); }
+.mc-em-moon-phase { color: var(--mc-muted); }
+.mc-em-muted { color: var(--mc-muted); font-size: 12px; }
+.mc-em-party-row { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--mc-ink); }
+.mc-em-levelup { margin-top: 8px; padding: 8px 10px; border-radius: 8px; font-size: 13px;
+  color: var(--mc-gold); background: rgba(200, 160, 60, .08); border: 1px dashed var(--mc-gold); }
+.mc-em-attunements { display: flex; flex-direction: column; gap: 12px; }
+.mc-em-att-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.mc-em-att-name { font-size: 14px; font-weight: 700; color: var(--mc-ink); }
+.mc-em-att-active .mc-em-att-name i { color: var(--mc-gold); font-size: 10px; vertical-align: 2px; }
+.mc-em-att-rank { font-size: 12px; color: var(--mc-muted); }
+.mc-em-att-bar { height: 6px; margin-top: 6px; border-radius: 999px; background: var(--mc-sunken); overflow: hidden; }
+.mc-em-att-fill { height: 100%; border-radius: 999px; background: var(--mc-gold); }
+.mc-em-att-nums { margin-top: 4px; font-size: 11px; color: var(--mc-muted); text-align: right;
+  font-variant-numeric: tabular-nums; }
+.mc-em-day { display: flex; flex-direction: column; gap: 10px; }
+.mc-em-day-head { font-weight: 800; font-size: 13px; color: var(--mc-gold); letter-spacing: .02em; }
+.mc-em-entry-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; font-size: 13px; color: var(--mc-ink); }
+.mc-em-entry-sum { margin-top: 3px; font-size: 12.5px; line-height: 1.45; color: var(--mc-muted); }
+.mc-em-empty { color: var(--mc-muted); font-size: 13px; text-align: center; }
+.mc-em-more { min-height: 44px; border-radius: calc(10px * var(--mc-round, 1));
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 13px; }
+.mc-em-more:active { border-color: var(--mc-gold); }

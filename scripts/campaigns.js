@@ -89,6 +89,106 @@ export function emberSky() {
   } catch (e) { return null; }
 }
 
+// ── Ember tab data (§50.8 slice A — read-only mirrors of what Ember shows players) ─────────
+// Every reader is wrapped: Ember is Early Access and its internals may shift under us — a
+// changed shape must cost a card on the tab, never the shell. All of it is client-side world
+// data players legitimately see (the Codex shows the same things).
+
+/** Plain text out of enriched HTML — phone cards carry words, not dead content-links. */
+function textOf(html) {
+  try {
+    const div = document.createElement("div");
+    div.innerHTML = String(html ?? "");
+    return div.textContent.replace(/\s+/g, " ").trim();
+  } catch (e) { return ""; }
+}
+
+/** The party's milestone level for the phone header card: where the party stands, and whether
+ *  THIS hero has levels waiting. Mirrors Ember's own getMilestones math via its API. */
+export function emberPartyStatus(actor) {
+  try {
+    if (!emberReady()) return null;
+    const party = game.actors.get(globalThis.ember.CONST.PARTY_ACTOR_ID);
+    if (!party) return null;
+    const m = globalThis.ember.system?.actors?.getMilestones?.(party);
+    if (!m) return null;
+    const thresholds = globalThis.ember.CONST.ADVANCEMENT ?? [];
+    const nextAt = thresholds[m.level + 1];
+    const myLevel = Number(actor?.system?.details?.level) || 0;
+    return {
+      level: m.level, points: m.total,
+      nextAt: Number.isFinite(nextAt) ? nextAt : null,
+      canLevel: !!actor && (actor.type === "character") && (myLevel < m.level)
+    };
+  } catch (e) { return null; }
+}
+
+/** This hero's cosmological attunements: the active one first, then every other with rank > 0
+ *  or any points. rank/start/next/end come from Ember's own progression API. */
+export function emberAttunements(actor) {
+  try {
+    if (!emberReady() || !actor) return [];
+    const awarded = actor.getFlag("ember", "attunements") || {};
+    const activeId = actor.getFlag("ember", "attunement") || "";
+    const rankOf = globalThis.ember.api?.systems?.attunement?.getEffectiveAttunementRank;
+    if (typeof rankOf !== "function") return [];
+    const out = [];
+    for (const [type, config] of Object.entries(globalThis.ember.CONST.ATTUNEMENTS ?? {})) {
+      const p = awarded[type];
+      const current = (p?.current ?? 0) + (p?.bonus ?? 0);
+      const rank = rankOf(p);
+      const active = activeId === config.identifier;
+      if (!active && !current && !(rank?.rank > 0)) continue;
+      const span = (rank?.next ?? 0) - (rank?.start ?? 0);
+      out.push({
+        type, label: config.label ?? type, active,
+        rank: rank?.rank ?? 0, current,
+        next: rank?.next ?? null,
+        pct: span > 0 ? Math.clamp((current - rank.start) / span, 0, 1) : 1
+      });
+    }
+    out.sort((a, b) => (b.active - a.active) || (b.rank - a.rank) || (b.current - a.current));
+    return out;
+  } catch (e) { return []; }
+}
+
+/** The story so far — Ember's completed narrative events, bucketed by campaign day, newest
+ *  day first (a phone reads backwards from "what just happened"). Mirrors the Codex journal:
+ *  label, quest-or-standalone context, the readaloud summary as plain text. */
+export function emberJournal() {
+  try {
+    if (!emberReady()) return [];
+    const em = globalThis.ember;
+    const days = new Map();
+    for (const [eventId, state] of Object.entries(em.state?.events ?? {})) {
+      if ((state?.step ?? 0) < 3) continue; // completed only — same bar as the Codex
+      const event = em.narrative?.events?.[eventId];
+      if (!event) continue;
+      const context = event.root ? `Quest: ${event.root.label}` : "On the road";
+      const add = (label, summary, time) => {
+        let o;
+        try { o = em.calendar.timeToComponents(time ?? 0); } catch (e) { return; }
+        const key = o.campaignDay ?? 0;
+        if (!days.has(key)) {
+          let header;
+          try { header = em.calendar.format(o, "emberDay"); } catch (e) { header = `Day ${key}`; }
+          days.set(key, { day: key, header, entries: [] });
+        }
+        days.get(key).entries.push({ label, context, time: time ?? 0, summary: textOf(summary) });
+      };
+      const eventTime = state.endTime ?? state.startTime ?? 0;
+      add(event.label, event.text?.summary, eventTime);
+      for (const outcome of Object.values(event.outcomes ?? {})) {
+        if (!outcome?.state?.complete) continue;
+        add(outcome.label ?? event.label, outcome.text?.summary, outcome.state.time ?? eventTime);
+      }
+    }
+    const out = [...days.values()].sort((a, b) => b.day - a.day);
+    for (const d of out) d.entries.sort((a, b) => b.time - a.time);
+    return out;
+  } catch (e) { return []; }
+}
+
 // ── Ember character creation on a small screen (§50.7) ─────────────────────────────────────
 // Ember's creation sheet is a fullscreen app DESIGNED FOR 1920×1080 that adapts by transform-
 // scaling the whole layout (--ui-scale, floor 0.7). Below Foundry's own 1024×768 minimum that

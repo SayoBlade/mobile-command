@@ -2113,11 +2113,17 @@ actually needs):**
    - **OPEN — the doorway "one or all?" follow idea (DM, "maybe"):** specced in §50.13
      (recommended: DM-panel chip on cross-SCENE teleports, §37-probed group landing, scripted
      Ember doors left alone). Three design questions for the DM in §50.13 before building.
-   - **Owed legs (next quiet window / bench):** a §28.4-style combat run on an Ember battle
-     map (§50.9 — scene managers + dynamic tokens are new territory for the executor) · the
-     sky card's Set path exercised beyond the +10-min nudge (same primitive, but see it once)
-     · phone-hush in an Ember world with a shared screen configured (no display account in
-     the ember test world yet).
+   - ~~The Ember TAB~~ **slice A BUILT + live-verified 2026-08-21 late night (§50.14):** the
+     campaign-tab slot (flame replaces the crone, activeCampaign() decides) + sky/party-level/
+     attunements/story-so-far cards; 49 headless tests total. **Slice B open:** discoveries/
+     bestiary counts, per-quest grouping.
+   - **Owed legs — now behind a HARD GATE (§50.15: exactly ONE GM client connected, running
+     current code — the DM's desktop client sat connected with pre-tonight code, and our
+     executor election is USER-level, so a second Michael session means BOTH clients execute):**
+     the Ember combat run (numbered protocol written in §50.15, ready to execute) · the sky
+     card's Set path · phone-hush with a shared screen. **Standing trap recorded:** two
+     clients of one GM user = double executor/music/daylight drivers; a session-level
+     election is a future hardening candidate.
 6. **Watches:** MISC#89 (GWM boolean, still open) · CPR 2.0 leaving pre-release · GPS first V14
    tag · CAT 0.0.x churn · MCD camera-method names on any 14.02+ (§28.5.1). *(Stack validation
    for AC5E 14.533.15 + MISC 2.0.2: DONE 2026-08-20, pins bumped — §28.5.4; only the
@@ -6243,3 +6249,82 @@ maps?") — SPEC ONLY, deliberately not built tonight:**
   (§15) auto-follow with no ask at all? (c) any interest in the same chip for Ember's
   region-map location travel, or is that fully Ember's party-token flow? (leaning: fully
   Ember's).
+
+### 50.14 The Ember tab, slice A — BUILT + live-verified 2026-08-21 (late night; "keep going as planned")
+
+The campaign-tab SLOT from §50.8 now exists: `#tabBarHTML` renders ONE campaign tab at the
+bar's edge, decided by `activeCampaign()` — **Ember's flame replaces the crone in Ember
+worlds** (the DM's directive, verbatim); Crooked Moon keeps its tab (and its twist-pending
+dot) where its tools are on; plain worlds get neither. Same stranded-tab fallback rule as
+§35.1 (content-time check → Explore).
+
+**Slice A contents (`#emberTabHTML`, data readers in campaigns.js, all read-only, every
+reader try-wrapped so an Early-Access shape change costs a card, never the shell):**
+- **The sky** — sun phase + season, the six moons as coloured dots with phase labels, dark
+  moons dimmed. Same `emberSky()` the DM panel card uses; players get the moons on their
+  phones (the "moons and effects" ask, player half).
+- **The party** — milestone level, points, next-level threshold (via
+  `ember.system.actors.getMilestones`), and a gold "levels waiting — level up from your
+  sheet" hint when THIS hero's level < the party's.
+- **Your attunements** — active sphere first, rank + points + a bar toward the NEXT rank
+  (`ember.api.systems.attunement.getEffectiveAttunementRank`, Ember's own math); spheres
+  with nothing earned don't render.
+- **The story so far** — Ember's completed narrative events (the same completed-only bar its
+  Codex journal uses: `ember.state.events` step ≥ 3 + `ember.narrative`), bucketed by
+  campaign day, NEWEST first (a phone reads backwards from "what just happened"), each entry
+  label + quest context + the readaloud summary flattened to plain text. Two days shown,
+  the rest behind one "Earlier days" tap. Empty state: "Nothing written yet — the journal
+  fills itself as your story happens."
+
+**Live-verified as Blue on Torren** (phone portrait): sky "Night · Blooming" + all six moons
+matching Ember's own HUD · party "Level 1 · 0 milestone points · next level at 2" (Ember's
+real thresholds) · "Heart · Rank 1 · active · 3 / 4" (the creation award, bar correctly at
+0% into rank 2) · story empty state. 15 new headless tests (the three readers' decisions:
+canLevel comparison, active-first sort, next-rank bar math, completed-only + newest-first +
+plain-text journal) — `tools/test-ember.mjs` now 49 green.
+
+**Slice B (open):** discoveries/bestiary/characters counts (the codex's discovery model:
+`ember.state.discoveries` step === 2 + gazetteer pages), a per-quest grouping view, and
+whatever live play shows players actually reach for.
+
+### 50.15 The Ember combat validation — protocol written, run PARKED on a hard gate
+
+**Why it did not run tonight (found the hard way, nothing harmed):** the DM's desktop client
+was CONNECTED as Michael while I held a second Michael session — and **our executor identity
+is USER-level** (`isExecutor()` = `game.user.id === resolveExecutorId()`, settings.js; the
+combat-music driver gates the same way). Two clients of the SAME GM user BOTH believe they
+are the executor: socketlib delivery to that user reaches both, so a phone attack would run
+TWO midi workflows (double damage), both clients would drive music/daylight, and tonight his
+client was additionally running PRE-TONIGHT code (a client only loads module changes at
+reload) — his stale driver would have re-created the very combat-music silence bug we fixed.
+**THE GATE for any combat/time-writing leg in the ember world: exactly ONE GM client
+connected, running current code** (= the DM's seat truly free, like the §28.5.6 benches, or
+his client freshly reloaded and mine logged out). This is also a standing trap worth
+remembering whenever two clients share the GM user: the module's executor election cannot
+tell them apart. (A session-level election — e.g. lowest socket/session id wins — is a
+possible future hardening; ledger.)
+
+**The protocol (numbered, §28.4-style, scoped to what Ember adds; STOP on first failure):**
+Setup: GM seat free · join Gamemaster/Michael in the pane · solo rig (openShell, ticker
+pump; dice3d absent in this world) · set my user's character to Torren Vale, RESTORE after ·
+pick an Ember AREA MAP battle scene (e.g. a Marlstone Manor floor), activate it · drop
+Torren's token + ONE spawned hostile token of an adventure NPC (unlinked; damage lands on
+the token delta, the original actor untouched) · unpause.
+1. Scene loads under an EmberSceneManager with no console errors from our module.
+2. The shell binds Torren on the ember scene; Explore tab shows the map state; d-pad moves
+   the token (Ember footstep surfaces may sound — theirs, fine).
+3. Target the hostile from the phone; AC5E advice renders on the attack screen.
+4. Two-tap melee attack: workflow runs on the executor, dice land, damage applies on the
+   second tap; the NPC token's HP delta drops; no stray dialogs on the executor.
+5. Start combat from the panel: Ember's combat-music automation swaps its soundscape
+   (`ember.soundscape` world setting changes to a themed combat arrangement) and OUR driver
+   stays silent (`combatMusicMode()` === "ember"; no playlist pauses, `_resumeAfter` never
+   populated).
+6. Round advance: Ember re-evaluates its theme (setting may change); still no interference.
+7. Defeat the hostile (or end combat): Ember restores its prior soundscape from the combat
+   flag; our module untouched throughout.
+8. `deleteCombat` cleanup: no music writes from us, no daylight writes on the managed scene
+   (watch `scene._source.environment.darknessLevel` stays Ember's).
+9. Dynamic-token check: the hostile's Ember dynamic token animated/behaved through damage
+   and defeat without executor-side errors.
+10. Residue report: spawned token (+ possible item-piles corpse), chat cards, world time.

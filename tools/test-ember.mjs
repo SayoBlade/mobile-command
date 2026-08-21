@@ -14,6 +14,7 @@ let fails = 0;
 const ok = (n, cond, extra = "") => { console.log(`${cond ? "PASS" : "FAIL"}  ${n}${extra ? " — " + extra : ""}`); if (!cond) fails++; };
 
 // ── Minimal Foundry globals. Rebuilt per scenario by world(); modules read them at CALL time. ──
+Math.clamp ??= (v, min, max) => Math.min(max, Math.max(min, v)); // Foundry's Math patch, absent in bare Node
 class FakeCalendarData {}
 globalThis.foundry = { data: { CalendarData: FakeCalendarData } };
 globalThis.Hooks = { on: () => {}, callAll: () => {} };
@@ -146,6 +147,90 @@ ok("sky: realm phase title-cased without lang keys", sky.realms[0].label === "Do
 ok("sky: a dominant realm reads as lit", sky.realms[0].lit === true);
 world({ emberActive: true, calendar: emberCal, emberCalendar: skyCal });
 ok("sky null when ember's calendar is NOT the world calendar", campaigns.emberSky() === null);
+
+// ── 7. The Ember tab's readers (§50.8 slice A) ───────────────────────────────
+// document shim for textOf() — plain-text extraction from enriched summaries.
+globalThis.document = { createElement: () => { const el = { innerHTML: "" }; Object.defineProperty(el, "textContent", { get() { return el.innerHTML.replace(/<[^>]*>/g, ""); } }); return el; } };
+
+function emberWorld({ events = {}, narrative = {}, partyFlag, myLevel = 1, attunements = {}, activeAtt = "" } = {}) {
+  const cal = {
+    timeToComponents: (t) => ({ campaignDay: Math.floor(t / 86400), time: t }),
+    format: (o, f) => f === "emberDay" ? `Day ${o.campaignDay}` : `t${o.time}`
+  };
+  const party = { getFlag: (ns, k) => k === "milestones" ? partyFlag : undefined };
+  globalThis.game = {
+    modules: { get: (id) => id === "ember" ? { active: true } : undefined },
+    actors: { get: (id) => id === "PARTY" ? party : undefined },
+    settings: { get: () => { throw new Error("unused"); } },
+    time: { calendar: cal, worldTime: 0 },
+    i18n: { localize: (s) => s },
+    user: { isGM: false }
+  };
+  globalThis.CONFIG = { Canvas: { managedScenes: {} } };
+  globalThis.ember = {
+    ready: true,
+    CONST: { PARTY_ACTOR_ID: "PARTY", ADVANCEMENT: [0, 0, 3, 6, 10],
+      ATTUNEMENTS: { heart: { identifier: "emberHeart", label: "Heart" }, cora: { identifier: "emberCora", label: "Cora" } } },
+    state: { events },
+    narrative: { events: narrative },
+    calendar: cal,
+    system: { actors: { getMilestones: (p) => {
+      const awards = p.getFlag("ember", "milestones") ?? {};
+      const total = Object.values(awards).reduce((n, a) => n + (a.number ?? 0), 0);
+      const t = [0, 0, 3, 6, 10];
+      return { awards, total, level: t.findLastIndex((x) => x <= total) };
+    } } },
+    api: { systems: { attunement: { getEffectiveAttunementRank: (p) => {
+      const c = (p?.current ?? 0) + (p?.bonus ?? 0);
+      if (c >= 8) return { rank: 2, start: 8, next: 20, end: 20 };
+      if (c >= 3) return { rank: 1, start: 3, next: 8, end: 20 };
+      return { rank: 0, start: 0, next: 3, end: 20 };
+    } } } }
+  };
+  return { actor: { type: "character", name: "Hero", system: { details: { level: myLevel } },
+    getFlag: (ns, k) => k === "attunements" ? attunements : k === "attunement" ? activeAtt : undefined } };
+}
+
+// Party status: level from milestone points, canLevel compares MY level to the party's.
+let w = emberWorld({ partyFlag: { a: { number: 4 } }, myLevel: 1 });
+let ps = campaigns.emberPartyStatus(w.actor);
+ok("party: 4 points = level 2 on the test thresholds", ps.level === 2 && ps.points === 4, JSON.stringify(ps));
+ok("party: next level threshold surfaced", ps.nextAt === 6);
+ok("party: a level-1 hero in a level-2 party has levels waiting", ps.canLevel === true);
+w = emberWorld({ partyFlag: { a: { number: 4 } }, myLevel: 2 });
+ok("party: a caught-up hero has nothing waiting", campaigns.emberPartyStatus(w.actor).canLevel === false);
+
+// Attunements: active first, zero-point spheres skipped, bar runs toward the NEXT rank.
+w = emberWorld({ attunements: { heart: { current: 3 }, cora: { current: 5 } }, activeAtt: "emberHeart" });
+const atts = campaigns.emberAttunements(w.actor);
+ok("attunements: both ranked spheres present", atts.length === 2);
+ok("attunements: the ACTIVE one leads even at lower points", atts[0].label === "Heart" && atts[0].active === true);
+ok("attunements: rank from Ember's own progression API", atts[0].rank === 1 && atts[1].rank === 1);
+ok("attunements: bar measures progress toward the NEXT rank", atts[1].pct === (5 - 3) / (8 - 3), String(atts[1].pct));
+w = emberWorld({ attunements: {}, activeAtt: "" });
+ok("attunements: nothing earned = empty list, no card", campaigns.emberAttunements(w.actor).length === 0);
+
+// The story so far: completed-only, newest day first, plain-text summaries, quest context.
+w = emberWorld({
+  events: {
+    e1: { step: 3, endTime: 0 },
+    e2: { step: 3, endTime: 2 * 86400 },
+    e3: { step: 2, endTime: 86400 } // active, must not appear
+  },
+  narrative: {
+    e1: { label: "The Gate", root: { label: "Embers Rising" }, text: { summary: "<p>We opened the <b>gate</b>.</p>" }, outcomes: {} },
+    e2: { label: "A Stranger", root: null, text: { summary: "We met a stranger." },
+      outcomes: { o1: { label: "The Gift", state: { complete: true, time: 2 * 86400 + 60 }, text: { summary: "A gift given." } } } },
+    e3: { label: "Unfinished", root: null, text: { summary: "nope" }, outcomes: {} }
+  }
+});
+const log = campaigns.emberJournal();
+ok("journal: two days, none from the active event", log.length === 2 && !JSON.stringify(log).includes("Unfinished"));
+ok("journal: newest day first", log[0].day === 2 && log[1].day === 0);
+ok("journal: outcome entries ride their event's day", log[0].entries.length === 2);
+ok("journal: summaries flattened to plain text", log[1].entries[0].summary === "We opened the gate.", log[1].entries[0].summary);
+ok("journal: quest context named, standalone gets road copy",
+  log[1].entries[0].context === "Quest: Embers Rising" && log[0].entries.some(e => e.context === "On the road"));
 
 console.log(fails ? `\n${fails} FAILED` : "\nall green");
 process.exit(fails ? 1 : 0);
