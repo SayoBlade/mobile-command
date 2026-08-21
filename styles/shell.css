@@ -6462,10 +6462,14 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-cm-card {
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   width: 100%; min-height: 44px; padding: 10px;
+  /* height:auto is load-bearing: core's button height rule pins <button> to form-field height,
+     and the 5:7 card image then spills out of the collapsed box (the §15 party-grid lesson —
+     found again on the DM's own client 2026-08-21, the card floating over the header). */
+  height: auto;
   background: var(--mc-sunken); border: 1px solid var(--mc-edge);
   border-radius: calc(10px * var(--mc-round, 1));
 }
-.mc-cm-card img { width: 128px; aspect-ratio: 5 / 7; object-fit: cover; border-radius: 6px; display: block; }
+.mc-cm-card img { width: 128px; max-width: 100%; aspect-ratio: 5 / 7; object-fit: cover; border-radius: 6px; display: block; }
 .mc-cm-facedown { border-style: dashed; }
 .mc-cm-cardname { font-size: 14px; font-weight: 600; color: var(--mc-ink); font-family: "Signika", sans-serif; }
 .mc-cm-facedown .mc-cm-cardname { color: var(--mc-muted); font-style: italic; }

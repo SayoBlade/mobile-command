@@ -3843,6 +3843,11 @@ standing ON the tab steps back to Explore, six tabs, crone gone; on again → se
 the chips: the `#twistOpen` toggle, the twist-panel close X, and `#openFateCard` (its content
 lives in the tab). Test flags cleaned off the Fighter afterwards; world restored.
 
+**Same-day live catch (the DM's own client, 2026-08-21):** the card image floated free above its
+section — core's button height rule pinning the `<button>` to form-field height while the 5:7
+image spilled out centered, the exact §15 party-grid trap. Fix: explicit `height: auto` on
+`.mc-cm-card` (+ `max-width: 100%` on the img), commented at the site so nobody trims it.
+
 **Slice A BUILT + bench-verified 2026-07-27:** `crookedMoonTools` world setting (defaults ON
 when the-crooked-moon-2014 module is active, else OFF; toggle in panel Settings → Campaign
 drawer); "crooked" tab on the rail between Effects and System health, gated live (open tab
