@@ -2069,6 +2069,16 @@ actually needs):**
    tag · CAT 0.0.x churn · MCD camera-method names on any 14.02+ (§28.5.1). *(Stack validation
    for AC5E 14.533.15 + MISC 2.0.2: DONE 2026-08-20, pins bumped — §28.5.4; only the
    simplecover5e leg above remains. wm5e still joins `TESTED` once a run covers it — §45.5.)*
+   **Foundry core watch (checked 2026-08-21, DM asked):** newest stable is **14.367**
+   (2026-08-18); DM runs 14.365. Release notes for .366/.367 scanned against our seams —
+   nothing touches dice/Roll modifiers (twists safe), chat, journals, Cards, audio, or fog.
+   Two notes: (a) 14.366 fixes spurious `TOKEN_MOVE_WITHIN` at region boundaries — likely
+   helps, but spot-check the Ghostlight train doors (§37) after updating; (b) **14.366
+   converts the join screen's user select to an autocompleted TEXT input — the bench login
+   technique (`select[name=userid]` + change + join) breaks past 14.365; adapt the driver
+   when the DM updates.** Preflight's `TESTED` map watches MODULES only — core lives in the
+   CLAUDE.md line + module.json `verified`; after the DM updates core, run §28.4 + a
+   train-door check, then bump both. No v15 exists in any channel (not even prototype).
 
 **Smaller opens swept from the sections (2026-08-19 deep dive):**
 
