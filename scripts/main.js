@@ -19,6 +19,7 @@ import { registerFxEngine } from "./effects.js"; // §26 Effects tab engine
 import { cardTableRefreshMode } from "./card-table.js"; // §39: re-lay the board when the table mode changes
 import { dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { registerDaylight, applyDaylight } from "./daylight.js"; // §41 the clock drives scene darkness
+import { registerTwists } from "./twists.js"; // §31 v2: an armed twist forces the creature's next d20
 import { registerDruskenvald } from "./druskenvald.js"; // §43 eternal night, told in six named hours
 import { registerCharacterFiles, compileCharacterFiles } from "./character-file.js"; // §44 a book per PC
 import { registerSettingsMenu } from "./settings-app.js"; // §29 settings mini-app (menu button)
@@ -784,6 +785,7 @@ Hooks.once("ready", () => {
   registerFxEngine(); // §26 Effects tab: apply/remove screen filters + ambience loops as fxActive changes (all clients; phones flash-only)
   initPauseGuard();
   registerDaylight(); // §41: scene darkness follows the world clock (executor-gated inside)
+  registerTwists(); // §31 v2: armed twists land on the next d20 (all clients — the roller forces its own die)
   registerDruskenvald(); // §43: the named hour + sky on the shared screen (gates itself)
   registerCharacterFiles(); // §44: compile each PC's book on a timer (executor-only, dirty-checked)
   if (!isPhoneClient()) initPauseOverlay(); // corner spinners replace the "GAME PAUSED" bar (phones have their own overlay)

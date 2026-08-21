@@ -6075,6 +6075,20 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-twist-reqtext { flex: 1 1 100%; min-width: 0; font-size: 12.5px; line-height: 1.4; color: var(--mc-ink); }
 .mc-twist-req .mc-cmb-ticket { flex: 1 1 0; min-width: 0; }
 .mc-twist-reqtext .fa-shuffle { color: var(--mc-gold); margin-right: 2px; }
+/* §31 v2: Apply flips the chip into "whose die?" — a scene-token pick — and an armed creature
+   shows as a bolt chip until its next d20 consumes the twist. Rows are full-width inside the
+   chip's wrap layout; the list caps and scrolls so a crowded scene can't swallow the panel. */
+.mc-twist-hint { flex: 1 1 100%; font-size: 11.5px; color: var(--mc-muted); }
+.mc-twist-pick { flex: 1 1 100%; max-height: 168px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.mc-twist-target {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  height: auto; min-height: 30px; padding: 2px 6px; /* height:auto beats core's form-field button height (UI-BIBLE §4.1) */
+  background: none; border: 1px solid transparent; border-radius: calc(6px * var(--mc-round, 1));
+  color: var(--mc-ink); font-size: 12.5px; text-align: left; cursor: pointer;
+}
+.mc-twist-target:hover { border-color: var(--mc-gold); }
+.mc-twist-target img { width: 24px; height: 24px; object-fit: cover; border-radius: 50%; flex: 0 0 auto; }
+.mc-twist-armed .fa-bolt { color: var(--mc-gold); margin-right: 2px; }
 
 /* == SS34 Fateweaving: thread chip, spoiler-safe card steps, DM dots row == */
 .mc-fate-chip { border-color: var(--mc-gold) !important; color: var(--mc-gold); }

@@ -2044,9 +2044,10 @@ actually needs):**
 4. **Crooked Moon polish** (campaign not started — no chapter urgency; **build order is
    Claude's pick — DM 2026-08-20 "no preference"**): ~~player-side CM tab~~ — **BUILT +
    bench-verified 2026-08-21 (§35.1, planned with the DM: sealed card · verbal arrival ·
-   tab-only chips)** · **§31 v2 twist auto-apply — APPROVED 2026-08-20 ("yes"), NEXT UP**: on
-   the DM's Apply, force the declared 1/20 onto that creature's next qualifying d20 instead of
-   by-hand · table feedback on the built suite · §33's bargain-mode reroll toggle (deferred) · ~~curseTable settings row~~ — **DECIDED
+   tab-only chips)** · ~~§31 v2 twist auto-apply~~ — **BUILT 2026-08-21** (Apply asks whose
+   die → arms `twistArmed` → `dnd5e.preRollD20Test` forces the face via options.minimum/
+   maximum, consumed post-dialog; 30 headless tests green; **live end-to-end leg owed** —
+   needs the GM seat, §31) · table feedback on the built suite · §33's bargain-mode reroll toggle (deferred) · ~~curseTable settings row~~ — **DECIDED
    2026-08-20: OUR d100 is the table ("I like ours more", after seeing samples of both).** No
    picker row; the `curseTable` UUID stays as the undocumented console-set escape hatch ·
    §32's unmined remainder (Dark Bargains, lair-pulse engine, ch10–13 scene packs).
@@ -3459,9 +3460,29 @@ the ch12 boss). The DM may grant more at will.
   fate-twist chat card (table theater — everyone should see fate snap); [Dismiss] refunds.
   The DM applies the declared die to the roll by hand v1 — no midi workflow surgery.
 - DM panel (Crooked Moon tab, §35): per-PC counters with +/− grant/revoke.
-- v2 ~~(backlog)~~ **APPROVED (DM 2026-08-20: "yes")**: midi hook that literally sets the next
-  roll's d20 for the chosen creature so automated saves/attacks resolve with the declared die —
-  armed by the DM's Apply, one-shot, in the §22.6 CM queue.
+- v2 ~~(backlog)~~ ~~APPROVED (DM 2026-08-20: "yes")~~ **BUILT 2026-08-21 (`twists.js`; 30
+  headless tests in `tools/test-twists.mjs`, all green).** Apply now asks **whose die**: the
+  pending chip flips to an active-scene token pick (spender's PC first, then PCs, then the
+  rest; capped + scrolling), plus **[By hand]** = the v1 spend-and-fudge path (§8.1, the DM
+  can always cheat) and [Back]. Arming spends the twist, posts the fate card naming the
+  target, and writes `twistArmed {die, by, note, ts}` on the TARGET's actor — `token.actor`,
+  so an unlinked NPC's flag rides its token delta (the synthetic-actor trap, honored).
+  **Mechanism — dnd5e, not midi (read from 5.3.3 source):** every attack / save (death +
+  concentration included) / ability check / skill / tool / initiative funnels through
+  `BasicRoll.build` with `"d20Test"` in its hookNames, so ONE hook pair covers the lot:
+  `dnd5e.preRollD20Test` sets `options.minimum = 20` (or `maximum = 1`) on the roll config —
+  the same machinery Reliable Talent uses (`D20Roll.configureModifiers` → `d20.applyRange`) —
+  so the die IS a natural 20/1 to everything downstream (crit/fumble, midi's hit math), on
+  whichever client rolls, midi or no midi. The opposing bound is deleted (declared fate beats
+  Reliable Talent's min 10 and any die-capping curse). `dnd5e.postD20TestRollConfiguration`
+  is the consume: it fires after the roll dialog with evaluation next, so a CANCELLED dialog
+  leaves the twist armed (and `evaluate:false` builds don't consume either). **Expiry
+  deviation from the queue sketch ("use or turn end") — deliberate:** no turn-end expiry,
+  because the twisted roll is usually a save on someone ELSE'S turn; instead a gold bolt
+  **armed chip** on the panel (name + face + spender, ✕ = disarm without refund) keeps every
+  arm visible, and a `deleteCombat` sweep (activeGM) clears a fight's leftovers. **Live
+  end-to-end leg owed** (phone spend → Apply → pick → a real forced roll through midi on the
+  served world): needs the GM seat free — the bench-legs quiet-window list.
 
 **Slice B BUILT + bench-verified 2026-07-28.** Shell: dashed chip (crossed-arrows mark, ×N,
 pulses while a spend waits) → inline spend panel under the condition strip (rule text, big
@@ -3826,7 +3847,8 @@ party's ACTUAL thread picks (standing §34 decision); the tab reserves their pla
 
 **Slices:** **A** = tab + four sections + chip removal + empty states + the two owed UI-BIBLE
 entries (player-side campaign gate; the fate-marks language — dashed = otherworldly state,
-solid = mundane condition, gold = destiny) · **B** = §31-v2 twist auto-apply (already queued) ·
+solid = mundane condition, gold = destiny) · **B** = §31-v2 twist auto-apply — ~~queued~~
+**BUILT 2026-08-21 (§31; DM-panel side only — the phone's spend flow is unchanged)** ·
 **C** = props, per party picks, later.
 
 **Slice A BUILT + bench-verified same day (2026-08-21, on the served Offline-test world):**
