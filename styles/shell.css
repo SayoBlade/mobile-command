@@ -622,6 +622,7 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   flex: 1 1 0; padding: 12px 0;
   text-align: center; font-size: 12px; font-weight: 600;
   color: #81869a; background: none; border: none;
+  position: relative; /* §35.1: the attention dot anchors to the tab */
 }
 .mc-tab.mc-active { color: var(--mc-ink); box-shadow: inset 0 2px 0 #5db4e6; }
 
@@ -6439,3 +6440,54 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
    station, the séance board, the card table — so a shared screen never snaps between worlds. */
 .mc-fade-mount { opacity: 0; transition: opacity 1400ms ease; }
 .mc-fade-mount.mc-on { opacity: 1; }
+
+/* ── §35.1 THE CROOKED MOON TAB (planned with the DM 2026-08-21) ─────────────────────────────
+   A home for existing surfaces: card → thread → twists → curses. Dashed = otherworldly
+   (UI-BIBLE §5 fate-marks); gold = destiny; sections are ordinary panels, not new chrome. */
+.mc-tab-dot {
+  position: absolute; top: 8px; right: calc(50% - 16px);
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--mc-gold); box-shadow: 0 0 6px var(--mc-gold);
+}
+.mc-cm-tab { display: flex; flex-direction: column; gap: 12px; padding: 12px 12px 20px; }
+.mc-cm-sec {
+  background: var(--mc-panel); border: 1px solid var(--mc-edge);
+  border-radius: calc(10px * var(--mc-round, 1)); padding: 12px;
+}
+.mc-cm-sec-twist { padding: 0; background: none; border: none; }
+.mc-cm-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--mc-gold); font-weight: 800; margin-bottom: 8px;
+}
+.mc-cm-card {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  width: 100%; min-height: 44px; padding: 10px;
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge);
+  border-radius: calc(10px * var(--mc-round, 1));
+}
+.mc-cm-card img { width: 128px; aspect-ratio: 5 / 7; object-fit: cover; border-radius: 6px; display: block; }
+.mc-cm-facedown { border-style: dashed; }
+.mc-cm-cardname { font-size: 14px; font-weight: 600; color: var(--mc-ink); font-family: "Signika", sans-serif; }
+.mc-cm-facedown .mc-cm-cardname { color: var(--mc-muted); font-style: italic; }
+.mc-cm-thread { font-size: 15px; font-weight: 700; color: var(--mc-gold); }
+.mc-cm-thread .fa-scroll { margin-right: 6px; }
+.mc-cm-goal { margin: 6px 0 0; font-size: 13px; line-height: 1.45; color: var(--mc-ink); }
+.mc-cm-curse {
+  min-height: 44px; padding: 9px 10px; margin-top: 8px;
+  border: 1px dashed var(--mc-edge); border-radius: calc(8px * var(--mc-round, 1));
+  background: var(--mc-sunken);
+}
+.mc-cm-curse:first-of-type { margin-top: 0; }
+.mc-cm-cursehead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.mc-cm-cursename { font-size: 14px; font-weight: 600; color: var(--mc-ink); font-family: "Signika", sans-serif; }
+.mc-cm-curseleft { font-size: 11px; color: var(--mc-muted); white-space: nowrap; }
+.mc-cm-cursetext { margin-top: 4px; font-size: 12.5px; line-height: 1.45; color: var(--mc-muted); }
+.mc-cm-cursebar {
+  margin-top: 8px; height: 4px; border-radius: 2px;
+  background: color-mix(in srgb, var(--mc-edge) 60%, transparent); overflow: hidden;
+}
+.mc-cm-cursebar span { display: block; height: 100%; background: var(--mc-muted); border-radius: 2px; }
+.mc-cm-quiet {
+  padding: 28px 16px; text-align: center;
+  font-size: 13.5px; font-style: italic; color: var(--mc-muted);
+}

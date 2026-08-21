@@ -184,7 +184,9 @@ export async function applyCurse(actor, pick, minutes = 20) {
     description: `<p><em>${foundry.utils.escapeHTML(pick.text)}</em></p><p>This will pass on its own. Probably.</p>`,
     duration: { seconds: Math.round(minutes * 60) },
     changes: builtinChanges,
-    flags: { [MODULE_ID]: { curse: true, expiresAt: Date.now() + minutes * 60000, roll: pick.n } }
+    // `minutes` stored since 2026-08-21 so the Crooked Moon tab (§35.1) can draw a draining
+    // time bar (remaining/total). Curses cast before then fall back to a minutes-left line.
+    flags: { [MODULE_ID]: { curse: true, expiresAt: Date.now() + minutes * 60000, minutes, roll: pick.n } }
   }]);
 }
 

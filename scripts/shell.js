@@ -5,6 +5,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure he
 import { toggleSimpleCalendar } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 the player's thread card
+import { actorCurses } from "./cm-curses.js"; // §35.1 the Crooked Moon tab lists them richly
 import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCard, tarotCanDismiss, tarotEnabled, TAROT_FLIP_MS } from "./tarot.js"; // §42 the Fated Tarot
 import { masteryOf, masteryReminder } from "./masteries.js"; // §45 weapon mastery reminder
 import { watchScroll, captureScrolls, restoreScrolls, sameHTML } from "./repaint.js"; // §46 don't jump
@@ -251,7 +252,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #suppressClick = false; // a long-press fired → swallow the trailing click so the row doesn't also act
   #moveMode = null;       // chosen travel type (walk/fly/swim/climb/burrow); null → effective default
   #movePickerOpen = false; // character card: the travel-type picker is expanded
-  #twistOpen = false;     // §31 Twist of Fate: the spend panel under the condition strip
+  // (§31's #twistOpen toggle retired 2026-08-21 — the spend panel stands in the Crooked Moon tab.)
   #twistDie = 20;         // the declared die (1 or 20) — 20 is the overwhelmingly common pick
   #twistNote = "";        // "whose roll" context draft, kept across re-renders
   #moveBudget = null;     // last D-pad move readout { text, cls } — persisted so a combat
@@ -550,32 +551,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const isEconEffect = (e) => e.changes?.some?.(c => c.key?.startsWith("flags.midi-qol.actions"));
     const econ = this.#actionEconomy(actor);
     const actionChip = (econ.inCombat && !econ.action) ? `<span class="mc-chip mc-chip-used">Action used</span>` : "";
-    // §31 Twists of Fate (Crooked Moon): a held-token counter chip — dashed outline + the
-    // crossed-arrows mark per the locked chip spec. Tap opens the spend panel; while a spend
-    // waits on the DM the chip glows. Rendered only when the DM has granted any (or one is
-    // in flight), so non-CM tables never see it.
-    const twists = Number(actor.getFlag(MODULE_ID, "twists") ?? 0);
-    const twistPending = actor.getFlag(MODULE_ID, "twistPending");
-    const twistChip = (twists > 0 || twistPending)
-      ? `<span class="mc-chip mc-chip-tap mc-twist-chip ${twistPending ? "mc-twist-waiting" : ""}" data-action="twist-open" title="Twist of Fate — tap to spend">
-          <i class="fas fa-shuffle"></i>Twist of Fate${twists > 1 ? `<span class="mc-chip-mult">×${twists}</span>` : ""}</span>`
-      : "";
-    // §34 Fateweaving: the PC's Thread of Fate as a quiet gold chip — tap for the spoiler-safe
-    // thread card (goal + touchpoints reached; the road ahead stays dark).
-    const fateThread = actor.getFlag(MODULE_ID, "fateThread");
-    const fateChip = fateThread?.key && FATE_THREADS[fateThread.key]
-      ? `<span class="mc-chip mc-chip-tap mc-fate-chip" data-action="fate-open" title="Your Thread of Fate">
-          <i class="fas fa-scroll"></i>${foundry.utils.escapeHTML(FATE_THREADS[fateThread.key].name)}</span>`
-      : "";
-    // §42 The Fated Tarot: the card this character was dealt. It appears the moment it's dealt —
-    // FACE DOWN, because the player is holding it before anyone has turned it over, and that wait
-    // is the reading. Once the DM turns it, the chip names the arcana and the card is theirs for
-    // the campaign.
-    const tCard = tarotEnabled() ? tarotCard(actor) : null;
-    const tarotChip = tCard
-      ? `<span class="mc-chip mc-chip-tap mc-tarot-chip ${tCard.shown ? "" : "mc-tarot-facedown"}" data-action="tarot-open" title="${tCard.shown ? "Your card" : "Your card — still face down"}">
-          <i class="fas fa-star"></i>${tCard.shown ? foundry.utils.escapeHTML(tCard.name) : "Your card"}</span>`
-      : "";
+    // §35.1 (DM 2026-08-21, "tab only"): the tarot, thread and twist chips that used to crowd
+    // this strip live in the Crooked Moon TAB now — the strip keeps only real conditions
+    // (curses included: a curse is a live condition like Prone) and the action-economy marks.
+    // A pending twist spend asks for attention as a dot on the tab's icon instead of a
+    // pulsing chip (UI-BIBLE §5/§6.5).
     // Every effect-backed chip is long-pressable for its detail (#showEffectDetails
     // picks rules reference → own description → change summary). The synthetic
     // "Action used" chip has no backing effect, so it isn't pressable.
@@ -584,7 +564,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const condsHTML = effGroups.map(({ e, count }) =>
       `<span class="mc-chip mc-chip-tap${isEconEffect(e) ? " mc-chip-used" : ""}${e.flags?.[MODULE_ID]?.curse ? " mc-curse-chip" : ""}" data-action="cond-open" data-detail="cond" data-effect-id="${e.id}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}${count > 1 ? `<span class="mc-chip-mult">×${count}</span>` : ""}</span>`
     ).join("");
-    const condHTML = (tarotChip + fateChip + twistChip + actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
+    const condHTML = (actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
 
     // B7: HP & temp are tap-to-edit. Tapping opens a roomy editor row with
     // on-screen − / + / Set so it works on the iOS numeric keypad (which has no
@@ -626,7 +606,6 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <button class="mc-cond-manage ${this.#condEditing ? "mc-on" : ""}" data-action="cond-edit" aria-label="Manage conditions" title="Add or remove conditions"><i class="fas fa-plus"></i></button>
       </div>
       ${this.#condEditing && !this.#detailCard ? this.#conditionPaletteHTML(actor) : ""}
-      ${this.#twistOpen && !this.#detailCard ? this.#twistPanelHTML(actor) : ""}
       ${this.#diceTrayOpen ? this.#diceTrayHTML() : ""}
       ${this.#atZeroHP(actor) && this.#deathSaveDismissed
         ? `<button class="mc-death-reopen" data-action="death-reopen"><i class="fas fa-skull"></i> At 0 HP — death saves</button>` : ""}
@@ -2398,13 +2377,33 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         ${pbtn("journal", "fa-feather", "Journal")}
         <button class="mc-tab" data-action="party-view-toggle" data-on="0" title="My sheet" aria-label="My sheet"><i class="fas fa-user"></i></button>`;
     }
+    // §35.1: the campaign tab — gated like the DM's (§6.7, off = never existed), wearing the
+    // same crone glyph. A pending twist spend lights a dot on the icon (the §6.5 badge idiom):
+    // with the pulsing chip gone from the header, this is how the tab asks for attention.
+    const cmDot = this.#cmToolsOn() && this.actor?.getFlag(MODULE_ID, "twistPending");
+    const cmTab = this.#cmToolsOn()
+      ? `<button class="mc-tab ${this.#tab === "crooked" ? "mc-active" : ""}" data-action="tab" data-tab="crooked" title="The Crooked Moon" aria-label="The Crooked Moon"><i class="fas mc-icon-cmoon"></i>${cmDot ? `<span class="mc-tab-dot"></span>` : ""}</button>`
+      : "";
     return `${this.#tabButton("actions", "fa-hand-fist", "Actions")}
       ${this.#tabButton("details", "fa-user", "Details")}
       ${this.#tabButton("sheet", "fa-compass", "Explore")}
       ${this.#tabButton("spells", "fa-wand-sparkles", "Spells")}
       ${this.#tabButton("equipment", "fa-suitcase", "Equipment")}
       ${this.#tabButton("journal", "fa-feather", "Journal")}
+      ${cmTab}
       ${packed ? `<button class="mc-tab mc-tab-party" data-action="party-view-toggle" data-on="1" title="Party" aria-label="Party"><i class="fas fa-people-group"></i></button>` : ""}`;
+  }
+
+  // §35.1: same gate as the DM tab — flip the setting off and the tab never existed.
+  #cmToolsOn() {
+    try { return !!game.settings.get(MODULE_ID, "crookedMoonTools"); } catch (e) { return false; }
+  }
+
+  // §35.1: called by the gate's setting hook (registerShellHooks) — a phone stranded ON the
+  // tab when the DM turns the campaign off steps back to Explore; either way the bar repaints.
+  leaveCrookedTabIfGated() {
+    if (!this.#cmToolsOn() && this.#tab === "crooked") this.#tab = "sheet";
+    this.render();
   }
 
   #tabContent(actor) {
@@ -2442,6 +2441,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#tab === "spells") return this.#spellsHTML(actor);
     if (this.#tab === "equipment") return this.#equipmentHTML(actor);
     if (this.#tab === "journal") return this.#journalHTML();
+    // §35.1: the gate can flip live — a stranded "crooked" tab falls back to the sheet.
+    if (this.#tab === "crooked") return this.#cmToolsOn() ? this.#crookedTabHTML(actor) : this.#exploreHTML(actor);
     return this.#exploreHTML(actor); // "Explore" tab: move pad + the sheet
   }
 
@@ -4903,10 +4904,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <input type="text" class="mc-twist-note" maxlength="80" placeholder="Whose roll? (say it aloud too)" value="${esc(this.#twistNote)}" autocomplete="off" enterkeyhint="send">
         <button class="mc-twist-send" data-action="twist-send"><i class="fas fa-shuffle"></i> Twist Fate</button>`;
     }
+    // §35.1: this panel lives INSIDE the Crooked Moon tab now (DM 2026-08-21, "tab only") —
+    // a standing section needs no close button; leaving the tab is the close.
     return `<div class="mc-cond-panel mc-twist-panel">
       <div class="mc-cond-panel-head">
         <span>Twist of Fate ${n > 0 ? `<span class="mc-twist-count">×${n}</span>` : ""}</span>
-        <button class="mc-cond-close" data-action="twist-open" aria-label="Close"><i class="fas fa-xmark"></i></button>
       </div>
       <div class="mc-twist-rule">Once per turn, when a creature you can see makes an ability check,
         attack roll, or saving throw, spend a twist to replace the d20 with a natural 1 or 20.</div>
@@ -4914,24 +4916,81 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     </div>`;
   }
 
-  // §34: the player's thread card — spoiler-safe: goal + the touchpoints already reached;
-  // steps still ahead render as unnamed dark marks. Uses the generic detail card.
-  #openFateCard(actor) {
-    const ft = actor.getFlag(MODULE_ID, "fateThread");
-    const t = ft?.key ? FATE_THREADS[ft.key] : null;
-    if (!t) return;
+  // §35.1 THE CROOKED MOON TAB (planned with the DM 2026-08-21) — a HOME, not a new system.
+  // The arc is deliberate: fate dealt → destiny chosen → fate's currency → fate's price.
+  // Everything here is DM-granted, so an empty tab never nags — quiet lines, no instructions.
+  #crookedTabHTML(actor) {
     const esc = foundry.utils.escapeHTML;
-    const reached = Math.min(Number(ft.reached ?? 0), 6);
-    const steps = FATE_STEPS.map((s, i) =>
-      i < reached
-        ? `<li class="mc-fate-step mc-fate-done"><i class="fas fa-check"></i> ${esc(s.name)}</li>`
-        : `<li class="mc-fate-step"><i class="fas fa-circle"></i> <span class="mc-fate-unknown">— the thread runs on into the dark —</span></li>`
-    ).join("");
-    this.#detailCard = {
-      kind: "fate", name: t.name, glyph: "fa-scroll", subtitle: "Your Thread of Fate",
-      desc: `<p><em>${esc(t.goal)}</em></p><ol class="mc-fate-steps">${steps}</ol>`
-    };
-    this.render();
+    const sections = [];
+
+    // 1. Your card (§42) — SEALED (DM 2026-08-21): face + name after the turn, nothing else.
+    //    Adela's words, the reward, the place it unlocks — all stay in the DM's mouth.
+    const tCard = tarotEnabled() ? tarotCard(actor) : null;
+    if (tCard) {
+      sections.push(`<div class="mc-cm-sec">
+        <div class="mc-cm-label">Your card</div>
+        <button class="mc-cm-card ${tCard.shown ? "" : "mc-cm-facedown"}" data-action="tarot-open"
+          title="${tCard.shown ? "Your card" : "Your card — still face down"}">
+          <img src="${esc(tCard.shown ? tarotFace(tCard) : tarotBack())}" alt="">
+          <span class="mc-cm-cardname">${tCard.shown ? esc(tCard.name) : "Still face down"}</span>
+        </button>
+      </div>`);
+    }
+
+    // 2. Your thread (§34) — the spoiler-safe card, standing instead of chip-hidden:
+    //    goal + reached touchpoints named; the road ahead stays dark.
+    const ft = actor.getFlag(MODULE_ID, "fateThread");
+    const thread = ft?.key ? FATE_THREADS[ft.key] : null;
+    if (thread) {
+      const reached = Math.min(Number(ft.reached ?? 0), 6);
+      const steps = FATE_STEPS.map((s, i) =>
+        i < reached
+          ? `<li class="mc-fate-step mc-fate-done"><i class="fas fa-check"></i> ${esc(s.name)}</li>`
+          : `<li class="mc-fate-step"><i class="fas fa-circle"></i> <span class="mc-fate-unknown">— the thread runs on into the dark —</span></li>`
+      ).join("");
+      sections.push(`<div class="mc-cm-sec">
+        <div class="mc-cm-label">Your thread</div>
+        <div class="mc-cm-thread"><i class="fas fa-scroll"></i> ${esc(thread.name)}</div>
+        <p class="mc-cm-goal"><em>${esc(thread.goal)}</em></p>
+        <ol class="mc-fate-steps">${steps}</ol>
+      </div>`);
+    }
+
+    // 3. Twists of Fate (§31) — the full spend flow, resident here (the old popup, sans close).
+    const twists = Number(actor.getFlag(MODULE_ID, "twists") ?? 0);
+    const twistPending = actor.getFlag(MODULE_ID, "twistPending");
+    if (twists > 0 || twistPending) {
+      sections.push(`<div class="mc-cm-sec mc-cm-sec-twist">${this.#twistPanelHTML(actor)}</div>`);
+    }
+
+    // 4. Curses (§33) — richly listed here; their chips STAY in the condition strip too
+    //    (a curse is a live condition like Prone). Time bar when the cast stored its length;
+    //    a plain minutes-left line for curses cast before that was recorded.
+    const curses = actorCurses(actor);
+    if (curses.length) {
+      const rows = curses.map(e => {
+        const f = e.flags?.[MODULE_ID] ?? {};
+        const leftMs = Math.max(0, (f.expiresAt ?? 0) - Date.now());
+        const leftMin = Math.ceil(leftMs / 60000);
+        const total = Number(f.minutes ?? 0) * 60000;
+        const pct = total > 0 ? Math.max(2, Math.min(100, Math.round(leftMs / total * 100))) : null;
+        const desc = String(e.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        return `<div class="mc-cm-curse" data-action="cond-open" data-effect-id="${e.id}">
+          <div class="mc-cm-cursehead"><span class="mc-cm-cursename">${esc(e.name)}</span>
+            <span class="mc-cm-curseleft">${f.expiresAt ? `${leftMin}m left` : ""}</span></div>
+          ${desc ? `<div class="mc-cm-cursetext"><em>${esc(desc)}</em></div>` : ""}
+          ${pct !== null ? `<div class="mc-cm-cursebar"><span style="width:${pct}%"></span></div>` : ""}
+        </div>`;
+      }).join("");
+      sections.push(`<div class="mc-cm-sec">
+        <div class="mc-cm-label">Curses</div>${rows}
+      </div>`);
+    }
+
+    const body = sections.length
+      ? sections.join("")
+      : `<div class="mc-cm-quiet">The Moon has not taken notice of you yet.</div>`;
+    return `<div class="mc-cm-tab">${body}</div>`;
   }
 
   // §42.2 THE CARD IN THEIR HAND (DM 2026-08-11: "a full size card back, no text, when clicked
@@ -6817,13 +6876,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#condEditing = !this.#condEditing; return this.render();
       // §31 Twist of Fate: open/choose/send/withdraw. The send writes twistPending on the
       // actor; the DM's panel is the only thing that spends or refunds the token.
-      case "twist-open":
-        this.#twistOpen = !this.#twistOpen; return this.render();
       case "twist-die":
         this.#twistDie = Number(el.dataset.die) === 1 ? 1 : 20; return this.render();
       case "twist-send": return this.#twistSend(actor);
       case "twist-withdraw": return this.#twistWithdraw(actor);
-      case "fate-open": return this.#openFateCard(actor);
       case "tarot-open": { this.#tarotDismissed = null; return this.render(); }
       // §42.2 one target, two meanings: face down it turns over, face up it goes away. The
       // player owns their own actor, so the reveal is a direct flag write — no RPC, same as a
@@ -8574,6 +8630,15 @@ export function registerShellHooks() {
     if (ae?.classList?.contains?.("mc-dt-new-name") || ae?.classList?.contains?.("mc-dt-new-plan")) return;
     shellInstance.render();
   });
+  // §35.1: the Crooked Moon tab is gated live — flipping the setting must repaint the bar and
+  // rescue a phone stranded ON the tab. Both hooks, because a never-written setting's FIRST
+  // write fires createSetting, not updateSetting (the §38.4a module-wide trap).
+  const onCmGate = (s) => {
+    if (s?.key !== `${MODULE_ID}.crookedMoonTools` || !shellInstance?.rendered) return;
+    shellInstance.leaveCrookedTabIfGated();
+  };
+  Hooks.on("updateSetting", onCmGate);
+  Hooks.on("createSetting", onCmGate);
   // Pack deletes member tokens / creates the party token; deploy reverses it —
   // either way our subject changes, so rebind and repaint.
   const onPartyToken = (tok) => {

@@ -2042,11 +2042,11 @@ actually needs):**
    *(2 and 3 need no preparation from the DM today — they trigger when the hardware/humans
    arrive.)*
 4. **Crooked Moon polish** (campaign not started — no chapter urgency; **build order is
-   Claude's pick — DM 2026-08-20 "no preference"**): **player-side CM tab (§35) — approved
-   2026-08-19, queued** (their thread, twists, curses, tarot card in one shell tab) · **§31 v2
-   twist auto-apply — APPROVED 2026-08-20 ("yes")**: on the DM's Apply, force the declared 1/20
-   onto that creature's next qualifying d20 instead of by-hand · table feedback on the built
-   suite · §33's bargain-mode reroll toggle (deferred) · ~~curseTable settings row~~ — **DECIDED
+   Claude's pick — DM 2026-08-20 "no preference"**): ~~player-side CM tab~~ — **BUILT +
+   bench-verified 2026-08-21 (§35.1, planned with the DM: sealed card · verbal arrival ·
+   tab-only chips)** · **§31 v2 twist auto-apply — APPROVED 2026-08-20 ("yes"), NEXT UP**: on
+   the DM's Apply, force the declared 1/20 onto that creature's next qualifying d20 instead of
+   by-hand · table feedback on the built suite · §33's bargain-mode reroll toggle (deferred) · ~~curseTable settings row~~ — **DECIDED
    2026-08-20: OUR d100 is the table ("I like ours more", after seeing samples of both).** No
    picker row; the `curseTable` UUID stays as the undocumented console-set escape hatch ·
    §32's unmined remainder (Dark Bargains, lair-pulse engine, ch10–13 scene packs).
@@ -3781,10 +3781,67 @@ Player side: NO new tab v1 — the shell already carries the chips (twist counte
 thread card in the character area). UI-BIBLE needs a section for the campaign tab + the twist/
 curse marks BEFORE building (bible-first, per CLAUDE.md).
 
-**Player-side tab (DM 2026-07-27, OPTION → APPROVED 2026-08-19: "add it to the list of things
-to do"):** a player-facing Crooked Moon tab in the shell holding their CM "stuff" —
-destiny/thread, prop, twists, curse details, tarot card (§42). Queued in the §22.6 ledger;
-the chips-in-shell v1 stays until it's built.
+**Player-side tab (DM 2026-07-27, OPTION → APPROVED 2026-08-19 → PLANNED WITH THE DM
+2026-08-21, §35.1 below):** a player-facing Crooked Moon tab in the shell holding their CM
+"stuff" — destiny/thread, prop, twists, curse details, tarot card (§42).
+
+### 35.1 The player tab — spec v1 (planned with the DM 2026-08-21)
+
+**Shape:** a SEVENTH phone tab, gated on `crookedMoonTools` exactly like the DM tab (§6.7 —
+off = never existed), wearing the same original crooked-crescent glyph (`.mc-icon-cmoon`).
+Normal (unpacked) tab bar only; packed mode reaches it through My-sheet like everything else.
+Seven 44px tabs fit a 380px phone bar — snug, verified by arithmetic, eyeball at the table.
+It is a HOME, not a new system: every section re-surfaces machinery that already exists.
+
+**Sections, top to bottom — a deliberate arc (fate dealt → destiny chosen → fate's currency →
+fate's price):**
+
+1. **Your card (§42)** — the face-down back until the DM turns it (tap = the existing full
+   card view); after the turn, face + name and NOTHING else. **DM decision 2026-08-21: SEALED**
+   — no reward, no location, no interpretation text (his standing "the DM reads that" ruling).
+2. **Your thread (§34)** — thread name in gold, goal line, six touchpoint marks: reached ones
+   named, unreached dark ("the thread runs on into the dark") — the spoiler-safe card content,
+   standing instead of chip-hidden.
+3. **Twists of Fate (§31)** — mark + count + the one-line rule + the full spend flow (20/1
+   pick, whose-roll note, send/withdraw, pending state). The §31-v2 auto-apply lands here when
+   built.
+4. **Curses (§33)** — each active curse: name, italic text, a draining time bar, live.
+
+**Decisions (all DM 2026-08-21):** card SEALED (above) · **the arrival story stays VERBAL** —
+unscripted at the table; "if the player (or DM) want they can add it to the journal" (the
+existing journal paths cover it — NOTHING built) · **chips leave the header: TAB ONLY** — the
+tarot, thread, and twist chips go; the tab is the one home. *Claude's reading, DM may veto:
+CURSE chips stay in the condition strip — a curse is a live condition like Prone (§33 routed
+them through the normal strip deliberately); the tab lists them richly in addition.* The
+dealt-card hand overlay (the deal/turn ceremony) also stays — it is the moment, not a chip.
+**Pending-attention rule:** with the pulsing twist chip gone, a pending spend puts a small
+dot on the tab's icon (the §6.5 badge idiom, extended to the shell's bar — bible note).
+
+**Empty states:** everything here is DM-granted, so an empty tab never nags — one quiet
+in-world line when nothing exists at all; per-section quiet lines otherwise.
+
+**Deliberately out:** the séance (players get effects, never controls) · Adela's card text
+(the DM's mouth) · **thread props** (compass/mirror/tome…) — a later slice built against the
+party's ACTUAL thread picks (standing §34 decision); the tab reserves their place.
+
+**Slices:** **A** = tab + four sections + chip removal + empty states + the two owed UI-BIBLE
+entries (player-side campaign gate; the fate-marks language — dashed = otherworldly state,
+solid = mundane condition, gold = destiny) · **B** = §31-v2 twist auto-apply (already queued) ·
+**C** = props, per party picks, later.
+
+**Slice A BUILT + bench-verified same day (2026-08-21, on the served Offline-test world):**
+seven tabs with the crone glyph last · sealed card renders face-down (our back art, "Still face
+down", dashed) and turns to face + name on reveal · thread section shows name/goal + 2 lit and
+4 dark marks · twist panel resident with ×N and no close · curse row carries our own text, a
+minutes-left line AND the draining bar (cm-curses now stores `minutes` in the flag; pre-change
+curses fall back to text) · curse chips STAY in the condition strip while the tarot/thread/twist
+chips are gone from it · spend → pending + the tab-icon DOT lights; withdraw clears both ·
+empty tab (a flagless Quasit) shows the one quiet line · **gate flips LIVE** — found broken on
+the first check (the shell never repainted on the setting; the tab lingered), fixed with a
+create+updateSetting watcher (the §38.4a first-write trap) + `leaveCrookedTabIfGated()`: a phone
+standing ON the tab steps back to Explore, six tabs, crone gone; on again → seven. Retired with
+the chips: the `#twistOpen` toggle, the twist-panel close X, and `#openFateCard` (its content
+lives in the tab). Test flags cleaned off the Fighter afterwards; world restored.
 
 **Slice A BUILT + bench-verified 2026-07-27:** `crookedMoonTools` world setting (defaults ON
 when the-crooked-moon-2014 module is active, else OFF; toggle in panel Settings → Campaign

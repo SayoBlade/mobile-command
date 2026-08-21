@@ -277,6 +277,13 @@ lives in the two words plus the icon, and the tooltip carries any nuance.
 **Never encode state in the name text.** `(dead)` on a token is a Foundry-side exception, not a
 licence.
 
+**Campaign fate-marks (written down 2026-08-21; in use since §31/§33):** a **dashed outline**
+means an *otherworldly* state — a Twist held, a curse clinging, a card still face down — as
+opposed to the solid outline of a mundane condition. **Gold on a campaign mark means destiny**
+(the thread, the tab's glyph), which is the brand rule (§2.3) wearing its campaign face. A
+**small dot on a tab icon** is how the shell's own tab bar asks for attention (the §6.5 badge
+idiom, extended 2026-08-21 when the pulsing twist chip moved into the Crooked Moon tab).
+
 **The "never a spinner" rule is about *in-app* waiting chips** (someone owes an action) — a spinner
 there is anxious dead-air. The **game-pause cue on the shared canvas** is the deliberate exception:
 Foundry's centred "GAME PAUSED" bar covered the map (it hid a travel journey outright), so it's
@@ -427,11 +434,14 @@ only when the scene holds no PC tokens at all (an empty roster helps nobody). A 
 exception (e.g. a cross-scene assignment picker) is fine — but it's the exception, and it
 should know it.
 
-### 6.7 Campaign tabs are gated (2026-07-27)
+### 6.7 Campaign tabs are gated (2026-07-27; extended to the player side 2026-08-21)
 
 Campaign-specific tools (the Crooked Moon tab) live behind a world setting and **do not exist
 on the rail** for other tables — a table that never runs that campaign must never see its
-chrome. The gate defaults ON when the matching content module is installed and active. A
+chrome. **The same gate governs the PLAYER shell's campaign tab**: seventh tab, same setting,
+same original glyph — off means it never existed, and a non-campaign table's phones stay at
+six tabs. A campaign tab is a HOME for existing surfaces, never a place to hide new mechanics
+a player would need outside that campaign. The gate defaults ON when the matching content module is installed and active. A
 campaign tab's icon is an **original glyph drawn by us** (the crooked-crescent crone —
 socket eye, bent nose — `.mc-icon-cmoon`) — never art shipped by the campaign book, which is
 licensed content. Referencing the book's art **at runtime from the player's own installed
