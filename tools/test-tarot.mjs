@@ -134,5 +134,20 @@ g.setFlag(null, null, { key: "moon", shown: true });
 ok("a card from before the stamp existed is dismissible", tarot.tarotCanDismiss(tarot.actorCard(g)) === true);
 ok("the flip duration matches the CSS transition", tarot.TAROT_FLIP_MS === 1050);
 
+// 8. §44 the reward link: pack names use CURLY apostrophes where our map is straight, and every
+//    heirloom has an "Enchant: …" twin that must never win the match (probed live 2026-08-21).
+const fakeIndex = [
+  { name: "Enchant: Banjo of Ol’ Jericho Sticks", uuid: "wrong" },
+  { name: "Banjo of Ol’ Jericho Sticks", uuid: "right" },
+  { name: "Whistle of the Vagrant", uuid: "whistle" }
+];
+ok("curly-apostrophe pack name matches our straight map name",
+  tarot.pickRewardEntry(fakeIndex, "Banjo of Ol' Jericho Sticks")?.uuid === "right");
+ok("the Enchant: twin never wins", tarot.pickRewardEntry(fakeIndex, "Banjo of Ol' Jericho Sticks")?.uuid !== "wrong");
+ok("plain names still match", tarot.pickRewardEntry(fakeIndex, "Whistle of the Vagrant")?.uuid === "whistle");
+ok("a boon with no document misses cleanly", tarot.pickRewardEntry(fakeIndex, "Three Twists of Fate") === null);
+ok("every reward name is findable once normalized", Object.values(tarot.ARCANA_REWARD)
+  .every(r => tarot.normName(r.item).length > 0));
+
 console.log(fails ? `\n${fails} FAILED` : "\nall green");
 process.exit(fails ? 1 : 0);

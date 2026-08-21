@@ -109,6 +109,49 @@ export const ARCANA_REWARD = {
   world:      { item: "Cast Wish, once",                  where: "Phase 2: Wrath of the Crooked Queen — after defeating the Horned King" }
 };
 
+// §44 (DM ask 2026-08-21: "give a link to the fate, so the DM gets the full context"): the
+// Character File's Fate chapter links the card's reward to the BOOK'S OWN document. The
+// heirlooms live as Items in the treasury pack under their exact names — except the pack
+// writes curly apostrophes where our map writes straight ones (probed live: "Ol’ Jericho"),
+// and every heirloom has an "Enchant: …" twin that is the enchantment half, not the item.
+export function normName(s) { return s?.replace(/[’']/g, "'") ?? ""; }
+export function pickRewardEntry(entries, wantItem) {
+  const want = normName(wantItem);
+  if (!want) return null;
+  return entries.find(x => x?.name && !x.name.startsWith("Enchant:") && normName(x.name) === want) ?? null;
+}
+
+/** Compendium uuid of the card's reward item, or null (boons have no item; module may be off).
+ *  Name-resolved at compile time — the map stores names, the pack holds the truth — and cached:
+ *  pack indexes don't change mid-session. */
+const rewardUuidCache = new Map();
+export function cmRewardUuid(cardKey) {
+  if (rewardUuidCache.has(cardKey)) return rewardUuidCache.get(cardKey);
+  let uuid = null;
+  try {
+    const item = ARCANA_REWARD[cardKey]?.item;
+    if (item && hasBookArt()) {
+      const treasury = game.packs.get("the-crooked-moon-2014.tcm2014-treasury");
+      const rest = game.packs.filter(p => p !== treasury && p.collection.startsWith("the-crooked-moon"));
+      for (const p of [treasury, ...rest]) {
+        const e = p ? pickRewardEntry(p.index.contents, item) : null;
+        if (e) { uuid = e.uuid; break; }
+      }
+    }
+  } catch (e) { /* no packs — no link, the plain text stands */ }
+  rewardUuidCache.set(cardKey, uuid);
+  return uuid;
+}
+
+/** The book's own 1d22 reward table — the fallback "full context" link when a card's reward is
+ *  a boon with no item document (Star, Moon, Sun, World). Id recorded in DESIGN §32. */
+export function cmRewardTableUuid() {
+  try {
+    const p = game.packs.get("the-crooked-moon-2014.tcm2014-rollable-tables");
+    return p?.index?.get("PgDCRgyABMbAxork") ? `Compendium.${p.collection}.RollTable.PgDCRgyABMbAxork` : null;
+  } catch (e) { return null; }
+}
+
 /** The character a player is playing tonight — the DM's explicit pick if there is one (§38.4b),
  *  else their assigned character. Seats and readings both key to USERS, so this is the bridge. */
 export function userActor(user) {

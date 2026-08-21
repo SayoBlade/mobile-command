@@ -3,7 +3,7 @@ import { isExecutor } from "./settings.js";
 import * as DT from "./downtime.js";
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js";
 import { actorCurses } from "./cm-curses.js";
-import { actorCard, cardFace, ARCANA_REWARD, tarotEnabled } from "./tarot.js";
+import { actorCard, cardFace, ARCANA_REWARD, tarotEnabled, cmRewardUuid, cmRewardTableUuid } from "./tarot.js";
 import { DEEDS_FLAG, topPair } from "./deeds.js"; // §44.4 slice B: the recorder's flag, read here
 
 // §44 THE CHARACTER FILE — a book per PC, compiled from what the game already knows.
@@ -132,13 +132,20 @@ function chFate(actor) {
     // THE SPOILER LIVES HERE AND ONLY HERE. The card's meaning — which heirloom it unlocks and
     // where — is never written to the actor and never reaches a phone (§44.2); it is looked up at
     // compile time into a DM-owned book. There is nothing on the player's side to leak.
+    // DM ask 2026-08-21 ("give a link to the fate"): the reward links to the BOOK'S OWN item
+    // document, so one click lands on the full text; a boon with no item falls back to the
+    // book's 1d22 reward table. Labels stay unescaped — they are enricher text from our own
+    // const map, and pre-escaping would print entities inside the link.
+    const rewardUuid = reward ? cmRewardUuid(card.key) : null;
+    const tableUuid = reward && !rewardUuid ? cmRewardTableUuid() : null;
     bits.push(`<div class="mc-cf-tarot">
       ${face ? `<img class="mc-cf-card" src="${esc(face)}" alt="">` : ""}
       <div>
         <div class="mc-cf-tarot-name">${esc(card.name)}</div>
         ${card.shown ? "" : `<div class="mc-cf-quiet">not yet turned over</div>`}
-        ${reward ? `<div class="mc-cf-unlock"><b>Unlocks:</b> ${esc(reward.item)}<br>
-          <span class="mc-cf-quiet">${esc(reward.where)}</span></div>` : ""}
+        ${reward ? `<div class="mc-cf-unlock"><b>Unlocks:</b> ${rewardUuid ? `@UUID[${rewardUuid}]{${reward.item}}` : esc(reward.item)}<br>
+          <span class="mc-cf-quiet">${esc(reward.where)}</span>
+          ${tableUuid ? `<br><span class="mc-cf-quiet">Full text: @UUID[${tableUuid}]{the book's reward list}</span>` : ""}</div>` : ""}
       </div>
     </div>`);
   }

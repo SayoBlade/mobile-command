@@ -5266,6 +5266,15 @@ documents, and the flow only ever runs one way.
 The **cover carries the portrait** (DM ask). Built as a text page with HTML rather than Foundry's
 `image` page type, so the portrait, the name in the title face and the sheet link can sit together.
 
+**2026-08-21 (DM ask: "in the player's fate file give a link to the fate, so the DM gets the
+full context"):** chapter 6's reward now LINKS to the book's own document — the heirloom Item
+in `tcm2014-treasury`, name-resolved at compile time (`cmRewardUuid` in tarot.js: curly-vs-
+straight apostrophe normalization, "Enchant:" twins skipped; live-probed 18/18 heirlooms
+resolve). The four boons (Star/Moon/Sun/World) have no item document and fall back to a link
+to the book's 1d22 reward table (`PgDCRgyABMbAxork` in `tcm2014-rollable-tables`). Resolution
+is cached per session; with the module absent the plain text stands as before. Five matcher
+tests added to `tools/test-tarot.mjs`.
+
 ### 44.4 Deeds — the one new recorder
 
 DM's list: *"most damage to big monsters, last hit on big monsters, favorite weapon, favorite
