@@ -7144,8 +7144,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "party-disperse": return this.#partyDisperse();
       case "token-prev": return this.#cycleSubject(-1);
       case "token-next": return this.#cycleSubject(1);
-      case "paused-dismiss":
-        this.#pausedDismissed = el.dataset.key; return this.render();
+      case "paused-dismiss": {
+        this.#pausedDismissed = el.dataset.key;
+        // "Browse MY SHEET anyway" must land on the player's own hero. With no owned token on
+        // the active scene the subject fallback prefers a blank/in-build PC (so a builder is
+        // never stranded) — which is exactly wrong here: the DM's phone (2026-08-22) had a
+        // fresh blank "Blue's hero" beside the finished Torren, so the tap dismissed the wait
+        // and showed the blank's creation screen — "the button isn't working". Pin the
+        // assigned character as the tokenless subject (the same pin the no-token screen's
+        // View row uses; syncSubject keeps any owned character pinned, and the header switcher
+        // still cycles to the blank when there is one). No assigned hero → old behavior.
+        const mine = game.user.character;
+        if (mine?.isOwner && mine.type === "character") { this.#subjectActorId = mine.id; this.#subjectId = null; }
+        return this.render();
+      }
       case "night-dismiss":
         this.#nightDismissed = el.dataset.key; return this.render();
       case "night-reopen":

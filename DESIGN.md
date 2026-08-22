@@ -2132,6 +2132,7 @@ actually needs):**
      both close buttons off a 375px screen; the lift now zeroes min-width/min-height and our
      journal X pins itself to the viewport if a sheet still overflows. Guide kept (one-time
      per device); phone auto-close offered to the DM, not built.
+   - ~~"Browse my sheet anyway isn't working" (DM 2026-08-22)~~ **FIXED same day (§50.17):** the wait overlay dismissed fine but the no-token fallback bound a stray blank PC ("Blue's hero") instead of the assigned hero; `paused-dismiss` now pins `game.user.character` as the tokenless subject. **FILED:** should the player fallback itself prefer the assigned hero over a stray blank now that self-service creation exists? (calmer-moment change to a core binding path).
 6. **Watches:** MISC#89 (GWM boolean, still open) · CPR 2.0 leaving pre-release · GPS first V14
    tag · CAT 0.0.x churn · MCD camera-method names on any 14.02+ (§28.5.1). *(Stack validation
    for AC5E 14.533.15 + MISC 2.0.2: DONE 2026-08-20, pins bumped — §28.5.4; only the
@@ -6431,3 +6432,30 @@ auto-close on `renderEmberJournalEntrySheet` for phone clients — offered, not 
 Hardening noted, not built: a sweep of already-rendered journals when the shell opens (for
 any app that renders BEFORE the shell exists — Ember's async `ready` landed after ours in
 every reproduction, so the lift caught it).
+
+### 50.17 "Browse my sheet anyway isn't working" (DM 2026-08-22) — FIXED same day
+
+**What he saw:** on his phone as Blue, the §17.3 "Waiting for the party" overlay (Torren's
+token sits on Marlstone Manor from the combat run; the Vista is active). He tapped "Browse
+my sheet anyway" and did not get Torren's sheet.
+
+**Mechanism (reproduced on the pane as Blue):** the button WORKED — the handler dismissed
+the overlay every time — but the shell then bound the wrong actor. Blue now owns THREE
+characters: Torren (assigned `user.character`), Mira, and a brand-new blank **"Blue's hero"**
+the DM had just created from his phone via "Create another hero". With no owned token on the
+active scene, `get actor()`'s player fallback prefers a blank/in-build PC over everything
+(the old "Multi" anti-strand rule) — so the tap revealed the blank's Ember creation start
+screen, not "my sheet". Dead button, apparently; wrong landing, actually.
+
+**Fix (shell.js `paused-dismiss`):** the handler now PINS the assigned character as the
+tokenless subject — the same pin the no-token screen's View row uses (`#subjectActorId`;
+`syncSubject` keeps any owned character pinned; the header switcher still cycles to a
+blank when one exists). No assigned hero → the old behavior. Verified live: tap → Torren's
+sheet, switcher showing the blank beside him.
+
+**Filed, not changed (calmer-moment question, §22.6):** should the no-token PLAYER fallback
+itself prefer the assigned character over a stray blank? Since self-service creation exists
+(§50.7/§50.12), a forgotten blank now hijacks the idle binding in any waiting state; the
+original rationale (a completed off-scene PC the switcher couldn't leave) predates the
+no-token character list. Worth revisiting with the §50.15.1 filings — not a 4am change to a
+core binding path.
