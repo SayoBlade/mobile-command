@@ -8727,7 +8727,30 @@ export function closeShell() {
 }
 
 export function maybeAutoOpenShell() {
-  if (isPhoneClient()) openShell();
+  if (isPhoneClient()) { openShell(); return; }
+  // The way back from "This is the TV" (DM 2026-08-22: "why is my PC browser player view not
+  // loading the app?"). That button is the ONLY thing that writes the per-BROWSER role, and
+  // it writes "display" for good — so a browser once declared the TV (or mis-tapped on a
+  // player's phone) never opens the app again for ANY player login, with no hint why. A
+  // display-role browser logged in as a user who is NOT the nominated display account is
+  // almost certainly a person, not the TV: ask once per load. The real TV account stays
+  // silent (it IS the display); GM clients never ran the shell anyway.
+  try {
+    const role = game.settings.get(MODULE_ID, "role");
+    if (role !== "display" || isDisplayAccount() || game.user.isGM) return;
+    foundry.applications.api.DialogV2.confirm({
+      window: { title: "Phone app, or shared screen?" },
+      content: `<p>This browser was set up as the table's <b>shared screen (TV)</b>, so the phone app stays closed here.</p>
+        <p>If this is <b>you</b>, not the TV, switch this browser back to a phone view.</p>`,
+      yes: { label: "Use it as my phone", default: true },
+      no: { label: "Keep it as the TV" },
+      rejectClose: false, modal: true
+    }).then(async (yes) => {
+      if (!yes) return;
+      await game.settings.set(MODULE_ID, "role", "auto");
+      openShell();
+    }).catch(() => {});
+  } catch (e) { /* the prompt is a courtesy — never block ready */ }
 }
 
 // Re-render the open shell when the controlled actor changes (HP, conditions…).

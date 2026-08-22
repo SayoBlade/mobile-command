@@ -2133,6 +2133,7 @@ actually needs):**
      journal X pins itself to the viewport if a sheet still overflows. Guide kept (one-time
      per device); phone auto-close offered to the DM, not built.
    - ~~"Browse my sheet anyway isn't working" (DM 2026-08-22)~~ **FIXED same day (§50.17):** the wait overlay dismissed fine but the no-token fallback bound a stray blank PC ("Blue's hero") instead of the assigned hero; `paused-dismiss` now pins `game.user.character` as the tokenless subject. **FILED:** should the player fallback itself prefer the assigned hero over a stray blank now that self-service creation exists? (calmer-moment change to a core binding path).
+   - ~~"Why is my PC browser player view not loading the app?" (DM 2026-08-22)~~ **ANSWERED + a way back BUILT (§50.18):** the app opens only for browsers whose CLIENT role is Auto/Phone and a user who is not the display account; his PC browser was the TV window (role "display" via the "This is the TV" tap — the only writer of that setting; `displayOwnerUser` still empty). A display-role browser logged in as a non-display, non-GM user now asks once per load: "Use it as my phone" (role → Auto, shell opens) / "Keep it as the TV". Verified live.
 6. **Watches:** MISC#89 (GWM boolean, still open) · CPR 2.0 leaving pre-release · GPS first V14
    tag · CAT 0.0.x churn · MCD camera-method names on any 14.02+ (§28.5.1). *(Stack validation
    for AC5E 14.533.15 + MISC 2.0.2: DONE 2026-08-20, pins bumped — §28.5.4; only the
@@ -6459,3 +6460,32 @@ itself prefer the assigned character over a stray blank? Since self-service crea
 original rationale (a completed off-scene PC the switcher couldn't leave) predates the
 no-token character list. Worth revisiting with the §50.15.1 filings — not a 4am change to a
 core binding path.
+
+### 50.18 "Why is my PC browser player view not loading the app?" (DM 2026-08-22) — answered + a way back built
+
+**The rule (unchanged, now written down plainly):** the phone app auto-opens only on a client
+whose per-BROWSER **Client role** is "Auto" (with a non-GM user) or "Phone controller". It
+never opens for the nominated display account (the TV, `displayOwnerUser`) nor on a browser
+whose role is "Shared display (TV)" or "DM screen". The role is CLIENT-scoped — it belongs to
+the browser, not the user: the same Chrome logged in as a player inherits whatever that
+Chrome was told before.
+
+**What was going on at his PC (join-screen evidence, 2026-08-22):** the DM's two live
+sessions were Michael (his GM client) and **TV** — the new user he created for the shared
+screen. `displayOwnerUser` was still EMPTY (TV not yet nominated as the display account), so
+that TV window was the TV purely because its BROWSER role had been set to "display" — and
+the no-token screen's **"This is the TV"** button is the ONLY code path that writes the
+client role, and it writes "display" for good. Log that same browser in as a player
+afterwards ("player view") and the role persists → no app, no hint why. A player mis-tapping
+the same button silently loses the app on their device forever.
+
+**Built (shell.js `maybeAutoOpenShell`):** a display-ROLE browser logged in as a user who is
+NOT the display account and not a GM is almost certainly a person — it now asks once per
+load: "This browser was set up as the table's shared screen (TV), so the phone app stays
+closed here. If this is you, not the TV, switch this browser back to a phone view." →
+**Use it as my phone** (role → Auto, shell opens) / **Keep it as the TV**. The real TV
+account stays silent; GM clients unchanged. Verified on the pane as Blue: role forced to
+"display" → reload → prompt → "Use it as my phone" → role Auto, shell open.
+Cross-check in the same session: Blue in a 1440×900 DESKTOP browser with role Auto gets
+the app immediately — the app was never phone-hardware-gated; only the role and the display
+account decide.
