@@ -2513,6 +2513,12 @@ body.mc-phone .mc-phone-dialog {
   position: fixed !important;
   left: 0 !important; right: 0 !important; top: auto !important; bottom: 0 !important;
   width: 100% !important; max-width: 100% !important;
+  /* min-width/min-height beat width/max-height at ANY importance — and some sheets declare
+     them: Ember's journal sheet says min-width:1080px (.ember.journal-entry.expanded), so on
+     a 375px phone the window stayed 1080 wide and BOTH close buttons (Foundry's and ours)
+     sat at x≈1040, off the screen — the "Players' Guide is unclosable" trap (DM 2026-08-22,
+     DESIGN §50.16). Zero them here; the clamp above then actually clamps. */
+  min-width: 0 !important; min-height: 0 !important;
   height: auto !important; max-height: 88vh !important; max-height: 88dvh !important;
   border-radius: calc(16px * var(--mc-round, 1)) 16px 0 0 !important;
   display: flex !important; flex-direction: column !important;

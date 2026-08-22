@@ -8757,6 +8757,23 @@ export function registerShellHooks() {
       });
       if (getComputedStyle(el).position === "static") el.style.position = "relative";
       el.appendChild(btn);
+      // Belt and braces (DM 2026-08-22, the Players' Guide trap, §50.16): if the sheet is
+      // still wider than the phone after the lift's clamp (a min-width we haven't met yet,
+      // an app that re-sizes itself), an X anchored to the sheet's right edge is an X nobody
+      // can reach — pin it to the VIEWPORT instead. Measured after layout settles; re-checked
+      // on resize.
+      const keepOnScreen = () => {
+        try {
+          if (!btn.isConnected) return;
+          const r = el.getBoundingClientRect();
+          const overflow = r.right > window.innerWidth + 1 || r.left < -1;
+          btn.style.position = overflow ? "fixed" : "";
+          btn.style.top = overflow ? "calc(env(safe-area-inset-top, 0px) + 8px)" : "";
+          btn.style.right = overflow ? "8px" : "";
+        } catch (e) { /* cosmetic */ }
+      };
+      setTimeout(keepOnScreen, 50); setTimeout(keepOnScreen, 600);
+      window.addEventListener("resize", keepOnScreen, { passive: true });
     } catch (e) { /* best effort */ }
   };
   Hooks.on("renderApplicationV2", ensureJournalClose);

@@ -2127,6 +2127,11 @@ actually needs):**
      prototype-token name sync after creation, a "collect your starting gear" nudge for
      weaponless 2024 heroes. **Standing trap (unchanged):** two clients of one GM user =
      double executor/music/daylight drivers; session-level election = future hardening.
+   - ~~"Players' Guide unclosable on the phone" (DM 2026-08-22)~~ **FIXED same day (§50.16):**
+     Ember's welcome journal's `min-width:1080px` defeated the bottom-sheet clamp and pushed
+     both close buttons off a 375px screen; the lift now zeroes min-width/min-height and our
+     journal X pins itself to the viewport if a sheet still overflows. Guide kept (one-time
+     per device); phone auto-close offered to the DM, not built.
 6. **Watches:** MISC#89 (GWM boolean, still open) · CPR 2.0 leaving pre-release · GPS first V14
    tag · CAT 0.0.x churn · MCD camera-method names on any 14.02+ (§28.5.1). *(Stack validation
    for AC5E 14.533.15 + MISC 2.0.2: DONE 2026-08-20, pins bumped — §28.5.4; only the
@@ -6392,3 +6397,37 @@ ACTOR but not the PROTOTYPE TOKEN — tokens drop as "Blue's hero"; a courtesy s
 creation-close hook would fix what Ember forgot (tiny, unbuilt). (b) Fresh 2024 heroes are
 WEAPONLESS until the sheet's equipment flow — a phone player's Actions tab starts bare;
 worth a "collect your starting gear" nudge someday (slice-B-adjacent).
+
+### 50.16 "Opening the app opens the Players' Guide — unclosable" (DM 2026-08-22) — FIXED same day
+
+**What happens:** Ember welcomes every client ONCE — `welcomedVersion` is a **client-scoped**
+setting (default "0.0.0"); on first load of a new browser/phone its `ready` opens the
+Players' Guide journal for non-GMs (the Gamemaster's Guide for GMs), and only stamps the
+client as welcomed on a **2-minute timer** — so a phone that reloads inside two minutes gets
+the guide again. Harmless on a desktop. The DM met it the moment he opened the app on a
+phone while setting up his new "TV" user.
+
+**Why it was unclosable (reproduced as Blue at 375×812, mechanism measured):** the guide is
+Ember's `EmberJournalEntrySheet` — a normal FRAMED JournalEntrySheet — so our dialog-lift DID
+catch it (z 10002 over the shell, `mc-phone-dialog` applied, inline `width: 375px`
+written)… but Ember's stylesheet says **`.ember.journal-entry.expanded { min-width: 1080px }`**,
+and min-width beats width at any importance. The window stayed 1080px wide on a 375px
+screen: Foundry's own header X AND our injected `.mc-journal-close` both sat at x≈1024–1068
+— off the phone. Geometry, not ordering.
+
+**The fix (shell.css + shell.js, 2026-08-22):** (1) the lift's bottom-sheet rule now zeroes
+`min-width`/`min-height` (!important) — the clamp actually clamps; verified live: 375px wide,
+both X's on-screen at x≈320–363, tap closes it, shell underneath intact. (2) Belt and braces
+in `ensureJournalClose`: after layout settles (and on resize) if a journal sheet still
+overflows the viewport, our X pins itself to the VIEWPORT top-right instead of the sheet's
+edge — so no future min-width or self-resizing app can hide the way out again.
+
+**Policy call (Claude's, [[triage-and-open-questions]]):** the guide is KEPT, not
+auto-closed — it is how Ember onboards players (Character Creation, Languages, Milestones…
+read well on a phone once the TOC is collapsed with its own ◀ arrow), and a one-time
+dismiss per device is fair. If the DM would rather phones never see it, the SC-calendar
+precedent (DM 2026-08-07 "close the calendar by default in the mobile app") is a three-line
+auto-close on `renderEmberJournalEntrySheet` for phone clients — offered, not built.
+Hardening noted, not built: a sweep of already-rendered journals when the shell opens (for
+any app that renders BEFORE the shell exists — Ember's async `ready` landed after ours in
+every reproduction, so the lift caught it).
