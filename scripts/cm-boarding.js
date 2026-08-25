@@ -14,7 +14,12 @@ import { mountFaded, unmountFaded } from "./repaint.js"; // §6.8 fade, never cu
 // ("cmTicket" { users }) whose start/stop pair lives here and is injected into effects.js's
 // PHONE_FX. The whistle is a one-shot ("cmWhistle"), synthesized — nothing licensed (§26).
 
-const TRAIN_ART = "modules/the-crooked-moon-2014/assets/art/art book/Scene_4_The Ghostlight Express cropped.webp";
+// §36.1.7: "keyed" = the de-fringed pass of our cropped plate (2026-08-25 — teal edge cast
+// cleaned 530k→78k px, hard mask edges anti-aliased; produced beside the original, nothing
+// overwritten). Fall back to the older crop, then vanish quietly — machines without either
+// derivative (the plates are book-owner-local, never shipped) just show the fog.
+const TRAIN_ART = "modules/the-crooked-moon-2014/assets/art/art book/Scene_4_The Ghostlight Express keyed.webp";
+const TRAIN_ART_FALLBACK = "modules/the-crooked-moon-2014/assets/art/art book/Scene_4_The Ghostlight Express cropped.webp";
 
 function eligible() {
   return !isPhoneClient() && (isDisplayClient() || game.user?.isGM);
@@ -51,7 +56,8 @@ export function cmStationSync(on, introActorId, train = null) {
       <div class="mc-cmst-aim">
         <div class="mc-cmst-trainwrap">
           <div class="mc-cmst-beam"></div>
-          <img class="mc-cmst-train" src="${TRAIN_ART}" alt="" onerror="this.remove()">
+          <img class="mc-cmst-train" src="${TRAIN_ART}" alt=""
+            onerror="if (this.dataset.fell) { this.remove(); } else { this.dataset.fell = '1'; this.src = '${TRAIN_ART_FALLBACK}'; }">
           <div class="mc-cmst-overmist"></div>
         </div>
       </div>

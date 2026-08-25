@@ -114,7 +114,10 @@ export function buildPortraitPrompt(actor, { freeText = "", dmStyle = "", mode =
   const classes = (actor?.items?.filter(i => i.type === "class") || []).map(i => i.name);
   const subclass = actor?.items?.find(i => i.type === "subclass")?.name;
   const subj = [race, classes.join("/")].filter(Boolean).join(" ");
-  let line = `Subject: ${subj ? `a ${subj}` : "an adventurer"}`;
+  // "an Ashborn", not "a Ashborn" (Round 61 residue): vowel-letter heuristic — species
+  // names starting with a sounded consonant-vowel ("Uniorc") would misfire, but none do.
+  const art = /^[aeiou]/i.test(subj) ? "an" : "a";
+  let line = `Subject: ${subj ? `${art} ${subj}` : "an adventurer"}`;
   if (subclass) line += ` (${subclass})`;
   const abil = actor?.system?.abilities || {};
   let topKey = null, topVal = -Infinity;

@@ -2189,7 +2189,8 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
   availability un-dims — all four legs proven on the served world's Wizard premade).
 - **§28.12** — remote access: needs the DM's device console/network at the hang moment;
   split-horizon DNS is the real fix; TLS + DynDNS still open.
-- **§36.1.7** — train art chroma-key pass (teal fringing). *(The fiddle: built, §36.1.8.)*
+- ~~**§36.1.7** — train art chroma-key pass (teal fringing)~~ — **DONE 2026-08-25** (keyed
+  derivative, measured −85% fringe + edge AA; §36.1.7). *(The fiddle: built, §36.1.8.)*
 - **§37** — 10.8 Tender (Colored) has 0 mist tiles where every other car has 6.
 - **§19** — the phones' shared running-rest header · one-time migration of a legacy open
   downtime window / night flag into a `rest` envelope.
@@ -2200,9 +2201,15 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
 - **§20.3** — transfer merge-key revisit (identical-name items with different data).
 - **§12 Round 61 residue, never re-verified:** Cloak of Invisibility-style utility-activity
   transfer effects from the phone · ~~homebrew spell-list picker~~ (PRUNED 2026-08-20 — the DM
-  adds spells by hand) · "an Ashborn" article grammar in the portrait prompt.
-- **§16.1 check 9** ("phone hygiene": Sequencer flag + No-Canvas state via socket ping) — specced,
-  never confirmed built; verify against preflight.js before assuming.
+  adds spells by hand) · ~~"an Ashborn" article grammar in the portrait prompt~~ — **FIXED
+  2026-08-25** (vowel-letter a/an pick in `buildPortraitPrompt`).
+- ~~**§16.1 check 9** ("phone hygiene": Sequencer flag + No-Canvas state via socket ping) — specced,
+  never confirmed built; verify against preflight.js before assuming~~ — **VERIFIED 2026-08-25:
+  the CHECK was never built and isn't needed.** The risk it watched for is closed by a
+  self-healing behavior instead: a phone client auto-disables Sequencer's client-scoped
+  `effectsEnabled` at boot (main.js ~649, the Shield-reaction B3 fix) and the TV re-enables it
+  (~711). A preflight row would only repeat what the code already fixes silently. CLOSED as
+  superseded.
 - **§15** — walk-in-formation travel (Feature 2, deferred) · per-token follow picks / follow
   through teleports (Follow v2 candidates).
 - **Monetization + feedback loop** — FUTURE by standing decision; do not action until the DM
@@ -4214,8 +4221,17 @@ brightest thing in the frame. The mask now reaches full transparency well before
   went to the DM instead, since motion is the whole point and the in-app browser pane advances no
   CSS animation at all (§40's trap).
 - ~~The fiddle is not built~~ — **BUILT, §36.1.8** (DM 2026-08-19: "add a fiddle button").
-- **The train art has a rough alpha** (teal fringing, ragged mask on the cropped plate). The fog
-  hides much of it; a chroma-key pass like the séance art would fix the rest.
+- ~~**The train art has a rough alpha** (teal fringing, ragged mask on the cropped plate)~~ —
+  **FIXED 2026-08-25 (the chroma-key pass, measured):** a new derivative "…Ghostlight Express
+  keyed.webp" beside the old crop (nothing overwritten; both live in the DM's book module dir —
+  these plates are book-owner-local and never ship). Two passes: (1) teal-cast kill restricted
+  to the 3px alpha-edge band so the art's OWN spectral teal (smoke plume, beam, cowcatcher glow)
+  is untouched — teal-fringe pixels 529,854 → 78,114 (−85%); (2) alpha min-blur anti-aliasing on
+  hard cut edges (the stair-stepped wheels — min(α, blur(α)) softens outward only, silhouettes
+  never grow). Judged on fog-grey composites: staircase gone, wisps intact. `TRAIN_ART` now
+  points at keyed with an onerror fallback chain → old crop → quietly no art. Script:
+  scratchpad train_defringe.py (regenerate any time from the crop). The station's motion by eye
+  at the table remains owed as before.
 
 ### 36.1.8 The fiddle (DM 2026-08-19: "add a fiddle button" — BUILT)
 
