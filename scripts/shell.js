@@ -351,13 +351,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const owned = members.find(a => a.id === assigned?.id && a.isOwner) ?? members.find(a => a.isOwner);
       if (owned) return owned;
     }
-    // No owned token on this scene. For a player, prefer a blank/in-build PC (the
-    // switcher lists these) so they land on something actionable instead of being
-    // stranded on a complete off-scene character the switcher won't show — which is
-    // exactly what trapped them on "Multi". With no token AND no blank PC, return
-    // null so the shell shows the "no token on this scene" screen (#noTokenHTML).
+    // No owned token on this scene. For a player: the ASSIGNED hero first (§50.17
+    // answered 2026-08-25) — the old blank-first rule predates both the no-token
+    // screen and self-service creation, and once players can make their own heroes
+    // a stray blank ("Blue's hero") was hijacking the binding away from the sheet
+    // they actually wanted. Blanks stay one tap away (the switcher lists in-build
+    // PCs, §7.1). Unassigned players still land on their first blank/in-build PC
+    // (they're mid-creation); with neither, return null so the shell shows the
+    // "no token on this scene" screen (#noTokenHTML) — which lists every owned
+    // character (the anti-strand answer since the "Multi" trap).
     // The GM/Display client keep the old read-only fallback — not the screen's audience.
     if (!game.user.isGM && !isDisplayClient()) {
+      if (assigned?.isOwner && assigned.type === "character") return assigned;
       return game.actors.find(a => a.isOwner && this.#isCharGenPC(a)) ?? null;
     }
     return assigned ?? game.actors.find(a => a.type === "character" && a.isOwner) ?? null;
@@ -1327,6 +1332,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         try { await td.update(update); } catch (e) { console.warn(`${MODULE_ID} | token sight-sync failed for ${td.name}`, e); }
       }
     }
+    // Same finish moment: the hero now has a real name — stop future drops (and any
+    // placeholder-named placed token) from saying "Blue's hero" (§50.15.1).
+    await syncTokenNamesToActor(actor);
   }
 
   // Player-facing sources = the DM's curated list, mirroring dnd5e's own
@@ -3857,6 +3865,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const prep = sp.system.preparation ?? {};
     const canPrepare = prep.mode === "prepared" && sp.system.level > 0; // cantrips are always prepared
     const isPrepared = !!prep.prepared;
+    // §28.5.2 (the grey-out half): a leveled spell with no castable slot left — its own
+    // tier or any upcast tier, mirroring #spellSlotOptions — dims and says why BEFORE the
+    // tap, instead of warning after. Warnings, not walls: the row still opens normally.
+    // At-will/innate/ritual-only casting spends no slot, so those never dim.
+    const lvl = sp.system.level ?? 0;
+    const slotFree = lvl < 1 || ["atwill", "innate", "ritual"].includes(prep.mode);
+    const noSlots = !slotFree && !Object.values(sp.actor?.system?.spells ?? {})
+      .some(s => (s?.max ?? 0) > 0 && s.level >= lvl && (s.value ?? 0) > 0);
     const activity = [...(sp.system.activities ?? [])][0];
     const img = sp.img || "icons/svg/daze.svg";
     const open = activity?.uuid
@@ -3872,10 +3888,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const favId = activity ? `${sp.getRelativeUUID(sp.actor)}.Activity.${activity.id}` : null;
     const isFav = favId ? (sp.actor?.system.hasFavorite?.(favId) ?? false) : false;
     const favMark = `<i class="fas fa-bookmark mc-spell-fav ${isFav ? "mc-on" : "mc-ph"}"${isFav ? ' aria-label="Favorited"' : ' aria-hidden="true"'}></i>`;
-    return `<div class="mc-spell ${canPrepare && !isPrepared ? "mc-unprepared" : ""}" data-search-name="${foundry.utils.escapeHTML(sp.name.toLowerCase())}">
+    return `<div class="mc-spell ${canPrepare && !isPrepared ? "mc-unprepared" : ""} ${noSlots ? "mc-noslots" : ""}" data-search-name="${foundry.utils.escapeHTML(sp.name.toLowerCase())}">
       ${open}
         <img class="mc-spell-icon" src="${img}" alt="">
         <span class="mc-spell-name">${foundry.utils.escapeHTML(sp.name)}</span>
+        ${noSlots ? `<span class="mc-spell-noslot">No slots</span>` : ""}
       ${close}
       ${favMark}
       ${prepBtn}
@@ -4683,7 +4700,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // pad drives the PARTY token instead ("move in both", DM 2026-07-03).
     if (!this.originTokenId) {
       const party = this.#partyGroup();
-      return party ? this.#partyPadHTML(party) : "";
+      if (party) return this.#partyPadHTML(party);
+      // Tokenless browse (the assigned hero has no token on the active scene —
+      // §50.17): the no-token screen used to carry the "this updates automatically"
+      // promise; now that the sheet binds anyway, say here why the pad is gone.
+      return `<div class="mc-offscene-note">No token on this scene yet — you can browse your sheet. The map controls return the moment the DM places you.</div>`;
     }
     // One Font Awesome arrow, rotated per direction — renders uniformly (the
     // unicode diagonals ↖↗↙↘ get emoji-fied on iOS, which looked inconsistent).
@@ -5381,6 +5402,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const actor = this.actor;
     const acts = this.#usableActivities();
     if (!acts.length) {
+      // A hero with an empty Actions tab is almost always freshly made and waiting
+      // on gear — 2024 creation grants no starting equipment (§50.15.1 filing), so
+      // say where actions come from instead of a bare "none found".
+      if (actor?.type === "character") {
+        return `<div class="mc-placeholder">No actions yet — these come from your gear and abilities. A brand-new hero starts empty until the DM hands over starting equipment; anything you're given appears here and in Equipment.</div>`;
+      }
       return `<div class="mc-placeholder">No usable actions found.</div>`;
     }
     // Favorite-mode removed (DM 2026-07-03) — long-press → detail card ★ curates
@@ -8713,6 +8740,25 @@ function releaseShellBackdrop(app) {
   syncShellBackdrop();
 }
 
+// §50.15.1 courtesy: creation flows rename the ACTOR but never its prototype token, so every
+// future drop still lands as the placeholder ("Blue's hero"). Once a real name exists, sync the
+// prototype — and any placed token still carrying the stale placeholder. A token the DM
+// hand-renamed keeps its name (the "Multi" lesson: renames can be deliberate).
+export async function syncTokenNamesToActor(actor) {
+  try {
+    if (!actor?.isOwner || actor.type !== "character") return;
+    const stale = actor.prototypeToken?.name;
+    const want = actor.name;
+    if (!stale || !want || stale === want) return;
+    await actor.update({ "prototypeToken.name": want });
+    for (const scene of game.scenes ?? []) {
+      for (const td of (scene.tokens?.filter((t) => t.actorId === actor.id && t.name === stale) ?? [])) {
+        try { await td.update({ name: want }); } catch (e) { console.warn(`${MODULE_ID} | token name-sync failed for ${td.name}`, e); }
+      }
+    }
+  } catch (e) { console.warn(`${MODULE_ID} | prototype name-sync skipped`, e); }
+}
+
 export function openShell() {
   if (!shellInstance) shellInstance = new ControllerShell();
   // Ensure subsequent framed dialogs out-stack the shell even via bringToFront.
@@ -8762,9 +8808,14 @@ export function registerShellHooks() {
   // §50.7: the shell hid itself to let Ember's fullscreen creator through (it's frameless, so
   // the lift above skips it) — bring the shell back the moment creation closes, however it
   // closed (Complete, Exit, or a crash-close). Fires only in Ember worlds by construction.
-  Hooks.on("closeEmberCharacterCreationSheet", () => {
+  Hooks.on("closeEmberCharacterCreationSheet", (app) => {
     const el = shellInstance?.element;
     if (el?.style?.display === "none") { el.style.removeProperty("display"); shellInstance.render(); }
+    // Ember's creator names the hero but leaves the prototype token as "Blue's hero"
+    // (§50.15.1 filing) — sync on the owner's client, however creation ended (a
+    // mid-build Exit is a no-op: the names still match).
+    const a = app?.document ?? app?.actor;
+    if (a) syncTokenNamesToActor(a);
   });
   // Guaranteed close X for journal sheets on a phone (DM 2026-07-11): the SRD class/subclass
   // reference journal renders no visible close and traps the player. This runs on EVERY app
@@ -8976,6 +9027,13 @@ export function registerShellHooks() {
   Hooks.on("createCombatant", onCombat);
   Hooks.on("updateCombatant", onCombat);
   Hooks.on("deleteCombatant", onCombat);
+  // Character (re-)assignment repaints the phone at once (§50.17 follow-through,
+  // found live 2026-08-25): with assigned-first binding, the no-token screen should
+  // resolve the moment the DM — or the player themself — sets the user's character.
+  // On a paused, quiet world nothing else repaints, so the stale screen just sat.
+  Hooks.on("updateUser", (user, changes) => {
+    if (user.id === game.user.id && "character" in changes && shellInstance?.rendered) shellInstance.render();
+  });
   // Scene switch: the controlled token lives on a scene, so when the GM activates
   // a new scene the shell can be stranded on an off-scene actor with no token
   // ("token not found: null") and the switcher hides. Drop a stale subject + re-

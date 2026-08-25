@@ -2031,6 +2031,14 @@ his own table): swap `feedbackEmail`'s default to the new address the DM will op
 yet, so "the live-table pass" stops being one blocking event and splits by what each check
 actually needs):**
 
+**AIM RESET 2026-08-25 (DM: "keep going with the design, aimed at making the mod work best for
+vanilla and CM for now"):** the Ember package is validated end-to-end (§50.15.1) and now PARKS —
+its remaining opens (tab slice B, the §50.13 doorway-follow questions, the two §50.15.1 filings
+that are Ember-only) wait behind this aim. The working queue is **vanilla base quality first,
+Crooked Moon second** — which UN-PARKS item 4 below (the 2026-08-21 "non-CM first" parking is
+superseded: base and CM now share the lane). Filings that are general (the §50.17 fallback
+question, the collect-gear nudge) count as BASE work, not Ember work.
+
 1. **Bench-provable, still owed (no humans or table needed — Claude runs these in quiet
    windows):** *(the 2026-08-20 EVENING run — §28.5.6 — closed most of this bucket:
    ~~simplecover leg~~ enabled + pipeline-validated · ~~AoE DM-Place leg~~ · ~~music recovery
@@ -2044,7 +2052,11 @@ actually needs):**
    one shared serialized heal; the §28.4 music matrix re-covers it at the next bench) · NEW
    bench legs from today's builds: **§31-v2 panel pick + forced ATTACK through midi** · **§44
    deeds through a real workflow** · **§28.5.6 AoE leg re-run** (slot picked on the phone, no
-   executor dialog) · **paralyzed auto-crit on current AC5E** (§28.6 item 4 re-scope).
+   executor dialog) · **paralyzed auto-crit on current AC5E** (§28.6 item 4 re-scope) · the
+   **core 14.367 §28.4 validation** (+ train-door/region spot-check per the 14.366 note below;
+   then bump the CLAUDE.md line + module.json `verified` together). *Window check 2026-08-25:
+   "Offline test" IS served on 14.367 but the GM seat is OCCUPIED (DM's client active) — the
+   one-GM-client gate (§50.15) holds the whole GM-seat battery; player-seat legs can still run.*
 2. **Parked until the TV-TABLE exists ("the first-session shakedown"):** everything by eye and
    by ear in §22.4 — motion on the real screen, all cues through real speakers, seat rotations
    physically, settings app on the real display, camera/fog/POV on the real TV, mute-the-room.
@@ -2052,9 +2064,9 @@ actually needs):**
    handsets, the v0.2.0+ shakedown with strangers' devices.
    *(2 and 3 need no preparation from the DM today — they trigger when the hardware/humans
    arrive.)*
-4. **Crooked Moon polish** — **PARKED by the DM 2026-08-21** (*"focus on non-CM stuff first,
-   let's get the base working perfectly and then return to CM"*): everything in this item
-   waits behind the base queue — ~~per-effect volume~~ **BUILT** (§26.5) → ~~AoE executor
+4. **Crooked Moon polish** — ~~PARKED by the DM 2026-08-21~~ **UN-PARKED 2026-08-25** (the
+   aim reset above: vanilla + CM are now the lane; the 2026-08-21 *"focus on non-CM stuff
+   first"* parking is superseded). The base-first chain that gated it is done — ~~per-effect volume~~ **BUILT** (§26.5) → ~~AoE executor
    slot-dialog nit~~ **BUILT same day** (§11 impl-note (a); phone slot pick + Place never
    dialogs; bench leg owed) → ~~paralyzed auto-crit~~ **RE-SCOPED to a bench leg** (§28.6
    item 4: AC5E-native, no midi setting exists) → the verification legs. Pre-parking state (campaign not
@@ -2084,7 +2096,10 @@ actually needs):**
      no 5.4 exists).
 5b. **Ember support package (§50; opened AND largely CLOSED 2026-08-21 — the DM answered the
    queue same evening: "try the original" creator · "let ember control music" · "Ember
-   controls" rests · "dig deeper" into time/moons):**
+   controls" rests · "dig deeper" into time/moons). PARKED 2026-08-25 (aim reset above): the
+   validated layer stays live and maintained, but the remaining OPENS here — tab slice B, the
+   §50.13 doorway-follow questions, the prototype-name filing where it is Ember-door-specific —
+   wait until the DM returns to Ember:**
    - ~~Combat-music takeover guard + Ember stand-down~~ **BUILT** (§50.3: `combatMusicMode()`
      ember/unconfigured/ours; staging row says Ember plays its own).
    - ~~Rest-gate conformance~~ **BUILT** (§50.6: shell mirrors dnd5e's showRests; quiet
@@ -2123,9 +2138,10 @@ actually needs):**
      stand-down through a 10-hour jump, dynamic tokens clean) · **sky-card Set PASSED** (+10h
      exact, Ember glided night→morning) · **phone-hush CLOSED BY RE-SCOPE** (no
      Ember-specific surface; the §39.5 proof stands). **Still open in the package:** Ember
-     tab slice B · the §50.13 doorway-follow questions (DM) · two small §50.15.1 filings —
-     prototype-token name sync after creation, a "collect your starting gear" nudge for
-     weaponless 2024 heroes. **Standing trap (unchanged):** two clients of one GM user =
+     tab slice B · the §50.13 doorway-follow questions (DM) · ~~two small §50.15.1 filings~~ —
+     **both BUILT 2026-08-25 as general base work** (prototype-name sync on both creation
+     paths; the bare Actions tab explains where gear comes from — §50.15.1).
+     **Standing trap (unchanged):** two clients of one GM user =
      double executor/music/daylight drivers; session-level election = future hardening.
    - ~~"Players' Guide unclosable on the phone" (DM 2026-08-22)~~ **FIXED same day (§50.16):**
      Ember's welcome journal's `min-width:1080px` defeated the bottom-sheet clamp and pushed
@@ -2160,8 +2176,12 @@ actually needs):**
 - **§28.7** — the executor honesty fix (`ok:false` when an attack produced no workflow), blocked
   on reproducing the §28.9 hang with the GWM error present. Until then, a MISC-aborted attack
   still closes the card silently with the action spent.
-- **§28.5.2** — grey out 0-slot leveled casts on the phone; pre-pick slot level for AoE (kills a
-  DM-side dialog per leveled AoE cast).
+- ~~**§28.5.2** — grey out 0-slot leveled casts on the phone; pre-pick slot level for AoE (kills a
+  DM-side dialog per leveled AoE cast)~~ — **BOTH HALVES DONE: AoE pre-pick 2026-08-21 (§11
+  impl-note a), grey-out BUILT + live-verified 2026-08-25** (`#spellRowHTML`: a leveled spell
+  with no castable slot at-or-above its tier dims like unprepared **plus a "No slots" pill**
+  so the two states read differently; at-will/innate/ritual-only spells exempt; upcast
+  availability un-dims — all four legs proven on the served world's Wizard premade).
 - **§28.12** — remote access: needs the DM's device console/network at the hang moment;
   split-horizon DNS is the real fix; TLS + DynDNS still open.
 - **§36.1.7** — train art chroma-key pass (teal fringing). *(The fiddle: built, §36.1.8.)*
@@ -6394,11 +6414,17 @@ token ships with `sight.enabled: false` — AC5E then reads "target can't see it
 and grants advantage (the eel's 30-ft blindsight never engages); enable token vision when a
 leg depends on the defender's senses.
 
-**Two small opens filed from the run (ledger):** (a) Ember's creation widget renames the
-ACTOR but not the PROTOTYPE TOKEN — tokens drop as "Blue's hero"; a courtesy sync on our
-creation-close hook would fix what Ember forgot (tiny, unbuilt). (b) Fresh 2024 heroes are
-WEAPONLESS until the sheet's equipment flow — a phone player's Actions tab starts bare;
-worth a "collect your starting gear" nudge someday (slice-B-adjacent).
+~~**Two small opens filed from the run (ledger)**~~ — **BOTH BUILT 2026-08-25 as GENERAL base
+work (the vanilla+CM aim reset counts them as base, not Ember):** (a) ~~prototype-token name
+sync~~ → `syncTokenNamesToActor()` (shell.js, exported): once a hero has a real name, the
+prototype token syncs and any placed token still carrying the stale placeholder follows —
+a token the DM hand-renamed keeps its name (the "Multi" lesson). Wired into BOTH creation
+paths: our `#syncFinishedTokenSight` finish moment and the `closeEmberCharacterCreationSheet`
+hook (owner-client, no-op when names already match, e.g. a mid-build Exit). *Live leg owed
+at the next creation run.* (b) ~~collect-gear nudge~~ → the empty Actions tab for a CHARACTER
+now explains itself ("No actions yet — these come from your gear and abilities. A brand-new
+hero starts empty until the DM hands over starting equipment…"); non-characters keep the
+plain "No usable actions found."
 
 ### 50.16 "Opening the app opens the Players' Guide — unclosable" (DM 2026-08-22) — FIXED same day
 
@@ -6454,12 +6480,21 @@ tokenless subject — the same pin the no-token screen's View row uses (`#subjec
 blank when one exists). No assigned hero → the old behavior. Verified live: tap → Torren's
 sheet, switcher showing the blank beside him.
 
-**Filed, not changed (calmer-moment question, §22.6):** should the no-token PLAYER fallback
-itself prefer the assigned character over a stray blank? Since self-service creation exists
-(§50.7/§50.12), a forgotten blank now hijacks the idle binding in any waiting state; the
-original rationale (a completed off-scene PC the switcher couldn't leave) predates the
-no-token character list. Worth revisiting with the §50.15.1 filings — not a 4am change to a
-core binding path.
+~~**Filed, not changed (calmer-moment question, §22.6):** should the no-token PLAYER fallback
+itself prefer the assigned character over a stray blank?~~ — **ANSWERED YES + BUILT 2026-08-25
+(the calm revisit, first build of the vanilla+CM aim reset).** `get actor()`'s player fallback
+now goes **assigned hero → blank/in-build PC → null (no-token screen)**; the Multi-era
+blank-first rule survives only for UNASSIGNED players (who really are mid-creation). Blanks
+stay one tap away — the header switcher lists in-build PCs. Three companions shipped with it:
+(1) a **quiet off-scene line** in the Explore pad's slot ("No token on this scene yet — you
+can browse your sheet…", `.mc-offscene-note`) so the sheet binding keeps the promise the
+no-token screen used to carry; (2) an **`updateUser` repaint hook** — found live: on a paused,
+quiet world NOTHING repainted after an assignment, so the stale screen sat until an unrelated
+hook fired; now (re-)assignment repaints at once, both directions; (3) the `paused-dismiss`
+pin stays (harmless double-cover). **Live-verified 9/9 on the served world 2026-08-25**
+(Greeny nothing-owned → screen · Forthy unassigned → View rows · assign → binds + note ·
+boot-with-assignment → direct bind · unassign/re-assign → instant swap both ways · plus the
+§28.5.2 grey-out legs). Forthy's assignment restored to none after the run.
 
 ### 50.18 "Why is my PC browser player view not loading the app?" (DM 2026-08-22) — answered + a way back built
 

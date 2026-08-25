@@ -1704,6 +1704,12 @@ body {
   font-size: 13px; line-height: 1.45; }
 .mc-rest i { color: var(--mc-gold); }
 
+/* §50.17: tokenless browse — the assigned hero is bound but has no token on the active
+   scene, so the Explore pad's slot explains itself instead of sitting empty. */
+.mc-offscene-note { margin-top: 8px; padding: 12px 14px; border-radius: calc(10px * var(--mc-round, 1));
+  background: var(--mc-panel); border: 1px dashed var(--mc-edge); color: var(--mc-muted);
+  font-size: 13px; line-height: 1.45; }
+
 /* Use pick list (Explore tab; opened by the D-pad Use hand). */
 .mc-loot { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .mc-loot-list { display: flex; flex-direction: column; gap: 8px; }
@@ -4854,6 +4860,12 @@ body.mc-fxp-woozy #mobile-command-shell {
 }
 .mc-spell.mc-unprepared .mc-spell-name { color: var(--mc-muted); }
 .mc-spell.mc-unprepared .mc-spell-icon { filter: grayscale(.6); opacity: .7; }
+/* §28.5.2: no castable slot left (own tier or upcast) — same "not usable right now" dim as
+   unprepared, but the pill says WHY so the two states never read as one. Row stays tappable. */
+.mc-spell.mc-noslots .mc-spell-name { color: var(--mc-muted); }
+.mc-spell.mc-noslots .mc-spell-icon { filter: grayscale(.6); opacity: .7; }
+.mc-spell-noslot { flex: 0 0 auto; font-size: 10px; color: var(--mc-muted);
+  border: 1px solid var(--mc-edge); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
 .mc-spell-prep {
   flex: 0 0 auto; width: 46px;
   background: rgba(0, 0, 0, .18); border: none; border-left: 1px solid var(--mc-edge);
