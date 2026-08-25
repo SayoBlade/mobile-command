@@ -2054,7 +2054,10 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    deeds through a real workflow** · **§28.5.6 AoE leg re-run** (slot picked on the phone, no
    executor dialog) · **paralyzed auto-crit on current AC5E** (§28.6 item 4 re-scope) · the
    **core 14.367 §28.4 validation** (+ train-door/region spot-check per the 14.366 note below;
-   then bump the CLAUDE.md line + module.json `verified` together). *Window check 2026-08-25:
+   then bump the CLAUDE.md line + module.json `verified` together) · **§33 bargain-mode DM
+   drawer legs** (request row · Strike staging incl. off-scene requester · Accept flag swap ·
+   decline · toggle — phone side already proven 2026-08-25) · **name-sync + gear-nudge spot
+   checks** (§50.15.1 — a creation rename syncing the prototype token; the empty Actions copy). *Window check 2026-08-25:
    "Offline test" IS served on 14.367 but the GM seat is OCCUPIED (DM's client active) — the
    one-GM-client gate (§50.15) holds the whole GM-seat battery; player-seat legs can still run.*
 2. **Parked until the TV-TABLE exists ("the first-session shakedown"):** everything by eye and
@@ -2076,7 +2079,9 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    tab-only chips)** · ~~§31 v2 twist auto-apply~~ — **BUILT 2026-08-21** (Apply asks whose
    die → arms `twistArmed` → `dnd5e.preRollD20Test` forces the face via options.minimum/
    maximum, consumed post-dialog; 30 headless tests green; **live end-to-end leg owed** —
-   needs the GM seat, §31) · table feedback on the built suite · §33's bargain-mode reroll toggle (deferred) · ~~curseTable settings row~~ — **DECIDED
+   needs the GM seat, §31) · table feedback on the built suite · ~~§33's bargain-mode reroll
+   toggle (deferred)~~ — **BUILT 2026-08-25, phone side live-verified 5/5 (§33; drawer legs
+   join the GM-seat bench list)** · ~~curseTable settings row~~ — **DECIDED
    2026-08-20: OUR d100 is the table ("I like ours more", after seeing samples of both).** No
    picker row; the `curseTable` UUID stays as the undocumented console-set escape hatch ·
    §32's unmined remainder (Dark Bargains, lair-pulse engine, ch10–13 scene packs).
@@ -3874,7 +3879,34 @@ in the description → the existing chip-tap detail shows it), REAL-TIME expires
 activeGM client sweeps every 30 s. Shell renders curses through the normal condition strip
 with a dashed-muted italic chip (`mc-curse-chip`). Bench: pick-3 Unshelled → AC 16→14 live,
 20-min clock listed; backdated expiry → sweep lifted it and AC returned; random roll (63 Old
-Tongue) + cancel. Bargain mode (reroll-for-a-curse toggle) DEFERRED to the phone-roll slice.
+Tongue) + cancel. ~~Bargain mode (reroll-for-a-curse toggle) DEFERRED to the phone-roll slice.~~
+
+**BARGAIN MODE BUILT 2026-08-25 (the CM half of the vanilla+CM aim reset; phone side
+live-verified 5/5).** The DM's original Avantris concept lands as specced — a curse TRIGGER,
+default OFF:
+
+- **Setting `bargainMode`** (world, hidden) — toggled by a "Bargains on/off" chip at the foot
+  of the Chaotic-curses drawer.
+- **Player side (Crooked Moon tab, §35.1 section 5 "The bargain"):** an ask card — idle copy
+  "A poor roll can be rolled again — for a price. The Moon chooses the curse." → **Request
+  Reroll** writes `bargainPending` on the player's OWN actor (the twist-flag idiom, no RPC) →
+  waiting state "The Moon is considering your offer…" with **Withdraw**. The DM's answer
+  arrives as `bargainResult: "struck"|"declined"` — the card shows "The bargain is struck —
+  the price is on you. Roll again." / "The Moon declines. The roll stands." with **Done**
+  (player clears the answer). STATE, not events: no sockets, survives reloads; a pending ask
+  or unseen answer renders even if the DM turns the mode off mid-flight (no stranded
+  invisible state). The §6.5 tab dot lights for an unseen ANSWER (pending doesn't dot).
+- **DM side (curse drawer):** open requests render as dashed-gold rows above the victim
+  picker ("NAME asks to reroll — at a curse's price") with dice = **Strike** (stages a curse
+  roll on the requester — same staging card, Accept is the permission) and ✕ = decline.
+  **Requesters are UNIONED into the scene-scoped victim list** — without that, the drawer's
+  scene reset would silently retarget a struck bargain from an off-scene requester at pcs[0].
+  Accept applies the curse then swaps `bargainPending → bargainResult:"struck"` in one write;
+  decline swaps to `"declined"`.
+- **Verified live 2026-08-25 (Forthy phone seat, served world):** mode-off no card · pending
+  card + Withdraw (no dot) · withdraw clears · struck card + Done + dot lit · Done clears all.
+  **Owed at the next GM-seat window:** the drawer legs — request row render, Strike staging
+  (incl. an off-scene requester), Accept's flag swap, decline, the toggle chip.
 
 ## 34. Fateweaving (DM-requested write-up 2026-07-27 — **BUILT 2026-07-28**, slice D at the end of this section)
 

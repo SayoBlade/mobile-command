@@ -734,6 +734,11 @@ let cursePick = null;    // { n, name, text, builtin } awaiting Accept
 function curseBody() {
   const esc = foundry.utils.escapeHTML;
   const pcs = scenePcs();
+  // §33 bargain mode: open reroll requests. ALL flagged PCs, not just this scene's — a
+  // request from elsewhere must not vanish; union them into the picker too, or the
+  // scene-scoped reset below would silently retarget a struck bargain at pcs[0].
+  const bargains = game.actors.filter(a => a.type === "character" && a.getFlag(MODULE_ID, "bargainPending"));
+  for (const b of bargains) if (!pcs.some(a => a.id === b.id)) pcs.push(b);
   if (!curseTarget || !pcs.some(a => a.id === curseTarget)) curseTarget = pcs[0]?.id ?? null;
   const targets = pcs.map(a => `<button class="mc-seance-pc ${curseTarget === a.id ? "mc-on" : ""}" data-curse-target="${a.id}"
       title="The next curse lands on ${esc(a.name)}">
@@ -761,7 +766,18 @@ function curseBody() {
       <button class="mc-cmb-ticket" data-curse-x="${a.id}:${e.id}" title="Lift it early"><i class="fas fa-xmark"></i></button>
     </div>`;
   })).join("");
+  // §33 bargain mode: a player is offering to buy a reroll. Strike = stage a curse roll on
+  // them (the Accept is the permission); ✕ = the Moon declines. The toggle below arms the
+  // player-side ask card.
+  const bargainOn = (() => { try { return !!game.settings.get(MODULE_ID, "bargainMode"); } catch (e) { return false; } })();
+  const requests = bargains.map(a => `<div class="mc-cmb-row mc-bargain-req">
+      <div class="mc-seance-pc mc-twist-pcrow"><i class="fas fa-scale-unbalanced"></i>
+        <span><b>${esc(a.name)}</b> asks to reroll — at a curse's price</span></div>
+      <button class="mc-cmb-ticket mc-on" data-bargain-strike="${a.id}" title="Strike the bargain — roll the curse it costs"><i class="fas fa-dice"></i></button>
+      <button class="mc-cmb-ticket" data-bargain-decline="${a.id}" title="Decline — the roll stands"><i class="fas fa-xmark"></i></button>
+    </div>`).join("");
   return `
+    ${requests}
     <div class="mc-seance-party">${targets || `<div class="mc-dmp-empty">No player characters.</div>`}</div>
     <div class="mc-fx-voicerow">
       <button class="mc-fx-btn" data-curse-roll style="flex:1" ${curseTarget ? "" : "disabled"}
@@ -772,6 +788,11 @@ function curseBody() {
     ${pickOpts}
     ${card}
     ${active ? `<div class="mc-curse-list">${active}</div>` : ""}
+    <div class="mc-fx-voicerow mc-bargain-row">
+      <button class="mc-curse-min ${bargainOn ? "mc-on" : ""}" data-bargain-toggle
+        title="Bargain mode: players may ask to reroll a bad roll — the price is a curse roll, and your Accept is the permission">
+        <i class="fas fa-scale-unbalanced"></i> Bargains ${bargainOn ? "on" : "off"}</button>
+    </div>
     <p class="mc-dmp-set-note">Good moments to reach for one: a natural 1 · combat's end · a long
       rest · touching something best left alone. Curses lift themselves when their time is up.</p>`;
 }
@@ -4115,8 +4136,33 @@ async function onClick(ev) {
   if (ev.target.closest("[data-curse-cancel]")) { cursePick = null; return render(); }
   if (ev.target.closest("[data-curse-accept]")) {
     const a = game.actors.get(curseTarget);
-    if (a && cursePick) await applyCurse(a, cursePick, curseMins);
+    if (a && cursePick) {
+      await applyCurse(a, cursePick, curseMins);
+      // §33 bargain mode: the Accept IS the reroll permission. Resolve the open request in
+      // one write — the phone's ask card reads bargainResult and tells the player to roll.
+      if (a.getFlag(MODULE_ID, "bargainPending")) {
+        await a.update({ [`flags.${MODULE_ID}.-=bargainPending`]: null, [`flags.${MODULE_ID}.bargainResult`]: "struck" });
+      }
+    }
     cursePick = null;
+    return render();
+  }
+  // §33 bargain mode: strike (stage a curse roll on the requester) / decline / the toggle.
+  const bStrike = ev.target.closest("[data-bargain-strike]");
+  if (bStrike) {
+    curseTarget = bStrike.dataset.bargainStrike;
+    cursePick = await rollCurse();
+    return render();
+  }
+  const bDecline = ev.target.closest("[data-bargain-decline]");
+  if (bDecline) {
+    const a = game.actors.get(bDecline.dataset.bargainDecline);
+    if (a) await a.update({ [`flags.${MODULE_ID}.-=bargainPending`]: null, [`flags.${MODULE_ID}.bargainResult`]: "declined" });
+    return render();
+  }
+  if (ev.target.closest("[data-bargain-toggle]")) {
+    const on = (() => { try { return !!game.settings.get(MODULE_ID, "bargainMode"); } catch (e) { return false; } })();
+    await game.settings.set(MODULE_ID, "bargainMode", !on);
     return render();
   }
   const cX = ev.target.closest("[data-curse-x]");

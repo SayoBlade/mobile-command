@@ -2460,7 +2460,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Ember world, the crone where Crooked Moon tools are on, nothing otherwise. The CM tab
     // keeps its twist-pending dot (the §6.5 badge idiom).
     const campaign = activeCampaign();
-    const cmDot = campaign === "crooked-moon" && this.actor?.getFlag(MODULE_ID, "twistPending");
+    // Dot = business waiting in the tab: a twist the DM holds, or a bargain answer not yet seen.
+    const cmDot = campaign === "crooked-moon"
+      && (this.actor?.getFlag(MODULE_ID, "twistPending") || this.actor?.getFlag(MODULE_ID, "bargainResult"));
     const cmTab = campaign === "ember"
       ? `<button class="mc-tab ${this.#tab === "ember" ? "mc-active" : ""}" data-action="tab" data-tab="ember" title="Ember" aria-label="Ember"><i class="fas fa-fire"></i></button>`
       : campaign === "crooked-moon"
@@ -5168,6 +5170,36 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>`);
     }
 
+    // 5. The bargain (§33 bargain mode) — ask to reroll, at a curse's price. Gated on the
+    //    DM's toggle, but a pending ask or an unseen answer always renders (turning the mode
+    //    off mid-flight must not strand a live state invisible).
+    const bargainOn = (() => { try { return !!game.settings.get(MODULE_ID, "bargainMode"); } catch (e) { return false; } })();
+    const bPending = actor.getFlag(MODULE_ID, "bargainPending");
+    const bResult = actor.getFlag(MODULE_ID, "bargainResult");
+    if (bargainOn || bPending || bResult) {
+      let bBody;
+      if (bResult === "struck") {
+        bBody = `<div class="mc-cm-bargain-ans"><i class="fas fa-scale-unbalanced"></i>
+            The bargain is struck — the price is on you. Roll again.</div>
+          <button class="mc-cm-bargain-btn" data-action="bargain-done"><i class="fas fa-check"></i> Done</button>`;
+      } else if (bResult === "declined") {
+        bBody = `<div class="mc-cm-bargain-ans"><i class="fas fa-scale-unbalanced"></i>
+            The Moon declines. The roll stands.</div>
+          <button class="mc-cm-bargain-btn" data-action="bargain-done"><i class="fas fa-check"></i> Done</button>`;
+      } else if (bPending) {
+        bBody = `<div class="mc-cm-bargain-ans"><i class="fas fa-moon"></i>
+            The Moon is considering your offer…</div>
+          <button class="mc-cm-bargain-btn" data-action="bargain-withdraw"><i class="fas fa-rotate-left"></i> Withdraw</button>`;
+      } else {
+        bBody = `<p class="mc-cm-goal"><em>A poor roll can be rolled again — for a price.
+            The Moon chooses the curse.</em></p>
+          <button class="mc-cm-bargain-btn" data-action="bargain-ask"><i class="fas fa-scale-unbalanced"></i> Request Reroll</button>`;
+      }
+      sections.push(`<div class="mc-cm-sec">
+        <div class="mc-cm-label">The bargain</div>${bBody}
+      </div>`);
+    }
+
     const body = sections.length
       ? sections.join("")
       : `<div class="mc-cm-quiet">The Moon has not taken notice of you yet.</div>`;
@@ -7090,6 +7122,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#twistDie = Number(el.dataset.die) === 1 ? 1 : 20; return this.render();
       case "twist-send": return this.#twistSend(actor);
       case "twist-withdraw": return this.#twistWithdraw(actor);
+      // §33 bargain mode: the ask/withdraw pair writes the player's own actor flag (the
+      // twist idiom — no RPC); the DM's drawer answers by swapping it for bargainResult,
+      // and Done clears the answer once it's been seen.
+      case "bargain-ask":
+        actor?.setFlag(MODULE_ID, "bargainPending", { ts: Date.now() })
+          .catch(e => console.warn(`${MODULE_ID} | bargain ask failed`, e));
+        return;
+      case "bargain-withdraw":
+        actor?.unsetFlag(MODULE_ID, "bargainPending")
+          .catch(e => console.warn(`${MODULE_ID} | bargain withdraw failed`, e));
+        return;
+      case "bargain-done":
+        actor?.unsetFlag(MODULE_ID, "bargainResult")
+          .catch(e => console.warn(`${MODULE_ID} | bargain clear failed`, e));
+        return;
       case "tarot-open": { this.#tarotDismissed = null; return this.render(); }
       // §42.2 one target, two meanings: face down it turns over, face up it goes away. The
       // player owns their own actor, so the reveal is a direct flag write — no RPC, same as a

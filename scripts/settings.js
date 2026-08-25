@@ -546,6 +546,16 @@ export function registerSettings() {
     default: ""
   });
 
+  // §33 bargain mode (default OFF — the DM's original Avantris concept preserved as a curse
+  // TRIGGER): a player may ask to reroll at the price of a curse roll. Toggled from the
+  // Chaotic-curses drawer; the player's ask card lives on the Crooked Moon tab.
+  game.settings.register(MODULE_ID, "bargainMode", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false
+  });
+
   // §16.3 DM first-run wizard: true once the DM finished (or dismissed) the
   // guided setup. Hidden — the wizard flips it; reopen lives on the Preflight tab.
   game.settings.register(MODULE_ID, "dmOnboarded", {
