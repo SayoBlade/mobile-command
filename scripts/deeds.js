@@ -208,6 +208,28 @@ async function onWorkflowComplete(workflow) {
       pcDirty = true;
     }
 
+    // The kill, credited HERE (first live workflow leg, 2026-08-25): the updateActor path
+    // alone missed every FIRST-blow kill — midi applies damage (HP→0 fires, claim map still
+    // empty) BEFORE RollComplete sets lastDamager, so only re-kills of an already-claimed
+    // victim ever credited. This client has everything at RollComplete: the victim crossed
+    // to 0 in this workflow → credit now. The crossing guard keeps corpse-plinking free
+    // (a 0-HP victim takes hpDamage 0, and its entry shows no oldHP>0 crossing).
+    // recordedKills stays the ONE dedup shared with the updateActor path (heal-back re-arms).
+    const hpNow = victim.system?.attributes?.hp?.value ?? 1;
+    const crossed = ((e.oldHP ?? 0) > 0 && (e.newHP ?? 1) <= 0) || (applied > 0 && hpNow <= 0);
+    if (pcDeeds && victim.type === "npc" && crossed && !recordedKills.has(victim.uuid)) {
+      recordedKills.add(victim.uuid);
+      recordKill(pcDeeds, {
+        name: victimName,
+        cr: Number(victim.system?.details?.cr),
+        level: Number(attacker.system?.details?.level),
+        scene: game.scenes.get(victim.token?.parent?.id)?.name ?? canvas?.scene?.name ?? "",
+        wd: worldDate(),
+        ts
+      });
+      pcDirty = true;
+    }
+
     if (pcDeeds && healed > 0) {
       recordHeal(pcDeeds, { amount: healed, target: victimName, ts });
       pcDirty = true;

@@ -56,7 +56,7 @@ sections their cross-references always claimed).
 | 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records |
 | 29 | Settings mini-app | Built + bench-verified 12/12 (2026-08-01) |
 | 30, 30.1, 30.2 | Séance board + the bite | Built — the quality bar |
-| 31 | Twists of Fate (book RAW) | Built (+ **v2 auto-apply 2026-08-21** — the forced d20) |
+| 31 | Twists of Fate (book RAW) | Built (+ v2 auto-apply 2026-08-21); **forced-ATTACK leg proven 2026-08-25/26** — and it exposed the preview consuming the arm, now latch-guarded (§28.5.7) |
 | 32, 32.1 | Crooked Moon idea board; Fated Tarot book extract | Reference (mined 2026-07-27 / 2026-08-11) |
 | 33 / 34 / 35 | Chaotic Curses / Fateweaving / CM tab | **All built** (slices C/D/A; headers said "unbuilt" — corrected) |
 | 36, 36.1 | All aboard; the arrival | Built (36.1 not yet seen at the table) |
@@ -67,7 +67,7 @@ sections their cross-references always claimed).
 | 41 | Daylight loop (clock drives light) | Built |
 | 42 | Fated Tarot — the build | Built 2026-08-10/11 (tarot.js) |
 | 43 | Druskenvald clock — the build | Built 2026-08-10/11 (druskenvald.js) |
-| 44 | Character File | **Both slices built** — A 2026-08-15, Deeds recorder 2026-08-21 (+ fate links same day; live workflow leg owed) |
+| 44 | Character File | **Both slices built** — A 2026-08-15, Deeds recorder 2026-08-21; **live workflow leg RUN 2026-08-25/26 — caught + fixed the first-blow kill credit (§28.5.7)** |
 | 45 | Weapon mastery reminder | Built + **bench-proven 2026-08-20** (Vex landed, Cleave fired — §28.5.6) |
 | 46 | Repaint / scroll preservation | Fixed — DM confirmed |
 | 47 | Message for dev | Built (§48 added the phone entry point) |
@@ -2051,13 +2051,23 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    listener so even embedded-path stops self-heal~~ — **BUILT 2026-08-21** (both doors watched,
    one shared serialized heal; the §28.4 music matrix re-covers it at the next bench) · NEW
    bench legs from today's builds: **§31-v2 panel pick + forced ATTACK through midi** · **§44
-   deeds through a real workflow** · **§28.5.6 AoE leg re-run** (slot picked on the phone, no
-   executor dialog) · **paralyzed auto-crit on current AC5E** (§28.6 item 4 re-scope) · the
-   **core 14.367 §28.4 validation** (+ train-door/region spot-check per the 14.366 note below;
-   then bump the CLAUDE.md line + module.json `verified` together) · **§33 bargain-mode DM
-   drawer legs** (request row · Strike staging incl. off-scene requester · Accept flag swap ·
-   decline · toggle — phone side already proven 2026-08-25) · **name-sync + gear-nudge spot
-   checks** (§50.15.1 — a creation rename syncing the prototype token; the empty Actions copy). *Window check 2026-08-25:
+   ~~deeds through a real workflow~~ **RUN 2026-08-25/26 — and it caught the first-blow
+   kill-credit bug, now fixed (§28.5.7)** · ~~§28.5.6 AoE leg re-run~~ **PASSED (phone slot
+   pick, zero executor dialogs, tier consumed — §28.5.7)** · **paralyzed auto-crit on current
+   AC5E** (§28.6 item 4 re-scope — still owed) · ~~the core 14.367 §28.4 validation~~ **PASSED
+   2026-08-25/26 (§28.5.7; pins bumped: TESTED AC5E 14.533.15.4, module.json verified 14.367,
+   CLAUDE.md line — train-door regions read healthy, the 14.366 region worry closes)** · **§33
+   bargain-mode DM drawer legs** (request row · Strike staging incl. off-scene requester ·
+   Accept flag swap · decline · toggle — phone side proven 2026-08-25; the drawer legs fold
+   into the PANEL-RENDER question below) · **name-sync + gear-nudge spot checks** (§50.15.1) ·
+   **§28.4 leg 11 from a player seat** (Turn-HUD "your other PC" is GM-blind by design; Forthy
+   owns both premades) · **NEW — the panel-render question:** on the solo rig the DM panel's
+   pending-cast rows, AoO reaction chips and (presumably) bargain request rows never appeared
+   in DOM while their DATA layer was proven live (pendingCasts populated, dmReaction hook
+   caught `Pral ⚔ Fighter`) — most likely the flyout simply wasn't open/on the right tab on a
+   freshly reloaded client; eyeball the panel once at the next GM sitting before treating any
+   of it as a bug · **§44 multi-instance damage under-record** (midi's damageList carries only
+   the last instance's hpDamage — §28.5.7 filing, flavor-grade). *Window check 2026-08-25:
    "Offline test" IS served on 14.367 but the GM seat is OCCUPIED (DM's client active) — the
    one-GM-client gate (§50.15) holds the whole GM-seat battery; player-seat legs can still run.*
 2. **Parked until the TV-TABLE exists ("the first-session shakedown"):** everything by eye and
@@ -3166,6 +3176,92 @@ PCs · the Fighter's token renamed to its actor's name by our sync · simplecove
 (deliberate) · my test combat was ended by the end-combat flow itself; the two older stale
 combats untouched. World state restored: active scene 12.3, tableMode person, TV as display
 account, GM character cleared.
+
+### 28.5.7 The overnight bench 2026-08-25/26 — core 14.367 + AC5E 14.533.15.4 validated, and the night that caught three real bugs
+
+The DM logged off ("keep going for the night") leaving "Offline test" served with every seat
+free — the first window since his core update. Solo rig as Gamemaster (executor), Bandit
+Ambush, the premade Fighter/Wizard vs Pral + a bandit. **Result: the §28.4 script PASSED —
+legs 1–10 and 12 proven on core 14.367 with AC5E freshly drifted to 14.533.15.4** (preflight
+named the exact version mid-run — the check doing its job; pins bumped in the same commit).
+Leg 11 (Turn-HUD "your other PC") is GM-blind by design and waits for a player-seat pass;
+the anthem sub-leg of 10 is N/A (no themed PC configured on the bench).
+
+**Three real defects caught and FIXED — every one found by a leg doing exactly what it was
+written to do:**
+
+1. **The hit-verdict race, back on 14.367** (the 2026-07-26 "rolled well over the AC but no
+   green" symptom, new cause): the attack TOTAL now resolves a tick before midi's checkHits
+   writes hitTargets, so the phone read a real 16-vs-AC-14 HIT as "Miss" — with the §45 Graze
+   card riding the wrong verdict, promising "Applied for you" on a hit where graze never fires.
+   A 50ms tracer proved two traps: `wf.suspended` is NOT park-specific (the machine also
+   suspends at WaitForAttackRoll with the total readable), and on a client with no rAF frames
+   AttackRollComplete can stall ~10s before hits land. Fix: `resolveHitsFinal()` — the verdict
+   waits for the STATE NAME to reach the damage park (or completion), never a proxy; the
+   `findParkedWorkflow` window widened 8→15s (a slow DSN roll at a real table can overshoot 8s
+   the same way — midi awaits the animation BEFORE the park); the two-tap's shell timeout
+   30s to match. Re-run: "Greatsword 19 — Hit — Roll damage", damage applied 47→38.
+2. **The attack-preview suppressor leak — the wedge of the night:** the §28.8 preview
+   registers a `preCreateChatMessage → false` veto for its hidden throwaway. Tonight a
+   missing import (`attackPreviewLatch` used in rpc.js without importing it — check-syntax
+   can't see TDZ/undefined-reference, the old lesson again) made the cleanup's FIRST line
+   throw, so the rest of the `finally` never ran and the veto outlived the preview — and a
+   vetoed item card makes midi 14 abort EVERY later workflow with zero output
+   (`useResults.message.uuid`, midi-qol.js:7714): "attacks do nothing until reload".
+   Three-layer fix, each independently sufficient: the import (root cause) · both veto hooks
+   are now SELF-EXPIRING (15s deadline inside the hook — a leaked veto can never outlive its
+   window again) · `handleItemUseStart` DEFERS while `attackPreviewLatch.up` (the fire raced
+   the preview's veto window for real: phone fires land 1–2s after target-pick, and on a slow
+   executor the throwaway is still in flight — a real-table race, just narrower). The preview's
+   roll is also bounded now (10s race) so a hung throwaway can never strand the suppressors.
+3. **§44 deeds: first-blow kills were never credited** — the updateActor path relied on a
+   `lastDamager` claim that RollComplete only writes AFTER midi applies damage, so HP→0 always
+   fired before the claim existed; only re-kills of an already-claimed victim counted (the one
+   credited kill of the night rode the PREVIOUS cast's claim). Fix: the kill is credited AT
+   RollComplete from the workflow's own damageList (crossing-guarded: `oldHP>0 && newHP<=0`,
+   or applied>0 with hp≤0 now — corpse-plinking stays free), sharing the same `recordedKills`
+   dedup with the old path. Verified: single-dart kill on a fresh victim credited 1→2.
+   **Filed, not fixed:** midi's per-target damageList entry carries only the LAST instance's
+   `hpDamage` (capture: totalDamage 4, hpDamage 2 on a 2-dart kill) — multi-instance damage
+   under-records maxHit/foe totals, and an overkill split across instances can still slip the
+   kill guard. Flavor-grade drift; chase with fresh eyes.
+
+**Also proven this run:** §31-v2's forced ATTACK through midi's full workflow — after fix 2,
+the armed twist rode the roll as `2d20advmin20 + 3 + 2` → total 25, `isCritical: true`, flag
+consumed by the REAL roll (the twist-preview interaction was the leg's whole reason to exist:
+pre-fix, the hidden throwaway consumed the arm and the real attack rolled un-fated) · the
+train-door regions read healthy on 14.367 (teleport behaviors with destinations; preflight
+teleport row ok — the 14.366 TOKEN_MOVE_WITHIN worry closes) · the §33 bargain phone side and
+§50.17/§28.5.2 base pack were player-seat-verified earlier the same evening.
+
+**Rig traps that cost hours, recorded so they never do again:** (a) **verify the RUNNING build
+with a marker export** (`RPC_BUILD`) — a pane reload can serve stale module JS from HTTP cache,
+and `fetch(file, {cache:'reload'})` before reloading is the warm-up that makes it stick; a
+"fixed" bug that isn't fixed may just be a stale module. (b) **CAT's debug logging floods the
+console buffer** — read_console_messages windows are useless mid-combat; capture state with
+hook-catchers into window arrays instead. (c) The AoO dedup is per round:turn — a "retry" on
+the same turn silently no-ops (re-learned); and its console.log drowned, so the leg read as
+dead while dispatching fine (the dmReaction hook-catcher settled it: `Pral ⚔ Fighter, Rapier`).
+(d) A hidden pane fires no rAF: AttackRollComplete stalls ~10s and the whole two-tap chain
+rides its timeouts — environmental, not a table behavior (the displayed-pane Ember run
+two-tapped fast). (e) Bandit corpses are item-piles: revive needs `revertTokensFromItemPiles`
++ HP + the dead status, or the target picker rightly refuses the "corpse".
+
+**Also that night (DM asks, mid-run):** the Ctrl+Shift+Alt+X escape chord (registered through
+core's keybinding system: closes the shell + releases the phone CSS for THIS page only,
+nothing persisted — every reload boots the app again; verified end-to-end via a synthetic
+chord through core's own dispatcher) · the online-mode pass (tableMode flips clean;
+`hasSharedScreen()` true here because the TV user IS nominated in this world, so online =
+the §39.5 streamed-screen model and the "TV: not connected" warn is the correct semantics;
+§39.4/39.5 behaviors unchanged by tonight's work and stand on their 2026-08-20 proofs).
+
+**Residue (conduct: never delete — DM to clear at leisure):** the bandit corpse-piles now
+carry stacked "(dead) (dead)" names from re-kills, two sit at teleported spots near the
+wizard's corner, and three were un-piled/re-killed during the deeds legs · the Wizard's deeds
+flag holds real bench data (4 MM uses, 2 kills, maxHit 2) · a night's worth of chat cards ·
+the pre-existing Test-husk tokens stand. Restored to found state: Pral 47/47, both PCs full,
+wizard slots 4/4+2/2, GM character cleared, scene 12.3 active, game PAUSED, music silent,
+tableMode person.
 
 ### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
 

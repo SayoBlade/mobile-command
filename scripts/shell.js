@@ -6399,13 +6399,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // two darts on A, one on B). The executor targets the unique set and applies
       // per-instance damage for the extras.
       const expanded = s.selfTarget ? [] : Array.from(s.selected).flatMap(u => Array(Math.max(1, s.counts?.[u] ?? 1)).fill(u));
+      // 30s, not the default 12 (2026-08-25): the executor legitimately takes long here —
+      // midi awaits the dice animation BEFORE the park, and the park scan allows 15s
+      // (findParkedWorkflow; a hidden client's AttackRollComplete measured ~10s). At 12s
+      // the phone gave up on attacks the executor then finished into orphans.
       res = await this.#withTimeout(rpc.useActivityStart({
         activityUuid: s.uuid,
         targetUuids: expanded,
         midiOptions,
         spellSlot: s.slot ?? null, // upcast: cast at the chosen slot level
         skipConsume: !!s.depleted   // out of charges: fire WITHOUT consuming so midi never opens the executor "Consume?" dialog
-      }));
+      }), 30000);
     } catch (err) {
       console.error("mobile-command | useActivityStart failed", err);
       res = { ok: false, reason: err?.message ?? "error — see DM console" };

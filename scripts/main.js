@@ -54,6 +54,28 @@ Hooks.once("init", () => {
   } catch (e) {
     console.warn(`${MODULE_ID} | could not register the clean-display keybinding`, e);
   }
+  // Desktop escape hatch (DM 2026-08-25): a player on a full keyboard sometimes wants plain
+  // Foundry back. The chord is deliberately obscure (Ctrl+Shift+Alt+X — nothing core or the
+  // stack's modules claims it) and ONE-WAY by design: nothing is written, so the next page
+  // load boots the shell again. Phones can't press it, which is exactly the point — the
+  // shortcut can close the app but never be needed to open it. Registered through Foundry's
+  // own keybinding system so it shows in Configure Controls and core arbitrates conflicts.
+  try {
+    game.keybindings.register(MODULE_ID, "closeShellUntilRefresh", {
+      name: "Mobile Command: Close the phone app (until refresh)",
+      hint: "Closes the mobile overlay and returns this browser to the normal Foundry player view. Nothing is saved — reload the page to get the app back.",
+      editable: [{ key: "KeyX", modifiers: ["Control", "Shift", "Alt"] }],
+      onDown: () => {
+        closeShell();
+        document.body.classList.remove("mc-phone"); // release the phone-scoped CSS with it
+        ui.notifications.info("Phone app closed — reload the page to get it back.");
+        return true;
+      },
+      restricted: false
+    });
+  } catch (e) {
+    console.warn(`${MODULE_ID} | could not register the shell-escape keybinding`, e);
+  }
   // "Frame the party" (DM 2026-06-19): pan + zoom the local canvas to fit all PC
   // tokens. Out of combat nothing auto-frames the TV, so press this on the display
   // client to recenter on the party (their combined vision is already shown OOC).

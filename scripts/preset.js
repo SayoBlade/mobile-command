@@ -5,6 +5,13 @@
 
 export const MODULE_ID = "mobile-command";
 
+// §31-v2 × the Round-34 attack preview (2026-08-25): the phone's adv/dis hint runs a HIDDEN
+// midi pre-roll that is a real d20 test — an armed twist forced, and consumed itself on, the
+// invisible throwaway, leaving the real attack un-fated. rpc.js raises this latch around the
+// throwaway; twists.js skips both the force and the consume while it's up. Lives HERE (not in
+// rpc.js) so twists.js stays importable by the bare-Node test harness.
+export const attackPreviewLatch = { up: false };
+
 // Paths inside the midi-qol "ConfigSettings" world-setting object.
 // NOTE: optionalRules.* mechanics apply even when optionalRulesEnabled is false
 // (midi's checkMechanic() ignores that flag) — they must be policed individually.

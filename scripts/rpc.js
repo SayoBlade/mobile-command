@@ -1,4 +1,4 @@
-import { MODULE_ID } from "./preset.js";
+import { MODULE_ID, attackPreviewLatch } from "./preset.js";
 import { clockLabel } from "./gametime.js"; // in-world date stamps on story entries (§38.4)
 import { resolveExecutorId, isExecutor, reactionTimeoutMs, DISPLAY_LEVEL } from "./settings.js";
 import * as DT from "./downtime.js"; // §17.7 downtime data model + Rule engine (pure, unit-tested)
@@ -12,6 +12,12 @@ import { wallsBlock } from "./cm-train.js";
 // - midi ignores explicit targets for area activities -> refuse them here
 // - completeActivityUse resolves falsy/aborted on refusal with only a local
 //   toast -> capture notifications and surface {ok:false, stage, reason}
+
+// Build marker for live-bench cache diagnosis (2026-08-25: a client reload can serve a stale
+// module from HTTP cache — probe `(await import('.../rpc.js')).RPC_BUILD` to know what runs).
+export const RPC_BUILD = "2026-08-25-hitsfix6";
+
+
 
 export let socket = null;
 
@@ -1051,7 +1057,13 @@ async function handleItemUse(payload) {
 // trigger its damage roll on the second tap.
 const parkedWorkflows = new Map();
 
-async function findParkedWorkflow(activityUuid, itemUuid, preIds = new Set(), timeoutMs = 8000) {
+// timeoutMs 8000→15000 (2026-08-25): midi awaits the dice animation BEFORE the park
+// (midi-qol.js:9642), and AttackRollComplete itself can stall ~10s on a client with no rAF
+// frames (hidden tab/bench rig — measured with a 50ms tracer; a slow DSN roll at a real table
+// can overshoot 8s the same way). The loop returns the moment the park/completion is seen, so
+// the wider window costs nothing when the workflow is healthy — it only keeps a slow one from
+// being misread as "completed without a damage step".
+async function findParkedWorkflow(activityUuid, itemUuid, preIds = new Set(), timeoutMs = 15000) {
   const start = Date.now();
   let lastSeen = null; // the freshest matching workflow, whatever state it's in (for stuck diagnosis)
   while (Date.now() - start < timeoutMs) {
@@ -1118,6 +1130,32 @@ async function resolveAttackTotal(wf, timeoutMs = 5000) {
   return v;
 }
 
+// The HIT verdict can lag the total (caught live 2026-08-25 on core 14.367: the total had
+// resolved while midi's checkHits hadn't written hitTargets yet, so a REAL HIT reported
+// hit:false — the phone showed "Miss" + the §45 Graze consolation on a 16-vs-AC-14 hit; the
+// same "rolled well over the AC but no green" symptom as 2026-07-26, new cause upstream).
+// The total is a proxy; the ONLY trustworthy signal is the STATE NAME reaching the damage
+// park (or the workflow finishing). Two traps measured by the 50ms tracer that night:
+//   - `wf.suspended` is NOT park-specific — the machine also suspends briefly at
+//     WaitForAttackRoll *with the total already readable*, so a suspended check settles
+//     one state too early and re-creates the bug.
+//   - hits can be written up to ~10s after the roll on a hidden client (an await inside
+//     AttackRollComplete resolves by timeout when no rAF frames fire — bench rigs; a
+//     displayed table client is near-instant). Hence the wide window.
+// On timeout, read what's there (never hang the phone card).
+async function resolveHitsFinal(wf, timeoutMs = 8000) {
+  const stateOf = () => String(wf.currentAction?.name ?? wf.stateName ?? wf.currentState ?? "");
+  const settled = () => {
+    if ((wf.hitTargets?.size ?? 0) > 0) return true;  // a written hit is final by definition
+    return /WaitForDamageRoll|RollFinished|Completed|Cleanup/i.test(stateOf());
+  };
+  const start = Date.now();
+  while (!settled() && Date.now() - start < timeoutMs) {
+    await new Promise(res => setTimeout(res, 50));
+  }
+  return (wf.hitTargets?.size ?? 0) > 0;
+}
+
 // AC5E (visibilityChecks) forces midi's Attack-Roll dialog onto the EXECUTOR for an unseen
 // attacker/target by overriding our `configure:false` (its forceDialogConfigureForOptins). We
 // already surface AND confirm the adv/dis on the phone (attackPreview), so the executor must not
@@ -1152,6 +1190,14 @@ async function handleItemUseStart(payload) {
   markPhoneAction(activity.item?.name, requesterId); // dialog watchdog: arm for this action
 
   const hasAttack = activity.type === "attack";
+  // Defer while an attack preview is mid-flight (2026-08-25): the preview suppresses chat-card
+  // creation for its throwaway, and a fire inside that window lost its OWN card — midi 14 then
+  // aborts the workflow with zero output (useResults.message.uuid, midi-qol.js:7714). The phone
+  // fires 1-2s after target-pick, so on a slow executor this raced for real. Cap the wait at
+  // the preview's own bound; a stuck latch can cost at most that.
+  for (let waited = 0; attackPreviewLatch.up && waited < 12000; waited += 100) {
+    await new Promise(r => setTimeout(r, 100));
+  }
   // Multi-instance targets (Magic Missile darts, DM 2026-07-05): the phone sends
   // DUPLICATE uuids ([A, A, B] = two darts on A). midi's target set dedupes, so the
   // workflow runs on the UNIQUE targets; the duplicate counts are remembered and
@@ -1282,8 +1328,12 @@ async function handleItemUseStart(payload) {
           reason: captured.join("; ")
             || "the attack never rolled on the DM's screen — an automation there refused it (DM: check the console)" };
       }
+      // Even here, never read hits mid-processing: a workflow that outlived the park window can
+      // still be inside AttackRollComplete (the 2026-08-25 stall) — settle before answering, or
+      // a real hit reports as "Miss" + the §45 Graze consolation on the phone.
+      const seenHit = (hasAttack && seen) ? await resolveHitsFinal(seen) : null;
       return { ok: true, needsDamage: false, hasAttack,
-        hit: hasAttack ? (seen?.hitTargets?.size ?? 0) > 0 : null,
+        hit: hasAttack ? !!seenHit : null,
         attackTotal: seen?.attackRoll?.total ?? null,
         mastery: hasAttack ? masteryOfWorkflow(seen) : null, masteryAuto: masteriesAutomated(),
         itemName: activity.item?.name ?? null, reason: captured.join("; ") || null };
@@ -1301,13 +1351,14 @@ async function handleItemUseStart(payload) {
     if (hasAttack) console.debug(`${MODULE_ID} | attack total`, {
       resolved: attackTotal, rollTotal: wf.attackRoll?.total, rawAttackTotal: wf.attackTotal, formula: wf.attackRoll?.formula
     });
+    // ~~Read hits AFTER the total resolved~~ — NOT ENOUGH since 14.367 (2026-08-25): the total
+    // can land a tick before checkHits writes hitTargets, so a real hit read as "Miss". Wait
+    // for the park itself (resolveHitsFinal), the signal that adjudication actually finished.
+    const hitFinal = hasAttack ? await resolveHitsFinal(wf) : null;
     return {
       ok: true, needsDamage: true, requestId, hasAttack,
       itemName: activity.item?.name ?? null,
-      // Read hits AFTER the total resolved: the park gate guarantees adjudication ran, and
-      // waiting for the total means we never read hitTargets mid-processing (the "rolled well
-      // over the AC but no green" report, 2026-07-26).
-      hit: hasAttack ? (wf.hitTargets?.size ?? 0) > 0 : null,
+      hit: hitFinal,
       attackTotal,
       // §45: read the mastery AFTER the total resolved, for the same reason the hits are — before
       // that the roll may not be on the workflow yet, and a null here reads on the phone as
@@ -1730,12 +1781,19 @@ async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenU
     if (dialog && typeof dialog === "object") dialog.configure = false;         // undo AC5E's forced dialog
     if (config?.dialog && typeof config.dialog === "object") config.dialog.configure = false;
   });
-  const dsnHook = Hooks.on("diceSoNiceRollStart", () => false); // suppress the 3D dice for the throwaway
+  // SELF-EXPIRING vetoes (2026-08-25, the wedge of the night): a leaked card veto — however it
+  // leaks (a throw before the finally, an interleaved preview, anything) — silently blocked
+  // EVERY later chat card, and midi 14 then aborts every workflow with zero output (its use()
+  // reads useResults.message.uuid, midi-qol.js:7714): the table reads "attacks do nothing until
+  // reload". A veto that outlives its 15s window now stops vetoing on its own, so the worst
+  // leak costs one noisy preview, never the table.
+  const vetoUntil = Date.now() + 15000;
+  const dsnHook = Hooks.on("diceSoNiceRollStart", () => (Date.now() < vetoUntil ? false : undefined)); // suppress the 3D dice for the throwaway
   // Block the throwaway's chat card outright (create:false isn't honored on every midi
   // path) — no card means Automated Animations / DSN never fire on it, AND the executor
   // isn't stalled animating it right before the real attack (which can push the real
   // attack's total past resolveAttackTotal's window → the phone's "—"). Scoped to this roll.
-  const cardHook = Hooks.on("preCreateChatMessage", () => false);
+  const cardHook = Hooks.on("preCreateChatMessage", () => (Date.now() < vetoUntil ? false : undefined));
   // Automated Animations plays a "test swing" (JB2A) on the throwaway roll because it hooks
   // dnd5e.rollAttackV2 directly (not just the card) — DM 2026-07-12. Stub its single play entry
   // (AutomatedAnimations.PlayAnimation) for the duration of this roll only; restored in finally.
@@ -1768,7 +1826,18 @@ async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenU
   }
   const msgIdsBefore = new Set(game.messages.keys());
   try {
-    await activity.rollAttack({}, { configure: false }, { create: false, rollMode: CONST.DICE_ROLL_MODES.BLIND });
+    attackPreviewLatch.up = true; // §31-v2: the twist hooks must ignore this throwaway (see preset.js)
+    // BOUNDED (2026-08-25, caught live): this await can hang forever (a stalled hook chain on a
+    // hidden client; historically AC5E's forced dialog). An unbounded hang meant the `finally`
+    // never ran, and the suppression hooks above — including preCreateChatMessage → false —
+    // stayed registered, silently VETOING every later chat card: midi workflows then aborted
+    // with no output at all ("attack does nothing until reload"). The race guarantees the
+    // suppressors are always lifted; a late throwaway card just gets deleted by the sweep below
+    // on the next preview, which is the lesser evil by miles.
+    await Promise.race([
+      activity.rollAttack({}, { configure: false }, { create: false, rollMode: CONST.DICE_ROLL_MODES.BLIND }),
+      new Promise(res => setTimeout(res, 10000))
+    ]);
   } catch (e) { /* non-fatal */ }
   finally {
     Hooks.off("dnd5e.preRollAttackV2", hookId);
@@ -1781,6 +1850,11 @@ async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenU
     for (const m of game.messages.filter((mm) => !msgIdsBefore.has(mm.id))) { try { await m.delete(); } catch (e) {} }
     setTargets(wanted, false);
     setTargets(prevTargets, true);
+    // The latch drops LAST — it marks "suppressors may be live", and handleItemUseStart defers
+    // a fire while it's up: on a slow client the preview's card veto was still active when the
+    // player's real attack fired 1-2s later, so midi aborted the real workflow with no output
+    // (the whole silent-attack night, 2026-08-25). Real tables have the same race, just narrower.
+    attackPreviewLatch.up = false;
   }
 
   if (!ac5) {
