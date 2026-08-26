@@ -1,5 +1,6 @@
 import { MODULE_ID, attackPreviewLatch } from "./preset.js";
 import { clockLabel } from "./gametime.js"; // in-world date stamps on story entries (§38.4)
+import { recordExtraDamage } from "./deeds.js"; // §44: extra-instance darts bypass midi's damageList
 import { resolveExecutorId, isExecutor, reactionTimeoutMs, DISPLAY_LEVEL } from "./settings.js";
 import * as DT from "./downtime.js"; // §17.7 downtime data model + Rule engine (pure, unit-tested)
 // Pure-data wall test: works on scenes the DM isn't looking at, where the canvas collision
@@ -1463,6 +1464,9 @@ async function handleItemUseDamage({ requestId }) {
           await target.applyDamage([{ value: total, type }]);
           extraTotal += total;
           lines.push(`${td.name} ${total}`);
+          // §44: this application bypasses midi's damageList, so the Deeds book never saw
+          // extra darts (one dart of a three-dart volley recorded — caught 2026-08-25/26).
+          recordExtraDamage(wf.actor, target, total).catch(() => {});
         }
       }
       if (lines.length) {

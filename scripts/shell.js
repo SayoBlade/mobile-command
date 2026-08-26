@@ -2,7 +2,7 @@ import { MODULE_ID, CREATION_BEATS, pcDisplayName, TABLE_SEATS } from "./preset.
 import { isOnlineTable } from "./settings.js"; // §39 in person ⇄ online (settings.js imports nothing of ours but preset/enforcer — no cycle)
 import { api as rpc, actorTokenSight, reportPresence, remoteState } from "./rpc.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
-import { toggleSimpleCalendar } from "./gametime.js";
+import { toggleSimpleCalendar, clockLabel } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 the player's thread card
 import { actorCurses } from "./cm-curses.js"; // §35.1 the Crooked Moon tab lists them richly
@@ -636,6 +636,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#rollStripHTML()}
       ${this.#initPromptHTML()}
       ${this.#turnHudHTML()}
+      ${this.#restHeaderHTML()}
       <nav class="mc-tabs">${this.#tabBarHTML()}</nav>
       ${this.#tarotHandHTML(actor)}
       ${this.#imagePopupHTML(actor)}
@@ -2034,7 +2035,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const ids = new Set();
     const onScene = (a) => !!a && game.scenes?.active?.tokens.some(t => t.actor?.id === a.id);
     for (const e of this.#pending) if (e.actorId && e.actorId !== id) ids.add(e.actorId);
-    const combat = game.combat;
+    const combat = activeCombat();
     if (combat) {
       // It's another owned token's turn (auto-follow was skipped — e.g. you're mid-action).
       const active = combat.started ? combat.combatant?.actor : null;
@@ -5254,8 +5255,29 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   // Turn HUD (§7.4): shows the current combatant; End turn routes to the
   // executor (nextTurn is GM-side) and is enabled on ANY of the user's turns.
+  // §19 slice 4 — the shared running-rest header: DM and every phone read the SAME line while
+  // a rest runs (type — stage · the world clock). The state is the party group's rest/night
+  // flags, which sync to all clients; the world clock ticks during a rest, so ordinary
+  // repaints keep the time fresh with no timer of our own.
+  #restHeaderHTML() {
+    const group = game.actors.find(a => a.type === "group" && a.getFlag(MODULE_ID, "rest"));
+    const rest = group?.getFlag(MODULE_ID, "rest");
+    if (!rest) return "";
+    const night = group.getFlag(MODULE_ID, "night");
+    const type = rest.size === "short" ? "Short rest" : (rest.phases?.watches ? "Long rest" : "Downtime");
+    const stage = rest.stage === "assign" ? "getting ready"
+      : rest.stage === "downtime" ? "camp tasks"
+      : rest.stage === "watches" ? `${["first", "second", "third"][night?.watch ?? 0] ?? "night"} watch`
+      : "morning";
+    // Minutes, never seconds: a seconds readout changes every clock tick, and a strip that is
+    // never sameHTML() would drag the whole shell into a full repaint per tick (§46's sin).
+    let time = ""; try { time = String(clockLabel() ?? "").replace(/(:\d\d):\d\d\b/, "$1"); } catch (e) { /* clockless world */ }
+    return `<div class="mc-rest-strip"><i class="fas fa-campground"></i>
+      <span>${type} — ${stage}</span>${time ? `<span class="mc-rest-strip-time">${foundry.utils.escapeHTML(time)}</span>` : ""}</div>`;
+  }
+
   #turnHudHTML() {
-    const combat = game.combat;
+    const combat = activeCombat();
     if (!combat?.started) return "";
     // "Your turn" = the current combatant is one of MINE (#myCombatants handles both
     // token-linked NPC copies and actor-linked PC combatants with a null tokenId — a
@@ -5280,7 +5302,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   // Hop the shell to the active combatant's token (the "Go" on your other PC's turn).
   #hopToActiveCombatant() {
-    const cur = game.combat?.combatant;
+    const cur = activeCombat()?.combatant;
     if (!cur) return;
     if (cur.tokenId) { this.#subjectId = cur.tokenId; this.#subjectActorId = null; }
     else if (cur.actor) { this.#subjectActorId = cur.actor.id; this.#subjectId = null; }
@@ -5299,7 +5321,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // combatant has tokenId=null → End turn disabled + initiative re-spawned a dupe,
   // 2026-06-21). So: a token-linked combatant matches only its own token (precise for
   // multi-token NPCs); an actor-linked one (null tokenId) matches by actor.
-  #myCombatants(combat = game.combat) {
+  #myCombatants(combat = activeCombat()) {
     if (!combat) return [];
     const tokenId = this.originTokenId;
     const actorId = this.actor?.id;
@@ -5309,7 +5331,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   #initPromptHTML() {
-    const combat = game.combat;
+    const combat = activeCombat();
     if (!combat) return "";
     const me = this.#myCombatants(combat)[0];
     if (!me || me.initiative != null) return ""; // not in this combat, or already rolled
@@ -5326,7 +5348,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   async #rollInitiative() {
     const actor = this.actor;
     if (!actor) return;
-    if (!game.combat) {
+    if (!activeCombat()) {
       ui.notifications.info("No active encounter yet — ask the DM to start combat.");
       return;
     }
@@ -5339,12 +5361,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // scopes to the subject token. Only fall back to the dialog if this subject
       // truly isn't in the encounter yet.
       const mine = this.#myCombatants().map(c => c.id);
-      if (mine.length) await game.combat.rollInitiative(mine);
+      if (mine.length) await activeCombat().rollInitiative(mine);
       else await actor.rollInitiativeDialog();
     } catch (e) {
       console.error("mobile-command | initiative roll failed", {
-        hasCombat: !!game.combat,
-        isCombatant: !!game.combat?.combatants?.some(c => c.actor?.id === actor.id),
+        hasCombat: !!activeCombat(),
+        isCombatant: !!activeCombat()?.combatants?.some(c => c.actor?.id === actor.id),
         error: e
       });
       ui.notifications.warn("Couldn't roll initiative — check the console (F12) and tell me what it says.");
@@ -5499,7 +5521,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // still AVAILABLE. ACT is recorded unconditionally on your turn; BA/RE need
   // enforce*Actions ≥ "displayOnly" (set in the preset) to be recorded.
   #inCombat(actor = this.actor) {
-    return !!game.combat?.combatants?.some(c => c.actor?.id === actor?.id);
+    return !!activeCombat()?.combatants?.some(c => c.actor?.id === actor?.id);
   }
   #actionEconomy(actor) {
     const inCombat = this.#inCombat(actor);
@@ -6330,7 +6352,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
   expireAssignedIfNotMyTurn() {
     if (!this.#assignedTargets.length) return;
-    const cur = game.combat?.combatant?.actor?.id;
+    const cur = activeCombat()?.combatant?.actor?.id;
     if (cur && cur !== this.actor?.id) this.#clearAssigned();
   }
   #clearAssigned() { this.#assignedTargets = []; this.#assignedBy = null; }
@@ -6342,7 +6364,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // (midi-qol.js, removeActionBonusReaction); the shell re-renders on that flag
   // change, so this only owns the drawer state we collapse ourselves.
   noteCombatTurn() {
-    const combatant = game.combat?.combatant;
+    const combatant = activeCombat()?.combatant;
     const cur = combatant?.actor?.id ?? null;
     if (cur === this.#lastCombatantId) return;
     this.#lastCombatantId = cur;
@@ -8794,6 +8816,17 @@ function releaseShellBackdrop(app) {
   syncShellBackdrop();
 }
 
+// The combat a PHONE is in. `activeCombat()` is DEAD on phone clients since core 14: the phone
+// runs core noCanvas, which leaves `scenes.viewed` null, so `scenes.current` is null and
+// CombatEncounters#active filters every SCENE-LINKED combat out (combat-encounters.mjs:55,
+// scenes.mjs:40-43) -- no Turn HUD, no initiative prompt, no combat economy on any player
+// phone (caught live 2026-08-26 running SS28.4 leg 11 from a real player seat). A phone's
+// table-truth is the ACTIVE scene, so resolve scene-linked combats against that; canvas
+// clients keep core's own answer.
+function activeCombat() {
+  return game.combat ?? game.combats?.find(c => c.active && (!c.scene || c.scene === game.scenes.active)) ?? null;
+}
+
 // §50.15.1 courtesy: creation flows rename the ACTOR but never its prototype token, so every
 // future drop still lands as the placeholder ("Blue's hero"). Once a real name exists, sync the
 // prototype — and any placed token still carrying the stale placeholder. A token the DM
@@ -9124,7 +9157,7 @@ export function registerShellHooks() {
   document.addEventListener("visibilitychange", () => {
     // Away-timer (§7.8): tell the DM panel whether this phone is backgrounded.
     reportPresence(document.visibilityState === "hidden");
-    if (document.visibilityState === "visible" && shellInstance?.rendered && game.combat?.started) {
+    if (document.visibilityState === "visible" && shellInstance?.rendered && activeCombat()?.started) {
       shellInstance.render();
     }
   });

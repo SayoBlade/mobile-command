@@ -690,7 +690,11 @@ function tabRailHTML() {
   const tab = (id, icon, title, show = true, badge = 0) => show ? `<button class="mc-dmp-tab ${dockTab === id ? "mc-on" : ""}" data-dock="${id}" title="${title}" aria-label="${title}"><i class="fas ${icon}"></i>${badge ? `<span class="mc-dmp-tab-badge">${badge}</span>` : ""}</button>` : "";
   // §25 2b tab set. Combat absorbs the old Rolls; Party absorbs the old Players + marching order; the
   // new Display tab carries the camera config that left the floor.
-  const combatBadge = (game.user.targets?.size ?? 0) || (game.combat?.started ? "•" : 0);
+  // Pending casts count FIRST (2026-08-26): a phone AoE announce renders only inside this tab,
+  // so with the dock closed the player was waiting on a Place the DM had no way to see —
+  // nothing on the floor, nothing on the rail. A live count on the rail is the §6.5 badge idiom
+  // doing its actual job: business waiting behind a closed door.
+  const combatBadge = listPendingCasts().length || (game.user.targets?.size ?? 0) || (game.combat?.started ? "•" : 0);
   return `<div class="mc-dmp-tabrail ${dockTab ? "mc-open" : ""}">
     ${tab("combat", "fa-dice-d20", "Combat — rolls, targeting, the encounter", true, combatBadge)}
     ${tab("party", "fa-users", "Party — roster, form up, marching order")}
@@ -2898,6 +2902,31 @@ function partyMainHTML() {
 function nightGroup() {
   return game.actors.find(a => a.type === "group" && a.getFlag(MODULE_ID, "night"))
     ?? game.actors.find(a => a.type === "group" && (a.system?.members ?? []).some(m => m.actor));
+}
+
+// §19 slice 6 — the one-time legacy migration: a `night` flag WITHOUT a `rest` envelope is the
+// §17.4-era shape (watches predate the Rest state machine, 2026-07-17). Wrap it so the staged
+// flow, the phones' running header and the teardown all find the state they expect. Idempotent
+// by construction — it only ever fires on the legacy shape, and wrapping removes that shape.
+// A bare OPEN DOWNTIME WINDOW is deliberately NOT wrapped: standalone downtime is still a
+// legitimate state today (the Rest tab's badge treats it as a sibling), so wrapping would
+// invent a rest the DM never started.
+async function migrateLegacyNight() {
+  try {
+    if (game.users.activeGM?.id !== game.user.id) return; // one writer
+    const group = game.actors.find(a => a.type === "group"
+      && a.getFlag(MODULE_ID, "night") && !a.getFlag(MODULE_ID, "rest"));
+    if (!group) return;
+    const night = group.getFlag(MODULE_ID, "night");
+    await group.setFlag(MODULE_ID, "rest", {
+      id: foundry.utils.randomID(),
+      size: "long",
+      phases: { downtime: downtimeOpen(), watches: true },
+      stage: night.stage === "assign" ? "assign" : "watches",
+      startedAt: game.time?.worldTime ?? 0
+    });
+    console.log(`${MODULE_ID} | §19 migration: wrapped a legacy night flag on "${group.name}" into a rest envelope (stage ${night.stage})`);
+  } catch (e) { console.warn(`${MODULE_ID} | legacy-night migration failed`, e); }
 }
 
 // The exact set the display hears through — mirrors main.js isAudioListener over the CANVAS tokens,
@@ -5153,6 +5182,7 @@ export function registerDMPanel() {
   Hooks.on("canvasReady", () => { maybeAutoLightOverworld(canvas?.scene); });
   maybeAutoLightOverworld(canvas?.scene); // the scene already up when the panel initialises
   registerNightEncounterOffer(); // §17.4: ambush during a watch → offer Unconscious+Surprised
+  migrateLegacyNight(); // §19 slice 6: wrap a pre-Rest night flag into a rest envelope, once
   Hooks.on("targetToken", () => { syncRtAssign(); render(); });   // live target picker + count badge
   Hooks.on("controlToken", () => render());                        // quick-HP: selection changed
   // Keep the rolls-tab distances fresh as tokens move (only while that flyout is open).

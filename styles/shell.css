@@ -1494,6 +1494,13 @@ body {
 
 /* turn HUD */
 .mc-turnhud { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #1c1922; border-top: 1px solid var(--mc-edge); flex: 0 0 auto; }
+/* §19 slice 4: the shared running-rest header — one quiet line, same words on the DM panel
+   and every phone. Campfire gold-tinged band above the tab bar; the clock rides the right. */
+.mc-rest-strip { display: flex; align-items: center; gap: 10px; padding: 8px 14px; flex: 0 0 auto;
+  background: linear-gradient(#241f14, #1d1b16); border-top: 1px solid var(--mc-gold);
+  font-size: 13px; color: var(--mc-gold); }
+.mc-rest-strip i { font-size: 12px; }
+.mc-rest-strip-time { margin-left: auto; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
 .mc-turnhud.mc-myturn { background: linear-gradient(#2a2415, #20201a); border-top-color: var(--mc-gold); }
 .mc-turn-label { flex: 1 1 auto; font-size: 16px; color: var(--mc-muted); }
 .mc-turnhud.mc-myturn .mc-turn-label { color: var(--mc-gold); }

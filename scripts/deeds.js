@@ -264,6 +264,50 @@ async function onWorkflowComplete(workflow) {
   if (pcDeeds && pcDirty) await writeDeeds(attacker, pcDeeds);
 }
 
+// Damage OUR OWN code applies outside a midi workflow — today that is exactly the
+// extra-instance darts (rpc.js handleItemUseDamage applies Magic-Missile-style extras via
+// target.applyDamage, invisible to workflow.damageList). Without this entry the book recorded
+// one dart of a three-dart volley (§28.5.7 filing, root-caused 2026-08-26: not midi's
+// bookkeeping — our extras). Mirrors the damageList block: hit, foe ledger, turn total, and
+// the kill crossing, sharing the same dedup and claim map.
+export async function recordExtraDamage(attacker, victim, amount) {
+  try {
+    if (!attacker || attacker.type !== "character" || !victim || victim.type !== "npc") return;
+    const applied = Math.max(0, Number(amount) || 0);
+    if (!applied) return;
+    const ts = Date.now();
+    const d = readDeeds(attacker);
+    const victimName = victim.token?.name ?? victim.name ?? "";
+    lastDamager.set(victim.uuid, { pcUuid: attacker.uuid, ts });
+    recordHit(d, { amount: applied, victim: victimName, ts });
+    const fk = `${attacker.id}:${victim.uuid}`;
+    const foe = foeTotals.get(fk) ?? { name: victimName, cr: Number(victim.system?.details?.cr), total: 0 };
+    foe.total += applied;
+    foeTotals.set(fk, foe);
+    recordFoeTotal(d, { name: foe.name, cr: foe.cr, total: foe.total, level: Number(attacker.system?.details?.level), ts });
+    if (game.combat?.started) {
+      const key = `${game.combat.id}:${game.combat.round}:${game.combat.turn}`;
+      const acc = turnAcc.get(attacker.id);
+      const total = (acc?.key === key ? acc.total : 0) + applied;
+      turnAcc.set(attacker.id, { key, total });
+      recordTurn(d, { amount: total, ts });
+    }
+    const hpNow = victim.system?.attributes?.hp?.value ?? 1;
+    if (hpNow <= 0 && !recordedKills.has(victim.uuid)) {
+      recordedKills.add(victim.uuid);
+      recordKill(d, {
+        name: victimName,
+        cr: Number(victim.system?.details?.cr),
+        level: Number(attacker.system?.details?.level),
+        scene: game.scenes.get(victim.token?.parent?.id)?.name ?? canvas?.scene?.name ?? "",
+        wd: worldDate(),
+        ts
+      });
+    }
+    await writeDeeds(attacker, d);
+  } catch (e) { console.warn(`${MODULE_ID} | extra-damage deed record failed`, e); }
+}
+
 // The kill: an NPC hitting 0 HP on any client — but only the client holding the lastDamager
 // claim records it, and only once per corpse (healed-then-rekilled re-arms).
 async function onActorUpdate(actor, changes) {

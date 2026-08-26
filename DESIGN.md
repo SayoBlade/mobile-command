@@ -43,7 +43,7 @@ sections their cross-references always claimed).
 | 16 | DM wizard + session preflight | **Shipped** (both halves; wizard resized §48.1) |
 | 17 | Downtime | Built — the v0.1.171 "CURRENT STATE" block is the model |
 | 18, 18.1–18.4 | Travel mode; day/night curve | Built (curve numbers now live in preset.js — peak 0.8, derived threshold, day floor 0.22) |
-| 19 | Rest (downtime + watches folded) | Built |
+| 19 | Rest (downtime + watches folded) | Built — **slices 4+6 (shared header + legacy migration) landed 2026-08-26/27**, the section closes |
 | 20, 20.1–20.3 | Item transfers | Built (stash + p2p) |
 | 20.5 / 20.6 / 20.9 | Travel points · phone audio · dead-code sweep | Standalone records (misnumbered at birth; numbers kept — code references them) |
 | 21 | Sound (Settings › Sound, TV audio) | Built |
@@ -74,6 +74,7 @@ sections their cross-references always claimed).
 | 48 | Feedback window | Built (mailto leg untested) |
 | 49 | Pending-action queue + attention bell | Built (renumbered from a duplicate "§21", 2026-08-19) |
 | 50 | **Ember compatibility** (deep dive + support layer) | **Investigated AND built 2026-08-21** — campaigns.js registry; music/rests/daylight stand down; clock+sky card off Ember's calendar (§50.11 = the time-engine record); creation door opens Ember's own widget with a fit-shim. Open: the campaign-tab slot + Ember tab contents; owed legs in §22.6 item 5b |
+| 51 | **Dark Bargains** — deny death by signing | **SPEC ONLY 2026-08-26** — three questions await the DM (§51.3); nothing built |
 
 ---
 
@@ -2053,21 +2054,26 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    bench legs from today's builds: **§31-v2 panel pick + forced ATTACK through midi** · **§44
    ~~deeds through a real workflow~~ **RUN 2026-08-25/26 — and it caught the first-blow
    kill-credit bug, now fixed (§28.5.7)** · ~~§28.5.6 AoE leg re-run~~ **PASSED (phone slot
-   pick, zero executor dialogs, tier consumed — §28.5.7)** · **paralyzed auto-crit on current
-   AC5E** (§28.6 item 4 re-scope — still owed) · ~~the core 14.367 §28.4 validation~~ **PASSED
+   pick, zero executor dialogs, tier consumed — §28.5.7)** · ~~paralyzed auto-crit on current
+   AC5E~~ **CLOSED 2026-08-26/27 as already-working (4d6+3 doubled through the two-tap —
+   §28.5.8; no build needed)** · ~~the core 14.367 §28.4 validation~~ **PASSED
    2026-08-25/26 (§28.5.7; pins bumped: TESTED AC5E 14.533.15.4, module.json verified 14.367,
-   CLAUDE.md line — train-door regions read healthy, the 14.366 region worry closes)** · **§33
-   bargain-mode DM drawer legs** (request row · Strike staging incl. off-scene requester ·
-   Accept flag swap · decline · toggle — phone side proven 2026-08-25; the drawer legs fold
-   into the PANEL-RENDER question below) · **name-sync + gear-nudge spot checks** (§50.15.1) ·
-   **§28.4 leg 11 from a player seat** (Turn-HUD "your other PC" is GM-blind by design; Forthy
-   owns both premades) · **NEW — the panel-render question:** on the solo rig the DM panel's
-   pending-cast rows, AoO reaction chips and (presumably) bargain request rows never appeared
-   in DOM while their DATA layer was proven live (pendingCasts populated, dmReaction hook
-   caught `Pral ⚔ Fighter`) — most likely the flyout simply wasn't open/on the right tab on a
-   freshly reloaded client; eyeball the panel once at the next GM sitting before treating any
-   of it as a bug · **§44 multi-instance damage under-record** (midi's damageList carries only
-   the last instance's hpDamage — §28.5.7 filing, flavor-grade). *Window check 2026-08-25:
+   CLAUDE.md line — train-door regions read healthy, the 14.366 region worry closes)** · ~~§33
+   bargain-mode DM drawer legs~~ **ALL PASSED live 2026-08-26/27** (request row · Strike
+   staged 52 Wet Wool on the requester · Accept landed it + swapped the flags · decline ·
+   toggle — §28.5.8) · ~~name-sync + gear-nudge spot checks~~ **BOTH VERIFIED live
+   (§28.5.8)** · ~~§28.4 leg 11 from a player seat~~ **PASSED — and CAUGHT the core-14
+   no-canvas `game.combat` regression (phones had lost the Turn HUD/init prompt/economy);
+   fixed with shell.js `activeCombat()`; §28.4 now stands 12/12 on 14.367 (§28.5.8)** ·
+   ~~the panel-render question~~ **CLOSED: the panel is a DOCK — rows live inside tabs;
+   zero render bugs, and the one real gap (a pending cast invisible with the dock closed) is
+   FIXED: the Combat rail badge now counts pending casts (§28.5.8)** · ~~§44 multi-instance
+   damage under-record~~ **ROOT-CAUSED + FIXED: our own extra darts bypassed midi's
+   damageList; `recordExtraDamage()` now feeds the book from the extra-instance loop
+   (§28.5.8)** · ~~cover-geometry pass~~ **PASSED (bench wall → `ac.cover` 2 → adjudicated
+   16 — §28.5.8; the CLAUDE.md carried gap closes)** · ~~utility-item effect ghost (the
+   June Cloak case)~~ **CLOSED — Ring of Invisibility from the phone applies + posts on a
+   clean world; the June failure was the corrupted Sqyre world (§28.5.8)**. *Window check 2026-08-25:
    "Offline test" IS served on 14.367 but the GM seat is OCCUPIED (DM's client active) — the
    one-GM-client gate (§50.15) holds the whole GM-seat battery; player-seat legs can still run.*
 2. **Parked until the TV-TABLE exists ("the first-session shakedown"):** everything by eye and
@@ -2094,7 +2100,7 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    join the GM-seat bench list)** · ~~curseTable settings row~~ — **DECIDED
    2026-08-20: OUR d100 is the table ("I like ours more", after seeing samples of both).** No
    picker row; the `curseTable` UUID stays as the undocumented console-set escape hatch ·
-   §32's unmined remainder (Dark Bargains, lair-pulse engine, ch10–13 scene packs).
+   §32's unmined remainder — **Dark Bargains SPECCED as §51 (2026-08-26), three questions await the DM**; the lair-pulse engine + ch10–13 scene packs stay unmined.
 5. **Backlog (DM-pruned 2026-08-09 and again 2026-08-20 — this list, nothing re-added unasked):**
    - ~~PM extras (group notes · push-to-sleeping-phone)~~ — **PRUNED by the DM 2026-08-20**
      ("not sure 5 is needed").
@@ -2202,8 +2208,11 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
 - ~~**§36.1.7** — train art chroma-key pass (teal fringing)~~ — **DONE 2026-08-25** (keyed
   derivative, measured −85% fringe + edge AA; §36.1.7). *(The fiddle: built, §36.1.8.)*
 - **§37** — 10.8 Tender (Colored) has 0 mist tiles where every other car has 6.
-- **§19** — the phones' shared running-rest header · one-time migration of a legacy open
-  downtime window / night flag into a `rest` envelope.
+- ~~**§19** — the phones' shared running-rest header · one-time migration of a legacy open
+  downtime window / night flag into a `rest` envelope~~ — **BOTH BUILT + live-verified
+  2026-08-26/27 (§28.5.8):** `.mc-rest-strip` on every phone (type — stage · clock, minutes
+  only per §46); the legacy `night` flag wraps itself into a rest envelope on the active GM's
+  boot (bare standalone downtime deliberately left alone).
 - **§17** — teacher→learner auto-link · scribe/craft pickers reading real sheet data for generic
   templates · between-sessions progress view.
 - **§18.3/§41** — SC sunrise/sunset path written from source but never exercised against a live
@@ -3262,6 +3271,61 @@ flag holds real bench data (4 MM uses, 2 kills, maxHit 2) · a night's worth of 
 the pre-existing Test-husk tokens stand. Restored to found state: Pral 47/47, both PCs full,
 wizard slots 4/4+2/2, GM character cleared, scene 12.3 active, game PAUSED, music silent,
 tableMode person.
+
+### 28.5.8 The second overnight, 2026-08-26/27 — the verification tail closes, and leg 11 catches a phone-wide regression
+
+Seat free again ("you got another night"). The whole owed tail ran; **§28.4 now stands 12/12
+on core 14.367.**
+
+**THE CATCH OF THE NIGHT — `game.combat` is dead on phones since core 14 (leg 11, from a real
+player seat):** phone clients run core `noCanvas`, which leaves `scenes.viewed` null → 
+`scenes.current` null → `CombatEncounters#active` filters every SCENE-LINKED combat out
+(combat-encounters.mjs:55 + scenes.mjs:40-43, read from installed core). So on every real
+player phone: **no Turn HUD, no initiative prompt, no combat action-economy, no End turn** —
+invisible until players return, because every GM/bench client has a canvas. Fix:
+`activeCombat()` in shell.js — `game.combat ?? ` a scene-linked match against the ACTIVE
+scene (a phone's table-truth) — swapped in for all 13 shell reads. **Leg 11 then passed
+complete from the Forthy seat:** bound to the Wizard on the Fighter's turn → "Your turn —
+Fighter (Level 3, Champion)", Go offered + hopped the shell to the Fighter, End turn enabled,
+my-turn styling on.
+
+**The panel-render question CLOSED — zero bugs, one real gap fixed:** the DM panel is a DOCK
+(`dockTab null` until opened); night one queried rows that only exist inside an unopened tab.
+Eyeballed live tonight with the tabs open: the §33 bargain request row ("Wizard … asks to
+reroll — at a curse's price", strike + decline tickets) · the pending-cast row ("Wizard —
+Burning Hands · 1st", Place + ✕) · the AoO chip on the always-visible floor ("Pral ⚔ Fighter",
+⚔/✕). **The real gap:** a pending cast renders ONLY inside the Combat tab and the rail badge
+never counted them — with the dock closed, a phone's Place request was invisible everywhere.
+The Combat rail badge now counts pending casts first; verified dock-closed: announce → "1".
+
+**Closed legs, each observed live:** §33 bargain drawer 5/5 (toggle chip writes the setting ·
+request row · Strike stages the curse ON THE REQUESTER (52 — Wet Wool) · Accept lands the
+curse + swaps `bargainPending→bargainResult:"struck"` in one write · decline path + row
+clears) · **paralyzed auto-crit** (§28.6 item 4 CLOSES as already-working: hit a paralyzed
+Pral within 5 ft → damage rolled `4d6 + 3`, the 2d6 doubled, 14 applied — AC5E-native through
+the two-tap; no build needed) · **the cover-geometry pass** (a bench wall → dnd5e's own
+`ac.cover: 2`, base 14 adjudicated as 16 through the whole phone chain — the LAST carried
+stack-validation gap; cover is derived-only, nothing persists) · **the June Cloak ghost**
+(SRD Ring of Invisibility from the phone: effect applied, `invisible` status on, card posted —
+the 2026-06-30 failure was the corrupted Sqyre world, exactly as [[testing-ground-clean-world]]
+predicted) · **§50.15.1 spots** (`syncTokenNamesToActor`: prototype "Bench's hero" → "Mira
+Benchling" · the gear nudge renders on a real gearless hero — after two true detours: a blank
+routes to char-gen by design, and a 0-HP blank shows death saves first) · **§44 extras**
+root-caused and FIXED: not midi's bookkeeping — OUR extra darts apply via `target.applyDamage`
+outside the workflow, invisible to damageList; new `recordExtraDamage()` export feeds hit/foe/
+turn/kill-crossing from the extra-instance loop (live: 2-dart volley, totalKills 2→3).
+
+**Built this night besides the fixes:** §19 slices 4+6 — **the shared running-rest header**
+(`.mc-rest-strip` above the tab bar: "Long rest — second watch · <clock>", minutes only so the
+strip stays sameHTML-stable between minutes, §46) live-verified from the flags; and **the
+legacy-night migration** (a §17.4-era `night` flag without a `rest` envelope wraps itself on
+the active GM's boot, stage preserved — verified live by reconstructing the legacy shape;
+bare open downtime deliberately NOT wrapped, standalone downtime is still legitimate) ·
+**§51 Dark Bargains SPECced** (three questions await the DM).
+
+**Residue:** one more bandit corpse re-killed into its pile (the §44 verify volley) · the
+Wizard's deeds now read totalKills 3, MM uses 7 · world restored end-of-night (combat deleted,
+Pral 47/47, PCs full, assignments cleared, scene 12.3, paused, seat released).
 
 ### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
 
@@ -6668,3 +6732,61 @@ account stays silent; GM clients unchanged. Verified on the pane as Blue: role f
 Cross-check in the same session: Blue in a 1440×900 DESKTOP browser with role Auto gets
 the app immediately — the app was never phone-hardware-gated; only the role and the display
 account decide.
+
+---
+
+
+## 51. Dark Bargains — deny death by signing (SPEC 2026-08-26, awaiting the DM's three answers)
+
+The §32 board's biggest unmined resident, specced during the second overnight so a "yes"
+turns straight into a build. **Nothing here is built.**
+
+**What the book does (ch6):** thirteen unique pacts, each a BOON priced with a BANE, offered
+by the Moon's creatures **at the moment of death** — "deny death by accepting a Dark Bargain."
+Ch8's Book of the Horned King (sign your name = pledge your soul) is the same dramatic organ
+at a table-prop scale.
+
+### 51.1 The moment, on the phone
+
+A PC dies (third failed death save, or massive damage — the death the DM narrates). On the
+**DM's Crooked Moon tab**, every dead-or-dying PC row grows one control: **Offer Bargain**.
+Deliberately DM-TAPPED, never automatic ([[dm-can-always-cheat]] in reverse — the Moon
+doesn't bargain for every corpse, and the DM times the theatre): the offer is the DM's
+dramatic beat, and an auto-popup at death would fire during the table's saddest silence.
+
+The tap sends the dying player's phone a **full-screen deal card** — the fate-transaction
+family (dashed gold, §5 fate-marks; the twist/bargain voice): the pact's words, then two
+buttons a §4.1.1 layout apart: **Refuse** (left, quiet — death proceeds, the card closes,
+nothing else happens) and **Sign** (right, dashed-gold commit — the §42.2 five-second guard
+so a panicked double-tap can't sign a soul away). No timer: the Moon is patient; the DM
+
+paces the moment out loud.
+
+### 51.2 What signing does
+
+- **The revival is the DM's**, mechanically minimal by default: Sign → the PC returns to
+  **1 HP, prone**, death saves cleared (the book's terms per pact vary — the DM narrates the
+  specifics; the module does the smallest true thing).
+- **The BANE lands as a tracked mark**: an ActiveEffect in the §33 curse idiom (module flag,
+  chip on the condition strip, rich card on the Crooked Moon tab) — but **permanent** (no
+  real-time expiry; a bargain outlives a curse by design). Counter-shaped banes (Crooked
+  Fortune's "next 3 saves at disadvantage") carry a `count` the executor decrements from the
+  matching midi hook, with the §8.1 manual −/+ beside it on the DM panel for everything the
+  automation can't read.
+- **The pact is recorded** in the character file (§44 chapter candidates: the Fate chapter
+  gets a "Bargains struck" line — date, pact name, bane) — months later the DM's own view
+  answers "who owes what," the same job §32 said the tarot card must do.
+
+### 51.3 The three questions before building
+
+1. **Where do the thirteen pacts live?** (a) a `bargainTable` UUID pointing at the book's
+   journal/table — his content stays in his module, like `curseTable`; (b) module-original
+   pacts in the transactional-dread voice, like the curse d100 he preferred; (c) both — ours
+   ships, the UUID overrides. **Recommendation: (c)**, the §33 pattern exactly.
+2. **Does Sign auto-revive (1 HP, prone, saves cleared) or narrate-only?** Recommendation:
+   auto — the table's eyes are on the dying player, not the DM's HP box.
+3. **Scope of slice 1:** offer→card→sign/refuse→revive→bane chip, with counters DM-manual
+   (§8.1) and the §44 record — the Book-of-the-Horned-King signature UI is a LATER slice
+   (listed, unspecced). Confirm or trim.
+
+*Ledger: §22.6 item 4 points here; nothing builds until the answers land.*
