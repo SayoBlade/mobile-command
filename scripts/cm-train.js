@@ -151,8 +151,14 @@ export async function wireTrainDoors() {
       for (const [from, to] of [[A.trig, B.land], [B.trig, A.land]]) {
         const sys = { destinations: [to.uuid], placement: "center", snap: false, choice: false };
         const beh = from.behaviors.find(b => b.type === "teleportToken");
-        if (beh) await beh.update({ system: sys });
-        else await from.createEmbeddedDocuments("RegionBehavior", [{ name: "Car door teleport", type: "teleportToken", system: sys }]);
+        // disabled:true is the DESIGN, not damage (SS20.5, 074c987): entry triggers are
+        // off — the phone's travel-point flow performs every crossing itself, and these
+        // behaviours are kept only as the record of where each end leads (travelPointOf's
+        // compatibility branch reads them). Wiring must therefore (re)write the
+        // destination but keep the trigger dormant — an ENABLED door would let core
+        // teleport walkers silently, with no phone ask and no group option.
+        if (beh) await beh.update({ system: sys, disabled: true });
+        else await from.createEmbeddedDocuments("RegionBehavior", [{ name: "Car door teleport", type: "teleportToken", system: sys, disabled: true }]);
       }
       report.push(`${key}: 10.${chain[i].n} ⇄ 10.${chain[i + 1].n}`);
     }

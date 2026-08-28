@@ -1236,7 +1236,13 @@ async function handleItemUseStart(payload) {
   const hasHealDice = activity.type === "heal" && /\d*d\d+/i.test(healFormula);
   const hasDamageDice = (activity.damage?.parts ?? []).some(p =>
     (Number(p.number) && p.denomination) || /\d*d\d+/i.test(p.custom?.formula ?? p.formula ?? ""));
-  const noRollNeeded = !hasAttack && !hasDamageDice && !hasHealDice;
+  // Heals complete in ONE shot whether flat or dice (caught live 2026-08-28, Second
+  // Wind): the two-tap path waits for a PARKED midi workflow, but midi never parks a
+  // heal — the card posts, the use is consumed, and the phone waits on a damage tap
+  // that can never resolve, so the player heals nothing and loses the resource.
+  // autoRollDamage:"always" (the flat-heal branch below) makes midi roll the heal
+  // dice itself and apply them to the phone's chosen targets.
+  const noRollNeeded = !hasAttack && !hasDamageDice;
   if (activity.type === "heal") console.debug(`${MODULE_ID} | heal`, { name: activity.item?.name, formula: healFormula, flat: !hasHealDice });
   if (noRollNeeded) {
     // A flat HEAL needs autoRollDamage:"always" so midi applies the (rollless) amount instead of
@@ -1572,7 +1578,10 @@ function travelPointOf(scene, region) {
     const door = [...(scene?.regions ?? [])].find(r =>
       r.getFlag(MODULE_ID, "trainDoor") && new RegExp(end, "i").test(r.name));
     const b = door && [...door.behaviors].find(x => x.type === "teleportToken");
-    const dest = b?.system?.destination ?? b?.system?.destinations?.[0];
+    // core 14: teleportToken#destinations is a SET — [0] reads undefined and the whole
+    // train silently stops offering "Travel to next car" (caught live 2026-08-28).
+    const dests = b?.system?.destinations;
+    const dest = b?.system?.destination ?? (dests ? [...dests][0] : undefined);
     if (dest) return { label: "Travel to next car", dest: String(dest) };
   }
   return null;
@@ -2359,6 +2368,10 @@ async function ensureStoryChapter(actor) {
     });
   }
   let page = entry.pages.find(p => p.getFlag(MODULE_ID, "storyChapter") === actor.id);
+  // Self-heal a stale chapter title on any write — a page created before the hero
+  // was named (the wizard writes beats before its Name step) keeps the old name
+  // until the rename hook or this touch-up catches it.
+  if (page && page.name !== actor.name) { try { await page.update({ name: actor.name }); } catch (e) { /* cosmetic */ } }
   if (!page) {
     const made = await entry.createEmbeddedDocuments("JournalEntryPage", [{
       name: actor.name, type: "text",
@@ -3181,6 +3194,17 @@ function registerPlayerColorSync() {
       applyPcVisuals(td, a);
       if (td.light || td.ring) await tokenDoc.parent?.updateEmbeddedDocuments("Token", [td]);
     } catch (e) { /* cosmetic */ }
+  });
+  // Story chapter follows a rename (caught live 2026-08-28): the wizard's Name step
+  // lands AFTER the creation beats wrote the page, so the DM's "Player Stories" book
+  // kept a chapter called "New Hero" forever. The page is keyed by actor ID, so any
+  // rename — wizard, sheet, DM — just renames the chapter to match.
+  Hooks.on("updateActor", async (actor, changes) => {
+    try {
+      if (!isExecutor() || typeof changes?.name !== "string") return;
+      const page = storyJournalEntry()?.pages.find(p => p.getFlag(MODULE_ID, "storyChapter") === actor.id);
+      if (page && page.name !== actor.name) await page.update({ name: actor.name });
+    } catch (e) { console.warn(`${MODULE_ID} | story chapter rename failed`, e); }
   });
 }
 

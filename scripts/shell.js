@@ -943,8 +943,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (s.type) { // species / background / class — templated on the pick
         const it = actor.items.find(i => i.type === s.type);
         if (!it) continue;
+        // "a Amnesiac" (caught live 2026-08-28): the templates hardcode "a" — pick
+        // the article from the actual name before substituting it in.
         return { step: s.id, choice: it.name, img: it.img,
-          q: CREATION_BEATS[s.id].replace("«name»", it.name) };
+          q: CREATION_BEATS[s.id]
+            .replace(/\ba «name»/, `${/^[aeiou]/i.test(it.name) ? "an" : "a"} «name»`)
+            .replace("«name»", it.name) };
       }
       if (s.id === "abilities") {
         const ab = actor.system?.abilities ?? {};
@@ -3079,8 +3083,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (piles.length) return this.#openLoot(piles[0].uuid);
       if (doors.length) {
         if (doors[0].ds === 2) return this.#useNote("The door is locked.");
+        // Say what the tap did (caught live 2026-08-28): the silent single-hit
+        // operate reads as "nothing happened", and a second tap toggles the door
+        // right back — the player can shut a door on themselves without ever
+        // seeing either state.
+        this.#useNote(doors[0].ds === 1 ? "Closed the door." : "Opened the door.");
         return this.#operateInteractable("door", doors[0].id);
       }
+      this.#useNote("Used it.");
       return this.#operateInteractable("tile", tiles[0].id);
     }
     // several → show the pick list under the pad
@@ -8406,7 +8416,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const t = ev.target;
     const trc = t?.closest?.("[data-tr-coin]"); // §20: transfer coin amount → state, no re-render (keep focus)
     if (trc && this.#transferState) { (this.#transferState.coins ??= {})[trc.dataset.trCoin] = Math.max(0, Math.floor(Number(trc.value) || 0)); return; }
-    if ((t instanceof HTMLTextAreaElement || t instanceof HTMLInputElement) && t.classList.contains("mc-jn-input")) {
+    if ((t instanceof HTMLTextAreaElement || t instanceof HTMLInputElement) && t.classList.contains("mc-jn-input")
+        && !t.classList.contains("mc-wiz-beat-input") && !t.classList.contains("mc-st-card-input")) {
+      // Wizard-beat and story-question inputs share mc-jn-input for the LOOK but keep
+      // their own values — stashing them here leaked the last story answer into the
+      // party-journal composer as a pre-filled draft (caught live 2026-08-28).
       this.#journalDraft = t.value; // entry textarea OR the new-page title input
     } else if (t instanceof HTMLTextAreaElement && t.classList.contains("mc-pm-input")) {
       this.#pmDraft = t.value; // §27: keep the message draft across re-renders (no focus steal)

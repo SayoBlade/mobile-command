@@ -48,8 +48,28 @@ function battleTrackUuid() {
  *  and no PC has an anthem — there is nothing to play, so taking over would only pause the
  *  room's ambience for silence (this bit EVERY unconfigured world, not just Ember's).
  *  "ours": the takeover model as designed. Exported for the panel's staging row and tests. */
+/** Video Game Music (the `vgmusic` module) also switches the room to combat playlists on
+ *  combatStart — configured per scene (`flags.vgmusic.music.combat`), per token/actor battle
+ *  theme, or via its world Default Music. Both engines firing at once double-plays two combat
+ *  tracks over each other (heard live 2026-08-28: our staged track + vgmusic's sequential
+ *  start of the same playlist). Where the DM has given vgmusic a combat source that will fire,
+ *  it is the configured driver — we stand down exactly like the Ember rule. */
+function vgmusicDrivesCombat() {
+  try {
+    if (!game.modules.get("vgmusic")?.active) return false;
+    if (game.scenes.active?.getFlag("vgmusic", "music")?.combat?.playlist) return true;
+    const def = game.settings.get("vgmusic", "defaultMusic");
+    if (def?.data?.vgmusic?.music?.combat?.playlist) return true;
+    // A combatant with its own vgmusic battle theme also summons its engine.
+    return !!game.combat?.combatants?.some((c) =>
+      c.token?.getFlag?.("vgmusic", "music")?.combat?.playlist
+      || c.actor?.getFlag?.("vgmusic", "music")?.combat?.playlist);
+  } catch (e) { return false; } // absent module / shape drift → not the driver
+}
+
 export function combatMusicMode() {
   if (isEmberWorld()) return "ember";
+  if (vgmusicDrivesCombat()) return "vgmusic";
   const anyTheme = (() => {
     try { return game.actors.some((a) => a.type === "character" && a.getFlag(MODULE_ID, "combatTheme")); }
     catch (e) { return false; }

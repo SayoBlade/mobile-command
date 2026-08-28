@@ -2609,6 +2609,11 @@ function combatHTML() {
       // stands down — say so instead of showing a picker that would do nothing.
       staging = `<label class="mc-dmp-battle-lbl"><i class="fas fa-music"></i> Battle music</label>
         <div class="mc-dmp-empty">Ember plays themed battle music on its own for this world.</div>`;
+    } else if (combatMusicMode() === "vgmusic") {
+      // Same stand-down as Ember: the DM configured Video Game Music to switch combat
+      // tracks (scene, default, or a combatant's theme) — two engines double-play.
+      staging = `<label class="mc-dmp-battle-lbl"><i class="fas fa-music"></i> Battle music</label>
+        <div class="mc-dmp-empty">Video Game Music runs the battle music here — it follows this scene's combat playlist.</div>`;
     } else if (!pl) {
       staging = `<label class="mc-dmp-battle-lbl"><i class="fas fa-music"></i> Battle music</label>
         <div class="mc-dmp-empty">Set a <b>Combat-music playlist</b> in Settings to pick a battle track.</div>`;
@@ -3853,7 +3858,13 @@ let renderAgain = false;
 function render() {
   if (renderRaf) { renderAgain = true; return; }
   renderNow();
-  renderRaf = requestAnimationFrame(() => {
+  // A hidden document fires NO animation frames (browser throttling), so an rAF
+  // follow-up parks renderRaf truthy forever and every later render() — including
+  // the DM's own clicks — defers into a repaint that never comes. Schedule the
+  // follow-up on a timer while hidden (throttled to ~1s there, which is fine);
+  // rAF stays the scheduler whenever frames actually flow.
+  const schedule = document.hidden ? ((cb) => setTimeout(cb, 50)) : requestAnimationFrame;
+  renderRaf = schedule(() => {
     renderRaf = 0;
     if (renderAgain) { renderAgain = false; render(); }
   });
