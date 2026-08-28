@@ -3416,8 +3416,13 @@ her tokens travelled 10.1→10.2→10.3→10.4→10.5→10.6→10.9 (now on 10.9
 item-pile, one dead + two vanished-hidden haint echoes) · freed haints hidden on their cars
 (Sweetheart 10.2, Songstress 10.3, Jailbird 10.6; Daydreamer still visible 10.4, Mariner
 untouched 10.5) · "The Ghostlight Ride" party-journal page + Brekka's story chapter ·
-`combatBattleTrack` now "09 The Clockwork Dragon" · 10.9 carries a vgmusic combat flag (MGS
-playlist) · vgmusic + 3ds-atlas ENABLED in the world · `tableMode` = **online** (the DM's
+`combatBattleTrack` now "09 The Clockwork Dragon" · ~~10.9 carries a vgmusic combat flag (MGS
+playlist) · vgmusic + 3ds-atlas ENABLED in the world~~ — **REVERSED 2026-08-28 (DM: "Is VGM
+really required, I forgot we had our own system, let's use it"): vgmusic + 3ds-atlas DISABLED
+again, the 10.9 scene flag removed, `combatMusicMode()` reads "ours" — the §25 engine is the
+world's combat-music driver. The "vgmusic" stand-down mode (fix 9) STAYS in the code as
+dormant hardening: any world where vgmusic is active AND configured still gets one driver,
+not two** · `tableMode` = **online** (the DM's
 standing ask, not residue) · ride mist tiles ON across the cars · scene 10.9 active, world
 left unpaused (found unpaused), both bench seats released at session end.
 
