@@ -2079,16 +2079,22 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    clean world; the June failure was the corrupted Sqyre world (§28.5.8)**. *Window check 2026-08-25:
    "Offline test" IS served on 14.367 but the GM seat is OCCUPIED (DM's client active) — the
    one-GM-client gate (§50.15) holds the whole GM-seat battery; player-seat legs can still run.*
-   **NEW FILINGS from the Brekka run (2026-08-28, §28.5.9 — nine bugs already fixed there;
-   these remain open):** AC5E drifted to **14.533.15.6** mid-run — §28.4 rerun before the pin
+   **NEW FILINGS from the Brekka run (2026-08-28, §28.5.9 — nine bugs already fixed there):**
+   AC5E drifted to **14.533.15.6** mid-run — §28.4 rerun before the pin
    bump (preflight names it) · journal **"New page" swallows the composer text as the TITLE**
-   (wants a title prompt or a length guard) · the move-pad **"Blocked" note lingers** across
-   scene arrivals (clear it on travel/teleport) · the wizard's fighter **skill double-pick may
+   (wants a title prompt or a length guard) · ~~the move-pad **"Blocked" note lingers** across
+   scene arrivals~~ **FIXED same day** (clears on successful travel — §28.5.9 follow-ups) ·
+   the wizard's fighter **skill double-pick may
    drop the second choice** when driven fast (Persuasion lost; human-paced retest owed) · the
    §36 boarding roster's scene-scoping hides tokenless PCs when ANY PC token is on the active
-   scene — the pre-token ceremony wants an "everyone" fallback that ignores stray PCs (worked
-   around by activating an empty car) · heal activities now complete in one shot; a real "Roll
-   healing" second tap is the nicer future shape (§28.5.9 fix 5).
+   scene — **MITIGATED by §36.2** (Set-the-stage activates an empty entry car, so the ceremony
+   always sees everyone; the raw scoping gap stands only for ad-hoc use) · ~~heal activities
+   one-shot; a real "Roll healing" second tap is the nicer future shape~~ **BUILT same day
+   ("definitely add roll healing!") — the whole heal pipeline rebuilt deterministic
+   (§28.5.9 follow-ups)** · NEW: the long rest's "−1 Exhaustion" line printed but the
+   Exhaustion-1 + Draining-Regret effects SURVIVED the rest on Brekka — check whether the
+   haint's custom effect re-asserts exhaustion or dnd5e skipped the reduction (unfiled depth,
+   worth one look at the next bench).
 2. **Parked until the TV-TABLE exists ("the first-session shakedown"):** everything by eye and
    by ear in §22.4 — motion on the real screen, all cues through real speakers, seat rotations
    physically, settings app on the real display, camera/fog/POV on the real TV, mute-the-room.
@@ -3409,6 +3415,22 @@ driven synthetically (physical-dice entry remains the answer) · AC5E drifted ag
 GM-seat legs (panel pick UI + forced attack through midi's full workflow). Still owed: fiddle
 by ear (pane never displayed — no audio unlock all session).
 
+**Same-day follow-ups (the DM's replies, all built + verified live):** §36.2 first-boarding
+flow (his flow sketch — see that section) · **"Roll healing" SHIPPED** ("definitely add roll
+healing!"): the heal ceremony is one deliberate tap ("Roll healing" replaces Use on heal
+activities) and the result is a green **+N Healing** card + a roll chip. UNDERNEATH it took
+three rounds of live archaeology: on midi 14.0.11 a dice-heal's `completeActivityUse` NEVER
+resolves (parks at SavesComplete; awaiting it eats the use and heals nothing — the §28.5.9
+fix-5 one-shot was the lucky race, not the rule), a workflow-attached rollDamage nudges it
+exactly ONE state and mints an unapplied total, and `WorkflowState_SavesComplete` isn't even
+exposed as a workflow property (the park-finder had to match the state by NAME). Final shape:
+heals fire-and-park like every two-tap, the phone auto-drives the damage stage, and the
+executor does that stage ITSELF — standalone heal roll (the chat card's own call) +
+`Actor#applyDamage type:"healing"` to the workflow's targets + parked-workflow teardown.
+Verified: 24→29 applied, +5 card, zero zombie workflows · the lingering **"Blocked"** move
+note now clears on every successful travel (he asked what it even was — it's the phone
+D-pad's refusal note going stale across cars).
+
 **Residue (test world, all reported none deleted):** Brekka Mirefoot = Player 2's real hero
 (L3 Bogborn Amnesiac Barrow-Guard, 29/29, Exhaustion 1 + the Draining-Regret effect, Bless
 ticking, 0 twists, Judgement card held, Persuasion granted by hand after the wizard drop) ·
@@ -4523,6 +4545,32 @@ the single exponential fade left the fiddle's first ~2s below hearing, so it's n
 ramps (0.14 floor by 0.6s, full by 3.5s); re-measured 0.018 RMS in the first second, was 0.000.
 By ear at the table still owed, like every cue.
 
+
+### 36.2 The first boarding — session-one opening flow (DM 2026-08-28 — BUILT same day, bench-verified)
+
+*"Let's come up with a first session flow, something like start with fog, dm view opens on entry
+cart and a small area is marked (for dm only) with 'place all PCs here', then the dm can narrate
+each pc going onboard, then switch to the map view."*
+
+Built as ONE new button — **"Set the stage"** — at the top of the All-aboard drawer (setup
+precedes performance; the §36.1.5 sequence rule). One tap:
+
+1. **Fog first**: raises the station overlay (cmStation) on the shared screen, so everything
+   below happens behind the curtain.
+2. **The entry car activates + the DM's view switches to it** — rear car of the wired chain,
+   Colored preferred (`trainChains()`). Deliberate side-effect: an entry car EMPTY of PC tokens
+   makes the boarding roster's all-PCs fallback fire, so every hero is listed — tokenless ones
+   included. (This bakes the workaround for the §22.6 scene-scoping filing into the flow.)
+3. **The DM-only party mark**: a HIDDEN Drawing (core renders hidden placeables to GMs only —
+   no new visibility machinery) — 3×3 cells anchored one cell off the rear boarding landing,
+   dashed teal, "Place the party here", flagged `boardingZone` so re-runs never duplicate.
+   It persists harmlessly between sessions (UI-BIBLE §5 staging-marks rule, written this pass).
+
+The narration half is the drawer as it already plays: introduce each hero (§36 rows), hand +
+punch tickets, drag their tokens from the panel onto the mark — and **"Stop mist" IS the
+"switch to the map view" beat** (§6.8 fade). Verified live 2026-08-28: one tap → fog up,
+10.1 Passenger Car (Colored) active + viewed, zone drawing at (704,284) hidden:true; struck
+the set after the check (fog down, wreckage re-activated); the mark stays for the real session.
 
 ---
 

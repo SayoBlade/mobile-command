@@ -1095,7 +1095,13 @@ async function findParkedWorkflow(activityUuid, itemUuid, preIds = new Set(), ti
       // "—" totals, never a Hit, and rolling damage on the un-attacked workflow misbehaved.
       // Require the actual WaitForDamageRoll state; for attacks, also a real attack roll.
       const atDamage = wf.currentAction === wf.WorkflowState_WaitForDamageRoll
-        || (wf.suspended && wf.currentAction !== wf.WorkflowState_WaitForAttackRoll);
+        || (wf.suspended && wf.currentAction !== wf.WorkflowState_WaitForAttackRoll)
+        // A HEAL's use never reaches WaitForDamageRoll on this midi build — it sits at
+        // SavesComplete, unsuspended, forever (watched live 2026-08-28, Second Wind).
+        // That IS its park. Matched BY NAME: unlike WaitForDamageRoll, midi doesn't
+        // expose a WorkflowState_SavesComplete property on the workflow, so the
+        // property comparison silently tested against undefined and never matched.
+        || (wf.activity?.type === "heal" && wf.currentAction?.name === "WorkflowState_SavesComplete");
       const attackDone = wf.activity?.type !== "attack" || !!wf.attackRoll;
       if (atDamage && attackDone && wf.needsDamage !== false) return { parked: wf };
       if (wf.currentAction === wf.WorkflowState_Completed || wf.currentAction === wf.WorkflowState_Abort) return { parked: null, seen: wf };
@@ -1236,13 +1242,14 @@ async function handleItemUseStart(payload) {
   const hasHealDice = activity.type === "heal" && /\d*d\d+/i.test(healFormula);
   const hasDamageDice = (activity.damage?.parts ?? []).some(p =>
     (Number(p.number) && p.denomination) || /\d*d\d+/i.test(p.custom?.formula ?? p.formula ?? ""));
-  // Heals complete in ONE shot whether flat or dice (caught live 2026-08-28, Second
-  // Wind): the two-tap path waits for a PARKED midi workflow, but midi never parks a
-  // heal — the card posts, the use is consumed, and the phone waits on a damage tap
-  // that can never resolve, so the player heals nothing and loses the resource.
-  // autoRollDamage:"always" (the flat-heal branch below) makes midi roll the heal
-  // dice itself and apply them to the phone's chosen targets.
-  const noRollNeeded = !hasAttack && !hasDamageDice;
+  // Dice-bearing HEALS take the normal fire-and-park path below, exactly like a save
+  // spell with damage: on this midi build a heal's completeActivityUse NEVER resolves
+  // on its own (watched live 2026-08-28 — with autoRollDamage:"always" it parks at
+  // WaitForDamageRoll with the roll made but unapplied; without, it sits at
+  // SavesComplete forever), so any branch that AWAITS completion hangs the phone and
+  // eats the resource. Fired unawaited it parks like every other two-tap workflow,
+  // and the phone auto-drives the damage stage (shell: "Roll healing" is the one tap).
+  const noRollNeeded = !hasAttack && !hasDamageDice && !hasHealDice;
   if (activity.type === "heal") console.debug(`${MODULE_ID} | heal`, { name: activity.item?.name, formula: healFormula, flat: !hasHealDice });
   if (noRollNeeded) {
     // A flat HEAL needs autoRollDamage:"always" so midi applies the (rollless) amount instead of
@@ -1443,6 +1450,35 @@ async function handleItemUseDamage({ requestId }) {
   // than midi's own ~550ms re-target tail when the next action triggers it.
   const sweepLater = () => { for (const ms of [400, 1200, 2500, 5000]) setTimeout(restoreGmTargets, ms); };
   try {
+    // HEALS bypass the workflow resume ENTIRELY (2026-08-28, Second Wind, three
+    // rounds of live archaeology): midi parks a heal at SavesComplete; a
+    // workflow-attached rollDamage nudges it exactly one state (to
+    // WaitForDamageRoll, total minted but never APPLIED) and there it dies again —
+    // the machine drip-feeds and no amount of driving reaches the apply. So the
+    // executor does the whole damage stage itself, deterministically: roll
+    // standalone (the chat card's own Healing call, proven to roll cleanly), apply
+    // to the workflow's targets via Actor#applyDamage type:"healing" (the séance
+    // idiom), and retire the parked workflow so it can't haunt the next fire. The
+    // use itself (card + consumption + effects) already happened at the fire.
+    if (wf.activity?.type === "heal") {
+      let healTotal = null;
+      try {
+        const rolled = await wf.activity.rollDamage({ midiOptions: { fastForwardDamage: true } }, { configure: false }, {});
+        const arr = Array.isArray(rolled) ? rolled : (rolled ? [rolled] : []);
+        healTotal = arr.reduce((a, r) => a + (r?.total ?? 0), 0) || null;
+      } catch (e) { console.warn(`${MODULE_ID} | standalone heal roll failed`, e); }
+      if (healTotal != null) {
+        const tgs = Array.from(wf.targets ?? []);
+        const actors = (tgs.length ? tgs.map(t => t?.actor ?? t?.document?.actor) : [wf.actor]).filter(Boolean);
+        for (const a of new Set(actors)) {
+          try { await a.applyDamage([{ value: healTotal, type: "healing" }]); } catch (e) { console.warn(`${MODULE_ID} | heal apply failed`, e); }
+        }
+      }
+      try { wf.aborted = true; wf.performState?.(wf.WorkflowState_Abort)?.catch?.(() => {}); } catch (e) { /* best effort */ }
+      const healResult = { ok: true, damageTotal: healTotal, saves: [], failedSaves: [], reason: null };
+      rememberDamageResult(requestId, healResult);
+      return healResult;
+    }
     const { captured } = await captureNotifications(async () => {
       await wf.activity.rollDamage({ workflow: wf, midiOptions: { fastForwardDamage: true } });
       return true;

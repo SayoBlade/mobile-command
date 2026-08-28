@@ -5634,13 +5634,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const s = this.#actionState;
 
     // Post-attack phase: show the attack result + a deliberate "Roll damage" tap.
-    if (s.phase === "rolling" || s.phase === "attacked") {
+    if (s.phase === "rolling" || s.phase === "attacked" || s.phase === "healed") {
       const head = `<div class="mc-picker-head">
         <button class="mc-back mc-picker-x" data-action="action-back" aria-label="Close"><i class="fas fa-xmark"></i></button>
         <span class="mc-picker-title">${foundry.utils.escapeHTML(s.name)}</span>
       </div>`;
       if (s.phase === "rolling") {
         return head + `<div class="mc-target-note">Rolling…</div>`;
+      }
+      // The healing landed — show it green like a hit, with the amount when the
+      // executor could read one (chat carries the roll either way). ✕ closes.
+      if (s.phase === "healed") {
+        return head + `<div class="mc-attack-result mc-hit">
+          <span class="mc-attack-total">${s.healTotal != null ? `+${s.healTotal}` : "✓"}</span>
+          <span class="mc-attack-label">${s.healTotal != null ? "Healing" : "Healed — see chat"}</span>
+        </div>`;
       }
       // The red card used to be LABELLED "Attack" (bench 2026-08-01: total 21 vs AC 99 read
       // "21 ATTACK" in red) — say "Miss", the word the player is looking for. A null total
@@ -5780,7 +5788,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${recBanner}
       <div class="mc-targets">${body}${selfRow}</div>
       <button class="mc-fire ${s.depleted ? "mc-fire-warn" : ""} ${canFire ? "" : "mc-disabled"}" data-action="fire" ${canFire ? "" : "disabled"}>
-        ${s.busy ? "Using…" : (s.depleted ? "Use anyway" : "Use")}
+        ${s.busy ? (s.isHeal ? "Rolling…" : "Using…") : (s.depleted ? "Use anyway" : (s.isHeal ? "Roll healing" : "Use"))}
       </button>`;
   }
 
@@ -5900,6 +5908,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // showing "Roll damage" for an activity midi never parks a damage step for (e.g.
       // Reload: a utility activity with no damage). DM/Sqyre 2026-06-23.
       hasDamage: (activity.damage?.parts?.length ?? 0) > 0,
+      isHeal: activity.type === "heal", // §36.2-era ask (DM 2026-08-28): heals get their own roll ceremony + result card
       // Auto-resolve on the executor for anything that ISN'T a player-rolled
       // attack/damage/save/heal (cast/utility/summon/check/enchant/…): those have
       // no damage to park OR spawn an untrackable linked workflow (cast), so the
@@ -6457,6 +6466,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Only in combat: out of combat you often fire several things in a row, and
     // the drawer snapping shut each time is just friction (DM, 2026-06-18).
     if (s.group && this.#inCombat()) this.#collapsedActionGroups.add(s.group);
+    // A parked HEAL resumes itself (DM 2026-08-28: "definitely add roll healing!"):
+    // the player's one "Roll healing" tap already happened, so drive the damage stage
+    // now — before the no-damage guard below, which only knows damage.parts and would
+    // cancel the parked healing as "nothing to roll".
+    if (s.isHeal && res.needsDamage && res.requestId) {
+      s.requestId = res.requestId; s.hasAttack = false; s.busy = false;
+      return this.#rollDamage();
+    }
     if (!res.needsDamage || !s.hasDamage) {
       // Resolved without a damage step: a miss, nothing to roll, OR — the safeguard —
       // the executor reported a damage step for an activity that has NO damage to roll
@@ -6473,6 +6490,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#applyMastery(s, res);
         this.render();
         if (res.reason) ui.notifications.info(`${s.name}: ${res.reason}`);
+        return;
+      }
+      // A HEAL owes its result the same way a miss does (DM 2026-08-28: "definitely add
+      // roll healing!") — Second Wind used to snap back to the list with nothing shown.
+      // The tap that fired it was "Roll healing"; this card is the dice landing.
+      if (s.isHeal) {
+        s.busy = false; s.phase = "healed"; s.requestId = null;
+        s.healTotal = (typeof res.healTotal === "number") ? res.healTotal : null;
+        this.render();
         return;
       }
       this.#actionState = null; this.render();
@@ -6636,7 +6662,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // `#actionState !== s` in #fireAction and was dropped, stranding the card on "Rolling…" forever
     // (bench 2026-08-02: reproduced as "the second attack after a damage roll hangs"). The toast and
     // any failure warning below still run: the damage really happened, so the player still hears it.
-    if (this.#actionState === s) { this.#actionState = null; this.render(); }
+    if (this.#actionState === s) {
+      // The healed card is the result the "Roll healing" tap is owed — keep it up
+      // showing the total (the ✕ closes it); everything else clears as before.
+      if (s.isHeal && res?.ok) {
+        s.busy = false; s.phase = "healed"; s.requestId = null;
+        s.healTotal = (typeof res.damageTotal === "number") ? res.damageTotal : null;
+        this.render();
+      } else { this.#actionState = null; this.render(); }
+    }
     if (!res?.ok) return ui.notifications.warn(`${s.name}: ${res?.reason ?? "damage failed"}`);
     // Damage toaster (DM 2026-06-19): the damage rolls on the executor and midi's
     // card doesn't reach the phone's chat-roll hook cleanly, so toast the total the
@@ -6645,7 +6679,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // Say WHY a save spell's roll didn't land (Mind Sliver on a made save): the die is real,
       // the zero is the rules — without this line it reads as a bug (DM 2026-07-26).
       const saved = (res.saves ?? []).length && !(res.failedSaves ?? []).length;
-      const label = saved ? `${s.name} — ${res.saves.join(", ")} saved, no damage` : `${s.name} — damage`;
+      const label = saved ? `${s.name} — ${res.saves.join(", ")} saved, no damage`
+        : s.isHeal ? `${s.name} — healing` : `${s.name} — damage`;
       const entry = { id: `${s.requestId}-dmg`, label, total: saved ? 0 : res.damageTotal, formula: "", outcome: "dmg" };
       this.#recentRolls.unshift(entry);
       if (this.#recentRolls.length > ROLL_HISTORY_MAX) this.#recentRolls.length = ROLL_HISTORY_MAX;
@@ -7518,7 +7553,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         if (!ask) return this.render();
         rpc.travelTo({ regionId: ask.regionId, group, forActorUuid: this.actor?.uuid })
           .then((res) => {
-            if (res?.ok) { if (group && res.moved > 1) ui.notifications.info(`${res.moved} travelled together.`); }
+            if (res?.ok) {
+              // A stale "Blocked" from the previous car survived the crossing and sat
+              // over the new map's pad (DM asked what it even was, 2026-08-28) — a
+              // successful travel starts the new car with a clean note line.
+              this.#moveBudget = null; this.#partyMoveNote = null; this.render();
+              if (group && res.moved > 1) ui.notifications.info(`${res.moved} travelled together.`);
+            }
             else ui.notifications.warn(`Travel: ${res?.reason ?? "failed"}`);
           })
           .catch((e) => console.warn(`${MODULE_ID} | travel failed`, e));

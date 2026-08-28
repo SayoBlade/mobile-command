@@ -13,7 +13,7 @@ import { FATE_THREADS, FATE_STEPS, applyFateReward } from "./fateweaving.js"; //
 import { CURSES, rollCurse, pickCurse, applyCurse, actorCurses, curseTableUuid } from "./cm-curses.js"; // §33 Chaotic Curses
 import { armTwist } from "./twists.js"; // §31 v2: Apply arms the declared face on a chosen creature
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
-import { trainScenes, trainMistOn, wireTrainDoors, setTrainMist } from "./cm-train.js"; // §37 the Ghostlight ride
+import { trainScenes, trainChains, trainMistOn, wireTrainDoors, setTrainMist } from "./cm-train.js"; // §37 the Ghostlight ride · §36.2 the first boarding
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
 import { bossList, bossSave, bossImage, bossSoundSrc, bossSoundLabel, dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { setDaylightSuspended } from "./daylight.js"; // §41 travel owns the light for the length of a journey
@@ -1046,6 +1046,10 @@ function allAboardBody() {
   // the book plays it: raise the mist · the fiddle pierces it · the distant engine · the whistle ·
   // bring it in · stop. Buttons in the sequence you perform them beats grouped-by-what-they-are.
   return `
+    <button class="mc-fx-btn" data-cm-stage="1" style="width:100%"
+      title="One tap before the narration: fog on the shared screen, the entry car set active behind it, and a party mark only you can see">
+      <i class="fas fa-clapperboard"></i><span>Set the stage</span>
+    </button>
     <button class="mc-fx-btn ${stationOn ? "mc-on" : ""}" data-fx="cmStation" style="width:100%"
       title="${stationOn ? "Let the fog fade away" : "The fog rises on the shared screen"}">
       <i class="fas fa-smog"></i><span>${stationOn ? "Stop mist" : "Start mist"}</span>
@@ -1075,6 +1079,43 @@ function allAboardBody() {
         <i class="fas fa-ticket"></i><span>${allHave ? "Punch All" : "All Tickets"}</span>
       </button>
     </div>`;
+}
+
+// §36.2 The first boarding (DM 2026-08-28: "start with fog, dm view opens on entry cart and a
+// small area is marked (for dm only) with 'place all PCs here', then the dm can narrate each pc
+// going onboard, then switch to the map view"). One tap does the setup half:
+//   fog up on the shared screen · the ENTRY CAR (rear of the wired chain, Colored preferred)
+//   activated BEHIND the fog — deliberately: an empty active car makes the drawer's roster fall
+//   back to every hero, tokenless ones included · a party mark on the boarding squares that only
+//   the DM can see. The narration half is the drawer as it already plays (introduce · ticket ·
+//   drag each hero onto the mark) and "Stop mist" is the switch-to-map-view beat.
+// The mark is a HIDDEN Drawing: hidden placeables render for GMs only — core's own semantics,
+// no new visibility machinery, and harmless to leave in place between sessions. Idempotent via
+// the boardingZone flag.
+async function stageFirstBoarding() {
+  const chains = trainChains();
+  const chain = chains.colored.length ? chains.colored : chains.plain;
+  const entry = (chain.find((e) => e.n === 1) ?? chain[0])?.scene;
+  if (!entry) return ui.notifications.warn("No Ghostlight car scenes (10.1–10.8) in this world.");
+  if (!fxIsOn("cmStation")) await dmToggleFx("cmStation"); // fog first, so the switch happens behind it
+  if (!entry.drawings.some((d) => d.flags[MODULE_ID]?.boardingZone)) {
+    const g = entry.grid?.size ?? 140;
+    // Anchor on the rear boarding landing when the doors are wired; a sane mid-car
+    // spot otherwise. 3×3 cells — room for a whole party without stacking.
+    const land = entry.regions.find((r) => r.flags[MODULE_ID]?.trainLand === "back")?.shapes?.[0];
+    const x = Math.max(0, Math.round(land ? land.x - g : g * 6));
+    const y = Math.max(0, Math.round(land ? land.y - g : g * 3));
+    await entry.createEmbeddedDocuments("Drawing", [{
+      x, y, shape: { type: "r", width: g * 3, height: g * 3 },
+      strokeColor: "#2fbd9c", strokeAlpha: 0.9, strokeWidth: 4,
+      fillType: 0, hidden: true,
+      text: "Place the party here", fontSize: 34, textColor: "#2fbd9c",
+      flags: { [MODULE_ID]: { boardingZone: true } },
+    }]);
+  }
+  if (!entry.active) await entry.activate();
+  if (game.scenes.viewed?.id !== entry.id) await entry.view();
+  ui.notifications.info(`The stage is set — fog is up, ${entry.name} is the scene, and the party mark is yours alone to see.`);
 }
 
 let dtGearFor = null; // §17.7: actorId whose per-character gear panel is expanded (DM-local)
@@ -4310,6 +4351,8 @@ async function onClick(ev) {
     await game.settings.set(MODULE_ID, "fxActive", cur);
     return render();
   }
+  // §36.2 the first boarding (DM 2026-08-28): one tap sets the session-one stage.
+  if (ev.target.closest("[data-cm-stage]")) { await stageFirstBoarding(); return render(); }
   // §36.1 the three cues, fired by hand as the sentences land. Approach TOGGLES — it is a bed the
   // DM leaves running under the narration, not a stab.
   const cmCue = ev.target.closest("[data-cm-cue]");

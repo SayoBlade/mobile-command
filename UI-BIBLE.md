@@ -284,6 +284,14 @@ opposed to the solid outline of a mundane condition. **Gold on a campaign mark m
 **small dot on a tab icon** is how the shell's own tab bar asks for attention (the §6.5 badge
 idiom, extended 2026-08-21 when the pulsing twist chip moved into the Crooked Moon tab).
 
+**DM-only staging marks on the canvas (written down 2026-08-28; first use = §36.2's "Place the
+party here" zone):** a mark meant for the DM's eyes during setup is a **hidden Drawing** — core
+already renders hidden placeables to GMs only and faded, so no new visibility machinery, and it
+can safely persist between sessions. Dashed/stroked in the app's teal, wearing a short
+imperative label ("Place the party here"), flagged (`boardingZone` etc.) so re-runs find it
+instead of duplicating. Players must never see a staging mark; if a mark is FOR players it is
+not staging, it's content.
+
 **The "never a spinner" rule is about *in-app* waiting chips** (someone owes an action) — a spinner
 there is anxious dead-air. The **game-pause cue on the shared canvas** is the deliberate exception:
 Foundry's centred "GAME PAUSED" bar covered the map (it hid a travel journey outright), so it's
