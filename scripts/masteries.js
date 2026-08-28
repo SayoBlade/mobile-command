@@ -60,6 +60,17 @@ export function masteryOf(activity) {
   return options[0]?.value ?? null;
 }
 
+// The genuine CHOICE, when there is one (§45.5): dnd5e's own option list, labels already
+// localized, but only when a swap feature (`traits.weaponProf.mastery.bonus`, e.g. Tactical
+// Master) gives this weapon more than one mastery. A single option is not a choice — rendering
+// it as a picker is noise, and the reminder card already names it after the roll.
+export function masteryChoices(activity) {
+  if (activity?.type !== "attack") return null;
+  const options = activity?.item?.system?.masteryOptions;
+  if (!(options?.length > 1)) return null;
+  return options.map(o => ({ value: o.value, label: o.label ?? masteryLabel(o.value) }));
+}
+
 // The reminder to show for a resolved attack, or null when there's nothing worth saying.
 // `hit` is true / false / null (null = the attack resolved but the outcome never came back —
 // assert neither, same rule the Hit/Miss badge follows).

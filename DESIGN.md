@@ -2083,20 +2083,39 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    ~~AC5E drifted to **14.533.15.6** mid-run — §28.4 rerun before the pin
    bump (preflight names it)~~ **CLOSED 2026-08-29 (§28.5.10): full §28.4 rerun 12/12, pins
    bumped, stack row green — and leg 8 caught + fixed the placeCast AoE stray-target gap** ·
-   journal **"New page" swallows the composer text as the TITLE**
-   (wants a title prompt or a length guard) · ~~the move-pad **"Blocked" note lingers** across
+   ~~journal **"New page" swallows the composer text as the TITLE**
+   (wants a title prompt or a length guard)~~ **FIXED 2026-08-29 (the length guard): past 60
+   chars the typed text is treated as prose — the page is created "Untitled page", the words
+   become its FIRST ENTRY (nothing lost), a toast points at the rename pencil. ≤60 chars stays
+   a normal title. Verified both ways on the bench (132-char prose → entry inside; "Car
+   Three" → named page)** · ~~the move-pad **"Blocked" note lingers** across
    scene arrivals~~ **FIXED same day** (clears on successful travel — §28.5.9 follow-ups) ·
-   the wizard's fighter **skill double-pick may
-   drop the second choice** when driven fast (Persuasion lost; human-paced retest owed) · the
+   ~~the wizard's fighter **skill double-pick may
+   drop the second choice** when driven fast (Persuasion lost; human-paced retest owed)~~
+   **CLOSED 2026-08-29 — human-paced retest clean; bench artifact (detail at this entry's
+   tail)** · the
    §36 boarding roster's scene-scoping hides tokenless PCs when ANY PC token is on the active
    scene — **MITIGATED by §36.2** (Set-the-stage activates an empty entry car, so the ceremony
    always sees everyone; the raw scoping gap stands only for ad-hoc use) · ~~heal activities
    one-shot; a real "Roll healing" second tap is the nicer future shape~~ **BUILT same day
    ("definitely add roll healing!") — the whole heal pipeline rebuilt deterministic
-   (§28.5.9 follow-ups)** · NEW: the long rest's "−1 Exhaustion" line printed but the
+   (§28.5.9 follow-ups)** · ~~NEW: the long rest's "−1 Exhaustion" line printed but the
    Exhaustion-1 + Draining-Regret effects SURVIVED the rest on Brekka — check whether the
-   haint's custom effect re-asserts exhaustion or dnd5e skipped the reduction (unfiled depth,
-   worth one look at the next bench).
+   haint's custom effect re-asserts exhaustion or dnd5e skipped the reduction~~ **ANSWERED
+   2026-08-29 (bench): ADVENTURE-CONTENT gap, not ours and not dnd5e's. The Wayward Haint's
+   "Draining Regret" item text says the exhaustion "ends when the target finishes a Short or
+   Long Rest", but its effect rider ships with NO duration and NO DAE specialDuration — it
+   never expires, and its `exhaustion` status makes dnd5e re-assert level ≥1 right after the
+   rest's legitimate −1. TABLE NOTE for the DM: haint-inflicted exhaustion must be removed by
+   hand when a rest ends (delete the "Draining Regret: Exhaustion" effect), or fix the haint
+   at prep time (DAE specialDuration short+long rest on the effect). Brekka's was resolved on
+   the bench per the item's own rule (effect removed, exhaustion 0, only Bless remains).** ·
+   ~~the wizard's fighter skill double-pick may drop the second choice~~ (struck here, detail
+   below) — **RETESTED HUMAN-PACED 2026-08-29: NOT reproducible.** Both dropdown picks land
+   (Athletics+Intimidation on a scratch actor, full Fighter L1 advancement to Complete, both
+   on the sheet). The QA-night Persuasion drop was the automation firing the second pick
+   against the dropdown mid-re-render — bench artifact, not player-facing. Reopen only if the
+   DM sees it live at finger speed.
 2. **Parked until the TV-TABLE exists ("the first-session shakedown"):** everything by eye and
    by ear in §22.4 — motion on the real screen, all cues through real speakers, seat rotations
    physically, settings app on the real display, camera/fog/POV on the real TV, mute-the-room.
@@ -2213,8 +2232,9 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
 - ~~§44 slice B — the Deeds recorder~~ — **BUILT 2026-08-21** (`deeds.js`, §44.4 banner; live
   leg through a reloaded executor owed). Still open here: the compile timer judged at a real
   table.
-- **§45** — mastery-swap picker (when a `mastery.bonus` PC exists) · pre-attack chip (deliberately
-  later).
+- **§45** — ~~mastery-swap picker (when a `mastery.bonus` PC exists)~~ **BUILT 2026-08-29, bench-
+  verified end to end incl. wm5e applying the swapped mastery (§45.5)** · pre-attack chip
+  (deliberately later).
 - **§28.7** — the executor honesty fix (`ok:false` when an attack produced no workflow), blocked
   on reproducing the §28.9 hang with the GWM error present. Until then, a MISC-aborted attack
   still closes the card silently with the action spent.
@@ -5993,9 +6013,20 @@ something applying it), and `masteryOf`'s mirror of dnd5e's pick. **All green 20
 - **`wm5e` is not in preflight's `TESTED` map yet.** It hooks the same midi pipeline we hold
   mid-flight (§28.6's criterion for the watch list), so it belongs there — but the pin must mean
   *validated*, and it has not been through §28.4. Add it with the version that passes that run.
-- **Mastery CHOICE.** A PC with `mastery.bonus` (a swap feature) has more than one option; dnd5e
+- ~~**Mastery CHOICE.** A PC with `mastery.bonus` (a swap feature) has more than one option; dnd5e
   would offer a dialog, and our `configure:false` path silently takes the first. A picker in the
-  target card is the natural home. Not built — no such PC at the table yet.
+  target card is the natural home. Not built — no such PC at the table yet.~~ **BUILT 2026-08-29
+  (overnight bench).** `masteryChoices(activity)` (masteries.js) returns dnd5e's own option list
+  only when it's a real choice (>1); the target card grows a gold chip row (slot-chip classes,
+  weapon's own mastery pre-selected) between the slot row and the adv row; the pick rides
+  `useActivityStart` and the executor writes dnd5e's OWN remembered-pick flag
+  (`last.<activityId>.mastery`) before the use — rollAttack's seeding (dnd5e.mjs ~28465,
+  validated against masteryOptions) takes it from there, so the pick also STICKS as the next
+  default exactly like the system's dialog, and no roll-config surgery exists to drift. No
+  choice → no row, nothing sent, behavior byte-identical to before. Bench (Fighter + temporary
+  `bonus:["push","sap"]`, reverted after): chips Graze•Push•Sap rendered, Sap picked, phone hit
+  → roll's `options.mastery:"sap"`, wm5e applied a real Sap effect to the target, card read
+  "Sap — … Applied for you.", damage applied, zero zombie workflows.
 - **Pre-attack chip.** A gold mastery name in the picker head, before committing. Deliberately
   left out of this slice: the reminder's job is the moment the mastery is live, and a title that
   teaches is the thing UI-BIBLE §7.1 exists to stop.

@@ -7,7 +7,7 @@ import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §2
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 the player's thread card
 import { actorCurses } from "./cm-curses.js"; // §35.1 the Crooked Moon tab lists them richly
 import { actorCard as tarotCard, cardFace as tarotFace, tarotBack, revealActorCard, tarotCanDismiss, tarotEnabled, TAROT_FLIP_MS } from "./tarot.js"; // §42 the Fated Tarot
-import { masteryOf, masteryReminder } from "./masteries.js"; // §45 weapon mastery reminder
+import { masteryOf, masteryReminder, masteryChoices } from "./masteries.js"; // §45 weapon mastery reminder + swap picker
 import { watchScroll, captureScrolls, restoreScrolls, sameHTML } from "./repaint.js"; // §46 don't jump
 import { openFeedback } from "./feedback.js"; // §48 report a bug from the phone
 import { isEmberWorld, emberReady, EMBER_CREATION_SHEET, activeCampaign, emberSky, emberPartyStatus, emberAttunements, emberJournal } from "./campaigns.js"; // §50 Ember: creation door + rest copy + the Ember tab
@@ -3398,17 +3398,27 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
   async #createJournalPage(title) {
     if (this.#journalBusy) return;
-    const t = (String(title ?? "").trim() || "Untitled page").slice(0, 120);
+    // Title guard (caught on the 2026-08-27/28 QA night): a whole journal entry typed into
+    // the title box used to BECOME the page name — recoverable only via the rename pencil.
+    // Prose-length text is almost never a name, so past 60 chars we keep the words as the
+    // new page's first entry instead and let the pencil do the naming.
+    const raw = String(title ?? "").trim();
+    const isProse = raw.length > 60;
+    const t = ((isProse ? "" : raw) || "Untitled page").slice(0, 120);
     this.#journalBusy = true; this.render();
     try {
       const entry = await this.#ensureJournalEntry();
       if (!entry) { ui.notifications.warn("Journal: the DM must be online to start the journal."); return; }
       const ts = Date.now();
+      const firstEntries = isProse
+        ? [{ id: foundry.utils.randomID(), text: raw, img: null, by: { id: game.user.id, name: this.actor?.name ?? game.user?.name ?? "Someone", color: this.#userColor() }, ts }]
+        : [];
       const [page] = await entry.createEmbeddedDocuments("JournalEntryPage", [{
         name: t, type: "text", title: { show: true, level: 2 },
-        text: { content: "", format: 1 },
-        flags: { [MODULE_ID]: { mcPage: true, ts, entries: [] } }
+        text: { content: this.#entriesToHTML(firstEntries), format: 1 },
+        flags: { [MODULE_ID]: { mcPage: true, ts, entries: firstEntries } }
       }]);
+      if (isProse) ui.notifications.info("That read like a journal entry, so it went inside the page — tap the pencil to name it.");
       this.#journalDraft = "";
       if (page) this.#journalPageId = page.id; // drop straight into the new page
     } catch (e) {
@@ -5784,6 +5794,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${depletedBanner}
       ${assignedBanner}
       ${slotRow}
+      ${s.masteryChoices ? `<div class="mc-slot-row mc-mastery-row"><span class="mc-slot-label">Mastery</span>${s.masteryChoices.map(o =>
+        `<button class="mc-slot ${s.mastery === o.value ? "mc-slot-on" : ""}" data-action="mastery-pick" data-key="${o.value}">${foundry.utils.escapeHTML(o.label)}</button>`
+      ).join("")}</div>` : ""}
       ${s.hasAttack ? `<div class="mc-adv-row">${advBtn("advantage", "Advantage")}${advBtn("normal", "Normal")}${advBtn("disadvantage", "Disadvantage")}</div>` : ""}
       ${recBanner}
       <div class="mc-targets">${body}${selfRow}</div>
@@ -5925,6 +5938,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // pre-§45 rpc.js — the stale-executor trap that has bitten every RPC addition. The executor's
       // answer overwrites it in #fireAction: it knows what the roll actually used.
       mastery: activity.type === "attack" ? masteryOf(activity) : null, masteryAuto: false,
+      // §45.5 swap picker: non-null ONLY when a swap feature gives this weapon >1 mastery.
+      // The pick rides #fireAction to the executor, which writes dnd5e's own remembered-pick
+      // flag — so it also sticks as the new default, same as the system's dialog.
+      masteryChoices: activity.type === "attack" ? masteryChoices(activity) : null,
       targetError: null, recommendation: null, recPending: false };
     this.render();
     if (assigned.length) { this.#pushPreview(); this.#refreshAttackPreview(); } // reflect the assigned selection on the TV + recommend
@@ -6449,7 +6466,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         targetUuids: expanded,
         midiOptions,
         spellSlot: s.slot ?? null, // upcast: cast at the chosen slot level
-        skipConsume: !!s.depleted   // out of charges: fire WITHOUT consuming so midi never opens the executor "Consume?" dialog
+        skipConsume: !!s.depleted,  // out of charges: fire WITHOUT consuming so midi never opens the executor "Consume?" dialog
+        mastery: s.masteryChoices ? s.mastery : undefined // §45.5 swap pick — only sent when the weapon offers a real choice
       }), 30000);
     } catch (err) {
       console.error("mobile-command | useActivityStart failed", err);
@@ -6958,6 +6976,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "adv":
         if (this.#actionState) { this.#actionState.adv = el.dataset.mode; this.render(); }
         return;
+      case "mastery-pick": { // §45.5 swap: choose which mastery rides this attack
+        const s = this.#actionState;
+        if (!s || !s.masteryChoices?.some(o => o.value === el.dataset.key)) return;
+        s.mastery = el.dataset.key;
+        return this.render();
+      }
       case "slot-pick": { // upcast: choose the spell-slot level to cast at
         const s = this.#actionState;
         if (!s) return;

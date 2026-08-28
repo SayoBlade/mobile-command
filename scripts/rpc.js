@@ -1201,7 +1201,7 @@ function suppressAc5eAttackDialog() {
 async function handleItemUseStart(payload) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
-  const { activityUuid, targetUuids = [], midiOptions = {}, spellSlot = null, skipConsume = false, requesterId } = payload;
+  const { activityUuid, targetUuids = [], midiOptions = {}, spellSlot = null, skipConsume = false, mastery = null, requesterId } = payload;
   const activity = await fromUuid(activityUuid);
   if (!activity) return { ok: false, stage: "resolve", reason: `activity not found: ${activityUuid}` };
   if (!requesterCanAct(requesterId, activity.item?.actor)) {
@@ -1209,6 +1209,13 @@ async function handleItemUseStart(payload) {
   }
   if (activity.target?.template?.type) return { ok: false, stage: "validate", reason: "area-target activity — use the DM template flow" };
   if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
+  // §45.5 mastery swap: the phone picked which mastery rides this attack (only sent when the
+  // weapon genuinely offers more than one). Write dnd5e's own remembered-pick flag and let its
+  // rollAttack seeding take it from there (dnd5e.mjs ~28465 validates against masteryOptions)
+  // — the same persistence the system's dialog uses, so the pick also sticks as the default.
+  if (mastery && activity.item?.system?.masteryOptions?.some?.(o => o.value === mastery)) {
+    try { await activity.item.setFlag("dnd5e", `last.${activity.id}.mastery`, mastery); } catch (e) { /* best effort */ }
+  }
   markPhoneAction(activity.item?.name, requesterId); // dialog watchdog: arm for this action
 
   const hasAttack = activity.type === "attack";
