@@ -540,10 +540,25 @@ export async function placeCast(id) {
     usage.create = { summons: true };
     if (pc.profileId) usage.summons = { profile: pc.profileId };
   }
+  // Target hygiene, the AoE edition (§28.4 leg 8, caught 2026-08-29): midi's
+  // autoTarget puts every token under the DM-placed template into the GM's OWN
+  // target set and nothing ever cleared it — the two-tap path sweeps after its
+  // damage handler, but this flow returned with the strays still marked. Same
+  // idiom: keep only what the DM was holding BEFORE the place, on midi's async
+  // tail schedule.
+  const gmTargetIds = Array.from(game.user?.targets ?? []).map(t => t.id);
   await activity.use(usage, dialog, {});
   // Don't leave the caster token selected on the executor — the DM rolls the
   // monsters' saves next, and a lingering PC selection slows that (DM 2026-06-17).
   try { canvas.tokens?.releaseAll(); } catch (e) { /* best effort */ }
+  const restoreTargets = () => {
+    try {
+      const cur = Array.from(game.user?.targets ?? []).map(t => t.id);
+      const keep = cur.filter(id => gmTargetIds.includes(id));
+      if (keep.length !== cur.length) canvas.tokens?.setTargets?.(keep, { mode: "replace" });
+    } catch (e) { /* canvas gone */ }
+  };
+  for (const ms of [400, 1200, 2500, 5000]) setTimeout(restoreTargets, ms);
   return { ok: true };
 }
 

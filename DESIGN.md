@@ -2080,8 +2080,10 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    "Offline test" IS served on 14.367 but the GM seat is OCCUPIED (DM's client active) — the
    one-GM-client gate (§50.15) holds the whole GM-seat battery; player-seat legs can still run.*
    **NEW FILINGS from the Brekka run (2026-08-28, §28.5.9 — nine bugs already fixed there):**
-   AC5E drifted to **14.533.15.6** mid-run — §28.4 rerun before the pin
-   bump (preflight names it) · journal **"New page" swallows the composer text as the TITLE**
+   ~~AC5E drifted to **14.533.15.6** mid-run — §28.4 rerun before the pin
+   bump (preflight names it)~~ **CLOSED 2026-08-29 (§28.5.10): full §28.4 rerun 12/12, pins
+   bumped, stack row green — and leg 8 caught + fixed the placeCast AoE stray-target gap** ·
+   journal **"New page" swallows the composer text as the TITLE**
    (wants a title prompt or a length guard) · ~~the move-pad **"Blocked" note lingers** across
    scene arrivals~~ **FIXED same day** (clears on successful travel — §28.5.9 follow-ups) ·
    the wizard's fighter **skill double-pick may
@@ -3447,6 +3449,44 @@ dormant hardening: any world where vgmusic is active AND configured still gets o
 not two** · `tableMode` = **online** (the DM's
 standing ask, not residue) · ride mist tiles ON across the cars · scene 10.9 active, world
 left unpaused (found unpaused), both bench seats released at session end.
+
+### 28.5.10 AC5E 14.533.15.6 validation night (2026-08-28/29) — §28.4 12/12, and leg 8 earns its keep
+
+The §28.5.9 drift gate, discharged: full §28.4 rerun on the solo rig (pane GM + shell, rig-v2
+MessageChannel pump throughout), stop-on-first-failure honored. **Result 12/12**, pins bumped
+(preflight `TESTED` automated-conditions-5e → 14.533.15.6 + the CLAUDE.md stack line, same
+commit; post-bump preflight rerun shows the stack row GREEN).
+
+**Leg 8 FAILED first and caught a real gap:** after the panel-Place AoE flow, `game.user.targets`
+on the DM client kept the template's victims (Pral stray) — `placeCast` released token
+*selection* but never swept *targets*; midi's autoTarget writes them and only the two-tap damage
+path had the restore. Fix: same surgical idiom in `placeCast` (snapshot the DM's own targets
+before `activity.use`, restore-only-those on midi's async tail at 400/1200/2500/5000ms). Re-ran
+the leg: Burning Hands 1st (3d6=14, DC 13, Pral saved, 23→16) and the target set came back
+EMPTY. The prior runs passed leg 8 on the two-tap path only — the AoE stray predates tonight.
+
+Leg notes: **9** — the Pral ⚔ Fighter reaction chip fired on a real reach-exit (fire + dismiss
+buttons present); the offer expired on its TTL before my slow click, which is the intended
+table behavior, not a failure. **10** — full matrix: battle on foe turns, anthem "02 The Last
+Dragonlord" on the themed Wizard turn, battle back on round 2, kill-the-track self-healed in
+<6s, the driver re-armed across a mid-combat executor reload, end-combat left silence and
+restored the anthem to `repeat:false` (the driven loop flag — the sharp restore proof).
+**11** — GM-seat scope: "Up: <name>" + End turn correctly DISABLED off-turn, enabled on the
+subject's turn, advanced Fighter→Pral; the "Your turn — <other PC>" + Go variant is
+`!game.user.isGM`-gated by design and its player-seat pass stands from §28.5.8. **12** — the
+health tab named "14.533.15.6 — not tested yet (last tested .15.4)" verbatim before the bump.
+
+Bench tooling notes (for the next night): CDP `Runtime.evaluate` collects promises that outlive
+the call — `await combat.nextTurn()` dies with "Promise was collected"; fire WITHOUT await and
+read state after a wait. Same-tick DOM clicks after a render still land on detached nodes —
+always re-query + click in ONE expression. `game.actors.find(name.startsWith("Fighter"))` grabs
+the stale "Fighter (Level 1)" actor — bind via the combatant's own `actor.id`.
+
+**Residue delta (on §28.5.9's list, nothing deleted):** Pral 23→16 · Wizard L1 slots 1→0 (L2
+2/2 kept) · Fighter token two cells north (4736,5032) · the Bandit Ambush combat ENDED via the
+panel's own End control (encounter document gone with it, Foundry's normal end-combat) ·
+`user.character` now the Fighter L3 (was the Wizard) · music silent, `combatBattleTrack` flag
+still "09 The Clockwork Dragon".
 
 ### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
 

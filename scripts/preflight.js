@@ -236,11 +236,11 @@ function checkTeleportRegions() {
 // (The silent 14.0.8→14.0.11 drift is what caused the 2026-07-26 bug wave to land mid-week
 // with no warning — this check exists so an update is always a DECISION, never a surprise.)
 const TESTED = {
-  // AC5E 14.533.15.4 validated on the overnight bench 2026-08-25/26 (DESIGN §28.5.7): the full
-  // §28.4 run on core 14.367 — two-tap both verdicts, MM darts, save spell (made branch), AoE
-  // with the phone slot pick and zero executor dialogs, AoO dispatch, target hygiene, the whole
-  // music matrix. That run also caught + fixed the hit-verdict race and the preview leak chain.
-  "dnd5e": "5.3.3", "midi-qol": "14.0.11", "automated-conditions-5e": "14.533.15.4",
+  // AC5E 14.533.15.6 validated on the overnight bench 2026-08-28/29 (DESIGN §28.5.10): the full
+  // §28.4 run, 12/12 — two-tap, MM darts, save spell, AoE via panel Place, AoO chip, target
+  // hygiene (that leg CAUGHT the placeCast stray-target gap, fixed same night), music matrix
+  // incl. mid-combat reload re-arm, turn HUD, this very check naming the version under test.
+  "dnd5e": "5.3.3", "midi-qol": "14.0.11", "automated-conditions-5e": "14.533.15.6",
   // The automation-ecosystem pair, deep-dived together 2026-07-26 (§28.6): versions move
   // weekly (CAT is 0.0.x), so any bump gets the same validation treatment as midi's.
   "cat": "0.0.7", "midi-item-showcase-community": "2.0.2",
