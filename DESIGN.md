@@ -2044,14 +2044,17 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    windows):** *(the 2026-08-20 EVENING run — §28.5.6 — closed most of this bucket:
    ~~simplecover leg~~ enabled + pipeline-validated · ~~AoE DM-Place leg~~ · ~~music recovery
    matrix~~ · ~~phone-hush as a real player~~.)* Remaining: the **fiddle (and all cues) by
-   ear/bus-meter** (needs a displayed pane for the audio-unlock gesture) · **two-client delivery
-   without people**: automation pane as Player 1 + the DM's own Chrome as Player 2 (prompt
-   relays, transfers, cross-player denial) · a deliberate **cover-geometry pass** (a wall giving
+   ear/bus-meter** (needs a displayed pane for the audio-unlock gesture) · ~~**two-client
+   delivery without people**~~ — **CLOSED 2026-08-28 (§28.5.9): the whole Brekka run was pane-GM
+   + the DM's-Chrome phone — save prompts, tickets, tarot, twist spend/apply and travel asks all
+   crossed clients live** · a deliberate **cover-geometry pass** (a wall giving
    half cover shifting the hit-check AC) · the **utility-item effect ghost** (the June Cloak
    case) · feedback **mailto vs a real mail client** · ~~tiny hardening: an `updatePlaylistSound`
    listener so even embedded-path stops self-heal~~ — **BUILT 2026-08-21** (both doors watched,
    one shared serialized heal; the §28.4 music matrix re-covers it at the next bench) · NEW
-   bench legs from today's builds: **§31-v2 panel pick + forced ATTACK through midi** · **§44
+   bench legs from today's builds: ~~**§31-v2 panel pick + forced ATTACK through midi**~~ —
+   **BOTH CLOSED 2026-08-28 (§28.5.9): panel Apply → whose-die picker → Locomotive, and the
+   Rail Slam rolled `1d20max1+4+2` = nat 1 through midi's full workflow, arm consumed** · **§44
    ~~deeds through a real workflow~~ **RUN 2026-08-25/26 — and it caught the first-blow
    kill-credit bug, now fixed (§28.5.7)** · ~~§28.5.6 AoE leg re-run~~ **PASSED (phone slot
    pick, zero executor dialogs, tier consumed — §28.5.7)** · ~~paralyzed auto-crit on current
@@ -2076,6 +2079,16 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    clean world; the June failure was the corrupted Sqyre world (§28.5.8)**. *Window check 2026-08-25:
    "Offline test" IS served on 14.367 but the GM seat is OCCUPIED (DM's client active) — the
    one-GM-client gate (§50.15) holds the whole GM-seat battery; player-seat legs can still run.*
+   **NEW FILINGS from the Brekka run (2026-08-28, §28.5.9 — nine bugs already fixed there;
+   these remain open):** AC5E drifted to **14.533.15.6** mid-run — §28.4 rerun before the pin
+   bump (preflight names it) · journal **"New page" swallows the composer text as the TITLE**
+   (wants a title prompt or a length guard) · the move-pad **"Blocked" note lingers** across
+   scene arrivals (clear it on travel/teleport) · the wizard's fighter **skill double-pick may
+   drop the second choice** when driven fast (Persuasion lost; human-paced retest owed) · the
+   §36 boarding roster's scene-scoping hides tokenless PCs when ANY PC token is on the active
+   scene — the pre-token ceremony wants an "everyone" fallback that ignores stray PCs (worked
+   around by activating an empty car) · heal activities now complete in one shot; a real "Roll
+   healing" second tap is the nicer future shape (§28.5.9 fix 5).
 2. **Parked until the TV-TABLE exists ("the first-session shakedown"):** everything by eye and
    by ear in §22.4 — motion on the real screen, all cues through real speakers, seat rotations
    physically, settings app on the real display, camera/fog/POV on the real TV, mute-the-room.
@@ -3326,6 +3339,87 @@ bare open downtime deliberately NOT wrapped, standalone downtime is still legiti
 **Residue:** one more bandit corpse re-killed into its pile (the §44 verify volley) · the
 Wizard's deeds now read totalKills 3, MM uses 7 · world restored end-of-night (combat deleted,
 Pral 47/47, PCs full, assignments cleared, scene 12.3, paused, seat released).
+
+### 28.5.9 The Brekka run (2026-08-28) — a full in-character session, DM + phone only, ch10 start to the wreckage fight
+
+**The DM's ask:** play the OPENING OF THE CROOKED MOON for real — DM interface + one player
+phone, no APIs, online mode — create a hero from CM options, run the station + the frog, ride
+the cars, level twice on the phone, then a 1-PC-vs-4 fight with a twist-forced miss. Two
+clients all session (pane = GM/executor, the DM's Chrome as the phone — the §22.6 two-client
+leg, now CLOSED), `tableMode` flipped to **online** in the settings app on his mid-run ask.
+
+**What the session PROVED live** (player side all through the shell on a real second client):
+§38 story wizard END-TO-END — Bogborn/Amnesiac/Fighter from the CM packs, all six beats fired
+and saved (the beat-trigger leg's owed human-paced pass), point-buy, gear + "which do you
+reach for first", rename, portrait door · two LEVEL-UPS on the phone (badge → Level Up →
+AdvancementManager sheets; hit die rolled; **Barrow Guard** subclass picked from the CM pack in
+the lifted compendium browser, Draugr Die granted) · §36 ritual (station → intro card → fiddle
+→ approach → whistle → train-in rot 0 → grinding stop → the LIFE-SIZE TICKET on the phone,
+punched + torn) · §37/SS20.5 travel points car-to-car with the ask + table-follow · haint
+social play (phonograph carried two cars, Persuasion-with-advantage freeing, phantasmal food) ·
+§42 tarot deal→turn (Judgement) + CE Bless w/ live chip · §31-v2 FULL LOOP from both sides
+(grant → phone spend "1 RUIN" note → panel Apply → whose-die pick → `1d20max1+4+2` = nat 1
+MISS, arm consumed — the owed §31 GM-seat legs CLOSE) · §45 Graze card on a phone miss
+("Applied for you", 3 through resistance) · Action Surge/Second Wind/§44 kill credits ·
+midi save prompt on the phone (`1d20+0+1d4-2` — Bless AND exhaustion riders correct) ·
+simplecover5e Half Cover adjudicated in the phone chain · §19 short rest with HD spend and
+the recovered-list summary · §46/§49 chips, per-source damage toasts, End-turn/Your-turn HUD.
+
+**Nine bugs/gaps caught by playing, fixed same session (each verified live after):**
+1. **vgmusic 1.4.0 dead at init** — requires `3ds-atlas`, installed but disabled; enabled via
+   BBMM (config fix). Foundry let the dependency stay off silently.
+2. **DM-panel paints freeze while the client's document is hidden** — the §36.1.6 coalescer
+   parks its follow-up on an rAF that a hidden document never fires; `renderRaf` stays truthy
+   and every later render() (including the DM's own clicks) defers forever. Fix: schedule the
+   follow-up on a timer while `document.hidden` (dm-panel.js). Real-world shape: an alt-tabbed
+   /occluded DM client.
+3. **The train stopped offering "Travel to next car" on core 14** — `teleportToken#destinations`
+   is a SET now; `destinations?.[0]` read undefined so travelPointOf()'s compatibility branch
+   died silently (rpc.js). THE WALK-IN preserved core teleports only because of (4):
+4. **wireTrainDoors resurrects entry triggers** — SS20.5 (074c987) deliberately DISABLED all 28
+   behaviours as destination records; the wire routine still wrote enabled ones, so a re-wire
+   silently restored core's ask-less on-entry teleport (Brekka got yanked through a door with
+   no prompt). Fix: wire (re)writes destinations but keeps/creates behaviours `disabled: true`.
+5. **Heal activities from the phone burn the use and heal nothing** (Second Wind) — dice-bearing
+   heals took the attack two-tap path, but midi never PARKS a heal workflow; the card posted
+   with its Healing button unpressed forever. Fix: heals (flat or dice) complete in ONE shot
+   via `autoRollDamage:"always"` (rpc.js); verified 24→29 from the phone.
+6. **Player Stories chapter kept "New Hero" forever** — the wizard's beats write the page
+   before its Name step. Fix: executor `updateActor` rename hook + ensureStoryChapter self-heal
+   (page keyed by actor id).
+7. **"a Amnesiac"** — the beat templates hardcode "a"; article now picked from the name.
+8. **Story-beat keystrokes leaked into the party-journal composer** (shared `mc-jn-input`
+   draft-keeper) — the wizard/story inputs are now excluded.
+9. **Both combat-music engines fired at once** at Start Combat (our staged track + vgmusic's
+   sequential start of the scene playlist — two tracks over each other, heard live). Fix:
+   `combatMusicMode()` grows a **"vgmusic"** stand-down (scene flag / DefaultMusic / combatant
+   theme ⇒ vgmusic is the configured driver, exactly the Ember rule) + a staging-row explainer.
+
+**Smaller findings, filed not built:** the single-hit hand tap operated doors SILENTLY (players
+toggle them back and forth blind) — now says "Opened/Closed the door." (shipped with the batch) ·
+journal "New page" swallows the whole composer text as the page TITLE (needs a title prompt or
+length guard) · the move-pad "Blocked" note lingers across scene arrivals · the wizard's fighter
+skill DOUBLE-pick may drop the second choice when driven fast (Persuasion never landed; needs a
+human-paced retest — DM repaired the sheet) · vgmusic's config is drag-only (no picker fallback;
+synthetic drops don't register — also an accessibility note) · chat's ProseMirror input can't be
+driven synthetically (physical-dice entry remains the answer) · AC5E drifted again mid-run
+(**14.533.15.6**, preflight names it; pin bump waits for a §28.4 rerun).
+
+**Also closed from the ledger:** the two-client-delivery leg (this WHOLE session) · §31-v2
+GM-seat legs (panel pick UI + forced attack through midi's full workflow). Still owed: fiddle
+by ear (pane never displayed — no audio unlock all session).
+
+**Residue (test world, all reported none deleted):** Brekka Mirefoot = Player 2's real hero
+(L3 Bogborn Amnesiac Barrow-Guard, 29/29, Exhaustion 1 + the Draining-Regret effect, Bless
+ticking, 0 twists, Judgement card held, Persuasion granted by hand after the wizard drop) ·
+her tokens travelled 10.1→10.2→10.3→10.4→10.5→10.6→10.9 (now on 10.9 with the dead Locomotive
+item-pile, one dead + two vanished-hidden haint echoes) · freed haints hidden on their cars
+(Sweetheart 10.2, Songstress 10.3, Jailbird 10.6; Daydreamer still visible 10.4, Mariner
+untouched 10.5) · "The Ghostlight Ride" party-journal page + Brekka's story chapter ·
+`combatBattleTrack` now "09 The Clockwork Dragon" · 10.9 carries a vgmusic combat flag (MGS
+playlist) · vgmusic + 3ds-atlas ENABLED in the world · `tableMode` = **online** (the DM's
+standing ask, not residue) · ride mist tiles ON across the cars · scene 10.9 active, world
+left unpaused (found unpaused), both bench seats released at session end.
 
 ### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
 
