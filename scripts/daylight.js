@@ -124,8 +124,10 @@ export function registerDaylight() {
   Hooks.on("updateWorldTime", () => { applyDaylight(game.scenes?.active); });
   // Arriving somewhere is the other half of "the party arriving at a moor at 02:00 finds it dark"
   // (preset.js). No fade on arrival — the map should already BE that dark when it appears, not
-  // dawn into it over two seconds in front of everyone.
-  Hooks.on("canvasReady", () => { applyDaylight(canvas?.scene, { animate: 0, force: true }); });
+  // dawn into it over two seconds in front of everyone. Arrival = ACTIVATION, below. There used
+  // to be a canvasReady write here too, on canvas.scene with force — which is the DM peeking at
+  // next week's dungeon, exactly what the note above says must not be re-lit; and it could not
+  // even fire for the initial draw (canvas init completes before ready). Gone (QA 2026-09-04 H11).
   Hooks.on("updateScene", (scene, changes) => {
     // Only on activation. Our own darkness write also fires updateScene, so reacting to anything
     // wider than this is how you build an infinite loop out of a lighting feature.
