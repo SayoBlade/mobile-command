@@ -16,7 +16,7 @@ import { wallsBlock } from "./cm-train.js";
 
 // Build marker for live-bench cache diagnosis (2026-08-25: a client reload can serve a stale
 // module from HTTP cache — probe `(await import('.../rpc.js')).RPC_BUILD` to know what runs).
-export const RPC_BUILD = "2026-08-25-hitsfix6";
+export const RPC_BUILD = "2026-09-05-qa1";
 
 
 
@@ -956,17 +956,28 @@ async function handleSetTokenLight({ tokenId, itemId, light, requesterId }) {
 
 // Capture toast notifications fired during a callback so refusal reasons can
 // be surfaced back to the phone instead of dying on the executor's screen.
+// Re-entrant (QA 2026-09-04 H10): two phones acting at once used to leave `notify` pointed
+// at the first caller's wrapper for good. One patch is installed by the outermost caller and
+// removed by the last one out; every open capture sees the warnings in its window.
+let notifyPatchDepth = 0;
+let notifyOriginal = null;
+const openCaptures = [];
 async function captureNotifications(fn) {
   const captured = [];
-  const original = ui.notifications.notify.bind(ui.notifications);
-  ui.notifications.notify = function (message, type, options) {
-    if (["warning", "error"].includes(type)) captured.push(String(message));
-    return original(message, type, options);
-  };
+  if (notifyPatchDepth++ === 0) {
+    notifyOriginal = ui.notifications.notify.bind(ui.notifications);
+    ui.notifications.notify = function (message, type, options) {
+      if (["warning", "error"].includes(type)) for (const c of openCaptures) c.push(String(message));
+      return notifyOriginal(message, type, options);
+    };
+  }
+  openCaptures.push(captured);
   try {
     return { result: await fn(), captured };
   } finally {
-    ui.notifications.notify = original;
+    const i = openCaptures.indexOf(captured);
+    if (i >= 0) openCaptures.splice(i, 1);
+    if (--notifyPatchDepth === 0) { ui.notifications.notify = notifyOriginal; notifyOriginal = null; }
   }
 }
 
@@ -1231,9 +1242,25 @@ async function handleItemUseStart(payload) {
   // DUPLICATE uuids ([A, A, B] = two darts on A). midi's target set dedupes, so the
   // workflow runs on the UNIQUE targets; the duplicate counts are remembered and
   // applied as extra damage instances after the damage roll (handleItemUseDamage).
+  // The COUNT comes from the activity, not the payload (QA 2026-09-04 H9): the phone's
+  // picker already limits darts to the activity's own target count, so a payload with
+  // more duplicates than that is a bug or a cheat — either way each extra would be a
+  // fresh damage roll + applyDamage on the executor. Every unique target is kept; the
+  // duplicate budget is the activity's `target.affects.count` (an upcast may scale it,
+  // so a chosen slot lifts the budget to the hard ceiling — Magic Missile at 9th is 11).
+  const MAX_INSTANCES = 12;
+  const cleanTargets = (Array.isArray(targetUuids) ? targetUuids : []).filter(u => typeof u === "string");
+  const uniqueTargets = [...new Set(cleanTargets)];
+  let countCap = Number(activity.target?.affects?.count);
+  if (!Number.isFinite(countCap) || countCap < 1) countCap = 1;
+  if (spellSlot) countCap = MAX_INSTANCES;
+  let extraBudget = Math.max(0, Math.min(countCap, MAX_INSTANCES) - uniqueTargets.length);
   const instanceCount = {};
-  for (const u of targetUuids) instanceCount[u] = (instanceCount[u] ?? 0) + 1;
-  const uniqueTargets = Object.keys(instanceCount);
+  for (const u of cleanTargets) {
+    if (!(u in instanceCount)) { instanceCount[u] = 1; continue; }
+    if (extraBudget <= 0) continue; // over the activity's count — dropped, not rolled
+    instanceCount[u] += 1; extraBudget -= 1;
+  }
   const extraInstances = Object.fromEntries(Object.entries(instanceCount).filter(([, n]) => n > 1).map(([u, n]) => [u, n - 1]));
   // Upcast: cast at the slot level the phone chose (dnd5e usage config field
   // `spell.slot`, e.g. "spell3"). Omitted → activity casts at its base level.
@@ -1801,7 +1828,18 @@ async function handleSetMovementAction({ tokenId, action, requesterId }) {
 // the result, and ABORT the roll (return false) — no dice, no chat. We then
 // normalise to {mode, reasons} for the phone. `raw` is returned for diagnostics
 // while this is verified live on the DM client (hook order / clean abort).
-async function handleAttackPreview({ attackerTokenId, activityUuid, targetTokenUuids = [], requesterId }) {
+// Previews run ONE AT A TIME (QA 2026-09-04 H10). The body below saves-then-restores
+// Sequencer/AA/hook state around a throwaway roll; two phones tapping targets a second
+// apart made B save A's STUB as "the original", so B's restore left the animations stubbed
+// until reload — and A's finally dropped the latch while B's chat-card veto was still armed.
+// A serial chain costs the second phone at most one preview's wait.
+let attackPreviewChain = Promise.resolve();
+function handleAttackPreview(payload) {
+  const run = attackPreviewChain.then(() => attackPreviewBody(payload));
+  attackPreviewChain = run.catch(() => {});
+  return run;
+}
+async function attackPreviewBody({ attackerTokenId, activityUuid, targetTokenUuids = [], requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
   if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };

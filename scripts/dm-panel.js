@@ -3273,13 +3273,23 @@ async function wakeActor(a) {
 // (DM 2026-07-17, passing a watch). We (a) always wake to a clean state before re-sleeping so a
 // stale rider can't collide with the cascade's fresh create, and (b) drop exactly those two DB
 // messages while our sleep ops run — every other notification passes through untouched.
+// Re-entrant (QA 2026-09-04 H10): two quick watch toggles overlapped, the second captured the
+// first's wrapper as "original", and notify stayed patched for the session. One patch, a depth
+// count, and the LAST caller out restores — after the cascade's async tail.
+let quietDepth = 0;
+let quietOrig = null;
 async function withQuietSleepNoise(fn) {
   const n = ui?.notifications;
-  const orig = n?.notify?.bind(n);
+  if (!n?.notify) return fn();
   const drop = /ActiveEffect .* does not exist|already exists within the parent collection/i;
-  if (orig) n.notify = (m, ...r) => (typeof m === "string" && drop.test(m)) ? undefined : orig(m, ...r);
+  if (quietDepth++ === 0) {
+    quietOrig = n.notify.bind(n);
+    n.notify = (m, ...r) => (typeof m === "string" && drop.test(m)) ? undefined : quietOrig(m, ...r);
+  }
   try { return await fn(); }
-  finally { if (orig) setTimeout(() => { n.notify = orig; }, 500); } // cover the cascade's async tail
+  finally {
+    setTimeout(() => { if (--quietDepth === 0) { n.notify = quietOrig; quietOrig = null; } }, 500); // cover the cascade's async tail
+  }
 }
 
 // On-duty PCs wake, everyone else sleeps (marker only — the DM taps any chip off
