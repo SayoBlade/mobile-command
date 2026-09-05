@@ -310,12 +310,26 @@ export async function recordExtraDamage(attacker, victim, amount) {
 
 // The kill: an NPC hitting 0 HP on any client — but only the client holding the lastDamager
 // claim records it, and only once per corpse (healed-then-rekilled re-arms).
+//
+// This path is the FALLBACK for drops no workflow reports (the DM applying damage from a
+// card later, an effect ticking the last points off). It must never pre-empt a workflow:
+// midi applies damage — HP→0 fires HERE — milliseconds BEFORE RollComplete refreshes the
+// claim, so at this instant `lastDamager` still names whoever hit the victim LAST TIME.
+// Crediting on the spot gave the kill to the previous damager and then blocked the real
+// killer at RollComplete's dedup (QA 2026-09-04 H5: fighter softens the ogre, wizard's
+// Fire Bolt drops it, fighter gets the trophy). So: let the workflow speak first. Wait a
+// beat, and only if nobody has credited this corpse by then does the freshest claim count.
+const KILL_FALLBACK_MS = 1500;
 async function onActorUpdate(actor, changes) {
   const hp = foundry.utils.getProperty(changes, "system.attributes.hp.value");
   if (hp === undefined || hp === null) return;
   if (hp > 0) { recordedKills.delete(actor.uuid); return; }
   if (actor.type !== "npc" || recordedKills.has(actor.uuid)) return;
-  const claim = lastDamager.get(actor.uuid);
+  if (!lastDamager.has(actor.uuid)) return; // no claim at all — nothing of ours dropped it
+  await new Promise(r => setTimeout(r, KILL_FALLBACK_MS));
+  if (recordedKills.has(actor.uuid)) return; // a workflow credited it while we waited
+  if ((actor.system?.attributes?.hp?.value ?? 0) > 0) return; // healed back up meanwhile
+  const claim = lastDamager.get(actor.uuid); // read AFTER the wait — the killer's own claim by now
   if (!claim || Date.now() - claim.ts > 60_000) return; // stale claim — a DM edit, not a blow
   let pc = null;
   try { pc = fromUuidSync(claim.pcUuid); } catch (e) { return; }
