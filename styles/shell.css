@@ -5215,7 +5215,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-party-cell {
   position: relative; width: 100%; height: auto; aspect-ratio: 1 / 1; /* height:auto beats core button height so the ratio wins */
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
-  background: linear-gradient(var(--mc-panel), var(--mc-panel)); border: 1px solid var(--mc-edge); border-radius: calc(12px * var(--mc-round, 1));
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(12px * var(--mc-round, 1));
   color: var(--mc-muted); cursor: pointer; overflow: hidden;
 }
 .mc-party-cell:active { background: var(--mc-panel-2); }
@@ -5346,7 +5346,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-pv-head i { color: var(--mc-gold); margin-right: 6px; }
 .mc-pv-row {
   display: flex; align-items: center; gap: 10px; padding: 10px;
-  background: linear-gradient(var(--mc-panel), var(--mc-panel)); border: 1px solid var(--mc-edge); border-radius: calc(12px * var(--mc-round, 1));
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(12px * var(--mc-round, 1));
 }
 .mc-pv-img { width: 52px; height: 52px; border-radius: calc(10px * var(--mc-round, 1)); object-fit: cover; object-position: top; flex: 0 0 auto; }
 .mc-pv-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -5365,7 +5365,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-pv-empty, .mc-pv-note { text-align: center; font-size: 12px; color: var(--mc-muted); }
 .mc-pv-item {
   display: flex; align-items: center; gap: 10px; padding: 9px 10px;
-  background: linear-gradient(var(--mc-panel), var(--mc-panel)); border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1));
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1));
 }
 .mc-pv-item-img { width: 34px; height: 34px; border-radius: calc(7px * var(--mc-round, 1)); object-fit: cover; flex: 0 0 auto; }
 .mc-pv-item-name { flex: 1 1 auto; min-width: 0; color: var(--mc-ink); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -5388,12 +5388,12 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dmp-party-cell {
   position: relative; width: 100%; height: auto; aspect-ratio: 1 / 1;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(var(--mc-panel), var(--mc-panel)); border: 1px solid var(--mc-edge); border-radius: calc(9px * var(--mc-round, 1));
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(9px * var(--mc-round, 1));
   cursor: pointer; overflow: hidden; padding: 0;
 }
 .mc-dmp-party-cell img { width: 78%; height: 78%; border-radius: 50%; object-fit: cover; }
 .mc-dmp-party-cell.mc-full { border-color: var(--mc-primary-edge); }
-.mc-dmp-party-cell.mc-bad { border-color: var(--mc-bad-ink); box-shadow: 0 0 0 1px var(--mc-bad-ink) inset; background: linear-gradient(var(--mc-bad-dim), var(--mc-bad-dim)); }
+.mc-dmp-party-cell.mc-bad { border-color: var(--mc-bad-ink); box-shadow: 0 0 0 1px var(--mc-bad-ink) inset; background: var(--mc-bad-dim); }
 .mc-dmp-party-cell.mc-sel { border-color: var(--mc-gold); box-shadow: 0 0 0 2px var(--mc-gold) inset; }
 .mc-dmp-party-cell.mc-stack { border-color: var(--mc-bad-ink); }
 .mc-dmp-party-badge { position: absolute; top: 2px; right: 3px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-bad-ink); color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
@@ -5537,7 +5537,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* ── §17 Downtime — player board (top of the sheet when a window is open) ── */
 .mc-dt-board {
   margin: 6px 8px 0; padding: 10px; border-radius: calc(12px * var(--mc-round, 1));
-  background: linear-gradient(var(--mc-panel), var(--mc-panel));
+  background: var(--mc-panel);
   border: 1px solid var(--mc-edge); box-shadow: inset 0 0 0 1px rgba(200,164,77,.1);
 }
 .mc-dt-board.mc-locked { border-color: var(--mc-ok); }
