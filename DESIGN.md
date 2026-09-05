@@ -56,7 +56,7 @@ sections their cross-references always claimed).
 | 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records |
 | 29 | Settings mini-app | Built + bench-verified 12/12 (2026-08-01) |
 | 30, 30.1, 30.2 | Séance board + the bite | Built — the quality bar |
-| 31 | Twists of Fate (book RAW) | Built (+ v2 auto-apply 2026-08-21); **forced-ATTACK leg proven 2026-08-25/26** — and it exposed the preview consuming the arm, now latch-guarded (§28.5.7) |
+| 31 | Twists of Fate (book RAW) | Built; **v3 2026-09-05 = DM popup + by-hand die (DM call), v2 auto-apply retired from the panel** (hooks kept for leftovers); the cancelled-dialog consume bug closed with it (§28.5.11) |
 | 32, 32.1 | Crooked Moon idea board; Fated Tarot book extract | Reference (mined 2026-07-27 / 2026-08-11) |
 | 33 / 34 / 35 | Chaotic Curses / Fateweaving / CM tab | **All built** (slices C/D/A; headers said "unbuilt" — corrected) |
 | 36, 36.1 | All aboard; the arrival | Built (36.1 not yet seen at the table) |
@@ -2040,6 +2040,31 @@ Crooked Moon second** — which UN-PARKS item 4 below (the 2026-08-21 "non-CM fi
 superseded: base and CM now share the lane). Filings that are general (the §50.17 fallback
 question, the collect-gear nudge) count as BASE work, not Ember work.
 
+0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
+   - **H1 executor identity (HIGH, one wrapper):** every handler authorises against the
+     phone-written `payload.requesterId`; read `this.socketdata.userId` (socketlib supplies it)
+     and ignore the payload field. Unblocks nothing else but closes ~35 spoofable checks at once.
+   - **H2 owner checks (HIGH):** `wildShapeInto/Revert`, `travelMark`, `operateInteractable`
+     (+ proximity), `previewTargets`, `placementNudge/Rotate/Confirm` (match the session's
+     requester), `openLoot` distance. Build together with H1.
+   - **H4 dead `ready` hooks (HIGH, three one-liners):** call the body directly in
+     `registerCharacterFiles` (auto-compile never starts), `registerDruskenvald` (no plate on
+     load), `initPauseGuard` (no first evaluate). Same trap combat-music.js already documents.
+   - **H14 copy (HIGH, minutes):** strip "see DESIGN.md" from module.json's description and
+     the two en.json hints; bump AC5E `verified` to 14.533.15.6; README "Requires" line
+     (libWrapper is not used, DAE only in comments).
+   - **Mediums (§28.5.11 list):** midiOptions whitelist · sender checks on phone receivers /
+     fxOneShot / TV socket · `updateTokenTargets` → `setTargets` at rpc.js:780 · TTL sweep for
+     parked workflows/placement/pendingCasts · enforcer legacy-backup revert · five missing
+     `createSetting` listeners · `#searchOpen` · trade-offer dedupe · Crooked Moon badge ·
+     stop-all vs tickets · panel handler catch-all · music-driver flip · tally nat-20 ·
+     online-no-screen overlays · ticket punch channel · dead CSS / sub-44px targets /
+     reduced-motion gates.
+   - **Verification owed on the fixes:** by-eye palette pass on real screens (bdecdfe) ·
+     two-PC kill through the executor (f549786) · a real phone spend popping the twist dialog
+     (bf5e57b) · spell pick through char-gen lands prepared (971863b) · two phones previewing
+     at once (0042f74) · typing through an HP tick on both panel and phone (add96cf).
+
 1. **Bench-provable, still owed (no humans or table needed — Claude runs these in quiet
    windows):** *(the 2026-08-20 EVENING run — §28.5.6 — closed most of this bucket:
    ~~simplecover leg~~ enabled + pipeline-validated · ~~AoE DM-Place leg~~ · ~~music recovery
@@ -2976,6 +3001,30 @@ vibration on hardware.
   we'll reach V14 + dnd5e 6.x ourselves; GPS re-enters the picture at that milestone. Plan the
   5.3→6.x migration as its own milestone (full §28.4 run + real porting), don't discover it
   under pressure.
+- **BUGS (Bugbear's Scripts, github.com/thatlonelybugbear/bugs) — evaluated 2026-08-30 (DM ask),
+  verdict: SKIP.** Same author as AC5E, same job: condition automation, done by writing midi-qol
+  flags onto the system's status effects (blinded/charmed/exhaustion/silenced/… ~15 conditions).
+  The README itself says pick one: "Use either the statuses automation of AC5e or the BUGS 'Add
+  MidiQOL flags on statuses'" — running both is the double-adjudication class (two writers of
+  adv/disadv on the same roll). We already run the AC5E side, §28.4-validated, and the phone's
+  advantage-recommendation flow (§14) reads AC5E specifically. Nothing in BUGS's list adds a
+  capability the phone flow lacks; its exhaustion leg wants LEGACY rules while our premades are
+  2024. Re-open only if we ever drop AC5E.
+- **DnD-5e-Character-Builder (github.com/hammer-PvP/DnD-5e-Character-Builder) — evaluated
+  2026-08-30 (DM ask), verdict: SKIP for the stack, MARGINAL as a DM desktop toy.** A Foundry
+  module on exactly our pins (14.365 / dnd5e 5.3.3): guided creation, level-up/multiclass,
+  rest "Character Keeper", scribing, plus its own rules automations (GWF, Agonizing Blast,
+  Bardic Inspiration) via libWrapper interception. Why not in the stack: (1) it rebuilds what
+  we run phone-first and have proven live — §38 wizard/checklist creation, AdvancementManager
+  level-ups, the §19 rest engine (its GM rest-availability controls would fight our phone rest
+  flow the way Ember's allowRests did); (2) its automations are ANOTHER writer inside midi's
+  pipeline next to AC5E+wm5e+MISC/CAT — the double-driver class, and libWrapper wraps touch
+  flows our executor holds mid-flight; (3) churn: 0.9.9x with releases every 1–3 days, 1 star,
+  sparse notes — each adopted module costs a §28.4 rerun per bump, this one bumps weekly.
+  The one interesting bit is its character validate/repair tooling (we hand-repaired a sheet
+  during the 2026-08-27/28 QA night) — if the DM wants to poke it, OFFLINE TEST WORLD ONLY
+  (it writes to sheets). Also a market signal: guided creation on our stack has competition;
+  our moat is phone-first + story wizard + the executor.
 
 
 ### 28.5.1 Full-stack update sweep (checked 2026-07-29, pre-update for the DM's mod refresh)
@@ -3508,6 +3557,68 @@ panel's own End control (encounter document gone with it, Foundry's normal end-c
 `user.character` now the Fighter L3 (was the Wizard) · music silent, `combatBattleTrack` flag
 still "09 The Clockwork Dragon".
 
+### 28.5.11 Deep QA pass (2026-09-04, static; fixes 2026-09-05) — 14 High findings, 10 fixed
+
+**What ran:** syntax gate 42/42 · all 8 headless suites (235 assertions) green · a NEW
+whole-import-chain smoke (every script evaluated under stub globals — the TDZ class the syntax
+gate cannot see; 41/41) · seven parallel code reviews over all ~37k lines, every High
+re-verified against the repo and the installed Foundry 14 / dnd5e 5.3.3 / socketlib sources.
+No live pass: Foundry sat on the admin-gated setup screen. The full report (14 High, ~35
+Medium, ~40 Low, file:line each) went to the DM as `qa-report-2026-09-04.md`.
+
+**Fixed 2026-09-05 (one commit each; DM: "fix"):**
+- H3 spells landed UNPREPARED — char-gen picks, "Learn spells", the detail-card Learn and the
+  scribe approval all wrote `system.preparation.*`, which dnd5e 5.1+ drops when `method` +
+  `prepared` are present (a compendium `toObject()` always carries them). Reads went through
+  the deprecated getter (stack-traced warning per access; gone in dnd5e 6). → `method` "spell"/
+  "pact", `prepared` 0/1/2 everywhere (971863b). *This is why the premades "shipped none
+  prepared" on the bench.*
+- H7 stored XSS on the GM client: the night-watch step `title=""` took a raw actor first name
+  (ec3ebf2).
+- H5 kill credit went to the PREVIOUS damager — `updateActor` HP→0 fires before RollComplete
+  refreshes the claim; the fallback now waits 1.5 s and yields to a workflow credit (f549786).
+- H9 unbounded duplicate targets (a payload could request thousands of dart instances) → the
+  budget is the activity's `target.affects.count`, ceiling 12 (0042f74).
+- H10 three non-reentrant monkeypatches (attackPreview's Sequencer/AA stub, captureNotifications,
+  withQuietSleepNoise) left patched for the session under two concurrent phones → serial chain /
+  depth counters (0042f74). rpc.js changed → executor reload.
+- H8 typing wiped by background repaints — phone: focus/value/caret restored on the same field
+  by key; panel: any text field defers the repaint, released on focusout (add96cf).
+- H11 daylight's `canvasReady` write re-lit whatever scene the DM merely VIEWED (e57fa2f).
+- H12 card table re-dealt all 22 cards on every repaint and rebuilt on every actor/item event
+  in the world → `dealt` set, candles kept, hooks filtered to characters (98c54fc).
+- H6 a CANCELLED roll dialog consumed an armed twist (dnd5e fires the post hook with `rolls=[]`;
+  the test had encoded the false premise) — and **§31 went to v3** on the DM's call, see §31
+  (bf5e57b).
+- H13 the palette: 535 rule lines carried literal hexes (UI-BIBLE §2.1) → 630 substitutions to
+  tokens; semantic triples `--mc-ok/-bad/-react` (+`-ink`/`-dim`) and `--mc-warn` now exist
+  and are named in the bible (bdecdfe, d496174). **Owed: a by-eye pass on real screens.**
+
+**Explained, NOT fixed (DM: "explain") — OPEN in §22.6:**
+- H1 every RPC authorization check trusts a phone-supplied `requesterId`; socketlib passes the
+  real sender in `this.socketdata.userId` and the module reads it nowhere. Fix = one wrapper.
+- H2 six handlers with no owner/role/proximity check: `wildShapeInto/Revert`, `travelMark`,
+  `operateInteractable`, `previewTargets`, `placementNudge/Rotate/Confirm`, `openLoot`.
+- H4 `Hooks.once("ready")` registered from inside `ready` never fires: the automatic Character-
+  File compile (character-file.js:357), Druskenvald's mount on load (druskenvald.js:107), the
+  pause guard's first evaluate.
+- H14 `DESIGN.md` named on user-facing surfaces (module.json description, two en.json hints).
+
+**Mediums worth their own line (all open):** `...midiOptions` spread last lets a phone send
+`advantage:true` / no-consume · phone receivers, `fxOneShot`, the TV-control socket accept any
+sender · `game.user.updateTokenTargets` (removed in v14) still called at rpc.js:780 inside a
+swallowed try · no TTL on parked workflows / placement / pending casts · `enforcer.js:68` rejects
+the legacy backup shape `hasBackup()` accepts · `createSetting` unwatched at heartbeat.js:84,
+dm-panel.js (downtimeState/fxActive), main.js (combatPovAudio/tvVolume/tvMuted) · `#searchOpen`
+can never become true (search resets after any render) · trade offers dedupe per PC (second
+offer evicts the first) · no Crooked Moon rail badge · "Stop all player effects" revokes
+boarding tickets · panel handlers without a top-level catch · combat-music driver flips when a
+second GM logs in · tally rules' nat-20 "wins" can't beat the DC · `card-table/seance/
+cm-boarding.eligible()` exclude online-no-screen players (boss-intro handles it) · ticket punch
+on the silenced environment channel · README requires libWrapper/DAE (0 hits / comments only) ·
+module.json AC5E verified 14.533.10 (stale) · ~110 dead CSS classes · ~20 sub-44px phone targets
+incl. the picker ✕ · ungated `.mc-fx-flash`/`.mc-fx-static` under reduced-motion.
+
 ### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
 
 Bench: MISC 2.0.1 + CAT 0.0.6 on midi 14.0.11 / DAE 14.0.12, run through the REAL phone flow
@@ -3958,9 +4069,22 @@ the ch12 boss). The DM may grant more at will.
   deviation from the queue sketch ("use or turn end") — deliberate:** no turn-end expiry,
   because the twisted roll is usually a save on someone ELSE'S turn; instead a gold bolt
   **armed chip** on the panel (name + face + spender, ✕ = disarm without refund) keeps every
-  arm visible, and a `deleteCombat` sweep (activeGM) clears a fight's leftovers. **Live
-  end-to-end leg owed** (phone spend → Apply → pick → a real forced roll through midi on the
-  served world): needs the GM seat free — the bench-legs quiet-window list.
+  arm visible, and a `deleteCombat` sweep (activeGM) clears a fight's leftovers. ~~**Live
+  end-to-end leg owed**~~ (proven 2026-08-28, §28.5.9).
+- **v3 — BUILT 2026-09-05 (bf5e57b), REPLACING v2's auto-apply on the DM's call** (2026-09-05:
+  *"I'm not convinced a mechanism to change the roll is a good call, I think I might just want
+  a popup for the DM letting them know a player is using a twist and let the DM change it,
+  there's just too many options for rolls"*). The moment a phone writes `twistPending`, the
+  DM's panel client opens a DialogV2 — who, which face, the note, twists in hand — with
+  **[Keep it] / [Spend it]**. Spend = the v1 path (token taken, public Fate card, the DM sets
+  the die by hand on that roll). A withdrawal from the phone closes the popup; a repeat replaces
+  it. The Crooked Moon chip mirrors the pair for a popup that was closed. The whose-die picker,
+  the arm buttons and their CSS are gone from the panel; `twists.js` keeps its hooks so a
+  leftover armed flag (or a macro calling `armTwist`) still resolves, and the disarm chip still
+  shows one. **QA H6 closed in the same commit:** dnd5e 5.3.3 fires
+  `postD20TestRollConfiguration` on a CANCELLED dialog too (empty roll list), so the v2 consume
+  disarmed on a mis-click — empty rolls = no use; the test now asserts it. Owed live: one popup
+  on the served world from a real phone spend.
 
 **Slice B BUILT + bench-verified 2026-07-28.** Shell: dashed chip (crossed-arrows mark, ×N,
 pulses while a spend waits) → inline spend panel under the condition strip (rule text, big
