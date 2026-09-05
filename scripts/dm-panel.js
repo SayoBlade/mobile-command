@@ -3393,10 +3393,13 @@ async function approveScribe(entry) {
   if (!actor || !spell) throw new Error("the actor or spell is gone");
   const scroll = actor.items.get(entry.itemId);
   const data = spell.toObject();
-  foundry.utils.setProperty(data, "system.preparation.mode", "prepared");
-  foundry.utils.setProperty(data, "system.preparation.prepared", false);
+  // dnd5e 5.1+ fields (method + prepared 0/1/2); the old `preparation` object is dropped
+  // on write when these are present, which a compendium toObject() guarantees (QA 2026-09-04).
+  foundry.utils.setProperty(data, "system.method", "spell");
+  foundry.utils.setProperty(data, "system.prepared", 0);
+  delete data.system?.preparation;
   const [created] = await actor.createEmbeddedDocuments("Item", [data]);
-  if (created?.system?.preparation?.prepared) await created.update({ "system.preparation.prepared": false });
+  if (created?.system?.prepared) await created.update({ "system.prepared": 0 });
   if (scroll) {
     const q = scroll.system?.quantity ?? 1;
     if (q > 1) await scroll.update({ "system.quantity": q - 1 });

@@ -1581,19 +1581,26 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (!yes) return;
     }
     const haveNames = new Set(actor.items.filter(i => i.type === "spell").map(i => i.name));
-    // A pact caster's leveled spells must be preparation.mode "pact" — they cast
-    // from pact slots. "prepared" on a warlock = uncastable (no leveled slots at
-    // all; DM 2026-07-09 "new warlock, nothing I can cast").
-    const levMode = si.pact ? "pact" : "prepared";
+    // A pact caster's leveled spells must be method "pact" — they cast from pact
+    // slots. "spell" on a warlock = uncastable (no leveled slots at all;
+    // DM 2026-07-09 "new warlock, nothing I can cast").
+    // dnd5e 5.1+ fields: `system.method` ("spell" = the old "prepared" mode, "pact",
+    // "innate", "atwill", "ritual") and `system.prepared` (0 unprepared / 1 prepared /
+    // 2 always). The old `system.preparation.{mode,prepared}` object is DROPPED on write
+    // whenever the new keys are present — and a compendium spell's toObject() always
+    // carries them — so writing it here landed every learned spell UNPREPARED
+    // (QA 2026-09-04). Write the real fields.
+    const levMethod = si.pact ? "pact" : "spell";
     const toAdd = [];
     for (const s of [...opts.cantrips, ...opts.leveled]) {
       if (!sel.has(s.uuid) || haveNames.has(s.name)) continue; // same-named spell already on the sheet → no duplicate
       const doc = await fromUuid(s.uuid);
       if (!doc) continue;
       const data = doc.toObject();
-      const mode = (data.system?.level ?? 0) > 0 ? levMode : "prepared";
-      foundry.utils.setProperty(data, "system.preparation.mode", mode);
-      foundry.utils.setProperty(data, "system.preparation.prepared", true);
+      const method = (data.system?.level ?? 0) > 0 ? levMethod : "spell";
+      foundry.utils.setProperty(data, "system.method", method);
+      foundry.utils.setProperty(data, "system.prepared", 1);
+      delete data.system?.preparation; // never ship the legacy object alongside the real keys
       toAdd.push(data);
     }
     // SYNC, not add-only (live 2026-07-17: "spells I removed still stay active"):
@@ -1601,8 +1608,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Eligible for removal: the spell's name is on the shown class list (so this
     // picker could have granted it), it is now unchecked, and it looks picker-made —
     // advancement grants (race/class/feat) and item-cast spells are never touched,
-    // and only the modes we create qualify ("prepared"/"pact"; cantrips land as
-    // "prepared" then dnd5e flips them to "always").
+    // and only the methods we create qualify ("spell"/"pact").
     const selNames = new Set([...opts.cantrips, ...opts.leveled].filter(s => sel.has(s.uuid)).map(s => s.name));
     const optNames = new Set([...opts.cantrips, ...opts.leveled].map(s => s.name));
     const toRemove = actor.items.filter(i => {
@@ -1610,18 +1616,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (!optNames.has(i.name) || selNames.has(i.name)) return false;
       if (i.flags?.dnd5e?.advancementOrigin) return false;
       if (i.system?.linkedActivity || i.system?.cachedFor) return false;
-      const mode = i.system?.preparation?.mode;
-      return (i.system?.level ?? 0) === 0 ? ["prepared", "always"].includes(mode) : ["prepared", "pact"].includes(mode);
+      const method = i.system?.method;
+      return (i.system?.level ?? 0) === 0 ? method === "spell" : ["spell", "pact"].includes(method);
     });
     try {
       const created = toAdd.length ? await actor.createEmbeddedDocuments("Item", toAdd) : [];
-      // dnd5e resets preparation.prepared to false on create; a known caster's
-      // leveled spells must be prepared to be castable (cantrips auto-become mode
-      // "always", pact spells are always-prepared by mode). Re-prepare in a
-      // follow-up update where it didn't stick.
+      // Belt and braces: if dnd5e's _preCreate re-derived the method and left a leveled
+      // spell unprepared, prepare it in a follow-up update (a known caster's leveled
+      // spells must be prepared to be castable).
       const reprep = created
-        .filter(i => (i.system?.level ?? 0) > 0 && ["prepared", "pact"].includes(i.system?.preparation?.mode) && !i.system.preparation.prepared)
-        .map(i => ({ _id: i.id, "system.preparation.prepared": true }));
+        .filter(i => (i.system?.level ?? 0) > 0 && ["spell", "pact"].includes(i.system?.method) && !i.system?.prepared)
+        .map(i => ({ _id: i.id, "system.prepared": 1 }));
       if (reprep.length) await actor.updateEmbeddedDocuments("Item", reprep);
       if (toRemove.length) await actor.deleteEmbeddedDocuments("Item", toRemove.map(i => i.id));
     } catch (e) { return ui.notifications.warn(`Couldn't save spells: ${e.message}`); }
@@ -3835,8 +3840,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // Learned count near the header — prepared/known for prepared casters at this
       // level, else just the number known (DM 2026-06-19).
       const known = lvlSpells.length;
-      const isPrep = lvl >= 1 && lvlSpells.some(sp => sp.system.preparation?.mode === "prepared");
-      const preparedN = lvlSpells.filter(sp => { const p = sp.system.preparation ?? {}; return p.prepared || p.mode !== "prepared"; }).length;
+      // dnd5e 5.1+: `method` "spell" is the prepared-caster method; `prepared` is 0/1/2.
+      // (The old `system.preparation` getter is deprecated, warns with a stack trace on
+      // EVERY read, and is gone in dnd5e 6 — QA 2026-09-04.)
+      const isPrep = lvl >= 1 && lvlSpells.some(sp => sp.system.method === "spell");
+      const preparedN = lvlSpells.filter(sp => sp.system.prepared || sp.system.method !== "spell").length;
       const countBadge = `<span class="mc-spell-count">${isPrep ? `${preparedN}/${known}` : known}</span>`;
       return `<div class="mc-spell-section mc-search-group"><div class="mc-actions-sub mc-spell-sub">${label}${countBadge}${headPips}</div><div class="mc-spells">${rows}</div></div>`;
     }).join("");
@@ -3888,15 +3896,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   #spellRowHTML(sp) {
-    const prep = sp.system.preparation ?? {};
-    const canPrepare = prep.mode === "prepared" && sp.system.level > 0; // cantrips are always prepared
-    const isPrepared = !!prep.prepared;
+    const method = sp.system.method ?? "spell";
+    const canPrepare = method === "spell" && sp.system.level > 0; // cantrips are always prepared
+    const isPrepared = !!sp.system.prepared;
     // §28.5.2 (the grey-out half): a leveled spell with no castable slot left — its own
     // tier or any upcast tier, mirroring #spellSlotOptions — dims and says why BEFORE the
     // tap, instead of warning after. Warnings, not walls: the row still opens normally.
     // At-will/innate/ritual-only casting spends no slot, so those never dim.
     const lvl = sp.system.level ?? 0;
-    const slotFree = lvl < 1 || ["atwill", "innate", "ritual"].includes(prep.mode);
+    const slotFree = lvl < 1 || ["atwill", "innate", "ritual"].includes(method);
     const noSlots = !slotFree && !Object.values(sp.actor?.system?.spells ?? {})
       .some(s => (s?.max ?? 0) > 0 && s.level >= lvl && (s.value ?? 0) > 0);
     const activity = [...(sp.system.activities ?? [])][0];
@@ -6949,7 +6957,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       }
       case "detail-prepare": {
         const it = actor?.items.get(el.dataset.itemId);
-        return it?.update({ "system.preparation.prepared": !it.system.preparation?.prepared });
+        return it?.update({ "system.prepared": (it.system.prepared ?? 0) ? 0 : 1 }); // same key as the row's toggle-prep
       }
       case "detail-roll":
         this.#detailCard = null; // close the card; the native (Restyled) roll dialog opens
@@ -8392,9 +8400,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (item.type === "spell") {
       const castUuid = usable[0]?.uuid ?? [...(sys.activities ?? [])][0]?.uuid;
       if (castUuid) btns.push(this.#actBtn("Cast", "fa-wand-sparkles", "detail-use-activity", { uuid: castUuid }, "mc-act-primary"));
-      const prep = sys.preparation ?? {};
-      if (prep.mode === "prepared" && (sys.level ?? 0) > 0)
-        btns.push(this.#actBtn(prep.prepared ? "Learned" : "Learn", "fa-book", "detail-prepare", { "item-id": item.id }, prep.prepared ? "mc-on" : ""));
+      const prepared = !!sys.prepared;
+      if ((sys.method ?? "spell") === "spell" && (sys.level ?? 0) > 0)
+        btns.push(this.#actBtn(prepared ? "Learned" : "Learn", "fa-book", "detail-prepare", { "item-id": item.id }, prepared ? "mc-on" : ""));
     } else {
       if (usable.length === 1) btns.push(this.#actBtn("Use", "fa-bolt", "detail-use-activity", { uuid: usable[0].uuid }, "mc-act-primary"));
       else if (usable.length > 1) btns.push(this.#actBtn("Use", "fa-bolt", "detail-use-item", { "item-id": item.id }, "mc-act-primary"));
