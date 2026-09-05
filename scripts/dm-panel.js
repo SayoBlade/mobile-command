@@ -3124,7 +3124,7 @@ function restHTML() {
     const w = night?.watch;
     const duty = (night?.watches?.[w] ?? []).map(firstName).join(", ") || "nobody";
     const steps = filled.map(n => `<button class="mc-dmp-night-step ${w === n ? "mc-on" : ""}" data-night="watch" data-watch="${n}" data-group="${group.id}"
-        title="${(night.watches?.[n] ?? []).map(firstName).join(", ") || "nobody"} on duty">${filled.indexOf(n) + 1}</button>`).join("");
+        title="${esc((night.watches?.[n] ?? []).map(firstName).join(", ") || "nobody")} on duty">${filled.indexOf(n) + 1}</button>`).join("");
     const secs = watchSeconds(rest.size, night);
     // No Event/Encounter buttons: they only set a badge and did nothing (DM 2026-07-17). If something
     // happens the DM just runs it — the off-watch PCs are already asleep — then Pass Watch to move on.
