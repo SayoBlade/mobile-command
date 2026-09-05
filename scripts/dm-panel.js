@@ -2292,7 +2292,11 @@ function ensureEl() {
   // …and when they're done with the dropdown, run whatever the timers wanted meanwhile. Without
   // this the deferred repaint is simply dropped and the panel sits stale until the next hook.
   // focusout fires as the select gives up focus, which is also when its popup closes.
-  panelEl.addEventListener("focusout", (ev) => { if (ev.target === openSelect) releaseSelect(); });
+  panelEl.addEventListener("focusout", (ev) => {
+    if (ev.target === openSelect) return releaseSelect();
+    // A text field giving up focus releases the repaint it held back (renderNow's typing guard).
+    if (pendingRender && !openSelect && isPanelTextField(ev.target)) { pendingRender = false; setTimeout(() => render(), 0); }
+  });
   // The open-dropdown window (see noteSelectOpen). pointerdown on a select opens the popup;
   // choosing, leaving, escaping or clicking anything else closes it.
   panelEl.addEventListener("pointerdown", (ev) => {
@@ -3927,13 +3931,16 @@ function render() {
 function renderNow() {
   const el = ensureEl();
   applyDmTheme(); // keep the widget on its fixed theme
-  // Don't rebuild the panel while the DM is typing in a downtime TEXT field — background hooks
-  // (presence 5s, combat, targeting) re-render often and would wipe the half-typed value (DM
-  // 2026-07-13: "the task disappears"). Only text/number inputs need this; SELECTs must NOT be
-  // guarded, or the rule form's own Kind/Roll dropdowns can't drive a re-render ("can't set rules").
+  // Don't rebuild the panel while the DM is typing in ANY text field — background hooks
+  // (presence 5s, combat, targeting, the clock) re-render often and would wipe the half-typed
+  // value (DM 2026-07-13: "the task disappears"). This used to be a hand-listed set of four forms;
+  // the HP amount box, the story-question and new-player fields and the custom-pace form were not
+  // on it, and the 5 s away ticker emptied them under the DM's fingers (QA 2026-09-04 H8). Only
+  // text/number inputs need this; SELECTs must NOT be guarded, or the rule form's own Kind/Roll
+  // dropdowns can't drive a re-render ("can't set rules"). Deferred, not dropped: the repaint runs
+  // when the field blurs (focusout below), so a change that landed mid-typing still shows.
   const ae = document.activeElement;
-  if (ae && el.contains(ae) && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA") && /^(text|number|search|textarea|)$/.test(ae.type || "textarea")
-      && (ae.closest(".mc-dt-addform") || ae.closest(".mc-dt-tmplform") || ae.closest(".mc-rf") || ae.matches("[data-cm-story-text]"))) return;
+  if (isPanelTextField(ae)) { pendingRender = true; return; }
   // …and never while a dropdown is actually open: rebuilding the DOM destroys the element that
   // owns the popup, so the list vanishes under the DM's cursor. Deferred, not dropped — whatever
   // wanted to repaint runs the moment they're done choosing (see noteSelectOpen).
@@ -5219,6 +5226,12 @@ export function refreshPanel() { try { if (panelEl) render(); } catch (e) { /* n
 let openSelect = null;
 let pendingRender = false;
 let openSelectFailsafe = null;
+// A field the DM may be mid-typing in: text-like inputs and textareas inside the panel.
+function isPanelTextField(el) {
+  if (!el || !panelEl?.contains(el)) return false;
+  if (el.tagName === "TEXTAREA") return true;
+  return el.tagName === "INPUT" && /^(text|number|search|tel|url|email|)$/.test(el.type || "");
+}
 function noteSelectOpen(ev) {
   const sel = ev.target?.closest?.("select");
   if (!sel || !panelEl?.contains(sel)) return;

@@ -406,12 +406,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   _replaceHTML(result, content) {
-    // Don't swap innerHTML while the player is typing a new downtime activity — a background
-    // re-render (HP/condition/combat) would wipe the half-typed name so "Add" saved nothing
-    // (DM 2026-07-13: "the task disappears"). The current DOM (value + focus) is kept; the next
-    // render after the field blurs repaints normally.
+    // Typing survives a background repaint (QA 2026-09-04 H8). The old guard skipped the swap
+    // only for two downtime classes that no longer exist in the template, so a journal entry, a
+    // PM, a bio or a story answer lost focus (and the phone keyboard) mid-word on every HP tick,
+    // pause, or another player's post. Rule now: ANY text field the player is typing in gets its
+    // value, focus and caret put back on the SAME field in the new markup, matched by a stable
+    // key (tag, classes, name, placeholder, data-*). Drafts already live in state and are rendered
+    // into the textarea; a field that isn't tracked keeps its typed text by copy.
     const ae = document.activeElement;
-    if (ae && (ae.classList?.contains("mc-dt-new-name") || ae.classList?.contains("mc-dt-new-plan"))) return;
+    const typing = !!ae && content.contains(ae)
+      && (ae.tagName === "TEXTAREA" || (ae.tagName === "INPUT" && /^(text|number|search|tel|url|email|)$/.test(ae.type || "")));
+    const fieldKey = (f) => `${f.tagName}|${f.className}|${f.name ?? ""}|${f.placeholder ?? ""}|${JSON.stringify(f.dataset ?? {})}`;
+    const typed = typing ? { key: fieldKey(ae), value: ae.value, start: ae.selectionStart, end: ae.selectionEnd } : null;
     watchScroll(content); // start recording scroll positions (idempotent)
     const html = typeof result === "string" ? result : "";
     const prevKey = this.#viewKey;
@@ -456,6 +462,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#editingField) {
       const inp = content.querySelector(".mc-stat-input");
       if (inp) { inp.focus(); inp.select(); }
+    } else if (typed) {
+      const again = [...content.querySelectorAll("input, textarea")].find(f => fieldKey(f) === typed.key);
+      if (again) {
+        if (!again.value && typed.value) again.value = typed.value; // an untracked field keeps its text
+        try {
+          again.focus({ preventScroll: true });
+          if (typed.start != null && typeof again.setSelectionRange === "function") again.setSelectionRange(typed.start, typed.end ?? typed.start);
+        } catch (e) { /* number inputs refuse setSelectionRange — focus is what matters */ }
+      }
     }
   }
 
@@ -9104,11 +9119,9 @@ export function registerShellHooks() {
   // Pause/resume → repaint so the header's "Paused" chip appears and clears with the game state.
   Hooks.on("pauseGame", () => { if (shellInstance?.rendered) shellInstance.render(); });
   // §17.7 Downtime: repaint the board when the window opens/closes or the DM edits an Activity.
-  // Skip while a new-activity field is focused so a relayed change can't wipe mid-typing.
+  // (Typing survives the repaint — _replaceHTML puts focus, value and caret back.)
   Hooks.on("updateSetting", (s) => {
     if (s?.key !== `${MODULE_ID}.downtimeState` || !shellInstance?.rendered) return;
-    const ae = document.activeElement;
-    if (ae?.classList?.contains?.("mc-dt-new-name") || ae?.classList?.contains?.("mc-dt-new-plan")) return;
     shellInstance.render();
   });
   // §35.1: the Crooked Moon tab is gated live — flipping the setting must repaint the bar and
