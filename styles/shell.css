@@ -2096,6 +2096,9 @@ body {
   animation-delay: calc(var(--i, 0) * 48ms); }  /* --i now ranks ALL cards by distance from the
      middle of the table (card-table.js orderDealFromCentre), so this is one wave across the
      whole board — at 22 cards the last lands ~1.1s after the first, which is a deal, not a queue. */
+/* A card that already landed (card-table.js `dealt`) is simply on the table: the board is rewritten
+   on every wizard event, and without this every event re-dealt all of them. */
+#mc-cardtable.mc-ct-dealt .mc-ct-card.mc-ct-landed { animation: none; opacity: 1; }
 @keyframes mc-ct-deal {
   0%   { opacity: 0; transform: translateY(-260%) scale(.72) rotate(-8deg); }
   62%  { opacity: 1; }

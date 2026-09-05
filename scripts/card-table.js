@@ -174,7 +174,13 @@ function cardHTML(seat, def, s, i = 0) {
     : esc(label);
   const nameStrip = flipped && !face?.img ? "" : `<div class="mc-ct-name ${face?.abilities ? "mc-ct-name-stack" : ""}">${nameHTML}</div>`;
   // --i drives the deal: each card leaves the middle of the table a beat after the last.
-  return `<div class="mc-ct-card ${flipped ? "mc-ct-flipped" : ""} ${s.active === def.step ? "mc-ct-active" : ""}" data-step="${def.step}" style="--i:${i}">
+  // A card that has already landed renders LANDED: repaint() rewrites the whole board on every
+  // event, and without this every wizard step replayed the fly-in for all 22 cards (QA 2026-09-04
+  // H12). Same idiom as `revealed`/`dropped` — the deal plays on the render where the card first
+  // lands, never again.
+  const key = `${seat?.id ?? "?"}:${def.step}`;
+  const landed = dealt.has(key) ? "mc-ct-landed" : "";
+  return `<div class="mc-ct-card ${flipped ? "mc-ct-flipped" : ""} ${s.active === def.step ? "mc-ct-active" : ""} ${landed}" data-step="${def.step}" data-deal="${esc(key)}" style="--i:${i}">
     <div class="mc-ct-inner">
       <div class="mc-ct-back" style="background-image:url('${esc(cardBack())}')"></div>
       <div class="mc-ct-face">
@@ -192,6 +198,9 @@ const revealed = new Set();
 // Seats whose portrait token has already dropped, keyed seat:actor:img — the drop plays once,
 // and again if the DM regenerates the portrait (the img is part of the key).
 const dropped = new Set();
+// Cards whose deal animation has finished, keyed seat:step — cleared when the opening restarts
+// or the board comes down (see cardHTML).
+const dealt = new Set();
 // Foundry's placeholders are not a face. A portrait counts only once the player has actually
 // made one, which is what the wizard's last step is for.
 const PLACEHOLDER_IMG = /(mystery-man|^$)/i;
@@ -371,7 +380,21 @@ function repaint() {
   const online = isOnlineTable();
   root.classList.toggle("mc-ct-online", online);
   root.classList.toggle("mc-ct-faceup", online && !hasSharedScreen());
+  // The candles are three autoplaying webm decoders; a full rewrite re-created them on every
+  // repaint. Keep the live element when the fresh markup would be identical (QA 2026-09-04 H12).
+  const oldCandles = root.querySelector(".mc-ct-candles");
   root.innerHTML = boardHTML();
+  if (oldCandles) {
+    const fresh = root.querySelector(".mc-ct-candles");
+    if (fresh && fresh.outerHTML === oldCandles.outerHTML) fresh.replaceWith(oldCandles);
+  }
+  // Once a card's deal has played it is on the table for good (until the opening restarts).
+  if (root.classList.contains("mc-ct-dealt")) {
+    for (const card of root.querySelectorAll(".mc-ct-card:not(.mc-ct-landed)")) {
+      const key = card.dataset.deal;
+      card.addEventListener("animationend", (ev) => { if (ev.animationName === "mc-ct-deal") dealt.add(key); }, { once: true });
+    }
+  }
   markEmblems();
   soundNewTokens();
 }
@@ -430,6 +453,7 @@ function openingMusic() {
 export function runOpening() {
   if (!root) return;
   clearOpening();
+  dealt.clear(); // the show deals every card again
   // Re-read the world before the show. "Begin session zero" is the one moment the board must be
   // certain it is showing what EXISTS, not what it was last told — the DM may have spent the
   // gap deleting and remaking characters, which is exactly what session zero is for.
@@ -469,6 +493,7 @@ export function cardTableSync(on) {
     if (ran) settleOpening(); else root.classList.add("mc-ct-dark");
   } else if (!on && root) {
     clearOpening();
+    dealt.clear();
     unmountFaded(root); root = null; state = new Map();
   }
 }
@@ -518,13 +543,24 @@ export function registerCardTable() {
   });
   // Actor truth: an item landing (species/class/…) flips its card even with no szEvent — the
   // board must be right after a reload or when the DM builds a PC from the desktop.
-  const onActorish = (doc) => {
+  // Filtered (QA 2026-09-04 H12): these hooks fire for EVERY actor in the world. Unfiltered, an
+  // NPC's HP tick or a world-item import rebuilt the whole board. Only characters can sit here;
+  // for a seated one only a change the cards can show matters, and for an unseated one only a
+  // change that could seat it (ownership, or its face/name for the roster).
+  const onActorish = (doc, changes) => {
     if (!root) return;
-    const actorId = doc?.parent?.id ?? doc?.id;
+    const actor = doc?.documentName === "Actor" ? doc : doc?.parent;
+    if (!actor || actor.documentName !== "Actor" || actor.type !== "character") return;
+    const ch = changes ?? {};
+    const isActorUpdate = doc.documentName === "Actor";
     for (const [, s] of state) {
-      if (s.actorId && s.actorId === actorId) { s.cards = readCards(game.actors.get(actorId)); s.caster = isCaster(game.actors.get(actorId)); repaint(); return; }
+      if (s.actorId && s.actorId === actor.id) {
+        const visible = !isActorUpdate || "img" in ch || "name" in ch || "items" in ch || ch.system?.details || ch.flags?.[MODULE_ID];
+        if (!visible) return; // HP, currency, prepared spells… nothing on a card changes
+        s.cards = readCards(actor); s.caster = isCaster(actor); repaint(); return;
+      }
     }
-    rebuild(); repaint(); // an unseen actor — a seat may have just gained its PC
+    if (isActorUpdate && (ch.ownership || "img" in ch || "name" in ch)) { rebuild(); repaint(); } // a seat may have just gained its PC
   };
   Hooks.on("createItem", onActorish);
   Hooks.on("deleteItem", onActorish);
