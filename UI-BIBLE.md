@@ -53,15 +53,24 @@ the theme blocks that override them.
 
 ### 2.2 Semantic accents — these and no others
 
-| Colour | Hex | Means | Never means |
-|---|---|---|---|
-| **Green** | `#3a6b4a` / `#8fd6a8` | Done, complete, "on" | "go", primary action |
-| **Red** | `#7a3a35` / `#ffb4a8` | Destructive, over-budget, **can't afford** | "stop", generic warning |
-| **Violet** | `#4a3f66` / `#8a6fd8` | **Reactions only** (§9) | decoration |
-| **Player colour** | per-user | **Identity** — whose thing this is | status, priority |
+| Colour | Tokens (base / ink / dim) | Hex | Means | Never means |
+|---|---|---|---|---|
+| **Green** | `--mc-ok` / `--mc-ok-ink` / `--mc-ok-dim` | `#3a6b4a` / `#8fd6a8` / `#1c2f22` | Done, complete, "on" | "go", primary action |
+| **Red** | `--mc-bad` / `--mc-bad-ink` / `--mc-bad-dim` | `#7a3a35` / `#ffb4a8` / `#2f1d1c` | Destructive, over-budget, **can't afford**, damage | "stop", generic warning |
+| **Violet** | `--mc-react` / `--mc-react-ink` / `--mc-react-dim` | `#4a3f66` / `#8a6fd8` / `#241f33` | **Reactions only** (§9) | decoration |
+| **Amber** | `--mc-warn` | `#e0b24a` | **Careful** — hurt (HP amber), heavy load, running low, a warning fire | error, destructive |
+| **Player colour** | per-user | — | **Identity** — whose thing this is | status, priority |
+
+Semantic colours are tokens too (2026-09-05): the base is a fill or border, `-ink` is text on a
+dark surface, `-dim` is the tinted wash behind a row. They live on `body` and **no theme overrides
+them** — meaning must read the same on every phone. A dimmer shade of the *accent* (a gold
+border at rest, a dark-gold gradient stop) is `color-mix(in srgb, var(--mc-gold) N%, var(--mc-sunken))`,
+never a pasted brown. The 2026-09-04 QA pass found ~9 greens, ~8 reds and a parallel set of
+DM-panel browns pasted by hand (535 lines); all of it now resolves to these tokens.
 
 **Blue is not in the palette.** It crept into downtime and was removed wholesale (v0.1.163–171). If
-you reach for blue, you want gold.
+you reach for blue, you want gold. (The "Save" blue survives only as `--mc-primary*`, the D-pad /
+Use / rest family — a fill, never text. Blue *text* was re-pointed at gold 2026-09-05.)
 
 ### 2.3 The rule that keeps costing us
 

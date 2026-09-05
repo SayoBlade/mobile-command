@@ -133,17 +133,17 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   opacity: 1; transition: opacity 0.8s ease;
 }
 #mc-clean-hint.mc-fade { opacity: 0; }
-#mc-clean-hint kbd { padding: 1px 7px; margin: 0 2px; border: 1px solid #5a5f6b; border-radius: calc(4px * var(--mc-round, 1)); background: #2a2d36; font-family: monospace; }
+#mc-clean-hint kbd { padding: 1px 7px; margin: 0 2px; border: 1px solid var(--mc-edge); border-radius: calc(4px * var(--mc-round, 1)); background: var(--mc-panel-2); font-family: monospace; }
 
 /* GM-account-on-the-display warning (persistent, dismissible). */
 #mc-display-gm-warn {
   position: fixed; left: 50%; top: 18px; transform: translateX(-50%);
   z-index: 100001; max-width: min(640px, 92vw); padding: 12px 18px; border-radius: calc(12px * var(--mc-round, 1)); cursor: pointer;
-  background: rgba(60, 42, 10, 0.97); color: #ffe9c2; border: 1px solid var(--mc-edge);
+  background: rgba(60, 42, 10, 0.97); color: var(--mc-ink); border: 1px solid var(--mc-edge);
   font-family: "Signika", sans-serif; font-size: 15px; line-height: 1.4; text-align: center;
   box-shadow: 0 6px 22px rgba(0,0,0,0.6);
 }
-#mc-display-gm-warn b { color: #ffd479; }
+#mc-display-gm-warn b { color: var(--mc-gold); }
 #mc-display-gm-warn .mc-warn-x { display: block; margin-top: 6px; font-size: 12px; opacity: 0.7; }
 
 /* 1px player-colour outline around the whole app (UI-BIBLE §3). It's an overlay, NOT an inset
@@ -160,7 +160,7 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   z-index: 9999;
   display: flex;
   flex-direction: column;
-  background: #14151a;
+  background: var(--mc-sunken);
   color: var(--mc-ink);
   font-family: "Signika", sans-serif;
   -webkit-user-select: none;
@@ -180,8 +180,8 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  background: #1d1f27;
-  border-bottom: 1px solid #2c2f3a;
+  background: var(--mc-panel);
+  border-bottom: 1px solid var(--mc-edge);
   flex: 0 0 auto;
 }
 .mc-portrait {
@@ -189,8 +189,8 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   border-radius: calc(8px * var(--mc-round, 1));
   object-fit: cover;
   object-position: top; /* show the head/top; crop the bottom if off-ratio */
-  background: #0c0d11;
-  border: 1px solid #2c2f3a;
+  background: var(--mc-sunken);
+  border: 1px solid var(--mc-edge);
   /* a ring in the player's own Foundry color — mirrors their token's ring on the map */
   box-shadow: 0 0 0 2px var(--mc-user, transparent);
 }
@@ -203,66 +203,66 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   display: flex; align-items: baseline; gap: 6px;
   margin-top: 2px; font-variant-numeric: tabular-nums;
 }
-.mc-hp-cur { font-size: 22px; font-weight: 700; color: #6fcf7d; }
-.mc-hp-cur.mc-hurt { color: #e0b24a; }
-.mc-hp-cur.mc-bloodied { color: #e2584a; }
-.mc-hp-max { font-size: 14px; color: #9a9da8; }
+.mc-hp-cur { font-size: 22px; font-weight: 700; color: var(--mc-ok-ink); }
+.mc-hp-cur.mc-hurt { color: var(--mc-warn); }
+.mc-hp-cur.mc-bloodied { color: var(--mc-bad-ink); }
+.mc-hp-max { font-size: 14px; color: var(--mc-muted); }
 .mc-hp-temp {
-  font-size: 12px; color: #5db4e6;
+  font-size: 12px; color: var(--mc-gold);
   margin-left: 6px; padding: 1px 6px;
-  border: 1px solid #2c4a5c; border-radius: calc(10px * var(--mc-round, 1));
+  border: 1px solid var(--mc-primary-edge); border-radius: calc(10px * var(--mc-round, 1));
 }
 .mc-exit {
   flex: 0 0 auto;
   width: 34px; height: 34px;
-  border: 1px solid #2c2f3a; border-radius: calc(8px * var(--mc-round, 1));
-  background: var(--mc-panel-2); color: #9a9da8;
+  border: 1px solid var(--mc-edge); border-radius: calc(8px * var(--mc-round, 1));
+  background: var(--mc-panel-2); color: var(--mc-muted);
   font-size: 16px; line-height: 1;
 }
 
 /* --- HP steppers + damage/heal delta (first write interaction) --- */
 .mc-hp-step {
   width: 26px; height: 26px;
-  border: 1px solid #3a3e4c; border-radius: calc(7px * var(--mc-round, 1));
+  border: 1px solid var(--mc-edge); border-radius: calc(7px * var(--mc-round, 1));
   background: var(--mc-panel-2); color: var(--mc-ink);
   font-size: 18px; line-height: 1; font-weight: 700;
 }
-.mc-hp-step:active { background: #3a4250; }
+.mc-hp-step:active { background: var(--mc-panel-2); }
 .mc-hp-edit {
   display: flex; align-items: center; gap: 8px;
   padding: 8px 14px;
-  background: #16171d;
-  border-bottom: 1px solid #2c2f3a;
+  background: var(--mc-sunken);
+  border-bottom: 1px solid var(--mc-edge);
   flex: 0 0 auto;
 }
 .mc-hp-input {
   flex: 1 1 auto; min-width: 0;
   padding: 9px 12px;
-  background: #0c0d11; color: var(--mc-ink);
+  background: var(--mc-sunken); color: var(--mc-ink);
   border: 1px solid var(--mc-edge); border-radius: calc(8px * var(--mc-round, 1));
   font-size: 15px; font-variant-numeric: tabular-nums;
 }
 .mc-hp-edit .mc-btn { flex: 0 0 auto; padding: 9px 16px; }
-.mc-hp-damage { background: #3a2526; border-color: #5c2f2c; }
-.mc-hp-heal { background: #20342a; border-color: #2f5d39; }
+.mc-hp-damage { background: var(--mc-bad-dim); border-color: var(--mc-bad); }
+.mc-hp-heal { background: var(--mc-ok-dim); border-color: var(--mc-ok); }
 
 /* --- conditions --- */
 .mc-conditions {
   display: flex; flex-wrap: wrap; gap: 6px;
   padding: 8px 14px;
-  background: #16171d;
-  border-bottom: 1px solid #2c2f3a;
+  background: var(--mc-sunken);
+  border-bottom: 1px solid var(--mc-edge);
   flex: 0 0 auto;
 }
 .mc-chip {
   font-size: 12px; padding: 3px 9px;
-  background: var(--mc-panel-2); border: 1px solid #3a3e4c; border-radius: calc(12px * var(--mc-round, 1));
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); border-radius: calc(12px * var(--mc-round, 1));
   color: var(--mc-ink);
 }
 .mc-chip.mc-none { color: var(--mc-muted); border-style: dashed; }
 /* Action-economy "used"/spent chips (Action / Bonus Action / Reaction used) — */
 /* muted + dashed so a spent resource reads differently from an active buff. */
-.mc-chip-used { color: #9a9da8; border-style: dashed; }
+.mc-chip-used { color: var(--mc-muted); border-style: dashed; }
 
 /* --- scrollable content --- */
 .mc-content {
@@ -300,7 +300,7 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
 .mc-bio-area { resize: vertical; font-family: inherit; line-height: 1.4; }
 .mc-section-label {
   font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
-  color: #81869a; margin: 4px 2px 8px;
+  color: var(--mc-muted); margin: 4px 2px 8px;
 }
 
 /* --- skills favorites strip --- */
@@ -313,7 +313,7 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1));
   text-align: center;
 }
-.mc-skill .mc-skill-name { font-size: 12px; color: #b9bcc7; }
+.mc-skill .mc-skill-name { font-size: 12px; color: var(--mc-muted); }
 .mc-skill .mc-skill-mod { font-size: 18px; font-weight: 700; margin-top: 2px; }
 
 /* --- ability grid --- */
@@ -328,18 +328,18 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   display: flex; align-items: baseline; justify-content: space-between;
   margin-bottom: 8px;
 }
-.mc-ability-abbr { font-size: 13px; font-weight: 700; letter-spacing: .05em; color: #b9bcc7; }
+.mc-ability-abbr { font-size: 13px; font-weight: 700; letter-spacing: .05em; color: var(--mc-muted); }
 .mc-ability-mod { font-size: 24px; font-weight: 800; }
 .mc-ability-btns { display: flex; gap: 8px; }
 .mc-btn {
   flex: 1 1 0;
   padding: 10px 0;
-  border-radius: calc(8px * var(--mc-round, 1)); border: 1px solid #3a3e4c;
+  border-radius: calc(8px * var(--mc-round, 1)); border: 1px solid var(--mc-edge);
   background: var(--mc-panel-2); color: var(--mc-ink);
   font-size: 13px; font-weight: 600;
 }
-.mc-btn:active { background: #3a4250; }
-.mc-btn.mc-save { background: #243042; border-color: #2f4660; }
+.mc-btn:active { background: var(--mc-panel-2); }
+.mc-btn.mc-save { background: var(--mc-primary); border-color: var(--mc-primary-edge); }
 
 /* --- Actions tab: action list + target picker (combat loop) --- */
 .mc-actions { display: flex; flex-direction: column; gap: 8px; }
@@ -357,17 +357,17 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
 }
 .mc-action:active { background: var(--mc-panel-2); }
 .mc-action-name { font-size: 15px; font-weight: 600; }
-.mc-action-sub { font-size: 12px; color: #9a9da8; text-transform: capitalize; }
+.mc-action-sub { font-size: 12px; color: var(--mc-muted); text-transform: capitalize; }
 
 .mc-picker-head {
   display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
   padding: 10px 14px 0; /* match the list bodies' 14px gutter (scroll wrapper has none) */
 }
-.mc-back { background: none; border: none; color: #5db4e6; font-size: 14px; padding: 4px 0; }
+.mc-back { background: none; border: none; color: var(--mc-gold); font-size: 14px; padding: 4px 0; }
 .mc-picker-title { flex: 1 1 auto; } /* size/weight: the one window-title rule (UI-BIBLE §6.4) */
-.mc-picker-range { margin-left: 8px; font-size: 11px; font-weight: 600; color: #9a9da8;
+.mc-picker-range { margin-left: 8px; font-size: 11px; font-weight: 600; color: var(--mc-muted);
   padding: 2px 7px; border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); white-space: nowrap; }
-.mc-target-count { font-size: 13px; color: #9a9da8; font-variant-numeric: tabular-nums; }
+.mc-target-count { font-size: 13px; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
 
 .mc-adv-row { display: flex; gap: 8px; margin-bottom: 12px; }
 .mc-adv {
@@ -375,7 +375,7 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(9px * var(--mc-round, 1));
   color: var(--mc-ink); font-size: 13px; font-weight: 600;
 }
-.mc-adv-on { background: #243042; border-color: #2f5d8a; color: var(--mc-ink); }
+.mc-adv-on { background: var(--mc-primary); border-color: var(--mc-primary-edge); color: var(--mc-ink); }
 
 /* Upcast slot-level chips (the "Cast at" row); the small badge = slots left. */
 .mc-slot-row { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -391,21 +391,21 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   padding: 0 4px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel-2); border: 1px solid var(--mc-edge);
   color: var(--mc-ink); font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
 }
-.mc-slot-on .mc-slot-n { background: var(--mc-gold); color: #1a1410; border-color: var(--mc-gold); }
+.mc-slot-on .mc-slot-n { background: var(--mc-gold); color: var(--mc-sunken); border-color: var(--mc-gold); }
 /* AC5E recommendation (§14): a star on the suggested adv/dis button + a reasons banner. */
 .mc-adv-rec { box-shadow: inset 0 0 0 1px var(--mc-gold); }
 .mc-adv-rec-star { font-size: 9px; color: var(--mc-gold); margin-left: 2px; vertical-align: 1px; }
 .mc-rec { margin: -4px 0 12px; padding: 8px 10px; border-radius: calc(9px * var(--mc-round, 1)); font-size: 12px; background: var(--mc-sunken); border: 1px solid var(--mc-edge); }
 .mc-rec-pending { color: var(--mc-muted); }
-.mc-rec-advantage { border-color: #3f8a52; }
-.mc-rec-disadvantage { border-color: #8a3f3a; }
+.mc-rec-advantage { border-color: var(--mc-ok); }
+.mc-rec-disadvantage { border-color: var(--mc-bad); }
 .mc-rec-head { font-weight: 700; margin-bottom: 4px; color: var(--mc-ink); }
-.mc-rec-advantage .mc-rec-head { color: #cdeed4; }
-.mc-rec-disadvantage .mc-rec-head { color: #f2c4be; }
+.mc-rec-advantage .mc-rec-head { color: var(--mc-ok-ink); }
+.mc-rec-disadvantage .mc-rec-head { color: var(--mc-bad-ink); }
 .mc-rec-reasons { margin: 0; padding-left: 16px; color: var(--mc-muted); }
-.mc-rec-reasons li.mc-rec-adv { color: #9fd4ad; }
-.mc-rec-reasons li.mc-rec-dis { color: #d99b95; }
-.mc-rec-reasons li.mc-rec-fail { color: #d99b95; font-weight: 600; }
+.mc-rec-reasons li.mc-rec-adv { color: var(--mc-ok-ink); }
+.mc-rec-reasons li.mc-rec-dis { color: var(--mc-bad-ink); }
+.mc-rec-reasons li.mc-rec-fail { color: var(--mc-bad-ink); font-weight: 600; }
 
 .mc-targets { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 .mc-target {
@@ -414,7 +414,7 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1));
   color: var(--mc-ink); text-align: left;
 }
-.mc-target-on { border-color: #5db4e6; box-shadow: inset 0 0 0 1px #243042; }
+.mc-target-on { border-color: var(--mc-gold); box-shadow: inset 0 0 0 1px var(--mc-primary); }
 .mc-target-name { font-size: 15px; }
 /* Token face on a target row (§5 picker, UI-BIBLE §3: identity rides the icon, not the text).
    The art is already on the shared screen, so it reveals nothing the table can't see. */
@@ -447,8 +447,8 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
 .mc-tstep:active { border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-tstep.mc-tstep-max { opacity: 0.4; }
 .mc-tstep-n { min-width: 22px; text-align: center; font-size: 15px; font-weight: 800; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
-.mc-target-dist { font-size: 12px; color: #9a9da8; font-variant-numeric: tabular-nums; }
-.mc-target-dist.mc-far { color: #e8857a; font-weight: 700; }
+.mc-target-dist { font-size: 12px; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
+.mc-target-dist.mc-far { color: var(--mc-bad-ink); font-weight: 700; }
 
 /* Names ALWAYS crop with … when a row carries trailing metadata (type / distance / qty)
    so that metadata never gets pushed off (DM 2026-07-10). The name takes the flexible
@@ -465,32 +465,32 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
   padding: 2px 7px; border-radius: calc(8px * var(--mc-round, 1));
 }
-.mc-disp.mc-foe { background: #2f1d1c; color: #e8a59d; }
-.mc-disp.mc-ally { background: #1c2f22; color: #8fe0a0; }
-.mc-disp.mc-neutral { background: var(--mc-panel-2); color: #b9bcc7; }
-.mc-target-note { color: #9a9da8; font-size: 13px; padding: 12px 2px; }
+.mc-disp.mc-foe { background: var(--mc-bad-dim); color: var(--mc-bad-ink); }
+.mc-disp.mc-ally { background: var(--mc-ok-dim); color: var(--mc-ok-ink); }
+.mc-disp.mc-neutral { background: var(--mc-panel-2); color: var(--mc-muted); }
+.mc-target-note { color: var(--mc-muted); font-size: 13px; padding: 12px 2px; }
 
 .mc-fire {
   width: 100%; padding: 15px 0;
-  background: #2a4634; border: 1px solid #2f5d39; border-radius: calc(12px * var(--mc-round, 1));
+  background: var(--mc-ok); border: 1px solid var(--mc-ok); border-radius: calc(12px * var(--mc-round, 1));
   color: var(--mc-ink); font-size: 16px; font-weight: 700;
 }
-.mc-fire:active { background: #335640; }
+.mc-fire:active { background: var(--mc-ok); }
 .mc-fire.mc-disabled { background: var(--mc-panel); border-color: var(--mc-edge); color: var(--mc-muted); }
-.mc-roll-damage { background: #3a2526; border-color: #5c2f2c; }
-.mc-roll-damage:active { background: #4a2f30; }
+.mc-roll-damage { background: var(--mc-bad-dim); border-color: var(--mc-bad); }
+.mc-roll-damage:active { background: var(--mc-bad-dim); }
 
 /* Out-of-resources warning (a depleted item the player chose to use anyway). Amber =
    caution-but-allowed, not a hard error. */
 .mc-depleted {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 12px; margin: 4px 0 8px;
-  background: #3a2b1c; border: 1px solid #6b4a22; border-radius: calc(10px * var(--mc-round, 1));
-  color: #f3c98b; font-size: 13px; line-height: 1.3;
+  background: color-mix(in srgb, var(--mc-warn) 18%, var(--mc-sunken)); border: 1px solid color-mix(in srgb, var(--mc-warn) 40%, var(--mc-sunken)); border-radius: calc(10px * var(--mc-round, 1));
+  color: var(--mc-warn); font-size: 13px; line-height: 1.3;
 }
-.mc-depleted i { color: #f0a13a; flex: 0 0 auto; }
-.mc-fire.mc-fire-warn { background: #4a3320; border-color: #6b4a22; color: #f3c98b; }
-.mc-fire.mc-fire-warn:active { background: #5a3f28; }
+.mc-depleted i { color: var(--mc-warn); flex: 0 0 auto; }
+.mc-fire.mc-fire-warn { background: color-mix(in srgb, var(--mc-warn) 25%, var(--mc-sunken)); border-color: color-mix(in srgb, var(--mc-warn) 40%, var(--mc-sunken)); color: var(--mc-warn); }
+.mc-fire.mc-fire-warn:active { background: color-mix(in srgb, var(--mc-warn) 32%, var(--mc-sunken)); }
 
 /* attack result shown between the attack tap and the damage tap */
 .mc-attack-result {
@@ -499,11 +499,11 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(12px * var(--mc-round, 1));
 }
 .mc-attack-total { font-size: 34px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.mc-attack-label { font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: #9a9da8; }
-.mc-attack-result.mc-hit { border-color: #2f5d39; }
-.mc-attack-result.mc-hit .mc-attack-total { color: #6fcf7d; }
-.mc-attack-result.mc-miss { border-color: #5c2f2c; }
-.mc-attack-result.mc-miss .mc-attack-total { color: #e2584a; }
+.mc-attack-label { font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: var(--mc-muted); }
+.mc-attack-result.mc-hit { border-color: var(--mc-ok); }
+.mc-attack-result.mc-hit .mc-attack-total { color: var(--mc-ok-ink); }
+.mc-attack-result.mc-miss { border-color: var(--mc-bad); }
+.mc-attack-result.mc-miss .mc-attack-total { color: var(--mc-bad-ink); }
 
 /* §45 weapon mastery reminder — sits under the attack result, above the damage tap.
    Gold accent, not green/red: a mastery is a thing the character HAS (brand), never a
@@ -539,34 +539,34 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
 .mc-nt-badge {
   width: 66px; height: 66px; border-radius: 50%;
   display: grid; place-items: center; font-size: 26px;
-  color: var(--mc-user, #c8a44d); background: #14161c;
+  color: var(--mc-user, #c8a44d); background: var(--mc-sunken);
   box-shadow: 0 0 0 2px var(--mc-user, #2c2f3a); margin-bottom: 4px;
 }
 .mc-nt-title { color: var(--mc-ink); }
-.mc-nt-sub { font-size: 13px; color: #9aa0ab; line-height: 1.5; max-width: 320px; }
-.mc-nt-sub b { color: #c8ccd4; }
+.mc-nt-sub { font-size: 13px; color: var(--mc-muted); line-height: 1.5; max-width: 320px; }
+.mc-nt-sub b { color: var(--mc-muted); }
 .mc-nt-listhead {
   margin-top: 16px; align-self: stretch; text-align: left;
-  font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6f7682;
+  font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--mc-muted);
 }
 .mc-nt-list { align-self: stretch; display: flex; flex-direction: column; gap: 8px; }
 .mc-nt-row {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 12px; min-height: 48px; width: 100%; text-align: left;
-  background: #14161c; border: 1px solid #2c2f3a; border-radius: calc(10px * var(--mc-round, 1)); color: #e8e6df;
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); color: var(--mc-ink);
 }
-.mc-nt-img { width: 36px; height: 36px; border-radius: calc(7px * var(--mc-round, 1)); object-fit: cover; object-position: top; background: #0c0d11; }
+.mc-nt-img { width: 36px; height: 36px; border-radius: calc(7px * var(--mc-round, 1)); object-fit: cover; object-position: top; background: var(--mc-sunken); }
 .mc-nt-name { flex: 1 1 auto; min-width: 0; font-weight: 600; }
-.mc-nt-tag { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: #22252e; color: #aeb4bf; }
+.mc-nt-tag { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: var(--mc-panel-2); color: var(--mc-muted); }
 /* Always-available escape from the no-token screen — it has no header, so without this a device
    with nothing to list (the TV account: observes the party, owns nothing) is stuck (DM 2026-07-22). */
-.mc-nt-escape { margin-top: 22px; align-self: stretch; padding-top: 16px; border-top: 1px solid #2c2f3a; }
-.mc-nt-escape-hint { font-size: 12px; color: #6f7682; text-align: center; margin-bottom: 10px; }
+.mc-nt-escape { margin-top: 22px; align-self: stretch; padding-top: 16px; border-top: 1px solid var(--mc-edge); }
+.mc-nt-escape-hint { font-size: 12px; color: var(--mc-muted); text-align: center; margin-bottom: 10px; }
 .mc-nt-escape-btns { display: flex; gap: 8px; }
 .mc-nt-esc {
   flex: 1 1 0; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px;
   padding: 10px 12px; border-radius: calc(10px * var(--mc-round, 1));
-  background: #14161c; border: 1px solid #2c2f3a; color: #c8ccd4; font-size: 13px; font-weight: 600;
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: var(--mc-muted); font-size: 13px; font-weight: 600;
 }
 .mc-nt-esc-go { border-color: var(--mc-gold, #b09a63); color: var(--mc-gold, #b09a63); }
 
@@ -574,36 +574,36 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
 .mc-imgpop-gen {
   margin-top: 12px; padding: 10px 16px; min-height: 44px;
   display: inline-flex; align-items: center; gap: 8px;
-  background: var(--mc-user, #c8a44d); color: #14161c; font-weight: 700;
+  background: var(--mc-user, #c8a44d); color: var(--mc-sunken); font-weight: 700;
   border: none; border-radius: calc(10px * var(--mc-round, 1)); cursor: pointer;
 }
 .mc-pg { display: flex; flex-direction: column; gap: 8px; padding: 6px 12px 20px; }
-.mc-pg-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #8a90a0; margin-top: 8px; }
-.mc-pg-hint { text-transform: none; letter-spacing: 0; color: #5f6675; font-weight: 400; }
+.mc-pg-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--mc-muted); margin-top: 8px; }
+.mc-pg-hint { text-transform: none; letter-spacing: 0; color: var(--mc-muted); font-weight: 400; }
 .mc-pg-segs { display: flex; gap: 8px; }
 .mc-pg-seg {
   flex: 1 1 0; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  background: #14161c; border: 1px solid #2c2f3a; border-radius: calc(10px * var(--mc-round, 1)); color: #aeb4bf; font-weight: 600; cursor: pointer;
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); color: var(--mc-muted); font-weight: 600; cursor: pointer;
 }
-.mc-pg-seg.mc-on { background: #22252e; border-color: var(--mc-user, #c8a44d); color: #e8e6df; }
+.mc-pg-seg.mc-on { background: var(--mc-panel-2); border-color: var(--mc-user, #c8a44d); color: var(--mc-ink); }
 .mc-pg-input {
   width: 100%; box-sizing: border-box; resize: vertical; min-height: 64px;
-  background: #0f1115; border: 1px solid #2c2f3a; border-radius: calc(10px * var(--mc-round, 1)); color: #e8e6df;
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); color: var(--mc-ink);
   padding: 10px 12px; font: inherit; line-height: 1.4;
 }
 .mc-pg-preview {
   width: 100%; box-sizing: border-box; resize: none; font-family: inherit; /* it's now a <textarea> */
-  background: #0f1115; border: 1px solid #2c2f3a; border-radius: calc(10px * var(--mc-round, 1)); color: #b9c0cc;
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); color: var(--mc-muted);
   padding: 10px 12px; font-size: 12px; line-height: 1.5; white-space: pre-wrap; user-select: text; -webkit-user-select: text;
 }
 .mc-pg-copy {
   margin-top: 4px; min-height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  background: var(--mc-user, #c8a44d); color: #14161c; font-weight: 700;
+  background: var(--mc-user, #c8a44d); color: var(--mc-sunken); font-weight: 700;
   border: none; border-radius: calc(10px * var(--mc-round, 1)); cursor: pointer;
 }
 .mc-pg-upload {
   min-height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  background: #22252e; color: #e8e6df; font-weight: 600;
+  background: var(--mc-panel-2); color: var(--mc-ink); font-weight: 600;
   border: 1px solid var(--mc-user, #2c2f3a); border-radius: calc(10px * var(--mc-round, 1)); cursor: pointer;
 }
 .mc-pg-gemini {
@@ -611,20 +611,20 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   background: transparent; color: var(--mc-user, #c8a44d); font-weight: 600; text-decoration: none;
   border: 1px solid var(--mc-user, #2c2f3a); border-radius: calc(10px * var(--mc-round, 1)); cursor: pointer;
 }
-.mc-pg-note { font-size: 12px; color: #7a818e; line-height: 1.5; display: flex; gap: 7px; }
+.mc-pg-note { font-size: 12px; color: var(--mc-muted); line-height: 1.5; display: flex; gap: 7px; }
 
 /* --- bottom tab bar --- */
 .mc-tabs {
   display: flex; flex: 0 0 auto;
-  background: #1d1f27; border-top: 1px solid #2c2f3a;
+  background: var(--mc-panel); border-top: 1px solid var(--mc-edge);
 }
 .mc-tab {
   flex: 1 1 0; padding: 12px 0;
   text-align: center; font-size: 12px; font-weight: 600;
-  color: #81869a; background: none; border: none;
+  color: var(--mc-muted); background: none; border: none;
   position: relative; /* §35.1: the attention dot anchors to the tab */
 }
-.mc-tab.mc-active { color: var(--mc-ink); box-shadow: inset 0 2px 0 #5db4e6; }
+.mc-tab.mc-active { color: var(--mc-ink); box-shadow: inset 0 2px 0 var(--mc-gold); }
 
 /* --- roll-result surface (read-only): recent-rolls strip + transient toast ---
    The shell covers Foundry's native chat, so the player's own roll outcomes are
@@ -632,8 +632,8 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
 .mc-roll-strip {
   display: flex; flex: 0 0 auto; gap: 8px;
   padding: 8px 12px;
-  background: #16171d;
-  border-top: 1px solid #2c2f3a;
+  background: var(--mc-sunken);
+  border-top: 1px solid var(--mc-edge);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -646,23 +646,23 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   padding: 6px 11px;
   background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: 999px;
 }
-.mc-roll-pill.mc-latest { border-color: #2f4660; box-shadow: inset 0 0 0 1px #243042; }
+.mc-roll-pill.mc-latest { border-color: var(--mc-primary-edge); box-shadow: inset 0 0 0 1px var(--mc-primary); }
 .mc-roll-pill-total {
   font-size: 16px; font-weight: 800; line-height: 1;
   font-variant-numeric: tabular-nums; color: var(--mc-ink);
 }
 .mc-roll-pill-label {
-  font-size: 11px; color: #9a9da8;
+  font-size: 11px; color: var(--mc-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.mc-roll-pill.nat20 .mc-roll-pill-total { color: #6fcf7d; }
-.mc-roll-pill.nat1  .mc-roll-pill-total { color: #e2584a; }
+.mc-roll-pill.nat20 .mc-roll-pill-total { color: var(--mc-ok-ink); }
+.mc-roll-pill.nat1  .mc-roll-pill-total { color: var(--mc-bad-ink); }
 
 /* Combat-event chips (DM 2026-07-11): incoming damage + required saves, newest-first, just
    above the roll strip. Damage = red-tinted, save = amber-tinted; newest is brighter. */
 .mc-event-strip {
   display: flex; flex: 0 0 auto; gap: 8px;
-  padding: 8px 12px; background: #16171d; border-top: 1px solid #2c2f3a;
+  padding: 8px 12px; background: var(--mc-sunken); border-top: 1px solid var(--mc-edge);
   overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
 .mc-event-strip::-webkit-scrollbar { display: none; }
@@ -671,8 +671,8 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   border: 1px solid var(--mc-edge); background: var(--mc-panel); color: var(--mc-ink);
 }
-.mc-event-chip.mc-event-damage { border-color: #5c2f2c; background: #241a1a; color: #f0a097; }
-.mc-event-chip.mc-event-save   { border-color: #5c4a2c; background: #241f16; color: #e2c07a; }
+.mc-event-chip.mc-event-damage { border-color: var(--mc-bad); background: var(--mc-bad-dim); color: var(--mc-bad-ink); }
+.mc-event-chip.mc-event-save   { border-color: color-mix(in srgb, var(--mc-warn) 35%, var(--mc-sunken)); background: var(--mc-panel-2); color: var(--mc-warn); }
 .mc-event-chip.mc-latest { box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
 
 /* transient toast: floats above the strip, fades out, tap to dismiss */
@@ -684,8 +684,8 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   display: flex; align-items: center; gap: 14px;
   min-width: 200px; max-width: 86%;
   padding: 13px 18px;
-  background: #1d1f27;
-  border: 1px solid #2c2f3a; border-radius: calc(14px * var(--mc-round, 1));
+  background: var(--mc-panel);
+  border: 1px solid var(--mc-edge); border-radius: calc(14px * var(--mc-round, 1));
   box-shadow: 0 10px 30px rgba(0, 0, 0, .55);
   opacity: 0; pointer-events: none;
   transition: opacity .18s ease, transform .18s ease;
@@ -705,26 +705,26 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mc-roll-toast-formula {
-  font-size: 11px; color: #81869a; margin-top: 1px;
+  font-size: 11px; color: var(--mc-muted); margin-top: 1px;
   font-variant-numeric: tabular-nums;
 }
-.mc-roll-toast.nat20 { border-color: #2f5d39; }
-.mc-roll-toast.nat20 .mc-roll-toast-total { color: #6fcf7d; }
-.mc-roll-toast.nat1 { border-color: #5c2f2c; }
-.mc-roll-toast.nat1 .mc-roll-toast-total { color: #e2584a; }
+.mc-roll-toast.nat20 { border-color: var(--mc-ok); }
+.mc-roll-toast.nat20 .mc-roll-toast-total { color: var(--mc-ok-ink); }
+.mc-roll-toast.nat1 { border-color: var(--mc-bad); }
+.mc-roll-toast.nat1 .mc-roll-toast-total { color: var(--mc-bad-ink); }
 /* Combat-event toasts (damage taken / save required) — DM 2026-07-11. */
-.mc-roll-toast.mc-toast-damage { border-color: #7a3630; }
-.mc-roll-toast.mc-toast-damage .mc-roll-toast-total { color: #f0776a; }
-.mc-roll-toast.mc-toast-save { border-color: #7a5f30; }
-.mc-roll-toast.mc-toast-save .mc-roll-toast-total { color: #e2c07a; }
+.mc-roll-toast.mc-toast-damage { border-color: var(--mc-bad); }
+.mc-roll-toast.mc-toast-damage .mc-roll-toast-total { color: var(--mc-bad-ink); }
+.mc-roll-toast.mc-toast-save { border-color: color-mix(in srgb, var(--mc-gold) 50%, var(--mc-sunken)); }
+.mc-roll-toast.mc-toast-save .mc-roll-toast-total { color: var(--mc-warn); }
 .mc-roll-tag {
   display: inline-block; margin-top: 4px;
   padding: 2px 7px; border-radius: calc(8px * var(--mc-round, 1));
   font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
   background: var(--mc-panel-2); color: var(--mc-ink);
 }
-.mc-roll-toast.nat20 .mc-roll-tag { background: #1c2f22; color: #8fe0a0; }
-.mc-roll-toast.nat1  .mc-roll-tag { background: #2f1d1c; color: #f0a097; }
+.mc-roll-toast.nat20 .mc-roll-tag { background: var(--mc-ok-dim); color: var(--mc-ok-ink); }
+.mc-roll-toast.nat1  .mc-roll-tag { background: var(--mc-bad-dim); color: var(--mc-bad-ink); }
 
 /* --- dnd5e roll dialog: phone breathing room (scoped to body.mc-phone) ---
    Quick spacing fix so the submit buttons clear the form text on narrow
@@ -766,7 +766,7 @@ body.mc-phone .item-piles-app input[type="text"],
 body.mc-phone .item-piles-app input[type="search"],
 body.mc-phone .item-piles-app select {
   height: 44px !important; box-sizing: border-box !important;
-  background: #16141a !important; color: var(--mc-ink) !important;
+  background: var(--mc-panel) !important; color: var(--mc-ink) !important;
   border: 1px solid var(--mc-edge) !important; border-radius: calc(10px * var(--mc-round, 1)) !important; padding: 8px 12px !important;
 }
 body.mc-phone .item-piles-app input[type="text"]:focus,
@@ -1038,7 +1038,7 @@ body.mc-phone .item-piles-app .item-piles-item-row:active { background: var(--mc
 body.mc-phone .item-piles-app .item-piles-img-container {
   width: 46px !important; height: 46px !important; flex: 0 0 auto !important;
   border-radius: calc(7px * var(--mc-round, 1)) !important; border: 1px solid var(--mc-edge) !important;
-  background: #0c0d11 !important; overflow: hidden !important; padding: 0 !important;
+  background: var(--mc-sunken) !important; overflow: hidden !important; padding: 0 !important;
 }
 body.mc-phone .item-piles-app .item-piles-img {
   width: 100% !important; height: 100% !important; object-fit: cover !important; border: none !important;
@@ -1102,6 +1102,13 @@ body {
   --mc-edge: #3b3640;
   --mc-sunken: #17151b;   /* recessed strips/wells — a step BELOW panel */
   --mc-gilt: #c8a44d;     /* the corner ornament — real gold in EVERY theme (§11) */
+  /* Semantic accents (UI-BIBLE §2.2) — MEANING, not surface, so no theme overrides them. Each is
+     a triple: -dim is the tinted wash behind a row, the base is a fill or border, -ink is text on
+     a dark surface. These replaced ~9 greens and ~8 reds pasted by hand (QA 2026-09-04 H13). */
+  --mc-ok: #3a6b4a;       --mc-ok-ink: #8fd6a8;     --mc-ok-dim: #1c2f22;     /* done, complete, "on" */
+  --mc-bad: #7a3a35;      --mc-bad-ink: #ffb4a8;    --mc-bad-dim: #2f1d1c;    /* destructive, can't afford, damage */
+  --mc-react: #4a3f66;    --mc-react-ink: #8a6fd8;  --mc-react-dim: #241f33;  /* reactions only (§9) */
+  --mc-warn: #e0b24a;                                                         /* careful: hurt, heavy, running low */
   /* Corner roundness. Every px radius in the app is calc(N * var(--mc-round)), so a theme can go
      machined-square (barbarian 0.25) or pillowy (monk 1.9) with one number. Circles (50%) and
      pills (999px) are SHAPE, not styling, and don't scale (DM 2026-07-17: "play around with
@@ -1178,13 +1185,13 @@ body {
 .mc-stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--mc-muted); }
 .mc-stat-val { font-size: 21px; font-weight: 800; color: var(--mc-ink); background: none; border: none; padding: 0; line-height: 1; }
 .mc-stat-sub { font-size: 12px; color: var(--mc-muted); }
-.mc-hp-cur.mc-hurt { color: #e0b24a; }
-.mc-hp-cur.mc-bloodied { color: #e2584a; }
+.mc-hp-cur.mc-hurt { color: var(--mc-warn); }
+.mc-hp-cur.mc-bloodied { color: var(--mc-bad-ink); }
 .mc-temp-val.mc-zero { color: var(--mc-muted); }
 .mc-stat-ac { color: var(--mc-gold); }
 .mc-stat-input {
   width: 3.4em; font-size: 19px; font-weight: 800; text-align: center;
-  color: var(--mc-ink); background: #0d0c10;
+  color: var(--mc-ink); background: var(--mc-sunken);
   border: 1px solid var(--mc-gold); border-radius: calc(6px * var(--mc-round, 1));
   font-variant-numeric: tabular-nums;
 }
@@ -1195,8 +1202,8 @@ body {
 .mc-insp {
   flex: 0 0 auto; align-self: center;
   width: 30px; height: 30px; border-radius: 50%;
-  background: #1a1820; border: 1px solid var(--mc-edge);
-  color: #4a4654; font-size: 15px; line-height: 1;
+  background: var(--mc-panel); border: 1px solid var(--mc-edge);
+  color: var(--mc-muted); font-size: 15px; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
 }
 .mc-insp-on { color: var(--mc-gold); background: var(--mc-panel-2); border-color: var(--mc-gold); } /* toggle-on: outline, not fill (UI-BIBLE §4.2) */
@@ -1243,12 +1250,12 @@ body {
 .mc-dtray-btn {
   flex: 0 0 auto; align-self: center;
   width: 30px; height: 30px; border-radius: 50%;
-  background: #1a1820; border: 1px solid var(--mc-edge); color: var(--mc-gold);
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-gold);
   font-size: 15px; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
 }
 .mc-dtray-btn.mc-on { color: var(--mc-gold); background: var(--mc-panel-2); border-color: var(--mc-gold); } /* toggle-on: outline, not fill (UI-BIBLE §4.2) */
-.mc-dtray-btn:active { background: #2a2730; }
+.mc-dtray-btn:active { background: var(--mc-panel-2); }
 
 /* Attention bell (DM 2026-07-19): sits by the dice tray. Greyed + inert most of the time; when a
    pending action (save / reaction / opportunity attack) waits on a token you're NOT viewing it goes
@@ -1257,7 +1264,7 @@ body {
 .mc-bell {
   flex: 0 0 auto; align-self: center;
   width: 30px; height: 30px; border-radius: 50%;
-  background: #1a1820; border: 1px solid var(--mc-edge); color: var(--mc-ink);
+  background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink);
   font-size: 14px; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
 }
@@ -1275,7 +1282,7 @@ body {
    via Dice So Nice when present — DSN not required. Mirrors the stat-editor row. */
 .mc-dtray {
   display: flex; flex-direction: column; gap: 9px;
-  padding: 10px 14px; background: #16131b;
+  padding: 10px 14px; background: var(--mc-sunken);
   border-bottom: 1px solid var(--mc-gold); flex: 0 0 auto;
 }
 .mc-dtray-formula {
@@ -1293,10 +1300,10 @@ body {
 }
 .mc-dtray-die i { font-size: 13px; opacity: .7; }
 .mc-dtray-die.mc-has { border-color: var(--mc-gold); color: var(--mc-gold); }
-.mc-dtray-die:active { background: #3a4250; }
+.mc-dtray-die:active { background: var(--mc-panel-2); }
 .mc-dtray-n {
   position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px;
-  padding: 0 4px; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-gold); color: #1a1410;
+  padding: 0 4px; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-gold); color: var(--mc-sunken);
   font-size: 11px; font-weight: 800; line-height: 18px; text-align: center;
 }
 /* Clear (left) · − n + (centred) · Roll (right) — DM 2026-07-22. A 3-column grid with equal 1fr
@@ -1307,8 +1314,8 @@ body {
 .mc-dtray-step { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .mc-dtray-mod { min-width: 2.2em; text-align: center; font-size: 17px; font-weight: 800; color: var(--mc-ink); font-variant-numeric: tabular-nums; }
 .mc-dtray-clear { justify-self: start; min-height: 46px; padding: 8px 14px; border-radius: calc(9px * var(--mc-round, 1)); background: none; border: 1px solid var(--mc-edge); color: var(--mc-muted); font-weight: 700; }
-.mc-dtray-roll { justify-self: end; min-height: 46px; padding: 8px 18px; border-radius: calc(9px * var(--mc-round, 1)); background: #243042; border: 1px solid #2f5d8a; color: var(--mc-ink); font-size: 16px; font-weight: 800; }
-.mc-dtray-roll:active { background: #2c3d54; }
+.mc-dtray-roll { justify-self: end; min-height: 46px; padding: 8px 18px; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-primary); border: 1px solid var(--mc-primary-edge); color: var(--mc-ink); font-size: 16px; font-weight: 800; }
+.mc-dtray-roll:active { background: var(--mc-primary-active); }
 
 /* ===== Character creation (§7.x) ===== */
 .mc-cg-sub { font-size: 12px; color: var(--mc-muted); }
@@ -1320,18 +1327,18 @@ body {
 /* §50.7: the same door on the no-characters screen (player-created heroes allowed). */
 .mc-nt-create { margin: 14px auto 4px; }
 .mc-cg-create { min-height: 54px; padding: 14px 24px; border-radius: calc(12px * var(--mc-round, 1)); font-size: 17px; font-weight: 800;
-  background: #2a4634; border: 1px solid #2f5d39; color: var(--mc-ink); display: inline-flex; align-items: center; gap: 9px; }
-.mc-cg-create:active { background: #335640; }
+  background: var(--mc-ok); border: 1px solid var(--mc-ok); color: var(--mc-ink); display: inline-flex; align-items: center; gap: 9px; }
+.mc-cg-create:active { background: var(--mc-ok); }
 .mc-cg-steps { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
 .mc-cg-row { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 12px 14px; border-radius: calc(11px * var(--mc-round, 1));
   background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); text-align: left; }
 .mc-cg-row:active { background: var(--mc-panel-2); }
-.mc-cg-row.mc-cg-done { border-color: #2f5d39; }
+.mc-cg-row.mc-cg-done { border-color: var(--mc-ok); }
 .mc-cg-row-ico { font-size: 18px; color: var(--mc-gold); width: 22px; text-align: center; flex: 0 0 auto; }
 .mc-cg-row-label { font-size: 15px; font-weight: 700; }
 .mc-cg-row-val { margin-left: auto; color: var(--mc-muted); font-size: 14px; max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mc-cg-done .mc-cg-row-val { color: #8fe0a0; }
-.mc-cg-check { color: #5bbf6a; }
+.mc-cg-done .mc-cg-row-val { color: var(--mc-ok-ink); }
+.mc-cg-check { color: var(--mc-ok-ink); }
 /* Redo-choices chip on a done row — reopens the item's advancement wizard. */
 .mc-cg-redo {
   flex: 0 0 auto; width: 40px; height: 40px; margin-left: 6px;
@@ -1341,8 +1348,8 @@ body {
 }
 .mc-cg-redo:active { border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-cg-finish { display: flex; align-items: center; justify-content: center; gap: 8px; width: calc(100% - 28px); margin: 6px 14px 16px;
-  min-height: 50px; border-radius: calc(12px * var(--mc-round, 1)); font-size: 16px; font-weight: 800; background: #243042; border: 1px solid #2f5d8a; color: var(--mc-ink); }
-.mc-cg-finish:active { background: #2c3d54; }
+  min-height: 50px; border-radius: calc(12px * var(--mc-round, 1)); font-size: 16px; font-weight: 800; background: var(--mc-primary); border: 1px solid var(--mc-primary-edge); color: var(--mc-ink); }
+.mc-cg-finish:active { background: var(--mc-primary-active); }
 .mc-cg-finish:disabled { opacity: .4; }
 /* §20 item-transfer composer */
 .mc-tr-dir { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 14px 0; } /* wraps when there are nearby allies to give to */
@@ -1372,14 +1379,14 @@ body {
 .mc-spellpick-body .mc-section-label { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; }
 .mc-spell-count { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--mc-muted);
   padding: 2px 8px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); font-variant-numeric: tabular-nums; }
-.mc-spell-count.mc-full { color: #8fe0a0; border-color: #2f5d39; }
-.mc-spell-count.mc-over { color: #e8857a; border-color: #5d2f2f; }
+.mc-spell-count.mc-full { color: var(--mc-ok-ink); border-color: var(--mc-ok); }
+.mc-spell-count.mc-over { color: var(--mc-bad-ink); border-color: var(--mc-bad); }
 .mc-spellpick { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 46px; padding: 8px 13px; border-radius: calc(10px * var(--mc-round, 1));
   background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); text-align: left; }
 .mc-spellpick:active { background: var(--mc-panel-2); }
-.mc-spellpick.mc-on { border-color: #2f5d8a; background: #1d2735; }
+.mc-spellpick.mc-on { border-color: var(--mc-primary-edge); background: var(--mc-primary); }
 .mc-spellpick-tick { font-size: 16px; color: var(--mc-muted); width: 18px; text-align: center; }
-.mc-spellpick.mc-on .mc-spellpick-tick { color: #5db4e6; }
+.mc-spellpick.mc-on .mc-spellpick-tick { color: var(--mc-gold); }
 .mc-spellpick-name { font-size: 15px; font-weight: 600; flex: 1 1 auto; min-width: 0; }
 .mc-spellpick-src { display: block; font-size: 11px; font-weight: 400; color: var(--mc-muted); margin-top: 1px; }
 .mc-spellpick .mc-spell-icon { flex: 0 0 auto; }
@@ -1396,9 +1403,9 @@ body {
 /* Add/Remove button in the long-pressed spell detail card (green add / red remove) */
 .mc-spellpickbtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 46px;
   margin-top: 14px; padding: 10px; font-size: 14px; font-weight: 700; border-radius: calc(10px * var(--mc-round, 1)); cursor: pointer;
-  color: #8fe0a0; background: rgba(60, 140, 80, 0.14); border: 1px solid rgba(80, 160, 100, 0.5); }
+  color: var(--mc-ok-ink); background: rgba(60, 140, 80, 0.14); border: 1px solid rgba(80, 160, 100, 0.5); }
 .mc-spellpickbtn:active { background: rgba(60, 140, 80, 0.26); }
-.mc-spellpickbtn.mc-on { color: #f1b0b0; background: rgba(180, 60, 60, 0.12); border-color: rgba(200, 80, 80, 0.5); }
+.mc-spellpickbtn.mc-on { color: var(--mc-bad-ink); background: rgba(180, 60, 60, 0.12); border-color: rgba(200, 80, 80, 0.5); }
 .mc-spellpickbtn.mc-on:active { background: rgba(180, 60, 60, 0.24); }
 /* Starting-equipment step: OR choices (radios) + category sub-pick */
 .mc-equip-body { display: flex; flex-direction: column; gap: 6px; padding: 6px 14px 12px; }
@@ -1407,13 +1414,13 @@ body {
 .mc-equip-opt { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 46px; padding: 8px 13px; border-radius: calc(10px * var(--mc-round, 1));
   background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); text-align: left; }
 .mc-equip-opt:active { background: var(--mc-panel-2); }
-.mc-equip-opt.mc-on { border-color: #2f5d8a; background: #1d2735; }
+.mc-equip-opt.mc-on { border-color: var(--mc-primary-edge); background: var(--mc-primary); }
 .mc-equip-radio { font-size: 16px; color: var(--mc-muted); width: 18px; text-align: center; }
-.mc-equip-opt.mc-on .mc-equip-radio { color: #5db4e6; }
+.mc-equip-opt.mc-on .mc-equip-radio { color: var(--mc-gold); }
 .mc-equip-ico { font-size: 14px; color: var(--mc-gold); width: 18px; text-align: center; }
 .mc-equip-label { font-size: 14px; font-weight: 600; flex: 1 1 auto; }
-.mc-equip-auto { margin-top: 6px; padding: 10px 13px; border-radius: calc(10px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid #2f5d39;
-  color: #8fe0a0; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.mc-equip-auto { margin-top: 6px; padding: 10px 13px; border-radius: calc(10px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-ok);
+  color: var(--mc-ok-ink); font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .mc-equip-granted { margin-top: 0; margin-bottom: 10px; background: rgba(143, 224, 160, .1); }
 .mc-cg-opts { display: flex; flex-direction: column; gap: 8px; padding: 8px 14px 16px; }
 .mc-cg-opt { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; min-height: 52px; padding: 8px 13px;
@@ -1428,7 +1435,7 @@ body {
 .mc-abil-method { display: flex; gap: 6px; padding: 12px 14px 4px; }
 .mc-abil-seg { flex: 1 1 0; min-height: 44px; padding: 8px 6px; border-radius: calc(10px * var(--mc-round, 1)); font-size: 13px; font-weight: 700;
   background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
-.mc-abil-seg.mc-on { background: #243042; border-color: #2f5d8a; color: var(--mc-ink); }
+.mc-abil-seg.mc-on { background: var(--mc-primary); border-color: var(--mc-primary-edge); color: var(--mc-ink); }
 .mc-abil-budget { display: flex; align-items: baseline; gap: 6px; justify-content: center; padding: 12px; color: var(--mc-muted); font-size: 13px; }
 .mc-abil-budget b { color: var(--mc-gold); font-size: 20px; font-weight: 800; }
 .mc-abils { display: flex; flex-direction: column; gap: 8px; padding: 2px 14px 12px; }
@@ -1449,10 +1456,10 @@ body {
 .mc-abil-slot.mc-empty { color: var(--mc-muted); }
 .mc-abil-rollintro { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 30px 20px; text-align: center; }
 .mc-abil-roll { min-height: 52px; padding: 12px 22px; border-radius: calc(12px * var(--mc-round, 1)); font-size: 16px; font-weight: 800;
-  background: #243042; border: 1px solid #2f5d8a; color: var(--mc-ink); display: inline-flex; align-items: center; gap: 9px; }
-.mc-abil-roll:active { background: #2c3d54; }
+  background: var(--mc-primary); border: 1px solid var(--mc-primary-edge); color: var(--mc-ink); display: inline-flex; align-items: center; gap: 9px; }
+.mc-abil-roll:active { background: var(--mc-primary-active); }
 .mc-abil-reroll { display: inline-flex; align-items: center; gap: 6px; margin: 2px 14px 10px; padding: 10px 4px;
-  background: none; border: none; color: #5db4e6; font-size: 13px; }
+  background: none; border: none; color: var(--mc-gold); font-size: 13px; }
 
 #mobile-command-shell .mc-section-label { color: var(--mc-gold); }
 #mobile-command-shell .mc-ability { background: var(--mc-panel); border-color: var(--mc-edge); }
@@ -1466,7 +1473,7 @@ body {
    below the icons `max(15px, inset)`: 34pt on a home-indicator phone, 15px everywhere else, and
    it can't go negative. Same rule the item-piles footer already follows (~line 806). */
 #mobile-command-shell .mc-tabs {
-  background: linear-gradient(#211d26, #17141c);
+  background: linear-gradient(var(--mc-panel), var(--mc-sunken));
   border-top: 1px solid var(--mc-gold);
   padding-bottom: max(0px, calc(env(safe-area-inset-bottom, 0px) - 15px));
 }
@@ -1488,24 +1495,24 @@ body {
 .mc-move-note { text-align: center; color: var(--mc-muted); font-size: 19px; min-height: 24px; line-height: 24px; margin-bottom: 2px; font-weight: 800; font-variant-numeric: tabular-nums; }
 /* Movement budget on key moves, mirroring the canvas drag ruler: within speed =
    green, within dash (2×) = yellow, beyond / blocked = red. */
-.mc-move-note.mc-move-green { color: #5bbf6a; }
-.mc-move-note.mc-move-yellow { color: #e0b24a; }
-.mc-move-note.mc-move-red { color: #e2584a; }
+.mc-move-note.mc-move-green { color: var(--mc-ok-ink); }
+.mc-move-note.mc-move-yellow { color: var(--mc-warn); }
+.mc-move-note.mc-move-red { color: var(--mc-bad-ink); }
 
 /* turn HUD */
-.mc-turnhud { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #1c1922; border-top: 1px solid var(--mc-edge); flex: 0 0 auto; }
+.mc-turnhud { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--mc-panel); border-top: 1px solid var(--mc-edge); flex: 0 0 auto; }
 /* §19 slice 4: the shared running-rest header — one quiet line, same words on the DM panel
    and every phone. Campfire gold-tinged band above the tab bar; the clock rides the right. */
 .mc-rest-strip { display: flex; align-items: center; gap: 10px; padding: 8px 14px; flex: 0 0 auto;
-  background: linear-gradient(#241f14, #1d1b16); border-top: 1px solid var(--mc-gold);
+  background: linear-gradient(var(--mc-panel), var(--mc-sunken)); border-top: 1px solid var(--mc-gold);
   font-size: 13px; color: var(--mc-gold); }
 .mc-rest-strip i { font-size: 12px; }
 .mc-rest-strip-time { margin-left: auto; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
-.mc-turnhud.mc-myturn { background: linear-gradient(#2a2415, #20201a); border-top-color: var(--mc-gold); }
+.mc-turnhud.mc-myturn { background: linear-gradient(var(--mc-panel-2), var(--mc-panel)); border-top-color: var(--mc-gold); }
 .mc-turn-label { flex: 1 1 auto; font-size: 16px; color: var(--mc-muted); }
 .mc-turnhud.mc-myturn .mc-turn-label { color: var(--mc-gold); }
-.mc-endturn { padding: 9px 18px; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-crimson); border: 1px solid #7a2d27; color: #fff; font-weight: 700; font-size: 14px; }
-.mc-endturn:disabled { background: #2a272e; border-color: var(--mc-edge); color: #5a5560; }
+.mc-endturn { padding: 9px 18px; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-crimson); border: 1px solid var(--mc-bad); color: #fff; font-weight: 700; font-size: 14px; }
+.mc-endturn:disabled { background: var(--mc-panel-2); border-color: var(--mc-edge); color: var(--mc-muted); }
 /* "Go" (your OTHER PC's turn): hop the shell to the active creature — secondary next to
    End turn's commit red (§4: pick by consequence). */
 .mc-endturn.mc-turnhop { background: var(--mc-panel-2); border-color: var(--mc-edge); color: var(--mc-ink); }
@@ -1528,8 +1535,8 @@ body {
 }
 .mc-saveprompt-title { color: var(--mc-gold); }
 /* Opportunity-attack variant — reaction violet (matches the RE economy color). */
-.mc-saveprompt.mc-aoo { border-top-color: #8a6fd8; }
-.mc-saveprompt.mc-aoo .mc-saveprompt-title { color: #b39df1; }
+.mc-saveprompt.mc-aoo { border-top-color: var(--mc-react-ink); }
+.mc-saveprompt.mc-aoo .mc-saveprompt-title { color: var(--mc-react-ink); }
 .mc-saveprompt-x {
   min-width: 40px; min-height: 40px;
   background: none; border: none; color: var(--mc-muted); font-size: 17px; line-height: 1; cursor: pointer;
@@ -1543,27 +1550,27 @@ body {
 .mc-saveprompt-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .mc-save-roll {
   flex: 1 1 auto; min-height: 44px; padding: 10px 14px; border-radius: calc(8px * var(--mc-round, 1));
-  background: var(--mc-crimson); border: 1px solid #7a2d27; color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;
+  background: var(--mc-crimson); border: 1px solid var(--mc-bad); color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;
 }
-.mc-save-roll:active { background: #b14a40; }
+.mc-save-roll:active { background: var(--mc-bad); }
 /* Reaction chooser (§9): violet accent (matches the reaction economy), one button per
    available reaction with its icon + name, stacked full-width. DM 2026-07-11. */
-.mc-saveprompt.mc-reaction { border-top-color: #8a6fd8; }
-.mc-saveprompt.mc-reaction .mc-saveprompt-title { color: #b39df1; }
+.mc-saveprompt.mc-reaction { border-top-color: var(--mc-react-ink); }
+.mc-saveprompt.mc-reaction .mc-saveprompt-title { color: var(--mc-react-ink); }
 /* §20 incoming give: friendly green, distinct from a save/reaction. */
-.mc-saveprompt.mc-trade { border-top-color: #5f9e50; }
-.mc-saveprompt.mc-trade .mc-saveprompt-title { color: #9ed98a; }
+.mc-saveprompt.mc-trade { border-top-color: var(--mc-ok); }
+.mc-saveprompt.mc-trade .mc-saveprompt-title { color: var(--mc-ok-ink); }
 .mc-react-btns { flex-direction: column; }
 .mc-react-opt {
   display: flex; align-items: center; gap: 10px; justify-content: flex-start;
-  background: #2a2440; border-color: #4a3f6e; text-align: left;
+  background: var(--mc-react-dim); border-color: var(--mc-react); text-align: left;
 }
-.mc-react-opt:active { background: #362e52; }
+.mc-react-opt:active { background: var(--mc-react-dim); }
 .mc-react-img { width: 30px; height: 30px; border-radius: calc(6px * var(--mc-round, 1)); object-fit: cover; flex: 0 0 auto; }
 .mc-react-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mc-react-info { flex: 0 0 auto; width: 34px; display: flex; align-items: center; justify-content: center; color: #b39df1; opacity: .85; font-size: 17px; }
-.mc-react-info:active { opacity: 1; color: #d3c3ff; }
-.mc-event-chip.mc-event-reaction { border-color: #4a3f6e; background: #241f33; color: #c3b3ee; }
+.mc-react-info { flex: 0 0 auto; width: 34px; display: flex; align-items: center; justify-content: center; color: var(--mc-react-ink); opacity: .85; font-size: 17px; }
+.mc-react-info:active { opacity: 1; color: var(--mc-react-ink); }
+.mc-event-chip.mc-event-reaction { border-color: var(--mc-react); background: var(--mc-react-dim); color: var(--mc-react-ink); }
 
 /* ============================================================
    Round-2 tweaks (2026-06-14): move pad into Explore, bigger/closer
@@ -1580,7 +1587,7 @@ body {
 .mc-action-icon {
   width: 42px; height: 42px; flex: 0 0 auto;
   border-radius: calc(7px * var(--mc-round, 1)); object-fit: cover;
-  border: 1px solid var(--mc-edge); background: #0c0d11;
+  border: 1px solid var(--mc-edge); background: var(--mc-sunken);
 }
 .mc-action-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left; }
 #mobile-command-shell .mc-action-name { font-size: 15px; font-weight: 600; }
@@ -1591,7 +1598,7 @@ body {
 /* B7 stat editor row */
 .mc-stat-editor {
   display: flex; align-items: center; gap: 8px;
-  padding: 10px 14px; background: #16131b;
+  padding: 10px 14px; background: var(--mc-sunken);
   border-bottom: 1px solid var(--mc-gold); flex: 0 0 auto;
 }
 .mc-stat-editor-label { font-size: 13px; color: var(--mc-muted); white-space: nowrap; }
@@ -1605,8 +1612,8 @@ body {
   font-size: 19px; font-weight: 800; line-height: 1;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink);
 }
-.mc-pm:active { background: #3a4250; }
-.mc-pm.mc-set { font-size: 14px; background: #243042; border-color: #2f5d8a; }
+.mc-pm:active { background: var(--mc-panel-2); }
+.mc-pm.mc-set { font-size: 14px; background: var(--mc-primary); border-color: var(--mc-primary-edge); }
 .mc-pm.mc-cancel { min-width: 36px; background: none; border: none; color: var(--mc-muted); }
 
 /* ============================================================
@@ -1653,7 +1660,7 @@ body {
 }
 #mobile-command-shell .mc-tab.mc-active {
   color: var(--mc-gold); box-shadow: none; border-top-color: var(--mc-gold);
-  background: linear-gradient(#2a2415, rgba(42,36,21,0));
+  background: linear-gradient(var(--mc-panel-2), rgba(42,36,21,0));
 }
 
 /* ============================================================
@@ -1678,7 +1685,7 @@ body {
   min-width: 34px; padding: 3px 8px;
   font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums;
   color: var(--mc-ink); background: var(--mc-sunken);
-  border: 1px solid #4a4f5c; border-radius: calc(7px * var(--mc-round, 1));
+  border: 1px solid var(--mc-edge); border-radius: calc(7px * var(--mc-round, 1));
 }
 
 /* Explore stats strip: Initiative / Hit dice (tappable) · Speed / Prof (gray). */
@@ -1722,11 +1729,11 @@ body {
 .mc-loot-list { display: flex; flex-direction: column; gap: 8px; }
 /* The Use button in the D-pad centre. Icon is fa-hand-fist (same as the Actions
    tab — Use is the out-of-combat sibling). It wears the abilities "Check" button's
-   fill (var(--mc-panel-2) / #3a3e4c, foreground var(--mc-ink)) so it's distinct from the darker
+   fill (var(--mc-panel-2) / var(--mc-edge), foreground var(--mc-ink)) so it's distinct from the darker
    arrow keys, and from the Actions tab, without shouting like the old gold. */
-.mc-dpad-use { background: var(--mc-panel-2); border-color: #3a3e4c; }
+.mc-dpad-use { background: var(--mc-panel-2); border-color: var(--mc-edge); }
 .mc-dpad-use i { font-size: 23px; color: var(--mc-ink) !important; }
-.mc-dpad-use:active { background: #3a4250; border-color: var(--mc-gold); }
+.mc-dpad-use:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
 .mc-dpad-use[disabled] { opacity: 0.6; }
 /* Interactive-item rows (nearby piles / shops / doors / tiles) match the shell's own
    .mc-action item cards — "keep all items looking like items" (DM 2026-07-10). Card
@@ -1742,7 +1749,7 @@ body {
    (pile, shop, door, tile), not merchant-only (DM 2026-07-10). */
 .mc-loot-img, .mc-loot-ico {
   width: 46px; height: 46px; border-radius: calc(7px * var(--mc-round, 1)); flex: 0 0 auto;
-  border: 1px solid var(--mc-edge); background: #0c0d11;
+  border: 1px solid var(--mc-edge); background: var(--mc-sunken);
 }
 .mc-loot-img { object-fit: cover; }
 .mc-loot-ico { display: flex; align-items: center; justify-content: center; color: var(--mc-gold); font-size: 18px; }
@@ -1777,7 +1784,7 @@ body {
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); font-size: 12px; cursor: pointer;
 }
 .mc-jn-tool:active { background: var(--mc-panel); }
-.mc-jn-del:active { border-color: #7a3a35; color: #ffb4a8; } /* destructive = red on press (bible §2.2) */
+.mc-jn-del:active { border-color: var(--mc-bad); color: var(--mc-bad-ink); } /* destructive = red on press (bible §2.2) */
 .mc-jn-note.mc-editing { border-color: var(--mc-gold); }
 .mc-jn-composebtns { display: flex; gap: 8px; }
 .mc-jn-composebtns .mc-jn-post { flex: 1 1 0; }
@@ -1814,7 +1821,7 @@ body {
 .mc-jn-back:active { background: var(--mc-panel-2); }
 .mc-jn-title { flex: 1 1 auto; font-family: var(--mc-font-title, inherit); font-size: 17px; font-weight: 800; color: var(--mc-ink); word-break: break-word; }
 .mc-jn-title-input { flex: 1 1 auto; height: 40px; border-radius: calc(9px * var(--mc-round, 1));
-  background: #14171f; border: 1px solid var(--mc-gold); color: var(--mc-ink); padding: 0 10px; font-size: 16px; }
+  background: var(--mc-sunken); border: 1px solid var(--mc-gold); color: var(--mc-ink); padding: 0 10px; font-size: 16px; }
 /* Entry cards reuse the note look; images sit above the text and open fullscreen on tap. */
 .mc-jn-entry { background: var(--mc-panel); border: 1px solid var(--mc-edge); border-left: 3px solid var(--mc-note, var(--mc-edge));
   border-radius: calc(10px * var(--mc-round, 1)); padding: 10px 12px; }
@@ -1844,14 +1851,14 @@ body {
 .mc-wiz-title { font-family: var(--mc-font-title), serif; text-transform: var(--mc-title-case, none);
   letter-spacing: var(--mc-title-track, 0); font-size: 20px; color: var(--mc-ink); }
 .mc-wiz-done { display: flex; align-items: center; gap: 10px; padding: 12px;
-  background: var(--mc-panel); border: 1px solid #2f5d39; border-radius: calc(10px * var(--mc-round, 1));
+  background: var(--mc-panel); border: 1px solid var(--mc-ok); border-radius: calc(10px * var(--mc-round, 1));
   color: var(--mc-ink); font-size: 16px; }
-.mc-wiz-done i { color: #6fcf7d; }
+.mc-wiz-done i { color: var(--mc-ok-ink); }
 .mc-wiz-doneimg { width: 40px; height: 40px; border-radius: calc(8px * var(--mc-round, 1));
   object-fit: cover; border: 1px solid var(--mc-edge); }
 .mc-wiz-beat { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
 .mc-wiz-beat-choice { font-size: 13px; color: var(--mc-muted); }
-.mc-wiz-beat-choice i { color: #6fcf7d; }
+.mc-wiz-beat-choice i { color: var(--mc-ok-ink); }
 .mc-wiz-continue { margin-top: 4px; }
 /* §37 The car-door confirm, standing in for the D-pad. Sized to the pad it replaces so the
    layout doesn't jump, and the two choices are full-width targets under the question. */
@@ -1958,7 +1965,7 @@ body {
   --mc-ct-ink: #eaf6ff;
 }
 .mc-ct-felt { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: space-between;
-  gap: 8px; padding: 14px; background-color: #0d0c10;
+  gap: 8px; padding: 14px; background-color: var(--mc-sunken);
   background-image: var(--mc-ct-table); background-size: cover; background-position: center; }
 /* The square table art centres as a medallion; the vignette melts it into the ground. */
 /* One overlay carries both the deck's colour cast and the vignette, so a theme change is a
@@ -2334,7 +2341,7 @@ body {
   text-decoration-color: var(--mc-gold); }
 .mc-dmp-seat-move.mc-on { color: var(--mc-gold); background: var(--mc-sunken);
   text-decoration-color: var(--mc-gold); }
-.mc-dmp-seat-live { color: #8fd6a8; font-size: 9px; vertical-align: 2px; }
+.mc-dmp-seat-live { color: var(--mc-ok-ink); font-size: 9px; vertical-align: 2px; }
 /* DM panel: who a player is playing tonight (§38.4b). Deliberately quiet — one PC is plain
    muted text, and only a player with several gets a tertiary control (no border, icon-led). */
 .mc-dmp-pcname, .mc-dmp-pcpick { display: block; font-size: 10px; color: var(--mc-muted);
@@ -2376,7 +2383,7 @@ body {
 
 /* A question already put to the table: the send plane becomes a ✓ and the text settles back.
    Still tappable — the ✓ is a record of what's been asked, not a lock (DM 2026-08-07). */
-.mc-dmp-story-sent i { color: #6fcf7d; }
+.mc-dmp-story-sent i { color: var(--mc-ok-ink); }
 .mc-dmp-story-done { color: var(--mc-muted); }
 
 /* DM panel: the deck picker (§38.4a) — three named decks, swatch + label. */
@@ -2404,13 +2411,13 @@ body {
 .mc-dmp-story-status { font-size: 12px; color: var(--mc-muted); margin: 2px 0 8px; }
 .mc-dmp-story-tick { display: inline-block; min-width: 18px; text-align: center; margin-left: 4px;
   color: var(--mc-muted); }
-.mc-dmp-story-tick.mc-on { color: #8fd6a8; }
+.mc-dmp-story-tick.mc-on { color: var(--mc-ok-ink); }
 .mc-dmp-story-cat { font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
   color: var(--mc-muted); margin: 10px 0 4px; }
 .mc-dmp-story-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
 .mc-dmp-story-q { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--mc-ink); }
 .mc-dmp-story-new { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-.mc-dmp-story-input { flex: 1 1 auto; min-width: 0; height: 34px; background: #14171f;
+.mc-dmp-story-input { flex: 1 1 auto; min-width: 0; height: 34px; background: var(--mc-sunken);
   border: 1px solid var(--mc-edge); border-radius: calc(8px * var(--mc-round, 1));
   color: var(--mc-ink); padding: 0 10px; font-size: 14px; }
 /* Attach-from-shared banner + the pending-image preview above the composer. */
@@ -2431,7 +2438,7 @@ body {
 .mc-ws-open i { color: var(--mc-gold); }
 .mc-ws-open:active { border-color: var(--mc-gold); }
 .mc-ws-uses { font-size: 12px; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
-.mc-ws-revert { background: rgba(90,46,14,0.55); border: 1px solid var(--mc-gold); color: #ffe9c2; }
+.mc-ws-revert { background: rgba(90,46,14,0.55); border: 1px solid var(--mc-gold); color: var(--mc-ink); }
 .mc-ws-revert:active { background: rgba(90,46,14,0.75); }
 .mc-ws-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .mc-ws-back { width: 36px; height: 36px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); flex: 0 0 auto; }
@@ -2471,11 +2478,11 @@ body {
 
 /* Details tab. */
 .mc-detail-sec { margin-bottom: 16px; }
-.mc-detail-row { display: flex; gap: 8px; padding: 9px 2px; border-bottom: 1px solid #23252e; }
+.mc-detail-row { display: flex; gap: 8px; padding: 9px 2px; border-bottom: 1px solid var(--mc-edge); }
 .mc-detail-key { flex: 0 0 38%; color: var(--mc-muted); font-size: 13px; }
 .mc-detail-val { flex: 1 1 auto; font-size: 14px; }
 /* Long-pressable item-backed value (race/background) — a faint hint there's more. */
-.mc-detail-link { border-bottom: 1px dotted #4a4f5e; }
+.mc-detail-link { border-bottom: 1px dotted var(--mc-edge); }
 .mc-detail-xp {
   display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px;
   padding: 12px 14px; background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1));
@@ -2513,7 +2520,7 @@ body {
   border: 1.5px solid var(--mc-muted); background: transparent;
 }
 .mc-prof-1 { background: var(--mc-gold); border-color: var(--mc-gold); }
-.mc-prof-2 { background: var(--mc-gold); border-color: var(--mc-gold); box-shadow: 0 0 0 2px #16131b, 0 0 0 3.5px var(--mc-gold); }
+.mc-prof-2 { background: var(--mc-gold); border-color: var(--mc-gold); box-shadow: 0 0 0 2px var(--mc-sunken), 0 0 0 3.5px var(--mc-gold); }
 .mc-prof-half { background: linear-gradient(90deg, var(--mc-gold) 50%, transparent 50%); border-color: var(--mc-gold); }
 
 /* ============================================================
@@ -2593,7 +2600,7 @@ body.mc-phone .mc-phone-dialog {
   font-family: "Signika", sans-serif;
 }
 body.mc-phone .mc-phone-dialog.mc-aoo,
-body.mc-phone .mc-phone-dialog.reaction { border-top-color: #8a6fd8 !important; }
+body.mc-phone .mc-phone-dialog.reaction { border-top-color: var(--mc-react-ink) !important; }
 
 body.mc-phone .mc-phone-dialog .window-header {
   background: var(--mc-panel-2) !important;
@@ -2614,11 +2621,11 @@ body.mc-phone .mc-journal-close {
   position: absolute; top: 8px; right: 8px; z-index: 2147483647;
   width: 44px; height: 44px; padding: 0; margin: 0;
   display: flex !important; align-items: center; justify-content: center;
-  background: #2a272e !important; border: 1px solid var(--mc-edge) !important; border-radius: calc(8px * var(--mc-round, 1));
+  background: var(--mc-panel-2) !important; border: 1px solid var(--mc-edge) !important; border-radius: calc(8px * var(--mc-round, 1));
   color: var(--mc-gold) !important; font-size: 22px; line-height: 1; cursor: pointer; opacity: 1 !important;
 }
 body.mc-phone .mc-journal-close > i { pointer-events: none; }
-body.mc-phone .mc-journal-close:active { background: #1a1712 !important; }
+body.mc-phone .mc-journal-close:active { background: var(--mc-sunken) !important; }
 /* Scale-value advancement (e.g. "Max Pact Magic Spells: 3 → 4"): dnd5e prints the change
    as an emoji arrow (U+27A1, blue on iOS). Swap it for a gold text arrow and centre the row
    (DM 2026-07-11). The row div is the one directly holding .arrow. */
@@ -2657,7 +2664,7 @@ body.mc-phone .mc-phone-dialog fieldset { border: 1px solid var(--mc-edge) !impo
 body.mc-phone .mc-phone-dialog input,
 body.mc-phone .mc-phone-dialog select,
 body.mc-phone .mc-phone-dialog textarea {
-  background: #16141a !important;
+  background: var(--mc-panel) !important;
   color: var(--mc-ink) !important;
   border: 1px solid var(--mc-edge) !important;
 }
@@ -2672,7 +2679,7 @@ body.mc-phone .mc-phone-dialog button {
   color: var(--mc-ink) !important;
 }
 body.mc-phone .mc-phone-dialog button:hover { border-color: var(--mc-gold) !important; }
-body.mc-phone .mc-phone-dialog button:active { background: #34313a !important; }
+body.mc-phone .mc-phone-dialog button:active { background: var(--mc-panel-2) !important; }
 body.mc-phone .mc-phone-dialog button[type="submit"],
 body.mc-phone .mc-phone-dialog button.default,
 body.mc-phone .mc-phone-dialog button[data-action="ok"],
@@ -2688,10 +2695,10 @@ body.mc-phone .mc-phone-dialog button.default:active { background: var(--mc-prim
    (the .mc-adv-on green/red); Normal stays the primary default. All three are
    type=submit, so these data-action overrides must FOLLOW the submit rule to win. */
 body.mc-phone .mc-phone-dialog button[data-action="advantage"] {
-  background: #234a30 !important; border-color: #3f8a52 !important; color: #cdeed4 !important;
+  background: var(--mc-ok) !important; border-color: var(--mc-ok) !important; color: var(--mc-ok-ink) !important;
 }
 body.mc-phone .mc-phone-dialog button[data-action="disadvantage"] {
-  background: #4a2727 !important; border-color: #8a3f3a !important; color: #f2c4be !important;
+  background: var(--mc-bad-dim) !important; border-color: var(--mc-bad) !important; color: var(--mc-bad-ink) !important;
 }
 /* Header controls (the X) stay minimal — don't inherit the panel button look. Covers
    <button> (dnd5e/core) AND <a class="header-button"> (TyphonJS / Item Piles). Matches
@@ -2779,10 +2786,10 @@ body.mc-phone .mc-phone-dialog .tabs .item.active::after,
 body.mc-phone .mc-phone-dialog nav.tabs a.active::after { background-color: var(--mc-gold) !important; }
 
 /* Adv / Normal / Dis — green and red tints (stronger when selected). */
-.mc-adv[data-mode="advantage"] { background: #1b2a20; border-color: #2f5d39; }
-.mc-adv[data-mode="disadvantage"] { background: #2a1b1b; border-color: #5c2f2c; }
-.mc-adv[data-mode="advantage"].mc-adv-on { background: #234a30; border-color: #3f8a52; color: #cdeed4; }
-.mc-adv[data-mode="disadvantage"].mc-adv-on { background: #4a2727; border-color: #8a3f3a; color: #f2c4be; }
+.mc-adv[data-mode="advantage"] { background: var(--mc-ok-dim); border-color: var(--mc-ok); }
+.mc-adv[data-mode="disadvantage"] { background: var(--mc-bad-dim); border-color: var(--mc-bad); }
+.mc-adv[data-mode="advantage"].mc-adv-on { background: var(--mc-ok); border-color: var(--mc-ok); color: var(--mc-ok-ink); }
+.mc-adv[data-mode="disadvantage"].mc-adv-on { background: var(--mc-bad-dim); border-color: var(--mc-bad); color: var(--mc-bad-ink); }
 
 /* AC shield glyph. */
 .mc-ac-frame i { font-size: 11px; margin-right: 4px; opacity: .85; }
@@ -2791,7 +2798,7 @@ body.mc-phone .mc-phone-dialog nav.tabs a.active::after { background-color: var(
 #mobile-command-shell .mc-insp { width: 30px; height: 30px; font-size: 15px; align-self: center; }
 
 /* Self target option (gray). */
-.mc-disp.mc-self { background: var(--mc-panel-2); color: #b9bcc7; }
+.mc-disp.mc-self { background: var(--mc-panel-2); color: var(--mc-muted); }
 
 /* Picker close X (replaces "Back"). Ordered to the far right of the header — an
    X reads as "close", which conventionally sits top-right (DM 2026-06-18). The
@@ -2808,13 +2815,13 @@ body.mc-phone .mc-phone-dialog nav.tabs a.active::after { background-color: var(
 
 /* Adv / Normal / Dis + Use — same neutral background; meaning via text color. */
 #mobile-command-shell .mc-adv { background: var(--mc-panel); border-color: var(--mc-edge); }
-#mobile-command-shell .mc-adv[data-mode="advantage"] { color: #8fe0a0; }
+#mobile-command-shell .mc-adv[data-mode="advantage"] { color: var(--mc-ok-ink); }
 #mobile-command-shell .mc-adv[data-mode="normal"] { color: #ffffff; }
-#mobile-command-shell .mc-adv[data-mode="disadvantage"] { color: #f0a8a0; }
+#mobile-command-shell .mc-adv[data-mode="disadvantage"] { color: var(--mc-bad-ink); }
 #mobile-command-shell .mc-adv.mc-adv-on { background: var(--mc-panel-2); border-color: var(--mc-gold); }
 #mobile-command-shell .mc-fire { background: var(--mc-panel); border-color: var(--mc-edge); color: var(--mc-ink); }
 #mobile-command-shell .mc-fire:active { background: var(--mc-panel-2); }
-#mobile-command-shell .mc-fire.mc-roll-damage { color: #f0b8b2; }
+#mobile-command-shell .mc-fire.mc-roll-damage { color: var(--mc-bad-ink); }
 
 /* Subtle shadow under interactive controls; none on gray info (speed/prof/AC). */
 .mc-action, .mc-skill, .mc-skillrow, .mc-btn, .mc-adv, .mc-fire, .mc-rest,
@@ -2844,7 +2851,7 @@ body.mc-phone .mc-phone-dialog nav.tabs a.active::after { background-color: var(
 
 /* LVL/XP — flat banner, not a button. */
 .mc-detail-xp {
-  background: transparent; border: none; border-bottom: 1px solid #23252e;
+  background: transparent; border: none; border-bottom: 1px solid var(--mc-edge);
   border-radius: 0; padding: 6px 2px 12px; box-shadow: none;
 }
 
@@ -3231,7 +3238,7 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-ob-step { display: flex; flex-direction: column; gap: 8px; }
 .mc-ob-head { font-size: 15px; font-weight: 700; color: var(--mc-ink); display: flex; align-items: center; gap: 8px; }
 .mc-ob-n {
-  width: 24px; height: 24px; border-radius: 50%; background: var(--mc-gold); color: #1a1712;
+  width: 24px; height: 24px; border-radius: 50%; background: var(--mc-gold); color: var(--mc-sunken);
   display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800;
 }
 .mc-ob-note { font-size: 14px; line-height: 1.5; color: var(--mc-muted); }
@@ -3310,7 +3317,7 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 }
 .mc-dmp-sound-status i { margin-top: 1px; }
 .mc-dmp-sound-status.mc-ok { color: var(--mc-ink); }
-.mc-dmp-sound-status.mc-ok i { color: #8fd6a8; }               /* green = done/on (bible §2.2) */
+.mc-dmp-sound-status.mc-ok i { color: var(--mc-ok-ink); }               /* green = done/on (bible §2.2) */
 .mc-dmp-sound-status.mc-bad { color: var(--mc-ink); border-color: var(--mc-gold); }
 .mc-dmp-sound-status.mc-bad i { color: var(--mc-gold); }        /* needs your attention, not destructive */
 .mc-dmp-sound-status.mc-unknown { color: var(--mc-muted); }
@@ -3350,7 +3357,7 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 /* In the DM panel the theme row is tighter — 6 across fits the 240px flyout without wrapping to 3 tall rows. */
 .mc-dmp-settings .mc-theme-row { grid-template-columns: repeat(6, 1fr); }
 /* DM panel: split-party chip (rides the reaction-chip look, hiking icon + activate). */
-.mc-dmp-split { background: #1f2a24; border-color: #3d5c49; }
+.mc-dmp-split { background: var(--mc-ok-dim); border-color: var(--mc-ok); }
 .mc-dmp-split button { min-width: 30px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); }
 /* §17.4 night watches: phone board rows + DM panel night box. */
 /* Watch-subject switcher: only shown when the player owns more than one watcher (their PC + a pet).
@@ -3397,17 +3404,17 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 /* Column headers over the watch chips — align to the 26px chip width. */
 .mc-dmp-nw-head { font-size: 10px; color: var(--mc-muted); text-transform: uppercase; letter-spacing: .03em; }
 .mc-dmp-nw-h { width: 26px; text-align: center; font-weight: 700; }
-.mc-dmp-night-box { margin: 6px 0; padding: 6px 8px; border-radius: calc(8px * var(--mc-round, 1)); background: #20222c; border: 1px solid #333743; }
+.mc-dmp-night-box { margin: 6px 0; padding: 6px 8px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); }
 .mc-dmp-night-row { display: flex; gap: 8px; font-size: 12px; padding: 3px 2px; }
-.mc-dmp-night-row b { flex: 0 0 28px; color: #d8b45a; }
+.mc-dmp-night-row b { flex: 0 0 28px; color: var(--mc-gold); }
 .mc-dmp-night-step { flex: 0 0 34px; height: 30px; border-radius: calc(7px * var(--mc-round, 1)); font-weight: 800; }
 .mc-dmp-night-step.mc-on { background: var(--mc-panel-2); border-color: var(--mc-gold); color: var(--mc-gold); }
 /* §17.1 scribe-request chip: parchment tint, ✓/✕, suggested-cost line. */
-.mc-dmp-react-scribe { background: #2a2418; border-color: #6b5a2e; }
+.mc-dmp-react-scribe { background: var(--mc-panel); border-color: color-mix(in srgb, var(--mc-gold) 45%, var(--mc-sunken)); }
 .mc-dmp-react-scribe em { font-size: 11px; opacity: .75; font-style: normal; }
 .mc-dmp-react-scribe button { min-width: 30px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); }
 /* Summon-control chip: spectral tint, ✓ grants the player the summon. */
-.mc-dmp-react-summon { background: #1c2530; border-color: #3c5a72; }
+.mc-dmp-react-summon { background: var(--mc-primary); border-color: var(--mc-primary-edge); }
 .mc-dmp-react-summon button { min-width: 30px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); }
 .mc-colorpick-card { width: 100%; max-width: 340px; background: var(--mc-panel, #1c1922); border: 1px solid var(--mc-gold); border-radius: calc(16px * var(--mc-round, 1)); padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
 .mc-colorpick-title { text-align: center; margin-bottom: 16px; color: var(--mc-ink); }
@@ -3428,8 +3435,8 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-profile-act[disabled] { color: var(--mc-muted); cursor: default; }
 /* Destructive = same at rest, red ONLY on press (UI-BIBLE 4). A leave/log-out button that
    sits there glowing red reads as an error, and it's the one thing you must not fat-finger. */
-.mc-profile-act.mc-act-exit:active { background: #4a2f30; border-color: #5c2f2c; color: #f0b8b2; }
-.mc-profile-act.mc-act-exit:active i { color: #f0b8b2; }
+.mc-profile-act.mc-act-exit:active { background: var(--mc-bad-dim); border-color: var(--mc-bad); color: var(--mc-bad-ink); }
+.mc-profile-act.mc-act-exit:active i { color: var(--mc-bad-ink); }
 
 /* Swatches only — no names (DM 2026-07-17). A fixed 9-column grid: 18 themes = exactly TWO even
    rows, and every tile is the same width whatever the shell's width (DM: "fill two rows … spread
@@ -3725,12 +3732,12 @@ body.mc-theme-wizard .mc-frame {
 .mc-fav:active { background: var(--mc-panel-2); border-color: var(--mc-gold); }
 .mc-fav-icon {
   width: 38px; height: 38px; flex: 0 0 auto; border-radius: calc(7px * var(--mc-round, 1)); object-fit: cover;
-  border: 1px solid var(--mc-edge); background: #0c0d11;
+  border: 1px solid var(--mc-edge); background: var(--mc-sunken);
 }
 .mc-fav-glyph {
   width: 38px; height: 38px; flex: 0 0 auto; border-radius: calc(7px * var(--mc-round, 1));
   display: flex; align-items: center; justify-content: center;
-  border: 1px solid var(--mc-edge); background: #0c0d11; color: var(--mc-gold); font-size: 16px;
+  border: 1px solid var(--mc-edge); background: var(--mc-sunken); color: var(--mc-gold); font-size: 16px;
 }
 .mc-fav-name {
   flex: 1 1 auto; min-width: 0; font-size: 14px;
@@ -3788,7 +3795,7 @@ body.mc-theme-wizard .mc-frame {
 .mc-place-title { color: var(--mc-gold); margin-bottom: 4px; }
 .mc-place-sub { font-size: 13px; opacity: .8; color: var(--mc-ink); margin-bottom: 12px; }
 .mc-place-range { font-size: 15px; font-weight: 700; color: var(--mc-ink); margin-bottom: 10px; }
-.mc-place-range.mc-place-far { color: #d06060; }
+.mc-place-range.mc-place-far { color: var(--mc-bad-ink); }
 .mc-place-range .mc-place-max { font-weight: 400; opacity: .6; }
 .mc-place-pad { display: grid; grid-template-columns: repeat(3, 56px); grid-gap: 6px; justify-content: center; margin: 4px auto 10px; }
 .mc-place-blank { width: 56px; height: 56px; }
@@ -3805,8 +3812,8 @@ body.mc-theme-wizard .mc-frame {
 .mc-place-actions { display: flex; gap: 10px; }
 .mc-place-cancel, .mc-place-confirm { flex: 1 1 0; height: 48px; border-radius: calc(12px * var(--mc-round, 1)); font-weight: 800; font-size: 15px; }
 .mc-place-cancel { background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink); }
-.mc-place-confirm { background: linear-gradient(#4a8c4a, #2f6b2f); border: 1px solid #4a8c4a; color: #fff; }
-.mc-place-confirm.mc-warn { background: linear-gradient(#a37a2e, #8a5f1e); border-color: var(--mc-gold); }
+.mc-place-confirm { background: var(--mc-ok); border: 1px solid var(--mc-ok); color: #fff; }
+.mc-place-confirm.mc-warn { background: linear-gradient(color-mix(in srgb, var(--mc-gold) 75%, var(--mc-sunken)), color-mix(in srgb, var(--mc-gold) 60%, var(--mc-sunken))); border-color: var(--mc-gold); }
 /* Learn spells (Spells tab): full-width entry into the class-list picker. */
 .mc-learn-spells {
   width: 100%; min-height: 46px; margin-top: 10px; border-radius: calc(10px * var(--mc-round, 1));
@@ -3818,7 +3825,7 @@ body.mc-theme-wizard .mc-frame {
   flex: 1 1 auto; min-width: 0; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 15px; font-weight: 700; color: var(--mc-gold);
 }
-.mc-tokensw-count { font-size: 12px; font-weight: 600; color: var(--mc-ink-dim, #a59b86); }
+.mc-tokensw-count { font-size: 12px; font-weight: 600; color: var(--mc-muted); }
 /* Right-side group on action rows: limited-use counter + favorite bookmark. */
 .mc-action-right { margin-left: auto; flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
 /* Info-item cards (race/background/feat/feature on the Details tab) — a standard .mc-action
@@ -3830,7 +3837,7 @@ body.mc-theme-wizard .mc-frame {
   color: var(--mc-gold); padding: 2px 7px; border-radius: calc(6px * var(--mc-round, 1));
   border: 1px solid var(--mc-edge); background: rgba(0, 0, 0, .18);
 }
-.mc-uses.mc-spent { color: #e2584a; border-color: #5c2f2c; }
+.mc-uses.mc-spent { color: var(--mc-bad-ink); border-color: var(--mc-bad); }
 
 /* Section titles: a banner echoing the dnd5e character sheet. Burgundy by default; themes
    re-tint it and may lay a repeating pattern over the gradient (flame licks, snowflakes,
@@ -3871,7 +3878,7 @@ body.mc-theme-wizard .mc-frame {
 
 .mc-cond-panel {
   flex: 0 0 auto;
-  background: #16131b; border-bottom: 1px solid var(--mc-gold);
+  background: var(--mc-sunken); border-bottom: 1px solid var(--mc-gold);
   padding: 10px 14px;
 }
 .mc-cond-panel-head {
@@ -3890,7 +3897,7 @@ body.mc-theme-wizard .mc-frame {
   background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(8px * var(--mc-round, 1));
   color: var(--mc-ink); text-align: left;
 }
-.mc-cond-opt.mc-on { background: #2a2415; border-color: var(--mc-gold); }
+.mc-cond-opt.mc-on { background: var(--mc-panel-2); border-color: var(--mc-gold); }
 .mc-cond-opt-icon { width: 22px; height: 22px; flex: 0 0 auto; border-radius: calc(4px * var(--mc-round, 1)); object-fit: cover; }
 .mc-cond-opt-name {
   flex: 1 1 auto; min-width: 0; font-size: 12px;
@@ -3899,11 +3906,11 @@ body.mc-theme-wizard .mc-frame {
 .mc-cond-opt.mc-on .mc-cond-opt-name { color: var(--mc-gold); }
 .mc-cond-break {
   width: 100%; min-height: 42px; margin-bottom: 10px;
-  background: #3a2526; border: 1px solid #5c2f2c; border-radius: calc(8px * var(--mc-round, 1));
-  color: #f0b8b2; font-size: 13px; font-weight: 600;
+  background: var(--mc-bad-dim); border: 1px solid var(--mc-bad); border-radius: calc(8px * var(--mc-round, 1));
+  color: var(--mc-bad-ink); font-size: 13px; font-weight: 600;
 }
 .mc-cond-break i { margin-right: 6px; }
-.mc-cond-break:active { background: #4a2f30; }
+.mc-cond-break:active { background: var(--mc-bad-dim); }
 
 /* Exhaustion stepper (leveled 0–6, not on/off). */
 .mc-cond-exh {
@@ -3948,7 +3955,7 @@ body.mc-theme-wizard .mc-frame {
 }
 .mc-pip.mc-on { background: var(--mc-gold); }
 .mc-pips-num { font-size: 11px; font-weight: 800; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
-.mc-pips-num.mc-spent { color: #e2584a; }
+.mc-pips-num.mc-spent { color: var(--mc-bad-ink); }
 /* Spell level header: label left, slot pips pushed to the right. */
 .mc-spell-sub { display: flex; align-items: center; }
 .mc-spell-sub .mc-pips { margin-left: auto; }
@@ -3960,12 +3967,12 @@ body.mc-theme-wizard .mc-frame {
   margin-left: 0; font-size: 14px; font-weight: 800; flex: 0 0 auto;
   display: inline-flex; align-items: center; gap: 5px;
   color: var(--mc-ink); line-height: 1; white-space: nowrap; letter-spacing: .03em;
-  background: linear-gradient(#2a3a52, #213044);
+  background: linear-gradient(var(--mc-primary-active), var(--mc-primary));
   border: 1px solid var(--mc-primary-edge); border-radius: calc(9px * var(--mc-round, 1)); padding: 3px 9px; /* hug: was 11px right vs 6px left */
   box-shadow: 0 2px 5px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .08);
 }
 .mc-name-lvl.mc-on { border-color: var(--mc-gold); }
-.mc-name-lvl:active { background: linear-gradient(#31435e, #28384e); }
+.mc-name-lvl:active { background: linear-gradient(var(--mc-primary-active), var(--mc-primary)); }
 .mc-lvl-num { flex: 0 0 auto; }
 /* Class/subclass badge icons before the level. Class = rounded square, subclass =
    gold-ringed circle so the two read as distinct at a glance. Images come straight
@@ -3982,11 +3989,11 @@ body.mc-theme-wizard .mc-frame {
 
 /* Class / level / XP panel (opened by the Lvl button). */
 .mc-levels-panel {
-  flex: 0 0 auto; background: #16131b; border-bottom: 1px solid var(--mc-gold); padding: 10px 14px;
+  flex: 0 0 auto; background: var(--mc-sunken); border-bottom: 1px solid var(--mc-gold); padding: 10px 14px;
 }
 .mc-lvl-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 7px 2px; border-bottom: 1px solid #23252e;
+  padding: 7px 2px; border-bottom: 1px solid var(--mc-edge);
 }
 .mc-lvl-cls { font-size: 14px; color: var(--mc-ink); }
 .mc-lvl-num { font-size: 16px; font-weight: 800; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
@@ -4008,13 +4015,13 @@ body.mc-theme-wizard .mc-frame {
 .mc-xp { margin-top: 10px; }
 .mc-xp-track {
   height: 8px; border-radius: calc(5px * var(--mc-round, 1)); overflow: hidden;
-  background: #2a272e; border: 1px solid var(--mc-edge);
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge);
 }
-.mc-xp-fill { height: 100%; background: linear-gradient(90deg, #c8a44d, #e0b24a); }
+.mc-xp-fill { height: 100%; background: linear-gradient(90deg, var(--mc-gold), var(--mc-warn)); }
 .mc-xp-num { margin-top: 5px; font-size: 12px; color: var(--mc-muted); text-align: right; font-variant-numeric: tabular-nums; }
 
 /* Over-prepared (x > y) warning. */
-.mc-prep-line.mc-over { color: #e2584a; }
+.mc-prep-line.mc-over { color: var(--mc-bad-ink); }
 
 /* Per-class spellcasting cards (Ability / Attack / Spell DC / Prepared). */
 .mc-sc-cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
@@ -4027,7 +4034,7 @@ body.mc-theme-wizard .mc-frame {
 /* The whole header is the "set primary caster" tap target (≥44px, touch-friendly). */
 .mc-sc-head {
   display: flex; align-items: center; gap: 8px; min-height: 44px;
-  background: #211f24; color: var(--mc-gold); cursor: pointer;
+  background: var(--mc-panel); color: var(--mc-gold); cursor: pointer;
   font-weight: 600; font-size: 13px; letter-spacing: .03em; padding: 8px 12px;
   border-bottom: 1px solid var(--mc-edge);
 }
@@ -4040,11 +4047,11 @@ body.mc-theme-wizard .mc-frame {
 .mc-sc-card.mc-primary { border-color: var(--mc-gold); }
 .mc-sc-card.mc-primary .mc-sc-wand { color: var(--mc-gold); }
 .mc-sc-stats { display: flex; }
-.mc-sc-stat { flex: 1 1 0; text-align: center; padding: 8px 4px; border-left: 1px solid #23252e; }
+.mc-sc-stat { flex: 1 1 0; text-align: center; padding: 8px 4px; border-left: 1px solid var(--mc-edge); }
 .mc-sc-stat:first-child { border-left: none; }
 .mc-sc-label { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: var(--mc-muted); }
 .mc-sc-val { display: block; margin-top: 2px; font-size: 18px; font-weight: 800; color: var(--mc-ink); font-variant-numeric: tabular-nums; }
-.mc-sc-val.mc-over { color: #e2584a; }
+.mc-sc-val.mc-over { color: var(--mc-bad-ink); }
 
 /* ============================================================
    DM-assign panel (§11) — DM/executor client only. Docked, wakes
@@ -4056,7 +4063,7 @@ body.mc-theme-wizard .mc-frame {
   /* No min-height — the floor sizes to its content. The old 268px floor matched the side-by-side
      flyout's height; with the workspace stacked on top it just forced empty panel gradient below the
      content, wasting prime space (DM 2026-07-24). */
-  background: linear-gradient(var(--mc-panel-2), var(--mc-panel)); color: #ece5d6;
+  background: linear-gradient(var(--mc-panel-2), var(--mc-panel)); color: var(--mc-ink);
   /* TOP corners square so the floor joins flush to the workspace above it (DM 2026-07-24); bottom
      stays rounded. The workspace mirrors this with square BOTTOM corners. */
   border: 1px solid var(--mc-edge); border-radius: 0 0 calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)); padding: 10px;
@@ -4099,8 +4106,8 @@ body.mc-theme-wizard .mc-frame {
    workspace, which drops .mc-open's absence and springs the tabs back to full 32px height. */
 .mc-dmp-tabrail:not(.mc-open) { top: 0; bottom: 0; }
 .mc-dmp-tabrail:not(.mc-open) .mc-dmp-tab { flex: 1 1 0; height: auto; min-height: 0; }
-.mc-dmp-tab { width: 30px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #ece5d6; background: linear-gradient(var(--mc-panel-2), var(--mc-panel)); border: 1px solid var(--mc-edge); border-left: none; border-radius: 0 9px 9px 0; cursor: pointer; }
-.mc-dmp-tab.mc-on { color: #1a1712; background: var(--mc-gold); }
+.mc-dmp-tab { width: 30px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: var(--mc-ink); background: linear-gradient(var(--mc-panel-2), var(--mc-panel)); border: 1px solid var(--mc-edge); border-left: none; border-radius: 0 9px 9px 0; cursor: pointer; }
+.mc-dmp-tab.mc-on { color: var(--mc-sunken); background: var(--mc-gold); }
 /* Flyout box — attached to the panel's right; taller minimum, no h-scroll, and
    overflow visible so the targets dropdown can escape the frame (DM 2026-07-03). */
 /* min-height:100% — the flyout is absolutely positioned inside the panel, so 100% IS the main
@@ -4112,7 +4119,7 @@ body.mc-theme-wizard .mc-frame {
    saga belonged to the side-by-side layout, which is gone. */
 /* Flush to the floor (bottom:100%) with SQUARE bottom corners, so workspace + floor read as one
    joined box; only the outer corners (workspace top, floor bottom) stay rounded (DM 2026-07-24). */
-.mc-dmp-flyout { position: absolute; left: 0; right: 0; bottom: 100%; max-height: calc(100vh - 80px); display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(var(--mc-panel-2), var(--mc-panel)); color: #ece5d6; border: 1px solid var(--mc-edge); border-bottom: none; border-radius: calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)) 0 0; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
+.mc-dmp-flyout { position: absolute; left: 0; right: 0; bottom: 100%; max-height: calc(100vh - 80px); display: flex; flex-direction: column; overflow: hidden; background: linear-gradient(var(--mc-panel-2), var(--mc-panel)); color: var(--mc-ink); border: 1px solid var(--mc-edge); border-bottom: none; border-radius: calc(10px * var(--mc-round, 1)) calc(10px * var(--mc-round, 1)) 0 0; box-shadow: 0 8px 24px rgba(0,0,0,.55); }
 /* Rolls tab only: let the targets dropdown escape the box. Other tabs clip so the
    body scrolls (tokens grid can be long — DM 2026-07-03). */
 .mc-dmp-flyout.mc-fly-rolls { overflow: visible; }
@@ -4148,8 +4155,8 @@ body.mc-theme-wizard .mc-frame {
 /* Downtime tab: party-rest buttons as the tab's main flow row. */
 .mc-dt-restrow { display: flex; gap: 6px; margin-bottom: 8px; }
 .mc-dt-rest { flex: 1 1 0; min-height: 40px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; font-weight: 700;
-  color: #ece5d6; background: var(--mc-sunken); border: 1px solid var(--mc-edge); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.mc-dt-rest:hover { border-color: var(--mc-gold); color: #e6c46a; }
+  color: var(--mc-ink); background: var(--mc-sunken); border: 1px solid var(--mc-edge); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.mc-dt-rest:hover { border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-dt-rest i { color: var(--mc-gold); }
 /* Owned tokens — a player dropdown + a 2-row grid that scrolls HORIZONTALLY
    (compact for the common 4–6 players × 1–2 tokens; horizontal scroll for a heavy
@@ -4164,11 +4171,11 @@ body.mc-theme-wizard .mc-frame {
   outline: none; border-color: var(--mc-gold);
 }
 .mc-dmp-tok-grid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); grid-auto-columns: 74px; gap: 6px; overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
-.mc-dmp-tok { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px; border-radius: calc(8px * var(--mc-round, 1)); background: #1b202b; border: 1px solid #2f3640; cursor: grab; }
+.mc-dmp-tok { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); cursor: grab; }
 .mc-dmp-tok:hover { border-color: var(--mc-gold); }
 .mc-dmp-tok:active { cursor: grabbing; }
 .mc-dmp-tok img { width: 48px; height: 48px; border-radius: calc(8px * var(--mc-round, 1)); object-fit: cover; pointer-events: none; }
-.mc-dmp-tok span { font-size: 10px; line-height: 1.1; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ece5d6; pointer-events: none; }
+.mc-dmp-tok span { font-size: 10px; line-height: 1.1; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--mc-ink); pointer-events: none; }
 /* Players tab: dropdown + a palette button that asks the player to pick a colour. */
 .mc-dmp-tok-top { display: flex; gap: 6px; align-items: stretch; }
 .mc-dmp-groupsheet {
@@ -4180,7 +4187,7 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-groupsheet:hover { border-color: var(--mc-gold); }
 .mc-dmp-groupsheet i { color: var(--mc-muted); }
 .mc-dmp-tok-player { flex: 1 1 auto; min-width: 0; }
-.mc-dmp-tok-palette { flex: 0 0 34px; height: 30px; border-radius: calc(7px * var(--mc-round, 1)); background: #14171f; border: 1px solid #4a4334; cursor: pointer; }
+.mc-dmp-tok-palette { flex: 0 0 34px; height: 30px; border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); cursor: pointer; }
 .mc-dmp-tok-palette:hover { border-color: var(--mc-gold); }
 /* Rolls tool: all three controls on one short line at the top (explicit widths so
    they always fit the 240px flyout — no spill). */
@@ -4188,7 +4195,7 @@ body.mc-theme-wizard .mc-frame {
 /* (per-select rules retired 2026-07-17 — the three selects share one style above.) */
 .mc-rt-type, .mc-rt-abil { flex: 1 1 0; min-width: 0; }
 .mc-rt-multi { position: relative; flex: 1 1 auto; min-width: 0; }
-.mc-dmp-rt-forbtn { width: 100%; height: 27px; display: flex; align-items: center; justify-content: center; gap: 5px; border-radius: calc(7px * var(--mc-round, 1)); background: #14171f; color: #ece5d6; border: 1px solid #4a4334; cursor: pointer; white-space: nowrap; font-size: 12px; }
+.mc-dmp-rt-forbtn { width: 100%; height: 27px; display: flex; align-items: center; justify-content: center; gap: 5px; border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); color: var(--mc-ink); border: 1px solid var(--mc-edge); cursor: pointer; white-space: nowrap; font-size: 12px; }
 /* The real dropdown — absolute overlay that overflows the flyout frame. */
 .mc-dmp-rt-list { position: absolute; top: calc(100% + 4px); right: 0; min-width: 170px; z-index: 40; max-height: 300px; overflow-y: auto; padding: 4px; background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(9px * var(--mc-round, 1)); box-shadow: 0 10px 28px rgba(0,0,0,.6); }
 /* Packed main-area button — opens the Party order tab. */
@@ -4217,8 +4224,8 @@ body.mc-theme-wizard .mc-frame {
 .mc-rt-usericon { flex: 0 0 auto; font-size: 16px; width: 18px; text-align: center; }
 .mc-rt-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-rt-dist { flex: 0 0 auto; font-size: 11px; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
-.mc-rt-dist.mc-in { color: #6fcf7d; }   /* within the anchor's weapon range */
-.mc-rt-dist.mc-out { color: #d68b7f; }  /* out of range */
+.mc-rt-dist.mc-in { color: var(--mc-ok-ink); }   /* within the anchor's weapon range */
+.mc-rt-dist.mc-out { color: var(--mc-bad-ink); }  /* out of range */
 .mc-dmp-rt-row.mc-on .mc-dmp-rt-main { border-color: var(--mc-gold); background: var(--mc-panel-2); }
 .mc-dmp-rt-row.mc-targeted .mc-dmp-rt-main { box-shadow: inset 0 0 0 1px var(--mc-gold); }
 /* The two "who" lists (hears-through, follows) reuse the roster row (§3, DM 2026-07-25). A plain
@@ -4296,23 +4303,23 @@ body.mc-theme-wizard .mc-frame {
 /* Standalone primaries span the column; ones sharing a row (Form up + Disperse) keep their flex. */
 .mc-dt-startbtn, .mc-dmp-rt-send, .mc-dmp-preflight-run, .mc-ob-done { width: 100%; }
 .mc-dmp-rt-send { color: var(--mc-cta-ink); background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge); }
-.mc-dmp-empty { color: #a59b86; font-size: 12px; text-align: center; padding: 8px; }
+.mc-dmp-empty { color: var(--mc-muted); font-size: 12px; text-align: center; padding: 8px; }
 #mc-dm-panel.mc-show { display: block; }
 /* Drag grip — repositions the panel so it doesn't cover other widgets. */
 /* (the bare .mc-dmp-drag grip is gone — the window header is the drag handle now.) */
 .mc-dmp-drag { touch-action: none; }
 /* Headers double as drag handles — shorter, a distinct tint, and a hover
    highlight to hint you can grab them (DM 2026-07-03). */
-.mc-dmp-fly-head { cursor: move; touch-action: none; background: #221f16; }
-.mc-dmp-fly-head:hover { background: #322c1c; color: #e6c46a; }
+.mc-dmp-fly-head { cursor: move; touch-action: none; background: var(--mc-sunken); }
+.mc-dmp-fly-head:hover { background: var(--mc-panel-2); color: var(--mc-gold); }
 /* A section header, NOT a drag grip: no move cursor, no grab-hint hover (DM 2026-07-17). */
-.mc-dmp-head { padding: 4px 8px; margin-bottom: 6px; border-radius: calc(6px * var(--mc-round, 1)); background: #221f16; }
+.mc-dmp-head { padding: 4px 8px; margin-bottom: 6px; border-radius: calc(6px * var(--mc-round, 1)); background: var(--mc-sunken); }
 /* Status row: pause toggle + per-player presence lights. */
 .mc-dmp-status { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--mc-edge); flex-wrap: wrap; }
 /* Clock chip: world time through the SC-optional adapter. Gold sun by day, cool moon by night. */
 .mc-dmp-clock { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; min-height: 24px; border-radius: 999px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--mc-ink); background: var(--mc-sunken); border: 1px solid var(--mc-edge); cursor: pointer; }
 .mc-dmp-clock i { color: var(--mc-gold); }
-.mc-dmp-clock.mc-night i { color: #8fb4e0; }
+.mc-dmp-clock.mc-night i { color: var(--mc-gold); }
 .mc-dmp-clock:hover { border-color: var(--mc-gold); }
 .mc-dmp-clock-sc { opacity: .6; font-size: 9px; }
 
@@ -4396,37 +4403,37 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-hp-empty .mc-dmp-note { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .mc-dmp-note { font-size: 11px; color: var(--mc-muted); padding: 2px; }
 .mc-dmp-pres-row { display: flex; flex-wrap: wrap; gap: 3px 8px; min-width: 0; }
-.mc-dmp-pres { font-size: 11px; color: #d6cfbf; display: inline-flex; align-items: center; gap: 4px; }
+.mc-dmp-pres { font-size: 11px; color: var(--mc-ink); display: inline-flex; align-items: center; gap: 4px; }
 .mc-dmp-pres i { font-size: 8px; }
-.mc-dmp-pres.mc-on i { color: #5fbf6a; }
-.mc-dmp-pres.mc-amber i { color: #d6a93e; }
-.mc-dmp-pres.mc-off { color: #8a8478; }
-.mc-dmp-pres.mc-off i { color: #6a6458; }
+.mc-dmp-pres.mc-on i { color: var(--mc-ok-ink); }
+.mc-dmp-pres.mc-amber i { color: var(--mc-warn); }
+.mc-dmp-pres.mc-off { color: var(--mc-muted); }
+.mc-dmp-pres.mc-off i { color: var(--mc-muted); }
 /* Away-timer escalation (§7.8): backgrounded past the threshold → red pulsing dot + label. */
-.mc-dmp-pres.mc-red { color: #f0a19a; }
-.mc-dmp-pres.mc-red i { color: #e2584a; animation: mc-away-pulse 1.6s ease-in-out infinite; }
+.mc-dmp-pres.mc-red { color: var(--mc-bad-ink); }
+.mc-dmp-pres.mc-red i { color: var(--mc-bad-ink); animation: mc-away-pulse 1.6s ease-in-out infinite; }
 @keyframes mc-away-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 /* Combat control strip. */
-.mc-dmp-combat { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
+.mc-dmp-combat { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--mc-edge); }
 .mc-dmp-turn { font-size: 12px; font-weight: 700; color: var(--mc-gold); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .mc-dmp-combatbtns { display: flex; gap: 6px; }
 .mc-dmp-combatbtns button { flex: 1 1 0; min-height: 24px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; gap: 4px;
   display: flex; align-items: center; justify-content: center; font-size: 12px;
-  background: #1f2a38; border: 1px solid #2f4a6a; color: #cfe0f2; }
-.mc-dmp-combatbtns button:hover { background: #2c3d54; }
+  background: var(--mc-primary); border: 1px solid var(--mc-primary-edge); color: var(--mc-ink); }
+.mc-dmp-combatbtns button:hover { background: var(--mc-primary-active); }
 /* Quick HP (damage/heal the selected token(s)). */
-.mc-dmp-hp { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #4a4334; }
+.mc-dmp-hp { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--mc-edge); }
 .mc-dmp-hp-head { font-size: 12px; font-weight: 700; color: var(--mc-gold); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .mc-dmp-hp-row { display: flex; gap: 6px; align-items: stretch; }
 .mc-dmp-hp-input { flex: 1 1 0; min-width: 0; min-height: 24px; text-align: center; border-radius: calc(8px * var(--mc-round, 1));
-  background: #2c2733; border: 1px solid #4a4334; color: #ece5d6; font-size: 14px; }
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 14px; }
 /* the selected token's current HP shows as a faint hint; it clears the instant the DM types (DM 2026-07-19) */
 .mc-dmp-hp-input::placeholder { color: var(--mc-ink); opacity: .4; }
 .mc-dmp-hp-btn { flex: 0 0 auto; min-height: 24px; padding: 0 12px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700; border: 1px solid; }
-.mc-dmp-dmg { background: #3a1f1d; border-color: #6a302a; color: #e8a59c; }
-.mc-dmp-dmg:hover { background: #4a2722; }
-.mc-dmp-heal { background: #1f3320; border-color: #2f5d39; color: #8fe0a0; }
-.mc-dmp-heal:hover { background: #274028; }
+.mc-dmp-dmg { background: var(--mc-bad-dim); border-color: var(--mc-bad); color: var(--mc-bad-ink); }
+.mc-dmp-dmg:hover { background: var(--mc-bad-dim); }
+.mc-dmp-heal { background: var(--mc-ok-dim); border-color: var(--mc-ok); color: var(--mc-ok-ink); }
+.mc-dmp-heal:hover { background: var(--mc-ok); }
 /* Camera bar (focus party + manual TV control). */
 /* gap tightened 8→6 + icon 16→15 so a 5th button (Fit whole scene) fits WITHOUT widening the panel —
    the buttons are flex:1 1 0, so they just share the same width (DM 2026-07-19). */
@@ -4434,27 +4441,27 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-cam:not(:last-child) { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--mc-edge); }
 .mc-dmp-cam-btn {
   flex: 1 1 0; min-width: 0; min-height: 40px; display: flex; align-items: center; justify-content: center;
-  font-size: 15px; color: #ece5d6; background: #2c2733; border: 1px solid #4a4334; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
+  font-size: 15px; color: var(--mc-ink); background: var(--mc-panel-2); border: 1px solid var(--mc-edge); border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
 }
-.mc-dmp-cam-btn:hover { background: #36303f; }
+.mc-dmp-cam-btn:hover { background: var(--mc-panel-2); }
 .mc-dmp-cam-btn.mc-active { color: var(--mc-gold); background: var(--mc-panel-2); border-color: var(--mc-gold); }
 .mc-dmp-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
-.mc-dmp-empty { font-size: 12px; color: #a59b86; }
+.mc-dmp-empty { font-size: 12px; color: var(--mc-muted); }
 
 /* AoE push: pending-cast rows (Player — Spell + Place). */
 .mc-dmp-casts { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 .mc-dmp-cast {
   display: flex; align-items: center; gap: 6px;
   padding: 6px 8px; border-radius: calc(7px * var(--mc-round, 1));
-  background: #2a2415; border: 1px solid var(--mc-edge);
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge);
 }
 .mc-dmp-cast-info { flex: 1; font-size: 12px; line-height: 1.2; min-width: 0; }
 .mc-dmp-place {
   padding: 6px 12px; border-radius: calc(6px * var(--mc-round, 1)); cursor: pointer; flex: none;
-  background: #243042; border: 1px solid #2f4660; color: #ece5d6; font-size: 13px; font-weight: 700;
+  background: var(--mc-primary); border: 1px solid var(--mc-primary-edge); color: var(--mc-ink); font-size: 13px; font-weight: 700;
 }
-.mc-dmp-place:hover { background: #2c3d54; }
-.mc-dmp-cast-x { background: none; border: none; color: #a59b86; font-size: 14px; line-height: 1; cursor: pointer; flex: none; }
+.mc-dmp-place:hover { background: var(--mc-primary-active); }
+.mc-dmp-cast-x { background: none; border: none; color: var(--mc-muted); font-size: 14px; line-height: 1; cursor: pointer; flex: none; }
 .mc-dmp-cast-x:hover { color: var(--mc-gold); }
 
 /* §26 Effects tab: weather/magical toggle grid. Secondary at rest; ON is the standard
@@ -4653,9 +4660,9 @@ body.mc-fxp-woozy #mobile-command-shell {
 #mc-dm-panel .mc-seance-pc span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #mc-dm-panel .mc-seance-pc.mc-on { border-color: var(--mc-gold); color: var(--mc-ink); background: var(--mc-panel-2); }
 #mc-dm-panel .mc-seance-pc-check { color: var(--mc-gold); font-size: 10px; }
-#mc-dm-panel .mc-seance-dmg { border-color: #7a3a35; color: #ffb4a8; }
+#mc-dm-panel .mc-seance-dmg { border-color: var(--mc-bad); color: var(--mc-bad-ink); }
 #mc-dm-panel .mc-seance-status { margin-top: 5px; font-size: 11px; color: var(--mc-muted); }
-#mc-dm-panel .mc-seance-status.mc-bad { color: #ffb4a8; font-weight: 700; }
+#mc-dm-panel .mc-seance-status.mc-bad { color: var(--mc-bad-ink); font-weight: 700; }
 
 /* Effects-drawer input row (séance phrase; originally built for Ghost Voice, which is gone —
    the pattern lives on: a text input + a square send button on one row). */
@@ -4739,7 +4746,7 @@ body.mc-fxp-woozy #mobile-command-shell {
 }
 .mc-imgpop-img {
   max-width: 100%; max-height: 78%; object-fit: contain;
-  border-radius: calc(8px * var(--mc-round, 1)); border: 1px solid var(--mc-edge); background: #0c0d11;
+  border-radius: calc(8px * var(--mc-round, 1)); border: 1px solid var(--mc-edge); background: var(--mc-sunken);
   touch-action: none; cursor: grab; -webkit-user-select: none; user-select: none; -webkit-user-drag: none;
 }
 .mc-imgpop-x {
@@ -4764,7 +4771,7 @@ body.mc-fxp-woozy #mobile-command-shell {
 .mc-assigned {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   margin-bottom: 12px; padding: 8px 12px;
-  background: #2a2415; border: 1px solid var(--mc-gold); border-radius: calc(9px * var(--mc-round, 1));
+  background: var(--mc-panel-2); border: 1px solid var(--mc-gold); border-radius: calc(9px * var(--mc-round, 1));
   color: var(--mc-gold); font-size: 13px; font-weight: 600;
 }
 .mc-assigned i { margin-right: 6px; }
@@ -4786,11 +4793,11 @@ body.mc-fxp-woozy #mobile-command-shell {
   font-size: 12px; padding: 3px 10px; border-radius: calc(12px * var(--mc-round, 1));
   border: 1px solid; text-transform: capitalize;
 }
-.mc-def-res { color: #8fe0a0; border-color: #2f5d39; background: #1c2f22; }   /* resistance */
-.mc-def-imm { color: #14211a; border-color: #6fcf7d; background: #6fcf7d; }   /* immunity (solid) */
-.mc-def-vuln { color: #f0a8a0; border-color: #5c2f2c; background: #2f1d1c; }  /* vulnerability */
-.mc-def-cimm { color: #8fe0a0; border-color: #2f5d39; background: #1c2f22; }  /* condition immunity */
-.mc-def-dmod { color: #e9b04a; border-color: #5c4a2c; background: #2a2417; font-variant-numeric: tabular-nums; }  /* damage modification (Force +2) */
+.mc-def-res { color: var(--mc-ok-ink); border-color: var(--mc-ok); background: var(--mc-ok-dim); }   /* resistance */
+.mc-def-imm { color: var(--mc-sunken); border-color: var(--mc-ok-ink); background: var(--mc-ok-ink); }   /* immunity (solid) */
+.mc-def-vuln { color: var(--mc-bad-ink); border-color: var(--mc-bad); background: var(--mc-bad-dim); }  /* vulnerability */
+.mc-def-cimm { color: var(--mc-ok-ink); border-color: var(--mc-ok); background: var(--mc-ok-dim); }  /* condition immunity */
+.mc-def-dmod { color: var(--mc-warn); border-color: color-mix(in srgb, var(--mc-warn) 35%, var(--mc-sunken)); background: var(--mc-panel-2); font-variant-numeric: tabular-nums; }  /* damage modification (Force +2) */
 
 /* Temporary "Log out" button (under Leave MC) — switching Foundry users on a
    phone is painful, so give players a one-tap logout to the join screen. */
@@ -4862,7 +4869,7 @@ body.mc-fxp-woozy #mobile-command-shell {
 .mc-spell-main:active { background: var(--mc-panel-2); }
 .mc-spell-icon {
   width: 36px; height: 36px; flex: 0 0 auto; border-radius: calc(7px * var(--mc-round, 1)); object-fit: cover;
-  border: 1px solid var(--mc-edge); background: #0c0d11;
+  border: 1px solid var(--mc-edge); background: var(--mc-sunken);
 }
 .mc-spell-name {
   flex: 1 1 auto; min-width: 0; font-size: 14px;
@@ -4929,13 +4936,13 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-enc-val { font-weight: 700; color: var(--mc-ink); }
 .mc-enc-tier { margin-left: auto; font-size: 11px; font-weight: 700; }
 .mc-enc-tier.mc-enc-enc { color: var(--mc-gold); }
-.mc-enc-tier.mc-enc-heavy { color: #e0913f; }
-.mc-enc-tier.mc-enc-over { color: #e2584a; }
+.mc-enc-tier.mc-enc-heavy { color: var(--mc-warn); }
+.mc-enc-tier.mc-enc-over { color: var(--mc-bad-ink); }
 .mc-enc-bar { position: relative; height: 8px; border-radius: calc(6px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); overflow: hidden; }
-.mc-enc-fill { height: 100%; background: #4f7d5a; transition: width .2s ease; }
+.mc-enc-fill { height: 100%; background: var(--mc-ok); transition: width .2s ease; }
 .mc-enc-bar.mc-enc-enc .mc-enc-fill { background: var(--mc-gold); }
-.mc-enc-bar.mc-enc-heavy .mc-enc-fill { background: #e0913f; }
-.mc-enc-bar.mc-enc-over .mc-enc-fill { background: #e2584a; }
+.mc-enc-bar.mc-enc-heavy .mc-enc-fill { background: var(--mc-warn); }
+.mc-enc-bar.mc-enc-over .mc-enc-fill { background: var(--mc-bad-ink); }
 .mc-enc-stop { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(236,229,214,.3); }
 .mc-inv { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 /* Uniform row height so the toggle column lines up; content centered (the main
@@ -4945,7 +4952,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); overflow: hidden;
   box-shadow: 0 3px 6px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .05);
 }
-.mc-inv-row.mc-equipped { border-color: #3f6a48; }
+.mc-inv-row.mc-equipped { border-color: var(--mc-ok); }
 .mc-inv-main {
   flex: 1 1 auto; min-width: 0;
   display: flex; align-items: center; gap: 12px; padding: 8px 12px;
@@ -4955,13 +4962,13 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-inv-icon-wrap { position: relative; flex: 0 0 auto; display: inline-flex; }
 .mc-inv-icon {
   width: 38px; height: 38px; flex: 0 0 auto; border-radius: calc(7px * var(--mc-round, 1)); object-fit: cover;
-  border: 1px solid var(--mc-edge); background: #0c0d11;
+  border: 1px solid var(--mc-edge); background: var(--mc-sunken);
 }
 /* "+" badge on a multi-activity item's icon (lower-right) — tap for >1 action. */
 .mc-inv-multi {
   position: absolute; right: -3px; bottom: -3px;
   width: 16px; height: 16px; border-radius: 50%;
-  background: var(--mc-gold); color: #1a1410;
+  background: var(--mc-gold); color: var(--mc-sunken);
   display: flex; align-items: center; justify-content: center;
   font-size: 9px; border: 1.5px solid var(--mc-panel);
 }
@@ -4977,9 +4984,9 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   background: none; border: none; color: var(--mc-edge); font-size: 17px; cursor: pointer;
 }
 .mc-inv-toggle.mc-on { color: var(--mc-gold); }
-.mc-inv-toggle.mc-warn { color: #e0b24a; }
+.mc-inv-toggle.mc-warn { color: var(--mc-warn); }
 .mc-inv-toggle.mc-ph { cursor: default; }
-.mc-inv-light.mc-on { color: #ff9d3b; text-shadow: 0 0 8px rgba(255, 157, 59, .6); } /* lit torch/lantern glows */
+.mc-inv-light.mc-on { color: var(--mc-warn); text-shadow: 0 0 8px rgba(255, 157, 59, .6); } /* lit torch/lantern glows */
 .mc-inv-chev { flex: 0 0 auto; color: var(--mc-muted); font-size: 13px; margin-left: 8px; }
 /* Nested container contents: a clearly-contained inset block (inset both sides,
    gold left rule, faint inset background) so items read as INSIDE the pack. */
@@ -5013,11 +5020,11 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* Reopen chip when the death panel is dismissed but the actor is still at 0 HP. */
 .mc-death-reopen {
   display: block; width: 100%; margin: 2px 0 6px; padding: 8px 12px;
-  background: #2a1c1a; border: 1px solid var(--mc-crimson); border-radius: calc(8px * var(--mc-round, 1));
-  color: #e2a09a; font-size: 13px; font-weight: 700; text-align: center; cursor: pointer;
+  background: var(--mc-bad-dim); border: 1px solid var(--mc-crimson); border-radius: calc(8px * var(--mc-round, 1));
+  color: var(--mc-bad-ink); font-size: 13px; font-weight: 700; text-align: center; cursor: pointer;
 }
 .mc-death-reopen .fa-skull { margin-right: 6px; }
-.mc-death-reopen:active { background: #341f1c; }
+.mc-death-reopen:active { background: var(--mc-bad-dim); }
 .mc-death-pips { display: flex; justify-content: center; gap: 28px; margin: 16px 0 20px; }
 .mc-death-group { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .mc-death-grouplabel {
@@ -5028,18 +5035,18 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   width: 18px; height: 18px; border-radius: 50%;
   border: 2px solid var(--mc-edge); background: transparent;
 }
-.mc-death-success .mc-death-pip.mc-on { background: #6fcf7d; border-color: #6fcf7d; }
-.mc-death-failure .mc-death-pip.mc-on { background: #e2584a; border-color: #e2584a; }
+.mc-death-success .mc-death-pip.mc-on { background: var(--mc-ok-ink); border-color: var(--mc-ok-ink); }
+.mc-death-failure .mc-death-pip.mc-on { background: var(--mc-bad-ink); border-color: var(--mc-bad-ink); }
 .mc-death-roll {
   width: 100%; min-height: 64px; margin-top: 8px;
-  background: var(--mc-crimson); border: 1px solid #7a2d27; border-radius: calc(14px * var(--mc-round, 1));
+  background: var(--mc-crimson); border: 1px solid var(--mc-bad); border-radius: calc(14px * var(--mc-round, 1));
   color: #fff; font-size: 20px; font-weight: 800; letter-spacing: .02em;
   box-shadow: 0 3px 6px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .06);
 }
-.mc-death-roll:active { background: #7a2d27; }
+.mc-death-roll:active { background: var(--mc-bad); }
 .mc-death-status { font-size: 22px; font-weight: 800; margin-top: 12px; }
-.mc-death-status.mc-stable { color: #6fcf7d; }
-.mc-death-status.mc-dead { color: #e2584a; }
+.mc-death-status.mc-stable { color: var(--mc-ok-ink); }
+.mc-death-status.mc-dead { color: var(--mc-bad-ink); }
 
 /* Action-group sub-headers (Action / Bonus / Reaction) — lighter than the
    burgundy title so the hierarchy reads: title > group divider > rows. */
@@ -5072,11 +5079,11 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
    cost badges. Lit (mc-on) = resource available; struck (mc-off) =
    already used this turn. Tracking needs enforce*Actions ≥ displayOnly.
    ============================================================ */
-.mc-econ-action { --c: #5db4e6; }   /* Action   — blue   */
-.mc-econ-bonus { --c: #6fcf7d; }    /* Bonus    — green  */
-.mc-econ-reaction { --c: #b58cf0; } /* Reaction — violet */
-.mc-econ-free { --c: #d9a441; }     /* Free     — amber  */
-.mc-econ-other { --c: #b8b2a6; }    /* Other    — light gray (OTR badge, DM 2026-07-11) */
+.mc-econ-action { --c: var(--mc-gold); }   /* Action   — blue   */
+.mc-econ-bonus { --c: var(--mc-ok-ink); }    /* Bonus    — green  */
+.mc-econ-reaction { --c: var(--mc-react-ink); } /* Reaction — violet */
+.mc-econ-free { --c: var(--mc-warn); }     /* Free     — amber  */
+.mc-econ-other { --c: var(--mc-muted); }    /* Other    — light gray (OTR badge, DM 2026-07-11) */
 .mc-actions-sub.mc-econ-other { color: var(--mc-muted); } /* Other group header — muted */
 
 /* ACT / BA / RE availability strip on the Actions tab (combat only). */
@@ -5084,10 +5091,10 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-econ-chip {
   flex: 1 1 0; text-align: center; padding: 7px 0; border-radius: calc(8px * var(--mc-round, 1));
   font-size: 12px; font-weight: 800; letter-spacing: .05em;
-  border: 1px solid var(--mc-edge); background: #16131b; color: var(--mc-muted);
+  border: 1px solid var(--mc-edge); background: var(--mc-sunken); color: var(--mc-muted);
 }
 .mc-econ-chip.mc-on { color: var(--c); border-color: var(--c); }
-.mc-econ-chip.mc-off { color: #57525f; opacity: .6; text-decoration: line-through; }
+.mc-econ-chip.mc-off { color: var(--mc-muted); opacity: .6; text-decoration: line-through; }
 
 /* Favorite cost badge (right edge): same on/off behavior as the strip. */
 .mc-fav-cost {
@@ -5097,7 +5104,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   border: 1px solid var(--mc-edge); color: var(--mc-muted);
 }
 .mc-fav-cost.mc-on { color: var(--c); border-color: var(--c); }
-.mc-fav-cost.mc-off { color: #57525f; opacity: .6; text-decoration: line-through; }
+.mc-fav-cost.mc-off { color: var(--mc-muted); opacity: .6; text-decoration: line-through; }
 
 /* Long-press details card: icon + subtitle, then the item's Foundry description
    (enriched HTML). Lives in the scrollable content area below the picker head. */
@@ -5107,7 +5114,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
    Icon/glyph up 50% (56→84, 26→39) per the same note. */
 .mc-detail { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 16px; min-height: 55vh; }
 .mc-detail-head { display: flex; align-items: center; gap: 12px; }
-.mc-detail-icon { width: 84px; height: 84px; flex: 0 0 auto; border-radius: calc(9px * var(--mc-round, 1)); object-fit: cover; object-position: top; border: 1px solid var(--mc-edge); background: #0c0d11; }
+.mc-detail-icon { width: 84px; height: 84px; flex: 0 0 auto; border-radius: calc(9px * var(--mc-round, 1)); object-fit: cover; object-position: top; border: 1px solid var(--mc-edge); background: var(--mc-sunken); }
 .mc-detail-glyph { display: flex; align-items: center; justify-content: center; color: var(--mc-gold); font-size: 39px; }
 .mc-detail-headtext { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mc-detail-sub { color: var(--mc-muted); font-size: 13px; text-transform: capitalize; }
@@ -5131,7 +5138,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-rest-none { color: var(--mc-muted); font-style: italic; }
 /* Character summary: ability grid (3×2) + a prof/speed/init meta line + background. */
 .mc-pc-abils { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.mc-ab { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 4px; border: 1px solid var(--mc-edge); border-radius: calc(9px * var(--mc-round, 1)); background: #0c0d11; }
+.mc-ab { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 4px; border: 1px solid var(--mc-edge); border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-sunken); }
 .mc-ab-k { font-size: 11px; letter-spacing: 0.08em; color: var(--mc-muted); }
 .mc-ab-mod { font-size: 20px; font-weight: 700; color: var(--mc-ink); font-variant-numeric: tabular-nums; }
 .mc-ab-score { font-size: 12px; color: var(--mc-muted); }
@@ -5140,23 +5147,23 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-pc-meta { margin-top: 10px; font-size: 13px; color: var(--mc-muted); text-align: center; }
 /* Prof / Init: boxed stat tiles with presence (DM 2026-06-19). */
 .mc-pc-stats { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
-.mc-pc-stat { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 76px; padding: 7px 16px; border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); background: #0c0d11; }
+.mc-pc-stat { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 76px; padding: 7px 16px; border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); background: var(--mc-sunken); }
 .mc-pc-stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--mc-muted); }
 .mc-pc-stat-val { font-size: 22px; font-weight: 800; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
 /* Travel-type: the active speed is a tappable chip; tapping reveals the picker. */
 .mc-move-active { font: inherit; color: var(--mc-gold); background: transparent; border: 1px solid var(--mc-edge); border-radius: 999px; padding: 4px 12px; min-height: 32px; cursor: pointer; }
 .mc-move-picker { display: flex; flex-direction: column; gap: 6px; margin: 10px auto 0; max-width: 280px; }
-.mc-move-opt { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; font-size: 14px; color: var(--mc-ink); background: #0c0d11; border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); cursor: pointer; }
+.mc-move-opt { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; font-size: 14px; color: var(--mc-ink); background: var(--mc-sunken); border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); cursor: pointer; }
 .mc-move-opt.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-move-spd { color: var(--mc-muted); font-variant-numeric: tabular-nums; }
 .mc-move-opt.mc-on .mc-move-spd { color: var(--mc-gold); }
 /* Travel-type chips: a horizontal single-select row of big icon buttons (DM 2026-06-19). */
 .mc-pc-speed-label { margin: 12px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--mc-muted); text-align: center; }
 .mc-move-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.mc-move-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 60px; min-height: 56px; padding: 8px 10px; background: #0c0d11; border: 1px solid var(--mc-edge); border-radius: calc(12px * var(--mc-round, 1)); color: var(--mc-muted); cursor: pointer; }
+.mc-move-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 60px; min-height: 56px; padding: 8px 10px; background: var(--mc-sunken); border: 1px solid var(--mc-edge); border-radius: calc(12px * var(--mc-round, 1)); color: var(--mc-muted); cursor: pointer; }
 .mc-move-chip i { font-size: 18px; }
 .mc-move-chip-spd { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.mc-move-chip.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); background: #2a2417; }
+.mc-move-chip.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); background: var(--mc-panel-2); }
 .mc-speed-ico { font-size: 11px; margin-right: 2px; opacity: .9; }
 .mc-pc-bg { margin-top: 4px; font-size: 13px; color: var(--mc-muted); text-align: center; font-style: italic; }
 .mc-detail-desc { font-size: 14px; line-height: 1.5; color: var(--mc-ink); }
@@ -5181,14 +5188,14 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-detail-fav { margin-left: auto; background: none; border: none; color: var(--mc-muted); font-size: 18px; padding: 4px 10px; line-height: 1; }
 .mc-detail-fav.mc-on { color: var(--mc-gold); }
 /* Remove-condition action at the foot of an effect's detail card. */
-.mc-detail-remove { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin-top: 14px; padding: 10px; font-size: 14px; font-weight: 600; color: #f1b0b0; background: rgba(180, 60, 60, 0.12); border: 1px solid rgba(200, 80, 80, 0.5); border-radius: calc(10px * var(--mc-round, 1)); cursor: pointer; }
+.mc-detail-remove { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin-top: 14px; padding: 10px; font-size: 14px; font-weight: 600; color: var(--mc-bad-ink); background: rgba(180, 60, 60, 0.12); border: 1px solid rgba(200, 80, 80, 0.5); border-radius: calc(10px * var(--mc-round, 1)); cursor: pointer; }
 .mc-detail-remove:active { background: rgba(180, 60, 60, 0.24); }
 /* Detail-card action footer (Use/Cast/Learn/Roll/Equip/Attune + quantity/Drop). */
 .mc-detail-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .mc-detail-act { flex: 1 1 auto; min-width: 88px; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 12px; font: inherit; font-size: 14px; font-weight: 600; color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1)); cursor: pointer; }
 .mc-detail-act.mc-act-primary { color: var(--mc-cta-ink); background: var(--mc-cta-fill); border-color: var(--mc-cta-edge); }
 .mc-detail-act.mc-on { color: var(--mc-gold); border-color: var(--mc-gold); }
-.mc-detail-act.mc-act-danger { flex: 1 1 100%; color: #f1b0b0; background: rgba(180, 60, 60, 0.12); border-color: rgba(200, 80, 80, 0.5); }
+.mc-detail-act.mc-act-danger { flex: 1 1 100%; color: var(--mc-bad-ink); background: rgba(180, 60, 60, 0.12); border-color: rgba(200, 80, 80, 0.5); }
 .mc-detail-act.mc-act-danger.mc-armed { color: #fff; background: rgba(180, 60, 60, 0.55); }
 .mc-detail-qtyrow { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
 .mc-qty { display: flex; align-items: center; gap: 8px; }
@@ -5208,13 +5215,13 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-party-cell {
   position: relative; width: 100%; height: auto; aspect-ratio: 1 / 1; /* height:auto beats core button height so the ratio wins */
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
-  background: linear-gradient(#1b202b, #161a23); border: 1px solid var(--mc-edge); border-radius: calc(12px * var(--mc-round, 1));
+  background: linear-gradient(var(--mc-panel), var(--mc-panel)); border: 1px solid var(--mc-edge); border-radius: calc(12px * var(--mc-round, 1));
   color: var(--mc-muted); cursor: pointer; overflow: hidden;
 }
-.mc-party-cell:active { background: #232a38; }
+.mc-party-cell:active { background: var(--mc-panel-2); }
 .mc-party-cell.mc-full { border-color: var(--mc-primary-edge); }
 .mc-party-cell.mc-mine { border-color: var(--mc-gold); box-shadow: 0 0 0 1px var(--mc-gold) inset, 0 2px 8px rgba(0,0,0,.5); }
-.mc-party-cell.mc-dupe { border-color: #d06060; box-shadow: 0 0 0 1px #d06060 inset; }
+.mc-party-cell.mc-dupe { border-color: var(--mc-bad-ink); box-shadow: 0 0 0 1px var(--mc-bad-ink) inset; }
 /* Picked up (carrying this token, waiting for a destination) — lifted & pulsing. */
 .mc-party-cell.mc-picked { border-color: var(--mc-gold); box-shadow: 0 0 0 2px var(--mc-gold) inset, 0 0 12px rgba(224,180,74,.6); transform: translateY(-2px) scale(1.03); z-index: 2; animation: mc-picked-pulse 1.1s ease-in-out infinite; }
 .mc-party-cell.mc-picked .mc-party-tok { box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 0 8px rgba(224,180,74,.5); }
@@ -5222,11 +5229,11 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-party-tok { width: 62px; height: 62px; border-radius: 50%; object-fit: cover; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
 .mc-party-nm { font-size: 11px; font-weight: 700; color: var(--mc-ink); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-party-lock { position: absolute; top: 4px; right: 5px; font-size: 10px; color: var(--mc-gold); }
-.mc-party-badge { position: absolute; top: 3px; right: 4px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: calc(8px * var(--mc-round, 1)); background: #d06060; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.mc-party-badge { position: absolute; top: 3px; right: 4px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-bad-ink); color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 /* Tuck the hint into the surrounding gaps so the buttons sit close to the grid,
    matching the header→grid spacing (DM 2026-07-03). */
 .mc-party-hint { text-align: center; font-size: 12.5px; color: var(--mc-muted); margin: -4px 0; }
-.mc-party-hint.mc-ok { color: #8fca7a; }
+.mc-party-hint.mc-ok { color: var(--mc-ok-ink); }
 .mc-party-done {
   width: 100%; max-width: 380px; align-self: center;   /* fit the grid it belongs to */
   font-size: 15px;
@@ -5280,14 +5287,14 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-content:has(> .mc-journal) { overflow: hidden; display: flex; flex-direction: column; }
 .mc-journal { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; gap: 8px; }
 .mc-jn-filterrow { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 12px 0; color: var(--mc-muted); }
-.mc-jn-filter { flex: 1 1 auto; height: 38px; border-radius: calc(9px * var(--mc-round, 1)); background: #14171f; border: 1px solid var(--mc-edge); color: var(--mc-ink); padding: 0 10px; font-size: 14px; }
+.mc-jn-filter { flex: 1 1 auto; height: 38px; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: var(--mc-ink); padding: 0 10px; font-size: 14px; }
 /* Calendar opener beside the filter (DM 2026-07-18) — 44px tap target. */
 .mc-jn-cal { flex: 0 0 auto; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-muted); font-size: 16px; cursor: pointer; }
 .mc-jn-cal:hover { color: var(--mc-gold); border-color: var(--mc-gold); }
 .mc-jn-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 12px; }
 .mc-jn-compose { flex: 0 0 auto; border-top: 1px solid var(--mc-edge); background: rgba(10, 12, 17, .92); padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px)); }
 /* Biography editor — reuses the journal frame (filter + scrolling body + footer). */
-.mc-bio-filter { flex: 1 1 auto; height: 38px; border-radius: calc(9px * var(--mc-round, 1)); background: #14171f; border: 1px solid var(--mc-edge); color: var(--mc-ink); padding: 0 10px; font-size: 14px; }
+.mc-bio-filter { flex: 1 1 auto; height: 38px; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: var(--mc-ink); padding: 0 10px; font-size: 14px; }
 .mc-bio-read { font-size: 14px; line-height: 1.5; color: var(--mc-ink); word-break: break-word; }
 .mc-bio-para { margin: 0 0 10px; }
 .mc-bio-para:last-child { margin-bottom: 0; }
@@ -5339,14 +5346,14 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-pv-head i { color: var(--mc-gold); margin-right: 6px; }
 .mc-pv-row {
   display: flex; align-items: center; gap: 10px; padding: 10px;
-  background: linear-gradient(#1b202b, #161a23); border: 1px solid var(--mc-edge); border-radius: calc(12px * var(--mc-round, 1));
+  background: linear-gradient(var(--mc-panel), var(--mc-panel)); border: 1px solid var(--mc-edge); border-radius: calc(12px * var(--mc-round, 1));
 }
 .mc-pv-img { width: 52px; height: 52px; border-radius: calc(10px * var(--mc-round, 1)); object-fit: cover; object-position: top; flex: 0 0 auto; }
 .mc-pv-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .mc-pv-name { font-weight: 800; color: var(--mc-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mc-pv-bar { height: 7px; border-radius: calc(4px * var(--mc-round, 1)); background: #101319; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); }
-.mc-pv-fill { height: 100%; background: linear-gradient(#69b05c, #4c8a42); }
-.mc-pv-fill.mc-low { background: linear-gradient(#c05555, #9c3d3d); }
+.mc-pv-bar { height: 7px; border-radius: calc(4px * var(--mc-round, 1)); background: var(--mc-sunken); overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); }
+.mc-pv-fill { height: 100%; background: linear-gradient(var(--mc-ok-ink), var(--mc-ok)); }
+.mc-pv-fill.mc-low { background: var(--mc-bad); }
 .mc-pv-sub { font-size: 11.5px; color: var(--mc-muted); font-variant-numeric: tabular-nums; }
 .mc-pv-stats { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
 .mc-pv-stat { font-size: 13px; font-weight: 700; color: var(--mc-ink); }
@@ -5358,7 +5365,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-pv-empty, .mc-pv-note { text-align: center; font-size: 12px; color: var(--mc-muted); }
 .mc-pv-item {
   display: flex; align-items: center; gap: 10px; padding: 9px 10px;
-  background: linear-gradient(#1b202b, #161a23); border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1));
+  background: linear-gradient(var(--mc-panel), var(--mc-panel)); border: 1px solid var(--mc-edge); border-radius: calc(10px * var(--mc-round, 1));
 }
 .mc-pv-item-img { width: 34px; height: 34px; border-radius: calc(7px * var(--mc-round, 1)); object-fit: cover; flex: 0 0 auto; }
 .mc-pv-item-name { flex: 1 1 auto; min-width: 0; color: var(--mc-ink); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -5370,10 +5377,9 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 
 /* DM panel — marching-order mirror (square cells; red = problematic spot at the
    current group position/facing; gold ring = the member the DM picked up).
-   ⚠️ Literals only, NO var(--mc-*): those variables are scoped to
-   #mobile-command-shell, which doesn't exist on the DM client — var() there is
-   invalid and the gold button rendered as dark-on-dark (DM 2026-07-02). Palette
-   matches the panel's own literals (#c8a44d gold / #ece5d6 ink / #4a4334 edge). */
+   (Tokens, like everything else: the palette lives on <body> since the L&F pass, so the panel
+   sees every var(--mc-*). The old "literals only — the variables are scoped to the shell" note
+   here was stale and kept ~120 hand-pasted browns alive in the panel; QA 2026-09-04 H13.) */
 .mc-dmp-party { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; width: 100%; max-width: 240px; margin: 0 auto; }
 /* The marching-order grid is the tallest tab; trim its flyout so it fits the DEFAULT height
    without a scrollbar (DM 2026-07-17: "lose some padding so it fits in the default height"). */
@@ -5382,15 +5388,15 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dmp-party-cell {
   position: relative; width: 100%; height: auto; aspect-ratio: 1 / 1;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(#1b202b, #161a23); border: 1px solid #4a4334; border-radius: calc(9px * var(--mc-round, 1));
+  background: linear-gradient(var(--mc-panel), var(--mc-panel)); border: 1px solid var(--mc-edge); border-radius: calc(9px * var(--mc-round, 1));
   cursor: pointer; overflow: hidden; padding: 0;
 }
 .mc-dmp-party-cell img { width: 78%; height: 78%; border-radius: 50%; object-fit: cover; }
-.mc-dmp-party-cell.mc-full { border-color: #2f4660; }
-.mc-dmp-party-cell.mc-bad { border-color: #d06060; box-shadow: 0 0 0 1px #d06060 inset; background: linear-gradient(#2b1b1b, #231616); }
+.mc-dmp-party-cell.mc-full { border-color: var(--mc-primary-edge); }
+.mc-dmp-party-cell.mc-bad { border-color: var(--mc-bad-ink); box-shadow: 0 0 0 1px var(--mc-bad-ink) inset; background: linear-gradient(var(--mc-bad-dim), var(--mc-bad-dim)); }
 .mc-dmp-party-cell.mc-sel { border-color: var(--mc-gold); box-shadow: 0 0 0 2px var(--mc-gold) inset; }
-.mc-dmp-party-cell.mc-stack { border-color: #d06060; }
-.mc-dmp-party-badge { position: absolute; top: 2px; right: 3px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: calc(8px * var(--mc-round, 1)); background: #d06060; color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.mc-dmp-party-cell.mc-stack { border-color: var(--mc-bad-ink); }
+.mc-dmp-party-badge { position: absolute; top: 2px; right: 3px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-bad-ink); color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 .mc-dmp-party-lock { position: absolute; top: 3px; right: 4px; font-size: 9px; color: var(--mc-gold); }
 .mc-dmp-party-hint { text-align: center; font-size: 11px; color: var(--mc-gold); margin: 2px 0; min-height: 1.1em; }
 .mc-dmp-party-btns { display: flex; gap: 6px; align-items: stretch; margin-top: 0; }
@@ -5405,7 +5411,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dmp-party-head:hover { color: var(--mc-gold); }
 .mc-dmp-party-deploy { flex: 1 1 auto; font-weight: 800; color: var(--mc-cta-ink) !important; background: var(--mc-cta-fill) !important; border-color: var(--mc-cta-edge) !important; }
 /* Stale group: the scene's PCs aren't all members → offer a rebuild beside Form up. */
-.mc-dmp-party-rebuild { flex: 0 0 38px; color: #d8b45a !important; }
+.mc-dmp-party-rebuild { flex: 0 0 38px; color: var(--mc-gold) !important; }
 .mc-dmp-party-rebuild:hover { border-color: var(--mc-gold) !important; }
 /* Membership checklist (the "slow flow"): one row per candidate in the DialogV2.
    Rows are full-width tap targets — the label toggles the checkbox. */
@@ -5423,7 +5429,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dmp-tab { position: relative; }
 .mc-dmp-tab-badge {
   position: absolute; top: -4px; right: -4px; min-width: 15px; height: 15px; padding: 0 3px;
-  border-radius: calc(8px * var(--mc-round, 1)); background: #a33c3c; color: #fff; font-size: 10px; font-weight: 800;
+  border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-bad); color: #fff; font-size: 10px; font-weight: 800;
   display: flex; align-items: center; justify-content: center; pointer-events: none;
 }
 .mc-dmp-pf {
@@ -5431,10 +5437,10 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); font-size: 12px;
 }
 .mc-dmp-pf-ico { flex: 0 0 auto; }
-.mc-dmp-pf-ok .mc-dmp-pf-ico { color: #6fae6f; }
-.mc-dmp-pf-warn .mc-dmp-pf-ico { color: #d8b45a; }
-.mc-dmp-pf-fail { border-color: #7a3a3a; }
-.mc-dmp-pf-fail .mc-dmp-pf-ico { color: #d06060; }
+.mc-dmp-pf-ok .mc-dmp-pf-ico { color: var(--mc-ok-ink); }
+.mc-dmp-pf-warn .mc-dmp-pf-ico { color: var(--mc-gold); }
+.mc-dmp-pf-fail { border-color: var(--mc-bad); }
+.mc-dmp-pf-fail .mc-dmp-pf-ico { color: var(--mc-bad-ink); }
 .mc-dmp-pf-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .mc-dmp-pf-text b { color: var(--mc-ink); }
 .mc-dmp-pf-text span { opacity: 0.8; line-height: 1.35; }
@@ -5450,19 +5456,19 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dmp-reactions { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
 .mc-dmp-react {
   display: flex; align-items: center; gap: 6px; padding: 5px 8px;
-  border-radius: calc(8px * var(--mc-round, 1)); background: #241f2e; border: 1px solid #4a3f66; font-size: 12px; color: #ece5d6;
+  border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-react-dim); border: 1px solid var(--mc-react); font-size: 12px; color: var(--mc-ink);
 }
-.mc-dmp-react-aoo { border-left: 3px solid #8a6fd8; }
-.mc-dmp-react-win { border-left: 3px solid #4a3f66; opacity: .85; }
+.mc-dmp-react-aoo { border-left: 3px solid var(--mc-react-ink); }
+.mc-dmp-react-win { border-left: 3px solid var(--mc-react); opacity: .85; }
 .mc-dmp-react-txt { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mc-dmp-react-txt i { color: #b39df1; margin-right: 4px; }
+.mc-dmp-react-txt i { color: var(--mc-react-ink); margin-right: 4px; }
 .mc-dmp-react button {
   flex: 0 0 30px; height: 28px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer;
-  background: #2c2733; border: 1px solid #4a3f66; color: #b39df1;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-react); color: var(--mc-react-ink);
 }
-.mc-dmp-react button:hover { border-color: #8a6fd8; background: #362f47; }
+.mc-dmp-react button:hover { border-color: var(--mc-react-ink); background: var(--mc-react-dim); }
 .mc-dmp-party-deploy:hover { border-color: var(--mc-gold) !important; --mc-cta-a: 0.6; }
-.mc-dmp-party-deploy.mc-warn { color: #ffd9d4 !important; background: linear-gradient(rgba(192,85,85,.42), rgba(156,61,61,.42)) !important; border-color: #d06060 !important; }
+.mc-dmp-party-deploy.mc-warn { color: var(--mc-bad-ink) !important; background: linear-gradient(rgba(192,85,85,.42), rgba(156,61,61,.42)) !important; border-color: var(--mc-bad-ink) !important; }
 /* Combat nudge: the packed group joined the tracker — a fight as a blob makes no
    sense, so pulse Disperse (nudge, never force; §15.2 decision 6). */
 .mc-dmp-party-deploy.mc-nudge { animation: mc-party-nudge 1.2s ease-in-out infinite; }
@@ -5501,7 +5507,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dmp-travel-segs .mc-dmp-travel-seg { flex: 1 1 0; width: auto; }
 .mc-dmp-travel-seg.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); background: var(--mc-panel-2); }
 /* Stop the journey — red, reads as an interrupt (encounter!). */
-.mc-dmp-travel-stop { width: 100%; color: #fff !important; background: linear-gradient(#c05555, #9c3d3d) !important; border-color: #d06060 !important; }
+.mc-dmp-travel-stop { width: 100%; color: #fff !important; background: var(--mc-bad) !important; border-color: var(--mc-bad-ink) !important; }
 /* Clear + Start share a row, equal width. */
 .mc-dmp-travel-row { display: flex; gap: 6px; }
 .mc-dmp-travel-row > * { flex: 1 1 0; width: auto; min-height: 34px; }
@@ -5520,7 +5526,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dmp-pace-poplist { display: flex; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto; }
 .mc-dmp-pace-poprow { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--mc-ink); }
 .mc-dmp-pace-del { flex: 0 0 auto; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; color: var(--mc-muted); cursor: pointer; }
-.mc-dmp-pace-del:hover { color: #ffb4a8; }
+.mc-dmp-pace-del:hover { color: var(--mc-bad-ink); }
 .mc-dmp-pace-form { display: flex; flex-direction: column; gap: 6px; }
 .mc-dmp-pace-form input { min-height: 32px; border-radius: calc(6px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); padding: 0 8px; box-sizing: border-box; }
 .mc-dmp-pace-speeds { display: flex; gap: 6px; }
@@ -5531,61 +5537,61 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* ── §17 Downtime — player board (top of the sheet when a window is open) ── */
 .mc-dt-board {
   margin: 6px 8px 0; padding: 10px; border-radius: calc(12px * var(--mc-round, 1));
-  background: linear-gradient(#1c2330, #171b24);
-  border: 1px solid #4a4334; box-shadow: inset 0 0 0 1px rgba(200,164,77,.1);
+  background: linear-gradient(var(--mc-panel), var(--mc-panel));
+  border: 1px solid var(--mc-edge); box-shadow: inset 0 0 0 1px rgba(200,164,77,.1);
 }
-.mc-dt-board.mc-locked { border-color: #3a6b4a; }
+.mc-dt-board.mc-locked { border-color: var(--mc-ok); }
 .mc-dt-head {
   display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 14px;
-  color: #ece5d6; margin-bottom: 8px;
+  color: var(--mc-ink); margin-bottom: 8px;
 }
-.mc-dt-head i { color: var(--mc-gold); }.mc-dt-budget.mc-over { color: #ffb4a8; border-color: #7a3a35; background: #2a1614; }
+.mc-dt-head i { color: var(--mc-gold); }.mc-dt-budget.mc-over { color: var(--mc-bad-ink); border-color: var(--mc-bad); background: var(--mc-bad-dim); }
 .mc-dt-collapse { margin-left: 6px; min-width: 30px; height: 28px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-gold); }
 .mc-dt-board.mc-dt-mini { padding: 7px 10px; }
 .mc-dt-board.mc-dt-mini .mc-dt-head { margin-bottom: 0; }.mc-dt-empty { font-size: 12px; color: var(--mc-muted); padding: 6px 2px; }.mc-dt-name { font-size: 13px; font-weight: 700; color: var(--mc-ink); flex: 1 1 auto; }.mc-dt-add {
   display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 11px;
-  border-radius: 999px; background: #1a1712; border: 1px solid #4a4334; color: #d8d2c4;
+  border-radius: 999px; background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: var(--mc-ink);
   font-size: 12px; font-weight: 600; cursor: pointer;
 }
-.mc-dt-add:active { background: #2a2418; border-color: var(--mc-gold); }
+.mc-dt-add:active { background: var(--mc-panel); border-color: var(--mc-gold); }
 .mc-dt-add i { color: var(--mc-gold); }/* §17.7 player board v2 — named Activities */
-.mc-dt-count { min-width: 20px; padding: 0 6px; border-radius: 999px; background: #1a1712; border: 1px solid #4a4334;
+.mc-dt-count { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--mc-sunken); border: 1px solid var(--mc-edge);
   color: var(--mc-gold); font-size: 11px; font-weight: 700; }
 .mc-dt-prow { margin-top: 6px; padding: 8px 10px; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); }
 .mc-dt-prow.mc-done { opacity: .65; }
 .mc-dt-prow-top { display: flex; align-items: center; gap: 8px; }
 .mc-dt-prow-name { flex: 1 1 auto; font-size: 14px; font-weight: 700; color: var(--mc-ink); }.mc-dt-prow-note { font-size: 12px; color: var(--mc-gold); margin-top: 4px; font-variant-numeric: tabular-nums; }
-.mc-dt-prow-done { font-size: 12px; color: #8fd6a8; margin-top: 4px; }
+.mc-dt-prow-done { font-size: 12px; color: var(--mc-ok-ink); margin-top: 4px; }
 .mc-dt-prow-done i { margin-right: 4px; }.mc-dt-new-name, .mc-dt-new-plan { width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 9px 10px; min-height: 40px;
   border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 14px; }.mc-dt-rollbtn { width: 100%; margin-top: 8px; min-height: 46px; border-radius: calc(9px * var(--mc-round, 1)); cursor: pointer; font-size: 15px; font-weight: 800;
-  color: #1a1712; background: linear-gradient(#e0c063, #c8a44d); border: 1px solid #d9b95a;
+  color: var(--mc-sunken); background: var(--mc-gold); border: 1px solid var(--mc-gold);
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .mc-dt-rollbtn:active { filter: brightness(1.06); }
-.mc-dt-rollbtn i { color: #6b520f; }
+.mc-dt-rollbtn i { color: color-mix(in srgb, var(--mc-gold) 55%, var(--mc-sunken)); }
 
 /* ── §17 Downtime — DM panel (per-player tabs, grayed until locked) ── */
-.mc-dt-panel { display: flex; flex-direction: column; gap: 8px; }.mc-dt-openhead { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #ece5d6; }
+.mc-dt-panel { display: flex; flex-direction: column; gap: 8px; }.mc-dt-openhead { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--mc-ink); }
 .mc-dt-openhead > span { flex: 1 1 auto; }
-.mc-dt-close-btn { flex: 0 0 auto; min-width: 34px; height: 30px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; background: #2c2733; border: 1px solid #4a3f66; color: #d0b0b0; }
+.mc-dt-close-btn { flex: 0 0 auto; min-width: 34px; height: 30px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; background: var(--mc-panel-2); border: 1px solid var(--mc-react); color: var(--mc-bad-ink); }
 .mc-dt-players { display: flex; flex-direction: column; gap: 6px; }
 .mc-dt-player { padding: 7px 9px; border-radius: calc(9px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); border-left-width: 3px; }.mc-dt-lockbadge.mc-considering { color: var(--mc-muted); font-style: italic; }
-.mc-dt-lockbadge.mc-locked { color: #8fd6a8; border-color: #3a6b4a; background: #16241b; }
+.mc-dt-lockbadge.mc-locked { color: var(--mc-ok-ink); border-color: var(--mc-ok); background: var(--mc-ok-dim); }
 .mc-dt-player.mc-pending { opacity: .55; }
-.mc-dt-player.mc-locked { opacity: 1; border-color: #3a6b4a; }
+.mc-dt-player.mc-locked { opacity: 1; border-color: var(--mc-ok); }
 .mc-dt-player-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.mc-dt-player-head .mc-dt-name { font-weight: 700; color: #ece5d6; flex: 1 1 auto; }.mc-dt-panel .mc-dt-empty { font-size: 11px; }
+.mc-dt-player-head .mc-dt-name { font-weight: 700; color: var(--mc-ink); flex: 1 1 auto; }.mc-dt-panel .mc-dt-empty { font-size: 11px; }
 
 /* §17.7 downtime — DM "Start activities" (the DM commits, not the players) */
 .mc-dt-startbtn { width: 100%; margin-top: 8px; min-height: 38px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
   font-size: 13px; font-weight: 800; color: var(--mc-cta-ink); background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge);
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-.mc-dt-startbtn:disabled { background: #23262f; border-color: var(--mc-edge); color: var(--mc-muted); cursor: default; }
+.mc-dt-startbtn:disabled { background: var(--mc-panel); border-color: var(--mc-edge); color: var(--mc-muted); cursor: default; }
 .mc-dt-startbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px;
-  padding: 7px 10px; border-radius: calc(8px * var(--mc-round, 1)); background: #221f16; border: 1px solid #7a5a1e; color: #e6c46a; font-size: 12px; font-weight: 700; }
+  padding: 7px 10px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid color-mix(in srgb, var(--mc-gold) 55%, var(--mc-sunken)); color: var(--mc-gold); font-size: 12px; font-weight: 700; }
 .mc-dt-reopen { flex: 0 0 auto; padding: 0 9px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); cursor: pointer; font-size: 11px;
-  color: var(--mc-muted); background: transparent; border: 1px solid #4a4334; }
-.mc-dt-reopen:hover { color: #e6c46a; border-color: #7a5a1e; }
+  color: var(--mc-muted); background: transparent; border: 1px solid var(--mc-edge); }
+.mc-dt-reopen:hover { color: var(--mc-gold); border-color: color-mix(in srgb, var(--mc-gold) 55%, var(--mc-sunken)); }
 .mc-dt-usericon { flex: 0 0 auto; font-size: 12px; }
 /* player: the single activity dropdown */
 .mc-dt-picklabel { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; font-size: 12px; color: var(--mc-muted); }
@@ -5607,39 +5613,39 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* Title left, chevron right + muted (DM 2026-07-16). */
 .mc-dt-drawer-toggle { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: space-between; gap: 7px; text-align: left;
   padding: 5px 4px; background: transparent; border: none; cursor: pointer;
-  font-size: 12px; font-weight: 800; color: #ece5d6; border-bottom: 1px solid var(--mc-edge); }
-.mc-dt-drawer-toggle i { flex: 0 0 auto; color: #6b6250; font-size: 10px; }
-.mc-dt-drawer-toggle:hover { color: #e6c46a; }
+  font-size: 12px; font-weight: 800; color: var(--mc-ink); border-bottom: 1px solid var(--mc-edge); }
+.mc-dt-drawer-toggle i { flex: 0 0 auto; color: var(--mc-muted); font-size: 10px; }
+.mc-dt-drawer-toggle:hover { color: var(--mc-gold); }
 .mc-dt-drawer-toggle:hover i { color: var(--mc-gold); }
 /* Cost — both sides see it; the shortfall (DM-only) turns it red. */
 .mc-dt-cost { font-size: 11px; color: var(--mc-gold); margin-top: 4px; }
 .mc-dt-cost i { margin-right: 4px; }
-.mc-dt-cost.mc-short { color: #ffb4a8; }
+.mc-dt-cost.mc-short { color: var(--mc-bad-ink); }
 .mc-dt-drawer-body { padding-top: 6px; }
 
 /* §17.7 downtime — DM catalog + templates */
-.mc-dt-catalog { margin-bottom: 8px; }.mc-dt-tmpl { margin-top: 5px; padding: 7px 9px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid #2f3440; border-left: 3px solid #4a4334; }
+.mc-dt-catalog { margin-bottom: 8px; }.mc-dt-tmpl { margin-top: 5px; padding: 7px 9px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); border-left: 3px solid var(--mc-edge); }
 .mc-dt-tmpl.mc-norule { border-left-color: var(--mc-gold); }
 .mc-dt-note { font-size: 11px; color: var(--mc-gold); margin-top: 4px; }
 .mc-dt-note i { margin-right: 4px; }
-.mc-dt-tmplform { margin-top: 6px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: #14161c; border: 1px solid #4a4334; }
+.mc-dt-tmplform { margin-top: 6px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); }
 .mc-dt-tmplname { width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 7px 9px; min-height: 34px;
-  border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: #ece5d6; font-size: 13px; }
+  border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 13px; }
 .mc-dt-seedbtn { width: 100%; margin-top: 6px; min-height: 34px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
-  color: var(--mc-gold); background: transparent; border: 1px dashed #7a5a1e; }
-.mc-dt-seedbtn:hover { background: #221f16; }
-.mc-dt-givebox { margin-top: 6px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: #14161c; border: 1px solid #2a2f3a; display: flex; flex-direction: column; gap: 5px; }
+  color: var(--mc-gold); background: transparent; border: 1px dashed color-mix(in srgb, var(--mc-gold) 55%, var(--mc-sunken)); }
+.mc-dt-seedbtn:hover { background: var(--mc-sunken); }
+.mc-dt-givebox { margin-top: 6px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); display: flex; flex-direction: column; gap: 5px; }
 .mc-dt-give-head { font-size: 11px; color: var(--mc-muted); }
 .mc-dt-givepick { min-height: 34px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; text-align: left; padding: 0 10px;
-  color: #ece5d6; background: #1a1712; border: 1px solid #4a4334; }
-.mc-dt-givepick:hover { background: #2a2418; border-color: var(--mc-gold); }
-.mc-rf-notewrap { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #d8d2c4; }
+  color: var(--mc-ink); background: var(--mc-sunken); border: 1px solid var(--mc-edge); }
+.mc-dt-givepick:hover { background: var(--mc-panel); border-color: var(--mc-gold); }
+.mc-rf-notewrap { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--mc-ink); }
 .mc-rf-notebox { width: 100%; box-sizing: border-box; min-height: 48px; padding: 7px 9px; border-radius: calc(7px * var(--mc-round, 1)); resize: vertical;
-  background: var(--mc-sunken); border: 1px solid #7a5a1e; color: #ece5d6; font-size: 12px; }/* §17.7 downtime v2 — DM tab */
+  background: var(--mc-sunken); border: 1px solid color-mix(in srgb, var(--mc-gold) 55%, var(--mc-sunken)); color: var(--mc-ink); font-size: 12px; }/* §17.7 downtime v2 — DM tab */
 .mc-dt-sizes { display: flex; gap: 6px; }
 .mc-dt-openbtn { flex: 1 1 0; min-height: 40px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; font-weight: 700;
-  color: #ece5d6; background: var(--mc-sunken); border: 1px solid var(--mc-edge); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.mc-dt-openbtn:hover { border-color: var(--mc-gold); color: #e6c46a; }
+  color: var(--mc-ink); background: var(--mc-sunken); border: 1px solid var(--mc-edge); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.mc-dt-openbtn:hover { border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-dt-openbtn i { color: var(--mc-gold); }
 .mc-dt-sizehint { font-size: 11px; color: var(--mc-muted); margin: 6px 0 0; text-align: center; }
 
@@ -5649,9 +5655,9 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-rest-lbl { font-size: 11px; font-weight: 700; color: var(--mc-muted); text-transform: uppercase; letter-spacing: .04em; }
 .mc-rest-segs, .mc-rest-chks { display: flex; gap: 6px; }
 .mc-rest-seg, .mc-rest-chk { flex: 1 1 0; min-width: 0; min-height: 38px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
-  font-size: 13px; font-weight: 700; color: #ece5d6; background: var(--mc-sunken); border: 1px solid var(--mc-edge);
+  font-size: 13px; font-weight: 700; color: var(--mc-ink); background: var(--mc-sunken); border: 1px solid var(--mc-edge);
   white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.mc-rest-seg:hover, .mc-rest-chk:hover { border-color: var(--mc-gold); color: #e6c46a; }
+.mc-rest-seg:hover, .mc-rest-chk:hover { border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-rest-seg.mc-on, .mc-rest-chk.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); background: var(--mc-panel-2); }
 .mc-rest-chk .fa-square { color: var(--mc-muted); }
 .mc-rest-chk.mc-on .fa-square-check { color: var(--mc-gold); }
@@ -5680,48 +5686,48 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   font-size: 12px; color: var(--mc-muted); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .mc-rest-cancel:hover { color: var(--mc-ink); }
 .mc-dt-newbtn { padding: 0 10px; height: 26px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
-  color: #d8d2c4; background: #1a1712; border: 1px solid #4a4334; display: inline-flex; align-items: center; gap: 5px; }
-.mc-dt-newbtn:hover, .mc-dt-newbtn.mc-on { border-color: var(--mc-gold); color: #e6c46a; background: #2a2418; }
+  color: var(--mc-ink); background: var(--mc-sunken); border: 1px solid var(--mc-edge); display: inline-flex; align-items: center; gap: 5px; }
+.mc-dt-newbtn:hover, .mc-dt-newbtn.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); background: var(--mc-panel); }
 /* "Set the rule" — the DM's clear next step on a player-created activity. */
 .mc-dt-setrule { width: 100%; margin-top: 6px; min-height: 38px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; font-weight: 700;
-  color: #ece5d6; background: #2a2418; border: 1px solid var(--mc-edge); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-.mc-dt-setrule:hover { background: #322c1c; }
+  color: var(--mc-ink); background: var(--mc-panel); border: 1px solid var(--mc-edge); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.mc-dt-setrule:hover { background: var(--mc-panel-2); }
 .mc-dt-act.mc-norule { border-left-color: var(--mc-gold); } /* gold rail = needs a rule */
 /* Party-rest utility, tucked below the roster with its own label. */
 .mc-dt-restgroup { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--mc-edge); }
 .mc-dt-restlabel { display: block; font-size: 11px; color: var(--mc-muted); margin-bottom: 4px; }
 /* DM-side "Add a task" per player. */
 .mc-dt-addtask { width: 100%; margin-top: 6px; min-height: 32px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
-  color: #e6c46a; background: #221f16; border: 1px solid #4a4334; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.mc-dt-addtask:hover { background: #2a2418; border-color: var(--mc-gold); }
-.mc-dt-addform { margin-top: 6px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: #14161c; border: 1px solid #4a4334; }
+  color: var(--mc-gold); background: var(--mc-sunken); border: 1px solid var(--mc-edge); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.mc-dt-addtask:hover { background: var(--mc-panel); border-color: var(--mc-gold); }
+.mc-dt-addform { margin-top: 6px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); }
 .mc-dt-addname, .mc-dt-addplan { width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 7px 9px; min-height: 34px;
-  border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: #ece5d6; font-size: 13px; }
+  border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 13px; }
 .mc-dt-addbtns { display: flex; gap: 6px; }
 .mc-dt-add-cancel { flex: 0 0 auto; min-height: 34px; padding: 0 12px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 12px;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
 .mc-dt-add-save { flex: 1 1 auto; min-height: 34px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 13px; font-weight: 800;
-  color: #10221a; background: linear-gradient(#5cc98a, #34a869); border: 1px solid #5cc98a; }.mc-dt-player.mc-here { border-color: #4a4334; }
+  color: var(--mc-sunken); background: linear-gradient(var(--mc-ok-ink), var(--mc-ok)); border: 1px solid var(--mc-ok-ink); }.mc-dt-player.mc-here { border-color: var(--mc-edge); }
 .mc-dt-gearbtn { flex: 0 0 auto; min-width: 18px; width: 18px; height: 18px; padding: 0; border-radius: calc(4px * var(--mc-round, 1)); cursor: pointer;
-  background: transparent; border: none; color: #565b66; font-size: 11px; opacity: .65; }
-.mc-dt-gearbtn.mc-on { color: #8a90a0; opacity: 1; }
-.mc-dt-gearbtn:hover { color: #7a8090; opacity: 1; }
-.mc-dt-gearpanel { margin: 4px 0 6px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: #14161c; border: 1px solid #2a2f3a; }
-.mc-dt-gearrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: #d8d2c4; margin-bottom: 6px; }.mc-dt-toggle { min-width: 40px; height: 28px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
+  background: transparent; border: none; color: var(--mc-muted); font-size: 11px; opacity: .65; }
+.mc-dt-gearbtn.mc-on { color: var(--mc-muted); opacity: 1; }
+.mc-dt-gearbtn:hover { color: var(--mc-muted); opacity: 1; }
+.mc-dt-gearpanel { margin: 4px 0 6px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); }
+.mc-dt-gearrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--mc-ink); margin-bottom: 6px; }.mc-dt-toggle { min-width: 40px; height: 28px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
-.mc-dt-toggle.mc-on { background: #23402c; border-color: #3a6b4a; color: #8fd6a8; }
+.mc-dt-toggle.mc-on { background: var(--mc-ok); border-color: var(--mc-ok); color: var(--mc-ok-ink); }
 .mc-dt-gearhint { font-size: 11px; color: var(--mc-muted); margin: 2px 0 0; }
-.mc-dt-act { margin-top: 5px; padding: 7px 9px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid #2f3440; border-left: 3px solid var(--mc-edge); }
+.mc-dt-act { margin-top: 5px; padding: 7px 9px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); border-left: 3px solid var(--mc-edge); }
 /* "mc-dt-shown" (NOT "mc-shown"/"mc-hidden" — ".mc-hidden" is the search filter's display:none). */
-.mc-dt-act.mc-dt-shown { border-left-color: #4a4334; }
-.mc-dt-act.mc-done { border-left-color: #3a6b4a; opacity: .7; }
+.mc-dt-act.mc-dt-shown { border-left-color: var(--mc-edge); }
+.mc-dt-act.mc-done { border-left-color: var(--mc-ok); opacity: .7; }
 .mc-dt-act-top { display: flex; align-items: center; gap: 8px; min-height: 26px; }
 .mc-dt-act-name { flex: 1 1 auto; min-width: 0; font-size: 13px; font-weight: 700; color: var(--mc-ink); line-height: 1.25; }
 /* The X is a flex box so its glyph is CENTRED — otherwise it sat high in the 26px button while the
    title text centred, so the two looked misaligned (DM 2026-07-17: "align the title and the X"). */
 .mc-dt-act-rm { flex: 0 0 auto; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(6px * var(--mc-round, 1)); cursor: pointer;
   background: transparent; border: none; color: var(--mc-muted); font-size: 13px; line-height: 1; padding: 0; }
-.mc-dt-act-rm:hover { border-color: #7a3a35; color: #ffb4a8; }
+.mc-dt-act-rm:hover { border-color: var(--mc-bad); color: var(--mc-bad-ink); }
 /* Offered/shelved toggle beside ✕ — gold checkbox = on offer (state, per the bible §2.2 green
    is "done", not "available"); a shelved card dims but stays editable. */
 .mc-dt-act-offer { flex: 0 0 auto; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(6px * var(--mc-round, 1)); cursor: pointer;
@@ -5734,8 +5740,8 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-dt-act-rule em { color: var(--mc-muted); }
 .mc-dt-prog { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
 .mc-dt-prog-head { font-size: 11px; font-weight: 700; color: var(--mc-gold); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.mc-dt-bar { flex: 1 1 auto; height: 6px; border-radius: calc(3px * var(--mc-round, 1)); background: #23262f; overflow: hidden; }
-.mc-dt-bar > span { display: block; height: 100%; background: linear-gradient(90deg, #b98a1e, #e6c46a); }
+.mc-dt-bar { flex: 1 1 auto; height: 6px; border-radius: calc(3px * var(--mc-round, 1)); background: var(--mc-panel); overflow: hidden; }
+.mc-dt-bar > span { display: block; height: 100%; background: linear-gradient(90deg, color-mix(in srgb, var(--mc-gold) 80%, var(--mc-sunken)), var(--mc-gold)); }
 .mc-dt-act-edit { flex: 0 0 auto; padding: 0 10px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); cursor: pointer;
   background: transparent; border: 1px solid var(--mc-edge); color: var(--mc-gold); font-size: 12px; display: inline-flex; align-items: center; gap: 5px; }
 .mc-dt-act-edit:hover { border-color: var(--mc-gold); color: var(--mc-ink); background: var(--mc-panel-2); }
@@ -5748,23 +5754,23 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-gold); }
 .mc-dt-act-ctl { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
 .mc-dt-push { flex: 1 1 auto; min-height: 30px; border-radius: calc(7px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
-  color: #ece5d6; background: #1a1712; border: 1px solid #4a4334; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  color: var(--mc-ink); background: var(--mc-sunken); border: 1px solid var(--mc-edge); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .mc-dt-push:hover { border-color: var(--mc-gold); }
-.mc-dt-push.mc-waiting { color: #e6c46a; border-color: #7a5a1e; background: #2a2413; }
+.mc-dt-push.mc-waiting { color: var(--mc-gold); border-color: color-mix(in srgb, var(--mc-gold) 55%, var(--mc-sunken)); background: var(--mc-panel-2); }
 /* Rule-authoring form */
-.mc-rf { margin-top: 8px; padding: 9px; border-radius: calc(8px * var(--mc-round, 1)); background: #14161c; border: 1px solid #4a4334; display: flex; flex-direction: column; gap: 6px; }
+.mc-rf { margin-top: 8px; padding: 9px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); display: flex; flex-direction: column; gap: 6px; }
 .mc-rf-presets { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 11px; color: var(--mc-muted); }
 .mc-rf-preset { min-height: 26px; padding: 3px 9px; border-radius: 999px; cursor: pointer; font-size: 11px;
-  background: #1a1712; border: 1px solid #4a4334; color: #d8d2c4; }
-.mc-rf-preset.mc-on { background: #2a2418; border-color: var(--mc-gold); color: #ece5d6; }
-.mc-rf-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: #d8d2c4; }
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: var(--mc-ink); }
+.mc-rf-preset.mc-on { background: var(--mc-panel); border-color: var(--mc-gold); color: var(--mc-ink); }
+.mc-rf-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--mc-ink); }
 .mc-rf-row select, .mc-rf-row input { flex: 0 0 auto; max-width: 62%; padding: 6px 8px; border-radius: calc(7px * var(--mc-round, 1));
-  background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: #ece5d6; font-size: 13px; }
+  background: var(--mc-sunken); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 13px; }
 .mc-rf-row input[type="number"] { width: 74px; }
 .mc-rf-row input[type="text"] { width: 60%; }
 /* Grouped sections + 2-across rows so the builder reads top-to-bottom (DM 2026-07-16). */
 .mc-rf-kind select { font-weight: 700; }
-.mc-rf-sec { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: #191b22; border: 1px solid #2a2f3a; }
+.mc-rf-sec { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px solid var(--mc-edge); }
 .mc-rf-seclabel { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--mc-gold); font-weight: 800; }
 .mc-rf-2up { display: flex; gap: 8px; }
 .mc-rf-2up .mc-rf-row { flex: 1 1 0; min-width: 0; justify-content: space-between; }
@@ -5772,17 +5778,17 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-rf-2up .mc-rf-row input[type="number"] { width: 56px; }
 .mc-rf-toggle { min-height: 34px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 12px; font-weight: 700;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
-.mc-rf-toggle.mc-on { background: #2a2418; border-color: var(--mc-gold); color: #ece5d6; }
+.mc-rf-toggle.mc-on { background: var(--mc-panel); border-color: var(--mc-gold); color: var(--mc-ink); }
 .mc-rf-luck { display: flex; gap: 6px; }
 .mc-rf-luck .mc-rf-toggle { flex: 1 1 0; }
 .mc-rf-note { font-size: 11px; color: var(--mc-gold); margin: -2px 0 2px; }
-.mc-rf-preview { font-size: 11px; color: var(--mc-gold); padding: 6px 8px; border-radius: calc(7px * var(--mc-round, 1)); background: #10141b; border: 1px solid #2a2f3a; }
+.mc-rf-preview { font-size: 11px; color: var(--mc-gold); padding: 6px 8px; border-radius: calc(7px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge); }
 .mc-rf-preview i { margin-right: 4px; }
 .mc-rf-actions { display: flex; gap: 6px; margin-top: 2px; }
 .mc-rf-cancel { flex: 0 0 auto; min-height: 38px; padding: 0 14px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 13px;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
 .mc-rf-activate { flex: 1 1 auto; min-height: 38px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer; font-size: 14px; font-weight: 800;
-  color: #10221a; background: linear-gradient(#5cc98a, #34a869); border: 1px solid #5cc98a; }
+  color: var(--mc-sunken); background: linear-gradient(var(--mc-ok-ink), var(--mc-ok)); border: 1px solid var(--mc-ok-ink); }
 
 /* ── §35 The Crooked Moon tab icon — original crooked-crescent glyph (a crescent crone
    profile: socket eye + long bent nose — the grin was cut, DM 2026-07-27; drawn ours, NOT
@@ -6080,7 +6086,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   flex: 0 0 auto; min-width: 44px; min-height: 44px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted);
 }
-.mc-cmb-ticket.mc-on { background: #2a2418; border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-cmb-ticket.mc-on { background: var(--mc-panel); border-color: var(--mc-gold); color: var(--mc-gold); }
 .mc-cmb-ticket:disabled { opacity: 0.35; cursor: default; }
 
 /* ── §31 Twists of Fate — chip (dashed + crossed arrows, per the locked spec), the inline
@@ -6099,16 +6105,16 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 }
 .mc-twist-die-num { font-size: 26px; font-weight: 800; }
 .mc-twist-die-sub { font-size: 10px; text-transform: uppercase; letter-spacing: 0.09em; }
-.mc-twist-die.mc-on { background: #2a2418; border-color: var(--mc-gold); color: var(--mc-gold); }
-.mc-twist-die-1.mc-on { background: #2a1616; border-color: #b3564d; color: #d98b83; }
+.mc-twist-die.mc-on { background: var(--mc-panel); border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-twist-die-1.mc-on { background: var(--mc-bad-dim); border-color: var(--mc-bad); color: var(--mc-bad-ink); }
 .mc-twist-note {
   width: 100%; box-sizing: border-box; min-height: 44px; margin-bottom: 8px; padding: 0 12px;
-  border-radius: calc(8px * var(--mc-round, 1)); background: #10141b; border: 1px solid #2a2f3a;
+  border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-sunken); border: 1px solid var(--mc-edge);
   color: var(--mc-ink); font-family: inherit; font-size: 14px;
 }
 .mc-twist-send, .mc-twist-withdraw {
   width: 100%; min-height: 44px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
-  font-size: 14px; font-weight: 800; background: #2a2418; border: 1px dashed var(--mc-gold); color: var(--mc-gold);
+  font-size: 14px; font-weight: 800; background: var(--mc-panel); border: 1px dashed var(--mc-gold); color: var(--mc-gold);
 }
 .mc-twist-withdraw { background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); }
 .mc-twist-wait { font-size: 13px; line-height: 1.5; color: var(--mc-ink); padding: 4px 2px 10px; }
@@ -6116,7 +6122,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
    the twist buttons: dashed gold = otherworldly dealing (bible §5); Withdraw/Done stay quiet. */
 .mc-cm-bargain-btn {
   width: 100%; min-height: 44px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
-  font-size: 14px; font-weight: 800; background: #2a2418; border: 1px dashed var(--mc-gold); color: var(--mc-gold);
+  font-size: 14px; font-weight: 800; background: var(--mc-panel); border: 1px dashed var(--mc-gold); color: var(--mc-gold);
 }
 .mc-cm-bargain-btn[data-action="bargain-withdraw"], .mc-cm-bargain-btn[data-action="bargain-done"] {
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted);
@@ -6138,7 +6144,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
    row of its own and the buttons wrap beneath it, sharing the width so they're properly tappable. */
 .mc-twist-req {
   display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px; margin-bottom: 6px;
-  border-radius: calc(8px * var(--mc-round, 1)); background: #2a2418; border: 1px dashed var(--mc-gold);
+  border-radius: calc(8px * var(--mc-round, 1)); background: var(--mc-panel); border: 1px dashed var(--mc-gold);
 }
 .mc-twist-reqtext { flex: 1 1 100%; min-width: 0; font-size: 12.5px; line-height: 1.4; color: var(--mc-ink); }
 .mc-twist-req .mc-cmb-ticket { flex: 1 1 0; min-width: 0; }
@@ -6166,7 +6172,7 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   flex: 1 1 0; min-height: 40px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
   background: var(--mc-panel-2); border: 1px dashed var(--mc-edge); color: var(--mc-muted); font-weight: 800;
 }
-.mc-fate-dot.mc-on { background: #2a2418; border: 1px solid var(--mc-gold); color: var(--mc-gold); }
+.mc-fate-dot.mc-on { background: var(--mc-panel); border: 1px solid var(--mc-gold); color: var(--mc-gold); }
 
 /* == SS33 Chaotic Curses: dashed muted chip on the phone, mins picker + live list on the panel == */
 .mc-curse-chip { border: 1px dashed var(--mc-muted) !important; font-style: italic; }
@@ -6175,8 +6181,8 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
   min-width: 44px; min-height: 44px; border-radius: calc(8px * var(--mc-round, 1)); cursor: pointer;
   background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-muted); font-weight: 700;
 }
-.mc-curse-min.mc-on { background: #2a2418; border-color: var(--mc-gold); color: var(--mc-gold); }
-.mc-curse-card { border-style: solid; border-color: var(--mc-edge); background: #191b22; }
+.mc-curse-min.mc-on { background: var(--mc-panel); border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-curse-card { border-style: solid; border-color: var(--mc-edge); background: var(--mc-panel); }
 .mc-curse-card .mc-twist-reqtext b { color: var(--mc-gold); }
 .mc-curse-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .mc-curse-live .mc-twist-pcrow { font-style: italic; }
@@ -6293,9 +6299,9 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-boss-name small { color: var(--mc-muted); font-size: 10.5px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-boss-mute .mc-boss-name small { font-style: italic; }
-.mc-boss-gone { border-style: dashed; border-color: #7a3a35; }
-.mc-boss-gone .mc-boss-name { color: #ffb4a8; }
-.mc-boss-del:hover { color: #ffb4a8; }   /* destructive = red on hover only (bible §4) */
+.mc-boss-gone { border-style: dashed; border-color: var(--mc-bad); }
+.mc-boss-gone .mc-boss-name { color: var(--mc-bad-ink); }
+.mc-boss-del:hover { color: var(--mc-bad-ink); }   /* destructive = red on hover only (bible §4) */
 .mc-boss-play { flex: 0 0 auto; }
 /* The container the DM drags a monster into. Empty states point at the next step (§7). */
 .mc-boss-new {
