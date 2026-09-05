@@ -1,5 +1,12 @@
 // §31 v2 Twists of Fate — auto-apply (APPROVED DM 2026-08-20 "yes"; built 2026-08-21).
 //
+// RETIRED FROM THE PANEL 2026-09-05 (v3, DM: "I'm not convinced a mechanism to change the roll is
+// a good call… I think I might just want a popup for the DM letting them know a player is using
+// a twist and let the DM change it; there's just too many options for rolls"). The spend is now
+// a popup on the DM's screen (dm-panel.js twistPopup) and the DM sets the die by hand. This
+// file's hooks stay registered so a leftover armed flag (or a macro calling armTwist) still
+// resolves exactly as before; nothing in the UI arms one any more.
+//
 // v1 spent the twist and posted the fate card, then left the DM to fudge the die by hand.
 // v2: the panel's Apply now ARMS the declared face on a chosen creature, and that creature's
 // next qualifying d20 — attack, saving throw (death and concentration included), ability
@@ -90,6 +97,11 @@ export function registerTwists() {
   Hooks.on("dnd5e.postD20TestRollConfiguration", (rolls, config) => {
     if (attackPreviewLatch.up) return; // the hidden preview roll is not a use
     if (config?.evaluate === false) return; // built but never thrown — not a use
+    // A CANCELLED dialog still fires this hook — with an empty roll list (dnd5e 5.3.3
+    // RollConfigurationDialog clears #rolls on an unsubmitted close and buildConfigure runs
+    // the post hooks regardless). The header's "cancel leaves it armed" was true only in the
+    // test; the live handler consumed on a mis-click (QA 2026-09-04 H6). Nothing rolled = no use.
+    if (!rolls?.length) return;
     const actor = rollSubjectActor(config);
     if (armedTwistOf(actor)) disarmTwist(actor);
   });

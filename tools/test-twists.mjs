@@ -85,15 +85,18 @@ Hooks.fire("dnd5e.preRollD20Test", cfg);
 ok("preRollD20Test forces the armed die", cfg.rolls[0].options.minimum === 20);
 ok("pre hook does NOT consume", T.armedTwistOf(actor)?.die === 20);
 
-// …a cancelled dialog (post hook never fires) leaves it armed for the real attempt…
-ok("dialog cancel leaves the twist armed", T.armedTwistOf(actor)?.die === 20);
+// …a cancelled dialog DOES fire the post hook — with an EMPTY roll list (dnd5e 5.3.3 clears the
+// dialog's rolls on an unsubmitted close and still runs the post hooks; QA 2026-09-04 H6 — the
+// old version of this test asserted the hook "never fires", which was the bug's own premise)…
+Hooks.fire("dnd5e.postD20TestRollConfiguration", [], { subject: actor });
+ok("dialog cancel (empty rolls) leaves the twist armed", T.armedTwistOf(actor)?.die === 20);
 
 // …a built-but-never-thrown roll must not consume either…
-Hooks.fire("dnd5e.postD20TestRollConfiguration", [], { subject: actor, evaluate: false });
+Hooks.fire("dnd5e.postD20TestRollConfiguration", [{}], { subject: actor, evaluate: false });
 ok("evaluate:false does not consume", T.armedTwistOf(actor)?.die === 20);
 
 // …and the real roll consumes exactly once
-Hooks.fire("dnd5e.postD20TestRollConfiguration", [], { subject: actor });
+Hooks.fire("dnd5e.postD20TestRollConfiguration", [{}], { subject: actor });
 ok("the real roll consumes the twist", T.armedTwistOf(actor) === null);
 
 // an unarmed creature's roll passes through untouched
@@ -106,7 +109,7 @@ await T.armTwist(actor, { die: 1 });
 cfg = { subject: { actor }, rolls: [{ options: {} }] };
 Hooks.fire("dnd5e.preRollD20Test", cfg);
 ok("attack (activity subject) forced too", cfg.rolls[0].options.maximum === 1);
-Hooks.fire("dnd5e.postD20TestRollConfiguration", [], { subject: { actor } });
+Hooks.fire("dnd5e.postD20TestRollConfiguration", [{}], { subject: { actor } });
 ok("attack consume works via activity subject", T.armedTwistOf(actor) === null);
 
 // 6. combat-end sweep: the active GM clears leftovers; every other client leaves them be

@@ -11,7 +11,6 @@ import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogS
 import { FX_TABS, FX_DEFS, FX_VOLUME_KEYS, fxActiveMap, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js"; // §26 Effects tab (+ §26.5 loudness keys)
 import { FATE_THREADS, FATE_STEPS, applyFateReward } from "./fateweaving.js"; // §34 Fateweaving tracker
 import { CURSES, rollCurse, pickCurse, applyCurse, actorCurses, curseTableUuid } from "./cm-curses.js"; // §33 Chaotic Curses
-import { armTwist } from "./twists.js"; // §31 v2: Apply arms the declared face on a chosen creature
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { trainScenes, trainChains, trainMistOn, wireTrainDoors, setTrainMist } from "./cm-train.js"; // §37 the Ghostlight ride · §36.2 the first boarding
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
@@ -828,18 +827,55 @@ function fateBody() {
 
 // §31 Twists of Fate: per-PC counters (grant/revoke) + the pending-spend chips. A twist is a
 // held token — once per turn the holder declares any visible creature's d20 a natural 1 or 20.
-// The player's phone writes twistPending on their actor; ONLY Apply here spends the token
-// (and posts the public fate card — the whole table should see fate snap). ✕ refunds.
-// v2 (2026-08-21): Apply asks WHOSE die, then ARMS the declared face on that creature — its
-// next d20 lands the number by itself (twists.js). "By hand" keeps the v1 spend-and-fudge path.
-let twistPickFor = null; // actor id whose pending chip is showing the target pick
+// The player's phone writes twistPending on their actor; ONLY a spend here takes the token
+// (and posts the public fate card — the whole table should see fate snap). Keep = refund.
+//
+// v3 (DM 2026-09-05, replacing v2's auto-apply): "I'm not convinced a mechanism to change the
+// roll is a good call — I think I might just want a popup for the DM letting them know a player
+// is using a twist and let the DM change it; there's just too many options for rolls." So the
+// spend is a POPUP on the DM's screen the moment the phone asks, with two answers — Spend it
+// (the DM sets the die by hand on that roll) or Keep it — and the same pair on the Crooked Moon
+// tab's chip for a popup that was closed. The whose-die picker and the armed-flag machinery
+// (twists.js) are no longer reachable from the panel; the hooks stay so a leftover armed flag
+// still resolves, and the disarm chip still shows one.
+const twistDialogs = new Map(); // actor id → the open DialogV2 for that request
 
-// Active-scene tokens as pick targets (§6.6 scene-scoped): the spender's own PC first — a
-// twisted save is most often your own — then the other PCs, then everyone else by name.
-function twistTargets(spender) {
-  const toks = [...(game.scenes.active?.tokens ?? [])].filter(t => t.actor);
-  const rank = t => t.actor.id === spender.id ? 0 : t.actor.type === "character" ? 1 : 2;
-  return toks.sort((x, y) => rank(x) - rank(y) || x.name.localeCompare(y.name));
+async function spendTwist(a) {
+  const p = a?.getFlag(MODULE_ID, "twistPending");
+  if (!a || !p) return false;
+  const esc = foundry.utils.escapeHTML;
+  await a.setFlag(MODULE_ID, "twists", Math.max(0, Number(a.getFlag(MODULE_ID, "twists") ?? 0) - 1));
+  await a.unsetFlag(MODULE_ID, "twistPending");
+  await ChatMessage.create({
+    speaker: { alias: "Fate" },
+    content: `<p><b>${esc(a.name)}</b> twists fate — the die comes up a <b>natural ${p.die === 1 ? "1" : "20"}</b>${p.note ? ` <em>(${esc(p.note)})</em>` : ""}.</p>`
+  });
+  return true;
+}
+async function refundTwist(a) {
+  await a?.unsetFlag(MODULE_ID, "twistPending");
+}
+
+// The popup. One per request; a repeat (the phone rewriting the same flag) replaces it, and a
+// withdrawal from the phone closes it (see the updateActor watcher in registerDMPanel).
+function twistPopup(a, p) {
+  if (!panelEl || !game.user?.isGM || !a || !p) return;
+  try { twistDialogs.get(a.id)?.close(); } catch (e) { /* already gone */ }
+  const esc = foundry.utils.escapeHTML;
+  const face = p.die === 1 ? "1" : "20";
+  const have = Number(a.getFlag(MODULE_ID, "twists") ?? 0);
+  const dlg = new foundry.applications.api.DialogV2({
+    window: { title: "Twist of Fate", icon: "fas fa-shuffle" },
+    content: `<p><b>${esc(a.name)}</b> is twisting fate: they want the next d20 to land on a <b>natural ${face}</b>${p.note ? ` — <em>${esc(p.note)}</em>` : ""}.</p>
+      <p>Spend it and set that die yourself when the roll comes — or keep it, and nothing happens.</p>
+      <p style="opacity:.75">${have > 0 ? `${have} twist${have === 1 ? "" : "s"} in hand, ${Math.max(0, have - 1)} after this.` : "They have no twists left — spending will simply post the card."}</p>`,
+    buttons: [ // bible §4.1.1: right is forward — DialogV2 renders array order L→R
+      { action: "keep", label: "Keep it", icon: "fas fa-xmark", callback: () => refundTwist(a) },
+      { action: "spend", label: "Spend it", icon: "fas fa-check", default: true, callback: () => spendTwist(a) }
+    ]
+  });
+  twistDialogs.set(a.id, dlg);
+  dlg.render({ force: true });
 }
 
 // Every creature currently carrying an armed twist: active-scene tokens (synthetic actors
@@ -876,22 +912,9 @@ function twistsBody() {
     const face = p.die === 1 ? "1" : "20";
     const head = `<div class="mc-twist-reqtext"><i class="fas fa-shuffle"></i> <b>${esc(a.name)}</b> twists fate —
         natural <b>${face}</b>${p.note ? ` · <i>${esc(p.note)}</i>` : ""}</div>`;
-    if (twistPickFor === a.id) {
-      const targets = twistTargets(a).map(t => {
-        const img = t.texture?.src || t.actor?.img || "";
-        return `<button class="mc-twist-target" data-twist-arm="${a.id}:${t.id}" title="Arm ${esc(t.name)} — its next d20 lands the ${face}">
-          ${img ? `<img src="${esc(img)}" alt="">` : ""}<span>${esc(t.name)}</span></button>`;
-      }).join("");
-      return `<div class="mc-twist-req">${head}
-        <div class="mc-twist-hint">Whose die lands the ${face}?</div>
-        <div class="mc-twist-pick">${targets || `<div class="mc-dmp-empty">No tokens on the active scene.</div>`}</div>
-        <button class="mc-cmb-ticket" data-twist-back="1" title="Back">Back</button>
-        <button class="mc-cmb-ticket" data-twist-hand="${a.id}" title="Spend the twist — you'll set the die yourself">By hand</button>
-      </div>`;
-    }
     return `<div class="mc-twist-req">${head}
-      <button class="mc-cmb-ticket mc-on" data-twist-apply="${a.id}" title="Fate snaps — pick whose die it lands on"><i class="fas fa-check"></i></button>
-      <button class="mc-cmb-ticket" data-twist-dismiss="${a.id}" title="Refund — the twist is kept, nothing happens"><i class="fas fa-xmark"></i></button>
+      <button class="mc-cmb-ticket mc-on" data-twist-spend="${a.id}" title="Spend it — you set the die yourself on that roll"><i class="fas fa-check"></i></button>
+      <button class="mc-cmb-ticket" data-twist-dismiss="${a.id}" title="Keep it — the twist stays in hand, nothing happens"><i class="fas fa-xmark"></i></button>
     </div>`;
   }).join("");
   const armed = armedTwists().map(x => `<div class="mc-twist-req mc-twist-armed">
@@ -4299,51 +4322,10 @@ async function onClick(ev) {
     if (a) await a.setFlag(MODULE_ID, "twists", Math.max(0, Number(a.getFlag(MODULE_ID, "twists") ?? 0) + Number(d)));
     return render();
   }
-  // v2: Apply first asks WHOSE die (the chip flips to a scene-token pick). Arming a target
-  // spends the twist AND writes twistArmed on that creature — twists.js lands the face on its
-  // next d20. "By hand" is the v1 path: spend, tell the table, the DM sets the die himself.
-  const tApply = ev.target.closest("[data-twist-apply]");
-  if (tApply) {
-    twistPickFor = tApply.dataset.twistApply;
-    return render();
-  }
-  const tBack = ev.target.closest("[data-twist-back]");
-  if (tBack) {
-    twistPickFor = null;
-    return render();
-  }
-  const tArm = ev.target.closest("[data-twist-arm]");
-  if (tArm) {
-    const [aid, tid] = tArm.dataset.twistArm.split(":");
-    const a = game.actors.get(aid);
-    const p = a?.getFlag(MODULE_ID, "twistPending");
-    const target = game.scenes.active?.tokens.get(tid);
-    if (a && p && target?.actor) {
-      const esc = foundry.utils.escapeHTML;
-      await a.setFlag(MODULE_ID, "twists", Math.max(0, Number(a.getFlag(MODULE_ID, "twists") ?? 0) - 1));
-      await a.unsetFlag(MODULE_ID, "twistPending");
-      await armTwist(target.actor, { die: p.die, by: a.name, note: p.note });
-      await ChatMessage.create({
-        speaker: { alias: "Fate" },
-        content: `<p><b>${esc(a.name)}</b> twists fate — <b>${esc(target.name)}</b>'s next d20 comes up a <b>natural ${p.die === 1 ? "1" : "20"}</b>${p.note ? ` <em>(${esc(p.note)})</em>` : ""}.</p>`
-      });
-    }
-    twistPickFor = null;
-    return render();
-  }
-  const tHand = ev.target.closest("[data-twist-hand]");
-  if (tHand) {
-    const a = game.actors.get(tHand.dataset.twistHand);
-    const p = a?.getFlag(MODULE_ID, "twistPending");
-    if (a && p) {
-      await a.setFlag(MODULE_ID, "twists", Math.max(0, Number(a.getFlag(MODULE_ID, "twists") ?? 0) - 1));
-      await a.unsetFlag(MODULE_ID, "twistPending");
-      await ChatMessage.create({
-        speaker: { alias: "Fate" },
-        content: `<p><b>${foundry.utils.escapeHTML(a.name)}</b> twists fate — the die comes up a <b>natural ${p.die === 1 ? "1" : "20"}</b>${p.note ? ` <em>(${foundry.utils.escapeHTML(p.note)})</em>` : ""}.</p>`
-      });
-    }
-    twistPickFor = null;
+  // v3: the chip mirrors the popup — Spend it (the DM sets the die by hand) or Keep it.
+  const tSpend = ev.target.closest("[data-twist-spend]");
+  if (tSpend) {
+    await spendTwist(game.actors.get(tSpend.dataset.twistSpend));
     return render();
   }
   const tDisarm = ev.target.closest("[data-twist-disarm]");
@@ -4354,8 +4336,7 @@ async function onClick(ev) {
   }
   const tDismiss = ev.target.closest("[data-twist-dismiss]");
   if (tDismiss) {
-    await game.actors.get(tDismiss.dataset.twistDismiss)?.unsetFlag(MODULE_ID, "twistPending");
-    twistPickFor = null;
+    await refundTwist(game.actors.get(tDismiss.dataset.twistDismiss));
     return render();
   }
   // §36 All aboard: introduce one PC on the display (tapping again takes the card down;
@@ -5263,6 +5244,18 @@ export function registerDMPanel() {
   maybeAutoLightOverworld(canvas?.scene); // the scene already up when the panel initialises
   registerNightEncounterOffer(); // §17.4: ambush during a watch → offer Unconscious+Surprised
   migrateLegacyNight(); // §19 slice 6: wrap a pre-Rest night flag into a rest envelope, once
+  // §31 v3: a phone asking to twist fate pops the DM's dialog at once — no tab to be on. A
+  // withdrawal (or a spend/keep from anywhere) clears the flag, which closes the dialog.
+  Hooks.on("updateActor", (a, ch) => {
+    const f = ch?.flags?.[MODULE_ID];
+    if (!f || a?.type !== "character") return;
+    if (f.twistPending && typeof f.twistPending === "object") twistPopup(a, f.twistPending);
+    else if ("-=twistPending" in f || ("twistPending" in f && !f.twistPending)) {
+      try { twistDialogs.get(a.id)?.close(); } catch (e) { /* already gone */ }
+      twistDialogs.delete(a.id);
+    }
+  });
+  Hooks.on("closeDialogV2", (app) => { for (const [id, d] of twistDialogs) if (d === app) twistDialogs.delete(id); });
   Hooks.on("targetToken", () => { syncRtAssign(); render(); });   // live target picker + count badge
   Hooks.on("controlToken", () => render());                        // quick-HP: selection changed
   // Keep the rolls-tab distances fresh as tokens move (only while that flyout is open).
