@@ -18,6 +18,7 @@ export function pmIsPersonal(m) {
   if (!m.whisper?.length) return false;
   if (m.rolls?.length) return false; // whispered rolls are machinery, never notes
   if (m.flags?.["midi-qol"] || m.flags?.dnd5e) return false; // system/midi cards
+  if (m.flags?.[MODULE_ID]?.system) return false; // our own machinery cards (extra-instance whispers…)
   return true;
 }
 

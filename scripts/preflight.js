@@ -240,7 +240,7 @@ const TESTED = {
   // §28.4 run, 12/12 — two-tap, MM darts, save spell, AoE via panel Place, AoO chip, target
   // hygiene (that leg CAUGHT the placeCast stray-target gap, fixed same night), music matrix
   // incl. mid-combat reload re-arm, turn HUD, this very check naming the version under test.
-  "dnd5e": "5.3.3", "midi-qol": "14.0.11", "automated-conditions-5e": "14.533.15.6",
+  "dnd5e": "5.3.3", "midi-qol": "14.0.12", "automated-conditions-5e": "14.533.18",
   // The automation-ecosystem pair, deep-dived together 2026-07-26 (§28.6): versions move
   // weekly (CAT is 0.0.x), so any bump gets the same validation treatment as midi's.
   "cat": "0.0.7", "midi-item-showcase-community": "2.0.2",
@@ -248,7 +248,10 @@ const TESTED = {
   // was proven at this version (bench 2026-08-20 morning). simplecover5e feeds the AC that our
   // Hit/Miss badge reads (via AC5E's integration); enabled on the bench + pipeline-validated
   // 2026-08-20 evening (the cover-bonus-shifts-AC case itself still wants a geometry pass).
-  "wm5e": "14.533.6", "simplecover5e": "2.2.1"
+  "wm5e": "14.533.6", "simplecover5e": "2.2.1",
+  // DAE: the effects engine under every midi workflow; never watched before the 2026-09-04 QA pass
+  // (a DAE bump could not be flagged). Validated 14.0.14 on the 2026-09-10 run (§28.5.12).
+  "dae": "14.0.14"
 };
 
 // The DM reads this at the table, so it says the plain thing in plain words (UI-BIBLE §7.2): what
@@ -269,7 +272,7 @@ function checkModuleStack() {
   // Optional-but-watched: modules that hook the same combat pipeline we hold mid-flight.
   // AC5E's preRollAttack can crash the whole attack roll (toClipperPoints, §28.1); CAT/MISC
   // extend midi workflows directly (§28.6). Only checked when actually active.
-  for (const id of ["automated-conditions-5e", "cat", "midi-item-showcase-community", "wm5e", "simplecover5e"]) {
+  for (const id of ["automated-conditions-5e", "cat", "midi-item-showcase-community", "wm5e", "simplecover5e", "dae"]) {
     const m = game.modules.get(id);
     if (m?.active && m.version !== TESTED[id]) bits.push(untested(m.version, id, m.title));
   }

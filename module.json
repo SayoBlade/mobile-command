@@ -33,7 +33,7 @@
         "reason": "Runs every phone-triggered attack/spell through midi's workflow on the DM's client (the two-tap flow holds midi workflows mid-flight).",
         "compatibility": {
           "minimum": "14.0.0",
-          "verified": "14.0.11"
+          "verified": "14.0.12"
         }
       },
       {
@@ -53,7 +53,7 @@
         "type": "module",
         "reason": "Powers the advantage/disadvantage recommendation (and its named reasons) on the phone's attack screen; degrades to no recommendation without it.",
         "compatibility": {
-          "verified": "14.533.10"
+          "verified": "14.533.18"
         }
       },
       {

@@ -2060,7 +2060,14 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
      stop-all vs tickets · panel handler catch-all · music-driver flip · tally nat-20 ·
      online-no-screen overlays · ticket punch channel · dead CSS / sub-44px targets /
      reduced-motion gates.
-   - **Verification owed on the fixes:** by-eye palette pass on real screens (bdecdfe) ·
+   - **From the 2026-09-10 stack run (§28.5.12):** CAT 0.0.7 bricks Roll NPCs when a combatant's
+     actor is gone (throws in its SummonsManager) — the panel's Roll NPCs should name/skip
+     actor-less combatants · midi 14.0.12 targets under the Place PREVIEW while the DM aims
+     (cosmetic, watch) · the real player-seat HUD leg (11) still wants the DM's Chrome.
+   - **Verification owed on the fixes:** ~~spell pick through char-gen lands prepared~~ **PASSED
+     2026-09-10 (the Evoker's prepared/method writes, leg 5)** · ~~two phones previewing at
+     once~~ — not testable from one cookie jar; the serial chain is code-proven · by-eye palette
+     pass on real screens (bdecdfe) ·
      two-PC kill through the executor (f549786) · a real phone spend popping the twist dialog
      (bf5e57b) · spell pick through char-gen lands prepared (971863b) · two phones previewing
      at once (0042f74) · typing through an HP tick on both panel and phone (add96cf).
@@ -3618,6 +3625,71 @@ cm-boarding.eligible()` exclude online-no-screen players (boss-intro handles it)
 on the silenced environment channel · README requires libWrapper/DAE (0 hits / comments only) ·
 module.json AC5E verified 14.533.10 (stale) · ~110 dead CSS classes · ~20 sub-44px phone targets
 incl. the picker ✕ · ungated `.mc-fx-flash`/`.mc-fx-static` under reduced-motion.
+
+### 28.5.12 midi 14.0.12 + DAE 14.0.14 + AC5E 14.533.18 (2026-09-10, DM ask "check impact") — §28.4 12/12, pins bumped
+
+**Static impact first (both changelogs read, both new builds grepped):** every hook, API export,
+workflow state and `damageList` field we use is still there; every value the D4 preset enforces
+is still a known choice (`yesCard`, `wallsBlockIgnoreDefeated`, `displayOnly`, `whisper`, `chat`,
+`applyRemove`, `none`); midi's removed "Center + Levels" walls option never touched us (we pin
+`none`); dependency ranges still cover dnd5e 5.3.3 / core 14.367. Behaviour changes that brush
+us: damage cards are now a chat sub-type `midi-qol.damage` rendered from `system` (they still
+carry `flags.midi-qol`, so pm.js's "is this a note?" filter is safe); "Single Damage Calculation"
+(default on) applies DR once per activity — our extra darts go through dnd5e `applyDamage` per
+dart, unaffected; `MidiQOL.Workflow.workflows` is a `Map` (rpc.js already iterates it as one);
+DAE now expires item-inherited durations on `updateWorldTime` (travel/clock advances will end
+buffs — correct RAW). DAE's minimum core 14.365 is met. Nothing in our code needed changing.
+
+**Live §28.4 on the served "Offline test" (GM seat was free; pane GM as the solo rig):**
+1 ✓ Roll NPCs (NPCs 13/14, Brekka null) — *after* a fresh encounter: see the CAT filing below ·
+2 ✓ phone initiative 15 · 3 ✓ Greatsword two-tap: 26 HIT, 6 damage 11→5, toast · 4 ✓ parked at
+`WaitForDamageRoll`, attackRoll 26 · 5 ✓ Magic Missile 3/3 darts on the Locomotive: base 5 +
+extras 5, 3 = Δ13, slot 4→3, GM whisper lists both extras (the new H9 cap kept exactly 2 extras)
+· 6 ✓ Sacred Flame both ways: failed (6 vs DC 13) → 3 damage; made (13 vs 13, bandit DEX
+temporarily 30) → "saved, no damage", 0 · 7 ✓ Burning Hands: no phone template, slot picked on
+the phone, pending row on the panel, Place → no dialog, auto-target → save → damage, instantaneous
+template auto-removed (my canvas click aimed the cone at the caster — bench aim, the pipeline is
+what the leg tests) · 8 ✓ `game.user.targets` empty after every fire · 9 ✓ AoO chip "Bandit B ⚔
+Brekka" in 456 ms; Take → Scimitar at disadvantage (AC5E Sap from Brekka's earlier hit), miss,
+reaction spent · 10 ✓ battle track on start, held on foe turns, killed mid-combat → healed in
+<1 s, survived three client reloads, end → silence, repeat/fade intact (no PC anthem configured
+on this world, so that bullet stays N/A as before) · 11 ✓ HUD "Your turn — Brekka" + Go hop
+(rendered under a `user.isGM=false` shim: the pane is one cookie jar; the real player-seat run
+stays with the DM's Chrome, §28.5.8), End turn advances · 12 ✓ preflight named 14.0.12 and
+14.533.18 exactly.
+
+**Filings:**
+- **BENCH TRAP, root-caused (cost an hour):** the pane is `document.hidden`; Chrome aligns
+  background timers to 1 s and, after FIVE hidden minutes, throttles chained timers to once a
+  MINUTE. midi's state machine sleeps `busyWait(1)` on every transition, so an attack stalled
+  25–72 s at `WaitForAttackRoll` (setAttackRoll done, `unSuspend` done, the next transition
+  starved) and our finder gave up ("attack roll never fired"). It looked exactly like a midi
+  regression and wasn't. **Technique: a fresh tab per leg group** (`tabs_create` → `/game` →
+  rig), every leg inside its first five minutes. The old "AttackRollComplete stalls ~10 s on a
+  hidden client" note was the mild form of the same thing.
+- **CAT 0.0.7 hazard (not ours, table-real):** `Combat#rollNPC` throws inside CAT's
+  `SummonsManager.getSummonData` when a combatant's actor no longer exists (the bench's "Test
+  Wizard" husk) → Roll NPCs silently does nothing. A campaign combat with a deleted actor's
+  combatant hits this. Mitigation candidate: the panel's Roll NPCs could name/skip actor-less
+  combatants. Ledger.
+- **midi 14.0.12 preview targeting:** while the DM aims a Place template, midi already targets
+  tokens under the PREVIEW (the Cleric lit up mid-aim); the real placement recomputes and the
+  stray is gone after the fire. Cosmetic during aim; watch.
+- **Solo-rig nit, fixed:** the GM-whispered "extra instances" card popped the PM toast ("A note
+  from the DM") on the GM-run shell — pm.js saw a whispered, roll-less, flag-less message. Players
+  never receive GM whispers, so it was rig-only; the card now carries a module flag and the PM
+  filter skips flagged system cards.
+- **module.json** carried AC5E `verified` 14.533.10 (QA §28.5.11 Low) — now 14.533.18; midi
+  14.0.12. **DAE joins `TESTED`** (14.0.14) and the preflight watch loop — the QA pass found a
+  DAE bump could never be flagged.
+
+**Residue (Bandit Ambush; nothing deleted except the encounter I created, via core's own End
+Combat confirm):** Bandit B HP 2→11 (healed for the legs, DEX restored to 12), the Locomotive
+94→81, Brekka moved two cells east of the bandit (2664,5920), NEW tokens Wizard (L3 Evoker) at
+(1184,5920) and Cleric (L3 Life) at (1776,6512), Evoker spell1 slots 4→2 and Magic Missile /
+Shocking Grasp / Thunderwave set prepared, Player 2 briefly owned the Evoker (reverted), the OLD
+unscoped started combat (`3prKuD2FGWhiDNC8`, with the "Test Wizard" husk) is still there for the
+DM, `user.character` back to none, world re-paused, GM seat released.
 
 ### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
 

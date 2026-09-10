@@ -16,7 +16,7 @@ import { wallsBlock } from "./cm-train.js";
 
 // Build marker for live-bench cache diagnosis (2026-08-25: a client reload can serve a stale
 // module from HTTP cache — probe `(await import('.../rpc.js')).RPC_BUILD` to know what runs).
-export const RPC_BUILD = "2026-09-05-qa1";
+export const RPC_BUILD = "2026-09-10-stack";
 
 
 
@@ -1562,8 +1562,11 @@ async function handleItemUseDamage({ requestId }) {
       }
       if (lines.length) {
         ChatMessage.create({
-          content: `<b>${wf.item?.name ?? "Attack"}</b> — extra instance${lines.length > 1 ? "s" : ""}: ${lines.join(", ")}`,
-          whisper: ChatMessage.getWhisperRecipients("GM").map(u => u.id)
+          content: `<b>${foundry.utils.escapeHTML(wf.item?.name ?? "Attack")}</b> — extra instance${lines.length > 1 ? "s" : ""}: ${foundry.utils.escapeHTML(lines.join(", "))}`,
+          whisper: ChatMessage.getWhisperRecipients("GM").map(u => u.id),
+          // Machinery, not a note: pm.js skips flagged cards (the solo-rig GM shell read this
+          // whisper as "A note from the DM" — 2026-09-10). Names escaped while here (QA H-Medium).
+          flags: { [MODULE_ID]: { system: "extraInstances" } }
         }).catch(() => {});
       }
     } catch (e) { console.warn(`${MODULE_ID} | extra-instance damage failed`, e); }
