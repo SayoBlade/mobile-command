@@ -265,8 +265,14 @@ function checkModuleStack() {
   const dnd = game.system.version;
   if (!/^[56]./.test(dnd)) bits.push(`D&D 5e ${dnd} — this app is built for 5.3 and 6.0`);
   else if (dnd !== TESTED.dnd5e) bits.push(untested(dnd, "dnd5e", "D&D 5e"));
+  // A module that declares a CEILING on the D&D 5e version it supports gets silently dropped from the
+  // world's module list by Foundry itself the first time a world launches on a newer system (bench
+  // 2026-09-11: dnd5e 6.0 vs midi-qol 14.0.12's "maximum 5.3.99" — the executor's whole attack path
+  // vanished with no message anywhere). Say so in plain words, and say why Midi is off if that's why.
+  const ceilingOf = (m) => m?.relationships?.systems?.find?.(s => s.id === "dnd5e")?.compatibility?.maximum ?? null;
+  const overCeiling = (m) => { const max = ceilingOf(m); return !!max && foundry.utils.isNewerVersion(dnd, max); };
   const midi = game.modules.get("midi-qol");
-  if (!midi?.active) bits.push("Midi QOL is off — attacks from a phone won't work");
+  if (!midi?.active) bits.push(`Midi QOL is off — attacks from a phone won't work${overCeiling(midi) ? ` (it says it supports D&D 5e up to ${ceilingOf(midi)}, so Foundry keeps it switched off on ${dnd})` : ""}`);
   else if (!String(midi.version).startsWith("14.")) bits.push(`${midi.title} ${midi.version} — this app is built for 14`);
   else if (midi.version !== TESTED["midi-qol"]) bits.push(untested(midi.version, "midi-qol", midi.title));
   // Optional-but-watched: modules that hook the same combat pipeline we hold mid-flight.
@@ -275,6 +281,7 @@ function checkModuleStack() {
   for (const id of ["automated-conditions-5e", "cat", "midi-item-showcase-community", "wm5e", "simplecover5e", "dae"]) {
     const m = game.modules.get(id);
     if (m?.active && m.version !== TESTED[id]) bits.push(untested(m.version, id, m.title));
+    if (m?.active && overCeiling(m)) bits.push(`${m.title} says it supports D&D 5e up to ${ceilingOf(m)} — you're on ${dnd}; it may stop working or be switched off by Foundry`);
   }
   if (!game.modules.get("socketlib")?.active) bits.push("socketlib is off — phones can't reach this computer at all");
   for (const legacy of ["chris-premades", "gambits-premades"]) {
