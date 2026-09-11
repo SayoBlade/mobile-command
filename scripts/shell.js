@@ -8204,10 +8204,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         desc = await TE.enrichHTML(desc, { relativeTo: this.actor, secrets: false });
       } catch (err) { /* keep raw */ }
     } else if (e.changes?.length) {
-      const modes = CONST.ACTIVE_EFFECT_MODES;
-      const op = { [modes.ADD]: "+", [modes.MULTIPLY]: "×", [modes.OVERRIDE]: "=", [modes.UPGRADE]: "↑", [modes.DOWNGRADE]: "↓" };
+      // Foundry 14: a change carries a string `type` ("add", "override"…); the numeric `mode` is a
+      // deprecated shim that warns on every read. Older effects are migrated to `type` on load.
+      const op = { add: "+", multiply: "×", override: "=", upgrade: "↑", downgrade: "↓", subtract: "−" };
       desc = `<ul class="mc-eff-changes">${e.changes.map((c) =>
-        `<li>${foundry.utils.escapeHTML(c.key)} ${op[c.mode] ?? ""} ${foundry.utils.escapeHTML(String(c.value))}</li>`).join("")}</ul>`;
+        `<li>${foundry.utils.escapeHTML(c.key)} ${op[c.type] ?? ""} ${foundry.utils.escapeHTML(String(c.value))}</li>`).join("")}</ul>`;
     } else {
       desc = "<em>No description.</em>";
     }

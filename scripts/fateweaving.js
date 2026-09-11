@@ -48,11 +48,11 @@ export async function applyFateReward(actor, step) {
       img: "icons/svg/angel.svg",
       duration: { seconds: 86400 },
       changes: [
-        { key: aeKey("system.bonuses.abilities.save"), mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" },
-        { key: aeKey("system.bonuses.mwak.attack"), mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" },
-        { key: aeKey("system.bonuses.rwak.attack"), mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" },
-        { key: aeKey("system.bonuses.msak.attack"), mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" },
-        { key: aeKey("system.bonuses.rsak.attack"), mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" }
+        { key: aeKey("system.bonuses.abilities.save"), type: "add", value: "+1d4" },
+        { key: aeKey("system.bonuses.mwak.attack"), type: "add", value: "+1d4" },
+        { key: aeKey("system.bonuses.rwak.attack"), type: "add", value: "+1d4" },
+        { key: aeKey("system.bonuses.msak.attack"), type: "add", value: "+1d4" },
+        { key: aeKey("system.bonuses.rsak.attack"), type: "add", value: "+1d4" }
       ],
       flags: { [MODULE_ID]: { fateweaving: 2 } }
     }]);

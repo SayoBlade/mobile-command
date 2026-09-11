@@ -13,16 +13,17 @@ import { aeKey } from "./dnd5e-compat.js"; // 6.0 renamed the senses key the Dim
 // flags[MODULE_ID].curse.expiresAt; ONE GM client (activeGM) sweeps every 30s.
 
 // 1–10: the mechanical ladder (pairs). 11–100: pure RP. `changes` builds per-actor deltas.
-const M = () => CONST.ACTIVE_EFFECT_MODES;
+// Change types are STRINGS on Foundry 14 ("add", "override"…); the numeric CONST.ACTIVE_EFFECT_MODES is a
+// deprecated shim that warns on every read (core v14, removed in 16).
 const HOLLOWED = {
   name: "Hollowed",
   text: "Something is wearing part of you. Half your life is elsewhere until it gives it back.",
-  changes: (a) => [{ key: "system.attributes.hp.tempmax", mode: M().ADD, value: String(-Math.floor((a.system.attributes.hp.max ?? 0) / 2)) }]
+  changes: (a) => [{ key: "system.attributes.hp.tempmax", type: "add", value: String(-Math.floor((a.system.attributes.hp.max ?? 0) / 2)) }]
 };
 const UNSHELLED = {
   name: "Unshelled",
   text: "Your skin forgets it is armor. Blades remember you fondly.",
-  changes: () => [{ key: "system.attributes.ac.bonus", mode: M().ADD, value: "-2" }]
+  changes: () => [{ key: "system.attributes.ac.bonus", type: "add", value: "-2" }]
 };
 const PALSIED = {
   name: "Palsied Hand",
@@ -31,7 +32,7 @@ const PALSIED = {
 const DIMMED = {
   name: "Dimmed",
   text: "The dark took back its gift. It says you never thanked it.",
-  changes: () => [{ key: aeKey("system.attributes.senses.darkvision"), mode: M().OVERRIDE, value: "0" }]
+  changes: () => [{ key: aeKey("system.attributes.senses.darkvision"), type: "override", value: "0" }]
 };
 const COTTON = {
   name: "Cotton Ears",
