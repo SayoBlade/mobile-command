@@ -91,7 +91,11 @@ function coreCalendar() {
   try {
     const c = game.time?.calendar;
     if (!c?.months?.values?.length || !c?.days?.hoursPerDay) return null;
-    const isDefault = (c.constructor === foundry.data.CalendarData) && (c.name === "Simplified Gregorian");
+    // dnd5e 6.0 installs its OWN default class (CalendarData5e, still "Simplified Gregorian") on every
+    // world, so the class test alone would read every 6.0 world as deliberately calendared and hijack
+    // the DM's Day-N clock. The default is: the stock name, and no dnd5e calendar switched on.
+    const dndCalendarOn = game.system?.id === "dnd5e" && !!game.settings?.get?.("dnd5e", "calendarConfig")?.enabled;
+    const isDefault = (c.name === "Simplified Gregorian") && !dndCalendarOn;
     return isDefault ? null : c;
   } catch (e) { return null; }
 }
