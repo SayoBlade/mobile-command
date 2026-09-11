@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { isDnd5eCard } from "./dnd5e-compat.js";
 
 // §27 Personal messages — DM ⇄ player private notes ("you are charmed, and want to get the
 // party to leave this room"), riding Foundry's own chat WHISPERS. No new storage, no RPC:
@@ -17,7 +18,7 @@ export function pmIsPersonal(m) {
   if (m.getFlag?.(MODULE_ID, "pm")) return true;
   if (!m.whisper?.length) return false;
   if (m.rolls?.length) return false; // whispered rolls are machinery, never notes
-  if (m.flags?.["midi-qol"] || m.flags?.dnd5e) return false; // system/midi cards
+  if (m.flags?.["midi-qol"] || isDnd5eCard(m)) return false; // system/midi cards (6.0 cards are typed subtypes, flags optional)
   if (m.flags?.[MODULE_ID]?.system) return false; // our own machinery cards (extra-instance whispers…)
   return true;
 }

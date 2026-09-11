@@ -11,6 +11,7 @@ import { masteryOf, masteryReminder, masteryChoices } from "./masteries.js"; // 
 import { watchScroll, captureScrolls, restoreScrolls, sameHTML } from "./repaint.js"; // §46 don't jump
 import { openFeedback } from "./feedback.js"; // §48 report a bug from the phone
 import { isEmberWorld, emberReady, EMBER_CREATION_SHEET, activeCampaign, emberSky, emberPartyStatus, emberAttunements, emberJournal } from "./campaigns.js"; // §50 Ember: creation door + rest copy + the Ember tab
+import { isSaveResult, acShape } from "./dnd5e-compat.js"; // the dnd5e 5.3 ⇄ 6.0 seam (chat subtypes, AC shape)
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -8107,16 +8108,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     //  - default: armor item (ac.armor) + capped Dex, then shield/bonus/cover
     //  - any other calc (mage/natural/custom/…): ac.base is the formula result and
     //    already owns its own Dex — show it under the calc's name, no Dex row.
+    // dnd5e 6.0 (dnd5e-compat.js acShape): a flat AC is `ac.override` (5.3: the "flat" calc);
+    // "armored" is 6.0's name for 5.3's "default" (armor value + capped Dex); the system now keeps
+    // a LIST of calculations and picks the best, so ac.calc is whichever formula won.
+    const shape = acShape(ac);
     const calcLabel = CONFIG.DND5E?.armorClasses?.[ac.calc]?.label;
-    if (ac.calc === "flat") {
-      rows.push([calcLabel || "Flat", `${ac.flat ?? ac.value ?? 10}`]);
-    } else if (ac.calc === "default") {
+    if (shape.flat !== null) {
+      rows.push([calcLabel || "Set value", `${shape.flat}`]);
+    } else if (shape.armored) {
       rows.push([ac.equippedArmor?.name || "Unarmored", `${ac.armor ?? 10}`]);
       if (ac.dex) rows.push(["Dexterity", sign(ac.dex)]);
     } else {
-      rows.push([calcLabel || "Formula", `${ac.base ?? ac.value ?? 10}`]);
+      rows.push([calcLabel || ac.label || "Formula", `${ac.base ?? ac.value ?? 10}`]);
     }
-    if (ac.calc !== "flat") {
+    if (shape.flat === null) {
       if (ac.shield) rows.push(["Shield", sign(ac.shield)]);
       if (ac.bonus) rows.push(["Bonus", sign(ac.bonus)]);
       if (ac.cover) rows.push(["Cover", sign(ac.cover)]);
@@ -8629,7 +8634,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Close the save prompt once a save actually rolls — however it was rolled (our card, the native
     // card, or the sheet), so it never lingers (DM 2026-06-17). Clear ONLY the creature that rolled
     // (fireball: rolling the wizard's save must not drop the pet's still-pending card).
-    if (message.author?.id === game.user.id && message.flags?.dnd5e?.roll?.type === "save") {
+    if (message.author?.id === game.user.id && isSaveResult(message)) {
       const rolledActorId = message.speaker?.actor ?? this.actor?.id ?? null;
       const before = this.#pending.length;
       this.#pending = this.#pending.filter(e => {

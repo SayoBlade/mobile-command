@@ -263,7 +263,7 @@ function checkModuleStack() {
   const bits = [];
   const untested = (v, key, name) => `${name} updated to ${v} — not tested with this app yet (last tested ${TESTED[key]})`;
   const dnd = game.system.version;
-  if (!dnd.startsWith("5.")) bits.push(`D&D 5e ${dnd} — this app is built for 5.3`);
+  if (!/^[56]./.test(dnd)) bits.push(`D&D 5e ${dnd} — this app is built for 5.3 and 6.0`);
   else if (dnd !== TESTED.dnd5e) bits.push(untested(dnd, "dnd5e", "D&D 5e"));
   const midi = game.modules.get("midi-qol");
   if (!midi?.active) bits.push("Midi QOL is off — attacks from a phone won't work");

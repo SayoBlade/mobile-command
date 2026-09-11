@@ -19,7 +19,7 @@
 //   and the caveat is the honest part (§44.4): a three-kill fireball, a familiar's chip
 //   damage, simultaneous hits can mis-credit.
 // - `createChatMessage` (executor only) — death saves and luck. Every d20 test posts a chat
-//   card carrying `flags.dnd5e.roll.type` and its Roll; parsing chat needs no cross-client
+//   card carrying its roll type (5.3 flags.dnd5e.roll.type, 6.0 message.type + system) and its Roll; parsing chat needs no cross-client
 //   writes and no roll-hook surgery. Known undercount: midi's merge-card mode can attach an
 //   attack roll to its card AFTER creation, and those d20s slip the luck tally.
 //
@@ -29,6 +29,7 @@
 // The worthy bar is CR > level, strictly (DM 2026-08-15).
 
 import { MODULE_ID } from "./preset.js";
+import { messageRollKind } from "./dnd5e-compat.js"; // 5.3 flags vs 6.0 message subtypes
 import { isExecutor } from "./settings.js";
 import { clockLabel } from "./gametime.js";
 
@@ -355,7 +356,7 @@ async function onChatMessage(msg) {
   let actor = null;
   try { actor = ChatMessage.getSpeakerActor(msg.speaker); } catch (e) { return; }
   if (actor?.type !== "character") return;
-  const rollType = msg.getFlag?.("dnd5e", "roll")?.type;
+  const rollType = messageRollKind(msg); // 5.3 flags.dnd5e.roll.type / 6.0 message.type + system (dnd5e-compat.js)
   const d = readDeeds(actor);
   let dirty = false;
   for (const roll of msg.rolls) {

@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { aeKey } from "./dnd5e-compat.js"; // 6.0 renamed the roll-bonus keys the blessing targets
 
 // §34 Fateweaving — the book's per-PC story-arc system as a TRACKER, not automation. Thread
 // NAMES are the book's (titles, like the tarot card names); every goal line below is our own
@@ -47,11 +48,11 @@ export async function applyFateReward(actor, step) {
       img: "icons/svg/angel.svg",
       duration: { seconds: 86400 },
       changes: [
-        { key: "system.bonuses.abilities.save", mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" },
-        { key: "system.bonuses.mwak.attack", mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" },
-        { key: "system.bonuses.rwak.attack", mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" },
-        { key: "system.bonuses.msak.attack", mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" },
-        { key: "system.bonuses.rsak.attack", mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" }
+        { key: aeKey("system.bonuses.abilities.save"), mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" },
+        { key: aeKey("system.bonuses.mwak.attack"), mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" },
+        { key: aeKey("system.bonuses.rwak.attack"), mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" },
+        { key: aeKey("system.bonuses.msak.attack"), mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" },
+        { key: aeKey("system.bonuses.rsak.attack"), mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "+1d4" }
       ],
       flags: { [MODULE_ID]: { fateweaving: 2 } }
     }]);

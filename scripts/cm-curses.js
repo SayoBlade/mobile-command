@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { aeKey } from "./dnd5e-compat.js"; // 6.0 renamed the senses key the Dimmed curse overrides
 
 // §33 Chaotic Curses — fleeting, RP-focused afflictions per the book's Appendix C shape:
 // they last REAL-WORLD minutes (default 20), alter perception/behavior/body, and stay light
@@ -30,7 +31,7 @@ const PALSIED = {
 const DIMMED = {
   name: "Dimmed",
   text: "The dark took back its gift. It says you never thanked it.",
-  changes: () => [{ key: "system.attributes.senses.darkvision", mode: M().OVERRIDE, value: "0" }]
+  changes: () => [{ key: aeKey("system.attributes.senses.darkvision"), mode: M().OVERRIDE, value: "0" }]
 };
 const COTTON = {
   name: "Cotton Ears",
