@@ -53,7 +53,7 @@ sections their cross-references always claimed).
 | 25 | DM panel restructure + combat music | Built; §25.4 leftovers pruned by DM 2026-08-09 |
 | 26, 26.6, 26.7 | Effects tab; targeted effects; deathbeat | Built; extras APPROVED 2026-08-09 (stop-all done; volume/surround/looks queued) |
 | 27 | Personal messages | Built (+ pmToast 2026-08-10/11) |
-| 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records |
+| 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records; **§28.5.13 = the dnd5e 6.0 gate (2026-09-11): our code ready, midi not** |
 | 29 | Settings mini-app | Built + bench-verified 12/12 (2026-08-01) |
 | 30, 30.1, 30.2 | Séance board + the bite | Built — the quality bar |
 | 31 | Twists of Fate (book RAW) | Built; **v3 2026-09-05 = DM popup + by-hand die (DM call), v2 auto-apply retired from the panel** (hooks kept for leftovers); the cancelled-dialog consume bug closed with it (§28.5.11) |
@@ -2060,6 +2060,13 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
      stop-all vs tickets · panel handler catch-all · music-driver flip · tally nat-20 ·
      online-no-screen overlays · ticket punch channel · dead CSS / sub-44px targets /
      reduced-motion gates.
+   - **dnd5e 6.0 (DM updated by accident 2026-09-10; §28.5.13):** OUR code is 6.0-ready and
+     5.3-compatible (the `dnd5e-compat.js` seam); the STACK is not — midi-qol 14.0.12 declares
+     dnd5e ≤ 5.3.99 and Foundry silently drops it from any world launched on 6.0; forced on it
+     throws on actor updates. **DM decision owed: roll dnd5e back to 5.3.3 now (lossless — no
+     world of his has launched on 6.0) or sit at the setup page until midi ships a 6.x build.**
+     Then: rerun §28.4 on 6.0 → bump `TESTED.dnd5e` + module.json `verified` + the CLAUDE.md
+     line. The 6.0 benefits list (§28.5.13, six items) waits behind that.
    - **From the 2026-09-10 stack run (§28.5.12):** CAT 0.0.7 bricks Roll NPCs when a combatant's
      actor is gone (throws in its SummonsManager) — the panel's Roll NPCs should name/skip
      actor-less combatants · midi 14.0.12 targets under the Place PREVIEW while the DM aims
@@ -3690,6 +3697,95 @@ Combat confirm):** Bandit B HP 2→11 (healed for the legs, DEX restored to 12),
 Shocking Grasp / Thunderwave set prepared, Player 2 briefly owned the Evoker (reverted), the OLD
 unscoped started combat (`3prKuD2FGWhiDNC8`, with the "Test Wizard" husk) is still there for the
 DM, `user.character` back to none, world re-paused, GM seat released.
+
+### 28.5.13 dnd5e 6.0.0 (DM updated by accident 2026-09-10; audit + bench 2026-09-11) — OUR CODE IS 6.0-READY, THE STACK IS NOT
+
+**Where the DM stands:** his Foundry sits at the setup page (`options.json` `world: null`); every
+world's `world.json` still says `systemVersion 5.3.3` — nothing of his has been migrated. A
+rollback to 5.3.3 (install the `release-5.3.3` manifest) is therefore lossless. **Do not launch a
+world on 6.0 with the current stack** — the first launch migrates it AND silently drops midi.
+
+**The gate, bench-proven (headless COPY of Offline test on port 30001, DM's Foundry untouched):**
+1. midi-qol 14.0.12 declares dnd5e `maximum: 5.3.99` (module.json + the v14 branch manifest;
+   the v14 changelog's newest entry is 14.0.12, no 6.0 line). Foundry's world-launch sanitiser
+   deletes every configured module whose availability is UNVERIFIED_SYSTEM, and writing
+   `core.moduleConfiguration` with it true comes back false — **Midi vanishes from the world
+   with no message anywhere.** Preflight now names the ceiling (114515d).
+2. Forced on (bench-only copy of midi with a widened manifest): it boots, `MidiQOL` exists, but
+   every actor update logs `TypeError: Cannot create property 'rules' on number '1'` (the only
+   `.rules =` in dnd5e is `_buildDamageConfig(process, config, formData, index)` — 6.0 added the
+   leading `process`; midi's 5.3-era plumbing is the caller — exact call site not pinned). The
+   §28.4 script is therefore NOT runnable on 6.0 until midi ships a 6.x build; pins stay at 5.3.3.
+3. Ceilings elsewhere: AC5E 14.533.18 and wm5e 14.533.6 say `maximum 6.0.0` (fine on 6.0.0, would
+   drop at 6.0.1); CAT 0.0.7 is verified 6.0.0; DAE 14.0.14, MISC 2.0.2, simplecover 2.2.2 declare
+   none. The five old `midi-qol.damage` cards fail validation while midi is off (subtype
+   unregistered) — cosmetic, they validate again the moment midi is on.
+
+**What 6.0 changed for us (compiled source read; release notes cross-checked):**
+- Chat cards are typed ChatMessage subtypes: `flags.dnd5e.roll` is GONE (migrated into
+  `message.type` + `message.system`; a save is `type:"save"`, `system.type` ability/concentration/
+  death; a check is `type:"check"` with `system.skill/tool`, initiative `system.type:"initiative"`).
+  A 6.0 card may carry no `flags.dnd5e` at all. Broke: deeds' death-save recorder, the shell's
+  save-prompt close, pm's note-vs-card filter.
+- AE keys renamed with shims: `system.bonuses.*` → `system.rolls.{attack,damage,ability}.*.bonus`
+  (shim until 7.0), `senses.<k>` → `senses.ranges.<k>` (shim until 6.1), movement → `speeds.*`.
+  Broke-with-warning: fateweaving's blessing, the Dimmed curse.
+- AC: `calcs` (Set) + `formulas` (list), best wins; `ac.calc` still names the winner ("armored"
+  replaces "default"; "flat" is now `ac.override`). The phone's AC card branched on the old names.
+- Default calendar: `CONFIG.time.worldCalendarClass = CalendarData5e` on every world, calendar
+  feature off by default — our "deliberate world calendar" test read every 6.0 world as
+  calendared (`hasWorldCalendar()` true → clock chip hijacked). Fixed by name + dnd5e toggle.
+- Unchanged and verified: `dnd5e.preRollD20Test` / `postD20TestRollConfiguration` (death +
+  concentration still route through `rollSavingThrow` → "d20Test", same as 5.3.3),
+  `preRollAttackV2`/`rollAttackV2`, `advancementManagerComplete`, every roll method signature we
+  call, `applyEnchantment`, `transformInto` + `TransformationSetting`, `registry.spellLists`,
+  `flags.dnd5e.{summon,cachedFor,advancementOrigin}`, the CONFIG tables we read.
+
+**Fixes (all committed, not pushed):** `scripts/dnd5e-compat.js` — D6's adapter as a file:
+`messageRollKind` / `isSaveResult` / `isDnd5eCard` / `aeKey` / `acShape` (37be4a2) · calendar
+detection (e63d9aa) · preflight ceiling warning (114515d) · string change types for Foundry 14
+(the numeric `CONST.ACTIVE_EFFECT_MODES` shim warned on every fateweaving/curse write). 5.3.3
+stays supported — midi tables cannot leave it yet.
+
+**Bench proof on vanilla 6.0 (midi off), one at a time:** 1 ✓ `rollSavingThrow` → `type:"save"`,
+no flags.dnd5e, kind "save", isSaveResult true, pm false · 2 ✓ death save at 0 HP → kind
+"death", deeds dsMade 0→1 · 3 ✓ acShape(Brekka) = armored/Chain Mail · 4 ✓ fate blessing lands
+on `rolls.attack.*.bonus` + `rolls.ability.save.bonus`, no deprecation warning · 5 ✓ Dimmed
+writes `senses.ranges.darkvision`, 60→0 · 6 ✓ armed twist → `1d20min20`, nat 20, arm consumed ·
+7 ✓ hasWorldCalendar false on the default calendar (was true before the fix) · 8 ✓ headless
+suite green (twists 30, deeds 33, character-file 12, ember 49, plus tarot/masteries/repaint/
+druskenvald). Residue in the COPY only (chat cards, a fate effect) — the DM's world is untouched.
+
+**Bench trap log:** PowerShell `Set-Content -Encoding utf8` writes a BOM → Foundry silently
+ignores that module.json (midi "absent" for a whole cycle) · a force-killed server leaves
+`Config/options.json.lock` (proper-lockfile) → "already locked by another process" · `modules/`
+as a real dir of per-module junctions lets ONE module be a patched copy without touching the
+DM's install · the console buffer drops boot messages — wrap `console.error` in-page and trigger
+the action again.
+
+**6.0 benefits worth building on (deep dive; each tied to code we run today):**
+- **Native roll requests** (`type:"request"` cards, `CONFIG.DND5E.requests` handlers save/skill/
+  rest, `PartyRequestDialog.sendRequest`, results recorded per target on the card): the phone's
+  save prompt fallback (`shell.js maybeSavePromptFromCard`, regex over midi's whisper text) and
+  the DM panel's ask-for-a-roll could read `system.targets` + `system.data` instead — and vanilla
+  (no-midi) tables get a real save-request path for free.
+- **Token sense sync** (`senseVisionSync`, default on; `TokenDocument5e.computeSenseOverrides` at
+  prepare time): sight range/visionMode/detection modes now derive from senses on every token.
+  `rpc.js actorTokenSight` + `main.js syncPartyTokenSight` shrink to "enable sight + our
+  darkvision saturation" on 6.0 — the range/detection half is dnd5e's now.
+- **Rule-type changes** (`dnd5e.bonus/advantage/minimum/maximum`, filterable by roll category,
+  weapon/spell type, resolved at roll time): fateweaving's five-key blessing becomes ONE change;
+  curses that should bite only certain rolls become expressible without midi flags.
+- **Typed message data** (`system.targets` with actor+token UUIDs and AC, `system.deltas` HP
+  changes on attack/damage/save cards): deeds' damage/kill attribution and the Hit/Miss badge
+  (§28.7) have a midi-free source of truth.
+- **Calendar + sun** (`CalendarData5e.sunrise/sunset/daylightHours`, `calendarConfig`, Dawn/Dusk
+  recovery on time advance, `dnd5e.setupCalendar`): gametime.js's third backend once the DM
+  enables the dnd5e calendar; our travel/watch time advances trigger dnd5e's own recovery.
+- Smaller: `autoApplyDowned` (unconscious/dead at 0 HP, in combat) beside our dead marker;
+  `initiativeGroupCombatants/Roll` behind the panel's Roll NPCs; `tokenSizeSync`; group actor
+  Place-Members auto-joins combat; `dnd5e.settings.<key>` live proxy replaces settings.get calls.
+None of it is built — each is a DM call once the stack can move (ledger item 0).
 
 ### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
 
