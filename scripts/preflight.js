@@ -236,11 +236,13 @@ function checkTeleportRegions() {
 // (The silent 14.0.8→14.0.11 drift is what caused the 2026-07-26 bug wave to land mid-week
 // with no warning — this check exists so an update is always a DECISION, never a surprise.)
 const TESTED = {
-  // AC5E 14.533.15.6 validated on the overnight bench 2026-08-28/29 (DESIGN §28.5.10): the full
+  // AC5E 14.533.19: attack path byte-identical to .18 by diff; preview + legs 3/4/8 rerun on the
+  // bench 2026-09-15 (DESIGN §28.5.14, PARTIAL — leg 6 had no vehicle). Earlier: 14.533.15.6 was
+  // validated on the overnight bench 2026-08-28/29 (DESIGN §28.5.10): the full
   // §28.4 run, 12/12 — two-tap, MM darts, save spell, AoE via panel Place, AoO chip, target
   // hygiene (that leg CAUGHT the placeCast stray-target gap, fixed same night), music matrix
   // incl. mid-combat reload re-arm, turn HUD, this very check naming the version under test.
-  "dnd5e": "5.3.3", "midi-qol": "14.0.12", "automated-conditions-5e": "14.533.18",
+  "dnd5e": "5.3.3", "midi-qol": "14.0.12", "automated-conditions-5e": "14.533.19",
   // The automation-ecosystem pair, deep-dived together 2026-07-26 (§28.6): versions move
   // weekly (CAT is 0.0.x), so any bump gets the same validation treatment as midi's.
   "cat": "0.0.7", "midi-item-showcase-community": "2.0.2",
