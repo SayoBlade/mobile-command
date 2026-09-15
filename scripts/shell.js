@@ -5730,6 +5730,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const rec = s.recommendation;
     const recBanner = !s.hasAttack ? ""
       : s.recPending && !rec ? `<div class="mc-rec mc-rec-pending"><i class="fas fa-circle-notch fa-spin"></i> Checking adv/dis…</div>`
+      : rec?.unevaluated && rec.unevaluated !== "ac5e-not-active"
+        ? `<div class="mc-rec mc-rec-pending"><i class="fas fa-circle-question"></i> Couldn't check advantage — choose it yourself</div>`
       : rec && rec.reasons?.length
         ? `<div class="mc-rec mc-rec-${rec.mode}">
              <ul class="mc-rec-reasons">${rec.reasons.map((r) => `<li class="mc-rec-${r.kind}">${foundry.utils.escapeHTML(r.label)}</li>`).join("")}</ul>
@@ -6653,11 +6655,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     rpc.previewTargets({ tokenUuids: [] });
   }
 
-  // §14: AC5E's adv/dis recommendation + the named reasons (WHY). The executor runs a
-  // throwaway, HIDDEN pre-roll so AC5E annotates (it can't be read without rolling),
-  // and returns {mode, reasons}. The pre-roll is suppressed there (blind + DSN off +
-  // card deleted); players never see it (phones hide chat, no canvas). Pre-selects the
-  // recommended button (player can still override) and lists the causes.
+  // §14: AC5E's adv/dis recommendation + the named reasons (WHY). The executor asks AC5E's
+  // evaluator directly on a dnd5e-shaped roll config — nothing rolls, nothing is shown to
+  // anyone (2026-09-15; the hidden throwaway roll it replaced is history in rpc.js) — and
+  // returns {mode, reasons, unevaluated}. Pre-selects the recommended button (player can still
+  // override) and lists the causes; an unevaluated check says so instead of pretending.
   async #refreshAttackPreview() {
     const s = this.#actionState;
     if (!s || !s.hasAttack) { if (s) s.recommendation = null; return; }
@@ -6672,7 +6674,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     s.recPending = false;
     if (res?.ok) {
       s.recommendation = { mode: res.mode ?? "normal", reasons: res.reasons ?? [], unevaluated: res.unevaluated ?? null };
-      if (["advantage", "normal", "disadvantage"].includes(res.mode)) s.adv = res.mode; // pre-select; overridable
+      // Pre-select only a REAL verdict; an unevaluated check must not reset the player's own pick.
+      if (!res.unevaluated && ["advantage", "normal", "disadvantage"].includes(res.mode)) s.adv = res.mode;
     } else {
       s.recommendation = null;
     }

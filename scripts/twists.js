@@ -34,7 +34,7 @@
 // roll is usually a save made on someone ELSE'S turn, and out of combat the visible chip —
 // not a timer — keeps a stale arm honest.
 
-import { MODULE_ID, attackPreviewLatch } from "./preset.js";
+import { MODULE_ID } from "./preset.js";
 
 export const ARMED_FLAG = "twistArmed";
 
@@ -81,12 +81,11 @@ export async function disarmTwist(actor) {
 export function registerTwists() {
   // Arm the die. Idempotent and cheap (one in-memory flag read per d20 roll), so it runs on
   // every client — whichever one ends up performing the roll does the forcing itself.
-  // The attack-preview guard (both hooks): the phone's adv/dis hint runs a HIDDEN midi
-  // pre-roll (§28.8 Round 34) that is a real d20 test — without the guard an armed twist
-  // forced, and CONSUMED itself on, the invisible throwaway, and the player's actual attack
-  // rolled un-fated (caught live on the first forced-ATTACK leg, 2026-08-25).
+  // (Until 2026-09-15 both hooks skipped while an attack-preview latch was up: the phone's adv/dis
+  // hint rolled a HIDDEN throwaway d20 that an armed twist forced and consumed itself on, leaving
+  // the real attack un-fated — caught live 2026-08-25. The preview no longer rolls anything
+  // (rpc.js attackPreviewBody asks AC5E directly), so there is no throwaway to guard against.)
   Hooks.on("dnd5e.preRollD20Test", (config) => {
-    if (attackPreviewLatch.up) return;
     const armed = armedTwistOf(rollSubjectActor(config));
     if (armed) applyTwistToRollConfig(config, armed);
   });
@@ -95,7 +94,6 @@ export function registerTwists() {
   // wait on a server round-trip, and the rolling client can always write here (the executor
   // and DM clients are GMs; a player rolling their own save owns their own actor).
   Hooks.on("dnd5e.postD20TestRollConfiguration", (rolls, config) => {
-    if (attackPreviewLatch.up) return; // the hidden preview roll is not a use
     if (config?.evaluate === false) return; // built but never thrown — not a use
     // A CANCELLED dialog still fires this hook — with an empty roll list (dnd5e 5.3.3
     // RollConfigurationDialog clears #rolls on an unsubmitted close and buildConfigure runs

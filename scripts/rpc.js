@@ -1,4 +1,4 @@
-import { MODULE_ID, attackPreviewLatch } from "./preset.js";
+import { MODULE_ID } from "./preset.js";
 import { clockLabel } from "./gametime.js"; // in-world date stamps on story entries (§38.4)
 import { recordExtraDamage } from "./deeds.js"; // §44: extra-instance darts bypass midi's damageList
 import { resolveExecutorId, isExecutor, reactionTimeoutMs, DISPLAY_LEVEL } from "./settings.js";
@@ -1230,14 +1230,6 @@ async function handleItemUseStart(payload) {
   markPhoneAction(activity.item?.name, requesterId); // dialog watchdog: arm for this action
 
   const hasAttack = activity.type === "attack";
-  // Defer while an attack preview is mid-flight (2026-08-25): the preview suppresses chat-card
-  // creation for its throwaway, and a fire inside that window lost its OWN card — midi 14 then
-  // aborts the workflow with zero output (useResults.message.uuid, midi-qol.js:7714). The phone
-  // fires 1-2s after target-pick, so on a slow executor this raced for real. Cap the wait at
-  // the preview's own bound; a stuck latch can cost at most that.
-  for (let waited = 0; attackPreviewLatch.up && waited < 12000; waited += 100) {
-    await new Promise(r => setTimeout(r, 100));
-  }
   // Multi-instance targets (Magic Missile darts, DM 2026-07-05): the phone sends
   // DUPLICATE uuids ([A, A, B] = two darts on A). midi's target set dedupes, so the
   // workflow runs on the UNIQUE targets; the duplicate counts are remembered and
@@ -1824,24 +1816,64 @@ async function handleSetMovementAction({ tokenId, action, requesterId }) {
   return { ok: true, action };
 }
 
-// §14: surface AC5E's adv/dis recommendation for an attack on the phone. The
-// phone can't evaluate it (no canvas/targets — AC5E bails), so the executor asks
-// AC5E directly: set the target(s), fire dnd5e's attack-roll config build (which
-// triggers AC5E's preRollAttackV2 hook → it annotates config.options[ac5e]), read
-// the result, and ABORT the roll (return false) — no dice, no chat. We then
-// normalise to {mode, reasons} for the phone. `raw` is returned for diagnostics
-// while this is verified live on the DM client (hook order / clean abort).
-// Previews run ONE AT A TIME (QA 2026-09-04 H10). The body below saves-then-restores
-// Sequencer/AA/hook state around a throwaway roll; two phones tapping targets a second
-// apart made B save A's STUB as "the original", so B's restore left the animations stubbed
-// until reload — and A's finally dropped the latch while B's chat-card veto was still armed.
-// A serial chain costs the second phone at most one preview's wait.
+// §14: surface AC5E's adv/dis recommendation for an attack on the phone. The phone can't
+// evaluate it (no canvas/targets — AC5E bails), so the executor asks AC5E DIRECTLY: set the
+// target(s), build the attack-roll config exactly as dnd5e's AttackActivity#rollAttack builds
+// it, hand it to AC5E's own evaluator (`_preRollAttack`, the function behind its
+// dnd5e.preRollAttack listener), and read the annotation it leaves on the config. NOTHING ROLLS:
+// no dice, no chat card, no Dice So Nice, no Automated Animations — there is no event for any
+// module to notice, so there is nothing to suppress.
+//
+// HISTORY, so nobody reinvents it (2026-07-12 → 2026-09-15): this ran a THROWAWAY attack roll as
+// the doorbell for that listener, wrapped in ~80 lines that hid the roll — a Dice So Nice veto,
+// a preCreateChatMessage veto with a 15 s self-expiry, Automated Animations + Sequencer stubs,
+// the post-roll hook arrays emptied in place, a message sweep, and a latch the twists and the
+// two-tap fire deferred on. It still leaked: the DM's players watched phantom swings
+// (DM 2026-09-11: "very confusing for players"; "I'd hate to revert to phantom swings again").
+// Every one of those lines protected a roll that no longer happens. DESIGN §28.5.14 has the
+// bench proof (19–37 ms, zero cards, zero dice, verdicts tracking conditions);
+// deck-command/ADVANTAGE.md the write-up.
+//
+// Previews still run ONE AT A TIME (QA 2026-09-04 H10): a preview mutates game.user.targets
+// on the executor and restores it after, so two phones previewing at once would fight over
+// the set. A serial chain costs the second phone at most one preview's wait (~40 ms now).
 let attackPreviewChain = Promise.resolve();
 function handleAttackPreview(payload) {
   const run = attackPreviewChain.then(() => attackPreviewBody(payload));
   attackPreviewChain = run.catch(() => {});
   return run;
 }
+
+const AC5E_ID = "automated-conditions-5e";
+
+// The roll config dnd5e 5.3.3's AttackActivity#rollAttack builds before D20Roll.buildConfigure
+// fires the pre-roll hooks (dnd5e.mjs:28450 — read, not remembered): ammunition/attackMode/
+// mastery from the item's last-used flags, validated against the item's own option lists; the
+// single target's AC; the two hook names; roll 0 carrying only its options (the dice parts are
+// built later by _buildAttackConfig — AC5E does not need them); the activity as subject.
+// (There is no `getAttackData` in 5.3.3 — ADVANTAGE.md §4 guessed one.)
+function buildAttackRollConfig(activity, targetTokens) {
+  const item = activity.item;
+  const last = (k) => item.getFlag("dnd5e", `last.${activity.id}.${k}`);
+  const config = { ammunition: last("ammunition"), attackMode: last("attackMode"), mastery: last("mastery") };
+  const ammo = [...(item.system.ammunitionOptions ?? [])];
+  if (ammo.length) ammo.unshift({ value: "", label: "" });
+  if (config.ammunition === undefined) config.ammunition = ammo[1]?.value;
+  else if (!ammo.find((m) => m.value === config.ammunition)) config.ammunition = ammo[0]?.value;
+  const modes = item.system.attackModes;
+  if (!modes?.find((m) => m.value === config.attackMode)) config.attackMode = modes?.[0]?.value;
+  const masteries = item.system.masteryOptions;
+  if (!masteries?.find((m) => m.value === config.mastery)) config.mastery = masteries?.[0]?.value;
+  const single = targetTokens.length === 1 ? targetTokens[0] : null;
+  config.target = single?.actor?.system?.attributes?.ac?.value ?? undefined;
+  config.hookNames = ["attack", "d20Test"];
+  config.rolls = [{ options: {
+    ammunition: config.ammunition, attackMode: config.attackMode, criticalSuccess: activity.criticalThreshold, mastery: config.mastery
+  } }];
+  config.subject = activity;
+  return config;
+}
+
 async function attackPreviewBody({ attackerTokenId, activityUuid, targetTokenUuids = [], requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
@@ -1856,8 +1888,7 @@ async function attackPreviewBody({ attackerTokenId, activityUuid, targetTokenUui
   try { activity = await fromUuid(activityUuid); } catch (e) { return { ok: false, stage: "resolve", reason: e.message }; }
   if (!activity?.rollAttack) return { ok: false, stage: "resolve", reason: "activity has no attack roll" };
 
-  const MID = "automated-conditions-5e";
-  if (!game.modules.get(MID)?.active) return { ok: true, mode: "normal", reasons: [], unevaluated: "ac5e-not-active" };
+  if (!game.modules.get(AC5E_ID)?.active) return { ok: true, mode: "normal", reasons: [], unevaluated: "ac5e-not-active" };
 
   // Target the chosen tokens so AC5E evaluates the real situation (it reads
   // game.user.targets). v14: token.setTarget — updateTokenTargets was removed.
@@ -1872,106 +1903,39 @@ async function attackPreviewBody({ attackerTokenId, activityUuid, targetTokenUui
   }
   setTargets(wanted, true);
 
-  // Capture AC5E's annotation, then UNDO its forced dialog so the throwaway can complete silently.
-  // AC5E annotates config.options[ac5e] in its own preRollAttackV2 listener (registered at init → runs
-  // before ours; ours is added dynamically → runs last), so the data is already there when we run.
-  //
-  // WHY (DM 2026-07-17): AC5E's `visibilityChecks` turns an unseen attacker/target into an OPTIN
-  // entry, and its `forceDialogConfigureForOptins` overrides our `configure:false` → it forces midi's
-  // Attack-Roll dialog onto the EXECUTOR. The "roll blind + delete card" throwaway then `await`ed a
-  // roll stuck behind that dialog → attackPreview HUNG and the phone never got its pre-roll (repro'd
-  // live: 4s hang on "Attack Roll", clicking did nothing). We do NOT abort (return false) — history
-  // showed midi ignores that on a wrapped roll and rolls a phantom die (Rounds 31/34). Instead we
-  // set `configure` back to false AFTER AC5E forced it, so the blind roll proceeds with no dialog and
-  // the existing DSN/card/AA suppression below hides it — the proven path, minus the hang.
   let ac5 = null, raw = null;
-  const hookId = Hooks.on("dnd5e.preRollAttackV2", (config, dialog) => {
-    try {
-      const a = foundry.utils.getProperty(config, `options.${MID}`) ?? config?.[MID] ?? config?.rolls?.[0]?.options?.[MID] ?? null;
-      if (a) { ac5 = a; raw = { advantageMode: a.advantageMode, defaultButton: a.defaultButton, subAdv: a.subject?.advantage, subDis: a.subject?.disadvantage, oppAdv: a.opponent?.advantage, oppDis: a.opponent?.disadvantage }; }
-    } catch (e) { raw = { err: e.message }; }
-    if (dialog && typeof dialog === "object") dialog.configure = false;         // undo AC5E's forced dialog
-    if (config?.dialog && typeof config.dialog === "object") config.dialog.configure = false;
-  });
-  // SELF-EXPIRING vetoes (2026-08-25, the wedge of the night): a leaked card veto — however it
-  // leaks (a throw before the finally, an interleaved preview, anything) — silently blocked
-  // EVERY later chat card, and midi 14 then aborts every workflow with zero output (its use()
-  // reads useResults.message.uuid, midi-qol.js:7714): the table reads "attacks do nothing until
-  // reload". A veto that outlives its 15s window now stops vetoing on its own, so the worst
-  // leak costs one noisy preview, never the table.
-  const vetoUntil = Date.now() + 15000;
-  const dsnHook = Hooks.on("diceSoNiceRollStart", () => (Date.now() < vetoUntil ? false : undefined)); // suppress the 3D dice for the throwaway
-  // Block the throwaway's chat card outright (create:false isn't honored on every midi
-  // path) — no card means Automated Animations / DSN never fire on it, AND the executor
-  // isn't stalled animating it right before the real attack (which can push the real
-  // attack's total past resolveAttackTotal's window → the phone's "—"). Scoped to this roll.
-  const cardHook = Hooks.on("preCreateChatMessage", () => (Date.now() < vetoUntil ? false : undefined));
-  // Automated Animations plays a "test swing" (JB2A) on the throwaway roll because it hooks
-  // dnd5e.rollAttackV2 directly (not just the card) — DM 2026-07-12. Stub its single play entry
-  // (AutomatedAnimations.PlayAnimation) for the duration of this roll only; restored in finally.
-  const AA = globalThis.AutomatedAnimations;
-  // The old stub targeted `AA.PlayAnimation` (capital P) — the name in AA's own deprecation
-  // warning, but NOT what it exposes: the live API is `playAnimation` (lowercase), so the stub
-  // silently never installed and the DM watched a phantom swing on every target tap. Worse, the
-  // public entry isn't even the path that animates: bench 2026-08-02 measured ONE Sequencer play
-  // and ZERO public-API calls per preview, because AA animates from its own hook handler.
-  // So suppress where every AA path converges — Sequencer's play() — for the length of the
-  // throwaway only, and stub both API spellings for good measure. Restored in `finally`.
-  const savedAAPlay = {};
-  for (const k of ["playAnimation", "PlayAnimation"]) {
-    if (AA && typeof AA[k] === "function") { savedAAPlay[k] = AA[k]; AA[k] = async () => {}; }
-  }
-  const SeqProto = globalThis.Sequence?.prototype;
-  const savedSeqPlay = (SeqProto && typeof SeqProto.play === "function") ? SeqProto.play : null;
-  if (savedSeqPlay) SeqProto.play = function () { return Promise.resolve(this); }; // AA awaits it
-  // …but a stub alone loses the race: AA's post-roll handler is ASYNC, so it starts on the hook
-  // and only reaches Sequencer ~125ms later — measured 2026-08-02: hook at 85ms, roll returns at
-  // 96ms, animation at 210ms, i.e. well after `finally` put everything back. So ALSO silence the
-  // post-roll hooks for the length of the throwaway, which stops AA before it ever starts. The
-  // array is emptied in place and refilled, so listener ids/order survive (Hooks.off elsewhere
-  // keeps working). Nothing SHOULD react to a phantom roll — that is the point of it.
-  const hookStore = Hooks.events ?? null;
-  const silenced = [];
-  for (const h of ["dnd5e.rollAttackV2", "dnd5e.rollAttack"]) {
-    const arr = hookStore?.[h];
-    if (Array.isArray(arr) && arr.length) { silenced.push([arr, arr.splice(0, arr.length)]); }
-  }
-  const msgIdsBefore = new Set(game.messages.keys());
   try {
-    attackPreviewLatch.up = true; // §31-v2: the twist hooks must ignore this throwaway (see preset.js)
-    // BOUNDED (2026-08-25, caught live): this await can hang forever (a stalled hook chain on a
-    // hidden client; historically AC5E's forced dialog). An unbounded hang meant the `finally`
-    // never ran, and the suppression hooks above — including preCreateChatMessage → false —
-    // stayed registered, silently VETOING every later chat card: midi workflows then aborted
-    // with no output at all ("attack does nothing until reload"). The race guarantees the
-    // suppressors are always lifted; a late throwaway card just gets deleted by the sweep below
-    // on the next preview, which is the lesser evil by miles.
-    await Promise.race([
-      activity.rollAttack({}, { configure: false }, { create: false, rollMode: CONST.DICE_ROLL_MODES.BLIND }),
-      new Promise(res => setTimeout(res, 10000))
-    ]);
-  } catch (e) { /* non-fatal */ }
-  finally {
-    Hooks.off("dnd5e.preRollAttackV2", hookId);
-    Hooks.off("diceSoNiceRollStart", dsnHook);
-    Hooks.off("preCreateChatMessage", cardHook);
-    for (const [k, fn] of Object.entries(savedAAPlay)) AA[k] = fn; // restore Automated Animations
-    if (savedSeqPlay) SeqProto.play = savedSeqPlay;                // and Sequencer
-    for (const [arr, saved] of silenced) arr.push(...saved);       // and the post-roll hooks
-    // create:false isn't honored on every midi path — delete any throwaway card it made.
-    for (const m of game.messages.filter((mm) => !msgIdsBefore.has(mm.id))) { try { await m.delete(); } catch (e) {} }
+    // AC5E's evaluator, imported from its own hook file. Not an advertised API: if a release
+    // renames it, this throws HERE — loudly, in the executor console — and the phone gets
+    // "couldn't check", never a phantom roll in front of players (DESIGN §28.5.14).
+    const path = `/modules/${AC5E_ID}/scripts/ac5e-hooks.mjs`;
+    const hooks = await import(foundry.utils.getRoute?.(path) ?? path);
+    if (typeof hooks._preRollAttack !== "function") throw new Error("ac5e-hooks.mjs no longer exports _preRollAttack");
+    const config = buildAttackRollConfig(activity, wanted);
+    const dialog = { configure: false, options: {} };
+    const message = { create: false, data: {
+      flavor: `${activity.item.name} - ${game.i18n.localize("DND5E.AttackRoll")}`,
+      flags: { dnd5e: { ...activity.messageFlags, messageType: "roll", roll: { type: "attack" } } },
+      speaker: ChatMessage.getSpeaker({ actor: activity.actor })
+    } };
+    hooks._preRollAttack(config, dialog, message, "attack");
+    // AC5E writes onto roll 0's options (_ensureRoll0Options); the other two spots are kept in
+    // case a future AC5E moves it — a miss there reads as "did not annotate", never as a crash.
+    ac5 = config.rolls?.[0]?.options?.[AC5E_ID] ?? config[AC5E_ID] ?? config.options?.[AC5E_ID] ?? null;
+    if (ac5) raw = { advantageMode: ac5.advantageMode, defaultButton: ac5.defaultButton, subAdv: ac5.subject?.advantage, subDis: ac5.subject?.disadvantage, oppAdv: ac5.opponent?.advantage, oppDis: ac5.opponent?.disadvantage };
+  } catch (e) {
+    // A token the canvas hasn't drawn yet (AC5E's toClipperPoints geometry, §28.1), a renamed
+    // export, anything: the answer is "couldn't check", and the player picks adv/dis themselves.
+    raw = { err: e.message };
+    console.warn(`${MODULE_ID} | attackPreview: AC5E evaluation failed — no adv/dis hint for this attack`, e);
+  } finally {
     setTargets(wanted, false);
     setTargets(prevTargets, true);
-    // The latch drops LAST — it marks "suppressors may be live", and handleItemUseStart defers
-    // a fire while it's up: on a slow client the preview's card veto was still active when the
-    // player's real attack fired 1-2s later, so midi aborted the real workflow with no output
-    // (the whole silent-attack night, 2026-08-25). Real tables have the same race, just narrower.
-    attackPreviewLatch.up = false;
   }
 
   if (!ac5) {
-    console.debug(`${MODULE_ID} | attackPreview: AC5E active but did not annotate the roll (midi may route attacks past dnd5e.preRollAttackV2)`, raw);
-    return { ok: true, mode: "normal", reasons: [], unevaluated: "ac5e-did-not-annotate", raw };
+    console.debug(`${MODULE_ID} | attackPreview: AC5E did not annotate`, raw);
+    return { ok: true, mode: "normal", reasons: [], unevaluated: raw?.err ? "ac5e-threw" : "ac5e-did-not-annotate", raw };
   }
 
   const labelOf = (x) => (typeof x === "string" ? x : (x?.label ?? x?.name ?? x?.id ?? String(x)));

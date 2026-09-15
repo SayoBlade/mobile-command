@@ -53,7 +53,7 @@ sections their cross-references always claimed).
 | 25 | DM panel restructure + combat music | Built; §25.4 leftovers pruned by DM 2026-08-09 |
 | 26, 26.6, 26.7 | Effects tab; targeted effects; deathbeat | Built; extras APPROVED 2026-08-09 (stop-all done; volume/surround/looks queued) |
 | 27 | Personal messages | Built (+ pmToast 2026-08-10/11) |
-| 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records; **§28.5.13 = the dnd5e 6.0 gate (2026-09-11): our code ready, midi not; §28.5.14 = AC5E .19 audit + the no-roll advantage route PROVEN (2026-09-15)** |
+| 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records; **§28.5.13 = the dnd5e 6.0 gate (2026-09-11): our code ready, midi not; §28.5.14 = AC5E .19 audit + the no-roll advantage route PROVEN and BUILT (2026-09-15; §28.8 retired)** |
 | 29 | Settings mini-app | Built + bench-verified 12/12 (2026-08-01) |
 | 30, 30.1, 30.2 | Séance board + the bite | Built — the quality bar |
 | 31 | Twists of Fate (book RAW) | Built; **v3 2026-09-05 = DM popup + by-hand die (DM call), v2 auto-apply retired from the panel** (hooks kept for leftovers); the cancelled-dialog consume bug closed with it (§28.5.11) |
@@ -1103,6 +1103,7 @@ a Light Crossbow). `handleSetTokenLight` (rpc.js, executor, owner-gated) writes 
 **STATUS 2026-07-12 — BUILT END-TO-END, AWAITING THE DM'S LIVE VERIFICATION (the spike's actual deliverable).** Verified by code read: `rpc.js handleAttackPreview` = executor-only; it targets the chosen tokens, registers a one-shot `dnd5e.preRollAttackV2` listener, rolls the attack **blind + hidden** (DSN suppressed via `diceSoNiceRollStart`→false, card blocked via `preCreateChatMessage`→false, any residual message deleted, targets restored) — because a midi-wrapped attack ignores the plain abort and rolls a real die, so the impl HIDES rather than aborts (evolved from the original plan). It captures `options["automated-conditions-5e"]` → normalises `{mode, reasons}` (defaultButton/advantageMode + subject/opponent advantage/disadvantage/fail arrays) → returns `raw` for diagnostics. Phone (`shell.js`): `#refreshAttackPreview` calls it on target change; the target picker shows a "Checking adv/dis…" spinner, then stars the recommended adv/normal/dis button (`.mc-adv-rec`) and lists the named reasons (`.mc-rec`). AC5E-absent → `{mode:"normal", unevaluated:"ac5e-not-active"}` (no hint, by design — we don't reimplement the rules). **DM live test:** reload the DM/executor client; on a phone, tap a weapon attack → pick a target that has an adv/dis condition (e.g. attacker/target Prone, Poisoned, Restrained, or flanking if enabled) → the picker should star the correct button (e.g. Disadvantage for attacking a Prone creature at range) and list the reason. **Watch for regressions the code guards against:** a flashed d20 or a stray attack card on the **TV** (would mean a suppression path leaked), the real attack's total reading "—" (throwaway animation stalled the real roll), or the phone stuck on "Checking adv/dis…" (AC5E didn't annotate → check the executor console `attackPreview` debug line: `mode`/`raw`).
 
 **2026-09-15 — THE FAKE ROLL CAN GO (bench-proven on AC5E 14.533.19 / dnd5e 5.3.3 / midi 14.0.12; record in §28.5.14).** The throwaway roll above was only ever a doorbell for AC5E's `dnd5e.preRollAttack` listener. AC5E's evaluator is reachable directly: `ac5e-hooks.mjs` exports `_preRollAttack(config, dialog, message, "attack")`; handed a config built exactly as dnd5e's `AttackActivity#rollAttack` builds its `rollConfig` (ammunition/attackMode/mastery/target/hookNames/`rolls:[{options}]`/`subject: activity`) with the targets set, it annotates `config.rolls[0].options["automated-conditions-5e"]` — the same object this handler already reads via its third fallback — in 20–40 ms, with NO roll, NO chat card, NO Dice So Nice event. Verdicts tracked conditions (prone attacker → adv+dis cancel to normal; blinded target → advantage). The route was written up for deck-command (`deck-command/ADVANTAGE.md`) and holds for MC unchanged; DM 2026-09-11: "I'd hate to revert to phantom swings again." Build item in the ledger (item 0).
+**BUILT 2026-09-15 (same day as the proof).** `rpc.js attackPreviewBody` now calls AC5E's `_preRollAttack` on a config built the way `AttackActivity#rollAttack` builds one (`buildAttackRollConfig`); nothing rolls. DELETED with it, and the commit says why: the Dice So Nice veto, the `preCreateChatMessage` veto and its 15 s self-expiry, the Automated Animations + Sequencer stubs, the `dnd5e.rollAttack(V2)` hook-array splice, the post-roll message sweep, the 10 s `Promise.race` around the throwaway, the `attackPreviewLatch` (preset.js) with its twists.js guards and the two-tap fire's 12 s wait on it. KEPT: target set/restore, the one-at-a-time chain (targets are shared state), and a try/catch that returns `unevaluated: "ac5e-threw"` for undrawn-token geometry or a renamed export. Phone (`shell.js`): an unevaluated check now renders "Couldn't check advantage — choose it yourself" and no longer resets the player's own adv/dis pick; an evaluated one is unchanged (starred + pre-selected + reasons). Bench 2026-09-15, driven through the executor RPC and then the shell's own picker DOM: identical verdicts to the fake-roll path (advantage / "Target Cannot See Attacker" + "Prone" on the prone bandit; attacker prone → normal; blinded target → advantage), 30–60 ms, ZERO chat cards, ZERO `diceSoNiceRollStart`, ZERO `dnd5e.rollAttack(V2)` firings across six previews incl. two in parallel; prior GM target restored; an injected failure produced the honest banner and recovered on the next toggle. §28.4 leg 3/4 (two-tap hit, parked, damage) re-run clean on the same build.
 
 ---
 
@@ -2069,14 +2070,14 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
      world of his has launched on 6.0) or sit at the setup page until midi ships a 6.x build.**
      Then: rerun §28.4 on 6.0 → bump `TESTED.dnd5e` + module.json `verified` + the CLAUDE.md
      line. The 6.0 benefits list (§28.5.13, six items) waits behind that.
-   - **Retire the phantom swing (DM 2026-09-11: "for now the system makes a 'fake attack' to
+   - ~~**Retire the phantom swing**~~ **BUILT 2026-09-15 (§14 banner, §28.5.14): the fake roll and its ~80 lines of suppression are gone; owed: one live-table glance that no phantom swing shows on the TV.** *(was: DM 2026-09-11: "for now the system makes a 'fake attack' to
      check and it's very confusing for players"; route proven 2026-09-15, §28.5.14 + §14 note):**
      replace `rpc.js attackPreviewBody`'s throwaway `activity.rollAttack` with a direct call to
      AC5E's `_preRollAttack` on a dnd5e-shaped roll config — then DELETE the DSN veto, the chat-card
      veto, the AA/Sequencer stubs, the hook-array splice, the 15 s self-expiring veto, the
      post-roll message sweep and the preview latch's veto half (say in the commit that they hid a
      roll that no longer happens). Keep: target set/restore, the executor serial chain, the
-     `toClipperPoints` try/catch fallback to "normal / unevaluated".
+     `toClipperPoints` try/catch fallback to "normal / unevaluated".)*
    - **From the 2026-09-10 stack run (§28.5.12):** CAT 0.0.7 bricks Roll NPCs when a combatant's
      actor is gone (throws in its SummonsManager) — the panel's Roll NPCs should name/skip
      actor-less combatants · midi 14.0.12 targets under the Place PREVIEW while the DM aims
@@ -3797,7 +3798,7 @@ the action again.
   Place-Members auto-joins combat; `dnd5e.settings.<key>` live proxy replaces settings.get calls.
 None of it is built — each is a DM call once the stack can move (ledger item 0).
 
-### 28.5.14 AC5E 14.533.19 (DM updated 2026-09-15 before asking; audit + bench same day) — NOTHING BREAKS, AND THE NO-ROLL ROUTE IS PROVEN
+### 28.5.14 AC5E 14.533.19 (DM updated 2026-09-15 before asking; audit + bench same day) — NOTHING BREAKS, AND THE NO-ROLL ROUTE IS PROVEN → BUILT the same day (§14 banner)
 
 **Where the DM stands:** 14.533.19 is already installed (files dated 2026-09-15; release
 published 15 Sep 01:04) — the choice was made before the ask. dnd5e is back on 5.3.3; AC5E
@@ -3956,6 +3957,7 @@ mechanism for wm5e), and (2) the executor honesty fix above — once it can be d
 
 
 ### 28.8 The pre-attack "phantom swing" — FIXED (bench 2026-08-02)
+> **RETIRED 2026-09-15.** The suppression this section describes hid a throwaway roll; the preview no longer rolls (AC5E asked directly — §14 banner, §28.5.14), so all of it is deleted. Kept here as the record of why it existed.
 
 **The DM's complaint:** tapping a target on the phone played an attack animation on the canvas/TV
 before the player had actually attacked. `attackPreview` fires a throwaway hidden attack roll to
