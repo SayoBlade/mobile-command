@@ -63,7 +63,7 @@ sections their cross-references always claimed).
 | 37 | The Ghostlight ride | Built (10.8 Colored mist-tile gap open) |
 | 38, 38.1–38.6 | Session Zero suite (story journals, card table, seats) | Built through 38.5; 38.6 recorded-future |
 | 39 | In person vs. Online (`tableMode`) | Built |
-| 40 | Boss intro | Built (motion unjudged by eye) |
+| 40 | Boss intro | Built (motion unjudged by eye); themed-banner mockups 2026-09-19, not built (§40.6) |
 | 41 | Daylight loop (clock drives light) | Built |
 | 42 | Fated Tarot — the build | Built 2026-08-10/11 (tarot.js) |
 | 43 | Druskenvald clock — the build | Built 2026-08-10/11 (druskenvald.js) |
@@ -75,6 +75,7 @@ sections their cross-references always claimed).
 | 49 | Pending-action queue + attention bell | Built (renumbered from a duplicate "§21", 2026-08-19) |
 | 50 | **Ember compatibility** (deep dive + support layer) | **Investigated AND built 2026-08-21** — campaigns.js registry; music/rests/daylight stand down; clock+sky card off Ember's calendar (§50.11 = the time-engine record); creation door opens Ember's own widget with a fit-shim. Open: the campaign-tab slot + Ember tab contents; owed legs in §22.6 item 5b |
 | 51 | **Dark Bargains** — deny death by signing | **SPEC ONLY 2026-08-26** — three questions await the DM (§51.3); nothing built |
+| 52 | **The action list** — the panel's buttons published for the deck (`MobileCommand.actions`); the Crooked Moon's panel memory moved to `cmLiveState` + cm-live.js | **Stages 1–2 BUILT 2026-09-18** (Effects, Crooked Moon + requests), 29/29 headless; not yet run in Foundry; the other areas owed (§52.5) |
 
 ---
 
@@ -1905,6 +1906,21 @@ swept, and grouped selectors must be skipped rather than edited.
   setting `combatPovAudio`, off by default — hear from the active combatant in combat, the mirror of
   `combatPovVision`); and a **display audio status line** (the TV reports {locked, muted} over the
   socket so the DM can tell "muted" from "never tapped, can't play" from their chair).
+- ⚠️ **iPad Safari: "unlocked" is not "playing" (DM 2026-09-15 — TV on an iPad, driven from the deck:
+  *"It's been unlocked and the volume is up"*, still silent).** Read in core 14.367:
+  `AudioHelper#onFirstGesture` fires on the FIRST of contextmenu/auxclick/pointerdown/pointerup/
+  keydown, creates the music/environment/interface AudioContexts, sets `locked = false`, and never
+  calls `resume()`. Desktop browsers start a context created in `pointerdown`; iOS WebKit is stricter,
+  so a context born there can stay suspended while every status (ours included) says unlocked.
+  Streaming is NOT the cause: core only streams files over `Sound.MAX_BUFFER_DURATION` (10 minutes), so
+  every deck sound is a buffer. **Built, not yet confirmed on his iPad:** `setupAudioResume` resumes any
+  non-running context on `touchend`/`click`/`keydown` (every client); the unlock card now stays until
+  the contexts actually run, returns after the screen sleeps (`visibilitychange` + a 15 s check), and
+  sets `navigator.audioSession.type = "playback"` on the display (Safari 16.4+, so silent mode can't
+  mute the table); the display's audio report adds `paused` + each context's `state`, and the status
+  line gains "the display's browser has paused its sound — tap the TV once". Owed: he reloads the iPad
+  and the DM screen, taps once, and reads the status line. If it says live and is still silent, the
+  next suspect is the iPad itself (output routing, a Safari setting), not the deck.
 
 **Still open (small, if wanted):** phone SFX opt-outs (dice / prompt / combat-start are always-on
 core sounds); a second-client live confirmation that Mute actually silences the room (verified at the
@@ -2044,6 +2060,13 @@ superseded: base and CM now share the lane). Filings that are general (the §50.
 question, the collect-gear nudge) count as BASE work, not Ember work.
 
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
+   - **The deck's Table — the panel's buttons on the Stream Deck (§52, DC ledger 151; DM 2026-09-18):**
+     Effects + the Crooked Moon (and its twist/bargain requests) BUILT and published; **owed:** the
+     live checks (DC ledger 151 (f)–(k)), his blue-shade pick, then the remaining areas (§52.5).
+   - **iPad TV silent although "unlocked" (live report 2026-09-15, not a QA-pass item; §27 display
+     audio note):** built — resume core's suspended AudioContexts on a real tap, a card that waits
+     for them to run, `audioSession = "playback"`, and a status line that names a paused context.
+     **Owed: his reload of the iPad + DM screen, one tap, and what the status line then says.**
    - **H1 executor identity (HIGH, one wrapper):** every handler authorises against the
      phone-written `payload.requesterId`; read `this.socketdata.userId` (socketlib supplies it)
      and ignore the payload field. Unblocks nothing else but closes ~35 spoofable checks at once.
@@ -2078,6 +2101,13 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
      post-roll message sweep and the preview latch's veto half (say in the commit that they hid a
      roll that no longer happens). Keep: target set/restore, the executor serial chain, the
      `toClipperPoints` try/catch fallback to "normal / unevaluated".)*
+   - **Spell animations for a playing party (PARKED, DM 2026-09-19: "keep this for later"):** the
+     cantrip–5th audit of JB2A Free vs the D&D5e Animations preset is in the memory note
+     `spell-animation-gaps` (dedicated / stand-in / nothing / Jinker's fills). When the DM names the
+     party's spells: wire Spirit Guardians (free asset, never mapped), Jinker's for Color Spray /
+     Fear / Armor of Agathys, stand-ins or Sequencer macros for Healing Word, Hold Person, Faerie
+     Fire, Hex, Counterspell, Hypnotic Pattern, Haste, Mirror Image, Blur, Invisibility — bench
+     first, then hand over the preset export.
    - **From the 2026-09-10 stack run (§28.5.12):** CAT 0.0.7 bricks Roll NPCs when a combatant's
      actor is gone (throws in its SummonsManager) — the panel's Roll NPCs should name/skip
      actor-less combatants · midi 14.0.12 targets under the Place PREVIEW while the DM aims
@@ -2190,7 +2220,14 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    join the GM-seat bench list)** · ~~curseTable settings row~~ — **DECIDED
    2026-08-20: OUR d100 is the table ("I like ours more", after seeing samples of both).** No
    picker row; the `curseTable` UUID stays as the undocumented console-set escape hatch ·
-   §32's unmined remainder — **Dark Bargains SPECCED as §51 (2026-08-26), three questions await the DM**; the lair-pulse engine + ch10–13 scene packs stay unmined.
+   §32's unmined remainder — **Dark Bargains SPECCED as §51 (2026-08-26), three questions await the DM**; the lair-pulse engine + ch10–13 scene packs stay unmined. · **Lightning through the windows (DM 2026-09-18) — PLANNED, not built:** upgrade the §26 Lightning one-shot so the firing GM picks ONE window-facing side and every canvas client lights that side's Window-preset walls with short-lived cone lights placed just outside the glass (no world writes — v14 `BaseEffectSource.add()`; untested live), thunder 1–2 s later through `playThunder` (the panel button keeps the July "closer" timing); phones keep the white flash; windowless floors thunder only. Fired from the deck's ⚡ key; deck-command ledger 150 carries the full plan and the action-key family it starts. ⚠️ **Relocated the same day (DM: every action must work on a plain Foundry table, *"with MC support when needed"*):** the window flash lives in deck-command so it runs without MC; when both are installed, the deck hands the phone flash and the thunder to MC (TV volume mirroring, no phone echo), and MC's own Lightning button and rolling storm call the deck's window flash.
+   · **Themed entrance banners (boss intro v2) — MOCKED UP 2026-09-19, not built (§40.6):** after the
+   DM's same-day direction reset, one private page (Entrances II, v3) holds all 16 NPCs in the Boss
+   Splash shape — book art over each chapter's battle map, real library sounds. **DM calls owed:**
+   the look itself · build it · may a non-fight entrance skip the pause · hold the finale until a
+   tap · the spoiler pictures (Jericho with Raum, Chuckles' balloon) · *(added v6–v7, 2026-09-19)*
+   plain or transformation version for the Crimson Abbot and the Chained Reaper · are the rewritten,
+   spoiler-free subtitles right · is ~8 s up (out-fade at 8.1 s) the right hold · the generated swing.
 5. **Backlog (DM-pruned 2026-08-09 and again 2026-08-20 — this list, nothing re-added unasked):**
    - ~~PM extras (group notes · push-to-sleeping-phone)~~ — **PRUNED by the DM 2026-08-20**
      ("not sure 5 is needed").
@@ -2749,8 +2786,8 @@ All audio is WebAudio filtered noise, generated at runtime: rain = band-limited 
 narrow noise band whose centre/level wander (the wandering is the gust); thunder (v3, 2026-07-26)
 = a BROADBAND tearing double-crack (v2's 2.5 kHz band-passed crack was "very small and weak" —
 the same energy mistake as the v1 rumble) + a BROWN-noise body with a wobbling amplitude + an
-85→45 Hz sub dive, fired 0.15–0.5 s after a close flash (distance is the STORM's job — its soft
-strikes wait 1.2–2.7 s). **The filtered-noise energy rule (learned when thunder v1 shipped as
+85→45 Hz sub dive, fired ~~0.15–0.5 s~~ **1–2 s (DM 2026-09-18, planning the window lightning: *"a second or two later a clap of thunder"*, then *"yes, update MC"* for this button too — `lightningLocal` changed the same day)** after a close flash (distance is the STORM's job — its soft
+strikes wait ~~1.2–2.7 s~~ **2–3.5 s since 2026-09-18**, so they stay later than a close strike). **The filtered-noise energy rule (learned when thunder v1 shipped as
 "a small pop"):** white noise spreads its energy flat across ~24 kHz, so a narrow filter keeps
 almost none of it — a 420 Hz lowpass keeps ~2%, and small speakers drop what's left below
 ~100 Hz. Low rumble must START from brown noise (energy already at the bottom); band-passed wind
@@ -5970,6 +6007,114 @@ Found in the wild on the same run: the DM had already replaced the bench's examp
 own — "Oak of Many Faces" + a thunder `.mp3` stored as a bare path, so the file-picker route works
 outside the drag gesture too.
 
+### 40.6 Themed entrance banners — mockups only (2026-09-19, NOT built)
+
+A richer boss intro was explored as two private artifact pages on the DM's account:
+**Crooked Moon Entrances** (https://claude.ai/artifact/Wph1YVAMpKrkD659wNSJVr — six banners,
+animation only, made in an earlier session) and **Crooked Moon Entrances II**
+(https://claude.ai/artifact/PcRn3sVZrxK4UpeQZjntUt — ten more, each with sound synthesised live in
+the browser by a small Web Audio engine and timed to the beats; DM ask 2026-09-19: "10 examples of
+banners with animation and sound"). Page II's NPCs, in campaign order: Crooked Man · Ol' Jericho
+Sticks · Crimson Abbot · Grinning Sinner · Beast of Blight · Yorgrim→Chained Reaper · Golub
+Graygullet · Chuckles · Wicker Man · Kehlenn. Each banner = themed plate + title line + background
+effects + minions + 4–8 timed cues; a "Table TV, 3 sides" mode keeps §40.1's geometry (a banner
+per player side, the figure turns, nothing on the DM's edge).
+
+What a real build adds to §40.2's `{ id, actorId, sound }` boss: a title line, more art slots
+(minion image; a second portrait for a duet or a before/after turn; an eye/wing/face layer for
+eyes-first or unfolding reveals), and a list of timed cues instead of one sound. Findings:
+- **The module already ships the portraits:** `modules/the-crooked-moon-2014/assets/art/art npc/NPC_*.webp`
+  for every page-II NPC, plus `art monster/BOSS_*.webp` — including before/after pairs
+  (`BOSS_Crimson_Abbot_Normal`/`_Transformed`; `NPC_Yorgrim` + `BOSS_Chained_Reaper`). A portrait
+  slot could default to these.
+- The book pairs most NPCs with a song from The Blasting Company's companion albums — not in the
+  DM's library (audio catalogue).
+- Cost: today's intro animates only transform/opacity (§40.2). Page II mostly keeps to that; page
+  I's scratch / type-out / sheen / letter-spread effects repaint every frame. Try one banner on
+  the TV (now the iPad) before building a set.
+
+Open DM calls (ledger §22.6 item 4): build it at all, and which looks · may a non-fight entrance
+skip the pause (contradicts §40.4 "the pause stays"; page I raised it for the Vagrant) · hold the
+finale banner until a tap · spoiler beats he may want off (Jericho's birdcage blink = Virgil, the
+Sinner's laughing coffin = Snake Eye Jack, Chuckles' strings = the balloon is his real body).
+
+**DIRECTION RESET, same day (DM 2026-09-19):** pages I and II v1 veered into full-screen cutscenes with
+synthesised music — "it looks and sounds like a boss-fight in an 8-bit game … i like the ideas, but it
+should be much closer to the two modules you referenced". The two are the installed **Boss Splash
+Screen** (`boss-splash` 1.2.3, jsavko) and **Boss Beat** (`boss-beat` 1.9.1, which fires Boss Splash on a
+music beat). His spec, verbatim in spirit: *banner animates in, very subtle animation for a few seconds
+as players read the name, subheader and get a look at the art, then it animates out; it is an overlay
+for the map, so not full screen (unless fog, rain or another semi-transparent overlay); sound = "a
+simple woosh for entrance, or an ominous chanting, maybe the rustling of ferret feet"*. And a standing
+rule: **no generated sounds or music** except trivial foley (tapping, steps) — library recordings, or ask
+him for one (memory `prefer-real-sounds`).
+- Boss Splash's own shape (read from its source): a 50% black overlay; a band at 60% screen height made
+  of three stripes (a 100 px name stripe, a 30 px subtitle stripe, a 15 px accent stripe, each a
+  colour setting); name right-aligned (uppercase, 100 px, text-shadow) drifting over `animationDuration`
+  (3 s default) while the actor art (max-height 700 px, right 15%) drifts the other way; optional
+  black-silhouette-to-colour reveal; closes after `splashTimer` (5 s); one sound, broadcast on the
+  interface volume.
+- **Page II v3 (same URL) rebuilt on that shape** for all 16 NPCs (pages I + II): the chapter's battle
+  map underneath (the module's `_COL` battle maps), a light dim, the three-stripe band in each NPC's
+  colours, the book's cut-out art sliding in (silhouette reveal for foes, none for friends), ~4.6 s hold
+  with a slow counter-drift, 0.7 s out; weather only where semi-transparent (rain, fog, embers, spores,
+  a margin-drawing weasel/crow/bat/pigeon crossing). Sound: trimmed copies of library recordings.
+- **Why he "didn't see any animation":** this PC reports `prefers-reduced-motion: reduce` (Windows
+  animation effects off), and v1/v2 switched every animation off under it — the same trap MC's card
+  table hit live on 2026-08-05 (shell.css note). MC's own boss intro has no reduced-motion branch, so the
+  live feature is unaffected. v3 plays full motion by default with a one-click opt-out (memory
+  `reduced-motion-trap`). Checking tip: headless Edge `--screenshot` uses virtual time and freezes CSS
+  animations at t=0; real-time frames need the DevTools protocol (scratch tool `cdp.mjs`).
+- **DM verdict on v3, same day: "they look GREAT! … a huge improvement."** Follow-ups built into v4–v5:
+  Phillip & Adela are introduced as a couple, not titled ("The swellest couple in Druskenvald"; DM:
+  "shouldn't be titled as lord and lady … a 'swell couple'"), with ~3 s of soft, scratchy swing he asked
+  to have generated (offline numpy render through a phonograph chain — unheard by Claude; the real
+  1920s phonograph jazz stays on the audio catalogue's shopping list). The Crooked Man's rain is lighter
+  (he stays solid); one weasel, not two; the book's margin drawings flown over the paintings were
+  dropped ("pigeons look meh" — crows, bats, leaves and confetti went with them); the Vagrant and the
+  Reaper use the DM's real mist overlays (MattM's Animated Mist and Fog: `mist_thin_horizontal`,
+  `rising_fog_thin`, VP8 with alpha, at ~60% opacity). Remaining effects are deliberately faint
+  (fireflies, champagne glints, embers, spores, the Sinner's neon line, one moonbeam, the Crooked Man's
+  lightning). Added a full-screen view (one banner at a time, arrow keys / Space / Esc), with the
+  battle maps re-rendered at 1920×1080 for it. Takeaway for a real build: restraint wins; real assets
+  (mist webms, library sounds) over drawn or synthesised stand-ins.
+- **v6–v7, same day (DM feedback while reviewing):**
+  - **Banners no longer come back after leaving.** The page used to fade its resting preview back in
+    after the out-fade, which read as the banner reappearing (DM: "why do the banners reappear after
+    fading out?"). A card now previews its banner only before its first Play; after that only the map
+    remains, and full screen shows only the map until Play. That matches the live overlay.
+  - **Hold: +2 s, then +1.5 s** (DM: "keep the banner an additional 2 seconds before fading out", then
+    "another 1.5 seconds … to give players a chance to read and look at the art"). The out-fade now starts
+    at 8.1 s (was 4.6 s) and lasts 0.7 s. Entrances keep their speed (≈0.75 s slide-in, 2.6 s silhouette
+    reveal); only the slow drift, now a separate animation on the `translate` property, stretches with the
+    hold. Continuous library layers (rain, crows, chant, chains…) are trimmed to 8.7 s so they fade out with
+    the banner; one-shots are unchanged. **For a real build, §40.2's intro length should be a setting. The
+    DM's preferred read time is about 7 s with the banner fully up.**
+  - **Subtitle rule (DM): "keep it more vague, only reveal information the players are sure to know at
+    this point."** Each subtitle was checked against the adventure journals (tcm2014-journal pack, read
+    from a copy) for what the party knows at the moment of the entrance. Removed: the Crooked Man's tie to
+    the Crooked Queen (the book itself says to keep him vague early), Vessla's and Golub's coven, the sword
+    Duchess, "cursed bargains", Gorthos's past as Farryn, Yorgrim being the Reaper, Chuckles' "Great
+    Fool", and Kehlenn as the Green Queen. Lines now: Just a humble ferryman (his own words) · The
+    swellest couple aboard (~~in Druskenvald~~, since their surname is the realm) · The hag in the attic ·
+    He walked a crooked mile · The scarecrow of Foxwillow · Every field keeps a secret · Father Renathyr
+    of the Crimson Faith · Mister Crossroads, at your service · Matron of Memory's Rest · Gorthos of
+    Hartsblight Forest · The dead will not stay buried · Mistress of the dovecote · Smile! It's Fool's
+    Day · The Old Ways keep their vigil · Live deliciously · The Wytchwood bows to her.
+  - **The Reaper comes out of the fog** (DM: "more fog, and let him appear 'out of the fog' growing and
+    gaining opacity"). MattM's `fog_thick_drifting` sits behind him and `rising_fog_thin` in front. He grows
+    from 60% size and invisible to solid over 3.6 s, then keeps creeping forward (the `scale` property). No
+    silhouette.
+  - **Transformation versions, for the DM to choose** (he asked for both). **Crimson Abbot:**
+    `BOSS_Crimson_Abbot_Normal` → `_Transformed`. The known form shimmers and grows to towering height, a
+    blood-red flash, dragon-wing beats, then a growl. **Chained Reaper:** `NPC_Yorgrim`, cropped to him
+    alone (the figure behind him is feathered out). The fog swells and swallows him, the Reaper grows out
+    of it, with one deep bell stroke and then chains. Each runs 11 s. Book check: the party knows both
+    earlier forms and sees each change happen. The Abbot drops his disguise mid-fight (Phase 1 → 2,
+    "monstrous wings sprout from his back"). Yorgrim, the chapter's guide, turns in the Tomb once the six
+    beacons are lit, and his voice and light break through during the fight. So the transformation
+    versions fit those moments, and the plain ones suit a party that meets the monster already changed.
+
 ---
 
 ## 41. The clock actually drives the light (DM report 2026-08-09 — BUILT + bench-verified)
@@ -7375,3 +7520,78 @@ paces the moment out loud.
    (listed, unspecced). Confirm or trim.
 
 *Ledger: §22.6 item 4 points here; nothing builds until the answers land.*
+
+---
+
+## 52. The action list — the panel's buttons, published for the deck (DM 2026-09-18 — stages 1–2 BUILT)
+
+**Why:** the DM runs the table from a Stream Deck (deck-command, "DC") and asked for every panel
+button there too — *"139 -make sure all MC actions are duplicated in the deck, i dont need to switch
+interfaces between sceens"*, then *"fix the other 132 as suggested"*. The inventory of what that means
+(135 in-play actions, file:line for each) is `deck-command/MC-ACTIONS.md`; DC's ledger 151 tracks the
+build. Standing rule from the same day: every deck action also works on a plain Foundry table, with
+MC *"when needed"* — so MC publishes, and never learns the deck exists.
+
+### 52.1 What MC publishes — `MobileCommand.actions` ([actions.js](scripts/actions.js))
+
+`areas()` (the drawers, with counts of what is offered / on / waiting), `snapshot({area})` (that
+area's actions as plain data), `run(id, params)` (never throws: `{ok:true}` or `{ok:false, reason}`),
+`counts()`. GM clients only. A definition carries: `id` (stable, dotted — the deck binds to it),
+`area`, `group` (the deck never splits a group across its pages), `label`, `icon` (a picture NAME),
+`kind` — `shot` · `toggle` (`on()`) · `pick` (`choices()`; `multi` keeps the list open, `steps` opens
+− / + with `value()`), `cm` (only while the Crooked Moon tools are on), `when()` (offered now — no means
+drawn DIM, so neighbours never move), `hideWhenOff` (queues only), `hidden()` (a setting rules it out),
+`alert()` (wants the DM now), `waiting()` (Requests: how many people it answers — Spend + Keep for one
+twist count once), `does` + `art` (52.3), `run(params)`. Area files register on import:
+[actions-effects.js](scripts/actions-effects.js) (20), [actions-cm.js](scripts/actions-cm.js) (34 +
+5 requests). **The runners call exactly what the panel's buttons call** — no second implementation.
+
+### 52.2 One truth for two surfaces — `cmLiveState` + [cm-live.js](scripts/cm-live.js) + [roster.js](scripts/roster.js)
+
+The Crooked Moon tab kept eight things only in the panel's memory, so the deck could not know them and
+a reload of the DM's browser forgot them (the fiddle played on while its button said "Start fiddle").
+**Moved 2026-09-18 into ONE world setting, `cmLiveState`:** fiddle / engine on · séance sitters, bite
+escalation, armed, last d10 · curse target, minutes, the staged card awaiting Accept · the tarot cheat.
+Every Crooked Moon verb (curses, bargains, fate, twists, the clock, tarot, boarding, the ride, séance —
+and `stageFirstBoarding`, `spendTwist`/`refundTwist`/`armedTwists`, moved out of dm-panel.js) lives
+once in cm-live.js; the panel's handlers and the deck's keys both call it. Writes go through one
+queue (two quick presses never lose a write — tested). The roster helpers (`scenePcs`, `pcUser`,
+`pcColor`, `tableSeats`, `playerUsers`, `pcSeatRot`) moved to roster.js unchanged. The panel repaints
+on `cmLiveState` / `bargainMode` (Crooked Moon tab) and `fxVolumes` (Effects tab), so a deck press
+shows on an open drawer. **Stays panel-local:** text being typed (séance phrase, arrival script) and
+which drawer or pane is open. **Differences from the old panel, deliberate:** sitters who left the map
+are filtered on read, not deleted from the set; the deck can change a character's Thread of Fate only
+while they have no progress (a brushed key must not wipe three steps — the panel's dropdown still can);
+a staged curse and the tarot cheat are now in a world setting every client can read — nothing on a
+phone shows them, so this is noted, not guarded.
+
+### 52.3 What a key changes, said out loud — `does` / `art` (DM 2026-09-18)
+
+On the first mockup: *"loudness is too much for the deck. effects that are not 'sound only' ie. make
+a change on the map including lighting should look like the other 'behavior buttons' make the
+difference between sound only and additional change very clear."* So: **Loudness is panel-only**
+(not in the list). An action says `does: "scene"` when it changes what the table SEES — the map, its
+light, the TV, a player's screen — with `art`, a Foundry core painted icon (`icons/…`, on every
+install; test 28 checks each exists); `does: "sound"` when it is sound and nothing else; neither for
+a plain control. The deck draws them as its behaviour keys (painted + light-blue label), its sound
+keys (gold ♫) and its controls (gold glyph) — DC UI-BIBLE §1. Every Effects key is "scene" (even the
+Doom Bell: `bellLocal` dims every screen, the TV's included); the sound-only keys are the boarding's
+Fiddle, Engine, Whistle and Brakes. Inference recorded for the next stage: MC's own volume sliders
+(Settings › Sound) stay off the deck by the same answer — the Sound area carries Mute, not levels.
+
+### 52.4 Checks
+
+`tools/test-actions.mjs` — **29 numbered results, stop on first failure, 29/29 PASS** — runs the real
+list against [tools/fake-foundry.mjs](tools/fake-foundry.mjs) (no world): the gate, the drawer order,
+the curse flow end to end, the séance (reset, lost-write race, armed bite, damage + glitch audience),
+twists / threads / touchpoints / tarot cheat, requests counting, bargains, boarding cues, never-throws,
+and the look rules. `tools/dump-actions.mjs <out.json>` writes the real list in a mid-session state
+for DC's mockup (`deck-command/foundry-module/tools/table-mockup-2.mjs`). Syntax gate PASS on every
+edited file; an ESLint no-undef pass (Foundry's bundled linter) on the panel after the refactor.
+**Nothing here has run in Foundry yet** — the live checks are listed in DC ledger 151 (f)–(k).
+
+### 52.5 Still to publish
+
+TV (display camera + fog) · Clock & HP · Combat (incl. roll requests — their selection moves out of
+panel memory first) · Sound (Mute) · Party · Rest (the rest draft moves first) · Travel (route +
+journey move first) · the rest of Requests (reaction chips, pending casts). *Ledger: §22.6 item 0.*
