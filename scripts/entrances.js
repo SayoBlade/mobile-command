@@ -188,10 +188,11 @@ function ensureStyles() {
 /* -------------------------------------------- */
 
 // DM 2026-09-19: "focus the MC camera on the NPC and zoom so there's ~30m radius around them, 1 second after the
-// intro's end revert to the last view." The frame is the combat spotlight's (main.js tokenFrame) — the radius across
-// the smaller screen axis, clamped to the scene — around every token the entrance names (a joint entrance frames the
-// group). 30 m is 100 ft on a feet grid. While it holds, the party follow and the spotlight wait (tv-hold.js).
-const FOCUS_M = 30;
+// intro's end revert to the last view." — then, having seen it: "zoom in should be much tighter" → 10 m. The frame
+// is the combat spotlight's (main.js tokenFrame) — the radius across the smaller screen axis, clamped to the scene —
+// around every token the entrance names (a joint entrance frames the group). 10 m is 30 ft on a feet grid. While
+// it holds, the party follow and the spotlight wait (tv-hold.js).
+const FOCUS_M = 10;
 const REVERT_AFTER_MS = 1000;
 const PAN_MS = 900;
 let cameraBack = null;
@@ -201,7 +202,7 @@ function frameTokens(docs) {
   const gs = canvas.dimensions?.size ?? 100;
   const units = String(canvas.dimensions?.units ?? canvas.grid?.units ?? "ft").toLowerCase();
   const perGrid = canvas.dimensions?.distance ?? canvas.grid?.distance ?? 5;
-  const radius = /^m/.test(units) ? FOCUS_M : 100; // metres, else feet
+  const radius = /^m/.test(units) ? FOCUS_M : 30; // metres, else feet
   const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
   const minZoom = CONFIG.Canvas?.minZoom ?? 0.1, maxZoom = CONFIG.Canvas?.maxZoom ?? 3;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;

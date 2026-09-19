@@ -6163,8 +6163,10 @@ him for one (memory `prefer-real-sounds`).
     lists it, but Foundry reads that list only at world launch).
   - **The stage (DM, same day):** *"focus the MC camera on the NPC and zoom so there's ~30m radius around
     them, 1 second after the intro's end revert to the last view"* → the TV frames the NPC's token(s) at
-    100 ft (30 m) radius, scene-clamped, holding the party follow and the combat spotlight off
-    (`scripts/tv-hold.js`), and glides back 1 s after the end. *"Where a BBEG appears into the scene …
+    ~~100 ft (30 m) radius~~ **30 ft (10 m) radius — DM, after seeing it live on his own table (2026-09-19,
+    the evening of the commit): *"zoom in should be much tighter"*; three times closer**, scene-clamped,
+    holding the party follow and the combat spotlight off (`scripts/tv-hold.js`), and glides back 1 s
+    after the end. *"Where a BBEG appears into the scene …
     the intro also unhides the token"* → `appears`. *"A dark overlay on the token to hide the details in
     shadow until the intro and drop it when the intro is complete … just cases where the module describes
     a reveal"* → `reveal`: an MC flag every canvas client draws dark. A transformation swaps the known
