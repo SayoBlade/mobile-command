@@ -9,8 +9,20 @@ import { startCombatWithMusic, combatMusicMode } from "./combat-music.js";
 import { emberSky } from "./campaigns.js"; // §50 campaign recognition: Ember runs music/rests/calendar
 import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist, isOnlineTable } from "./settings.js";
 import { FX_TABS, FX_DEFS, FX_VOLUME_KEYS, fxActiveMap, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js"; // §26 Effects tab (+ §26.5 loudness keys)
-import { FATE_THREADS, FATE_STEPS, applyFateReward } from "./fateweaving.js"; // §34 Fateweaving tracker
-import { CURSES, rollCurse, pickCurse, applyCurse, actorCurses, curseTableUuid } from "./cm-curses.js"; // §33 Chaotic Curses
+import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 Fateweaving tracker
+import { CURSES, actorCurses, curseTableUuid } from "./cm-curses.js"; // §33 Chaotic Curses
+// §35 the Crooked Moon tab's state and verbs, shared with the deck (deck-command ledger 151).
+import {
+  cmLive, seanceDie, seanceSitters, toggleSeanceSitter, toggleSeanceBoard, seanceQuestion, seanceBite, seanceSay,
+  curseState, curseCandidates, bargainRequests, bargainModeOn, setCurseTarget, setCurseMinutes, rollStagedCurse,
+  pickStagedCurse, cancelStagedCurse, acceptStagedCurse, strikeBargain, declineBargain, toggleBargainMode, liftCurse,
+  setFateThread, fateTouch, adjustTwists, spendTwist, refundTwist, armedTwists, disarmTwist,
+  druskNextHour, toggleDruskMap, tarotForced, setTarotForced, tarotTaken, dealTarotTo, takeTarotBack,
+  trainState, introActorId, toggleStationMist, toggleFiddle, toggleEngine, trainWhistle, trainBrakes, setTrainIn,
+  trainArriveFor, toggleIntro, toggleTicket, boardingUsers, allTicketsOut, setAllTickets, stageFirstBoarding,
+  wireDoors, setRide,
+} from "./cm-live.js";
+import { scenePcs, pcUser, pcColor, tableSeats, playerUsers, pcSeatRot } from "./roster.js"; // who is at the table
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
 import { trainScenes, trainChains, trainMistOn, wireTrainDoors, setTrainMist } from "./cm-train.js"; // §37 the Ghostlight ride · §36.2 the first boarding
 import { MCSettingsApp } from "./settings-app.js"; // §29 settings mini-app
@@ -21,6 +33,7 @@ import { dealOne, actorCard, revealActorCard, setActorCard, ARCANA, hasBookArt }
 import { DRUSK_HOURS, currentHour, isDruskScene, druskSceneIds, markDruskScene, advanceToNextHour } from "./druskenvald.js"; // §43 the clock
 import { watchScroll, captureScrolls, restoreScrolls, sameHTML } from "./repaint.js"; // §46 don't jump
 import { openFeedback } from "./feedback.js"; // §48 the feedback window
+import { entranceList, dmPlayEntrance, dmStopEntrance, entranceShadowed, dmShadowEntrance } from "./entrances.js"; // §40.6 the themed entrances ("Intros")
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -43,10 +56,8 @@ let dmMsgOpen = false;       // §27: the selected player's message thread is op
 let dmMsgDraft = "";         // §27: composer text, kept across the panel's frequent re-renders
 let fxPlayer = "";           // §26.6: which player the Effects tab's Player drawer targets
 let seanceDraft = "";        // §30: the phrase the planchette will spell, kept across re-renders
-let seanceParty = new Set(); // §30.1: actorIds of the PCs at the board (no pets — PCs only)
-let seanceStep = 0;          // §30.1: damage rolls made this séance — escalates 1d4→1d6→1d8→1d10→1d12
-let seanceArmed = false;     // §30.1: last d10 came up 1 — the damage roll is live
-let seanceLastD10 = null;    // §30.1: last d10 result, shown in the drawer
+// (§30.1's sitters, escalation step, armed bite and last d10 moved to the cmLiveState setting —
+//  cm-live.js — 2026-09-18, so the deck reads and presses the same séance.)
 let dmReactions = [];        // reaction widget: live chips {id, kind:"aoo"|"window", label, weapon, activityUuid?, targetUuid?, expiresAt}
 const rollTool = { type: "save", ability: "dex", selected: null, targetsOpen: false };
 
@@ -156,7 +167,11 @@ function settingsHTML() {
     ? `<div class="mc-dmp-sound-status mc-unknown"><i class="fas fa-question-circle"></i> No display connected — nothing is reporting.</div>`
     : rep.locked
       ? `<div class="mc-dmp-sound-status mc-bad"><i class="fas fa-hand-pointer"></i> The display has never been tapped — a browser plays no audio until it is. Tap the TV once.</div>`
-      : `<div class="mc-dmp-sound-status mc-ok"><i class="fas fa-circle-check"></i> Display audio is live${rep.muted ? " (muted)" : ""}.</div>`;
+      // ⚠️ UNLOCKED IS NOT PLAYING on iPad Safari (2026-09-15): core flips `locked` while the browser
+      // still holds its audio paused. An older display that doesn't send `paused` reads as live.
+      : rep.paused
+        ? `<div class="mc-dmp-sound-status mc-bad"><i class="fas fa-hand-pointer"></i> The display's browser has paused its sound (iPad Safari does this until a tap, and again after the screen sleeps). Tap the TV once.</div>`
+        : `<div class="mc-dmp-sound-status mc-ok"><i class="fas fa-circle-check"></i> Display audio is live${rep.muted ? " (muted)" : ""}.</div>`;
   const muteBtn = `<button class="mc-dmp-mute ${muted ? "mc-on" : ""}" data-tv-mute="${muted ? "0" : "1"}">
       <i class="fas ${muted ? "fa-volume-xmark" : "fa-volume-high"}"></i> ${muted ? "Unmute the table" : "Mute the table"}
     </button>`;
@@ -467,20 +482,17 @@ function fxLoudnessBody() {
 // §30 the séance drawer: board toggle, who's at the board, the phrase, and the module's
 // danger mechanic (§30.1): d10 per question; on a 1 the board bites — escalating psychic
 // damage (1d4→1d6→1d8→1d10→1d12) to every participant, with the glitch on the TV and
-// their phones growing with the die.
-const SEANCE_DICE = [4, 6, 8, 10, 12];
-function seanceDie() { return SEANCE_DICE[Math.min(seanceStep, SEANCE_DICE.length - 1)]; }
-function seanceGlitchLevel() { return [0.22, 0.45, 0.65, 0.85, 1][Math.min(seanceStep, 4)]; }
-
+// their phones growing with the die. The dice, the sitters and the escalation live in cm-live.js.
 function seanceBody() {
   const esc = foundry.utils.escapeHTML;
   const on = fxIsOn("seance");
+  const { armed: seanceArmed, lastD10: seanceLastD10 } = cmLive().seance;
   // The sitters: player-owned CHARACTERS only — pets/summons don't hold the planchette.
-  // Scene-scoped via scenePcs() (DM 2026-07-27, UI-BIBLE §6.6).
+  // Scene-scoped via scenePcs() (DM 2026-07-27, UI-BIBLE §6.6); a sitter who left the map is dropped.
   const pcs = scenePcs();
-  for (const id of [...seanceParty]) if (!pcs.some(a => a.id === id)) seanceParty.delete(id);
+  const sitters = new Set(seanceSitters().map(a => a.id));
   const rows = pcs.map(a => {
-    const inParty = seanceParty.has(a.id);
+    const inParty = sitters.has(a.id);
     return `<button class="mc-seance-pc ${inParty ? "mc-on" : ""}" data-seance-pc="${a.id}" title="${inParty ? `${esc(a.name)} is at the board` : `Seat ${esc(a.name)} at the board`}">
       <i class="fas fa-circle-user" style="color:${pcColor(a)}"></i><span>${esc(a.name)}</span>
       ${inParty ? `<i class="fas fa-check mc-seance-pc-check"></i>` : ""}
@@ -488,7 +500,7 @@ function seanceBody() {
   }).join("");
   // The d10 is the ritual; the skull is ALWAYS live — the DM can cheat (DM 2026-07-27: ~30
   // civil questions in a row and nobody got zapped; never lock the payoff behind the roll).
-  const canBite = on && seanceParty.size;
+  const canBite = on && sitters.size;
   const rollBtn = `<button class="mc-fx-btn mc-fx-voicebtn" data-seance-d10 title="Roll the question d10 — on a 1 the board bites" ${canBite && !seanceArmed ? "" : "disabled"}><i class="fas fa-dice-d10"></i></button>
     <button class="mc-fx-btn mc-fx-voicebtn ${seanceArmed ? "mc-seance-dmg" : ""}" data-seance-dmg title="${seanceArmed ? `The board bites — 1d${seanceDie()} psychic to everyone at it` : `Bite anyway — 1d${seanceDie()} psychic, no roll needed`}" ${canBite ? "" : "disabled"}><i class="fas fa-skull"></i></button>`;
   const status = seanceArmed
@@ -509,9 +521,7 @@ function seanceBody() {
 
 // §30 shared by the Send button and Enter in the input.
 function seanceSend() {
-  const words = seanceDraft.replace(/[^A-Za-z0-9 ]/g, "").trim();
-  if (!words) { ui.notifications.warn("Write what the spirits say — letters and numbers only."); return; }
-  dmFireFx("seancePhrase", { text: words });
+  if (!seanceSay(seanceDraft)) { ui.notifications.warn("Write what the spirits say — letters and numbers only."); return; }
   seanceDraft = "";
   render();
 }
@@ -577,15 +587,16 @@ function charFilesBody() {
 // "forced card" state to keep in sync with anything, and nothing to clean up if the DM changes
 // their mind. "— let the cards decide —" rolls from what nobody holds; naming an arcana deals
 // exactly that (UI-BIBLE §8.1: the draw is the ritual, the DM is the authority).
-const tarotPick = new Map(); // actorId → the arcana the DM has chosen for their next draw
+// (The cheat — actorId → the arcana chosen for their next draw — lives in cmLiveState since
+//  2026-09-18: tarotForced / setTarotForced in cm-live.js, so the deck can set it too.)
 function tarotBody() {
   const esc = foundry.utils.escapeHTML;
   const pcs = scenePcs();
   if (!pcs.length) return `<div class="mc-dmp-empty">No player characters in this scene.</div>`;
-  const taken = new Set([...(game.actors ?? [])].map(a => a.getFlag(MODULE_ID, "tarot")?.key).filter(Boolean));
+  const taken = tarotTaken();
   const rows = pcs.map(a => {
     const card = actorCard(a);
-    const chosen = tarotPick.get(a.id) ?? "";
+    const chosen = tarotForced(a.id) ?? "";
     // THE CARD'S NAME IS NOT SHOWN HERE (DM 2026-08-11: "remove the card name, there's no real
     // reason for the DM to know beforehand now"). It was a leftover from the spread, where the
     // DM's foreknowledge was the point — they were laying five out and steering someone toward
@@ -717,6 +728,7 @@ function crookedTabHTML() {
   // had to scroll past to reach the one you wanted; opening the one you're using is one tap, and
   // the choice sticks for the session (dtDrawers remembers per key).
   return `<div class="mc-dmp-tabfill"><div class="mc-dmp-tabmid">
+    ${dtDrawer("cmIntros", "Intros", "", entrancesBody(), true)}
     ${dtDrawer("cmCurses", "Chaotic curses", "", curseBody(), true)}
     ${dtDrawer("cmFate", "Fateweaving", "", fateBody(), true)}
     ${dtDrawer("cmTwists", "Twists of fate", "", twistsBody(), true)}
@@ -728,21 +740,47 @@ function crookedTabHTML() {
   </div></div>`;
 }
 
+// §40.6 Intros: the book's NPCs, each with a themed entrance banner, in campaign order under their chapter.
+// One tap plays it on the table's screen (a foe's pauses the game first, like the boss intro; a friend's doesn't).
+// The line under each name is what the players will read, so the DM can check it gives nothing away.
+function entrancesBody() {
+  const esc = foundry.utils.escapeHTML;
+  const list = entranceList();
+  if (!list.length) return `<div class="mc-dmp-empty">No intros for this campaign yet.</div>`;
+  let chapter = null;
+  const rows = list.map(e => {
+    const head = e.chapter !== chapter ? `<div class="mc-entr-ch">Chapter ${e.chapter}</div>` : "";
+    chapter = e.chapter;
+    const who = e.name1 ? `${esc(e.name1)} <i class="fas fa-arrow-right mc-entr-into"></i> ${esc(e.name)}` : esc(e.name);
+    const line = [e.name1 ? e.sub1 : "", e.sub].filter(Boolean).map(x => esc(x)).join(" → ");
+    // An alternate known form: the banner opens on whichever of them stands on the map (entrances.js resolveForm).
+    const alt = e.alts?.length ? `<small>Opens on ${esc([e.name1, ...e.alts.map(a => a.name)].join(" or "))} — whoever is on the map</small>` : "";
+    return `${head}<div class="mc-entr-row">
+      <img class="mc-entr-thumb" src="${esc(encodeURI(e.portrait))}" alt="">
+      <span class="mc-entr-name">${who}${line ? `<small>${line}</small>` : ""}${alt}</span>
+      ${e.pause ? `<i class="fas fa-pause mc-entr-pause" title="Pauses the game first"></i>` : ""}
+      ${e.reveal ? `<button class="mc-dt-icon-only mc-entr-shadow ${entranceShadowed(e.key) ? "mc-on" : ""}" data-entrance-shadow="${esc(e.key)}"
+        title="${entranceShadowed(e.key) ? "In shadow until the intro — click to bring it out now" : "Put it in shadow on this scene; the intro reveals it"}"><i class="fas fa-moon"></i></button>` : ""}
+      <button class="mc-dmp-mini mc-entr-play" data-entrance-play="${esc(e.key)}" title="Play it on the table's screen"><i class="fas fa-play"></i> Play</button>
+    </div>`;
+  }).join("");
+  return `<div class="mc-entr-list">${rows}</div>
+    <div class="mc-fx-voicerow"><button class="mc-fx-btn" data-entrance-stop style="flex:1" title="Cut the running intro short"><i class="fas fa-stop"></i><span>Stop Intro</span></button></div>`;
+}
+
 // §33 Chaotic Curses: pick a victim, roll (or hand-pick) a curse, Accept to land it. Curses
 // lift THEMSELVES after their real-world minutes; every active one is listed with its clock
 // and a ✕ — the DM can always end misfortune early (§8.1 in both directions).
-let curseTarget = null;  // actorId the next curse lands on
-let curseMins = 20;      // real-world minutes (the book's 15–30 band)
-let cursePick = null;    // { n, name, text, builtin } awaiting Accept
+// The target, the minutes (10/20/30 — the book's 15–30 band) and the staged { n, name, text, builtin }
+// awaiting Accept live in cmLiveState since 2026-09-18 (cm-live.js curseState), shared with the deck.
 function curseBody() {
   const esc = foundry.utils.escapeHTML;
-  const pcs = scenePcs();
   // §33 bargain mode: open reroll requests. ALL flagged PCs, not just this scene's — a
-  // request from elsewhere must not vanish; union them into the picker too, or the
-  // scene-scoped reset below would silently retarget a struck bargain at pcs[0].
-  const bargains = game.actors.filter(a => a.type === "character" && a.getFlag(MODULE_ID, "bargainPending"));
-  for (const b of bargains) if (!pcs.some(a => a.id === b.id)) pcs.push(b);
-  if (!curseTarget || !pcs.some(a => a.id === curseTarget)) curseTarget = pcs[0]?.id ?? null;
+  // request from elsewhere must not vanish; they are unioned into the picker too, or the
+  // scene-scoped fallback would silently retarget a struck bargain at pcs[0].
+  const bargains = bargainRequests();
+  const pcs = curseCandidates();
+  const { target: curseTarget, mins: curseMins, pick: cursePick } = curseState();
   const targets = pcs.map(a => `<button class="mc-seance-pc ${curseTarget === a.id ? "mc-on" : ""}" data-curse-target="${a.id}"
       title="The next curse lands on ${esc(a.name)}">
       <i class="fas fa-circle-user" style="color:${pcColor(a)}"></i><span>${esc(a.name)}</span>
@@ -772,7 +810,7 @@ function curseBody() {
   // §33 bargain mode: a player is offering to buy a reroll. Strike = stage a curse roll on
   // them (the Accept is the permission); ✕ = the Moon declines. The toggle below arms the
   // player-side ask card.
-  const bargainOn = (() => { try { return !!game.settings.get(MODULE_ID, "bargainMode"); } catch (e) { return false; } })();
+  const bargainOn = bargainModeOn();
   const requests = bargains.map(a => `<div class="mc-cmb-row mc-bargain-req">
       <div class="mc-seance-pc mc-twist-pcrow"><i class="fas fa-scale-unbalanced"></i>
         <span><b>${esc(a.name)}</b> asks to reroll — at a curse's price</span></div>
@@ -839,22 +877,8 @@ function fateBody() {
 // (twists.js) are no longer reachable from the panel; the hooks stay so a leftover armed flag
 // still resolves, and the disarm chip still shows one.
 const twistDialogs = new Map(); // actor id → the open DialogV2 for that request
-
-async function spendTwist(a) {
-  const p = a?.getFlag(MODULE_ID, "twistPending");
-  if (!a || !p) return false;
-  const esc = foundry.utils.escapeHTML;
-  await a.setFlag(MODULE_ID, "twists", Math.max(0, Number(a.getFlag(MODULE_ID, "twists") ?? 0) - 1));
-  await a.unsetFlag(MODULE_ID, "twistPending");
-  await ChatMessage.create({
-    speaker: { alias: "Fate" },
-    content: `<p><b>${esc(a.name)}</b> twists fate — the die comes up a <b>natural ${p.die === 1 ? "1" : "20"}</b>${p.note ? ` <em>(${esc(p.note)})</em>` : ""}.</p>`
-  });
-  return true;
-}
-async function refundTwist(a) {
-  await a?.unsetFlag(MODULE_ID, "twistPending");
-}
+// (spendTwist / refundTwist / armedTwists live in cm-live.js since 2026-09-18 — the deck's Spend and
+//  Keep keys call the same two functions this popup does.)
 
 // The popup. One per request; a repeat (the phone rewriting the same flag) replaces it, and a
 // withdrawal from the phone closes it (see the updateActor watcher in registerDMPanel).
@@ -876,22 +900,6 @@ function twistPopup(a, p) {
   });
   twistDialogs.set(a.id, dlg);
   dlg.render({ force: true });
-}
-
-// Every creature currently carrying an armed twist: active-scene tokens (synthetic actors
-// included) plus PCs wherever they stand. Deduped by actor id — a linked token IS its actor.
-function armedTwists() {
-  const out = []; const seen = new Set();
-  for (const t of game.scenes.active?.tokens ?? []) {
-    const arm = t.actor?.getFlag(MODULE_ID, "twistArmed");
-    if (arm && !seen.has(t.actor.id)) { seen.add(t.actor.id); out.push({ name: t.name, uuid: t.actor.uuid, arm }); }
-  }
-  for (const a of game.actors) {
-    if (a.type !== "character") continue;
-    const arm = a.getFlag(MODULE_ID, "twistArmed");
-    if (arm && !seen.has(a.id)) { seen.add(a.id); out.push({ name: a.name, uuid: a.uuid, arm }); }
-  }
-  return out;
 }
 
 function twistsBody() {
@@ -925,20 +933,8 @@ function twistsBody() {
   return `${chips}${armed}<div class="mc-seance-party">${rows || `<div class="mc-dmp-empty">No player characters.</div>`}</div>`;
 }
 
-// PC roster, scene-scoped per UI-BIBLE §6.6 — shared by the séance sitters and the boarding
-// rows. Falls back to every PC when the active scene has no PC tokens (campaign start —
-// boarding happens before anyone is placed).
-function scenePcs() {
-  let pcs = game.actors.filter(a => a.type === "character" && a.hasPlayerOwner);
-  const inScene = new Set((game.scenes.active?.tokens ?? []).map(t => t.actor?.id).filter(Boolean));
-  if (pcs.some(a => inScene.has(a.id))) pcs = pcs.filter(a => inScene.has(a.id));
-  return pcs;
-}
-// The PC's player (their user) — the ticket goes to the USER, whatever device they hold.
-function pcUser(a) {
-  return game.users.find(u => !u.isGM && u.character?.id === a?.id)
-    ?? game.users.find(u => !u.isGM && a?.testUserPermission?.(u, "OWNER")) ?? null;
-}
+// (scenePcs / pcUser / pcColor / pcSeatRot — the PC roster, scene-scoped per UI-BIBLE §6.6 — live
+//  in roster.js since 2026-09-18, shared with the deck's action list.)
 
 // §37 The Ghostlight ride: wire the car-to-car doors (once per world) and set the Shroud
 // rushing past the windows. Works on the book's 10.x car scenes, both art sets.
@@ -972,28 +968,17 @@ function trainRideBody() {
 // sheet to make it easier for the DM, but the story is theirs and the player's". So we store and
 // show it, put the character's own material next to the box so he is not hunting through sheets
 // mid-sentence, and never write a word of it.
-// Whether the DM has the distant-engine bed running. Panel state, not a question for another
-// module: the cue is fired at every client, so "is it playing" is only meaningful as "did I ask
-// for it", and importing the answer from cm-boarding.js would drag shell.js into the panel.
-let cmSoundOn = false;
-// §36.1.8: the fiddle bed, same rule. Separate from the engine because they end differently —
-// the grinding stop kills the engine and leaves the fiddler playing (he steps out fiddle in hand).
-let cmFiddleOn = false;
+// Whether the DM has the distant-engine bed and the fiddle bed running: "did I ask for it", since
+// the cues fire at every client. Separate because they end differently — the grinding stop kills
+// the engine and leaves the fiddler playing (§36.1.8). Kept in cmLiveState since 2026-09-18
+// (cmLive().engine / .fiddle) so the deck's keys and these buttons agree, across a reload too.
 let cmStoryFor = null;   // actorId whose arrival script is open (DM-local)
 let cmStoryDraft = null; // the text being edited, so a background repaint can't eat it
 
 function boardingStory(actor) {
   try { return String(actor?.getFlag(MODULE_ID, "boardingStory") ?? ""); } catch (e) { return ""; }
 }
-// Which way does the Ghostlight face for this character? Their player's seat angle (§38.4b), or
-// straight-on when nobody is seated — an online table has no "their side of the screen".
-function pcSeatRot(actor) {
-  const u = pcUser(actor);
-  if (!u || isOnlineTable()) return 0;
-  const seatId = Object.entries(tableSeats()).find(([, uid]) => uid === u.id)?.[0] ?? null;
-  return TABLE_SEATS.find(s => s.id === seatId)?.rot ?? 0;
-}
-function trainState() { return fxActiveMap().cmTrain ?? null; }
+// (Which way the Ghostlight faces for a character — pcSeatRot — is in roster.js; trainState in cm-live.js.)
 
 // The character's own material, one line, so the DM can write their arrival without leaving the
 // panel: species, class(es), background. Everything here is already on their sheet — the point is
@@ -1038,8 +1023,9 @@ function cmStoryPane(a) {
 function allAboardBody() {
   const esc = foundry.utils.escapeHTML;
   const stationOn = fxIsOn("cmStation");
-  const introId = fxActiveMap().cmIntro?.actorId ?? null;
+  const introId = introActorId();
   const train = trainState();
+  const { engine: cmSoundOn, fiddle: cmFiddleOn } = cmLive();
   const pcs = scenePcs();
   const rows = pcs.map(a => {
     const u = pcUser(a);
@@ -1063,8 +1049,8 @@ function allAboardBody() {
       </button>
     </div>${isStory ? cmStoryPane(a) : ""}`;
   }).join("");
-  const users = pcs.map(a => pcUser(a)).filter(Boolean);
-  const allHave = users.length > 0 && users.every(u => fxIsOnFor("cmTicket", u.id));
+  const users = boardingUsers();
+  const allHave = allTicketsOut();
   // The order is the ORDER OF THE SCENE (DM 2026-08-19), so the drawer reads top to bottom the way
   // the book plays it: raise the mist · the fiddle pierces it · the distant engine · the whistle ·
   // bring it in · stop. Buttons in the sequence you perform them beats grouped-by-what-they-are.
@@ -1104,42 +1090,8 @@ function allAboardBody() {
     </div>`;
 }
 
-// §36.2 The first boarding (DM 2026-08-28: "start with fog, dm view opens on entry cart and a
-// small area is marked (for dm only) with 'place all PCs here', then the dm can narrate each pc
-// going onboard, then switch to the map view"). One tap does the setup half:
-//   fog up on the shared screen · the ENTRY CAR (rear of the wired chain, Colored preferred)
-//   activated BEHIND the fog — deliberately: an empty active car makes the drawer's roster fall
-//   back to every hero, tokenless ones included · a party mark on the boarding squares that only
-//   the DM can see. The narration half is the drawer as it already plays (introduce · ticket ·
-//   drag each hero onto the mark) and "Stop mist" is the switch-to-map-view beat.
-// The mark is a HIDDEN Drawing: hidden placeables render for GMs only — core's own semantics,
-// no new visibility machinery, and harmless to leave in place between sessions. Idempotent via
-// the boardingZone flag.
-async function stageFirstBoarding() {
-  const chains = trainChains();
-  const chain = chains.colored.length ? chains.colored : chains.plain;
-  const entry = (chain.find((e) => e.n === 1) ?? chain[0])?.scene;
-  if (!entry) return ui.notifications.warn("No Ghostlight car scenes (10.1–10.8) in this world.");
-  if (!fxIsOn("cmStation")) await dmToggleFx("cmStation"); // fog first, so the switch happens behind it
-  if (!entry.drawings.some((d) => d.flags[MODULE_ID]?.boardingZone)) {
-    const g = entry.grid?.size ?? 140;
-    // Anchor on the rear boarding landing when the doors are wired; a sane mid-car
-    // spot otherwise. 3×3 cells — room for a whole party without stacking.
-    const land = entry.regions.find((r) => r.flags[MODULE_ID]?.trainLand === "back")?.shapes?.[0];
-    const x = Math.max(0, Math.round(land ? land.x - g : g * 6));
-    const y = Math.max(0, Math.round(land ? land.y - g : g * 3));
-    await entry.createEmbeddedDocuments("Drawing", [{
-      x, y, shape: { type: "r", width: g * 3, height: g * 3 },
-      strokeColor: "#2fbd9c", strokeAlpha: 0.9, strokeWidth: 4,
-      fillType: 0, hidden: true,
-      text: "Place the party here", fontSize: 34, textColor: "#2fbd9c",
-      flags: { [MODULE_ID]: { boardingZone: true } },
-    }]);
-  }
-  if (!entry.active) await entry.activate();
-  if (game.scenes.viewed?.id !== entry.id) await entry.view();
-  ui.notifications.info(`The stage is set — fog is up, ${entry.name} is the scene, and the party mark is yours alone to see.`);
-}
+// (§36.2 stageFirstBoarding — the one-tap stage for the first boarding — lives in cm-live.js since
+// 2026-09-18, so the deck's Set the stage key runs the very same beat.)
 
 let dtGearFor = null; // §17.7: actorId whose per-character gear panel is expanded (DM-local)
 let dtAddFor = null; // actorId whose DM-side "add a task" inline form is open
@@ -1177,11 +1129,7 @@ function dtProgressBar(act) {
     ? `<div class="mc-dt-bar"><span style="width:${Math.round(s.ratio * 100)}%"></span></div>` : "";
   return `<div class="mc-dt-prog"><span class="mc-dt-prog-head">${foundry.utils.escapeHTML(s.headline)}</span>${bar}</div>`;
 }
-// The player colour for a PC (their user's colour), for tinting the roster — falls back to gold.
-function pcColor(a) {
-  const u = game.users.find(u => !u.isGM && u.character?.id === a?.id) ?? game.users.find(u => !u.isGM && a?.testUserPermission?.(u, "OWNER"));
-  return u?.color?.css ?? "#c8a44d";
-}
+// (pcColor — a PC's player colour for tinting a roster — lives in roster.js since 2026-09-18.)
 // Collapsible "drawer" so the tall downtime window can be tidied (DM 2026-07-14: "drawers like a
 // multi-open accordion"). Multi-open — each section toggles independently. `headerExtra` (e.g. the
 // catalog's "+ New") sits beside the toggle and is NOT part of the toggle button.
@@ -3486,13 +3434,7 @@ function registerNightEncounterOffer() {
 // on the GM client, so user creation and the setting write happen here directly (no RPC).
 let seatPick = null; // userId the DM picked up, waiting for a seat tap (or "" = clearing)
 let pcPick = null;   // userId whose character list is expanded (only multi-PC players have one)
-function tableSeats() {
-  try { return foundry.utils.deepClone(game.settings.get(MODULE_ID, "tableSeats") ?? {}); } catch (e) { return {}; }
-}
-function playerUsers() {
-  let display = ""; try { display = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
-  return game.users.filter(u => !u.isGM && u.id !== display);
-}
+// (tableSeats / playerUsers live in roster.js since 2026-09-18 — the deck's lists use them too.)
 // Seating and re-seating are the same gesture: pick a player up, tap where they should go.
 // Dropping someone onto an OCCUPIED seat swaps the two (the sitter takes the mover's old seat)
 // rather than evicting them — rearranging a full table is the common case, and a silent eviction
@@ -4098,23 +4040,19 @@ function onChange(ev) {
   if (ev.target.matches?.("[data-fx-player]")) { fxPlayer = ev.target.value; return render(); }
   // §42 which arcana the DM has decided this character will draw next (the cheat).
   if (ev.target.matches?.("[data-tarot-pick]")) {
-    const id = ev.target.dataset.tarotPick, key = ev.target.value;
-    if (key) tarotPick.set(id, key); else tarotPick.delete(id);
-    return render();
+    setTarotForced(ev.target.dataset.tarotPick, ev.target.value || null).then(() => render());
+    return;
   }
   // §33: the hand-pick dropdown — choosing an entry stages it like a roll would.
   if (ev.target.matches?.("[data-curse-pickn]")) {
     const n = Number(ev.target.value);
-    if (n) { cursePick = pickCurse(n); render(); }
+    if (n) pickStagedCurse(n).then(() => render());
     return;
   }
   // §34: assign/clear a PC's Thread of Fate. Switching threads restarts the count — a new
   // story starts at its beginning.
   if (ev.target.matches?.("[data-fate-thread]")) {
-    const a = game.actors.get(ev.target.dataset.fateThread);
-    const key = ev.target.value;
-    const p = key ? a?.setFlag(MODULE_ID, "fateThread", { key, reached: 0 }) : a?.unsetFlag(MODULE_ID, "fateThread");
-    Promise.resolve(p).then(() => render());
+    setFateThread(ev.target.dataset.fateThread, ev.target.value).then(() => render());
     return;
   }
   // Volume slider committed (pointer released) → write the world setting; the display mirrors it
@@ -4249,50 +4187,26 @@ async function onClick(ev) {
     return render();
   }
   // §33 Chaotic Curses: target pick / duration / roll / accept / lift.
+  // (Every verb below is in cm-live.js — the deck's Crooked Moon keys call the same functions.)
   const cT = ev.target.closest("[data-curse-target]");
-  if (cT) { curseTarget = cT.dataset.curseTarget; return render(); }
+  if (cT) { await setCurseTarget(cT.dataset.curseTarget); return render(); }
   const cM = ev.target.closest("[data-curse-mins]");
-  if (cM) { curseMins = Number(cM.dataset.curseMins) || 20; return render(); }
-  if (ev.target.closest("[data-curse-roll]")) {
-    cursePick = await rollCurse();
-    return render();
-  }
-  if (ev.target.closest("[data-curse-cancel]")) { cursePick = null; return render(); }
-  if (ev.target.closest("[data-curse-accept]")) {
-    const a = game.actors.get(curseTarget);
-    if (a && cursePick) {
-      await applyCurse(a, cursePick, curseMins);
-      // §33 bargain mode: the Accept IS the reroll permission. Resolve the open request in
-      // one write — the phone's ask card reads bargainResult and tells the player to roll.
-      if (a.getFlag(MODULE_ID, "bargainPending")) {
-        await a.update({ [`flags.${MODULE_ID}.-=bargainPending`]: null, [`flags.${MODULE_ID}.bargainResult`]: "struck" });
-      }
-    }
-    cursePick = null;
-    return render();
-  }
+  if (cM) { await setCurseMinutes(cM.dataset.curseMins); return render(); }
+  if (ev.target.closest("[data-curse-roll]")) { await rollStagedCurse(); return render(); }
+  if (ev.target.closest("[data-curse-cancel]")) { await cancelStagedCurse(); return render(); }
+  // §33 bargain mode: the Accept IS the reroll permission — the open request resolves in the same
+  // write, and the phone's ask card reads bargainResult and tells the player to roll.
+  if (ev.target.closest("[data-curse-accept]")) { await acceptStagedCurse(); return render(); }
   // §33 bargain mode: strike (stage a curse roll on the requester) / decline / the toggle.
   const bStrike = ev.target.closest("[data-bargain-strike]");
-  if (bStrike) {
-    curseTarget = bStrike.dataset.bargainStrike;
-    cursePick = await rollCurse();
-    return render();
-  }
+  if (bStrike) { await strikeBargain(bStrike.dataset.bargainStrike); return render(); }
   const bDecline = ev.target.closest("[data-bargain-decline]");
-  if (bDecline) {
-    const a = game.actors.get(bDecline.dataset.bargainDecline);
-    if (a) await a.update({ [`flags.${MODULE_ID}.-=bargainPending`]: null, [`flags.${MODULE_ID}.bargainResult`]: "declined" });
-    return render();
-  }
-  if (ev.target.closest("[data-bargain-toggle]")) {
-    const on = (() => { try { return !!game.settings.get(MODULE_ID, "bargainMode"); } catch (e) { return false; } })();
-    await game.settings.set(MODULE_ID, "bargainMode", !on);
-    return render();
-  }
+  if (bDecline) { await declineBargain(bDecline.dataset.bargainDecline); return render(); }
+  if (ev.target.closest("[data-bargain-toggle]")) { await toggleBargainMode(); return render(); }
   const cX = ev.target.closest("[data-curse-x]");
   if (cX) {
     const [aid, eid] = cX.dataset.curseX.split(":");
-    await game.actors.get(aid)?.deleteEmbeddedDocuments("ActiveEffect", [eid]).catch(() => {});
+    await liftCurse(aid, eid);
     return render();
   }
   // §34 Fateweaving: touchpoint dots. Advance applies each newly crossed step's reward;
@@ -4300,17 +4214,7 @@ async function onClick(ev) {
   const fDot = ev.target.closest("[data-fate-dot]");
   if (fDot) {
     const [aid, nStr] = fDot.dataset.fateDot.split(":");
-    const a = game.actors.get(aid);
-    const ft = a?.getFlag(MODULE_ID, "fateThread");
-    if (a && ft?.key) {
-      const n = Number(nStr);
-      const reached = Math.min(Number(ft.reached ?? 0), 6);
-      if (n <= reached) await a.setFlag(MODULE_ID, "fateThread", { ...ft, reached: n - 1 });
-      else {
-        for (let s = reached + 1; s <= n; s++) await applyFateReward(a, s);
-        await a.setFlag(MODULE_ID, "fateThread", { ...ft, reached: n });
-      }
-    }
+    await fateTouch(aid, Number(nStr));
     return render();
   }
   // §31 Twists of Fate: grant/revoke counters; Apply spends a pending twist and posts the
@@ -4318,8 +4222,7 @@ async function onClick(ev) {
   const tAdj = ev.target.closest("[data-twist-adj]");
   if (tAdj) {
     const [aid, d] = tAdj.dataset.twistAdj.split(":");
-    const a = game.actors.get(aid);
-    if (a) await a.setFlag(MODULE_ID, "twists", Math.max(0, Number(a.getFlag(MODULE_ID, "twists") ?? 0) + Number(d)));
+    await adjustTwists(aid, Number(d));
     return render();
   }
   // v3: the chip mirrors the popup — Spend it (the DM sets the die by hand) or Keep it.
@@ -4329,11 +4232,7 @@ async function onClick(ev) {
     return render();
   }
   const tDisarm = ev.target.closest("[data-twist-disarm]");
-  if (tDisarm) {
-    const doc = await fromUuid(tDisarm.dataset.twistDisarm);
-    await (doc?.actor ?? doc)?.unsetFlag(MODULE_ID, "twistArmed");
-    return render();
-  }
+  if (tDisarm) { await disarmTwist(tDisarm.dataset.twistDisarm); return render(); }
   const tDismiss = ev.target.closest("[data-twist-dismiss]");
   if (tDismiss) {
     await refundTwist(game.actors.get(tDismiss.dataset.twistDismiss));
@@ -4344,14 +4243,7 @@ async function onClick(ev) {
   // §36.1 the stage: bring the train in / take it away. The aim it arrives at is whatever the last
   // "Arrive for them" set, so raising it from here after choosing someone keeps facing them.
   const cmTrain = ev.target.closest("[data-cm-train]");
-  if (cmTrain) {
-    const on = cmTrain.dataset.cmTrain === "on";
-    const cur = { ...fxActiveMap() };
-    if (on) { cur.cmTrain = { in: true, rot: cur.cmTrain?.rot ?? 0 }; cur.cmStation = true; }
-    else delete cur.cmTrain;
-    await game.settings.set(MODULE_ID, "fxActive", cur);
-    return render();
-  }
+  if (cmTrain) { await setTrainIn(cmTrain.dataset.cmTrain === "on"); return render(); }
   // §36.2 the first boarding (DM 2026-08-28): one tap sets the session-one stage.
   if (ev.target.closest("[data-cm-stage]")) { await stageFirstBoarding(); return render(); }
   // §36.1 the three cues, fired by hand as the sentences land. Approach TOGGLES — it is a bed the
@@ -4359,12 +4251,12 @@ async function onClick(ev) {
   const cmCue = ev.target.closest("[data-cm-cue]");
   if (cmCue) {
     const cue = cmCue.dataset.cmCue;
-    if (cue === "whistle") dmFireFx("cmWhistle");
+    if (cue === "whistle") { trainWhistle(); return; }
     // The stop ducks the ENGINE only — the fiddle plays on (the Vagrant steps out fiddle in hand).
-    else if (cue === "stop") { dmFireFx("cmTrainStop"); cmSoundOn = false; return render(); }
-    else if (cue === "fiddle") { cmFiddleOn = !cmFiddleOn; dmFireFx("cmFiddle", { on: cmFiddleOn }); return render(); }
-    else { cmSoundOn = !cmSoundOn; dmFireFx("cmTrainApproach", { on: cmSoundOn }); return render(); }
-    return;
+    if (cue === "stop") await trainBrakes();
+    else if (cue === "fiddle") await toggleFiddle();
+    else await toggleEngine();
+    return render();
   }
   // §36.1 open / close one character's arrival script.
   const cmStory = ev.target.closest("[data-cm-story]");
@@ -4390,105 +4282,35 @@ async function onClick(ev) {
   // "Arrive for them": raise the station, aim at their seat, and bring it in — one tap for the beat
   // the DM is actually performing, instead of three.
   const cmArrive = ev.target.closest("[data-cm-arrive]");
-  if (cmArrive) {
-    const a = game.actors.get(cmArrive.dataset.cmArrive);
-    const cur = { ...fxActiveMap() };
-    cur.cmStation = true;
-    cur.cmTrain = { in: true, rot: pcSeatRot(a), actorId: a?.id ?? null };
-    await game.settings.set(MODULE_ID, "fxActive", cur);
-    return render();
-  }
+  if (cmArrive) { await trainArriveFor(cmArrive.dataset.cmArrive); return render(); }
   const cmIntro = ev.target.closest("[data-cm-intro]");
-  if (cmIntro) {
-    const id = cmIntro.dataset.cmIntro;
-    const cur = { ...fxActiveMap() };
-    if (cur.cmIntro?.actorId === id) delete cur.cmIntro;
-    else { cur.cmIntro = { actorId: id }; cur.cmStation = true; }
-    await game.settings.set(MODULE_ID, "fxActive", cur);
-    return render();
-  }
+  if (cmIntro) { await toggleIntro(cmIntro.dataset.cmIntro); return render(); }
   // §36 one ticket: give, or punch it (boarding).
   const cmTicket = ev.target.closest("[data-cm-ticket]");
-  if (cmTicket) {
-    if (cmTicket.dataset.cmTicket) await dmToggleFxFor("cmTicket", cmTicket.dataset.cmTicket);
-    return render();
-  }
+  if (cmTicket) { await toggleTicket(cmTicket.dataset.cmTicket); return render(); }
   // §36 every ticket at once — hand them out at the top of the scene, or punch the stragglers.
   const cmAll = ev.target.closest("[data-cm-tickets-all]");
-  if (cmAll) {
-    const users = scenePcs().map(a => pcUser(a)).filter(Boolean).map(u => u.id);
-    const cur = { ...fxActiveMap() };
-    if (cmAll.dataset.cmTicketsAll === "on" && users.length) cur.cmTicket = { users: [...new Set(users)] };
-    else delete cur.cmTicket;
-    await game.settings.set(MODULE_ID, "fxActive", cur);
-    return render();
-  }
+  if (cmAll) { await setAllTickets(cmAll.dataset.cmTicketsAll === "on"); return render(); }
   // §37 the ride: wire every car door (idempotent), toggle the rushing Shroud.
-  if (ev.target.closest("[data-cm-wire]")) {
-    const report = await wireTrainDoors();
-    ui.notifications.info(`Ghostlight Express — ${report.join(" · ") || "no car scenes found"}`);
-    return render();
-  }
+  if (ev.target.closest("[data-cm-wire]")) { await wireDoors(); return render(); }
   const cmMist = ev.target.closest("[data-cm-mist]");
-  if (cmMist) {
-    const n = await setTrainMist(cmMist.dataset.cmMist === "on");
-    ui.notifications.info(cmMist.dataset.cmMist === "on"
-      ? `The Ghostlight Express runs — the Shroud rushes past ${n} cars.`
-      : `The train rests — ${n} cars gone still.`);
-    return render();
-  }
+  if (cmMist) { await setRide(cmMist.dataset.cmMist === "on"); return render(); }
   // §30 séance: broadcast the phrase; the TV's planchette does the talking.
   if (ev.target.closest("[data-seance-send]")) return seanceSend();
   const spc = ev.target.closest("[data-seance-pc]");
-  if (spc) {
-    const id = spc.dataset.seancePc;
-    if (seanceParty.has(id)) seanceParty.delete(id); else seanceParty.add(id);
-    return render();
-  }
+  if (spc) { await toggleSeanceSitter(spc.dataset.seancePc); return render(); }
   // §30.1 the question d10: on a 1 the board bites and the damage roll goes live.
-  if (ev.target.closest("[data-seance-d10]")) {
-    const r = await (new Roll("1d10")).evaluate();
-    seanceLastD10 = r.total;
-    if (r.total === 1) seanceArmed = true;
-    // rollMode option, not a whisper array — Roll#toMessage applies the client's default roll
-    // mode AFTER messageData and clobbers an explicit whisper (found on the bench 2026-07-27:
-    // public roll mode made these cards public).
-    await r.toMessage({ flavor: "Séance — the question d10" }, { rollMode: "gmroll" });
-    return render();
-  }
+  if (ev.target.closest("[data-seance-d10]")) { await seanceQuestion(); return render(); }
   // §30.1 the bite: escalating psychic damage to every sitter; the glitch (TV + their
   // phones) grows with the die — very weak the first time, ugly by 1d12.
-  if (ev.target.closest("[data-seance-dmg]")) {
-    const die = seanceDie();
-    const r = await (new Roll(`1d${die}`)).evaluate();
-    const sitters = [...seanceParty].map(id => game.actors.get(id)).filter(Boolean);
-    for (const a of sitters) await a.applyDamage([{ value: r.total, type: "psychic" }]);
-    const owners = new Set();
-    for (const a of sitters) for (const u of game.users) {
-      if (!u.isGM && a.testUserPermission(u, "OWNER")) owners.add(u.id);
-    }
-    let tvId = ""; try { tvId = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
-    if (tvId) owners.add(tvId);
-    dmFireFx("static", { users: [...owners], level: seanceGlitchLevel() });
-    await r.toMessage({
-      flavor: `Séance — the board bites: 1d${die} psychic to ${sitters.map(a => a.name).join(", ") || "nobody"}`
-    }, { rollMode: "gmroll" });
-    seanceStep++;
-    seanceArmed = false;
-    return render();
-  }
+  if (ev.target.closest("[data-seance-dmg]")) { await seanceBite(); return render(); }
   const fxBtn = ev.target.closest("[data-fx]");
   if (fxBtn) {
-    // §30.1: a fresh séance resets the escalation — the die starts back at 1d4.
-    if (fxBtn.dataset.fx === "seance" && !fxIsOn("seance")) { seanceStep = 0; seanceArmed = false; seanceLastD10 = null; }
-    // §36: closing the station takes the intro card down with it — no ghost card on re-open.
-    const stationClosing = fxBtn.dataset.fx === "cmStation" && fxIsOn("cmStation");
-    await dmToggleFx(fxBtn.dataset.fx);
-    if (stationClosing && fxActiveMap().cmIntro) {
-      const cur = { ...fxActiveMap() };
-      delete cur.cmIntro;
-      await game.settings.set(MODULE_ID, "fxActive", cur);
-    }
+    // §30.1: a fresh séance resets the escalation (toggleSeanceBoard). §36: closing the station
+    // takes the intro card down with it — no ghost card on re-open (toggleStationMist).
+    if (fxBtn.dataset.fx === "seance") await toggleSeanceBoard();
+    else if (fxBtn.dataset.fx === "cmStation") await toggleStationMist();
+    else await dmToggleFx(fxBtn.dataset.fx);
     return render();
   }
   // Mark / unmark the current scene as a travel map (the DM's explicit list — no grid guessing).
@@ -4929,34 +4751,23 @@ async function onClick(ev) {
   if (cfOpen) { game.journal.get(cfOpen.dataset.cfOpen)?.sheet?.render(true); return; }
 
   // §43 Druskenvald clock: push the hour on, or put this map under the eternal night.
-  if (ev.target.closest("[data-drusk-next]")) {
-    const landed = await advanceToNextHour();
-    if (landed) ui.notifications.info(`Druskenvald: it is now ${landed.name}.`);
-    return render();
-  }
-  if (ev.target.closest("[data-drusk-mark]")) {
-    const sc = canvas?.scene;
-    if (!sc) return;
-    await markDruskScene(sc.id, !isDruskScene(sc));
-    // Re-light it immediately on the new curve rather than waiting for the clock to move.
-    try { await globalThis.MobileCommand?.applyDaylightNow?.(); } catch (e) { /* best-effort */ }
-    return render();
-  }
+  if (ev.target.closest("[data-drusk-next]")) { await druskNextHour(); return render(); }
+  // Re-lights the map immediately on the new curve rather than waiting for the clock to move.
+  if (ev.target.closest("[data-drusk-mark]")) { if (await toggleDruskMap()) render(); return; }
 
-  // §42 Fated tarot: deal one into a character's hand, or take it back.
+  // §42 Fated tarot: deal one into a character's hand (the cheat was for THAT draw, so it clears),
+  // or take it back.
   const tDeal = ev.target.closest("[data-tarot-deal]");
-  if (tDeal) {
-    const a = game.actors.get(tDeal.dataset.tarotDeal);
-    const card = await dealOne(a, tarotPick.get(a?.id) || null);
-    if (!card) ui.notifications.warn(`${MODULE_ID} | the deck is out of arcana.`);
-    else ui.notifications.info(`${a.name} draws ${card.name} — it's face down on their phone.`);
-    tarotPick.delete(a?.id); // the choice was for THAT draw; don't let it silently repeat
-    return render();
-  }
+  if (tDeal) { await dealTarotTo(tDeal.dataset.tarotDeal); return render(); }
   const tClear = ev.target.closest("[data-tarot-clear]");
-  if (tClear) { await setActorCard(game.actors.get(tClear.dataset.tarotClear), null); return render(); }
+  if (tClear) { await takeTarotBack(tClear.dataset.tarotClear); return render(); }
 
   // §40 boss intro: play one, give it a sound from disk, or take it off the list.
+  const entrPlay = ev.target.closest("[data-entrance-play]");
+  if (entrPlay) { await dmPlayEntrance(entrPlay.dataset.entrancePlay); return; }
+  if (ev.target.closest("[data-entrance-stop]")) { await dmStopEntrance(); return; }
+  const entrShadow = ev.target.closest("[data-entrance-shadow]");
+  if (entrShadow) { await dmShadowEntrance(entrShadow.dataset.entranceShadow); return void render(); }
   const bossPlay = ev.target.closest("[data-boss-play]");
   if (bossPlay) { await dmPlayBossIntro(bossPlay.dataset.bossPlay); return; }
   const bossSnd = ev.target.closest("[data-boss-sound]");
@@ -5274,6 +5085,11 @@ export function registerDMPanel() {
   Hooks.on("mobile-command.presence", () => render());             // away-timer: a phone reported fg/bg
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.downtimeState`) render(); }); // §17.7: activities/window changed
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive` && (dockTab === "effects" || dockTab === "crooked")) render(); }); // §26/§35: fx toggles follow the world state (séance lives on the Crooked Moon tab)
+  // §35/§52: the Crooked Moon tab's own state — a press on the deck lands here as a setting write,
+  // so the open drawer follows it (sitters, the staged curse, fiddle/engine, bargains on/off).
+  Hooks.on("updateSetting", (s) => { if ((s?.key === `${MODULE_ID}.cmLiveState` || s?.key === `${MODULE_ID}.bargainMode`) && dockTab === "crooked") render(); });
+  // §26.5: loudness pressed on the deck moves the Effects tab's sliders too.
+  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxVolumes` && dockTab === "effects") render(); });
   Hooks.on("updateActor", (_a, ch) => { if (dockTab === "crooked" && ch.flags?.[MODULE_ID]) render(); }); // §31: a phone's twist spend/withdraw lands as a chip live
   Hooks.on("updateToken", (_t, ch) => { if (dockTab === "crooked" && ch.delta?.flags?.[MODULE_ID]) render(); }); // §31 v2: an armed twist on an UNLINKED token consumes via its token delta — the chip must clear live
   Hooks.on("createChatMessage", (m) => { if (dockTab === "party" && dmMsgOpen && pmIsPersonal(m)) render(); }); // §27: a player reply extends the open thread

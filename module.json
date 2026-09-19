@@ -68,7 +68,8 @@
     "scripts/main.js"
   ],
   "styles": [
-    "styles/shell.css"
+    "styles/shell.css",
+    "styles/entrances.css"
   ],
   "languages": [
     {

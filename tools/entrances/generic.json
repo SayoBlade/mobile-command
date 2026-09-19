@@ -1,0 +1,598 @@
+[
+ {
+  "key": "g-the-daydreamer",
+  "short": "Daydreamer",
+  "name": "The Daydreamer",
+  "sub": "",
+  "stance": "neutral",
+  "chapter": 10,
+  "file": "art npc/NPC_The_Daydreamer.webp",
+  "scenes": [
+   "10.4"
+  ],
+  "group": "C"
+ },
+ {
+  "key": "g-the-harlequin",
+  "short": "Harlequin",
+  "name": "The Harlequin",
+  "sub": "",
+  "stance": "neutral",
+  "chapter": 10,
+  "file": "art npc/NPC_The_Harlequin.webp",
+  "scenes": [
+   "10.7"
+  ],
+  "group": "C"
+ },
+ {
+  "key": "g-the-jailbird",
+  "short": "Jailbird",
+  "name": "The Jailbird",
+  "sub": "",
+  "stance": "neutral",
+  "chapter": 10,
+  "file": "art npc/NPC_The_Jailbird.webp",
+  "scenes": [
+   "10.6"
+  ],
+  "group": "C"
+ },
+ {
+  "key": "g-the-mariner",
+  "short": "Mariner",
+  "name": "The Mariner",
+  "sub": "",
+  "stance": "neutral",
+  "chapter": 10,
+  "file": "art npc/NPC_The_Mariner.webp",
+  "scenes": [
+   "10.5"
+  ],
+  "group": "C"
+ },
+ {
+  "key": "g-the-songstress",
+  "short": "Songstress",
+  "name": "The Songstress",
+  "sub": "",
+  "stance": "neutral",
+  "chapter": 10,
+  "file": "art npc/NPC_The_Songstress.webp",
+  "scenes": [
+   "10.3"
+  ],
+  "group": "C"
+ },
+ {
+  "key": "g-the-lady-with-the-locket",
+  "short": "Locket lady",
+  "name": "The lady with the locket",
+  "sub": "",
+  "stance": "neutral",
+  "chapter": 10,
+  "file": "art npc/NPC_The_Sweetheart.webp",
+  "scenes": [
+   "10.2"
+  ],
+  "group": "C"
+ },
+ {
+  "key": "g-alda-farnum",
+  "short": "Alda Farnum",
+  "name": "Alda Farnum",
+  "sub": "Innkeeper of the Green Queen Inn",
+  "stance": "neutral",
+  "chapter": 11,
+  "file": "art npc/NPC_Alda_Farnum.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-baltus-tolliver",
+  "short": "Baltus",
+  "name": "Baltus Tolliver",
+  "sub": "Owner of Tolliver's Trading Post",
+  "stance": "neutral",
+  "chapter": 11,
+  "file": "art npc/NPC_Baltus_Tolliver.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-beatrice-wells",
+  "short": "Beatrice",
+  "name": "Beatrice Wells",
+  "sub": "Carpenter of Wickermoor Village",
+  "stance": "neutral",
+  "chapter": 11,
+  "file": "art npc/NPC_Beatrice_Fallowfield.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-constable-doris-squire",
+  "short": "Constable",
+  "name": "Constable Doris Squire",
+  "sub": "Keeps the law in Wickermoor Village",
+  "stance": "neutral",
+  "chapter": 11,
+  "file": "art npc/NPC_Doris_Squire.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-deputy-howie-butterman",
+  "short": "Deputy",
+  "name": "Deputy Howie Butterman",
+  "sub": "Serves under Constable Doris Squire",
+  "stance": "friend",
+  "chapter": 11,
+  "file": "art npc/NPC_Howie_Butterman.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-eleanor-heyling",
+  "short": "Eleanor",
+  "name": "Eleanor Heyling",
+  "sub": "Bookseller of Wickermoor Village",
+  "stance": "neutral",
+  "chapter": 11,
+  "file": "art npc/NPC_Eleanor_Heyling.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-finneas-trout",
+  "short": "Finneas",
+  "name": "Finneas Trout",
+  "sub": "Schoolteacher of Wickermoor Village",
+  "stance": "neutral",
+  "chapter": 11,
+  "file": "art npc/NPC_Finneas_Trout.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-gaston-doray",
+  "short": "Gaston Doray",
+  "name": "Gaston Doray",
+  "sub": "Painter in Wickermoor Village",
+  "stance": "neutral",
+  "chapter": 11,
+  "file": "art npc/NPC_Gaston_Doray.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-hilda-brom",
+  "short": "Hilda Brom",
+  "name": "Hilda Brom",
+  "sub": "Huntress of Wickermoor Hollow",
+  "stance": "neutral",
+  "chapter": 11,
+  "file": "art npc/NPC_Hilda_Brom.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-holly-aster",
+  "short": "Holly Aster",
+  "name": "Holly Aster",
+  "sub": "Baker of Wickermoor Village",
+  "stance": "neutral",
+  "chapter": 11,
+  "file": "art npc/NPC_Holly_Aster.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-jean-myriel",
+  "short": "Jean Myriel",
+  "name": "Jean Myriel",
+  "sub": "Blacksmith of Wickermoor Village",
+  "stance": "neutral",
+  "chapter": 11,
+  "file": "art npc/NPC_Jean_Myriel.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-jeremiah-stover",
+  "short": "Jeremiah",
+  "name": "Jeremiah Stover",
+  "sub": "Spokesman for the village farmers",
+  "stance": "friend",
+  "chapter": 11,
+  "file": "art npc/NPC_Jeremiah_Stover.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-marianna-grey",
+  "short": "Marianna",
+  "name": "Marianna Grey",
+  "sub": "Stablemistress at the Green Queen Inn",
+  "stance": "neutral",
+  "chapter": 11,
+  "file": "art npc/NPC_Mariana_Grey.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-morgan",
+  "short": "Morgan",
+  "name": "Morgan",
+  "sub": "Apothecary of Wickermoor Village",
+  "stance": "friend",
+  "chapter": 11,
+  "file": "art npc/NPC_Morgan.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-oswick-frey",
+  "short": "Oswick Frey",
+  "name": "Oswick Frey",
+  "sub": "Candlemaker at the Wickery",
+  "stance": "friend",
+  "chapter": 11,
+  "file": "art npc/NPC_Oswick_Frey.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-randall-graham",
+  "short": "Randall",
+  "name": "Randall Graham",
+  "sub": "Barber-surgeon of Wickermoor Village",
+  "stance": "friend",
+  "chapter": 11,
+  "file": "art npc/NPC_Randall_Graham.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-siv-harga",
+  "short": "Siv Harga",
+  "name": "Siv Harga",
+  "sub": "Butcher at Harga's Meats",
+  "stance": "neutral",
+  "chapter": 11,
+  "file": "art npc/NPC_Siv_Harga.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-solomon-roderick",
+  "short": "Solomon",
+  "name": "Solomon Roderick",
+  "sub": "Stonemason at Roderick Masonry",
+  "stance": "neutral",
+  "chapter": 11,
+  "file": "art npc/NPC_Solomon_Roderick.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-thomasin-ardor",
+  "short": "Thomasin",
+  "name": "Thomasin Ardor",
+  "sub": "Tailor at A Stitch in Time",
+  "stance": "neutral",
+  "chapter": 11,
+  "file": "art npc/NPC_Thomasin_Ardor.webp",
+  "scenes": [
+   "11.2",
+   "21.1",
+   "21.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-dani-jenkin",
+  "short": "Dani Jenkin",
+  "name": "Dani Jenkin",
+  "sub": "",
+  "stance": "friend",
+  "chapter": 12,
+  "file": "art npc/NPC_Dani_Jenkin.webp",
+  "scenes": [
+   "11.2",
+   "12.1"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-gilly-jenkin",
+  "short": "Gilly Jenkin",
+  "name": "Gilly Jenkin",
+  "sub": "Caretaker of the Druskenvald Estate",
+  "stance": "friend",
+  "chapter": 12,
+  "file": "art npc/NPC_Gilly_Jenkin.webp",
+  "scenes": [
+   "11.2",
+   "12.1"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-walter-jenkin",
+  "short": "Walter",
+  "name": "Walter Jenkin",
+  "sub": "Butler of the Druskenvald Estate",
+  "stance": "friend",
+  "chapter": 12,
+  "file": "art npc/NPC_Walter_Jenkin.webp",
+  "scenes": [
+   "11.2",
+   "12.1"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-jonah-sawyer",
+  "short": "Jonah Sawyer",
+  "name": "Jonah Sawyer",
+  "sub": "Butcher of Foxwillow",
+  "stance": "neutral",
+  "chapter": 13,
+  "file": "art npc/NPC_Jonah_Sawyer.webp",
+  "scenes": [
+   "13.2",
+   "13.1"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-martha-langtree",
+  "short": "Martha",
+  "name": "Martha Langtree",
+  "sub": "Runs the Langtree farm in Foxwillow",
+  "stance": "neutral",
+  "chapter": 13,
+  "file": "art npc/NPC_Martha_Langtree.webp",
+  "scenes": [
+   "13.2",
+   "13.1"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-william-lodge",
+  "short": "William",
+  "name": "William Lodge",
+  "sub": "Foxwillow farmer seeking help",
+  "stance": "friend",
+  "chapter": 13,
+  "file": "art npc/NPC_William_Lodge.webp",
+  "scenes": [
+   "11.2",
+   "13.1"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-lyla",
+  "short": "Lyla",
+  "name": "Lyla",
+  "sub": "Emissary of the Bayou King",
+  "stance": "friend",
+  "chapter": 15,
+  "file": "art npc/NPC_Lyla_Webb.webp",
+  "scenes": [],
+  "group": "D"
+ },
+ {
+  "key": "g-the-gaunt-waiter",
+  "short": "Gaunt Waiter",
+  "name": "The Gaunt Waiter",
+  "sub": "Long dead, yet struggling to speak",
+  "stance": "neutral",
+  "chapter": 15,
+  "file": "art npc/NPC_Elias_Greaves.webp",
+  "scenes": [
+   "15.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-vander",
+  "short": "Vander",
+  "name": "Vander",
+  "sub": "The Bayou King of Murkwater Bend",
+  "stance": "friend",
+  "chapter": 15,
+  "file": "art npc/NPC_Vander_Boone.webp",
+  "scenes": [],
+  "group": "D"
+ },
+ {
+  "key": "g-nurse-godlee",
+  "short": "Nurse Godlee",
+  "name": "Nurse Godlee",
+  "sub": "Second to Matron Lethica",
+  "stance": "neutral",
+  "chapter": 17,
+  "file": "art npc/NPC_Sarah_Godlee.webp",
+  "scenes": [
+   "17.1",
+   "17.2"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-isolde",
+  "short": "Isolde",
+  "name": "Isolde",
+  "sub": "Spirit hound guarding Maidenmist Cemetery",
+  "stance": "friend",
+  "chapter": 19,
+  "file": "art npc/NPC_Isolde.webp",
+  "scenes": [
+   "19.1"
+  ],
+  "group": "D"
+ },
+ {
+  "key": "g-the-barrow-king",
+  "short": "Barrow King",
+  "name": "The Barrow King",
+  "sub": "Long-dead king of the Maidenmist barrow",
+  "stance": "foe",
+  "chapter": 26,
+  "file": "art monster/BOSS_Barrow_King.webp",
+  "scenes": [
+   "19.1"
+  ],
+  "group": "B"
+ },
+ {
+  "key": "g-the-brimstone-behemoth",
+  "short": "Behemoth",
+  "name": "The Brimstone Behemoth",
+  "sub": "",
+  "stance": "foe",
+  "chapter": 26,
+  "file": "art monster/BOSS_Brimstone_Behemoth.webp",
+  "scenes": [
+   "23.2",
+   "23.3"
+  ],
+  "group": "B"
+ },
+ {
+  "key": "g-the-dusk-mother",
+  "short": "Dusk Mother",
+  "name": "The Dusk Mother",
+  "sub": "Ghostly witch of the Webwoods",
+  "stance": "foe",
+  "chapter": 26,
+  "file": "art monster/BOSS_Dusk_Mother.webp",
+  "scenes": [],
+  "group": "B"
+ },
+ {
+  "key": "g-the-galloping-headsman",
+  "short": "Headsman",
+  "name": "The Galloping Headsman",
+  "sub": "",
+  "stance": "foe",
+  "chapter": 26,
+  "file": "art monster/BOSS_Galloping_Headsman.webp",
+  "scenes": [],
+  "group": "B"
+ },
+ {
+  "key": "g-the-jinxed-leviathan",
+  "short": "Leviathan",
+  "name": "The Jinxed Leviathan",
+  "sub": "",
+  "stance": "foe",
+  "chapter": 26,
+  "file": "art monster/BOSS_Jinxed_Leviathan.webp",
+  "scenes": [
+   "15.1"
+  ],
+  "group": "B"
+ },
+ {
+  "key": "g-the-tall-man",
+  "short": "Tall Man",
+  "name": "The Tall Man",
+  "sub": "Stalker of Hartsblight Forest",
+  "stance": "foe",
+  "chapter": 26,
+  "file": "art monster/BOSS_The_Tall_Man.webp",
+  "scenes": [
+   "18.1",
+   "18.2"
+  ],
+  "group": "B"
+ },
+ {
+  "key": "g-the-wild-titan",
+  "short": "Wild Titan",
+  "name": "The Wild Titan",
+  "sub": "",
+  "stance": "foe",
+  "chapter": 26,
+  "file": "art monster/MONSTER_Wild_Titan.webp",
+  "scenes": [],
+  "group": "B"
+ }
+]

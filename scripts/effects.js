@@ -6,6 +6,7 @@ import { seanceSync, seancePhrase } from "./seance.js"; // §30 séance board (T
 import { cardTableSync, registerCardTable } from "./card-table.js"; // §38.4a session-zero card table
 import { cmStationSync, cmTicketFx, playTrainWhistle, playTrainApproach, stopTrainApproach, playTrainStop, playTrainFiddle, stopTrainFiddle } from "./cm-boarding.js"; // §36 All aboard
 import { bossIntroPlay } from "./boss-intro.js"; // §40 the boss's entrance (one-shot, no state)
+import { entrancePlay, entranceStop } from "./entrances.js"; // §40.6 the themed entrance banners ("Intros")
 import { initCurseSweep } from "./cm-curses.js"; // §33: one GM client lifts expired curses
 
 // §26 Effects tab (spike) — DM-triggered table ambience, three kinds under one catalog:
@@ -52,7 +53,7 @@ export const FX_DEFS = {
   night: { label: "Night", icon: "fa-moon", darkness: true, hint: "Fade the scene to night — again for day" },
   heat: { label: "Heat Haze", icon: "fa-temperature-high", filter: "heat", hint: "Rising shimmer + a warm tint" },
   dust: { label: "Dust Storm", icon: "fa-wind", weather: "fog", filter: "dust", sound: "dustWind", hint: "Ochre haze, low wind, fog particles as dust" },
-  lightning: { label: "Lightning", icon: "fa-bolt", oneShot: true, hint: "White flash on every screen, thunder a beat later" },
+  lightning: { label: "Lightning", icon: "fa-bolt", oneShot: true, hint: "White flash on every screen, thunder a second or two later" },
   storm: { label: "Storm", icon: "fa-cloud-bolt", state: true, hint: "Distant flashes + thunder roll in on their own every minute or two" },
   bell: { label: "Doom Bell", icon: "fa-bell", oneShot: true, hint: "One toll per press — phones dim with each toll" },
   heartbeat: { label: "Heartbeat", icon: "fa-heart-pulse", player: "state", hint: "Their phone pulses red with a heartbeat only they get" },
@@ -187,6 +188,9 @@ export function handleFxOneShot(payload = {}) {
   else if (id === "cmFiddle") { if (payload?.on === false) stopTrainFiddle(); else playTrainFiddle(); } // §36.1.8 — the stop cue never ducks this one
   // §40 carries a whole boss ({ img, sound }), so it gets the payload rather than named bits.
   else if (id === "bossIntro") bossIntroPlay(payload);
+  // §40.6 carries only the entrance's key: every client resolves it from its own copy of the module.
+  else if (id === "entrance") entrancePlay(payload);
+  else if (id === "entranceStop") entranceStop();
 }
 
 function overlayShot(className, ttlMs) {
@@ -202,9 +206,11 @@ function lightningLocal(soft = false) {
   // The flash is a DOM overlay, so it works on every client — phones included.
   // `soft` is the rolling storm's distant strike: dimmer flash, later + quieter thunder.
   overlayShot(soft ? "mc-fx-flash mc-fx-flash-soft" : "mc-fx-flash", 1500);
-  // Close strike = thunder right on the flash's heels (DM 2026-07-26: "get thunder closer to
-  // lightning" — distance is the STORM's job); soft distant strikes keep a real gap.
-  if (!isPhoneClient()) playThunder(soft ? 1200 + Math.random() * 1500 : 150 + Math.random() * 350, soft ? 0.4 : 1);
+  // Close strike = thunder a second or two behind the flash (DM 2026-09-18, planning the window
+  // lightning: "a second or two later a clap of thunder" — and asked that this button match). This
+  // supersedes 2026-07-26's "get thunder closer to lightning" (150–500 ms). Soft distant strikes stay
+  // later than close ones, so the storm still reads as distance.
+  if (!isPhoneClient()) playThunder(soft ? 2000 + Math.random() * 1500 : 1000 + Math.random() * 1000, soft ? 0.4 : 1);
 }
 
 // Doom bell: the toll on canvas clients, a slow dim pulse on EVERY screen — the phones dip

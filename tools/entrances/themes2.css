@@ -1,0 +1,330 @@
+/* Per-entrance looks. Each theme sets the band's colours, the name's face, where the art stands,
+   and at most one or two quiet pieces of weather. The shared timeline lives in the base styles. */
+.halo{position:absolute;border-radius:50%;background:radial-gradient(circle,var(--hc,rgba(255,200,120,.3)) 0,transparent 66%)}
+@keyframes haloPulse{from{opacity:.65}to{opacity:1}}
+.screen.run .halo{animation:haloPulse 2.2s ease-in-out 1s infinite alternate}
+
+/* 1. The Vagrant — a friend, so no silhouette; real drifting mist behind him */
+.t-vagrant{--name-font:"Cinzel",Georgia,serif;--ntt:uppercase;--nls:.08em;--ns:7.8cqh;--name-color:#e8f1ee;--sub-color:#a9dccd;--accent:#7fe0c8;--glow:rgba(127,224,200,.35);--band:rgba(6,18,18,.84);--band2:rgba(2,10,10,.74);--fog:rgba(175,215,205,.22);--ah:60cqh;--ar:9cqw;--tr:40%}
+.t-vagrant .shade{display:none}
+
+/* 2. Phillip & Adela — friends; a pair of portraits and a few champagne glints */
+.t-druskenvald{--name-font:"Limelight","Poiret One",Georgia,serif;--ns:7.6cqh;--nls:.04em;--name-color:#f3e2b3;--sub-color:#d8c79c;--sub-font:"Poiret One",sans-serif;--accent:#d8b76a;--glow:rgba(216,183,106,.35);--band:rgba(14,11,6,.86);--band2:rgba(6,4,2,.76);--ah:64cqh;--ar:8cqw;--tr:42%;--pgap:0cqh}
+.t-druskenvald .sub{font-style:normal;text-transform:uppercase;letter-spacing:.24em;font-size:2.7cqh}
+.t-druskenvald .shade{display:none}
+
+/* 3. Vessla Browntooth — weasel feet: one weasel scurries along the top of her banner */
+.t-vessla{--name-font:"Uncial Antiqua","Metamorphous",Georgia,serif;--ns:7.4cqh;--name-color:#eadbb2;--sub-color:#c9a47a;--accent:#c0552c;--glow:rgba(192,85,44,.3);--band:rgba(20,11,8,.86);--band2:rgba(10,5,3,.76);--ah:62cqh;--ar:10cqw;--tr:38%}
+.t-vessla .scurry{top:calc(60cqh - 4.9cqh);left:0;height:5.2cqh;width:auto}
+@keyframes scurry{0%{opacity:1;transform:translate(-30cqh,0)}12.5%{transform:translate(-2cqh,-.7cqh)}25%{transform:translate(26cqh,0)}37.5%{transform:translate(54cqh,-.7cqh)}50%{transform:translate(82cqh,0)}62.5%{transform:translate(110cqh,-.7cqh)}75%{transform:translate(138cqh,0)}87.5%{transform:translate(166cqh,-.7cqh)}100%{opacity:1;transform:translate(194cqh,0)}}
+.t-vessla .screen.run .scurry{animation:scurry 1.7s linear 1.1s both}
+
+/* 4. The Crooked Man — one lightning flash shows him; rain across the map while he holds */
+.t-crooked{--name-font:"IM Fell English SC","IM Fell English",Georgia,serif;--ns:8.4cqh;--nls:.03em;--name-color:#ece5d3;--sub-color:#b9af98;--accent:#d9c46a;--glow:rgba(217,196,106,.22);--band:rgba(10,12,14,.86);--band2:rgba(4,5,6,.78);--ah:64cqh;--ar:10cqw;--tr:37%}
+.t-crooked .shade{display:none}
+.rain{position:absolute;inset:0;overflow:hidden}
+.rain i{position:absolute;left:0;right:0;top:-26cqh;height:calc(100% + 26cqh);background:var(--rain) 0 0/13cqh 26cqh;opacity:.26}
+.rain i+i{background-size:9cqh 18cqh;top:-18cqh;height:calc(100% + 18cqh);opacity:.16}
+:root{--rain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 120'%3E%3Cg stroke='%23b4c6dc' stroke-width='1.3' stroke-linecap='round'%3E%3Cpath d='M9 4l-3 18M31 34l-3 18M52 62l-3 18M19 82l-3 18M43 98l-3 18M56 8l-3 18M24 58l-3 18'/%3E%3C/g%3E%3C/svg%3E")}
+@keyframes rainFall{to{transform:translateY(26cqh)}}
+@keyframes rainFall2{to{transform:translateY(18cqh)}}
+.screen.run .rain i{animation:rainFall .55s linear infinite}
+.screen.run .rain i+i{animation:rainFall2 .42s linear infinite}
+.flash{position:absolute;inset:0;background:#eef2ff;opacity:0;z-index:6;pointer-events:none}
+@keyframes bolt{0%,100%{opacity:0}6%{opacity:.8}14%{opacity:.06}22%{opacity:.55}40%{opacity:0}}
+@keyframes unseen{from,to{opacity:0}}
+.t-crooked .screen.run .flash{animation:bolt 1.1s linear .33s both}
+.t-crooked .screen.run .art{animation:unseen .15s .25s backwards,artDrift var(--dur) linear .25s both}
+
+/* 5. Ol' Jericho Sticks — a friend; fireflies. The book's portrait pairs him with Raum, so this is cropped to him alone */
+.t-jericho{--name-font:"Sancreek","Rye",Georgia,serif;--ns:7.4cqh;--name-color:#f3e4bd;--sub-color:#e3c68a;--accent:#e0b04a;--glow:rgba(224,176,74,.3);--band:rgba(16,12,6,.84);--band2:rgba(8,5,2,.74);--ah:68cqh;--ar:12cqw;--tr:37%}
+.t-jericho .art img{-webkit-mask:linear-gradient(90deg,transparent 0,#000 30%);mask:linear-gradient(90deg,transparent 0,#000 30%)}
+.t-jericho .shade{display:none}
+
+/* 6. The Harvest Terror — the art carries it */
+.t-harvest{--name-font:"Metamorphous","Uncial Antiqua",Georgia,serif;--ns:7.2cqh;--name-color:#f0dcc0;--sub-color:#e3a066;--accent:#e8701f;--glow:rgba(232,112,31,.28);--band:rgba(16,9,4,.86);--band2:rgba(8,4,1,.78);--ah:60cqh;--ar:6cqw;--tr:38%}
+
+/* 7. The Crimson Abbot — a blood-red dim */
+.t-abbot{--name-font:"Cinzel Decorative","Cinzel",Georgia,serif;--ns:6.8cqh;--nls:.03em;--name-color:#f6dfa4;--sub-color:#eea3ab;--accent:#c8102e;--glow:rgba(200,16,46,.35);--band:rgba(18,4,8,.88);--band2:rgba(8,1,3,.78);--ah:60cqh;--ar:5cqw;--tr:38%}
+.t-abbot .dim{background:radial-gradient(ellipse 90% 80% at 60% 55%,rgba(30,2,6,.3),rgba(18,1,4,.66) 100%)}
+
+/* 8. The Grinning Sinner — the neon accent line stutters on */
+.t-sinner{--name-font:"Sacramento","Pinyon Script",cursive;--ns:9.6cqh;--name-color:#ffe8f7;--sub-color:#b9f3d5;--accent:#ff4fc3;--glow:rgba(255,79,195,.7);--band:rgba(6,14,12,.86);--band2:rgba(2,7,6,.78);--fog:rgba(120,230,170,.16);--ah:64cqh;--ar:9cqw;--tr:38%}
+.t-sinner .name{top:.6cqh}
+.t-sinner .s3{background:linear-gradient(90deg,#ff4fc3,#ff8ad6 50%,#43ffa2);box-shadow:0 0 1.6cqh #ff4fc3}
+@keyframes neonFlick{0%{opacity:0}10%{opacity:1}14%{opacity:.2}22%{opacity:1}28%{opacity:.4}36%,100%{opacity:1}}
+.t-sinner .screen.run .s3{animation:wipe .7s cubic-bezier(.5,0,.2,1) .26s both,neonFlick 1.1s linear .9s both}
+
+/* 9. The Weeping Widow — a slow violet glow behind her */
+.t-widow{--name-font:"Grenze Gotisch","UnifrakturMaguntia",serif;--ns:9cqh;--name-color:#e6def2;--sub-color:#bba8da;--accent:#9b6fd6;--glow:rgba(155,111,214,.35);--band:rgba(10,8,16,.88);--band2:rgba(4,3,8,.78);--fog:rgba(170,140,220,.18);--hc:rgba(150,100,220,.34);--ah:62cqh;--ar:10cqw;--tr:38%}
+
+/* 10. The Beast of Blight — spores drift up */
+.t-blight{--name-font:"Eater","Metamorphous",Georgia,serif;--ns:6.2cqh;--name-color:#dde68c;--sub-color:#bcc58e;--accent:#b8c24a;--glow:rgba(184,194,74,.3);--band:rgba(10,12,6,.88);--band2:rgba(4,5,2,.78);--ah:58cqh;--ar:6cqw;--tr:38%}
+.t-blight .name{top:2.4cqh}
+
+/* 11. The Chained Reaper — real rising fog in front of him, a cold glow behind */
+.t-reaper{--name-font:"Pirata One","Grenze Gotisch",serif;--ns:9cqh;--nls:.03em;--name-color:#e0f8f4;--sub-color:#8fe3d2;--accent:#4ff0cf;--glow:rgba(79,240,207,.4);--band:rgba(4,14,16,.88);--band2:rgba(1,6,7,.78);--fog:rgba(120,230,210,.18);--hc:rgba(79,240,207,.26);--ah:62cqh;--ar:8cqw;--tr:38%}
+
+/* 12. Golub Graygullet — the art carries it */
+.t-golub{--name-font:"Pinyon Script","Tangerine",cursive;--ns:9.4cqh;--name-color:#efe6f8;--sub-color:#c8b4e2;--accent:#a07ad0;--glow:rgba(160,122,208,.35);--band:rgba(12,10,16,.86);--band2:rgba(5,4,8,.78);--ah:58cqh;--ar:6cqw;--tr:40%}
+.t-golub .name{top:.4cqh}
+
+/* 13. Chuckles, Lord of Fools — the art carries it (the balloon has its own confetti) */
+.t-fools{--name-font:"Rye","Sancreek",Georgia,serif;--ns:6.2cqh;--name-color:#f6e7c8;--sub-color:#f2c45a;--accent:#e2b447;--glow:rgba(226,180,71,.3);--band:rgba(16,6,8,.86);--band2:rgba(8,2,3,.78);--ah:62cqh;--ar:6cqw;--tr:38%}
+.t-fools .name{top:2.6cqh}
+.t-fools .s3{background:linear-gradient(90deg,#b3202a 0 33%,#e2b447 33% 66%,#2f7a3a 66%);box-shadow:none}
+
+/* 14. The Wicker Man — embers rise, firelight behind him */
+.t-wicker{--name-font:"Uncial Antiqua","Metamorphous",Georgia,serif;--ns:8.2cqh;--name-color:#fbe8c6;--sub-color:#f2b872;--accent:#ff8a2a;--glow:rgba(255,138,42,.45);--band:rgba(18,8,2,.86);--band2:rgba(8,3,1,.78);--hc:rgba(255,140,40,.32);--ah:66cqh;--ar:9cqw;--tr:38%}
+
+/* 15. The Horned King — a few embers and a deep red glow */
+.t-horned{--name-font:"UnifrakturMaguntia","Grenze Gotisch",serif;--ns:9cqh;--name-color:#f1e6cf;--sub-color:#ff8a5c;--accent:#d4161b;--glow:rgba(212,22,27,.45);--band:rgba(8,3,3,.9);--band2:rgba(3,1,1,.8);--hc:rgba(200,20,20,.3);--ah:52cqh;--ar:4cqw;--tr:40%}
+.t-horned .dim{background:radial-gradient(ellipse 90% 80% at 60% 50%,rgba(20,2,2,.3),rgba(10,1,1,.68) 100%)}
+
+/* 16. The Crooked Queen — one slow sweep of moonlight */
+.t-queen{--name-font:"MedievalSharp","Cinzel",Georgia,serif;--ns:7.8cqh;--name-color:#efe2bf;--sub-color:#c9b27a;--accent:#ffb24a;--glow:rgba(255,178,74,.28);--band:rgba(8,10,6,.88);--band2:rgba(3,4,2,.78);--fog:rgba(150,190,160,.16);--ah:62cqh;--ar:8cqw;--tr:39%}
+.moonlight{position:absolute;top:-20cqh;left:0;width:30cqh;height:140cqh;background:linear-gradient(90deg,transparent,rgba(225,235,255,.16) 45%,rgba(240,245,255,.22) 50%,rgba(225,235,255,.16) 55%,transparent);transform:translateX(-40cqh) rotate(18deg);opacity:0}
+@keyframes sweep{0%{opacity:0;transform:translateX(-40cqh) rotate(18deg)}20%{opacity:1}80%{opacity:1}100%{opacity:0;transform:translateX(190cqh) rotate(18deg)}}
+.t-queen .screen.run .moonlight{animation:sweep 3.6s ease-in-out .8s both}
+
+/* Real mist from MattM's Animated Mist and Fog (VP8 video with transparency), for the Vagrant and the Reaper. */
+.t-vagrant .mistvid{--mo:.6}
+.t-reaper .mistvid{--mo:.78}
+.t-reaper .mistvid.front{--mo:.72}
+/* The Reaper comes out of the fog: small and faint at first, growing and firming up as he closes in (no silhouette). */
+.t-reaper .shade{display:none}
+body:not(.table) .t-reaper .art{transform-origin:50% 92%}
+@keyframes emerge{0%{opacity:0;transform:scale(.6);animation-timing-function:cubic-bezier(.4,0,.7,.6)}35%{opacity:.3;transform:scale(.76);animation-timing-function:cubic-bezier(.33,.15,.35,1)}100%{opacity:1;transform:scale(1)}}
+@keyframes loom{to{scale:1.05}}
+.t-reaper .screen.run .art{animation:emerge 3.6s .3s both,loom var(--dur) linear .3s both}
+@media (prefers-reduced-motion:reduce){
+  body:not(.full-motion) .t-reaper .screen.run .art{animation:dimIn 1.6s ease .35s both}
+}
+
+/* Transformation versions: the form the party knows (a1, n1), the change at --T, then the monster (a2, n2), which holds
+   for the usual time. Before the first Play the card previews the monster. Table layout keeps its centring turn. */
+.tf .shade{display:none}
+.tf .screen:not(.run) .a1,.tf .screen:not(.run) .n1{visibility:hidden}
+@keyframes textOut{to{opacity:0;transform:translateX(calc(var(--in-name) * -1))}}
+@keyframes fadeOut{to{opacity:0}}
+@keyframes lateIn{0%,75%{opacity:0}100%{opacity:1}}
+.tf .screen.run .name.n1{animation:nameIn .65s cubic-bezier(.2,.8,.3,1) .4s both,textOut .45s ease-in var(--T) forwards}
+.tf .screen.run .sub.n1{animation:nameIn .65s cubic-bezier(.2,.8,.3,1) .55s both,textOut .45s ease-in var(--T) forwards}
+.tf .screen.run .name.n2{animation:nameIn .65s cubic-bezier(.2,.8,.3,1) calc(var(--T) + .6s) both,nameDrift calc(var(--dur) - var(--T) - .6s) linear calc(var(--T) + .6s) both}
+.tf .screen.run .sub.n2{animation:nameIn .65s cubic-bezier(.2,.8,.3,1) calc(var(--T) + .75s) both,nameDrift calc(var(--dur) - var(--T) - .75s) linear calc(var(--T) + .75s) both}
+body.table .tf .screen.run .n1{animation:dimIn .8s ease .5s both,fadeOut .45s ease-in var(--T) forwards}
+body.table .tf .screen.run .n2{animation:dimIn .8s ease calc(var(--T) + .6s) both}
+body.table .tf .screen.run .art.a1{animation:turnTable var(--dur) cubic-bezier(.5,0,.2,1) .2s both,fadeOut .8s ease-in var(--T) forwards}
+body.table .tf .screen.run .art.a2{animation:turnTable var(--dur) cubic-bezier(.5,0,.2,1) .2s both,lateIn calc(var(--T) + 1.3s) linear both}
+
+/* The Abbot: his image shimmers, he grows to towering height, a blood-red flash, and the winged form takes his place. */
+.tf-abbot{--T:2.6s}
+body:not(.table) .tf-abbot .art{transform-origin:50% 100%}
+body:not(.table) .tf-abbot .art.a1{height:calc(var(--ah) * .8);right:calc(var(--ar) + var(--ah) * .436)}
+body.table .tf-abbot .art.a1{height:calc(var(--ah) * .5)}
+@keyframes shimmerGrow{0%{opacity:1;transform:none}14%{opacity:.5}24%{opacity:1}38%{opacity:.35}50%{opacity:.9;transform:scale(1.06)}100%{opacity:0;transform:scale(1.28)}}
+@keyframes riseTall{from{opacity:0;transform:scale(.78)}}
+.tf-abbot .screen.run .art.a1{animation:artIn .75s cubic-bezier(.2,.8,.3,1) .25s both,shimmerGrow 1.1s ease-in var(--T) forwards}
+.tf-abbot .screen.run .art.a2{animation:riseTall 1.3s cubic-bezier(.2,.7,.3,1) calc(var(--T) + .4s) both,artDrift calc(var(--dur) - var(--T) - .4s) linear calc(var(--T) + .4s) both}
+.tf-abbot .flash{background:radial-gradient(ellipse 60% 70% at 72% 40%,rgba(255,40,64,.95),rgba(140,0,16,.7) 55%,rgba(40,0,6,.4))}
+@keyframes bloodFlash{0%{opacity:0}14%{opacity:.7}30%{opacity:.25}42%{opacity:.5}100%{opacity:0}}
+.tf-abbot .screen.run .flash{animation:bloodFlash 1.4s ease-out calc(var(--T) + .2s) both}
+
+/* The Reaper: Yorgrim stands in thin fog; at the change the fog thickens and swallows him, and the Reaper grows out of it. */
+.tf-reaper{--T:2.8s}
+body:not(.table) .tf-reaper .art.a1{height:calc(var(--ah) * .85);right:calc(var(--ar) + var(--ah) * .163)}
+body.table .tf-reaper .art.a1{height:calc(var(--ah) * .53)}
+@keyframes intoFog{to{opacity:0;transform:scale(.9)}}
+@keyframes fogSwell{from{opacity:.18}to{opacity:var(--mo)}}
+/* The front fog: in thin while Yorgrim stands there (0 to 1.1 s), then swells with the change (from T - .5 s = 2.3 s to 4.7 s). */
+@keyframes fogFront{0%{opacity:0}23%,49%{opacity:.26}100%{opacity:var(--mo)}}
+.tf-reaper .mistvid{--mo:.86}
+.tf-reaper .mistvid.front{--mo:.8}
+.tf-reaper .screen.run .art.a1{animation:artIn .75s cubic-bezier(.2,.8,.3,1) .25s both,intoFog 1.6s ease-in var(--T) forwards}
+.tf-reaper .screen.run .art.a2{animation:emerge 3.2s calc(var(--T) + .5s) both,loom calc(var(--dur) - var(--T) - .5s) linear calc(var(--T) + .5s) both}
+.tf-reaper .screen.run .weather .mistvid{animation:fogSwell 2.4s ease-in-out calc(var(--T) - .5s) both}
+.tf-reaper .screen.run .mistvid.front{animation:fogFront 4.7s ease-in-out both}
+
+@media (prefers-reduced-motion:reduce){
+  body:not(.full-motion):not(.table) .tf .screen.run .art.a1{animation:dimIn .6s ease .25s both,fadeOut .8s ease var(--T) forwards}
+  body:not(.full-motion):not(.table) .tf .screen.run .art.a2{animation:dimIn 1s ease calc(var(--T) + .35s) both}
+}
+
+/* ============ Second wave (DM 2026-09-19) ============ */
+
+/* The Phantom Trainhopper — a grinning shadow in ghostlight: a green glow behind it, sparks drifting up */
+.t-trainhopper{--name-font:"Grenze Gotisch","UnifrakturMaguntia",serif;--ns:8.4cqh;--nls:.02em;--name-color:#dcffec;--sub-color:#8ff0c0;--accent:#3dffa6;--glow:rgba(61,255,166,.5);--band:rgba(3,14,9,.88);--band2:rgba(1,6,4,.8);--hc:rgba(61,255,166,.26);--ah:60cqh;--ar:11cqw;--tr:40%}
+
+/* Mayor Wendel Somerton — a friend: warm civic colours, lantern glints, no silhouette */
+.t-mayor{--name-font:"Cinzel",Georgia,serif;--ntt:uppercase;--nls:.06em;--ns:6.2cqh;--name-color:#f6e7c8;--sub-color:#e6c98a;--accent:#c8a44d;--glow:rgba(200,164,77,.3);--band:rgba(28,9,9,.86);--band2:rgba(12,3,3,.78);--ah:58cqh;--ar:10cqw;--tr:40%}
+.t-mayor .shade{display:none}
+
+/* Stonoga Blackstinger — the mine's dust sifting down while she holds */
+.t-stonoga{--name-font:"Uncial Antiqua","Metamorphous",Georgia,serif;--ns:7cqh;--name-color:#efdcc0;--sub-color:#d6a06a;--accent:#b8662a;--glow:rgba(184,102,42,.32);--band:rgba(16,10,6,.88);--band2:rgba(7,4,2,.8);--ah:52cqh;--ar:5cqw;--tr:40%}
+.t-stonoga .screen.run .bit{animation-duration:var(--t,5.2s)}
+
+/* Hugo — the sanatorium's violet lockdown light pulsing at the edges */
+.t-hugo{--name-font:"UnifrakturMaguntia","Grenze Gotisch",serif;--ns:9.6cqh;--name-color:#efe2ff;--sub-color:#c9a8f0;--accent:#b066ff;--glow:rgba(176,102,255,.45);--band:rgba(12,6,18,.88);--band2:rgba(5,2,8,.8);--ah:64cqh;--ar:9cqw;--tr:40%}
+.t-hugo .dim{background:radial-gradient(ellipse 90% 80% at 60% 55%,rgba(14,6,22,.3),rgba(8,3,14,.66) 100%)}
+.lockdown{position:absolute;inset:0;background:radial-gradient(ellipse 72% 64% at 50% 50%,transparent 42%,rgba(150,70,255,.3) 100%);opacity:0}
+@keyframes lockPulse{0%,100%{opacity:.2}50%{opacity:.75}}
+.t-hugo .screen.run .lockdown{animation:lockPulse 2.6s ease-in-out .8s infinite}
+
+/* The White Worm — it rises from below instead of sliding in */
+.t-worm{--name-font:"Shippori Mincho","Cinzel",Georgia,serif;--ntt:uppercase;--ns:7cqh;--nls:.16em;--name-color:#f3ecf8;--sub-color:#cbb8e0;--accent:#d8c6ef;--glow:rgba(216,198,239,.4);--band:rgba(10,8,14,.88);--band2:rgba(4,3,7,.8);--hc:rgba(210,190,240,.2);--ah:56cqh;--ar:3cqw;--tr:42%}
+@keyframes wormRise{0%{opacity:0;transform:translateY(38%)}25%{opacity:1}100%{opacity:1;transform:translateY(0)}}
+/* DM 2026-09-19: "the white worm is underwhelming, i'd like a roar or something after it burrows out" — it breaks the
+   surface, and as it clears it shudders and ROARS, the whole banner punching once with it */
+@keyframes wormQuake{0%,100%{rotate:0deg}15%{rotate:-1.4deg}35%{rotate:1.2deg}55%{rotate:-.9deg}75%{rotate:.6deg}}
+@keyframes wormPunch{0%,100%{scale:1}25%{scale:1.05}}
+/* The shriek (v14): a pale flicker across the screen as it cries out, on the shriek's own cue at 2.2 s. */
+.t-worm .flash{background:radial-gradient(ellipse 70% 70% at 62% 45%,rgba(232,222,248,.75),rgba(120,100,160,.25) 55%,transparent 80%)}
+@keyframes shriekFlash{0%{opacity:0}12%{opacity:.7}30%{opacity:.15}45%{opacity:.45}100%{opacity:0}}
+.t-worm .screen.run .flash{animation:shriekFlash .7s ease-out 2.2s both}
+.t-worm .screen.run .art{animation:wormRise 1.9s cubic-bezier(.2,.7,.25,1) .5s both,artDrift var(--dur) linear .5s both,wormQuake .7s linear 2.25s both,wormPunch .6s ease-out 2.25s both}
+
+/* The Coven Abomination — the teeming vermin: one weasel runs the banner */
+.t-coven{--name-font:"Metamorphous","Uncial Antiqua",Georgia,serif;--ns:6.8cqh;--name-color:#e8e4b8;--sub-color:#bdb57e;--accent:#8e9e2c;--glow:rgba(142,158,44,.35);--band:rgba(12,12,6,.88);--band2:rgba(5,5,2,.8);--ah:64cqh;--ar:8cqw;--tr:40%}
+.t-coven .scurry{top:calc(60cqh - 4.9cqh);left:0;height:5.2cqh;width:auto}
+.t-coven .screen.run .scurry{animation:scurry 1.7s linear 1.6s both}
+
+/* Golub's unmasking — Theodora startles, feathers burst, and the hag stands in her place */
+.tf-golub{--T:2.6s}
+body:not(.table) .tf-golub .art{transform-origin:50% 100%}
+body:not(.table) .tf-golub .art.a1{height:calc(var(--ah) * .95);right:calc(var(--ar) + var(--ah) * .0855)}
+body.table .tf-golub .art.a1{height:calc(var(--ah) * .6)}
+@keyframes startle{0%{transform:none;opacity:1}8%{transform:translateX(-1.2%)}16%{transform:translateX(1.2%)}24%{transform:translateX(-.8%)}32%{transform:none;opacity:1}100%{opacity:0;transform:scale(.94)}}
+@keyframes burstIn{0%{opacity:0;transform:scale(1.12)}35%{opacity:1}100%{opacity:1;transform:scale(1)}}
+.tf-golub .screen.run .art.a1{animation:artIn .75s cubic-bezier(.2,.8,.3,1) .25s both,startle 1s ease-in var(--T) forwards}
+.tf-golub .screen.run .art.a2{animation:burstIn .9s cubic-bezier(.2,.7,.3,1) calc(var(--T) + .45s) both,artDrift calc(var(--dur) - var(--T) - .45s) linear calc(var(--T) + .45s) both}
+.feather{position:absolute;top:0;left:var(--x);width:var(--w,1.1cqh);height:var(--h,2.3cqh);border-radius:50% 50% 50% 50%/70% 70% 30% 30%;background:var(--c,rgba(236,232,244,.85));opacity:0}
+.tf-golub .screen.run .feather{animation:fall var(--t,3.4s) linear calc(var(--T) + .35s + var(--i,0) * .12s) both}
+/* The pop (the book: "her body contorts with a sickening pop"): a pale burst at the change. */
+.tf-golub .flash{background:radial-gradient(ellipse 50% 60% at 72% 42%,rgba(244,238,250,.9),rgba(190,180,210,.35) 50%,transparent 75%)}
+@keyframes popFlash{0%{opacity:0}18%{opacity:.85}100%{opacity:0}}
+.tf-golub .screen.run .flash{animation:popFlash .5s ease-out calc(var(--T) + .3s) both}
+
+/* The priors — struck down, the body slumps, a red flash, and a night creature rises in its place */
+.t-prior{--name-font:"Cinzel",Georgia,serif;--ntt:uppercase;--nls:.06em;--ns:6.2cqh;--name-color:#f3dcc8;--sub-color:#e8a0a6;--accent:#a8102a;--glow:rgba(168,16,42,.35);--band:rgba(16,4,7,.88);--band2:rgba(7,1,3,.8);--ah:58cqh;--ar:8cqw;--tr:40%}
+.t-prior .dim{background:radial-gradient(ellipse 90% 80% at 60% 55%,rgba(26,2,6,.3),rgba(14,1,4,.66) 100%)}
+.tf-prior{--T:2.8s}
+body:not(.table) .tf-prior .art{transform-origin:50% 100%}
+body:not(.table) .tf-prior .art.a1{height:calc(var(--ah) * .92)}
+body:not(.table) .p-jaeger .art.a1{right:calc(var(--ar) + var(--ah) * .1694)}
+body:not(.table) .p-olaf .art.a1{right:calc(var(--ar) + var(--ah) * .2005)}
+body:not(.table) .p-cromwell .art.a1{right:calc(var(--ar) + var(--ah) * .1463)}
+body.table .tf-prior .art.a1{height:calc(var(--ah) * .57)}
+@keyframes slump{0%{opacity:1;transform:none}40%{opacity:.9;transform:translateY(3%) rotate(-3deg)}100%{opacity:0;transform:translateY(14%) rotate(-7deg)}}
+@keyframes rise2{0%{opacity:0;transform:translateY(10%) scale(.86)}40%{opacity:1}100%{opacity:1;transform:none}}
+.tf-prior .screen.run .art.a1{animation:artIn .75s cubic-bezier(.2,.8,.3,1) .25s both,slump 1.1s ease-in var(--T) forwards}
+.tf-prior .screen.run .art.a2{animation:rise2 1.2s cubic-bezier(.2,.7,.3,1) calc(var(--T) + .5s) both,artDrift calc(var(--dur) - var(--T) - .5s) linear calc(var(--T) + .5s) both}
+.tf-prior .flash{background:radial-gradient(ellipse 60% 70% at 70% 45%,rgba(160,0,24,.8),rgba(40,0,6,.5))}
+.tf-prior .screen.run .flash{animation:bloodFlash 1.2s ease-out calc(var(--T) + .35s) both}
+
+/* Chuckles' true form — the jester jerks on his strings and drops away, festival colours burst, and the balloon swells up
+   in his place and bobs (DM 2026-09-19: "give Chuckles a transformation too"). */
+.tf-fools{--T:2.8s}
+body:not(.table) .tf-fools .art{transform-origin:50% 100%}
+body:not(.table) .tf-fools .art.a1{height:calc(var(--ah) * .85);right:calc(var(--ar) + var(--ah) * .2485)}
+body.table .tf-fools .art.a1{height:calc(var(--ah) * .56)}
+@keyframes strings{0%{opacity:1;transform:none}10%{transform:translateY(-3%) rotate(4deg)}20%{transform:translateY(-1%) rotate(-5deg)}30%{transform:translateY(-3%) rotate(3deg)}42%{opacity:1;transform:translateY(-1%) rotate(0deg)}100%{opacity:0;transform:translateY(40%) rotate(-14deg)}}
+@keyframes inflate{0%{opacity:0;transform:translateY(14%) scale(.5)}40%{opacity:1;transform:translateY(-3%) scale(1.08)}60%{transform:translateY(1%) scale(.96)}78%{transform:translateY(-1%) scale(1.02)}100%{opacity:1;transform:none}}
+@keyframes bob{0%,100%{translate:0 0}50%{translate:0 -1.6%}}
+.tf-fools .screen.run .art.a1{animation:artIn .75s cubic-bezier(.2,.8,.3,1) .25s both,strings 1.1s ease-in var(--T) forwards}
+.tf-fools .screen.run .art.a2{animation:inflate 1.4s cubic-bezier(.3,.7,.3,1) calc(var(--T) + .35s) both,bob 2.6s ease-in-out calc(var(--T) + 1.75s) infinite}
+.tf-fools .flash{background:radial-gradient(ellipse 55% 65% at 70% 45%,rgba(242,196,90,.75),rgba(179,32,42,.5) 55%,rgba(20,4,6,.3))}
+.tf-fools .screen.run .flash{animation:bloodFlash 1.2s ease-out calc(var(--T) + .25s) both}
+.feather.cf{border-radius:1px}
+.tf-fools .screen.run .feather{animation:fall var(--t,3.2s) linear calc(var(--T) + .3s + var(--i,0) * .1s) both}
+
+/* The Horned King's birth — Phillip shudders and is dragged up out of sight, a hellish flash, and the Horned King rises in
+   his place; the embers wait for him (DM 2026-09-19: "doesn't the Horned King need one too?"). */
+.tf-horned{--T:2.8s}
+body:not(.table) .tf-horned .art{transform-origin:50% 100%}
+body:not(.table) .tf-horned .art.a1{height:calc(var(--ah) * 1.2);right:calc(var(--ar) + var(--ah) * .5075)}
+body.table .tf-horned .art.a1{height:calc(var(--ah) * .8)}
+@keyframes draggedUp{0%{opacity:1;transform:none}8%{transform:translateX(-1.2%) rotate(-1.5deg)}16%{transform:translateX(1.2%) rotate(1.5deg)}26%{opacity:1;transform:translateY(2%) scale(.98)}100%{opacity:0;transform:translateY(-70%) scale(.86)}}
+.tf-horned .screen.run .art.a1{animation:artIn .75s cubic-bezier(.2,.8,.3,1) .25s both,draggedUp 1s cubic-bezier(.6,0,.9,.4) var(--T) forwards}
+.tf-horned .screen.run .art.a2{animation:riseTall 1.4s cubic-bezier(.2,.7,.3,1) calc(var(--T) + .45s) both,artDrift calc(var(--dur) - var(--T) - .45s) linear calc(var(--T) + .45s) both}
+.tf-horned .flash{background:radial-gradient(ellipse 60% 70% at 70% 42%,rgba(255,90,40,.85),rgba(150,10,10,.65) 55%,rgba(30,2,2,.4))}
+.tf-horned .screen.run .flash{animation:bloodFlash 1.4s ease-out calc(var(--T) + .3s) both}
+.tf-horned .screen.run .dot.up{animation-delay:calc(var(--T) + .5s + var(--i,0) * .4s)}
+
+/* The crow demon (DM 2026-09-19: Adelaide "with reveals") — Raum's colours, black feathers drifting down. */
+.t-crow{--ah:58cqh;--ar:4cqw}
+.feather.bf{--c:rgba(14,16,22,.92);border-radius:50% 50% 50% 50%/80% 80% 20% 20%}
+.t-crow .screen.run .feather{animation:fall var(--t,4.2s) linear calc(.7s + var(--i,0) * .45s) infinite}
+
+/* Adelaide's reveal — the crow demon breaks apart into feathers and the girl's face comes out of the dark. */
+.tf-adelaide{--T:2.8s}
+body:not(.table) .tf-adelaide .art{transform-origin:50% 100%}
+body:not(.table) .tf-adelaide .art.a2{height:calc(var(--ah) * .95);right:calc(var(--ar) + var(--ah) * .2657)}
+body.table .tf-adelaide .art.a2{height:calc(var(--ah) * .6)}
+@keyframes disperse{0%{opacity:1;filter:none;transform:none}30%{opacity:1;transform:scale(1.03)}100%{opacity:0;filter:blur(1.4cqh) brightness(.25);transform:scale(1.16)}}
+@keyframes outOfDark{0%{opacity:0;filter:brightness(0)}35%{opacity:1;filter:brightness(.15)}100%{opacity:1;filter:none}}
+.tf-adelaide .screen.run .art.a1{animation:artIn .75s cubic-bezier(.2,.8,.3,1) .25s both,disperse 1.2s ease-in var(--T) forwards}
+.tf-adelaide .screen.run .art.a2{animation:outOfDark 1.8s ease-out calc(var(--T) + .5s) both,artDrift calc(var(--dur) - var(--T) - .5s) linear calc(var(--T) + .5s) both}
+.tf-adelaide .flash{background:radial-gradient(ellipse 60% 70% at 68% 45%,rgba(40,90,100,.5),rgba(4,6,8,.9) 60%)}
+.tf-adelaide .screen.run .flash{animation:bloodFlash 1.4s ease-out calc(var(--T) + .1s) both}
+.tf-adelaide .screen.run .feather{animation:fall var(--t,3s) linear calc(var(--T) + .15s + var(--i,0) * .07s) both}
+
+/* Doctor Belkin — Memory's Rest's look; first met from the brow down, the top of his head fading into shadow. */
+.t-belkin{--ah:60cqh;--ar:10cqw}
+/* His reveal — a sick violet pulse lifts the shadow: the same portrait, whole, lined up on the cut one. */
+.tf-belkin{--T:2.8s}
+body:not(.table) .tf-belkin .art.a1{height:calc(var(--ah) * .7487)}
+body.table .tf-belkin .art.a1{height:calc(var(--ah) * .62 * .7487)}
+@keyframes brainIn{0%{opacity:0;filter:brightness(1.7) saturate(1.5)}25%{opacity:1}100%{opacity:1;filter:none}}
+@keyframes twitch{0%,100%{transform:none}20%{transform:translateX(-.6%) rotate(-.6deg)}40%{transform:translateX(.6%) rotate(.5deg)}60%{transform:translateX(-.3%)}}
+.tf-belkin .screen.run .art.a1{animation:artIn .75s cubic-bezier(.2,.8,.3,1) .25s both,fadeOut .5s ease-in calc(var(--T) + .25s) forwards}
+.tf-belkin .screen.run .art.a2{animation:brainIn 1.4s ease-out var(--T) both,twitch .7s linear calc(var(--T) + .9s) both,artDrift calc(var(--dur) - var(--T)) linear var(--T) both}
+.tf-belkin .flash{background:radial-gradient(ellipse 45% 50% at 74% 28%,rgba(200,120,255,.65),rgba(60,20,90,.45) 55%,transparent 80%)}
+.tf-belkin .screen.run .flash{animation:bloodFlash 1.3s ease-out calc(var(--T) + .15s) both}
+
+/* ============ Everyone else (DM 2026-09-19: "the rest can have minimal intros, more generic") ============
+   One quiet look; the accent says friend (gold), neither (pewter) or foe (crimson). Only a foe gets the silhouette. */
+.t-generic{--name-font:"Cinzel",Georgia,serif;--ntt:uppercase;--nls:.06em;--ns:5.8cqh;--name-color:#efe7d6;--sub-color:#cfc4ac;--accent:#c9a45c;--glow:rgba(201,164,92,.25);--band:rgba(12,11,14,.86);--band2:rgba(5,5,7,.78);--ah:56cqh;--ar:10cqw;--tr:40%}
+.t-generic.g-neutral{--accent:#9aa3b4;--glow:rgba(154,163,180,.22)}
+.t-generic.g-foe{--accent:#a8232e;--glow:rgba(168,35,46,.32);--sub-color:#dcaeb1}
+.g-friend .shade,.g-neutral .shade{display:none}
+
+/* ============ Third wave (DM 2026-09-19 + the book pass) ============
+   Normal intros — the face the party meets first: quiet, no silhouette, no pause. */
+.t-monastery{--name-font:"Cinzel",Georgia,serif;--ntt:uppercase;--nls:.06em;--ns:5.4cqh;--name-color:#f3e2cc;--sub-color:#e0a9ae;--accent:#b3303f;--glow:rgba(179,48,63,.3);--band:rgba(20,6,9,.86);--band2:rgba(9,2,4,.78);--ah:58cqh;--ar:6cqw;--tr:42%;--pgap:1cqh}
+.t-monastery .shade{display:none}
+/* Father Renathyr is the focus (DM 2026-09-19): Olaf stands back — smaller, dimmer, half behind his shoulder. */
+.t-monastery .art.pair>span:first-child{z-index:1}
+.t-monastery .art.pair>span:nth-child(2){height:52%;margin-left:calc(var(--ah) * -.16);opacity:.6;filter:saturate(.6) brightness(.72)}
+/* A portrait-less alternate form (a token picture is no portrait — MC draws a silhouette; the page never needs one). */
+.shape{display:block;height:100%}
+.shape .silhouette{display:block;height:100%;width:auto;fill:rgba(10,7,12,.96);filter:drop-shadow(0 0 1.2cqh var(--glow,rgba(0,0,0,.4)))}
+.t-crossroads{--name-font:"Sacramento","Pinyon Script",cursive;--ns:9cqh;--name-color:#ffeede;--sub-color:#b9f3d5;--accent:#58d69a;--glow:rgba(88,214,154,.35);--band:rgba(6,14,12,.86);--band2:rgba(2,7,6,.78);--ah:62cqh;--ar:8cqw;--tr:40%}
+.t-crossroads .shade{display:none}
+.t-crossroads .name{top:.6cqh}
+.t-matron{--name-font:"Grenze Gotisch","UnifrakturMaguntia",serif;--ns:8.4cqh;--name-color:#efe8f6;--sub-color:#c9bde0;--accent:#8f7cc4;--glow:rgba(143,124,196,.3);--band:rgba(12,10,18,.86);--band2:rgba(5,4,8,.78);--ah:62cqh;--ar:9cqw;--tr:40%}
+.t-matron .shade{display:none}
+.t-keepers{--name-font:"Pirata One","Grenze Gotisch",serif;--ns:8.4cqh;--name-color:#e0f8f4;--sub-color:#9fe3d6;--accent:#4fcfb5;--glow:rgba(79,207,181,.3);--band:rgba(4,14,16,.86);--band2:rgba(1,6,7,.78);--ah:56cqh;--ar:5cqw;--tr:44%;--pgap:0cqh}
+.t-keepers .shade{display:none}
+.t-postmaster{--name-font:"Pinyon Script","Tangerine",cursive;--ns:9cqh;--name-color:#f5eef8;--sub-color:#d4c4e6;--accent:#b79ad8;--glow:rgba(183,154,216,.3);--band:rgba(14,12,18,.86);--band2:rgba(6,5,8,.78);--ah:58cqh;--ar:9cqw;--tr:40%}
+.t-postmaster .shade{display:none}
+.t-postmaster .name{top:.4cqh}
+/* Friends and allies — the book's genuine good people, so a proper banner never telegraphs a monster. */
+.t-law{--name-font:"Cinzel",Georgia,serif;--ntt:uppercase;--nls:.04em;--ns:4.3cqh;--name-color:#eef0f4;--sub-color:#c6cfdf;--accent:#c9a45c;--glow:rgba(201,164,92,.25);--band:rgba(8,12,22,.86);--band2:rgba(3,5,10,.78);--ah:56cqh;--ar:6cqw;--tr:24%;--pgap:1cqh}
+.t-law .shade{display:none}
+.t-jenkins{--name-font:"IM Fell English SC","IM Fell English",Georgia,serif;--ns:7.2cqh;--name-color:#f6ead2;--sub-color:#dcc49a;--accent:#b8894a;--glow:rgba(184,137,74,.28);--band:rgba(18,12,6,.86);--band2:rgba(8,5,2,.78);--ah:50cqh;--ar:5cqw;--tr:48%;--pgap:0cqh}
+.t-jenkins .shade{display:none}
+.t-farmers{--name-font:"Sancreek","Rye",Georgia,serif;--ns:5.2cqh;--name-color:#f3e4bd;--sub-color:#e3c68a;--accent:#c89a3a;--glow:rgba(200,154,58,.28);--band:rgba(16,12,6,.84);--band2:rgba(8,5,2,.74);--ah:56cqh;--ar:5cqw;--tr:46%;--pgap:1cqh}
+.t-farmers .shade{display:none}
+.t-bayou{--name-font:"Rye","Sancreek",Georgia,serif;--ns:7cqh;--name-color:#f0ecd0;--sub-color:#c9d39a;--accent:#8cb04a;--glow:rgba(140,176,74,.28);--band:rgba(8,14,8,.86);--band2:rgba(3,6,3,.78);--ah:58cqh;--ar:6cqw;--tr:44%;--pgap:1cqh}
+.t-bayou .shade{display:none}
+.t-rain{--name-font:"Cinzel Decorative","Cinzel",Georgia,serif;--ns:6.6cqh;--name-color:#eef4fb;--sub-color:#b9cde6;--accent:#7fa8d6;--glow:rgba(127,168,214,.32);--band:rgba(8,12,18,.86);--band2:rgba(3,5,8,.78);--hc:rgba(160,190,230,.22);--ah:60cqh;--ar:9cqw;--tr:40%}
+.t-rain .shade{display:none}
+.t-weston{--name-font:"Cinzel",Georgia,serif;--ntt:uppercase;--nls:.06em;--ns:6cqh;--name-color:#fff6de;--sub-color:#f1d79a;--accent:#f0c050;--glow:rgba(240,192,80,.35);--band:rgba(18,14,6,.86);--band2:rgba(8,6,2,.78);--hc:rgba(255,220,140,.26);--ah:60cqh;--ar:9cqw;--tr:40%}
+.t-weston .shade{display:none}
+.t-rusty{--name-font:"Metamorphous","Uncial Antiqua",Georgia,serif;--ns:7cqh;--name-color:#ece2cc;--sub-color:#c8b48e;--accent:#9a7a4a;--glow:rgba(154,122,74,.25);--band:rgba(14,11,7,.86);--band2:rgba(6,5,3,.78);--ah:60cqh;--ar:9cqw;--tr:40%}
+.t-rusty .shade{display:none}
+.t-mori{--name-font:"UnifrakturMaguntia","Grenze Gotisch",serif;--ns:8cqh;--name-color:#eceaf0;--sub-color:#bdb6c8;--accent:#7a6f8c;--glow:rgba(122,111,140,.28);--band:rgba(10,9,12,.88);--band2:rgba(4,4,5,.8);--ah:60cqh;--ar:9cqw;--tr:40%}
+.t-mori .shade{display:none}
+/* The finale: the Horned King and the Crooked Queen appear together (the book's "Born King"). */
+.t-finale{--name-font:"UnifrakturMaguntia","Grenze Gotisch",serif;--ns:5.2cqh;--name-color:#f1e6cf;--sub-color:#ffb080;--accent:#d4161b;--glow:rgba(212,22,27,.45);--band:rgba(8,3,3,.9);--band2:rgba(3,1,1,.8);--hc:rgba(200,20,20,.3);--ah:64cqh;--ar:2cqw;--tr:30%;--pgap:0cqh}
+.t-finale .dim{background:radial-gradient(ellipse 90% 80% at 60% 50%,rgba(20,2,2,.3),rgba(10,1,1,.68) 100%)}

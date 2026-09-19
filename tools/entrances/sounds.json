@@ -1,0 +1,817 @@
+{
+ "vagrant": {
+  "clips": [
+   {
+    "src": "snd/w2.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/vagrant.mp3",
+    "at": 0.25,
+    "vol": 0.9
+   }
+  ],
+  "text": "A hollow, ghostly gust, then a lone violin phrase (a solo stem from the Ember score, standing in for his fiddle)."
+ },
+ "druskenvald": {
+  "clips": [
+   {
+    "src": "snd/druskenvald.mp3",
+    "at": 0.1,
+    "vol": 0.9
+   }
+  ],
+  "text": "About eight seconds of soft, scratchy swing, like an old 78 playing in the lounge car, fading out with the banner. I generated it for this page (clarinet, walking bass, rhythm guitar, brushes and a quiet sax section, played through a phonograph filter with hiss and crackle)."
+ },
+ "vessla": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/vessla.mp3",
+    "at": 0.25,
+    "vol": 1.0
+   }
+  ],
+  "text": "A dark whoosh, then tiny clawed feet skittering (Ember's spider scuttling, the closest thing to ferret feet in your library)."
+ },
+ "crooked": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/crooked.mp3",
+    "at": 0.25,
+    "vol": 0.9
+   }
+  ],
+  "text": "A dark whoosh, then rain heard from indoors, with thunder rolling in just after the flash (Michael Ghelfi, vol. 7)."
+ },
+ "jericho": {
+  "clips": [
+   {
+    "src": "snd/w2.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/jericho.mp3",
+    "at": 0.25,
+    "vol": 1.0
+   }
+  ],
+  "text": "A hollow, ghostly gust, across the field, then a quiet field with a run of crow caws (Monument Studios, Forestscapes)."
+ },
+ "harvest": {
+  "clips": [
+   {
+    "src": "snd/w3.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/harvest.mp3",
+    "at": 0.25,
+    "vol": 0.9
+   }
+  ],
+  "text": "A burst of wings, then a murder of crows cawing (Abomination Vaults)."
+ },
+ "abbot": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/abbot.mp3",
+    "at": 0.25,
+    "vol": 0.9
+   }
+  ],
+  "text": "A dark whoosh, then a low, rough monks' chant (Dark Fantasy Studio, Monk)."
+ },
+ "sinner": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/sinner.mp3",
+    "at": 0.25,
+    "vol": 1.0
+   }
+  ],
+  "text": "A dark whoosh, then night on the swamp: frogs, insects and water (Abomination Vaults)."
+ },
+ "widow": {
+  "clips": [
+   {
+    "src": "snd/w2.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/widow.mp3",
+    "at": 0.25,
+    "vol": 0.9
+   }
+  ],
+  "text": "A hollow, ghostly gust, then faint sobbing over a low drone (Abomination Vaults, weeping ghost)."
+ },
+ "blight": {
+  "clips": [
+   {
+    "src": "snd/w2.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/blight.mp3",
+    "at": 0.25,
+    "vol": 0.9
+   }
+  ],
+  "text": "A hollow, ghostly gust, then long, low, guttural bellows (Ember, strange beast)."
+ },
+ "reaper": {
+  "clips": [
+   {
+    "src": "snd/w2.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/reaper.mp3",
+    "at": 0.25,
+    "vol": 0.9
+   }
+  ],
+  "text": "A hollow, ghostly gust, then rattling chains and a rising wail (Punks in a Powderkeg)."
+ },
+ "fools": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/fools.mp3",
+    "at": 0.25,
+    "vol": 0.9
+   }
+  ],
+  "text": "A dark whoosh, then a music box winding down as its pitch sags (Dark Fantasy Studio, Music box)."
+ },
+ "wicker": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/wicker.mp3",
+    "at": 0.25,
+    "vol": 0.9
+   }
+  ],
+  "text": "A dark whoosh, then a deep, droning chant (Dark Fantasy Studio, Dissonant vocals)."
+ },
+ "horned": {
+  "clips": [
+   {
+    "src": "snd/w2.mp3",
+    "at": 0,
+    "vol": 0.7
+   },
+   {
+    "src": "snd/queen.mp3",
+    "at": 0.3,
+    "vol": 0.6
+   },
+   {
+    "src": "snd/agony16.mp3",
+    "at": 2.3,
+    "vol": 0.9
+   },
+   {
+    "src": "snd/horned.mp3",
+    "at": 3.1,
+    "vol": 0.95
+   },
+   {
+    "src": "snd/wings.mp3",
+    "at": 4.2,
+    "vol": 0.75
+   }
+  ],
+  "text": "A hollow gust and the Crooked Tree's roots creaking; at the change Phillip's scream breaks into the beast's bellow, then heavy wing beats (Dark Fantasy Studio, Agony; Ember; Noise Alchemy)."
+ },
+ "queen": {
+  "clips": [
+   {
+    "src": "snd/w2.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/queen.mp3",
+    "at": 0.25,
+    "vol": 1.0
+   }
+  ],
+  "text": "A hollow, ghostly gust, then a deep trunk creaking and straining (Ember; the Oak of Many Faces already uses it)."
+ },
+ "abbottf": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/abbotlong.mp3",
+    "at": 0.25,
+    "vol": 0.9
+   },
+   {
+    "src": "snd/wings.mp3",
+    "at": 2.75,
+    "vol": 1.0
+   },
+   {
+    "src": "snd/growl.mp3",
+    "at": 4.9,
+    "vol": 0.9
+   }
+  ],
+  "text": "A dark whoosh and the monks' chant; as he changes, heavy wing beats (Noise Alchemy, dragon wings), then a low growl under the chant (Monsters and Beasts)."
+ },
+ "reapertf": {
+  "clips": [
+   {
+    "src": "snd/w2.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/toll.mp3",
+    "at": 2.7,
+    "vol": 0.95
+   },
+   {
+    "src": "snd/reaper.mp3",
+    "at": 3.0,
+    "vol": 0.9
+   }
+  ],
+  "text": "A hollow gust; as he turns, one deep bell stroke (Dark Fantasy Studio, Old Clock), then rattling chains and a rising wail (Punks in a Powderkeg)."
+ },
+ "trainhopper": {
+  "clips": [
+   {
+    "src": "snd/w2.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/ghostly2.mp3",
+    "at": 0.25,
+    "vol": 0.9
+   },
+   {
+    "src": "snd/ghostly4.mp3",
+    "at": 1.6,
+    "vol": 0.8
+   }
+  ],
+  "text": "A hollow gust, a low ghostly drone, then a breathy hiss (Dark Fantasy Studio, Ghostly)."
+ },
+ "mayor": {
+  "clips": [
+   {
+    "src": "snd/handbell.mp3",
+    "at": 0.15,
+    "vol": 0.8
+   },
+   {
+    "src": "snd/festival.mp3",
+    "at": 0.3,
+    "vol": 0.75
+   }
+  ],
+  "text": "A hand bell rung once over the festival crowd (Dark Fantasy Studio bell; Ember crowd)."
+ },
+ "stonoga": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/vessla.mp3",
+    "at": 0.25,
+    "vol": 0.95
+   },
+   {
+    "src": "snd/witch11.mp3",
+    "at": 1.5,
+    "vol": 0.85
+   }
+  ],
+  "text": "A dark whoosh, skittering legs (Ember) and a croaking rasp (Dark Fantasy Studio, Witch)."
+ },
+ "hugo": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/abyss45.mp3",
+    "at": 0.3,
+    "vol": 0.9
+   },
+   {
+    "src": "snd/abyss12.mp3",
+    "at": 1.0,
+    "vol": 0.9
+   }
+  ],
+  "text": "A dark whoosh, a heavy sub-bass thud, then a gravelly growl (Dark Fantasy Studio, Abyss)."
+ },
+ "worm": {
+  "clips": [
+   {
+    "src": "snd/abyss40.mp3",
+    "at": 0,
+    "vol": 1.0
+   },
+   {
+    "src": "snd/abyss17.mp3",
+    "at": 0.7,
+    "vol": 0.9
+   },
+   {
+    "src": "snd/dragon30.mp3",
+    "at": 2.2,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/alien25.mp3",
+    "at": 2.25,
+    "vol": 1.0
+   }
+  ],
+  "text": "A deep swell from below as it rises, then the book's piercing, alien shriek (Dark Fantasy Studio: Abyss, Dragon, Alien voices)."
+ },
+ "coven": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/scuttlesoft.mp3",
+    "at": 0.25,
+    "vol": 1.0
+   },
+   {
+    "src": "snd/laugh35.mp3",
+    "at": 1.4,
+    "vol": 0.8
+   },
+   {
+    "src": "snd/creature4.mp3",
+    "at": 2.3,
+    "vol": 0.7
+   }
+  ],
+  "text": "A dark whoosh, teeming vermin, a hag's triumphant cackle and a rattling rasp (Ember; Dark Fantasy Studio)."
+ },
+ "golubtf": {
+  "clips": [
+   {
+    "src": "snd/handbell.mp3",
+    "at": 0.3,
+    "vol": 0.8
+   },
+   {
+    "src": "snd/golub.mp3",
+    "at": 2.5,
+    "vol": 0.9
+   },
+   {
+    "src": "snd/laugh35.mp3",
+    "at": 3.0,
+    "vol": 0.85
+   },
+   {
+    "src": "snd/witch11.mp3",
+    "at": 4.6,
+    "vol": 0.7
+   }
+  ],
+  "text": "The post office bell for Theodora; at the change, a burst of wings and a hag's cackle, then a croak (Dark Fantasy Studio; Ember)."
+ },
+ "jaeger": {
+  "clips": [
+   {
+    "src": "snd/abbotlong.mp3",
+    "at": 0.25,
+    "vol": 0.6
+   },
+   {
+    "src": "snd/wings14.mp3",
+    "at": 2.85,
+    "vol": 1.0
+   },
+   {
+    "src": "snd/abyss16.mp3",
+    "at": 3.05,
+    "vol": 0.9
+   }
+  ],
+  "text": "The monks' chant; at the change, a leathery wing beat and a rough roar (Noise Alchemy; Dark Fantasy Studio)."
+ },
+ "olaf": {
+  "clips": [
+   {
+    "src": "snd/abbotlong.mp3",
+    "at": 0.25,
+    "vol": 0.6
+   },
+   {
+    "src": "snd/wings14.mp3",
+    "at": 2.85,
+    "vol": 1.0
+   },
+   {
+    "src": "snd/abyss16.mp3",
+    "at": 3.05,
+    "vol": 0.9
+   }
+  ],
+  "text": "The monks' chant; at the change, a leathery wing beat and a rough roar (Noise Alchemy; Dark Fantasy Studio)."
+ },
+ "cromwell": {
+  "clips": [
+   {
+    "src": "snd/abbotlong.mp3",
+    "at": 0.25,
+    "vol": 0.6
+   },
+   {
+    "src": "snd/wings14.mp3",
+    "at": 2.85,
+    "vol": 1.0
+   },
+   {
+    "src": "snd/abyss16.mp3",
+    "at": 3.05,
+    "vol": 0.9
+   }
+  ],
+  "text": "The monks' chant; at the change, a leathery wing beat and a rough roar (Noise Alchemy; Dark Fantasy Studio)."
+ },
+ "gfriend": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.5
+   }
+  ],
+  "text": "One soft whoosh (Dark Fantasy Studio, Whooshes)."
+ },
+ "gfoe": {
+  "clips": [
+   {
+    "src": "snd/w2.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/w1.mp3",
+    "at": 0.15,
+    "vol": 0.35
+   }
+  ],
+  "text": "a colder gust under the whoosh (Dark Fantasy Studio, Creepy wind)."
+ },
+ "theodora0": {
+  "clips": [
+   {
+    "src": "snd/handbell.mp3",
+    "at": 0.2,
+    "vol": 0.8
+   },
+   {
+    "src": "snd/golub.mp3",
+    "at": 0.6,
+    "vol": 0.45
+   }
+  ],
+  "text": "The post office's bell, and pigeons' wings (Dark Fantasy Studio; Ember)."
+ },
+ "law": {
+  "clips": [
+   {
+    "src": "snd/handbell.mp3",
+    "at": 0.2,
+    "vol": 0.7
+   },
+   {
+    "src": "snd/murmur.mp3",
+    "at": 0.3,
+    "vol": 0.7
+   }
+  ],
+  "text": "A hand bell over the village's murmur (Dark Fantasy Studio; Ember)."
+ },
+ "rain": {
+  "clips": [
+   {
+    "src": "snd/choir.mp3",
+    "at": 0.3,
+    "vol": 0.75
+   }
+  ],
+  "text": "A soft sustained choir (Female Choir Sustain Morph)."
+ },
+ "weston": {
+  "clips": [
+   {
+    "src": "snd/chime36.mp3",
+    "at": 0.3,
+    "vol": 0.8
+   },
+   {
+    "src": "snd/choir.mp3",
+    "at": 0.6,
+    "vol": 0.35
+   }
+  ],
+  "text": "A bright ringing chime with a choir behind it (Dark Fantasy Studio, Old Clock)."
+ },
+ "rusty": {
+  "clips": [
+   {
+    "src": "snd/footsteps.mp3",
+    "at": 0.2,
+    "vol": 0.85
+   }
+  ],
+  "text": "Slow footsteps on the square (PSFX)."
+ },
+ "mori": {
+  "clips": [
+   {
+    "src": "snd/toll.mp3",
+    "at": 0.3,
+    "vol": 0.8
+   }
+  ],
+  "text": "One deep funeral bell (Dark Fantasy Studio, Old Clock)."
+ },
+ "jenkins": {
+  "clips": [
+   {
+    "src": "snd/cookfire.mp3",
+    "at": 0.2,
+    "vol": 0.85
+   }
+  ],
+  "text": "A cook fire crackling — they cook for the estate (Mammoth Chronicles)."
+ },
+ "farmers": {
+  "clips": [
+   {
+    "src": "snd/cartgrass.mp3",
+    "at": 0.1,
+    "vol": 0.85
+   }
+  ],
+  "text": "A cart rolling over grass — William drives the party to Foxwillow (Ember)."
+ },
+ "renathyrolaf": {
+  "clips": [
+   {
+    "src": "snd/abbotlong.mp3",
+    "at": 0.25,
+    "vol": 0.7
+   }
+  ],
+  "text": "The monks' chant (Dark Fantasy Studio, Monk)."
+ },
+ "jaeger0": {
+  "clips": [
+   {
+    "src": "snd/hellhound.mp3",
+    "at": 0.3,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/abbotlong.mp3",
+    "at": 0.25,
+    "vol": 0.45
+   }
+  ],
+  "text": "A hound baying over the monks' chant (Monument Studios; Dark Fantasy Studio)."
+ },
+ "cromwell0": {
+  "clips": [
+   {
+    "src": "snd/lament2.mp3",
+    "at": 0.2,
+    "vol": 0.75
+   }
+  ],
+  "text": "A low sustained choral chord (Dark Fantasy Studio, Lamentations)."
+ },
+ "crossroads0": {
+  "clips": [
+   {
+    "src": "snd/frogs.mp3",
+    "at": 0.2,
+    "vol": 0.85
+   }
+  ],
+  "text": "Bayou night: strange frogs (Ember)."
+ },
+ "bayou": {
+  "clips": [
+   {
+    "src": "snd/frogsbirds.mp3",
+    "at": 0.2,
+    "vol": 0.85
+   }
+  ],
+  "text": "Frogs and birds of the bayou (Ember)."
+ },
+ "lethica0": {
+  "clips": [
+   {
+    "src": "snd/creepy21.mp3",
+    "at": 0.3,
+    "vol": 0.7
+   }
+  ],
+  "text": "A slow two-note ticking pulse — her clock (Dark Fantasy Studio, Creepy loops)."
+ },
+ "yorgrimisolde": {
+  "clips": [
+   {
+    "src": "snd/w2.mp3",
+    "at": 0,
+    "vol": 0.6
+   },
+   {
+    "src": "snd/ghostly2.mp3",
+    "at": 0.4,
+    "vol": 0.6
+   }
+  ],
+  "text": "A cold gust and a low ghostly drone (Dark Fantasy Studio)."
+ },
+ "finale": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/horned.mp3",
+    "at": 0.3,
+    "vol": 0.9
+   },
+   {
+    "src": "snd/queen.mp3",
+    "at": 0.9,
+    "vol": 0.8
+   }
+  ],
+  "text": "A dark whoosh, the Horned King's bellow and the Crooked Tree creaking (Dark Fantasy Studio; Ember)."
+ },
+ "foolstf": {
+  "clips": [
+   {
+    "src": "snd/fools.mp3",
+    "at": 0.25,
+    "vol": 0.8
+   },
+   {
+    "src": "snd/swell5.mp3",
+    "at": 0.6,
+    "vol": 0.85
+   },
+   {
+    "src": "snd/laugh23.mp3",
+    "at": 2.8,
+    "vol": 1.0
+   },
+   {
+    "src": "snd/laugh2.mp3",
+    "at": 4.6,
+    "vol": 0.7
+   }
+  ],
+  "text": "His music box winding down; a breathy swell as the balloon fills, cut off at the change; then a deep, booming laugh and a long mocking one (Dark Fantasy Studio: Music box, Ghostly, Evil laugh)."
+ },
+ "crowdemon": {
+  "clips": [
+   {
+    "src": "snd/w3.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/crow4.mp3",
+    "at": 0.3,
+    "vol": 0.9
+   },
+   {
+    "src": "snd/umbral1.mp3",
+    "at": 0.9,
+    "vol": 0.85
+   }
+  ],
+  "text": "A burst of wings, three harsh caws, then the demon's own croaking cry (Dark Fantasy Studio, Crow; A House Divided, the Scorncrow)."
+ },
+ "adelaide": {
+  "clips": [
+   {
+    "src": "snd/crow1.mp3",
+    "at": 0.3,
+    "vol": 0.8
+   },
+   {
+    "src": "snd/ravenwhirl.mp3",
+    "at": 2.4,
+    "vol": 0.9
+   },
+   {
+    "src": "snd/laugh6.mp3",
+    "at": 3.7,
+    "vol": 0.85
+   }
+  ],
+  "text": "Crow caws; at the change a whirl of beating wings as the demon breaks apart, then a young woman's giggle (Dark Fantasy Studio, Crow and Evil laugh; A House Divided, raven transformation)."
+ },
+ "belkin": {
+  "clips": [
+   {
+    "src": "snd/facility.mp3",
+    "at": 0.2,
+    "vol": 0.8
+   },
+   {
+    "src": "snd/glass21.mp3",
+    "at": 1.2,
+    "vol": 0.55
+   }
+  ],
+  "text": "The sanatorium's low hum, and vials clinking on a tray (Tao & Sound, Horror bundle; Dark Fantasy Studio, Broken glass)."
+ },
+ "belkintf": {
+  "clips": [
+   {
+    "src": "snd/facility.mp3",
+    "at": 0.2,
+    "vol": 0.7
+   },
+   {
+    "src": "snd/smashed13.mp3",
+    "at": 2.8,
+    "vol": 1.0
+   },
+   {
+    "src": "snd/whispers6.mp3",
+    "at": 3.0,
+    "vol": 0.9
+   },
+   {
+    "src": "snd/alien30.mp3",
+    "at": 3.4,
+    "vol": 0.8
+   }
+  ],
+  "text": "The sanatorium's hum; at the change a wet squelch, a rush of whispers and a deep gurgle (Tao & Sound; Dark Fantasy Studio: Smashed, Whispers, Alien voices)."
+ }
+}

@@ -72,6 +72,14 @@ DM-panel browns pasted by hand (535 lines); all of it now resolves to these toke
 you reach for blue, you want gold. (The "Save" blue survives only as `--mc-primary*`, the D-pad /
 Use / rest family — a fill, never text. Blue *text* was re-pointed at gold 2026-09-05.)
 
+⚠️ **2026-09-18 — the one sanctioned blue text in the product lives on the deck:** deck-command's *action
+keys* (keys that make something happen on the map — the Lightning key, the Crooked House set pieces) carry
+light-blue LABEL ink, by the DM's choice (*"how about a light blue"*; deck-command UI-BIBLE §1). It means
+*this makes something happen* and nothing else — the same family as the Use / D-pad blue fill here. MC's
+own text stays gold. The deck's colours do not bind MC, nor MC's the deck: the DM ruled the two may diverge
+(*"its ok to have a divergence between DC and MC, they have different uses, DC needs to be more obvious at a
+glance"*, 2026-09-18).
+
 ### 2.3 The rule that keeps costing us
 
 > **A colour is either BRAND (gold), STATE (green/red), IDENTITY (player colour), or SURFACE.

@@ -2221,13 +2221,28 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    2026-08-20: OUR d100 is the table ("I like ours more", after seeing samples of both).** No
    picker row; the `curseTable` UUID stays as the undocumented console-set escape hatch ·
    §32's unmined remainder — **Dark Bargains SPECCED as §51 (2026-08-26), three questions await the DM**; the lair-pulse engine + ch10–13 scene packs stay unmined. · **Lightning through the windows (DM 2026-09-18) — PLANNED, not built:** upgrade the §26 Lightning one-shot so the firing GM picks ONE window-facing side and every canvas client lights that side's Window-preset walls with short-lived cone lights placed just outside the glass (no world writes — v14 `BaseEffectSource.add()`; untested live), thunder 1–2 s later through `playThunder` (the panel button keeps the July "closer" timing); phones keep the white flash; windowless floors thunder only. Fired from the deck's ⚡ key; deck-command ledger 150 carries the full plan and the action-key family it starts. ⚠️ **Relocated the same day (DM: every action must work on a plain Foundry table, *"with MC support when needed"*):** the window flash lives in deck-command so it runs without MC; when both are installed, the deck hands the phone flash and the thunder to MC (TV volume mirroring, no phone echo), and MC's own Lightning button and rolling storm call the deck's window flash.
-   · **Themed entrance banners (boss intro v2) — MOCKED UP 2026-09-19, not built (§40.6):** after the
-   DM's same-day direction reset, one private page (Entrances II, v3) holds all 16 NPCs in the Boss
-   Splash shape — book art over each chapter's battle map, real library sounds. **DM calls owed:**
-   the look itself · build it · may a non-fight entrance skip the pause · hold the finale until a
-   tap · the spoiler pictures (Jericho with Raum, Chuckles' balloon) · *(added v6–v7, 2026-09-19)*
-   plain or transformation version for the Crimson Abbot and the Chained Reaper · are the rewritten,
-   spoiler-free subtitles right · is ~8 s up (out-fade at 8.1 s) the right hold · the generated swing.
+   · **Themed entrance banners ("Intros", §40.6) — BUILT 2026-09-19 in MC + the deck, UNCOMMITTED:
+   the DM asked for previews before any commit.** ~~MOCKED UP, not built~~ ~~plain or transformation
+   version~~ (DM: *"I definitely prefer the transformation versions"*) · ~~~8 s hold~~ (DM: a second
+   shorter, sound fading sooner, 1.2 s out → out-fade at 7.1 s). **DM calls still owed:** review the
+   previews (the page + the live Intros drawer) before commit — **incl. v13's Chuckles and Horned King
+   transformations and v14's Adelaide and Belkin reveals** · ~~may a non-fight entrance skip the pause~~
+   **DECIDED 2026-09-19: friends and first meetings don't pause, foes do (DM: "6. is correct")** · ~~hold the finale
+   until a tap~~ **DECIDED 2026-09-19: no — it leaves by itself** · ~~the spoiler pictures
+   (Jericho with Raum, Chuckles' balloon)~~ (v11: Jericho is met as the Scarecrow, Chuckles as the clown; v13: the
+   balloon is his transformation) · ~~the generated swing~~ **DECIDED: keep it, longer for the fade — DONE v14** ·
+   ~~permission to download the 13 missing OFL title fonts~~ **DONE 2026-09-19 (DM: "you can add fonts")** ·
+   ~~Adelaide Langtree held back~~ **DECIDED "with reveals" — BUILT v14** · ~~Moonfall's monster names~~
+   **DECIDED: the book names** · ~~the book pass on joint intros / pre-change meetings / appears / reveals~~ (done,
+   v11) · ~~Doctor Belkin held back~~ **DECIDED "with reveals" — BUILT v14** · ~~the village board got 32 intro
+   keys~~ **DECIDED 2026-09-19: keep all** · ~~the White Worm: roar or shriek~~ **DECIDED: the book's shriek — BUILT
+   v14** · ~~the Golub reveal~~ **DECIDED 2026-09-19 "change the name based on token present" — BUILT v15: the
+   banner opens on Theodora or Geneva, whichever stands live on the map (alternate known forms)** · ~~villains need
+   hidden tokens placed~~ **DECIDED 2026-09-19 (DM: "can you place them in the map if they are missing?") — BUILT
+   v16: the intro places a missing villain itself, hidden, near the party** · ~~two BIGGER ideas offered~~ **DM:
+   "sure" — BOTH BUILT v16:** (a) the map bursts at the change (Sequencer + JB2A free); (b) a silhouette for a
+   portrait-less alternate form · **still owed: the DM's by-eye look at the map bursts and the silhouette on his
+   own screen** (proven by the TV's DOM and Sequencer's effect list, not by eye).
 5. **Backlog (DM-pruned 2026-08-09 and again 2026-08-20 — this list, nothing re-added unasked):**
    - ~~PM extras (group notes · push-to-sleeping-phone)~~ — **PRUNED by the DM 2026-08-20**
      ("not sure 5 is needed").
@@ -6007,7 +6022,13 @@ Found in the wild on the same run: the DM had already replaced the bench's examp
 own — "Oak of Many Faces" + a thunder `.mp3` stored as a bare path, so the file-picker route works
 outside the drag gesture too.
 
-### 40.6 Themed entrance banners — mockups only (2026-09-19, NOT built)
+### 40.6 Themed entrance banners ("Intros") — BUILT 2026-09-19 in MC + the deck, COMMITTED 2026-09-19 on the DM's word after the v16 review (~~UNCOMMITTED until the DM has reviewed the previews~~ ~~mockups only, NOT built~~)
+
+> **Where the generators live:** `tools/entrances/` (README there) — the preview page's sources, the media prep,
+> `gen_mc.py` (→ `scripts/cm-entrances.js` + `styles/entrances.css`) and `gen_intro_keys.py` (→ the deck plan in
+> the sibling `audio-catalogue/campaigns/`), plus the headless verification tools. Moved out of the session
+> scratchpad at the commit. Book art, library clips, the built page and screenshots are .gitignore'd (derived
+> from licensed content). Every "scratch …" mention below predates the move.
 
 A richer boss intro was explored as two private artifact pages on the DM's account:
 **Crooked Moon Entrances** (https://claude.ai/artifact/Wph1YVAMpKrkD659wNSJVr — six banners,
@@ -6114,6 +6135,210 @@ him for one (memory `prefer-real-sounds`).
     "monstrous wings sprout from his back"). Yorgrim, the chapter's guide, turns in the Tomb once the six
     beacons are lit, and his voice and light break through during the fight. So the transformation
     versions fit those moments, and the plain ones suit a party that meets the monster already changed.
+- **v8–v10 + THE BUILD, same day (DM: *"are these rigged for the DC? if not add everything and include MC
+  control under 'Intros' and add a DC scene action for each … (previews before committing)"*).** Nothing
+  was rigged; now it is — in the working tree, **uncommitted until the DM has seen the previews.**
+  - **Timing (DM):** a second shorter, the sound fading sooner, the out half a second longer → the banner
+    starts to leave at 7.1 s (10 s for a transformation), takes 1.2 s, and the sound starts fading 1 s
+    before it leaves so it is silent when the map is clear. The DM chose the transformation versions of the
+    Abbot and the Reaper; the plain ones are gone.
+  - **Coverage (DM: 1–6 yes, 7 as a transformation, 8 as transformations, the rest generic):** 25 themed
+    (the 16 + the Phantom Trainhopper, Mayor Wendel Somerton, Stonoga Blackstinger, Hugo, the White Worm,
+    the Coven Abomination, Golub as Theodora → Golub, the three priors → night creatures) + **48 generic**
+    (one quiet look; the accent says friend / neither / foe; only a foe gets the silhouette and pauses) —
+    every portrait NPC in the book, from a book-checked roster (`scratchpad/roster/roster.json`: 54
+    entries, 134 quotes). Held back: Adelaide Langtree (her name and face unmask the crow demon).
+    Renamed for spoilers: the Sweetheart → "the lady with the locket" (her name echoes the letter that
+    frees her), Elias Greaves → "the Gaunt Waiter" (until he can speak), Lyla and Vander by first name.
+    The White Worm got a shudder and a roar after it breaks the surface (DM: *"underwhelming"*).
+  - **MC:** `scripts/entrances.js` (the engine: the boss intro's audience — TV + GM in person, the table
+    layout on a flat screen; foes pause, friends don't; sound windows of the DM's library files on the
+    interface channel — Foundry's Sound for short sources, an `<audio>` stream for the five 2–8-minute
+    beds, because Foundry decodes anything under ten minutes whole: ~130 MB to play 9 s on the iPad);
+    `scripts/cm-entrances.js` + `styles/entrances.css` **generated** from the reviewed page (scratch
+    `gen_mc.py`; book art by module path with CSS crops — never copied); the Crooked Moon tab's
+    **Intros** drawer (first drawer; per-row pause mark, Play, and a shadow toggle on reveals; Stop
+    Intro); the action list's `cm.entrance` (one pick, a portrait per NPC) + `cm.entranceStop`;
+    `MobileCommand.playEntrance / stopEntrance / entrances`; the stylesheet also loads itself (module.json
+    lists it, but Foundry reads that list only at world launch).
+  - **The stage (DM, same day):** *"focus the MC camera on the NPC and zoom so there's ~30m radius around
+    them, 1 second after the intro's end revert to the last view"* → the TV frames the NPC's token(s) at
+    100 ft (30 m) radius, scene-clamped, holding the party follow and the combat spotlight off
+    (`scripts/tv-hold.js`), and glides back 1 s after the end. *"Where a BBEG appears into the scene …
+    the intro also unhides the token"* → `appears`. *"A dark overlay on the token to hide the details in
+    shadow until the intro and drop it when the intro is complete … just cases where the module describes
+    a reveal"* → `reveal`: an MC flag every canvas client draws dark. A transformation swaps the known
+    form's token for the monster's at the change. **Finding: Foundry's own token tint can't carry it on
+    this stack** — a tint written by a normal update changed `_source` but never the prepared value or
+    the mesh (a fresh document built from the same data read it correctly; `updateSource` locally did
+    too) — so the shadow is a flag drawn on `refreshToken`. Which intros `appears`/`reveal` comes from the
+    book pass (open).
+  - **The deck (ledger 150 set pieces, built):** a scene-board box accepts a Foundry MACRO as well as a
+    sound — drawn as an action key (Foundry's painted picture, the action-blue label), a press runs it;
+    `action-runtime.js` gives macros one verb, `intro`: with MC, MC's entrance; on a plain table, the
+    NPC's picture to everyone (Foundry's Show Players) and its token unhidden when it arrives. The
+    intro macros and their board placements are a test-world-only apply script
+    (`audio-catalogue/campaigns/crooked-moon-intro-keys.apply.js`, data embedded; 73 keys, 129
+    placements planned; run in the test world: 25 macros made, 20 keys placed on the ch10–12 boards —
+    the rest wait for their scenes).
+  - **Verified, 2026-09-19 (test world, stop-on-first-failure):** MC tests 32/32 (3 new) + the new
+    `tools/test-entrances.mjs` 6/6 (119 files on disk); deck tests 135/135 (2 new). Live: the Intros drawer
+    (25 → 73 rows under their chapters, portraits load); the Crooked Man's banner with both its sounds
+    (the whoosh through Foundry at 0.2 s, the rain streamed from 4.2 s); the Abbot's change; the Reaper's
+    change in the in-person table layout; a deck key → macro → the Vagrant's banner; and the stage (a
+    headless TV client): hidden tokens unhidden and drawn dark, the camera framing them, the shadow lifting
+    as the banner ends, the camera back at its old zoom — first run caught two bugs (the revert timer was
+    cleared with the banner's; the tint), both fixed and re-run. The mist video pauses in a HIDDEN browser
+    pane (Chromium's power rule), plays on a visible screen.
+- **v11, same day — the book pass on the DM's next asks** (*"are the priors encountered before the death /
+  transformation? if so we need a 'normal intro' … same for the post mistress and bishop"*; *"a few more NPCs that
+  don't turn out to be monsters"*; *"if a scene has a joint introduction … the banner is shared"*; the arrivals, the
+  reveals). Research: `scratchpad/roster/followup.json` (595 quotes checked word for word). Built — 84 intros
+  (41 themed, 43 generic), all in MC and on the deck (70 keys placed on the test world's ch10–12 boards):
+  - **Normal intros (the face met first; no silhouette, no pause):** Father Renathyr & Friar Olaf together (the
+    Night of Flames; the plain-robed boss art — his NPC portrait shows red eyes and his younger self), Houndmaster
+    Jaeger, Inquisitor Cromwell, Mister Crossroads, Matron Lethica, Yorgrim & Isolde together, Theodora Mayville.
+    The changes keep their own banners (deck labels "Jaeger turns" etc.).
+  - **Shared banners:** the Constable & Deputy, the Jenkin family (three portraits), Jeremiah & William, Vander &
+    Lyla, and the finale — the Horned King & the Crooked Queen (they appear together as the party leaves the barrow).
+  - **Allies who are not monsters:** Sister Rain, Weston Murdoch, Old Rusty, Mori Shade (themed), plus the shared
+    ones above. The research ruled the Mayor, Morgan and Mrs. Oakum out as "genuine non-monsters".
+  - **Corrections from the book:** Jericho is met as "The Scarecrow, alone in the crop circle" (13.3); Chuckles is
+    met as the clown (NPC_Chuckles) who calls himself the Great Fool — the balloon is his real body, a spoiler; the
+    Horned King's art is his born form, so his banner is the finale's (24.3), not the Wytchwood goat's; Doctor Belkin
+    held back (his portrait shows his exposed brain); Vessla first poses as the bound Adela — her banner is for when
+    she attacks; the Golub reveal in the book is "Geneva" bursting into feathers (no portrait, so the change opens on
+    Theodora); the White Worm never burrows — it hangs in chains and gives "a piercing, alien shriek" (the roar is the
+    DM's ask).
+  - **Stage flags from the book:** `appears` = the Crooked Man (the porch and each floor's hallway); `reveal` = the
+    Abbot (against the red moon), the Trainhopper (a silhouette), the Wicker Man (looming), Gorthos (eyes in a shadow),
+    the Reaper (in the mist). **No villain has a token on the module's maps** — the DM places them (hidden) for the
+    unhide / shadow / camera to have something to act on.
+  - **The TV is an iPad — 4:3.** The lettering is sized by screen height, so on 4:3 a long shared name ran off the
+    left edge (live, −54 px). Each line is now measured as the banner appears and shrunk just enough (3% margin;
+    centred lines in the table layout). Verified at 1024×768: wall and table layouts all inside.
+- **v12–v13, same day** (DM: *"some of these have subleaders and don't need them, if its a job description like
+  mayor or grounds keeper, keep it, if its eerie like the crocked queen, keep it, but if its just there to be there
+  and isn't at all scary like the crooked man, or abomination lose it"*; then *"give Chuckles a transformation too,
+  and doesn't the Horned King need one too?"*, *"you can add fonts"*, *"keep the NPC intros"*, *"6. is correct"*).
+  Now 85 intros (42 themed, 43 generic); page version 12.
+  - **The line under the name follows the DM's rule:** it stays only for a job (the Mayor, the groundskeeper, the
+    monastery roles, the ferryman, the deal-maker, the matron…) or when eerie ("The Wytchwood bows to her", "Live
+    deliciously", "Postmaster no more"…). Dropped (the band keeps its shape): the Trainhopper, Vessla, the Crooked Man,
+    Jericho, the Grinning Sinner, Stonoga, the White Worm, Gorthos, the Coven, the finale, the priors' changes, the six
+    haints, Dani Jenkin and four Moonfall monsters. The Mayor became "Wendel Somerton · Mayor of Wickermoor Village";
+    Hugo "Keeps order at Memory's Rest". The page's "Everyone else" picker is rebuilt from generic.json (it had gone
+    stale — it still listed the five people who got themed banners in v11).
+  - **Two more transformations (v13).** *Chuckles* — the jester puppet, then the balloon that is his real body (the
+    book's Phase 2 of the Ring of Fools fight: the balloon swells, rips its pole out of the ground and speaks with his
+    voice). New key `foolstf` ("Chuckles turns", on the 21.2 board); his first meeting (`fools`, the Festival Square)
+    moved to the 21.1 board and no longer pauses. *The Horned King* — Phillip Druskenvald, then the King: the `horned`
+    key itself became the transformation, played as the party climbs out of the barrow (inside, the roots drag
+    Phillip up into the tree and his screams turn into a goat's bleating; the book confirms who he was only when the
+    beast dies). Library sounds only: the music box → a breathy swell cut at the change → two deep laughs (Dark
+    Fantasy Studio); a gust and the tree's creak → a man's scream (Agony 16) breaking into the Ember beast's bellow →
+    dragon wings. Verified: page frames in both layouts, and live on a headless TV in the test world (both forms,
+    the right faces).
+  - **The token swap** (DM: *"do transformations also replace the token on the map?"*): yes — at the change the
+    known form's token is hidden and the monster's (placed hidden beforehand, wherever it should appear) is
+    unhidden; skipped quietly when either isn't on the scene. The balloon is Chuckles' only token (the puppet is
+    its projection), so his change swaps nothing.
+  - **Fonts** (DM: *"you can add fonts"*): the 13 missing families — 14 files, ~430 KB, Latin subsets, SIL OFL,
+    copyright lines in `fonts/README.md` — fetched by `tools/fetch_fonts.py` (which now never refetches a face
+    already shipped) and declared in the generated `entrances.css`. A banner waits, hidden, up to 400 ms for its
+    faces before fitText measures; otherwise a session's first banner would be sized by the fallback face.
+  - **The plain-table fallback** (the deck without MC): the key's picture stays the form the party knows, but a plain
+    table is now shown the monster for a transformation — it had been showing Theodora captioned "Golub Graygullet".
+  - **DM decisions:** friends and first meetings don't pause (confirmed); the village board keeps all 32 intro keys
+    (*"I just hope it doesn't clog up the deck too much"* — they sit on their own pages after the sound pages);
+    fonts approved. Explained, decision still owed: Adelaide Langtree, Doctor Belkin, Moonfall's monster names.
+- **v14, same day** (DM: *"1. and 2. with reveals, 3. book names 4. shriek 5. what does 'final banner' mean? 6. but
+  make it a bit longer for the fade 7. more detail"*). Now 89 intros (46 themed, 43 generic); page version 13.
+  - **Adelaide, with a reveal.** `crowdemon` — "The Crow Demon · Born of a buried secret", the module's Corvodaemon,
+    no name: the book has two, the one bursting out of Isaac's body in the windmill cellar and Adelaide herself in the
+    maze, and this banner fits both (`appears`: its token is unhidden; boards 13.2 + 13.3). `adelaide` — the reveal:
+    the demon breaks into black feathers and her portrait comes out of the dark, "Adelaide Langtree · Martha's missing
+    daughter", for when the party works it out (Martha realises it once shown Isaac's body and note: "the monster her
+    daughter has become"); boards 13.1 + 13.3. One token either way (she IS the demon), so no swap.
+  - **Doctor Belkin, with a reveal.** `belkin` — his portrait cut at the brow (25%) with the top fading into shadow
+    (page: baked into the webp by art5.py; MC: a crop box plus a 4-stop mask), "Examines new arrivals at Memory's
+    Rest", no pause (a first meeting), board 17.1. `belkintf` — the same portrait whole, lined up on the cut one,
+    a violet pulse and a twitch: "The worms do his thinking", board 17.2. Book: he covers his head with a surgical
+    cap only on the first floor, so the reveal is the first time the party sees him upstairs.
+  - **The White Worm shrieks** (the book's *"a piercing, alien shriek"*): Dragon 30 (thin, piercing) layered with
+    Alien voices-25 (a screech dissolving into a gurgle) replace the Abyss 53 roar; the rise is unchanged.
+  - **The swing plays through the fade:** six bars (F6 | D7 | G7 | C7 | F6 D7 | G7 C7 | F), 8.8 s, steady to the end
+    (was 3.15 s, over before the banner left); MC's copy `sounds/entrances/swing.mp3` replaced. The DM keeps the
+    generated swing (decided).
+  - **Moonfall:** the book names stay (decided).
+  - **A plain table never sees a spoiler picture:** Jericho's and Belkin's first banners use a CROP (Raum behind
+    Jericho, Belkin's skull), so on a table without MC their deck keys announce the entrance in chat (name + line)
+    instead of showing the whole file — deck-command `action-runtime.js` `announce()`, test added (136 pass).
+  - Verified: 10 data checks + 32 action checks; page frames in both layouts; the two reveals live on a headless
+    TV in the test world (both forms, fonts, the brow fade); the deck macros re-applied (89).
+- **v15, same day** (DM: *"1. no 2. change the name based on token present, check the logic and build what's needed,
+  if you have small ideas to upgrade animations feel free, anything big, ask before but build the rest"* and *"for
+  Father Renathyr & Friar Olaf make sure Olaf is less prominent, the focus is Father Renathyr"*). Page version 14.
+  - **The finale leaves by itself** like every other banner (decided: no hold-until-tap).
+  - **Golub reads the map** — an entrance can carry ALTERNATE KNOWN FORMS (`alts: [{match, name, sub}]`, gen_mc.py
+    ALTS; only Golub has one: Geneva Fairchild, "The postmaster's assistant"). On Play the GM resolves the form
+    (`entrances.js resolveForm`): the default form when its token stands on the scene visible and not dead (no
+    `dead` status, HP above 0); else the first alternate whose token does, taking the alternate's name and line and
+    THAT TOKEN's picture (the actor's portrait, or the token image when the portrait is Foundry's mystery-man — the
+    book gives Geneva no portrait, so the DM's token is her picture); else the default. The form rides the one-shot
+    payload (`form: {name, sub, art}`) and the display builds the first form from it; a picture of unknown size gets
+    its crop box's aspect from the decoded image (`settle`, capped at 400 ms with the fonts). The tokens the form
+    found are the ones the change swaps out; the shadow toggle also knows the alternates' names. The panel row says
+    "Opens on Theodora Mayville or Geneva Fairchild — whoever is on the map". The key also sits on the village board
+    (11.2 — the post office, where both of the book's paths turn) besides the dovecote's (20.2). Checked: the book's
+    two paths (exposed → she cackles and teleports, Geneva lives; not exposed → Golub kills Geneva and wears her, then
+    pops into feathers at the post office); the hag's own face first shows in her roost either way.
+  - **Father Renathyr is the focus:** the Night of Flames banner is "Father Renathyr · Abbot of the Crimson Faith,
+    with Friar Olaf"; Olaf stands 74% tall, dimmer and desaturated, half behind Renathyr's shoulder (a pair rule on
+    the second figure, `t-monastery`).
+  - **Small upgrades (the DM's "feel free"):** a pale pop at Golub's change (the book's *"sickening pop"*); a pale
+    flicker across the screen as the White Worm shrieks. Nothing big was built unasked — two bigger ideas are offered
+    in the ledger.
+  - Verified: 11 data checks + 33 action checks (the new one: Geneva alone → her form and her token's picture;
+    Theodora alive beside her → Theodora; Theodora dead → Geneva); page frames wall + table; live in the test world
+    with a "Geneva Fairchild" token (a Commoner) on the active scene → the TV opened on "Geneva Fairchild" with the
+    Commoner picture. Residue: that token, left HIDDEN on "10.9 Ghostlight Wreckage" (never delete).
+- **v16, same day** (DM: *"1. Renathyr's lackey is still the focus, make him smaller and slightly less opaque, the
+  rest are good 2. sure [both bigger ideas] 3. can you place them in the map if they are missing? 4. ok"*). Page
+  version 15.
+  - **Olaf stands well back:** 52% tall, opacity .6, desaturated and darker, further behind Renathyr's shoulder.
+  - **The intro places a missing villain itself** (`entrances.js placeMissing`): an entrance whose stage business
+    needs its NPC's token — it ARRIVES (`appears`), it's a REVEAL, or it's a transformation's monster — and finds
+    none on the scene puts one there: the actor from the world (name match, shortest name wins), else imported from
+    the Crooked Moon bestiary (`the-crooked-moon-2014.tcm2014-bestiary` → `game.actors.importFromCompendium`);
+    hidden, flagged `placedBy: key`, on a free cell ring by ring from two squares out around the party's centroid
+    (cells above first; the map's opening view or centre when no party stands there); then it counts as arriving —
+    unhidden with the banner, in shadow for a reveal, at the change for a transformation's monster. The known form
+    (Theodora, Phillip…) is never placed. No actor at all → a quiet notice, the banner plays without a token. The
+    change no longer needs BOTH tokens: the known form hides if present, the monster shows if present. Golub's
+    monster answers to the bestiary's "Pigeon Hag" (added to her names). On a plain table (the deck without MC)
+    nothing is placed — the deck only unhides (its runtime, unchanged).
+  - **The map bursts at the change** (bigger idea (a), approved): `swapFx` per transformation, a Sequencer path from
+    JB2A's free set (checked present in the DM's install 2026-09-19): feathers for Golub and Adelaide
+    (`jb2a.swirling_feathers.outburst.01.textured`), red bats for the Abbot and the priors, grey smoke for the
+    Reaper, a star burst for Chuckles, hellfire for the Horned King, a violet pulse for Belkin. Played once by the
+    GM at the monster token's centre (2.5× the token), right after the swap; Sequencer shows it on every canvas
+    client (phones run without Sequencer). Skipped quietly without Sequencer or the path. Caveat: Sequencer draws
+    on the GM's VIEWED scene — the GM should be looking at the active scene.
+  - **A silhouette for a portrait-less alternate form** (bigger idea (b), approved): a token picture is no
+    portrait, so `tokenPicture` returns "" for token art (mystery-man, anything under a `tokens/` folder, the
+    module's `VTTTOKEN_…_1x1` / `-medium_` names) and the banner draws a head-and-shoulders SVG in the theme's
+    glow (`mc-en-shape` / `mc-en-silhouette`, MC-only CSS in themes2.css). A real portrait on the actor (any other
+    path) is used as is.
+  - Verified: 12 data checks + 36 action checks (placement near the party, flagged, unhidden; the monster placed
+    hidden then swapped in with the feathers burst; token art → silhouette); page frames; LIVE on a headless TV in
+    the test world watching its own canvas: the Crooked Man's token appeared as his banner started (placed from the
+    world's actor, 2 squares from Brekka); Golub's banner opened on Geneva, and at 3.3 s the TV saw the Pigeon Hag
+    token show (imported from the bestiary, placed hidden), Geneva's hide and `jb2a.swirling_feathers.outburst.01`
+    running; and on the GM's own client Geneva's form (a Commoner token = token art) built the silhouette: a 326×423
+    SVG, fill rgba(10,7,12,.96), the theme's violet glow. Residue in the test world: the imported "Pigeon Hag"
+    actor; three HIDDEN tokens on "10.9 Ghostlight Wreckage" (Geneva Fairchild, Crooked Man, Pigeon Hag) — never
+    delete.
 
 ---
 

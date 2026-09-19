@@ -19,6 +19,8 @@ import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "
 import { registerFxEngine } from "./effects.js"; // §26 Effects tab engine
 import { cardTableRefreshMode } from "./card-table.js"; // §39: re-lay the board when the table mode changes
 import { dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
+import { dmPlayEntrance, dmStopEntrance, entranceList, registerEntranceShadow } from "./entrances.js"; // §40.6 the themed entrances ("Intros")
+import { tvHeld } from "./tv-hold.js"; // §40.6 an entrance holding the TV camera
 import { registerDaylight, applyDaylight } from "./daylight.js"; // §41 the clock drives scene darkness
 import { registerTwists } from "./twists.js"; // §31 v2: an armed twist forces the creature's next d20
 import { registerDruskenvald } from "./druskenvald.js"; // §43 eternal night, told in six named hours
@@ -27,6 +29,9 @@ import { registerDeeds } from "./deeds.js"; // §44.4 slice B: the Deeds recorde
 import { registerSettingsMenu } from "./settings-app.js"; // §29 settings mini-app (menu button)
 import { installErrorCapture, buildDevReport } from "./devreport.js"; // §47 the technical report
 import { openFeedback, registerFeedbackMenu } from "./feedback.js"; // §48 the feedback window
+import { actionAreas, actionSnapshot, runAction, actionCounts } from "./actions.js"; // §52 the published action list (deck-command ledger 151)
+import "./actions-effects.js"; // §52 area G — each area file registers its rows on import
+import "./actions-cm.js"; // §52 area H — the Crooked Moon tab (and its requests)
 
 Hooks.once("init", () => {
   // FIRST thing, before anything of ours can throw: the errors worth having are the ones nobody was
@@ -353,7 +358,13 @@ function onTvControl(payload) {
   // Travels display → everyone, so it is handled BEFORE the display-only gate below.
   if (payload.cmd === "audioState") {
     // Newest wins. Stored in settings.js so the panel can read it without an import cycle.
-    setTvAudioState({ locked: !!payload.locked, muted: !!payload.muted, at: Number(payload.at) || Date.now() });
+    setTvAudioState({
+      locked: !!payload.locked,
+      paused: !!payload.paused,
+      contexts: payload.contexts && typeof payload.contexts === "object" ? payload.contexts : null,
+      muted: !!payload.muted,
+      at: Number(payload.at) || Date.now(),
+    });
     try { globalThis.MobileCommand?.refreshPanel?.(); } catch (e) { /* panel may not exist */ }
     return;
   }
@@ -462,7 +473,7 @@ function tvFitScene() {
 // followed set changing (DM 2026-07-25 wants "the same repositioning action done on move" for any
 // active-focus change from the panel, not a plain re-center).
 function reframeParty(movedDoc) {
-  if (!isDisplayClient() || tvManual || !canvas?.ready) return;
+  if (!isDisplayClient() || tvManual || tvHeld() || !canvas?.ready) return;
   if (game.combat?.started) return; // in combat the active-token spotlight takes over
 
   const { drivers, tagalongs } = followTiers(movedDoc);
@@ -505,7 +516,7 @@ function tvPartyFollow(tokenDoc, changes) {
 // sequence-guarded against rapid turns; movement within a turn → tvCombatFollow.
 let _tvCineSeq = 0;
 async function tvCombatTurnPulse() {
-  if (!isDisplayClient() || tvManual || !canvas?.ready) return;
+  if (!isDisplayClient() || tvManual || tvHeld() || !canvas?.ready) return;
   if (!game.combat?.started) return;
   const token = game.combat.combatant?.token;
   const frame = tokenFrame(token, TV_COMBAT_RADIUS_FT);
@@ -523,7 +534,7 @@ async function tvCombatTurnPulse() {
 // The active token moved within its turn → keep it centred at the spotlight zoom.
 function tvCombatFollow(tokenDoc, changes) {
   try {
-    if (!isDisplayClient() || tvManual || !canvas?.ready) return;
+    if (!isDisplayClient() || tvManual || tvHeld() || !canvas?.ready) return;
     if (!("x" in changes) && !("y" in changes)) return; // only on movement
     const active = game.combat?.combatant?.token;
     if (!active || active.id !== tokenDoc.id) return;   // only the active combatant
@@ -807,6 +818,7 @@ Hooks.once("ready", () => {
   injectShellStyles(); // load CSS via JS so a plain F5 works without re-reading the manifest
   initSocket(); // idempotent fallback in case socketlib.ready raced or didn't fire
   registerFxEngine(); // §26 Effects tab: apply/remove screen filters + ambience loops as fxActive changes (all clients; phones flash-only)
+  registerEntranceShadow(); // §40.6 a reveal's token drawn in shadow until its intro completes (every canvas client)
   initPauseGuard();
   registerDaylight(); // §41: scene darkness follows the world clock (executor-gated inside)
   registerTwists(); // §31 v2: armed twists land on the next d20 (all clients — the roller forces its own die)
@@ -834,6 +846,7 @@ Hooks.once("ready", () => {
   registerDialogWatchdog(); // executor alerts DM + pings phone when an action strands a dialog (self-gates)
   setupDisplayAudioListeners(); // the TV hears positional sound from the party (it controls nothing + is only an Observer)
   setupDisplayAudioUnlock();    // …and can actually play it: browsers need one tap before any audio starts
+  setupAudioResume();           // …and on iPad Safari the contexts core made can stay paused until a tap resumes them
   setupTvVolumes();             // the TV mirrors the DM's chosen volumes (its own are unreachable at the table)
   setupNoDoubleTapMinimize(); // no window collapses to a stranded title bar on an accidental double-tap
   setupGMCursorHiding(); // hide the GM's broadcast cursor on other screens (keep pings); reads hideGMCursor live
@@ -869,6 +882,10 @@ Hooks.once("ready", () => {
     refreshPanel,                        // repaint the DM panel (used by the display's audio report)
     refreshTableMode: cardTableRefreshMode, // §39 in person ⇄ online: re-lay the card table's seats
     playBossIntro: dmPlayBossIntro,      // §40 macro/Stream Deck access to a boss's entrance (§8.1)
+    // §40.6 the themed entrances ("Intros"): play one by key (see entrances()), or cut the running one short.
+    playEntrance: dmPlayEntrance,
+    stopEntrance: dmStopEntrance,
+    entrances: () => entranceList().map(e => ({ key: e.key, name: e.name, sub: e.sub, chapter: e.chapter, portrait: e.portrait })),
     // §41 put the CURRENT scene at the clock's darkness right now — the manual trigger beside the
     // automatic one (§8.1), and what the setting's onChange calls when you switch it back on.
     applyDaylightNow: () => applyDaylight(canvas?.scene ?? game.scenes?.active, { animate: 1200 }),
@@ -881,7 +898,10 @@ Hooks.once("ready", () => {
     feedback: openFeedback,
     syncPartyTokenSight,                 // GM: set each PC token's sight/detection from its dnd5e senses
     resolveExecutorId,
-    isExecutor
+    isExecutor,
+    // §52 (deck-command ledger 151): every DM action the panel offers mid-session, as data plus one
+    // runner — so a second surface can draw and run them without knowing MC. GM clients only.
+    actions: { areas: actionAreas, snapshot: actionSnapshot, run: runAction, counts: actionCounts }
   };
 
   maybeAutoOpenShell();
@@ -1075,32 +1095,89 @@ function setupDisplayAudioListeners() {
 // make it ONE obvious tap instead of an invisible prerequisite. The panel is huge, centred and
 // unmissable on a TV, any tap anywhere dismisses it (core's listener is on document, so the tap
 // that closes this IS the unlocking gesture), and it removes itself the moment audio unlocks.
+//
+// ⚠️ ON iPad SAFARI, "UNLOCKED" MAY NOT MEAN "PLAYING" (DM 2026-09-15, the TV on an iPad: "It's been
+// unlocked and the volume is up" — still no sound). Read in core 14.367: `AudioHelper#onFirstGesture`
+// runs on the first contextmenu/auxclick/pointerdown/pointerup/keydown, creates the three
+// AudioContexts (music / environment / interface), sets `locked = false`, and never calls `resume()`.
+// A desktop browser starts a context created inside `pointerdown`; iOS WebKit is stricter about which
+// events may start audio, so a context born there can stay SUSPENDED — and core, having flipped
+// `locked`, never looks at it again. Every status then reads "unlocked" while each sound plays into a
+// stopped graph. ⚠️ THE WORKING THEORY, NOT YET CONFIRMED ON HIS iPad: the status line now reports each
+// context's real state, which settles it on the next reload.
 function setupDisplayAudioUnlock() {
   const ID = "mc-audio-unlock";
+  // Safari's audio session: "playback" keeps the table's sound going when the iPad is in silent mode —
+  // a shared speaker must not go quiet because someone muted notifications. Safari 16.4+; browsers
+  // without `navigator.audioSession` are untouched.
+  try { if (isDisplayClient() && navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) { /* unsupported */ }
   const show = () => {
     try {
-      if (!isDisplayClient() || !game.audio?.locked) return;
+      if (!isDisplayClient() || !audioPaused()) return;
       if (document.getElementById(ID)) return;
       const el = document.createElement("div");
       el.id = ID;
       el.innerHTML = `<div class="mc-au-card">
         <i class="fas fa-volume-high mc-au-ico"></i>
         <div class="mc-au-title">Tap to enable sound</div>
-        <div class="mc-au-sub">This screen has had no touch yet, and browsers only start audio after one.
-          Tap anywhere — you only need to do this once per reload.</div>
+        <div class="mc-au-sub">Browsers only play sound after a tap on this screen.
+          Tap anywhere to start it — again after a reload, or after the screen has slept.</div>
       </div>`;
       const done = () => {
+        if (audioPaused()) return; // not actually running yet: the card stays for the next tap
         el.remove();
-        // The tap unlocked audio; re-sync so ambient sounds start at their correct volumes now.
+        // Audio really runs now; re-sync so ambient sounds start at their correct volumes.
         try { canvas?.sounds?.refresh(); } catch (e) { /* best-effort */ }
+        broadcastAudioState();
       };
-      el.addEventListener("pointerdown", () => setTimeout(done, 50)); // core unlocks on the same event
+      // The END of the tap is the gesture WebKit honours; core's own unlock already ran on pointerdown.
+      const onTap = () => { resumeAudioContexts().then(done, done); };
+      el.addEventListener("click", onTap);
+      el.addEventListener("touchend", onTap, { passive: true });
       document.body.appendChild(el);
-      game.audio.unlock?.then?.(done).catch?.(() => {});
+      game.audio.unlock?.then?.(() => setTimeout(done, 300)).catch?.(() => {});
     } catch (e) { console.warn(`${MODULE_ID} | audio-unlock prompt failed`, e); }
   };
   show();
   Hooks.on("canvasReady", show); // a scene change on a still-locked display re-offers it
+  // iPad Safari suspends audio again when the screen sleeps or Safari goes to the background, and a tap
+  // is again the only way back — so the card returns with the screen, and on a slow heartbeat.
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(show, 500); });
+  setInterval(show, 15000);
+}
+
+/** Core's three AudioContexts — music, environment, interface — once audio has been unlocked. */
+function audioContexts() {
+  return [game.audio?.music, game.audio?.environment, game.audio?.interface].filter(Boolean);
+}
+
+/** Locked, or unlocked with a context that is not actually running (suspended / interrupted). */
+function audioPaused() {
+  if (game.audio?.locked) return true;
+  return audioContexts().some((c) => c.state !== "running" && c.state !== "closed");
+}
+
+/** Resume every context that isn't running. It must be CALLED inside a gesture WebKit accepts. */
+function resumeAudioContexts() {
+  return Promise.all(audioContexts()
+    .filter((c) => c.state !== "running" && c.state !== "closed")
+    .map((c) => c.resume().catch(() => {})));
+}
+
+// Every client, not only the TV: an iPhone shell or an iPad DM screen can strand the same contexts,
+// and nothing is attempted while they are running. `touchend` / `click` / `keydown` are the ends of a
+// gesture, which is where WebKit grants audio.
+function setupAudioResume() {
+  const onGesture = () => {
+    if (game.audio?.locked || !audioPaused()) return;
+    resumeAudioContexts().then(() => {
+      try { canvas?.sounds?.refresh(); } catch (e) { /* best-effort */ }
+      broadcastAudioState();
+    });
+  };
+  for (const type of ["touchend", "click", "keydown"]) {
+    document.addEventListener(type, onGesture, { capture: true, passive: true });
+  }
 }
 
 // Apply the DM's chosen table-display volumes on THIS client (display only). Foundry's three
@@ -1137,8 +1214,11 @@ function applyTvMute() {
 function broadcastAudioState() {
   try {
     if (!isDisplayClient()) return;
+    // `paused` = locked OR unlocked with a context that isn't running; `contexts` names each one's
+    // real state, so the panel can tell "never tapped" from "Safari stopped it" (2026-09-15, the iPad).
+    const contexts = Object.fromEntries(["music", "environment", "interface"].map((k) => [k, game.audio?.[k]?.state ?? "none"]));
     tvBroadcast({ cmd: "audioState", userId: game.user.id, locked: !!game.audio?.locked,
-      muted: !!game.audio?.globalMute, at: Date.now() });
+      paused: audioPaused(), contexts, muted: !!game.audio?.globalMute, at: Date.now() });
   } catch (e) { /* socket not ready */ }
 }
 

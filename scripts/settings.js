@@ -556,6 +556,17 @@ export function registerSettings() {
     default: false
   });
 
+  // §35 / §52 the Crooked Moon tab's working state — séance sitters and escalation, the curse's
+  // target/minutes/staged card, the tarot cheat, the fiddle and engine beds. It lived in the panel's
+  // memory until 2026-09-18; a world setting lets the deck read and press the same state, and a
+  // reload of the DM's browser no longer forgets it. Read and written only through cm-live.js.
+  game.settings.register(MODULE_ID, "cmLiveState", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {}
+  });
+
   // §16.3 DM first-run wizard: true once the DM finished (or dismissed) the
   // guided setup. Hidden — the wizard flips it; reopen lives on the Preflight tab.
   game.settings.register(MODULE_ID, "dmOnboarded", {

@@ -1,0 +1,59 @@
+<title>Crooked Moon Entrances II</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=Eater&family=Grenze+Gotisch:wght@400;600&family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Limelight&family=MedievalSharp&family=Metamorphous&family=Pinyon+Script&family=Pirata+One&family=Poiret+One&family=Rye&family=Sacramento&family=Sancreek&family=Signika:wght@400;600&family=Uncial+Antiqua&family=UnifrakturMaguntia&display=swap">
+<style>
+%%BASE%%
+</style>
+<style>
+%%THEMES%%
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-play" viewBox="0 0 10 10"><path d="M1 0 L 10 5 L 1 10 Z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1"/></symbol>
+  <symbol id="i-snd" viewBox="0 0 16 16"><path d="M1 5.5h3L8.5 2v12L4 10.5H1z"/><path d="M10.4 5a4.2 4.2 0 0 1 0 6l-.9-.9a3 3 0 0 0 0-4.2zM12.5 2.9a7.2 7.2 0 0 1 0 10.2l-.9-.9a5.9 5.9 0 0 0 0-8.4z"/></symbol>
+  <symbol id="i-full" viewBox="0 0 16 16"><path d="M1 1h5v2H3v3H1zM10 1h5v5h-2V3h-3zM1 10h2v3h3v2H1zM13 10h2v5h-5v-2h3z"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 16 16"><path d="M1 5.5h3L8.5 2v12L4 10.5H1z"/><path d="M10.2 5.6l.9-.9 1.9 1.9 1.9-1.9.9.9-1.9 1.9 1.9 1.9-.9.9-1.9-1.9-1.9 1.9-.9-.9 1.9-1.9z"/></symbol>
+</svg>
+
+<header class="top">
+  <div>
+    <h1>Crooked Moon Entrances II</h1>
+    <p>Twenty-five entrance banners in the Boss Splash style. Six are transformations: the Crimson Abbot, the Chained Reaper, Golub and the Abbot's three priors change in front of the party. The map dims and a banner slides in with the NPC's own art from the book. It holds for about six seconds with a slow drift while everyone reads the name, then slides away. Each plays over its chapter's battle map, with recorded sounds from your library.</p>
+  </div>
+  <div class="controls">
+    <div class="seg" role="radiogroup" aria-label="Screen layout">
+      <input type="radio" name="mode" id="mode-wall" value="wall" checked><label for="mode-wall">Wall / online</label>
+      <input type="radio" name="mode" id="mode-table" value="table"><label for="mode-table">Table TV, 3 sides</label>
+    </div>
+    <button class="btn snd-btn" id="sound" type="button" aria-pressed="true"><svg class="ico i-on" aria-hidden="true"><use href="#i-snd"/></svg><svg class="ico i-off" aria-hidden="true"><use href="#i-mute"/></svg><span>Sound on</span></button>
+    <label class="vol" for="volume">Volume <input id="volume" type="range" min="0" max="100" value="80"></label>
+    <button class="btn" id="play-all" type="button">Play all</button>
+    <button class="btn" id="full" type="button"><svg class="ico" aria-hidden="true"><use href="#i-full"/></svg><span>Full screen</span></button>
+  </div>
+</header>
+<div class="motion-note" id="motion-note" hidden><span>Your device asks for reduced motion, so the banners fade in and out instead of sliding.</span><button class="btn" id="full-motion" type="button">Show full motion</button></div>
+
+<div class="theatre-bar" role="toolbar" aria-label="Full-screen controls">
+  <button class="btn" id="t-prev" type="button">Previous</button>
+  <button class="btn" id="t-next" type="button">Next</button>
+  <button class="btn" id="t-all" type="button">Play all</button>
+  <button class="btn" id="t-exit" type="button">Exit full screen</button>
+</div>
+
+<main class="grid">
+%%CARDS%%
+</main>
+
+<footer class="foot">
+  <p>Art: The Crooked Moon module's own portraits, boss art, margin drawings and battle maps. Sound: recordings from your library, trimmed to fit; each card names its sounds.</p>
+  <p>Mist: MattM's Animated Mist and Fog, from your modules (thin horizontal mist for the Vagrant; a thick drifting fog bank and thin rising fog for the Reaper).</p>
+  <p>This page carries the book's art, your purchased sounds and that module's mist, so keep it private.</p>
+  <p>Full screen: the button on any banner, or Full screen at the top. Inside, the arrow keys step through the banners, Space plays or stops, and Esc leaves.</p>
+  <p>Fonts: Cinzel, UnifrakturMaguntia, Grenze Gotisch and Metamorphous already ship with Mobile Command. Limelight, Poiret One, Uncial Antiqua, IM Fell English, Sancreek, Cinzel Decorative, Sacramento, Eater, Pirata One, Pinyon Script, Rye and MedievalSharp would be new; all are under the SIL Open Font License.</p>
+</footer>
+
+<script>
+const CLIPS = %%CLIPS%%;
+%%APP%%
+</script>

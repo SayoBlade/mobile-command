@@ -6,3 +6,16 @@ Thumbs.db
 .DS_Store
 *.swp
 module.zip
+
+# tools/entrances: derived from the DM's licensed content or generated — never committed
+tools/entrances/art/
+tools/entrances/snd/
+tools/entrances/fx/
+tools/entrances/profiles/
+tools/entrances/shots*/
+tools/entrances/cards2.html
+tools/entrances/crooked-moon-entrances-ii.html
+tools/entrances/sndspec.json
+tools/entrances/__pycache__/
+tools/entrances/*.png
+tools/entrances/*.jpg

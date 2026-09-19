@@ -6304,6 +6304,27 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 .mc-boss-del:hover { color: var(--mc-bad-ink); }   /* destructive = red on hover only (bible §4) */
 .mc-boss-play { flex: 0 0 auto; }
 /* The container the DM drags a monster into. Empty states point at the next step (§7). */
+/* §40.6 Intros — the Crooked Moon tab's list of entrance banners. Rows follow the boss rows above (thumb, name in
+   ink with the players' line under it, a mini Play); chapter labels are a section bar, well short of a row (§6.1). */
+.mc-entr-list { display: flex; flex-direction: column; gap: 4px; }
+.mc-entr-ch { height: 20px; line-height: 20px; margin-top: 6px; font-size: 10.5px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--mc-muted); }
+.mc-entr-ch:first-child { margin-top: 0; }
+.mc-entr-row {
+  display: flex; align-items: center; gap: 8px; min-height: 36px; box-sizing: border-box;
+  padding: 4px 8px; border-radius: calc(8px * var(--mc-round, 1));
+  background: var(--mc-panel); border: 1px solid var(--mc-edge);
+  font-size: 13px; color: var(--mc-ink);
+}
+.mc-entr-thumb { flex: 0 0 auto; width: 26px; height: 26px; border-radius: calc(5px * var(--mc-round, 1));
+  object-fit: cover; object-position: 50% 15%; background: var(--mc-sunken); }
+.mc-entr-name { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; overflow: hidden; }
+.mc-entr-name small { color: var(--mc-muted); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-entr-into { font-size: 9px; color: var(--mc-muted); margin: 0 2px; }
+.mc-entr-pause { flex: 0 0 auto; font-size: 10px; color: var(--mc-muted); }
+.mc-entr-play { flex: 0 0 auto; }
+.mc-entr-shadow { flex: 0 0 auto; }
+.mc-entr-shadow.mc-on { outline: 1px solid var(--mc-gold); color: var(--mc-gold); } /* ON = a gold outline, never a fill (bible §4.2) */
 .mc-boss-new {
   display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 6px;
   min-height: 44px; padding: 6px 10px; border-radius: calc(9px * var(--mc-round, 1));
