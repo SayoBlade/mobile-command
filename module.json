@@ -1,7 +1,7 @@
 {
   "id": "mobile-command",
   "title": "Mobile Command — Phone Controller",
-  "description": "Phones as full Foundry clients with a touch-first UI replacement layer: per-player phone sheets, DM panel, shared-TV camera, combat music, effects, and private messages. Tested stack: Foundry 14 / dnd5e 5.3.3 / midi-qol 14.0.11 — see DESIGN.md (the module's System-health tab watches for unvalidated versions).",
+  "description": "Phones as full Foundry clients with a touch-first UI replacement layer: per-player phone sheets, DM panel, shared-TV camera, combat music, effects, and private messages. Tested against Foundry 14, dnd5e 5.3.3 and midi-qol 14.0.12; the System-health tab tells you when an installed version hasn't been validated yet.",
   "version": "0.2.0",
   "url": "https://github.com/SayoBlade/mobile-command",
   "manifest": "https://github.com/SayoBlade/mobile-command/releases/latest/download/module.json",
@@ -53,7 +53,7 @@
         "type": "module",
         "reason": "Powers the advantage/disadvantage recommendation (and its named reasons) on the phone's attack screen; degrades to no recommendation without it.",
         "compatibility": {
-          "verified": "14.533.18"
+          "verified": "14.533.19"
         }
       },
       {
@@ -64,6 +64,11 @@
     ]
   },
   "socket": true,
+  "documentTypes": {
+    "RegionBehavior": {
+      "sound": {}
+    }
+  },
   "esmodules": [
     "scripts/main.js"
   ],

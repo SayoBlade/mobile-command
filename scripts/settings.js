@@ -338,6 +338,18 @@ export function registerSettings() {
     default: true
   });
 
+  // §53 (catalogue 230, DM go 2026-09-20): Foundry gives a GM controlling no token NO ambient sound at
+  // all. With this on, the DM's own screen hears the scene from the party's tokens — the TV's rule —
+  // whenever nothing is selected, so he can judge the cues that play themselves from his seat.
+  game.settings.register(MODULE_ID, "dmHearsTable", {
+    name: "The DM hears the table's ambient sound",
+    hint: "With nothing selected, your own screen hears ambient sounds from the party's tokens, as the shared screen does. Select a token to hear from it instead. Off: Foundry's default — a GM with no token selected hears no ambient sound.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
   // §40 THE BOSSES. `[{ id, actorId, sound }]` — built by dragging an actor and a track into the
   // Combat tab's Boss intro drawer. Name and art are deliberately NOT stored: they're read off
   // the actor when the entrance plays, so renaming a monster or repainting its token is enough.
