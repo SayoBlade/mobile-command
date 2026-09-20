@@ -2138,7 +2138,7 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    - **Spell animations for a playing party (PARKED, DM 2026-09-19: "keep this for later"):** the
      cantrip–5th audit of JB2A Free vs the D&D5e Animations preset is in the memory note
      `spell-animation-gaps` (dedicated / stand-in / nothing / Jinker's fills). When the DM names the
-     party's spells: wire Spirit Guardians (free asset, never mapped), Jinker's for Color Spray /
+     party's spells: ~~Spirit Guardians~~ (ALREADY WORKS — verified in the live world 2026-09-21: AA's private db maps the preset's path to the free file), Jinker's for Color Spray /
      Fear / Armor of Agathys, stand-ins or Sequencer macros for Healing Word, Hold Person, Faerie
      Fire, Hex, Counterspell, Hypnotic Pattern, Haste, Mirror Image, Blur, Invisibility — bench
      first, then hand over the preset export.
@@ -2146,6 +2146,10 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
      the server log for "Failed to connect"/"repair" on any pack; a clean launch closes this.**
      Index files rewritten in 130 pack folders by the auto-repair, no content touched, nothing
      quarantined. Cause: I inferred "no world active" from options.json instead of the HTTP check.
+   - **JB2A Free's `jb2a.*` Sequencer database is not registered in the DM's world (read live
+     2026-09-21; memory `spell-animation-gaps`):** AA is unaffected (own db), but MISC/CAT effects
+     and any macro naming `jb2a.<path>` play nothing. Owed: confirm the cause (late `sequencer.ready`
+     listener in jb2a.js is the lead), then a one-line world script or an upstream report.
    - **From the 2026-09-10 stack run (§28.5.12):** CAT 0.0.7 bricks Roll NPCs when a combatant's
      actor is gone (throws in its SummonsManager) — the panel's Roll NPCs should name/skip
      actor-less combatants · midi 14.0.12 targets under the Place PREVIEW while the DM aims
