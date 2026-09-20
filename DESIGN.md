@@ -2142,6 +2142,10 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
      Fear / Armor of Agathys, stand-ins or Sequencer macros for Healing Word, Hold Person, Faerie
      Fire, Hex, Counterspell, Hypnotic Pattern, Haste, Mirror Image, Blur, Invisibility — bench
      first, then hand over the preset export.
+   - **Bench incident 2026-09-21 (§28.9 addendum) — owed: after the DM's next Foundry restart, read
+     the server log for "Failed to connect"/"repair" on any pack; a clean launch closes this.**
+     Index files rewritten in 130 pack folders by the auto-repair, no content touched, nothing
+     quarantined. Cause: I inferred "no world active" from options.json instead of the HTTP check.
    - **From the 2026-09-10 stack run (§28.5.12):** CAT 0.0.7 bricks Roll NPCs when a combatant's
      actor is gone (throws in its SummonsManager) — the panel's Roll NPCs should name/skip
      actor-less combatants · midi 14.0.12 targets under the Place PREVIEW while the DM aims
@@ -4119,6 +4123,24 @@ and every other database was untouched — but the bench now uses a full COPY of
 scratch dir, with only `modules`/`systems`/assets junctioned. That also stops test residue landing
 in the DM's world. Setup is in `scratchpad/bench2`.
 
+
+**INCIDENT 2026-09-21 00:37 — the check I ran was the wrong check.** The DM had launched Offline
+test on his own Foundry at 21:51 the evening before; I read `Config/options.json` (`world: null`)
+and took that as "no world active". **options.json says nothing about a world launched from the
+setup screen — only the HTTP check does.** The bench started, its `systems/` and `modules/`
+junctions opened the pack LevelDBs his running server already held, every open failed, and
+Foundry's auto-repair ran on HIS packs: `CURRENT`/`MANIFEST` rewritten in **130 pack folders**
+(system dnd5e + premium modules incl. the-crooked-moon-2014), 390 index files in all. **No
+content file (`.ldb`) was modified and nothing was quarantined today** — every `lost/` file
+present dates from the 2026-08-02 incident. His server logged no error. Owed: after his next
+Foundry restart, read `Logs/debug.*.log` for "Failed to connect"/"repair" lines — a clean launch
+closes this; until then he should not unlock-and-edit a compendium.
+
+**BENCH RULE #0, restated so it cannot be misread:** before starting the bench run
+`Invoke-WebRequest http://localhost:30000/join` and read the `<title>`: a WORLD NAME (or a join
+form) = active → do not start the bench, full stop. "Critical Failure!" or the admin-auth page =
+no world. Never infer it from options.json, from the process count, or from what the world was
+doing yesterday.
 
 ### 28.10 After-damage stray target — FIXED (bench 2026-08-02)
 

@@ -20,6 +20,6 @@ These .md files are written for **Claude, not the DM** — he will ask rather th
 
 ## Conduct
 
-- Write operations are allowed **in the test world only** — the local **"Offline test"** world (Restored Keep v14 demo content) at `localhost:30000`, or a bench COPY of it per DESIGN §28.9. Never the DM's live campaign world. **BENCH RULE #0:** if the DM's Foundry has a world ACTIVE, do not start the bench at all.
+- Write operations are allowed **in the test world only** — the local **"Offline test"** world (Restored Keep v14 demo content) at `localhost:30000`, or a bench COPY of it per DESIGN §28.9. Never the DM's live campaign world. **BENCH RULE #0:** if the DM's Foundry has a world ACTIVE, do not start the bench at all — and "active" is decided ONLY by fetching `http://localhost:30000/join` and reading the page title (a world name or a join form = active; "Critical Failure!" / the admin-auth page = none). `Config/options.json` says nothing about a world launched from the setup screen (incident 2026-09-21, DESIGN §28.9).
 - **Never delete anything** — no documents, no settings, no files.
 - Prefer logging a blocker over guessing.
