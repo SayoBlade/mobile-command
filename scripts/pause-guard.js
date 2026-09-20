@@ -39,6 +39,11 @@ export function initPauseGuard() {
   Hooks.on("pauseGame", (paused) => {
     if (!paused && pausedByGuard && !canvasOnActiveScene()) pausedByGuard = false;
   });
+  // ⚠️ registerX runs INSIDE main.js's ready hook, so a Hooks.once("ready") here registers AFTER ready has
+  // fired and never runs — the same trap combat-music.js documents. Do it directly.
+  // Without this first pass the guard only woke on the NEXT canvas draw or scene change, so a client
+  // that loaded already sitting off the active scene was never judged at all.
+  evaluate();
 }
 
 function canvasOnActiveScene() {

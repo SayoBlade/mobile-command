@@ -104,7 +104,11 @@ export function registerDruskenvald() {
   const onSetting = (s) => { if (s?.key === `${MODULE_ID}.druskenvaldSceneIds`) druskSync(); };
   Hooks.on("updateSetting", onSetting);
   Hooks.on("createSetting", onSetting); // a never-written setting's first write is a CREATE
-  Hooks.on("ready", druskSync);
+  // ⚠️ registerX runs INSIDE main.js's ready hook, so a Hooks.once("ready") here registers AFTER ready has
+  // fired and never runs — the same trap combat-music.js documents. Do it directly.
+  // A canvas client was rescued by the canvasReady hook above; a PHONE has no canvas, so it never
+  // synced at all until something else moved the clock.
+  druskSync();
 }
 
 /* -------------------------------------------- */

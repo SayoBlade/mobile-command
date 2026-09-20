@@ -16,7 +16,7 @@ import { registerFog, refreshFog } from "./fog-soft.js";
 import { registerCombatMusic } from "./combat-music.js";
 import { registerCampaigns } from "./campaigns.js"; // §50 campaign recognition (Ember creation fit-shim)
 import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "./camera-frame.js";
-import { registerFxEngine } from "./effects.js"; // §26 Effects tab engine
+import { registerFxEngine, registerLayeredWeather, dmFireFx } from "./effects.js"; // §26 Effects tab engine
 import { cardTableRefreshMode } from "./card-table.js"; // §39: re-lay the board when the table mode changes
 import { dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { dmPlayEntrance, dmStopEntrance, entranceList, registerEntranceShadow } from "./entrances.js"; // §40.6 the themed entrances ("Intros")
@@ -32,6 +32,7 @@ import { openFeedback, registerFeedbackMenu } from "./feedback.js"; // §48 the 
 import { actionAreas, actionSnapshot, runAction, actionCounts } from "./actions.js"; // §52 the published action list (deck-command ledger 151)
 import "./actions-effects.js"; // §52 area G — each area file registers its rows on import
 import "./actions-cm.js"; // §52 area H — the Crooked Moon tab (and its requests)
+import { registerSoundBehavior, cues } from "./region-sound.js"; // §53 the "Sound" region behaviour + the house door sets
 
 Hooks.once("init", () => {
   // FIRST thing, before anything of ours can throw: the errors worth having are the ones nobody was
@@ -41,6 +42,8 @@ Hooks.once("init", () => {
   registerSettingsMenu(); // §29: registered from here, not settings.js — the app imports preflight, which imports settings.js (cycle)
   registerFeedbackMenu(); // §48: unrestricted — the people who hit bugs are mostly not the GM
   registerSceneTransitions(); // zoom in/out entries in CONFIG.Canvas.sceneTransitions (scene config + teleport pickers)
+  registerLayeredWeather(); // §26: fog over rain/snow/leaves as one weather id, on every client (DM 2026-09-19)
+  registerSoundBehavior(); // §53: "Sound" in the region menu + the Crooked House door sets, on every client
   // TV clean-canvas toggle (DM 2026-06-19): hide ALL Foundry UI so the shared
   // display shows only the canvas. Auto-on for the "display" role; this keybinding
   // toggles it back so the DM can reach settings on the display client (escape hatch).
@@ -639,7 +642,34 @@ async function suppressMcdCamera() {
   }
 }
 
+// ── PLAIN WORDS ON A STAIRCASE (DM 2026-09-20: "change the text to something that sounds less sci-fi") ───────────
+// Core's teleport confirmation is written for teleporters: the buttons say "Teleport" and "Don't Teleport" and the
+// fallback question is "Do you want to teleport {token}?". On the Crooked House stairs that is jargon — the player is
+// climbing a flight of stairs, not blinking across a starship. Each staircase already carries its own question
+// ("Go up to the second floor?"); these are the strings core keeps for itself and a region cannot set.
+//
+// ⚠️ THESE ARE CORE KEYS. A module that rewrites them rewrites them for every world it is installed in, so this is
+// gated on the Crooked Moon tools being on — which default on only when that module is active. A sci-fi table where
+// "Teleport" is the right word keeps core's wording untouched.
+function plainTeleportWording() {
+  try {
+    if (!game.settings.get(MODULE_ID, "crookedMoonTools")) return;
+    const T = game.i18n.translations?.BEHAVIOR?.TYPES?.teleportToken;
+    if (!T) return;
+    T.Teleport = "Go through";
+    T.DoNotTeleport = "Stay here";
+    T.Confirm = "Move {token} on?";
+    T.ConfirmRevealed = "Move {token} to {region}?";
+    T.ConfirmDisabled = "{token} cannot go through from where they are standing.";
+    T.ConfirmSelectSameScene = "Where should {token} go in {scene}?";
+    T.ConfirmSelectDifferentScene = "Where should {token} go?";
+  } catch (e) {
+    console.warn(`${MODULE_ID} | could not plain-word the teleport dialog`, e);
+  }
+}
+
 Hooks.once("setup", () => {
+  plainTeleportWording();
   // D2: phones run canvasless. The canvas draws on world entry — AFTER setup,
   // BEFORE ready — and loading it crashes iOS Safari (confirmed on real
   // hardware 2026-06-13). So disable it here, before the draw, by writing the
@@ -882,6 +912,13 @@ Hooks.once("ready", () => {
     refreshPanel,                        // repaint the DM panel (used by the display's audio report)
     refreshTableMode: cardTableRefreshMode, // §39 in person ⇄ online: re-lay the card table's seats
     playBossIntro: dmPlayBossIntro,      // §40 macro/Stream Deck access to a boss's entrance (§8.1)
+    // ONE RECORDING ON THE TABLE'S SPEAKERS, for a beat somebody else owns — deck-command's action keys call
+    // this (DM 2026-09-18: a whole-room sound plays on every screen at a plain table, but only on the TV at an
+    // MC table). It is §26's `fxSound` one-shot: broadcast to every client, and phones drop it because their
+    // environment channel is silent (§14), so the room hears it from the TV and the DM's own monitor and nobody
+    // gets a tinny second copy out of a pocket. Takes { src, volume, at, radius, fadeAfter, fadeMs }; with `at`
+    // and `radius` it plays positionally through the walls instead of flat.
+    playSound: (o = {}) => dmFireFx("fxSound", o),
     // §40.6 the themed entrances ("Intros"): play one by key (see entrances()), or cut the running one short.
     playEntrance: dmPlayEntrance,
     stopEntrance: dmStopEntrance,
@@ -901,7 +938,10 @@ Hooks.once("ready", () => {
     isExecutor,
     // §52 (deck-command ledger 151): every DM action the panel offers mid-session, as data plus one
     // runner — so a second surface can draw and run them without knowing MC. GM clients only.
-    actions: { areas: actionAreas, snapshot: actionSnapshot, run: runAction, counts: actionCounts }
+    actions: { areas: actionAreas, snapshot: actionSnapshot, run: runAction, counts: actionCounts },
+    // §53 the cues that play themselves: list / fire / mute / reset / armed — the deck's per-scene list
+    // (catalogue 232) and the fire-now keys read this. GM clients only.
+    cues
   };
 
   maybeAutoOpenShell();
@@ -961,20 +1001,31 @@ function setupNoDoubleTapMinimize() {
 // Core's own rule still decides loudness: _syncPositions keeps the CLOSEST listener to each source,
 // so a brazier or a waterfall swells as the party walks toward it. Only the FALLBACK is ours; the
 // moment anything is actually controlled, core's answer stands untouched.
+//
+// …AND THE DM'S OWN SCREEN (§53, catalogue 230, DM go 2026-09-20). The same core rule leaves a GM who
+// controls no token stone deaf to every ambient sound — so the DM would place a ticking clock and hear
+// silence, and could judge none of the cues that play themselves. The display's fallback now serves the
+// GM's client too (world setting `dmHearsTable`, on by default): with nothing selected he hears the
+// scene from the party's tokens, exactly as the TV does; select a token and core's own answer is back.
+// Only the LISTENERS are shared — the combat POV and the follow filter stay the display's.
 function setupDisplayAudioListeners() {
+  const dmHears = () => {
+    try { return !!game.user?.isGM && !isDisplayClient() && !isPhoneClient() && !!game.settings.get(MODULE_ID, "dmHearsTable"); } catch (e) { return false; }
+  };
+  const hearsFromParty = () => isDisplayClient() || dmHears();
   const patch = () => {
     try {
-      if (!isDisplayClient() || !canvas?.sounds) return;
+      if (!hearsFromParty() || !canvas?.sounds) return;
       const proto = Object.getPrototypeOf(canvas.sounds);
       const orig = proto?.getListenerPositions;
       if (!proto || proto.__mcAudioListenersPatched || typeof orig !== "function") return;
       proto.getListenerPositions = function () {
         const base = orig.call(this);
-        if (base.length || !isDisplayClient()) return base; // something is controlled → core decides
+        if (base.length || !hearsFromParty()) return base; // something is controlled → core decides
         // Combat audio POV — the counterpart of combatPovVision. On a PC's turn the room hears from
         // that combatant alone; a pet's or enemy's turn falls through to the party.
         let pov = false;
-        try { pov = game.settings.get(MODULE_ID, "combatPovAudio"); } catch (e) { /* setting late */ }
+        try { pov = isDisplayClient() && game.settings.get(MODULE_ID, "combatPovAudio"); } catch (e) { /* setting late */ }
         if (pov && game.combat?.started) {
           const active = game.combat.combatant?.token?.object;
           if (active && isAudioListener(active.actor) && !active.document?.hidden
@@ -1023,7 +1074,7 @@ function setupDisplayAudioListeners() {
   // dropping out doesn't cut sound abruptly (DM 2026-07-24: "avoid sharp cuts… ~750ms to mute
   // completely" — and the same principle for sound changes generally).
   const MUTE_FADE_MS = 750;
-  const refresh = (fade) => { try { if (isDisplayClient()) canvas?.sounds?.refresh(fade != null ? { fade } : {}); } catch (e) { /* best-effort */ } };
+  const refresh = (fade) => { try { if (hearsFromParty()) canvas?.sounds?.refresh(fade != null ? { fade } : {}); } catch (e) { /* best-effort */ } };
   const touchesMuteFlag = (changes) => foundry.utils.hasProperty(changes ?? {}, `flags.${MODULE_ID}.muteListener`)
     // an UNLINKED token's flag change arrives inside the ActorDelta, not as a top-level flags path
     || foundry.utils.hasProperty(changes ?? {}, `delta.flags.${MODULE_ID}.muteListener`)
@@ -1036,7 +1087,7 @@ function setupDisplayAudioListeners() {
   // refresh raycasts every ambient sound against the listeners, so the debounce keeps a busy scene
   // from hitching on movement.
   let moveTimer = null;
-  const refreshSoon = () => { if (!isDisplayClient()) return; clearTimeout(moveTimer); moveTimer = setTimeout(() => refresh(), 250); };
+  const refreshSoon = () => { if (!hearsFromParty()) return; clearTimeout(moveTimer); moveTimer = setTimeout(() => refresh(), 250); };
 
   // The listener set ALSO changes with nobody moving: packing and dispersing swap N member tokens
   // for one group token and back (rpc.js `deleteEmbeddedDocuments`/`createEmbeddedDocuments`).
@@ -1059,7 +1110,7 @@ function setupDisplayAudioListeners() {
     && (actor.type === "group" || (actor.type === "character" && !!actor.hasPlayerOwner));
 
   Hooks.on("updateActor", (_a, changes) => {
-    if (!isDisplayClient()) return;
+    if (!hearsFromParty()) return;
     if (touchesMuteFlag(changes)) return refresh(MUTE_FADE_MS);
     if (touchesPackedFlag(changes)) refreshSoon(); // party packed/dispersed → whole new listener set
   });
@@ -1067,14 +1118,17 @@ function setupDisplayAudioListeners() {
   const touchesNoFollowFlag = (changes) => foundry.utils.hasProperty(changes ?? {}, `flags.${MODULE_ID}.noFollow`)
     || (typeof changes?.flags?.[MODULE_ID] === "object" && "noFollow" in changes.flags[MODULE_ID]);
   Hooks.on("updateToken", (t, changes) => {
-    if (!isDisplayClient()) return;
+    if (!hearsFromParty()) return;
     if (touchesMuteFlag(changes)) return refresh(MUTE_FADE_MS); // deafen → gentle 750ms fade
     if (touchesNoFollowFlag(changes)) return refresh(MUTE_FADE_MS); // follow subset changed → new listener set
     if (("x" in changes || "y" in changes) && isAudioListener(t.actor)) refreshSoon();
   });
-  Hooks.on("createToken", (t) => { if (isDisplayClient() && couldListen(t.actor)) refreshSoon(); });
-  Hooks.on("deleteToken", (t) => { if (isDisplayClient() && couldListen(t.actor)) refreshSoon(); });
-  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.combatPovAudio`) refresh(); });
+  Hooks.on("createToken", (t) => { if (hearsFromParty() && couldListen(t.actor)) refreshSoon(); });
+  Hooks.on("deleteToken", (t) => { if (hearsFromParty() && couldListen(t.actor)) refreshSoon(); });
+  Hooks.on("updateSetting", (s) => {
+    if (s?.key === `${MODULE_ID}.combatPovAudio`) refresh();
+    if (s?.key === `${MODULE_ID}.dmHearsTable`) { patch(); try { canvas?.sounds?.refresh(); } catch (e) { /* best-effort */ } }
+  });
   Hooks.on("updateCombat", (_c, changed = {}) => { if ("turn" in changed || "round" in changed) refresh(); });
   Hooks.on("combatStart", refresh);
   Hooks.on("deleteCombat", refresh);

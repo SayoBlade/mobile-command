@@ -21,7 +21,7 @@ Install via manifest URL in Foundry's **Add-on Modules → Install Module**:
 https://github.com/SayoBlade/mobile-command/releases/latest/download/module.json
 ```
 
-**Requires:** midi-qol, DAE, socketlib, libWrapper. **Recommended:** Automated Conditions 5e,
+**Requires:** midi-qol, socketlib. **Recommended:** Automated Conditions 5e, DAE,
 Item Piles, Simple Calendar Reborn, Monk's Common Display (for the shared screen).
 
 **Stack:** built against Foundry 14 · dnd5e 5.3.x · midi-qol 14.x. The module tracks current

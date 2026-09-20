@@ -354,12 +354,14 @@ const COMPILE_EVERY_MS = 3 * 60 * 1000;
 let timer = null;
 
 export function registerCharacterFiles() {
-  Hooks.once("ready", () => {
-    if (!game.user?.isGM) return;
-    clearInterval(timer);
-    timer = setInterval(() => { compileCharacterFiles(); }, COMPILE_EVERY_MS);
-    // One pass shortly after load so a DM who opens the journal straight away finds it current,
-    // rather than waiting out the first interval.
-    setTimeout(() => compileCharacterFiles(), 20000);
-  });
+  // ⚠️ registerX runs INSIDE main.js's ready hook, so a Hooks.once("ready") here registers AFTER ready has
+  // fired and never runs — the same trap combat-music.js documents. Do it directly.
+  // It had wrapped all of this, so the compile timer NEVER STARTED and no character book was ever
+  // rebuilt on its own — the journal only ever updated when something else compiled it by hand.
+  if (!game.user?.isGM) return;
+  clearInterval(timer);
+  timer = setInterval(() => { compileCharacterFiles(); }, COMPILE_EVERY_MS);
+  // One pass shortly after load so a DM who opens the journal straight away finds it current,
+  // rather than waiting out the first interval.
+  setTimeout(() => compileCharacterFiles(), 20000);
 }

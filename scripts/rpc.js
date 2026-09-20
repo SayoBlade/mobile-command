@@ -83,80 +83,96 @@ export function initSocket() {
     return null;
   }
   socket = registered;
-  socket.register("itemUse", handleItemUse);
-  socket.register("itemUseStart", handleItemUseStart);
-  socket.register("itemUseDamage", handleItemUseDamage);
-  socket.register("itemUseCancel", handleItemUseCancel);
-  socket.register("enchantApply", handleEnchantApply); // §28.6 phone enchant picker
-  socket.register("moveRequest", handleMoveRequest);
-  socket.register("setMovementAction", handleSetMovementAction);
-  socket.register("attackPreview", handleAttackPreview);
-  socket.register("measure", handleMeasure);
-  socket.register("targetsList", handleTargetsList);
-  socket.register("previewTargets", handlePreviewTargets);
-  socket.register("endTurn", handleEndTurn);
-  socket.register("assignTargets", handleAssignTargets);
-  socket.register("announceCast", handleAnnounceCast);
-  socket.register("savePrompt", handleSavePrompt);
-  socket.register("watchdogPing", handleWatchdogPing);
-  socket.register("listLoot", handleListLoot);
-  socket.register("openLoot", handleOpenLoot);
-  socket.register("listInteractables", handleListInteractables);
-  socket.register("operateInteractable", handleOperateInteractable);
-  socket.register("travelTo", handleTravelTo);
-  socket.register("travelMark", handleTravelMark);
-  socket.register("partyJournalEnsure", handlePartyJournalEnsure);
-  socket.register("partyJournalAdd", handlePartyJournalAdd);
-  socket.register("partyJournalEdit", handlePartyJournalEdit);
-  socket.register("partyJournalDelete", handlePartyJournalDelete);
-  socket.register("storyAdd", handleStoryAdd);
-  socket.register("storyEdit", handleStoryEdit);
-  socket.register("storyDelete", handleStoryDelete);
-  socket.register("storyPrompt", handleStoryPrompt);     // executor → phone: the pushed question
-  socket.register("storyAnswered", handleStoryAnswered); // phone → executor: quiet ✓ for the panel
-  socket.register("szEvent", handleSzEvent);             // §38.4a lockstep: wizard → card table
-  socket.register("portraitUpload", handlePortraitUpload);
-  socket.register("wildShapeList", handleWildShapeList);
-  socket.register("wildShapeInto", handleWildShapeInto);
-  socket.register("wildShapeRevert", handleWildShapeRevert);
-  socket.register("partyPack", handlePartyPack);
-  socket.register("partySetCell", handlePartySetCell);
-  socket.register("travelPrepare", handleTravelPrepare);
-  socket.register("travelDrop", handleTravelDrop);
-  socket.register("transferStash", handleTransferStash);
-  socket.register("transferOffer", handleTransferOffer);       // giver → executor
-  socket.register("transferRespond", handleTransferRespond);   // receiver/DM → executor
-  socket.register("transferOfferPush", handleTransferOfferPush); // executor → receiver phone
-  socket.register("transferResult", handleTransferResult);     // executor → giver phone
-  socket.register("setTokenLight", handleSetTokenLight);       // §backlog: light-source items
-  socket.register("nightToggle", handleNightToggle);
-  socket.register("scribeRequest", handleScribeRequest);
-  socket.register("scribeResult", handleScribeResult);
-  socket.register("placementStart", handlePlacementStart);
-  socket.register("placementNudge", handlePlacementNudge);
-  socket.register("placementRotate", handlePlacementRotate);
-  socket.register("placementConfirm", handlePlacementConfirm);
-  socket.register("placementCancel", handlePlacementCancel);
-  socket.register("partySetForward", handlePartySetForward);
-  socket.register("partyStage", handlePartyStage);
-  socket.register("partyDeploy", handlePartyDeploy);
-  socket.register("partyRelease", handlePartyRelease);
-  socket.register("partyCombine", handlePartyCombine);
-  socket.register("fixPcTokens", handleFixPcTokens);
-  socket.register("requestRolls", handleRequestRolls);
-  socket.register("rollRequest", handleRollRequest);
-  socket.register("requestColorPick", handleRequestColorPick);
-  socket.register("colorPick", handleColorPick);
-  socket.register("aooPrompt", handleAoOPromptClient);
-  socket.register("reactionPrompt", handleReactionPrompt); // reaction relay → owner's phone
-  socket.register("damageTaken", handleDamageTaken); // incoming-damage relay → owner's phone
-  socket.register("presence", handlePresence); // away-timer: phones report fg/bg
-  socket.register("downtimePick", handleDowntimePick); // §17: player relays their downtime picks (legacy Phase-1a)
-  socket.register("downtimeOp", handleDowntimeOp);      // §17.7: downtime v2 op dispatcher
+  // ⚠️ H1 — THE SENDER IS NOT WHOEVER THE MESSAGE SAYS IT IS. Handlers below authorise against
+  // `payload.requesterId`, but that field is written by the CALLING client: a crafted socket message could
+  // name any user and act as them ("not your character" is the only thing standing between a phone and
+  // someone else's sheet). socketlib knows who actually sent a message and hands it to the handler as
+  // `this.socketdata.userId`. `reg` stamps that truth over the payload before the handler ever sees it, so
+  // roughly thirty-five spoofable checks close at once and not one handler had to change.
+  // Checked 2026-09-20: all five places that set `requesterId` set it to `game.user.id` — nobody legitimately
+  // acts on another user's behalf — so overwriting it can break no existing flow.
+  // A LOCAL call (the executor invoking its own handler, where socketlib short-circuits) carries no
+  // socketdata; the payload is then left exactly as it was, and that caller is our own trusted code.
+  const reg = (name, fn) => registered.register(name, function (...args) {
+    const from = this?.socketdata?.userId;
+    const p = args[0];
+    if (from && p && typeof p === "object" && !Array.isArray(p)) args[0] = { ...p, requesterId: from };
+    return fn.apply(this, args);
+  });
+  reg("itemUse", handleItemUse);
+  reg("itemUseStart", handleItemUseStart);
+  reg("itemUseDamage", handleItemUseDamage);
+  reg("itemUseCancel", handleItemUseCancel);
+  reg("enchantApply", handleEnchantApply); // §28.6 phone enchant picker
+  reg("moveRequest", handleMoveRequest);
+  reg("setMovementAction", handleSetMovementAction);
+  reg("attackPreview", handleAttackPreview);
+  reg("measure", handleMeasure);
+  reg("targetsList", handleTargetsList);
+  reg("previewTargets", handlePreviewTargets);
+  reg("endTurn", handleEndTurn);
+  reg("assignTargets", handleAssignTargets);
+  reg("announceCast", handleAnnounceCast);
+  reg("savePrompt", handleSavePrompt);
+  reg("watchdogPing", handleWatchdogPing);
+  reg("listLoot", handleListLoot);
+  reg("openLoot", handleOpenLoot);
+  reg("listInteractables", handleListInteractables);
+  reg("operateInteractable", handleOperateInteractable);
+  reg("travelTo", handleTravelTo);
+  reg("travelMark", handleTravelMark);
+  reg("partyJournalEnsure", handlePartyJournalEnsure);
+  reg("partyJournalAdd", handlePartyJournalAdd);
+  reg("partyJournalEdit", handlePartyJournalEdit);
+  reg("partyJournalDelete", handlePartyJournalDelete);
+  reg("storyAdd", handleStoryAdd);
+  reg("storyEdit", handleStoryEdit);
+  reg("storyDelete", handleStoryDelete);
+  reg("storyPrompt", handleStoryPrompt);     // executor → phone: the pushed question
+  reg("storyAnswered", handleStoryAnswered); // phone → executor: quiet ✓ for the panel
+  reg("szEvent", handleSzEvent);             // §38.4a lockstep: wizard → card table
+  reg("portraitUpload", handlePortraitUpload);
+  reg("wildShapeList", handleWildShapeList);
+  reg("wildShapeInto", handleWildShapeInto);
+  reg("wildShapeRevert", handleWildShapeRevert);
+  reg("partyPack", handlePartyPack);
+  reg("partySetCell", handlePartySetCell);
+  reg("travelPrepare", handleTravelPrepare);
+  reg("travelDrop", handleTravelDrop);
+  reg("transferStash", handleTransferStash);
+  reg("transferOffer", handleTransferOffer);       // giver → executor
+  reg("transferRespond", handleTransferRespond);   // receiver/DM → executor
+  reg("transferOfferPush", handleTransferOfferPush); // executor → receiver phone
+  reg("transferResult", handleTransferResult);     // executor → giver phone
+  reg("setTokenLight", handleSetTokenLight);       // §backlog: light-source items
+  reg("nightToggle", handleNightToggle);
+  reg("scribeRequest", handleScribeRequest);
+  reg("scribeResult", handleScribeResult);
+  reg("placementStart", handlePlacementStart);
+  reg("placementNudge", handlePlacementNudge);
+  reg("placementRotate", handlePlacementRotate);
+  reg("placementConfirm", handlePlacementConfirm);
+  reg("placementCancel", handlePlacementCancel);
+  reg("partySetForward", handlePartySetForward);
+  reg("partyStage", handlePartyStage);
+  reg("partyDeploy", handlePartyDeploy);
+  reg("partyRelease", handlePartyRelease);
+  reg("partyCombine", handlePartyCombine);
+  reg("fixPcTokens", handleFixPcTokens);
+  reg("requestRolls", handleRequestRolls);
+  reg("rollRequest", handleRollRequest);
+  reg("requestColorPick", handleRequestColorPick);
+  reg("colorPick", handleColorPick);
+  reg("aooPrompt", handleAoOPromptClient);
+  reg("reactionPrompt", handleReactionPrompt); // reaction relay → owner's phone
+  reg("damageTaken", handleDamageTaken); // incoming-damage relay → owner's phone
+  reg("presence", handlePresence); // away-timer: phones report fg/bg
+  reg("downtimePick", handleDowntimePick); // §17: player relays their downtime picks (legacy Phase-1a)
+  reg("downtimeOp", handleDowntimeOp);      // §17.7: downtime v2 op dispatcher
   // A player who disconnects clears their away state (read as gray/offline via u.active, not
   // stale-red). Runs on every client; harmless where there's no DM panel.
   Hooks.on("userConnected", (user, connected) => { if (!connected) presenceState.delete(user.id); });
-  socket.register("heartbeat", handleHeartbeat);
+  reg("heartbeat", handleHeartbeat);
   registerPartyAutoFacing(); // executor-gated inside the hook
   registerPlayerColorSync(); // executor repaints a player's token rings on colour change
   registerAutoLoot(); // executor turns dead NPCs into loot piles (opt-in, needs Item Piles)
@@ -2738,11 +2754,36 @@ function healthRingColor(pct) {
 // an Observer), so both gates below reject it and it landed on the map unlit and unringed while
 // every PC around it glowed — DM 2026-07-21, "my only complaint is lack of glow". Passing the
 // SUMMONER makes it wear that player's colour, which is also the honest read: it's their hand.
-function applyPcVisuals(td, actor, { colorFrom = null } = {}) {
+//
+// ⚠️ NEVER BLOW OUT A REAL LIGHT (DM 2026-09-20: *"why does the light from my torch stop working on teleporting
+// between floors, it 'stays on' in the torch module button, but doesn't give off light"*).
+//
+// The glow is a faint personal marker — a tenth of a foot by default — so a player can find their own token on a
+// dark map. It is NOT a light source, and writing it over one puts a lit torch out. That is exactly what happened on
+// the Crooked House stairs: a teleport to another SCENE is not a move. Core deletes the token and creates a copy in
+// the destination scene (Region#teleportTokens), so `createToken` fires and this function overwrote the torch's
+// bright 20 / dim 40 with bright 0.1 / dim 0. The torch module keeps its on/off state in a FLAG on the token, which
+// core copied across untouched — hence a button that still reads lit above a token giving off nothing, healed by
+// toggling the torch off and on again (which rewrites the light). Same scene: core updates the token instead, no
+// create, no clobber — which is why only the stairs showed it.
+//
+// The fix is to stop clobbering rather than to put the light back: re-applying would mean toggling the torch, and
+// the torch module consumes a torch from inventory when it is switched off.
+function alreadyLit(td, tokenDoc, glow) {
+  // Anything emitting more than the glow owns this token's light: a torch, a lantern, the Light spell, a
+  // DM-placed light, whatever DAE set. No module needs to be known by name for this to hold.
+  const light = td?.light ?? tokenDoc?.light ?? null;
+  if (light && (Number(light.bright) > glow || Number(light.dim) > 0)) return true;
+  // The torch module writes its STATE and its LIGHT as two separate document updates, so a token caught between
+  // them is lit without looking it yet. Its flag closes that window.
+  const torch = tokenDoc?.getFlag?.("torch", "lightSourceState");
+  return torch === "on" || torch === "dim";
+}
+function applyPcVisuals(td, actor, { colorFrom = null, tokenDoc = null } = {}) {
   try {
     if (!colorFrom && (actor?.type !== "character" || !actor.hasPlayerOwner)) return;
     const glow = Number(game.settings.get(MODULE_ID, "tokenGlow")) || 0;
-    if (glow > 0) td.light = { ...td.light, bright: glow, dim: 0 };
+    if (glow > 0 && !alreadyLit(td, tokenDoc, glow)) td.light = { ...td.light, bright: glow, dim: 0 };
     if (!game.settings.get(MODULE_ID, "ringPlayerColors")) return;
     const color = playerColorFor(colorFrom ?? actor);
     if (!color) return;
@@ -2835,7 +2876,7 @@ async function handleFixPcTokens() {
     const a = t.actor;
     if (a?.type !== "character" || !a.hasPlayerOwner) continue;
     const td = { _id: t.id };
-    applyPcVisuals(td, a);
+    applyPcVisuals(td, a, { tokenDoc: t });
     if ((a.system?.attributes?.senses?.darkvision ?? 0) > 0) td.sight = { ...(td.sight ?? {}), saturation: DARKVISION_SAT };
     if (td.light || td.ring || td.sight) updates.push(td);
   }
@@ -3082,7 +3123,7 @@ export function registerSummonOwnership() {
       // behind `displayUser` — a world with no TV configured would silently get no glow.
       if (baseActor) {
         const payload = (displayUser && !tokenDoc.sight?.enabled) ? { ...actorTokenSight(baseActor) } : {};
-        applyPcVisuals(payload, baseActor, { colorFrom: summoner });
+        applyPcVisuals(payload, baseActor, { colorFrom: summoner, tokenDoc });
         if (Object.keys(payload).length) {
           try { await tokenDoc.update(payload); }
           catch (e) { console.warn(`${MODULE_ID} | summon vision/visuals failed`, e); }
@@ -3223,7 +3264,7 @@ function registerPlayerColorSync() {
         const a = t.actor;
         if (a?.type !== "character" || !a.hasPlayerOwner || !mine(a)) continue;
         const td = { _id: t.id };
-        applyPcVisuals(td, a);
+        applyPcVisuals(td, a, { tokenDoc: t });
         if (td.light || td.ring) updates.push(td);
       }
       if (updates.length) await canvas.scene.updateEmbeddedDocuments("Token", updates);
@@ -3240,7 +3281,10 @@ function registerPlayerColorSync() {
       for (const t of canvas.scene.tokens) {
         if (t.actor?.id !== actor.id) continue;
         const td = { _id: t.id };
-        applyPcVisuals(td, actor);
+        applyPcVisuals(td, actor, { tokenDoc: t });
+        // This hook exists ONLY to recolour the ring as HP changes — it has no business writing light, and the
+        // gate below never looked at `td.light`, so before the guard above every hit point lost blew out a torch.
+        delete td.light;
         if (td.ring) updates.push(td);
       }
       if (updates.length) await canvas.scene.updateEmbeddedDocuments("Token", updates);
@@ -3254,7 +3298,7 @@ function registerPlayerColorSync() {
       const a = tokenDoc.actor;
       if (a?.type !== "character" || !a.hasPlayerOwner) return;
       const td = { _id: tokenDoc.id };
-      applyPcVisuals(td, a);
+      applyPcVisuals(td, a, { tokenDoc });
       if (td.light || td.ring) await tokenDoc.parent?.updateEmbeddedDocuments("Token", [td]);
     } catch (e) { /* cosmetic */ }
   });
