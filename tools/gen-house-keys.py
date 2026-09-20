@@ -107,8 +107,30 @@ def command_for(k):
     return "\n".join(lines)
 
 
+# ⚠️ WHERE A KEY GOES IS ALREADY DECIDED (learned the hard way 2026-09-20). The scene boards are not empty:
+# `crooked-moon-scene-boards.apply.js` filled five pages per floor with SOUND keys, one per beat — "Toys Wake",
+# "Wisp Vanishes", "Door Creaks". Appending action keys after them buried the new ones on page 3 and beyond, and
+# the DM saw nothing at all. His instruction covered this: *"keep the room FX on the first page (make sure to
+# remove sounds that get full actions replacing them)"*.
+#
+# So an action key does not join the board — it REPLACES its beat, in the box that beat already occupies. The
+# register (`crooked-moon-action-keys.json`) records the board, page and box of all 39 beats that have one, so
+# the DM's own layout is preserved exactly and the board does not grow by a single entry. A beat with several
+# sound boxes keeps the first for the action key and gives the rest back as empty space; nothing is deleted, the
+# playlist sounds all still exist, and the script reports every box it frees.
+REG = json.loads((CAT / "crooked-moon-action-keys.json").read_text(encoding="utf-8"))
+ONBOARD = {}
+for r in REG["records"]:
+    if str(r.get("chapter")) != "12":
+        continue
+    rows = [b for b in (r.get("onBoard") or []) if b.get("board") and b.get("page") and b.get("box")]
+    if rows:
+        ONBOARD[str(r.get("a"))] = [dict(board=b["board"], page=b["page"], box=b["box"], label=b.get("label", ""))
+                                    for b in rows]
+
 plan = [dict(a=k["a"], label=k["label"], img=ICON[k["icon"]], page=k["page"], scenes=k["scenes"],
-             note=k["note"], command=command_for(k)) for k in KEYS]
+             note=k["note"], command=command_for(k), takes=ONBOARD.get(k["a"], [])) for k in KEYS]
+_homed = sum(1 for p in plan if p["takes"])
 
 JS = r"""// Deck Command — the Crooked House's ACTION KEYS. TEST WORLD ONLY. Paste into the GM's console.
 //
@@ -125,7 +147,7 @@ JS = r"""// Deck Command — the Crooked House's ACTION KEYS. TEST WORLD ONLY. P
   const MOD = "mobile-command";
   const PLAN = __PLAN__;
   const PROVISION = __PROVISION__;
-  const report = { made: [], created: [], updated: [], placed: [], alreadyThere: [], missing: [] };
+  const report = { made: [], created: [], updated: [], placed: [], freed: [], missing: [] };
 
   const numOf = (name) => /^(\d{1,2}(?:\.\d{1,2})+)\s/.exec(name)?.[1] ?? null;
   const covers = (planNum, sceneNum) => sceneNum === planNum || sceneNum.startsWith(`${planNum}.`);
@@ -171,7 +193,7 @@ JS = r"""// Deck Command — the Crooked House's ACTION KEYS. TEST WORLD ONLY. P
     macros[p.a] = m;
   }
 
-  // ── 3. onto the boards, on the page the DM asked for
+  // ── 3. onto the boards — TAKING each beat's existing box, never queuing up behind it
   const SLOTS = 10;
   for (const scene of game.scenes.contents) {
     const num = numOf(scene.name);
@@ -185,27 +207,44 @@ JS = r"""// Deck Command — the Crooked House's ACTION KEYS. TEST WORLD ONLY. P
       return typeof v === "string" && v ? v : null;
     }));
     let changed = false;
+
+    // Re-running must not pile up: lift every key this script placed before, wherever he has not moved it.
+    const ours = new Set(PLAN.map((p) => macros[p.a].uuid));
+    for (const pg of pages) for (let i = 0; i < pg.length; i++) if (ours.has(pg[i])) { pg[i] = null; changed = true; }
+
     for (const p of wanted) {
-      const uuid = macros[p.a].uuid;
-      if (pages.some((pg) => pg.includes(uuid))) { report.alreadyThere.push(`${scene.name}: ${p.label}`); continue; }
+      const here = (p.takes ?? []).filter((t) => covers(t.board, num));
+      if (here.length) {
+        // The beat's first box becomes the action; its other boxes are freed. The DM's layout is untouched.
+        const [first, ...rest] = here;
+        while (pages.length < first.page) pages.push(Array(SLOTS).fill(null));
+        const had = pages[first.page - 1][first.box - 1];
+        pages[first.page - 1][first.box - 1] = macros[p.a].uuid;
+        changed = true;
+        report.placed.push(`${scene.name}: ${p.label} -> p${first.page} b${first.box}`
+          + (had ? ` (over "${first.label}")` : ""));
+        for (const t of rest) {
+          if (!pages[t.page - 1] || !pages[t.page - 1][t.box - 1]) continue;
+          pages[t.page - 1][t.box - 1] = null;
+          report.freed.push(`${scene.name}: p${t.page} b${t.box} "${t.label}"`);
+        }
+        continue;
+      }
+      // No beat on this board to take over: the first gap on the page he asked for.
       while (pages.length < p.page) pages.push(Array(SLOTS).fill(null));
       let pg = p.page - 1;
       let i = pages[pg].indexOf(null);
-      while (i < 0) { // that page is full — the next one along, never somebody else's key pushed out
-        pg++;
-        if (!pages[pg]) pages.push(Array(SLOTS).fill(null));
-        i = pages[pg].indexOf(null);
-      }
-      pages[pg][i] = uuid;
+      while (i < 0) { pg++; if (!pages[pg]) pages.push(Array(SLOTS).fill(null)); i = pages[pg].indexOf(null); }
+      pages[pg][i] = macros[p.a].uuid;
       changed = true;
-      report.placed.push(`${scene.name}: ${p.label} -> page ${pg + 1}, box ${i + 1}`);
+      report.placed.push(`${scene.name}: ${p.label} -> p${pg + 1} b${i + 1} (new)`);
     }
     if (changed) await scene.setFlag(ID, "sounds", pages);
   }
 
   console.log("Crooked House action keys", report);
   ui.notifications.info(`Action keys: ${report.created.length} created, ${report.updated.length} updated, `
-    + `${report.placed.length} placed, ${report.made.length} things provisioned`
+    + `${report.placed.length} placed, ${report.freed.length} sound boxes freed, ${report.made.length} provisioned`
     + (report.missing.length ? ` - could not: ${report.missing.join("; ")}` : "."));
   return report;
 })();
@@ -215,6 +254,5 @@ out = JS.replace("__PLAN__", json.dumps(plan, ensure_ascii=False)).replace("__PR
 CAT.mkdir(parents=True, exist_ok=True)
 (CAT / "crooked-house-keys.apply.js").write_text(out, encoding="utf-8")
 (MC / "tools/crooked-house-keys.apply.js").write_text(out, encoding="utf-8")
-print(f"{len(plan)} action keys planned; "
-      f"{sum(len(p['scenes']) for p in plan)} board placements; "
-      f"page 1: {sum(1 for p in plan if p['page'] == 1)}, page 2: {sum(1 for p in plan if p['page'] == 2)}")
+print(f"{len(plan)} action keys planned; {_homed} take over a beat's existing box, "
+      f"{len(plan) - _homed} need a new one")
