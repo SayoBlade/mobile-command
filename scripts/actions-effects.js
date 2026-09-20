@@ -78,7 +78,8 @@ const anyPlayerFx = () => players().some((u) =>
   Object.entries(FX_DEFS).some(([id, d]) => d.player === "state" && fxIsOnFor(id, u.id)));
 
 defineActions([
-  // Weather + the sky. Single-slot like Foundry's own scene weather: dmToggleFx turns the others off.
+  // Weather + the sky. Fog (or the dust storm) layers over ONE precipitation; a second precipitation
+  // replaces the first (dmToggleFx, layered weather — DM 2026-09-19).
   toggle("rain", "Weather", "rain"),
   toggle("rainStorm", "Weather", "rain"),
   toggle("snow", "Weather", "snow"),

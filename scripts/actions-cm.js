@@ -1,6 +1,6 @@
 import { MODULE_ID } from "./preset.js";
 import { defineActions } from "./actions.js";
-import { fxIsOn, fxIsOnFor } from "./effects.js";
+import { fxIsOn, fxIsOnFor, dmFireFx } from "./effects.js";
 import { CURSES, actorCurses, curseTableUuid } from "./cm-curses.js";
 import { FATE_THREADS } from "./fateweaving.js";
 import { ARCANA, actorCard, cardByKey } from "./tarot.js";
@@ -40,6 +40,71 @@ import { entranceList, dmPlayEntrance, dmStopEntrance } from "./entrances.js";
  */
 
 const cm = (def) => ({ area: "cm", cm: true, ...def });
+
+/** The wall patches on this map — Sound cues (§53) playing the in-the-walls set, switched off as triggers so the
+ *  DM's key is their only voice. */
+const wallCues = () => {
+  try { return (globalThis.MobileCommand?.cues?.list?.() ?? []).filter((c) => c.set === "wall"); }
+  catch (e) { return []; }
+};
+/** The nursery's four moving parts, found by the keys the wiring gave them — so his moving them about is harmless. */
+function nursery() {
+  const scene = canvas?.scene;
+  const byKey = (k) => scene?.sounds?.find?.((x) => x.getFlag?.(MODULE_ID, "cm") === k) ?? null;
+  const cry = byKey("12.3:sound:0");
+  const rock = byKey("12.3:sound:1");
+  const hum = byKey("12.3:sound:hum");
+  // Arthur's wail and the rocking cradle became occasional CUES rather than looping points (2026-09-20, the
+  // soundscape was a metronome), so putting the nursery to rest switches those off as well as the old points.
+  const cues = (scene?.regions ?? []).filter((r) => ["room:arthur", "room:cradle"].includes(r.getFlag?.(MODULE_ID, "cm")));
+  // The module's own eerie blue glow over the cradle — matched by its colour and animation, not by an id, so a
+  // re-imported scene or a light he re-made by hand is still found.
+  const glow = scene?.lights?.find?.((l) => /^#1a5799$/i.test(String(l.config?.color ?? "")) ) ?? null;
+  return { cry, rock, hum, glow, cues, atPeace: Boolean(hum && !hum.hidden) };
+}
+
+/** Put the nursery to rest, or wake it again. */
+async function setNurseryPeace(on) {
+  const { cry, rock, hum, glow, cues } = nursery();
+  if (!hum) return { ok: false, reason: "the nursery is not wired on this map" };
+  const scene = canvas.scene;
+  const sounds = [cry, rock].filter(Boolean).map((d) => ({ _id: d.id, hidden: on }));
+  sounds.push({ _id: hum.id, hidden: !on });
+  await scene.updateEmbeddedDocuments("AmbientSound", sounds);
+  if (glow) await scene.updateEmbeddedDocuments("AmbientLight", [{ _id: glow.id, hidden: on }]);
+  for (const region of cues ?? []) {
+    for (const b of region.behaviors) {
+      if (b.type === "mobile-command.sound" && b.disabled !== on) await b.update({ disabled: on });
+    }
+  }
+  // The laugh is a MOMENT, never a bed: one recording from the cradle, gone in a few seconds, so it can never end
+  // up looping in the room's ambience.
+  if (on) {
+    dmFireFx("fxSound", {
+      src: LAUGH, volume: 0.32, at: { x: hum.x, y: hum.y }, radius: 30, fadeAfter: 3500, fadeMs: 3000,
+    });
+  }
+  return undefined;
+}
+// GAP: the library has no child laughing — this is distant children playing, quiet and fading, until he finds one.
+const LAUGH = "modules/ember/assets/audio/environment/voices/one-shots/children-playing-4.ogg";
+
+let lastWall = null;
+/** Play the wall nearest the party — and, while they stand still, never the same one twice running. */
+async function fireNearestWall() {
+  const rows = wallCues();
+  if (!rows.length) return { ok: false, reason: "no wall patches on this map" };
+  const pcs = (canvas?.tokens?.placeables ?? []).filter((t) => !t.document?.hidden && t.actor?.type === "character" && t.actor?.hasPlayerOwner);
+  const near = (r) => {
+    if (!r.at || !pcs.length) return 0;
+    return Math.min(...pcs.map((t) => Math.hypot(t.center.x - r.at.x, t.center.y - r.at.y)));
+  };
+  const sorted = rows.map((r) => ({ r, d: near(r) })).sort((a, b) => a.d - b.d);
+  const pick = (sorted.length > 1 && sorted[0].r.uuid === lastWall ? sorted[1] : sorted[0]).r;
+  lastWall = pick.uuid;
+  const played = await globalThis.MobileCommand?.cues?.fire?.(pick.uuid);
+  return played ? undefined : { ok: false, reason: "that wall has no sound yet" };
+}
 const req = (def) => ({ area: "requests", cm: true, hideWhenOff: true, ...def });
 
 /** A character's picture for a key: their token art, as the deck's own party pages use. */
@@ -71,6 +136,7 @@ const ART = {
   seance: "icons/magic/perception/orb-crystal-ball-scrying.webp",
   seanceSay: "icons/magic/perception/hand-eye-black.webp",
   entrance: "icons/sundries/flags/banner-standard-moon.webp",
+  teddy: "icons/commodities/treasure/figurine-bear.webp",
 };
 const scene = (key) => ({ does: "scene", art: ART[key] });
 const sound = { does: "sound" };
@@ -87,6 +153,34 @@ defineActions([
     },
   }),
   cm({ id: "cm.entranceStop", group: "Intros", icon: "stop", label: "Stop intro", run: async () => { await dmStopEntrance(); } }),
+
+  /* ── The house (§53) — the beats the DM fires himself ─────────────────────────────────────────────────── */
+  // ⚠️ THE WEASELS ARE HIS, NOT A TIMER (DM 2026-09-20: *"I don't like the automated 'weasels in the wall' region,
+  // i want action key control over that"* — the third time he has asked for the trigger to be his hand; the same
+  // ruling as 2026-09-18's *"I want control on when the weasels move in the walls"*). The five patches beside the
+  // wall cavities stay on the map as PLACES, switched off as triggers; this key plays one of them, the one nearest
+  // the party, so the scurry always comes from a wall they are standing next to. Press it again and it moves —
+  // never the same wall twice running while they stay put.
+  // ⚠️ THE NURSERY IS PUT TO REST (DM 2026-09-20: *"add a 'teddy returned' action button that stops the crying and
+  // light in crib and gives the laughing child sound fading out, a very quiet 'divine hum' and the laughter loop
+  // stops appearing in the ambience"*). Four things at one press, which is exactly why it is a key and not four:
+  // Arthur's wail and the rocking cradle stop, the module's own blue glow in the crib goes out, a child laughs once
+  // and fades, and a very quiet hum is all that is left in the room. A TOGGLE, not a shot — a misfire is one press
+  // back (§8.1: he can always undo as well as cheat), and pressing it again does not stack another laugh.
+  cm({
+    id: "cm.teddy", group: "The house", label: "Teddy returned", ...scene("teddy"),
+    kind: "toggle",
+    when: () => Boolean(nursery().hum),
+    value: () => nursery().atPeace,
+    sub: () => (nursery().atPeace ? "at peace" : undefined),
+    run: () => setNurseryPeace(!nursery().atPeace),
+  }),
+  cm({
+    id: "cm.weasels", group: "The house", icon: "paw", label: "Weasels in the walls", ...sound,
+    when: () => wallCues().length > 0,
+    sub: () => (wallCues().length > 1 ? `${wallCues().length} walls` : undefined),
+    run: () => fireNearestWall(),
+  }),
 
   /* ── Curses (§33) ─────────────────────────────────────────────────────────────────────────── */
   cm({

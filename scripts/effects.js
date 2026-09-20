@@ -40,9 +40,10 @@ export const FX_TABS = {
   player: ["heartbeat", "woozy", "static"]
 };
 
-// weather: a CONFIG.weatherEffects id (Foundry 14 ships leaves/rain/rainStorm/fog/snow/blizzard;
-// scene.weather is single-slot, so turning one on replaces another — dmToggleFx mirrors that in
-// fxActive). darkness: the night fade. filter/sound: client-side keys into the makers below.
+// weather: a CONFIG.weatherEffects id (Foundry 14 ships leaves/rain/rainStorm/fog/snow/blizzard).
+// scene.weather is ONE id, but since 2026-09-19 it can name two LAYERS — fog over one precipitation —
+// through the combined entries registerLayeredWeather() adds (see "Layered weather" below).
+// darkness: the night fade. filter/sound: client-side keys into the makers below.
 export const FX_DEFS = {
   rain: { label: "Rain", icon: "fa-cloud-rain", weather: "rain", sound: "rain", hint: "Rain on the map + a soft rain loop" },
   rainStorm: { label: "Downpour", icon: "fa-cloud-showers-heavy", weather: "rainStorm", sound: "rainHeavy", hint: "Driving rain + a heavier loop" },
@@ -53,9 +54,13 @@ export const FX_DEFS = {
   night: { label: "Night", icon: "fa-moon", darkness: true, hint: "Fade the scene to night — again for day" },
   heat: { label: "Heat Haze", icon: "fa-temperature-high", filter: "heat", hint: "Rising shimmer + a warm tint" },
   dust: { label: "Dust Storm", icon: "fa-wind", weather: "fog", filter: "dust", sound: "dustWind", hint: "Ochre haze, low wind, fog particles as dust" },
-  lightning: { label: "Lightning", icon: "fa-bolt", oneShot: true, hint: "White flash on every screen, thunder a second or two later" },
+  lightning: { label: "Lightning", icon: "fa-bolt", oneShot: true, hint: "It strikes from one side — light through the windows that face it, thunder a second or two later" },
   storm: { label: "Storm", icon: "fa-cloud-bolt", state: true, hint: "Distant flashes + thunder roll in on their own every minute or two" },
   bell: { label: "Doom Bell", icon: "fa-bell", oneShot: true, hint: "One toll per press — phones dim with each toll" },
+  // A recording, played on every screen that has speakers — the seam the Crooked Moon's story keys use when a beat
+  // wants a file rather than a synthesized texture (the DM's rule: never synthesize anything but trivial foley).
+  // Not a grid chip: it carries { src, volume, at, radius, fadeAfter, fadeMs } and is fired by whatever owns the beat.
+  fxSound: { label: "Play a sound", icon: "fa-play", oneShot: true, hint: "One recording, on the table's speakers" },
   heartbeat: { label: "Heartbeat", icon: "fa-heart-pulse", player: "state", hint: "Their phone pulses red with a heartbeat only they get" },
   woozy: { label: "Woozy", icon: "fa-flask", player: "state", hint: "Drunk, poisoned, concussed — their phone wobbles and blurs" },
   static: { label: "Static", icon: "fa-wave-square", player: "shot", oneShot: true, hint: "A half-second cursed glitch on their phone" },
@@ -91,14 +96,72 @@ export function fxActiveMap() {
   try { return game.settings.get(MODULE_ID, "fxActive") ?? {}; } catch (e) { return {}; }
 }
 
-// One state source per kind: client effects read fxActive; pure weather reads the scene
-// (authoritative — another module or the scene config can change it under us); night reads
-// the darkness level, so the toggle agrees with a sunset the DM set by hand.
+/* -------------------------------------------- */
+/*  Layered weather (DM 2026-09-19)             */
+/* -------------------------------------------- */
+
+// *"make sure I can have fog and rain simultaneously right now they both appear selected but only the
+// last runs"*. Two faults behind that sentence: Foundry keeps ONE weather id per scene, so the second
+// weather replaced the first; and Rain read its state from fxActive (it has a sound) while Fog read the
+// scene, so the two keys could disagree with each other and with the map.
+//
+// Foundry's own Downpour is already two effects in one entry (fog shader + rain shader), so MC registers
+// the combinations it offers the same way: the ATMOSPHERE (fog — or the dust storm, which is fog plus an
+// ochre filter) over ONE PRECIPITATION (rain, downpour, snow, blizzard, leaves). The scene's weather id
+// names its layers — "mcFog+rain" is fog over rain — and every weather key reads the scene, so what a key
+// shows is what the map shows. Two families, one of each: turning on snow while it rains replaces the
+// rain (as before); turning on fog while it rains adds to it.
+// ⚠️ Every client needs the entries — MC registers them on all of them at init. A client without MC would
+// draw no weather for a combined id (Foundry warns and skips); every client at an MC table has it.
+const PRECIP = ["rain", "rainStorm", "snow", "blizzard", "leaves"];
+const PRECIP_NAME = { rain: "Rain", rainStorm: "Rain Storm", snow: "Snow", blizzard: "Blizzard", leaves: "Autumn Leaves" };
+const FOG_OVER = "mcFog+";
+
+export function registerLayeredWeather() {
+  const W = CONFIG.weatherEffects;
+  const fog = W?.fog?.effects?.[0];
+  if (!fog) return;
+  for (const p of PRECIP) {
+    const base = W[p];
+    if (!base) continue;
+    W[`${FOG_OVER}${p}`] = {
+      id: `${FOG_OVER}${p}`,
+      label: `${PRECIP_NAME[p]} + Fog`,
+      filter: base.filter, // as the precipitation has it — Leaves keeps its roof occlusion
+      // Downpour already carries a "fogShader" of its own (its rain mist), so ours takes another id.
+      effects: [...(base.effects ?? []), { ...fog, id: "mcFogLayer" }],
+    };
+  }
+}
+
+/** The weather layers a scene shows: core ids, fog + one precipitation at most. */
+export function weatherLayers(scene = canvas?.scene) {
+  const w = String(scene?.weather ?? "");
+  if (!w) return new Set();
+  if (w.startsWith(FOG_OVER)) return new Set(["fog", w.slice(FOG_OVER.length)]);
+  return new Set([w]);
+}
+
+export function weatherIdFor(layers) {
+  const precip = PRECIP.find((p) => layers.has(p));
+  if (layers.has("fog") && precip) return `${FOG_OVER}${precip}`;
+  if (layers.has("fog")) return "fog";
+  return precip ?? "";
+}
+
+// One state source per kind: weather reads the SCENE's layers (authoritative — another module or the
+// scene config can change it under us; a weather key's sound follows its layer, see syncFx); other
+// client effects read fxActive; night reads the darkness level, so the toggle agrees with a sunset the
+// DM set by hand. Fog and the dust storm share the atmosphere layer: fxActive.dust says which it is.
 export function fxIsOn(id) {
   const def = FX_DEFS[id];
   if (!def) return false;
+  if (def.weather !== undefined) {
+    const layers = weatherLayers();
+    if (def.weather === "fog") return layers.has("fog") && (id === "dust" ? !!fxActiveMap().dust : !fxActiveMap().dust);
+    return layers.has(def.weather);
+  }
   if (def.filter || def.sound || def.state) return !!fxActiveMap()[id];
-  if (def.weather !== undefined) return canvas?.scene?.weather === def.weather;
   // _source, not prepared: during the 5s animateDarkness fade the PREPARED level is the
   // animation's current frame (environment.mjs writes the canvas value back onto the scene),
   // so the toggle would read stale-day for 5s after tapping Night. Source is the intent.
@@ -144,16 +207,27 @@ export async function dmToggleFx(id) {
     }, { animateDarkness: 5000 });
     return;
   }
-  if (def.weather !== undefined && sc) await sc.update({ weather: wantOn ? def.weather : "" });
+  if (def.weather !== undefined) {
+    // Layered weather: the atmosphere (fog or dust) and ONE precipitation. A key replaces the other
+    // members of its own family and leaves the other family alone — fog joins the rain; snow replaces it.
+    if (!sc) return;
+    const layers = weatherLayers(sc);
+    const cur = { ...fxActiveMap() };
+    const atmos = def.weather === "fog";
+    const sameFamily = (k) => FX_DEFS[k]?.weather !== undefined && (FX_DEFS[k].weather === "fog") === atmos;
+    // The replaced members drop their sound/filter too, or Blizzard-after-Rain plays both loops over snow.
+    for (const k of Object.keys(cur)) if (sameFamily(k)) delete cur[k];
+    if (atmos) layers.delete("fog"); else for (const p of PRECIP) layers.delete(p);
+    if (wantOn) {
+      layers.add(def.weather);
+      if (def.filter || def.sound) cur[id] = true;
+    }
+    await sc.update({ weather: weatherIdFor(layers) });
+    await game.settings.set(MODULE_ID, "fxActive", cur);
+    return;
+  }
   const cur = { ...fxActiveMap() };
   let dirty = false;
-  if (wantOn && def.weather !== undefined) {
-    // scene.weather is single-slot: the weather we just replaced must drop its sound/filter too,
-    // or Blizzard-after-Rain plays both loops over snow.
-    for (const k of Object.keys(cur)) {
-      if (k !== id && FX_DEFS[k]?.weather !== undefined) { delete cur[k]; dirty = true; }
-    }
-  }
   if (def.filter || def.sound || def.state) {
     if (wantOn) cur[id] = true; else delete cur[id];
     dirty = true;
@@ -166,6 +240,9 @@ export async function dmToggleFx(id) {
 export function dmFireFx(id, extra = {}) {
   if (!FX_DEFS[id]?.oneShot || !game.user.isGM) return;
   const payload = { id, ...extra };
+  // The struck quarter is chosen HERE, once, and rides to every screen — decided per client, the TV and the
+  // DM's monitor would light from different sides of the house (DM 2026-09-20, directional lightning).
+  if (id === "lightning" && !payload.from) payload.from = strikeSide();
   if (socket) socket.executeForEveryone("fxOneShot", payload);
   else handleFxOneShot(payload); // socketlib missing — at least the DM's own screen fires
 }
@@ -178,8 +255,9 @@ export function handleFxOneShot(payload = {}) {
   const { id, users, soft, text, level } = payload;
   // A targeted one-shot names its audience; everyone else drops it silently.
   if (Array.isArray(users) && users.length && !users.includes(game.user.id)) return;
-  if (id === "lightning") lightningLocal(!!soft);
+  if (id === "lightning") lightningLocal(!!soft, payload.from ?? null);
   else if (id === "bell") bellLocal();
+  else if (id === "fxSound") soundShot(payload);
   else if (id === "static") staticLocal(level);
   else if (id === "seancePhrase") seancePhrase(text); // no-op on clients without the board
   else if (id === "cmWhistle") playTrainWhistle();    // §36 — canvas clients only, gates itself
@@ -193,6 +271,25 @@ export function handleFxOneShot(payload = {}) {
   else if (id === "entranceStop") entranceStop();
 }
 
+/**
+ * One recording, here, now — optionally from a point on the map, optionally fading away after a while.
+ * Phones sit it out for the same reason they sit out every bed: the room has one set of speakers (§14).
+ */
+async function soundShot({ src, volume = 0.6, at = null, radius = 0, fadeAfter = 0, fadeMs = 1500 } = {}) {
+  if (!src || isPhoneClient()) return;
+  try {
+    if (at && radius && canvas?.ready) {
+      const snd = await canvas.sounds.playAtPosition(src, at, radius, { volume, walls: true, easing: true });
+      if (snd && fadeAfter) setTimeout(() => { try { snd.fade(0, { duration: fadeMs }).then(() => snd.stop()); } catch (e) { /* gone */ } }, fadeAfter);
+      return;
+    }
+    const snd = await foundry.audio.AudioHelper.play({ src, volume, loop: false, channel: "environment" }, false);
+    if (snd && fadeAfter) setTimeout(() => { try { snd.fade(0, { duration: fadeMs }).then(() => snd.stop()); } catch (e) { /* gone */ } }, fadeAfter);
+  } catch (e) {
+    console.warn(`${MODULE_ID} | could not play ${src}`, e);
+  }
+}
+
 function overlayShot(className, ttlMs) {
   const d = document.createElement("div");
   d.className = className;
@@ -202,15 +299,142 @@ function overlayShot(className, ttlMs) {
   return d;
 }
 
-function lightningLocal(soft = false) {
-  // The flash is a DOM overlay, so it works on every client — phones included.
-  // `soft` is the rolling storm's distant strike: dimmer flash, later + quieter thunder.
-  overlayShot(soft ? "mc-fx-flash mc-fx-flash-soft" : "mc-fx-flash", 1500);
+/* ── LIGHTNING COMES FROM SOMEWHERE (DM 2026-09-18, re-asked 2026-09-20) ──────────────────────────
+ *
+ * *"my request for directional lightning … its still something I want that replaces the simple full screen flash."*
+ * The plan (deck ledger 150) always said *"windows found by Foundry's Window walls; cone flashes from one side"*;
+ * what shipped was the plain white wash, and a wash is weather, not a strike. A strike has a direction, and in a
+ * house you know it because the light arrives through the windows on one wall.
+ *
+ * The struck side is chosen ONCE, by the client that fires, and travels in the payload — otherwise the TV and the
+ * DM's screen would light from different quarters. Every canvas client then draws shafts leaning in from the
+ * windows that face that way: the map's OWN window walls (Foundry marks them `PROXIMITY` for sight and light), so
+ * this needs no authoring per scene and works in any building anyone ever draws.
+ *
+ * ⚠️ DELIBERATELY NOT REAL LIGHT SOURCES. Temporary PointLights would be wall-accurate — the shaft would stop at
+ * an interior wall — but each strike would force a full lighting recompute on a modest machine, several times a
+ * storm (memory: flag-performance-cost). This is one Graphics object, a handful of polygons and ~450 ms of ticker:
+ * no lighting pass, no perception update, nothing retained. If he ever wants shafts that respect inner walls, that
+ * is the upgrade, and it is his call to pay for it.
+ *
+ * A scene with no windows (the attic, an outdoor map) keeps the full-screen wash, which is right: outdoors the sky
+ * itself lights up.
+ */
+const SIDES = ["n", "ne", "e", "se", "s", "sw", "w", "nw"];
+// where the light TRAVELS, in canvas coordinates (y grows downward): a strike in the north pours southward.
+const Q = Math.SQRT1_2; // the diagonals, exactly — the cone's bearing is derived from these
+const SIDE_TRAVEL = { n: [0, 1], ne: [-Q, Q], e: [-1, 0], se: [-Q, -Q], s: [0, -1], sw: [Q, -Q], w: [1, 0], nw: [Q, Q] };
+export const strikeSide = () => SIDES[Math.floor(Math.random() * SIDES.length)];
+
+/** The map's own windows: Foundry writes a window as a wall that stops movement but only limits sight and light. */
+function windowWalls(scene) {
+  const P = CONST.WALL_SENSE_TYPES.PROXIMITY, L = CONST.WALL_SENSE_TYPES.LIMITED;
+  const all = [...(scene?.walls ?? [])].filter((w) => !w.door);
+  const panes = all.filter((w) => w.sight === P || w.light === P);
+  return panes.length ? panes : all.filter((w) => w.light === L && w.sight !== CONST.WALL_SENSE_TYPES.NORMAL);
+}
+
+/**
+ * ⚠️ REAL LIGHTS, NOT A DRAWING (DM 2026-09-20, second look: *"the light region lighting is a total bust, its VERY
+ * unclear, try actual lights and we'll see if its sustainable, don't go overboard and hopfully its ok."*).
+ *
+ * The first attempt drew white polygons over the map. On these floors that was never going to read: 12.1 sits at
+ * darkness 0 with global light on, so an additive white shape over an already-bright floor is almost invisible.
+ * Foundry's own lights do read, because a COLOURED light paints its coloration layer over lit ground as well as
+ * dark — and it is clipped by the walls, so the glare stops at the doorway like real light through a window.
+ *
+ * Kept cheap on purpose, because he is right to be wary: at most six windows, two pulses of ~90 ms, so four
+ * lighting refreshes for a whole strike and nothing left behind. Sources are client-side and document-less —
+ * nothing is written, nothing syncs, and a reload has nothing to clean up. If any of it throws (an odd Foundry
+ * build, a canvas mid-teardown) the plain white wash takes over, so the strike always lands somehow.
+ */
+const MAX_PANES = 6;
+
+function paneLights(side, soft) {
+  const scene = canvas?.scene;
+  if (!canvas?.ready || !scene) return false;
+  const travel = SIDE_TRAVEL[side] ?? SIDE_TRAVEL.n;
+  const panes = windowWalls(scene);
+  if (!panes.length) return false;
+
+  // Which windows does this strike come through? The ones on the far side against the light, lying across it
+  // rather than along it — a pane edge-on to the flash lets nothing in.
+  const rows = panes.map((w) => {
+    const mx = (w.c[0] + w.c[2]) / 2, my = (w.c[1] + w.c[3]) / 2;
+    const dx = w.c[2] - w.c[0], dy = w.c[3] - w.c[1];
+    const len = Math.hypot(dx, dy) || 1;
+    return { mx, my, along: Math.abs((dx / len) * travel[0] + (dy / len) * travel[1]), proj: mx * travel[0] + my * travel[1] };
+  });
+  const lo = Math.min(...rows.map((r) => r.proj)), hi = Math.max(...rows.map((r) => r.proj));
+  let lit = rows.filter((r) => r.along < 0.75 && r.proj <= lo + (hi - lo) * 0.45);
+  if (!lit.length) return false;
+  // Don't go overboard: spread the chosen few along the wall rather than clustering on one corner.
+  if (lit.length > MAX_PANES) {
+    lit.sort((a, b) => (a.mx - b.mx) || (a.my - b.my));
+    const step = lit.length / MAX_PANES;
+    lit = Array.from({ length: MAX_PANES }, (_, i) => lit[Math.floor(i * step)]);
+  }
+
+  const size = canvas.dimensions.size;
+  // ⚠️ A CONE, POINTING IN (DM 2026-09-20, second look: *"the effect ends up looking like the lighting is inside the
+  // house flashing outward, especially in the west side"* — and that is exactly what a point source just inside a
+  // window IS: a lamp in the room, throwing as much light back out through the pane as into it). Each source is now
+  // a narrow wedge aimed along the strike's travel, so nothing goes back the way the lightning came. Foundry aims a
+  // limited-angle source at `rotation + 90` degrees measured in canvas space, so the rotation we want is the travel
+  // bearing minus ninety (LimitedAnglePolygon: aMin = rotation + 90 − angle/2).
+  const rotation = ((Math.atan2(travel[1], travel[0]) * 180) / Math.PI - 90 + 360) % 360;
+  const step = size * 0.6; // a little further in, so the cone's point is off the wall and never culled with it
+  const cls = CONFIG.Canvas.lightSourceClass;
+  let level;
+  try { level = canvas.level?.id ?? canvas.inferLevelFromElevation(0)?.id; } catch (e) { level = undefined; }
+  const made = [];
+  try {
+    lit.forEach((r, i) => {
+      const src = new cls({ sourceId: `${MODULE_ID}.strike.${i}`, object: null });
+      src.initialize({
+        x: r.mx + travel[0] * step, y: r.my + travel[1] * step,
+        elevation: 0, level, walls: true, vision: false,
+        dim: size * (soft ? 6 : 11), bright: size * (soft ? 2 : 4),
+        alpha: soft ? 0.35 : 0.62, color: "#f4f7ff", coloration: 1,
+        luminosity: soft ? 0.6 : 0.9, attenuation: 0.55, contrast: 0, saturation: 0, shadows: 0,
+        angle: soft ? 120 : 104, rotation, // the wedge that makes it light coming IN, not a lamp shining out
+        animation: { type: null }, darkness: { min: 0, max: 1 }, priority: 0, negative: false, vision: false,
+      });
+      src.add();
+      made.push(src);
+    });
+  } catch (e) {
+    console.warn(`${MODULE_ID} | window lightning fell back to the flash`, e);
+    for (const m of made) { try { m.destroy(); } catch (e2) { /* already gone */ } }
+    try { canvas.perception.update({ refreshLighting: true, refreshVision: true }); } catch (e2) { /* tearing down */ }
+    return false;
+  }
+  const paint = () => { try { canvas.perception.update({ refreshLighting: true, refreshVision: true }); } catch (e) { /* tearing down */ } };
+  const clear = () => {
+    for (const m of made) { try { m.destroy(); } catch (e) { /* already gone */ } }
+    made.length = 0;
+    paint();
+  };
+  paint();
+  // A strike stutters: on, off, on again, gone. Two pulses is the whole budget.
+  setTimeout(() => { for (const m of made) { try { m.remove(); } catch (e) { /* already gone */ } } paint(); }, soft ? 110 : 80);
+  setTimeout(() => { for (const m of made) { try { m.add(); } catch (e) { /* already gone */ } } paint(); }, soft ? 190 : 150);
+  setTimeout(clear, soft ? 320 : 260);
+  setTimeout(clear, 2000); // belt and braces: never leave a light burning
+  return true;
+}
+
+function lightningLocal(soft = false, side = null) {
+  // The windows do it where there are windows; everywhere else — phones, the attic, the open road — the old
+  // white wash still lands, and a canvas that got shafts gets only a whisper of wash under them.
+  const shafts = side ? paneLights(side, soft) : false;
+  const cls = soft || shafts ? "mc-fx-flash mc-fx-flash-soft" : "mc-fx-flash";
+  overlayShot(cls, 1500);
   // Close strike = thunder a second or two behind the flash (DM 2026-09-18, planning the window
   // lightning: "a second or two later a clap of thunder" — and asked that this button match). This
   // supersedes 2026-07-26's "get thunder closer to lightning" (150–500 ms). Soft distant strikes stay
   // later than close ones, so the storm still reads as distance.
-  if (!isPhoneClient()) playThunder(soft ? 2000 + Math.random() * 1500 : 1000 + Math.random() * 1000, soft ? 0.4 : 1);
+  if (!isPhoneClient()) playThunder(soft ? 2000 + Math.random() * 1500 : 1000 + Math.random() * 1000, soft ? 0.4 : 1, soft);
 }
 
 // Doom bell: the toll on canvas clients, a slow dim pulse on EVERY screen — the phones dip
@@ -279,9 +503,52 @@ export function fxVolume(id) {
 // audio context (relock/unlock) just mints fresh taps.
 const volumeTaps = new Map(); // fx id -> { ctx, node }
 
+/* ── INDOORS, THE WEATHER GOES QUIET (DM 2026-09-20) ──────────────────────────────────────────────
+ *
+ * *"The weather effects in the deck rain/downpour/etc. seem to ignore the indoor region and are VERY loud both
+ * indoor and out, can we make sure that the weather effect sounds are also muted in 'indoor' regions?"*
+ *
+ * Foundry's own `suppressWeather` region behaviour takes the rain off the MAP inside a building — every Crooked
+ * House floor ships one — and it never touched the sound, so an interior was as loud as the porch. The rule is now
+ * the map's own, and it needs no new setting: when every token the table listens through is standing inside a
+ * weather-suppressing region, the weather LOOPS fade away; step onto the porch and they come back. It follows any
+ * such region in any world, not just the house.
+ *
+ * Thunder is deliberately exempt: a storm is heard through a roof, and the §53 floor beds carry the storm indoors.
+ */
+const INDOOR_RAMP = 0.25; // setTargetAtTime constant ≈ 0.75 s to settle — the same gentle fade as the deafen toggle
+const weatherLoopIds = () => new Set(Object.entries(FX_DEFS).filter(([, d]) => d.weather && d.sound).map(([id]) => id));
+
+/** The tokens this client's soundscape listens through — the party, as the TV's own rule has it (§23). */
+function weatherListeners() {
+  return (canvas?.tokens?.placeables ?? []).filter((t) => {
+    if (t.document?.hidden) return false;
+    const a = t.actor;
+    if (a?.type === "group") return !!a.getFlag?.(MODULE_ID, "packed");
+    return a?.type === "character" && !!a.hasPlayerOwner;
+  });
+}
+const underCover = (t) => {
+  for (const region of t.document?.regions ?? []) {
+    for (const b of region.behaviors ?? []) if (!b.disabled && b.type === "suppressWeather") return true;
+  }
+  return false;
+};
+/** Is the whole party inside? Nobody on the map (or nobody listening) counts as outdoors. */
+export function weatherIsIndoors() {
+  try {
+    const listeners = weatherListeners();
+    return listeners.length > 0 && listeners.every(underCover);
+  } catch (e) { return false; }
+}
+
 export function applyFxVolumes() {
+  const indoors = weatherIsIndoors();
+  const weather = weatherLoopIds();
   for (const [id, tap] of volumeTaps) {
-    try { tap.node.gain.setTargetAtTime(fxVolume(id), tap.ctx.currentTime, 0.05); }
+    const isWeather = weather.has(id);
+    const target = fxVolume(id) * (isWeather && indoors ? 0 : 1);
+    try { tap.node.gain.setTargetAtTime(target, tap.ctx.currentTime, isWeather ? INDOOR_RAMP : 0.05); }
     catch (e) { volumeTaps.delete(id); } // context died — next audioOut rebuilds
   }
 }
@@ -298,7 +565,8 @@ function audioOut(fxId) {
   let tap = volumeTaps.get(fxId);
   if (!tap || tap.ctx !== ctx) {
     const node = ctx.createGain();
-    node.gain.value = fxVolume(fxId);
+    // A loop starting while the party is already indoors must start silent, not blare and then duck.
+    node.gain.value = fxVolume(fxId) * (weatherLoopIds().has(fxId) && weatherIsIndoors() ? 0 : 1);
     node.connect(ctx.gainNode);
     tap = { ctx, node };
     volumeTaps.set(fxId, tap);
@@ -392,11 +660,14 @@ function windLoop(ctx, dest, { center, q, base, gustLo, gustHi, period }) {
 // Gain note: the wind band-passes keep only ~10–20% of white noise's amplitude (narrow band of
 // a flat spectrum — same physics that made thunder v1 a pop), so their gains run WAY above the
 // rain's. These are pre-filter values, not output loudness.
+// ⚠️ HALVED 2026-09-20 (DM: the weather is "VERY loud both indoor and out"). Every one of these was tuned by
+// meter, never against a room, and −6 dB is what he asked for in plain words. The Loudness drawer still doubles
+// any of them back (§26.5, 0–200%), so his own ear has the last word without another edit here.
 const SOUND_MAKERS = {
-  rain: (ctx, dest) => rainLoop(ctx, dest, { gain: 0.10, lp: 6500 }),
-  rainHeavy: (ctx, dest) => rainLoop(ctx, dest, { gain: 0.17, lp: 9500 }),
-  blizzard: (ctx, dest) => windLoop(ctx, dest, { center: 750, q: 0.6, base: 0.15, gustLo: 0.25, gustHi: 0.72, period: 2400 }),
-  dustWind: (ctx, dest) => windLoop(ctx, dest, { center: 220, q: 0.7, base: 0.16, gustLo: 0.25, gustHi: 0.60, period: 3200 })
+  rain: (ctx, dest) => rainLoop(ctx, dest, { gain: 0.05, lp: 6500 }),
+  rainHeavy: (ctx, dest) => rainLoop(ctx, dest, { gain: 0.085, lp: 9500 }),
+  blizzard: (ctx, dest) => windLoop(ctx, dest, { center: 750, q: 0.6, base: 0.075, gustLo: 0.125, gustHi: 0.36, period: 2400 }),
+  dustWind: (ctx, dest) => windLoop(ctx, dest, { center: 220, q: 0.7, base: 0.08, gustLo: 0.125, gustHi: 0.30, period: 3200 })
 };
 
 // Thunder v2 (DM 2026-07-26: v1 was "a small pop" — see brownBuffer for the physics). Three
@@ -404,7 +675,35 @@ const SOUND_MAKERS = {
 // amplitude WOBBLES as it decays (real thunder rolls, it doesn't fade smoothly), and a sub-sine
 // sweep for chest weight on speakers that can reach it. delayMs ≈ distance; scale (0..1) is how
 // far away it FEELS — the storm's ambient strikes come in at 0.4.
-function playThunder(delayMs, scale = 1) {
+/* ── REAL THUNDER (DM 2026-09-20: "the current lightning sound is horrible, can you find a better one?") ─────────
+ *
+ * He is right, and it was a standing rule of ours he caught me breaking: synthesize nothing but trivial foley. The
+ * thunder here was three layers of filtered noise — clever, and it sounded like filtered noise. It plays recordings
+ * now, picked at random from his own library and never the same one twice running: a set of CLOSE cracks for the
+ * Lightning key and a set of DISTANT rolls for the storm's own strikes, so a rolling storm still reads as distance.
+ *
+ * The synthesized version stays as the fallback and earns its keep: mobile-command ships no audio, so a table
+ * without his library (anyone but him, today) still gets thunder rather than silence.
+ */
+const THUNDER_NEAR = [19, 20, 22, 24, 26].map((n) => `assets/Personal/SFX/Dark Fantasy Studio- Thunder/Dark Fantasy Studio - Thunder ${n}.wav`);
+const THUNDER_FAR = [2, 3, 5, 7, 8].map((n) => `assets/Personal/SFX/Dark Fantasy Studio- Thunder/Dark Fantasy Studio - Thunder ${n}.wav`);
+let lastThunder = null;
+
+function playThunder(delayMs = 0, scale = 1, soft = false) {
+  const set = soft ? THUNDER_FAR : THUNDER_NEAR;
+  const pool = set.length > 1 && lastThunder ? set.filter((p) => p !== lastThunder) : set;
+  const src = pool[Math.floor(Math.random() * pool.length)];
+  lastThunder = src;
+  const volume = Math.max(0, Math.min(1, (soft ? 0.5 : 0.85) * scale * fxVolume("lightning")));
+  setTimeout(() => {
+    let p = null;
+    try { p = foundry.audio.AudioHelper.play({ src, volume, loop: false, channel: "environment" }, false); }
+    catch (e) { p = null; }
+    Promise.resolve(p).then((snd) => { if (!snd || snd.failed) thunderSynth(0, scale); }).catch(() => thunderSynth(0, scale));
+  }, delayMs);
+}
+
+function thunderSynth(delayMs, scale = 1) {
   const out = audioOut("lightning"); // §26.5: one key for thunder — the button and the storm's strikes alike
   if (!out) return; // pre-gesture — a silent strike beats a console error
   const { ctx, dest } = out;
@@ -765,13 +1064,17 @@ function scheduleStormStrike(first = false) {
 export function syncFx() {
   const phone = isPhoneClient();
   const active = fxActiveMap();
+  const layers = weatherLayers();
+  // A weather key's filter and loop follow its LAYER too: a weather the map no longer shows (changed
+  // in the scene config, or by another module) must not leave its sound running.
+  const wanted = (id, def) => !!active[id] && (def.weather === undefined || layers.has(def.weather));
   for (const [id, def] of Object.entries(FX_DEFS)) {
     if (def.filter) {
-      if (active[id] && !phone && canvas?.ready) mountFilter(id, def);
+      if (wanted(id, def) && !phone && canvas?.ready) mountFilter(id, def);
       else unmountFilter(id);
     }
     if (def.sound) {
-      if (active[id] && !phone) startLoop(id, def);
+      if (wanted(id, def) && !phone) startLoop(id, def);
       else stopLoop(id);
     }
     if (def.player === "state") {

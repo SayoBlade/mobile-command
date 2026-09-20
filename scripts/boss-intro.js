@@ -110,9 +110,23 @@ function eligible() {
 
 let root = null;
 let timers = [];
+// The roars this entrance started. Its end — or Stop, or a restart — fades them rather than leaving a long file running
+// under the map (DM 2026-09-19: "make sure all sounds fade out"; they used to be played and forgotten).
+let roars = [];
+const ROAR_FADE_MS = 800;
 function clearTimers() { for (const t of timers) clearTimeout(t); timers = []; }
+function hushRoars(ms = ROAR_FADE_MS) {
+  for (const p of roars) {
+    Promise.resolve(p).then((snd) => {
+      if (!snd?.playing) return;
+      Promise.resolve(snd.fade(0, { duration: ms })).then(() => snd.stop()).catch(() => snd.stop());
+    }).catch(() => { /* never started */ });
+  }
+  roars = [];
+}
 function teardown() {
   clearTimers();
+  hushRoars();
   if (root) { root.remove(); root = null; }
 }
 
@@ -130,7 +144,7 @@ function roar(src) {
   // The INTERFACE channel, deliberately. It is the one channel the phone-silencing rule leaves
   // alone (§20.6) and it is still governed by the DM's mirrored TV volume, so the roar lands on
   // the television at the level the DM set and never at whatever the file was mastered to.
-  try { foundry.audio.AudioHelper.play({ src, volume: 1, autoplay: true, loop: false, channel: "interface" }, false); }
+  try { roars.push(foundry.audio.AudioHelper.play({ src, volume: 1, autoplay: true, loop: false, channel: "interface" }, false)); }
   catch (e) { console.warn(`${MODULE_ID} | boss intro: could not play ${src}`, e); }
 }
 

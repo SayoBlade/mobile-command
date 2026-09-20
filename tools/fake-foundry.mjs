@@ -78,6 +78,8 @@ export async function installFakeFoundry() {
       scene.tokens.push(t); return t;
     }),
     updateEmbeddedDocuments: async (type, updates) => { for (const u of updates) { const t = scene.tokens.find((x) => x.id === u._id); if (t) Object.assign(t, u); } },
+    // §26 weather (and anything else written flat onto the scene): top-level fields only
+    update: async (data) => { await null; for (const [k, v] of Object.entries(data)) if (!k.includes(".")) scene[k] = v; },
   };
   for (const t of scene.tokens) t.parent = scene;
   const scenes = withGet([scene]);

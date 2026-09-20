@@ -35,9 +35,10 @@ store.set("crookedMoonTools", true);
 {
   const rows = A.actionSnapshot({ area: "cm" });
   const groups = [...new Set(rows.map((r) => r.group))];
-  const order = ["Intros", "Curses", "Fate", "Twists", "Druskenvald", "Tarot", "All aboard", "Boarding", "Ghostlight", "Séance"];
-  check("tools on: 36 Crooked Moon keys, grouped in the panel's drawer order",
-    rows.length === 36 && JSON.stringify(groups) === JSON.stringify(order), `${rows.length} · ${groups.join(", ")}`);
+  // "The house" joined after Intros on 2026-09-20 with the weasels' key (§53: the DM fires them, no timer does).
+  const order = ["Intros", "The house", "Curses", "Fate", "Twists", "Druskenvald", "Tarot", "All aboard", "Boarding", "Ghostlight", "Séance"];
+  check("tools on: 38 Crooked Moon keys, grouped in the panel's drawer order",
+    rows.length === 38 && JSON.stringify(groups) === JSON.stringify(order), `${rows.length} · ${groups.join(", ")}`);
 }
 {
   store.set("curseTable", "RollTable.custom");
@@ -220,8 +221,10 @@ check("Spend takes the twist, posts the public fate card, and the request leaves
 {
   const all = [...A.actionSnapshot({ area: "cm" }), ...A.actionSnapshot({ area: "effects" })];
   const sounds = all.filter((r) => r.does === "sound").map((r) => r.id).sort();
-  check("sound only: exactly the fiddle, engine, whistle and brakes — and none of them carries a picture",
-    sounds.join() === "cm.brakes,cm.engine,cm.fiddle,cm.whistle" && all.filter((r) => r.does === "sound").every((r) => !r.art), sounds.join());
+  // The weasels joined on 2026-09-20: a scurry inside a wall changes nothing you can see, so it is sound, not scene.
+  // "Teddy returned" is the counter-example in the same group: it puts a light out, so it is scene, painted.
+  check("sound only: the fiddle, engine, whistle, brakes and the weasels — and none of them carries a picture",
+    sounds.join() === "cm.brakes,cm.engine,cm.fiddle,cm.weasels,cm.whistle" && all.filter((r) => r.does === "sound").every((r) => !r.art), sounds.join());
 }
 {
   const PUBLIC = "C:/Program Files/Foundry Virtual Tabletop 14/resources/app/public";
@@ -236,10 +239,14 @@ check("Spend takes the twist, posts the public fate card, and the request leaves
 {
   const r = row("cm", "cm.entrance");
   const long = r?.choices?.filter((c) => c.label.length > 14).map((c) => c.label) ?? [];
-  check("Intro lists every Crooked Moon entrance, a short label and the book's portrait each, as a painted scene key",
-    r?.kind === "pick" && r.does === "scene" && r.choices.length === 89 && long.length === 0
-      && r.choices.every((c) => String(c.img ?? "").startsWith("modules/the-crooked-moon-2014/")),
-    `${r?.choices?.length} · ${long.join()}`);
+  // The picture is the book's plate for all but the nursery toys, whose three the DM generated himself in the book's
+  // style (2026-09-20) — they live in his Foundry data, so the check is "a picture we know the home of", not "the
+  // module's folder".
+  const OWN = ["modules/the-crooked-moon-2014/", "mc-portraits/"];
+  const stray = r?.choices?.filter((c) => !OWN.some((d) => String(c.img ?? "").startsWith(d))).map((c) => c.label) ?? [];
+  check("Intro lists every Crooked Moon entrance, a short label and a portrait each, as a painted scene key",
+    r?.kind === "pick" && r.does === "scene" && r.choices.length === 94 && long.length === 0 && stray.length === 0,
+    `${r?.choices?.length} · ${long.join()} · ${stray.join()}`);
 }
 {
   fired.length = 0;
@@ -326,6 +333,59 @@ check("Spend takes the twist, posts the public fate card, and the request leaves
   const s = await run("cm.entranceStop");
   check("Intro with nothing picked refuses with a reason; Stop intro fires the stop one-shot",
     r.ok === false && /pick an intro/.test(r.reason) && s.ok && fired.some((p) => p.id === "entranceStop"), JSON.stringify([r, s, fired]));
+}
+
+/* ── layered weather (DM 2026-09-19: "make sure I can have fog and rain simultaneously") ──────── */
+{
+  const fx = await import("../scripts/effects.js");
+  const W = { fog: { effects: [{ id: "fogShader" }] }, rain: { effects: [{ id: "rainShader" }] },
+    rainStorm: { effects: [{ id: "fogShader" }, { id: "rainShader" }] }, snow: { effects: [{ id: "snowShader" }] },
+    blizzard: { effects: [{ id: "snowShader" }] }, leaves: { effects: [{ id: "leavesParticles" }] } };
+  globalThis.CONFIG.weatherEffects = W;
+  fx.registerLayeredWeather();
+  const storm = W["mcFog+rainStorm"]?.effects?.map((e) => e.id);
+  check("each precipitation gets a fog-over entry, and Downpour's own fog shader keeps its id beside ours",
+    ["rain", "rainStorm", "snow", "blizzard", "leaves"].every((p) => W[`mcFog+${p}`]) && storm?.join() === "fogShader,rainShader,mcFogLayer",
+    JSON.stringify(storm));
+}
+{
+  const scene = game.scenes.active;
+  scene.weather = "";
+  store.set("fxActive", {});
+  await run("fx.fog");
+  await run("fx.rain");
+  const both = row("effects", "fx.fog").on === true && row("effects", "fx.rain").on === true;
+  check("Fog, then Rain: both stay on, the map shows both, and the rain's loop is still wanted",
+    both && scene.weather === "mcFog+rain" && store.get("fxActive").rain === true, `${scene.weather} · ${JSON.stringify(store.get("fxActive"))}`);
+}
+{
+  const scene = game.scenes.active;
+  await run("fx.snow");
+  check("Snow while it rains in the fog: the snow replaces the rain (and its loop), the fog stays",
+    scene.weather === "mcFog+snow" && !store.get("fxActive").rain && row("effects", "fx.rain").on === false && row("effects", "fx.fog").on === true,
+    `${scene.weather} · ${JSON.stringify(store.get("fxActive"))}`);
+  await run("fx.fog");
+  check("Fog off again leaves the snow alone",
+    scene.weather === "snow" && row("effects", "fx.snow").on === true && row("effects", "fx.fog").on === false, scene.weather);
+}
+{
+  const scene = game.scenes.active;
+  await run("fx.dust");
+  const dustOn = row("effects", "fx.dust").on === true && row("effects", "fx.fog").on === false && scene.weather === "mcFog+snow";
+  await run("fx.fog");
+  check("the dust storm and fog share the air: dust over the snow reads as dust, not fog; then Fog replaces the dust",
+    dustOn && row("effects", "fx.fog").on === true && row("effects", "fx.dust").on === false && !store.get("fxActive").dust && scene.weather === "mcFog+snow",
+    `${dustOn} · ${scene.weather} · ${JSON.stringify(store.get("fxActive"))}`);
+}
+{
+  // Rain turned on elsewhere (the scene's own config) while MC still remembers blizzard: the keys follow the map.
+  const scene = game.scenes.active;
+  store.set("fxActive", { blizzard: true });
+  scene.weather = "rain";
+  check("keys read the map, not a stale memory: the scene says rain, so Rain is on and Blizzard is off",
+    row("effects", "fx.rain").on === true && row("effects", "fx.blizzard").on === false);
+  scene.weather = "";
+  store.set("fxActive", {});
 }
 
 console.log(`\nAll ${n} passed.`);
