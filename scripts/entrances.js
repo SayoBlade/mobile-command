@@ -52,6 +52,7 @@ function hush(fadeMs) { for (const v of voices) v.stop(fadeMs); voices = []; }
 function teardown() {
   clearTimers();
   hush(120);
+  dropFlashes();
   if (root) { root.querySelectorAll("video").forEach(v => { try { v.pause(); v.removeAttribute("src"); v.load(); } catch (e) { /* gone */ } }); root.remove(); root = null; }
 }
 
@@ -102,6 +103,9 @@ function playWindow(c) {
       if (stopped) return release();
       try { el.currentTime = c.from ?? 0; } catch (e) { /* not seekable yet: it starts from the top */ }
       el.play().then(() => {
+        // Stop (or a restart, or the end fade) can land while the browser is still starting it — likely on the iPad,
+        // seeking deep into a long bed — and then it would play its whole window after the banner has gone.
+        if (stopped) return release();
         const t = ctx.currentTime;
         gain.gain.setValueAtTime(0, t);
         gain.gain.linearRampToValueAtTime(peak, t + fadeIn);
@@ -188,21 +192,34 @@ function ensureStyles() {
 /* -------------------------------------------- */
 
 // DM 2026-09-19: "focus the MC camera on the NPC and zoom so there's ~30m radius around them, 1 second after the
-// intro's end revert to the last view." — then, having seen it: "zoom in should be much tighter" → 10 m. The frame
-// is the combat spotlight's (main.js tokenFrame) — the radius across the smaller screen axis, clamped to the scene —
-// around every token the entrance names (a joint entrance frames the group). 10 m is 30 ft on a feet grid. While
-// it holds, the party follow and the spotlight wait (tv-hold.js).
-const FOCUS_M = 10;
-const REVERT_AFTER_MS = 1000;
+// intro's end revert to the last view." — then, having seen it: "zoom in should be much tighter" → 10 m — and then
+// "when zooming in intro, center the token and zoom in more" → 5 m (15 ft on a feet grid), and CENTRED: the frame
+// used to be clamped to the scene like the combat spotlight's, which on the Crooked House's 21-square maps put a
+// villain near a wall up to seven squares off-centre (and on a 16:9 screen, always on the map's centre line). Now the
+// view may run into the scene's padding so the NPC sits dead centre. The radius is across the smaller screen axis,
+// around every token the entrance names (a joint entrance frames the group). While it holds, the party follow and
+// the spotlight wait (tv-hold.js).
+const FOCUS_M = 5;
+const FOCUS_FT = 15;
+// THE BANNER SITS OVER THE MAP'S MIDDLE (DM 2026-09-20: "move the camera focus higher the tokens are hidden by the
+// banner"). On the wall layout the name band runs from 60% to 79% of the screen's height, so a token framed dead
+// centre lands behind it. The camera therefore looks at a point BELOW the group, which lifts the group into the
+// middle of the clear strip above the band — 30% down the screen instead of 50%.
+// ⚠️ NOT in the table layout: there the three bands sit at the EDGES (top 1.5–18.5%, bottom 81.5–98.5%, and the
+// right one rotated down the side) and the middle is already clear — the same lift would push the tokens up under
+// the TOP band instead of out from under the bottom one.
+const BAND_TOP = 0.60;                  // styles/entrances.css .mc-en-band {top:60cqh;height:19cqh}
+const FOCUS_LIFT = 0.5 - BAND_TOP / 2;  // 0.20 of the screen's height
+const REVERT_AFTER_MS = 2000; // DM 2026-09-20: "give it a second more" — the map is his again two seconds after the banner
 const PAN_MS = 900;
 let cameraBack = null;
 let revertTimer = null; // NOT in `timers`: teardown clears those when the banner is gone, and the revert comes a second later
 
-function frameTokens(docs) {
+function frameTokens(docs, lift = 0) {
   const gs = canvas.dimensions?.size ?? 100;
   const units = String(canvas.dimensions?.units ?? canvas.grid?.units ?? "ft").toLowerCase();
   const perGrid = canvas.dimensions?.distance ?? canvas.grid?.distance ?? 5;
-  const radius = /^m/.test(units) ? FOCUS_M : 30; // metres, else feet
+  const radius = /^m/.test(units) ? FOCUS_M : FOCUS_FT; // metres, else feet
   const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
   const minZoom = CONFIG.Canvas?.minZoom ?? 0.1, maxZoom = CONFIG.Canvas?.maxZoom ?? 3;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -212,14 +229,9 @@ function frameTokens(docs) {
   }
   const diam = (radius * 2 / perGrid) * gs + Math.max(x1 - x0, y1 - y0) - gs;
   const scale = Math.max(minZoom, Math.min(screenW / diam, screenH / diam, maxZoom));
-  let cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-  const halfW = screenW / scale / 2, halfH = screenH / scale / 2;
-  const r = canvas.dimensions?.sceneRect ?? canvas.dimensions?.rect;
-  if (r) {
-    cx = r.width <= halfW * 2 ? r.x + r.width / 2 : Math.min(Math.max(cx, r.x + halfW), r.x + r.width - halfW);
-    cy = r.height <= halfH * 2 ? r.y + r.height / 2 : Math.min(Math.max(cy, r.y + halfH), r.y + r.height - halfH);
-  }
-  return { x: cx, y: cy, scale };
+  // Centred left-to-right, lifted clear of the band — no clamp to the scene (Foundry's own pan limit still keeps
+  // the view inside the canvas padding).
+  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2 + (lift * screenH / scale), scale };
 }
 
 function focusCamera(e, focus) {
@@ -230,7 +242,8 @@ function focusCamera(e, focus) {
   const s = canvas.stage;
   cameraBack = cameraBack ?? { x: s.pivot.x, y: s.pivot.y, scale: s.scale.x || 1 }; // a restart keeps the FIRST view
   holdTv(e.hold + OUT_MS + REVERT_AFTER_MS + PAN_MS + 500);
-  canvas.animatePan({ ...frameTokens(docs), duration: PAN_MS }).catch?.(() => {});
+  const lift = isOnlineTable() ? FOCUS_LIFT : 0; // the wall layout puts a band across the middle; the table one doesn't
+  canvas.animatePan({ ...frameTokens(docs, lift), duration: PAN_MS }).catch?.(() => {});
 }
 
 function revertCamera() {
@@ -278,6 +291,65 @@ async function settle(el) {
   await Promise.race([Promise.all(jobs), new Promise(res => setTimeout(res, SETTLE_MS))]);
 }
 
+/* -------------------------------------------- */
+/*  The token in the flash                      */
+/* -------------------------------------------- */
+
+// DM 2026-09-19: "for crooked man add a white overlay effect over the token during the lighting". The banner's bolt
+// (entrances.css .mc-en-flash) lights the SCREEN; this lights HIM on the map, on the same clock — each client starts
+// it from its own banner start (entrancePlay), so the two flashes land together, which a GM-fired map effect could
+// not promise (it would trail by the socket and the banner's loading wait). A white copy of the token's own picture
+// is drawn ON the Token object, so it shows only where that viewer can see the token at all — a flash never gives a
+// hidden villain away — and above the map's darkness, as lightning would be. It follows the bolt's curve
+// (`tokenFlash.curve`, from the banner's keyframes, generated), then goes. Nothing is written: a moment, not a state.
+const flashes = new Set();
+const WHITE = [0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0]; // rgb → white, alpha kept
+function curveAt(curve, k) {
+  for (let i = 1; i < curve.length; i++) {
+    const [k1, v1] = curve[i];
+    const [k0, v0] = curve[i - 1];
+    if (k <= k1) return k1 === k0 ? v1 : v0 + (v1 - v0) * ((k - k0) / (k1 - k0));
+  }
+  return curve.at(-1)?.[1] ?? 0;
+}
+function dropFlash(f) {
+  flashes.delete(f);
+  try { canvas?.app?.ticker?.remove(f.tick); } catch (e) { /* torn down */ }
+  try { f.sprite.destroy({ children: true, texture: false, baseTexture: false }); } catch (e) { /* torn down with the canvas */ }
+}
+function dropFlashes() { for (const f of [...flashes]) dropFlash(f); }
+function flashTokens(focus, spec) {
+  if (!canvas?.ready || (focus.sceneId && canvas.scene?.id !== focus.sceneId)) return;
+  const curve = Array.isArray(spec.curve) && spec.curve.length ? spec.curve : [[0, 0], [0.1, 1], [1, 0]];
+  const ms = Math.max(50, Number(spec.ms) || 1000);
+  for (const id of focus.tokenIds) {
+    const t = canvas.tokens?.get(id);
+    const mesh = t?.mesh;
+    if (!t || !mesh?.texture) continue;
+    try {
+      const sprite = new PIXI.Sprite(mesh.texture);
+      sprite.anchor.set(mesh.anchor?.x ?? 0.5, mesh.anchor?.y ?? 0.5);
+      sprite.position.set(t.w / 2, t.h / 2); // the Token object sits at the token's corner; its mesh at its centre
+      sprite.scale.set(mesh.scale.x, mesh.scale.y);
+      sprite.rotation = mesh.rotation ?? 0;
+      const white = new PIXI.ColorMatrixFilter();
+      white.matrix = [...WHITE];
+      sprite.filters = [white];
+      sprite.alpha = 0;
+      t.addChild(sprite);
+      const t0 = performance.now();
+      const f = { sprite };
+      f.tick = () => {
+        const k = Math.min(1, (performance.now() - t0) / ms);
+        sprite.alpha = curveAt(curve, k);
+        if (k >= 1) dropFlash(f);
+      };
+      flashes.add(f);
+      canvas.app.ticker.add(f.tick);
+    } catch (e) { console.warn(`${MODULE_ID} | entrance: token flash failed`, e); }
+  }
+}
+
 /** Run an entrance on THIS client. `{ key, focus }` — everything else comes from this client's copy of the module. */
 export async function entrancePlay({ key, focus, form } = {}) {
   if (!eligible()) return;
@@ -303,6 +375,8 @@ export async function entrancePlay({ key, focus, form } = {}) {
     if (v.readyState >= 1) go(); else v.addEventListener("loadedmetadata", go, { once: true });
   });
 
+  // The NPC's token flashes with the banner's lightning (the Crooked Man), from this client's own banner start.
+  if (e.tokenFlash && focus?.tokenIds?.length) timers.push(setTimeout(() => flashTokens(focus, e.tokenFlash), e.tokenFlash.at ?? 0));
   for (const c of e.sound ?? []) timers.push(setTimeout(() => { const v = playWindow(c); if (v) voices.push(v); }, (c.at ?? 0) * 1000));
   timers.push(setTimeout(() => hush(SOUND_LEAD_MS + OUT_MS), Math.max(0, e.hold - SOUND_LEAD_MS)));
   timers.push(setTimeout(() => root?.classList.add("mc-en-out"), e.hold));
@@ -420,7 +494,7 @@ export async function dmShadowEntrance(key, on) {
 // stands), flagged as the intro's own. It then counts as arriving: unhidden with the banner (at the change, for a
 // transformation's monster). The known form (Theodora, Phillip…) is never placed: the party has met them.
 const CM_PACK = "the-crooked-moon-2014.tcm2014-bestiary";
-const needsToken = (e) => Boolean(e.appears || e.reveal || e.art2);
+const needsToken = (e) => Boolean(e.appears || e.reveal || e.art2 || e.troop);
 async function actorFor(e) {
   const names = (e.match ?? []).map(n => String(n).toLowerCase()).filter(Boolean);
   const pick = (list, nameOf) => {
@@ -499,11 +573,16 @@ export async function dmPlayEntrance(key) {
   const { known, form } = resolveForm(e, scene);
   let own = tokensNamed(scene, e.match);
   try {
-    let placed = [];
-    if (!own.length) { placed = await placeMissing(e, key, scene); own = placed; }
-    const arrives = e.appears || placed.length > 0;
-    if (e.reveal && arrives) await setShadow(own.filter(t => t.hidden), true); // it arrives as a shape…
-    if (arrives && !e.art2) await setHidden(own, false);
+    if (!own.length) own = await placeMissing(e, key, scene);
+    // ⚠️ AN INTRO *IS* THE REVEAL (DM 2026-09-20, on the Jenkins: *"the intro for the family outside just intros
+    // them but doesn't reveal"*). It used to unhide only the keys the book stages as an arrival (`appears`) or an
+    // NPC whose token we had to place — so introducing anyone already sitting hidden on the map announced a
+    // character who never showed up. Playing someone's entrance is the DM saying "they are here", so their tokens
+    // come out of hiding every time. `appears` keeps its other job (the book's own arrivals, which also rise out
+    // of shadow via `reveal`), and a transformation is left alone — its swap does the hiding and showing itself.
+    if (e.reveal) await setShadow(own.filter(t => t.hidden), true); // it arrives as a shape…
+    // …and a TROOP is held back here: its members are unhidden one at a time below, as each picture lands.
+    if (!e.art2 && !e.troop) await setHidden(own, false);
   } catch (err) { console.warn(`${MODULE_ID} | entrance ${key}: token prep failed`, err); }
 
   const focusDocs = e.art2 ? (known.length ? known : own) : own;
@@ -520,6 +599,23 @@ export async function dmPlayEntrance(key) {
       swapFx(e, own[0] ?? known[0], scene);
     } catch (err) { console.warn(`${MODULE_ID} | entrance ${key}: swap failed`, err); }
   }, T);
+  // A TROOP arrives one at a time (DM 2026-09-20, the nursery toys: "i want them coming in raven goat bunny… as they
+  // appear in the intro, show that NPC's token on the map"): each member's token is unhidden as its picture lands, so
+  // the map never shows a toy the banner hasn't introduced yet. Times are the theme's own stagger.
+  for (const m of e.troop ?? []) {
+    setTimeout(() => setHidden(tokensNamed(stageScene(), m.match), false).catch(
+      (err) => console.warn(`${MODULE_ID} | entrance ${key}: ${m.match[0]} did not appear`, err)), (m.at ?? 0) * 1000);
+  }
+  // An entrance may throw one of the MAP's own one-shots — the toys' lightning outside the nursery window. It is the
+  // real §51 effect, so the quarter is chosen once and the panes on that side light inward on every screen, rather
+  // than a flash painted on the banner. effects.js is imported HERE and not at the top because it imports this file
+  // (see the note on the socket import): a load-time pair would close the cycle, an import at fire time cannot.
+  for (const f of e.fx ?? []) {
+    setTimeout(async () => {
+      try { (await import("./effects.js")).dmFireFx(f.id, f.from ? { from: f.from } : {}); }
+      catch (err) { console.warn(`${MODULE_ID} | entrance ${key}: the ${f.id} did not fire`, err); }
+    }, (f.at ?? 0) * 1000);
+  }
   // …and its details come out of the shadow when the banner is done.
   if (e.reveal) setTimeout(() => setShadow(tokensNamed(stageScene(), e.match), false).catch(() => {}), e.hold + OUT_MS);
   return true;

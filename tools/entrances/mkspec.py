@@ -69,7 +69,18 @@ L = {"vagrant": ("modules/ember/assets/audio/music/lyla-theme/solo-violin-melody
      "whispers6": ("assets/Personal/SFX/whispers_darkfantasystudio/Dark Fantasy Studio- Whispers 6.wav", 0.0, 2.1, 0.02, 0.4),
      "alien30": ("assets/Personal/SFX/alienvoices_darkfantasystudio/Dark Fantasy Studio- Alien voices-30.wav", 0.7, 2.4, 0.01, 0.5),
      "dragon30": ("assets/Personal/SFX/dragon_darkfantasystudio/Dark Fantasy Studio-Dragon 30.wav", 0.0, 2.1, 0.005, 0.5),
-     "alien25": ("assets/Personal/SFX/alienvoices_darkfantasystudio/Dark Fantasy Studio- Alien voices-25.wav", 0.0, 2.3, 0.005, 0.5)}
+     "alien25": ("assets/Personal/SFX/alienvoices_darkfantasystudio/Dark Fantasy Studio- Alien voices-25.wav", 0.0, 2.3, 0.005, 0.5),
+     # sixth wave (DM 2026-09-19): the Boogleswarm. The library has no weasel mob — the nearest real recording is a
+     # RODENT swarm (Beginner Box), loud and steady from 4.5 s; the whisper swarm carries its Mimicry. The insect
+     # swarm is deliberately not used ("the swarm sound is for insects, don't connect it to the weasels").
+     "boogle": ("modules/pf2e-beginner-box/assets/audio/fx/the-rats-on-fire.ogg", 4.5, 13.2, 0.5, 1.0),
+     "whispers33": ("assets/Personal/SFX/whispers_darkfantasystudio/Dark Fantasy Studio- Whispers 33.wav", 0.0, 2.1, 0.02, 0.5),
+     # seventh wave (DM 2026-09-20): Wisp, the Lurker, the weasel. The sound plan's own picks for each.
+     "cat": ("assets/Personal/Music/Horror Audio Bundle/MP3/FX/Misc/Creepy Cat.mp3", 0.0, 1.5, 0.02, 1.0),
+     "whispers44": ("assets/Personal/SFX/whispers_darkfantasystudio/Dark Fantasy Studio- Whispers 44.wav", 0.0, 2.1, 0.02, 0.55),
+     "ambush": ("assets/Personal/SFX/jumpscare_darkfantasystudio/Dark Fantasy Studio- Jump scare 50.wav", 0.0, 2.4, 0.01, 0.8),
+     "chitter": ("assets/Personal/SFX/Dark Fantasy Studio- Creature/Dark Fantasy Studio- Creature 16.wav", 0.0, 2.1, 0.02, 0.9),
+     "rip10": ("assets/Personal/SFX/Dark Fantasy Studio- Rip/Dark Fantasy Studio- Rip 10.wav", 0.0, 1.4, 0.01, 0.75)}
 spec = []
 for k, (src, a, b, fi, fo) in W.items():
     assert (D / src).exists(), src

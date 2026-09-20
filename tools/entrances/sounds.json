@@ -34,10 +34,30 @@
    {
     "src": "snd/vessla.mp3",
     "at": 0.25,
-    "vol": 1.0
+    "vol": 1
    }
   ],
   "text": "A dark whoosh, then tiny clawed feet skittering (Ember's spider scuttling, the closest thing to ferret feet in your library)."
+ },
+ "boogle": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/boogle.mp3",
+    "at": 0.25,
+    "vol": 1
+   },
+   {
+    "src": "snd/whispers33.mp3",
+    "at": 3.2,
+    "vol": 0.8
+   }
+  ],
+  "text": "A dark whoosh, a squealing scrabble of vermin (Beginner Box) and a whisper that copies a voice — the swarm's Mimicry (Dark Fantasy Studio)."
  },
  "crooked": {
   "clips": [
@@ -64,7 +84,7 @@
    {
     "src": "snd/jericho.mp3",
     "at": 0.25,
-    "vol": 1.0
+    "vol": 1
    }
   ],
   "text": "A hollow, ghostly gust, across the field, then a quiet field with a run of crow caws (Monument Studios, Forestscapes)."
@@ -109,7 +129,7 @@
    {
     "src": "snd/sinner.mp3",
     "at": 0.25,
-    "vol": 1.0
+    "vol": 1
    }
   ],
   "text": "A dark whoosh, then night on the swamp: frogs, insects and water (Abomination Vaults)."
@@ -229,7 +249,7 @@
    {
     "src": "snd/queen.mp3",
     "at": 0.25,
-    "vol": 1.0
+    "vol": 1
    }
   ],
   "text": "A hollow, ghostly gust, then a deep trunk creaking and straining (Ember; the Oak of Many Faces already uses it)."
@@ -249,7 +269,7 @@
    {
     "src": "snd/wings.mp3",
     "at": 2.75,
-    "vol": 1.0
+    "vol": 1
    },
    {
     "src": "snd/growl.mp3",
@@ -273,7 +293,7 @@
    },
    {
     "src": "snd/reaper.mp3",
-    "at": 3.0,
+    "at": 3,
     "vol": 0.9
    }
   ],
@@ -348,7 +368,7 @@
    },
    {
     "src": "snd/abyss12.mp3",
-    "at": 1.0,
+    "at": 1,
     "vol": 0.9
    }
   ],
@@ -359,7 +379,7 @@
    {
     "src": "snd/abyss40.mp3",
     "at": 0,
-    "vol": 1.0
+    "vol": 1
    },
    {
     "src": "snd/abyss17.mp3",
@@ -374,7 +394,7 @@
    {
     "src": "snd/alien25.mp3",
     "at": 2.25,
-    "vol": 1.0
+    "vol": 1
    }
   ],
   "text": "A deep swell from below as it rises, then the book's piercing, alien shriek (Dark Fantasy Studio: Abyss, Dragon, Alien voices)."
@@ -389,7 +409,7 @@
    {
     "src": "snd/scuttlesoft.mp3",
     "at": 0.25,
-    "vol": 1.0
+    "vol": 1
    },
    {
     "src": "snd/laugh35.mp3",
@@ -418,7 +438,7 @@
    },
    {
     "src": "snd/laugh35.mp3",
-    "at": 3.0,
+    "at": 3,
     "vol": 0.85
    },
    {
@@ -439,7 +459,7 @@
    {
     "src": "snd/wings14.mp3",
     "at": 2.85,
-    "vol": 1.0
+    "vol": 1
    },
    {
     "src": "snd/abyss16.mp3",
@@ -459,7 +479,7 @@
    {
     "src": "snd/wings14.mp3",
     "at": 2.85,
-    "vol": 1.0
+    "vol": 1
    },
    {
     "src": "snd/abyss16.mp3",
@@ -479,7 +499,7 @@
    {
     "src": "snd/wings14.mp3",
     "at": 2.85,
-    "vol": 1.0
+    "vol": 1
    },
    {
     "src": "snd/abyss16.mp3",
@@ -724,7 +744,7 @@
    {
     "src": "snd/laugh23.mp3",
     "at": 2.8,
-    "vol": 1.0
+    "vol": 1
    },
    {
     "src": "snd/laugh2.mp3",
@@ -799,11 +819,11 @@
    {
     "src": "snd/smashed13.mp3",
     "at": 2.8,
-    "vol": 1.0
+    "vol": 1
    },
    {
     "src": "snd/whispers6.mp3",
-    "at": 3.0,
+    "at": 3,
     "vol": 0.9
    },
    {
@@ -813,5 +833,95 @@
    }
   ],
   "text": "The sanatorium's hum; at the change a wet squelch, a rush of whispers and a deep gurgle (Tao & Sound; Dark Fantasy Studio: Smashed, Whispers, Alien voices)."
+ },
+ "wisp": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/cat.mp3",
+    "at": 0.35,
+    "vol": 1.0
+   },
+   {
+    "src": "snd/whispers44.mp3",
+    "at": 1.9,
+    "vol": 0.7
+   }
+  ],
+  "text": "A dark whoosh, one wrong cat cry, and a whisper just behind it — he is about to speak with somebody else's voice."
+ },
+ "lurker": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/ambush.mp3",
+    "at": 0.33,
+    "vol": 0.9
+   },
+   {
+    "src": "snd/whispers44.mp3",
+    "at": 2.2,
+    "vol": 0.6
+   }
+  ],
+  "text": "A dark whoosh, something bursting out of the dark on the flash, then whispering from somewhere too small to hold it."
+ },
+ "monweasel": {
+  "clips": [
+   {
+    "src": "snd/w1.mp3",
+    "at": 0,
+    "vol": 0.75
+   },
+   {
+    "src": "snd/chitter.mp3",
+    "at": 0.3,
+    "vol": 0.95
+   },
+   {
+    "src": "snd/rip10.mp3",
+    "at": 1.6,
+    "vol": 0.7
+   }
+  ],
+  "text": "A dark whoosh, clicking that quickens into a rasp, and one claw stroke."
+ },
+ "toys": {
+  "clips": [
+   {
+    "src": "snd/deadchildren.mp3",
+    "at": 0.0,
+    "vol": 0.9
+   },
+   {
+    "src": "snd/musicbox12.mp3",
+    "at": 0.0,
+    "vol": 0.85
+   },
+   {
+    "src": "snd/creepycrow.mp3",
+    "at": 0.25,
+    "vol": 1.0
+   },
+   {
+    "src": "snd/sheep2.mp3",
+    "at": 1.55,
+    "vol": 1.0
+   },
+   {
+    "src": "snd/childgiggle.mp3",
+    "at": 2.85,
+    "vol": 1.0
+   }
+  ],
+  "text": "A music box winds up over children too far away to see; a caw, a bleat and a giggle as each toy arrives; then the window goes white and the thunder lands."
  }
 }

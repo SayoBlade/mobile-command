@@ -14,7 +14,7 @@ entries = json.loads(re.search(r"export const CM_ENTRANCES = (\[.*\]);", src, re
 # Where each NPC shows up: the adventure's map numbers (a scene named "12.1 …" and its Colored copy).
 SCENES = {
     "vagrant": ["10.1"], "druskenvald": ["10.3"], "trainhopper": ["10.8", "10.1"], "mayor": ["11.1", "11.2"],
-    "vessla": ["12.4"], "crooked": ["12.1", "12.2", "12.3"], "jericho": ["13.3"], "harvest": ["13.3"],
+    "vessla": ["12.4"], "crooked": ["12.1", "12.2", "12.3"], "boogle": ["12.2", "12.1", "12.3", "12.4"], "wisp": ["12.3", "12.1"], "lurker": ["12.2"], "monweasel": ["12.2", "12.3"], "toys": ["12.3"], "jericho": ["13.3"], "harvest": ["13.3"],
     "abbottf": ["14.3"], "jaeger": ["14.1"], "olaf": ["14.1"], "cromwell": ["14.1"], "sinner": ["15.2"],
     "stonoga": ["16.5"], "widow": ["17.3"], "hugo": ["17.1", "17.2"], "worm": ["17.3"], "blight": ["18.4"],
     "reapertf": ["19.7"], "golubtf": ["11.2", "20.2"], "fools": ["21.1"], "foolstf": ["21.2"], "crowdemon": ["13.2", "13.3"], "adelaide": ["13.1", "13.3"],

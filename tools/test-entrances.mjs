@@ -23,8 +23,8 @@ const onDisk = (p) => p.startsWith("modules/mobile-command/")
   : fs.existsSync(path.join(DATA, p));
 const srcs = (html) => [...String(html ?? "").matchAll(/src="([^"]+)"/g)].map((m) => m[1]);
 
-check("89 entrances (46 themed, 43 generic), keys unique, each with a name, a hold and a chapter",
-  E.length === 89 && E.filter((e) => e.generic).length === 43 && new Set(E.map((e) => e.key)).size === 89
+check("94 entrances (51 themed, 43 generic), keys unique, each with a name, a hold and a chapter",
+  E.length === 94 && E.filter((e) => e.generic).length === 43 && new Set(E.map((e) => e.key)).size === 94
     && E.every((e) => e.name && typeof e.sub === "string" && e.hold >= 5000 && Number.isInteger(e.chapter) && e.short),
   E.filter((e) => !(e.name && e.hold >= 5000 && e.short)).map((e) => e.key).join());
 

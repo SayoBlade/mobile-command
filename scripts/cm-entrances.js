@@ -1187,8 +1187,8 @@ export const CM_ENTRANCES = [
   "hold": 7100,
   "pause": false,
   "chapter": 12,
-  "portrait": "modules/the-crooked-moon-2014/assets/art/art npc/NPC_Walter_Jenkin.webp",
-  "art": "<span class=\"mc-en-pairbox\"><span class=\"mc-en-crop mc-en-cropped\" style=\"aspect-ratio:898/1195;--ch:100.418%;--cw:100.557%;--cl:-0.111%;--ct:-0.000%\"><img src=\"modules/the-crooked-moon-2014/assets/art/art npc/NPC_Walter_Jenkin.webp\" alt=\"\"></span></span><span class=\"mc-en-pairbox\"><span class=\"mc-en-crop mc-en-cropped\" style=\"aspect-ratio:1062/1200;--ch:100.000%;--cw:100.094%;--cl:-0.000%;--ct:-0.000%\"><img src=\"modules/the-crooked-moon-2014/assets/art/art npc/NPC_Gilly_Jenkin.webp\" alt=\"\"></span></span><span class=\"mc-en-pairbox\"><span class=\"mc-en-crop mc-en-cropped\" style=\"aspect-ratio:1080/1199;--ch:100.083%;--cw:100.000%;--cl:-0.000%;--ct:-0.000%\"><img src=\"modules/the-crooked-moon-2014/assets/art/art npc/NPC_Dani_Jenkin.webp\" alt=\"\"></span></span>",
+  "portrait": "modules/the-crooked-moon-2014/assets/art/art npc/NPC_Dani_Jenkin.webp",
+  "art": "<span class=\"mc-en-pairbox\"><span class=\"mc-en-crop mc-en-cropped\" style=\"aspect-ratio:1080/1199;--ch:100.083%;--cw:100.000%;--cl:-0.000%;--ct:-0.000%\"><img src=\"modules/the-crooked-moon-2014/assets/art/art npc/NPC_Dani_Jenkin.webp\" alt=\"\"></span></span><span class=\"mc-en-pairbox\"><span class=\"mc-en-crop mc-en-cropped\" style=\"aspect-ratio:1062/1200;--ch:100.000%;--cw:100.094%;--cl:-0.000%;--ct:-0.000%\"><img src=\"modules/the-crooked-moon-2014/assets/art/art npc/NPC_Gilly_Jenkin.webp\" alt=\"\"></span></span><span class=\"mc-en-pairbox\"><span class=\"mc-en-crop mc-en-cropped\" style=\"aspect-ratio:898/1195;--ch:100.418%;--cw:100.557%;--cl:-0.111%;--ct:-0.000%\"><img src=\"modules/the-crooked-moon-2014/assets/art/art npc/NPC_Walter_Jenkin.webp\" alt=\"\"></span></span>",
   "pair": true,
   "weather": "",
   "extra": "",
@@ -1252,6 +1252,371 @@ export const CM_ENTRANCES = [
   "reveal": false
  },
  {
+  "key": "boogle",
+  "short": "Boogleswarm",
+  "name": "The Boogleswarm",
+  "sub": "",
+  "classes": "mc-en-t-boogle",
+  "hold": 7100,
+  "pause": true,
+  "chapter": 12,
+  "portrait": "modules/the-crooked-moon-2014/assets/art/art monster/MONSTER_Boogleswarm.webp",
+  "art": "<span class=\"mc-en-crop\" style=\"aspect-ratio:1200/640\"><img src=\"modules/the-crooked-moon-2014/assets/art/art monster/MONSTER_Boogleswarm.webp\" alt=\"\"><img class=\"mc-en-shade\" src=\"modules/the-crooked-moon-2014/assets/art/art monster/MONSTER_Boogleswarm.webp\" alt=\"\"></span>",
+  "pair": false,
+  "weather": "",
+  "extra": "<img class=\"mc-en-sprite mc-en-scurry\" src=\"modules/the-crooked-moon-2014/assets/art/art book/Holly_DECO_Weasel 01.webp\" alt=\"\">",
+  "sound": [
+   {
+    "src": "assets/Personal/SFX/Dark Fantasy Studio- Whooshes/Dark Fantasy Studio- Whooshes 36.wav",
+    "from": 0.2,
+    "to": 2.6,
+    "fadeIn": 0.02,
+    "fadeOut": 0.5,
+    "at": 0,
+    "gain": 0.369
+   },
+   {
+    "src": "modules/pf2e-beginner-box/assets/audio/fx/the-rats-on-fire.ogg",
+    "from": 4.5,
+    "to": 13.2,
+    "fadeIn": 0.5,
+    "fadeOut": 1.0,
+    "at": 0.25,
+    "gain": 1.255
+   },
+   {
+    "src": "assets/Personal/SFX/whispers_darkfantasystudio/Dark Fantasy Studio- Whispers 33.wav",
+    "from": 0.0,
+    "to": 2.1,
+    "fadeIn": 0.02,
+    "fadeOut": 0.5,
+    "at": 3.2,
+    "gain": 0.44
+   }
+  ],
+  "match": [
+   "Boogleswarm",
+   "Boogle Swarm",
+   "Boogleswarms"
+  ],
+  "appears": true,
+  "reveal": false
+ },
+ {
+  "key": "wisp",
+  "short": "Wisp",
+  "name": "Wisp",
+  "sub": "There's something off about that cat",
+  "classes": "mc-en-t-wisp",
+  "hold": 7100,
+  "pause": true,
+  "chapter": 12,
+  "portrait": "modules/the-crooked-moon-2014/assets/art/art monster/MONSTER_Ketgrin.webp",
+  "art": "<span class=\"mc-en-crop\" style=\"aspect-ratio:1200/829\"><img src=\"modules/the-crooked-moon-2014/assets/art/art monster/MONSTER_Ketgrin.webp\" alt=\"\"><img class=\"mc-en-shade\" src=\"modules/the-crooked-moon-2014/assets/art/art monster/MONSTER_Ketgrin.webp\" alt=\"\"></span>",
+  "pair": false,
+  "weather": "",
+  "extra": "",
+  "sound": [
+   {
+    "src": "assets/Personal/SFX/Dark Fantasy Studio- Whooshes/Dark Fantasy Studio- Whooshes 36.wav",
+    "from": 0.2,
+    "to": 2.6,
+    "fadeIn": 0.02,
+    "fadeOut": 0.5,
+    "at": 0,
+    "gain": 0.369
+   },
+   {
+    "src": "assets/Personal/Music/Horror Audio Bundle/MP3/FX/Misc/Creepy Cat.mp3",
+    "from": 0.0,
+    "to": 1.5,
+    "fadeIn": 0.02,
+    "fadeOut": 1.0,
+    "at": 0.35,
+    "gain": 0.523
+   },
+   {
+    "src": "assets/Personal/SFX/whispers_darkfantasystudio/Dark Fantasy Studio- Whispers 44.wav",
+    "from": 0.0,
+    "to": 2.1,
+    "fadeIn": 0.02,
+    "fadeOut": 0.55,
+    "at": 1.9,
+    "gain": 0.623
+   }
+  ],
+  "match": [
+   "Wisp",
+   "Ketgrin"
+  ],
+  "appears": false,
+  "reveal": false
+ },
+ {
+  "key": "lurker",
+  "short": "The Lurker",
+  "name": "The Lurker in the Dark",
+  "sub": "",
+  "classes": "mc-en-t-lurker",
+  "hold": 7100,
+  "pause": true,
+  "chapter": 12,
+  "portrait": "modules/the-crooked-moon-2014/assets/art/art monster/MONSTER_Lurker_in_the_Dark.webp",
+  "art": "<span class=\"mc-en-crop mc-en-cropped\" style=\"aspect-ratio:1171/1200;--ch:100.000%;--cw:100.683%;--cl:-0.683%;--ct:-0.000%\"><img src=\"modules/the-crooked-moon-2014/assets/art/art monster/MONSTER_Lurker_in_the_Dark.webp\" alt=\"\"><img class=\"mc-en-shade\" src=\"modules/the-crooked-moon-2014/assets/art/art monster/MONSTER_Lurker_in_the_Dark.webp\" alt=\"\"></span>",
+  "pair": false,
+  "weather": "",
+  "extra": "<div class=\"mc-en-flash\"></div>",
+  "sound": [
+   {
+    "src": "assets/Personal/SFX/Dark Fantasy Studio- Whooshes/Dark Fantasy Studio- Whooshes 36.wav",
+    "from": 0.2,
+    "to": 2.6,
+    "fadeIn": 0.02,
+    "fadeOut": 0.5,
+    "at": 0,
+    "gain": 0.369
+   },
+   {
+    "src": "assets/Personal/SFX/jumpscare_darkfantasystudio/Dark Fantasy Studio- Jump scare 50.wav",
+    "from": 0.0,
+    "to": 2.4,
+    "fadeIn": 0.01,
+    "fadeOut": 0.8,
+    "at": 0.33,
+    "gain": 0.233
+   },
+   {
+    "src": "assets/Personal/SFX/whispers_darkfantasystudio/Dark Fantasy Studio- Whispers 44.wav",
+    "from": 0.0,
+    "to": 2.1,
+    "fadeIn": 0.02,
+    "fadeOut": 0.55,
+    "at": 2.2,
+    "gain": 0.534
+   }
+  ],
+  "match": [
+   "Lurker in the Dark",
+   "Lurker"
+  ],
+  "appears": false,
+  "reveal": false,
+  "tokenFlash": {
+   "at": 330,
+   "ms": 1600,
+   "curve": [
+    [
+     0,
+     0
+    ],
+    [
+     0.041,
+     0.8
+    ],
+    [
+     0.096,
+     0.06
+    ],
+    [
+     0.151,
+     0.55
+    ],
+    [
+     0.275,
+     0.22
+    ],
+    [
+     0.688,
+     0.22
+    ],
+    [
+     1,
+     0
+    ]
+   ]
+  }
+ },
+ {
+  "key": "monweasel",
+  "short": "Big weasel",
+  "name": "A Monstrous Weasel",
+  "sub": "",
+  "classes": "mc-en-t-monweasel",
+  "hold": 7100,
+  "pause": true,
+  "chapter": 12,
+  "portrait": "modules/the-crooked-moon-2014/assets/art/art monster/MONSTER_Vermin_Familiar_Weasel.webp",
+  "art": "<span class=\"mc-en-crop\" style=\"aspect-ratio:1200/1049\"><img src=\"modules/the-crooked-moon-2014/assets/art/art monster/MONSTER_Vermin_Familiar_Weasel.webp\" alt=\"\"><img class=\"mc-en-shade\" src=\"modules/the-crooked-moon-2014/assets/art/art monster/MONSTER_Vermin_Familiar_Weasel.webp\" alt=\"\"></span>",
+  "pair": false,
+  "weather": "",
+  "extra": "<img class=\"mc-en-sprite mc-en-scurry\" src=\"modules/the-crooked-moon-2014/assets/art/art book/Holly_DECO_Weasel 01.webp\" alt=\"\">",
+  "sound": [
+   {
+    "src": "assets/Personal/SFX/Dark Fantasy Studio- Whooshes/Dark Fantasy Studio- Whooshes 36.wav",
+    "from": 0.2,
+    "to": 2.6,
+    "fadeIn": 0.02,
+    "fadeOut": 0.5,
+    "at": 0,
+    "gain": 0.369
+   },
+   {
+    "src": "assets/Personal/SFX/Dark Fantasy Studio- Creature/Dark Fantasy Studio- Creature 16.wav",
+    "from": 0.0,
+    "to": 2.1,
+    "fadeIn": 0.02,
+    "fadeOut": 0.9,
+    "at": 0.3,
+    "gain": 1.325
+   },
+   {
+    "src": "assets/Personal/SFX/Dark Fantasy Studio- Rip/Dark Fantasy Studio- Rip 10.wav",
+    "from": 0.0,
+    "to": 1.4,
+    "fadeIn": 0.01,
+    "fadeOut": 0.75,
+    "at": 1.6,
+    "gain": 0.635
+   }
+  ],
+  "match": [
+   "Filthy Jasper",
+   "Vermin Familiar"
+  ],
+  "appears": false,
+  "reveal": false
+ },
+ {
+  "key": "toys",
+  "short": "Playthings",
+  "name": "The Playthings",
+  "sub": "Three toys, and none of them are still",
+  "classes": "mc-en-t-toys",
+  "hold": 8200,
+  "pause": true,
+  "chapter": 12,
+  "portrait": "mc-portraits/nursery/raven.webp",
+  "art": "<span class=\"mc-en-pairbox\"><span class=\"mc-en-crop\" style=\"aspect-ratio:895/779\"><img src=\"mc-portraits/nursery/raven.webp\" alt=\"\"></span></span><span class=\"mc-en-pairbox\"><span class=\"mc-en-crop\" style=\"aspect-ratio:814/866\"><img src=\"mc-portraits/nursery/goat.webp\" alt=\"\"></span></span><span class=\"mc-en-pairbox\"><span class=\"mc-en-crop\" style=\"aspect-ratio:587/865\"><img src=\"mc-portraits/nursery/bunny.webp\" alt=\"\"></span></span>",
+  "pair": true,
+  "weather": "",
+  "extra": "",
+  "sound": [
+   {
+    "src": "assets/Personal/Music/Horror Audio Bundle/MP3/Ambience/Dead Children Ambient.mp3",
+    "from": 6.0,
+    "to": 14.6,
+    "fadeIn": 1.0,
+    "fadeOut": 1.6,
+    "at": 0.0,
+    "gain": 0.952,
+    "stream": true
+   },
+   {
+    "src": "assets/Personal/SFX/Dark Fantasy Studio- Music box/Dark Fantasy Studio- Music box 12.wav",
+    "from": 0.0,
+    "to": 4.0,
+    "fadeIn": 0.05,
+    "fadeOut": 1.2,
+    "at": 0.0,
+    "gain": 0.468
+   },
+   {
+    "src": "assets/Personal/Music/Horror Audio Bundle/MP3/FX/Misc/Creepy Crow.mp3",
+    "from": 0.0,
+    "to": 1.2,
+    "fadeIn": 0.005,
+    "fadeOut": 0.25,
+    "at": 0.25,
+    "gain": 0.532
+   },
+   {
+    "src": "assets/Personal/Music/Western Audio Bundle/MP3/FX/Animals/Sheep 2.mp3",
+    "from": 0.05,
+    "to": 1.2,
+    "fadeIn": 0.005,
+    "fadeOut": 0.3,
+    "at": 1.55,
+    "gain": 0.612
+   },
+   {
+    "src": "modules/ember/assets/audio/environment/voices/one-shots/children-playing-2.ogg",
+    "from": 7.9,
+    "to": 9.5,
+    "fadeIn": 0.08,
+    "fadeOut": 0.5,
+    "at": 2.85,
+    "gain": 0.913
+   }
+  ],
+  "match": [
+   "Crow",
+   "Goat",
+   "Bunny"
+  ],
+  "appears": false,
+  "reveal": false,
+  "tokenFlash": {
+   "at": 4600,
+   "ms": 1600,
+   "curve": [
+    [
+     0,
+     0
+    ],
+    [
+     0.041,
+     0.8
+    ],
+    [
+     0.096,
+     0.06
+    ],
+    [
+     0.151,
+     0.55
+    ],
+    [
+     0.275,
+     0.22
+    ],
+    [
+     0.688,
+     0.22
+    ],
+    [
+     1,
+     0
+    ]
+   ]
+  },
+  "troop": [
+   {
+    "at": 0.25,
+    "match": [
+     "Crow"
+    ]
+   },
+   {
+    "at": 1.55,
+    "match": [
+     "Goat"
+    ]
+   },
+   {
+    "at": 2.85,
+    "match": [
+     "Bunny"
+    ]
+   }
+  ],
+  "fx": [
+   {
+    "id": "lightning",
+    "at": 4.6
+   }
+  ]
+ },
+ {
   "key": "crooked",
   "short": "Crooked Man",
   "name": "The Crooked Man",
@@ -1290,7 +1655,41 @@ export const CM_ENTRANCES = [
    "Crooked Man"
   ],
   "appears": true,
-  "reveal": false
+  "reveal": false,
+  "tokenFlash": {
+   "at": 330,
+   "ms": 1600,
+   "curve": [
+    [
+     0,
+     0
+    ],
+    [
+     0.041,
+     0.8
+    ],
+    [
+     0.096,
+     0.06
+    ],
+    [
+     0.151,
+     0.55
+    ],
+    [
+     0.275,
+     0.22
+    ],
+    [
+     0.688,
+     0.22
+    ],
+    [
+     1,
+     0
+    ]
+   ]
+  }
  },
  {
   "key": "g-dani-jenkin",
@@ -2405,7 +2804,7 @@ export const CM_ENTRANCES = [
     "to": 2.9,
     "fadeIn": 0.02,
     "fadeOut": 0.5,
-    "at": 1.0,
+    "at": 1,
     "gain": 0.26
    }
   ],
@@ -2455,7 +2854,7 @@ export const CM_ENTRANCES = [
     "to": 2.1,
     "fadeIn": 0.02,
     "fadeOut": 0.4,
-    "at": 3.0,
+    "at": 3,
     "gain": 0.525
    },
    {
@@ -2731,7 +3130,7 @@ export const CM_ENTRANCES = [
     "to": 8.7,
     "fadeIn": 0.02,
     "fadeOut": 1.0,
-    "at": 3.0,
+    "at": 3,
     "gain": 0.78
    }
   ],
@@ -2820,7 +3219,7 @@ export const CM_ENTRANCES = [
     "to": 1.6,
     "fadeIn": 0.005,
     "fadeOut": 0.3,
-    "at": 3.0,
+    "at": 3,
     "gain": 0.454
    },
    {
