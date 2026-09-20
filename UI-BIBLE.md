@@ -10,6 +10,25 @@ try to live by it"*). Everything below is a rule, not a suggestion.
 
 ---
 
+## 0. THREE WAYS TO PLAY — every player action works in all of them (DM 2026-09-20, standing)
+
+*"remember there are three ways player can be playing 1. online using default foundry player UI 2. online with
+monitor and phone 3. in person with phone. make sure every action a player needs to do is accessible in all three
+methods"* — and, when a stair teleported a player with no prompt, *"i want the three playing methods to allow most
+basic options (obviously some are lost when not using mobile)"*.
+
+1. **Online, plain Foundry.** No shell at all: core UI, core dialogs, a token on the canvas.
+2. **Online, monitor + phone.** A shared screen they watch, the shell in their hand.
+3. **In person, phone.** The table's TV, the shell in their hand.
+
+**The test, before building anything a PLAYER does:** name the path in each of the three. In practice that means
+leaning on a mechanism core already has — a core dialog, a core region behaviour, a token drag — which the shell
+then merely skins, rather than inventing a shell-only control. The stairs are the worked example: the question is
+Foundry's own teleport confirmation, so plain Foundry shows it natively and a phone gets the same dialog through
+`liftDialogAboveShell`. Extras may be mobile-only; the basics may not. DM surfaces (the panel, the deck) are
+exempt — this rule is about players. The deck has its own sibling rule (deck-command: every action works on a
+plain Foundry table).
+
 ## 1. The one-app principle
 
 Phones and the DM panel are **one product**. A player should never feel they've crossed into a
@@ -290,6 +309,7 @@ lives in the two words plus the icon, and the tooltip carries any nuance.
 | Waiting on someone | Amber text + the word (`Waiting…`) | Never a spinner |
 | Progress | Gold bar + `count/target` | Bar always; numbers only if the player may see the rule |
 | Attention on another token | Gold-outlined **bell** in the header, gently pulsing (`.mc-bell-on`) | Lit when a save/reaction/AoO waits on a token you're **not** viewing; tap hops you there. Greyed + inert otherwise. Binary — no count (DM 2026-07-19) |
+| **A key whose next press does the OPPOSITE** | **The label changes to the undo verb, and the key is outlined** (a bright rim, not a new colour) | DM 2026-09-20, on the Crooked House action keys: *"this needs to be something used at a glance, so try to give cues like 'escape' state for intros look slightly different than others in some way (highlighted in some way)"*. A key that has fired and now reverses itself — an intro whose second press is **Escape**, a loop already running whose next press stops it — must be readable **without reading**: same picture, same place on the board, but rimmed, so the DM's eye finds the live ones in a grid of forty. The verb is the *next* action, never the state ("Escape", not "Escaped"). It is an OUTLINE and not a fill or a recolour because the board's colours already carry meaning — light-blue label = changes the map, gold ♫ = sound only (deck UI-BIBLE §1) — and a key must not change category just because it is armed. |
 
 **Never encode state in the name text.** `(dead)` on a token is a Foundry-side exception, not a
 licence.

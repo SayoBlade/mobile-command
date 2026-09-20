@@ -76,6 +76,7 @@ sections their cross-references always claimed).
 | 50 | **Ember compatibility** (deep dive + support layer) | **Investigated AND built 2026-08-21** — campaigns.js registry; music/rests/daylight stand down; clock+sky card off Ember's calendar (§50.11 = the time-engine record); creation door opens Ember's own widget with a fit-shim. Open: the campaign-tab slot + Ember tab contents; owed legs in §22.6 item 5b |
 | 51 | **Dark Bargains** — deny death by signing | **SPEC ONLY 2026-08-26** — three questions await the DM (§51.3); nothing built |
 | 52 | **The action list** — the panel's buttons published for the deck (`MobileCommand.actions`); the Crooked Moon's panel memory moved to `cmLiveState` + cm-live.js | **Stages 1–2 BUILT 2026-09-18** (Effects, Crooked Moon + requests), 29/29 headless; not yet run in Foundry; the other areas owed (§52.5) |
+| 53 | Sounds that play themselves — the region "Sound" behaviour, the door sets, the DM's ears; the Crooked House wired first (DM go 2026-09-20) | **BUILT 2026-09-20, increment 1 (the engine); the house wiring in increments** |
 
 ---
 
@@ -2060,6 +2061,32 @@ superseded: base and CM now share the lane). Filings that are general (the §50.
 question, the collect-gear nudge) count as BASE work, not Ember work.
 
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
+   - **His batch of 2026-09-19 (the deck's FX boards, the flows, the intros — DC ledger 152):** MC's half is
+     **built**: fog layers over rain/snow/leaves (§26.1), the intro camera centred and twice as close, the Crooked
+     Man's token flashing with his lightning, the Boogleswarm's intro, a streamed intro clip that can no longer
+     escape Stop, and the boss intro's roar fading (§40, §40.6). **Owed:** his ear on the Boogleswarm's sound (the
+     library has no weasel mob), and the deck-side questions in DC ledger 152.
+   - **Sounds that play themselves — the Crooked House (§53; DM go 2026-09-20 on 44 of the 46 house items of the
+     audio-automation catalogue, no on 31/32):** increment 1 BUILT 2026-09-20 — the region "Sound" behaviour
+     (catalogue 231), the four door sets (1/2/3/7), the DM hearing ambient sound from his own seat (230), arm-don't-fire
+     as a rule (119); 19 headless checks. **Owed, in order:** (2) the house wiring apply script — door sets on the 21
+     walls, the creak plan's patches (39/20/22/24/33, weasels muted until his file), the standing sounds (40–51, 70,
+     87, 96), the once-per-room introductions (116); (3) the deck's action keys' verbs and the armed-cue keys (DC
+     ledger 150/152); (4) the haunt state and the storm (118, 93, 12, 13, 213, 214, 227). ⚠️ Untested live; the
+     region menu, the door sets and the DM's ears need one session on the test world.
+     ~~**Owed (2): the house wiring apply script**~~ **RAN 2026-09-20 on the test world: 52 documents created,
+     21 doors given their sets.** Then, the same day: the levels + weasels pass (356 sounds normalised per file,
+     reversible via `flags.mobile-command.volumeWas`), the stairs teleporters moved to the **top** tread with a
+     player prompt (DM: "put the teleporter at the top of the stairs, and make sure there's a decision"),
+     directional lightning with inward-facing pane lights, weather loops ducked in indoor regions and halved,
+     and **the quiet pass**: eleven standing sounds measured, the eight short ones (1.3–11.5 s, each looping on
+     an ambient point, where `repeat` is inert) turned into occasional room cues with their own rarity, the old
+     points hidden and never deleted (DM: "the looping creaks and wood groans in the house are too often").
+     ⚠️ **FIXED 2026-09-20, same day it broke:** those eight cues were written with `tokenMoveWithin`, which
+     `region-sound.js` had left out of the events field's allowed choices — every scene load threw eight
+     validation errors and the cues could never have fired. The allowed list now holds every event the behaviour
+     is used with; the stored documents were always valid, so a reload is the whole repair.
+     **Owed: his reload, then his ears on whether the house is now too quiet rather than too busy.**
    - **The deck's Table — the panel's buttons on the Stream Deck (§52, DC ledger 151; DM 2026-09-18):**
      Effects + the Crooked Moon (and its twist/bargain requests) BUILT and published; **owed:** the
      live checks (DC ledger 151 (f)–(k)), his blue-shade pick, then the remaining areas (§52.5).
@@ -2067,18 +2094,25 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
      audio note):** built — resume core's suspended AudioContexts on a real tap, a card that waits
      for them to run, `audioSession = "playback"`, and a status line that names a paused context.
      **Owed: his reload of the iPad + DM screen, one tap, and what the status line then says.**
-   - **H1 executor identity (HIGH, one wrapper):** every handler authorises against the
-     phone-written `payload.requesterId`; read `this.socketdata.userId` (socketlib supplies it)
-     and ignore the payload field. Unblocks nothing else but closes ~35 spoofable checks at once.
+   - ~~**H1 executor identity (HIGH, one wrapper)**~~ **FIXED 2026-09-20.** `reg()` in `rpc.js` wraps all
+     **71** registrations and stamps socketlib's `this.socketdata.userId` over `payload.requesterId` before
+     any handler sees it, so ~35 spoofable checks closed without touching one handler. Verified first that
+     nobody legitimately acts on another user's behalf: all five places that set `requesterId` set it to
+     `game.user.id`. A local call carries no socketdata and is left alone (our own trusted code).
+     **Owed: a live check that phone actions still work** — the suites cannot exercise socketlib.
    - **H2 owner checks (HIGH):** `wildShapeInto/Revert`, `travelMark`, `operateInteractable`
      (+ proximity), `previewTargets`, `placementNudge/Rotate/Confirm` (match the session's
      requester), `openLoot` distance. Build together with H1.
-   - **H4 dead `ready` hooks (HIGH, three one-liners):** call the body directly in
-     `registerCharacterFiles` (auto-compile never starts), `registerDruskenvald` (no plate on
-     load), `initPauseGuard` (no first evaluate). Same trap combat-music.js already documents.
-   - **H14 copy (HIGH, minutes):** strip "see DESIGN.md" from module.json's description and
-     the two en.json hints; bump AC5E `verified` to 14.533.15.6; README "Requires" line
-     (libWrapper is not used, DAE only in comments).
+   - ~~**H4 dead `ready` hooks (HIGH, three one-liners)**~~ **FIXED 2026-09-20.** All three ran inside
+     main.js's ready hook, so their own `Hooks.once("ready")` registered after ready had fired and never ran:
+     the character-book compile timer **never started at all**, Druskenvald never synced on a phone (no canvas
+     → no canvasReady to rescue it), and the pause guard never judged a client that loaded already off the
+     active scene. Each now does the work directly, with the trap named in a comment.
+   - ~~**H14 copy (HIGH, minutes)**~~ **FIXED 2026-09-20.** module.json's description no longer sends a
+     user to DESIGN.md and no longer names a stale midi (14.0.11 → 14.0.12); the two en.json hints lost
+     "(DESIGN.md Q4)" and "(DESIGN.md D4)" (memory: no internal jargon in UI); AC5E `verified` 14.533.18 →
+     **14.533.19**; README "Requires" now reads midi-qol + socketlib, with DAE moved to Recommended —
+     re-checked 2026-09-20 that libWrapper is never called and DAE appears only in comments.
    - **Mediums (§28.5.11 list):** midiOptions whitelist · sender checks on phone receivers /
      fxOneShot / TV socket · `updateTokenTargets` → `setTargets` at rpc.js:780 · TTL sweep for
      parked workflows/placement/pendingCasts · enforcer legacy-backup revert · five missing
@@ -2787,15 +2821,39 @@ flash and delayed thunder, heatwave, blizzard, dust storm — plus a "magical" d
 | **client** | screen filters, sound loops | ONE world setting `fxActive` (`{fxId: true}`); every client diffs on `updateSetting` and mounts/unmounts locally | Same pattern as `tvVolume`: the TV re-applies deterministically after a reload; a late joiner catches up. No fire-and-forget state. |
 | **oneShot** | lightning | `socket.executeForEveryone("fxOneShot")` | A moment, not a state. |
 
-- **State sources in `fxIsOn`:** client effects read `fxActive`; pure-weather toggles read
-  `scene.weather` (authoritative — the scene config can change it under us); Night reads the
+- **State sources in `fxIsOn`:** ~~client effects read `fxActive`; pure-weather toggles read
+  `scene.weather`~~ **since 2026-09-19 EVERY weather key reads the scene's weather LAYERS** (below) —
+  Rain used to read `fxActive` because it has a sound while Fog read the scene, so the two keys could
+  disagree with each other and with the map; other client effects read `fxActive`; Night reads the
   darkness level, so it agrees with a sunset the DM set by hand.
-- **`scene.weather` is single-slot**, so turning on a weather-bearing effect clears every other
-  weather-bearing id from `fxActive` — otherwise Blizzard-after-Rain plays both loops over snow.
+- ~~**`scene.weather` is single-slot**, so turning on a weather-bearing effect clears every other
+  weather-bearing id from `fxActive` — otherwise Blizzard-after-Rain plays both loops over snow.~~
+- **LAYERED WEATHER (DM 2026-09-19: *"make sure I can have fog and rain simultaneously right now they
+  both appear selected but only the last runs"*).** `scene.weather` is still ONE id, but core's own
+  Downpour is fog + rain in one entry, so `registerLayeredWeather()` (every client, at init) adds
+  `mcFog+<precip>` entries — the ATMOSPHERE (fog, or the dust storm: fog + ochre filter +
+  wind) over ONE PRECIPITATION (rain / rainStorm / snow / blizzard / leaves); Downpour's own
+  `fogShader` keeps its id beside ours (`mcFogLayer`). `weatherLayers(scene)` reads the layers;
+  `dmToggleFx` replaces within a family (snow replaces rain, and drops rain's loop — the old
+  Blizzard-after-Rain guard) and leaves the other family alone (fog joins the rain). A weather key's
+  loop and filter follow its layer in `syncFx`, so a weather changed in the scene config cannot leave
+  a loop running. Fog and dust share the atmosphere; `fxActive.dust` says which it is. A client
+  without MC would draw nothing for a combined id — every client at an MC table has it. Headless:
+  `tools/test-actions.mjs` 37–42.
 - **Dust storm is a composite**: fog particles (the only dust-ish stock particle) + an ochre
   colour-grade filter + a low wind loop.
 
-### 26.2 Sound is SYNTHESIZED — nothing to license
+### 26.2 ~~Sound is SYNTHESIZED — nothing to license~~ → SUPERSEDED: recordings, with synthesis only as a fallback
+
+> ⚠️ **THE RULE REVERSED (DM, standing, restated 2026-09-19/20).** *"Never synthesize sounds or music"* — only
+> trivial foley (a tap, a footstep) may be generated. Everything else comes from his library, or he is asked for a
+> file. He caught this live on the lightning: *"the current lightning sound is horrible"*, and the thunder was
+> changed to library recordings the same day (`THUNDER_NEAR` / `THUNDER_FAR` in `effects.js`, with the old
+> `thunderSynth()` kept only for a machine that has neither file). The section below is the ORIGINAL 2026-07-26
+> reasoning and is kept for the synthesis that survives — the rain/wind loops, the bell, the heartbeat, the static —
+> but **"nothing to license" is no longer the design goal**, and a NEW effect should reach for a recording first.
+> See the audio catalogue for finding one.
+
 
 All audio is WebAudio filtered noise, generated at runtime: rain = band-limited hiss; wind = a
 narrow noise band whose centre/level wander (the wandering is the gust); thunder (v3, 2026-07-26)
@@ -5921,6 +5979,10 @@ bench proved twice, and the silencing machinery itself is the long-verified in-p
 
 ## 40. The boss intro — an entrance on the table's own screen (DM ask 2026-08-09, BUILT + bench-verified)
 
+> **2026-09-19:** its roar was played and forgotten — `AudioHelper.play` and no handle — so the end of the entrance,
+> Stop, and a restart all left it running. It is held and faded (0.8 s) by all three now (DM: *"make sure all sounds
+> fade out"*). §40.6's entrances already faded theirs.
+
 The DM's words: "first pause, then have the selected token's image appear enlarged on the screen
 first facing down playing a predetermined sound (set in widget by dragging a token and a sound
 into a container to 'create' a boss) and wiggles a little for about 2 seconds, then the token
@@ -6029,6 +6091,54 @@ outside the drag gesture too.
 > the sibling `audio-catalogue/campaigns/`), plus the headless verification tools. Moved out of the session
 > scratchpad at the commit. Book art, library clips, the built page and screenshots are .gitignore'd (derived
 > from licensed content). Every "scratch …" mention below predates the move.
+
+**THE CHAPTER-12 ADDITIONS — 2026-09-20 (DM ask, same day).** Four more intros, 90 → 94:
+- **Wisp** ("There's something off about that cat") — the Ketgrin plate, revealed from a silhouette.
+- **The Lurker in the Dark** — the Crooked Man's bolt and his white token flash, *no rain*: it is already indoors.
+- **A Monstrous Weasel** — the Vermin Familiar plate. ⚠️ **Deliberately unnamed.** The banner never says Filthy
+  Jasper (DM: "dont use his name"); the token it reveals is his, so the table meets a big weasel, not a hag's familiar.
+- **The Playthings** — the three nursery toys, and the first entrance whose art is **not the module's**: the DM
+  generated raven/goat/bunny in the book's style and cleaned them to transparency (`tools/entrances/decheck.py`),
+  and the same three pictures are the tokens (`mc-portraits/nursery/`). `gen_mc.py:art_path()` now lets any art key
+  point outside the module with a leading "/".
+
+**AN INTRO REACHES THE DECK BY TWO SEPARATE ROUTES — don't confuse them (traced 2026-09-20 after the DM asked
+why a new intro showed no deck key).**
+1. **Table → Crooked → Intro** (the `cm.entrance` pick). **Automatic.** The deck module calls
+   `MobileCommand.actions.snapshot({area})` live on every redraw and `choices()` re-reads `entranceList()`, so a new
+   entrance is there the moment the GM's **browser tab reloads** — no script, no service restart, no re-pair.
+   ⚠️ `DEFS` and `CM_ENTRANCES` are frozen at module-script import, so regenerating the files changes nothing until
+   that reload. This is the usual reason a new action "isn't on the deck".
+2. **A dedicated one-press key on the scene's FX board.** NOT automatic. `gen_intro_keys.py` must get the key in its
+   `SCENES` map (an assert fails otherwise), then the regenerated `crooked-moon-intro-keys.apply.js` must be pasted
+   into the GM console: it creates one Macro per entrance and writes its uuid into `scene.flags["deck-command"].sounds`.
+   The board is read from the **viewed** scene, the key lands on a later page if page 1 is full, and the scene name
+   must start with the map number. `setFlag` fires `updateScene`, which the deck already redraws on — so no restart.
+   ⚠️ **Three copies of that script exist** (the repo's `tools/`, `audio-catalogue/campaigns/`, and the one Foundry
+   actually serves at `Data/deck-command-office/`). The generator writes only the second. Copy all three or the DM
+   runs a stale plan — which is exactly what happened on 2026-09-20.
+
+⚠️ **Deck key art is fetched by the SERVICE over Foundry's own web server, and a failed fetch is cached until the
+service restarts.** The Playthings key is the first whose picture is not in the module folder
+(`mc-portraits/nursery/raven.webp`); verified 2026-09-20 to serve 200 over `localhost:30000`.
+
+**TWO NEW STAGE FIELDS, general to every entrance** (built for the toys, usable by any group or spectacle):
+- **`troop: [{at, match}]` — arrivals one at a time.** Each member's token is unhidden as its picture lands in the
+  banner, so the map never shows someone the banner hasn't introduced yet. The blanket unhide is skipped for a troop.
+  The pictures' stagger is the theme's own (`themes2.css .t-toys` → `animation-delay` per `nth-child`), and the sound
+  for each is simply a clip at the same second in `sounds.json` — no new sound machinery.
+  ⚠️ `artIn` declares only `from`, so its implicit `to` is the element's own style: a base `opacity:0` on a staggered
+  figure makes it fade from nothing to nothing. The delay's `backwards` fill hides it until its turn; only the single
+  frame before `.run` needs `visibility:hidden`.
+- **`fx: [{id, at, from?}]` — the banner throws one of the MAP's own one-shots.** The toys end on real §51 lightning:
+  the struck quarter is chosen once by the GM and the window panes on that side light inward, so it reaches the TV,
+  the monitor and the phones exactly as the storm's lightning does — not a flash painted on the banner. `effects.js`
+  is imported **dynamically at fire time** because it imports `entrances.js`; a load-time pair would close the cycle.
+  The three tokens flash white with it (`tokenFlash.at = 4600`, the Crooked Man's curve).
+
+Its timeline: music box + a far-off children's ambience from 0 · raven + caw 0.25 · goat + bleat 1.55 · bunny +
+a child's giggle 2.85 (the library has no rabbit; the giggle is the measured liveliest 1.6 s of `children-playing-2`)
+· lightning, thunder and the three token flashes 4.60 · out at 8.20.
 
 A richer boss intro was explored as two private artifact pages on the DM's account:
 **Crooked Moon Entrances** (https://claude.ai/artifact/Wph1YVAMpKrkD659wNSJVr — six banners,
@@ -6161,6 +6271,40 @@ him for one (memory `prefer-real-sounds`).
     Intro); the action list's `cm.entrance` (one pick, a portrait per NPC) + `cm.entranceStop`;
     `MobileCommand.playEntrance / stopEntrance / entrances`; the stylesheet also loads itself (module.json
     lists it, but Foundry reads that list only at world launch).
+  - **v17 — HIS FIRST LIVE ROUND (DM 2026-09-19, after watching one on his own table):**
+    - *"when zooming in intro, canter the token and zoom in more"* → the frame is **centred on the NPC and twice as
+      close**: 5 m / 15 ft radius (was 10 m / 30 ft), and the scene clamp is gone. The clamp was the reason it was
+      not centred: on the Crooked House's 21×24-square floors the view's own half-width kept the centre 8–13 squares
+      from the wall, so a villain near a side wall sat up to seven squares off-centre, and on a 16:9 screen the map
+      is narrower than the view, which pinned every frame to the map's centre line. Foundry's own pan limit still
+      keeps the view inside the canvas padding. ⚠️ **In person the portrait sits in the middle of the table screen**
+      (entrances.css), so a perfectly centred token is under it while the banner holds — he sees the token when the
+      banner leaves, a second later. If that reads wrong, the answer is a longer hold before the camera glides back
+      (`REVERT_AFTER_MS`), his call.
+    - *"for crooked man add a white overlay effect over the token during the lighting"* → `tokenFlash`, generated
+      per entrance (gen_mc.py `TOKENFLASH`, the curve taken from the banner's own `@keyframes bolt`): every client
+      that shows the banner lays a WHITE copy of the token's picture on the Token object and fades it along that
+      curve from its own banner start, so the two flashes land together. On the Token, so it shows only where that
+      viewer can see the token at all (a flash never gives a hidden villain away) and above the map's darkness, as
+      lightning is. Nothing is written — a moment, not a state; Stop and teardown remove it.
+    - *"add an intro for the boggleswarm see if you can find another skittering sound or something relevant"* → the
+      **Boogleswarm** (the book's spelling; the "tooth-hungry fey weasel mob" of H9 and the portrait curse) is the
+      47th themed entrance — silhouette reveal, a weasel running the length of the banner (Vessla's sprite), its
+      tokens unhidden as it pours in, on the 12.1–12.4 boards. Its sound is deliberately NOT the insect swarm
+      (*"the swarm sound is for insects, don't connect it to the weasels"*): a rodent swarm (Beginner Box, 4.5–13.2 s)
+      under a whisper swarm for its Mimicry. **Unheard by me** — the library has no weasel mob at all, so the need is
+      on the audio shopping list and the pick is one line in `mkspec.py` when he finds a better file.
+    - **A streamed clip could escape Stop** (the five long beds): "stopped" was only checked before `play()`, so a
+      Stop, a restart or the end fade landing while the browser was still starting it left the clip to play its whole
+      window after the banner had gone — likeliest on the iPad, seeking deep into a long file. It re-checks now.
+  - **v18 — AN INTRO IS THE REVEAL (DM 2026-09-20, watching the Jenkins):** *"the intro for the family outside just
+    intros them but doesn't reveal."* Until now `dmPlayEntrance` unhid an NPC's tokens only when the entrance was in
+    `stage.json`'s `appears` list (three keys: the Crooked Man, the crow demon, the Boogleswarm) or when no token
+    existed and one had to be placed. Every other NPC — the Jenkins among them — is shipped hidden on the module's maps,
+    so playing their banner announced somebody who never appeared. Playing an entrance IS the DM saying they are here,
+    so it now unhides the matched tokens every time. `appears` keeps its other meaning (the book's staged arrivals,
+    which also rise out of shadow via `reveal`), and a transformation is untouched: its own swap hides the known form
+    and shows the monster at `change`.
   - **The stage (DM, same day):** *"focus the MC camera on the NPC and zoom so there's ~30m radius around
     them, 1 second after the intro's end revert to the last view"* → the TV frames the NPC's token(s) at
     ~~100 ft (30 m) radius~~ **30 ft (10 m) radius — DM, after seeing it live on his own table (2026-09-19,
@@ -7822,3 +7966,346 @@ edited file; an ESLint no-undef pass (Foundry's bundled linter) on the panel aft
 TV (display camera + fog) · Clock & HP · Combat (incl. roll requests — their selection moves out of
 panel memory first) · Sound (Mute) · Party · Rest (the rest draft moves first) · Travel (route +
 journey move first) · the rest of Requests (reaction chips, pending casts). *Ledger: §22.6 item 0.*
+
+
+## 53. Sounds that play themselves — the Crooked House first (DM go 2026-09-20; increment 1 BUILT)
+
+**Where it comes from.** The audio-automation catalogue (`audio-catalogue/campaigns/crooked-moon-audio-automation.md`,
+249 numbered proposals, 2026-09-17) and the DM's second pass over it on the page regrouped by chapter
+(2026-09-20): **go on 44 of the Crooked House's 46 items** — every door, floor, thing-in-the-room, bed, step-in and
+storm item — and **no on 31 and 32** with the rule behind it, *"direction for sound is meaningless, so things like
+footsteps upstairs and behind them won't actually do that"*; plus *"make sure sounds don't duplicate actions"*.
+Those two rules bind everything below: a cue is designed by WHAT it is and WHEN it fires, never by where a
+listener would place it; and every beat has ONE owner — the deck's action key (A-number, DC ledger 150) or the
+cue, never both (catalogue 182/209).
+
+**The engine underneath (increment 1, 2026-09-20) — the four "before any sound" items, built as plumbing:**
+
+- **231 — "Sound" in Foundry's own region menu** (`scripts/region-sound.js`, type `mobile-command.sound`, declared
+  in module.json `documentTypes` and named in lang/en.json). Beside Teleport and Darkness: a *sound set* (or one
+  file), how loud, how far it carries (0 = everyone, everywhere), walls on/off, where it comes from (the token or
+  the region's middle), the *rule* — every time · once · on chosen passes ("3, 12", then the count starts over) ·
+  one time in N · **arm** — a quiet time after a play, *only player characters* (default on: a hidden monster
+  crossing a board never gives itself away), muted, and the count, which lives on the region. The arithmetic is a
+  pure file (`cue-rules.js`, 11 checks) so the behaviour stays a wrapper.
+  - **One client decides** (six browsers must not play six creaks): for the *animate* events — the token's
+    picture actually reaching the patch, the honest moment for a footstep — the one active GM viewing the scene
+    (`User#isDesignated`); for the *move* events (the document change, seen everywhere) the designated active GM,
+    and only when no GM views the scene, because the animate event already covered that step. The chosen client
+    plays for everyone through core's own positional one-shot (`SoundsLayer#emitAtPosition` → the
+    `playAudioPosition` socket): every client hears it from ITS listeners — the TV from the party (§23), the DM at
+    full (core's `gmAlways`), phones not at all (their environment channel is zeroed, §14). "Room sound → TV only"
+    therefore needs nothing extra.
+  - **The count is written by the deciding GM** (`behavior.update`) — players cannot update a region, so no GM
+    connected means no cue, which is the right failure. The cooldown and the last take are kept in memory on
+    that client (never twice the same take running).
+  - **Arm, don't fire (119)** is a rule, not a separate feature: the cue marks itself armed, raises
+    `mobile-command.cueArmed`, and `MobileCommand.cues.fire(uuid)` plays it. `cues.list(scene)` is the per-scene
+    list (232), `cues.mute`, `cues.reset`, `cues.armed` the DM's side (231's "fire-now, mute and reset-count").
+- **230 — the DM hears the table.** Core gives a GM controlling no token no ambient sound at all; the display's
+  party-listener fallback (§23) now serves the GM's own client too, behind the world setting **The DM hears the
+  table's ambient sound** (`dmHearsTable`, default on). Only the listeners are shared — the combat POV and the
+  follow filter stay the display's. Select a token and core's own answer is back. (For one-shots nothing was
+  needed: `Sound#playAtPosition` already plays at full for a GM.)
+- **The door sets (1, 2, 3, 7)** — `scripts/cue-sets.js` registers four `CONFIG.Wall.doorSounds` entries on every
+  client: *Crooked House door* (five creak takes to open — core picks one at random, "the cheapest realism in the
+  whole list"), *front door* (the groans, heavier), *attic door* (dry, splintering — the little door on 12.4; the
+  "Secret Landing door" of item 3 is the same wall, its plain-map twin being the second), *bathroom door* (wet when
+  tried — the kitchen oven is painted art, not a door wall, so 7 lands on the bathroom alone). The walls are pointed
+  at them by the wiring script (increment 2). Every take is a library recording; 26 paths checked on disk.
+- **99 — Colored maps only** was already his decision (2026-09-18): the wiring touches `skzmyUz6MM2U4862` (12.1),
+  `LTGEO7JXWxFvbcIJ` (12.2), `gl3mouQf0eAdouY5` (12.3), `N7rxbhvGMk3cs6k5` (12.4) and nothing else — not the
+  black-and-white twins, not the stray partial "First Floor, Colored" copy (`cL4Vl3RXNTWo4pU8`, no pins, no tokens).
+
+**The sets (the DM's rule: simple single sounds, nothing layered).** Crooked House creak — Craking Wood 2, 9, 12,
+17, 18, 27 (21 and 29 sound like doors and are kept for doors; 24 is cracks; the ratcheting ones read as machinery);
+stair tread — Wood Creaking (Horror bundle), Wood 7, 10; loud groan (21's running step) — Wood 27, 28; teeth
+underfoot — Broken glass 4 (a GAP: the library has no crunching teeth); scratching in the walls — Scratching.mp3,
+the stand-in for the weasels (**never the insect swarm**, DM 2026-09-19; the library has no weasel mob — on the
+audio shopping list).
+
+**What increment 2 places (the wiring apply script, test world only, idempotent, creates and updates, never
+deletes):** the 21 doors' sets; the creak plan (39, drawn in `audio-catalogue/campaigns/crooked-house-creak-plan.jpg`):
+per floor one warning that creaks every time two squares before the first trap the party meets, an optional second,
+decoys at 1 in 3 from the same set, one counted tread on each stair at "3, 12" (22), the Cauldron Room's teeth every
+step with no quiet time (24), the weasel patches at 1 in 10 along the wall cavities (33, muted until his file);
+the standing sounds (40–51, 70, 96): ambient points with a room-sized radius and walls, the ones an action key
+reveals placed hidden (43 harpsichord/A89, 44 oven/A93, 46 cradle/A110, 49 hearth/A83, 50 bed/A106, 51 runes/A116);
+the storm bed per floor (87) as the floor's ambience; the once-per-room introductions (116) as *once* cues from the
+region's middle. Room geometry comes from the world itself: the H-pins' coordinates and a flood fill over the
+move-blocking walls (`scratchpad/rooms.mjs` of the 2026-09-20 session), so nothing is placed by eye.
+
+**Increment 2 — the wiring, GENERATED 2026-09-20, NOT YET APPLIED.** `audio-catalogue/campaigns/crooked-house-wiring.json`
+(the plan) and `crooked-house-wiring.apply.js` (test world only; idempotent by `flags.mobile-command.cm` keys; creates and
+updates, never deletes), made by the session's `gen-wiring.mjs` from the world's own geometry: **25 cues** (15 creak
+patches per 39's drawing — warnings every time, decoys 1 in 3, two counted stair treads at "3, 12"; the Cauldron Room's
+teeth every step; five weasel patches at 1 in 10, muted; four *arm* areas for A89 / A92 / A103 / A108), **22 standing
+sounds** (six hidden until their key), **the 21 doors' sets** (front, bathroom, attic, the rest the house set) and
+**4 floor beds** as scene Ambience (playlist "CM 12 — Beds"). Drawn over the Colored floors for the DM
+(`scratchpad/wiring-12.x.jpg`, `wiring-sheet.jpg`) before anything is written. ⚠️ **Before the apply: the world must
+be relaunched** — module.json's new `documentTypes` is read when a world launches, so a running world refuses the
+type until Return to Setup → Launch; then a GM reload, then the script in the console. Then the live pass: walk a PC
+across a warning (creaks every time, the count climbs on the region), a decoy (1 in 3), the stair (3rd and 12th),
+the teeth (every step), the arm areas (`MobileCommand.cues.armed()` shows them), and the DM's ears with nothing
+selected.
+
+**Applied 2026-09-20, and the first live round (DM: *"sounds sound great and are very unsettling, i love it"*).** 52 documents
+created, 21 doors re-voiced, nothing skipped; his own walk drove three creak patches and armed A89 and A92 on their first
+crossing. **Four things he asked for immediately afterwards, all built the same evening:**
+
+- **WHAT IS ALREADY ON THE MAP IS HIS.** He moved the kitchen creak from col 13 row 7 to col 12 row 6 — and the apply
+  script, as first written, would have dragged it back on the next run (it updated `shapes` and `system` on anything it
+  recognised). It now **creates only what is missing** and reports the rest as *kept*: position, rule and level of an
+  existing cue or sound are never touched again. His placement is copied back into the plan, so the drawing and the
+  world agree. A deliberate change to a placed cue is a separate, named script from here on.
+- **THE WEASELS ARE A KEY** (catalogue 33; the third time he has asked for that trigger to be his hand). The five wall
+  patches stay as PLACES, switched off as triggers; `cm.weasels` ("Weasels in the walls", *sound*, the paw) plays the
+  patch nearest the party and avoids repeating the same wall while they stand still. It reads `cues.list()`, which now
+  carries each cue's `at` — a centre computed from the region's SHAPES, not its drawn object, because the client that
+  decides is often one that is not looking at the scene (`regionCenter`, exported).
+- **AN INTRO IS THE REVEAL** (§40.6). DM, on the Jenkins: *"the intro for the family outside just intros them but doesn't
+  reveal"*. `dmPlayEntrance` unhid tokens only for the three keys the book stages as an arrival (`appears`) or an NPC
+  whose token it had to place — so introducing anyone already sitting hidden announced a character who never showed up.
+  Every intro now unhides its NPC's tokens on the stage scene; `appears` keeps its other job and a transformation is
+  left to its own swap.
+- **THE DECK'S SOUNDS ARE LEVELLED** (deck ledger; DM: *"sounds are too loud in most cases, eerie whispers shouldn't be
+  that loud, screams are a bit too loud (i don't REALLY want to scare players too much), keep it a bit quieter"*). All
+  361 linked sounds sat at a flat 0.5 while their measured loudness spans **48 dB**, so a loud recording blasted and a
+  quiet one was inaudible. Each is now set from its own measured loudness (`audio-catalogue/data/features.jsonl`,
+  `loud_db`) to land at one level, with whispers 7 dB under it, screams and cries 5 dB under, laughter 3 dB under and
+  impacts 2 dB over; peak-limited so nothing clips. 356 change — 211 quieter, 145 louder (files nobody could hear). The
+  old value is kept in `flags.mobile-command.volumeWas`, so it reverses.
+  ⚠️ **The ambience is deliberately untouched** — *"the ambiance sound is GREAT as is (including regions)"*.
+
+**THE CROOKED HOUSE ACTION KEYS — THE DM'S PICK (2026-09-20).** From the 57 in the register
+(`audio-catalogue/campaigns/crooked-moon-action-keys.json`, chapter 12), he chose **50**, then amended:
+- **IN, added on the second pass:** A84 (the parlour hearth dies, the fire loop stops, darkness falls) — he had
+  skipped it although he named it himself in September.
+- **OUT, his call:** **A124** (a boogleswarm pours out of the nearest wall) — *"it sounds like it has potential to
+  fail, lets pass"*. **A127** (a door opens by itself) is folded into A125, because he asked for ONE key that opens
+  **or** closes the nearest door. **A78** and **A82** were explained to him and are awaiting his answer.
+- **A122** (the Crooked Man folded nearly square) — he answered A84 and not this one; treated as OUT until he says.
+- **ESCAPE STATES, widened (DM: *"add an 'escape' state for the crooked man too"*).** The second press reverses the
+  first: it was asked for on the two intro keys (A131 Filthy Jasper, A132 Wisp) and now covers the Crooked Man's
+  visits (A120, A121, A123) — press to bring him, press again to send him away. UI-BIBLE §5 carries the look: the
+  label becomes the undo verb and the key gains a bright OUTLINE, never a new colour, so an armed key does not
+  change category. Build every one of these as a two-state key from the start rather than retrofitting.
+- **HIS TWO DESIGNS, APPROVED (*"44 and 56 sound good"*):** A121 is carried by three or four heavy impacts walking
+  round the room's walls with a jolt each, not one bang — the token is almost incidental. A133's real job is to turn
+  the haunt OFF in one press: every standing loop stops, all eight room cues go quiet, the rune lights die, each
+  floor's ambience swaps to the calm bed (A134), the darkness lifts a step, and a long settling groan runs under it.
+- **BOARD LAYOUT (his instruction):** page 1 = that floor's ROOM keys (location-contextual, his stated priority);
+  page 2 = the wider actions (doors, the Crooked Man, the house itself). ⚠️ **Where a full action takes over a beat,
+  the plain sound key that duplicated it comes OFF the board** — his no-duplicates rule.
+
+**THE ACTION-KEY RUNTIME — BUILT 2026-09-20 (deck-command `foundry-module/scripts/action-runtime.js`).**
+All 52 house keys are COMPOSED from eight verbs; a key is never a new mechanism, only a new arrangement, which
+is why the set can reach fifty without the runtime growing. 131 headless checks pass (was 120).
+
+| Verb | What it does | The thing worth knowing |
+|---|---|---|
+| `intro` | an NPC's entrance | already shipped; MC's banner, or the picture to everyone |
+| `roomSound` | one recording for the table | MC keeps it off the phones (TV + DM only); a plain table broadcasts |
+| `door` | open / close / lock / **toggle** | a LOCKED door is left alone on a toggle — a stray press must not unlock the plot |
+| `light` | hide / unhide lights | never deletes; naming none means the whole floor, which is "darkness falls" |
+| `tokens` | show / hide / **re-picture in place** | matches the token's name AND its actor's, so one key fits the plain and Coloured maps |
+| `loop` | an ambient point on or off | by the wiring's flag; creates and deletes nothing |
+| `cue` | an MC room cue muted or woken | ⚠️ **separate from `loop` on purpose** — see below |
+| `fx` | lightning, the storm, the bell | MC owns the look; a plain table at least hears the recording |
+
+⚠️ **`cue` EXISTS BECAUSE THE QUIET PASS MOVED THE GOALPOSTS.** Eight standing sounds became MC room cues that
+fire now and then, and their ambient points were hidden. So "stop the screams in the oven" (A93/A94) and "Petunia
+fades" (A95) must reach the CUE, not the point `loop` knows about. It writes the behaviour document directly — no
+MC import, no version handshake — and at a plain table nothing matches and it returns false, which is correct:
+that table never heard the sound.
+
+⚠️ **NOTHING IS NAMED BY DOCUMENT ID.** `door`, `light`, `loop` and `cue` all take `cm`, the flag the wiring
+wrote. A generated key carrying a document id would be true in exactly one copy of the world and a lie in every
+other. A key that NAMES a door and cannot find it returns false rather than falling back to the nearest one —
+better nothing than the wrong door swinging open in front of the table.
+
+**`MobileCommand.playSound({src, volume, at, radius})`** was added so the deck has a supported seam to the
+table's speakers instead of reinventing the routing: it is §26's `fxSound` one-shot, so phones drop it.
+
+⚠️ **A TEST TRAP WORTH NOT REPEATING.** The first harness did `try { return fn() } finally { restore() }` around
+an async body, so the fake world was torn down at the body's FIRST await and every later call in a test ran
+against nothing — the verbs correctly returned false and four tests failed. `await fn()`. The tests were wrong,
+not the runtime.
+
+**ART FOR THE HOUSE KEYS — DONE 2026-09-20, and the recipe that worked.**
+- **The six mementos** (A115) are named by the book, not invented: Keziah Endicott's bloodstone (Gallery),
+  Joseph Patrini's black ivory harpsichord key (Music Room), Petunia Lockwood's teacup (Conservatory), Sally
+  Lockwood's wooden doll (Children's Room), Arthur Lockwood's blue teddy bear (Nursery), Gail Patrini's silver
+  hairpin (Trophy Room). Installed as 512px transparent tokens in `mc-portraits/mementos/`.
+- **Vessla's remains** (A119) → `mc-portraits/vessla/teeth.webp`, drawn TOP-DOWN.
+- ⚠️ **A121 GETS NO BESPOKE ART (DM 2026-09-20: *"lets leave it, i can just narrate it while showing his normal
+  token"*).** Two prompts for the Crooked Man in the noose were refused by Gemini as self-harm imagery, and a
+  marionette rewrite was not worth more attempts: the beat is carried by the wall slams and the shake, so the key
+  shows his EXISTING token and the DM says the rest. **Don't re-attempt this image.**
+
+**THE IMAGE RECIPE (learned across the toys, the mementos and the teeth — follow it):**
+1. **Ask for several props in ONE picture**, evenly spaced in a row, clearly separated — one generation instead of
+   six, and `tools/entrances/cutsheet.py` splits them, keys the background out and writes square WebP tokens.
+2. **Demand a solid flat mid-grey background, no drop shadow, no glow, nothing touching the frame edge.** A
+   generator asked for "transparent" bakes a CHECKERBOARD into the pixels — that cost a whole evening and needed
+   `decheck.py` to undo. Flat grey needs none of it.
+3. **A figure is drawn upright; an object lying on the floor is drawn TOP-DOWN** ("as if the camera were mounted on
+   the ceiling… no horizon, no walls, no side of anything"). Generators default to three-quarter unless that is
+   taken away explicitly. Upright matches the book's own NPC tokens and the three toys — a lone top-down figure
+   would look imported from another game.
+4. **Never ask for the floor under an object** — a token carrying floorboards pastes a square of someone else's
+   flooring onto the map. That was a mistake in the first teeth prompt, caught before he generated it.
+5. Soft shadows in the picture sit only a shade off the flat field, so `cutsheet.py` takes a keying floor
+   (`lo`): 18 for a shadowless sheet, ~26 when the generator added shadows anyway.
+
+**⚠️ THE STAIRS PUT THE PARTY'S TORCHES OUT — AND IT WAS OUR BUG (DM 2026-09-20: *"why does the light from my torch
+stop working on teleporting between floors, it 'stays on' in the torch module button, but doesn't give off light"*).**
+Traced end to end 2026-09-20; neither core nor the torch module was at fault.
+- **A cross-scene teleport is not a move.** `Region#teleportTokens` updates the token when the destination is in the
+  SAME scene, but when it is in another scene it **clones the token's full source, creates the copy there and deletes
+  the original**. The clone is faithful — `light` AND `flags.torch` both cross intact.
+- **`createToken` then fired our own hook** (`rpc.js`), which called `applyPcVisuals`, which wrote
+  `light = {bright: tokenGlow, dim: 0}` **unconditionally**. With `tokenGlow` at its 0.1 default, a torch's
+  bright 20 / dim 40 became bright 0.1 / dim 0 — visually nothing. The torch's STATE is a flag on the token and was
+  never touched, so the HUD button still read lit. Toggling off and on healed it because that rewrites the light.
+- **A second, worse site:** the `updateActor` health-ring hook gated on `if (td.ring)` while `td.light` rode along on
+  the same object — so with health rings on, **every hit point lost blew out a lit torch**, no teleport needed.
+- **THE FIX IS TO STOP CLOBBERING, NOT TO RE-APPLY.** The torch module consumes a torch from inventory when it is
+  switched off, so healing by toggling would burn one every teleport. `alreadyLit()` now guards the glow: it is
+  applied only to a token not already emitting more than the glow — which covers a torch, a lantern, the Light spell,
+  a DM-placed light and anything DAE sets, **without knowing any of them by name**. The torch module's own flag is
+  checked as well, because it writes state and light as two separate updates and a token caught between them is lit
+  without looking it yet. The ring-only hook now deletes `td.light` outright.
+- ⚠️ This is `rpc.js`, so it takes effect only after the **executor/DM client** reloads, not a player reload.
+- Correction owed to §earlier notes: the torch module **does** expose a public API (`game.Torch`: `toggle`,
+  `extinguish`, `currentSource`, `currentState`, `selectSource`…), documented in its own README — the old note that it
+  "ships minified — no readable API to integrate" is wrong.
+
+**THE BANNER COVERED THE TOKENS IT WAS INTRODUCING (DM 2026-09-20: *"move the camera focus higher the tokens are
+hidden by the banner"*).** The wall layout's name band runs from 60% to 79% of the screen's height and the camera
+framed the group dead centre, so the very tokens the intro pointed at sat behind it. The camera now looks at a point
+BELOW the group, lifting it to 30% down — the middle of the clear strip above the band. ⚠️ **Wall layout only**: in
+the table layout the three bands sit at the edges and the middle is already clear, so the same lift would push the
+tokens under the TOP band. Still open: the NPC's own picture occupies the right side from 8% to 72%, so a token far
+to the right can still sit behind the figure — no lift fixes that, and the DM has not reported it.
+
+**PLAIN WORDS ON THE PROMPT (DM 2026-09-20: *"change the text to something that sounds less sci-fi"*).** The region carries its own question ("Go up to the second floor?"), but the dialog's BUTTONS are core's and a region cannot set them: "Teleport" and "Don't Teleport", with "Do you want to teleport {token}?" as the fallback. `plainTeleportWording()` in `scripts/main.js` rewrites those at `setup` — "Go through" / "Stay here" / "Move {token} on?". ⚠️ **They are CORE keys**, so it is gated on the Crooked Moon tools being on (default on only when that module is active): a sci-fi table, where "Teleport" is the right word, is left alone. If the DM sees core's wording anyway, the stairs script has not been re-run since the question text was added.
+
+**THE STAIRS WERE PAINTED SCENERY (DM 2026-09-20: *"i seem to be missing the teleporter for the stairs!?"*).** He was
+remembering the Ghostlight, whose car doors §37 wires as core Teleport-Token regions; the house never had any — each
+floor is its own scene carrying one darkness region and nothing else, so its staircases went nowhere. Built:
+`tools/crooked-house-stairs.apply.js` — four ONE-SQUARE regions making two links, each pair on the SAME square of both
+maps, because one staircase comes out where it comes out: **12.1 (10,14) ⇄ 12.2 (10,14)** (the grand stair out of the
+Foyer) and **12.2 (7,9) ⇄ 12.3 (7,9)** (the flight off the upper hall). Squares read off the map and checked against
+the walls: each centre is open floor with at least two neighbours you can walk in from. Landing is `placement:
+"center", snap: false` — the train's lesson was that a SNAPPED arrival can shove a token inside an interior wall, and
+a one-square destination makes the centre a known-clear tread. A teleport arrival cannot bounce back: core ignores a
+`displace` arrival (`teleport-token.mjs`), so a region is safely both trigger and destination. Settings copied from
+the train doors (visibility LAYER_UNLOCKED, the same teal) except that these ship ENABLED — you can always walk
+upstairs. ⚠️ **BOTH ENDS OF THE FIRST PLACEMENT WERE WRONG, and he caught them in one press** (*"i just touched the bottom of
+the staircase and got teleported off, no question, no[t] only are you confusing players your making them miss out of
+the creaking stairs, put the teleporter at the top of the stairs, and make sure there's a decision by the player"*).
+(a) **The bottom fires before the climb** — a foot on the first tread teleports, one square before §53's counted
+creak, so the stair's own sound could never play. The trigger moved to the LAST tread, where the flight goes through
+the ceiling: 12.1 (9,13) ⇄ 12.2 (9,13), 12.2 (6,9) ⇄ 12.3 (6,9). (b) **It moved people without asking** — copied from
+the train, where the DM drives and a dialog would be in his way. Stairs are the player's own step, so `choice: true`
+with a named question per end ("Go up to the second floor?"). That is also the THREE-WAYS rule's worked example
+(UI-BIBLE §0): the question is Foundry's own confirmation, so plain Foundry shows it natively and a phone gets the
+same dialog lifted over the shell — no shell-only control was invented. The re-run corrects a region still sitting on
+the old square and **leaves any region he has moved himself**.
+
+**The attic is deliberately not linked:** it is reached by the hidden pull-down ladder in the Trophy Room
+(action key A114), so it becomes a teleport the day that key is built, or sooner if he points at the trap door's
+square.
+
+**THE WEATHER STOPS AT THE DOOR (DM 2026-09-20: *"The weather effects in the deck rain/downpour/etc. seem to ignore
+the indoor region and are VERY loud both indoor and out"*).** Two faults. (a) Foundry's `suppressWeather` region
+behaviour — one on every Crooked House floor — takes the rain off the MAP indoors and was never wired to the sound,
+so an interior was as loud as the porch. `applyFxVolumes` now ducks the weather LOOPS to silence over 0.75 s when
+every token the client listens through stands inside a weather-suppressing region, and brings them back on the way
+out; it reads core's own `token.regions`, so it works in any building in any world, needs no setting and no
+authoring. Thunder is exempt (a storm is heard through a roof) and the §53 floor beds carry the storm indoors.
+(b) The loops were **halved** (−6 dB): every one was tuned by meter, never against a room. The Loudness drawer
+(§26.5) still doubles any of them back.
+
+**LIGHTNING COMES FROM SOMEWHERE (DM 2026-09-18, re-asked 2026-09-20: *"my request for directional lightning … its
+still something I want that replaces the simple full screen flash"* — and he was right, the plan said windows and the
+build shipped a wash).** The struck quarter is chosen ONCE by the client that fires and rides in the payload, so the
+TV and the DM's screen never light from different sides. Every canvas client then draws shafts leaning in from the
+windows FACING that way — the map's own window walls, which Foundry marks `PROXIMITY` for sight and light (12.1 has
+25, 12.2 six, 12.3 six), filtered to the leading 45% of the building along the light and to panes lying across it
+rather than along it. The shafts stutter on the entrance banners' own bolt curve over ~420 ms.
+⚠️ **AND THEY ARE CONES, NOT LAMPS (DM 2026-09-20, third look: *"the effect ends up looking like the lighting is
+inside the house flashing outward, especially in the west side"*).** He read it exactly right: a point source sitting
+just inside a window IS a lamp in the room — it throws as much light back out through the pane as into it, which on a
+west wall with the strike in the west is the effect running backwards. Each source is now a narrow wedge aimed along
+the strike's travel (104°, 120° for a distant one), so nothing goes back the way the lightning came, and the sources
+sit 0.6 of a square in so the cone's point is off the wall. Foundry aims a limited-angle source at **`rotation + 90`**
+degrees in canvas space (`LimitedAnglePolygon`: `aMin = rotation + 90 − angle/2`), so the rotation is the travel
+bearing minus ninety; the diagonals use `Math.SQRT1_2` exactly, and all eight quarters were checked to land the cone
+on the travel vector to within 1e-12.
+
+⚠️ **Deliberately NOT real light sources.** Temporary PointLights would stop at an interior wall, but each strike
+would force a full lighting recompute several times a storm on a modest machine (memory: flag-performance-cost).
+This is one Graphics object, a few polygons and ~420 ms of ticker — no lighting pass, nothing retained. Shafts that
+respect inner walls are the upgrade, and his call to pay for it. A scene with no windows (the attic, the open road)
+keeps the full-screen wash, which is correct out of doors; phones keep it always.
+
+**THE STRIKE, SECOND PASS — real lights, real thunder (DM 2026-09-20, same evening).**
+
+- *"the light region lighting is a total bust, its VERY unclear, try actual lights and we'll see if its sustainable,
+  don't go overboard"* — and the reason the drawn shafts failed is worth keeping: **12.1 sits at darkness 0 with
+  global light on**, so an additive white polygon over already-bright ground is almost invisible. Foundry's own
+  lights DO read there, because a coloured light paints its coloration layer over lit ground as well as dark — and
+  it is clipped by the walls, so the glare stops at a doorway like real light. `paneLights()` makes document-less,
+  client-side `PointLightSource`s just inside each lit pane, **at most six**, two pulses of ~90 ms (`remove()` /
+  `add()`), then destroyed — four lighting refreshes for a whole strike, nothing written, nothing to clean up, and
+  a belt-and-braces sweep at 2 s so a light can never be left burning. Any throw falls back to the white wash.
+- *"the current lightning sound is horrible, can you find a better one?"* — he caught me breaking our own standing
+  rule (never synthesize anything but trivial foley). Thunder was three layers of filtered noise. It now plays his
+  own library, never the same take twice running: **close cracks** (Dark Fantasy Studio Thunder 19, 20, 22, 24, 26)
+  for the key, **distant rolls** (2, 3, 5, 7, 8) for the storm's own strikes, both through the Lightning volume key.
+  The synth stays as the FALLBACK and earns it: mobile-command ships no audio, so a table without his library still
+  gets thunder instead of silence.
+- New seam: the **`fxSound` one-shot** — { src, volume, at, radius, fadeAfter, fadeMs } — one recording on every
+  screen with speakers, optionally from a point on the map, optionally fading away. The story keys use it instead
+  of each inventing its own playback.
+
+**"TEDDY RETURNED" (DM 2026-09-20; catalogue 46, action key A110).** *"stops the crying and light in crib and gives
+the laughing child sound fading out, a very quiet 'divine hum' and the laughter loop stops appearing in the
+ambience."* One key, four things: Arthur's wail and the rocking cradle go quiet, **the module's own blue glow in the
+crib goes out** (12.3's single `#1a5799` light, matched by colour so a re-imported scene still finds it), a child
+laughs once and fades over three seconds, and a very quiet hum is all that is left. A **toggle**, not a shot, so a
+misfire is one press back and a second press never stacks another laugh. The laugh is deliberately a MOMENT — that
+is his "stops appearing in the ambience": it is fired, not placed, so it can never become a bed. The hum is a new
+hidden standing sound (`12.3:sound:hum`, the Abomination Vaults resonant loop at 0.18) that the key reveals.
+⚠️ **GAP: the library has no child laughing.** Distant children playing (Ember) stands in, quiet and fading. On the
+shopping list.
+⚠️ The wiring rows are keyed so his own rearranging survives: he moved several nursery sounds by hand, and the new
+hum was appended AFTER the existing rows so no numbered key shifted under a document already in his world.
+
+**THE HOUSE STOPPED REPEATING ITSELF (DM 2026-09-20: *"the looping creaks and wood groans in the house are too
+often, the whole soundscape is a bit crowded (running should be VERY rare, laughter rare, etc.)"*).**
+
+Measured cause, and it was mine: **a Foundry ambient point ALWAYS loops** — `repeat` is inert on it — so the
+length of the recording IS how often you hear it, and eleven of the standing sounds are short takes. The bed
+rustled every **1.3 s**, the cradle creaked every **2.9 s**, Adela moaned every **3.0 s**, the chandelier every
+**4.3 s**, the ichor hissed every **7.9 s**, Arthur wailed every **8.8 s**. That is a metronome, not a bedroom,
+and putting eight of them on four floors is what made it crowded.
+
+Eight became §53 **cues over their own room** instead — `TOKEN_MOVE_WITHIN`, one crossing in N, a long quiet
+time — so each happens now and then while the party moves about, with its own rarity per his ruling that rare
+things must be rare: Arthur 1 in 3 (the nursery's signature), the oven's screams and the cradle 1 in 4, the bed
+and Adela 1 in 5, the chandelier and the ichor 1 in 6, Petunia 1 in 8. The old points are **hidden, not
+deleted**. What genuinely runs continuously stays a loop, because it should: the clock ticking every two
+seconds IS a clock, and the hum, cauldron, drips, hush, wind, waltz and the four floor beds are minutes long.
+`tools/crooked-house-quiet.apply.js`. The Teddy key switches the two nursery cues along with everything else.
+
+**The three toys have faces** (`tools/crooked-house-toys.apply.js`): Crow, Bunny and Goat all wore the same
+Quasit placeholder; they now carry the DM's own generated art, cleaned of its baked-in checkerboard by
+`tools/entrances/decheck.py` and living in `mc-portraits/nursery/`. The tokens stay hidden — they appear when
+their intro plays, his rule. A token he has re-pictured by hand is left alone.
+
+**Tests:** `tools/test-cues.mjs` — 19 checks (the rules incl. the DM's "3, 12" example restarting at 15 and 24,
+the takes never repeating, the cooldown, PC-only, the sets and door sets, every file on disk, the manifest's type
+declaration, the language keys, the API surface). Run with Foundry's node.
