@@ -2150,6 +2150,9 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
      2026-09-21; memory `spell-animation-gaps`):** AA is unaffected (own db), but MISC/CAT effects
      and any macro naming `jb2a.<path>` play nothing. Owed: confirm the cause (late `sequencer.ready`
      listener in jb2a.js is the lead), then a one-line world script or an upstream report.
+   - **Foundry 14.368 (DM updating 2026-09-21; §28.5.15):** assessed safe, nothing locked out. Owed
+     once he has updated and the world is closed: §28.4 on a fresh bench copy under 14.368, then bump
+     module.json `verified` + the CLAUDE.md line (legs 7 and the Ghostlight doors are the ones to watch).
    - **From the 2026-09-10 stack run (§28.5.12):** CAT 0.0.7 bricks Roll NPCs when a combatant's
      actor is gone (throws in its SummonsManager) — the panel's Roll NPCs should name/skip
      actor-less combatants · midi 14.0.12 targets under the Place PREVIEW while the DM aims
@@ -3978,6 +3981,36 @@ swing at the table. Build item: ledger 0.
 
 **Residue (bench COPY only, DM's world untouched):** Bandit B healed to 11, AC restored to 12;
 one parked Death Knight workflow; a handful of probe chat cards.
+
+### 28.5.15 Foundry 14.368 (released 2026-09-16; assessed 2026-09-21 before the DM updates — "update the design to 368, I'll update")
+
+**What it is:** a small stable point release; no version 15 in any channel; no breaking changes or
+deprecations listed. Notes read in full: expired-duration Active Effects now drop without a world-time
+advance · synthetic actors survive bulk scene delta updates · Teleport Token destinations save as
+RELATIVE UUIDs · darkness on a `darknessLock`ed scene may only be updated when the update states the
+lock explicitly · mouse-wheel rotation of placeables · Level default top elevation 4×grid ·
+environment-update + KTX2 performance · Firefox zero-angle light/sight crash fixed.
+
+**Impact on this module (code read):**
+- Teleport doors (§37 cm-train, preflight "Map doorways"): the preflight resolver already uses
+  `fromUuidSync(uuid, { relative: behavior })`, so relative destinations resolve; doors written before
+  the update keep absolute UUIDs, which also resolve. No change.
+- Darkness (§18.4/§41 daylight loop, travel loop, preflight scene fixer): the loop never writes to a
+  locked scene; the two places that take a scene over (Travel-tab toggle in dm-panel.js, the
+  preflight "Darkness is locked" fix) clear `darknessLock` explicitly in the same patch — the form
+  14.368 requires. **DM decision 2026-09-21: "darkness-locked scenes shouldn't have natural light,
+  so I'm ok with that"** — a lock stays authoritative; only an explicit DM action (marking a map for
+  travel, clicking the fix) unlocks. Recorded as the standing rule.
+- Effects (§33 curses, §34 blessings, §31 twists): expired game-time durations now clear on their
+  own — the curse sweep keeps real-time expiry; nothing to change.
+- Stack ceilings: midi/DAE/MISC declare 14.999; AC5E/CAT/wm5e/simplecover/Sequencer/AA/Convenient
+  Effects/Item Piles declare major 14; Dice So Nice already verified 14.368; dnd5e 5.3.3 verified 14.
+  Nothing is locked out. module.json `verified: 14.367` reads as "unverified build" until bumped.
+
+**Owed after the DM updates (bench rule #0 applies — check the join-page title first):** §28.4 run
+on a fresh bench copy under 14.368 → bump module.json `verified`, the CLAUDE.md stack line and this
+record. Watch legs 7 (AoE template placement — canvas code moved) and the Ghostlight doors (relative
+UUIDs) specifically.
 
 ### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
 
@@ -6538,6 +6571,7 @@ comment read as though this were done. It wasn't. That mismatch is what made the
 was holding it wrong.
 
 ### 41.2 The decision, reconfirmed (DM 2026-08-09)
+> **2026-09-21 (Foundry 14.368):** core now refuses darkness writes on a `darknessLock`ed scene unless the update names the lock. Our loop already skips locked scenes; the DM confirmed the rule — "darkness-locked scenes shouldn't have natural light" — so a lock is only ever cleared by an explicit DM action (Travel-tab mark, preflight fix). §28.5.15.
 
 > *"Maps that have indoor and outdoor areas will have the indoor region marked to ignore the
 > environmental lighting, so keep every map with environmental light by default."*
