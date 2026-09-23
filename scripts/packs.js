@@ -33,7 +33,8 @@ import { MODULE_ID } from "./preset.js";
  *   entrances  [ENTRANCE] — themed intro banners (entrances.js)
  *   cueSets    { id: CUE_SET } — sound sets a region cue can play from (cue-sets.js)
  *   panelTab   the DM panel tab: { id, icon, title, label, body(ctx) → html,
- *                onClick(ev, ctx) → true if handled, onInput(ev, ctx) → true, onKeydown(ev, ctx) → true,
+ *                onClick(ev, ctx) → true if handled, onChange(ev, ctx) → true (dropdowns), onInput(ev, ctx) → true
+ *                (drafts), onKeydown(ev, ctx) → true, onRegister(ctx) — panel-side hooks, every pack, gated or not,
  *                rerender: { settings: [keys], actorFlags: bool, tokenFlags: bool } }
  *              ctx = { render, drawer, backPicker, panelEl } — the panel's own helpers, lent out
  *   shellTab   the phone tab: { id, icon, label, body(ctx) → html, header(ctx) → html (above the tab
@@ -41,6 +42,8 @@ import { MODULE_ID } from "./preset.js";
  *                chipClass(effect) → extra class for a condition chip, dot(actor) → attention dot }
  *              ctx = { shell, actor, state, render, showEffectDetails } — `state` is this pack's own
  *              object on this shell instance (drafts, dismissals), so a pack keeps no globals
+ *   gate       { key, icon, onLabel, offLabel, note } — the Settings tab draws one switch per gated pack;
+ *              `key` is the world setting `active()` reads (registered through `settings` like any other)
  *   api        object merged onto globalThis.MobileCommand (macro access); keys must not collide
  */
 

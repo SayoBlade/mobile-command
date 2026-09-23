@@ -31,6 +31,7 @@
 // trainLand / trainMist — run Wire twice, get one set; nothing of the book's own scene
 // content is ever modified or deleted.
 import { MODULE_ID } from "./preset.js";
+import { wallsBlock } from "./walls.js"; // moved out 2026-09-22 (§54): the engine needs it too
 
 const GRID = 140;                 // the book's car maps are all 140px / 5ft
 const INSET = 4;                  // keep region edges off the wall planes
@@ -60,18 +61,6 @@ export function trainScenes() {
 
 // Pure-data segment-vs-walls test (movement sense) — works on NON-VIEWED scenes, where
 // canvas collision backends are useless. Open doors and non-blocking walls don't block.
-export function wallsBlock(scene, a, b) {
-  return scene.walls.contents.some(w => {
-    if (w.door > 0 && w.ds === 1) return false;
-    if ((w.move ?? 20) === 0) return false;
-    const [x1, y1, x2, y2] = w.c;
-    const d = (a.x - b.x) * (y1 - y2) - (a.y - b.y) * (x1 - x2);
-    if (!d) return false;
-    const t = ((a.x - x1) * (y1 - y2) - (a.y - y1) * (x1 - x2)) / d;
-    const u = -((a.x - b.x) * (a.y - y1) - (a.y - b.y) * (a.x - x1)) / d;
-    return t > 0 && t < 1 && u > 0 && u < 1;
-  });
-}
 
 function wallHull(scene) {
   const xs = scene.walls.contents.flatMap(w => [w.c[0], w.c[2]]);

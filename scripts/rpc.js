@@ -5,7 +5,7 @@ import { resolveExecutorId, isExecutor, reactionTimeoutMs, DISPLAY_LEVEL } from 
 import * as DT from "./downtime.js"; // §17.7 downtime data model + Rule engine (pure, unit-tested)
 // Pure-data wall test: works on scenes the DM isn't looking at, where the canvas collision
 // backends only know the VIEWED scene. Used by movement and by travel-point landings.
-import { wallsBlock } from "./cm-train.js";
+import { wallsBlock } from "./walls.js"; // wall geometry (was cm-train.js — an engine file must not import a campaign file, §54)
 
 // §5 Service RPC contract, Phase 1 subset, running on the executor client
 // (§2.1: the DM Screen GM client). All Spike 3 findings are baked in:
