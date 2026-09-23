@@ -1230,6 +1230,21 @@ Probed the world's rebuilt group `bTNHugymMcYIqpqz` ("Group", 4 PCs: Aurelio Bri
   - **Round 9b (DM 2026-07-03): colored ring under night vision.** Finding: vision-mode grayscale is a scene-wide saturation shader on the primary canvas group — the dynamic token ring is part of the token mesh and can't be exempted directly; the INTERFACE layer (nameplates/bars) is exempt. Fix applied: pack sets `sight.saturation: -0.6` (not core's -1) → muted color survives, ring stays legible. Dispersed PCs: the same dial exists natively per token (Token config → Vision → Saturation). The TRUE gray-world/colored-rings fix = interface-layer ring overlay on the display client — the **same mechanism as Spike-6 TV reticles**; build both together as one later chunk. Core ring-shader patching rejected (fragile, anti copy-Foundry).
   - **Round 6b (DM 2026-07-03): Lock in and Disperse never share a row.** "You can't disperse before you lock in the order" — and 4 buttons overflowed the row anyway. Now: **arrange** = rotate ◀▶ + a **gold Lock in** (disabled until everyone is placed on unique cells — the one-per-cell gate moved here, its natural home); **travel** = rotate ◀▶ + Rearrange, with **Disperse full-width on its own row**. Same structure on the phone DM row and the DM panel. Verified visually on the live client (temporary client-side GM override to render the DM row; reverted): arrange shows gold enabled Lock in + no Disperse; travel shows Rearrange + full-width Disperse + pad, no overflow.
 
+- ✅ **2026-09-23 — two refusals Form Up always needed, written for a deck key** (deck-command is
+  putting Form Up / Disperse on physical keys — Michael: *"the most important ones"* — with no
+  confirm dialog, so the surprises a screen hid have to be refusals). `handlePartyPack` now
+  refuses **`in combat`** when any member is a combatant of `game.combat` (started or staged —
+  packing deletes the tokens and Foundry drops their combatants with them; §15.2 #6's nudge was
+  never a stop) and **`unlinked token`** when a member's scene token has `actorLink: false` (the
+  guard §15.1 finding 3 named and never wrote: delete-and-recreate is lossless only for a linked
+  token). Neither is forceable; `force` still lifts only the cluster gate (travel's pull-out
+  keeps working). **Every Form Up refusal is now `{ ok:false, reason, detail }`** — `reason` two or
+  three words a key face wears (`in combat`, `unlinked token`, `not clustered`, `not on scene`,
+  `no members`, `no group`, `view the scene`, `DM only`, `wrong client`), `detail` the sentence
+  the panel toasts (dm-panel.js shows `detail ?? reason` for Form Up and for Travel's prepare).
+  Nothing is written before the last refusal. `tools/test-party-guards.mjs` — 15 numbered
+  results against the fake Foundry, 15/15. The survey that asked for this: `DC-HARVEST.md`.
+
 ## 16. DM onboarding wizard + session preflight (PLANNED 2026-07-08 → **BOTH SHIPPED**: preflight v0.1.92, wizard v0.1.94)
 
 DM directive (2026-07-08): plan this next; build order after reactions = this → downtime/guard-duty → inventory transfers. Two deliverables sharing one checks engine. **Shipped state:** the Preflight tab became **System health** (§47 re-worded every check to plain language), grew the `AUTOMATION_PREREQS` warn-with-fix mechanism (§28.7/§45.2) and the Message-for-dev/feedback buttons (§47/§48); the wizard got fixed-size steps + its own `mc-swiz-*` classes (§48.1). Its one queued improvement — ask **in-person vs online first** — landed 2026-08-20 (§39.4, then corrected same day by §39.5): the mode is step 1, and the shared-screen step runs in BOTH modes with mode-aware copy (a streamed display window IS the shared screen).

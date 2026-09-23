@@ -3713,7 +3713,7 @@ async function onPartyClick(ev) {
   const actBtn = ev.target.closest("[data-party]");
   if (actBtn?.dataset.party === "pack") {
     const res = await api.partyPack({ groupId: actBtn.dataset.group });
-    if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't form up.");
+    if (res?.ok === false) ui.notifications.warn(res.detail ?? res.reason ?? "Couldn't form up."); // detail = the sentence; reason = the deck's two words
     return true; // pack's token churn re-renders the panel
   }
   // Rebuild a STALE group's membership from the scene's PCs (confirm-gated — it
@@ -4376,7 +4376,7 @@ async function onClick(ev) {
   }
   if (ev.target.closest("[data-travel-begin]")) { // §18 T1.5: pack, preview the map, arm the landing click
     const res = await api.travelPrepare({});
-    if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Couldn't prepare travel."); return render(); }
+    if (res?.ok === false) { ui.notifications.warn(res.detail ?? res.reason ?? "Couldn't prepare travel."); return render(); } // a refused force-pack comes back with its detail
     const over = game.scenes.get(res.sceneId);
     if (over && canvas.scene?.id !== over.id) await over.view(); // DM goes first — view, not activate
     armTravelDrop();

@@ -2884,17 +2884,37 @@ async function handleFixPcTokens() {
   return { ok: true, count: updates.length };
 }
 
+// A refusal is { ok: false, reason, detail } and never a throw (2026-09-23, for deck-command's Form Up
+// key): `reason` is two or three words a 95px key face can wear ("in combat", "not clustered"),
+// `detail` is the sentence the panel toasts. Nothing is written before the last refusal below.
+const refuse = (reason, detail) => ({ ok: false, reason, detail });
 async function handlePartyPack({ groupId, requesterId, force = false }) {
-  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
-  if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM can form up the party" };
-  if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
+  if (!isExecutor()) return refuse("wrong client", "this isn't the DM's (executor) client");
+  if (!game.users.get(requesterId)?.isGM) return refuse("DM only", "only the DM can form up the party");
+  if (!onActiveScene()) return refuse("view the scene", "the DM's client isn't viewing the active scene");
   const group = game.actors.get(groupId);
-  if (group?.type !== "group") return { ok: false, reason: "group not found" };
+  if (group?.type !== "group") return refuse("no group", "group not found");
 
   const mem = partyMembers(group);
-  if (!mem.length) return { ok: false, reason: "the group has no members" };
+  if (!mem.length) return refuse("no members", "the group has no members");
   const missing = mem.filter(m => !m.token).map(m => m.actor.name);
-  if (missing.length) return { ok: false, reason: `not on this scene: ${missing.join(", ")}` };
+  if (missing.length) return refuse("not on scene", `not on this scene: ${missing.join(", ")}`);
+
+  // In combat (2026-09-23): packing deletes the member tokens, and Foundry drops their combatants with
+  // them — the encounter would silently lose the party. The panel only ever nudged (§15.2 #6); a key
+  // with no confirm dialog needs a refusal. Not forceable: `force` is about clustering, never about
+  // losing the tracker.
+  const fighting = game.combat?.combatants
+    ? mem.filter(m => game.combat.combatants.some(c => c.tokenId === m.token.id || (c.actorId && c.actorId === m.actor.id)))
+    : [];
+  if (fighting.length) return refuse("in combat", `${fighting.map(m => m.actor.name).join(", ")} ${fighting.length > 1 ? "are" : "is"} in the encounter — end combat or remove them from the tracker before forming up`);
+
+  // Unlinked (2026-09-23 — the guard §15.1 finding 3 named and never wrote): delete-and-recreate is
+  // lossless only for a LINKED token, whose HP and effects live on the actor. An unlinked token (a pet
+  // dragged in without Link Actor Data, an unlinked summon) keeps its state on the token itself, and
+  // deleting it would throw that state away. Not forceable either — this is data loss, not layout.
+  const unlinked = mem.filter(m => m.token.actorLink === false).map(m => m.actor.name);
+  if (unlinked.length) return refuse("unlinked token", `${unlinked.join(", ")} ${unlinked.length > 1 ? "aren't" : "isn't"} linked to the sheet — packing would lose the token's own HP and effects; turn on Link Actor Data in the token's settings first`);
 
   const g = canvas.scene.grid.size;
   const cellOf = m => ({ col: Math.round(m.token.x / g), row: Math.round(m.token.y / g) });
@@ -2905,7 +2925,7 @@ async function handlePartyPack({ groupId, requesterId, force = false }) {
   // meaningful, but it must never block the DM's choice to pull the party out —
   // scattered members just collapse onto the 3×3's edges (cells clamp below).
   if (!force && (maxCol - minCol > PARTY_GRID - 1 || maxRow - minRow > PARTY_GRID - 1))
-    return { ok: false, reason: "party isn't clustered — bring them within a 3×3 first" };
+    return refuse("not clustered", "party isn't clustered — bring them within a 3×3 first");
 
   // Group token = centroid cell = center (1,1) of the 3×3. Pre-fill the formation
   // from the current layout so the editor opens on where they already stand.
