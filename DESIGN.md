@@ -2153,6 +2153,11 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    - **Foundry 14.368 (DM updating 2026-09-21; §28.5.15):** assessed safe, nothing locked out. Owed
      once he has updated and the world is closed: §28.4 on a fresh bench copy under 14.368, then bump
      module.json `verified` + the CLAUDE.md line (legs 7 and the Ghostlight doors are the ones to watch).
+   - **Crooked Moon extraction — PARKED 2026-09-23 (DM: "MC follows DC's lead from here").** The
+     phase-one attempt is in history (WIP `825b48b`, reverted `b7978fb`; the pack registry
+     `scripts/packs.js` stays, unused); the handover with the exact stopping point, what finishing
+     costs and DC's registry constraint (`actions()` + `runAction(id)`, `actions-cm.js` preserved
+     verbatim) is [EXTRACTION.md](EXTRACTION.md). Resume by reverting the revert.
    - **From the 2026-09-10 stack run (§28.5.12):** CAT 0.0.7 bricks Roll NPCs when a combatant's
      actor is gone (throws in its SummonsManager) — the panel's Roll NPCs should name/skip
      actor-less combatants · midi 14.0.12 targets under the Place PREVIEW while the DM aims
