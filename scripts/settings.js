@@ -1,9 +1,7 @@
 import { MODULE_ID, SAVE_TIMEOUT_SETTING, DEFAULT_CARD_THEME, DAY_DARKNESS_FLOOR } from "./preset.js";
 import { makeConfirmMenuClass, deactivate, reactivate, hasBackup, hasReactivateSnapshot } from "./enforcer.js";
-import { registerPackSettings } from "./packs.js"; // §54 content packs
 
 export function registerSettings() {
-  registerPackSettings(); // §54: a content pack's settings (its gate first of all) live under our namespace — see packs.js
   // D7 role, per-client. Phase 1 uses it only to decide which client runs
   // executor duties ("dm" + GM role); the phone/display shells come later.
   // The campaign's start TIME OF DAY, in seconds past midnight (0 = midnight, 43200 = noon).
@@ -56,6 +54,26 @@ export function registerSettings() {
     default: true
   });
 
+  // §36.1 the Ghostlight's arrival cues. All three are synthesized so the module ships with sound
+  // and nothing licensed is bundled (§26) — these settings let a DM point any cue at a real
+  // recording instead, and the file wins wherever it is set. File pickers, not free text: a typo in
+  // a path is a cue that silently does nothing at the table.
+  for (const [key, name] of [
+    ["sndTrainFiddle", "The Vagrant's fiddle"],
+    ["sndTrainApproach", "Train approaching"],
+    ["sndTrainWhistle", "Train whistle"],
+    ["sndTrainStop", "Train grinding to a stop"]
+  ]) {
+    game.settings.register(MODULE_ID, key, {
+      name: `${name} (sound file)`,
+      hint: "Leave empty to use the built-in synthesized cue.",
+      scope: "world",
+      config: true,
+      type: String,
+      filePicker: "audio",
+      default: ""
+    });
+  }
 
   // §48 where "Send feedback" addresses its mail. A setting rather than a constant so a table can
   // point it at their own maintainer — and so the address can be changed without a release if it
@@ -278,6 +296,12 @@ export function registerSettings() {
     onChange: () => { try { globalThis.MobileCommand?.applyDaylightNow?.(); } catch (e) { /* pre-ready */ } }
   });
 
+  // §43 which scenes are under Druskenvald's eternal night. An EXPLICIT DM list, never a guess —
+  // the same rule as the travel maps. A scene not on it is an ordinary place with an ordinary sun.
+  game.settings.register(MODULE_ID, "druskenvaldSceneIds", {
+    scope: "world", config: false, type: Array, default: []
+  });
+
   // §27.4 a DM note arrives OVER whatever the player is looking at (DM 2026-08-10: "I like the
   // always toaster, DM's discretion"). The envelope badge alone is something you have to think to
   // look at, and the notes that matter most stop being true if they're read late. This is the
@@ -289,6 +313,12 @@ export function registerSettings() {
     config: true,
     type: Boolean,
     default: true
+  });
+
+  // §42 the tarot deck's back. Same rule as the session-zero back: ours by default, or a file the
+  // DM picks. The book's tarot set ships 22 faces and NO back, so ours is the only sensible one.
+  game.settings.register(MODULE_ID, "tarotBackImage", {
+    scope: "world", config: false, type: String, default: ""
   });
 
   // §38.4a which DECK is on the table — see CARD_THEMES. Dresses the felt, the frame and the
@@ -505,6 +535,48 @@ export function registerSettings() {
     config: false,
     type: Boolean,
     default: false
+  });
+
+  // §35 Campaign tools: The Crooked Moon. Gates the DM panel's Crooked Moon tab
+  // (séance board + the coming twists/curses/fateweaving) so non-CM tables never
+  // see it. Defaults ON when the Crooked Moon module itself is installed & active
+  // (that table obviously wants the tools); toggle in Settings → Campaign.
+  game.settings.register(MODULE_ID, "crookedMoonTools", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: !!game.modules.get("the-crooked-moon-2014")?.active
+  });
+
+  // §33 Chaotic Curses: optional RollTable UUID that replaces the module's built-in
+  // d100 (e.g. the Crooked Moon book's own 1d156 for DMs who own it, or a homebrew
+  // table). Empty = our original list. Set via console/macro for now; UI later.
+  game.settings.register(MODULE_ID, "curseTable", {
+    scope: "world",
+    config: false,
+    type: String,
+    default: ""
+  });
+
+  // §33 bargain mode (default OFF — the DM's original Avantris concept preserved as a curse
+  // TRIGGER): a player may ask to reroll at the price of a curse roll. Toggled from the
+  // Chaotic-curses drawer; the player's ask card lives on the Crooked Moon tab.
+  game.settings.register(MODULE_ID, "bargainMode", {
+    scope: "world",
+    config: false,
+    type: Boolean,
+    default: false
+  });
+
+  // §35 / §52 the Crooked Moon tab's working state — séance sitters and escalation, the curse's
+  // target/minutes/staged card, the tarot cheat, the fiddle and engine beds. It lived in the panel's
+  // memory until 2026-09-18; a world setting lets the deck read and press the same state, and a
+  // reload of the DM's browser no longer forgets it. Read and written only through cm-live.js.
+  game.settings.register(MODULE_ID, "cmLiveState", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: {}
   });
 
   // §16.3 DM first-run wizard: true once the DM finished (or dismissed) the

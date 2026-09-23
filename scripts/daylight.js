@@ -1,7 +1,7 @@
 import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK } from "./preset.js";
 import { readClock, sunTimes } from "./gametime.js";
 import { isExecutor } from "./settings.js";
-import { packDarkness } from "./packs.js"; // §54: a content pack may answer for a scene (§43's eternal night is one)
+import { isDruskScene, druskDarkness } from "./druskenvald.js"; // §43 the same loop, a second curve
 import { campaignManagedScene } from "./campaigns.js"; // §50.5 Ember owns the sky on its own scenes
 
 // §41 THE CLOCK ACTUALLY DRIVES THE LIGHT (DM report 2026-08-09: "I don't see any change in
@@ -60,8 +60,7 @@ export function daylightEnabled() {
  *  hook and no opinion about scene data of its own, so the write-rate floor, darknessLock, the
  *  manual hold and travel's claim all keep applying to it and cannot drift out of sync. */
 export function darknessNow(scene = null) {
-  const packed = scene ? packDarkness(scene) : null; // §54: a pack's curve wins for the scenes it claims
-  if (typeof packed === "number") return packed;
+  if (scene && isDruskScene(scene)) return druskDarkness();
   const c = readClock();
   return darknessForHour((Number(c.hour) || 0) + (Number(c.minute) || 0) / 60, sunTimes());
 }

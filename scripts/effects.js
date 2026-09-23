@@ -2,10 +2,12 @@ import { MODULE_ID } from "./preset.js";
 import { socket } from "./rpc.js";
 import { isPhoneClient } from "./shell.js";
 import { isExecutor } from "./settings.js";
+import { seanceSync, seancePhrase } from "./seance.js"; // §30 séance board (TV overlay)
 import { cardTableSync, registerCardTable } from "./card-table.js"; // §38.4a session-zero card table
+import { cmStationSync, cmTicketFx, playTrainWhistle, playTrainApproach, stopTrainApproach, playTrainStop, playTrainFiddle, stopTrainFiddle } from "./cm-boarding.js"; // §36 All aboard
 import { bossIntroPlay } from "./boss-intro.js"; // §40 the boss's entrance (one-shot, no state)
 import { entrancePlay, entranceStop } from "./entrances.js"; // §40.6 the themed entrance banners ("Intros")
-import { packFxDefs, packFxPhone, packFxOneShot, packFxSync, contentPacks } from "./packs.js"; // §54 content packs: their table entries, phone effects, one-shots and remounts
+import { initCurseSweep } from "./cm-curses.js"; // §33: one GM client lifts expired curses
 
 // §26 Effects tab (spike) — DM-triggered table ambience, three kinds under one catalog:
 //   scene   — shortcuts to Foundry's own scene data (weather particles, darkness). Foundry
@@ -62,8 +64,24 @@ export const FX_DEFS = {
   heartbeat: { label: "Heartbeat", icon: "fa-heart-pulse", player: "state", hint: "Their phone pulses red with a heartbeat only they get" },
   woozy: { label: "Woozy", icon: "fa-flask", player: "state", hint: "Drunk, poisoned, concussed — their phone wobbles and blurs" },
   static: { label: "Static", icon: "fa-wave-square", player: "shot", oneShot: true, hint: "A half-second cursed glitch on their phone" },
-  // (§54: a content pack's entries — the Crooked Moon's séance, station, tickets, train cues — are merged
-  //  in below by absorbPackFx; they used to be listed here.)
+  // §30 séance board: the toggle is a normal fxActive state (survives TV reloads); the phrase
+  // is a one-shot with { text }. Neither renders as a grid chip — the panel's Séance drawer
+  // owns their UI (a toggle plus a phrase input need more than a chip).
+  seance: { label: "Séance", icon: "fa-circle-dot", state: true, hint: "The spirit board on the table display" },
+  seancePhrase: { label: "Spell it out", icon: "fa-hand-point-up", oneShot: true, hint: "The planchette spells the phrase" },
+  // §36 All aboard: the boarding ritual. Station + intro are display states; the ticket is a
+  // per-player state (their whole phone IS the ticket until the DM takes it); the whistle is
+  // a synthesized one-shot. The panel's All-aboard drawer owns their UI — no grid chips.
+  cmStation: { label: "The Station", icon: "fa-train", state: true, hint: "The Ghostlight Express on the table display" },
+  cmIntro: { label: "Introduce", icon: "fa-masks-theater", state: true, hint: "Put one character's card on the display" },
+  cmTicket: { label: "Ticket", icon: "fa-ticket", player: "state", hint: "A life-size ticket fills their phone until they board" },
+  cmWhistle: { label: "Whistle", icon: "fa-bullhorn", oneShot: true, hint: "Two blasts of the Ghostlight's whistle" },
+  // §36.1 the arrival. cmTrain is a STATE ({ in, rot, actorId }) so a reloading TV puts the train
+  // back where it was; the two sound cues are one-shots fired by hand as the narration lands.
+  cmTrain: { label: "Bring in the train", icon: "fa-train", state: true, hint: "The Ghostlight emerges from the fog, facing whoever it came for" },
+  cmTrainApproach: { label: "Approach", icon: "fa-volume-low", oneShot: true, hint: "A distant engine, fading in under the narration" },
+  cmTrainStop: { label: "Grinding stop", icon: "fa-hand", oneShot: true, hint: "Brakes: it squeals, sighs, and halts" },
+  cmFiddle: { label: "Fiddle", icon: "fa-music", oneShot: true, hint: "A lone fiddle through the fog — plays until stopped" },
   // §40 the boss's entrance. A one-shot with { img, sound } — the Combat tab's Boss intro drawer
   // owns its UI (a roster of bosses with drop targets is more than a grid chip), and it is fired
   // through dmPlayBossIntro rather than dmFireFx because the pause has to come first.
@@ -241,12 +259,16 @@ export function handleFxOneShot(payload = {}) {
   else if (id === "bell") bellLocal();
   else if (id === "fxSound") soundShot(payload);
   else if (id === "static") staticLocal(level);
+  else if (id === "seancePhrase") seancePhrase(text); // no-op on clients without the board
+  else if (id === "cmWhistle") playTrainWhistle();    // §36 — canvas clients only, gates itself
+  else if (id === "cmTrainApproach") { if (payload?.on === false) stopTrainApproach(); else playTrainApproach(); }
+  else if (id === "cmTrainStop") playTrainStop();
+  else if (id === "cmFiddle") { if (payload?.on === false) stopTrainFiddle(); else playTrainFiddle(); } // §36.1.8 — the stop cue never ducks this one
   // §40 carries a whole boss ({ img, sound }), so it gets the payload rather than named bits.
   else if (id === "bossIntro") bossIntroPlay(payload);
   // §40.6 carries only the entrance's key: every client resolves it from its own copy of the module.
   else if (id === "entrance") entrancePlay(payload);
   else if (id === "entranceStop") entranceStop();
-  else packFxOneShot(id, payload); // §54: a content pack's own one-shots (the séance phrase, the train cues…)
 }
 
 /**
@@ -964,13 +986,10 @@ const PHONE_FX = {
     },
     stop() { document.body.classList.remove("mc-fxp-woozy"); }
   },
+  // §36 the Ghostlight ticket — full-screen on the holder's phone; stop() is the boarding
+  // punch. Implementation lives in cm-boarding.js beside the station it belongs to.
+  cmTicket: cmTicketFx
 };
-
-// §54: content packs extend both tables — at load for packs already registered, and as any later
-// pack arrives (a companion module loads after this file). Same-id entries from a replacing pack overwrite.
-function absorbPackFx() { Object.assign(FX_DEFS, packFxDefs()); Object.assign(PHONE_FX, packFxPhone()); }
-absorbPackFx();
-Hooks.on("mobile-command.packRegistered", absorbPackFx);
 
 const activePhoneFx = new Map(); // fx id -> start() handle
 
@@ -1070,8 +1089,10 @@ export function syncFx() {
   // Rolling storm: only the executor keeps the sky going.
   if (active.storm && isExecutor()) { if (!stormTimer) scheduleStormStrike(true); }
   else { clearTimeout(stormTimer); stormTimer = null; }
-  // §54: each content pack remounts what fxActive still wants of it (the séance board, the station…).
-  packFxSync(active);
+  // §30 séance board: mounts on the display + the DM's client (seance.js gates itself).
+  seanceSync(!!active.seance);
+  // §36 the station + intro card: same clients, same gate-inside pattern.
+  cmStationSync(!!active.cmStation, active.cmIntro?.actorId ?? null, active.cmTrain ?? null);
   // §38.4a the card table (session zero). Its own world setting rather than an fxActive key —
   // it's a session-zero fixture, not an ambience effect — but it rides the same remount path.
   try { cardTableSync(!!game.settings.get(MODULE_ID, "cardTableOn")); } catch (e) { /* pre-ready */ }
@@ -1096,6 +1117,7 @@ export function registerFxEngine() {
   Hooks.on("deleteActiveEffect", (e) => { if (e.parent?.id === game.user?.character?.id) deathbeatEval(); });
   Hooks.on("ready", () => deathbeatEval()); // rejoin mid-death: the beat resumes where the body is
   deathbeatEval();
+  initCurseSweep(); // §33: no-op unless this client is the activeGM at tick time
   Hooks.on("canvasTearDown", () => {
     // REALLY unmount — don't just forget. canvas.environment and canvas.stage are persistent
     // groups that survive a re-draw, and a WEATHER change is itself a full canvas.draw()
