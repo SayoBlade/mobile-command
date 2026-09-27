@@ -6,7 +6,7 @@ import { initPauseGuard } from "./pause-guard.js";
 import { initPauseOverlay } from "./pause-overlay.js";
 import { initHeartbeat } from "./heartbeat.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient, isDisplayClient } from "./shell.js";
-import { registerDMPanel, refreshPanel } from "./dm-panel.js";
+import { registerDMPanel, refreshPanel, openDock } from "./dm-panel.js";
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerTrainFollow, wireTrainDoors, setTrainMist, trainMistOn } from "./cm-train.js"; // §37 the Ghostlight ride
@@ -939,6 +939,9 @@ Hooks.once("ready", () => {
     // §52 (deck-command ledger 151): every DM action the panel offers mid-session, as data plus one
     // runner — so a second surface can draw and run them without knowing MC. GM clients only.
     actions: { areas: actionAreas, snapshot: actionSnapshot, run: runAction, counts: actionCounts },
+    // open the DM panel on a dock tab (2026-09-27): the deck fires the spirit board and brings the
+    // replies tab forward with it. A general verb; the deck is one caller.
+    openDock,
     // §53 the cues that play themselves: list / fire / mute / reset / armed — the deck's per-scene list
     // (catalogue 232) and the fire-now keys read this. GM clients only.
     cues

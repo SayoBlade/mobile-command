@@ -4992,6 +4992,22 @@ async function onClick(ev) {
 /** Repaint the panel from outside (the display's audio report arrives over the socket). */
 export function refreshPanel() { try { if (panelEl) render(); } catch (e) { /* not mounted */ } }
 
+/**
+ * Open the DM panel on one dock tab ("crooked" for the séance replies, "combat", "party", …). Added
+ * 2026-09-27 for the deck, which fires the spirit board through `actions.run("cm.seance")` and needs
+ * the panel where the DM types the planchette's replies to come forward at the same press. It is a
+ * general verb, not a deck verb: any caller may open any tab. Returns the tab shown, or null when
+ * the panel is not mounted (MC's own UI mounts it; this never creates it).
+ */
+export function openDock(tab) {
+  try {
+    if (!panelEl) return null;
+    dockTab = tab ?? null;
+    render();
+    return dockTab;
+  } catch (e) { console.warn(`${MODULE_ID} | openDock:`, e?.message); return null; }
+}
+
 // A BACKGROUND repaint — one nobody asked for (the 5s away ticker, presence, a connect, the
 // clock). DM 2026-08-11: "when i open the travel location-dropdown after a few seconds it closes
 // on its own." An open native <select> popup belongs to the element; the moment a repaint swaps
