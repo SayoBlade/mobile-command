@@ -19,6 +19,9 @@
 
 import { MODULE_ID } from "./preset.js";
 import { isEmberWorld } from "./campaigns.js";
+// `combatMusicPlaylist` reads the configured playlist setting. settings.js imports nothing from
+// here, so this is a one-way edge and closes no cycle.
+import { combatMusicPlaylist } from "./settings.js";
 
 let _combatPlaying = null; // the Playlist or PlaylistSound combat music is currently playing (to stop on switch)
 let _resumeAfter = [];     // PlaylistSound uuids that were playing BEFORE combat, to resume when it ends
@@ -215,6 +218,49 @@ export async function startCombatWithMusic(battleUuid) {
   if (!game.combat) return;
   try { if (battleUuid !== undefined) await game.settings.set(MODULE_ID, "combatBattleTrack", battleUuid || ""); } catch (e) {}
   try { await game.combat.startCombat(); } catch (e) { console.warn(`${MODULE_ID} | startCombat failed`, e); }
+}
+
+/**
+ * THE BATTLE TRACKS, FOR ANY SURFACE THAT WANTS TO OFFER THEM (DM 2026-10-04: *"add a setting for
+ * combat music"*).
+ *
+ * The Combat tab's pre-start staging has always been able to choose a battle track, but it is the
+ * only thing that can: the choice lived inside `combatHTML`, built as a `<select>` out of
+ * `combatMusicPlaylist()`, and nothing could ask for the same list without rebuilding that query.
+ * So a second surface — the DM's physical deck, a macro, a stream key — had no way to see the
+ * tracks, and showed none.
+ *
+ * ⚠️ A GENERAL GETTER, PUBLISHED ON THE NAMESPACE, NOT A FEATURE FOR ONE CALLER. Nothing here
+ * knows who is asking or what a deck is; it answers "what could play, and what is chosen", in the
+ * same units the setting stores (a PlaylistSound uuid). `mode` travels with the list because an
+ * empty list means two different things — no playlist configured, or another engine (Ember,
+ * vgmusic) owns the music and we have stood down — and a caller that cannot tell them apart will
+ * say "no music available" when the truth is "someone else is playing it".
+ *
+ * @returns {{mode: string, playlist: string|null, current: string, tracks: Array<{uuid: string, name: string, current: boolean}>}}
+ */
+export function combatTracks() {
+  const mode = combatMusicMode();
+  const pl = combatMusicPlaylist();
+  const current = battleTrackUuid();
+  const tracks = (mode === "ember" || mode === "vgmusic" || !pl)
+    ? []
+    : pl.sounds.contents
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((s) => ({ uuid: s.uuid, name: s.name, current: s.uuid === current }));
+  return { mode, playlist: pl?.uuid ?? null, current, tracks };
+}
+
+/**
+ * Choose the battle track. Writes the same world setting the Combat tab's staging writes, so the
+ * two surfaces cannot disagree, and takes effect on the next combat (or the next turn switch if a
+ * fight is already running). An empty string clears the choice. GM-only, like every setting write.
+ */
+export async function setCombatTrack(uuid = "") {
+  if (!game.user?.isGM) return false;
+  try { await game.settings.set(MODULE_ID, "combatBattleTrack", uuid || ""); return true; }
+  catch (e) { console.warn(`${MODULE_ID} | setCombatTrack failed`, e); return false; }
 }
 
 export function registerCombatMusic() {

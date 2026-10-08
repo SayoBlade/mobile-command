@@ -21,16 +21,34 @@ export function scenePcs() {
   return pcs;
 }
 
-/** The PC's player (their user) — a ticket or a card goes to the USER, whatever device they hold. */
+/** The PC's player (their user) — a ticket or a card goes to the USER, whatever device they hold.
+ *
+ * ⚠️ 2026-10-05 — THE DISPLAY ACCOUNT IS NOT A PLAYER, and this function was the one place in this
+ * file that had not been told. `playerUsers()` thirteen lines down already excludes it; both
+ * branches here filtered on `!u.isGM` only. The TV is a non-GM user, and in the live world it
+ * holds `Player Character` as its assigned `character` (READ from the world DB, 2026-10-05) — so
+ * the FIRST branch matched the TV for that PC and `pcUser()` handed the TV its ticket. That is a
+ * life-size ticket at z 99000 filling the shared screen, over the station and everything else on
+ * it, with no shell on that client to dismiss it from and no safety rail (the rail only arms for
+ * GMs) — recoverable only by the DM punching it from the panel. `boardingUsers()` is built from
+ * this function, so "hand out all the tickets" put one on the TV too.
+ *
+ * One exclusion, same source of truth `playerUsers()` reads. It cannot strand a PC that genuinely
+ * belongs to a person: a real player's own ownership entry still matches the second branch.
+ */
 export function pcUser(a) {
-  return game.users.find(u => !u.isGM && u.character?.id === a?.id)
-    ?? game.users.find(u => !u.isGM && a?.testUserPermission?.(u, "OWNER")) ?? null;
+  let display = ""; try { display = game.settings.get(MODULE_ID, "displayOwnerUser") || ""; } catch (e) { /* */ }
+  const player = (u) => !u.isGM && u.id !== display;
+  return game.users.find(u => player(u) && u.character?.id === a?.id)
+    ?? game.users.find(u => player(u) && a?.testUserPermission?.(u, "OWNER")) ?? null;
 }
 
-/** The player colour for a PC (their user's colour), for tinting a roster — falls back to gold. */
+/** The player colour for a PC (their user's colour), for tinting a roster — falls back to gold.
+ *  Routed through `pcUser` rather than repeating its lookup (2026-10-05): the duplicate is how the
+ *  two drifted apart in the first place, and a roster tinted in the TV's colour beside a ticket
+ *  button that names a different person is its own small lie. */
 export function pcColor(a) {
-  const u = game.users.find(u => !u.isGM && u.character?.id === a?.id) ?? game.users.find(u => !u.isGM && a?.testUserPermission?.(u, "OWNER"));
-  return u?.color?.css ?? "#c8a44d";
+  return pcUser(a)?.color?.css ?? "#c8a44d";
 }
 
 /** Seat id → user id (§38.4b). A copy — callers edit it and write it back. */

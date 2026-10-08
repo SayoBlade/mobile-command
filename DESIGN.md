@@ -2051,6 +2051,154 @@ What remains below is genuinely device- or human-bound.)*
   clients.
 - **Turn-start vibration** on hardware.
 
+### 22.7 / 22.8 / 22.9 The DM's own screen is never taken (2026-10-02, after a session-one blocker)
+
+**The report:** "MC is rendering its full-screen phone shell over the GM's desktop UI, Foundry
+unusable." Three hypotheses were tested and two were wrong; the record of *why* they were wrong is
+the useful part, because each one was wrong for a reason that will recur.
+
+**Hypothesis 1 — the phone shell (`#mobile-command-shell`, fixed/inset-0/opaque, z 9999).** Wrong.
+`isPhoneClient()` needs `role === "phone"` to be true for a GM, and `role` is **client**-scoped —
+per browser profile. The fault reproduced in the Foundry desktop app AND the web client, which have
+separate localStorage. *A fault that follows the WORLD cannot be caused by a per-device setting.*
+That single inference should have been drawn on the first pass and would have skipped two rounds.
+
+**Hypothesis 2 — a persisted overlay (`#mc-cardtable` / `#mc-cmstation` / `#mc-seance`), or MC's
+Simple Calendar skin blowing out SC's window.** Also wrong, but both turned up real defects, fixed
+below as §22.7 and §22.8. Disproved by the DM removing the SC window from the DOM outright: **the
+UI did not come back.** And by re-reading the probe: `document.elementFromPoint` returns the
+*topmost* element at a point, so a covered nav names its **coverer**; the probe returned
+`CANVAS#board`, which lies *beneath* the nav. Nothing was on top. The elements were **hidden**.
+*Template compilation in the startup log is not evidence an element is present and visible* — they
+compiled, rendered, and were then hidden, which is why the log looked clean.
+
+**§22.9 — the actual cause.** `isDisplayClient()` (`scripts/shell.js`) ended with
+`return isDisplayAccount()` for **every** client, and `displayOwnerUser` is a **world** setting that
+names an **account**, not a device. Put the DM's own GM account in it and every client that account
+signs in from takes the TV path: `main.js`'s ready hook adds `mc-clean`, and the clean block in
+`styles/shell.css` hides `#ui-top`, `#ui-left`, `#ui-right`, `#ui-bottom`, `#scene-navigation`,
+`#scene-controls`, `#sidebar`, `#hotbar`, `#players`, `#logo`, `#notifications` and every
+`.app`/`.application` window. (Those are the **Foundry 14** ids; the list also carries v13's
+`#navigation`/`#controls`, inert on 14 and harmless. A previous diagnosis checked only the v13 names,
+concluded the elements were "missing", and sent the investigation the wrong way — **verify ids
+against installed core before concluding anything is absent**.) Nothing cleared it on load; nothing
+could, because the only way to change the setting is a UI that was hidden. The `#mc-clean-hint`
+pill was the one escape and it faded after 60 seconds.
+
+Neither settings UI offers a GM in that dropdown (`settings.js` and `dm-wizard.js` both filter
+`!u.isGM`), so the value arrived by hand, by console, or from a bench script — and the codebase had
+already seen the shape of this once: `warnDisplayGM()`'s own comment records "the TV ran on
+'Michael [GM]'". **A world-scoped setting that silently re-skins a client on every load needs a rail
+under it, not a tidier dropdown.**
+
+**What the three sections now guarantee:**
+
+- **§22.7 — nothing covers a DM at a desktop.** Six features carried private copies of the gate
+  `!isPhoneClient() && (isDisplayClient() || game.user?.isGM)` (card-table, cm-boarding, seance,
+  entrances, boss-intro, druskenvald). They now call one `mayCoverViewport()` in
+  `scripts/overlay-guard.js`, and the DM's own screen is **opt-in only** via the per-device setting
+  `dmScreenOverlays` (default off). `openShell()` refuses outright on a protected client. A
+  ready-time rail adds `body.mc-dm-clear` (a CSS list in `styles/shell.css` that must stay identical
+  to `COVERING_SELECTORS` — `MobileCommand.verifyRail()` checks), sweeps anything already up, and a
+  body-level MutationObserver plus a `canvasReady` hook catch later mounts. **Every uncertain
+  branch refuses to cover.** `#mc-drusk` is the single documented exemption: z 4, 30% opacity, under
+  all of Foundry's UI — a tint, not a cover.
+- **§22.8 — MC authors nothing onto another module's DOM on the DM's screen.** The one rule aimed
+  at Simple Calendar is now
+  `body.mc-skin-calendar:not(.mc-dm-clear) .app.simple-calendar .fsc-xf`, and the class is set by
+  `gametime.js` only on a phone or the table's display. `gametime.js`'s duplicated `onAPhone()` is
+  gone; `overlay-guard.js` is now the one cycle-free source of client-role truth (it imports only
+  `preset.js`, so `shell.js` and `gametime.js` can both ask it).
+- **§22.9 — a GM client is never auto-promoted to the TV, and clean mode cannot land on a
+  workstation.** `isDisplayClient()` returns false for a GM unless **this device's** role is
+  explicitly `"display"`. `mc-clean` is additionally gated on `!shouldKeepGmClear()`. The rail's
+  `restoreCoreUi()` strips `mc-clean`/`mc-display`/`mc-skin-calendar` at ready and says so in a
+  **permanent** notification naming the setting to fix. The hint pill no longer fades. The `` ` ``
+  keybinding still works — a deliberate press is a deliberate choice — but it now logs the way back.
+
+**Recovery with no UI, no reload and no reinstall:** `MobileCommand.showUI()` restores core UI,
+sweeps covering layers, and returns `why` (body classes, `role`, `displayAccount`,
+`displayAccountIsMe`, `railArmed`) plus the live computed `display` of each v14 core UI node.
+`?mcNoCover=1` on the URL, or `localStorage["mc.noCover"] = "1"`, arms the rail for a load whatever
+the settings say — the bypass that outlives a bad opt-in.
+
+### 22.10 A PLAYER ON A LAPTOP IS NOT A PHONE (2026-10-08) — the `auto` role gets a device test
+
+**The fault (diagnosed live 2026-10-08, confirmed on a running client, not inferred).**
+`isPhoneClient()` in `scripts/shell.js` ended:
+
+```js
+return role === "auto" && !game.user.isGM;
+```
+
+`auto` is the DEFAULT role, so **every non-GM client in the world was a phone.** There was no
+screen-size test and no pointer test anywhere in the function. A player who opened Foundry on a
+laptop got `#mobile-command-shell` — fixed/inset-0/opaque at z 9999 — stretched across a **1568px
+viewport with `canvas.ready === false`**, and no visible way out. `role` is per-device, so their
+only remedy was MC's own module settings, behind the shell that was covering them.
+
+**It was worse than it looked**, and in a way worth remembering: the three-button escape dialog in
+`maybeAutoOpenShell()` was gated `if (role !== "display" || …) return;` — so the population that
+most needed the way out (role `auto`, i.e. everyone on the default) was the one population
+guaranteed never to be offered it. The opt-out existed and was unreachable from the only state that
+needed it. `NIGHT-2026-10-05.md` §15 had already written this down a week earlier.
+
+This is **§22.7 with the roles swapped**: there a DM's screen was taken by a *world setting*, here a
+player's screen was taken by a *default*. Same shape, same remedy — a device the person is sitting
+at is never taken on a guess, and the guess must have a way back.
+
+**What changed (code):**
+
+- `isHandheldDevice()` — new, in `scripts/overlay-guard.js`, exported. `(pointer: coarse)` **AND** a
+  smallest-viewport-side ≤ **820px**. Both halves are required because each alone is known wrong:
+  coarse alone is true of a touchscreen laptop and of a pen-digitizer desktop (the §22.7 hardware);
+  narrow alone is true of any desktop window dragged thin. Smallest side, not width, so orientation
+  doesn't matter. **Uncertainty (no `matchMedia`, it throws, no usable viewport size) answers
+  "yes, a phone"** — the pre-2026-10-08 behaviour, so nothing regresses on an exotic handset browser.
+- **That failure direction is the OPPOSITE of `isTouchOnlyClient()`'s in the same file, deliberately.**
+  There "I cannot tell" must answer *there is a mouse here*, because the cost of a wrong guess is a
+  DM losing his screen (see its 2026-10-05 RDP note). Here the cost of a wrong guess is a phone that
+  stops being a phone. Two touch tests, opposite fallbacks, neither one a mistake — **do not
+  "unify" them.**
+- `shell.js isPhoneClient()` and `overlay-guard.js phoneHere()` both end
+  `role === "auto" && !game.user.isGM && isHandheldDevice()`. The two function bodies still have to
+  be kept in step by hand (the import cycle that forces the duplication is unchanged — see
+  `overlay-guard.js`'s header), but **`shell.js` now IMPORTS the device test from `overlay-guard.js`
+  rather than carrying a copy**, so the half a reader would never think to re-check cannot drift.
+  `shell.js → overlay-guard.js` was already an allowed direction (`shouldKeepGmClear`).
+- **Unchanged, and must stay unchanged:** an explicit `role === "phone"` wins outright, and
+  `isDisplayAccount()` short-circuits ahead of everything. A person who SAID this device is their
+  phone is never second-guessed by a media query.
+- `maybeAutoOpenShell()` now offers **the same dialog, not a second one** to a non-GM,
+  non-display-account client that auto-detection decided is NOT a phone (`guessedNotAPhone`). Same
+  three buttons, same once-per-load; only the explanatory line differs ("This looks like a computer
+  screen, not a phone…"). The real case is a big tablet — a 12.9" iPad is 1024px on its short side,
+  past the cut, and a perfectly good phone-app device.
+- One branch behaviour differs by entry path: **"Use it as my phone" writes `phone` from the auto
+  path** and `auto` from the display path (unchanged there). From auto, writing `auto` would be a
+  no-op against a device that has already decided it is not a phone — the dialog would return on
+  every load and the player would answer it forever.
+
+**Knock-on, already handled by existing code:** `main.js`'s `setup` hook writes `core.noCanvas` in
+**both** directions from `isPhoneClient()`, so a desktop player whose browser was stranded
+canvas-less by this bug gets its canvas back on the next load with no intervention.
+
+**Residual edges, named not fixed (and in the §22.6 ledger):**
+
+1. A convertible laptop in tablet mode that reports a coarse PRIMARY pointer with a short side
+   ≤ 820px is still classified as a phone. Its way out is the shell's own exit + module settings —
+   the auto-detection dialog only fires in the other direction.
+2. The dialog's third button, "Keep it as the TV", has no handler (it never did — the no-op *is*
+   the TV answer from the display path). Reached from the new auto path it is a no-op too, which
+   means plain Foundry this load and the dialog again on the next. Relabelling or wiring it is a
+   DM-facing copy decision, not a repair.
+
+**Gate:** `tools/check-syntax.js` run on `scripts/*.js` + `styles/*.css` with these edits in —
+**57/57 PASS, exit 0**. `isHandheldDevice()` was additionally exercised headless against 11 device
+cases (iPhone portrait/landscape, iPad 10 and 12.9, the 1568×900 bug client, touchscreen laptops at
+two sizes, a narrow mouse window, and the three uncertainty paths) — 11/11 as specified. **NOT run
+in Foundry; no live client has seen this.**
+
 ### 22.5 Release state (refreshed 2026-08-19)
 
 Last release: **v0.2.0, 2026-07-26**; everything since is pushed but unreleased. The next cut
@@ -2074,6 +2222,63 @@ that are Ember-only) wait behind this aim. The working queue is **vanilla base q
 Crooked Moon second** — which UN-PARKS item 4 below (the 2026-08-21 "non-CM first" parking is
 superseded: base and CM now share the lane). Filings that are general (the §50.17 fallback
 question, the collect-gear nudge) count as BASE work, not Ember work.
+
+0ᴬ. **⚠️ SESSION-ONE BLOCKER 2026-10-02 — "MC renders over the GM's Foundry and makes it unusable".
+   FIXED in code, OWED his confirmation.** §22.7 (nothing covers a DM at a desktop), §22.8 (the
+   Simple Calendar skin is scoped), §22.9 (a GM client is never auto-promoted to the TV, and clean
+   mode cannot land on a workstation). Full write-up in §22.7–22.9.
+
+   **Cause (named):** `isDisplayClient()` in `scripts/shell.js` ended `return isDisplayAccount()`
+   for every client, and `displayOwnerUser` is a **world** setting naming an **account**. With the
+   DM's own GM account in it, every client that account signs in from takes the TV path, so
+   `main.js`'s ready hook adds `mc-clean` and the clean block in `styles/shell.css` hides `#ui-top`,
+   `#ui-left`, `#ui-right`, `#ui-bottom`, `#scene-navigation`, `#scene-controls`, `#sidebar`,
+   `#hotbar`, `#players`, `#logo`, `#notifications` and every `.app`/`.application` window. World
+   setting ⇒ it followed the world into the desktop app AND the web client; runtime class ⇒
+   disabling MC "fixed" it; nothing to do with Simple Calendar ⇒ disabling SC changed nothing;
+   templates compiled and rendered, then got hidden ⇒ the startup log looked clean. The `#mc-clean-hint`
+   pill was the only way back and it faded after 60 s. **The elements were hidden, never covered —
+   the two overlay hypotheses (the phone shell; the SC window) were both wrong, and the
+   `elementFromPoint` probe returning `CANVAS#board` was the tell: a probe names the coverer, and
+   it named what lies *beneath* the nav.**
+
+   **What changed:** a GM client now needs an explicit per-device role of `"display"` to be the TV;
+   `mc-clean` is additionally gated on `!shouldKeepGmClear()`; a ready-time rail
+   (`scripts/overlay-guard.js`) un-hides core UI and hides any MC full-viewport layer on a GM
+   desktop; the six duplicated `eligible()` gates collapse into one `mayCoverViewport()` behind the
+   per-device opt-in `dmScreenOverlays` (default off); the hint pill no longer fades; the SC rule is
+   scoped to `body.mc-skin-calendar:not(.mc-dm-clear)`; `MobileCommand.showUI()` recovers and
+   diagnoses from the console with no reload and no reinstall.
+
+   **OWED:** (a) his paste of `MobileCommand.showUI()` on the GM client, to confirm which switch was
+   set and that the UI returns — the one fact the code could not establish from here is whether
+   `displayOwnerUser` holds his GM id or whether this device's `role` is `"display"`; both are now
+   fixed, and the output names which it was. (b) `tools/check-syntax.js` has NOT been run (no shell
+   on the machine this was written from) — run it before the next release. (c) a §28.4 rerun.
+   **Behaviour change to tell him about:** online with no shared-screen account, boss intros and
+   entrances no longer play on the DM's own screen unless he ticks "Show the table's full-screen
+   moments on my screen too".
+
+0ᴮ. **⚠️ NEW 2026-10-08 — "a player on a laptop got the full-screen phone shell". FIXED in code,
+   OWED a live check.** The `auto` role — the DEFAULT — treated every non-GM client as a phone with
+   no device test at all, so a desktop player got `#mobile-command-shell` over a 1568px canvas-less
+   viewport with no way out, and the three-button escape dialog was gated to `role === "display"`
+   so that exact population could never see it. Full write-up in **§22.10**.
+
+   **What changed:** `auto` now also requires `isHandheldDevice()` (new in `overlay-guard.js`:
+   coarse primary pointer AND smallest viewport side ≤ 820px, both required, uncertainty → "phone"
+   so nothing regresses); `shell.js` imports that test rather than copying it, so it cannot drift
+   from `phoneHere()`; the same three-button dialog is now also offered to a non-GM client that
+   auto-detection decided is NOT a phone, so a big tablet can still opt in. Explicit `role ===
+   "phone"` and `isDisplayAccount()` are untouched and still outrank everything.
+
+   **OWED:** (a) one load on a real desktop player client — the shell must NOT open and the dialog
+   must appear once; (b) one load on a real phone — the shell must still open with no dialog;
+   (c) a tablet load, to see which side of 820px his hardware lands on. **Behaviour change to tell
+   him about:** a player on a computer now gets ordinary Foundry plus a one-time "phone app, shared
+   screen, or plain Foundry?" question, instead of the app. **Open sub-items (both §22.10, neither
+   a repair):** a convertible in tablet mode under 820px is still read as a phone, and the dialog's
+   "Keep it as the TV" button remains a no-op on the new path — relabelling it is his copy call.
 
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
    - **His batch of 2026-09-19 (the deck's FX boards, the flows, the intros — DC ledger 152):** MC's half is
@@ -7887,8 +8092,15 @@ boot-with-assignment → direct bind · unassign/re-assign → instant swap both
 
 ### 50.18 "Why is my PC browser player view not loading the app?" (DM 2026-08-22) — answered + a way back built
 
-**The rule (unchanged, now written down plainly):** the phone app auto-opens only on a client
-whose per-BROWSER **Client role** is "Auto" (with a non-GM user) or "Phone controller". It
+> **AMENDED 2026-10-08 (§22.10):** the "Auto" half of the rule below now also requires the client
+> to LOOK like a handheld (coarse primary pointer AND a smallest viewport side ≤ 820px). "Auto" +
+> non-GM is no longer sufficient. The closing cross-check in this section — *"the app was never
+> phone-hardware-gated"* — was true when written and is now **false by decision**; see §22.10 for
+> why it had to change and what replaces it.
+
+**The rule (~~unchanged~~ amended 2026-10-08, now written down plainly):** the phone app auto-opens only on a client
+whose per-BROWSER **Client role** is "Auto" (with a non-GM user **on a handheld-looking device —
+§22.10**) or "Phone controller". It
 never opens for the nominated display account (the TV, `displayOwnerUser`) nor on a browser
 whose role is "Shared display (TV)" or "DM screen". The role is CLIENT-scoped — it belongs to
 the browser, not the user: the same Chrome logged in as a player inherits whatever that
@@ -7910,9 +8122,13 @@ closed here. If this is you, not the TV, switch this browser back to a phone vie
 **Use it as my phone** (role → Auto, shell opens) / **Keep it as the TV**. The real TV
 account stays silent; GM clients unchanged. Verified on the pane as Blue: role forced to
 "display" → reload → prompt → "Use it as my phone" → role Auto, shell open.
-Cross-check in the same session: Blue in a 1440×900 DESKTOP browser with role Auto gets
+~~Cross-check in the same session: Blue in a 1440×900 DESKTOP browser with role Auto gets
 the app immediately — the app was never phone-hardware-gated; only the role and the display
-account decide.
+account decide.~~ **SUPERSEDED 2026-10-08 (§22.10): that observed behaviour was the bug.** A
+1440×900 desktop browser on role Auto getting the full-screen shell is exactly the blackout
+§22.10 fixes; Auto is now hardware-gated, and that same browser gets this dialog instead (third
+sentence of the content swapped for the computer-screen wording). The dialog has carried a
+THIRD button, "Just plain Foundry", since 2026-10-02.
 
 ---
 

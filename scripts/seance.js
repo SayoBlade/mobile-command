@@ -1,7 +1,7 @@
 import { MODULE_ID } from "./preset.js";
 import { isOnlineTable } from "./settings.js"; // §39: word rotation is flat-table geometry
 import { mountFaded, unmountFaded } from "./repaint.js"; // §6.8 fade, never cut
-import { isPhoneClient, isDisplayClient } from "./shell.js";
+import { mayCoverViewport } from "./overlay-guard.js"; // §22.7 the one full-screen gate
 
 // §30 Séance board (DM-idea 2026-07-26, for a Crooked Moon game — "might be useful for others";
 // flagged for a standalone-module spin-off later). A spirit-board overlay on the TV: the DM
@@ -55,9 +55,11 @@ let holdMs = 2000;    // per-stop rest on the mark — long for drama, short mid
 let toIsRest = false;
 let lastKey = null;   // the mark we're currently holding on (double-letter detection)
 
-function eligible() {
-  return !isPhoneClient() && (isDisplayClient() || game.user?.isGM);
-}
+// §22.7: `#mc-seance` is fixed/inset-0 with an OPAQUE near-black ground at z 60 (shell.css:4617)
+// and rides the WORLD state `fxActive.seance`, re-applied on every load and never cleared — so the
+// old "the display OR the GM" gate could bury the DM's screen on every load. The DM's own screen
+// is now opt-in (`dmScreenOverlays`); the TV is unchanged.
+function eligible() { return mayCoverViewport(); }
 
 // ── the scrape (§26.2 house rule: synthesized, nothing licensed) ─────────────
 // Wood dragging on wood: a narrow noise band whose GAIN follows the planchette's actual

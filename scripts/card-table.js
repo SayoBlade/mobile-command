@@ -12,8 +12,8 @@
 // + actor items as the fallback truth for what's been chosen.
 import { MODULE_ID, TABLE_SEATS, isPlaceholderPCName, DEFAULT_CARD_THEME, ABILITY_ICONS, DEFAULT_CARD_BACK } from "./preset.js";
 import { mountFaded, unmountFaded } from "./repaint.js"; // §6.8 fade, never cut
-import { isPhoneClient, isDisplayClient } from "./shell.js";
 import { isOnlineTable, hasSharedScreen } from "./settings.js";
+import { mayCoverViewport } from "./overlay-guard.js"; // §22.7 the one full-screen gate (replaces the local shell.js role checks)
 import { cardSound, dealSound } from "./card-audio.js";
 
 // Our own art is the default now (DM's set, 2026-08-04): the crescent-moon back and the wide
@@ -41,9 +41,12 @@ let root = null;
 // seatId → { userId, actorId, cards: {step: {name, img}}, active: step|null }
 let state = new Map();
 
-function eligible() {
-  return !isPhoneClient() && (isDisplayClient() || game.user?.isGM);
-}
+// §22.7 THE ONE GATE. `#mc-cardtable` is fixed/inset-0/opaque (#07070a) at z 55 and is NOT
+// pointer-events:none, so it swallows every click as well as hiding the screen — and it is driven
+// by the WORLD setting `cardTableOn`, which effects.js re-applies on every load. The old gate here
+// was "the display OR the GM", which is what buried the DM's own Foundry (blocker 2026-10-02).
+// The DM's screen is now opt-in (`dmScreenOverlays`); the TV is unchanged.
+function eligible() { return mayCoverViewport(); }
 export function cardTableIsUp() { return !!root; }
 
 function seatMap() {

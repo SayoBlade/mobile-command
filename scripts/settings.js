@@ -282,6 +282,31 @@ export function registerSettings() {
     scope: "world", config: false, type: Boolean, default: false
   });
 
+  // §22.7 THE DM'S OWN SCREEN — the single opt-in behind every full-screen overlay.
+  //
+  // The table's screens (the card table, the Ghostlight station, the séance board, an entrance,
+  // a boss splash) used to appear on the DM's client too, because each one's audience gate read
+  // "the display OR the GM". Three of them are opaque layers driven by WORLD settings that get
+  // re-applied on every load, and nothing clears them — so one toggle left on buried the DM's
+  // Foundry under a black sheet on every subsequent load, with no UI left to switch it off with
+  // (blocker, 2026-10-02). Covering the DM's working screen is now something he asks for and can
+  // always take back; default OFF. The TV is unaffected either way — this says nothing about it.
+  game.settings.register(MODULE_ID, "dmScreenOverlays", {
+    name: "Show the table's full-screen moments on my screen too",
+    hint: "The card table, the station, the séance board and the intro banners fill the whole screen on the table's display. Turn this on to watch them on your own screen as well. Leave it off and your Foundry is never covered. (The table's screen is not affected.)",
+    // PER-DEVICE, like `role` — "my screen" is a fact about this browser, not about the world.
+    // It also means the rail is ON by default in every browser he has not opted in from, which is
+    // the direction a safety rail has to fail: the fault this fixes followed the WORLD into every
+    // client he opened it in (desktop app AND web), and a world-scoped opt-in would do the same.
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: false,
+    // Takes effect both ways without a reload: ticked on, the hidden layers are released and the
+    // next sync shows them; ticked off, the rail re-arms and sweeps whatever is up.
+    onChange: () => { try { globalThis.MobileCommand?.reapplyRail?.(); } catch (e) { /* pre-ready */ } }
+  });
+
   // §41.1 how bright the brightest hour is (DM 2026-08-11: "'daylight' is too bright for a world
   // with no sun"). The curve used to bottom out at a flat 0 — right for a normal campaign, wrong
   // for an overcast, sunless country. 0 restores true daylight.

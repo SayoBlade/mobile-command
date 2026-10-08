@@ -18,6 +18,10 @@
 
 import { MODULE_ID } from "./preset.js";
 import { emberSun } from "./campaigns.js";
+// §22.8: the one cycle-free source of client-role truth. shell.js imports THIS file, so asking it
+// would resolve to undefined at call time (the reason onAPhone() used to be duplicated here);
+// overlay-guard.js imports nothing but preset.js, so this direction is safe.
+import { phoneHere, displayHere, shouldKeepGmClear } from "./overlay-guard.js";
 
 const DAY = 86400;
 
@@ -47,24 +51,47 @@ export function toggleSimpleCalendar() {
 }
 
 /** SC Reborn's popup is the table's Calendar (DM 2026-07-18: "hide the four buttons on the
- *  right, change the title to Calendar"). The tool column is hidden in CSS (shell.css,
- *  `.app.simple-calendar .fsc-xf`) — Notes/Search/Today/Configure all remain reachable from
- *  Module Settings, where SC registers its own menu buttons. Here: the retitle. The main app
- *  is a V1 FormApplication (class MainApp) → hook renderMainApp; html is jQuery on V1. */
-// The same rule as shell.js isPhoneClient(), re-derived rather than imported: shell.js already
-// imports THIS file, and importing back would make the cycle resolve to undefined at call time.
-function onAPhone() {
-  try {
-    const role = game.settings.get(MODULE_ID, "role");
-    if (role === "phone") return true;
-    if (game.user.id === (game.settings.get(MODULE_ID, "displayOwnerUser") || "")) return false;
-    return role === "auto" && !game.user.isGM;
-  } catch (e) { return false; }
+ *  right, change the title to Calendar"). The main app is a V1 FormApplication (class MainApp)
+ *  → hook renderMainApp; html is jQuery on V1.
+ *
+ *  §22.8 THE SKIN IS NOW OPT-IN BY CLIENT, AND THIS IS WHY (blocker, 2026-10-02 — an
+ *  elementFromPoint probe on the DM's live GM client returned `DIV.fsc-hg` where the scene-controls
+ *  tool column should be: Simple Calendar's own window, blown out across the left of the viewport).
+ *
+ *  MC's ONE rule aimed at Simple Calendar's DOM is `.app.simple-calendar .fsc-xf { display: none
+ *  !important }` (styles/shell.css, in the §22.8 block). It was written for the TABLE's screen, but
+ *  it was never scoped to one: a bare `.app.simple-calendar` descendant selector applies on EVERY
+ *  client the module is active on, including the DM's workstation. `.fsc-xf` is the right-hand tool
+ *  column, and MainApp measures its own children on render to size and position the window —
+ *  `display: none` makes that measurement zero, and the window's layout resolves to something that
+ *  spans the left of the screen instead of sitting as a small positioned panel. That accounts for
+ *  every observation we have, in the order they confused us:
+ *    • disabling Simple Calendar alone did NOT fix it — SC is not independently at fault;
+ *    • disabling MC DID fix it — removing MC removes the rule, and SC sizes itself correctly again;
+ *    • it reproduced in the desktop app AND the web client — it is CSS, not a Chromium quirk;
+ *    • the right-hand sidebar stayed healthy — this is one mis-sized WINDOW, not an opaque sheet.
+ *
+ *  So the skin now rides a body class (`mc-skin-calendar`) that is only ever set on a phone or the
+ *  table's display, and the CSS additionally refuses to apply under the §22.7 rail's
+ *  `body.mc-dm-clear`. A GM at a desktop gets stock Simple Calendar, untouched — no hidden column,
+ *  no retitle, nothing of ours in its DOM at all. */
+function skinWanted() {
+  // The DM's intent was always "the TABLE's Calendar": the shared screen and the players' phones.
+  // His own working copy of SC is not ours to restyle. Any uncertainty → no skin (stock SC).
+  try { return (phoneHere() || displayHere()) && !shouldKeepGmClear(); } catch (e) { return false; }
+}
+
+/** Set/clear the one class the calendar skin hangs off. Idempotent; safe to call again any time. */
+export function applyCalendarSkinClass() {
+  try { document.body?.classList?.toggle("mc-skin-calendar", skinWanted()); }
+  catch (e) { /* pre-body: the ready caller always has one */ }
 }
 
 export function setupCalendarSkin() {
+  applyCalendarSkinClass();
   Hooks.on("renderMainApp", (app) => {
     try {
+      if (!skinWanted()) return; // stock Simple Calendar on the DM's workstation — touch nothing
       const root = app?.element?.[0] ?? app?.element;
       const t = root?.querySelector?.(".window-title");
       if (t) t.textContent = "Calendar";
@@ -72,7 +99,7 @@ export function setupCalendarSkin() {
       // be tapped — and SC opens it by itself on load (DM 2026-08-07: "close the calendar by
       // default in the mobile app"). Closed on sight, once: the player can still open it from
       // the shell's clock, and this never touches the DM's or the TV's calendar.
-      if (onAPhone() && !app._mcAutoClosed) {
+      if (phoneHere() && !app._mcAutoClosed) {
         app._mcAutoClosed = true;
         setTimeout(() => { try { app.close(); } catch (e) { /* already gone */ } }, 0);
       }

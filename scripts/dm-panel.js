@@ -77,6 +77,37 @@ function rollTargets() {
   return arr;
 }
 
+/** This actor's standing in the running encounter, for the initiative push (DM 2026-10-05:
+ *  "if a player already rolled, keep their result").
+ *
+ *  ONE RULE, BOTH PATHS. rpc.js's `rollInitiativeForActor` skips combatants with
+ *  `initiative != null`; this is the same test, read ahead of the send so the panel can show
+ *  the state instead of explaining it afterwards. Both use the resolved-uuid match rather than
+ *  base actor id, for the reason the 2026-10-05 payload fix records: base ids collapse twelve
+ *  unlinked tokens of one Actor into one subject.
+ *
+ *  ⚠️ `pending`, not "has a number". A PC with two tokens in the fight, one rolled and one not,
+ *  still owes a roll — skipping them on the strength of the first number found would silently
+ *  drop the second token. Only `inCombat && !pending` is out.
+ *
+ *  `rolled` is the first number they already hold, for the row to SHOW. */
+function initiativeState(actor) {
+  const c = game.combat;
+  if (!c || !actor) return { inCombat: false, pending: 0, rolled: null };
+  const mine = c.combatants.filter(x => x.actor?.uuid === actor.uuid);
+  if (!mine.length) return { inCombat: false, pending: 0, rolled: null };
+  return {
+    inCombat: true,
+    pending: mine.filter(x => x.initiative == null).length,
+    rolled: mine.find(x => x.initiative != null)?.initiative ?? null
+  };
+}
+/** Already has every number they owe → not a candidate for an initiative push. */
+function initiativeDone(actor) {
+  const s = initiativeState(actor);
+  return s.inCombat && s.pending === 0;
+}
+
 // The token we measure distances FROM (DM 2026-07-11): the DM's selected token, else the
 // active combatant's — so during an NPC's turn the player list shows range from the attacker.
 function dmAnchorToken() {
@@ -1620,19 +1651,40 @@ function rollsToolHTML() {
   const anchor = dmAnchorToken();
   const units = canvas.scene?.grid?.units || "ft";
   const reach = anchorRange(anchor); // the anchor's longest weapon range, for the in-range hint
+  // Initiative is a third TYPE of this same tool (2026-10-05), so the type has to be known
+  // before the rows are built: it changes what each row's number slot says and which rows are
+  // candidates at all.
+  const isInit = rollTool.type === "initiative";
+  const combatNow = game.combat ?? null;
   const enriched = cands.map(c => {
     const tok = tokenForActor(c.actor);
     const dist = (anchor && tok) ? gridDist(anchor, tok) : null;
-    return { ...c, tok, dist };
+    return { ...c, tok, dist, init: isInit ? initiativeState(c.actor) : null };
   }).sort((a, b) => (a.dist ?? Infinity) - (b.dist ?? Infinity) || a.actor.name.localeCompare(b.actor.name));
-  const selCount = enriched.filter(c => rollTool.selected.has(c.actor.id)).length;
+  // A PC who already holds every number they owe is NOT a candidate (DM 2026-10-05: "if a player
+  // already rolled, keep their result"). Counted out of Send BEFORE the press, so the button's
+  // number is the number of people who will actually be asked — and counted separately as
+  // `skipCount`, because a press that quietly does less than it says is how a working feature
+  // gets reported as broken.
+  const done = (c) => isInit && c.init?.inCombat && !c.init.pending;
+  const selected = enriched.filter(c => rollTool.selected.has(c.actor.id));
+  const selCount = selected.filter(c => !done(c)).length;
+  const skipCount = selected.length - selCount;
   const rows = enriched.map(c => {
     const on = rollTool.selected.has(c.actor.id);
+    const off = done(c);
     const targeted = !!c.tok?.targeted?.has?.(game.user);
     // In range = within the anchor's longest weapon range (null when unknown → neutral).
     const inRange = (c.dist != null && reach != null) ? c.dist <= reach : null;
     const distCls = inRange === true ? " mc-in" : inRange === false ? " mc-out" : "";
-    const dist = c.dist == null ? "" : `<span class="mc-rt-dist${distCls}">${Math.round(c.dist)} ${esc(units)}</span>`;
+    // ⚠️ THE NUMBER SLOT CARRIES THE NUMBER THAT MATTERS FOR THIS TYPE (R3a, deck-command
+    // RULES.md:30 — data beats flavour, text minimal). Asking for initiative, the range in feet
+    // to the DM's selected token is not what he is deciding on; the initiative they already hold
+    // is. Same slot, same muted style, no new treatment — it just stops showing the irrelevant
+    // number. Rows with nothing to show in initiative mode show nothing rather than a dash.
+    const dist = isInit
+      ? (c.init?.rolled != null ? `<span class="mc-rt-dist">${esc(String(c.init.rolled))}</span>` : "")
+      : (c.dist == null ? "" : `<span class="mc-rt-dist${distCls}">${Math.round(c.dist)} ${esc(units)}</span>`);
     // A <button> row: colour-coded user icon, name, distance (green in range / red out), tick.
     const assigned = rollAssign[c.actor.id] ?? [];
     const picking = rtAssignFor === c.actor.id;
@@ -1650,9 +1702,19 @@ function rollsToolHTML() {
     const asnTitle = picking ? "Done — close the target picker"
       : assigned.length ? `${assigned.length} target${assigned.length > 1 ? "s" : ""} on ${esc(c.actor.name)}'s phone (${esc(assigned.map(t => t.name).join(", "))}) — tap to edit`
       : `Pick targets for ${esc(c.actor.name)}`;
+    // ⚠️ `mc-off` IS THE EXISTING MARK, not a new one: the struck, muted row this very component
+    // already uses for a PC left out of a split party (line ~2535, same `.mc-dmp-rt-row`), and
+    // the same thing the deck does for an unavailable key — texture plus the word, never
+    // luminance alone (deck-command page.js: `{ busy: true, of: "hidden" }`). Here the word is
+    // the number itself, which says what the mark means without a sentence.
+    // The row stays TAPPABLE: tapping also targets the token on the canvas, which is still a
+    // thing he wants mid-fight. It is excluded from the send, not from the map.
+    const rollTitle = off
+      ? `${esc(c.actor.name)} rolled ${esc(String(c.init.rolled))} — not asked again`
+      : `Tap: target ${esc(c.actor.name)} + toggle for the roll${reach != null && c.dist != null ? ` (${inRange ? "in" : "out of"} range)` : ""}`;
     return `<div class="mc-dmp-rt-item">
-      <div class="mc-dmp-rt-row${on ? " mc-on" : ""}${targeted ? " mc-targeted" : ""}">
-        <button class="mc-dmp-rt-main" data-rt-target="${c.actor.id}" title="Tap: target ${esc(c.actor.name)} + toggle for the roll${reach != null && c.dist != null ? ` (${inRange ? "in" : "out of"} range)` : ""}">
+      <div class="mc-dmp-rt-row${on ? " mc-on" : ""}${targeted ? " mc-targeted" : ""}${off ? " mc-off" : ""}">
+        <button class="mc-dmp-rt-main" data-rt-target="${c.actor.id}" title="${rollTitle}">
           <i class="fas fa-circle-user mc-rt-usericon" style="color:${ownerColor(c.actor) ?? '#c8a44d'}"></i>
           <span class="mc-rt-name">${esc(c.actor.name)}</span>
           ${dist}
@@ -1662,13 +1724,34 @@ function rollsToolHTML() {
       ${tgtBox}
     </div>`;
   }).join("");
+  // Initiative (2026-10-05, DM: "on combat start let dm push initiative roll requests to PCs
+  // (choose which same as save) and have a button for 'roll Initiative / All NPCs'"). It is a
+  // third TYPE in the tool that already exists rather than a new control: the same candidate
+  // list, the same per-row taps, the same Send. Two differences, both forced by the rules —
+  // initiative has no ability to pick, so that select goes away; and it needs an encounter to
+  // put the numbers in, so Send is disabled without one and says why.
+  const sendOk = selCount > 0 && (!isInit || !!combatNow);
+  const sendTitle = (isInit && !combatNow) ? ` title="No encounter — initiative needs a combat."` : "";
+  // R3a on the button itself: "Ask 4 · 2 rolled". The skip is stated BEFORE the press, in the
+  // control he is about to press, so he never meets it as a surprise afterwards.
+  const sendLabel = isInit
+    ? `Ask ${selCount}${skipCount ? ` · ${skipCount} rolled` : ""}`
+    : `Request ${rollTool.type} from ${selCount}`;
+  // ⚠️ NOT A NEW HANDLER. `data-combat="rollNPC"` is the panel's existing combat action
+  // (handled with next/prev/end), and `Combat#rollNPC` is core's own "roll everything that
+  // isn't player-owned and hasn't rolled". The button already exists further down this tab in
+  // the encounter controls; this is the same action placed where the DM is actually looking at
+  // combat start, so the two halves of "who rolls initiative" sit together. Nothing is forked.
+  const npcBtn = isInit
+    ? `<button class="mc-dmp-rt-send" data-combat="rollNPC"${combatNow ? "" : " disabled"} title="${combatNow ? "Initiative for every NPC without a number. Players roll their own." : "No encounter."}"><i class="fas fa-dice-d20"></i> Roll all NPCs</button>`
+    : "";
   return `
     <div class="mc-dmp-rt-top">
-      <select class="mc-rt-type" data-rt="type"><option value="save" ${rollTool.type === "save" ? "selected" : ""}>Save</option><option value="check" ${rollTool.type === "check" ? "selected" : ""}>Check</option></select>
-      <select class="mc-rt-abil" data-rt="ability">${abilOpts}</select>
+      <select class="mc-rt-type" data-rt="type"><option value="save" ${rollTool.type === "save" ? "selected" : ""}>Save</option><option value="check" ${rollTool.type === "check" ? "selected" : ""}>Check</option><option value="initiative" ${isInit ? "selected" : ""}>Initiative</option></select>
+      ${isInit ? "" : `<select class="mc-rt-abil" data-rt="ability">${abilOpts}</select>`}
     </div>
     <div class="mc-dmp-rt-scroll">${rows || `<div class="mc-dmp-empty">No player tokens.</div>`}</div>
-    <div class="mc-dmp-rt-foot"><button class="mc-dmp-rt-send" data-rt-send${selCount ? "" : " disabled"}><i class="fas fa-paper-plane"></i> Request ${rollTool.type} from ${selCount}</button></div>`;
+    <div class="mc-dmp-rt-foot"><button class="mc-dmp-rt-send" data-rt-send${sendOk ? "" : " disabled"}${sendTitle}><i class="fas fa-paper-plane"></i> ${sendLabel}</button>${npcBtn}</div>`;
 }
 
 // Owned tokens (task #18): each non-GM, non-TV player's owned actors as draggable
@@ -2207,12 +2290,43 @@ function flyoutHTML() {
 }
 
 async function sendRolls() {
-  const ids = [...(rollTool.selected ?? [])];
-  if (!ids.length) { ui.notifications.warn("Pick at least one target."); return; }
+  let ids = [...(rollTool.selected ?? [])];
+  const init = rollTool.type === "initiative";
+  if (init && !game.combat) { ui.notifications.warn("No encounter — initiative needs a combat."); return; }
+  // "If a player already rolled, keep their result" (DM 2026-10-05). Dropped HERE as well as
+  // greyed in the list, because the selection is sticky across type changes and across combat
+  // rounds — a set chosen before anyone rolled is still the set when the Send is pressed.
+  // The relay's own skip (rpc.js rollInitiativeForActor) is the backstop for the same rule; this
+  // one exists so the COUNT he is told is the count that happened.
+  let skipped = 0;
+  if (init) {
+    const before = ids.length;
+    ids = ids.filter(id => !initiativeDone(game.actors.get(id)));
+    skipped = before - ids.length;
+  }
+  if (!ids.length) {
+    // ⚠️ NEVER A SILENT NO-OP. Everyone selected had already rolled, so nothing was sent — say
+    // which of the two reasons it was, or this reads as a dead button.
+    ui.notifications.warn(skipped ? `Nothing sent — all ${skipped} already rolled.` : "Pick at least one target.");
+    return;
+  }
+  // `ability` still travels for initiative and is ignored by the relay. Stripping it would mean
+  // two call shapes for one handler, and the handler's own `kind` already decides what is read.
   const res = await api.requestRolls({ rollType: rollTool.type, ability: rollTool.ability, actorIds: ids });
   if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Couldn't request rolls."); return; }
-  const ab = CONFIG.DND5E?.abilities?.[rollTool.ability]?.label ?? rollTool.ability;
-  ui.notifications.info(`Requested ${ab} ${rollTool.type} from ${res.sent} player${res.sent === 1 ? "" : "s"}${res.auto ? ` (auto-rolled ${res.auto})` : ""}.`);
+  // R3a (deck-command RULES.md:30): fact first, no narration, no sentence where a count will do.
+  const what = init ? "Initiative" : `${CONFIG.DND5E?.abilities?.[rollTool.ability]?.label ?? rollTool.ability} ${rollTool.type}`;
+  skipped += res.skipped ?? 0; // the relay applies the same rule; report one number, not two
+  const parts = [`${what}: sent ${res.sent}`];
+  if (skipped) parts.push(`skipped ${skipped} (rolled)`);
+  if (res.auto) parts.push(`rolled ${res.auto} here`);
+  // Whatever the relay accounted for in none of those three. For initiative that is "offline and
+  // not in the encounter": nothing happened for them, and an unexplained shortfall between the
+  // button's count and the result is exactly the thing that gets filed as a broken feature.
+  const unaccounted = (res.asked ?? 0) - res.sent - (res.auto ?? 0) - (res.skipped ?? 0);
+  if (unaccounted > 0) parts.push(`${unaccounted} not reached`);
+  ui.notifications.info(parts.join(" · "));
+  render(); // the numbers the rows show have just changed for anyone rolled DM-side
 }
 
 /** Best label for a player: their assigned character, else their SOLE owned
@@ -4090,8 +4204,14 @@ function onChange(ev) {
   if (player) { tokensPlayer = player.value; return render(); } // owned-tokens player switch
   const sel = ev.target.closest("[data-rt]");
   if (!sel) return;
-  if (sel.dataset.rt === "type") rollTool.type = sel.value;
-  else if (sel.dataset.rt === "ability") rollTool.ability = sel.value;
+  if (sel.dataset.rt === "type") {
+    rollTool.type = sel.value;
+    // The TYPE change alone has to repaint (2026-10-05): Initiative hides the ability select,
+    // relabels Send and adds "Roll all NPCs", none of which the DOM can do on its own. An
+    // ability change still doesn't — that is the one this comment was written for.
+    return render();
+  }
+  if (sel.dataset.rt === "ability") rollTool.ability = sel.value;
   // value persists in the DOM + state; no re-render (keeps the target list scroll)
 }
 
@@ -5169,6 +5289,15 @@ export function registerDMPanel() {
   // Disperse pulse (decision §15.2#6 — nudge, never force).
   Hooks.on("createCombatant", (cb) => { if (cb?.actor?.type === "group") render(); });
   Hooks.on("deleteCombatant", (cb) => { if (cb?.actor?.type === "group") render(); });
+  // ⚠️ A NUMBER LANDING IS AN `updateCombatant`, NOT AN `updateCombat` (2026-10-05). Setting a
+  // combatant's initiative does not reliably fire the combat-level hook above, so without this
+  // the Rolls tool would keep showing a player as un-rolled after they rolled — the strike and
+  // the number would arrive on some unrelated later repaint, which is the "pressed it, nothing
+  // happened" report in its other direction. Narrow on purpose: only while the Initiative type
+  // is actually on screen, and only when the field that matters changed.
+  Hooks.on("updateCombatant", (cb, ch) => {
+    if (dockTab === "combat" && rollTool.type === "initiative" && "initiative" in (ch ?? {})) render();
+  });
   window.addEventListener("resize", () => { if (panelEl) clampPos(panelEl); });
   render();
 }

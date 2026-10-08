@@ -12,6 +12,7 @@ import { watchScroll, captureScrolls, restoreScrolls, sameHTML } from "./repaint
 import { openFeedback } from "./feedback.js"; // §48 report a bug from the phone
 import { isEmberWorld, emberReady, EMBER_CREATION_SHEET, activeCampaign, emberSky, emberPartyStatus, emberAttunements, emberJournal } from "./campaigns.js"; // §50 Ember: creation door + rest copy + the Ember tab
 import { isSaveResult, acShape } from "./dnd5e-compat.js"; // the dnd5e 5.3 ⇄ 6.0 seam (chat subtypes, AC shape)
+import { shouldKeepGmClear, isHandheldDevice } from "./overlay-guard.js"; // §22.7/§22.10 — overlay-guard imports only preset.js, so no cycle
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
 // Full-screen frameless takeover for phone-role clients. Rolls use the dnd5e
@@ -46,11 +47,24 @@ function isDisplayAccount() {
   } catch (e) { return false; }
 }
 
+// §22.10 A PLAYER ON A LAPTOP IS NOT A PHONE (diagnosed live 2026-10-08).
+// This function used to end `return role === "auto" && !game.user.isGM` — no screen test, no
+// pointer test, nothing. `auto` is the DEFAULT role, so every non-GM client in the world was a
+// phone: a player who opened Foundry on a desktop got `#mobile-command-shell` (fixed/inset-0/
+// opaque, z 9999) stretched across a 1568px viewport with `canvas.ready === false`, and no visible
+// way out — `role` is per-device, so their only remedy was MC's own settings, behind the shell that
+// was covering them. It is the §22.7 blocker again with the roles swapped: there the DM's screen
+// was taken by a world setting, here a player's screen is taken by a default.
+// The device test lives in overlay-guard.js (isHandheldDevice — coarse pointer AND a smallest
+// viewport side ≤ 820px, both required) so this file and overlay-guard's phoneHere() cannot
+// disagree about the hardware. An explicit `role === "phone"` still wins outright, above, and
+// isDisplayAccount() still short-circuits ahead of everything: a person who SAID this device is
+// their phone is never second-guessed by a media query.
 export function isPhoneClient() {
   const role = game.settings.get(MODULE_ID, "role");
   if (role === "phone") return true;      // an explicit per-device choice still wins
   if (isDisplayAccount()) return false;   // the shared screen never opens the phone shell
-  return role === "auto" && !game.user.isGM;
+  return role === "auto" && !game.user.isGM && isHandheldDevice();
 }
 
 // The shared table display (TV): a canvas client with no shell. It still needs
@@ -60,6 +74,23 @@ export function isDisplayClient() {
   const role = game.settings.get(MODULE_ID, "role");
   if (role === "display") return true;    // this device was set up as the TV by hand
   if (role === "phone") return false;     // …or explicitly told it is not
+  // §22.9 A GM CLIENT IS NEVER AUTO-PROMOTED TO THE TV (blocker, 2026-10-02). This line used to
+  // return isDisplayAccount() for everyone, and `displayOwnerUser` is a WORLD setting naming an
+  // ACCOUNT. Name your own GM account as the shared view — which is what happens when the setup
+  // wizard asks for the TV and there is no separate TV account yet, and which this codebase has
+  // already seen once ("the TV ran on 'Michael [GM]'", warnDisplayGM in main.js) — and every
+  // client that account signs in from takes the TV path: main.js's ready hook adds `mc-clean`,
+  // and styles/shell.css's clean block then hides #ui-top, #ui-left, #ui-right, #ui-bottom,
+  // #scene-navigation, #scene-controls, #sidebar, #hotbar, #players, #logo, #notifications and
+  // every `.app`/`.application` window. The DM's Foundry is then gone on every load of that
+  // world, in the desktop app and the web client alike, with a hint pill that fades after 60
+  // seconds and no UI left to change the setting from. Nothing cleared it; nothing could.
+  //
+  // Running the table's screen from a GM login is a bad idea anyway (it shows GM vision —
+  // warnDisplayGM says so to anyone who does it), so the account alone no longer buys the TV
+  // path on a GM client. An explicit per-device role of "display" still does, above: a person who
+  // deliberately set THIS device up as the TV meant it, and can unset it the same way.
+  try { if (game.user?.isGM) return false; } catch (e) { return false; }
   return isDisplayAccount();              // otherwise the DM's nominated TV account is the display
 }
 
@@ -235,7 +266,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #partyTab = "view";     // party tab: view | order | explore | inventory | journal
   #wasPacked = false;     // pack-transition latch: jump phones to the order tab once per pack
   #lastReleased = null;   // scout release-follow: last-seen released member set
-  #rollRequest = null;    // DM roll-request prompt {actorUuid, rollType, ability, label}
+  #rollRequest = null;    // DM roll-request prompt {actorUuid, rollType, ability, label, dc}
   #colorPickOpen = false; // DM-triggered colour-picker overlay is showing
   #pausedDismissed = null; // §17.3 split-scene overlay: "activeId:hereId" the player browsed past
   #nightDismissed = null;  // §17.4 night overlays: "assign" | "watch:N" the player browsed past
@@ -294,6 +325,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // turned face up, because the stale flag still said "dismissed" (DM 2026-08-11, "cards now flip
   // and immediately disappear"). Keyed on the arcana AND the moment it was dealt, so a re-deal of
   // the same card is still a new card.
+  // ⚠️ AND IT HAS TO OUTLIVE THE PAGE (2026-10-05, DM: "get rid of tarot card opening by default
+  // on phone screen when first opening the system"). This field was in-memory only, so every
+  // reload reset it to "nothing dismissed" while the card itself lives on an ACTOR FLAG that
+  // persists forever (tarot.js setActorCard). A player who was dealt a card months ago, turned
+  // it and put it away therefore met it again, full-screen at z 9998, on every single load —
+  // which reads exactly like the app opening on the tarot by default, because from the phone's
+  // side that is what it is. The key is now mirrored to localStorage, per device, same pattern
+  // as the welcome card's `mc-onboarded`. `null` = not read from storage yet, `""` = nothing
+  // dismissed; the empty string can never equal a `key:at` pair, so the distinction is safe.
   #tarotDismissed = null;
   #tarotTurning = false;  // §42.2 mid-flip: the animation is running on the live element
   #pmDraft = "";          // Messages composer text, kept across re-renders
@@ -492,10 +532,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // create their own actors, a player with NO characters was still stuck waiting — the Ember
     // door only lived on an existing blank PC. Offer creation right here: one tap makes the
     // blank hero and walks straight into Ember's creator.
-    const canMake = isEmberWorld() && emberReady() && game.user?.can?.("ACTOR_CREATE") && !isDisplayClient();
-    const emberDoor = canMake
-      ? `<button class="mc-cg-create mc-nt-create" data-action="ember-create-new">
-          <i class="fas fa-wand-magic-sparkles"></i> Create ${rows ? "another" : "your"} hero</button>`
+    // ⚠️ GENERALISED 2026-10-05 (DM: "why is ember involved!?"). This read
+    // `isEmberWorld() && emberReady() && game.user?.can?.("ACTOR_CREATE") && !isDisplayClient()`,
+    // so in a dnd5e world the door never rendered and a player who owns NO character had no way
+    // to make one — this screen offered "Switch user" and "This is the TV" and nothing else.
+    // Creating a blank PC and walking into char-gen is NOT an Ember capability: #charGenStartHTML
+    // (~line 890) has had a dnd5e-native branch since §38.4a — Build with your story / Quick
+    // build — and #isBlankPC routes to it on its own. The only Ember-specific part is WHICH
+    // creator opens after the actor exists, so the campaign test moved off the gate and onto the
+    // route (#createNewHero). The permission test is the real gate and it was always there.
+    const canMake = !!game.user?.can?.("ACTOR_CREATE") && !isDisplayClient();
+    const campaignCreator = isEmberWorld() && emberReady(); // the campaign owns creation here
+    const makeDoor = canMake
+      ? `<button class="mc-cg-create mc-nt-create" data-action="create-new-hero">
+          <i class="fas fa-wand-magic-sparkles"></i> Create ${rows ? "another" : "your"} ${campaignCreator ? "hero" : "character"}</button>`
       : "";
     // ALWAYS offer a way out. This screen has no header — so with no characters to list it used to
     // render a title and nothing else, and a device that landed here was simply stuck (DM
@@ -504,12 +554,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // empty. Right is forward per bible §4.1.1, and "This is the TV" is the committing answer.
     return `<div class="mc-notoken">
       <div class="mc-nt-badge"><i class="fa-solid fa-location-dot"></i></div>
-      <div class="mc-nt-title">${(emberDoor && !rows) ? "No hero yet" : "No token on this scene"}</div>
-      <div class="mc-nt-sub">${(emberDoor && !rows)
-        ? "This world makes heroes its own way — ancestry, class, culture, path, and your look. Make yours now."
-        : `The DM hasn't placed a token for you on <b>${foundry.utils.escapeHTML(scene)}</b> yet. This updates automatically the moment they do.`}</div>
-      ${rows ? "" : emberDoor}
-      ${rows ? `<div class="mc-nt-listhead">Your characters</div><div class="mc-nt-list">${rows}</div>${emberDoor}` : ""}
+      <div class="mc-nt-title">${(makeDoor && !rows) ? (campaignCreator ? "No hero yet" : "No character yet") : "No token on this scene"}</div>
+      <div class="mc-nt-sub">${(makeDoor && !rows)
+        ? (campaignCreator
+          ? "This world makes heroes its own way — ancestry, class, culture, path, and your look. Make yours now."
+          : "You don't have a character yet. Make one now — species, background and class, step by step.")
+        : (!rows && !makeDoor && !isDisplayClient())
+          // ⚠️ The gate above is now the PERMISSION, so a world where players can't create actors
+          // lands here: no characters, no door. Saying "the DM hasn't placed your token" would be
+          // the lie the 2026-10-05 review caught — the token is not what is missing. Name the two
+          // things that actually are, in the order the DM can act on them.
+          ? "You don't have a character yet, and this world doesn't let players make their own. Ask the DM to create one for you and give you ownership of it."
+          : `The DM hasn't placed a token for you on <b>${foundry.utils.escapeHTML(scene)}</b> yet. This updates automatically the moment they do.`}</div>
+      ${rows ? "" : makeDoor}
+      ${rows ? `<div class="mc-nt-listhead">Your characters</div><div class="mc-nt-list">${rows}</div>${makeDoor}` : ""}
       <div class="mc-nt-escape">
         <div class="mc-nt-escape-hint">${rows ? "Not what you expected?" : "Is this the table's shared screen?"}</div>
         <div class="mc-nt-escape-btns">
@@ -893,18 +951,29 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // it whether creation completed, was exited, or the sheet died. Ember normally stamps every
   // new character's sheetClass itself at preCreateActor; the write here only repairs an actor
   // made before Ember was enabled (owner permission suffices — it's a flag on our own actor).
-  // §50.7: a player with no characters in a world that lets players create actors — one tap
-  // makes the blank hero (Ember's preCreateActor stamps the creation sheet on it), pins it as
-  // the tokenless subject (same pattern as #finishCharGen — no token exists yet), and opens
-  // Ember's creator directly. The player names the hero inside the widget.
-  async #createEmberHero() {
+  // §50.7, GENERALISED 2026-10-05: a player with no characters in a world that lets players
+  // create actors — one tap makes the blank PC, pins it as the tokenless subject (same pattern
+  // as #finishCharGen — no token exists yet), and opens whichever creator this world uses.
+  //
+  // The campaign test is HERE, on the route, and no longer on the door that offers it. In an
+  // Ember world this is unchanged: Ember's preCreateActor stamps the creation sheet on the new
+  // actor and we walk straight into its fullscreen creator. Everywhere else — dnd5e included —
+  // we simply re-render: the new actor is blank (no class item), so `get actor()` binds it via
+  // #subjectActorId, #buildHTML's `#isBlankPC` branch fires, and the player lands on
+  // #charGenStartHTML's two doors. That path is the one the DM's own five-of-six players never
+  // reached, and it needed no new surface — only permission to be offered.
+  async #createNewHero() {
+    const campaignCreator = isEmberWorld() && emberReady();
     try {
-      const actor = await Actor.implementation.create({ name: `${game.user.name}'s hero`, type: "character" });
+      const actor = await Actor.implementation.create({
+        name: `${game.user.name}'s ${campaignCreator ? "hero" : "character"}`, type: "character"
+      });
       if (!actor) return;
       this.#subjectActorId = actor.id; this.#subjectId = null;
-      await this.#openEmberCreation();
+      if (campaignCreator) return void await this.#openEmberCreation();
+      this.render();
     } catch (e) {
-      console.warn(`${MODULE_ID} | player-side hero creation failed`, e);
+      console.warn(`${MODULE_ID} | player-side character creation failed`, e);
       ui.notifications?.warn?.("Couldn't create a character — ask the DM to make you one.");
       this.render();
     }
@@ -5269,10 +5338,18 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // THE FIVE SECONDS ARE A GUARD, not a delay. The tap that turns the card and the tap that puts
   // it away are the same gesture in the same place — without a dead window, the second half of an
   // eager double-tap dismisses the card the player never actually saw.
+  /** Which card this device has put away, read through from localStorage on first use. */
+  #tarotDismissedKey() {
+    if (this.#tarotDismissed === null) {
+      try { this.#tarotDismissed = window.localStorage.getItem("mc-tarot-dismissed") || ""; }
+      catch (e) { this.#tarotDismissed = ""; } // private mode: in-memory only, as before
+    }
+    return this.#tarotDismissed;
+  }
   #tarotHandHTML(actor) {
     if (!tarotEnabled()) return "";
     const c = tarotCard(actor);
-    if (!c || (c.shown && this.#tarotDismissed === `${c.key}:${c.at}`)) return "";
+    if (!c || (c.shown && this.#tarotDismissedKey() === `${c.key}:${c.at}`)) return "";
     const esc = foundry.utils.escapeHTML;
     const face = tarotFace(c);
     return `<div class="mc-tarot-hand ${c.shown ? "mc-tarot-turned" : ""}">
@@ -5389,6 +5466,40 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // dnd5e's roll-config dialog (lifted above the shell like saves) and writes the
   // combatant's initiative. The old handler fired it with ?.() and swallowed any
   // rejection; now we guard for an active combat, await, and surface failures.
+  // A pushed initiative request (2026-10-05) names an ACTOR, which need not be the subject this
+  // phone is showing — a player with two tokens in the fight gets two cards. So the pushed path
+  // resolves combatants from the payload's actor rather than from #myCombatants, by the same
+  // resolved-uuid rule rpc.js uses: a linked token's `combatant.actor` is the base Actor, an
+  // unlinked token's is its own, and matching on base id would roll all twelve at once.
+  #combatantsFor(a, combat = activeCombat()) {
+    if (!combat || !a) return [];
+    return combat.combatants.filter(c => c.actor?.uuid === a.uuid);
+  }
+  async #rollInitiativeFor(a) {
+    if (!a) return;
+    const combat = activeCombat();
+    if (!combat) { ui.notifications.info("No active encounter yet — ask the DM to start combat."); return; }
+    try {
+      const mine = this.#combatantsFor(a, combat);
+      // ⚠️ ONLY THE ONES THAT STILL OWE A NUMBER (DM 2026-10-05: "if a player already rolled,
+      // keep their result"). The same `initiative == null` test the relay applies before it ever
+      // sends; this is the last line of it, for a card that was already on screen when the
+      // number landed — a stale prompt tapped late must not overwrite a result.
+      const ids = mine.filter(c => c.initiative == null).map(c => c.id);
+      if (ids.length) await combat.rollInitiative(ids);
+      // Nothing pending but they ARE in the fight: the request has been overtaken. Say so and
+      // keep the number, rather than re-rolling or failing silently.
+      else if (mine.length) ui.notifications.info("Already rolled — keeping your initiative.");
+      // Genuinely not in the encounter. Only reach for the dialog here, because on a canvas-off
+      // phone it can ADD a second combatant when one already exists.
+      else await a.rollInitiativeDialog();
+    } catch (e) {
+      console.error("mobile-command | pushed initiative roll failed", { actor: a?.uuid, error: e });
+      ui.notifications.warn("Couldn't roll initiative — check the console (F12) and tell me what it says.");
+    }
+    if (this.rendered) this.render();
+  }
+
   async #rollInitiative() {
     const actor = this.actor;
     if (!actor) return;
@@ -5428,7 +5539,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     try { navigator.vibrate?.([180, 70, 180]); } catch (e) { /* unsupported */ }
     try {
       const src = CONFIG.sounds?.combat;
-      if (src) foundry.audio.AudioHelper.play({ src, volume: 0.8, autoplay: true, loop: false }, false);
+      // `channel: "interface"` SAID, not assumed (2026-10-05). This call and `#sfx` below both
+      // omitted it and relied on core's default. Both are phone-only, and a phone zeroes
+      // `globalPlaylistVolume` and `globalAmbientVolume` (main.js, §20.6) while leaving
+      // `globalInterfaceVolume` alone — so if core's default is ever anything but `interface`,
+      // these two cues go silent on the one client they exist for, and silently. The channel
+      // these want is not in doubt; only the default was. Now it is written down.
+      if (src) foundry.audio.AudioHelper.play({ src, volume: 0.8, autoplay: true, loop: false, channel: "interface" }, false);
     } catch (e) { /* audio context may still be locked */ }
   }
 
@@ -5441,7 +5558,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!isPhoneClient()) return;
     try {
       const src = { roll: CONFIG.sounds?.dice, prompt: CONFIG.sounds?.notification }[kind];
-      if (src) foundry.audio.AudioHelper.play({ src, volume: 0.8, autoplay: true, loop: false }, false);
+      // `interface`, said rather than defaulted — see alertCombatStart above for why.
+      if (src) foundry.audio.AudioHelper.play({ src, volume: 0.8, autoplay: true, loop: false, channel: "interface" }, false);
     } catch (e) { /* audio context may still be locked */ }
     try { navigator.vibrate?.(kind === "prompt" ? [120, 60, 120] : 30); } catch (e) { /* unsupported */ }
   }
@@ -6334,17 +6452,31 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!p) return "";
     const a = p.actorUuid ? fromUuidSync(p.actorUuid) : this.actor;
     if (!a?.testUserPermission(game.user, "OWNER")) return "";
-    const verb = p.rollType === "check" ? "check" : "save";
+    // Initiative is a noun, not a "<ability> <verb>" — "Roll Initiative", not "Roll Initiative
+    // save". Everything else about the card is identical, which is the point of carrying it on
+    // the same relay (2026-10-05).
+    const init = p.rollType === "initiative";
+    const verb = init ? "" : p.rollType === "check" ? " check" : " save";
+    // The DC, when the asker set one (2026-10-05). The save prompt has shown its DC since it was
+    // built and this card did not, so the same player met two prompts that disagreed about whether
+    // a target number is a thing a prompt can have. Still OPTIONAL: a blind check — "roll me a
+    // Wisdom save" with the number kept back — is a DM's legitimate move, and `dc: null` is how
+    // the asker says so, so no number is invented when none was sent.
+    // `p.dc != null` BEFORE any coercion. `Number(null)` is 0 and 0 is finite, so the obvious
+    // `Number.isFinite(Number(p.dc))` turns "no DC" into "DC 0" — and since the relay normalises a
+    // missing dc to `null`, that was every roll request the panel sends. Same idiom as the save
+    // prompt's own `s.dc != null` a few thousand lines up.
+    const dc = (p.dc != null && p.dc !== "" && Number.isFinite(Number(p.dc))) ? Number(p.dc) : null;
     // Same bottom-sheet chrome as every other incoming prompt (save/reaction/AoO) —
     // the old bare fixed bar floated over the sheet with no background (live 2026-07-18).
     return `<div class="mc-saveprompt mc-rollreq">
       <div class="mc-saveprompt-bar">
-        <span class="mc-saveprompt-title"><i class="fas fa-dice-d20"></i> The DM asks for a roll</span>
+        <span class="mc-saveprompt-title"><i class="fas fa-dice-d20"></i> ${init ? "Roll for initiative" : "The DM asks for a roll"}</span>
         <button class="mc-saveprompt-x" data-action="roll-request-x" aria-label="Dismiss"><i class="fas fa-xmark"></i></button>
       </div>
       <div class="mc-saveprompt-body">
         <div class="mc-saveprompt-btns">
-          <button class="mc-save-roll" data-action="roll-request">Roll ${foundry.utils.escapeHTML(p.label ?? p.ability)} ${verb}</button>
+          <button class="mc-save-roll" data-action="roll-request">Roll ${foundry.utils.escapeHTML(p.label ?? p.ability)}${verb}${dc === null ? "" : ` (DC ${dc})`}</button>
         </div>
       </div>
     </div>`;
@@ -7126,8 +7258,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return this.#startCharGen();
       case "ember-create": // §50.7: the one door in Ember worlds — the campaign's own creator
         return this.#openEmberCreation();
-      case "ember-create-new": // §50.7: no characters at all — make the blank hero, then walk in
-        return this.#createEmberHero();
+      case "create-new-hero":  // no characters at all — make the blank PC, then walk into the
+      case "ember-create-new": // world's creator. Old action name kept: a stale render can still
+        return this.#createNewHero(); // carry it, and a dead data-action is a dead button.
       case "ember-log-toggle": // §50.8: the story list unfolds/refolds
         this.#emberLogAll = !this.#emberLogAll; return this.render();
       case "char-gen-wizard": {
@@ -7262,7 +7395,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         actor?.unsetFlag(MODULE_ID, "bargainResult")
           .catch(e => console.warn(`${MODULE_ID} | bargain clear failed`, e));
         return;
-      case "tarot-open": { this.#tarotDismissed = null; return this.render(); }
+      // Deliberately re-open the card from the CM tab's thumbnail: forget the dismissal on this
+      // device too, or the hand would be rebuilt and then filtered straight back out by the
+      // persisted key (the old in-memory `= null` was enough only because nothing survived).
+      case "tarot-open": {
+        this.#tarotDismissed = "";
+        try { window.localStorage.removeItem("mc-tarot-dismissed"); } catch (e) { /* private mode */ }
+        return this.render();
+      }
       // §42.2 one target, two meanings: face down it turns over, face up it goes away. The
       // player owns their own actor, so the reveal is a direct flag write — no RPC, same as a
       // twist spend.
@@ -7293,6 +7433,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         // landed cannot put away a card nobody has looked at yet.
         if (!tarotCanDismiss(held)) return;
         this.#tarotDismissed = `${held.key}:${held.at}`;
+        // Persist it: the card's flag outlives the page, so the dismissal has to as well.
+        try { window.localStorage.setItem("mc-tarot-dismissed", this.#tarotDismissed); } catch (e) { /* private mode */ }
         this.render();
         return;
       }
@@ -7314,7 +7456,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "roll-request": {
         const p = this.#rollRequest; this.#rollRequest = null; this.render();
         const a = p?.actorUuid ? fromUuidSync(p.actorUuid) : actor;
-        if (p && a) p.rollType === "check" ? a.rollAbilityCheck({ ability: p.ability }) : a.rollSavingThrow({ ability: p.ability });
+        if (!p || a?.documentName !== "Actor") return; // same shape check the relay makes
+        // Initiative rolls the COMBATANT, never the actor — see #rollInitiativeFor.
+        if (p.rollType === "initiative") return void this.#rollInitiativeFor(a);
+        p.rollType === "check" ? a.rollAbilityCheck({ ability: p.ability }) : a.rollSavingThrow({ ability: p.ability });
         return;
       }
       case "roll-request-x": this.#rollRequest = null; return this.render();
@@ -8958,6 +9103,17 @@ export async function syncTokenNamesToActor(actor) {
 }
 
 export function openShell() {
+  // §22.7 THE LAST WORD on the phone shell. `#mobile-command-shell` is fixed/inset-0/opaque at
+  // z 9999 (styles/shell.css) — on a GM's desktop it is a total blackout with no way back to the
+  // settings that would turn it off. isPhoneClient() should never be true there (it needs
+  // role === "phone", an explicit per-device choice, which also clears shouldKeepGmClear()), but
+  // "should never" is what every unusable-UI report is made of. This guard costs one boolean and
+  // closes the whole class: the shell cannot be built on a protected GM client, by ANY caller —
+  // this path, the ready hook, the console, a future feature.
+  if (shouldKeepGmClear()) {
+    console.warn(`${MODULE_ID} | refusing to open the phone shell: this client is a GM on a desktop (§22.7 safety rail). Set the per-device role to "phone", or tick "Show the table's full-screen moments on my screen too", if that is really what you want.`);
+    return null;
+  }
   if (!shellInstance) shellInstance = new ControllerShell();
   // Ensure subsequent framed dialogs out-stack the shell even via bringToFront.
   const AppV2 = foundry.applications.api.ApplicationV2;
@@ -8979,20 +9135,64 @@ export function maybeAutoOpenShell() {
   // display-role browser logged in as a user who is NOT the nominated display account is
   // almost certainly a person, not the TV: ask once per load. The real TV account stays
   // silent (it IS the display); GM clients never ran the shell anyway.
+  // THREE choices, not two (DM 2026-10-02: "definitely 'plain Foundry' too"). The two-button
+  // version offered the phone app or the TV and nothing else, so a person who wants ordinary
+  // Foundry on that browser had no route out of this dialog — the opt-out the DM asked for
+  // ("people choosing to play on vanilla should have an easy opt out option that automatically
+  // restores canvas"). "Plain Foundry" writes the `dm` role: no shell, no clean-mode hiding,
+  // stock Foundry for a player as much as for a GM. It also strips any clean-mode classes this
+  // load already applied, so the canvas and chrome come back without a reload.
+  // §22.10 2026-10-08 — THE SAME DIALOG, FOR THE OTHER DEVICE WE MIGHT HAVE GUESSED WRONG ABOUT.
+  // isPhoneClient() now requires a handheld-looking device for the `auto` role, which fixes the
+  // laptop-player blackout but creates a second population: a device `auto` decided is NOT a
+  // phone, where the player wanted the app. A big tablet is the real case — a 12.9" iPad is
+  // 1024px on its short side, past the 820 cut, and it is a perfectly good phone-app device.
+  // Without this arm their opt-in would also be "find MC's settings", the same dead end the
+  // display-role players were in. So: same dialog, same three choices, same once-per-load, only
+  // the explanatory line differs. There is deliberately no second dialog — two ways to say the
+  // same thing is how the copy in one of them goes stale.
   try {
     const role = game.settings.get(MODULE_ID, "role");
-    if (role !== "display" || isDisplayAccount() || game.user.isGM) return;
-    foundry.applications.api.DialogV2.confirm({
-      window: { title: "Phone app, or shared screen?" },
-      content: `<p>This browser was set up as the table's <b>shared screen (TV)</b>, so the phone app stays closed here.</p>
-        <p>If this is <b>you</b>, not the TV, switch this browser back to a phone view.</p>`,
-      yes: { label: "Use it as my phone", default: true },
-      no: { label: "Keep it as the TV" },
+    if (isDisplayAccount() || game.user.isGM) return;
+    // Which way in? Either this browser was declared the TV, or auto-detection said "not a phone"
+    // on a client that could plausibly be one. (A GM and the real TV account are already out,
+    // above; an explicit `phone` role opened the shell at the top of this function; an explicit
+    // `dm` role is a person who asked for plain Foundry and must not be asked again.)
+    const guessedNotAPhone = role === "auto" && !isHandheldDevice();
+    if (role !== "display" && !guessedNotAPhone) return;
+    foundry.applications.api.DialogV2.wait({
+      window: { title: "Phone app, shared screen, or plain Foundry?" },
+      content: guessedNotAPhone
+        ? `<p>This looks like a <b>computer screen</b>, not a phone, so the phone app stays closed here.</p>
+        <p>If you'd rather play on the app — on a tablet, say — pick how you want to use this browser.</p>`
+        : `<p>This browser was set up as the table's <b>shared screen (TV)</b>, so the phone app stays closed here.</p>
+        <p>If this is <b>you</b>, not the TV, pick how you want to use it.</p>`,
+      buttons: [
+        { action: "phone", label: "Use it as my phone", default: true },
+        { action: "plain", label: "Just plain Foundry" },
+        { action: "tv", label: "Keep it as the TV" }
+      ],
       rejectClose: false, modal: true
-    }).then(async (yes) => {
-      if (!yes) return;
-      await game.settings.set(MODULE_ID, "role", "auto");
-      openShell();
+    }).then(async (choice) => {
+      if (choice === "phone") {
+        // From the display role, "auto" is the right write: it clears the TV declaration and the
+        // device then decides for itself. From the auto role it would be a no-op, and the device
+        // has ALREADY decided this is not a phone — so the dialog would come back on every single
+        // load and the player would have to keep answering it. `phone` is the explicit per-device
+        // choice they just made out loud, and it is the one value that outranks the guess.
+        await game.settings.set(MODULE_ID, "role", guessedNotAPhone ? "phone" : "auto");
+        openShell();
+      } else if (choice === "plain") {
+        await game.settings.set(MODULE_ID, "role", "dm");
+        // Undo what the display role already did to this page, so "plain" is plain immediately
+        // rather than after a reload the player may not think to perform.
+        try {
+          document.body.classList.remove("mc-clean", "mc-display");
+          document.getElementById("mc-clean-hint")?.remove();
+          closeShell();
+        } catch (e) { /* nothing open to undo */ }
+        try { ui.notifications?.info("This browser now uses plain Foundry. Change it any time in Mobile Command's Client role setting."); } catch (e) { /* notifications late */ }
+      }
     }).catch(() => {});
   } catch (e) { /* the prompt is a courtesy — never block ready */ }
 }

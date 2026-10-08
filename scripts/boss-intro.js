@@ -1,6 +1,6 @@
 import { MODULE_ID } from "./preset.js";
-import { isPhoneClient, isDisplayClient } from "./shell.js";
-import { isOnlineTable, hasSharedScreen } from "./settings.js";
+import { isOnlineTable } from "./settings.js"; // the §39.5 audience question now lives in overlay-guard
+import { mayCoverViewport } from "./overlay-guard.js"; // §22.7 the one full-screen gate
 import { socket } from "./rpc.js"; // the same one-shot channel effects.js fires on — importing
                                    // effects.js instead would close a cycle (it imports this file)
 
@@ -103,10 +103,11 @@ const NAME_SIDES = [
 // follows the SCREEN, not the room (§39.5): with a streamed display account the STREAM carries
 // the entrance, and phones playing it too would double it against the stream's own audio. Only
 // a table with no shared screen at all sends it to every player's own client.
-function eligible() {
-  if (isOnlineTable() && !hasSharedScreen()) return true;
-  return !isPhoneClient() && (isDisplayClient() || game.user?.isGM);
-}
+// §22.7 one gate for every full-viewport layer; `selfScreen` carries the §39.5 rule above (online
+// with no shared screen, a player's own client IS the screen). It never promotes the GM —
+// `#mc-bossintro` is z 99500 over everything, and the DM's working screen is opt-in only
+// (`dmScreenOverlays`, one tick in the module settings).
+function eligible() { return mayCoverViewport({ selfScreen: true }); }
 
 let root = null;
 let timers = [];

@@ -2810,25 +2810,136 @@ function applyPcVisuals(td, actor, { colorFrom = null, tokenDoc = null } = {}) {
 // ability check or saving throw; each owner's phone gets a tappable card that
 // rolls it natively (chat + on-screen dice), and the DM reads the results and does
 // the math. Owners offline → the executor rolls for them. Same fan-out as saves.
-async function handleRequestRolls({ rollType, ability, actorIds, requesterId }) {
+// 2026-10-05 — THREE things this took, for deck-command's Notifications work (its spec names all
+// three: NOTIFICATIONS-SPEC-2026-10-04 §58, :561–571).
+//
+// 1. `label` was never a PARAMETER. It was destructured away and then re-derived from `ability`
+//    one line down, so a caller's label could not reach the phone at all — the card always read
+//    the ability name. A passed label now wins; the ability name is still the default.
+// 2. There was no `dc`. The save relay has carried one since it was built (`registerSaveRelay`,
+//    `rollDC` → `dc`), so the phone's two prompt cards disagreed about whether a target number is
+//    a thing a prompt can have. It is carried now, `null` when the caller does not set one.
+// 3. ⚠️ THE SIGNATURE TOOK BASE ACTOR IDS, which is why twelve unlinked tokens of one Actor
+//    collapsed to ONE roll. `game.actors.get(id)` only resolves a base Actor, and the payload
+//    carried `actor.uuid` — the base uuid — so every token of that Actor named the same document.
+//    `actorUuids` is now the preferred input: a token-actor uuid
+//    (`Scene.x.Token.y.Actor.z`) resolves to THAT token's actor and stays distinct from its
+//    siblings. `actorIds` still works unchanged (dm-panel's Rolls tool passes it), so this is
+//    additive — but a caller that wants per-token rolls must pass uuids, because base ids cannot
+//    express the distinction.
+// 2026-10-05, second pass — INITIATIVE IS A THIRD KIND, not a second transport (DM: "on combat
+// start let dm push initiative roll requests to PCs (choose which same as save)"). It travels
+// this handler, the same `rollRequest` socket call and the same phone card, because forking a
+// parallel relay is how the save path and this one came to disagree about `label` and `dc` in
+// the first place. The only initiative-shaped parts are: no ability (there is nothing to pick),
+// and the no-owner fallback rolls the COMBATANT rather than asking the actor — see
+// `rollInitiativeForActor` below for why that distinction matters.
+async function handleRequestRolls({ rollType, ability, actorIds, actorUuids, label, dc, requesterId }) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
   if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM requests rolls" };
-  const kind = rollType === "check" ? "check" : "save";
-  const label = CONFIG.DND5E?.abilities?.[ability]?.label ?? ability;
-  let sent = 0, auto = 0;
-  for (const id of actorIds ?? []) {
-    const actor = game.actors.get(id);
-    if (!actor) continue;
+  const kind = rollType === "check" ? "check" : rollType === "initiative" ? "initiative" : "save";
+  if (kind === "initiative" && !game.combat) return { ok: false, reason: "no active encounter" };
+  // The caller's wording wins — it knows WHY it is asking ("Resist the lantern"); the ability
+  // name is only the fallback for a caller that has nothing better to say. Initiative has no
+  // ability at all, so its fallback is the word itself rather than `undefined`.
+  const fallback = kind === "initiative"
+    ? "Initiative"
+    : (CONFIG.DND5E?.abilities?.[ability]?.label ?? ability);
+  const text = String(label ?? "").trim() || fallback;
+  // `!= null` first: `Number(null)` is 0 and 0 is finite, so a caller sending `dc: null` or `dc: ""`
+  // — both ordinary shapes for "no DC" in a payload that has crossed socketlib — would otherwise
+  // arrive at the phone as a real DC of 0.
+  const target = (dc != null && dc !== "" && Number.isFinite(Number(dc))) ? Number(dc) : null;
+  // uuids first, ids second. Deduped by what was RESOLVED rather than by base actor id: two
+  // unlinked tokens of one Actor are two subjects, and the old base-id keying is exactly what
+  // merged them.
+  const subjects = [];
+  const seen = new Set();
+  const take = (actor) => {
+    if (!actor || seen.has(actor.uuid)) return;
+    seen.add(actor.uuid);
+    subjects.push(actor);
+  };
+  for (const uuid of actorUuids ?? []) {
+    let doc = null;
+    try { doc = fromUuidSync(String(uuid)); } catch (e) { /* unresolvable — skipped below */ }
+    // A Token uuid is a fair thing for a caller to hand us; take its actor rather than refusing.
+    const resolved = doc?.documentName === "Token" ? doc.actor : doc;
+    // An ACTOR and nothing else. `fromUuidSync` does not only throw on bad input — a compendium
+    // uuid resolves to a plain index entry (`{_id, name, img, uuid, pack}`) with no
+    // `documentName` at all, and an Item or Scene uuid resolves to a real document of the wrong
+    // kind. Any of those would sail past a `!actor` check and then throw a TypeError out of
+    // `testUserPermission` below, rejecting the whole socketlib call instead of returning
+    // `{ ok: false }`. `actorUuids` exists for callers outside this repo, so it gets the check.
+    if (resolved?.documentName === "Actor") take(resolved);
+  }
+  for (const id of actorIds ?? []) take(game.actors.get(id));
+  let sent = 0, auto = 0, skipped = 0;
+  for (const actor of subjects) {
+    // ⚠️ THE SAME SKIP ON THE PUSH AS ON THE FALLBACK (DM 2026-10-05: "if a player already
+    // rolled, keep their result"). It sat only in the no-owner branch, which meant an ONLINE
+    // player got a card asking them to re-roll a number they already had, while an offline one
+    // was correctly left alone — the rule holding on one path and not the other. It is read
+    // before the branch now, so there is one answer for both. `skipped` is returned rather than
+    // swallowed: a caller that cannot say how many it left out cannot help but look broken.
+    // ⚠️ `initiativeDoneFor`, NOT `!pendingInitiativeIds(...).length`. An actor who is not in the
+    // encounter at all also has no pending combatants, and counting them as "already rolled"
+    // would be a second quiet lie on top of the one this guard exists to prevent. Only someone
+    // who IS in the fight and holds every number they owe is skipped.
+    if (kind === "initiative" && initiativeDoneFor(actor)) { skipped++; continue; }
     const owners = game.users.filter(u => u.active && !u.isGM && actor.testUserPermission(u, "OWNER"));
     if (owners.length) {
-      const payload = { actorUuid: actor.uuid, rollType: kind, ability, label, ts: Date.now() };
+      const payload = { actorUuid: actor.uuid, rollType: kind, ability, label: text, dc: target, ts: Date.now() };
       for (const u of owners) socket.executeAsUser("rollRequest", u.id, payload);
       sent++;
     } else {
-      try { kind === "check" ? await actor.rollAbilityCheck({ ability }) : await actor.rollSavingThrow({ ability }); auto++; } catch (e) { /* skip */ }
+      try {
+        if (kind === "initiative") { if (await rollInitiativeForActor(actor)) auto++; }
+        else { kind === "check" ? await actor.rollAbilityCheck({ ability }) : await actor.rollSavingThrow({ ability }); auto++; }
+      } catch (e) { /* skip */ }
     }
   }
-  return { ok: true, sent, auto };
+  return { ok: true, sent, auto, skipped, asked: subjects.length };
+}
+
+/** Combatant ids in the running encounter that belong to THIS actor and still owe a number.
+ *
+ *  ⚠️ THE ONE PLACE THE "ALREADY ROLLED, KEEP IT" RULE IS EXPRESSED on this side (DM
+ *  2026-10-05). `initiative == null` is the whole test, and both the push and the DM-side
+ *  fallback read it from here rather than each writing their own — the two halves disagreeing
+ *  is precisely the shape of fault this handler was rebuilt to stop this morning.
+ *
+ *  Matching is by RESOLVED actor uuid, deliberately. A linked token's `combatant.actor` IS the
+ *  base Actor, so a base-uuid subject still matches it; an unlinked token's does not, and must
+ *  be addressed by its token actor uuid. Matching on base actor id instead would re-collapse
+ *  twelve unlinked tokens of one Actor into one roll. */
+function pendingInitiativeIds(actor) {
+  const combat = game.combat;
+  if (!combat || !actor) return [];
+  return combat.combatants
+    .filter(c => c.actor?.uuid === actor.uuid && c.initiative == null)
+    .map(c => c.id);
+}
+
+/** In the fight, and holding every number they owe → leave their result alone. Distinct from
+ *  "has no pending combatants", which is also true of someone who is not in the fight. */
+function initiativeDoneFor(actor) {
+  const combat = game.combat;
+  if (!combat || !actor) return false;
+  const mine = combat.combatants.filter(c => c.actor?.uuid === actor.uuid);
+  return mine.length > 0 && mine.every(c => c.initiative != null);
+}
+
+/** Roll this actor's outstanding combatants, DM-side. Returns how many rolled.
+ *
+ *  Why not `actor.rollInitiativeDialog()`: it can CREATE a combatant rather than roll the one
+ *  already in the tracker, which is the duplicate-combatant fault shell.js:#rollInitiative
+ *  documents from the phone side (2026-06-21). Rolling existing combatants cannot add one. */
+async function rollInitiativeForActor(actor) {
+  const ids = pendingInitiativeIds(actor);
+  if (!ids.length) return 0;
+  await game.combat.rollInitiative(ids);
+  return ids.length;
 }
 
 function handleRollRequest(payload) {

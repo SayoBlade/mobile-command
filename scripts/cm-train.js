@@ -183,14 +183,73 @@ export async function setTrainMist(on) {
     }
     if (mine.length) continue; // already riding
     const hull = wallHull(s);
-    const bands = [[0, hull.y0], [hull.y1, s.height - hull.y1]];
-    const tiles = bands.flatMap(([y, h]) => MIST_LAYERS.map(([src, speed, alpha, repeatx, tint, sort]) => ({
+    /**
+     * ⚠️ CANVAS SPACE, NOT SCENE SPACE — AND THE TWO ARE NOT THE SAME RECTANGLE (fixed 2026-10-03,
+     * his report: *"you moved the smoke effect back to the wrong place, you're probably using the
+     * wrong aspect ratio and placed it based on bad positioning"*).
+     *
+     * A scene has a SCENE rect (`s.width` × `s.height`, what the background fills) and a CANVAS,
+     * which is larger: Foundry pads the scene by `padding` on every side — 0.25 by default, a
+     * quarter of the scene's width — so the scene rect's top-left corner sits at
+     * `s.dimensions.sceneX, sceneY` and NOT at the origin. **Every placed document — tile, token,
+     * wall, light — stores its position in CANVAS coordinates.**
+     *
+     * The three faults this replaces, all of them the same mistake:
+     *   `[hull.y1, s.height - hull.y1]`  subtracted a CANVAS y from a SCENE height — dimensionally
+     *                                    meaningless, and short by the padding offset;
+     *   `x: 0`                           put the band's left edge out in the padding;
+     *   `width: s.width`                 drew a SCENE-width band from the canvas origin, so it
+     *                                    stopped short of the map's right edge by the same offset —
+     *                                    band and map no longer the same proportion, which is the
+     *                                    "wrong aspect ratio" he saw.
+     *
+     * ⚠️ It has never been right: the geometry was byte-identical in all six commits that have
+     * touched this file, from `ddc7e62` onward. There was no earlier placement to restore, so this
+     * is derived rather than reverted.
+     *
+     * The standing rule — never subtract a placed coordinate from `s.width`/`s.height`, never place
+     * at `x: 0`, take the whole geometry from `s.dimensions` — is written up in deck-command's
+     * EFFECTS.md at his instruction ("remember to do so in the future too").
+     */
+    const d = s.dimensions;
+    const bands = [
+      [d.sceneY, hull.y0 - d.sceneY],                  // above the car hull
+      [hull.y1, d.sceneY + d.sceneHeight - hull.y1],   // below it
+    ];
+    // A car whose hull runs flush to the map edge has no band on that side; a zero or negative
+    // height was previously possible from the bad arithmetic and would have been created anyway.
+    /**
+     * ⚠️ AND THE ASPECT RATIO, WHICH IS THE HALF HE ACTUALLY SEES (measured 2026-10-03 on his own
+     * world, after the coordinate fix above turned out to be a no-op on these particular scenes).
+     *
+     * The car scenes carry `padding: 0`, so `sceneX/sceneY` are 0 and `sceneWidth` equals `width` —
+     * the space-mixing above produced the right numbers here by luck. It is still a real defect and
+     * still worth fixing, because it breaks on any padded scene. **But it is not what he was looking
+     * at.** What he was looking at is this:
+     *
+     *   mist_thick_horizontal.webm is 1500 x 1000, a 1.50:1 picture.
+     *   10.1's band is 3360 wide and 250 tall. At the hard-coded repeatx of 3, each repetition is
+     *   1120 x 250 — **4.48:1, so the mist is stretched three times wider than it was drawn.**
+     *
+     * That is exactly "the wrong aspect ratio", and a hard-coded repeat count cannot be right,
+     * because the correct count depends on the band's own shape, which differs per car.
+     *
+     * So the repeat is DERIVED: `fit` is the number of repetitions that makes each one the
+     * texture's native shape, and the authored 2 / 3 / 4 are kept as a RELATIVE density — the middle
+     * layer lands exactly on `fit`, the far layer is coarser and the wisps finer, which is the
+     * parallax the three layers were written for. On 10.1 that is 6 / 9 / 12 instead of 2 / 3 / 4.
+     */
+    const NATIVE_ASPECT = 1500 / 1000; // the MattM mist webms, measured
+    const tiles = bands.filter(([, h]) => h > 0).flatMap(([y, h]) => MIST_LAYERS.map(([src, speed, alpha, repeatx, tint, sort]) => ({
       // NOT locked: only GMs can edit tiles anyway, and a locked tile ignores clicks
       // entirely — the DM couldn't even select one to nudge it (found 2026-08-04).
-      texture: { src, tint }, x: 0, y, width: s.width, height: h, alpha,
+      texture: { src, tint }, x: d.sceneX, y, width: d.sceneWidth, height: h, alpha,
       elevation: 0, sort, locked: false,
       flags: {
-        "tile-scroll": { enableScroll: true, scrollSpeed: speed, scrollDirection: 0, repeatx, repeaty: 1 },
+        "tile-scroll": { enableScroll: true, scrollSpeed: speed, scrollDirection: 0,
+          // the authored 2/3/4 as a density relative to the aspect-correct count, never as pixels
+          repeatx: Math.max(1, Math.round((d.sceneWidth / (h * NATIVE_ASPECT)) * (repeatx / 3))),
+          repeaty: 1 },
         [MODULE_ID]: { trainMist: true },
       },
     })));

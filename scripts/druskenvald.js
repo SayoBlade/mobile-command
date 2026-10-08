@@ -1,6 +1,6 @@
 import { MODULE_ID, DRUSK_HOURS, DRUSK_HOUR_SPAN, druskHourAt } from "./preset.js";
 import { readClock } from "./gametime.js";
-import { isPhoneClient, isDisplayClient } from "./shell.js";
+import { onSharedScreenNonCovering } from "./overlay-guard.js"; // §22.7 (the low-z tint exemption)
 
 export { DRUSK_HOURS };
 
@@ -63,9 +63,12 @@ export function druskDarkness() { return currentHour().darkness; }
 
 // The plate + tint mount on the display (and the DM's own canvas client, like every other shared
 // -screen piece), never on phones — a phone has no sky and the hour is the DM's to announce.
-function eligible() {
-  return !isPhoneClient() && (isDisplayClient() || game.user?.isGM);
-}
+// §22.7 THE ONE EXEMPTION from the full-screen opt-in, named so the list of bypasses is short and
+// auditable. `#mc-drusk` is z-index 4, pointer-events:none, and its sky is a flat colour at 30%
+// opacity (styles/shell.css) — it sits UNDER every piece of Foundry's UI and tints the canvas. It is
+// not a cover, it was never part of the 2026-10-02 blocker, and the DM's own sky stays on his
+// screen. Anything that can actually hide the screen goes through mayCoverViewport() instead.
+function eligible() { return onSharedScreenNonCovering(); }
 
 let root = null;
 let shownKey = null;

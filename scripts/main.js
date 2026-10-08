@@ -11,9 +11,9 @@ import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerTrainFollow, wireTrainDoors, setTrainMist, trainMistOn } from "./cm-train.js"; // §37 the Ghostlight ride
 import { registerAoO } from "./aoo.js";
-import { setupCalendarSkin } from "./gametime.js";
+import { setupCalendarSkin, applyCalendarSkinClass } from "./gametime.js";
 import { registerFog, refreshFog } from "./fog-soft.js";
-import { registerCombatMusic } from "./combat-music.js";
+import { registerCombatMusic, combatTracks, setCombatTrack } from "./combat-music.js";
 import { registerCampaigns } from "./campaigns.js"; // §50 campaign recognition (Ember creation fit-shim)
 import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "./camera-frame.js";
 import { registerFxEngine, registerLayeredWeather, dmFireFx } from "./effects.js"; // §26 Effects tab engine
@@ -33,6 +33,7 @@ import { actionAreas, actionSnapshot, runAction, actionCounts } from "./actions.
 import "./actions-effects.js"; // §52 area G — each area file registers its rows on import
 import "./actions-cm.js"; // §52 area H — the Crooked Moon tab (and its requests)
 import { registerSoundBehavior, cues } from "./region-sound.js"; // §53 the "Sound" region behaviour + the house door sets
+import { installOverlayGuard, sweepCoveringLayers, reapplyGuard, restoreCoreUi, forceRail, stuckOverlayStates, clearedLayers, shouldKeepGmClear, verifyRail } from "./overlay-guard.js"; // §22.7/§22.9 the DM is never covered or hidden
 
 Hooks.once("init", () => {
   // FIRST thing, before anything of ours can throw: the errors worth having are the ones nobody was
@@ -54,7 +55,14 @@ Hooks.once("init", () => {
       editable: [{ key: "Backquote" }],
       onDown: () => {
         const on = document.body.classList.toggle("mc-clean");
-        if (on) showCleanHint(); else hideCleanHint();
+        // §22.9: ` is a single unmodified key on `restricted: false`, so ANY client can hide ALL
+        // of Foundry's UI with one keypress — and the hint pill used to be the only way back and
+        // used to fade. It still works (a deliberate press is a deliberate choice), but it now
+        // says so where the hint cannot be missed, and the pill no longer disappears.
+        if (on) {
+          showCleanHint();
+          console.warn(`${MODULE_ID} | clean display ON — all Foundry UI is hidden on this client. Press \` again, or run MobileCommand.showUI() in the console, to bring it back.`);
+        } else hideCleanHint();
         return true;
       },
       restricted: false
@@ -770,7 +778,18 @@ Hooks.once("ready", () => {
   // hides the chrome (toggle with the keybinding to reach settings). Runtime-only —
   // disabling the module just stops adding these classes, so it auto-reverts.
   if (isDisplayClient()) {
-    document.body.classList.add("mc-display", "mc-clean"); showCleanHint(); warnDisplayGM(); suppressMcdCamera(); mountTvCompass();
+    // §22.9 CLEAN MODE IS WHAT HID HIS FOUNDRY. `mc-clean` hides every piece of core UI
+    // (styles/shell.css, the clean block) and this is the only place that applies it
+    // automatically. The primary lock is in isDisplayClient() itself: a GM client can no longer
+    // reach this block at all unless THIS DEVICE's role was explicitly set to "display", which is
+    // a deliberate and reversible choice. This is the second lock on the same door — it only ever
+    // differs from the first when the `?mcNoCover=1` / localStorage escape hatch is in play, which
+    // is precisely the case where someone is recovering a screen and must not be hidden again.
+    const clean = !shouldKeepGmClear();
+    document.body.classList.add("mc-display");
+    if (clean) { document.body.classList.add("mc-clean"); showCleanHint(); }
+    else console.warn(`${MODULE_ID} | display role, but the no-cover escape hatch is set on this client — leaving the Foundry UI visible (§22.9). Clear ?mcNoCover=1 / localStorage["mc.noCover"] and reload to let the TV go clean again.`);
+    warnDisplayGM(); suppressMcdCamera(); mountTvCompass();
     // The TV is the screen that SHOULD show spell/attack VFX. Sequencer's effectsEnabled is
     // client-scoped and STICKY — if this browser was ever a phone (we disable it there), it stays off,
     // so animations vanish on the TV while the DM still sees them (DM 2026-07-20). Force it back on.
@@ -846,6 +865,12 @@ Hooks.once("ready", () => {
   });
 
   injectShellStyles(); // load CSS via JS so a plain F5 works without re-reading the manifest
+  // §22.7 THE SAFETY RAIL, FIRST — before registerFxEngine()'s syncFx() can mount anything and
+  // before any of our overlays exist. A GM at a desktop without the opt-in gets body.mc-dm-clear
+  // (the CSS half, which also catches whatever mounts later) plus a sweep of anything already up.
+  // This has to follow injectShellStyles() — the rule it relies on lives in that stylesheet — and
+  // precede everything that can build a layer. It no-ops on every other kind of client.
+  installOverlayGuard();
   initSocket(); // idempotent fallback in case socketlib.ready raced or didn't fire
   registerFxEngine(); // §26 Effects tab: apply/remove screen filters + ambience loops as fxActive changes (all clients; phones flash-only)
   registerEntranceShadow(); // §40.6 a reveal's token drawn in shadow until its intro completes (every canvas client)
@@ -897,6 +922,52 @@ Hooks.once("ready", () => {
     train: { wire: wireTrainDoors, ride: setTrainMist, riding: trainMistOn }, // §37 macro access (§8.1 manual triggers)
     openShell,
     closeShell,
+    // §22.7/§22.9 RECOVERY FROM THE CONSOLE — the one route that still works with no UI at all,
+    // and the reason it must stay on this object: with the UI hidden there is no Module Settings
+    // to reach, and (per the DM's own constraint) a module cannot be disabled from inside a world.
+    //
+    // showUI() does both halves and reports WHICH switch was responsible, so one paste both fixes
+    // the screen and ends the diagnosis. It writes nothing and needs no reload.
+    showUI: () => {
+      const restored = restoreCoreUi();        // §22.9 un-hide core UI (clean mode)
+      const uncovered = sweepCoveringLayers(); // §22.7 hide anything covering it
+      const d = (id) => { const el = document.getElementById(id); return el ? getComputedStyle(el).display : "absent"; };
+      return {
+        // What was actually wrong, in the order worth reading:
+        restored, uncovered,
+        // …and which of the only three switches that can hide core UI was set. `role` is
+        // per-device, `displayOwnerUser` is world-wide, and the ` keybinding is neither.
+        why: {
+          bodyClasses: document.body.className,
+          role: (() => { try { return game.settings.get(MODULE_ID, "role"); } catch (e) { return "?"; } })(),
+          displayAccount: (() => { try { return game.settings.get(MODULE_ID, "displayOwnerUser") || "(none)"; } catch (e) { return "?"; } })(),
+          displayAccountIsMe: (() => { try { return game.user.id === game.settings.get(MODULE_ID, "displayOwnerUser"); } catch (e) { return "?"; } })(),
+          railArmed: shouldKeepGmClear()
+        },
+        // Proof, from the live DOM, using the Foundry 14 ids (not v13's #navigation/#controls):
+        coreUi: { "#ui-top": d("ui-top"), "#ui-left": d("ui-left"), "#ui-right": d("ui-right"), "#scene-navigation": d("scene-navigation"), "#scene-controls": d("scene-controls"), "#sidebar": d("sidebar"), "#hotbar": d("hotbar"), "#players": d("players") },
+        stillOnForTheTable: stuckOverlayStates()
+      };
+    },
+    // Kept as the narrower §22.7 call: sweep covering layers and arm the rail for this session.
+    uncover: () => ({
+      railActive: shouldKeepGmClear(),
+      hidden: forceRail().hidden,
+      alreadyHidden: clearedLayers(),
+      stillOnForTheTable: stuckOverlayStates()
+    }),
+    restoreCoreUi,
+    // §22.8: overlay-guard calls this back through the API rather than importing gametime.js,
+    // which would close a cycle (gametime imports overlay-guard).
+    applyCalendarSkinClass,
+    sweepOverlays: sweepCoveringLayers,  // sweep once, unconditionally (the manual hammer)
+    reapplyRail: reapplyGuard,           // re-decide in both directions (the dmScreenOverlays onChange)
+    overlayStates: stuckOverlayStates,   // which persisted world states would raise a board
+    verifyRail,                          // do the CSS and JS halves of the rail still agree?
+    // §25.2 the battle tracks, and the choice, for any surface that wants to offer them — the
+    // Combat tab's staging was the only thing that could see them (combat-music.js `combatTracks`).
+    combatTracks,
+    setCombatTrack,
     frameParty: framePartyTokens,        // local canvas only
     focusParty: focusPartyAll,           // here + the display(s) + exit manual
     toggleTvManual,                      // DM drives the display by panning own view
@@ -1425,9 +1496,16 @@ function setupAutoOwnNewPCs() {
   Hooks.on("updateActor", (actor, changes) => { if (changes?.ownership) grant(actor); });
 }
 
-// Clean-display escape-hatch hint: a dismissable pill telling the user how to get
-// the Foundry UI back, so a display-role client (or anyone who toggled clean mode)
-// isn't stranded. Auto-fades after ~60s; click or the keybinding dismisses it.
+// Clean-display escape-hatch hint: a dismissable pill telling the user how to get the Foundry UI
+// back, so a display-role client (or anyone who toggled clean mode) isn't stranded.
+//
+// §22.9 IT NO LONGER AUTO-FADES (was ~60s). A fading hint is fine on a TV nobody reads and a trap
+// on any screen a person is using: once the pill was gone there was no visible way back from clean
+// mode at all, and with the UI hidden there is no Module Settings to find one in either — which is
+// how the 2026-10-02 blocker became unrecoverable rather than merely annoying. The pill now lives
+// exactly as long as the state it describes: removed by hideCleanHint() when clean mode ends, by
+// the rail when it restores the UI (overlay-guard.js restoreCoreUi), or by a click. The cost is a
+// small pill in the corner of a TV, which is the job it was written for.
 function showCleanHint() {
   let hint = document.getElementById("mc-clean-hint");
   if (!hint) {
@@ -1437,15 +1515,8 @@ function showCleanHint() {
     hint.addEventListener("click", () => hint.remove());
     document.body.appendChild(hint);
   }
-  hint.classList.remove("mc-fade");
-  clearTimeout(showCleanHint._timer);
-  showCleanHint._timer = setTimeout(() => {
-    hint.classList.add("mc-fade");
-    setTimeout(() => hint.remove(), 900);
-  }, 60000);
 }
 function hideCleanHint() {
-  clearTimeout(showCleanHint._timer);
   document.getElementById("mc-clean-hint")?.remove();
 }
 

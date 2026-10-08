@@ -1,5 +1,6 @@
 import { MODULE_ID } from "./preset.js";
-import { isPhoneClient, isDisplayClient } from "./shell.js";
+import { isPhoneClient } from "./shell.js";
+import { mayCoverViewport } from "./overlay-guard.js"; // §22.7 the one full-screen gate
 import { mountFaded, unmountFaded } from "./repaint.js"; // §6.8 fade, never cut
 
 // §36 All aboard — the Ghostlight Express boarding ritual (DM 2026-07-27). Campaign onboarding
@@ -21,9 +22,11 @@ import { mountFaded, unmountFaded } from "./repaint.js"; // §6.8 fade, never cu
 const TRAIN_ART = "modules/the-crooked-moon-2014/assets/art/art book/Scene_4_The Ghostlight Express keyed.webp";
 const TRAIN_ART_FALLBACK = "modules/the-crooked-moon-2014/assets/art/art book/Scene_4_The Ghostlight Express cropped.webp";
 
-function eligible() {
-  return !isPhoneClient() && (isDisplayClient() || game.user?.isGM);
-}
+// §22.7: `#mc-cmstation` is fixed/inset-0/opaque at z 55 and rides the WORLD state
+// `fxActive.cmStation`, which effects.js re-applies on every load and nothing clears — so the old
+// "the display OR the GM" gate could bury the DM's screen on every load of this world. One gate
+// now; the DM's own screen is opt-in (`dmScreenOverlays`), the TV is unchanged.
+function eligible() { return mayCoverViewport(); }
 
 /* -------------------------------------------- */
 /*  The station (table display)                  */
@@ -159,15 +162,32 @@ export const cmTicketFx = {
 /*  Sound — synthesized, nothing licensed        */
 /* -------------------------------------------- */
 
-function audioOut() {
+// `which` names the channel, and it matters for exactly one caller (2026-10-05). Everything in
+// this file that plays through `environment` is a TABLE cue and gates itself on `!isPhoneClient()`
+// first — the fiddle, the approach bed, the whistle, the grinding stop — so `environment` is right
+// for them: it is the TV's channel and phones are meant not to echo the room.
+//
+// ⚠️ The punch is the exception, and it was on the wrong bus. It runs ON THE PLAYER'S PHONE
+// (`cmTicketFx.stop`, which fires on the owning client), and a phone zeroes
+// `globalPlaylistVolume` and `globalAmbientVolume` — §20.6, `main.js`, "the TV is the room's
+// speaker" — so the environment bus on a phone has gain 0. READ: `audioOut()` returned
+// `a.environment` unconditionally. So the conductor's punch, the one piece of feedback that tells
+// a player their ticket was taken and they are aboard, was being synthesized into a muted bus and
+// nobody has ever heard it. The vibration beside it (`navigator.vibrate`) is Android-only, so on
+// an iPhone the ticket tore away in complete silence.
+//
+// `interface` is the channel phone-silencing deliberately leaves alone, and the boss roar already
+// rides it for this exact reason (`boss-intro.js`, with the §20.6 citation beside it).
+function audioOut(which = "environment") {
   const a = game.audio;
-  if (!a || a.locked || !a.environment?.gainNode) return null;
-  return { ctx: a.environment, dest: a.environment.gainNode };
+  const ctx = a?.[which];
+  if (!a || a.locked || !ctx?.gainNode) return null;
+  return { ctx, dest: ctx.gainNode };
 }
 
 // The conductor's punch: a bright mechanical CLACK — two tight noise taps, the second lower.
 function punchSound() {
-  const out = audioOut();
+  const out = audioOut("interface");
   if (!out) return;
   const { ctx, dest } = out;
   const len = Math.floor(0.1 * ctx.sampleRate);

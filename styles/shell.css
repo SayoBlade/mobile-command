@@ -1,6 +1,37 @@
 /* Mobile Command — Controller Shell (Phase 2, read-only Touch Sheet).
    Full-screen takeover for phone-role clients. Dark, thumb-first. */
 
+/* ============================================================================
+   SAFETY RAIL — A GM AT A DESKTOP IS NEVER COVERED (§22.7, 2026-10-02)
+   ----------------------------------------------------------------------------
+   body.mc-dm-clear is set at ready by scripts/overlay-guard.js when this client
+   is a GM on a non-touch, non-display, non-phone client that has NOT opted in
+   (per-device setting dmScreenOverlays). It is the declarative half of the rail: a
+   layer that mounts AFTER the sweep — a world setting re-applied on canvasReady,
+   a socket one-shot arriving mid-session — is hidden the instant it appears,
+   with no observer in the hot path and nothing to race.
+
+   This list must stay identical to COVERING_SELECTORS in overlay-guard.js;
+   MobileCommand.verifyRail() fails loudly if the two drift. Anything NOT a
+   full-viewport cover stays out of it: #mc-drusk (z 4, 30% tint under the UI),
+   #mc-dm-panel (the only way back to the toggles), #mc-clean-hint, #mc-pause-edge.
+   Runtime-only — nothing is written, so disabling the module reverts it all.
+   ============================================================================ */
+body.mc-dm-clear #mobile-command-shell,
+body.mc-dm-clear #mc-shell-backdrop,
+body.mc-dm-clear #mc-cardtable,
+body.mc-dm-clear #mc-cmstation,
+body.mc-dm-clear #mc-seance,
+body.mc-dm-clear #mc-entrance,
+body.mc-dm-clear #mc-bossintro,
+body.mc-dm-clear #mc-audio-unlock,
+body.mc-dm-clear .mc-cmticket,
+body.mc-dm-clear .mc-tarot-hand,
+body.mc-dm-clear .mc-onboard,
+body.mc-dm-clear .mc-paused {
+  display: none !important;
+}
+
 /* TV clean-canvas (body.mc-clean): hide ALL Foundry UI so the shared display shows
    only the canvas — no sidebar, hotbar, controls, nav, players, logo, popups, menus,
    notifications, tooltips. The canvas (#board) AND the GAME PAUSED overlay (#pause)
@@ -123,8 +154,11 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
 #mc-audio-unlock .mc-au-ico { font-size: 46px; color: var(--mc-gold, #b09a63); margin-bottom: 16px; display: block; }
 #mc-audio-unlock .mc-au-title { font-size: 30px; font-weight: 800; color: var(--mc-ink, #efe9df); margin-bottom: 12px; }
 #mc-audio-unlock .mc-au-sub { font-size: 17px; line-height: 1.5; color: var(--mc-muted, #a59b86); }
-/* Clean-mode escape-hatch hint: a dismissable pill telling the user how to get the
-   UI back. Exempt from the hiding above (custom id), high z, fades after ~60s. */
+/* Clean-mode escape-hatch hint: a dismissable pill telling the user how to get the UI back.
+   Exempt from the hiding above (custom id), high z. ~~fades after ~60s~~ §22.9 2026-10-02: it no
+   longer fades — see showCleanHint() in main.js for why a fading escape hatch was the thing that
+   made clean mode unrecoverable. The .mc-fade rule below is kept as the hook for a future
+   deliberate dismissal animation; nothing adds the class today. */
 #mc-clean-hint {
   position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
   z-index: 100000; padding: 10px 18px; border-radius: 999px; cursor: pointer;
@@ -4205,7 +4239,10 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-rt-list { display: flex; flex-direction: column; gap: 3px; }
 /* Inline scrollable player-token target list (DM 2026-07-11). */
 .mc-dmp-rt-scroll { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; padding: 2px; }
-.mc-dmp-rt-foot { flex: 0 0 auto; padding-top: 2px; }
+/* Two buttons when the type is Initiative (push to the PCs, roll the NPCs) and one otherwise.
+   A column with a gap, because .mc-dmp-rt-send is width:100% (line ~4338) and two of them laid
+   out by the default block flow would touch. 2026-10-05. */
+.mc-dmp-rt-foot { flex: 0 0 auto; padding-top: 2px; display: flex; flex-direction: column; gap: 6px; }
 /* Reusable "content scrolls, buttons pinned to the bottom" layout (DM 2026-07-25 — the Combat send
    button pattern, applied to Party/Display/Rest/Travel/System-health). The FILL fills the workspace,
    the MID takes the slack and scrolls, and the FOOT is pushed to the bottom with a padding gap. */
@@ -5326,8 +5363,17 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 
 /* SC Reborn is the table's Calendar (DM 2026-07-18): hide the right tool column
    (notes / search / today / configure) — every one of those stays reachable via
-   Module Settings, where SC registers its own Calendar + Configuration buttons. */
-.app.simple-calendar .fsc-xf { display: none !important; }
+   Module Settings, where SC registers its own Calendar + Configuration buttons.
+
+   §22.8 NOW SCOPED (2026-10-02). This was a bare `.app.simple-calendar .fsc-xf`, which is MC
+   reaching into another module's minified DOM with !important on EVERY client the module is
+   active on — including the DM's workstation, which the DM never asked for and where SC's own
+   window then sizes itself around a column that is not there. Two locks now:
+     - body.mc-skin-calendar — set by gametime.js only on a phone or the table's display;
+     - :not(.mc-dm-clear)   — the §22.7/§22.9 rail, so a protected GM client is never skinned
+                              even if the first class is wrong.
+   On the DM's own screen Simple Calendar is left exactly as its author shipped it. */
+body.mc-skin-calendar:not(.mc-dm-clear) .app.simple-calendar .fsc-xf { display: none !important; }
 /* Travel pace + group checks on the exploration tab. */
 /* Same height as the Perception/Stealth/Survival buttons below it (46px): a readout and a
    button are different things, but a row of near-identical boxes must be identical. */

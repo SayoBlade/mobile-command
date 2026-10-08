@@ -1,6 +1,7 @@
 import { MODULE_ID } from "./preset.js";
-import { isPhoneClient, isDisplayClient } from "./shell.js";
-import { isOnlineTable, hasSharedScreen } from "./settings.js";
+import { isDisplayClient } from "./shell.js";
+import { isOnlineTable } from "./settings.js"; // the §39.5 audience question now lives in overlay-guard
+import { mayCoverViewport } from "./overlay-guard.js"; // §22.7 the one full-screen gate
 import { socket } from "./rpc.js"; // the one-shot channel effects.js fires on (importing effects.js would close a cycle)
 import { CM_ENTRANCES } from "./cm-entrances.js";
 import { holdTv, releaseTv } from "./tv-hold.js";
@@ -39,10 +40,11 @@ export function entranceByKey(key) { return CM_ENTRANCES.find(e => e.key === key
 
 // The same audience as the boss intro (§40, §39.5): in person the ROOM's screen and the DM, never phones; online
 // with a shared screen, that screen carries it; online with none, everyone's own client.
-function eligible() {
-  if (isOnlineTable() && !hasSharedScreen()) return true;
-  return !isPhoneClient() && (isDisplayClient() || game.user?.isGM);
-}
+// §22.7 one gate for every full-viewport layer. `selfScreen` carries the §39.5 rule above: online
+// with no shared screen, a PLAYER's own client is the screen. It deliberately does NOT promote the
+// GM — `#mc-entrance` is z 99500 over everything, and the rail's rule is that the DM's working
+// screen is only ever covered because he asked (`dmScreenOverlays`). He gets it back with one tick.
+function eligible() { return mayCoverViewport({ selfScreen: true }); }
 
 let root = null;
 let timers = [];
