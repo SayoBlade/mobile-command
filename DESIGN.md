@@ -77,6 +77,7 @@ sections their cross-references always claimed).
 | 51 | **Dark Bargains** — deny death by signing | **SPEC ONLY 2026-08-26** — three questions await the DM (§51.3); nothing built |
 | 52 | **The action list** — the panel's buttons published for the deck (`MobileCommand.actions`); the Crooked Moon's panel memory moved to `cmLiveState` + cm-live.js | **Stages 1–2 BUILT 2026-09-18** (Effects, Crooked Moon + requests), 29/29 headless; not yet run in Foundry; the other areas owed (§52.5) |
 | 53 | Sounds that play themselves — the region "Sound" behaviour, the door sets, the DM's ears; the Crooked House wired first (DM go 2026-09-20) | **BUILT 2026-09-20, increment 1 (the engine); the house wiring in increments** |
+| 55 | **Basic / Complex** — what phones may change (DM 2026-10-08, finished 2026-10-09) | **BUILT 2026-10-09** — `tier.js` gate, `playerTier` world setting (default Basic), live rescue; owed: a live flip on two phones. (§54 left free for the parked Crooked Moon extraction) |
 
 ---
 
@@ -2649,6 +2650,10 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
   through teleports (Follow v2 candidates).
 - **Monetization + feedback loop** — FUTURE by standing decision; do not action until the DM
   revisits (the §48 window + GitHub issues are the seeds).
+- **§55** — Basic / Complex (BUILT 2026-10-09). Owed: (a) a live flip Basic⇄Complex on two phones
+  while packed, mid-transfer and with a travel question open — every phone must land on its own sheet
+  without a reload; (b) the DM-side gaps in §55.4 (downtime push rolls and packing land on nobody in
+  Basic) — decide whether the panel should say so.
 
 ---
 
@@ -8631,3 +8636,89 @@ their intro plays, his rule. A token he has re-pictured by hand is left alone.
 **Tests:** `tools/test-cues.mjs` — 19 checks (the rules incl. the DM's "3, 12" example restarting at 15 and 24,
 the takes never repeating, the cooldown, PC-only, the sets and door sets, every file on disk, the manifest's type
 declaration, the language keys, the API surface). Run with Foundry's node.
+
+## 55. Basic / Complex — what phones may change (DM 2026-10-08; "complex" and "finish it" 2026-10-09)
+
+**The ask, verbatim (2026-10-08):** *"I'm thinking of giving mc a basic and advanced version (set by
+dm in settings) letting players mess around with the group up order, all the downtime options. I'd
+like a list of suggestion for things to move to advanced, I'll start my game in basic since I'm not
+too happy with it in the mobile side, they still need time."* He renamed the upper tier **Complex**.
+
+### 55.1 The rule
+
+**The line is "affects only me" vs "affects everyone" — not simple vs complex. Shared state is the
+risk, not difficulty.** It is the comment at the top of `scripts/tier.js`.
+
+**Complex only** (hidden on every phone in Basic): party / marching order · party staging (lock in,
+travel stage, deploy, release, combine) · the whole downtime board · shared inventory (stash put/take,
+offering items to an ally, the incoming-offer prompt) · travel squares, incl. the alone-or-group
+question.
+
+**Stays in Basic — his ruling, three of them OVERRIDING the rule:** story & scribe questions, party
+journal add/edit/delete, and the night toggle + token light touch shared state; he kept them because
+they carry flavour and have a small blast radius. Also Basic as genuinely self-contained: Actions,
+Details, Spells, Equipment, the Explore move pad and Use, rests, favourites, Journal, the Crooked Moon
+tab, template placement, wild shape.
+
+### 55.2 How it is built
+
+- **Setting** `mobile-command.playerTier` — world, String, `choices {basic, complex}`, **default
+  `"basic"`** (he starts in Basic), `config: true` so plain-Foundry Module Settings reach it; the
+  settings app shows it as chips under "This table plays" with a one-line "What changes".
+- **One gate:** `surfaceOn(surface)` in `tier.js` over four keys — `party`, `downtime`,
+  `sharedInventory`, `travel`. Unknown keys fail CLOSED and log. Nothing else reads the setting
+  (`tools/test-tier.mjs` asserts it). `actionAllowed(action)` maps every Complex click action to its
+  surface; close/cancel/minimise are deliberately unmapped so backing out always works.
+- **Call sites (shell.js):** the click dispatcher (`actionAllowed` before the switch) · `#partyUI()`
+  wraps `#partyGroup()` for the three packed-party UI reads (tab bar, tab content, the sheet's group
+  pad); `#partyGroup()` itself stays ungated, because the subject binding and the release follow need
+  to know the party is packed · `#downtimeBoardHTML` + the downtime `<select>` input handler ·
+  `#transferButtonHTML`, the composer in `#tabContent`, `noteTradeOffer`, `#tradePromptHTML` · the Use
+  results (travel rows neither listed, counted nor taken as the lone direct hit) and the `#travelAsk`
+  prompt in `#moveHTML`.
+- **No stranding:** `leaveComplexIfGated()` copies `leaveCrookedTabIfGated()`. Called from the
+  setting's `updateSetting` AND `createSetting` hooks (a never-written setting's first write fires
+  create — the §38.4a trap) and from the click guard. A phone in the packed-party view drops to its own
+  sheet on **Explore**; a half-built transfer and an open travel question close; travel rows leave
+  the Use list; queued trade offers are dropped (they lapse on the DM's side after 10 min, nothing
+  moves without an accept); the downtime board simply stops drawing. Then a full repaint. Going back
+  to Complex while packed re-arms the existing pack jump to the Party-order tab.
+- **The DM is never gated.** The panel keeps every control (place, lock in, stage, deploy, release,
+  combine, downtime, stash). The gate applies to the phone shell for every user, a GM included, so
+  a DM holding a phone sees what the players see.
+- **A packed player in Basic** keeps their own sheet; the Explore pad's place says *"The party is
+  travelling together — the DM moves it."*
+
+### 55.3 The delete confirm
+
+The brief said party-journal **delete** was the one destructive action a player keeps in Basic.
+**Checked in code: it isn't** — the party journal's trash is drawn only for a GM (`#journalPageHTML`,
+`isGM ?`) and `#deleteJournalEntry` already confirms with `DialogV2.confirm`. The destructive tap a
+player DOES have is deleting their own **My Story** entry, which had no confirm. It now asks with the
+same dialog (`#storyDeleteEntry`). Players still can't delete party-journal entries; nothing gated.
+
+### 55.4 What in this document now reads differently under Basic (2026-10-09)
+
+1. **§15 Party Mode** (concept + Round 7/8): "each player arranges the party's marching order on
+   their phone", and pack "pulls every member's phone to the order tab". In Basic the DM arranges it
+   from the panel and phones stay on their sheets. True only in Complex now.
+2. **§17.4 / §17.7 Downtime:** the DM pushes rolls to the player's board (`dt-roll`). In Basic the
+   board isn't drawn, so **a pushed downtime roll reaches nobody** — the DM must roll for them or
+   flip to Complex. The panel doesn't warn him yet (ledger §55 b).
+3. **§20 item transfers** and the section-map row "Item transfers between players — Built": in Basic
+   the table is back to that row's own baseline, "DM moves items".
+4. **§20.5 / §37 travel points:** entry triggers were deliberately disabled, so crossing between
+   train cars is **Use-only**. In Basic a phone player cannot cross at all; the DM moves tokens car to
+   car (the table-follow still works on a DM's cross-scene drop — it watches token creation). This
+   also sits against UI-BIBLE §0 "the basics may not be mobile-only" — though a plain-Foundry player
+   had no Use path to begin with, so that gap predates this.
+5. **§17.4 "the board lives in the Party tabs for players"** — stale independently of this: the
+   watch board is its own overlay (`#nightOverlayHTML`), not a party tab, which is why the night
+   toggle survives Basic untouched.
+
+**Tests:** `tools/test-tier.mjs` — 19 numbered checks: the gate in both tiers, fail-closed on an
+unknown key, his kept list allowed, bad/unregistered values reading Basic; then shell.js/settings.js
+read as text so a rename can't silently ungate a surface (every gated action still exists, every
+`surfaceOn` key is known and each surface is used, no direct setting reads, the dispatcher guard,
+both hooks, the rescue's clears, the three `#partyUI()` sites, the registration shape, the My Story
+confirm).

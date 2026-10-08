@@ -244,6 +244,18 @@ export function registerSettings() {
   // of speakers. None of that is true when the table is a voice call — there is no "left", no
   // "opposite", and every player IS their own room. One setting decides which world we're in, and
   // everything downstream reads it rather than each feature growing its own toggle.
+  // Basic / Complex (tier.js — the gate, its rule and its surface list live there). World, DM-set,
+  // default Basic: he starts his campaign in Basic. Flipping it live is safe — the shell's setting hook
+  // steps every phone out of whatever just disappeared (leaveComplexIfGated). config:true so a plain
+  // Foundry DM can reach it from Module Settings; the settings app shows it beside "This table plays".
+  game.settings.register(MODULE_ID, "playerTier", {
+    name: "What phones can change",
+    hint: "Basic: each player's phone changes only their own character. Complex adds the things that change it for everyone — marching order and party staging, the downtime board, the shared stash and offering items, and travel squares. You can switch at any time; nobody gets stuck on a screen that disappears.",
+    scope: "world", config: true, type: String, default: "basic",
+    choices: { basic: "Basic", complex: "Complex" },
+    onChange: () => { try { globalThis.MobileCommand?.refreshPanel?.(); } catch (e) { /* no panel here */ } }
+  });
+
   game.settings.register(MODULE_ID, "tableMode", {
     scope: "world", config: false, type: String, default: "person",
     choices: { person: "In person", online: "Online" },

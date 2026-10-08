@@ -12,6 +12,7 @@ import { watchScroll, captureScrolls, restoreScrolls, sameHTML } from "./repaint
 import { openFeedback } from "./feedback.js"; // §48 report a bug from the phone
 import { isEmberWorld, emberReady, EMBER_CREATION_SHEET, activeCampaign, emberSky, emberPartyStatus, emberAttunements, emberJournal } from "./campaigns.js"; // §50 Ember: creation door + rest copy + the Ember tab
 import { isSaveResult, acShape } from "./dnd5e-compat.js"; // the dnd5e 5.3 ⇄ 6.0 seam (chat subtypes, AC shape)
+import { surfaceOn, actionAllowed } from "./tier.js"; // Basic / Complex — the ONE gate for shared-state surfaces (tier.js imports only preset.js)
 import { shouldKeepGmClear, isHandheldDevice } from "./overlay-guard.js"; // §22.7/§22.10 — overlay-guard imports only preset.js, so no cycle
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
@@ -2241,10 +2242,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // for a token you're not viewing), tied to the receiving actor.
   noteTradeOffer(payload) {
     if (!payload?.offerId) return;
+    if (!surfaceOn("sharedInventory")) return; // Basic: unanswered, it lapses on the DM's side — nothing moved
     payload.ttlMs = payload.ttlMs ?? 10 * 60 * 1000;
     this.#enqueue("trade", payload, payload.toActorUuid);
   }
   #tradePromptHTML() {
+    if (!surfaceOn("sharedInventory")) return "";
     const s = this.#cur("trade")?.payload;
     if (!s) return "";
     const esc = foundry.utils.escapeHTML;
@@ -2542,7 +2545,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // 4th it is dead-center at 7 tabs and tied-closest at 6 or 8, so the optional
   // tabs (Crooked Moon, Party) may only join at the EDGES, never inside.
   #tabBarHTML() {
-    const packed = this.#partyGroup();
+    const packed = this.#partyUI();
     const pbtn = (id, icon, label) =>
       `<button class="mc-tab ${this.#partyTab === id ? "mc-active" : ""}" data-action="ptab" data-ptab="${id}" title="${label}" aria-label="${label}"><i class="fas ${icon}"></i></button>`;
     if (packed && this.#partyView) {
@@ -2588,6 +2591,23 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.render();
   }
 
+  // Basic / Complex (tier.js): called by the tier setting's hook, and by the click guard when a stale
+  // button is pressed. Every Complex surface the phone might be SITTING in is cleared, so a flip to
+  // Basic never strands anyone: the packed-party view drops back to the player's own sheet on
+  // Explore (the CM tab's rescue, same landing), a half-built transfer and an open travel question
+  // close, a travel row leaves the Use list, an unanswered trade offer is dropped (it lapses on the
+  // DM's side; nothing moved). The downtime board needs nothing — it simply stops being drawn.
+  // Then the whole shell repaints, so the tab bar and every gated button follow without a reload.
+  leaveComplexIfGated() {
+    if (!surfaceOn("party") && this.#partyView && this.#partyGroup()) { this.#partyView = false; this.#tab = "sheet"; }
+    if (!surfaceOn("sharedInventory")) {
+      this.#transferState = null;
+      this.#pending = this.#pending.filter(e => { if (e.kind !== "trade") return true; clearTimeout(e.timer); return false; });
+    }
+    if (!surfaceOn("travel")) { this.#travelAsk = null; this.#nearbyTravel = null; }
+    if (this.rendered) this.render();
+  }
+
   #tabContent(actor) {
     if (!this.#atZeroHP(actor)) this.#deathSaveDismissed = false; // back above 0 → re-arm for next time
     // §7.4: collapse to death saves at 0 HP — unless the player X'd it (the DM
@@ -2597,7 +2617,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Party Mode (§15 Round 7): while packed, the shell offers a party tab set —
     // but "My sheet" flips back to the FULL normal PC UI (tokenless rolls, items,
     // feats all work document-level: "roll a group stealth check" happens there).
-    const party = this.#partyGroup();
+    const party = this.#partyUI(); // Basic: a packed player keeps their own sheet (tier.js)
     // On PACK (transition into packed), pull every member's phone to the order
     // tab — that's the task at hand (DM 2026-07-03). Unpack re-arms the jump.
     if (party && !this.#wasPacked) { this.#wasPacked = true; this.#partyView = true; this.#partyTab = "order"; }
@@ -2611,7 +2631,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // An in-progress action/cast overlays the current tab — so casting from the
     // Spells tab (or using a favorite from Explore) stays put instead of jumping.
     if (this.#detailCard) return this.#detailCardHTML();
-    if (this.#transferState) return this.#transferComposerHTML(actor);
+    if (this.#transferState && surfaceOn("sharedInventory")) return this.#transferComposerHTML(actor);
     if (this.#enchantState) return this.#enchantPickerHTML();
     if (this.#actionState) return this.#targetPickerHTML();
     if (this.#itemPickerId) return this.#itemActivityPickerHTML(actor);
@@ -2763,6 +2783,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // locks their spot; the DM rotates facing and Disperses. Every change routes
   // through the executor (rpc.party*) and Foundry's document sync repaints all
   // phones — no custom relay.
+  // The packed party as the phone may SHOW it: null in Basic (tier.js "party"). #partyGroup() itself
+  // stays ungated — the subject binding and the release follow still need to know the party is packed.
+  #partyUI() { return surfaceOn("party") ? this.#partyGroup() : null; }
+
   #partyGroup() {
     // A member RELEASED as a scout (#11) plays normally — their phone leaves party
     // mode. Only an owned, still-packed member keeps this user in the party UI.
@@ -3146,7 +3170,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       piles = loot?.ok ? (loot.piles ?? []) : [];
       doors = inter?.ok ? (inter.doors ?? []) : [];
       tiles = inter?.ok ? (inter.tiles ?? []) : [];
-      travel = inter?.ok ? (inter.travel ?? []) : [];
+      // Basic: travel squares aren't offered — not listed, not counted, never the lone direct hit (tier.js)
+      travel = inter?.ok && surfaceOn("travel") ? (inter.travel ?? []) : [];
     } finally {
       this.#lootBusy = false;
     }
@@ -3339,6 +3364,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   async #storyDeleteEntry(entryId) {
     const actor = this.#storyActor();
     if (!actor) return;
+    // The one destructive journal tap a player keeps in Basic (the party journal's delete is the DM's
+    // and already asks) — so it asks too, with the same dialog. A trash can under a thumb gets hit.
+    const ok = await foundry.applications.api.DialogV2.confirm({
+      window: { title: "Delete entry?" }, content: "<p>Delete this story entry? It can't be undone.</p>",
+      modal: true, rejectClose: false
+    }).catch(() => false);
+    if (!ok) return;
     let res;
     try { res = await rpc.storyDelete({ actorId: actor.id, entryId }); }
     catch (e) { res = { ok: false, reason: e?.message ?? "couldn't reach the DM" }; }
@@ -4085,6 +4117,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
 
   #downtimeBoardHTML(actor) {
+    if (!surfaceOn("downtime")) return ""; // Basic: the DM runs downtime from the panel (tier.js)
     const st = this.#dtState();
     if (!st?.window?.open || !actor || actor.type !== "character") return "";
     const esc = foundry.utils.escapeHTML;
@@ -4215,6 +4248,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
   // One "Transfer" button in the equipment header (no per-item clutter). Only when a party stash exists.
   #transferBtnHTML(actor) {
+    if (!surfaceOn("sharedInventory")) return ""; // Basic: no stash / offers on the phone (tier.js)
     if (!actor?.isOwner || (!this.#stashGroup(actor) && !this.#nearbyAllies().length)) return "";
     return `<button class="mc-eq-new" data-action="transfer-open" aria-label="Transfer items" title="Transfer items — party stash or a nearby ally"><i class="fas fa-right-left"></i></button>`;
   }
@@ -4818,8 +4852,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Packed + traveling: the own token is off-canvas, so the PC sheet's Explore
     // pad drives the PARTY token instead ("move in both", DM 2026-07-03).
     if (!this.originTokenId) {
-      const party = this.#partyGroup();
+      const party = this.#partyUI();
       if (party) return this.#partyPadHTML(party);
+      // Basic (tier.js): packed, but the group pad is the DM's — say so instead of "no token yet".
+      if (this.#partyGroup()) return `<div class="mc-offscene-note">The party is travelling together — the DM moves it.</div>`;
       // Tokenless browse (the assigned hero has no token on the active scene —
       // §50.17): the no-token screen used to carry the "this updates automatically"
       // promise; now that the sheet binds anyway, say here why the pad is gone.
@@ -4855,7 +4891,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // §37 The travel question replaces the pad while it's open — the answer is a scene change,
     // and leaving the arrows live invites a stray tap mid-decision. No destination name: which
     // car is next is something the party should find out by going there.
-    if (this.#travelAsk) {
+    if (this.#travelAsk && surfaceOn("travel")) {
       return `<div class="mc-tp-ask">
         <div class="mc-tp-ask-title"><i class="fas fa-person-walking-arrow-right"></i> ${foundry.utils.escapeHTML(this.#travelAsk.label ?? "Travel")}?</div>
         <div class="mc-tp-ask-btns">
@@ -6892,6 +6928,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!el) return;
     const action = el.dataset.action;
     const actor = this.actor;
+    // Basic / Complex: a button left on screen from before a flip must not reach shared state.
+    if (!actionAllowed(action)) return this.leaveComplexIfGated();
     switch (action) {
       case "exit": return this.#confirmExit();
       case "become-display": return this.#becomeDisplay(); // no-token screen's escape: set this device up as the TV
@@ -8702,7 +8740,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #onChange = (ev) => {
     const inp = ev.target;
     if (inp?.dataset?.dtSelect !== undefined) { // §17.7: my one downtime activity → straight to the DM
-      if (this.actor) rpc.downtime({ op: "selectActivity", actorId: this.actor.id, templateId: inp.value || null })
+      if (this.actor && surfaceOn("downtime")) rpc.downtime({ op: "selectActivity", actorId: this.actor.id, templateId: inp.value || null })
         .catch(err => console.warn("mobile-command | downtime select failed", err));
       return;
     }
@@ -9342,6 +9380,13 @@ export function registerShellHooks() {
   };
   Hooks.on("updateSetting", onCmGate);
   Hooks.on("createSetting", onCmGate);
+  // Basic / Complex (tier.js): same live gate, same two hooks, same rescue-then-repaint.
+  const onTier = (s) => {
+    if (s?.key !== `${MODULE_ID}.playerTier` || !shellInstance?.rendered) return;
+    shellInstance.leaveComplexIfGated();
+  };
+  Hooks.on("updateSetting", onTier);
+  Hooks.on("createSetting", onTier);
   // Pack deletes member tokens / creates the party token; deploy reverses it —
   // either way our subject changes, so rebind and repaint.
   const onPartyToken = (tok) => {

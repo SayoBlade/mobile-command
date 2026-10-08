@@ -112,6 +112,11 @@ export class MCSettingsApp extends ApplicationV2 {
       + this.#hintRow("What changes", online
         ? "No seats, no rotated controls, cards face up — and phones keep their own sound."
         : "Seats around the flat screen, rotated cards and controls, and the deal starts face down.")
+      + this.#chips("playerTier", "What phones can change", { basic: "Basic", complex: "Complex" },
+        "Basic: phones change only their own character. Complex adds what changes it for everyone.")
+      + this.#hintRow("What changes", this.#get("playerTier") === "complex"
+        ? "Players also arrange the marching order, pick downtime, share items, and take travel squares."
+        : "Players manage their own character only — you run the marching order, downtime, the stash and travel.")
       + this.#sec("The shared screen")
       + this.#select("displayOwnerUser", "TV / display account", users, "The account the shared display logs in as; PCs are auto-shared with it at Observer.")
       + this.#toggle("dmOmniscientVision", "Keep the DM's vision omniscient", "Shared-screen tables: the DM sees everything regardless of token vision.")
