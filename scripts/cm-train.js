@@ -15,8 +15,9 @@
 //    exterior — both ends stay unwired, exactly like the book).
 //
 //  - setTrainMist(): the ride itself — the Shroud rushing past. TWO tile-scroll tiles per
-//    car (one per window band, above and below the hull), the thick mist webm in a deep
-//    green. ⚠️ The geometry is the DM's own hand placement ("moving state"), emitted
+//    WINDOWED car (one per window band, above and below the hull), the thick mist webm in a
+//    deep green. Windowless cars (Mail, Baggage, Circus) get none — DM's ruling, see
+//    WINDOWED_CARS. ⚠️ The geometry is the DM's own hand placement ("moving state"), emitted
 //    literally — read MIST_BANDS / MIST_TILE below before touching it. Both tiles share one
 //    webm texture (PIXI caches by src), so the decode cost stays flat.
 //    Requires the DM's tile-scroll module (theripper93) + animated-mist-and-fog-by-mattm.
@@ -75,6 +76,36 @@ const MIST_TILE = {    // everything else on his tiles, verbatim
   scroll: { enableScroll: true, scrollSpeed: 30, scrollDirection: 0, repeatx: 6, repeaty: 1,
     enableRotate: false, pivotx: 0.5, pivoty: 0.5, offsetx: 0, offsety: 0, parallax: 0 },
 };
+
+/**
+ * ⚠️ MOVING STATE, PART 2 — WHICH CARS GET MIST IS THE DM'S RULING, NOT AN OPTIMISATION.
+ *
+ * Same message, 2026-10-09, DM verbatim: *"i removed the moving fog effect from maps that dont have
+ * windows"*. The mist goes ONLY on cars with windows: 10.1 Passenger · 10.2 Sleeper · 10.3 Lounge ·
+ * 10.4 Dining · 10.8 Tender. NEVER on 10.5 Mail, 10.6 Baggage or 10.7 Circus — he deleted it from
+ * those three by hand. Placing it there again undoes his work.
+ *
+ * "Has windows" belongs to HIS CURRENT SCENES, not to the book: the Tender is on the list because he
+ * cut windows into it himself (its walls went 13 → 21). So it is recorded per scene:
+ *
+ *  - Scene flag `mobile-command.trainWindows` (true / false) is the source of truth when it is set.
+ *    When he adds windows to another car, setting this flag is the whole change — no code edit.
+ *    Macro: `MobileCommand.train.setWindows(game.scenes.getName("10.5 …"), true)`.
+ *  - When the flag is unset, WINDOWED_CARS (his 2026-10-09 ruling) is the default. Both art sets
+ *    share car numbers, so the plain chain follows the same ruling.
+ *  - Do NOT try to infer windows from wall geometry: a wall count can't tell a window from a doorway
+ *    or a cabin partition (the Tender's 8 new walls look like any other).
+ */
+const WINDOWED_CARS = new Set([1, 2, 3, 4, 8]); // DM 2026-10-09; 5 Mail · 6 Baggage · 7 Circus have none
+export function trainCarHasWindows(scene) {
+  const flag = scene.flags?.[MODULE_ID]?.trainWindows;
+  if (typeof flag === "boolean") return flag;
+  const m = /^10\.([1-8]) /.exec(scene.name);
+  return !!m && WINDOWED_CARS.has(Number(m[1]));
+}
+export function setTrainWindows(scene, hasWindows) {
+  return scene.setFlag(MODULE_ID, "trainWindows", !!hasWindows);
+}
 
 // The two car chains, rear (10.1) to front (10.8), sorted and grouped by art set.
 export function trainChains() {
@@ -215,6 +246,9 @@ export async function setTrainMist(on) {
       continue;
     }
     if (mine.length) continue; // already riding
+    // DM's ruling (WINDOWED_CARS / the trainWindows flag above): no windows, no mist. Stopping the
+    // ride still clears our flagged tiles from EVERY car, above, so a stray set can always be removed.
+    if (!trainCarHasWindows(s)) continue;
     // MOVING STATE: the DM's literal geometry (MIST_BANDS / MIST_TILE above). Nothing here is
     // computed from the scene, the wall hull or the texture — do not reintroduce that.
     // Fresh copies per tile so no two documents share a nested object.

@@ -5454,6 +5454,16 @@ formula and the thin-wisp layer are deleted. If he moves it again: read his valu
 never recompute. Caveat: `setTrainMist` only recognises tiles flagged `mobile-command.trainMist`; if his
 hand-made copies lack the flag, toggling the ride on would add a second set beside them.
 
+**Moving state, part 2 — windowless cars get no mist (DM 2026-10-09, same message):** *"i removed the moving
+fog effect from maps that dont have windows"*. Mist ONLY on 10.1 Passenger · 10.2 Sleeper · 10.3 Lounge · 10.4
+Dining · 10.8 Tender; NEVER on 10.5 Mail · 10.6 Baggage · 10.7 Circus. The Tender qualifies because he cut
+windows into it himself (walls 13 → 21), so "has windows" is a property of HIS scenes, not the book. Built as a
+per-scene flag `mobile-command.trainWindows` (true/false wins when set) with `WINDOWED_CARS` {1,2,3,4,8} as the
+default when unset — both art sets share the ruling. Not a hard list (silently wrong the next time he adds
+windows) and not wall inference (a wall count can't tell a window from a doorway or partition). New windows on
+a car = `MobileCommand.train.setWindows(scene, true)`, no code change; `train.hasWindows(scene)` reads it.
+Stopping the ride still clears our flagged tiles from EVERY car. Owed: a panel tick for the flag (none yet).
+
 ~~**The ride = tile-scroll flags on mist tiles.** tile-scroll 5.0.0 (installed, enabled,
 v14-verified) scrolls a tile's TEXTURE in a shader driven by `game.time.serverTime` — all
 config is flags: `flags["tile-scroll"].{enableScroll,scrollSpeed,scrollDirection,repeatx,
