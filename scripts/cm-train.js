@@ -14,10 +14,11 @@
 //    the locomotive is the Vagrant's alone; 10.1's rear door is the arcane-locked
 //    exterior — both ends stay unwired, exactly like the book).
 //
-//  - setTrainMist(): the ride itself — the Shroud rushing past. Three tile-scroll layers
-//    per window band (above and below the car hull): a slow dim far layer, the main
-//    thick drift, and fast thin streaks that sell the speed. All six tiles per scene
-//    share two webm textures (PIXI caches by src), so the decode cost stays flat.
+//  - setTrainMist(): the ride itself — the Shroud rushing past. TWO tile-scroll tiles per
+//    car (one per window band, above and below the hull), the thick mist webm in a deep
+//    green. ⚠️ The geometry is the DM's own hand placement ("moving state"), emitted
+//    literally — read MIST_BANDS / MIST_TILE below before touching it. Both tiles share one
+//    webm texture (PIXI caches by src), so the decode cost stays flat.
 //    Requires the DM's tile-scroll module (theripper93) + animated-mist-and-fog-by-mattm.
 //
 //  - registerTrainFollow(): the table follows the party through the doors. When a PC
@@ -34,14 +35,46 @@ import { MODULE_ID } from "./preset.js";
 
 const GRID = 140;                 // the book's car maps are all 140px / 5ft
 const INSET = 4;                  // keep region edges off the wall planes
-const MIST_THICK = "modules/animated-mist-and-fog-by-mattm/animations/mist_thick_horizontal.webm";
-const MIST_THIN = "modules/animated-mist-and-fog-by-mattm/animations/mist_super_thin_horizontal.webm";
-// [src, scrollSpeed, alpha, repeatx, tint, sort] — speeds are tile-scroll units (uv/10s).
-const MIST_LAYERS = [
-  [MIST_THICK, 3, 0.5, 2, "#4fa8a0", 4],   // far Shroud: slow, dim, bluer
-  [MIST_THICK, 8, 0.9, 3, "#8ff5d2", 5],   // the main drift
-  [MIST_THIN, 22, 0.65, 4, "#b8ffe9", 6],  // wisps streaking past — the speed read
+/**
+ * ⚠️⚠️ MOVING STATE — THE DM'S OWN GEOMETRY. DO NOT RECOMPUTE, DERIVE, "FIX", RE-CENTRE OR LOCK IT. ⚠️⚠️
+ *
+ * 2026-10-09, DM verbatim: *"the movement fog has been moved to the wrong location again, I redid the
+ * fog, save its location and duplicate to the other cars, do not move it again (don't lock it though),
+ * and remember this as moving state."*
+ *
+ * Every value below was READ from his hand-placed tiles on `10.1 Passenger Car (Colored)` and is
+ * emitted verbatim on every car. Each earlier generation of this generator derived the bands (wall
+ * hull, `s.dimensions`, the webm's native aspect — three layers, full scene width, repeatx from a
+ * formula) and each put the mist somewhere he then had to move by hand. That ends here.
+ *
+ *  - LITERAL, NOT DERIVED, ON PURPOSE. The two x values differ by 4px (1761 vs 1757) — a hand nudge,
+ *    not a formula — and 1761 is neither the centre of a 3360 car (1680) nor anything the hull gives.
+ *    A derivation that reproduced both numbers would just be these constants in disguise. All eight
+ *    cars are 3360×980 (the Tender 3358 — 2px, immaterial), so one absolute set fits every car; the
+ *    plain-art chain uses the same map sizes and gets the same tiles.
+ *  - x/y are copied exactly as his documents store them (with anchorX/Y 0.5, the tile CENTRE).
+ *    Width is 1800, NOT scene width — his choice, keep it.
+ *  - `repeatx` is HIS flat 6. The old NATIVE_ASPECT formula (sceneWidth / (h × 1.5) × density) gave 9
+ *    on 10.1's 250px band; it is deleted, not kept alongside.
+ *  - `locked: false` — "don't lock it though": he still nudges it by hand. Never add locking as a way
+ *    of protecting it. If he moves it again, read his new values back into THIS table, nowhere else.
+ *  - The thin-wisp layer (mist_super_thin) and the pale mint tints are gone. One tile per band.
+ */
+const MIST_SRC = "modules/animated-mist-and-fog-by-mattm/animations/mist_thick_horizontal.webm";
+const MIST_BANDS = [   // [x, y] — the DM's placement; edit only by reading his world back
+  [1761, 122],         // top band (above the hull)
+  [1757, 858],         // bottom band (below the hull)
 ];
+const MIST_TILE = {    // everything else on his tiles, verbatim
+  texture: { src: MIST_SRC, tint: "#08442d", anchorX: 0.5, anchorY: 0.5, fit: "fill", scaleX: 1, scaleY: 1, alphaThreshold: 0.3 },
+  width: 1800, height: 260, alpha: 0.35, elevation: 0, sort: 4,
+  locked: false,       // DM: "don't lock it though"
+  restrictions: { light: true, weather: false },
+  video: { loop: true, autoplay: true, volume: 0 },
+  // tile-scroll flags; speed/10000 = uv per ms, direction 0 = content drifts map-left (rearward)
+  scroll: { enableScroll: true, scrollSpeed: 30, scrollDirection: 0, repeatx: 6, repeaty: 1,
+    enableRotate: false, pivotx: 0.5, pivoty: 0.5, offsetx: 0, offsety: 0, parallax: 0 },
+};
 
 // The two car chains, rear (10.1) to front (10.8), sorted and grouped by art set.
 export function trainChains() {
@@ -182,77 +215,15 @@ export async function setTrainMist(on) {
       continue;
     }
     if (mine.length) continue; // already riding
-    const hull = wallHull(s);
-    /**
-     * ⚠️ CANVAS SPACE, NOT SCENE SPACE — AND THE TWO ARE NOT THE SAME RECTANGLE (fixed 2026-10-03,
-     * his report: *"you moved the smoke effect back to the wrong place, you're probably using the
-     * wrong aspect ratio and placed it based on bad positioning"*).
-     *
-     * A scene has a SCENE rect (`s.width` × `s.height`, what the background fills) and a CANVAS,
-     * which is larger: Foundry pads the scene by `padding` on every side — 0.25 by default, a
-     * quarter of the scene's width — so the scene rect's top-left corner sits at
-     * `s.dimensions.sceneX, sceneY` and NOT at the origin. **Every placed document — tile, token,
-     * wall, light — stores its position in CANVAS coordinates.**
-     *
-     * The three faults this replaces, all of them the same mistake:
-     *   `[hull.y1, s.height - hull.y1]`  subtracted a CANVAS y from a SCENE height — dimensionally
-     *                                    meaningless, and short by the padding offset;
-     *   `x: 0`                           put the band's left edge out in the padding;
-     *   `width: s.width`                 drew a SCENE-width band from the canvas origin, so it
-     *                                    stopped short of the map's right edge by the same offset —
-     *                                    band and map no longer the same proportion, which is the
-     *                                    "wrong aspect ratio" he saw.
-     *
-     * ⚠️ It has never been right: the geometry was byte-identical in all six commits that have
-     * touched this file, from `ddc7e62` onward. There was no earlier placement to restore, so this
-     * is derived rather than reverted.
-     *
-     * The standing rule — never subtract a placed coordinate from `s.width`/`s.height`, never place
-     * at `x: 0`, take the whole geometry from `s.dimensions` — is written up in deck-command's
-     * EFFECTS.md at his instruction ("remember to do so in the future too").
-     */
-    const d = s.dimensions;
-    const bands = [
-      [d.sceneY, hull.y0 - d.sceneY],                  // above the car hull
-      [hull.y1, d.sceneY + d.sceneHeight - hull.y1],   // below it
-    ];
-    // A car whose hull runs flush to the map edge has no band on that side; a zero or negative
-    // height was previously possible from the bad arithmetic and would have been created anyway.
-    /**
-     * ⚠️ AND THE ASPECT RATIO, WHICH IS THE HALF HE ACTUALLY SEES (measured 2026-10-03 on his own
-     * world, after the coordinate fix above turned out to be a no-op on these particular scenes).
-     *
-     * The car scenes carry `padding: 0`, so `sceneX/sceneY` are 0 and `sceneWidth` equals `width` —
-     * the space-mixing above produced the right numbers here by luck. It is still a real defect and
-     * still worth fixing, because it breaks on any padded scene. **But it is not what he was looking
-     * at.** What he was looking at is this:
-     *
-     *   mist_thick_horizontal.webm is 1500 x 1000, a 1.50:1 picture.
-     *   10.1's band is 3360 wide and 250 tall. At the hard-coded repeatx of 3, each repetition is
-     *   1120 x 250 — **4.48:1, so the mist is stretched three times wider than it was drawn.**
-     *
-     * That is exactly "the wrong aspect ratio", and a hard-coded repeat count cannot be right,
-     * because the correct count depends on the band's own shape, which differs per car.
-     *
-     * So the repeat is DERIVED: `fit` is the number of repetitions that makes each one the
-     * texture's native shape, and the authored 2 / 3 / 4 are kept as a RELATIVE density — the middle
-     * layer lands exactly on `fit`, the far layer is coarser and the wisps finer, which is the
-     * parallax the three layers were written for. On 10.1 that is 6 / 9 / 12 instead of 2 / 3 / 4.
-     */
-    const NATIVE_ASPECT = 1500 / 1000; // the MattM mist webms, measured
-    const tiles = bands.filter(([, h]) => h > 0).flatMap(([y, h]) => MIST_LAYERS.map(([src, speed, alpha, repeatx, tint, sort]) => ({
-      // NOT locked: only GMs can edit tiles anyway, and a locked tile ignores clicks
-      // entirely — the DM couldn't even select one to nudge it (found 2026-08-04).
-      texture: { src, tint }, x: d.sceneX, y, width: d.sceneWidth, height: h, alpha,
-      elevation: 0, sort, locked: false,
-      flags: {
-        "tile-scroll": { enableScroll: true, scrollSpeed: speed, scrollDirection: 0,
-          // the authored 2/3/4 as a density relative to the aspect-correct count, never as pixels
-          repeatx: Math.max(1, Math.round((d.sceneWidth / (h * NATIVE_ASPECT)) * (repeatx / 3))),
-          repeaty: 1 },
-        [MODULE_ID]: { trainMist: true },
-      },
-    })));
+    // MOVING STATE: the DM's literal geometry (MIST_BANDS / MIST_TILE above). Nothing here is
+    // computed from the scene, the wall hull or the texture — do not reintroduce that.
+    // Fresh copies per tile so no two documents share a nested object.
+    const { scroll, texture, restrictions, video, ...rest } = MIST_TILE;
+    const tiles = MIST_BANDS.map(([x, y]) => ({
+      ...rest, x, y,
+      texture: { ...texture }, restrictions: { ...restrictions }, video: { ...video },
+      flags: { "tile-scroll": { ...scroll }, [MODULE_ID]: { trainMist: true } },
+    }));
     await s.createEmbeddedDocuments("Tile", tiles);
     scenes++;
   }

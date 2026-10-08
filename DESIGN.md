@@ -60,7 +60,7 @@ sections their cross-references always claimed).
 | 32, 32.1 | Crooked Moon idea board; Fated Tarot book extract | Reference (mined 2026-07-27 / 2026-08-11) |
 | 33 / 34 / 35 | Chaotic Curses / Fateweaving / CM tab | **All built** (slices C/D/A; headers said "unbuilt" — corrected) |
 | 36, 36.1 | All aboard; the arrival | Built (36.1 not yet seen at the table) |
-| 37 | The Ghostlight ride | Built (10.8 Colored mist-tile gap open) |
+| 37 | The Ghostlight ride | Built — mist geometry is the DM's own "moving state" (2026-10-09), emitted literally |
 | 38, 38.1–38.6 | Session Zero suite (story journals, card table, seats) | Built through 38.5; 38.6 recorded-future |
 | 39 | In person vs. Online (`tableMode`) | Built |
 | 40 | Boss intro | Built (motion unjudged by eye); themed-banner mockups 2026-09-19, not built (§40.6) |
@@ -2620,7 +2620,10 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
   split-horizon DNS is the real fix; TLS + DynDNS still open.
 - ~~**§36.1.7** — train art chroma-key pass (teal fringing)~~ — **DONE 2026-08-25** (keyed
   derivative, measured −85% fringe + edge AA; §36.1.7). *(The fiddle: built, §36.1.8.)*
-- **§37** — 10.8 Tender (Colored) has 0 mist tiles where every other car has 6.
+- ~~**§37** — 10.8 Tender (Colored) has 0 mist tiles where every other car has 6.~~ — **SUPERSEDED 2026-10-09:**
+  the DM hand-placed his own mist on 10.1 Colored and it was duplicated to all eight Colored cars (2 tiles
+  each, by the requesting session — not re-verified here); the generator now emits exactly his tiles
+  (§37 "Moving state"). Owed: one live toggle off→on on a car to confirm it lands where he put it.
 - ~~**§19** — the phones' shared running-rest header · one-time migration of a legacy open
   downtime window / night flag into a `rest` envelope~~ — **BOTH BUILT + live-verified
   2026-08-26/27 (§28.5.8):** `.mc-rest-strip` on every phone (type — stage · clock, minutes
@@ -5438,7 +5441,20 @@ teleport.
 
 **Door census + unlock (DM 2026-08-07: "passenger car is missing teleporters / unlock all locked regions").** Full census run live: every car 10.1–10.8 in BOTH art sets has both doors wired except two deliberate dead ends — **10.1 rear** (the arcane-locked exterior boarding door; there is no car behind the rear car) and **10.8 front** (the locomotive is the Vagrant's). So 10.1 has one teleporter, forward to 10.2, which is correct rather than missing. Its rear door was left with NO teleport behaviour on purpose: an enabled teleport with an unset destination is the Cave A landmine that silently rejects every token move, so a dead end must be a bare region, never a wired one. **Locked walls:** exactly ONE in all 17 train scenes — wall `IZVOQDJKyv2OJmiu` on 10.1 Passenger Car (Colored), at x≈829, sitting inside the rear vestibule (it IS the arcane-locked door). Set LOCKED→CLOSED on the DM's instruction; zero locked doors remain. Stray noted, not touched: an unnamed 1050×490 `Region` on 10.1 Colored with no behaviours.
 
-**The ride = tile-scroll flags on mist tiles.** tile-scroll 5.0.0 (installed, enabled,
+**⚠️ MOVING STATE (DM 2026-10-09 — supersedes the layer description below).** DM verbatim: *"the movement fog
+has been moved to the wrong location again, I redid the fog, save its location and duplicate to the other cars,
+do not move it again (don't lock it though), and remember this as moving state."* His tiles on 10.1 Passenger
+Car (Colored) are now the generator's output, LITERALLY (`MIST_BANDS` / `MIST_TILE` in cm-train.js): TWO tiles
+per car, `mist_thick_horizontal.webm`, tint `#08442d`, 1800×260, anchor 0.5, fit fill, alphaThreshold 0.3,
+alpha 0.35, sort 4, elevation 0, top x 1761 y 122 / bottom x 1757 y 858, tile-scroll speed 30 dir 0
+repeatx 6 repeaty 1, restrictions light on / weather off, video loop+autoplay muted, **locked: false**
+(he nudges it by hand — never lock it to protect it). Literal, not derived: the 4px x difference between the
+bands is a hand nudge no formula yields, and all cars are 3360×980 (Tender 3358). The NATIVE_ASPECT repeatx
+formula and the thin-wisp layer are deleted. If he moves it again: read his values back into that table —
+never recompute. Caveat: `setTrainMist` only recognises tiles flagged `mobile-command.trainMist`; if his
+hand-made copies lack the flag, toggling the ride on would add a second set beside them.
+
+~~**The ride = tile-scroll flags on mist tiles.** tile-scroll 5.0.0 (installed, enabled,
 v14-verified) scrolls a tile's TEXTURE in a shader driven by `game.time.serverTime` — all
 config is flags: `flags["tile-scroll"].{enableScroll,scrollSpeed,scrollDirection,repeatx,
 repeaty,parallax}`; speed/10000 = uv per ms; direction 0° = content drifts map-LEFT (correct:
@@ -5449,7 +5465,7 @@ hull — car windows are all on the long sides), three layers each: slow dim far
 past the glass" — the book's own window text). PIXI caches by src, so 6 tiles per scene cost
 TWO video decodes; bench GM client held ~53 FPS. Idempotent create / flagged delete via the
 panel toggle; only documents flagged `mobile-command.trainMist/trainDoor/trainLand` are ever
-touched.
+touched.~~
 
 **The table follows the party (registerTrainFollow, main.js).** Debounced create+delete
 token watcher (teleports are a create+delete whose order isn't contractual): when the active
