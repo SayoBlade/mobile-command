@@ -295,8 +295,25 @@ export async function setTrainMist(on) {
  * reaching across into whatever the DM chose for the room, and a mis-stop mid-session is worse
  * than an overlap he can mute in one click.
  */
-const RIDE_SOUND = ["Train Inside", "Chugging"]; // in order of preference; both are in his world
-const RIDE_VOLUME = 0.4;
+/**
+ * ⚠️ THE ORDER HERE IS THE WHOLE FEATURE, AND I GOT IT WRONG ONCE. The first version preferred
+ * `Train Inside` and `Chugging` because those were the train sounds in
+ * `deck-command/packs/crooked-moon-world.json` — which is a snapshot of the OLD world. Both do
+ * exist in `crooked-moon-6x`, so it would have worked; but both are FX one-shots (`Train
+ * (loop) 1.mp3`, `Train-inside.mp3`) sitting at `repeat: false`, and his library already carries
+ * two proper looping ambiences recorded for exactly this — `Steam-Train-(with-passengers)` is a
+ * carriage interior, which is where the party is standing.
+ *
+ * So: the ambiences first, the FX as the fallback. Found by reading his live playlists instead of
+ * the capture, after he said *"both dm and tv are running, both are playing sounds… but no train
+ * sounds."*
+ */
+const RIDE_SOUND = [
+  "Steam-Train-(with-passengers)", // Ambiences Vol.6 — a carriage interior, already a loop
+  "Steam-Train-(no-passenger)",    // the same recording without the crowd
+  "Train Inside",                  // Misc — an FX one-shot, looped by us
+  "Chugging",                      // Deck Command · Linked sounds — ditto
+];
 
 function rideSound() {
   for (const name of RIDE_SOUND) {
@@ -314,9 +331,13 @@ export async function setTrainSound(on) {
   if (!s) return null;
   try {
     if (on) {
-      // repeat is set on the document, not passed to play(): a one-shot would end a minute into
-      // the journey and leave the window moving in silence.
-      if (!s.repeat || s.volume !== RIDE_VOLUME) await s.update({ repeat: true, volume: RIDE_VOLUME });
+      // ⚠️ REPEAT IS THE ONLY THING WE IMPOSE. A one-shot would end a minute into the journey and
+      // leave the window moving in silence, so looping is not optional — but the VOLUME is his,
+      // set per sound in his own library, and a module that renormalises someone's mix every time
+      // it plays something is a module they stop trusting. Only a muted sound is nudged, because
+      // silence would read as this being broken.
+      if (!s.repeat) await s.update({ repeat: true });
+      if (!s.volume) await s.update({ volume: 0.4 });
       if (!s.playing) await s.parent.playSound(s);
     } else if (s.playing) {
       await s.parent.stopSound(s);
