@@ -37,6 +37,7 @@ check("Basic: Complex actions are refused (party-cell, dt-roll, transfer-commit,
   ["party-cell", "dt-roll", "transfer-commit", "trade-accept", "travel-group"].every(a => !T.actionAllowed(a)));
 check("Basic: backing out is never refused (transfer-close, travel-cancel, dt-collapse)",
   ["transfer-close", "travel-cancel", "dt-collapse"].every(a => T.actionAllowed(a)));
+check("Basic still offers a travel square (travel-open) — it asks the DM instead of the player", T.actionAllowed("travel-open"));
 check("Basic keeps his kept list (story/journal delete, night, light, move, use, rests, scribe, wild shape, placement)",
   ["story-entry-delete", "journal-entry-delete", "journal-entry-save", "night-toggle", "light-toggle", "move", "use-nearby",
    "short-rest", "long-rest", "scroll-scribe", "wildshape-pick", "place-confirm", "fav-act", "tab"].every(a => T.actionAllowed(a)));
@@ -61,14 +62,20 @@ check("the tier setting's update AND create hooks call leaveComplexIfGated()",
   /\$\{MODULE_ID\}\.playerTier`[\s\S]{0,120}leaveComplexIfGated\(\)/.test(shell)
   && /Hooks\.on\("updateSetting", onTier\)/.test(shell) && /Hooks\.on\("createSetting", onTier\)/.test(shell));
 const rescue = shell.slice(shell.indexOf("  leaveComplexIfGated() {"), shell.indexOf("  #tabContent(actor) {"));
-check("the rescue leaves the party view for Explore, clears transfer + trade offers + travel, then repaints",
+check("the rescue leaves the party view for Explore, clears transfer + trade offers + the player's travel question, then repaints",
   /#partyView = false; this\.#tab = "sheet"/.test(rescue) && /#transferState = null/.test(rescue)
-  && /e\.kind !== "trade"/.test(rescue) && /#travelAsk = null/.test(rescue) && /#nearbyTravel = null/.test(rescue)
+  && /e\.kind !== "trade"/.test(rescue) && /#travelAsk = null/.test(rescue)
   && /this\.render\(\)/.test(rescue));
+check("…but leaves the travel squares listed (DM 2026-10-09: in Basic a tap asks the DM)", !/#nearbyTravel = null/.test(rescue));
 check("the packed-party UI (tab bar, content, sheet pad) goes through #partyUI()",
   (shell.match(/this\.#partyUI\(\)/g) ?? []).length === 3);
 check("setting: playerTier is world, DM-set, default basic, choices basic/complex",
   /register\(MODULE_ID, "playerTier", \{[\s\S]{0,700}scope: "world", config: true, type: String, default: "basic",\s*choices: \{ basic: "Basic", complex: "Complex" \}/.test(settings));
+const choose = shell.slice(shell.indexOf("  #chooseTravel(regionId, label) {"), shell.indexOf("  noteTravelResult("));
+check("choosing a travel square: Complex opens the player's own question, Basic asks the DM (and nothing else)",
+  /if \(surfaceOn\("travel"\)\) \{ this\.#travelAsk = \{ regionId, label \}; return this\.render\(\); \}/.test(choose)
+  && /rpc\.travelRequest\(/.test(choose) && !/rpc\.travelTo\(/.test(choose));
+check("the Use list no longer drops travel squares in Basic", /travel = inter\?\.ok \? \(inter\.travel \?\? \[\]\) : \[\];/.test(shell));
 const story = shell.slice(shell.indexOf("  async #storyDeleteEntry(entryId) {"), shell.indexOf("rpc.storyDelete("));
 check("deleting a My Story entry asks first (DialogV2.confirm before rpc.storyDelete)", /DialogV2\.confirm/.test(story) && /if \(!ok\) return;/.test(story));
 console.log(`All ${n} passed.`);

@@ -77,7 +77,7 @@ sections their cross-references always claimed).
 | 51 | **Dark Bargains** — deny death by signing | **SPEC ONLY 2026-08-26** — three questions await the DM (§51.3); nothing built |
 | 52 | **The action list** — the panel's buttons published for the deck (`MobileCommand.actions`); the Crooked Moon's panel memory moved to `cmLiveState` + cm-live.js | **Stages 1–2 BUILT 2026-09-18** (Effects, Crooked Moon + requests), 29/29 headless; not yet run in Foundry; the other areas owed (§52.5) |
 | 53 | Sounds that play themselves — the region "Sound" behaviour, the door sets, the DM's ears; the Crooked House wired first (DM go 2026-09-20) | **BUILT 2026-09-20, increment 1 (the engine); the house wiring in increments** |
-| 55 | **Basic / Complex** — what phones may change (DM 2026-10-08, finished 2026-10-09) | **BUILT 2026-10-09** — `tier.js` gate, `playerTier` world setting (default Basic), live rescue; owed: a live flip on two phones. (§54 left free for the parked Crooked Moon extraction) |
+| 55 | **Basic / Complex** — what phones may change (DM 2026-10-08, finished 2026-10-09) | **BUILT 2026-10-09** — `tier.js` gate, `playerTier` world setting (default Basic), live rescue; Basic travel squares ask the DM (Cancel / Move X / Move Group, game paused, §55.5); owed: a live flip on two phones, core teleporters (§55 c). (§54 left free for the parked Crooked Moon extraction) |
 
 ---
 
@@ -2653,7 +2653,11 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
 - **§55** — Basic / Complex (BUILT 2026-10-09). Owed: (a) a live flip Basic⇄Complex on two phones
   while packed, mid-transfer and with a travel question open — every phone must land on its own sheet
   without a reload; (b) the DM-side gaps in §55.4 (downtime push rolls and packing land on nobody in
-  Basic) — decide whether the panel should say so.
+  Basic) — decide whether the panel should say so; ~~Basic players can't cross train cars~~ ANSWERED
+  by the DM 2026-10-09 and BUILT (§55.5: the DM decides, game paused); (c) core Teleport Token
+  regions (the Crooked House stairs) still ask the PLAYER — routing them to the DM is the deck's §40.2
+  job or a core-handler wrap here, his call; (d) a live run of the travel ask on a real car: chip,
+  pause, Cancel leaving the token put, Move Group then arranging.
 
 ---
 
@@ -8651,8 +8655,9 @@ risk, not difficulty.** It is the comment at the top of `scripts/tier.js`.
 
 **Complex only** (hidden on every phone in Basic): party / marching order · party staging (lock in,
 travel stage, deploy, release, combine) · the whole downtime board · shared inventory (stash put/take,
-offering items to an ally, the incoming-offer prompt) · travel squares, incl. the alone-or-group
-question.
+offering items to an ally, the incoming-offer prompt) · ~~travel squares, incl. the alone-or-group
+question~~ — **CORRECTED by the DM 2026-10-09 (§55.5): travel squares are NOT hidden in Basic; what
+the tier changes is who decides.** Only the player's own alone-or-group question is Complex.
 
 **Stays in Basic — his ruling, three of them OVERRIDING the rule:** story & scribe questions, party
 journal add/edit/delete, and the night toggle + token light touch shared state; he kept them because
@@ -8674,13 +8679,14 @@ tab, template placement, wild shape.
   pad); `#partyGroup()` itself stays ungated, because the subject binding and the release follow need
   to know the party is packed · `#downtimeBoardHTML` + the downtime `<select>` input handler ·
   `#transferButtonHTML`, the composer in `#tabContent`, `noteTradeOffer`, `#tradePromptHTML` · the Use
-  results (travel rows neither listed, counted nor taken as the lone direct hit) and the `#travelAsk`
-  prompt in `#moveHTML`.
+  ~~results (travel rows neither listed, counted nor taken as the lone direct hit) and the `#travelAsk`
+  prompt in `#moveHTML`~~ — superseded 2026-10-09: travel squares stay listed in both tiers;
+  `#chooseTravel` opens the player's question in Complex and asks the DM in Basic (§55.5).
 - **No stranding:** `leaveComplexIfGated()` copies `leaveCrookedTabIfGated()`. Called from the
   setting's `updateSetting` AND `createSetting` hooks (a never-written setting's first write fires
   create — the §38.4a trap) and from the click guard. A phone in the packed-party view drops to its own
-  sheet on **Explore**; a half-built transfer and an open travel question close; travel rows leave
-  the Use list; queued trade offers are dropped (they lapse on the DM's side after 10 min, nothing
+  sheet on **Explore**; a half-built transfer and an open alone/group travel question close (the
+  travel squares themselves stay listed — 2026-10-09); queued trade offers are dropped (they lapse on the DM's side after 10 min, nothing
   moves without an accept); the downtime board simply stops drawing. Then a full repaint. Going back
   to Complex while packed re-arms the existing pack jump to the Party-order tab.
 - **The DM is never gated.** The panel keeps every control (place, lock in, stage, deploy, release,
@@ -8707,16 +8713,67 @@ same dialog (`#storyDeleteEntry`). Players still can't delete party-journal entr
    flip to Complex. The panel doesn't warn him yet (ledger §55 b).
 3. **§20 item transfers** and the section-map row "Item transfers between players — Built": in Basic
    the table is back to that row's own baseline, "DM moves items".
-4. **§20.5 / §37 travel points:** entry triggers were deliberately disabled, so crossing between
+4. ~~**§20.5 / §37 travel points:** entry triggers were deliberately disabled, so crossing between
    train cars is **Use-only**. In Basic a phone player cannot cross at all; the DM moves tokens car to
-   car (the table-follow still works on a DM's cross-scene drop — it watches token creation). This
-   also sits against UI-BIBLE §0 "the basics may not be mobile-only" — though a plain-Foundry player
-   had no Use path to begin with, so that gap predates this.
+   car.~~ **SUPERSEDED 2026-10-09 — that was the wrong steer, and he corrected it (§55.5):** in Basic a
+   player still Uses a travel square; the DM decides. What still stands: crossing is Use-only, so a
+   plain-Foundry player (no shell, no Use) has no path to a travel square in either tier — a gap
+   against UI-BIBLE §0 that predates the tiers.
 5. **§17.4 "the board lives in the Party tabs for players"** — stale independently of this: the
    watch board is its own overlay (`#nightOverlayHTML`), not a party tab, which is why the night
    toggle survives Basic untouched.
 
-**Tests:** `tools/test-tier.mjs` — 19 numbered checks: the gate in both tiers, fail-closed on an
+### 55.5 Travel squares in Basic — the DM decides (DM 2026-10-09, BUILT same day)
+
+> *"even in basic, players using a teleporter should give the DM the 3 options 'Cancel' 'Move as group'
+> or 'move X only', DM arrange order when they decide to group the party."*
+
+**Checked first: nothing existed to extend.** MC had no DM-side teleporter prompt. The ruling's twin
+lives in deck-command's UI-BIBLE §40.2–40.3 (*"On touching a teleporter (any) first pause, then let
+the dm control 'just X', 'entire party', or 'cancel'"* · *"Cancel unpauses, the other two do not"*),
+recorded there as DECIDED but **not built** — no `confirmTeleportToken` handler in either repo. So
+this is built here, on MC's own travel points, carrying both of those rulings across.
+
+- **Phone (Basic):** the travel square is listed and usable as before; choosing it calls
+  `#chooseTravel` → `rpc.travelRequest`. **The player gets no choice and no dialog**, only a pad note
+  ("Waiting for the DM…") that the answer replaces ("The DM kept you here." on Cancel; cleared on a
+  move). **Nothing moves on the ask.**
+- **Executor:** `handleTravelRequest` validates exactly as the crossing does (`resolveTravel`, now
+  shared), **pauses the game** if it isn't already (remembering the pause is its own), and raises a
+  `travel` chip on the DM panel floor. One open ask per traveller; a second press withdraws the first
+  chip (`dmReactionGone`).
+- **The chip** (panel floor, gold needs-attention rail, NOT the reaction violet): `(token icon) Name
+  wants to cross` / `<square's label> · game paused`, then **Cancel · Move <Name> · Move Group** —
+  Cancel tertiary on the left, the moves on the right (UI-BIBLE §4.1.1). Who asked leads, in the §3
+  identity form, so "Move <Name>" is never ambiguous.
+- **`handleTravelDecide`** (GM only): **Cancel** moves nothing — so the token is exactly where it stood
+  — and unpauses only if the pause was the ask's own and no other ask is waiting; **Move <Name>** and
+  **Move Group** run the existing crossing (`handleTravelTo`, the wall-safe fan for a group) and **keep
+  the pause**: he is about to narrate, and for the group, to arrange the marching order by hand on the
+  far side before unpausing — no player ordering step.
+- **Complex is untouched:** the player's own Cancel / Travel alone / Travel as group question
+  (`#travelAsk` → `handleTravelTo`), no DM chip, no pause. `handleTravelTo` now refuses a NON-GM
+  requester in Basic, so a stale Complex screen can't bypass him; the DM's decision reaches it with a GM
+  requester and passes.
+- **`tier.js`:** `travel` stays a Complex surface but means *who decides*; `travel-open` left the
+  Complex action map (in Basic it asks the DM), `travel-alone`/`travel-group` stay Complex.
+
+**Not covered — core Foundry teleporters.** A core *Teleport Token* region behaviour with its
+confirmation on (the Crooked House stairs) still asks the **player** who moved the token: core runs
+that dialog from a private method on the mover's client (`teleport-token.mjs` `#confirmDialog`, queried
+via `confirmTeleportToken` only when another client is doing the teleport). Routing it to the DM means
+wrapping core's region-event handler — fragile — and is the deck's own §40.2 plan ("the deck replaces
+the dialog"). Open in the ledger (§55 c). The Ghostlight car doors are unaffected: their entry triggers
+are off and they travel through MC's travel points, which this covers.
+
+**Tests:** `tools/test-travel-ask.mjs` — 23 numbered checks against the fake Foundry, the ask delivered
+the way socketlib delivers it: Basic refuses a player's own crossing; the ask pauses and moves nobody;
+the chip names who and where; a player can't answer it; **Cancel leaves every token where it was**,
+unpauses, tells the phone, can't be answered twice; a table he had already paused stays paused; a
+second press withdraws the first ask; Move <Name> moves only them and holds the pause; Move Group
+moves everyone left and holds it; Complex goes straight through with no chip and no pause.
+
+**Tests (the gate):** `tools/test-tier.mjs` — 23 numbered checks (four added 2026-10-09 for travel), originally 19: the gate in both tiers, fail-closed on an
 unknown key, his kept list allowed, bad/unregistered values reading Basic; then shell.js/settings.js
 read as text so a rename can't silently ungate a surface (every gated action still exists, every
 `surfaceOn` key is known and each surface is used, no direct setting reads, the dispatcher guard,

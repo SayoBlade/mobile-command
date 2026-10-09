@@ -2594,9 +2594,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Basic / Complex (tier.js): called by the tier setting's hook, and by the click guard when a stale
   // button is pressed. Every Complex surface the phone might be SITTING in is cleared, so a flip to
   // Basic never strands anyone: the packed-party view drops back to the player's own sheet on
-  // Explore (the CM tab's rescue, same landing), a half-built transfer and an open travel question
-  // close, a travel row leaves the Use list, an unanswered trade offer is dropped (it lapses on the
-  // DM's side; nothing moved). The downtime board needs nothing — it simply stops being drawn.
+  // Explore (the CM tab's rescue, same landing), a half-built transfer and an open alone/group travel
+  // question close (the travel squares themselves stay — in Basic a tap asks the DM), an unanswered
+  // trade offer is dropped (it lapses on the DM's side; nothing moved). The downtime board needs nothing — it simply stops being drawn.
   // Then the whole shell repaints, so the tab bar and every gated button follow without a reload.
   leaveComplexIfGated() {
     if (!surfaceOn("party") && this.#partyView && this.#partyGroup()) { this.#partyView = false; this.#tab = "sheet"; }
@@ -2604,7 +2604,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       this.#transferState = null;
       this.#pending = this.#pending.filter(e => { if (e.kind !== "trade") return true; clearTimeout(e.timer); return false; });
     }
-    if (!surfaceOn("travel")) { this.#travelAsk = null; this.#nearbyTravel = null; }
+    if (!surfaceOn("travel")) this.#travelAsk = null; // the squares stay listed — in Basic a tap asks the DM
     if (this.rendered) this.render();
   }
 
@@ -3170,8 +3170,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       piles = loot?.ok ? (loot.piles ?? []) : [];
       doors = inter?.ok ? (inter.doors ?? []) : [];
       tiles = inter?.ok ? (inter.tiles ?? []) : [];
-      // Basic: travel squares aren't offered — not listed, not counted, never the lone direct hit (tier.js)
-      travel = inter?.ok && surfaceOn("travel") ? (inter.travel ?? []) : [];
+      // Travel squares are offered in BOTH tiers (DM 2026-10-09) — what the tier changes is who decides.
+      travel = inter?.ok ? (inter.travel ?? []) : [];
     } finally {
       this.#lootBusy = false;
     }
@@ -3193,7 +3193,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       this.#clearNearby(); this.#useNote("");
       // §37 Travelling is the one "use" that never happens on the first tap: it leaves the
       // scene, so it always stops to ask alone/group/cancel.
-      if (travel.length) { this.#travelAsk = { regionId: travel[0].id, label: travel[0].label }; return this.render(); }
+      if (travel.length) return this.#chooseTravel(travel[0].id, travel[0].label);
       this.render();
       if (piles.length) return this.#openLoot(piles[0].uuid);
       if (doors.length) {
@@ -3211,6 +3211,28 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // several → show the pick list under the pad
     this.#nearbyLoot = piles; this.#nearbyDoors = doors; this.#nearbyTiles = tiles; this.#nearbyTravel = travel;
     this.render();
+  }
+
+  // A travel square was chosen. Complex: the player's own alone/group/cancel question (#travelAsk), as it
+  // always was. Basic (tier.js "travel"): the player gets NO choice and no dialog — the ask goes to the DM,
+  // who answers Cancel / Move <name> / Move Group with the game paused (rpc handleTravelRequest). Nothing
+  // moves until he answers, so a refused crossing leaves the token exactly where it stood.
+  #chooseTravel(regionId, label) {
+    if (surfaceOn("travel")) { this.#travelAsk = { regionId, label }; return this.render(); }
+    this.#travelAsk = null;
+    this.#useNote("Waiting for the DM…");
+    this.render();
+    rpc.travelRequest({ regionId, forActorUuid: this.actor?.uuid })
+      .then((res) => { if (!res?.ok) { this.#useNote(""); this.render(); ui.notifications.warn(`Travel: ${res?.reason ?? "couldn't reach the DM"}`); } })
+      .catch((e) => console.warn(`${MODULE_ID} | travel request failed`, e));
+  }
+  // The DM's answer to a Basic travel ask (rpc travelResult). A move clears the note — the crossing itself
+  // repaints this phone on the far side; a cancel says so where the eye already is.
+  noteTravelResult({ moved, reason } = {}) {
+    if (moved) { this.#moveBudget = null; this.#partyMoveNote = null; }
+    else this.#useNote(reason ? "" : "The DM kept you here.");
+    if (reason) ui.notifications.warn(`Travel: ${reason}`);
+    if (this.rendered) this.render();
   }
 
   async #openLoot(pileUuid) {
@@ -7772,9 +7794,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "move":
         return this.#move(Number(el.dataset.dx), Number(el.dataset.dy));
       case "travel-open":
-        this.#travelAsk = { regionId: el.dataset.id, label: el.dataset.label };
         this.#clearNearby();
-        return this.render();
+        return this.#chooseTravel(el.dataset.id, el.dataset.label);
       case "travel-cancel":
         this.#travelAsk = null;
         return this.render();
@@ -9380,6 +9401,8 @@ export function registerShellHooks() {
   };
   Hooks.on("updateSetting", onCmGate);
   Hooks.on("createSetting", onCmGate);
+  // Basic travel: the DM answered this phone's ask (Cancel / Move <name> / Move Group).
+  Hooks.on("mobile-command.travelResult", (p) => { if (shellInstance?.rendered) shellInstance.noteTravelResult(p); });
   // Basic / Complex (tier.js): same live gate, same two hooks, same rescue-then-repaint.
   const onTier = (s) => {
     if (s?.key !== `${MODULE_ID}.playerTier` || !shellInstance?.rendered) return;

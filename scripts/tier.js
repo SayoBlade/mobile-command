@@ -11,7 +11,10 @@
 // letting players mess around with the group up order, all the downtime options … I'll start my
 // game in basic since I'm not too happy with it in the mobile side, they still need time."*
 //
-// COMPLEX ONLY (hidden on every phone while the table is Basic) — COMPLEX_SURFACES below.
+// COMPLEX ONLY (hidden on every phone while the table is Basic) — COMPLEX_SURFACES below. One of
+// them is not hidden but HANDED TO THE DM: travel squares stay on Basic phones, and choosing one asks
+// the DM (Cancel / Move <name> / Move Group, game paused) instead of the player — his ruling of
+// 2026-10-09, "even in basic, players using a teleporter should give the DM the 3 options".
 //
 // STAYS IN BASIC, his ruling, three of them OVERRIDING the rule above: story & scribe questions,
 // party journal add / edit / delete, and the night toggle + token light DO touch shared state —
@@ -43,7 +46,9 @@ export const COMPLEX_SURFACES = Object.freeze({
   party: "Packed party: marching order, staging, deploy, the group's move pad",
   downtime: "The downtime board: choosing an activity, pushed rolls",
   sharedInventory: "Shared inventory: put in / take from the stash, offering items to an ally",
-  travel: "Travel squares, including the travel-alone-or-as-group question",
+  // NOT hidden in Basic: off means the DM decides (shell #chooseTravel → rpc handleTravelRequest), and
+  // the executor refuses a player's own crossing (handleTravelTo) so a stale Complex screen can't bypass him.
+  travel: "Who decides a travel square: the player (alone / as group) in Complex, the DM in Basic",
 });
 
 // Every phone click action that belongs to a Complex surface. The shell's dispatcher asks
@@ -58,7 +63,7 @@ const ACTION_SURFACE = Object.freeze({
   "transfer-open": "sharedInventory", "transfer-dest": "sharedInventory",
   "transfer-item": "sharedInventory", "transfer-qty": "sharedInventory", "transfer-commit": "sharedInventory",
   "trade-accept": "sharedInventory", "trade-decline": "sharedInventory",
-  "travel-open": "travel", "travel-alone": "travel", "travel-group": "travel",
+  "travel-alone": "travel", "travel-group": "travel", // "travel-open" is Basic too: in Basic it asks the DM
 });
 
 export function playerTier() {

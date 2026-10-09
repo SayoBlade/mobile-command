@@ -3447,6 +3447,18 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-dmp-react-scribe { background: var(--mc-panel); border-color: color-mix(in srgb, var(--mc-gold) 45%, var(--mc-sunken)); }
 .mc-dmp-react-scribe em { font-size: 11px; opacity: .75; font-style: normal; }
 .mc-dmp-react-scribe button { min-width: 30px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); }
+/* Basic travel-square chip (DM 2026-10-09): needs-attention gold rail (UI-BIBLE §5), NOT the reaction
+   violet — this is a decision, not a reaction. Words, not glyphs: three peer buttons stretching
+   equally, Cancel tertiary on the left. Wraps to two lines so the name and the buttons both fit. */
+.mc-dmp-react-travel { flex-wrap: wrap; background: var(--mc-panel); border-color: var(--mc-edge); border-left: 3px solid var(--mc-gold); }
+.mc-dmp-react-travel .mc-dmp-react-txt { flex: 1 1 100%; white-space: normal; }
+.mc-dmp-react-travel .mc-dmp-react-txt i { color: inherit; }
+.mc-dmp-react-travel em { font-size: 11px; opacity: .75; font-style: normal; }
+.mc-dmp-travel-btns { display: flex; gap: 6px; flex: 1 1 100%; }
+.mc-dmp-react-travel .mc-dmp-travel-btns button { flex: 1 1 0; height: 28px; padding: 0 6px; white-space: nowrap;
+  background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink); }
+.mc-dmp-react-travel .mc-dmp-travel-btns button:hover { border-color: var(--mc-gold); background: var(--mc-panel-2); }
+.mc-dmp-react-travel .mc-dmp-travel-btns .mc-dmp-travel-cancel { background: transparent; border-color: transparent; color: var(--mc-muted); }
 /* Summon-control chip: spectral tint, ✓ grants the player the summon. */
 .mc-dmp-react-summon { background: var(--mc-primary); border-color: var(--mc-primary-edge); }
 .mc-dmp-react-summon button { min-width: 30px; height: 26px; border-radius: calc(6px * var(--mc-round, 1)); }

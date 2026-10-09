@@ -2935,6 +2935,24 @@ function reactionsHTML() {
         <button data-dmsummon-ok="${r.id}" title="Grant control — the summon appears in their phone's token switcher"><i class="fas fa-check"></i></button>
         <button data-dmsummon-x="${r.id}" title="Keep it DM-driven"><i class="fas fa-xmark"></i></button>
       </div>`
+    : r.kind === "travel"
+    // Basic travel square (DM 2026-10-09): WHO asked leads the chip, in the §3 identity form, because
+    // "Move <name>" means nothing without it. Cancel left, the two moves right (UI-BIBLE §4.1.1).
+    ? (() => {
+        const esc = foundry.utils.escapeHTML;
+        const who = esc(r.actorName ?? "Someone");
+        const first = esc(String(r.actorName ?? "Them").split(" ")[0]);
+        let col = "";
+        try { const a = fromUuidSync(r.actorUuid); col = a ? pcColor(a) : ""; } catch (e) { /* stale uuid */ }
+        return `<div class="mc-dmp-react mc-dmp-react-travel">
+        <span class="mc-dmp-react-txt"><i class="fas fa-circle-user" style="color:${col}"></i>${who} wants to cross<br><em>${esc(r.travelLabel ?? "Travel")} · game paused</em></span>
+        <span class="mc-dmp-travel-btns">
+          <button class="mc-dmp-travel-cancel" data-dmtravel="cancel" data-id="${r.id}" title="Nobody moves, and the game unpauses">Cancel</button>
+          <button data-dmtravel="alone" data-id="${r.id}" title="Move ${first} only — the game stays paused">Move ${first}</button>
+          <button data-dmtravel="group" data-id="${r.id}" title="Move the whole party — the game stays paused while you arrange the marching order">Move Group</button>
+        </span>
+      </div>`;
+      })()
     : r.kind === "trade"
     ? `<div class="mc-dmp-react mc-dmp-react-trade">
         <span class="mc-dmp-react-txt"><i class="fas fa-hand-holding-heart"></i> ${foundry.utils.escapeHTML(r.label)}<br><em>receiver offline — accept for them?</em></span>
@@ -4251,6 +4269,18 @@ async function onClick(ev) {
     if (entry) scribeResultToUser(entry.userId, { ok: false, spellName: entry.label });
     return;
   }
+  // Basic travel square: the DM's three answers (Cancel / Move X / Move Group) — rpc handleTravelDecide.
+  const tvBtn = ev.target.closest("[data-dmtravel]");
+  if (tvBtn) {
+    const id = tvBtn.dataset.id, choice = tvBtn.dataset.dmtravel;
+    dmReactions = dmReactions.filter(r => r.id !== id);
+    render();
+    api.travelDecide({ id, choice }).then(res => {
+      if (res?.ok === false) ui.notifications.warn(`Travel: ${res.reason ?? "failed"}`);
+      else if (choice === "group" && res?.moved) ui.notifications.info(`${res.moved} crossed together — arrange them, then unpause.`);
+    });
+    return;
+  }
   // §20 T-p2p: receiver offline → the DM accepts/declines the give on their behalf.
   const trOk = ev.target.closest("[data-dmtrade-ok]");
   if (trOk) {
@@ -5249,6 +5279,10 @@ export function registerDMPanel() {
       dmReactions = dmReactions.filter(r => r.id !== entry.id);
       render();
     }, Math.max(1000, entry.expiresAt - Date.now()));
+  });
+  Hooks.on("mobile-command.dmReactionGone", ({ id } = {}) => {     // an ask replaced by a newer one (travel)
+    dmReactions = dmReactions.filter(r => r.id !== id);
+    render();
   });
   Hooks.on("mobile-command.pendingCast", () => render());          // a phone announced an AoE cast
   Hooks.on("mobile-command.pendingCastResolved", () => render());  // placed or dismissed

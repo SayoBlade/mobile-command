@@ -6,6 +6,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime data model + Rule engine
 // Pure-data wall test: works on scenes the DM isn't looking at, where the canvas collision
 // backends only know the VIEWED scene. Used by movement and by travel-point landings.
 import { wallsBlock } from "./cm-train.js";
+import { surfaceOn } from "./tier.js"; // Basic / Complex: who decides a travel square (tier.js imports only preset.js)
 
 // §5 Service RPC contract, Phase 1 subset, running on the executor client
 // (§2.1: the DM Screen GM client). All Spike 3 findings are baked in:
@@ -120,6 +121,9 @@ export function initSocket() {
   reg("listInteractables", handleListInteractables);
   reg("operateInteractable", handleOperateInteractable);
   reg("travelTo", handleTravelTo);
+  reg("travelRequest", handleTravelRequest);
+  reg("travelDecide", handleTravelDecide);
+  reg("travelResult", handleTravelResult);
   reg("travelMark", handleTravelMark);
   reg("partyJournalEnsure", handlePartyJournalEnsure);
   reg("partyJournalAdd", handlePartyJournalAdd);
@@ -2213,8 +2217,8 @@ async function handleListInteractables({ forActorUuid } = {}) {
 // create the token on the far scene FIRST, then delete it here. That order matters — a failure
 // half-way leaves a duplicate the DM can see and remove, rather than a token that has stopped
 // existing anywhere. Same-scene destinations are a plain move, no create/delete at all.
-async function handleTravelTo({ regionId, group, forActorUuid, requesterId } = {}) {
-  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+// The checks every travel-square call shares — the crossing itself and the Basic ask both start here.
+function resolveTravel({ regionId, forActorUuid, requesterId }) {
   // Active scene, not the viewed one — a player travelling must not depend on where the DM's
   // camera happens to be pointed (2026-08-07).
   const scene = game.scenes.active;
@@ -2223,11 +2227,23 @@ async function handleTravelTo({ regionId, group, forActorUuid, requesterId } = {
   const tp = travelPointOf(scene, region);
   const landing = tp && travelLanding(tp.dest);
   if (!landing?.scene) return { ok: false, reason: "that way leads nowhere yet" };
-
   const trav = forActorUuid ? fromUuidSync(forActorUuid) : null;
   const myTok = trav ? [...(scene?.tokens ?? [])].find(t => t.actor?.id === trav.id) ?? null : null;
   if (!myTok) return { ok: false, reason: "your token isn't on this scene" };
   if (!requesterCanAct(requesterId, myTok)) return { ok: false, reason: "requester does not own the token" };
+  return { ok: true, scene, region, tp, landing, myTok };
+}
+
+async function handleTravelTo({ regionId, group, forActorUuid, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  // Basic (tier.js): a PLAYER never moves through a travel square on their own word — the DM decides
+  // (handleTravelRequest below). The DM's own decision arrives here with a GM requester and passes.
+  // Enforced here as well as on the phone so a stale Complex screen can't bypass him.
+  if (!surfaceOn("travel") && !game.users.get(requesterId)?.isGM)
+    return { ok: false, reason: "the DM decides travel at this table" };
+  const r = resolveTravel({ regionId, forActorUuid, requesterId });
+  if (!r.ok) return r;
+  const { scene, landing, myTok } = r;
 
   const movers = group ? partyTokensOn(scene) : [myTok];
   if (group && !movers.some(t => t.id === myTok.id)) movers.push(myTok);
@@ -2275,6 +2291,68 @@ async function handleTravelTo({ regionId, group, forActorUuid, requesterId } = {
   if (!moved) return { ok: false, reason: "nobody could make the crossing" };
   return { ok: true, moved, to: landing.scene.name };
 }
+
+// ── Basic: the DM decides a travel square (DM 2026-10-09) ─────────────────────────────────────
+// *"even in basic, players using a teleporter should give the DM the 3 options 'Cancel' 'Move as group'
+// or 'move X only', DM arrange order when they decide to group the party."* Same ruling as the deck's
+// teleporter page (deck-command UI-BIBLE §40.2–40.3): the table STOPS while he chooses — the game
+// pauses on the ask — and "Cancel unpauses, the other two do not": moving someone means he is about to
+// narrate (or, for the group, arrange the marching order by hand), so the pause stays his to lift.
+//
+// Nothing moves on the ask. The player tapped Use from where they stand; the token is not touched until
+// the DM picks a move, so Cancel leaves the world exactly as it was. Complex tables never come here —
+// their phones keep the player's own alone/group question (shell.js #travelAsk → handleTravelTo).
+const pendingTravel = new Map(); // id -> { id, regionId, forActorUuid, actorName, userId, label }
+let travelPauseOurs = false;     // true only while the pause is the one the ask itself put on
+
+async function handleTravelRequest({ regionId, forActorUuid, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const r = resolveTravel({ regionId, forActorUuid, requesterId });
+  if (!r.ok) return r;
+  const actorName = r.myTok.actor?.name ?? r.myTok.name;
+  // One open ask per traveller: pressing again replaces the earlier one rather than stacking chips.
+  for (const [id, e] of pendingTravel) if (e.forActorUuid === forActorUuid) { pendingTravel.delete(id); Hooks.callAll("mobile-command.dmReactionGone", { id }); }
+  const id = foundry.utils.randomID();
+  const entry = { id, regionId, forActorUuid, actorName, userId: requesterId, label: r.tp.label || "Travel" };
+  pendingTravel.set(id, entry);
+  if (!game.paused) { travelPauseOurs = true; game.togglePause(true, { broadcast: true }); }
+  Hooks.callAll("mobile-command.dmReaction", {
+    id, kind: "travel", actorName, travelLabel: entry.label, actorUuid: forActorUuid, userId: requesterId,
+    // The decision is the DM's and the game is stopped for it — the chip waits as long as he does.
+    expiresAt: Date.now() + 12 * 60 * 60 * 1000
+  });
+  return { ok: true, pending: true };
+}
+
+// choice: "cancel" | "alone" | "group". Called from the DM panel's chip (GM requester).
+async function handleTravelDecide({ id, choice, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM decides travel" };
+  const entry = pendingTravel.get(id);
+  if (!entry) return { ok: false, reason: "that request is gone" };
+  pendingTravel.delete(id);
+  if (choice === "cancel") {
+    // Nothing was moved, so there is nothing to undo — only the pause, and only if the ask put it on and
+    // no other ask is still waiting on it.
+    if (travelPauseOurs && !pendingTravel.size && game.paused) { travelPauseOurs = false; game.togglePause(false, { broadcast: true }); }
+    travelResultToUser(entry.userId, { moved: false });
+    return { ok: true, cancelled: true };
+  }
+  const res = await handleTravelTo({ regionId: entry.regionId, group: choice === "group", forActorUuid: entry.forActorUuid, requesterId });
+  // A move means he is about to narrate (or arrange the party): the pause is his now, not ours.
+  if (res?.ok) travelPauseOurs = false;
+  travelResultToUser(entry.userId, { moved: !!res?.ok, reason: res?.ok ? undefined : res?.reason });
+  return res;
+}
+
+// The phone that asked hears how it ended (it shows "waiting for the DM" until then).
+function travelResultToUser(userId, payload) {
+  if (!userId) return;
+  if (userId === game.user.id) return void Hooks.callAll("mobile-command.travelResult", payload);
+  if (!game.users.get(userId)?.active || !socket) return;
+  socket.executeAsUser("travelResult", userId, payload).catch(() => {});
+}
+function handleTravelResult(payload) { Hooks.callAll("mobile-command.travelResult", payload ?? {}); return true; }
 
 /**
  * Mark a region as a travel point, or clear it. Content-agnostic — this is how a DM (or a macro)
@@ -3796,6 +3874,7 @@ function toExecutor(handler, payload) {
       listLoot: handleListLoot, openLoot: handleOpenLoot,
       listInteractables: handleListInteractables, operateInteractable: handleOperateInteractable,
       travelTo: handleTravelTo, travelMark: handleTravelMark,
+      travelRequest: handleTravelRequest, travelDecide: handleTravelDecide,
       partyJournalEnsure: handlePartyJournalEnsure, partyJournalAdd: handlePartyJournalAdd, partyJournalEdit: handlePartyJournalEdit, partyJournalDelete: handlePartyJournalDelete, portraitUpload: handlePortraitUpload,
       storyAdd: handleStoryAdd, storyEdit: handleStoryEdit, storyDelete: handleStoryDelete,
       storyAnswered: handleStoryAnswered,
@@ -3839,6 +3918,8 @@ export const api = {
   listInteractables: (payload = {}) => toExecutor("listInteractables", payload),
   operateInteractable: (payload = {}) => toExecutor("operateInteractable", payload),
   travelTo: (payload = {}) => toExecutor("travelTo", payload),
+  travelRequest: (payload = {}) => toExecutor("travelRequest", payload), // Basic: ask the DM (Cancel / Move X / Move group)
+  travelDecide: (payload = {}) => toExecutor("travelDecide", payload),   // the DM panel's answer
   travelMark: (payload = {}) => toExecutor("travelMark", payload),
   partyJournalEnsure: (payload = {}) => toExecutor("partyJournalEnsure", payload),
   partyJournalAdd: (payload = {}) => toExecutor("partyJournalAdd", payload),
