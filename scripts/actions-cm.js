@@ -375,7 +375,10 @@ defineActions([
 
   /* ── The Ghostlight ride (§37) ─────────────────────────────────────────────────────────────── */
   cm({
-    id: "cm.ride", group: "Ghostlight", kind: "toggle", icon: "train", label: "The ride", ...scene("ride"),
+    // DM 2026-10-09: *"'start ride' is much clearer"* — `The ride` is two words of article and no
+    // verb, and the same action was already called `Start ride` on the deck's Introductions page.
+    // One verb, one name, everywhere it appears.
+    id: "cm.ride", group: "Ghostlight", kind: "toggle", icon: "train", label: "Start ride", ...scene("ride"),
     when: () => trainScenes().length > 0,
     on: () => trainMistOn(),
     run: () => setRide(!trainMistOn()),
