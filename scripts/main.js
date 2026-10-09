@@ -1368,13 +1368,68 @@ async function suppressAutomatedAnimationsTips() {
   } catch (e) { console.warn(`${MODULE_ID} | could not suppress Automated Animations tips`, e); }
 }
 
+/**
+ * The DM's own machine stops doubling the room — §39.5's rule, which until 2026-10-09 lived only
+ * in the phone shell and so only ever covered phones. See `dmSilentMusic` in settings.js for why
+ * this is the MUSIC channel alone and must not touch ambient.
+ *
+ * Claim-and-release, exactly as the phone rule does it: we restore only a volume WE zeroed, and we
+ * restore it to Foundry's shipped 0.5 rather than to a remembered value, because we never recorded
+ * one — a level he never chose is better left at the default than left dead.
+ */
+function applyDmMusicSilence() {
+  try {
+    if (!game.user?.isGM || isDisplayClient()) return;
+    let want = true;
+    try { want = !!game.settings.get(MODULE_ID, "dmSilentMusic"); } catch (e) { /* default on */ }
+    /**
+     * ⚠️ IS THE DISPLAY **ON**, NOT IS IT CONFIGURED (DM 2026-10-09: *"if it's remote DMing and
+     * I'm sharing the tv then it's in the same computer, if I'm not sharing it's probably not on,
+     * and if it's a local game, both are running from my pc"*).
+     *
+     * Two things follow from that, and they rewrote this function.
+     *
+     * First, the doubling is worse than two machines disagreeing: the TV client and the DM client
+     * are the SAME PC in every one of his setups, so the same track plays twice out of one sound
+     * card, a few hundred milliseconds apart. That is not a balance problem, it is a flam.
+     *
+     * Second, the configured-display check was the wrong gate. A display ACCOUNT exists whether or
+     * not anyone has opened it, and when he is not sharing, the TV is simply not running — so
+     * gating on configuration would silence the music on the only client that was playing it. The
+     * gate has to be live: silence while the display is actually connected, restore the moment it
+     * drops. `userConnected` keeps it honest, so closing the TV tab mid-session brings his own
+     * sound back without him touching anything.
+     */
+    const tv = hasSharedScreen() ? game.users.get(displayUserId()) : null;
+    if (!tv?.active) want = false;
+    const KEY = "globalPlaylistVolume";
+    if (want) {
+      if (game.settings.get("core", KEY) !== 0) {
+        game.settings.set("core", KEY, 0);
+        game.settings.set(MODULE_ID, "dmAudioSilenced", true);
+        console.log(`${MODULE_ID} | DM client — music silenced (the shared screen is the room's speaker)`);
+      }
+    } else if (game.settings.get(MODULE_ID, "dmAudioSilenced")) {
+      if (game.settings.get("core", KEY) === 0) game.settings.set("core", KEY, 0.5);
+      game.settings.set(MODULE_ID, "dmAudioSilenced", false);
+      console.log(`${MODULE_ID} | DM client — music restored (no shared screen)`);
+    }
+  } catch (e) { console.warn(`${MODULE_ID} | could not set the DM's music volume`, e); }
+}
+
 function setupTvVolumes() {
   applyTvVolumes();
   applyTvMute();
+  applyDmMusicSilence();
   Hooks.on("updateSetting", (s) => {
     if (s?.key === `${MODULE_ID}.tvVolume`) applyTvVolumes();
     if (s?.key === `${MODULE_ID}.tvMuted`) { applyTvMute(); broadcastAudioState(); }
+    // the rule depends on BOTH the preference and which account is the display
+    if (s?.key === `${MODULE_ID}.dmSilentMusic` || s?.key === `${MODULE_ID}.displayOwnerUser`) applyDmMusicSilence();
   });
+  // ...and on whether that account is CONNECTED, which is the half that changes mid-session: the
+  // TV tab opening or closing is exactly when the DM's own music should go quiet or come back.
+  Hooks.on("userConnected", (user) => { if (user?.id === displayUserId()) applyDmMusicSilence(); });
   if (isDisplayClient()) {
     broadcastAudioState();
     // Re-announce once audio unlocks, and on a slow heartbeat so a DM panel opened later still

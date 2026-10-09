@@ -379,6 +379,45 @@ export function registerSettings() {
     default: true
   });
 
+  /**
+   * THE SAME RULE AS `phoneSilentAudio`, FINALLY APPLIED TO THE DM (DM 2026-10-09: *"Why is sound
+   * being played from gm when tv is on?"* and *"Didn't we have a rule for that — if tv is on the
+   * dm is silenced?"*).
+   *
+   * ⚠️ HE WAS RIGHT AND I TOLD HIM OTHERWISE. The rule has existed since §39.5 — *the shared
+   * screen is the room's speaker, so every other client stops doubling it* — but it was written
+   * inside the PHONE shell's ready path and so only ever covered phones. The DM's machine escaped
+   * it by where the code lived, not by anyone deciding it should.
+   *
+   * ⚠️ MUSIC ONLY, AND THAT PART *IS* A DECISION. The ambient channel is governed by
+   * `dmHearsTable` below, which he turned ON deliberately so he can judge the cues that play
+   * themselves from his own seat; silencing it here would quietly revoke that. Interface stays for
+   * the same reason it stays on phones. What he actually heard doubled was playlist audio — the
+   * ride's loop and a left-over ambience — and that is exactly this one channel.
+   *
+   * ⚠️ Acts only while the display is **connected**, not merely configured — and that is his
+   * correction, not my design: *"if it's remote DMing and I'm sharing the tv then it's in the same
+   * computer, if I'm not sharing it's probably not on, and if it's a local game, both are running
+   * from my pc."* The TV is always the same PC as his client, so the doubling is one sound card
+   * playing one track twice; and when he is not sharing, the TV is not running at all, so a
+   * configured-display gate would have silenced the only client left playing. See
+   * `applyDmMusicSilence` in main.js.
+   */
+  game.settings.register(MODULE_ID, "dmSilentMusic", {
+    name: "The DM's machine stays quiet",
+    hint: "While the shared screen is CONNECTED, your own client mutes the music channel so a track does not play twice out of the same PC. Close the display and your music comes straight back. Ambient sound (see below) and interface sounds are untouched.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
+  // Did WE zero this GM client's music? Per-device, because the volume is a client setting, and
+  // claim-and-release like the phone rule: a DM who slid his own music to zero keeps it there.
+  game.settings.register(MODULE_ID, "dmAudioSilenced", {
+    scope: "client", config: false, type: Boolean, default: false
+  });
+
   // §53 (catalogue 230, DM go 2026-09-20): Foundry gives a GM controlling no token NO ambient sound at
   // all. With this on, the DM's own screen hears the scene from the party's tokens — the TV's rule —
   // whenever nothing is selected, so he can judge the cues that play themselves from his seat.

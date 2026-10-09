@@ -6297,6 +6297,26 @@ is the speakers); phones keep their own sound only at a table with no shared scr
 Bench-untested (a world was active — BENCH RULE #0); the predicate is the same one §39.5's
 bench proved twice, and the silencing machinery itself is the long-verified in-person path.
 
+**AND THE DM (2026-10-09).** *"Why is sound being played from gm when tv is on?"* — then, when I
+said no such rule covered him: *"Didn't we have a rule for that, that if tv is on the dm is
+silenced?"* **He was right.** The rule above is the rule; it had simply been written inside the
+PHONE shell's ready path, so the DM's own machine escaped it by where the code lived rather than
+by anyone deciding it should. `dmSilentMusic` + `applyDmMusicSilence()` close that.
+
+Two things make the DM's case its own, and both are his:
+
+- **MUSIC ONLY.** The ambient channel belongs to `dmHearsTable` (§53), which he turned on
+  deliberately so he can judge the cues that play themselves from his seat. Silencing ambient here
+  would revoke that without saying so. Interface stays, as it does on phones. What he actually
+  heard doubled was playlist audio.
+- **CONNECTED, NOT CONFIGURED.** *"If it's remote DMing and I'm sharing the tv then it's in the
+  same computer, if I'm not sharing it's probably not on, and if it's a local game, both are
+  running from my pc."* So the display is always the same PC as his client — the doubling is one
+  sound card playing one track twice, a few hundred ms apart — and when he is not sharing, the TV
+  is not running at all. A configured-display gate would have silenced the only client still
+  playing. The gate is `game.users.get(displayUserId())?.active`, re-evaluated on `userConnected`,
+  so closing the TV tab brings his own sound back with no setting to remember.
+
 ---
 
 ## 40. The boss intro — an entrance on the table's own screen (DM ask 2026-08-09, BUILT + bench-verified)
