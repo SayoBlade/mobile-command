@@ -248,6 +248,10 @@ export function registerSettings() {
   // default Basic: he starts his campaign in Basic. Flipping it live is safe — the shell's setting hook
   // steps every phone out of whatever just disappeared (leaveComplexIfGated). config:true so a plain
   // Foundry DM can reach it from Module Settings; the settings app shows it beside "This table plays".
+  // Pending DM asks (rpc.js pendingAsks — a Basic travel square today): a world setting so every GM client, and
+  // the deck through the action list, sees the same queue. Written only by the executor. Hidden.
+  game.settings.register(MODULE_ID, "dmAsks", { scope: "world", config: false, type: Array, default: [] });
+
   game.settings.register(MODULE_ID, "playerTier", {
     name: "What phones can change",
     hint: "Basic: each player's phone changes only their own character. Complex adds the things that change it for everyone — marching order and party staging, the downtime board, the shared stash and offering items, and travel squares. You can switch at any time; nobody gets stuck on a screen that disappears.",

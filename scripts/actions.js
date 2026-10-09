@@ -43,6 +43,9 @@ import { MODULE_ID } from "./preset.js";
  *   waiting() Requests area: how many people this key answers (default 1) — the Table key's count
  *   on()      toggle state;  sub(): a short caption;  danger: a key worth a second look
  *   choices() [{ id, label, img?, on?, sub? }] for pick kinds, computed when the area is read
+ *   ref()     an opaque id of the THING the key acts on right now (a queue's front item). Published as
+ *             row.ref; a surface may pass it back as params.ref, and run refuses if the front has moved
+ *             on — so a press aimed at one player's ask can never land on the next player's.
  *   value(choice)  the number a step page shows between − and +
  *   run(params)    does it. Returns nothing on success, or { ok: false, reason } to refuse.
  */
@@ -133,6 +136,8 @@ export function actionSnapshot({ area } = {}) {
     if (d.kind === "toggle") row.on = Boolean(safe(d.on, false));
     const sub = safe(d.sub, undefined);
     if (sub) row.sub = String(sub);
+    const ref = safe(d.ref, undefined);
+    if (ref) row.ref = String(ref);
     if (d.kind === "pick") {
       row.multi = Boolean(d.multi);
       row.steps = Boolean(d.steps);

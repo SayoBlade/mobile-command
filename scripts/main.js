@@ -32,6 +32,7 @@ import { openFeedback, registerFeedbackMenu } from "./feedback.js"; // §48 the 
 import { actionAreas, actionSnapshot, runAction, actionCounts } from "./actions.js"; // §52 the published action list (deck-command ledger 151)
 import "./actions-effects.js"; // §52 area G — each area file registers its rows on import
 import "./actions-cm.js"; // §52 area H — the Crooked Moon tab (and its requests)
+import "./actions-asks.js"; // §55.6 players waiting on the DM (a Basic travel square) — the deck's Notifications
 import { registerSoundBehavior, cues } from "./region-sound.js"; // §53 the "Sound" region behaviour + the house door sets
 import { installOverlayGuard, sweepCoveringLayers, reapplyGuard, restoreCoreUi, forceRail, stuckOverlayStates, clearedLayers, shouldKeepGmClear, verifyRail } from "./overlay-guard.js"; // §22.7/§22.9 the DM is never covered or hidden
 

@@ -2945,7 +2945,7 @@ function reactionsHTML() {
         let col = "";
         try { const a = fromUuidSync(r.actorUuid); col = a ? pcColor(a) : ""; } catch (e) { /* stale uuid */ }
         return `<div class="mc-dmp-react mc-dmp-react-travel">
-        <span class="mc-dmp-react-txt"><i class="fas fa-circle-user" style="color:${col}"></i>${who} wants to cross<br><em>${esc(r.travelLabel ?? "Travel")} · game paused</em></span>
+        <span class="mc-dmp-react-txt"><i class="fas fa-circle-user" style="color:${col}"></i>${who} wants to cross<br><em>${esc(r.travelLabel ?? "Travel")}${r.destName ? ` → ${esc(r.destName)}` : ""} · game paused</em></span>
         <span class="mc-dmp-travel-btns">
           <button class="mc-dmp-travel-cancel" data-dmtravel="cancel" data-id="${r.id}" title="Nobody moves, and the game unpauses">Cancel</button>
           <button data-dmtravel="alone" data-id="${r.id}" title="Move ${first} only — the game stays paused">Move ${first}</button>

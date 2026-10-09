@@ -77,7 +77,7 @@ sections their cross-references always claimed).
 | 51 | **Dark Bargains** — deny death by signing | **SPEC ONLY 2026-08-26** — three questions await the DM (§51.3); nothing built |
 | 52 | **The action list** — the panel's buttons published for the deck (`MobileCommand.actions`); the Crooked Moon's panel memory moved to `cmLiveState` + cm-live.js | **Stages 1–2 BUILT 2026-09-18** (Effects, Crooked Moon + requests), 29/29 headless; not yet run in Foundry; the other areas owed (§52.5) |
 | 53 | Sounds that play themselves — the region "Sound" behaviour, the door sets, the DM's ears; the Crooked House wired first (DM go 2026-09-20) | **BUILT 2026-09-20, increment 1 (the engine); the house wiring in increments** |
-| 55 | **Basic / Complex** — what phones may change (DM 2026-10-08, finished 2026-10-09) | **BUILT 2026-10-09** — `tier.js` gate, `playerTier` world setting (default Basic), live rescue; Basic travel squares ask the DM (Cancel / Move X / Move Group, game paused, §55.5); owed: a live flip on two phones, core teleporters (§55 c). (§54 left free for the parked Crooked Moon extraction) |
+| 55 | **Basic / Complex** — what phones may change (DM 2026-10-08, finished 2026-10-09) | **BUILT 2026-10-09** — `tier.js` gate, `playerTier` world setting (default Basic), live rescue; Basic travel squares ask the DM (Cancel / Move X / Move Group, game paused, §55.5), published to the deck as action `table.ask` (§55.6); owed: a live flip on two phones, core teleporters (§55 c). (§54 left free for the parked Crooked Moon extraction) |
 
 ---
 
@@ -2657,7 +2657,10 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
   by the DM 2026-10-09 and BUILT (§55.5: the DM decides, game paused); (c) core Teleport Token
   regions (the Crooked House stairs) still ask the PLAYER — routing them to the DM is the deck's §40.2
   job or a core-handler wrap here, his call; (d) a live run of the travel ask on a real car: chip,
-  pause, Cancel leaving the token put, Move Group then arranging.
+  pause, Cancel leaving the token put, Move Group then arranging; (e) the deck half of `table.ask`
+  (§55.6 — Notifications key + the three options mid-deck) is deck-command's, briefed separately; and
+  whether a deck MOVE should also unpause (kept his §40.3 rule: only Cancel does); (f) scribe / summon /
+  offline-trade asks joining `table.ask` (recipe in §55.6).
 
 ---
 
@@ -8772,6 +8775,63 @@ the chip names who and where; a player can't answer it; **Cancel leaves every to
 unpauses, tells the phone, can't be answered twice; a table he had already paused stays paused; a
 second press withdraws the first ask; Move <Name> moves only them and holds the pause; Move Group
 moves everyone left and holds it; Complex goes straight through with no chip and no pause.
+
+### 55.6 The deck sees the ask — `table.ask` (2026-10-09 night, after a live miss)
+
+**What happened:** a phone used a travel square in Basic; the crossing was refused, the ask raised and the
+game paused — and the DM, running the **Stream Deck**, saw only the pause (a yellow Resume). The ask lived
+only as a chip on the MC panel. DM: *"A call to move to another scene is the classic 'notifications'
+scenario; pause the game so nothing else happens and then light up the notifications and give the three
+options in the middle of the deck."* MC's half is to publish the ask; lighting the Notifications key and
+laying out the three options is deck-command's.
+
+**The store moved first.** Pending asks were executor memory (`pendingTravel`); a deck on another GM
+client could never have read them. They are now the hidden world setting **`dmAsks`** (`rpc.js`
+`pendingAsks()`), written only by the executor: every GM client reads the same queue, Foundry's
+`updateSetting` repaints the deck by itself (DC redraws on any `mobile-command.*` setting), and an executor
+reload can't orphan an ask. Answering at either door (panel chip or deck) removes the entry and the chip
+(`dmReactionGone`).
+
+**The row** — `scripts/actions-asks.js`, id **`table.ask`**, area `requests`, group "Players asking",
+`kind: "pick"`, icon `warn`, label "Player Asks". ALWAYS published (no `hideWhenOff`), so a fixed key can
+bind to it:
+
+| state | `enabled` | `alert` | `sub` | `ref` | `choices` |
+|---|---|---|---|---|---|
+| idle | false | — | — | — | `[]` |
+| one ask | true | true | `"Gilly · cross to Sleeper Car"` | the ask id | cancel · alone · group |
+| N asks | true | true | `"… · +N-1 waiting"` | the OLDEST ask's id | the oldest ask's |
+
+Choices: `{ id: "cancel", label: "Cancel" }`, `{ id: "alone", label: "Move <first name>", img: <token art> }`,
+`{ id: "group", label: "Move Group" }` — the panel's order (Cancel left, the moves right). `run("table.ask",
+{ choice, ref? })` answers through `rpc.travelDecide` → `handleTravelDecide`, the same path as the chip. The
+destination in the sub is the far scene's name with the book's number and "(Colored)" stripped — DM-only
+text, so naming the next car spoils nothing (the PHONE still never names it, §37).
+
+**Two asks at once — defined:** one entry per traveller (a second press replaces your own), FIFO across
+players. The row shows the oldest; `waiting` (the Requests area count) is the total; the sub says
+"+N waiting". Answer it and the next takes the row. **`ref`** is a new generic row field (actions.js): pass
+it back and `run` refuses if the front has moved on, so a press aimed at Gilly can't move Tom.
+
+**The pause:** the ask pauses only if the game wasn't paused, and claims that pause until ANY pause change
+it didn't make (`pauseGame` hook, our own toggles marked `mcAsk`) — so if he resumes and re-pauses for his
+own reason, a later Cancel leaves it alone. Cancel lifts the ask's own pause only when no other ask is
+waiting. **A move keeps the pause** — the DM's own rule from the deck bible §40.3 (*"Cancel unpauses, the
+other two do not"*). ⚠️ The 2026-10-09 brief said "unpauses if it was this ask that paused the game" on
+resolve; I kept his rule for the moves, because he made it for exactly this flow, and the deck's Resume key
+is one press. Flip it in `handleTravelDecide` if he says otherwise (ledger §55 e).
+
+**Not generalised yet — how the others join:** scribe, summon and offline-trade asks are still chips that
+live only in the panel's memory (`dmReactions`), with their answer logic in panel click handlers. Each joins
+the same row by: writing its ask into `dmAsks` with its own `kind`; moving its answer into an executor
+function both doors call; adding one entry to `KINDS` in actions-asks.js. Opportunity attacks stay off it
+(seconds-long windows). Spelled out at the top of actions-asks.js.
+
+**Tests:** `tools/test-ask-row.mjs` — 24 numbered checks through `MobileCommand.actions` exactly as DC's
+world.js calls it: the idle row, the lit row and its sub/choices/ref, the two-player queue, the stale-ref and
+bad-choice refusals, Cancel from the deck withdrawing the chip and keeping the pause while another ask waits,
+the last Cancel lifting it, HIS re-pause surviving a Cancel, a deck Move, and the exact key sets of the row
+and its choices.
 
 **Tests (the gate):** `tools/test-tier.mjs` — 23 numbered checks (four added 2026-10-09 for travel), originally 19: the gate in both tiers, fail-closed on an
 unknown key, his kept list allowed, bad/unregistered values reading Basic; then shell.js/settings.js

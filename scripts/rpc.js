@@ -84,6 +84,7 @@ export function initSocket() {
     return null;
   }
   socket = registered;
+  Hooks.on("pauseGame", onPauseGameForAsks); // a pause change we didn't make ends the ask's claim on the pause
   // ⚠️ H1 — THE SENDER IS NOT WHOEVER THE MESSAGE SAYS IT IS. Handlers below authorise against
   // `payload.requesterId`, but that field is written by the CALLING client: a crafted socket message could
   // name any user and act as them ("not your character" is the only thing standing between a phone and
@@ -2302,8 +2303,36 @@ async function handleTravelTo({ regionId, group, forActorUuid, requesterId } = {
 // Nothing moves on the ask. The player tapped Use from where they stand; the token is not touched until
 // the DM picks a move, so Cancel leaves the world exactly as it was. Complex tables never come here —
 // their phones keep the player's own alone/group question (shell.js #travelAsk → handleTravelTo).
-const pendingTravel = new Map(); // id -> { id, regionId, forActorUuid, actorName, userId, label }
-let travelPauseOurs = false;     // true only while the pause is the one the ask itself put on
+//
+// WHERE THE ASK LIVES (2026-10-09, after a live miss: the DM on the Stream Deck saw only the pause). Pending asks
+// are a WORLD SETTING (`dmAsks`), not executor memory: every GM client can read them — the deck's own module
+// draws them through the action list (actions-asks.js, row "table.ask") wherever it runs — Foundry's
+// updateSetting hook repaints the deck on its own, and an executor reload can't orphan an ask. The panel chip is
+// the second door onto the same entry; answering at either removes it from both.
+const ASKS_SETTING = "dmAsks";
+/** Pending DM asks, oldest first: [{ id, kind, ts, … }]. Readable on any client. */
+export function pendingAsks() {
+  try { const v = game.settings.get(MODULE_ID, ASKS_SETTING); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+}
+async function writeAsks(list) {
+  await game.settings.set(MODULE_ID, ASKS_SETTING, list);
+  Hooks.callAll(`${MODULE_ID}.actionsChanged`); // a surface on THIS client repaints at once (others get updateSetting)
+}
+// PAUSE OWNERSHIP. Cancel may only lift a pause the ask itself put on — never one he set for his own reasons.
+// We own it from the moment the ask pauses until ANY pause change we didn't make (he resumes, or resumes and
+// pauses again for something else): the pauseGame hook sees those and drops our claim. An executor reload also
+// drops it — the safe side: an unowned pause is never lifted by an ask.
+let askPauseOwned = false, askToggling = false;
+function askTogglePause(on) {
+  askToggling = true;
+  try { game.togglePause(on, { broadcast: true, mcAsk: true }); } finally { askToggling = false; }
+}
+export function onPauseGameForAsks(paused, options) {
+  if (askToggling || options?.mcAsk) return; // our own toggle (local, or echoed back with our marker)
+  askPauseOwned = false;
+}
+/** "10.2 Sleeper Car (Colored)" → "Sleeper Car": the DM-facing name of where a crossing leads. */
+const placeName = (scene) => String(scene?.name ?? "").replace(/^\d+(\.\d+)*\s+/, "").replace(/\s*\([^)]*\)\s*$/, "").trim() || String(scene?.name ?? "");
 
 async function handleTravelRequest({ regionId, forActorUuid, requesterId } = {}) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
@@ -2311,13 +2340,16 @@ async function handleTravelRequest({ regionId, forActorUuid, requesterId } = {})
   if (!r.ok) return r;
   const actorName = r.myTok.actor?.name ?? r.myTok.name;
   // One open ask per traveller: pressing again replaces the earlier one rather than stacking chips.
-  for (const [id, e] of pendingTravel) if (e.forActorUuid === forActorUuid) { pendingTravel.delete(id); Hooks.callAll("mobile-command.dmReactionGone", { id }); }
+  const all = pendingAsks();
+  const replaced = all.filter(e => e.kind === "travel" && e.forActorUuid === forActorUuid);
   const id = foundry.utils.randomID();
-  const entry = { id, regionId, forActorUuid, actorName, userId: requesterId, label: r.tp.label || "Travel" };
-  pendingTravel.set(id, entry);
-  if (!game.paused) { travelPauseOurs = true; game.togglePause(true, { broadcast: true }); }
+  const entry = { id, kind: "travel", ts: Date.now(), regionId, forActorUuid, actorName, userId: requesterId,
+    label: r.tp.label || "Travel", dest: placeName(r.landing.scene) };
+  await writeAsks([...all.filter(e => !replaced.includes(e)), entry]);
+  for (const e of replaced) Hooks.callAll("mobile-command.dmReactionGone", { id: e.id });
+  if (!game.paused) { askPauseOwned = true; askTogglePause(true); }
   Hooks.callAll("mobile-command.dmReaction", {
-    id, kind: "travel", actorName, travelLabel: entry.label, actorUuid: forActorUuid, userId: requesterId,
+    id, kind: "travel", actorName, travelLabel: entry.label, destName: entry.dest, actorUuid: forActorUuid, userId: requesterId,
     // The decision is the DM's and the game is stopped for it — the chip waits as long as he does.
     expiresAt: Date.now() + 12 * 60 * 60 * 1000
   });
@@ -2328,19 +2360,22 @@ async function handleTravelRequest({ regionId, forActorUuid, requesterId } = {})
 async function handleTravelDecide({ id, choice, requesterId } = {}) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
   if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM decides travel" };
-  const entry = pendingTravel.get(id);
+  if (!["cancel", "alone", "group"].includes(choice)) return { ok: false, reason: "choose cancel, alone or group" };
+  const all = pendingAsks();
+  const entry = all.find(e => e.id === id && e.kind === "travel");
   if (!entry) return { ok: false, reason: "that request is gone" };
-  pendingTravel.delete(id);
+  await writeAsks(all.filter(e => e.id !== id));
+  Hooks.callAll("mobile-command.dmReactionGone", { id }); // answered on the deck → the panel's chip goes too
   if (choice === "cancel") {
-    // Nothing was moved, so there is nothing to undo — only the pause, and only if the ask put it on and
-    // no other ask is still waiting on it.
-    if (travelPauseOurs && !pendingTravel.size && game.paused) { travelPauseOurs = false; game.togglePause(false, { broadcast: true }); }
+    // Nothing was moved, so there is nothing to undo — only the pause, and only if the ask put it on, he hasn't
+    // touched it since, and no other ask is still waiting on it.
+    if (askPauseOwned && game.paused && !pendingAsks().length) { askPauseOwned = false; askTogglePause(false); }
     travelResultToUser(entry.userId, { moved: false });
     return { ok: true, cancelled: true };
   }
   const res = await handleTravelTo({ regionId: entry.regionId, group: choice === "group", forActorUuid: entry.forActorUuid, requesterId });
   // A move means he is about to narrate (or arrange the party): the pause is his now, not ours.
-  if (res?.ok) travelPauseOurs = false;
+  if (res?.ok) askPauseOwned = false;
   travelResultToUser(entry.userId, { moved: !!res?.ok, reason: res?.ok ? undefined : res?.reason });
   return res;
 }
