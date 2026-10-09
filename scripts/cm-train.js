@@ -278,6 +278,56 @@ export async function setTrainMist(on) {
   return scenes;
 }
 
+/**
+ * THE RIDE HAS TO BE AUDIBLE (DM 2026-10-09, mid-session: *"Why are there nature sounds like
+ * crickets in the train and not the train sound!?"*).
+ *
+ * `setTrainMist` made the Shroud rush past the windows and the room stayed silent — the ride was
+ * a VISUAL ONLY, and whatever ambience was already playing (the scene's own, or vgmusic's) kept
+ * playing under it. Meanwhile the asset literally named `Train-inside.mp3` sat in the Misc
+ * playlist, not repeating, wired to nothing.
+ *
+ * So the ride now carries its own loop, and it is deliberately ONE sound rather than a playlist:
+ * a loop that starts and stops with the mist can never drift out of step with what he can see
+ * through the window.
+ *
+ * ⚠️ IT DOES NOT SILENCE ANYTHING ELSE. Stopping other playlists from here would be this module
+ * reaching across into whatever the DM chose for the room, and a mis-stop mid-session is worse
+ * than an overlap he can mute in one click.
+ */
+const RIDE_SOUND = ["Train Inside", "Chugging"]; // in order of preference; both are in his world
+const RIDE_VOLUME = 0.4;
+
+function rideSound() {
+  for (const name of RIDE_SOUND) {
+    for (const pl of game.playlists ?? []) {
+      const s = pl.sounds?.find?.((x) => x.name === name);
+      if (s) return s;
+    }
+  }
+  return null;
+}
+
+export async function setTrainSound(on) {
+  if (!game.user?.isGM) return null;
+  const s = rideSound();
+  if (!s) return null;
+  try {
+    if (on) {
+      // repeat is set on the document, not passed to play(): a one-shot would end a minute into
+      // the journey and leave the window moving in silence.
+      if (!s.repeat || s.volume !== RIDE_VOLUME) await s.update({ repeat: true, volume: RIDE_VOLUME });
+      if (!s.playing) await s.parent.playSound(s);
+    } else if (s.playing) {
+      await s.parent.stopSound(s);
+    }
+    return s.name;
+  } catch (e) {
+    console.warn(`${MODULE_ID} | the ride's sound:`, e?.message);
+    return null;
+  }
+}
+
 // The table follows the party car to car. Debounced because a cross-scene teleport is a
 // create + a delete whose order isn't ours to rely on — we evaluate the settled state.
 let followTimer = null;
