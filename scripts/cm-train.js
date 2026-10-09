@@ -246,6 +246,20 @@ export async function setTrainMist(on) {
       continue;
     }
     if (mine.length) continue; // already riding
+    // ADOPT, DON'T DUPLICATE. The DM placed the moving state BY HAND, so his tiles carry no
+    // trainMist flag: without this branch, starting the ride would create a second pair on top
+    // of his (two mists at alpha 0.35 reading as one wrong, darker one), and stopping it would
+    // delete only ours and leave his — the ride toggle would drift one pair per cycle. Claiming
+    // his tiles instead makes the toggle idempotent over work he did outside it. Matching on the
+    // mist webm alone is deliberate: his nudged x/y must NOT be a condition of recognising them.
+    const his = s.tiles.filter(t => t.texture?.src === MIST_SRC && !t.flags[MODULE_ID]?.trainMist);
+    if (his.length) {
+      await s.updateEmbeddedDocuments("Tile", his.map(t => ({
+        _id: t.id, [`flags.${MODULE_ID}.trainMist`]: true,
+      })));
+      scenes++;
+      continue; // his geometry stands; we only took ownership of the stop
+    }
     // DM's ruling (WINDOWED_CARS / the trainWindows flag above): no windows, no mist. Stopping the
     // ride still clears our flagged tiles from EVERY car, above, so a stray set can always be removed.
     if (!trainCarHasWindows(s)) continue;

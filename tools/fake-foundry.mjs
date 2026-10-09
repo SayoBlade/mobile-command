@@ -2,10 +2,15 @@
 // tools/test-actions.mjs (the numbered checks) and tools/dump-actions.mjs (the deck mockup's data).
 // No world, no server, no locks: nothing here touches a real Foundry.
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 export async function installFakeFoundry() {
-  const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\//, "")), "..");
-  const url = (f) => "file:///" + path.join(REPO, f).replace(/\\/g, "/");
+  // fileURLToPath / pathToFileURL, not hand-rolled URL surgery: the old version stripped the
+  // leading "/" off the pathname (right for a Windows "/C:/…", wrong everywhere else) and then
+  // path.resolve read the result as RELATIVE, so every import became cwd + the whole repo path
+  // again. It happened to work only when run from the repo on Windows.
+  const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+  const url = (f) => pathToFileURL(path.join(REPO, f)).href;
   const MOD = "mobile-command";
   /* ── a fake Foundry, just rich enough ─────────────────────────────────────────────────────────── */
   const fired = [];   // one-shots broadcast (socketlib)
