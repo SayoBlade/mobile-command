@@ -4493,6 +4493,45 @@ Foundry setting.
 network tab at the moment it hangs. That distinguishes "stalled request" from "loaded but
 socket never authed", which is the only fork left.
 
+#### 28.12b It came back, and then it went away on its own (2026-10-09/10)
+
+*"Why is twist of fate link SOOOOooo slow?"* → *"Why isn't http://192.168.1.143:30000 working
+either?"* → a screenshot of the join page **unstyled** on the iPhone → *"Now it's working for some
+reason."* **UNRESOLVED. It fixed itself, which means it will be back.**
+
+Measured from his PC's browser while it was failing, so these are facts and not theory:
+
+| probe | result |
+|---|---|
+| `localhost:30000/join` ×3 | 5, 7, 3 ms |
+| `192.168.1.143:30000/join` ×3 | 7, 6, 4 ms — **the LAN IP is current and Foundry answers on it** |
+| `twistoffate.duckdns.org:47530/join` ×3, from inside the house | **failed, all three** (and a full navigation bounced) |
+| the same URL from the open internet | **200, join page served** |
+| DNS `twistoffate.duckdns.org` | `176.231.186.2`, TTL 60 — **equals the house's current public IP** |
+| `options.json` | `port 30000`, `hostname null` (all interfaces), no proxy, no route prefix |
+
+So: DuckDNS is healthy (not the stale record I first suspected), the forward works from outside,
+Foundry is bound correctly, and the inside-the-house failure of the public name is the **NAT
+hairpin** of §28.12, unchanged.
+
+⚠️ **The iPhone symptom was NOT the hairpin and NOT the canvas.** I said canvas — wrong, and the
+screenshot is what showed it: he never reached a login form, so nothing had drawn. The page was
+HTML with **no CSS and no JS**, i.e. the one small response arrived and the larger ones did not.
+Small-fine / large-stalls is the MTU-or-flaky-path signature, not a Foundry one. Untested: he was
+sent two URLs to split it (a few-KB svg vs the 2.3 MB mist webm) and it started working first.
+
+**What to capture the moment it recurs** — without this we will measure the same four legs again:
+
+1. Does it reproduce over **cellular** with Wi-Fi off? That alone exonerates or convicts the LAN.
+2. The two-asset test: `…/icons/svg/mystery-man.svg` vs
+   `…/modules/animated-mist-and-fog-by-mattm/animations/mist_thick_horizontal.webm`.
+3. Whether the PC can still reach `192.168.1.143:30000` **at that moment** — if it can, the server
+   is out of it entirely and the fault is between the phone and the PC.
+
+Worth knowing for whoever picks this up: a canvas client on that world now pulls **two 2.3 MB
+autoplaying webm tiles per windowed car** while the ride is on. That is not this bug, but it is
+why anything on the margin degrades badly here.
+
 
 ---
 
