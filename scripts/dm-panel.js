@@ -61,19 +61,49 @@ let seanceDraft = "";        // §30: the phrase the planchette will spell, kept
 let dmReactions = [];        // reaction widget: live chips {id, kind:"aoo"|"window", label, weapon, activityUuid?, targetUuid?, expiresAt}
 const rollTool = { type: "save", ability: "dex", selected: null, targetsOpen: false };
 
-// Candidate roll targets: packed-group members (grouped) ∪ player-owned character
-// tokens on canvas (loose). Preselect the grouped ones if any, else all.
+/**
+ * Candidate roll targets: packed-group members (grouped) ∪ player-owned character tokens here
+ * (loose). **Everyone stays a candidate; only the TICK depends on being here.**
+ *
+ * DM 2026-10-11: *"When PCs aren't in a scene don't include them in the selected tokens by default
+ * on rolls, but if they are added send them the request too."* A member of a formed-up party was
+ * pre-selected wherever he was, so a Perception call in the Baggage Car quietly went to the PC
+ * asleep two cars back — and the player gets a prompt for a room he cannot see.
+ *
+ * ⚠️ THE TRAP THAT WOULD MAKE A NAIVE FIX WORSE THAN THE BUG: **packing DELETES the member
+ * tokens.** A formed-up party has no member tokens on any scene at all; the group token carries
+ * everyone. A plain "has a token on this scene" test therefore deselects the ENTIRE party the
+ * moment they form up, which is the one case the `grouped` branch exists to serve. So presence for
+ * a grouped member is **the GROUP token being here** — his ruling, same day: *"PC token in a party
+ * token that's in the scene should still be considered 'in the scene'."*
+ *
+ * Presence is read off the SCENE DOCUMENT rather than `canvas.tokens.placeables`, so this is
+ * correct on a client with no canvas and on a window too small to draw one — both of which happen
+ * at his table.
+ */
 function rollTargets() {
+  const scene = canvas?.scene ?? game.scenes?.active ?? null;
+  const toks = [...(scene?.tokens ?? [])];
+  const hereActorIds = new Set(toks.map((t) => t.actor?.id).filter(Boolean));
+
   const out = new Map();
-  for (const g of game.actors.filter(a => a.type === "group" && a.getFlag(MODULE_ID, "packed")))
-    for (const m of (g.system?.members ?? [])) if (m.actor) out.set(m.actor.id, { actor: m.actor, grouped: true });
-  for (const t of canvas.tokens?.placeables ?? []) {
+  for (const g of game.actors.filter(a => a.type === "group" && a.getFlag(MODULE_ID, "packed"))) {
+    // the group's own token standing on this scene is every member standing on this scene
+    const groupHere = toks.some((t) => t.actor?.id === g.id);
+    for (const m of (g.system?.members ?? [])) {
+      if (!m.actor) continue;
+      out.set(m.actor.id, { actor: m.actor, grouped: true, here: groupHere || hereActorIds.has(m.actor.id) });
+    }
+  }
+  for (const t of toks) {
     const a = t.actor;
-    if (a?.type === "character" && a.hasPlayerOwner && !out.has(a.id)) out.set(a.id, { actor: a, grouped: false });
+    if (a?.type === "character" && a.hasPlayerOwner && !out.has(a.id)) out.set(a.id, { actor: a, grouped: false, here: true });
   }
   const arr = [...out.values()];
-  const anyGrouped = arr.some(c => c.grouped);
-  for (const c of arr) c.preselect = anyGrouped ? c.grouped : true;
+  // "the grouped ones if any" stays the rule, but it is now about the grouped ones WHO ARE HERE —
+  // otherwise a party formed up elsewhere would suppress the loose PCs standing in front of him.
+  const anyGroupedHere = arr.some(c => c.grouped && c.here);
+  for (const c of arr) c.preselect = c.here && (anyGroupedHere ? c.grouped : true);
   return arr;
 }
 
