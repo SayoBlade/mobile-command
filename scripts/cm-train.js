@@ -373,21 +373,31 @@ function fxReady() {
   try { return Boolean(globalThis.FXMASTER?.api?.effects?.filters?.toggle); } catch (e) { return false; }
 }
 
+/**
+ * ⚠️ APPLY WITH `toggle`, REMOVE WITH `stop` — NEVER toggle twice.
+ *
+ * The first version called `toggle` to raise the shake and `toggle` again to clear it, which is a
+ * coin flip rather than a sequence: if the filter was already present (a cycle that failed
+ * half-way, a leftover flag, a timed shake that had already expired) the "on" press turned it OFF
+ * and the "off" press turned it ON. Over a loop that alternates silently, and silent alternation
+ * looks exactly like "no shakes". Both verbs exist on the API — `filters.toggle` and
+ * `filters.stop` — so the sequence is now unambiguous in both directions.
+ */
 async function oneJolt() {
-  if (!fxReady()) return;
+  if (!fxReady()) return false;
+  const fx = globalThis.FXMASTER.api.effects.filters;
   try {
-    // toggle ON, then OFF once the timed shake has run: the filter expires by itself, but the
-    // SCENE FLAG does not, and leaving it set would make the next `on` a no-op.
-    await globalThis.FXMASTER.api.effects.filters.toggle([{ type: "screenShake", options: { ...JOLT } }], { toggleKey: JOLT_KEY });
-    setTimeout(() => {
-      globalThis.FXMASTER?.api?.effects?.filters?.toggle?.([{ type: "screenShake", options: { ...JOLT } }], { toggleKey: JOLT_KEY })
-        ?.catch?.(() => {});
-    }, (JOLT.duration + 0.4) * 1000);
-  } catch (e) { console.warn(`${MODULE_ID} | the carriage jolt:`, e?.message); }
+    await fx.stop([{ type: "screenShake" }], { toggleKey: JOLT_KEY }).catch(() => {}); // clear any leftover
+    await fx.toggle([{ type: "screenShake", options: { ...JOLT } }], { toggleKey: JOLT_KEY });
+    console.log(`${MODULE_ID} | jolt`);
+    setTimeout(() => { fx.stop([{ type: "screenShake" }], { toggleKey: JOLT_KEY })?.catch?.(() => {}); },
+      (JOLT.duration + 0.4) * 1000);
+    return true;
+  } catch (e) { console.warn(`${MODULE_ID} | the carriage jolt:`, e?.message); return false; }
 }
 
 /** Fire ONE jolt now — `MobileCommand.train.joltNow()`. For judging the strength without waiting. */
-export async function joltNow() { await oneJolt(); return fxReady(); }
+export async function joltNow() { const did = await oneJolt(); return did ? "jolted" : "FXMaster not reachable — nothing fired"; }
 
 /** The ride's tremor: on while the train runs, off the moment it stops. Primary GM only. */
 export function setTrainJolt(on) {
