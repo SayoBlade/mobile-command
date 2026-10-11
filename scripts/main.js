@@ -911,6 +911,19 @@ Hooks.once("ready", () => {
   setupAutoOwnNewPCs(); // auto-own new PCs for the display/TV account (opt-in; see displayOwnerUser)
   registerPartyTeleportActivation(); // party token teleports to a new scene → activate it (TV follows; primary-GM-gated)
   registerTrainFollow(); // §37 the whole party crosses a train-car door → that car goes active (same setting gate)
+  /**
+   * ⚠️ A RIDE ALREADY RUNNING MUST PICK UP ITS OWN EFFECTS (DM 2026-10-11: *"No shakes btw"*).
+   *
+   * The jolt and the loop are started by `setRide`, which only runs when the key is PRESSED. His
+   * mist had been on since the day before, so on every reload since there was a train visibly
+   * running outside the windows with no sound and no tremor — and the only way to get them was to
+   * stop the train and start it again, which is not a thing anyone would think to do.
+   *
+   * The mist is the state of record (`trainMistOn` reads his tiles), so it is also the thing to
+   * resume from. Primary-GM-gated inside each call, so the other clients ignore this.
+   */
+  try { if (trainMistOn()) { setTrainSound(true); setTrainJolt(true); } }
+  catch (e) { console.warn(`${MODULE_ID} | could not resume the ride's effects`, e?.message); }
   setupCalendarSkin(); // SC Reborn's popup = the table's "Calendar": retitle (tool column hidden in CSS)
   registerAoO(); // opportunity-attack movement watcher (executor-gated inside; see aoo.js)
   registerFog(); // fog-of-war edge styles on the display (off/soft/gpu via `fogStyle`; see fog-soft.js)
