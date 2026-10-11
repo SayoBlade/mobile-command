@@ -4,7 +4,7 @@ import { rollCurse, pickCurse, applyCurse } from "./cm-curses.js";
 import { applyFateReward } from "./fateweaving.js";
 import { dealOne, setActorCard } from "./tarot.js";
 import { advanceToNextHour, isDruskScene, markDruskScene } from "./druskenvald.js";
-import { trainChains, wireTrainDoors, setTrainMist, setTrainSound } from "./cm-train.js";
+import { trainChains, wireTrainDoors, setTrainMist, setTrainSound, setTrainJolt } from "./cm-train.js";
 import { scenePcs, pcUser, pcSeatRot } from "./roster.js";
 
 /**
@@ -480,6 +480,7 @@ export async function setRide(on) {
   const n = await setTrainMist(on);
   // The ride is what he can SEE and what he can HEAR, together — see setTrainSound's header.
   const heard = await setTrainSound(on);
+  setTrainJolt(on); // the carriage lurches while it runs, and stops lurching when it stops
   const sound = heard ? ` · ${heard}` : " · no train loop found in the playlists";
   ui.notifications.info(on
     ? `The Ghostlight Express runs — the Shroud rushes past ${n} cars${sound}.`

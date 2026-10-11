@@ -325,6 +325,77 @@ function rideSound() {
   return null;
 }
 
+/**
+ * THE CARRIAGE JOLTS (DM 2026-10-11): *"can we get a screen shake up and down every so often as a
+ * visual effect when the train is running? Say every 20 seconds or so, minor jump, check fxmaster,
+ * it might already be built."*
+ *
+ * ⚠️ HE WAS RIGHT — IT IS ALREADY BUILT, so none of this is a shader. FXMaster 8.4.1 registers a
+ * `screenShake` filter with a timed mode and a `vertical` axis, which is exactly "up and down, a
+ * minor jump". We only have to decide when it fires and how hard.
+ *
+ * Verified against the installed module rather than recalled: the parameter schema is
+ * `{ timed, strength, blur, duration, speed, smoothness, decay, axis, edgeProtection, audioAware,
+ * audioChannels, audioBassThreshold }`, and `axis` takes `both | horizontal | vertical`.
+ *
+ * ⚠️ IT IS A SCENE FLAG, NOT A CLIENT EFFECT. FXMaster stores filters on the scene
+ * (`flags.fxmaster.filters.core_screenShake`), so every jolt is a document write that reaches the
+ * TV and the phones too — which is what we want, the whole table should feel the carriage — but it
+ * is also why this runs on the PRIMARY GM only and why stopping the ride must remove it. A jolt
+ * left behind in the flag would shake his next scene for no reason.
+ *
+ * The interval is jittered. A tremor exactly every twenty seconds reads as a metronome rather than
+ * a train, and the one thing a background effect must not do is become countable.
+ */
+const JOLT_EVERY_MS = 20_000;
+const JOLT_JITTER_MS = 7_000;   // ±, so 13–27s: irregular enough to stop being a clock
+const JOLT_KEY = "cm-train-jolt";
+const JOLT = {
+  timed: true,
+  axis: "vertical",       // "up and down", his words
+  strength: 0.13,         // default is 0.55 — this is a lurch, not an earthquake
+  blur: 0.04,
+  duration: 0.6,
+  speed: 0.5,
+  smoothness: 0.6,
+  decay: 0.85,
+  edgeProtection: 0.7,    // keeps the map's edge from showing at the top of the jump
+};
+
+let joltTimer = null;
+
+function fxReady() {
+  try { return Boolean(globalThis.FXMASTER?.api?.effects?.filters?.toggle); } catch (e) { return false; }
+}
+
+async function oneJolt() {
+  if (!fxReady()) return;
+  try {
+    // toggle ON, then OFF once the timed shake has run: the filter expires by itself, but the
+    // SCENE FLAG does not, and leaving it set would make the next `on` a no-op.
+    await globalThis.FXMASTER.api.effects.filters.toggle([{ type: "screenShake", options: { ...JOLT } }], { toggleKey: JOLT_KEY });
+    setTimeout(() => {
+      globalThis.FXMASTER?.api?.effects?.filters?.toggle?.([{ type: "screenShake", options: { ...JOLT } }], { toggleKey: JOLT_KEY })
+        ?.catch?.(() => {});
+    }, (JOLT.duration + 0.4) * 1000);
+  } catch (e) { console.warn(`${MODULE_ID} | the carriage jolt:`, e?.message); }
+}
+
+/** The ride's tremor: on while the train runs, off the moment it stops. Primary GM only. */
+export function setTrainJolt(on) {
+  if (joltTimer) { clearTimeout(joltTimer); joltTimer = null; }
+  if (!on) { return null; }
+  if (!game.user?.isGM || game.users.activeGM?.id !== game.user.id) return null;
+  if (!fxReady()) { console.warn(`${MODULE_ID} | no FXMaster, so the train does not jolt`); return null; }
+  const next = () => {
+    const wait = JOLT_EVERY_MS + (Math.random() * 2 - 1) * JOLT_JITTER_MS;
+    joltTimer = setTimeout(async () => { await oneJolt(); if (joltTimer) next(); }, wait);
+    joltTimer.unref?.();
+  };
+  next();
+  return JOLT_EVERY_MS;
+}
+
 export async function setTrainSound(on) {
   if (!game.user?.isGM) return null;
   const s = rideSound();
