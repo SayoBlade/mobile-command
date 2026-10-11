@@ -347,8 +347,13 @@ function rideSound() {
  * The interval is jittered. A tremor exactly every twenty seconds reads as a metronome rather than
  * a train, and the one thing a background effect must not do is become countable.
  */
-const JOLT_EVERY_MS = 20_000;
-const JOLT_JITTER_MS = 7_000;   // ±, so 13–27s: irregular enough to stop being a clock
+/**
+ * ⚠️ HIS CADENCE, NOT A RANDOM ONE (DM 2026-10-11): *"let's do it every 15, 12, 2 seconds in a loop
+ * to make it seem more random."* A repeating uneven pattern beats true randomness here: the long
+ * gaps let the carriage settle, and the 2-second pair lands as one double-lurch over a rail joint
+ * rather than two separate events. Random intervals produce clumps and holes that read as a fault.
+ */
+const JOLT_GAPS_MS = [15_000, 12_000, 2_000];
 const JOLT_KEY = "cm-train-jolt";
 const JOLT = {
   timed: true,
@@ -381,19 +386,30 @@ async function oneJolt() {
   } catch (e) { console.warn(`${MODULE_ID} | the carriage jolt:`, e?.message); }
 }
 
+/** Fire ONE jolt now — `MobileCommand.train.joltNow()`. For judging the strength without waiting. */
+export async function joltNow() { await oneJolt(); return fxReady(); }
+
 /** The ride's tremor: on while the train runs, off the moment it stops. Primary GM only. */
 export function setTrainJolt(on) {
   if (joltTimer) { clearTimeout(joltTimer); joltTimer = null; }
-  if (!on) { return null; }
-  if (!game.user?.isGM || game.users.activeGM?.id !== game.user.id) return null;
-  if (!fxReady()) { console.warn(`${MODULE_ID} | no FXMaster, so the train does not jolt`); return null; }
+  if (!on) { console.log(`${MODULE_ID} | the carriage stops jolting`); return null; }
+  // ⚠️ EVERY REFUSAL SAYS WHY. He reported "no shakes" twice, and a silent `return null` is why:
+  // with two Foundry tabs open neither of us could have known the primary-GM gate had declined.
+  if (!game.user?.isGM) { console.log(`${MODULE_ID} | not a GM, so no jolt here (correct)`); return null; }
+  if (game.users.activeGM?.id !== game.user.id) {
+    console.warn(`${MODULE_ID} | NOT the primary GM, so the jolt is someone else's job — if nothing shakes, close the other Foundry tab`);
+    return null;
+  }
+  if (!fxReady()) { console.warn(`${MODULE_ID} | FXMaster's filter api is not reachable, so the train cannot jolt`); return null; }
+  let step = 0;
   const next = () => {
-    const wait = JOLT_EVERY_MS + (Math.random() * 2 - 1) * JOLT_JITTER_MS;
+    const wait = JOLT_GAPS_MS[step++ % JOLT_GAPS_MS.length];
     joltTimer = setTimeout(async () => { await oneJolt(); if (joltTimer) next(); }, wait);
     joltTimer.unref?.();
   };
   next();
-  return JOLT_EVERY_MS;
+  console.log(`${MODULE_ID} | the carriage will jolt on ${JOLT_GAPS_MS.map((m) => m / 1000).join("/")}s, repeating`);
+  return JOLT_GAPS_MS;
 }
 
 export async function setTrainSound(on) {
