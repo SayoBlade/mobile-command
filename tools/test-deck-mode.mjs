@@ -70,11 +70,26 @@ check("the rest flow is kept", M.hiddenInDeckMode("rest.passWatch") === false);
 check("damage by amount is kept", M.hiddenInDeckMode("floor.damage") === false);
 check("the sound mix is kept", M.hiddenInDeckMode("sound.musicLevel") === false);
 
-/* ── 7. deck mode: HIDE_NATIVE, the checked DC verbs ────────────────────────────────────────── */
-check("the Display tab's fit is hidden", M.hiddenInDeckMode("display.fit") === true);
-check("focus party is hidden", M.hiddenInDeckMode("floor.focusParty") === true);
+/* ── 7. deck mode: HIDE_NATIVE, the five combat controls ────────────────────────────────────── */
 check("next turn is hidden", M.hiddenInDeckMode("combat.nextTurn") === true);
-check("form up is hidden", M.hiddenInDeckMode("party.formUp") === true);
+check("start combat is hidden", M.hiddenInDeckMode("combat.start") === true);
+check("roll NPC initiative is hidden", M.hiddenInDeckMode("combat.rollNpcs") === true);
+
+/* ── 7b. HIS RULINGS 2026-10-13 — camera and the Party tab stay ─────────────────────────────── */
+check("CAMERA stays — 'keep camera controls'",
+  M.hiddenInDeckMode("display.fit") === false
+  && M.hiddenInDeckMode("display.follow") === false
+  && M.hiddenInDeckMode("display.zoomIn") === false
+  && M.hiddenInDeckMode("floor.focusParty") === false
+  && M.hiddenInDeckMode("floor.manualTv") === false);
+check("FORM UP stays — the whole Party tab stays", M.hiddenInDeckMode("party.formUp") === false);
+check("party ORDER stays, and is protected by the tier rule, not just the list",
+  M.hiddenInDeckMode("party.order") === false && M.tierKeepsOnPanel("party.order") === true);
+check("the stash and the downtime board stay for the same reason",
+  M.tierKeepsOnPanel("stash.putIn") === true && M.tierKeepsOnPanel("downtime.board") === true);
+check("a tier-backed control stays even if someone publishes an action for it",
+  M.hiddenInDeckMode("party.order", { actionId: "party.order" }) === false);
+check("an unrelated control is not tier-backed", M.tierKeepsOnPanel("fx.rain") === false);
 
 /* ── 8. the two capability traps I checked for, which MUST stay visible ─────────────────────── */
 check("PREVIOUS TURN is not in HIDE_NATIVE — he retired the deck key, so the panel is its route",
@@ -87,8 +102,8 @@ check("ADD PCS is not in HIDE_NATIVE — DC's Add to party only opens the sheet"
 /* ── 9. why a control went away ─────────────────────────────────────────────────────────────── */
 check("a published control explains itself by action id",
   String(M.hiddenBecause("fx.rain", { actionId: "fx.rain" })).includes("fx.rain"));
-check("a native-covered control names the DC verb",
-  String(M.hiddenBecause("display.fit")).includes("camera"));
+check("a native-covered control names where the deck does it",
+  String(M.hiddenBecause("combat.nextTurn")).includes("deck"));
 check("a kept control has no reason to give", M.hiddenBecause("rest.startRest") === null);
 
 /* ── 10. an all-hidden drawer disappears; a mixed one does not ──────────────────────────────── */

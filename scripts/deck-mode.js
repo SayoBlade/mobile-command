@@ -84,26 +84,50 @@ export const PINNED_KEEP = new Map([
  * the control vanishes from both surfaces.
  */
 export const HIDE_NATIVE = new Map([
-  // Display tab, complete coverage — DC `camera`: follow / fit / zoom.
-  ["display.follow", "DC camera: follow"],
-  ["display.followAll", "DC camera: follow"],
-  ["display.fit", "DC camera: fit"],
-  ["display.zoomIn", "DC camera: zoom"],
-  ["display.zoomOut", "DC camera: zoom"],
-  // Floor camera chips — DC `camera`: party / manual.
-  ["floor.focusParty", "DC camera: party"],
-  ["floor.manualTv", "DC camera: manual"],
-  // Combat — DC's own combat pages. NOTE: prevTurn is deliberately absent; see DECK-MODE.md ruling 31.
-  ["combat.start", "DC combat: ok on the staging page"],
-  ["combat.nextTurn", "DC combat: ok"],
-  ["combat.endCombat", "DC combat: hold Back"],
-  ["combat.rollNpcs", "DC combat: rollInit"],
-  ["combat.battleMusic", "DC combat: battleTrack"],
-  // Party — ONLY group up and ungroup. Creating or populating a group is NOT on the deck: DC's
-  // "New party" key answers "No group · make one" and its "Add to party" key only opens the sheet.
-  ["party.formUp", "DC party: pack"],
-  ["party.disperse", "DC party: deploy"],
+  // Combat — DC's own combat pages.
+  // ⚠️ prevTurn is deliberately ABSENT: he retired the deck key, so the panel is its only route.
+  ["combat.start", "the deck's staging page"],
+  ["combat.nextTurn", "the deck's turn pages"],
+  ["combat.endCombat", "the deck: hold Back"],
+  ["combat.rollNpcs", "the deck's Roll Init"],
+  ["combat.battleMusic", "the deck's battle-track keys"],
 ]);
+
+/**
+ * ⚠️ HIS RULINGS, 2026-10-13 — two groups came OUT of the list above, and must not drift back:
+ *
+ *  - **Camera and display.** *"Keep camera controls."* Follow, follow-all, fit, zoom and the floor's
+ *    focus-party / manual-TV chips all stay, even though DC covers every one of them.
+ *  - **The whole Party tab.** *"We still need party order, and if that stays keep the group up
+ *    ungroup, and everything else in the tab."* Beyond his preference there is a structural reason:
+ *    `tier.js` promises *"the DM is never gated — everything hidden here stays on the DM panel"*,
+ *    and Basic hides the packed party, marching order, staging, the stash and the downtime board
+ *    from every phone. His table starts in Basic. Hiding those from the panel as well would leave
+ *    them reachable by nobody.
+ *
+ * The rule that generalises: **anything a Basic phone cannot reach stays on the panel, whatever the
+ * surface setting says.** See `tierKeepsOnPanel()`.
+ */
+import { COMPLEX_SURFACES } from "./tier.js";
+
+/** Panel controls that back a Complex-only phone surface — never hidden, so Basic keeps a route. */
+export const TIER_BACKED = new Map([
+  ["party.order", "party"],
+  ["party.staging", "party"],
+  ["party.deploy", "party"],
+  ["party.release", "party"],
+  ["party.combine", "party"],
+  ["party.lockIn", "party"],
+  ["downtime.board", "downtime"],
+  ["stash.putIn", "sharedInventory"],
+  ["stash.takeFrom", "sharedInventory"],
+  ["travel.square", "travel"],
+]);
+
+export function tierKeepsOnPanel(controlId) {
+  const surface = TIER_BACKED.get(controlId);
+  return !!surface && surface in COMPLEX_SURFACES;
+}
 
 /**
  * Should this panel control be hidden right now?
@@ -115,6 +139,7 @@ export const HIDE_NATIVE = new Map([
  */
 export function hiddenInDeckMode(controlId, { actionId = null } = {}) {
   if (!deckMode()) return false;                  // panel mode hides nothing, ever
+  if (tierKeepsOnPanel(controlId)) return false;  // Basic phones have no other route — outranks all
   if (actionId && PINNED_KEEP.has(actionId)) return false;  // rule 2 beats rule 1
   if (actionId) return true;                      // rule 1: the registry is the duplication
   return HIDE_NATIVE.has(controlId);              // rule 3: unlisted and unpublished means keep
