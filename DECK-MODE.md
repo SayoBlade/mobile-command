@@ -1,6 +1,6 @@
 # DECK-MODE.md — MC with a deck, and MC without one
 
-**Written overnight 2026-10-12/13 for his review. Nothing here is built.** His ask: *"create
+**Written overnight 2026-10-12/13 for his review.** His ask: *"create
 deck/no deck modes, deck mode doesn't duplicate any of the dc abilities, so only things I need
 stay… For now I want a list of things that will be removed and the architecture created, I'll go
 over the (numbered) list tomorrow and decide what I want gone and what should stay."*
@@ -240,3 +240,23 @@ be hidden. In rough order of effort:
 5. **Rest** — the biggest and the least key-shaped; I would leave it.
 
 Each one is MC-internal, publishes to any surface, and keeps the seam intact.
+
+---
+
+## 6. What exists on disk, and what deliberately does not
+
+**Built and tested:** `scripts/deck-mode.js` — the setting, the two lists, and the three rules as
+`hiddenInDeckMode()`. `tools/test-deck-mode.mjs` covers it headlessly: **29 checks, all passing**,
+`node tools/test-deck-mode.mjs`. Three of those checks exist only to guard the capability traps
+found while writing §3 — previous turn, create party and add PCs must stay visible, and the test
+fails if anyone ever adds them to the hide list.
+
+**Deliberately not built: the wiring.** `dm-panel.js` does not import the module, so the mode
+currently changes nothing at all whichever way the setting is thrown. Two reasons. His rulings in §3
+decide the lists, and wiring first would mean rewriting the renderer twice. And the renderer is
+5,367 lines that I cannot press tonight — the Foundry login is closed to me, so an invasive edit to
+his live panel would ship untested. The wiring is one call per control group and wants a live press
+next to it.
+
+**So the safe order is:** his rulings → the two lists → the wiring, one drawer at a time, pressing
+each as it lands.
