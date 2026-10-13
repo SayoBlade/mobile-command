@@ -339,7 +339,10 @@ function rideSound() {
  * audioChannels, audioBassThreshold }`, and `axis` takes `both | horizontal | vertical`.
  *
  * ⚠️ IT IS A SCENE FLAG, NOT A CLIENT EFFECT. FXMaster stores filters on the scene
- * (`flags.fxmaster.filters.core_screenShake`), so every jolt is a document write that reaches the
+ * (⚠️ under a GENERATED key, `flags.fxmaster.filters.apiMacro_<id>_f` — NOT `core_screenShake`, which
+ * is what this comment said until 2026-10-13 and what every diagnostic was written against; that
+ * wrong name is most of why "no shakes" took three attempts to explain), so every jolt is a
+ * document write that reaches the
  * TV and the phones too — which is what we want, the whole table should feel the carriage — but it
  * is also why this runs on the PRIMARY GM only and why stopping the ride must remove it. A jolt
  * left behind in the flag would shake his next scene for no reason.
