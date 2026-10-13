@@ -3821,7 +3821,13 @@ async function reviveCorpse(tokenUuid, { force = false, hp = 1 } = {}) {
       await actor.update({ "system.attributes.hp.value": Math.max(1, Number(hp) || 1) });
     }
     // 3. stop being a pile, and take the name back
-    await API.revertTokensFromItemPiles(tokenDoc, { name, hidden: false, alpha: 1 });
+    /**
+     * ⚠️ `tokenSettings` IS NESTED, and getting that wrong cost a live half-revive (2026-10-13).
+     * The signature is `revertTokensFromItemPiles(targets, { tokenSettings })` — the same shape as
+     * `turnTokensIntoItemPiles`. Passed flat, the settings are silently DISCARDED: the body stops
+     * being a pile, reports success, and keeps the name "(dead)". No error, no warning.
+     */
+    await API.revertTokensFromItemPiles(tokenDoc, { tokenSettings: { name, hidden: false, alpha: 1 } });
     await tokenDoc.unsetFlag(MODULE_ID, "preDeathLoot").catch(() => {});
     ui.notifications?.info(`${name} is back on their feet.`);
     return { ok: true, name, forced: Boolean(taken.length) };
