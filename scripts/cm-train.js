@@ -399,6 +399,57 @@ async function oneJolt() {
   } catch (e) { console.warn(`${MODULE_ID} | the carriage jolt:`, e?.message); return false; }
 }
 
+/**
+ * ── FREE THE TRAIN SCENES FROM WEATHER SUPPRESSION (his ruling, 2026-10-13) ─────────────────────
+ *
+ * *"Let's just lose the suppression region and not start experimenting, no rain for the train
+ * scenes, that's not a big loss."*
+ *
+ * The shake was never failing to fire — measured 2026-10-12, six firings in thirty-five seconds on
+ * his cadence, each cleaning up after itself. FXMaster routes the screen shake through the same
+ * machinery as weather, so each car's `suppressWeather` region masked it, which is what he had
+ * already narrowed it to himself: *"only the outside of the room shakes (too much)"*.
+ *
+ * ⚠️ IT RUNS ITSELF, ONCE, BECAUSE HE ASKED NOT TO BE MY HANDS: *"we're going back to me being an
+ * agent which I don't like."* A console paste would have worked and he was right to refuse it.
+ *
+ * Deliberately conservative:
+ *   - the BEHAVIOUR is disabled, never the region — the region may carry other behaviours, and a
+ *     disabled behaviour is one click to put back. `underCover` in effects.js already reads
+ *     `!b.disabled`, so disabling is enough for both the shake and the weather sound.
+ *   - scenes whose name starts with `10.` only — the train chapter, nothing else in the world.
+ *   - once, guarded by a world setting, so it can never undo a decision he reverses by hand.
+ *   - primary GM only, and it says what it changed.
+ */
+export const TRAIN_WEATHER_FREED = "trainWeatherFreed";
+export async function freeTrainWeather({ force = false } = {}) {
+  if (!game.user?.isGM) return null;
+  if (game.users.activeGM?.id !== game.user.id) return null;
+  try {
+    if (!force && game.settings.get(MODULE_ID, TRAIN_WEATHER_FREED)) return null;
+    const changed = [];
+    for (const sc of game.scenes.filter((x) => x.name?.startsWith("10."))) {
+      for (const r of sc.regions ?? []) {
+        const on = (r.behaviors ?? []).filter((b) => b.type === "suppressWeather" && !b.disabled);
+        if (!on.length) continue;
+        await r.updateEmbeddedDocuments("RegionBehavior", on.map((b) => ({ _id: b.id, disabled: true })));
+        changed.push(`${sc.name} · ${r.name ?? "region"}`);
+      }
+    }
+    await game.settings.set(MODULE_ID, TRAIN_WEATHER_FREED, true);
+    if (changed.length) {
+      console.log(`${MODULE_ID} | the train shakes indoors now — suppression off on:\n  ${changed.join("\n  ")}`);
+      ui.notifications?.info(`Train weather suppression removed on ${changed.length} region${changed.length === 1 ? "" : "s"} — the carriage can shake.`);
+    } else {
+      console.log(`${MODULE_ID} | no weather suppression found on the 10.* scenes — nothing to free`);
+    }
+    return changed;
+  } catch (e) {
+    console.warn(`${MODULE_ID} | could not free the train scenes' weather`, e);
+    return null;
+  }
+}
+
 /** Fire ONE jolt now — `MobileCommand.train.joltNow()`. For judging the strength without waiting. */
 export async function joltNow() { const did = await oneJolt(); return did ? "jolted" : "FXMaster not reachable — nothing fired"; }
 

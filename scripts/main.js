@@ -9,7 +9,7 @@ import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneC
 import { registerDMPanel, refreshPanel, openDock } from "./dm-panel.js";
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
-import { registerTrainFollow, wireTrainDoors, setTrainMist, setTrainSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows } from "./cm-train.js"; // §37 the Ghostlight ride
+import { registerTrainFollow, wireTrainDoors, setTrainMist, setTrainSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
 import { registerAoO } from "./aoo.js";
 import { setupCalendarSkin, applyCalendarSkinClass } from "./gametime.js";
 import { registerFog, refreshFog } from "./fog-soft.js";
@@ -924,6 +924,9 @@ Hooks.once("ready", () => {
    */
   try { if (trainMistOn()) { setTrainSound(true); setTrainJolt(true); } }
   catch (e) { console.warn(`${MODULE_ID} | could not resume the ride's effects`, e?.message); }
+  // ⚠️ ONE-SHOT, primary GM only, guarded by its own setting: take the weather suppression off the
+  // train cars so the jolt is visible inside a carriage (his ruling 2026-10-13). See cm-train.js.
+  freeTrainWeather().catch((e) => console.warn(`${MODULE_ID} | freeTrainWeather`, e?.message));
   setupCalendarSkin(); // SC Reborn's popup = the table's "Calendar": retitle (tool column hidden in CSS)
   registerAoO(); // opportunity-attack movement watcher (executor-gated inside; see aoo.js)
   registerFog(); // fog-of-war edge styles on the display (off/soft/gpu via `fogStyle`; see fog-soft.js)
@@ -933,7 +936,7 @@ Hooks.once("ready", () => {
   globalThis.MobileCommand = {
     ...api,
     enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, deactivate, reactivate, revert: deactivate, hasBackup },
-    train: { wire: wireTrainDoors, ride: setTrainMist, sound: setTrainSound, jolt: setTrainJolt, joltNow, riding: trainMistOn, hasWindows: trainCarHasWindows, setWindows: setTrainWindows }, // §37 macro access (§8.1 manual triggers)
+    train: { wire: wireTrainDoors, ride: setTrainMist, sound: setTrainSound, jolt: setTrainJolt, joltNow, riding: trainMistOn, hasWindows: trainCarHasWindows, setWindows: setTrainWindows, freeWeather: (o) => freeTrainWeather({ force: true, ...o }) }, // §37 macro access (§8.1 manual triggers)
     openShell,
     closeShell,
     // §22.7/§22.9 RECOVERY FROM THE CONSOLE — the one route that still works with no UI at all,

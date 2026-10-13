@@ -621,6 +621,13 @@ export function registerSettings() {
   // (séance board + the coming twists/curses/fateweaving) so non-CM tables never
   // see it. Defaults ON when the Crooked Moon module itself is installed & active
   // (that table obviously wants the tools); toggle in Settings → Campaign.
+  // One-shot marker: the train cars' weather suppression has been disabled so the ride can shake
+  // indoors (his ruling 2026-10-13). Not a preference — a "this has been done" flag, so re-enabling
+  // a region by hand is never undone on the next reload. `cm-train.js freeTrainWeather`.
+  game.settings.register(MODULE_ID, "trainWeatherFreed", {
+    scope: "world", config: false, type: Boolean, default: false
+  });
+
   game.settings.register(MODULE_ID, "crookedMoonTools", {
     scope: "world",
     config: false,
