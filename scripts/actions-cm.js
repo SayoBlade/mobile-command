@@ -307,7 +307,7 @@ defineActions([
 
   /* ── The Fated Tarot (§42) ─────────────────────────────────────────────────────────────────── */
   cm({
-    id: "cm.tarotDeal", group: "Tarot", kind: "pick", label: "Deal a card",
+    id: "cm.tarotDeal", group: "Tarot", kind: "pick", label: "Deal card",   // "Deal card" in both places (DM 2026-10-13)
     when: () => scenePcs().length > 0,
     choices: () => scenePcs().map((a) => pcChoice(a, { sub: actorCard(a) ? "holding" : undefined })),
     run: ({ choice }) => (choice ? dealTarotTo(choice) : { ok: false, reason: "pick a character" }),
