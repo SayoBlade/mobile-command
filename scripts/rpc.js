@@ -3787,15 +3787,14 @@ async function retireEmptyCorpse(tokenDoc) {
  * token settings we hand back — and the conversion never changed the artwork, only the name, so
  * undoing it is small.
  *
- * ⚠️ WHAT CANNOT BE UNDONE IS LOOT ALREADY TAKEN. An item a player lifted is in their pack now and
- * reviving would hand back a quietly robbed creature. So the conversion records what was lootable
- * (`preDeathLoot`) and this refuses unless `force` is passed, naming what is missing. Warnings, not
- * walls — he can still say yes.
+ * ⚠️ WHAT CANNOT BE UNDONE IS LOOT ALREADY TAKEN. An item a player lifted is in their pack now, so
+ * the creature comes back without it. The conversion records what was lootable (`preDeathLoot`) and
+ * this NAMES what is missing — then revives anyway. His ruling: gating the DM should be very rare.
  *
  * ⚠️ HP GOES UP FIRST. The death hook fires on an update that sets hp <= 0, not on the standing
  * value, so there is no loop to fear — but a body left at 0 would die again on its next scratch.
  */
-async function reviveCorpse(tokenUuid, { force = false, hp = 1 } = {}) {
+async function reviveCorpse(tokenUuid, { hp = 1 } = {}) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
   if (!itemPilesReady()) return { ok: false, reason: "needs Item Piles" };
   const tokenDoc = typeof fromUuidSync === "function" ? fromUuidSync(tokenUuid) : null;
@@ -3805,9 +3804,17 @@ async function reviveCorpse(tokenUuid, { force = false, hp = 1 } = {}) {
 
   const was = tokenDoc.getFlag(MODULE_ID, "preDeathLoot") ?? null;
   const now = lootableOf(tokenDoc.actor).map(i => i.name);
+  /**
+   * ⚠️ IT TELLS HIM AND PROCEEDS — IT DOES NOT REFUSE (his ruling 2026-10-13, overriding my first
+   * cut): *"don't refuse looted bodies, gating the DM should be very rare."*
+   *
+   * I had built the taken-loot case as a wall needing a `force`. Wrong instinct: the creature comes
+   * back without the sword either way, and he is the one who decides whether that matters. So the
+   * missing items are NAMED, loudly, and the revive happens. Warnings, not walls.
+   */
   const taken = was?.names ? was.names.filter(n => !now.includes(n)) : [];
-  if (taken.length && !force) {
-    return { ok: false, reason: "looted", detail: `already taken: ${taken.join(", ")}`, taken };
+  if (taken.length) {
+    ui.notifications?.warn(`${was?.name ?? "This creature"} comes back without: ${taken.join(", ")} — already looted.`);
   }
 
   const name = was?.name ?? String(tokenDoc.name).replace(/ \(dead\)$/, "");
@@ -3830,7 +3837,7 @@ async function reviveCorpse(tokenUuid, { force = false, hp = 1 } = {}) {
     await API.revertTokensFromItemPiles(tokenDoc, { tokenSettings: { name, hidden: false, alpha: 1 } });
     await tokenDoc.unsetFlag(MODULE_ID, "preDeathLoot").catch(() => {});
     ui.notifications?.info(`${name} is back on their feet.`);
-    return { ok: true, name, forced: Boolean(taken.length) };
+    return { ok: true, name, taken };
   } catch (e) {
     console.warn(`${MODULE_ID} | revive failed`, e);
     return { ok: false, reason: e?.message ?? "revive failed" };
@@ -4062,9 +4069,9 @@ function toExecutor(handler, payload) {
 
 export const api = {
   /**
-   * REVIVE A CORPSE (DM 2026-10-13) — executor-local, so it is called rather than routed. Refuses
-   * with `reason: "looted"` and a `taken` list when something has already been lifted off the body;
-   * pass `{ force: true }` to go ahead anyway. See `reviveCorpse` for why that guard exists.
+   * REVIVE A CORPSE (DM 2026-10-13) — executor-local, so it is called rather than routed. Never
+   * refuses over loot: anything already lifted off the body is named in a warning and the revive
+   * goes ahead, returning it as `taken`.
    */
   reviveCorpse: (tokenUuid, opts) => reviveCorpse(tokenUuid, opts),
   /** Is this token a corpse we could revive? For drawing the key. */
