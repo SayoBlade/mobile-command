@@ -3672,6 +3672,20 @@ async function maybeAutoLoot(actor) {
     const API = game.itempiles.API;
     if (API.isValidItemPile(tokenDoc)) return true;          // already a pile — already handled
     autoLootInFlight.add(uuid);
+    /**
+     * ⚠️ NOTHING LOOTABLE? THEN IT NEVER BECOMES A PILE (his ruling 2026-10-13). This is the twelve
+     * weasels: the pile's own delete-when-empty only fires on a transfer, so a body that was empty
+     * at death would lie there all session. Checked with the pile's OWN filters, so a creature whose
+     * only "items" are a Bite and a Claw counts as having nothing — which is what he asked for:
+     * *"not empty but 'nothing lootable'"*.
+     */
+    const lootable = lootableOf(actor);
+    const coins = (() => { try { return (API.getActorCurrencies?.(actor) ?? []).length; } catch { return 0; } })();
+    if (!lootable.length && !coins) {
+      await retireEmptyCorpse(tokenDoc);
+      return true;                                           // handled: no pile, no skull, no marker
+    }
+
     // Capture the corpse's own look BEFORE conversion. Item Piles re-skins & renames the pile
     // token after its loot (DM 2026-07-13: the pile showed as "Studded Leather Armor" and looked
     // gone — hidden=false/alpha=1, so it wasn't hidden, it was disguised). We restore this after.
@@ -3681,7 +3695,18 @@ async function maybeAutoLoot(actor) {
       w: tokenDoc.width, h: tokenDoc.height
     };
     await API.turnTokensIntoItemPiles(tokenDoc, {
-      pileSettings: { type: "pile", deleteWhenEmpty: false, overrideItemFilters: corpseItemFilters() },
+      /**
+       * ⚠️ `deleteWhenEmpty: TRUE` since 2026-10-13, and the false was a real defect he found by
+       * pressing it. His test: he zeroed a geared NPC, looted every item off the body through the
+       * phone, and the corpse stayed. That is the one moment Item Piles does watch — the last item
+       * leaving a pile — and we were switching it off, so it never fired.
+       *
+       * ⚠️ IT DOES NOTHING FOR A BODY THAT NEVER HAD LOOT. Item Piles only evaluates a pile on a
+       * transfer, so a creature with nothing but natural attacks is never looked at and lies there
+       * for the rest of the session (his twelve weasels). That case needs a check AT DEATH, which is
+       * `emptyCorpse()` below — this flag is the other half, not the whole fix.
+       */
+      pileSettings: { type: "pile", deleteWhenEmpty: true, overrideItemFilters: corpseItemFilters() },
       tokenSettings: { name: `${corpseName} (dead)`, hidden: false }
     });
     // Restore the corpse's own art/name/size (IP overrides tokenSettings), now AND after a beat in
@@ -3695,6 +3720,10 @@ async function maybeAutoLoot(actor) {
         });
       } catch (e) { console.warn(`${MODULE_ID} | corpse look restore failed`, e); }
     };
+    // What was on the body at death — the only way a revive can tell whether anything has been
+    // taken since (Item Piles keeps no before-and-after of its own).
+    await tokenDoc.setFlag(MODULE_ID, "preDeathLoot", { name: corpseName, names: lootable.map(i => i.name) })
+      .catch((e) => console.warn(`${MODULE_ID} | preDeathLoot flag failed`, e));
     await restoreLook();
     setTimeout(() => restoreLook().catch(() => {}), 600);
     setTimeout(() => restoreLook().catch(() => {}), 2000); // beat a slower gore/death re-skin
@@ -3711,6 +3740,97 @@ async function maybeAutoLoot(actor) {
     if (uuid) autoLootInFlight.delete(uuid);
   }
 }
+/* ── A CORPSE WITH NOTHING ON IT JUST LEAVES, AND A CORPSE CAN BE REVIVED ──────────────────────
+ *
+ * Both from his testing on 2026-10-13. Gated on `autoLootNpcs` with the rest of the corpse feature,
+ * so one switch still turns the whole thing off.
+ */
+
+/** What is actually lootable on this body, by the SAME filters the pile would use. */
+function lootableOf(actor) {
+  try {
+    const API = game.itempiles?.API;
+    if (!API || !actor) return [];
+    return API.getActorItems(actor, { itemFilters: corpseItemFilters() }) ?? [];
+  } catch (e) { console.warn(`${MODULE_ID} | lootable read failed`, e); return []; }
+}
+
+/**
+ * ⚠️ NO PILE, NO SKULL, NO FORCE-VISIBLE — it is hidden and dropped from the turn order.
+ *
+ * His twelve weasels: *"going through 12 weasel corpses to check if they have anything on their
+ * corpses isn't a fun game experience."* Item Piles only ever evaluates a pile on a transfer, so a
+ * body that was empty at death is never looked at again — the flag on the conversion cannot help.
+ *
+ * ⚠️ IT MUST NOT GO THROUGH `applyDeadMarker`. That function deliberately forces a corpse VISIBLE,
+ * twice, 1.5 s apart, so the skull shows on the TV — it would simply un-hide this. Hence the
+ * combatant removal is duplicated here rather than reused: the two halves disagree on purpose.
+ *
+ * HIDDEN, NOT DELETED. A deleted token takes its position, its effects and any chance of reviving it
+ * with it; hidden keeps all three and the GM still sees it ghosted.
+ */
+async function retireEmptyCorpse(tokenDoc) {
+  if (!tokenDoc) return false;
+  const cbt = game.combat?.combatants?.find(c => c.tokenId === tokenDoc.id);
+  if (cbt) await cbt.delete();
+  if (!tokenDoc.hidden) await tokenDoc.update({ hidden: true });
+  return true;
+}
+
+/**
+ * REVIVE — put a lootable corpse back to being a creature (DM 2026-10-13).
+ *
+ * *"I can see scenarios where a pc uses an attack I rule against to kill a monster or I make a
+ * mistake and accidentally lower too many hp and need to return it."*
+ *
+ * Item Piles ships the inverse (`revertTokensFromItemPiles`), which is a flag flip plus whatever
+ * token settings we hand back — and the conversion never changed the artwork, only the name, so
+ * undoing it is small.
+ *
+ * ⚠️ WHAT CANNOT BE UNDONE IS LOOT ALREADY TAKEN. An item a player lifted is in their pack now and
+ * reviving would hand back a quietly robbed creature. So the conversion records what was lootable
+ * (`preDeathLoot`) and this refuses unless `force` is passed, naming what is missing. Warnings, not
+ * walls — he can still say yes.
+ *
+ * ⚠️ HP GOES UP FIRST. The death hook fires on an update that sets hp <= 0, not on the standing
+ * value, so there is no loop to fear — but a body left at 0 would die again on its next scratch.
+ */
+async function reviveCorpse(tokenUuid, { force = false, hp = 1 } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!itemPilesReady()) return { ok: false, reason: "needs Item Piles" };
+  const tokenDoc = typeof fromUuidSync === "function" ? fromUuidSync(tokenUuid) : null;
+  if (!tokenDoc) return { ok: false, reason: "that body is gone" };
+  const API = game.itempiles.API;
+  if (!API.isValidItemPile(tokenDoc)) return { ok: false, reason: "not a corpse" };
+
+  const was = tokenDoc.getFlag(MODULE_ID, "preDeathLoot") ?? null;
+  const now = lootableOf(tokenDoc.actor).map(i => i.name);
+  const taken = was?.names ? was.names.filter(n => !now.includes(n)) : [];
+  if (taken.length && !force) {
+    return { ok: false, reason: "looted", detail: `already taken: ${taken.join(", ")}`, taken };
+  }
+
+  const name = was?.name ?? String(tokenDoc.name).replace(/ \(dead\)$/, "");
+  try {
+    // 1. off death's row first, so nothing re-marks it while we work
+    const actor = tokenDoc.actor;
+    const deadId = CONFIG.specialStatusEffects?.DEFEATED ?? "dead";
+    if (actor?.statuses?.has?.(deadId)) await actor.toggleStatusEffect(deadId, { active: false });
+    // 2. hp up BEFORE the revert — a creature at 0 is one scratch from dying again
+    if (Number(actor?.system?.attributes?.hp?.value ?? 0) <= 0) {
+      await actor.update({ "system.attributes.hp.value": Math.max(1, Number(hp) || 1) });
+    }
+    // 3. stop being a pile, and take the name back
+    await API.revertTokensFromItemPiles(tokenDoc, { name, hidden: false, alpha: 1 });
+    await tokenDoc.unsetFlag(MODULE_ID, "preDeathLoot").catch(() => {});
+    ui.notifications?.info(`${name} is back on their feet.`);
+    return { ok: true, name, forced: Boolean(taken.length) };
+  } catch (e) {
+    console.warn(`${MODULE_ID} | revive failed`, e);
+    return { ok: false, reason: e?.message ?? "revive failed" };
+  }
+}
+
 function registerAutoLoot() {
   // Death by HP: NPC actor updates carry the hp change (on an unlinked token's synthetic actor,
   // or the base actor). Route through handleNpcDeath so the visible skull lands even with auto-loot
@@ -3935,6 +4055,19 @@ function toExecutor(handler, payload) {
 }
 
 export const api = {
+  /**
+   * REVIVE A CORPSE (DM 2026-10-13) — executor-local, so it is called rather than routed. Refuses
+   * with `reason: "looted"` and a `taken` list when something has already been lifted off the body;
+   * pass `{ force: true }` to go ahead anyway. See `reviveCorpse` for why that guard exists.
+   */
+  reviveCorpse: (tokenUuid, opts) => reviveCorpse(tokenUuid, opts),
+  /** Is this token a corpse we could revive? For drawing the key. */
+  isRevivable: (tokenUuid) => {
+    try {
+      const t = fromUuidSync(tokenUuid);
+      return Boolean(t && game.itempiles?.API?.isValidItemPile(t));
+    } catch { return false; }
+  },
   useActivity: (payload) => toExecutor("itemUse", payload),
   useActivityStart: (payload) => toExecutor("itemUseStart", payload),
   useActivityDamage: (payload) => toExecutor("itemUseDamage", payload),
