@@ -70,10 +70,15 @@ check("the rest flow is kept", M.hiddenInDeckMode("rest.passWatch") === false);
 check("damage by amount is kept", M.hiddenInDeckMode("floor.damage") === false);
 check("the sound mix is kept", M.hiddenInDeckMode("sound.musicLevel") === false);
 
-/* ── 7. deck mode: HIDE_NATIVE, the five combat controls ────────────────────────────────────── */
-check("next turn is hidden", M.hiddenInDeckMode("combat.nextTurn") === true);
-check("start combat is hidden", M.hiddenInDeckMode("combat.start") === true);
-check("roll NPC initiative is hidden", M.hiddenInDeckMode("combat.rollNpcs") === true);
+/* ── 7. HIS RULING 2026-10-14: "keep combat as is" — nothing is hidden by name at all ────────── */
+check("COMBAT stays whole — 'keep combat as is'",
+  M.hiddenInDeckMode("combat.nextTurn") === false
+  && M.hiddenInDeckMode("combat.start") === false
+  && M.hiddenInDeckMode("combat.endCombat") === false
+  && M.hiddenInDeckMode("combat.rollNpcs") === false
+  && M.hiddenInDeckMode("combat.battleMusic") === false);
+check("the hide-by-name list is now empty, so only published actions are hidden",
+  M.HIDE_NATIVE.size === 0);
 
 /* ── 7b. HIS RULINGS 2026-10-13 — camera and the Party tab stay ─────────────────────────────── */
 check("CAMERA stays — 'keep camera controls'",
@@ -102,8 +107,8 @@ check("ADD PCS is not in HIDE_NATIVE — DC's Add to party only opens the sheet"
 /* ── 9. why a control went away ─────────────────────────────────────────────────────────────── */
 check("a published control explains itself by action id",
   String(M.hiddenBecause("fx.rain", { actionId: "fx.rain" })).includes("fx.rain"));
-check("a native-covered control names where the deck does it",
-  String(M.hiddenBecause("combat.nextTurn")).includes("deck"));
+check("nothing is hidden by name, so nothing has a name-based reason",
+  M.hiddenBecause("combat.nextTurn") === null);
 check("a kept control has no reason to give", M.hiddenBecause("rest.startRest") === null);
 
 /* ── 10. an all-hidden drawer disappears; a mixed one does not ──────────────────────────────── */

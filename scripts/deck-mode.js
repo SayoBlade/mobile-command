@@ -83,15 +83,17 @@ export const PINNED_KEEP = new Map([
  * comment says which DC verb does it. ⚠️ If DC drops a verb, its entry must come out of this list or
  * the control vanishes from both surfaces.
  */
-export const HIDE_NATIVE = new Map([
-  // Combat — DC's own combat pages.
-  // ⚠️ prevTurn is deliberately ABSENT: he retired the deck key, so the panel is its only route.
-  ["combat.start", "the deck's staging page"],
-  ["combat.nextTurn", "the deck's turn pages"],
-  ["combat.endCombat", "the deck: hold Back"],
-  ["combat.rollNpcs", "the deck's Roll Init"],
-  ["combat.battleMusic", "the deck's battle-track keys"],
-]);
+/**
+ * ⚠️ EMPTY, AND THAT IS HIS RULING — *"keep combat as is"* (2026-10-14). The five combat controls
+ * the deck does cover (start, next turn, end, roll initiative, battle music) stay on the panel
+ * anyway. With camera and the whole Party tab also kept, nothing is hidden by name any more; the
+ * only hiding left is rule 1, the published-action derivation.
+ *
+ * ⚠️ So deck mode is now very nearly a no-op, and that is worth saying out loud before anyone wires
+ * it: he has kept almost everything he was offered. If the Effects tab stays too — he was leaning
+ * that way the same day — the honest question is whether the mode is worth having at all.
+ */
+export const HIDE_NATIVE = new Map([]);
 
 /**
  * ⚠️ HIS RULINGS, 2026-10-13 — two groups came OUT of the list above, and must not drift back:
