@@ -1,3 +1,18 @@
+> # ⛔ DROPPED 2026-10-15 — kept for the inventory, not as a plan
+>
+> His call: *"let's drop deck mode for mc for now."* The reason is in the numbers below. He kept
+> camera, the whole Party tab and the whole Combat tab, and wanted Crooked Moon kept until he had
+> tried it on the deck — at which point the mode hid nothing a person would notice, and a switch
+> that does nothing is worse than no switch.
+>
+> `scripts/deck-mode.js` and `tools/test-deck-mode.mjs` are **deleted**, because an unimported
+> module with passing tests looks finished and is not. Nothing else referenced them.
+>
+> **What is still worth reading here:** §1.4 and §3, which are a measured inventory of what MC
+> publishes, what the deck covers today, and the three capability traps found by checking rather
+> than assuming — previous turn, create party, and the séance phrase field. If the question ever
+> comes back, start there rather than re-measuring.
+
 # Deck mode — what the DM panel stops showing
 
 One world setting, two values. **Panel** = today, nothing changes. **Deck** = the panel drops the
