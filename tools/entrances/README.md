@@ -8,7 +8,7 @@ DM reviews (https://claude.ai/artifact/PcRn3sVZrxK4UpeQZjntUt) and the module co
 | 1. the cards | `cards2.py` (`N`, one dict per banner; `GENERIC_CARD` rebuilt by `regen_generic_card.py` from `generic.json`) | `sounds.json` | `cards2.html` |
 | 2. the page | `build2.py` | `head2.html`, `foot.html`, `base2.css`, `themes2.css`, `app2.js`, `symbols.svg`, `cards2.html`, `art/`, `snd/`, `fx/` | `crooked-moon-entrances-ii.html` (publish with the Artifact tool, same path = same link) |
 | 3. MC | `gen_mc.py` | `cards2.py`, `sounds.json`, `sndspec.json`, `generic.json`, `stage.json`, `base2.css`, `themes2.css` | `scripts/cm-entrances.js`, `styles/entrances.css` |
-| 4. the deck | `gen_intro_keys.py` | `scripts/cm-entrances.js`, `generic.json` | `../audio-catalogue/campaigns/crooked-moon-intro-keys.json` + `.apply.js` (TEST WORLD ONLY; copy it into `Data/deck-command-office/` and run it from the GM console) |
+| 4. the deck | `gen_intro_keys.py` | `scripts/cm-entrances.js`, `generic.json` | `../audio-catalogue/campaigns/crooked-moon-intro-keys.json` + `.apply.js` (⚠️ **both halves of this note are stale**: the test-world-only rule was replaced by D-0044/D-0063 — the working world is `crooked-moon-6x` — and `Data/deck-command-office/` was retired with the frozen office copy. Serve the `.apply.js` from any path Foundry serves, and run it from the GM console) |
 
 Media prep (all read the DM's Foundry Data — `%LOCALAPPDATA%/FoundryVTT/Data` — and write next to the scripts):
 `art.py`…`art5.py`, `yorgrim_art.py`, `gen_generic.py` → `art/` (web copies of the book art for the PAGE only — MC
