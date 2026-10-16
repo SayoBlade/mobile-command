@@ -181,6 +181,7 @@ export function initSocket() {
   registerPartyAutoFacing(); // executor-gated inside the hook
   registerPlayerColorSync(); // executor repaints a player's token rings on colour change
   registerAutoLoot(); // executor turns dead NPCs into loot piles (opt-in, needs Item Piles)
+  registerCorpseEmptied(); // ...and a body looted bare hides rather than being deleted (2026-10-16)
   registerReactionRelay(); // executor relays midi reaction prompts to the owner's phone
   registerDamageRelay(); // executor relays incoming PC damage to the owner's phone (combat chips)
   console.log(`${MODULE_ID} | socket registered`);
@@ -3696,17 +3697,18 @@ async function maybeAutoLoot(actor) {
     };
     await API.turnTokensIntoItemPiles(tokenDoc, {
       /**
-       * ⚠️ `deleteWhenEmpty: TRUE` since 2026-10-13, and the false was a real defect he found by
-       * pressing it. His test: he zeroed a geared NPC, looted every item off the body through the
-       * phone, and the corpse stayed. That is the one moment Item Piles does watch — the last item
-       * leaving a pile — and we were switching it off, so it never fired.
+       * ⚠️ `deleteWhenEmpty: FALSE`, AND THAT IS DELIBERATE — WE HIDE INSTEAD (his catch 2026-10-16).
        *
-       * ⚠️ IT DOES NOTHING FOR A BODY THAT NEVER HAD LOOT. Item Piles only evaluates a pile on a
-       * transfer, so a creature with nothing but natural attacks is never looked at and lies there
-       * for the rest of the session (his twelve weasels). That case needs a check AT DEATH, which is
-       * `emptyCorpse()` below — this flag is the other half, not the whole fix.
+       * It was `true` for three days. He spotted the consequence I had not: *"vanish meaning hidden?
+       * Or else they can't be revived."* Item Piles' own delete does exactly that — it DELETES the
+       * token, so a body looted bare could never be brought back, while a body that was empty from
+       * the start was hidden and could. Two ways to disappear, one of them final, and nobody chose
+       * it.
+       *
+       * So Item Piles never deletes for us. `retireEmptyCorpse` below hides in BOTH cases, which
+       * makes the two paths the same function and keeps every corpse revivable.
        */
-      pileSettings: { type: "pile", deleteWhenEmpty: true, overrideItemFilters: corpseItemFilters() },
+      pileSettings: { type: "pile", deleteWhenEmpty: false, overrideItemFilters: corpseItemFilters() },
       tokenSettings: { name: `${corpseName} (dead)`, hidden: false }
     });
     // Restore the corpse's own art/name/size (IP overrides tokenSettings), now AND after a beat in
@@ -3842,6 +3844,34 @@ async function reviveCorpse(tokenUuid, { hp = 1 } = {}) {
     console.warn(`${MODULE_ID} | revive failed`, e);
     return { ok: false, reason: e?.message ?? "revive failed" };
   }
+}
+
+/**
+ * ⚠️ A CORPSE LOOTED BARE HIDES TOO — the other half of his catch (2026-10-16).
+ *
+ * The at-death case was already handled (`retireEmptyCorpse`). This is the case where the body HAD
+ * something and the players took it all: Item Piles would delete the token, which is why
+ * `deleteWhenEmpty` is off. We watch instead, and hide, so both ways of emptying a body end the
+ * same and both stay revivable.
+ *
+ * ⚠️ IT MUST NOT FIRE WHILE A REVIVE IS UNDOING ONE. Reviving reverts the pile, and a revert is an
+ * actor update like any other — without the `isValidItemPile` test below it would read the revived
+ * creature as an emptied corpse and hide it again, one beat after standing it up.
+ */
+function registerCorpseEmptied() {
+  const check = async (actor) => {
+    try {
+      if (!isExecutor() || !itemPilesReady()) return;
+      const API = game.itempiles.API;
+      const tokenDoc = actor?.token ?? actor?.getActiveTokens?.(false, true)?.[0] ?? null;
+      if (!tokenDoc || tokenDoc.hidden) return;
+      if (!API.isValidItemPile(tokenDoc)) return;          // not a corpse (or mid-revive): leave it
+      if (!API.isItemPileEmpty(tokenDoc)) return;          // still has something worth taking
+      await retireEmptyCorpse(tokenDoc);
+    } catch (e) { console.warn(`${MODULE_ID} | corpse-emptied watch`, e?.message); }
+  };
+  Hooks.on("deleteItem", (item) => { if (item?.parent?.documentName === "Actor") check(item.parent); });
+  Hooks.on("updateItem", (item) => { if (item?.parent?.documentName === "Actor") check(item.parent); });
 }
 
 function registerAutoLoot() {
