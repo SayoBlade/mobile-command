@@ -9,6 +9,7 @@
 // cannot run, which is the state they will be in most of the time.
 //
 // Numbered expected results, in order; the run STOPS at the first failure (CLAUDE.md protocol).
+import fs from "node:fs";
 import { installFakeFoundry } from "./fake-foundry.mjs";
 
 const { A } = await installFakeFoundry();
@@ -69,5 +70,15 @@ check("Travel itself is always available — it is the key that gets you packed"
 check("⚠️ reading the area does not need a DOM — `travelState` reaches for `document` and a bare "
   + "reference threw on every read until it was guarded, which only showed up here",
   rows().every((r) => typeof r.sub === "string"), JSON.stringify(rows().map((r) => r.sub)));
+
+/* ── 13 the panel has no travel controls left ────────────────────────────────────────────────── */
+{
+  const src = fs.readFileSync(new URL("../scripts/dm-panel.js", import.meta.url), "utf8");
+  const gone = ["data-travel-begin", "data-travel-go]", "data-travel-stop", "data-travel-route]", "data-travel-route-clear"];
+  const left = gone.filter((g) => src.includes(g.replace("]", "")) && new RegExp(`\\[${g.replace("]", "\\]")}`).test(src));
+  check("⚠️ the panel publishes NO travel buttons — 'no travel controls on mobile at all' (2026-10-18). "
+    + "The drawing SURFACE stays, because the deck has no touch surface; the verbs are deck keys",
+    left.length === 0, left.join(" "));
+}
 
 console.log(`\nAll ${n} passed.`);

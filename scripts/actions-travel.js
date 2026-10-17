@@ -27,6 +27,14 @@ import { beginTravel, armTravelRoute, runTravelJourney, stopTravelJourney, packe
  * button calls — `beginTravel` was extracted FROM that click handler and both call it now, so the
  * two surfaces cannot drift. If a behaviour looks wrong, it is wrong on the panel too.
  *
+ * ⚠️ AND AS OF 2026-10-18 THESE ARE THE ONLY TRAVEL CONTROLS THAT EXIST. His words: *"No travel
+ * controls on mobile at all… players have zero choice beyond use in the teleporter"*, and *"the
+ * dm decides if the player moves to the next room, if it's as a group, or not at all."* The
+ * panel's Switch map / Draw from party / Start / Stop / Clear buttons were removed the same day;
+ * what stays there is setup (which scene is the travel map), the pace, the readout, and the
+ * drawing surface itself — because the deck has no touch surface and he said *"they can draw
+ * using the mc widget."* The deck ARMS the drawing; the dragging happens on the phone.
+ *
  * ⚠️ WHAT IS DELIBERATELY NOT HERE:
  *   • **Pace.** It is a six-way choice with a custom-transport editor behind it; the deck would
  *     need a page of its own and he has not asked for one. The panel keeps it.

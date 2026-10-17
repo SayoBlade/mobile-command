@@ -2244,9 +2244,7 @@ function travelHTML() {
       ${scenes.map(s => `<option value="${s.id}" ${s.id === chosenId ? "selected" : ""}>${esc(s.name)}</option>`).join("")}
     </select>
     <p class="mc-dmp-travel-hint">${esc(state)}</p>
-    <button class="mc-dmp-party-deploy mc-dmp-travel-go" data-travel-begin ${ready ? "" : "disabled"}
-      title="Form up if needed and preview the scene — then click the map where the party arrives; everyone follows with the transition">
-      <i class="fas fa-right-to-bracket"></i> Switch map</button>`;
+    <p class="mc-dmp-travel-hint">${ready ? "Press Travel on the deck to go." : "Choose the map above first."}</p>`;
 
   // Accordion 2 — Travel to…: pace (built-ins + custom transports) + freeform route.
   const customs = travelCustomPaces();
@@ -2271,21 +2269,33 @@ function travelHTML() {
     const hrs = ri.miles * 8 / travelMilesPerDay(group); // live — recomputes when the pace changes
     readout = `<p class="mc-dmp-travel-hint">${ft} ft / ${mi} miles / ${km} km<br>${fmtTravelTime(hrs)} at ${esc(travelPaceLabel(group))} speed</p>`;
   }
-  const routeCtl = ri
-    ? (travelJourneyActive
-      ? `<button class="mc-dmp-party-deploy mc-dmp-travel-stop" data-travel-stop><i class="fas fa-stop"></i> Stop</button>`
-      : `<div class="mc-dmp-travel-row">
-          <button class="mc-dmp-travel-seg" data-travel-route-clear title="Erase the route"><i class="fas fa-eraser"></i> Clear</button>
-          <button class="mc-dmp-party-deploy" data-travel-go title="Walk the party along the route as the clock advances"><i class="fas fa-person-walking"></i> Start</button>
-        </div>`)
-    : "";
+  // ⚠️ Clear / Start / Stop were here. They are deck keys now — see the note on `goBody`.
+  /**
+   * ⚠️ THE TRAVEL *CONTROLS* ARE GONE FROM THE PANEL (DM 2026-10-18). His words, twice: *"No
+   * travel controls on mobile anymore, it's players giving the destination and the dm
+   * 'driving'"*, then *"No travel controls on mobile at all… players have zero choice beyond use
+   * in the teleporter."*
+   *
+   * **The deck drives.** Switch map, Draw road, Start and Stop are published as actions
+   * (`actions-travel.js`) and pressed there. The journey engine below is untouched; only its
+   * buttons are.
+   *
+   * ⚠️ WHAT STAYS, AND WHY IT IS NOT A CONTRACTION. Three things are not in-play controls:
+   *   • **Choosing which scene is the travel map**, and the Travel-map tick. Setup, done once,
+   *     and the deck key cannot even begin without it — it answers *"choose an overworld map in
+   *     the Travel tab first"*.
+   *   • **The pace**, with its custom-transport editor. A six-way choice behind an editor is not
+   *     a deck key and he has not asked for one.
+   *   • **The route readout** (feet / miles / km / hours). Information, not a verb.
+   *   • **The drawing surface itself** — his own words: *"if not they can draw using the mc
+   *     widget."* The deck ARMS it (`travel.route`); the dragging happens here, because the deck
+   *     has no touch surface. That is the one place travel still needs the phone, by physics.
+   */
+  const onDeck = `<p class="mc-dmp-travel-hint">Driven from the deck — Travel, Draw road, Go, Stop.</p>`;
   const goBody = !group ? `<p class="mc-dmp-travel-hint">No party group — set one up first.</p>`
     : (packed && onOver)
-      ? `${paceRow}
-         <label class="mc-dmp-travel-lbl">Route</label>
-         <button class="mc-dmp-travel-seg" data-travel-route ${travelJourneyActive ? "disabled" : ""}><i class="fas fa-pen-nib"></i> Draw from party</button>
-         ${readout}${routeCtl}`
-      : `${paceRow}<p class="mc-dmp-travel-hint">Switch to the travel map, then draw a route.</p>`;
+      ? `${paceRow}${readout}${travelJourneyActive ? `<p class="mc-dmp-travel-hint">Walking…</p>` : onDeck}`
+      : `${paceRow}<p class="mc-dmp-travel-hint">Take the party to the travel map from the deck.</p>`;
 
   // The DM's explicit travel-map list (DM 2026-07-24) — the CURRENT scene's membership, toggled
   // here. This is the ONLY thing that makes a scene a travel map; nothing is guessed from the grid.
@@ -4535,13 +4545,15 @@ async function onClick(ev) {
     }
     return render();
   }
-  if (ev.target.closest("[data-travel-route]")) { armTravelRoute(); return; } // §18 T2: draw the route
-  if (ev.target.closest("[data-travel-route-clear]")) {
-    await deleteTravelRouteDrawings(); // all scenes — clears a stray route even from a battle map
-    resetTravelRoute(); return render();
-  }
-  if (ev.target.closest("[data-travel-go]")) { const g = packedGroup(); if (g) await runTravelJourney(g); return; } // §18 T3
-  if (ev.target.closest("[data-travel-stop]")) { stopTravelJourney(); return; }
+  /**
+   * ⚠️ THE TRAVEL BUTTONS' HANDLERS ARE GONE WITH THEIR BUTTONS (DM 2026-10-18, "no travel
+   * controls on mobile at all"). The verbs they called are exported and published as actions, so
+   * the deck presses them; nothing here needs to listen for a click that can no longer happen.
+   *
+   * ⚠️ `deleteTravelRouteDrawings` and `resetTravelRoute` still run on ARRIVAL and on the
+   * scene-change sweep — the route is cleaned up either way. What is gone is the "Clear" button,
+   * which he never asked the deck for either: Draw re-arms and replaces, which is what he does.
+   */
   const travDrawer = ev.target.closest("[data-travel-drawer]");
   if (travDrawer) {
     const k = travDrawer.dataset.travelDrawer;
@@ -4576,7 +4588,6 @@ async function onClick(ev) {
     travelPaceEditorOpen = false;
     return render();
   }
-  if (ev.target.closest("[data-travel-begin]")) { await beginTravel(); return render(); } // §18 T1.5
   if (ev.target.closest("[data-rt-forbtn]")) { rollTool.targetsOpen = !rollTool.targetsOpen; return render(); }
   // §27 personal messages: toggle the thread / send to the selected player.
   if (ev.target.closest("[data-dm-msg-send]")) {
