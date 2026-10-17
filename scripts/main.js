@@ -32,6 +32,7 @@ import { openFeedback, registerFeedbackMenu } from "./feedback.js"; // §48 the 
 import { actionAreas, actionSnapshot, runAction, actionCounts } from "./actions.js"; // §52 the published action list (deck-command ledger 151)
 import "./actions-effects.js"; // §52 area G — each area file registers its rows on import
 import "./actions-cm.js"; // §52 area H — the Crooked Moon tab (and its requests)
+import { travelState } from "./dm-panel.js"; // §18 travel state for the public API (read-only)
 import "./actions-travel.js"; // the travel area, which was declared and published nothing (2026-10-18)
 import "./actions-asks.js"; // §55.6 players waiting on the DM (a Basic travel square) — the deck's Notifications
 import { registerSoundBehavior, cues } from "./region-sound.js"; // §53 the "Sound" region behaviour + the house door sets
@@ -938,6 +939,21 @@ Hooks.once("ready", () => {
     ...api,
     enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, deactivate, reactivate, revert: deactivate, hasBackup },
     train: { wire: wireTrainDoors, ride: setTrainMist, sound: setTrainSound, jolt: setTrainJolt, joltNow, riding: trainMistOn, hasWindows: trainCarHasWindows, setWindows: setTrainWindows, freeWeather: (o) => freeTrainWeather({ force: true, ...o }) }, // §37 macro access (§8.1 manual triggers)
+    /**
+     * §18/§41 TRAVEL, READ-ONLY — what a second surface needs to draw its own travel keys
+     * (deck-command D-0065). The VERBS are published as actions (`travel.*`), which is the
+     * proper seam; this is only the state those keys cannot get from a row: which map is the
+     * travel map, and whether the party has stopped somewhere.
+     *
+     * ⚠️ READ-ONLY ON PURPOSE. Nothing here sets anything. The deck presses `travel.begin`,
+     * `travel.route`, `travel.go` and `travel.stop` like any other consumer, and MC stays a list
+     * rather than a client.
+     */
+    travel: {
+      state: () => travelState(),
+      mapId: () => { try { return game.settings.get(MODULE_ID, "travelOverworldSceneId") || null; } catch { return null; } },
+      onMap: () => { try { const id = game.settings.get(MODULE_ID, "travelOverworldSceneId"); return Boolean(id) && canvas?.scene?.id === id; } catch { return false; } },
+    },
     openShell,
     closeShell,
     // §22.7/§22.9 RECOVERY FROM THE CONSOLE — the one route that still works with no UI at all,
