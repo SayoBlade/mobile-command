@@ -8,7 +8,10 @@ import { MODULE_ID } from "./preset.js";
  *
  * Every action the DM presses in the panel during play, published ONCE as plain data plus a runner,
  * so any other surface — the deck is the first — can draw it and run it without knowing MC's
- * internals. MC still never learns the deck exists (DC DESIGN §7.11): this is a list, not a client.
+ * internals. This is a list, not a client: MC publishes and does not call back.
+ * ⚠️ *This used to say "MC still never learns the deck exists". He deleted that rule on
+ * 2026-10-15 — "let's get rid of Never modify mobile-command from this project completely" — and
+ * MC has carried deck-aware code since. What still holds is the weaker, true thing above.*
  *
  * ⚠️ THE RUNNERS CALL THE SAME FUNCTIONS THE PANEL CALLS. Nothing here re-implements a feature; an
  * action that the panel does in three steps is three calls here, in the same order. A behaviour

@@ -127,6 +127,12 @@ export async function installFakeFoundry() {
   rpc.initSocket();
   await import(url("scripts/actions-effects.js"));
   await import(url("scripts/actions-cm.js"));
+  // ⚠️ `actions-travel.js` imports `dm-panel.js`, which is a large browser-side module. It is
+  // loaded here so the travel rows exist on the bench; if it ever refuses to import headlessly the
+  // harness says so loudly rather than leaving the area silently empty, which is the failure the
+  // travel area was already in.
+  try { await import(url("scripts/actions-travel.js")); }
+  catch (e) { console.warn("fake-foundry | actions-travel.js did not import:", e?.message); }
   const A = await import(url("scripts/actions.js"));
   const live = await import(url("scripts/cm-live.js"));
 

@@ -1938,7 +1938,7 @@ async function moveGroupTo(gt, pt, durMs) {
   const x = Math.round(pt.x - (gt.width || 1) * g / 2), y = Math.round(pt.y - (gt.height || 1) * g / 2);
   await gt.update({ x, y }, { animate: true, animation: { duration: Math.max(200, Math.round(durMs)) } });
 }
-function stopTravelJourney() { travelJourneyStop = true; }
+export function stopTravelJourney() { travelJourneyStop = true; }
 // §18 travel: a scene the DM has EXPLICITLY marked as a travel map (Travel tab → "This is a travel
 // map") sets itself up the first time you open it — whole map visible (no sight circle), Global
 // Illumination off, darkness unlocked and synced to the clock. One-shot per scene (a flag guards it)
@@ -1975,7 +1975,7 @@ async function maybeAutoLightOverworld(scene) {
 // §18 T3: tick the token along the route while game-time advances (1 game-hour/tick) and the
 // daylight sweeps to match (DESIGN §18.1). Auto-pauses so no one moves; arrival unpauses; Stop
 // halts and STAYS paused (probably an encounter). Cinematic rate ≈ 1 real s per game-hour, clamped.
-async function runTravelJourney(group) {
+export async function runTravelJourney(group) {
   const scene = canvas.scene;
   const gt = scene?.tokens.find(t => t.actorId === group.id);
   const pts = travelRoutePts;
@@ -2037,8 +2037,30 @@ async function runTravelJourney(group) {
   // on arrival + the on-scene-switch canvasReady sweep) keeps stray routes from lingering either way.
   render();
 }
+/**
+ * §18 T1.5 — PACK, PREVIEW THE TRAVEL MAP, ARM THE LANDING CLICK. The panel's "Begin travel"
+ * button and the deck's `travel.begin` both call this, so the two surfaces cannot drift
+ * (actions.js: *"the runners call the same functions the panel calls"*).
+ *
+ * ⚠️ `view`, NOT `activate`: the DM goes to the travel map first and the players follow when he
+ * is ready. Returns `{ ok: false, reason }` so a caller that is not the panel can refuse politely
+ * instead of relying on a notification nobody sees — the deck draws the reason on the key.
+ */
+export async function beginTravel() {
+  const res = await api.travelPrepare({});
+  if (res?.ok === false) {
+    const why = res.detail ?? res.reason ?? "Couldn't prepare travel.";
+    ui.notifications.warn(why);
+    return { ok: false, reason: why };
+  }
+  const over = game.scenes.get(res.sceneId);
+  if (over && canvas.scene?.id !== over.id) await over.view();
+  armTravelDrop();
+  return { ok: true, sceneId: res.sceneId };
+}
+
 function disarmTravelRoute() { try { travelRouteDisarm?.(); } catch (e) { /* gone */ } travelRouteDisarm = null; }
-function armTravelRoute() {
+export function armTravelRoute() {
   disarmTravelRoute();
   const board = document.getElementById("board");
   const group = packedGroup();
@@ -2902,7 +2924,7 @@ function pendingHTML(pending) {
 let partySel = null;    // actorId the DM picked up
 let partyForce = false; // "Disperse anyway" armed after a nofit
 
-function packedGroup() {
+export function packedGroup() {
   return game.actors.find(a => a.type === "group" && a.getFlag(MODULE_ID, "packed")) ?? null;
 }
 
@@ -4554,14 +4576,7 @@ async function onClick(ev) {
     travelPaceEditorOpen = false;
     return render();
   }
-  if (ev.target.closest("[data-travel-begin]")) { // §18 T1.5: pack, preview the map, arm the landing click
-    const res = await api.travelPrepare({});
-    if (res?.ok === false) { ui.notifications.warn(res.detail ?? res.reason ?? "Couldn't prepare travel."); return render(); } // a refused force-pack comes back with its detail
-    const over = game.scenes.get(res.sceneId);
-    if (over && canvas.scene?.id !== over.id) await over.view(); // DM goes first — view, not activate
-    armTravelDrop();
-    return render();
-  }
+  if (ev.target.closest("[data-travel-begin]")) { await beginTravel(); return render(); } // §18 T1.5
   if (ev.target.closest("[data-rt-forbtn]")) { rollTool.targetsOpen = !rollTool.targetsOpen; return render(); }
   // §27 personal messages: toggle the thread / send to the selected player.
   if (ev.target.closest("[data-dm-msg-send]")) {
@@ -5170,6 +5185,30 @@ async function onClick(ev) {
 
 /** DM/executor client only — the TV is player-role, phones have no canvas targets. */
 /** Repaint the panel from outside (the display's audio report arrives over the socket). */
+/**
+ * WHAT A TRAVEL KEY NEEDS TO DRAW ITSELF, in one read. The deck's faces are built from this rather
+ * than from the panel's DOM, so a key says the same thing the panel says without either surface
+ * owning the other.
+ *
+ * ⚠️ `canDraw` IS NOT `packed`. Drawing the road captures pointer events on the panel's own board
+ * (`armTravelRoute` reads `document.getElementById("board")`), so a deck press with the panel
+ * closed would arm nothing and report success. The key is dim, with the reason on it, instead.
+ */
+export function travelState() {
+  const group = packedGroup();
+  return {
+    packed: Boolean(group),
+    routed: Boolean(travelRoutePts && travelRoutePts.length > 1 && travelRouteInfo),
+    walking: travelJourneyActive,
+    miles: travelRouteInfo?.miles ?? null,
+    // ⚠️ `globalThis.document`, not `document`. The headless bench has no DOM, and a bare
+    // reference threw a ReferenceError on EVERY read of the travel area — caught by the
+    // registry's own guard, so the keys merely went dim while the console filled with errors.
+    // Found by `tools/fake-foundry.mjs` the hour this was written.
+    canDraw: Boolean(globalThis.document?.getElementById?.("board") && group && globalThis.canvas?.ready),
+  };
+}
+
 export function refreshPanel() { try { if (panelEl) render(); } catch (e) { /* not mounted */ } }
 
 /**
