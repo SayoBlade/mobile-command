@@ -70,6 +70,16 @@ function vgmusicDrivesCombat() {
   } catch (e) { return false; } // absent module / shape drift → not the driver
 }
 
+/** The music layer (music.js) owns combat music unless it is switched off or another engine drives.
+ *  Read here rather than imported, so the two files do not import each other. */
+function layerOwnsCombat() {
+  let on = true;
+  try { on = game.settings.get(MODULE_ID, "musicLayer") !== false; } catch (e) { on = false; }
+  if (!on) return false;
+  const mode = combatMusicMode();
+  return mode !== "ember" && mode !== "vgmusic";
+}
+
 export function combatMusicMode() {
   if (isEmberWorld()) return "ember";
   if (vgmusicDrivesCombat()) return "vgmusic";
@@ -95,7 +105,7 @@ function persistTouched() {
   try { game.settings.set(MODULE_ID, "combatMusicTouched", Object.fromEntries(_touched)); } catch (e) { /* pre-ready */ }
 }
 
-async function configureForCombat(doc, { loop }) {
+export async function configureForCombat(doc, { loop }) {
   if (!doc) return;
   const upd = {};
   if (loop && "repeat" in doc && !doc.repeat) upd.repeat = true;
@@ -107,7 +117,7 @@ async function configureForCombat(doc, { loop }) {
 
 // Put back the repeat/fade we changed on every track we touched this combat — including
 // what a PREVIOUS (pre-reload) session recorded in the world setting.
-async function restoreTouched() {
+export async function restoreTouched() {
   const touched = _touched; _touched = new Map();
   try {
     const persisted = game.settings.get(MODULE_ID, "combatMusicTouched") ?? {};
@@ -180,6 +190,7 @@ async function play(uuid) {
 
 async function startCombatMusic() {
   if (!isMusicDriver() || !game.combat || _active) return;
+  if (layerOwnsCombat()) return; // music.js plays the fight (MUSIC-LAYER.md)
   if (combatMusicMode() !== "ours") return; // §50.3: Ember's world, or nothing configured — don't touch the room's audio
   _active = true; // set FIRST so a racing updateCombat waits for us (it guards on _active)
   // Take over: remember + pause everything currently playing, to resume on combat end.
@@ -296,7 +307,7 @@ export function registerCombatMusic() {
   // re-arm directly — a Hooks.once("ready") here would register after ready and never fire.
   // (_resumeAfter is gone for good on a reload — the pre-combat ambience won't auto-resume
   // after combat; an accepted cost of reloading.)
-  if (isMusicDriver() && game.combat?.started && combatMusicMode() === "ours") {
+  if (isMusicDriver() && game.combat?.started && combatMusicMode() === "ours" && !layerOwnsCombat()) {
     serialize(async () => {
       if (_active) return;
       _active = true;

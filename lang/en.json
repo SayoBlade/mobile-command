@@ -48,5 +48,13 @@
   "MOBILECOMMAND.BEHAVIORS.SOUND.FIELDS.muted.label": "Muted",
   "MOBILECOMMAND.BEHAVIORS.SOUND.FIELDS.muted.hint": "Counts, but never plays.",
   "MOBILECOMMAND.BEHAVIORS.SOUND.FIELDS.count.label": "Crossings so far",
-  "MOBILECOMMAND.BEHAVIORS.SOUND.FIELDS.count.hint": "Kept on the region between sessions. Set it to 0 to start over."
+  "MOBILECOMMAND.BEHAVIORS.SOUND.FIELDS.count.hint": "Kept on the region between sessions. Set it to 0 to start over.",
+  "TYPES.RegionBehavior.mobile-command.music": "Music (Mobile Command)",
+  "TYPES.HINTS.RegionBehavior.mobile-command.music": "This room has its own music. When the whole party has stood in it for a few seconds, its playlist crossfades in. Rooms without one keep what is playing.",
+  "MOBILECOMMAND.BEHAVIORS.MUSIC.FIELDS.playlist.label": "Playlist",
+  "MOBILECOMMAND.BEHAVIORS.MUSIC.FIELDS.playlist.hint": "Drag a playlist here from the Playlists sidebar.",
+  "MOBILECOMMAND.BEHAVIORS.MUSIC.FIELDS.fade.label": "Crossfade (ms)",
+  "MOBILECOMMAND.BEHAVIORS.MUSIC.FIELDS.fade.hint": "Leave blank to use the playlist's own fade.",
+  "MOBILECOMMAND.BEHAVIORS.MUSIC.FIELDS.label.label": "Label",
+  "MOBILECOMMAND.BEHAVIORS.MUSIC.FIELDS.label.hint": "Optional. What the deck calls this room's music."
 }

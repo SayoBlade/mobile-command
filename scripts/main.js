@@ -36,6 +36,7 @@ import { travelState } from "./dm-panel.js"; // §18 travel state for the public
 import "./actions-travel.js"; // the travel area, which was declared and published nothing (2026-10-18)
 import "./actions-asks.js"; // §55.6 players waiting on the DM (a Basic travel square) — the deck's Notifications
 import { registerSoundBehavior, cues } from "./region-sound.js"; // §53 the "Sound" region behaviour + the house door sets
+import { registerMusicBehavior, registerMusic, state as musicState, pick as musicPick, next as musicNext, cue as musicCue, moods as musicMoods } from "./music.js"; // the music layer (deck-command MUSIC-LAYER.md)
 import { installOverlayGuard, sweepCoveringLayers, reapplyGuard, restoreCoreUi, forceRail, stuckOverlayStates, clearedLayers, shouldKeepGmClear, verifyRail } from "./overlay-guard.js"; // §22.7/§22.9 the DM is never covered or hidden
 
 Hooks.once("init", () => {
@@ -47,6 +48,7 @@ Hooks.once("init", () => {
   registerFeedbackMenu(); // §48: unrestricted — the people who hit bugs are mostly not the GM
   registerSceneTransitions(); // zoom in/out entries in CONFIG.Canvas.sceneTransitions (scene config + teleport pickers)
   registerLayeredWeather(); // §26: fog over rain/snow/leaves as one weather id, on every client (DM 2026-09-19)
+  registerMusicBehavior(); // "Music" in the region menu + the layer's settings, on every client
   registerSoundBehavior(); // §53: "Sound" in the region menu + the Crooked House door sets, on every client
   // TV clean-canvas toggle (DM 2026-06-19): hide ALL Foundry UI so the shared
   // display shows only the canvas. Auto-on for the "display" role; this keybinding
@@ -932,6 +934,7 @@ Hooks.once("ready", () => {
   setupCalendarSkin(); // SC Reborn's popup = the table's "Calendar": retitle (tool column hidden in CSS)
   registerAoO(); // opportunity-attack movement watcher (executor-gated inside; see aoo.js)
   registerFog(); // fog-of-war edge styles on the display (off/soft/gpu via `fogStyle`; see fog-soft.js)
+  registerMusic();       // rooms, battle, Phase 2, cues — crossfaded; the primary GM drives (music.js)
   registerCombatMusic(); // per-PC themes + battle track over combat turns (primary GM drives; see combat-music.js)
   registerCampaigns();   // §50: Ember's creation sheet gets the small-screen fit-shim (no-op elsewhere)
 
@@ -1002,6 +1005,10 @@ Hooks.once("ready", () => {
     // Combat tab's staging was the only thing that could see them (combat-music.js `combatTracks`).
     combatTracks,
     setCombatTrack,
+    // THE MUSIC LAYER, for any surface (the deck's Music key and drawer; a cue step `music:`).
+    // state() answers what is playing and what is pinned; the verbs write the shared state the
+    // primary GM acts on. Hook "mobile-command.music" fires with state() on every change.
+    music: { state: musicState, pick: musicPick, next: musicNext, cue: musicCue, moods: () => musicMoods().map((p) => ({ uuid: p.uuid, name: p.name })) },
     frameParty: framePartyTokens,        // local canvas only
     focusParty: focusPartyAll,           // here + the display(s) + exit manual
     toggleTvManual,                      // DM drives the display by panning own view
