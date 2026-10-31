@@ -365,17 +365,20 @@ export function state() {
 
 // ── rooms: the 5-second rule ──────────────────────────────────────────────────────────────────────
 
-function tick() {
-  if (!isDriver() || !musicEnabled()) return;
+/** One look at where the party stands. Exported (as roomTick) so the test can drive the clock. */
+export function roomTick(now = Date.now()) {
+  if (!isDriver() || !musicEnabled()) return null;
   const scene = game.scenes?.active ?? null;
   if (scene?.id !== _sceneId) { _sceneId = scene?.id ?? null; _dwell.reset(); }
   const rooms = scoredRooms(scene);
-  if (!rooms.length) return;
+  if (!rooms.length) return null;
   _dwell.ms = Math.max(0, Number(setting("musicDwellSeconds", 5)) || 0) * 1000;
   const before = _dwell.settled;
-  _dwell.tick(partyRoom(partyPoints(scene), rooms));
+  _dwell.tick(partyRoom(partyPoints(scene), rooms), now);
   if (_dwell.settled !== before) apply();
+  return _dwell.settled;
 }
+const tick = () => roomTick();
 
 /** Combat end: the party's room as it is NOW, without waiting out the dwell. */
 function settleRoomNow() {
