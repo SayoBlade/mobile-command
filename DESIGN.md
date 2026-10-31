@@ -2114,7 +2114,11 @@ under it, not a tidier dropdown.**
   workstation.** `isDisplayClient()` returns false for a GM unless **this device's** role is
   explicitly `"display"`. `mc-clean` is additionally gated on `!shouldKeepGmClear()`. The rail's
   `restoreCoreUi()` strips `mc-clean`/`mc-display`/`mc-skin-calendar` at ready and says so in a
-  **permanent** notification naming the setting to fix. The hint pill no longer fades. The `` ` ``
+  **permanent** notification naming the setting to fix. ~~The hint pill no longer fades.~~
+  **Superseded 2026-10-31 (DM: "keep it to 30 seconds from load, even one minute is too much"):**
+  the pill fades 30 s after it appears (load ⇒ 30 s from load; a `` ` `` press restarts it), and a
+  click still dismisses it at once. The rail above, not the pill, is what keeps clean mode
+  recoverable now. The `` ` ``
   keybinding still works — a deliberate press is a deliberate choice — but it now logs the way back.
 
 **Recovery with no UI, no reload and no reinstall:** `MobileCommand.showUI()` restores core UI,
@@ -2247,7 +2251,8 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    `mc-clean` is additionally gated on `!shouldKeepGmClear()`; a ready-time rail
    (`scripts/overlay-guard.js`) un-hides core UI and hides any MC full-viewport layer on a GM
    desktop; the six duplicated `eligible()` gates collapse into one `mayCoverViewport()` behind the
-   per-device opt-in `dmScreenOverlays` (default off); the hint pill no longer fades; the SC rule is
+   per-device opt-in `dmScreenOverlays` (default off); ~~the hint pill no longer fades~~ the hint
+   pill fades 30 s after it appears (DM 2026-10-31, §22.9); the SC rule is
    scoped to `body.mc-skin-calendar:not(.mc-dm-clear)`; `MobileCommand.showUI()` recovers and
    diagnoses from the console with no reload and no reinstall.
 

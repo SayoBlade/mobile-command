@@ -155,10 +155,9 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
 #mc-audio-unlock .mc-au-title { font-size: 30px; font-weight: 800; color: var(--mc-ink, #efe9df); margin-bottom: 12px; }
 #mc-audio-unlock .mc-au-sub { font-size: 17px; line-height: 1.5; color: var(--mc-muted, #a59b86); }
 /* Clean-mode escape-hatch hint: a dismissable pill telling the user how to get the UI back.
-   Exempt from the hiding above (custom id), high z. ~~fades after ~60s~~ §22.9 2026-10-02: it no
-   longer fades — see showCleanHint() in main.js for why a fading escape hatch was the thing that
-   made clean mode unrecoverable. The .mc-fade rule below is kept as the hook for a future
-   deliberate dismissal animation; nothing adds the class today. */
+   Exempt from the hiding above (custom id), high z. ~~fades after ~60s~~ ~~§22.9 2026-10-02: it no
+   longer fades~~ §22.9 2026-10-31: fades 30 s after it appears (showCleanHint() in main.js adds
+   .mc-fade, then removes the node once the transition ends). */
 #mc-clean-hint {
   position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
   z-index: 100000; padding: 10px 18px; border-radius: 999px; cursor: pointer;

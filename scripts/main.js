@@ -63,7 +63,7 @@ Hooks.once("init", () => {
         // §22.9: ` is a single unmodified key on `restricted: false`, so ANY client can hide ALL
         // of Foundry's UI with one keypress — and the hint pill used to be the only way back and
         // used to fade. It still works (a deliberate press is a deliberate choice), but it now
-        // says so where the hint cannot be missed, and the pill no longer disappears.
+        // logs the way back to the console (the pill fades after 30 s again since 2026-10-31).
         if (on) {
           showCleanHint();
           console.warn(`${MODULE_ID} | clean display ON — all Foundry UI is hidden on this client. Press \` again, or run MobileCommand.showUI() in the console, to bring it back.`);
@@ -1595,24 +1595,34 @@ function setupAutoOwnNewPCs() {
 // Clean-display escape-hatch hint: a dismissable pill telling the user how to get the Foundry UI
 // back, so a display-role client (or anyone who toggled clean mode) isn't stranded.
 //
-// §22.9 IT NO LONGER AUTO-FADES (was ~60s). A fading hint is fine on a TV nobody reads and a trap
-// on any screen a person is using: once the pill was gone there was no visible way back from clean
-// mode at all, and with the UI hidden there is no Module Settings to find one in either — which is
-// how the 2026-10-02 blocker became unrecoverable rather than merely annoying. The pill now lives
-// exactly as long as the state it describes: removed by hideCleanHint() when clean mode ends, by
-// the rail when it restores the UI (overlay-guard.js restoreCoreUi), or by a click. The cost is a
-// small pill in the corner of a TV, which is the job it was written for.
+// §22.9 (2026-10-31, DM: "keep it to 30 seconds from load, even one minute is too much"): the pill
+// fades CLEAN_HINT_MS after it appears — at load, that is 30 s from load. The 2026-10-02 no-fade
+// rule is superseded: the stranding it guarded against is closed by the rail instead (a GM client
+// is never auto-promoted to the TV, restoreCoreUi strips mc-clean at ready, MobileCommand.showUI()
+// recovers from the console), so a permanent pill on the TV no longer buys safety. Still removed
+// early by hideCleanHint() when clean mode ends, by the rail, or by a click; ` still toggles.
+const CLEAN_HINT_MS = 30000;
+let cleanHintTimer = null;
 function showCleanHint() {
   let hint = document.getElementById("mc-clean-hint");
   if (!hint) {
     hint = document.createElement("div");
     hint.id = "mc-clean-hint";
     hint.innerHTML = `Table display — press <kbd>\`</kbd> for the Foundry UI`;
-    hint.addEventListener("click", () => hint.remove());
+    hint.addEventListener("click", () => hideCleanHint());
     document.body.appendChild(hint);
   }
+  hint.classList.remove("mc-fade");
+  clearTimeout(cleanHintTimer);
+  cleanHintTimer = setTimeout(() => {
+    hint.classList.add("mc-fade");
+    // Matches the 0.8 s opacity transition in shell.css.
+    cleanHintTimer = setTimeout(() => hint.remove(), 900);
+  }, CLEAN_HINT_MS);
 }
 function hideCleanHint() {
+  clearTimeout(cleanHintTimer);
+  cleanHintTimer = null;
   document.getElementById("mc-clean-hint")?.remove();
 }
 
