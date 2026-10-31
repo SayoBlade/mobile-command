@@ -312,8 +312,15 @@ export async function pick(what) {
   let target = null;
   if (what === "silence") target = { kind: "silence" };
   else if (what === "battle") target = combatTarget(combat) ?? defaultBattle();
-  else { const p = sync(what); if (p?.documentName === "Playlist") target = { kind: "playlist", uuid: p.uuid }; }
-  if (!target) return { ok: false, reason: what === "battle" ? "No battle music set" : "No such playlist" };
+  else {
+    // ⚠️ ONLY A MOOD OR A ROOM OF THIS SCENE (DM 2026-10-31: "rooms only"). The drawer never offers
+    // another scene's music, so a pick naming one is refused rather than played.
+    const p = sync(what);
+    const isMood = moods().some((m) => m.uuid === p?.uuid);
+    const isRoom = scoredRooms(game.scenes?.active).some((r) => r.playlist === p?.uuid);
+    if (p?.documentName === "Playlist" && (isMood || isRoom)) { target = { kind: "playlist", uuid: p.uuid }; what = isRoom && !isMood ? "room" : "mood"; }
+  }
+  if (!target) return { ok: false, reason: what === "battle" ? "No battle music set" : "Not a mood or a room here" };
   if (target.anthem) { const b = battleFor(combatantShapes(combat), null, combat?.getFlag?.(MODULE_ID, "musicPhased") ?? []); target = b.uuid ? { kind: "playlist", uuid: b.uuid } : defaultBattle(); }
   await writeState({ manual: { target, combatId: combat?.id ?? null, what } });
   return { ok: true };
@@ -348,19 +355,32 @@ export function state() {
   const combat = runningCombat();
   const holds = manualStillHolds(manual, combat?.id ?? null) ? manual : null;
   const now = nowPlaying();
+  const roomsHere = scoredRooms(game.scenes?.active ?? null);
   const strip = (n) => String(n ?? "").replace(/^(Room|Fight|Cue|Mood)\s·\s/, "");
   return {
     enabled: musicEnabled(),
     layer: _layer,
     now: strip(now.name), nowUuid: now.uuid,
     auto: !holds,
-    manual: holds ? (["silence", "battle"].includes(holds.what) ? holds.what : "mood") : null,
+    manual: holds ? (["silence", "battle", "room"].includes(holds.what) ? holds.what : "mood") : null,
     manualUuid: holds?.target?.uuid ?? null,
     cue: Boolean(c),
     inCombat: Boolean(combat),
     moods: moods().map((p) => ({ uuid: p.uuid, name: strip(p.name), current: holds?.target?.uuid === p.uuid })),
     battle: Boolean(combatTarget(combat) ?? defaultBattle()),
+    // THIS SCENE'S scored rooms only — never another scene's (DM 2026-10-31). Empty on a scene with
+    // no Music regions (every train car), so a surface offers no room choices there at all.
+    rooms: roomsHere.map((r) => ({ uuid: r.id, name: r.label, playlist: r.playlist,
+      current: holds ? holds.target?.uuid === r.playlist : _dwell.settled === r.id })),
+    nowRoom: roomsHere.find((r) => r.id === _dwell.settled && r.playlist === now.uuid)?.id
+      ?? roomsHere.find((r) => r.playlist === now.uuid)?.id ?? null,
   };
+}
+
+/** Which scored room of the active scene holds this point (a surface matching its own pins). */
+export function roomOf(x, y) {
+  const rooms = scoredRooms(game.scenes?.active ?? null);
+  return rooms.find((r) => partyRoom([{ x, y }], [r]))?.id ?? null;
 }
 
 // ── rooms: the 5-second rule ──────────────────────────────────────────────────────────────────────

@@ -85,4 +85,20 @@ check("dwell time is the world setting (2 s)", M.roomTick(48000) === rooms[1].id
 game.user = P1;
 check("only the primary GM drives", M.roomTick(60000) === null);
 
+// ── rooms only: the surface is offered this scene's rooms, and a pick of anything else is refused ──
+game.user = GM;
+const PL = new Map(["Playlist.lounge", "Playlist.dining", "Playlist.elsewhere", "Playlist.mood"].map((u) => [u, { uuid: u, documentName: "Playlist", name: u, sort: 0, folder: u === "Playlist.mood" ? { id: "F" } : null }]));
+foundry.utils.fromUuidSync = (u) => PL.get(u) ?? null;
+game.folders = [{ id: "F", type: "Playlist", name: "Moods" }];
+game.playlists = Object.assign([...PL.values()], { find: Array.prototype.find });
+game.user.isGM = true;
+const st = M.state();
+check("state lists this scene's scored rooms only, by label or region name", st.rooms.map((r) => r.playlist).join() === "Playlist.lounge,Playlist.dining" && st.rooms[0].name === "Lounge");
+check("roomOf answers the room under a point (a surface's own pin), or null", M.roomOf(50, 50) === rooms[0].id && M.roomOf(5000, 5000) === null);
+check("a pick of this scene's room is accepted", (await M.pick("Playlist.dining")).ok === true && store.get("musicState").manual.what === "room");
+check("a pick of a mood is accepted", (await M.pick("Playlist.mood")).ok === true && store.get("musicState").manual.what === "mood");
+check("a pick of ANOTHER scene's playlist is refused (rooms only)", (await M.pick("Playlist.elsewhere")).ok === false);
+scene.regions = [];
+check("a scene with no Music regions (a train car) offers no rooms at all", M.state().rooms.length === 0);
+
 console.log(`\nall ${n} passed`);
