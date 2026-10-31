@@ -19,3 +19,6 @@ tools/entrances/sndspec.json
 tools/entrances/__pycache__/
 tools/entrances/*.png
 tools/entrances/*.jpg
+
+# Release build output (tools/build-release.mjs)
+dist/
