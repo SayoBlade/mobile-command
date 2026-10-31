@@ -392,6 +392,8 @@ function onTvControl(payload) {
   if (!isDisplayClient()) return; // only the shared display reacts to the rest
   if (payload.cmd === "frameParty") { tvManual = false; framePartyTokens(); }
   else if (payload.cmd === "fitScene") { tvManual = false; fitSceneLocal(); } // §camera: show the whole map
+  else if (payload.cmd === "frameRect") { tvManual = false; frameRectLocal(payload.rect); } // a room (deck-command)
+  else if (payload.cmd === "panTo") { tvManual = false; panToLocal(Number(payload.x), Number(payload.y)); } // a pin (deck-command)
   // Leaving manual control hands the camera back wherever the DM parked it — that view is now
   // the frame the follow maintains, so forget the old pair and re-derive from it.
   else if (payload.cmd === "manual") { tvManual = !!payload.on; if (!tvManual) resetTvFrame(); }
@@ -473,6 +475,45 @@ function tvFitScene() {
   if (isDisplayClient()) fitSceneLocal();
   tvBroadcast({ cmd: "fitScene" });
   if (dmRelaying) setDmRelaying(false);
+}
+
+// Frame a RECTANGLE of the map on the display (deck-command's "Frame room", 2026-11-01). The same
+// shape as fitSceneLocal — computed on the DISPLAY from its own screen, scale locked so the follow
+// holds the frame until the DM reframes — for any {x, y, width, height} in canvas px. The caller
+// decides which rectangle; this only frames it.
+function frameRectLocal(rect) {
+  try {
+    if (!canvas?.ready || !rect || !(rect.width > 0) || !(rect.height > 0)) return false;
+    const [screenW, screenH] = canvas.screenDimensions ?? [window.innerWidth, window.innerHeight];
+    const minZoom = CONFIG.Canvas?.minZoom ?? 0.1, maxZoom = CONFIG.Canvas?.maxZoom ?? 3;
+    const scale = Math.max(minZoom, Math.min(screenW / rect.width, screenH / rect.height, maxZoom) * 0.92);
+    captureAfter(canvas.animatePan({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, scale, duration: 1000, easing: tvEase }));
+    return true;
+  } catch (e) { console.warn(`${MODULE_ID} | frameRectLocal failed`, e); return false; }
+}
+function tvFrameRect(rect) {
+  if (!rect) return false;
+  const r = { x: Number(rect.x), y: Number(rect.y), width: Number(rect.width), height: Number(rect.height) };
+  if (isDisplayClient()) frameRectLocal(r);
+  tvBroadcast({ cmd: "frameRect", rect: r });
+  if (dmRelaying) setDmRelaying(false);
+  return true;
+}
+// Glide the display to a point, keeping its zoom (deck-command's "To pin", 2026-11-01).
+function panToLocal(x, y) {
+  try {
+    if (!canvas?.ready || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+    captureAfter(canvas.animatePan({ x, y, scale: canvas.stage.scale.x, duration: 800, easing: tvEase }));
+    return true;
+  } catch (e) { return false; }
+}
+function tvPanTo(point) {
+  const x = Number(point?.x), y = Number(point?.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+  if (isDisplayClient()) panToLocal(x, y);
+  tvBroadcast({ cmd: "panTo", x, y });
+  if (dmRelaying) setDmRelaying(false);
+  return true;
 }
 
 // --- TV party-follow (DM 2026-06-20 · clearance rework 2026-07-24) ------------
@@ -1015,6 +1056,8 @@ Hooks.once("ready", () => {
     tvManualActive: isTvManualActive,
     tvZoom,                              // zoom the display in/out (factor >1 in, <1 out) — Stream Deck via macro
     tvFitScene,                          // frame the whole scene on the display ("Fit whole scene")
+    tvFrameRect,                         // frame {x,y,width,height} on the display (deck-command "Frame room")
+    tvPanTo,                             // glide the display to {x,y}, zoom kept (deck-command "To pin")
     refreshSoftFog: refreshFog,          // (display) re-apply/clear fog-edge style on the setting change (name kept for callers)
     refreshFog,                          // (display) re-apply/clear fog-edge style (off/soft/gpu)
     // What the follow thinks the DM's frame is (§23). Run on the DISPLAY client when the camera
