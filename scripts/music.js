@@ -370,11 +370,25 @@ export function state() {
     battle: Boolean(combatTarget(combat) ?? defaultBattle()),
     // THIS SCENE'S scored rooms only — never another scene's (DM 2026-10-31). Empty on a scene with
     // no Music regions (every train car), so a surface offers no room choices there at all.
-    rooms: roomsHere.map((r) => ({ uuid: r.id, name: r.label, playlist: r.playlist,
+    rooms: roomsHere.map((r) => ({ uuid: r.id, name: r.label, playlist: r.playlist, box: shapesBox(r.shapes),
       current: holds ? holds.target?.uuid === r.playlist : _dwell.settled === r.id })),
     nowRoom: roomsHere.find((r) => r.id === _dwell.settled && r.playlist === now.uuid)?.id
       ?? roomsHere.find((r) => r.playlist === now.uuid)?.id ?? null,
   };
+}
+
+/** A region's bounding box from its shapes (plain data: a surface can crop the map to the room). */
+function shapesBox(shapes = []) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const grow = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
+  for (const sh of shapes) {
+    if (sh.hole) continue;
+    if (sh.type === "rectangle") { grow(sh.x, sh.y); grow(sh.x + sh.width, sh.y + sh.height); }
+    else if (sh.type === "circle") { grow(sh.x - sh.radius, sh.y - sh.radius); grow(sh.x + sh.radius, sh.y + sh.radius); }
+    else if (sh.type === "ellipse") { grow(sh.x - sh.radiusX, sh.y - sh.radiusY); grow(sh.x + sh.radiusX, sh.y + sh.radiusY); }
+    else if (sh.type === "polygon") for (let i = 0; i + 1 < (sh.points?.length ?? 0); i += 2) grow(sh.points[i], sh.points[i + 1]);
+  }
+  return Number.isFinite(x0) ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
 }
 
 /** Which scored room of the active scene holds this point (a surface matching its own pins). */

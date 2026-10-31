@@ -94,6 +94,7 @@ game.playlists = Object.assign([...PL.values()], { find: Array.prototype.find })
 game.user.isGM = true;
 const st = M.state();
 check("state lists this scene's scored rooms only, by label or region name", st.rooms.map((r) => r.playlist).join() === "Playlist.lounge,Playlist.dining" && st.rooms[0].name === "Lounge");
+check("each room carries its region's box, so a surface can crop the map to it", JSON.stringify(st.rooms[0].box) === JSON.stringify({ x: 0, y: 0, w: 400, h: 400 }));
 check("roomOf answers the room under a point (a surface's own pin), or null", M.roomOf(50, 50) === rooms[0].id && M.roomOf(5000, 5000) === null);
 check("a pick of this scene's room is accepted", (await M.pick("Playlist.dining")).ok === true && store.get("musicState").manual.what === "room");
 check("a pick of a mood is accepted", (await M.pick("Playlist.mood")).ok === true && store.get("musicState").manual.what === "mood");
