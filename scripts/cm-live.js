@@ -69,6 +69,13 @@ function changeLive(mutate) {
 export const SEANCE_DICE = [4, 6, 8, 10, 12];
 /** The four words printed on the board — the planchette lands on them whole (seance.js WORDS). */
 export const SEANCE_WORDS = ["YES", "NO", "HELLO", "GOODBYE"];
+/**
+ * The book's own suggested answers (Chapter 12, H3 Parlor — "possible questions and answers to guide
+ * your own play"), in the book's order, ending on Patrini's final message. Spelled out letter by
+ * letter; the DM still writes most answers himself (DM 2026-11-01). Offered after the board's words.
+ */
+export const SEANCE_ANSWERS = ["PATRINI", "UPSTAIRS", "MURDER", "EUSTACE LOCKWOOD", "HAG", "ATTIC",
+  "6 MEMENTOS", "GEM KEY CUP DOLL BEAR PIN", "EVERY FLOOR", "FIND MY SON HE LIVES"];
 
 export function seanceDie(step = cmLive().seance.step) { return SEANCE_DICE[Math.min(step, SEANCE_DICE.length - 1)]; }
 export function seanceGlitchLevel(step = cmLive().seance.step) { return [0.22, 0.45, 0.65, 0.85, 1][Math.min(step, 4)]; }

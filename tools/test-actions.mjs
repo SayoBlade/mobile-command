@@ -120,8 +120,9 @@ check("a d10 of 1 arms the bite: it glows, and the d10 goes dim until it is used
   const r = row("cm", "cm.seanceSay");
   fired.length = 0;
   await run("cm.seanceSay", { choice: "GOODBYE" });
-  check("the board says: the four printed words, and the chosen one goes to the planchette",
-    r.choices.map((c) => c.id).join() === "YES,NO,HELLO,GOODBYE" && fired[0]?.id === "seancePhrase" && fired[0].text === "GOODBYE");
+  check("the board says: the four printed words first, then the book's answers; the chosen one goes to the planchette",
+    r.choices.slice(0, 4).map((c) => c.id).join() === "YES,NO,HELLO,GOODBYE" && r.choices.at(-1)?.id === "FIND MY SON HE LIVES"
+      && fired[0]?.id === "seancePhrase" && fired[0].text === "GOODBYE");
 }
 
 /* ── 15–18 twists, fate, tarot ────────────────────────────────────────────────────────────────── */

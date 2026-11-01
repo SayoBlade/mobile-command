@@ -8,7 +8,7 @@ import { currentHour, isDruskScene } from "./druskenvald.js";
 import { trainScenes, trainMistOn } from "./cm-train.js";
 import { scenePcs, pcUser } from "./roster.js";
 import {
-  cmLive, SEANCE_WORDS, seanceDie, seanceSitters, toggleSeanceSitter, toggleSeanceBoard, seanceQuestion, seanceBite,
+  cmLive, SEANCE_WORDS, SEANCE_ANSWERS, seanceDie, seanceSitters, toggleSeanceSitter, toggleSeanceBoard, seanceQuestion, seanceBite,
   seanceSay, CURSE_MINUTES, curseState, curseCandidates, bargainRequests, bargainModeOn, setCurseTarget, setCurseMinutes,
   rollStagedCurse, pickStagedCurse, cancelStagedCurse, acceptStagedCurse, strikeBargain, declineBargain, toggleBargainMode,
   liftCurse, setFateThread, fateTouch, adjustTwists, twistRequests, spendTwist, refundTwist, armedTwists, disarmTwist,
@@ -410,7 +410,7 @@ defineActions([
   cm({
     id: "cm.seanceSay", group: "Séance", kind: "pick", label: "Answer", ...scene("seanceSay"),
     when: () => boardOn(),
-    choices: () => SEANCE_WORDS.map((w) => ({ id: w, label: w })),
+    choices: () => [...SEANCE_WORDS, ...SEANCE_ANSWERS].map((w) => ({ id: w, label: w })),
     run: ({ choice }) => (seanceSay(choice) ? undefined : { ok: false, reason: "nothing to say" }),
   }),
 

@@ -8905,3 +8905,5 @@ read as text so a rename can't silently ungate a surface (every gated action sti
 `surfaceOn` key is known and each surface is used, no direct setting reads, the dispatcher guard,
 both hooks, the rescue's clears, the three `#partyUI()` sites, the registration shape, the My Story
 confirm).
+
+> **2026-11-01 — the Answer pick offers the book's answers too** (DM: "look at the journal for suggestions, then fill them up, I'm guessing most will be written by dm"). `SEANCE_ANSWERS` in cm-live.js: Chapter 12 H3 Parlor's suggested answers in the book's order — PATRINI, UPSTAIRS, MURDER, EUSTACE LOCKWOOD, HAG, ATTIC, 6 MEMENTOS, GEM KEY CUP DOLL BEAR PIN, EVERY FLOOR, FIND MY SON HE LIVES — after the four printed words. Spelled by the planchette like any phrase. test-actions 42/42.
