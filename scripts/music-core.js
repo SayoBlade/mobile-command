@@ -143,3 +143,45 @@ export class Dwell {
     return this.settled;
   }
 }
+
+// ── the overlap inside a playlist (ported from deck-command's overlap.js, 2026-11-06) ─────────────
+
+export const OVERLAP_SETTING = "musicOverlapSeconds";
+export const OVERLAP_DEFAULT = 5;
+export const OVERLAP_ROLES = new Set(["room", "battle", "mood"]);
+
+/** Is this playlist one the overlap applies to? `{ mode, flags }` in; the role is the flag ch10 writes. */
+export function overlapApplies(pl, modes) {
+  const role = pl?.flags?.["mobile-command"]?.music?.role ?? null;
+  if (!OVERLAP_ROLES.has(role)) return false;
+  return pl.mode === modes.SEQUENTIAL || pl.mode === modes.SHUFFLE;
+}
+
+/**
+ * When to hand off, in ms from now, or null for "never".
+ * @param {{ duration: number, elapsed: number, overlap: number, repeat?: boolean }} t  seconds
+ */
+export function handOffIn({ duration, elapsed, overlap, repeat = false }) {
+  if (repeat || !(overlap > 0) || !Number.isFinite(duration) || !Number.isFinite(elapsed)) return null;
+  // a track shorter than two overlaps would spend its whole life fading: leave it to core
+  if (duration < overlap * 2) return null;
+  const at = duration - overlap - elapsed;
+  return Math.max(0, Math.round(at * 1000));
+}
+
+/**
+ * The update for one hand-off: the shape core's `playNext` writes, plus the two fades.
+ * @returns {{ sounds: object[], restore: object[] } | null}
+ */
+export function handOffUpdate(sounds, currentId, nextId, overlapMs) {
+  if (!nextId || nextId === currentId) return null;
+  const by = new Map(sounds.map((s) => [s.id, s]));
+  if (!by.has(currentId) || !by.has(nextId)) return null;
+  const update = sounds.map((s) => {
+    const u = { _id: s.id, playing: s.id === nextId, pausedTime: null };
+    if (s.id === currentId || s.id === nextId) u.fade = overlapMs;
+    return u;
+  });
+  const restore = [currentId, nextId].map((id) => ({ _id: id, fade: by.get(id).fade ?? null }));
+  return { sounds: update, restore };
+}

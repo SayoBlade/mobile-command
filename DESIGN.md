@@ -50,7 +50,7 @@ sections their cross-references always claimed).
 | 22 | Standing rules + open ledger | **Current — the ledger** |
 | 23 | TV camera clearance model | Built (geometry unit-tested) |
 | 24 | Fog-of-war edges (soft + GPU) | Done — DM signed off 2026-07-26 |
-| 25 | DM panel restructure + combat music | Built; §25.4 leftovers pruned by DM 2026-08-09 |
+| 25 | DM panel restructure + combat music | Built; §25.4 leftovers pruned by DM 2026-08-09; §25.5 the overlap between tracks, moved in from Deck Command 2026-11-06 |
 | 26, 26.6, 26.7 | Effects tab; targeted effects; deathbeat | Built; extras APPROVED 2026-08-09 (stop-all done; volume/surround/looks queued) |
 | 27 | Personal messages | Built (+ pmToast 2026-08-10/11) |
 | 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records; **§28.5.13 = the dnd5e 6.0 gate (2026-09-11): our code ready, midi not; §28.5.14 = AC5E .19 audit + the no-roll advantage route PROVEN and BUILT (2026-09-15; §28.8 retired)** |
@@ -2318,6 +2318,13 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
 0ᶜ. **CLOSED 2026-11-05 — players' Simple Calendar one step behind after Foundry 14.370.** Fixed and
    verified live in `crooked-moon-test`; full write-up in §22.11. Nothing owed.
 
+0ᵈ. **OPEN 2026-11-06 — the overlap between tracks moved from Deck Command into MC (§25.5).** Built,
+   unit-tested, and Deck Command's copy removed. **Owed:** one live listen in `crooked-moon-test` after a
+   GM reload, because the port ran no live check (another task held the world): (1) `MobileCommand.music.overlap()`
+   shows a Room track `armed: true`; (2) the next track starts 5 s before the end, no silence on the TV;
+   (3) fades are back at their authored values; (4) one fight playlist and one mood hand off the same
+   way, never yet played live. Also check whether `deck-command.musicOverlapSeconds` was ever moved off 5.
+
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
    - **His batch of 2026-09-19 (the deck's FX boards, the flows, the intros — DC ledger 152):** MC's half is
      **built**: fog layers over rain/snow/leaves (§26.1), the intro camera centred and twice as close, the Crooked
@@ -3092,6 +3099,41 @@ anthem hardening. §46/§36.1.6 later fixed the repaint scroll-snap and the rend
 - **The battle-music dropdown** in the Combat staging is the first concrete piece of the "bigger
   combat-music feature" the DM flagged; further staging ideas (multiple battle tracks, per-encounter
   overrides) are unspecced.
+
+### 25.5 The overlap between tracks inside a playlist (moved here 2026-11-06)
+
+**Status 2026-11-06: PORTED, unit-tested, NOT re-measured in MC** (the test world was held by another
+task). The measurements below were taken 2026-11-05 on Deck Command's copy, which was identical code.
+Ledger 0ᵈ owes one live listen.
+
+- **Where it lives:** the pure rules in `scripts/music-core.js` (`overlapApplies`, `handOffIn`,
+  `handOffUpdate`), the Foundry half in `scripts/music.js` beside `crossfade()`, tests in
+  `tools/test-music.mjs`. World setting `mobile-command.musicOverlapSeconds`, default 5, 0 = off.
+  `MobileCommand.music.overlap()` reports each playing track for a console check.
+- **Why MC:** written in Deck Command on 2026-11-05 only because that night's session could not reach
+  this repo. Deck Command's `overlap.js`, its setting registration and its test were removed the same
+  day as this port, so only one copy can fire. The old `deck-command.musicOverlapSeconds` value stays
+  in the world unread (never delete); if the DM had moved it off 5, set it again here.
+- **Core has no overlap (read from core 14.370 and measured on the TV client, overlap off):** a track
+  fades out over its last `fade`, and only its end starts the next. Hollow Oak faded 0.80→0 over 3 s,
+  then **7.5 s of silence**, then Blackwater Marsh faded in. The gap exceeds the fade because the GM
+  client has to hear the end, write the next track, and the TV then loads the file.
+- **What it does:** that many seconds before a track ends, the active GM writes the update core's
+  `playNext` writes, with both tracks' `fade` set to the overlap for that one hand-off. Foundry syncs
+  it, so every client crossfades. The two fades are put back `overlap + 1.5 s` later (measured: all four
+  tracks back at 3000). Measured at overlap 5: Hollow Oak 0.03 while Blackwater 0.77, crossing at
+  0.45/0.35 at 2 s and 0.13/0.67 at 4 s, full 0.80 at 5 s. **No silence.**
+- **Scope:** playlists flagged role room, battle or mood, in sequential or shuffle mode. Cues keep their
+  own hand-off (the reveal already ends 2 s early, `armCueEnd`). Ambience beds and anything unflagged
+  stay with core. Repeating tracks and tracks shorter than two overlaps stay with core.
+- ⚠️ **It does not read the "Music follows the table" switch**, as in Deck Command: the flag alone
+  decides. Kept that way because the port was asked to be identical.
+- ⚠️ **One-shot timers, not a poll:** Chrome's intensive throttling hits chained timers only, so one
+  `setTimeout` per track stays about 1 s accurate in a hidden GM tab.
+- ⚠️ **Limits, both core's:** a GM tab that was never clicked has locked audio, never hears a track end,
+  and the playlist simply stops. A track already playing when that locked tab loaded can't be timed, so
+  that one track ends the old way; every track after it overlaps.
+- **Only Room playlists were measured live.** Fight and mood take the same path (role check unit-tested).
 
 ---
 

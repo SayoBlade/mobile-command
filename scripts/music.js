@@ -24,12 +24,15 @@
  *    time (5 s, a world setting) → that room's playlist. Split party or an unscored room → keep.
  *  - SCENE: the scene's own Playlist field (core already plays it on activation).
  *
+ * crossfade() below moves BETWEEN playlists. The overlap section after it moves between two tracks
+ * INSIDE one playlist, which core does not do.
+ *
  * State shared between GM clients lives in the `musicState` world setting ({manual, cue}), so a
  * press on any GM client is acted on by the driver. The settled room is the driver's memory only.
  */
 import { MODULE_ID } from "./preset.js";
 import { combatMusicMode, configureForCombat, restoreTouched } from "./combat-music.js";
-import { resolveMusic, targetKey, battleFor, manualStillHolds, partyRoom, Dwell } from "./music-core.js";
+import { resolveMusic, targetKey, battleFor, manualStillHolds, partyRoom, Dwell, OVERLAP_SETTING, OVERLAP_DEFAULT, overlapApplies, handOffIn, handOffUpdate } from "./music-core.js";
 
 export const MUSIC_BEHAVIOR_TYPE = `${MODULE_ID}.music`;
 const HOOK = `${MODULE_ID}.music`;
@@ -216,6 +219,100 @@ async function crossfade(target) {
     }
   }
   return true;
+}
+
+// ── the overlap inside a playlist ─────────────────────────────────────────────────────────────────
+//
+// Ported from deck-command's overlap.js on 2026-11-06 (built and measured there 2026-11-05; DESIGN
+// §25.5). DM: "the second track should start several seconds before the first ends leading to less
+// silence between tracks". Core 14.370 fades a track out over its last `fade`, and only its end
+// starts the next, which fades IN: fade-out, then fade-in, no overlap.
+//
+// `musicOverlapSeconds` (default 5, 0 = off) before a track ends, the active GM writes the same
+// update core's `playNext` writes, with both sounds' `fade` set to the overlap for that one hand-off.
+// Foundry syncs it, so every client crossfades. The two fades go back afterwards, so his playlists
+// are net unchanged. Only playlists flagged room, battle or mood: cues keep their own hand-off, and
+// anything unflagged (ambience beds, his other playlists) is left to core.
+//
+// ⚠️ ONE-SHOT TIMERS, NOT A POLL. A hidden GM tab throttles timers; Chrome's intensive throttling
+// (once a minute) hits CHAINED timers only, so one setTimeout per track keeps ~1 s accuracy in a
+// background tab where an interval would drift by a minute.
+
+const _overlapTimers = new Map();    // sound id -> timeout
+const _overlapStarted = new Map();   // sound id -> ms timestamp the track began (offset already subtracted)
+const _overlapDurations = new Map(); // path -> seconds
+
+const overlapSeconds = () => Number(setting(OVERLAP_SETTING, OVERLAP_DEFAULT)) || 0;
+
+/** The track's length: the loaded AudioSound if this client has one, else the file's metadata. */
+async function durationOf(ps) {
+  const local = ps.sound?.duration;
+  if (Number.isFinite(local) && local > 0) return local;
+  if (_overlapDurations.has(ps.path)) return _overlapDurations.get(ps.path);
+  const d = await new Promise((resolve) => {
+    const a = new Audio(); a.preload = "metadata";
+    const done = (v) => { a.src = ""; resolve(v); };
+    a.addEventListener("loadedmetadata", () => done(a.duration), { once: true });
+    a.addEventListener("error", () => done(NaN), { once: true });
+    setTimeout(() => done(NaN), 15000);
+    a.src = ps.path;
+  });
+  if (Number.isFinite(d)) _overlapDurations.set(ps.path, d);
+  return d;
+}
+
+function clearOverlap(id) { const t = _overlapTimers.get(id); if (t) clearTimeout(t); _overlapTimers.delete(id); }
+
+async function armOverlap(ps) {
+  clearOverlap(ps.id);
+  if (!isDriver() || !ps.playing || ps.repeat) return;
+  const pl = ps.parent;
+  if (!overlapApplies(pl, CONST.PLAYLIST_MODES)) return;
+  const overlap = overlapSeconds(); if (!(overlap > 0)) return;
+  const duration = await durationOf(ps);
+  // elapsed: the local sound's clock when it is running here, else the time since we saw it start
+  const local = ps.sound?.playing ? ps.sound.currentTime : null;
+  const t0 = _overlapStarted.get(ps.id);
+  const elapsed = Number.isFinite(local) ? local : (t0 != null ? (Date.now() - t0) / 1000 : null);
+  const ms = handOffIn({ duration, elapsed, overlap, repeat: ps.repeat });
+  if (ms == null) return;
+  _overlapTimers.set(ps.id, setTimeout(() => handOff(ps.parent?.id, ps.id).catch((e) => console.warn(`${MODULE_ID} | overlap:`, e?.message)), ms));
+}
+
+async function handOff(playlistId, soundId) {
+  _overlapTimers.delete(soundId);
+  const pl = game.playlists.get(playlistId); const cur = pl?.sounds.get(soundId);
+  if (!isDriver() || !pl?.playing || !cur?.playing) return;
+  const following = pl._getNextSound?.(soundId); if (!following) return;
+  const ms = Math.round(overlapSeconds() * 1000);
+  const plan = handOffUpdate([...pl.sounds].map((s) => ({ id: s.id, fade: s._source?.fade ?? null })), soundId, following.id, ms);
+  if (!plan) return;
+  await pl.update({ sounds: plan.sounds });
+  // his fades back once both ramps are done; a stopped sound and a sound at volume ignore it
+  setTimeout(() => { const p = game.playlists.get(playlistId); if (p) p.update({ sounds: plan.restore }).catch(() => {}); }, ms + 1500);
+}
+
+function startOverlap() {
+  Hooks.on("updatePlaylist", (pl, chg) => {
+    for (const s of chg?.sounds ?? []) {
+      const ps = pl.sounds.get(s._id); if (!ps) continue;
+      if (s.playing === true) { _overlapStarted.set(ps.id, Date.now() - (Number(ps.pausedTime) || 0) * 1000); armOverlap(ps); }
+      else if (s.playing === false) { clearOverlap(ps.id); _overlapStarted.delete(ps.id); }
+    }
+    if (chg?.playing === false) for (const ps of pl.sounds) { clearOverlap(ps.id); _overlapStarted.delete(ps.id); }
+  });
+  // already playing when this client loaded: only a local clock can say how far in it is
+  const sweep = () => { for (const pl of game.playlists.playing) for (const ps of pl.sounds) if (ps.playing && !_overlapTimers.has(ps.id)) armOverlap(ps); };
+  setTimeout(sweep, 5000);
+  Hooks.on("userConnected", () => setTimeout(sweep, 2000)); // the driving GM may have changed
+}
+
+/** For a test from the console: what the overlap thinks of every playing track. */
+export function overlapState() {
+  return [...game.playlists.playing].flatMap((pl) => [...pl.sounds].filter((s) => s.playing).map((s) => ({
+    playlist: pl.name, sound: s.name, applies: overlapApplies(pl, CONST.PLAYLIST_MODES), armed: _overlapTimers.has(s.id),
+    elapsed: s.sound?.playing ? s.sound.currentTime : (_overlapStarted.has(s.id) ? (Date.now() - _overlapStarted.get(s.id)) / 1000 : null),
+  })));
 }
 
 async function applyNow({ silenceIfKeep = false, adoptOnly = false } = {}) {
@@ -471,6 +568,11 @@ export function registerMusicBehavior() {
       hint: "How long every player character has to stand in a room with music before it switches.",
       scope: "world", config: true, type: Number, default: 5, range: { min: 0, max: 30, step: 1 },
     });
+    game.settings.register(MODULE_ID, OVERLAP_SETTING, {
+      name: "Music: overlap between tracks (seconds)",
+      hint: "In room, fight and mood playlists the next track starts this many seconds before the current one ends, the two crossfading. 0 = off (Foundry's own fade-out, then fade-in).",
+      scope: "world", config: true, type: Number, default: OVERLAP_DEFAULT, range: { min: 0, max: 15, step: 1 },
+    });
     // {manual, cue} — shared so a press on any GM client is acted on by the driver.
     game.settings.register(MODULE_ID, "musicState", { scope: "world", config: false, type: Object, default: {}, onChange: () => apply() });
   } catch (e) { console.error(`${MODULE_ID} | music settings`, e); }
@@ -511,4 +613,5 @@ export function registerMusic() {
   clearInterval(_tick);
   _tick = setInterval(tick, TICK_MS);
   apply({ adoptOnly: true });
+  try { startOverlap(); } catch (e) { console.warn(`${MODULE_ID} | overlap:`, e?.message); } // every client listens; only the active GM writes
 }

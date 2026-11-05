@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const { resolveMusic, targetKey, manualStillHolds, battleFor, inShape, inRegion, partyRoom, Dwell } =
+const { resolveMusic, targetKey, manualStillHolds, battleFor, inShape, inRegion, partyRoom, Dwell, OVERLAP_DEFAULT, overlapApplies, handOffIn, handOffUpdate } =
   await import(pathToFileURL(path.join(ROOT, "scripts", "music-core.js")).href);
 
 let n = 0;
@@ -71,6 +71,25 @@ d.tick(null, 6000);
 check("dwell: split keeps the settled room", d.settled === "A");
 d.tick("B", 7000); d.tick(null, 9000); d.tick("B", 9500);
 check("dwell: leaving before 5 s resets the clock", d.tick("B", 13000) === "A" && d.tick("B", 14500) === "B");
+
+// ── the overlap inside a playlist (ported with deck-command's test-overlap, 2026-11-06) ────────────
+const MODES = { DISABLED: -1, SEQUENTIAL: 0, SHUFFLE: 1, SIMULTANEOUS: 2 };
+const flagged = (role, mode = MODES.SHUFFLE) => ({ mode, flags: role ? { "mobile-command": { music: { role } } } : {} });
+check("overlap: the default is 5 s", OVERLAP_DEFAULT === 5);
+check("overlap: room, battle and mood apply", overlapApplies(flagged("room"), MODES) && overlapApplies(flagged("battle", MODES.SEQUENTIAL), MODES) && overlapApplies(flagged("mood"), MODES));
+check("overlap: cues and unflagged playlists keep core's hand-off", !overlapApplies(flagged("cue", MODES.SIMULTANEOUS), MODES) && !overlapApplies(flagged("cue"), MODES) && !overlapApplies(flagged(null), MODES));
+check("overlap: a simultaneous room does not apply", !overlapApplies(flagged("room", MODES.SIMULTANEOUS), MODES));
+check("overlap: hand-off is `overlap` seconds before the end", handOffIn({ duration: 180, elapsed: 0, overlap: 5 }) === 175000 && handOffIn({ duration: 180, elapsed: 170, overlap: 5 }) === 5000);
+check("overlap: already past the point → now", handOffIn({ duration: 180, elapsed: 178, overlap: 5 }) === 0);
+check("overlap: never for a repeat, a short track or overlap 0", handOffIn({ duration: 180, elapsed: 0, overlap: 5, repeat: true }) === null && handOffIn({ duration: 8, elapsed: 0, overlap: 5 }) === null && handOffIn({ duration: 180, elapsed: 0, overlap: 0 }) === null);
+check("overlap: unknown length or position → leave it to core", handOffIn({ duration: NaN, elapsed: 0, overlap: 5 }) === null && handOffIn({ duration: 180, elapsed: null, overlap: 5 }) === null);
+const tracks = [{ id: "a", fade: 3000 }, { id: "b", fade: null }, { id: "c", fade: 3000 }];
+const plan = handOffUpdate(tracks, "a", "b", 5000);
+check("overlap: one update, core's playNext shape, both fades set to the overlap", JSON.stringify(plan.sounds) === JSON.stringify([
+  { _id: "a", playing: false, pausedTime: null, fade: 5000 }, { _id: "b", playing: true, pausedTime: null, fade: 5000 }, { _id: "c", playing: false, pausedTime: null },
+]), JSON.stringify(plan.sounds));
+check("overlap: the restore puts his fades back", JSON.stringify(plan.restore) === JSON.stringify([{ _id: "a", fade: 3000 }, { _id: "b", fade: null }]));
+check("overlap: one track has nothing to overlap with", handOffUpdate(tracks, "a", "a", 5000) === null && handOffUpdate(tracks, "a", null, 5000) === null);
 
 // ── the licence: no audio anywhere in what the layer stores or the playlist script writes ──────────
 const music = fs.readFileSync(path.join(ROOT, "scripts", "music.js"), "utf8");

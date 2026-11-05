@@ -36,7 +36,7 @@ import { travelState } from "./dm-panel.js"; // §18 travel state for the public
 import "./actions-travel.js"; // the travel area, which was declared and published nothing (2026-10-18)
 import "./actions-asks.js"; // §55.6 players waiting on the DM (a Basic travel square) — the deck's Notifications
 import { registerSoundBehavior, cues } from "./region-sound.js"; // §53 the "Sound" region behaviour + the house door sets
-import { registerMusicBehavior, registerMusic, state as musicState, pick as musicPick, next as musicNext, cue as musicCue, moods as musicMoods, roomOf as musicRoomOf } from "./music.js"; // the music layer (deck-command MUSIC-LAYER.md)
+import { registerMusicBehavior, registerMusic, state as musicState, pick as musicPick, next as musicNext, cue as musicCue, moods as musicMoods, roomOf as musicRoomOf, overlapState as musicOverlap } from "./music.js"; // the music layer (deck-command MUSIC-LAYER.md)
 import { installOverlayGuard, sweepCoveringLayers, reapplyGuard, restoreCoreUi, forceRail, stuckOverlayStates, clearedLayers, shouldKeepGmClear, verifyRail } from "./overlay-guard.js"; // §22.7/§22.9 the DM is never covered or hidden
 
 Hooks.once("init", () => {
@@ -1050,7 +1050,7 @@ Hooks.once("ready", () => {
     // THE MUSIC LAYER, for any surface (the deck's Music key and drawer; a cue step `music:`).
     // state() answers what is playing and what is pinned; the verbs write the shared state the
     // primary GM acts on. Hook "mobile-command.music" fires with state() on every change.
-    music: { state: musicState, pick: musicPick, next: musicNext, cue: musicCue, roomOf: musicRoomOf, moods: () => musicMoods().map((p) => ({ uuid: p.uuid, name: p.name })) },
+    music: { state: musicState, pick: musicPick, next: musicNext, cue: musicCue, roomOf: musicRoomOf, overlap: musicOverlap, moods: () => musicMoods().map((p) => ({ uuid: p.uuid, name: p.name })) },
     frameParty: framePartyTokens,        // local canvas only
     focusParty: focusPartyAll,           // here + the display(s) + exit manual
     toggleTvManual,                      // DM drives the display by panning own view
