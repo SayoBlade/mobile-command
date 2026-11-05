@@ -11,7 +11,7 @@ import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerTrainFollow, wireTrainDoors, setTrainMist, setTrainSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
 import { registerAoO } from "./aoo.js";
-import { setupCalendarSkin, applyCalendarSkinClass } from "./gametime.js";
+import { setupCalendarSkin, applyCalendarSkinClass, redrawCalendarAfterSave } from "./gametime.js";
 import { registerFog, refreshFog } from "./fog-soft.js";
 import { registerCombatMusic, combatTracks, setCombatTrack } from "./combat-music.js";
 import { registerCampaigns } from "./campaigns.js"; // §50 campaign recognition (Ember creation fit-shim)
@@ -973,6 +973,7 @@ Hooks.once("ready", () => {
   // train cars so the jolt is visible inside a carriage (his ruling 2026-10-13). See cm-train.js.
   freeTrainWeather().catch((e) => console.warn(`${MODULE_ID} | freeTrainWeather`, e?.message));
   setupCalendarSkin(); // SC Reborn's popup = the table's "Calendar": retitle (tool column hidden in CSS)
+  Hooks.on("updateSetting", redrawCalendarAfterSave); // §22.11: a player's calendar catches up when the GM's save lands
   registerAoO(); // opportunity-attack movement watcher (executor-gated inside; see aoo.js)
   registerFog(); // fog-of-war edge styles on the display (off/soft/gpu via `fogStyle`; see fog-soft.js)
   registerMusic();       // rooms, battle, Phase 2, cues — crossfaded; the primary GM drives (music.js)

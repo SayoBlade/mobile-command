@@ -38,13 +38,18 @@ export function hasSimpleCalendar() {
   }
 }
 
+/** SC Reborn's calendar window, if it's on this client's screen right now (a V1 app of class MainApp). */
+function openCalendarWindow() {
+  return Object.values(ui.windows ?? {}).find(w => w?.constructor?.name === "MainApp") ?? null;
+}
+
 /** Open the SC Reborn calendar, or CLOSE it if it's already up (a second tap on the calendar button
  *  dismisses it — DM 2026-07-24). SC's public api exposes only showCalendar (open-only, no toggle in
  *  this build), so we detect the open window ourselves — it's a V1 app of class MainApp — and close
  *  it; otherwise we open via the api. */
 export function toggleSimpleCalendar() {
   try {
-    const open = Object.values(ui.windows ?? {}).find(w => w?.constructor?.name === "MainApp");
+    const open = openCalendarWindow();
     if (open) return void open.close();
     globalThis.SimpleCalendar?.api?.showCalendar?.();
   } catch (e) { console.warn("mobile-command | calendar toggle failed", e); }
@@ -105,6 +110,23 @@ export function setupCalendarSkin() {
       }
     } catch (e) { /* skin only — never break the calendar */ }
   });
+}
+
+/** §22.11 (2026-11-05, Foundry 14.370 + SC Reborn 2.6.1): a player's calendar lags one step behind.
+ *  On a world-time tick SC's `updateWorldTime` handler can't set its own date on a client without
+ *  the change-time permission, so that redraw paints the OLD time. The right time arrives moments
+ *  later in the GM's save of this world setting, and SC's onChange reloads the calendar but only
+ *  redraws if the DAY changed. So redraw here, on the save: Foundry fires `updateSetting` AFTER
+ *  that onChange has run. `updateWorldTime` would be too early, it repaints the old time.
+ *  SC's api has no redraw (showCalendar opens a closed window and resets its compact view), so this
+ *  asks the open window to do it with SC's own updateApp. No window, no GM, or no SC = nothing. */
+const SC_CALENDAR_SAVE = "foundryvtt-simple-calendar-reborn.calendar-configuration";
+
+export function redrawCalendarAfterSave(setting) {
+  try {
+    if (setting?.key !== SC_CALENDAR_SAVE || game.user?.isGM) return;
+    openCalendarWindow()?.updateApp?.();
+  } catch (e) { /* cosmetic — never break a setting update */ }
 }
 
 /** §50.4 (Ember dive, 2026-08-21): the SECOND backend — Foundry v14's own world calendar.

@@ -2206,6 +2206,33 @@ cases (iPhone portrait/landscape, iPad 10 and 12.9, the 1568×900 bug client, to
 two sizes, a narrow mouse window, and the three uncertainty paths) — 11/11 as specified. **NOT run
 in Foundry; no live client has seen this.**
 
+### 22.11 A player's calendar lags one step behind (2026-11-05) — redraw when the GM's save lands
+
+**Status: FIXED and verified live 2026-11-05** in `crooked-moon-test` (Foundry 14.370, dnd5e 6.0.6,
+SC Reborn 2.6.1). After Foundry 14.370 the calendar window on PLAYER screens showed the previous
+time; the GM's was right.
+
+**Cause (read from SC's `index.js`):** SC's `updateWorldTime` handler calls `setDateTime`, which a
+client without the change-time permission is refused, so the redraw paints the old time. The right
+time arrives moments later in the GM's save of the world setting
+`foundryvtt-simple-calendar-reborn.calendar-configuration`. Its onChange (`loadCalendars`) reloads
+the date but calls `updateApp` only if the DAY changed.
+
+**Fix (`redrawCalendarAfterSave`, scripts/gametime.js, hooked in main.js):** on `updateSetting` for
+that key, on a non-GM client, call `updateApp()` on the open MainApp window. Foundry's client
+backend runs `doc._onUpdate` (which fires the onChange) before `Hooks.callAll("updateSetting")`, so
+the calendar is already current. `updateWorldTime` is too early. SC's api has no redraw:
+`showCalendar` opens a closed window and resets compact view, so it is not used. No window, a GM
+client, or no module = no-op. Applies to any non-GM client, so the TV account too.
+
+**Proof:** `tools/test-calendar-redraw.mjs` 5/5. Live, GM + Player1 side by side, clock paused,
+SC clock stopped: three 1-minute advances matched on both widgets (00:05:25, 00:06:25, 00:07:25).
+Control: hook removed from the player tab only, a fourth advance left the player's widget on
+00:07:25 with SC's own time at 00:08:25, so the fix is what closes the gap. Clock restored to
+1791331465 (00:04:25); both seats logged out, server reports 0 users.
+
+**Not tested:** SC's real-time clock running (the save then arrives on SC's own save interval).
+
 ### 22.5 Release state (refreshed 2026-08-19)
 
 Last release: **v0.2.0, 2026-07-26**; everything since is pushed but unreleased. The next cut
@@ -2287,6 +2314,9 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    screen, or plain Foundry?" question, instead of the app. **Open sub-items (both §22.10, neither
    a repair):** a convertible in tablet mode under 820px is still read as a phone, and the dialog's
    "Keep it as the TV" button remains a no-op on the new path — relabelling it is his copy call.
+
+0ᶜ. **CLOSED 2026-11-05 — players' Simple Calendar one step behind after Foundry 14.370.** Fixed and
+   verified live in `crooked-moon-test`; full write-up in §22.11. Nothing owed.
 
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
    - **His batch of 2026-09-19 (the deck's FX boards, the flows, the intros — DC ledger 152):** MC's half is
