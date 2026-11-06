@@ -411,8 +411,10 @@ check("Spend takes the twist, posts the public fate card, and the request leaves
   check("Storm outdoors is Animater's thunderstorm, and MC's rolling storm is dropped",
     scene.weather === "animater.thunderstorm" && row("effects", "fx.storm").on === true && !store.get("fxActive").storm, `${scene.weather} · ${JSON.stringify(store.get("fxActive"))}`);
   const shots = fired.length, said = notes.length;
-  const refused = await run("fx.lightning");
-  check("Lightning outdoors refuses once, in words, and nothing fires", fired.length === shots && notes.length === said + 1, JSON.stringify(refused));
+  await run("fx.lightning");
+  const strike = fired[fired.length - 1];
+  check("the Lightning key outdoors fires one strike, Animater's, and says nothing",
+    fired.length === shots + 1 && strike?.id === "lightning" && strike?.animater === true && notes.length === said, JSON.stringify(strike));
   await run("fx.storm");
   check("Storm off clears it", scene.weather === "" && row("effects", "fx.storm").on === false, scene.weather);
   scene.flags = { animater: { acoustics: "hall" } };
@@ -424,9 +426,11 @@ check("Spend takes the twist, posts the public fate card, and the request leaves
   await run("fx.storm");
   const indoors = fired.length;
   await run("fx.lightning");
-  check("on a Hall scene Lightning fires", fired.length === indoors + 1, String(fired.length - indoors));
+  check("on a Hall scene the same key is MC's lightning, through the windows", fired.length === indoors + 1 && !fired[fired.length - 1].animater && !!fired[fired.length - 1].from, JSON.stringify(fired[fired.length - 1]));
   scene.flags = {};
   store.set("fakeAnimaterOn", false);
+  await run("fx.lightning");
+  check("without Animater the key is MC's lightning outdoors too", !fired[fired.length - 1].animater, JSON.stringify(fired[fired.length - 1]));
   scene.weather = "";
   store.set("fxActive", {});
 }

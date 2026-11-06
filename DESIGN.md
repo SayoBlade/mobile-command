@@ -2349,7 +2349,7 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
 0ᶠ. **OPEN 2026-11-06 — MC's weather, Lightning and empty corpses under Animater (§26.8).** Built from the deck's
    patches, adapted to the real source in nine places, unit-tested only. **Owed, in a world with Animater on:**
    (1) outdoors Downpour shows rain with no lightning, and its key lights and turns off; (2) MC's rain loop is silent
-   there; (3) Storm outdoors is Animater's thunderstorm, with no MC strikes; (4) Lightning outdoors refuses once, in words;
+   there; (3) Storm outdoors is Animater's thunderstorm, with no MC strikes; (4) ~~Lightning outdoors refuses once~~ the Lightning key outdoors gives one flash at once on the TV and the DM's screen, together, thunder 1 to 2 s later (first ever run of the borrowed flash);
    (5) on a Hall scene Rain, Storm and Lightning all work as before; (6) a nothing-lootable NPC's knockout plays and the
    body hides about 4 s later; (7) a body healed in that window stays. **His call:** does a boss intro's lightning still
    fire outdoors under Animater's storm (it does now)?
@@ -3332,8 +3332,9 @@ fxActive entry (automatic + local, so it can never be left stuck like a manual t
 
 **Status: BUILT, tested headless (real `effects.js` against the fake Foundry, test-actions 43-53), NOT live-checked** (`scripts/animater-seam.js`, glue in `effects.js` and
 `rpc.js`, `tools/test-weather-animater.mjs`). Applied from deck-command's `MC-PATCHES-2026-11-06.md`, which
-was written against served files and untested. Rulings: outdoor storms go to Animater, MC's Lightning only
-indoors, never both on one scene, the Downpour double fixed, empty corpses hide about 4 s later.
+was written against served files and untested. Rulings: outdoor storms go to Animater, ~~MC's Lightning only
+indoors~~ one Lightning key with two functions (below, 2026-11-06), never both on one scene, the Downpour double
+fixed, empty corpses hide about 4 s later.
 
 **"Outdoors" is Animater's own test:** not `underground` and acoustics not `hall` or `cave` (its
 `undergroundScene`). An unset scene counts as outdoors, so an indoor map needs one of those set. Animater's
@@ -3341,8 +3342,26 @@ indoors, never both on one scene, the Downpour double fixed, empty corpses hide 
 
 **Outdoors under Animater:** the weather keys write `animater.*` names and read them back, so keys still light.
 MC's weather loops stay silent whatever `fxActive` says (`syncFx`); the dust filter stays. Storm writes
-`animater.thunderstorm` and MC's rolling storm doesn't run. The Lightning key is refused in words.
+`animater.thunderstorm` and MC's rolling storm doesn't run. ~~The Lightning key is refused in words.~~
 **Indoors, or without Animater:** everything as before: core ids, the fog layers, MC's loops, rolling storm, Lightning.
+
+**One Lightning key, two functions (DM 2026-11-06: *"I want our lighting for indoors (same button, 2 functions,
+indoor and outdoor)"*).** Same key, same label. Indoors, without Animater, or with its `Lightning flashes` off: MC's
+lightning through the windows, unchanged. Outdoors: one strike of Animater's. `dmPressFx` decides once on the
+pressing GM and the choice rides the one-shot to every screen, so the screens strike together.
+- **How the outdoor strike works:** Animater's running flash is unreachable (a closure; `strike()` is never called or
+  exposed), but the flash is an exported factory, `createLightningFlash` in `engines/motion/sky-light.mjs`. Each canvas
+  client imports that file, makes its own copy, calls `strike()` and runs `tick(now, 0)` for 700 ms, then `clear()`
+  (`playAnimaterFlash`). Storm 0 means it cannot strike twice. No weather change, no document write.
+- **Rejected:** flipping to `animater.thunderstorm` and back is two full canvas redraws for everyone, plus rain, and
+  its first strike is 6 to 21 s away and different on each screen. A preview or a borrowed FXMaster filter avoids the
+  redraw but still waits 3 s at the very least. A recipe with a lightning clip is a bolt at a spot, needs a saved recipe
+  and a target, and isn't the sky.
+- **Limits:** the plain whole-map flash. It doesn't light rooms through windows or throw creature shadows; those need
+  Animater's private state (`cover`, `flashSun`), and a roofed outdoor map flashes evenly. Thunder is MC's, his recordings
+  at his Lightning volume, 1 to 2 s behind. Phones keep MC's white flash. The file path is a private coupling: if an
+  Animater update moves it, each client falls back to MC's lightning with a console warning, and
+  `test-weather-animater` fails against the installed file. A boss intro and the indoor rolling storm stay MC's.
 
 **The double:** Animater reads any scene weather containing "storm" as a thunderstorm (`weatherOf`), so Downpour's
 core `rainStorm` got its lightning and thunder on top. `animater.rain` has neither.

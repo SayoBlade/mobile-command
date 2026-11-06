@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const { sceneIndoors, animaterDrawsSky, layersOfWeather, weatherIdOf, fogRefused, animaterRainKeyOn, lightningRefusal, corpseStillDown, CORPSE_HIDE_DELAY_MS } =
+const { sceneIndoors, animaterDrawsSky, layersOfWeather, weatherIdOf, fogRefused, animaterRainKeyOn, playAnimaterFlash, ANIMATER_SKY_FILE, ANIMATER_FLASH_MS, corpseStillDown, CORPSE_HIDE_DELAY_MS } =
   await import(pathToFileURL(path.join(ROOT, "scripts", "animater-seam.js")).href);
 
 let n = 0;
@@ -47,15 +47,56 @@ check("Fog pressed in Animater's rain is refused, not silently dropped", fogRefu
 check("Fog works on a clear sky, and without Animater it layers", !fogRefused({ sky: true, atmos: true, wantOn: true, layers: L() }) && !fogRefused({ sky: false, atmos: true, wantOn: true, layers: L("rain") }));
 
 // ── lightning ─────────────────────────────────────────────────────────────────────────────────────
-check("Lightning outdoors under Animater is refused, in words", typeof lightningRefusal(sky(open)) === "string");
-check("Lightning indoors, and without Animater, fires", lightningRefusal(sky(hall)) === null && lightningRefusal(sky(open, false)) === null);
+// One strike, driven by a clock this test owns. The stub records what Animater's factory is asked for.
+function fakeFlash() {
+  const log = { made: 0, strikes: 0, ticks: [], cleared: 0, args: null };
+  const createLightningFlash = (args) => { log.made += 1; log.args = args; return {
+    strike() { log.strikes += 1; }, tick(_now, storm) { log.ticks.push(storm); return 0; }, clear() { log.cleared += 1; } }; };
+  return { log, createLightningFlash };
+}
+const driver = (load, over = {}) => { let t = 0; return { load, PIXI: {}, root: () => ({}), bounds: () => ({}), now: () => t, frame: (fn) => { t += 16; fn(); }, safety: () => {}, ...over }; };
+{
+  const { log, createLightningFlash } = fakeFlash();
+  const ok = await playAnimaterFlash(driver(async () => ({ createLightningFlash })));
+  check("one press: one flash made, one strike, cleared once", ok === true && log.made === 1 && log.strikes === 1 && log.cleared === 1, JSON.stringify(log));
+  check("it runs with no storm, so it can never strike again", log.ticks.length > 10 && log.ticks.every((v) => v === 0), JSON.stringify(log.ticks.slice(0, 3)));
+  check("it asks for no rooms: the plain flash, nothing of Animater's private state", !("cover" in log.args) && !("render" in log.args));
+}
+check("Animater's file missing: false, not a throw, so MC's lightning takes over", await playAnimaterFlash(driver(async () => { throw new Error("404"); })) === false);
+check("the factory renamed: false", await playAnimaterFlash(driver(async () => ({}))) === false);
+{
+  const { log } = fakeFlash();
+  const broken = () => ({ strike() { log.strikes += 1; }, tick() { throw new Error("no"); }, clear() { log.cleared += 1; } });
+  check("a flash that breaks on its first frame: false, and cleared", await playAnimaterFlash(driver(async () => ({ createLightningFlash: broken }))) === false && log.cleared === 1);
+}
+{
+  const { log, createLightningFlash } = fakeFlash();
+  let late = null;
+  await playAnimaterFlash(driver(async () => ({ createLightningFlash }), { frame: () => {}, safety: (fn) => { late = fn; } }));
+  late();
+  check("a hidden tab runs no frames: the safety timer still clears the flash", log.cleared === 1);
+}
+// The real file, if this machine has Animater: the seam is a private path, so an update must fail HERE.
+{
+  const real = path.join(process.env.LOCALAPPDATA ?? "", "FoundryVTT", "Data", ...ANIMATER_SKY_FILE.split("/"));
+  if (fs.existsSync(real)) {
+    const mod = await import(pathToFileURL(real).href);
+    let t = 1000, peak = 0;
+    class Sprite { constructor() { this.destroyed = false; this.position = { set() {} }; } set alpha(v) { peak = Math.max(peak, v); } get alpha() { return 0; } destroy() { this.destroyed = true; } }
+    const kids = [], root = { addChild: (c) => kids.push(c), sortChildren() {} };
+    const PIXI = { Sprite, Texture: { WHITE: {} }, BLEND_MODES: { ADD: 1 } };
+    const ok = await playAnimaterFlash({ load: async () => mod, PIXI, root: () => root, bounds: () => ({ x: 0, y: 0, width: 100, height: 100 }), now: () => t,
+      frame: (fn) => { t += 16; fn(); }, safety: () => {} });
+    check("Animater's real factory: one bright flash at once, then gone", ok === true && kids.length === 1 && peak > 0.3 && kids[0].destroyed === true, `${ok} peak ${peak} kids ${kids.length}`);
+  } else console.log("(Animater not installed here: real-file check skipped)");
+}
 
 // ── the glue ──────────────────────────────────────────────────────────────────────────────────────
 const fx = fs.readFileSync(path.join(ROOT, "scripts", "effects.js"), "utf8");
 const body = (src, from, to) => src.slice(src.indexOf(from), src.indexOf(to, src.indexOf(from)));
 const fire = body(fx, "export function dmFireFx", "A one-shot KEY");
-check("dmFireFx itself is not gated: the rolling storm and a boss intro must not toast or vanish", !/lightningRefusal|notifier/.test(fire));
-check("the keys go through the gate, panel and action list alike", /dmPressFx\(id\)/.test(fs.readFileSync(path.join(ROOT, "scripts", "actions-effects.js"), "utf8"))
+check("dmFireFx picks nothing: the rolling storm and a boss intro keep MC's lightning", !/animater/i.test(fire));
+check("the keys choose, panel and action list alike", /dmPressFx\(id\)/.test(fs.readFileSync(path.join(ROOT, "scripts", "actions-effects.js"), "utf8"))
   && /dmPressFx\(fxShot\.dataset\.fxShot\)/.test(fs.readFileSync(path.join(ROOT, "scripts", "dm-panel.js"), "utf8")));
 const sync = body(fx, "export function syncFx", "export function registerFxEngine");
 check("Animater's sky silences MC's weather loops, whatever fxActive says", /def\.sound/.test(sync) && /wanted\(id, def\) && !phone && !\(sky && def\.weather !== undefined\)/.test(sync));

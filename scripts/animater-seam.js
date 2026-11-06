@@ -55,8 +55,48 @@ export const FOG_REFUSED = "Outdoors only one weather shows at a time. Turn the 
 /** Which of Rain and Downpour an `animater.rain` scene shows. */
 export const animaterRainKeyOn = (id, downpour) => (id === "rainStorm") === Boolean(downpour);
 
-/** Why the Lightning key won't fire here, or null. Outdoors under Animater the storm is its own. */
-export const lightningRefusal = (sky) => (sky ? "Lightning only strikes indoors here. Outdoors, use the Storm key." : null);
+/**
+ * ONE STRIKE OF ANIMATER'S LIGHTNING, ON THIS SCREEN, NOW (DM 2026-11-06: one Lightning key, two functions).
+ *
+ * Animater has no public "strike now", and its running flash lives in a closure. But the flash itself is an
+ * exported factory (engines/motion/sky-light.mjs `createLightningFlash`) with a `strike()`, so this makes its
+ * own copy of Animater's flash, strikes it and runs it through its half second. `tick(now, 0)`: no storm, so
+ * it can never strike a second time. Without `cover`, which needs Animater's private rooms and walls, it is
+ * the plain flash over the whole map: no window patches and no thrown shadows.
+ *
+ * Why not its weather: a scene weather change is a full canvas redraw, twice, for every client, and a storm's
+ * first strike is 3 to 21 s away, at a different moment on each screen.
+ *
+ * ⚠️ THE FILE PATH IS A PRIVATE COUPLING. Returns false rather than throwing if it moves or changes shape, and
+ * the caller falls back to MC's own lightning. Checked against the installed file by test-weather-animater.
+ */
+export const ANIMATER_SKY_FILE = "modules/animater/scripts/engines/motion/sky-light.mjs";
+export const ANIMATER_FLASH_MS = 700; // its flashLevel ends at 600
+
+export async function playAnimaterFlash({ load, PIXI, root, bounds, now, frame, safety = setTimeout }) {
+  let flash = null;
+  try {
+    const { createLightningFlash } = await load();
+    if (typeof createLightningFlash !== "function") return false;
+    flash = createLightningFlash({ PIXI, root, bounds });
+    const at = now();
+    flash.strike(at);
+    flash.tick(now(), 0);
+    let done = false;
+    const finish = () => { if (done) return; done = true; try { flash.clear(); } catch { /* gone with the canvas */ } };
+    const step = () => {
+      if (done) return;
+      try { flash.tick(now(), 0); } catch { return finish(); }
+      if (now() - at >= ANIMATER_FLASH_MS) finish(); else frame(step);
+    };
+    safety(finish, 2000); // belt and braces: a hidden tab runs no frames, and a flash must never stay lit
+    frame(step);
+    return true;
+  } catch {
+    try { flash?.clear(); } catch { /* never made */ }
+    return false;
+  }
+}
 
 // ── corpses ─────────────────────────────────────────────────────────────────────────────────────────
 

@@ -9,7 +9,7 @@ import { bossIntroPlay } from "./boss-intro.js"; // §40 the boss's entrance (on
 import { entrancePlay, entranceStop } from "./entrances.js"; // §40.6 the themed entrance banners ("Intros")
 import { initCurseSweep } from "./cm-curses.js"; // §33: one GM client lifts expired curses
 import { notifier } from "./notifier.js";
-import { PRECIP, FOG_OVER, THUNDERSTORM, ANIMATER_RAIN, FOG_REFUSED, animaterDrawsSky, layersOfWeather, weatherIdOf, fogRefused, animaterRainKeyOn, lightningRefusal } from "./animater-seam.js"; // §26.8
+import { PRECIP, FOG_OVER, THUNDERSTORM, ANIMATER_RAIN, FOG_REFUSED, animaterDrawsSky, layersOfWeather, weatherIdOf, fogRefused, animaterRainKeyOn, ANIMATER_SKY_FILE, playAnimaterFlash } from "./animater-seam.js"; // §26.8
 
 // §26 Effects tab (spike) — DM-triggered table ambience, three kinds under one catalog:
 //   scene   — shortcuts to Foundry's own scene data (weather particles, darkness). Foundry
@@ -141,6 +141,13 @@ function animaterSky(scene = canvas?.scene) {
   return animaterDrawsSky({ active: game.modules.get("animater")?.active, mapOn, scene });
 }
 
+/** Does the Lightning key strike Animater's lightning here? Outdoors, with its "Lightning flashes" on. */
+function animaterLightning(scene = canvas?.scene) {
+  let on = true;
+  try { on = game.settings.get("animater", "lightningFlashes"); } catch { /* an Animater without that setting */ }
+  return animaterDrawsSky({ active: game.modules.get("animater")?.active, mapOn: on, scene });
+}
+
 /** The weather layers a scene shows: core ids or Animater's names, fog + one precipitation at most. */
 export function weatherLayers(scene = canvas?.scene) { return layersOfWeather(scene?.weather); }
 
@@ -256,14 +263,13 @@ export function dmFireFx(id, extra = {}) {
 }
 
 /**
- * A one-shot KEY. Lightning is refused outdoors under Animater, whose storm owns that sky. The refusal lives
- * here and not in dmFireFx: the rolling storm and a boss intro fire through dmFireFx too, and a toast per
- * distant strike, or an intro that loses its lightning, is not what the ruling asked for.
+ * A one-shot KEY. One Lightning key, two functions (DM 2026-11-06, *"I want our lighting for indoors (same
+ * button, 2 functions, indoor and outdoor)"*): outdoors under Animater, one strike of its lightning; everywhere
+ * else MC's own, through the windows. Decided HERE, once, and carried to every screen. The key only: the rolling
+ * storm and a boss intro call dmFireFx and keep MC's.
  */
 export function dmPressFx(id) {
-  const no = id === "lightning" ? lightningRefusal(animaterSky()) : null;
-  if (no) { notifier.info(no); return { ok: false, reason: no }; }
-  return dmFireFx(id);
+  return dmFireFx(id, id === "lightning" && animaterLightning() ? { animater: true } : {});
 }
 
 /* -------------------------------------------- */
@@ -274,7 +280,7 @@ export function handleFxOneShot(payload = {}) {
   const { id, users, soft, text, level } = payload;
   // A targeted one-shot names its audience; everyone else drops it silently.
   if (Array.isArray(users) && users.length && !users.includes(game.user.id)) return;
-  if (id === "lightning") lightningLocal(!!soft, payload.from ?? null);
+  if (id === "lightning") { if (payload.animater) animaterLightningLocal(payload.from ?? null); else lightningLocal(!!soft, payload.from ?? null); }
   else if (id === "bell") bellLocal();
   else if (id === "fxSound") soundShot(payload);
   else if (id === "static") staticLocal(level);
@@ -454,6 +460,22 @@ function lightningLocal(soft = false, side = null) {
   // supersedes 2026-07-26's "get thunder closer to lightning" (150–500 ms). Soft distant strikes stay
   // later than close ones, so the storm still reads as distance.
   if (!isPhoneClient()) playThunder(soft ? 2000 + Math.random() * 1500 : 1000 + Math.random() * 1000, soft ? 0.4 : 1, soft);
+}
+
+// The outdoor half of the Lightning key: Animater's flash on the map, MC's thunder after it (his recordings, his
+// lightning volume, the Lightning key's timing). Phones have no canvas and keep the white flash. If Animater's flash
+// can't be had, this client falls back to MC's lightning, so a press never comes up empty.
+let animaterSkyFile = null;
+const loadAnimaterSky = () => (animaterSkyFile ??= import(foundry.utils.getRoute(ANIMATER_SKY_FILE)));
+function animaterLightningLocal(side) {
+  if (isPhoneClient() || !canvas?.ready) return lightningLocal(false, side);
+  playAnimaterFlash({
+    load: loadAnimaterSky, PIXI: globalThis.PIXI, root: () => canvas.effects, bounds: () => canvas.dimensions.sceneRect,
+    now: () => performance.now(), frame: (fn) => requestAnimationFrame(fn),
+  }).then((ok) => {
+    if (ok) playThunder(1000 + Math.random() * 1000, 1, false);
+    else { console.warn(`${MODULE_ID} | Animater's flash is not available: MC's lightning instead`); lightningLocal(false, side); }
+  });
 }
 
 // Doom bell: the toll on canvas clients, a slow dim pulse on EVERY screen — the phones dip
@@ -1129,6 +1151,7 @@ export function registerFxEngine() {
   Hooks.on("updateSetting", onFxSetting);
   Hooks.on("createSetting", onFxSetting);
   registerCardTable(); // §38.4a lockstep + actor-truth listeners for the card table
+  if (game.modules.get("animater")?.active && !isPhoneClient()) loadAnimaterSky().catch(() => { animaterSkyFile = null; }); // ready before the first press
   Hooks.on("canvasReady", () => syncFx()); // remount whatever fxActive still wants
   // Deathbeat triggers: my character's HP / death-save counters, and the dead status
   // (which arrives as an ActiveEffect, not an actor update).
