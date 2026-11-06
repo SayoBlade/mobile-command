@@ -18,6 +18,7 @@
 //      counts — the rule the empty-clipboard bug bought us.
 
 import { MODULE_ID } from "./preset.js";
+import { notifier } from "./notifier.js";
 import { buildDevReport } from "./devreport.js";
 
 const KINDS = { bug: "Something's broken", idea: "An idea", question: "A question" };
@@ -108,17 +109,17 @@ export async function openFeedback({ kind = "bug", message = "" } = {}) {
       if (!html?.querySelector) return;
       html.querySelector("[data-fb-copy]")?.addEventListener("click", async () => {
         const n = await copyText(feedbackText(read(html)));
-        if (n > 0) ui.notifications.info(`Copied ${n} characters.`);
-        else ui.notifications.warn("Couldn't copy — use Save file instead.");
+        if (n > 0) notifier.info(`Copied ${n} characters.`);
+        else notifier.warn("Couldn't copy — use Save file instead.");
       });
       html.querySelector("[data-fb-save]")?.addEventListener("click", () => {
         const text = feedbackText(read(html));
         try {
           foundry.utils.saveDataToFile(text, "text/plain", `mobile-command-${id}.txt`);
-          ui.notifications.info(`Saved mobile-command-${id}.txt — attach it to your email.`);
+          notifier.info(`Saved mobile-command-${id}.txt — attach it to your email.`);
         } catch (e) {
           console.error(`${MODULE_ID} | feedback save failed`, e);
-          ui.notifications.warn("Couldn't save the file — use Copy instead.");
+          notifier.warn("Couldn't save the file — use Copy instead.");
         }
       });
     },
@@ -130,7 +131,7 @@ export async function openFeedback({ kind = "bug", message = "" } = {}) {
           const html = dialog?.element ?? dialog;
           const data = read(html);
           if (!to) {
-            ui.notifications.warn("No feedback address is set — copy the text and send it yourself.");
+            notifier.warn("No feedback address is set — copy the text and send it yourself.");
             await copyText(feedbackText(data));
             return;
           }
@@ -155,12 +156,12 @@ export async function openFeedback({ kind = "bug", message = "" } = {}) {
           const href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.join("\n"))}`;
           try {
             window.open(href, "_blank");
-            ui.notifications.info(n > 0
+            notifier.info(n > 0
               ? `Email opened. ${n} characters are on your clipboard — paste them in.`
               : "Email opened. Use Save file to attach the details.");
           } catch (e) {
             console.error(`${MODULE_ID} | feedback mailto failed`, e);
-            ui.notifications.warn(`Couldn't open an email app — send it to ${to} yourself.`);
+            notifier.warn(`Couldn't open an email app — send it to ${to} yourself.`);
           }
         }
       }

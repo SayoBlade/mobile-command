@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { notifier } from "./notifier.js";
 import { isOnlineTable } from "./settings.js"; // the §39.5 audience question now lives in overlay-guard
 import { mayCoverViewport } from "./overlay-guard.js"; // §22.7 the one full-screen gate
 import { socket } from "./rpc.js"; // the same one-shot channel effects.js fires on — importing
@@ -217,9 +218,9 @@ export async function dmPlayBossIntro(bossId) {
   if (!game.user?.isGM) return false;
   const boss = bossList().find(b => b.id === bossId);
   const actor = game.actors.get(boss?.actorId ?? bossId);
-  if (!actor) { ui.notifications?.warn("Mobile Command: that boss's actor is gone — drag it in again."); return false; }
+  if (!actor) { notifier.warn("Mobile Command: that boss's actor is gone — drag it in again."); return false; }
   const img = bossImage(actor);
-  if (!img) { ui.notifications?.warn(`Mobile Command: ${actor.name} has no token art to show.`); return false; }
+  if (!img) { notifier.warn(`Mobile Command: ${actor.name} has no token art to show.`); return false; }
 
   // THE PAUSE COMES FIRST, AND IT STAYS (DM 2026-08-09: "no unpause"). The entrance is the beat
   // before the fight, not a cutscene the table walks out of — the DM starts the game again when

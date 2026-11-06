@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { notifier } from "./notifier.js";
 import { isDisplayClient } from "./shell.js";
 import { isOnlineTable } from "./settings.js"; // the §39.5 audience question now lives in overlay-guard
 import { mayCoverViewport } from "./overlay-guard.js"; // §22.7 the one full-screen gate
@@ -484,7 +485,7 @@ export async function dmShadowEntrance(key, on) {
   if (!game.user?.isGM) return false;
   const e = entranceByKey(key);
   const toks = tokensNamed(stageScene(), knownNames(e));
-  if (!toks.length) { ui.notifications?.info(`Mobile Command: no ${e?.name ?? key} token on this scene.`); return false; }
+  if (!toks.length) { notifier.info(`Mobile Command: no ${e?.name ?? key} token on this scene.`); return false; }
   await setShadow(toks, on ?? !toks.some(shadowed));
   return true;
 }
@@ -539,7 +540,7 @@ function spotNear(scene, w, h) {
 async function placeMissing(e, key, scene) {
   if (!scene || !needsToken(e)) return [];
   const actor = await actorFor(e);
-  if (!actor) { ui.notifications?.info(`Mobile Command: no ${e.name} on this scene and no actor to place — the banner plays without one.`); return []; }
+  if (!actor) { notifier.info(`Mobile Command: no ${e.name} on this scene and no actor to place — the banner plays without one.`); return []; }
   const proto = actor.prototypeToken ?? {};
   const { x, y } = spotNear(scene, proto.width ?? 1, proto.height ?? 1);
   const doc = await actor.getTokenDocument({ x, y, hidden: true, flags: { [MODULE_ID]: { placedBy: key } } });
@@ -568,7 +569,7 @@ function swapFx(e, token, scene) {
 export async function dmPlayEntrance(key) {
   if (!game.user?.isGM) return false;
   const e = entranceByKey(key);
-  if (!e) { ui.notifications?.warn(`Mobile Command: there's no intro called "${key}".`); return false; }
+  if (!e) { notifier.warn(`Mobile Command: there's no intro called "${key}".`); return false; }
   if (e.pause && !game.paused) game.togglePause(true, { broadcast: true });
 
   const scene = stageScene();

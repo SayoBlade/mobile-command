@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { notifier } from "./notifier.js";
 import { clockLabel } from "./gametime.js"; // in-world date stamps on story entries (§38.4)
 import { recordExtraDamage } from "./deeds.js"; // §44: extra-instance darts bypass midi's damageList
 import { resolveExecutorId, isExecutor, reactionTimeoutMs, DISPLAY_LEVEL } from "./settings.js";
@@ -230,7 +231,7 @@ function handleSavePrompt(payload) {
 // an honest "waiting on the DM" cue so the player knows it's not frozen.
 function handleWatchdogPing({ name, title } = {}) {
   console.warn(`${MODULE_ID} | watchdog ping`, { name, title });
-  ui.notifications?.warn(`"${name ?? "Your action"}" is waiting on the DM to clear a "${title ?? "popup"}" on their screen.`);
+  notifier.warn(`"${name ?? "Your action"}" is waiting on the DM to clear a "${title ?? "popup"}" on their screen.`);
   return true;
 }
 
@@ -297,7 +298,7 @@ export function registerReactionRelay() {
         ?? game.users.find(u => u.active && !u.isGM && reactor.testUserPermission?.(u, "OWNER"));
       if (!owner || owner.isGM || !owner.active) {
         console.debug(`${MODULE_ID} | reaction relay: no active phone owner for ${reactor.name}`, { owner: owner?.name, isGM: owner?.isGM, active: owner?.active });
-        ui.notifications?.warn(`Reaction for ${reactor.name}: no active phone owner — handled by midi.`);
+        notifier.warn(`Reaction for ${reactor.name}: no active phone owner — handled by midi.`);
         return; // let midi's native path handle it
       }
       const wf = options?.workflow;
@@ -320,7 +321,7 @@ export function registerReactionRelay() {
         ts: Date.now()
       }); // fire-and-forget — DO NOT await (awaiting stalls midi's reaction flow)
       console.debug(`${MODULE_ID} | reaction relay → ${owner.name}`, { reactor: reactor.name, count: reactionsOut.length, triggerType, attacker: attackerName });
-      ui.notifications?.info(`Reaction sent to ${owner.name}'s phone: ${reactionsOut.map(r => r.itemName || r.name).join(", ")}`);
+      notifier.info(`Reaction sent to ${owner.name}'s phone: ${reactionsOut.map(r => r.itemName || r.name).join(", ")}`);
       return false; // suppress midi's native (dead-on-phone) dialog; the phone chooser drives it
     } catch (e) {
       console.warn(`${MODULE_ID} | reaction relay failed`, e);
@@ -405,7 +406,7 @@ async function handleDowntimeOp(payload = {}) {
       const act = DT.listActivities(state, actorId).find(a => a.id === payload.id);
       if (act?.rule && act?.progress) {
         const res = DT.applyAttempt(act.rule, act.progress, payload.outcome ?? null);
-        ui.notifications?.info(`${game.actors.get(actorId)?.name ?? "PC"} — ${act.name}: ${res.note}`);
+        notifier.info(`${game.actors.get(actorId)?.name ?? "PC"} — ${act.name}: ${res.note}`);
       }
       state = DT.applyAttemptTo(state, actorId, payload.id, payload.outcome ?? null);
       break;
@@ -947,9 +948,9 @@ async function handleTransferRespond({ offerId, accept, requesterId }) {
 }
 function handleTransferOfferPush(payload) { Hooks.callAll("mobile-command.transferOffer", payload); return true; }
 function handleTransferResult(payload) {
-  if (payload?.declined) ui.notifications.info(`${payload.toName ?? "They"} declined the transfer.`);
-  else if (payload?.ok) ui.notifications.info(`${payload.toName ?? "They"} accepted — items handed over.`);
-  else ui.notifications.warn(`Transfer failed: ${payload?.reason ?? "unknown"}`);
+  if (payload?.declined) notifier.info(`${payload.toName ?? "They"} declined the transfer.`);
+  else if (payload?.ok) notifier.info(`${payload.toName ?? "They"} accepted — items handed over.`);
+  else notifier.warn(`Transfer failed: ${payload?.reason ?? "unknown"}`);
   return true;
 }
 
@@ -984,6 +985,8 @@ async function handleSetTokenLight({ tokenId, itemId, light, requesterId }) {
 let notifyPatchDepth = 0;
 let notifyOriginal = null;
 const openCaptures = [];
+// A refusal our own notifier held back never reaches ui.notifications.notify, so it is tapped there.
+notifier.onHeld((level, text) => { if (level !== "info") for (const c of openCaptures) c.push(text); });
 async function captureNotifications(fn) {
   const captured = [];
   if (notifyPatchDepth++ === 0) {
@@ -1037,7 +1040,7 @@ export function registerDialogWatchdog() {
       // "Orc Fury … 10" popup — is it a damage/usage config that should relay to the phone, or an NPC's
       // own reaction that belongs to the DM?).
       console.warn(`${MODULE_ID} | dialog watchdog: stranded prompt "${title}" [class: ${cname || "?"}] during phone action "${name}"`, app);
-      ui.notifications?.warn(`⚠ Mobile Command: "${name}" opened "${title}" here — the phone can't reach it. Resolve it so the player isn't stuck.`, { permanent: true });
+      notifier.warn(`⚠ Mobile Command: "${name}" opened "${title}" here — the phone can't reach it. Resolve it so the player isn't stuck.`, { permanent: true });
       if (socket && requesterId) {
         try { socket.executeAsUser("watchdogPing", requesterId, { name, title }); } catch (e) { /* best effort */ }
       }
@@ -3320,8 +3323,8 @@ export function scribeResultToUser(userId, payload) {
   socket.executeAsUser("scribeResult", userId, payload).catch(() => {});
 }
 function handleScribeResult({ ok, spellName, reason }) {
-  if (ok) ui.notifications.info(`The DM approved — ${spellName} is in your spellbook (unprepared). The scroll is spent.`);
-  else ui.notifications.warn(reason || `The DM declined scribing ${spellName}.`);
+  if (ok) notifier.info(`The DM approved — ${spellName} is in your spellbook (unprepared). The scroll is spent.`);
+  else notifier.warn(reason || `The DM declined scribing ${spellName}.`);
 }
 
 // Summon control (DM 2026-07-09: "summoned an unseen servant... now I can't
@@ -3733,7 +3736,7 @@ async function maybeAutoLoot(actor) {
     // corpse is nonsensical, so it's also dropped from the attack picker (see isDeadCorpse).
     try { await applyDeadMarker(tokenDoc); }
     catch (e) { console.warn(`${MODULE_ID} | mark-dead-remove failed`, e); }
-    ui.notifications?.info(`${corpseName} is now a lootable corpse.`);
+    notifier.info(`${corpseName} is now a lootable corpse.`);
     return true;
   } catch (e) {
     console.warn(`${MODULE_ID} | auto-loot failed`, e);
@@ -3816,7 +3819,7 @@ async function reviveCorpse(tokenUuid, { hp = 1 } = {}) {
    */
   const taken = was?.names ? was.names.filter(n => !now.includes(n)) : [];
   if (taken.length) {
-    ui.notifications?.warn(`${was?.name ?? "This creature"} comes back without: ${taken.join(", ")} — already looted.`);
+    notifier.warn(`${was?.name ?? "This creature"} comes back without: ${taken.join(", ")} — already looted.`);
   }
 
   const name = was?.name ?? String(tokenDoc.name).replace(/ \(dead\)$/, "");
@@ -3838,7 +3841,7 @@ async function reviveCorpse(tokenUuid, { hp = 1 } = {}) {
      */
     await API.revertTokensFromItemPiles(tokenDoc, { tokenSettings: { name, hidden: false, alpha: 1 } });
     await tokenDoc.unsetFlag(MODULE_ID, "preDeathLoot").catch(() => {});
-    ui.notifications?.info(`${name} is back on their feet.`);
+    notifier.info(`${name} is back on their feet.`);
     return { ok: true, name, taken };
   } catch (e) {
     console.warn(`${MODULE_ID} | revive failed`, e);

@@ -1,4 +1,5 @@
 import { MODULE_ID, SAVE_TIMEOUT_SETTING, DEFAULT_CARD_THEME, DAY_DARKNESS_FLOOR } from "./preset.js";
+import { notifier } from "./notifier.js";
 import { makeConfirmMenuClass, deactivate, reactivate, hasBackup, hasReactivateSnapshot } from "./enforcer.js";
 
 export function registerSettings() {
@@ -1049,7 +1050,7 @@ export async function syncDisplayObserver(userId, { quiet = false } = {}) {
       const bits = [];
       if (raised) bits.push(`${raised} shared`);
       if (lowered) bits.push(`${lowered} lowered from Owner (prompts now reach the player, not the TV)`);
-      if (bits.length) ui.notifications?.info?.(`Mobile Command: ${user.name} — ${bits.join(", ")}.`);
+      if (bits.length) notifier.info(`Mobile Command: ${user.name} — ${bits.join(", ")}.`);
     }
     return raised + lowered;
   } catch (e) {

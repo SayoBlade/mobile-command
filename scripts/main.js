@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { notifier } from "./notifier.js";
 import { registerSettings, resolveExecutorId, isExecutor, displayUserId, isDisplayShared, syncDisplayObserver, DISPLAY_LEVEL, setTvAudioState, setTvSoftFogState, isOnlineTable, hasSharedScreen } from "./settings.js";
 import { diffPreset, applyPreset, checkAndPrompt, deactivate, reactivate, hasBackup } from "./enforcer.js";
 import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, registerReactionNotifier, registerSummonOwnership, api, actorTokenSight } from "./rpc.js";
@@ -90,7 +91,7 @@ Hooks.once("init", () => {
       onDown: () => {
         closeShell();
         document.body.classList.remove("mc-phone"); // release the phone-scoped CSS with it
-        ui.notifications.info("Phone app closed — reload the page to get it back.");
+        notifier.info("Phone app closed — reload the page to get it back.");
         return true;
       },
       restricted: false
@@ -349,7 +350,7 @@ function framePartyTokens() {
   try {
     if (!canvas?.ready) return false;
     const frame = partyFrame();
-    if (!frame) { ui.notifications?.info?.(`${MODULE_ID} | no party tokens on this scene to frame`); return false; }
+    if (!frame) { notifier.info(`${MODULE_ID} | no party tokens on this scene to frame`); return false; }
     const scale = canvas.stage.scale.x || 1; // pure pan — keep current zoom
     // Focus IS a reframe: the clearance it leaves becomes the one the follow maintains.
     captureAfter(canvas.animatePan({ x: frame.cx, y: frame.cy, scale, duration: 1000, easing: tvEase }));
@@ -435,7 +436,7 @@ function setDmRelaying(on) {
     tvBroadcast({ cmd: "pan", x: s.pivot.x, y: s.pivot.y, scale: s.scale.x, dur: 1000 });
   }
   Hooks.callAll("mobile-command.tvManualChanged", dmRelaying);
-  ui.notifications?.info?.(`${MODULE_ID} | manual TV control ${dmRelaying ? "ON — your pan/zoom drives the display" : "OFF"}`);
+  notifier.info(`${MODULE_ID} | manual TV control ${dmRelaying ? "ON — your pan/zoom drives the display" : "OFF"}`);
 }
 function toggleTvManual() { setDmRelaying(!dmRelaying); return dmRelaying; }
 function isTvManualActive() { return dmRelaying; }
@@ -665,7 +666,7 @@ async function syncPartyTokenSight() {
     try { await t.document.update(update); n++; }
     catch (e) { skipped++; console.warn(`${MODULE_ID} | sight sync failed for ${t.name} (permission?)`, e); }
   }
-  ui.notifications?.info?.(`${MODULE_ID} | synced token sight on ${n} PC token(s) from senses${skipped ? ` (${skipped} skipped — need ownership)` : ""}`);
+  notifier.info(`${MODULE_ID} | synced token sight on ${n} PC token(s) from senses${skipped ? ` (${skipped} skipped — need ownership)` : ""}`);
   return n;
 }
 

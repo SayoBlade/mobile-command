@@ -1,4 +1,5 @@
 import { MODULE_ID, CREATION_BEATS, pcDisplayName, TABLE_SEATS } from "./preset.js";
+import { notifier } from "./notifier.js";
 import { isOnlineTable } from "./settings.js"; // §39 in person ⇄ online (settings.js imports nothing of ours but preset/enforcer — no cycle)
 import { api as rpc, actorTokenSight, reportPresence, remoteState } from "./rpc.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
@@ -975,7 +976,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       this.render();
     } catch (e) {
       console.warn(`${MODULE_ID} | player-side character creation failed`, e);
-      ui.notifications?.warn?.("Couldn't create a character — ask the DM to make you one.");
+      notifier.warn("Couldn't create a character — ask the DM to make you one.");
       this.render();
     }
   }
@@ -993,7 +994,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     } catch (e) {
       console.warn(`${MODULE_ID} | Ember creation failed to open`, e);
       this.element?.style?.removeProperty("display");
-      ui.notifications?.warn?.("Ember's character creator didn't open — tell the DM.");
+      notifier.warn("Ember's character creator didn't open — tell the DM.");
     }
   }
 
@@ -1158,13 +1159,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!actor) return;
     if (save) {
       const text = String(this.element?.querySelector(".mc-wiz-beat-input")?.value ?? "").trim();
-      if (!text) return ui.notifications.info("Write something first — or Skip.");
+      if (!text) return notifier.info("Write something first — or Skip.");
       this.#storyBusy = true; this.render();
       let res;
       try { res = await rpc.storyAdd({ actorId: actor.id, text, question: q, step: stepId }); }
       catch (e) { res = { ok: false, reason: e?.message ?? "couldn't reach the DM" }; }
       this.#storyBusy = false;
-      if (!res?.ok) { ui.notifications.warn(`My Story: ${res?.reason ?? "could not save"}`); return this.render(); }
+      if (!res?.ok) { notifier.warn(`My Story: ${res?.reason ?? "could not save"}`); return this.render(); }
     } else {
       // Skipped → park it in My Story so it's still answerable later.
       try {
@@ -1473,13 +1474,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const item = await fromUuid(uuid);
       this.#charGen.picking = null; this.#charGenOptions = null;
       this.render();
-      if (!item) return ui.notifications.warn("That option couldn't load.");
+      if (!item) return notifier.warn("That option couldn't load.");
       const AM = dnd5e.applications?.advancement?.AdvancementManager ?? dnd5e.documents?.advancement?.AdvancementManager;
       if (!AM) throw new Error("AdvancementManager unavailable");
       AM.forNewItem(actor, item.toObject()).render(true);
     } catch (e) {
       console.error("mobile-command | char-gen add failed", e);
-      ui.notifications.warn("Couldn't add that option — see console.");
+      notifier.warn("Couldn't add that option — see console.");
     } finally {
       this.#cgBusy = false;
     }
@@ -1501,10 +1502,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const level = item.type === "class" ? 1 : 0;
       const manager = AM.forModifyChoices(actor, item.id, level);
       if (manager.steps?.length) manager.render(true);
-      else ui.notifications.info(`${item.name} has no choices to redo.`);
+      else notifier.info(`${item.name} has no choices to redo.`);
     } catch (e) {
       console.error("mobile-command | advancement redo failed", e);
-      ui.notifications.warn("Couldn't reopen those choices — see console.");
+      notifier.warn("Couldn't reopen those choices — see console.");
     } finally {
       this.#cgBusy = false;
     }
@@ -1715,7 +1716,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         .map(i => ({ _id: i.id, "system.prepared": 1 }));
       if (reprep.length) await actor.updateEmbeddedDocuments("Item", reprep);
       if (toRemove.length) await actor.deleteEmbeddedDocuments("Item", toRemove.map(i => i.id));
-    } catch (e) { return ui.notifications.warn(`Couldn't save spells: ${e.message}`); }
+    } catch (e) { return notifier.warn(`Couldn't save spells: ${e.message}`); }
     if (cg.learn) this.#charGen = null; // post-creation "Learn spells" → back to the sheet, not the workspace
     else cg.picking = null;
     this.#charGenSpellOptions = null;
@@ -1723,7 +1724,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const parts = [];
     if (toAdd.length) parts.push(`learned ${toAdd.length}`);
     if (toRemove.length) parts.push(`removed ${toRemove.length}`);
-    ui.notifications.info(parts.length ? `Spells saved — ${parts.join(", ")}.` : "Spells unchanged.");
+    notifier.info(parts.length ? `Spells saved — ${parts.join(", ")}.` : "Spells unchanged.");
   }
 
   // ===== Starting equipment (class + background) ============================
@@ -1916,10 +1917,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const grant = foundry.utils.deepClone(actor.getFlag(MODULE_ID, "equipGranted") || {});
       grant[eq.source] = { summary: summaryBits.join(", ") || "nothing", count: toAdd.length, gold };
       await actor.setFlag(MODULE_ID, "equipGranted", grant);
-    } catch (e) { return ui.notifications.warn(`Couldn't add equipment: ${e.message}`); }
+    } catch (e) { return notifier.warn(`Couldn't add equipment: ${e.message}`); }
     this.#charGen.picking = null; this.#charGen.equip = null;
     this.render();
-    ui.notifications.info(`Added ${toAdd.length} item${toAdd.length === 1 ? "" : "s"}${gold ? ` + ${gold} gp` : ""}.`);
+    notifier.info(`Added ${toAdd.length} item${toAdd.length === 1 ? "" : "s"}${gold ? ` + ${gold} gp` : ""}.`);
   }
 
   // Ability scores — three methods: point-buy (27-pt budget), standard array, and
@@ -1998,7 +1999,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       for (const k of ABILITIES) scores[k] = cg.abil?.[k] ?? 8;
     } else {
       if (!cg.pool || ABILITIES.some(k => cg.assign?.[k] == null))
-        return ui.notifications.warn("Assign every ability score first.");
+        return notifier.warn("Assign every ability score first.");
       for (const k of ABILITIES) scores[k] = cg.pool[cg.assign[k]];
     }
     // `scores` is the chosen BASE per ability. Species/background/class ASIs bake
@@ -2015,10 +2016,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       upd[`system.abilities.${k}.value`] = scores[k] + bonus;
     }
     try { await a.update(upd); await a.setFlag(MODULE_ID, "abilBase", scores); }
-    catch (e) { return ui.notifications.warn(`Couldn't set scores: ${e.message}`); }
+    catch (e) { return notifier.warn(`Couldn't set scores: ${e.message}`); }
     cg.picking = null; cg.abil = null; cg.assign = {};
     this.render();
-    ui.notifications.info("Ability scores set.");
+    notifier.info("Ability scores set.");
   }
   #abilityPanelHTML() {
     const cg = this.#charGen ?? {};
@@ -2194,7 +2195,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       this.#pmDraft = "";
     } catch (e) {
       console.error(`${MODULE_ID} | message send failed`, e);
-      ui.notifications.warn("Couldn't send the message.");
+      notifier.warn("Couldn't send the message.");
     } finally {
       this.#pmBusy = false;
       this.render();
@@ -2271,8 +2272,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.render();
     if (!offerId) return;
     rpc.transferRespond({ offerId, accept }).then(res => {
-      if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't respond to the offer.");
-      else ui.notifications.info(accept ? "Received." : "Declined.");
+      if (res?.ok === false) notifier.warn(res.reason ?? "Couldn't respond to the offer.");
+      else notifier.info(accept ? "Received." : "Declined.");
     });
   }
 
@@ -2339,7 +2340,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const actor = this.#storyAnswerActor();
     if (!p || !actor || this.#storyBusy) return;
     const text = String(this.element?.querySelector(".mc-st-card-input")?.value ?? "").trim();
-    if (!text) return ui.notifications.info("Write something first — or tap Later.");
+    if (!text) return notifier.info("Write something first — or tap Later.");
     this.#storyBusy = true; this.render();
     let res;
     try { res = await rpc.storyAdd({ actorId: actor.id, text, question: p.q }); }
@@ -2348,7 +2349,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (res?.ok) {
       remoteState.storyPrompt = null;
       try { await rpc.storyAnswered({ id: p.id, actorName: actor.name }); } catch (e) { /* tick is garnish */ }
-    } else ui.notifications.warn(`Story: ${res?.reason ?? "could not save"}`);
+    } else notifier.warn(`Story: ${res?.reason ?? "could not save"}`);
     this.render();
   }
   async #storyCardLater() {
@@ -2922,7 +2923,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const group = this.#partyGroup();
     if (!group || !game.user.isGM) return;
     const res = await rpc.partyStage({ groupId: group.id, stage });
-    if (res?.ok === false) ui.notifications?.warn(res.reason ?? "Couldn't switch stage.");
+    if (res?.ok === false) notifier.warn(res.reason ?? "Couldn't switch stage.");
   }
 
   // Party travel (§15 / original MVP goal "move the group token out of combat"):
@@ -2984,7 +2985,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!this.#partySelf) {
       if (mineHere) { this.#partySelf = mineHere.id; return this.render(); } // pick up
       if (mine.length === 1) return this.#partyGridMove(group, mine[0].id, r, c);   // one-tap
-      ui.notifications?.info("Tap one of your tokens first, then a square.");
+      notifier.info("Tap one of your tokens first, then a square.");
       return;
     }
     // carrying a token
@@ -3004,7 +3005,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // Foundry). Syntax-check shell.js before shipping (2026-07-04).
   async #partyGridMove(group, actorId, r, c) {
     const res = await rpc.partySetCell({ groupId: group.id, actorId, r, c, lock: false });
-    if (res?.ok === false) ui.notifications?.warn(res.reason ?? "Couldn't move there.");
+    if (res?.ok === false) notifier.warn(res.reason ?? "Couldn't move there.");
   }
 
   async #partyToggleLock() {
@@ -3015,14 +3016,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!mine.length) return;
     const formation = group.getFlag(MODULE_ID, "formation") ?? {};
     const placed = mine.filter(m => formation.cells?.[m.id]);
-    if (placed.length < mine.length) return ui.notifications?.warn("Place all your tokens first.");
+    if (placed.length < mine.length) return notifier.warn("Place all your tokens first.");
     // Toggle as a group: unlock if every one is locked, otherwise lock them all.
     const lockedSet = new Set(formation.locked ?? []);
     const lock = !mine.every(m => lockedSet.has(m.id));
     for (const m of placed) {
       const cell = formation.cells[m.id];
       const res = await rpc.partySetCell({ groupId: group.id, actorId: m.id, r: cell.r, c: cell.c, lock });
-      if (res?.ok === false) { ui.notifications?.warn(res.reason ?? "Couldn't lock in."); break; }
+      if (res?.ok === false) { notifier.warn(res.reason ?? "Couldn't lock in."); break; }
     }
   }
 
@@ -3037,7 +3038,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const group = this.#partyGroup();
     if (!group || !game.user.isGM) return;
     const res = await rpc.partyDeploy({ groupId: group.id });
-    if (res?.ok === false) ui.notifications?.warn(res.detail ?? res.reason ?? "Couldn't disperse.");
+    if (res?.ok === false) notifier.warn(res.detail ?? res.reason ?? "Couldn't disperse.");
   }
 
   // Death saves (§7.4): 3 success / 3 failure pips + a big Roll button.
@@ -3185,7 +3186,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       else if (!game.users.some(u => u.isGM && u.active)) msg = "Use: no DM is connected — the shared screen has to be online.";
       else msg = `Use: couldn't reach the DM${why ? ` — ${why}` : " — is its screen reloaded since the update?"}`;
       this.render();
-      return ui.notifications.warn(msg);
+      return notifier.warn(msg);
     }
     const total = piles.length + doors.length + tiles.length + travel.length;
     if (total === 0) { this.#clearNearby(); this.render(); return this.#useNote("Nothing to use."); }
@@ -3223,7 +3224,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#useNote("Waiting for the DM…");
     this.render();
     rpc.travelRequest({ regionId, forActorUuid: this.actor?.uuid })
-      .then((res) => { if (!res?.ok) { this.#useNote(""); this.render(); ui.notifications.warn(`Travel: ${res?.reason ?? "couldn't reach the DM"}`); } })
+      .then((res) => { if (!res?.ok) { this.#useNote(""); this.render(); notifier.warn(`Travel: ${res?.reason ?? "couldn't reach the DM"}`); } })
       .catch((e) => console.warn(`${MODULE_ID} | travel request failed`, e));
   }
   // The DM's answer to a Basic travel ask (rpc travelResult). A move clears the note — the crossing itself
@@ -3231,21 +3232,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   noteTravelResult({ moved, reason } = {}) {
     if (moved) { this.#moveBudget = null; this.#partyMoveNote = null; }
     else this.#useNote(reason ? "" : "The DM kept you here.");
-    if (reason) ui.notifications.warn(`Travel: ${reason}`);
+    if (reason) notifier.warn(`Travel: ${reason}`);
     if (this.rendered) this.render();
   }
 
   async #openLoot(pileUuid) {
     const res = await rpc.openLoot({ pileUuid, forActorUuid: this.actor?.uuid });
-    if (!res?.ok) ui.notifications.warn(`Loot: ${res?.reason ?? "couldn't open that loot"}`);
+    if (!res?.ok) notifier.warn(`Loot: ${res?.reason ?? "couldn't open that loot"}`);
     // success → Item Piles renders its window on this client; the dialog-lift surfaces it.
   }
 
   async #operateInteractable(kind, id) {
     let res;
     try { res = await rpc.operateInteractable({ kind, id, forActorUuid: this.actor?.uuid }); }
-    catch (e) { return ui.notifications.warn("Couldn't reach the DM client."); }
-    if (!res?.ok) return ui.notifications.warn(res?.reason ?? "couldn't operate that");
+    catch (e) { return notifier.warn("Couldn't reach the DM client."); }
+    if (!res?.ok) return notifier.warn(res?.reason ?? "couldn't operate that");
     // Use rework: the pick list collapses after acting — tap Use again for a fresh
     // scan (replaces the old auto re-scan, which kept a stale-feeling list open).
     this.#clearNearby(); this.render();
@@ -3380,7 +3381,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       }
       this.#storyDraft = ""; this.#storyEditId = null; this.#storyDraftQ = null; this.#storyPendingId = null;
     }
-    else ui.notifications.warn(`My Story: ${res?.reason ?? "could not save"}`);
+    else notifier.warn(`My Story: ${res?.reason ?? "could not save"}`);
     this.render();
   }
   async #storyDeleteEntry(entryId) {
@@ -3396,7 +3397,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     let res;
     try { res = await rpc.storyDelete({ actorId: actor.id, entryId }); }
     catch (e) { res = { ok: false, reason: e?.message ?? "couldn't reach the DM" }; }
-    if (!res?.ok) ui.notifications.warn(`My Story: ${res?.reason ?? "could not delete"}`);
+    if (!res?.ok) notifier.warn(`My Story: ${res?.reason ?? "could not delete"}`);
     if (this.#storyEditId === entryId) { this.#storyEditId = null; this.#storyDraft = ""; }
     this.render();
   }
@@ -3552,7 +3553,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#journalBusy = true; this.render();
     try {
       const entry = await this.#ensureJournalEntry();
-      if (!entry) { ui.notifications.warn("Journal: the DM must be online to start the journal."); return; }
+      if (!entry) { notifier.warn("Journal: the DM must be online to start the journal."); return; }
       const ts = Date.now();
       const firstEntries = isProse
         ? [{ id: foundry.utils.randomID(), text: raw, img: null, by: { id: game.user.id, name: this.actor?.name ?? game.user?.name ?? "Someone", color: this.#userColor() }, ts }]
@@ -3562,12 +3563,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         text: { content: this.#entriesToHTML(firstEntries), format: 1 },
         flags: { [MODULE_ID]: { mcPage: true, ts, entries: firstEntries } }
       }]);
-      if (isProse) ui.notifications.info("That read like a journal entry, so it went inside the page — tap the pencil to name it.");
+      if (isProse) notifier.info("That read like a journal entry, so it went inside the page — tap the pencil to name it.");
       this.#journalDraft = "";
       if (page) this.#journalPageId = page.id; // drop straight into the new page
     } catch (e) {
       console.error("mobile-command | create page failed", e);
-      ui.notifications.warn("Journal: couldn't create that page.");
+      notifier.warn("Journal: couldn't create that page.");
     } finally {
       this.#journalBusy = false; this.render();
     }
@@ -3595,7 +3596,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       this.#journalDraft = ""; this.#journalEntryEditId = null; this.#journalPendingImg = null;
     } catch (e) {
       console.error("mobile-command | save entry failed", e);
-      ui.notifications.warn("Journal: couldn't save that entry.");
+      notifier.warn("Journal: couldn't save that entry.");
     } finally {
       this.#journalBusy = false; this.render();
     }
@@ -3613,7 +3614,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!ok) return;
     const list = this.#pageEntries(page).filter(e => e.id !== entryId);
     try { await page.update({ [`flags.${MODULE_ID}.entries`]: list, text: { content: this.#entriesToHTML(list) } }); }
-    catch (e) { ui.notifications.warn("Journal: couldn't delete that entry."); }
+    catch (e) { notifier.warn("Journal: couldn't delete that entry."); }
     if (this.#journalEntryEditId === entryId) { this.#journalEntryEditId = null; this.#journalDraft = ""; }
     if (this.rendered) this.render();
   }
@@ -3621,7 +3622,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const page = this.#partyJournalEntry()?.pages?.get(pageId);
     this.#journalTitleEdit = false;
     const t = String(title ?? "").trim();
-    if (page && t) { try { await page.update({ name: t.slice(0, 120) }); } catch (e) { ui.notifications.warn("Journal: couldn't rename the page."); } }
+    if (page && t) { try { await page.update({ name: t.slice(0, 120) }); } catch (e) { notifier.warn("Journal: couldn't rename the page."); } }
     if (this.rendered) this.render();
   }
   // A page deleted (by the DM in Foundry) while it's open → fall back to the cover.
@@ -3682,10 +3683,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (!this.#wildShape?.open) return;
       this.#wildShape.beasts = res?.ok ? (res.beasts ?? []) : [];
       this.#wildShape.loading = false;
-      if (!res?.ok) ui.notifications.warn(`Wild Shape: ${res?.reason ?? "couldn't load shapes"}`);
+      if (!res?.ok) notifier.warn(`Wild Shape: ${res?.reason ?? "couldn't load shapes"}`);
     } catch (e) {
       if (this.#wildShape) { this.#wildShape.beasts = []; this.#wildShape.loading = false; }
-      ui.notifications.warn("Wild Shape: the DM's screen needs to reload since the last update to enable this.");
+      notifier.warn("Wild Shape: the DM's screen needs to reload since the last update to enable this.");
     }
     this.render();
   }
@@ -3695,19 +3696,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const feat = this.#wildShapeFeat(actor);
     const u = feat?.system?.uses;
     if (u && (u.max ?? 0) > 0 && ((u.max ?? 0) - (u.spent ?? 0)) <= 0) {
-      return ui.notifications.warn(`${actor?.name ?? "You"} has no Wild Shape uses left — rest to recover.`);
+      return notifier.warn(`${actor?.name ?? "You"} has no Wild Shape uses left — rest to recover.`);
     }
     let res;
     try { res = await rpc.wildShapeInto({ beastUuid, forActorUuid: actor?.uuid, featUuid: feat?.uuid }); }
-    catch (e) { return ui.notifications.warn("Wild Shape: the DM's screen needs to reload since the last update."); }
-    if (res?.ok) { this.#closeWildShape(); ui.notifications.info(`Wild-shaped into ${res.name}.`); }
-    else ui.notifications.warn(`Wild Shape: ${res?.reason ?? "couldn't change shape"}`);
+    catch (e) { return notifier.warn("Wild Shape: the DM's screen needs to reload since the last update."); }
+    if (res?.ok) { this.#closeWildShape(); notifier.info(`Wild-shaped into ${res.name}.`); }
+    else notifier.warn(`Wild Shape: ${res?.reason ?? "couldn't change shape"}`);
   }
   async #revertWildShape() {
     let res;
     try { res = await rpc.wildShapeRevert({ forActorUuid: this.actor?.uuid, forTokenId: this.originTokenId }); }
-    catch (e) { return ui.notifications.warn("Wild Shape: the DM's screen needs to reload to revert."); }
-    if (!res?.ok) ui.notifications.warn(`Wild Shape: ${res?.reason ?? "couldn't revert"}`);
+    catch (e) { return notifier.warn("Wild Shape: the DM's screen needs to reload to revert."); }
+    if (!res?.ok) notifier.warn(`Wild Shape: ${res?.reason ?? "couldn't revert"}`);
   }
 
   // Active-scene tokens the user owns (PC + summons/familiars/wild shape).
@@ -4117,7 +4118,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       await actor.createEmbeddedDocuments("Item", [{ name, type: "loot", system: { quantity: 1 } }]);
     } catch (e) {
       console.warn(`${MODULE_ID} | create flavour item failed`, e);
-      ui.notifications?.warn("Couldn't create the item.");
+      notifier.warn("Couldn't create the item.");
     }
   }
   // Always on — [🔍][Search…] on one row, the magnifier now purely a marker (UI-BIBLE §6.2).
@@ -4765,10 +4766,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         await document.documentElement.requestFullscreen();
       } else {
         // iPhone Safari: no Fullscreen API at all — Add to Home Screen IS fullscreen.
-        return ui.notifications.info("iPhone: tap Share → “Add to Home Screen”, then open Mobile Command from that icon — it launches full screen.", { permanent: true });
+        return notifier.info("iPhone: tap Share → “Add to Home Screen”, then open Mobile Command from that icon — it launches full screen.", { permanent: true });
       }
     } catch (e) {
-      ui.notifications.warn("Couldn't switch full screen — your browser may block it.");
+      notifier.warn("Couldn't switch full screen — your browser may block it.");
     }
     this.render();
   }
@@ -4996,14 +4997,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   async #rollDiceTray() {
     if (!Object.values(this.#dtrayPool).some(n => n > 0)) {
-      return ui.notifications.info("Dice tray: tap a die first.");
+      return notifier.info("Dice tray: tap a die first.");
     }
     const formula = this.#dtrayFormula();
     let roll;
     try {
       roll = await new Roll(formula).evaluate();
     } catch (e) {
-      return ui.notifications.warn(`Dice tray: couldn't roll "${formula}".`);
+      return notifier.warn(`Dice tray: couldn't roll "${formula}".`);
     }
     // Force PUBLIC so the roll always reaches the shared TV (and players can't
     // change roll mode from the phone anyway). DSN animates it there if present.
@@ -5098,7 +5099,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     try {
       const AM = dnd5e.applications?.advancement?.AdvancementManager ?? dnd5e.documents?.advancement?.AdvancementManager;
       AM.forLevelChange(actor, classId, 1).render(true); // dnd5e advancement popup, lifted onto the phone
-    } catch (e) { console.error("mobile-command | level-up failed", e); ui.notifications.warn("Couldn't start level-up — see console."); }
+    } catch (e) { console.error("mobile-command | level-up failed", e); notifier.warn("Couldn't start level-up — see console."); }
   }
   async #openMulticlass() {
     this.#levelUp = { adding: true, options: null }; this.render();
@@ -5115,11 +5116,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const actor = this.actor; if (!actor) return;
     const item = await fromUuid(uuid);
     this.#levelUp = null; this.#showLevels = false; this.render();
-    if (!item) return ui.notifications.warn("That class couldn't load.");
+    if (!item) return notifier.warn("That class couldn't load.");
     try {
       const AM = dnd5e.applications?.advancement?.AdvancementManager ?? dnd5e.documents?.advancement?.AdvancementManager;
       AM.forNewItem(actor, item.toObject()).render(true);
-    } catch (e) { console.error("mobile-command | multiclass add failed", e); ui.notifications.warn(`Couldn't add ${item.name}.`); }
+    } catch (e) { console.error("mobile-command | multiclass add failed", e); notifier.warn(`Couldn't add ${item.name}.`); }
   }
 
   // Condition palette (header): the standard dnd5e conditions from
@@ -5536,7 +5537,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   async #rollInitiativeFor(a) {
     if (!a) return;
     const combat = activeCombat();
-    if (!combat) { ui.notifications.info("No active encounter yet — ask the DM to start combat."); return; }
+    if (!combat) { notifier.info("No active encounter yet — ask the DM to start combat."); return; }
     try {
       const mine = this.#combatantsFor(a, combat);
       // ⚠️ ONLY THE ONES THAT STILL OWE A NUMBER (DM 2026-10-05: "if a player already rolled,
@@ -5547,13 +5548,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       if (ids.length) await combat.rollInitiative(ids);
       // Nothing pending but they ARE in the fight: the request has been overtaken. Say so and
       // keep the number, rather than re-rolling or failing silently.
-      else if (mine.length) ui.notifications.info("Already rolled — keeping your initiative.");
+      else if (mine.length) notifier.info("Already rolled — keeping your initiative.");
       // Genuinely not in the encounter. Only reach for the dialog here, because on a canvas-off
       // phone it can ADD a second combatant when one already exists.
       else await a.rollInitiativeDialog();
     } catch (e) {
       console.error("mobile-command | pushed initiative roll failed", { actor: a?.uuid, error: e });
-      ui.notifications.warn("Couldn't roll initiative — check the console (F12) and tell me what it says.");
+      notifier.warn("Couldn't roll initiative — check the console (F12) and tell me what it says.");
     }
     if (this.rendered) this.render();
   }
@@ -5562,7 +5563,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const actor = this.actor;
     if (!actor) return;
     if (!activeCombat()) {
-      ui.notifications.info("No active encounter yet — ask the DM to start combat.");
+      notifier.info("No active encounter yet — ask the DM to start combat.");
       return;
     }
     try {
@@ -5582,7 +5583,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         isCombatant: !!activeCombat()?.combatants?.some(c => c.actor?.id === actor.id),
         error: e
       });
-      ui.notifications.warn("Couldn't roll initiative — check the console (F12) and tell me what it says.");
+      notifier.warn("Couldn't roll initiative — check the console (F12) and tell me what it says.");
     }
     if (this.rendered) this.render();
   }
@@ -6029,7 +6030,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const activity = await fromUuid(uuid);
     if (!activity) {
       console.debug("mobile-command | pickAction: activity not found", { uuid });
-      return ui.notifications.warn("That action couldn't load — try reopening the sheet.");
+      return notifier.warn("That action couldn't load — try reopening the sheet.");
     }
     console.debug("mobile-command | pickAction", {
       name: activity.item?.name, type: activity.type,
@@ -6049,7 +6050,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       const lvl = activity.item?.system?.level ?? 0;
       const slotOptions = this.#spellSlotOptions(activity);
       if (lvl >= 1 && !slotOptions.length) {
-        return ui.notifications.warn(`${activity.item?.name ?? "That spell"}: no level ${lvl}+ slots left.`);
+        return notifier.warn(`${activity.item?.name ?? "That spell"}: no level ${lvl}+ slots left.`);
       }
       // §28.5.6 nit closed 2026-08-21: a leveled AoE collects its SLOT on the phone first (the
       // summon pattern), so the DM's Place is only ever the placement click — no usage dialog
@@ -6181,7 +6182,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const casterTokenUuid = game.scenes.active?.tokens.get(this.originTokenId)?.uuid ?? null;
     if (!casterTokenUuid) {
       if (mode === "aoe") return this.#announceCast(activity, "aoe");
-      return ui.notifications.warn("No token on the map to cast from.");
+      return notifier.warn("No token on the map to cast from.");
     }
     this.#abandonAction();
     let res;
@@ -6189,7 +6190,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     catch (e) { console.warn("mobile-command | placementStart", e); res = { ok: false }; }
     if (!res?.ok) {
       if (mode === "aoe") return this.#announceCast(activity, "aoe"); // graceful fallback
-      return ui.notifications.warn(`Couldn't aim: ${res?.reason ?? "the DM screen isn't ready"}`);
+      return notifier.warn(`Couldn't aim: ${res?.reason ?? "the DM screen isn't ready"}`);
     }
     this.#placement = { mode, kind: res.kind, spellName: res.spellName ?? activity.item?.name ?? "spell",
       rangeFt: res.rangeFt, distFt: 0, inRange: true, direction: 0, activityUuid: activity.uuid, busy: false };
@@ -6244,11 +6245,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       });
     } catch (e) {
       console.error("mobile-command | announceCast failed", { name, kind, error: e });
-      return ui.notifications.warn(`${name}: couldn't reach the DM (${e?.message ?? "error"}).`);
+      return notifier.warn(`${name}: couldn't reach the DM (${e?.message ?? "error"}).`);
     }
     const verb = kind === "summon" ? "summon" : "place";
-    if (res?.ok) ui.notifications.info(`Asked the DM to ${verb} ${name}.`);
-    else ui.notifications.warn(`${name}: ${res?.reason ?? "could not reach the DM"}`);
+    if (res?.ok) notifier.info(`Asked the DM to ${verb} ${name}.`);
+    else notifier.warn(`${name}: ${res?.reason ?? "could not reach the DM"}`);
   }
 
   // Summon options the player picks BEFORE the DM places (slot level + creature
@@ -6428,7 +6429,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (res?.ok) {
       this.#portraitGen = null; // done → back to the sheet, now showing the new portrait
       this.render();
-      ui.notifications?.info?.("Set — full image as your portrait, cropped disc as your token.");
+      notifier.info("Set — full image as your portrait, cropped disc as your token.");
     } else if (btn) {
       btn.innerHTML = `<i class="fas fa-triangle-exclamation"></i> ${foundry.utils.escapeHTML(res?.reason ?? "Upload failed — has the DM's screen reloaded?")}`;
     }
@@ -6599,7 +6600,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   noteAssignedTargets(uuids, from) {
     this.#assignedTargets = Array.isArray(uuids) ? uuids.filter(Boolean) : [];
     this.#assignedBy = this.#assignedTargets.length ? (from || "DM") : null;
-    if (this.#assignedTargets.length) ui.notifications.info(`Targets set by ${this.#assignedBy}`);
+    if (this.#assignedTargets.length) notifier.info(`Targets set by ${this.#assignedBy}`);
     if (this.rendered) this.render();
   }
   expireAssignedIfNotMyTurn() {
@@ -6693,7 +6694,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#clearPreview(); // attack fired — the workflow owns its targets now
     if (!res?.ok) {
       this.#actionState = null; this.render();
-      return ui.notifications.warn(`${s.name}: ${res?.reason ?? "could not use"}`);
+      return notifier.warn(`${s.name}: ${res?.reason ?? "could not use"}`);
     }
     // Used → auto-collapse its Actions drawer (the action is committed now;
     // resource consumed). Reopenable; takes effect when the list re-renders.
@@ -6723,7 +6724,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         s.hasAttack = true; s.hit = res.hit; s.attackTotal = res.attackTotal;
         this.#applyMastery(s, res);
         this.render();
-        if (res.reason) ui.notifications.info(`${s.name}: ${res.reason}`);
+        if (res.reason) notifier.info(`${s.name}: ${res.reason}`);
         return;
       }
       // A HEAL owes its result the same way a miss does (DM 2026-08-28: "definitely add
@@ -6736,7 +6737,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return;
       }
       this.#actionState = null; this.render();
-      if (res.reason) ui.notifications.info(`${s.name}: ${res.reason}`);
+      if (res.reason) notifier.info(`${s.name}: ${res.reason}`);
       return;
     }
     s.busy = false; s.phase = "attacked";
@@ -6816,8 +6817,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       console.error("mobile-command | enchantApply failed", err);
       res = { ok: false, reason: err?.message ?? "error — see DM console" };
     }
-    if (!res?.ok) return ui.notifications.warn(`${s.name}: ${res?.reason ?? "couldn't enchant"}`);
-    ui.notifications.info(res.removed ? `${s.name} — enchantment removed from ${res.itemName}.` : `${s.name} now enchants ${res.itemName}.`);
+    if (!res?.ok) return notifier.warn(`${s.name}: ${res?.reason ?? "couldn't enchant"}`);
+    notifier.info(res.removed ? `${s.name} — enchantment removed from ${res.itemName}.` : `${s.name} now enchants ${res.itemName}.`);
   }
 
   // Clear the picker; if a workflow is parked awaiting damage, cancel it on the
@@ -6906,7 +6907,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.render();
       } else { this.#actionState = null; this.render(); }
     }
-    if (!res?.ok) return ui.notifications.warn(`${s.name}: ${res?.reason ?? "damage failed"}`);
+    if (!res?.ok) return notifier.warn(`${s.name}: ${res?.reason ?? "damage failed"}`);
     // Damage toaster (DM 2026-06-19): the damage rolls on the executor and midi's
     // card doesn't reach the phone's chat-roll hook cleanly, so toast the total the
     // executor returned, the same way attack/check rolls toast.
@@ -7022,20 +7023,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         const t = this.#transferState; if (!t) return;
         const itemMoves = Object.entries(t.items ?? {}).map(([id, qty]) => ({ id, qty }));
         const coins = t.coins ?? {};
-        if (!itemMoves.length && !Object.values(coins).some(n => Number(n) > 0)) { ui.notifications.warn("Pick something to transfer."); return; }
+        if (!itemMoves.length && !Object.values(coins).some(n => Number(n) > 0)) { notifier.warn("Pick something to transfer."); return; }
         if (t.mode === "ally") {
-          if (!t.to) { ui.notifications.warn("Pick who to give to."); return; }
+          if (!t.to) { notifier.warn("Pick who to give to."); return; }
           rpc.transferOffer({ actorId: this.actor.id, toActorId: t.to, itemMoves, coins }).then(res => {
-            if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Transfer failed."); return; }
+            if (res?.ok === false) { notifier.warn(res.reason ?? "Transfer failed."); return; }
             this.#transferState = null;
-            ui.notifications.info(res.instant ? "Handed over." : "Offer sent — waiting for them to accept.");
+            notifier.info(res.instant ? "Handed over." : "Offer sent — waiting for them to accept.");
             this.render();
           });
         } else {
           rpc.transferStash({ actorId: this.actor.id, dir: t.dir, itemMoves, coins }).then(res => {
-            if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Transfer failed."); return; }
+            if (res?.ok === false) { notifier.warn(res.reason ?? "Transfer failed."); return; }
             this.#transferState = null;
-            ui.notifications.info(t.dir === "take" ? "Taken from the party stash." : "Put in the party stash.");
+            notifier.info(t.dir === "take" ? "Taken from the party stash." : "Put in the party stash.");
             this.render();
           });
         }
@@ -7047,10 +7048,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         const item = this.actor?.items.get(el.dataset.itemId);
         const cfg = item && this.#lightConfigFor(item);
         const tokenId = this.originTokenId;
-        if (!cfg || !tokenId) { ui.notifications.warn("No token on this scene to light."); return; }
+        if (!cfg || !tokenId) { notifier.warn("No token on this scene to light."); return; }
         rpc.setTokenLight({ tokenId, itemId: item.id, light: cfg }).then(res => {
-          if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Couldn't change the light."); return; }
-          ui.notifications.info(res.lit ? `${item.name} lit.` : `${item.name} put out.`);
+          if (res?.ok === false) { notifier.warn(res.reason ?? "Couldn't change the light."); return; }
+          notifier.info(res.lit ? `${item.name} lit.` : `${item.name} put out.`);
           this.render();
         });
         return;
@@ -7593,19 +7594,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         rpc.placementConfirm()
           .then(r => {
             this.#placement = null; this.render();
-            if (r?.ok) { this.#sfx("damage"); ui.notifications.info(p.mode === "teleport" ? "Teleported." : r.dmResolves ? `${p.spellName} aimed — the DM will resolve it (${r.targets ?? 0} in the area).` : `${p.spellName} cast${r.targets ? ` — ${r.targets} in the area` : ""}.`); }
-            else ui.notifications.warn(r?.reason ?? "Couldn't finish the cast.");
+            if (r?.ok) { this.#sfx("damage"); notifier.info(p.mode === "teleport" ? "Teleported." : r.dmResolves ? `${p.spellName} aimed — the DM will resolve it (${r.targets ?? 0} in the area).` : `${p.spellName} cast${r.targets ? ` — ${r.targets} in the area` : ""}.`); }
+            else notifier.warn(r?.reason ?? "Couldn't finish the cast.");
           })
-          .catch(e => { console.warn("mobile-command | place-confirm", e); this.#placement = null; this.render(); ui.notifications.warn("The DM screen didn't respond."); });
+          .catch(e => { console.warn("mobile-command | place-confirm", e); this.#placement = null; this.render(); notifier.warn("The DM screen didn't respond."); });
         return;
       }
       case "scroll-scribe":
         rpc.scribeRequest({ actorId: this.actor?.id, itemId: el.dataset.itemId, requesterId: game.user.id })
           .then(res => {
-            if (res?.ok === false) ui.notifications.warn(res.reason ?? "The request couldn't be sent.");
-            else ui.notifications.info("Sent to the DM — you'll hear back.");
+            if (res?.ok === false) notifier.warn(res.reason ?? "The request couldn't be sent.");
+            else notifier.info("Sent to the DM — you'll hear back.");
           })
-          .catch(e => { console.warn("mobile-command | scribeRequest", e); ui.notifications.warn("The DM's client isn't reachable."); });
+          .catch(e => { console.warn("mobile-command | scribeRequest", e); notifier.warn("The DM's client isn't reachable."); });
         return;
       case "night-subject": // pick which of my watchers (PC or pet) the watch rows now assign
         this.#nightSubjectId = el.dataset.actor;
@@ -7614,7 +7615,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         // Assign the currently-selected subject (their PC by default, or a pet they switched to).
         const subject = this.#nightInfo()?.me;
         rpc.nightToggle({ groupId: el.dataset.group, actorId: subject?.id, watch: Number(el.dataset.watch), requesterId: game.user.id })
-          .then(res => { if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't set that watch."); })
+          .then(res => { if (res?.ok === false) notifier.warn(res.reason ?? "Couldn't set that watch."); })
           .catch(e => console.warn("mobile-command | nightToggle", e));
         return; // the group flag update re-renders every member phone
       }
@@ -7625,7 +7626,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         game.user.setFlag("mobile-command", "followAll", on)
           .then(() => { if (this.rendered) this.render(); })
           .catch(e => console.warn("mobile-command | follow flag", e));
-        ui.notifications.info(on ? "Your other tokens will follow your moves." : "Follow off.");
+        notifier.info(on ? "Your other tokens will follow your moves." : "Follow off.");
         return;
       }
       case "pick-offscene": // from the no-token screen: peek at / build an owned character
@@ -7813,9 +7814,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
               // over the new map's pad (DM asked what it even was, 2026-08-28) — a
               // successful travel starts the new car with a clean note line.
               this.#moveBudget = null; this.#partyMoveNote = null; this.render();
-              if (group && res.moved > 1) ui.notifications.info(`${res.moved} travelled together.`);
+              if (group && res.moved > 1) notifier.info(`${res.moved} travelled together.`);
             }
-            else ui.notifications.warn(`Travel: ${res?.reason ?? "failed"}`);
+            else notifier.warn(`Travel: ${res?.reason ?? "failed"}`);
           })
           .catch((e) => console.warn(`${MODULE_ID} | travel failed`, e));
         return this.render();
@@ -7941,9 +7942,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // the DM was toggling permissions), bail with a clean note instead of letting Foundry throw
     // a raw "lacks permission to update Actor" error. The shell only navigates to owned actors,
     // so this is the safety net for an ownership that drops mid-session. DM 2026-06-27.
-    if (!actor.isOwner) { ui.notifications?.warn?.(`You don't have permission to rest ${actor.name}.`); return; }
+    if (!actor.isOwner) { notifier.warn(`You don't have permission to rest ${actor.name}.`); return; }
     // §50.6 safety net under the hidden buttons: dnd5e would warn-and-return anyway; say it our way.
-    if (!this.#selfRestsAllowed()) { ui.notifications?.info?.("Resting here happens through the story — ask the DM."); return; }
+    if (!this.#selfRestsAllowed()) { notifier.info("Resting here happens through the story — ask the DM."); return; }
     const before = this.#restSnapshot(actor);
     let result;
     try { result = await (kind === "long" ? actor.longRest() : actor.shortRest()); }
@@ -8071,7 +8072,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
   async #endTurn() {
     const res = await rpc.endTurn({});
-    if (res && !res.ok) ui.notifications.warn(`End turn: ${res.reason ?? "failed"}`);
+    if (res && !res.ok) notifier.warn(`End turn: ${res.reason ?? "failed"}`);
   }
 
   #attachListeners(root) {
@@ -8556,7 +8557,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       this.#bioEditing = false;
     } catch (e) {
       console.error("mobile-command | bio save failed", e);
-      ui.notifications.warn("Biography: couldn't save (do you own this character?).");
+      notifier.warn("Biography: couldn't save (do you own this character?).");
     } finally {
       this.#bioBusy = false; this.render();
     }
@@ -9250,7 +9251,7 @@ export function maybeAutoOpenShell() {
           document.getElementById("mc-clean-hint")?.remove();
           closeShell();
         } catch (e) { /* nothing open to undo */ }
-        try { ui.notifications?.info("This browser now uses plain Foundry. Change it any time in Mobile Command's Client role setting."); } catch (e) { /* notifications late */ }
+        try { notifier.info("This browser now uses plain Foundry. Change it any time in Mobile Command's Client role setting."); } catch (e) { /* notifications late */ }
       }
     }).catch(() => {});
   } catch (e) { /* the prompt is a courtesy — never block ready */ }
@@ -9441,7 +9442,7 @@ export function registerShellHooks() {
     // dozen toasts). Covers shop buys, loot takes, and DM-given items alike.
     if (shellInstance?.rendered && controlsActor(item?.parent) && !item.parent.getFlag(MODULE_ID, "charGen")) {
       const qty = item.system?.quantity > 1 ? ` ×${item.system.quantity}` : "";
-      ui.notifications.info(`${item.name}${qty} added to ${item.parent.name}'s inventory.`);
+      notifier.info(`${item.name}${qty} added to ${item.parent.name}'s inventory.`);
     }
     onItem(item);
   });

@@ -1,4 +1,5 @@
 import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState } from "./rpc.js";
+import { notifier } from "./notifier.js";
 import { fireAoO } from "./aoo.js";
 import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD, STORY_QUESTIONS, TABLE_SEATS, CARD_THEMES, DEFAULT_CARD_THEME, DEFAULT_CARD_BACK } from "./preset.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
@@ -442,32 +443,32 @@ async function bossDrop(el, data) {
   if (data?.type === "Actor" || data?.type === "Token") {
     const doc = await fromUuid(data.uuid);
     const actor = doc?.documentName === "Token" ? doc.actor : doc;
-    if (!actor) return void ui.notifications.warn(`${MODULE_ID} | couldn't read that actor.`);
+    if (!actor) return void notifier.warn(`${MODULE_ID} | couldn't read that actor.`);
     // A COMPENDIUM monster is not a monster at this table yet. Its id is pack-internal, so
     // game.actors.get() would never find it again and the row would read "that monster is gone"
     // the moment it was made. Say what to do instead rather than storing a boss that can't play.
     if (actor.pack || !game.actors.get(actor.id)) {
-      return void ui.notifications.warn(`${MODULE_ID} | ${actor.name} is still in a compendium — drag it into your Actors list (or onto the map) first, then drop it here.`);
+      return void notifier.warn(`${MODULE_ID} | ${actor.name} is still in a compendium — drag it into your Actors list (or onto the map) first, then drop it here.`);
     }
     if (bossId) {
       const b = list.find(x => x.id === bossId);
       if (b) b.actorId = actor.id;
     } else {
-      if (list.some(x => x.actorId === actor.id)) return void ui.notifications.info(`${MODULE_ID} | ${actor.name} is already a boss.`);
+      if (list.some(x => x.actorId === actor.id)) return void notifier.info(`${MODULE_ID} | ${actor.name} is already a boss.`);
       list.push({ id: foundry.utils.randomID(), actorId: actor.id, sound: "" });
     }
     await bossSave(list);
     return void render();
   }
   if (data?.type === "PlaylistSound") {
-    if (!bossId) return void ui.notifications.warn(`${MODULE_ID} | drop the track ON a boss — drag the monster in first.`);
+    if (!bossId) return void notifier.warn(`${MODULE_ID} | drop the track ON a boss — drag the monster in first.`);
     const b = list.find(x => x.id === bossId);
     if (!b) return;
     b.sound = data.uuid;
     await bossSave(list);
     return void render();
   }
-  ui.notifications.warn(`${MODULE_ID} | drag a monster, or a playlist TRACK for its sound.`);
+  notifier.warn(`${MODULE_ID} | drag a monster, or a playlist TRACK for its sound.`);
 }
 
 // The manual way in, for audio that doesn't live in a playlist (UI-BIBLE §8.1: the gesture is
@@ -582,7 +583,7 @@ function seanceBody() {
 
 // §30 shared by the Send button and Enter in the input.
 function seanceSend() {
-  if (!seanceSay(seanceDraft)) { ui.notifications.warn("Write what the spirits say — letters and numbers only."); return; }
+  if (!seanceSay(seanceDraft)) { notifier.warn("Write what the spirits say — letters and numbers only."); return; }
   seanceDraft = "";
   render();
 }
@@ -1393,7 +1394,7 @@ async function restParty(kind) {
     catch (e) { console.warn(`${MODULE_ID} | party rest failed for ${a.name}`, e); }
   }
   const advanced = kind === "long" ? await advanceRestGoals(new Set(pcs.map(a => a.id))) : 0;
-  ui.notifications?.info(`${kind === "long" ? "Long" : "Short"} rest — ${n} character${n === 1 ? "" : "s"} rested${advanced ? `, ${advanced} nightly goal${advanced === 1 ? "" : "s"} advanced` : ""}.`);
+  notifier.info(`${kind === "long" ? "Long" : "Short"} rest — ${n} character${n === 1 ? "" : "s"} rested${advanced ? `, ${advanced} nightly goal${advanced === 1 ? "" : "s"} advanced` : ""}.`);
 }
 
 // Long-rest reminder woven into the montage: a long rest advances every "per rest" downtime
@@ -1860,20 +1861,20 @@ function disarmTravelDrop() { try { travelDisarm?.(); } catch (e) { /* listener 
 function armTravelDrop() {
   disarmTravelDrop();
   const board = document.getElementById("board");
-  if (!board) { ui.notifications.warn("No canvas to click on."); return; }
+  if (!board) { notifier.warn("No canvas to click on."); return; }
   const onDown = async (ev) => {
     if (ev.button !== 0) return; // right/middle-drag pans the map — don't cancel placement (DM 2026-07-19)
     disarmTravelDrop();
     ev.preventDefault();
     ev.stopPropagation(); // capture phase: the click places the party, core never sees it
     const res = await api.travelDrop({ x: canvas.mousePosition.x, y: canvas.mousePosition.y });
-    if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't place the party.");
+    if (res?.ok === false) notifier.warn(res.reason ?? "Couldn't place the party.");
   };
-  const onKey = (ev) => { if (ev.key === "Escape") { disarmTravelDrop(); ui.notifications.info("Travel placement cancelled."); } };
+  const onKey = (ev) => { if (ev.key === "Escape") { disarmTravelDrop(); notifier.info("Travel placement cancelled."); } };
   board.addEventListener("pointerdown", onDown, true);
   window.addEventListener("keydown", onKey, true);
   travelDisarm = () => { board.removeEventListener("pointerdown", onDown, true); window.removeEventListener("keydown", onKey, true); };
-  ui.notifications.info("Click the map where the party arrives — right-click-drag pans, Esc cancels.");
+  notifier.info("Click the map where the party arrives — right-click-drag pans, Esc cancels.");
 }
 
 // §18 T2: DM draws a freeform route the players see (a Drawing), and the panel reads out
@@ -1969,7 +1970,7 @@ async function maybeAutoLightOverworld(scene) {
     }
     await scene.update(patch, { animateDarkness: 800 });
     console.log(`${MODULE_ID} | set up travel map "${scene.name}" (DM-listed) — whole map visible, darkness follows the clock`);
-    ui.notifications.info(`Travel map ready: “${scene.name}” — whole map stays visible and dims with the clock.`);
+    notifier.info(`Travel map ready: “${scene.name}” — whole map stays visible and dims with the clock.`);
   } catch (e) { console.warn(`${MODULE_ID} | auto-light overworld failed`, e); }
 }
 // §18 T3: tick the token along the route while game-time advances (1 game-hour/tick) and the
@@ -1979,7 +1980,7 @@ export async function runTravelJourney(group) {
   const scene = canvas.scene;
   const gt = scene?.tokens.find(t => t.actorId === group.id);
   const pts = travelRoutePts;
-  if (!gt || !pts || pts.length < 2 || !travelRouteInfo) { ui.notifications.warn("Draw a route first."); return; }
+  if (!gt || !pts || pts.length < 2 || !travelRouteInfo) { notifier.warn("Draw a route first."); return; }
   if (travelJourneyActive) return;
   const totalHours = Math.max(1, Math.round(travelRouteInfo.miles * 8 / travelMilesPerDay(group)));
   const cum = travelCumLen(pts), total = cum[cum.length - 1];
@@ -2030,8 +2031,8 @@ export async function runTravelJourney(group) {
     await deleteTravelRouteDrawings();
     resetTravelRoute();
     if (wePaused) game.togglePause(false); // arrival unpauses (only if the journey paused)
-    ui.notifications.info("The party arrives.");
-  } else ui.notifications.info("Journey stopped — the game stays paused.");
+    notifier.info("The party arrives.");
+  } else notifier.info("Journey stopped — the game stays paused.");
   // No snap-back to the travel scene: if the party crossed a teleporter mid-journey, following it to the
   // new scene is CORRECT — transporting is a feature (DM 2026-07-19). Line cleanup (deleteTravelRouteDrawings
   // on arrival + the on-scene-switch canvasReady sweep) keeps stray routes from lingering either way.
@@ -2050,7 +2051,7 @@ export async function beginTravel() {
   const res = await api.travelPrepare({});
   if (res?.ok === false) {
     const why = res.detail ?? res.reason ?? "Couldn't prepare travel.";
-    ui.notifications.warn(why);
+    notifier.warn(why);
     return { ok: false, reason: why };
   }
   const over = game.scenes.get(res.sceneId);
@@ -2064,7 +2065,7 @@ export function armTravelRoute() {
   disarmTravelRoute();
   const board = document.getElementById("board");
   const group = packedGroup();
-  if (!board || !group || !canvas?.ready) { ui.notifications.warn("Form up on the travel map first."); return; }
+  if (!board || !group || !canvas?.ready) { notifier.warn("Form up on the travel map first."); return; }
   const gtok = canvas.tokens?.placeables.find(t => t.actor?.id === group.id);
   const anchor = gtok?.center ?? null; // start the line at the token, no selection needed
   // Belt-and-suspenders: even if a pointer event leaks past the window capture, tokens can't be
@@ -2085,7 +2086,7 @@ export function armTravelRoute() {
   };
   const move = (ev) => { if (!drawing) return; eat(ev); push(coord(ev)); };
   const up = async (ev) => { if (!drawing) return; eat(ev); drawing = false; push(coord(ev)); disarmTravelRoute(); await finishTravelRoute(group, pts); };
-  const key = (ev) => { if (ev.key === "Escape") { disarmTravelRoute(); ui.notifications.info("Route cancelled."); } };
+  const key = (ev) => { if (ev.key === "Escape") { disarmTravelRoute(); notifier.info("Route cancelled."); } };
   window.addEventListener("pointerdown", down, true);
   window.addEventListener("pointermove", move, true);
   window.addEventListener("pointerup", up, true);
@@ -2095,7 +2096,7 @@ export function armTravelRoute() {
       window.removeEventListener(t, f, true);
     if (canvas.tokens) canvas.tokens.interactiveChildren = true; // restore token dragging
   };
-  ui.notifications.info("Draw the route from the party — left-drag to draw; right-click-drag pans, Esc cancels.");
+  notifier.info("Draw the route from the party — left-drag to draw; right-click-drag pans, Esc cancels.");
 }
 // §18 T2 (DM 2026-07-19): the route is DASHED, thick, and WHITE — the orange-red read as invisible
 // on the map (DM: "red line isn't working, lets try white"). Foundry Drawings have no native dash, so
@@ -2136,7 +2137,7 @@ function routeDashDrawings(scene, pts) {
 }
 async function finishTravelRoute(group, pts) {
   const scene = canvas.scene;
-  if (!scene || pts.length < 2) { ui.notifications.warn("Route too short."); return; }
+  if (!scene || pts.length < 2) { notifier.warn("Route too short."); return; }
   let px = 0;
   for (let i = 1; i < pts.length; i++) px += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
   const grid = scene.grid;
@@ -2157,7 +2158,7 @@ async function finishTravelRoute(group, pts) {
   } catch (e) {
     console.warn(`${MODULE_ID} | dashed route failed (${e.message}) — drawing a solid line instead`);
     try { await scene.createEmbeddedDocuments("Drawing", [routeDrawingFrom(pts.slice())]); }
-    catch (e2) { console.error(`${MODULE_ID} | route draw failed`, e2); ui.notifications.warn(`Couldn't draw the route: ${e2.message}`); }
+    catch (e2) { console.error(`${MODULE_ID} | route draw failed`, e2); notifier.warn(`Couldn't draw the route: ${e2.message}`); }
   }
   render();
 }
@@ -2354,7 +2355,7 @@ function flyoutHTML() {
 async function sendRolls() {
   let ids = [...(rollTool.selected ?? [])];
   const init = rollTool.type === "initiative";
-  if (init && !game.combat) { ui.notifications.warn("No encounter — initiative needs a combat."); return; }
+  if (init && !game.combat) { notifier.warn("No encounter — initiative needs a combat."); return; }
   // "If a player already rolled, keep their result" (DM 2026-10-05). Dropped HERE as well as
   // greyed in the list, because the selection is sticky across type changes and across combat
   // rounds — a set chosen before anyone rolled is still the set when the Send is pressed.
@@ -2369,13 +2370,13 @@ async function sendRolls() {
   if (!ids.length) {
     // ⚠️ NEVER A SILENT NO-OP. Everyone selected had already rolled, so nothing was sent — say
     // which of the two reasons it was, or this reads as a dead button.
-    ui.notifications.warn(skipped ? `Nothing sent — all ${skipped} already rolled.` : "Pick at least one target.");
+    notifier.warn(skipped ? `Nothing sent — all ${skipped} already rolled.` : "Pick at least one target.");
     return;
   }
   // `ability` still travels for initiative and is ignored by the relay. Stripping it would mean
   // two call shapes for one handler, and the handler's own `kind` already decides what is read.
   const res = await api.requestRolls({ rollType: rollTool.type, ability: rollTool.ability, actorIds: ids });
-  if (res?.ok === false) { ui.notifications.warn(res.reason ?? "Couldn't request rolls."); return; }
+  if (res?.ok === false) { notifier.warn(res.reason ?? "Couldn't request rolls."); return; }
   // R3a (deck-command RULES.md:30): fact first, no narration, no sentence where a count will do.
   const what = init ? "Initiative" : `${CONFIG.DND5E?.abilities?.[rollTool.ability]?.label ?? rollTool.ability} ${rollTool.type}`;
   skipped += res.skipped ?? 0; // the relay applies the same rule; report one number, not two
@@ -2387,7 +2388,7 @@ async function sendRolls() {
   // button's count and the result is exactly the thing that gets filed as a broken feature.
   const unaccounted = (res.asked ?? 0) - res.sent - (res.auto ?? 0) - (res.skipped ?? 0);
   if (unaccounted > 0) parts.push(`${unaccounted} not reached`);
-  ui.notifications.info(parts.join(" · "));
+  notifier.info(parts.join(" · "));
   render(); // the numbers the rows show have just changed for anyone rolled DM-side
 }
 
@@ -3327,7 +3328,7 @@ async function applyPartyRest(group, size) {
   }
   // Pass the party that rested — they're camped off-scene, so the in-scene default would tick nothing.
   if (size === "long") await advanceRestGoals(new Set(rested.map(a => a.id)));
-  ui.notifications?.info(`${size === "long" ? "Long" : "Short"} rest — ${n} character${n === 1 ? "" : "s"} rested.`);
+  notifier.info(`${size === "long" ? "Long" : "Short"} rest — ${n} character${n === 1 ? "" : "s"} rested.`);
 }
 // Begin a rest from the setup draft. Neither phase → a plain dnd5e rest applied now (no ceremony).
 async function startRest() {
@@ -3395,13 +3396,13 @@ async function passWatch() {
   if (next != null) {
     await group.setFlag(MODULE_ID, "night", { ...night, watch: next });
     await applyWatchSleep(group);
-    ui.notifications?.info(`${fmtDur(secs)} passes — ${filled.indexOf(next) + 1}${["st", "nd", "rd"][filled.indexOf(next)] ?? "th"} watch.`);
+    notifier.info(`${fmtDur(secs)} passes — ${filled.indexOf(next) + 1}${["st", "nd", "rd"][filled.indexOf(next)] ?? "th"} watch.`);
   } else {
     // Last watch passed → morning. Stage first, then tear down the night flag (see advanceRest).
     await group.setFlag(MODULE_ID, "rest", { ...rest, stage: "morning" });
     await clearNightSleep(group);
     await group.unsetFlag(MODULE_ID, "night");
-    ui.notifications?.info(`${fmtDur(secs)} passes — the watch is over.`);
+    notifier.info(`${fmtDur(secs)} passes — the watch is over.`);
   }
   render();
 }
@@ -3493,7 +3494,7 @@ async function nightLongRestPrompt(group) {
     try { await a.longRest({ dialog: false, chat: false }); } catch (e) { console.warn(`${MODULE_ID} | rest failed for ${a.name}`, e); }
   }
   const advanced = await advanceRestGoals(new Set(rested.map(a => a.id))); // tick per-rest goals here too
-  ui.notifications.info(`${group.name}: long rest granted${advanced ? `, ${advanced} nightly goal${advanced === 1 ? "" : "s"} advanced` : ""}.`);
+  notifier.info(`${group.name}: long rest granted${advanced ? `, ${advanced} nightly goal${advanced === 1 ? "" : "s"} advanced` : ""}.`);
 }
 
 async function onNightClick(ev) {
@@ -3557,7 +3558,7 @@ async function onNightClick(ev) {
     }
   } catch (e) {
     console.error(`${MODULE_ID} | night action failed`, e);
-    ui.notifications.warn(`Night action failed: ${e.message}`);
+    notifier.warn(`Night action failed: ${e.message}`);
   }
   render();
   return true;
@@ -3907,7 +3908,7 @@ async function onPartyClick(ev) {
   const actBtn = ev.target.closest("[data-party]");
   if (actBtn?.dataset.party === "pack") {
     const res = await api.partyPack({ groupId: actBtn.dataset.group });
-    if (res?.ok === false) ui.notifications.warn(res.detail ?? res.reason ?? "Couldn't form up."); // detail = the sentence; reason = the deck's two words
+    if (res?.ok === false) notifier.warn(res.detail ?? res.reason ?? "Couldn't form up."); // detail = the sentence; reason = the deck's two words
     return true; // pack's token churn re-renders the panel
   }
   // Rebuild a STALE group's membership from the scene's PCs (confirm-gated — it
@@ -3923,10 +3924,10 @@ async function onPartyClick(ev) {
       }).catch(() => false);
       if (!yes) return true;
       await g.update({ "system.members": pcs.map(a => ({ actor: a.id })) });
-      ui.notifications.info(`${g.name}: members rebuilt — Form up is ready.`);
+      notifier.info(`${g.name}: members rebuilt — Form up is ready.`);
     } catch (e) {
       console.error(`${MODULE_ID} | party rebuild failed`, e);
-      ui.notifications.warn(`Couldn't rebuild the party: ${e.message}`);
+      notifier.warn(`Couldn't rebuild the party: ${e.message}`);
     }
     render();
     return true;
@@ -3968,10 +3969,10 @@ async function onPartyClick(ev) {
       group ??= await Actor.implementation.create({ name: "The Party", type: "group" });
       await group.update({ "system.members": picked.map(id => ({ actor: id })) });
       const names = picked.map(id => game.actors.get(id)?.name?.split(" ")[0]).filter(Boolean);
-      ui.notifications.info(`${group.name}: ${names.length ? names.join(", ") : "no members"} — ${names.length ? "Form up is ready." : "the group is empty."}`);
+      notifier.info(`${group.name}: ${names.length ? names.join(", ") : "no members"} — ${names.length ? "Form up is ready." : "the group is empty."}`);
     } catch (e) {
       console.error(`${MODULE_ID} | party roster failed`, e);
-      ui.notifications.warn(`Couldn't set the party members: ${e.message}`);
+      notifier.warn(`Couldn't set the party members: ${e.message}`);
     }
     render();
     return true;
@@ -3985,10 +3986,10 @@ async function onPartyClick(ev) {
       let g = actBtn.dataset.group ? game.actors.get(actBtn.dataset.group) : null;
       g ??= await Actor.implementation.create({ name: "The Party", type: "group" });
       for (const a of pcs) await g.system.addMember(a); // idempotent per dnd5e (skips existing)
-      ui.notifications.info(`${g.name}: ${pcs.map(a => a.name.split(" ")[0]).join(", ")} added — Form up is ready.`);
+      notifier.info(`${g.name}: ${pcs.map(a => a.name.split(" ")[0]).join(", ")} added — Form up is ready.`);
     } catch (e) {
       console.error(`${MODULE_ID} | party populate failed`, e);
-      ui.notifications.warn(`Couldn't set up the party: ${e.message}`);
+      notifier.warn(`Couldn't set up the party: ${e.message}`);
     }
     render();
     return true;
@@ -4012,7 +4013,7 @@ async function onPartyClick(ev) {
       if (selCell) await api.partySetCell({ groupId: group.id, actorId: occ.id, r: selCell.r, c: selCell.c });
     }
     const res = await api.partySetCell({ groupId: group.id, actorId: partySel, r, c });
-    if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't move them.");
+    if (res?.ok === false) notifier.warn(res.reason ?? "Couldn't move them.");
     partySel = null; partyForce = false; // layout changed → re-judge before forcing
     return true; // updateActor re-renders
   }
@@ -4029,27 +4030,27 @@ async function onPartyClick(ev) {
     const res = act === "release"
       ? await api.partyRelease({ groupId: group.id, actorId: partySel })
       : await api.partyCombine({ groupId: group.id, actorId: partySel });
-    if (res?.ok === false) ui.notifications.warn(res.reason ?? `Couldn't ${act}.`);
+    if (res?.ok === false) notifier.warn(res.reason ?? `Couldn't ${act}.`);
     else partySel = null;
     return true; // flag change re-renders
   }
   if (act === "stage") {
     const stage = ev.target.closest("[data-party]")?.dataset.stage;
     const res = await api.partyStage({ groupId: group.id, stage });
-    if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't switch stage.");
+    if (res?.ok === false) notifier.warn(res.reason ?? "Couldn't switch stage.");
     return true; // updateActor re-renders
   }
   if (act === "deploy") {
     const res = await api.partyDeploy({ groupId: group.id, force: partyForce });
     if (res?.ok === false && res.reason === "nofit") {
       partyForce = !res.blocked?.some(b => b.offMap); // arm unless it's the off-map hard stop
-      ui.notifications.warn(res.detail ?? "The formation doesn't fit here.");
+      notifier.warn(res.detail ?? "The formation doesn't fit here.");
       render();
     } else if (res?.ok === false) {
-      ui.notifications.warn(res.reason ?? "Couldn't disperse.");
+      notifier.warn(res.reason ?? "Couldn't disperse.");
     } else {
       partySel = null; partyForce = false;
-      if (res?.warned?.length) ui.notifications.info(`Dispersed with warnings: ${res.warned.map(w => `${w.name} (${w.why})`).join(", ")} — nudge them as needed.`);
+      if (res?.warned?.length) notifier.info(`Dispersed with warnings: ${res.warned.map(w => `${w.name} (${w.why})`).join(", ")} — nudge them as needed.`);
     }
     return true;
   }
@@ -4170,7 +4171,7 @@ async function onPanelDrop(ev) {
   let data;
   try { data = JSON.parse(ev.dataTransfer.getData("text/plain")); } catch (e) { return; }
   if (cont.hasAttribute("data-boss-drop")) return bossDrop(cont, data);
-  if (data?.type !== "PlaylistSound" || !data.uuid) { ui.notifications.warn(`${MODULE_ID} | drag a playlist TRACK (a sound), not a whole playlist.`); return; }
+  if (data?.type !== "PlaylistSound" || !data.uuid) { notifier.warn(`${MODULE_ID} | drag a playlist TRACK (a sound), not a whole playlist.`); return; }
   const actor = game.actors.get(cont.dataset.themeDrop);
   if (actor) { await actor.setFlag(MODULE_ID, "combatTheme", data.uuid); render(); }
 }
@@ -4304,7 +4305,7 @@ async function onClick(ev) {
     render();
     if (entry) {
       try { await fireAoO(entry.activityUuid, entry.targetUuid); }
-      catch (e) { console.error(`${MODULE_ID} | reaction-widget AoO failed`, e); ui.notifications.warn("Couldn't fire the opportunity attack — see console."); }
+      catch (e) { console.error(`${MODULE_ID} | reaction-widget AoO failed`, e); notifier.warn("Couldn't fire the opportunity attack — see console."); }
     }
     return;
   }
@@ -4319,7 +4320,7 @@ async function onClick(ev) {
     render();
     if (entry) {
       try { await approveScribe(entry); }
-      catch (e) { console.error(`${MODULE_ID} | scribe approve failed`, e); ui.notifications.warn(`Scribe failed: ${e.message}`); }
+      catch (e) { console.error(`${MODULE_ID} | scribe approve failed`, e); notifier.warn(`Scribe failed: ${e.message}`); }
     }
     return;
   }
@@ -4338,8 +4339,8 @@ async function onClick(ev) {
     dmReactions = dmReactions.filter(r => r.id !== id);
     render();
     api.travelDecide({ id, choice }).then(res => {
-      if (res?.ok === false) ui.notifications.warn(`Travel: ${res.reason ?? "failed"}`);
-      else if (choice === "group" && res?.moved) ui.notifications.info(`${res.moved} crossed together — arrange them, then unpause.`);
+      if (res?.ok === false) notifier.warn(`Travel: ${res.reason ?? "failed"}`);
+      else if (choice === "group" && res?.moved) notifier.info(`${res.moved} crossed together — arrange them, then unpause.`);
     });
     return;
   }
@@ -4349,7 +4350,7 @@ async function onClick(ev) {
     const entry = dmReactions.find(r => r.id === trOk.dataset.dmtradeOk);
     dmReactions = dmReactions.filter(r => r.id !== trOk.dataset.dmtradeOk);
     render();
-    if (entry) api.transferRespond({ offerId: entry.offerId, accept: true }).then(res => { if (res?.ok === false) ui.notifications.warn(res.reason ?? "Transfer failed."); });
+    if (entry) api.transferRespond({ offerId: entry.offerId, accept: true }).then(res => { if (res?.ok === false) notifier.warn(res.reason ?? "Transfer failed."); });
     return;
   }
   const trNo = ev.target.closest("[data-dmtrade-x]");
@@ -4371,8 +4372,8 @@ async function onClick(ev) {
     if (entry) {
       try {
         await game.actors.get(entry.actorId)?.update({ [`ownership.${entry.userId}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER });
-        ui.notifications.info(`${game.users.get(entry.userId)?.name ?? "The player"} now controls ${game.actors.get(entry.actorId)?.name ?? "the summon"}.`);
-      } catch (e) { console.error(`${MODULE_ID} | summon grant failed`, e); ui.notifications.warn(`Couldn't grant control: ${e.message}`); }
+        notifier.info(`${game.users.get(entry.userId)?.name ?? "The player"} now controls ${game.actors.get(entry.actorId)?.name ?? "the summon"}.`);
+      } catch (e) { console.error(`${MODULE_ID} | summon grant failed`, e); notifier.warn(`Couldn't grant control: ${e.message}`); }
     }
     return;
   }
@@ -4488,7 +4489,7 @@ async function onClick(ev) {
     const live = panelEl?.querySelector("[data-cm-story-text]")?.value;
     if (a) await a.setFlag(MODULE_ID, "boardingStory", String(live ?? cmStoryDraft ?? ""));
     cmStoryDraft = null;
-    ui.notifications.info(`${a?.name ?? "Arrival"} saved.`);
+    notifier.info(`${a?.name ?? "Arrival"} saved.`);
     return render();
   }
   // "Arrive for them": raise the station, aim at their seat, and bring it in — one tap for the beat
@@ -4541,7 +4542,7 @@ async function onClick(ev) {
       // Un-marked → give fog back: turn token vision on. That's the natural inverse and the exact
       // fix for "reset fog does nothing" (it was off because the scene was a travel map).
       await sc.update({ tokenVision: true });
-      ui.notifications.info(`“${sc.name}” is a normal map again — token vision on, fog of war restored.`);
+      notifier.info(`“${sc.name}” is a normal map again — token vision on, fog of war restored.`);
     }
     return render();
   }
@@ -4581,7 +4582,7 @@ async function onClick(ev) {
   if (ev.target.closest("[data-travel-paceadd]")) {
     const name = (panelEl.querySelector("[data-pace-name]")?.value || "").trim();
     const mph = Number(panelEl.querySelector("[data-pace-mph]")?.value);
-    if (!name || !(mph > 0)) { ui.notifications.warn("Enter a name and a speed (MPH or KPH)."); return; }
+    if (!name || !(mph > 0)) { notifier.warn("Enter a name and a speed (MPH or KPH)."); return; }
     const list = travelCustomPaces().slice();
     list.push({ id: foundry.utils.randomID(), name: name.slice(0, 30), mph: Math.round(mph * 10) / 10 });
     await game.settings.set(MODULE_ID, "travelCustomPaces", list);
@@ -4592,9 +4593,9 @@ async function onClick(ev) {
   // §27 personal messages: toggle the thread / send to the selected player.
   if (ev.target.closest("[data-dm-msg-send]")) {
     const text = dmMsgDraft.trim();
-    if (!text) { ui.notifications.warn("Write the message first."); return; }
+    if (!text) { notifier.warn("Write the message first."); return; }
     const res = await pmSend([tokensPlayer], text).catch(e => { console.error(`${MODULE_ID} | message send failed`, e); return null; });
-    if (!res) { ui.notifications.warn("Couldn't send the message."); return; }
+    if (!res) { notifier.warn("Couldn't send the message."); return; }
     dmMsgDraft = "";
     return render();
   }
@@ -4603,8 +4604,8 @@ async function onClick(ev) {
   if (cp) { // DM initiates: push the colour picker to that player's phone
     const uid = cp.dataset.colorPick;
     const res = await api.requestColorPick({ userId: uid });
-    if (res?.ok === false) ui.notifications.warn(res.reason ?? "Couldn't reach that player.");
-    else ui.notifications.info(`Asked ${game.users.get(uid)?.name ?? "the player"} to pick a colour.`);
+    if (res?.ok === false) notifier.warn(res.reason ?? "Couldn't reach that player.");
+    else notifier.info(`Asked ${game.users.get(uid)?.name ?? "the player"} to pick a colour.`);
     return;
   }
   const rtT = ev.target.closest("[data-rt-target]");
@@ -4950,7 +4951,7 @@ async function onClick(ev) {
   // §44 character files: compile now, or open the index.
   if (ev.target.closest("[data-cf-compile]")) {
     const n = await compileCharacterFiles();
-    ui.notifications.info(n ? `Character files: ${n} page${n === 1 ? "" : "s"} updated.` : "Character files: already up to date.");
+    notifier.info(n ? `Character files: ${n} page${n === 1 ? "" : "s"} updated.` : "Character files: already up to date.");
     return render();
   }
   const cfOpen = ev.target.closest("[data-cf-open]");
@@ -4995,7 +4996,7 @@ async function onClick(ev) {
       Hooks.callAll(`${MODULE_ID}.szEvent`, { kind: "opening" }); // this client too
     } catch (e) {
       console.error(`${MODULE_ID} | could not start session zero`, e);
-      ui.notifications.warn(`Couldn't start session zero: ${e.message}`);
+      notifier.warn(`Couldn't start session zero: ${e.message}`);
     }
     return render();
   }
@@ -5022,7 +5023,7 @@ async function onClick(ev) {
             img.src = foundry.utils.getRoute(path);
           });
           if (dims && Math.abs((dims.w / dims.h) - (5 / 7)) > 0.12) {
-            ui.notifications.warn(`That's ${dims.w}×${dims.h} — cards are 5:7, so it'll be cropped to fit.`);
+            notifier.warn(`That's ${dims.w}×${dims.h} — cards are 5:7, so it'll be cropped to fit.`);
           }
         } catch (e) { /* the size check is a courtesy, never a gate */ }
         render();
@@ -5056,7 +5057,7 @@ async function onClick(ev) {
     const inp = ev.target.closest(".mc-dmp-story-new")?.querySelector(".mc-dmp-newplayer");
     const name = String(inp?.value ?? "").trim();
     if (!name) return;
-    if (game.users.some(u => u.name === name)) { ui.notifications.warn(`There's already a user called "${name}".`); return; }
+    if (game.users.some(u => u.name === name)) { notifier.warn(`There's already a user called "${name}".`); return; }
     try {
       // Colour: the first palette entry no player is using yet, so seats read distinctly.
       const palette = ["#c8a44d", "#7fb069", "#8ab8d8", "#c98a8a", "#b08ac9", "#d8a86a"];
@@ -5066,7 +5067,7 @@ async function onClick(ev) {
       if (inp) inp.value = "";
     } catch (e) {
       console.error(`${MODULE_ID} | could not create the player account`, e);
-      ui.notifications.warn(`Couldn't create that player: ${e.message}`);
+      notifier.warn(`Couldn't create that player: ${e.message}`);
     }
     return render();
   }
@@ -5077,16 +5078,16 @@ async function onClick(ev) {
     // A manual tap always sends, asked before or not — the ✓ is a record, not a lock.
     const r = pushStoryQuestion(spush.dataset.storyPush);
     if (r?.ok) storyAsked.add(spush.dataset.storyPush);
-    else ui.notifications.warn(`Story question: ${r?.reason ?? "could not push"}`);
+    else notifier.warn(`Story question: ${r?.reason ?? "could not push"}`);
     return render();
   }
   if (ev.target.closest("[data-story-push-random]")) {
     const pool = storyQuestionsAll().filter(x => !storyAsked.has(x.q)); // never repeat by chance
     const pick = pool[Math.floor(Math.random() * pool.length)];
-    if (!pick) { ui.notifications.info("Every question has been asked — tap one to ask it again."); return render(); }
+    if (!pick) { notifier.info("Every question has been asked — tap one to ask it again."); return render(); }
     const r = pushStoryQuestion(pick.q);
     if (r?.ok) storyAsked.add(pick.q);
-    else ui.notifications.warn(`Story question: ${r?.reason ?? "could not push"}`);
+    else notifier.warn(`Story question: ${r?.reason ?? "could not push"}`);
     return render();
   }
   if (ev.target.closest("[data-story-addq]")) {
@@ -5127,7 +5128,7 @@ async function onClick(ev) {
   if (pfFix) {
     pfFix.disabled = true;
     try { await runPreflightFix(pfFix.dataset.preflightFix); }
-    catch (e) { console.error(`${MODULE_ID} | preflight fix failed`, e); ui.notifications.warn(`Fix failed: ${e.message}`); }
+    catch (e) { console.error(`${MODULE_ID} | preflight fix failed`, e); notifier.warn(`Fix failed: ${e.message}`); }
     return render();
   }
   if (await onNightClick(ev)) return;
@@ -5146,11 +5147,11 @@ async function onClick(ev) {
     const input = panelEl.querySelector(".mc-dmp-hp-input");
     const amt = Math.max(0, Math.floor(Number(input?.value) || 0));
     const toks = controlledWithActors();
-    if (!amt) { ui.notifications.warn("Enter an HP amount first."); return; }
-    if (!toks.length) { ui.notifications.warn("Select a token first."); return; }
+    if (!amt) { notifier.warn("Enter an HP amount first."); return; }
+    if (!toks.length) { notifier.warn("Select a token first."); return; }
     const dmg = hpBtn.dataset.hp === "damage";
     for (const t of toks) await applyHpDelta(t.actor, dmg ? -amt : amt);
-    ui.notifications.info(`${dmg ? "Damaged" : "Healed"} ${amt} → ${toks.length} token${toks.length === 1 ? "" : "s"}.`);
+    notifier.info(`${dmg ? "Damaged" : "Healed"} ${amt} → ${toks.length} token${toks.length === 1 ? "" : "s"}.`);
     if (input) input.value = "";
     return render();
   }
@@ -5169,14 +5170,14 @@ async function onClick(ev) {
           await startCombatWithMusic(sel ? sel.value : undefined);
         }
         else if (act === "end") await c.endCombat(); // core shows its own confirm
-      } catch (e) { ui.notifications.warn(`Combat: ${e.message}`); }
+      } catch (e) { notifier.warn(`Combat: ${e.message}`); }
     }
     return render();
   }
   const place = ev.target.closest("[data-place]");
   if (place) {
     const res = await placeCast(place.dataset.place);
-    if (res && !res.ok) ui.notifications.warn(`Place: ${res.reason}`);
+    if (res && !res.ok) notifier.warn(`Place: ${res.reason}`);
     return render();
   }
   if (ev.target.closest("[data-dismiss]")) {
@@ -5186,7 +5187,7 @@ async function onClick(ev) {
   const asn = ev.target.closest("[data-rt-assign]");
   if (asn) {
     const actorId = asn.dataset.rtAssign;
-    if (!ownerUser(game.actors.get(actorId))) { ui.notifications.warn("No player owns that character."); return; }
+    if (!ownerUser(game.actors.get(actorId))) { notifier.warn("No player owns that character."); return; }
     // Same crosshair → close; a different one → switch (open closes any current picker first).
     if (rtAssignFor === actorId) closeRtAssign();
     else await openRtAssign(actorId);

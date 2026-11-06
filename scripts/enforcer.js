@@ -1,4 +1,5 @@
 import { MODULE_ID, midiPresetEntries, standaloneSettingsPreset } from "./preset.js";
+import { notifier } from "./notifier.js";
 
 // Settings Enforcer (§7.9): validates the canonical preset on ready, shows a
 // loud diff with one-click apply. It never writes without an explicit click —
@@ -66,12 +67,12 @@ export async function deactivate() {
   if (!game.user?.isGM) throw new Error("mobile-command | deactivate requires a GM user");
   const original = game.settings.get(MODULE_ID, BACKUP_KEY);
   if (!original?.at) {
-    ui.notifications.warn("mobile-command | no original backup found — apply the preset at least once first; there's nothing to revert to.");
+    notifier.warn("mobile-command | no original backup found — apply the preset at least once first; there's nothing to revert to.");
     return false;
   }
   await game.settings.set(MODULE_ID, REACTIVATE_KEY, snapshotCurrentSettings()); // so Reactivate can bring the config back
   await restoreSnapshot(original);
-  ui.notifications.info("mobile-command | reverted to your pre-module settings. You can disable/remove the module now — use 'Reactivate Mobile Command' to restore its config.");
+  notifier.info("mobile-command | reverted to your pre-module settings. You can disable/remove the module now — use 'Reactivate Mobile Command' to restore its config.");
   return true;
 }
 
@@ -82,11 +83,11 @@ export async function reactivate() {
   const snap = game.settings.get(MODULE_ID, REACTIVATE_KEY);
   if (snap?.at) {
     await restoreSnapshot(snap);
-    ui.notifications.info("mobile-command | reactivated — restored the mobile-command settings.");
+    notifier.info("mobile-command | reactivated — restored the mobile-command settings.");
     return true;
   }
   await applyPreset();
-  ui.notifications.info("mobile-command | applied the mobile-command preset.");
+  notifier.info("mobile-command | applied the mobile-command preset.");
   return true;
 }
 
@@ -130,7 +131,7 @@ export async function applyPreset(drift = null) {
     await game.settings.set(d.namespace, d.key, d.expected);
   }
 
-  ui.notifications.info(`mobile-command | applied settings preset (${drift.length} value${drift.length === 1 ? "" : "s"})`);
+  notifier.info(`mobile-command | applied settings preset (${drift.length} value${drift.length === 1 ? "" : "s"})`);
   return diffPreset();
 }
 

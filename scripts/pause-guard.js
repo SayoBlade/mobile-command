@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { notifier } from "./notifier.js";
 import { isExecutor } from "./settings.js";
 
 // §2.1 (DECIDED 2026-06-12): pause-based freeze. When the executor client
@@ -21,11 +22,11 @@ function evaluate() {
   if (offScene && !game.paused) {
     pausedByGuard = true;
     game.togglePause(true, { broadcast: true });
-    ui.notifications.info("Mobile Command: paused — DM left the active scene");
+    notifier.info("Mobile Command: paused — DM left the active scene");
   } else if (!offScene && game.paused && pausedByGuard) {
     pausedByGuard = false;
     game.togglePause(false, { broadcast: true });
-    ui.notifications.info("Mobile Command: resumed — executor back on the active scene");
+    notifier.info("Mobile Command: resumed — executor back on the active scene");
   }
 }
 

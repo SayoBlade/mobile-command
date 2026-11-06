@@ -1,4 +1,5 @@
 import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK } from "./preset.js";
+import { notifier } from "./notifier.js";
 import { readClock, sunTimes } from "./gametime.js";
 import { isExecutor } from "./settings.js";
 import { isDruskScene, druskDarkness } from "./druskenvald.js"; // §43 the same loop, a second curve
@@ -76,7 +77,7 @@ function warnIfGlobalLightSwallows(scene) {
   if (!env.globalLight?.enabled || max < NIGHT_DARKNESS_PEAK) return;
   if (warned.has(scene.id)) return;
   warned.add(scene.id);
-  ui.notifications?.warn(`Mobile Command: “${scene.name}” won't look any darker — its Global Illumination stays on until darkness ${max}, and night only reaches ${NIGHT_DARKNESS_PEAK}. Fix it in Preflight → Travel lighting.`);
+  notifier.warn(`Mobile Command: “${scene.name}” won't look any darker — its Global Illumination stays on until darkness ${max}, and night only reaches ${NIGHT_DARKNESS_PEAK}. Fix it in Preflight → Travel lighting.`);
 }
 
 /** Put `scene` at the darkness the clock says. Returns true if it actually wrote.

@@ -33,6 +33,7 @@
 // trainLand / trainMist — run Wire twice, get one set; nothing of the book's own scene
 // content is ever modified or deleted.
 import { MODULE_ID } from "./preset.js";
+import { notifier } from "./notifier.js";
 
 const GRID = 140;                 // the book's car maps are all 140px / 5ft
 const INSET = 4;                  // keep region edges off the wall planes
@@ -439,7 +440,7 @@ export async function freeTrainWeather({ force = false } = {}) {
     await game.settings.set(MODULE_ID, TRAIN_WEATHER_FREED, true);
     if (changed.length) {
       console.log(`${MODULE_ID} | the train shakes indoors now — suppression off on:\n  ${changed.join("\n  ")}`);
-      ui.notifications?.info(`Train weather suppression removed on ${changed.length} region${changed.length === 1 ? "" : "s"} — the carriage can shake.`);
+      notifier.info(`Train weather suppression removed on ${changed.length} region${changed.length === 1 ? "" : "s"} — the carriage can shake.`);
     } else {
       console.log(`${MODULE_ID} | no weather suppression found on the 10.* scenes — nothing to free`);
     }

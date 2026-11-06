@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { notifier } from "./notifier.js";
 
 // §22.7 THE DM IS NEVER COVERED — one gate for every full-viewport overlay, plus a kill path.
 //
@@ -501,7 +502,7 @@ export function installOverlayGuard() {
   }
   for (const msg of notes) {
     console.warn(`${MODULE_ID} | ${msg}`);
-    try { ui.notifications?.warn(msg, { permanent: true }); } catch (e) { /* notifications late */ }
+    try { notifier.warn(msg, { permanent: true }); } catch (e) { /* notifications late */ }
   }
   console.log(`${MODULE_ID} | safety rail active — this GM desktop client cannot be covered or hidden (§22.7/§22.9)`);
   return true;

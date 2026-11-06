@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { notifier } from "./notifier.js";
 import { fxIsOn, fxIsOnFor, fxActiveMap, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js";
 import { rollCurse, pickCurse, applyCurse } from "./cm-curses.js";
 import { applyFateReward } from "./fateweaving.js";
@@ -316,7 +317,7 @@ export async function disarmTwist(uuid) {
 
 export async function druskNextHour() {
   const landed = await advanceToNextHour();
-  if (landed) ui.notifications.info(`Druskenvald: it is now ${landed.name}.`);
+  if (landed) notifier.info(`Druskenvald: it is now ${landed.name}.`);
   return landed;
 }
 
@@ -347,8 +348,8 @@ export async function dealTarotTo(actorId) {
   const a = game.actors.get(actorId);
   if (!a) return null;
   const card = await dealOne(a, tarotForced(a.id));
-  if (!card) ui.notifications.warn(`${MODULE_ID} | the deck is out of arcana.`);
-  else ui.notifications.info(`${a.name} draws ${card.name} — it's face down on their phone.`);
+  if (!card) notifier.warn(`${MODULE_ID} | the deck is out of arcana.`);
+  else notifier.info(`${a.name} draws ${card.name} — it's face down on their phone.`);
   await changeLive((s) => { delete s.tarot[a.id]; });
   return card;
 }
@@ -454,7 +455,7 @@ export async function stageFirstBoarding() {
   const chains = trainChains();
   const chain = chains.colored.length ? chains.colored : chains.plain;
   const entry = (chain.find((e) => e.n === 1) ?? chain[0])?.scene;
-  if (!entry) return ui.notifications.warn("No Ghostlight car scenes (10.1–10.8) in this world.");
+  if (!entry) return notifier.warn("No Ghostlight car scenes (10.1–10.8) in this world.");
   if (!fxIsOn("cmStation")) await dmToggleFx("cmStation"); // fog first, so the switch happens behind it
   if (!entry.drawings.some((d) => d.flags[MODULE_ID]?.boardingZone)) {
     const g = entry.grid?.size ?? 140;
@@ -473,13 +474,13 @@ export async function stageFirstBoarding() {
   }
   if (!entry.active) await entry.activate();
   if (game.scenes.viewed?.id !== entry.id) await entry.view();
-  ui.notifications.info(`The stage is set — fog is up, ${entry.name} is the scene, and the party mark is yours alone to see.`);
+  notifier.info(`The stage is set — fog is up, ${entry.name} is the scene, and the party mark is yours alone to see.`);
 }
 
 /** §37 wire every car door (idempotent — it re-checks, never duplicates). */
 export async function wireDoors() {
   const report = await wireTrainDoors();
-  ui.notifications.info(`Ghostlight Express — ${report.join(" · ") || "no car scenes found"}`);
+  notifier.info(`Ghostlight Express — ${report.join(" · ") || "no car scenes found"}`);
 }
 
 /** §37 the Shroud rushing past every window, or still. */
@@ -489,7 +490,7 @@ export async function setRide(on) {
   const heard = await setTrainSound(on);
   setTrainJolt(on); // the carriage lurches while it runs, and stops lurching when it stops
   const sound = heard ? ` · ${heard}` : " · no train loop found in the playlists";
-  ui.notifications.info(on
+  notifier.info(on
     ? `The Ghostlight Express runs — the Shroud rushes past ${n} cars${sound}.`
     : `The train rests — ${n} cars gone still${heard ? ` · ${heard} stopped` : ""}.`);
 }

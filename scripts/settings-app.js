@@ -1,4 +1,5 @@
 import { MODULE_ID, SAVE_TIMEOUT_SETTING } from "./preset.js";
+import { notifier } from "./notifier.js";
 import { runPreflight } from "./preflight.js";
 import { runDmWizard } from "./dm-wizard.js";
 
@@ -26,7 +27,7 @@ export class MCSettingsApp extends ApplicationV2 {
   #tab = "display";
 
   static open() {
-    if (!game.user.isGM) return void ui.notifications.warn("Settings are the DM's.");
+    if (!game.user.isGM) return void notifier.warn("Settings are the DM's.");
     (MCSettingsApp.#instance ??= new MCSettingsApp()).render({ force: true });
   }
   static #instance = null;
@@ -43,7 +44,7 @@ export class MCSettingsApp extends ApplicationV2 {
   #get(key) { try { return game.settings.get(MODULE_ID, key); } catch (e) { return undefined; } }
   async #set(key, value) {
     try { await game.settings.set(MODULE_ID, key, value); }
-    catch (e) { console.error(`${MODULE_ID} | settings app write failed`, key, e); ui.notifications.warn(`Couldn't save ${key}: ${e.message}`); }
+    catch (e) { console.error(`${MODULE_ID} | settings app write failed`, key, e); notifier.warn(`Couldn't save ${key}: ${e.message}`); }
     this.render();
   }
 
@@ -190,8 +191,8 @@ export class MCSettingsApp extends ApplicationV2 {
     if (ev.target.closest("[data-sa-preflight]")) {
       const results = await runPreflight();
       const bad = results.filter(r => r.status !== "ok");
-      if (!bad.length) ui.notifications.info("System health: all checks pass.");
-      else ui.notifications.warn(`System health: ${bad.map(b => `${b.label} — ${b.detail}`).join(" · ")}`);
+      if (!bad.length) notifier.info("System health: all checks pass.");
+      else notifier.warn(`System health: ${bad.map(b => `${b.label} — ${b.detail}`).join(" · ")}`);
       return;
     }
     if (ev.target.closest("[data-sa-wizard]")) { this.close(); return runDmWizard(); }

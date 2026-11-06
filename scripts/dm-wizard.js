@@ -6,6 +6,7 @@
 // panel's Preflight tab. Closing any step mid-way = "Later" (nothing written
 // past the steps already confirmed).
 import { MODULE_ID } from "./preset.js";
+import { notifier } from "./notifier.js";
 import { isOnlineTable } from "./settings.js"; // §39: the mode decides the wizard's own path
 import { diffPreset, applyPreset } from "./enforcer.js";
 import { runPreflight, pendingAutomationPrereqs, applyAutomationPrereqs } from "./preflight.js";
@@ -200,8 +201,8 @@ async function stepVision(n) {
   if (res === "sync") {
     try {
       const n = await globalThis.MobileCommand?.syncPartyTokenSight?.();
-      ui.notifications.info(`Token senses synced${typeof n === "number" ? ` (${n} tokens)` : ""}.`);
-    } catch (e) { ui.notifications.warn(`Sync failed: ${e.message}`); }
+      notifier.info(`Token senses synced${typeof n === "number" ? ` (${n} tokens)` : ""}.`);
+    } catch (e) { notifier.warn(`Sync failed: ${e.message}`); }
     return true;
   }
   return res === "next";
