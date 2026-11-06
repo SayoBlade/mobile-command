@@ -25,6 +25,7 @@ body.mc-dm-clear #mc-seance,
 body.mc-dm-clear #mc-entrance,
 body.mc-dm-clear #mc-bossintro,
 body.mc-dm-clear #mc-audio-unlock,
+body.mc-dm-clear #mc-audio-off,
 body.mc-dm-clear .mc-cmticket,
 body.mc-dm-clear .mc-tarot-hand,
 body.mc-dm-clear .mc-onboard,
@@ -139,7 +140,8 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
    audio may start, and in clean mode core's own hint is hidden with the rest of the UI — so the
    room gets silence with no explanation. Deliberately full-bleed and centred: this is a TV read
    from across a room, and it must be impossible to walk past. Any tap dismisses it, because the
-   tap IS the unlocking gesture. Above the pause edge (z 90) but below dialogs. */
+   tap IS the unlocking gesture. Above the pause edge (z 90) but below dialogs.
+   2026-11-06: any tap closes it even if the audio stays off; #mc-audio-off below then carries the state. */
 #mc-audio-unlock {
   position: fixed; inset: 0; z-index: 95; display: flex; align-items: center; justify-content: center;
   background: rgba(6, 8, 12, .72); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
@@ -154,6 +156,16 @@ body.mc-game-paused #mc-pause-edge::after  { animation: mc-pause-wide   4s ease-
 #mc-audio-unlock .mc-au-ico { font-size: 46px; color: var(--mc-gold, #b09a63); margin-bottom: 16px; display: block; }
 #mc-audio-unlock .mc-au-title { font-size: 30px; font-weight: 800; color: var(--mc-ink, #efe9df); margin-bottom: 12px; }
 #mc-audio-unlock .mc-au-sub { font-size: 17px; line-height: 1.5; color: var(--mc-muted, #a59b86); }
+/* Sound still off after the card closed (bible §5): a small corner icon, tap to retry. Top right,
+   because the compass holds the bottom right and the clean-mode hint the bottom centre. */
+#mc-audio-off {
+  position: fixed; top: 16px; right: 16px; z-index: 95; width: 44px; height: 44px; min-width: 0; padding: 0; margin: 0;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: var(--mc-panel); color: var(--mc-warn); font-size: 18px; line-height: 1;
+  border: 1px solid var(--mc-warn); border-radius: calc(8px * var(--mc-round, 1));
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .55);
+}
+#mc-audio-off i { margin: 0; }
 /* Clean-mode escape-hatch hint: a dismissable pill telling the user how to get the UI back.
    Exempt from the hiding above (custom id), high z. ~~fades after ~60s~~ ~~§22.9 2026-10-02: it no
    longer fades~~ §22.9 2026-10-31: fades 30 s after it appears (showCleanHint() in main.js adds

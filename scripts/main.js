@@ -36,6 +36,7 @@ import { travelState } from "./dm-panel.js"; // §18 travel state for the public
 import "./actions-travel.js"; // the travel area, which was declared and published nothing (2026-10-18)
 import "./actions-asks.js"; // §55.6 players waiting on the DM (a Basic travel square) — the deck's Notifications
 import { registerSoundBehavior, cues } from "./region-sound.js"; // §53 the "Sound" region behaviour + the house door sets
+import { audioPrompt, settleWithin } from "./audio-prompt.js"; // the display's sound prompt: card, icon or nothing
 import { registerMusicBehavior, registerMusic, state as musicState, pick as musicPick, next as musicNext, cue as musicCue, moods as musicMoods, roomOf as musicRoomOf, overlapState as musicOverlap } from "./music.js"; // the music layer (deck-command MUSIC-LAYER.md)
 import { installOverlayGuard, sweepCoveringLayers, reapplyGuard, restoreCoreUi, forceRail, stuckOverlayStates, clearedLayers, shouldKeepGmClear, verifyRail } from "./overlay-guard.js"; // §22.7/§22.9 the DM is never covered or hidden
 
@@ -1318,16 +1319,52 @@ function setupDisplayAudioListeners() {
 // `locked`, never looks at it again. Every status then reads "unlocked" while each sound plays into a
 // stopped graph. ⚠️ THE WORKING THEORY, NOT YET CONFIRMED ON HIS iPad: the status line now reports each
 // context's real state, which settles it on the next reload.
+//
+// ⚠️ A TAP ALWAYS CLOSES THE CARD (DM 2026-11-06, TV on desktop Chrome: "I'm tapping, nothing is
+// happening"). The card used to stay until every context ran, so one context stuck in "suspended" kept
+// it up for good, and `resume()` can stay pending forever, so the check after the tap might never even
+// run. Now the tap tries `resume()` inside the gesture and closes the card without waiting. If sound
+// still isn't running, a small speaker-off icon sits in the top-right corner and each tap on it retries.
+// Once the card has been dismissed this load, the heartbeat and a waking screen bring back only the icon
+// (a tap anywhere still resumes, via setupAudioResume). Every tap logs each context's state to the console.
 function setupDisplayAudioUnlock() {
   const ID = "mc-audio-unlock";
+  const ICON_ID = "mc-audio-off";
+  let dismissed = false; // this load: the card has been tapped away, so it never comes back
   // Safari's audio session: "playback" keeps the table's sound going when the iPad is in silent mode —
   // a shared speaker must not go quiet because someone muted notifications. Safari 16.4+; browsers
   // without `navigator.audioSession` are untouched.
   try { if (isDisplayClient() && navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) { /* unsupported */ }
+  // Audio really runs now; re-sync so ambient sounds start at their correct volumes.
+  const soundBack = () => { try { canvas?.sounds?.refresh(); } catch (e) { /* best-effort */ } };
+  // Called inside the gesture, because that is where the browser allows the resume.
+  const attempt = (where) => {
+    console.log(`${MODULE_ID} | sound tap (${where}), before:`, audioContextStates());
+    return resumeAudioContexts().then(() => {
+      console.log(`${MODULE_ID} | sound tap (${where}), after:`, audioContextStates());
+      broadcastAudioState();
+    });
+  };
+  const showIcon = () => {
+    const el = document.createElement("button");
+    el.id = ICON_ID;
+    el.type = "button";
+    el.title = "Sound is off. Tap to try again.";
+    el.setAttribute("aria-label", el.title);
+    el.innerHTML = `<i class="fas fa-volume-xmark"></i>`;
+    el.addEventListener("click", () => { attempt("icon").then(show); });
+    document.body.appendChild(el);
+  };
   const show = () => {
     try {
-      if (!isDisplayClient() || !audioPaused()) return;
-      if (document.getElementById(ID)) return;
+      if (!isDisplayClient()) return;
+      const want = audioPrompt({ paused: audioPaused(), dismissed });
+      const card = document.getElementById(ID), icon = document.getElementById(ICON_ID);
+      if (want !== "card") card?.remove();
+      if (want !== "icon") icon?.remove();
+      if (!want && (card || icon)) { soundBack(); broadcastAudioState(); }
+      if (want === "icon" && !icon) showIcon();
+      if (want !== "card" || card) return;
       const el = document.createElement("div");
       el.id = ID;
       el.innerHTML = `<div class="mc-au-card">
@@ -1336,25 +1373,24 @@ function setupDisplayAudioUnlock() {
         <div class="mc-au-sub">Browsers only play sound after a tap on this screen.
           Tap anywhere to start it — again after a reload, or after the screen has slept.</div>
       </div>`;
-      const done = () => {
-        if (audioPaused()) return; // not actually running yet: the card stays for the next tap
-        el.remove();
-        // Audio really runs now; re-sync so ambient sounds start at their correct volumes.
-        try { canvas?.sounds?.refresh(); } catch (e) { /* best-effort */ }
-        broadcastAudioState();
-      };
       // The END of the tap is the gesture WebKit honours; core's own unlock already ran on pointerdown.
-      const onTap = () => { resumeAudioContexts().then(done, done); };
+      const onTap = () => {
+        dismissed = true;
+        const tried = attempt("card");
+        el.remove();
+        tried.then(() => { if (!audioPaused()) soundBack(); show(); });
+      };
       el.addEventListener("click", onTap);
       el.addEventListener("touchend", onTap, { passive: true });
       document.body.appendChild(el);
-      game.audio.unlock?.then?.(() => setTimeout(done, 300)).catch?.(() => {});
+      game.audio.unlock?.then?.(() => setTimeout(show, 300)).catch?.(() => {});
     } catch (e) { console.warn(`${MODULE_ID} | audio-unlock prompt failed`, e); }
   };
   show();
   Hooks.on("canvasReady", show); // a scene change on a still-locked display re-offers it
   // iPad Safari suspends audio again when the screen sleeps or Safari goes to the background, and a tap
   // is again the only way back — so the card returns with the screen, and on a slow heartbeat.
+  // (2026-11-06: only until it has been dismissed this load; after that it is the icon that returns.)
   document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(show, 500); });
   setInterval(show, 15000);
 }
@@ -1370,11 +1406,19 @@ function audioPaused() {
   return audioContexts().some((c) => c.state !== "running" && c.state !== "closed");
 }
 
-/** Resume every context that isn't running. It must be CALLED inside a gesture WebKit accepts. */
+/** Each context's real state, by name; "none" before core has created it. */
+function audioContextStates() {
+  return Object.fromEntries(["music", "environment", "interface"].map((k) => [k, game.audio?.[k]?.state ?? "none"]));
+}
+
+/**
+ * Resume every context that isn't running. It must be CALLED inside a gesture WebKit accepts.
+ * Settles within a second even if a `resume()` never does (see settleWithin).
+ */
 function resumeAudioContexts() {
-  return Promise.all(audioContexts()
+  return settleWithin(audioContexts()
     .filter((c) => c.state !== "running" && c.state !== "closed")
-    .map((c) => c.resume().catch(() => {})));
+    .map((c) => c.resume()), 1000);
 }
 
 // Every client, not only the TV: an iPhone shell or an iPad DM screen can strand the same contexts,
@@ -1386,6 +1430,7 @@ function setupAudioResume() {
     resumeAudioContexts().then(() => {
       try { canvas?.sounds?.refresh(); } catch (e) { /* best-effort */ }
       broadcastAudioState();
+      if (!audioPaused()) document.getElementById("mc-audio-off")?.remove(); // a tap anywhere can fix it
     });
   };
   for (const type of ["touchend", "click", "keydown"]) {
@@ -1429,7 +1474,7 @@ function broadcastAudioState() {
     if (!isDisplayClient()) return;
     // `paused` = locked OR unlocked with a context that isn't running; `contexts` names each one's
     // real state, so the panel can tell "never tapped" from "Safari stopped it" (2026-09-15, the iPad).
-    const contexts = Object.fromEntries(["music", "environment", "interface"].map((k) => [k, game.audio?.[k]?.state ?? "none"]));
+    const contexts = audioContextStates();
     tvBroadcast({ cmd: "audioState", userId: game.user.id, locked: !!game.audio?.locked,
       paused: audioPaused(), contexts, muted: !!game.audio?.globalMute, at: Date.now() });
   } catch (e) { /* socket not ready */ }

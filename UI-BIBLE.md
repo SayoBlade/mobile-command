@@ -321,6 +321,13 @@ opposed to the solid outline of a mundane condition. **Gold on a campaign mark m
 **small dot on a tab icon** is how the shell's own tab bar asks for attention (the §6.5 badge
 idiom, extended 2026-08-21 when the pulsing twist chip moved into the Crooked Moon tab).
 
+**The display's sound-off icon (2026-11-06, `#mc-audio-off`):** a prompt on the shared screen never
+blocks twice. "Tap to enable sound" is the one full-screen card, offered once per load, and any tap
+closes it. If sound still isn't running, the state drops to a **44×44 square icon in the top-right
+corner**: amber (`--mc-warn`, "careful", not an error), speaker-off glyph, tap to retry, gone by itself
+once sound runs. It carries a title for a mouse, and the DM's Settings › Sound status line says the rest
+in words, so this one icon-only control has its explanation beside it (§4).
+
 **DM-only staging marks on the canvas (written down 2026-08-28; first use = §36.2's "Place the
 party here" zone):** a mark meant for the DM's eyes during setup is a **hidden Drawing** — core
 already renders hidden placeables to GMs only and faded, so no new visibility machinery, and it

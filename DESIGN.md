@@ -1940,6 +1940,20 @@ swept, and grouped selectors must be skipped rather than edited.
   line gains "the display's browser has paused its sound — tap the TV once". Owed: he reloads the iPad
   and the DM screen, taps once, and reads the status line. If it says live and is still silent, the
   next suspect is the iPad itself (output routing, a Safari setting), not the deck.
+  ~~the unlock card now stays until the contexts actually run~~ superseded just below.
+- ⚠️ **A tap always closes the card (2026-11-06; TV on desktop Chrome, DM: *"I'm tapping, nothing is
+  happening"*).** The 2026-09-15 rule above made the card wait for all three contexts, so one context
+  stuck in `suspended` held it up for good and the 15 s check re-offered it. Worse, `resume()` can stay
+  pending without settling, and the check sat behind that promise. **Built, unit-tested, NOT live-checked:**
+  the tap calls `resume()` inside the gesture and removes the card at once. `resumeAudioContexts` now gives up
+  waiting after 1 s (`settleWithin`, `scripts/audio-prompt.js`). If sound still isn't running, a 44×44 amber
+  speaker-off icon (`#mc-audio-off`, top right, UI-BIBLE §5) appears and each tap on it retries; it removes
+  itself once sound runs. Once the card is dismissed this load, the heartbeat, `canvasReady` and a waking
+  screen bring back only the icon. ⚠️ **That changes the iPad note above:** after the first tap, a slept iPad
+  shows the icon, not the card; a tap anywhere still resumes (`setupAudioResume`). Every tap on the card or
+  the icon logs each context's state to the console, before and after (`<module> | sound tap (card|icon)`).
+  The status line on the DM's panel still reports paused contexts. Tests: `tools/test-audio-prompt.mjs`.
+  **Unknown:** why a context stayed suspended on his desktop Chrome. The log answers that (ledger 0ᵉ).
 
 **Still open (small, if wanted):** phone SFX opt-outs (dice / prompt / combat-start are always-on
 core sounds); a second-client live confirmation that Mute actually silences the room (verified at the
@@ -2325,6 +2339,13 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    (3) fades are back at their authored values; (4) one fight playlist and one mood hand off the same
    way, never yet played live. Also check whether `deck-command.musicOverlapSeconds` was ever moved off 5.
 
+0ᵉ. **OPEN 2026-11-06 — the TV's "Tap to enable sound" card that would not close (§21).** Fixed in code:
+   a tap always closes it, and a corner icon retries. **Owed:** one reload on the TV, one tap, and the
+   `sound tap` lines from its console. If a context still reads `suspended` after the tap, there is no sound
+   and the cause is still unknown; first suspects are no usable audio output (the TV's HDMI endpoint asleep,
+   or a remote-desktop session owning the audio device), then a browser policy. A muted tab, a background tab
+   and Memory Saver are unlikely: none of them leaves a visible, tapped tab with a suspended context.
+
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
    - **His batch of 2026-09-19 (the deck's FX boards, the flows, the intros — DC ledger 152):** MC's half is
      **built**: fog layers over rain/snow/leaves (§26.1), the intro camera centred and twice as close, the Crooked
@@ -2357,7 +2378,8 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
      live checks (DC ledger 151 (f)–(k)), his blue-shade pick, then the remaining areas (§52.5).
    - **iPad TV silent although "unlocked" (live report 2026-09-15, not a QA-pass item; §27 display
      audio note):** built — resume core's suspended AudioContexts on a real tap, a card that waits
-     for them to run, `audioSession = "playback"`, and a status line that names a paused context.
+     for them to run (~~superseded 2026-11-06, ledger 0ᵉ: a tap now always closes it~~), `audioSession =
+     "playback"`, and a status line that names a paused context.
      **Owed: his reload of the iPad + DM screen, one tap, and what the status line then says.**
    - ~~**H1 executor identity (HIGH, one wrapper)**~~ **FIXED 2026-09-20.** `reg()` in `rpc.js` wraps all
      **71** registrations and stamps socketlib's `this.socketdata.userId` over `payload.requesterId` before
