@@ -2346,6 +2346,14 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    or a remote-desktop session owning the audio device), then a browser policy. A muted tab, a background tab
    and Memory Saver are unlikely: none of them leaves a visible, tapped tab with a suspended context.
 
+0ᶠ. **OPEN 2026-11-06 — MC's weather, Lightning and empty corpses under Animater (§26.8).** Built from the deck's
+   patches, adapted to the real source in nine places, unit-tested only. **Owed, in a world with Animater on:**
+   (1) outdoors Downpour shows rain with no lightning, and its key lights and turns off; (2) MC's rain loop is silent
+   there; (3) Storm outdoors is Animater's thunderstorm, with no MC strikes; (4) Lightning outdoors refuses once, in words;
+   (5) on a Hall scene Rain, Storm and Lightning all work as before; (6) a nothing-lootable NPC's knockout plays and the
+   body hides about 4 s later; (7) a body healed in that window stays. **His call:** does a boss intro's lightning still
+   fire outdoors under Animater's storm (it does now)?
+
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
    - **His batch of 2026-09-19 (the deck's FX boards, the flows, the intros — DC ledger 152):** MC's half is
      **built**: fog layers over rain/snow/leaves (§26.1), the intro camera centred and twice as close, the Crooked
@@ -3320,6 +3328,52 @@ fxActive entry (automatic + local, so it can never be left stuck like a manual t
 ---
 
 
+### 26.8 Animater owns the open sky (2026-11-06; the deck's Animater phase 2, items 4 and 6)
+
+**Status: BUILT, tested headless (real `effects.js` against the fake Foundry, test-actions 43-53), NOT live-checked** (`scripts/animater-seam.js`, glue in `effects.js` and
+`rpc.js`, `tools/test-weather-animater.mjs`). Applied from deck-command's `MC-PATCHES-2026-11-06.md`, which
+was written against served files and untested. Rulings: outdoor storms go to Animater, MC's Lightning only
+indoors, never both on one scene, the Downpour double fixed, empty corpses hide about 4 s later.
+
+**"Outdoors" is Animater's own test:** not `underground` and acoustics not `hall` or `cave` (its
+`undergroundScene`). An unset scene counts as outdoors, so an indoor map needs one of those set. Animater's
+`Weather on the map` world setting off also hands the scene back to MC.
+
+**Outdoors under Animater:** the weather keys write `animater.*` names and read them back, so keys still light.
+MC's weather loops stay silent whatever `fxActive` says (`syncFx`); the dust filter stays. Storm writes
+`animater.thunderstorm` and MC's rolling storm doesn't run. The Lightning key is refused in words.
+**Indoors, or without Animater:** everything as before: core ids, the fog layers, MC's loops, rolling storm, Lightning.
+
+**The double:** Animater reads any scene weather containing "storm" as a thunderstorm (`weatherOf`), so Downpour's
+core `rainStorm` got its lightning and thunder on top. `animater.rain` has neither.
+
+**Where the build differs from the patch, and why (read in Animater 3.0.2):**
+1. **Indoors keeps core ids.** The patch mapped weather whenever Animater was on, but Animater draws, sounds and
+   flashes nothing on an underground scene and Foundry draws nothing for an `animater.*` id: a lit key and silence.
+2. **Indoors includes `underground`,** which the patch's check left out.
+3. **Downpour and Rain both write `animater.rain`,** and the patch read that back as Rain only: Downpour would have
+   lit Rain and could never be turned off. `fxActive.rainStorm` now says which key it was, as `fxActive.dust` does for
+   fog. Animater has no heavy rain without lightning (monsoon and hurricane both flash).
+4. **The refusal sits on the key (`dmPressFx`), not in `dmFireFx`.** The rolling storm and a boss intro fire through
+   `dmFireFx`: the patch would have toasted on each strike and cost an entrance its lightning.
+5. **Silence is in `syncFx`, not at the write.** The patch left the dust loop running, and any loop already in `fxActive`.
+6. **A stale `fxActive.storm`** would have kept striking outdoors; it now pauses there and resumes indoors. A thunderstorm
+   left on an indoor scene can be cleared from the Storm key.
+7. **Fog during Animater's rain is refused with a toast.** One id can't hold both, so the press would have done nothing.
+8. **Toasts go through `notifier`** (the patch predates it), in plain words.
+9. **Only a death waits.** The patch delayed every empty corpse; a body looted bare has no animation to wait for and
+   `registerCorpseEmptied` would have stacked one timer per item, so it hides at once.
+
+**Corpses:** at a death with Animater active, the combatant leaves at once and the hide lands 4 s later (knockout 2.4 s,
+kill-cam 1.2 s), re-reading first: a body deleted, hidden or healed above 0 is left alone. Lootable corpses and worlds
+without Animater are unchanged.
+
+⚠️ **Known limits.** The 4 s timer lives in the executor's tab, so a reload inside it leaves the body showing. A boss
+intro's scripted lightning still fires under Animater's storm (his ruling named the key; say if an intro should drop it).
+A client below Animater's Balanced quality draws no weather, and MC has stood down for it too. MC's world-wide `fxActive`
+marks still need a live look on a scene switch. Animater's weather sound depends on its `Weather sounds` setting.
+
+---
 ## 27. Personal messages — DM ⇄ player private notes (DM-idea 2026-07-26, BUILT)
 
 **The ask:** "DM selects a player and writes a message — 'you are charmed, and want to get the

@@ -1,5 +1,6 @@
 import { MODULE_ID } from "./preset.js";
 import { notifier } from "./notifier.js";
+import { CORPSE_HIDE_DELAY_MS, corpseStillDown } from "./animater-seam.js"; // §26.8
 import { clockLabel } from "./gametime.js"; // in-world date stamps on story entries (§38.4)
 import { recordExtraDamage } from "./deeds.js"; // §44: extra-instance darts bypass midi's damageList
 import { resolveExecutorId, isExecutor, reactionTimeoutMs, DISPLAY_LEVEL } from "./settings.js";
@@ -3686,7 +3687,7 @@ async function maybeAutoLoot(actor) {
     const lootable = lootableOf(actor);
     const coins = (() => { try { return (API.getActorCurrencies?.(actor) ?? []).length; } catch { return 0; } })();
     if (!lootable.length && !coins) {
-      await retireEmptyCorpse(tokenDoc);
+      await retireEmptyCorpse(tokenDoc, { afterDeath: true });
       return true;                                           // handled: no pile, no skull, no marker
     }
 
@@ -3774,11 +3775,21 @@ function lootableOf(actor) {
  * HIDDEN, NOT DELETED. A deleted token takes its position, its effects and any chance of reviving it
  * with it; hidden keeps all three and the GM still sees it ghosted.
  */
-async function retireEmptyCorpse(tokenDoc) {
+async function retireEmptyCorpse(tokenDoc, { afterDeath = false } = {}) {
   if (!tokenDoc) return false;
   const cbt = game.combat?.combatants?.find(c => c.tokenId === tokenDoc.id);
-  if (cbt) await cbt.delete();
-  if (!tokenDoc.hidden) await tokenDoc.update({ hidden: true });
+  if (cbt) await cbt.delete();                               // leaving the fight stays immediate
+  if (tokenDoc.hidden) return true;
+  // ⚠️ ANIMATER'S KNOCKOUT AND KILL-CAM PLAY ON THE BODY (2026-11-06, §26.8), so at a death it stays up
+  // about 4 s. A body looted bare has had its death already and hides at once, as does any world without
+  // Animater. The timer lives in the executor's tab: a reload inside those 4 s leaves the body showing.
+  if (!afterDeath || !game.modules.get("animater")?.active) { await tokenDoc.update({ hidden: true }); return true; }
+  setTimeout(async () => {
+    try {
+      const doc = tokenDoc.parent?.tokens?.get(tokenDoc.id);
+      if (corpseStillDown(doc)) await doc.update({ hidden: true });
+    } catch (e) { console.warn(`${MODULE_ID} | corpse hide`, e?.message ?? e); }
+  }, CORPSE_HIDE_DELAY_MS);
   return true;
 }
 

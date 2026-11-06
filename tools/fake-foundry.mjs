@@ -97,7 +97,8 @@ export async function installFakeFoundry() {
   globalThis.game = {
     ready: true, user: users.get("gm"), users, actors, scenes, settings,
     packs: { get: () => null },
-    modules: { get: () => ({ active: true }) },
+    // Animater changes what the weather keys write, so it is off unless a test turns it on.
+    modules: { get: (id) => ({ active: id !== "animater" || store.get("fakeAnimaterOn") === true }) },
     system: { id: "dnd5e", version: "5.3.3" },
     time: { worldTime: 0 },
     paused: false,

@@ -8,6 +8,8 @@ import { cmStationSync, cmTicketFx, playTrainWhistle, playTrainApproach, stopTra
 import { bossIntroPlay } from "./boss-intro.js"; // §40 the boss's entrance (one-shot, no state)
 import { entrancePlay, entranceStop } from "./entrances.js"; // §40.6 the themed entrance banners ("Intros")
 import { initCurseSweep } from "./cm-curses.js"; // §33: one GM client lifts expired curses
+import { notifier } from "./notifier.js";
+import { PRECIP, FOG_OVER, THUNDERSTORM, ANIMATER_RAIN, FOG_REFUSED, animaterDrawsSky, layersOfWeather, weatherIdOf, fogRefused, animaterRainKeyOn, lightningRefusal } from "./animater-seam.js"; // §26.8
 
 // §26 Effects tab (spike) — DM-triggered table ambience, three kinds under one catalog:
 //   scene   — shortcuts to Foundry's own scene data (weather particles, darkness). Foundry
@@ -113,9 +115,7 @@ export function fxActiveMap() {
 // rain (as before); turning on fog while it rains adds to it.
 // ⚠️ Every client needs the entries — MC registers them on all of them at init. A client without MC would
 // draw no weather for a combined id (Foundry warns and skips); every client at an MC table has it.
-const PRECIP = ["rain", "rainStorm", "snow", "blizzard", "leaves"];
 const PRECIP_NAME = { rain: "Rain", rainStorm: "Rain Storm", snow: "Snow", blizzard: "Blizzard", leaves: "Autumn Leaves" };
-const FOG_OVER = "mcFog+";
 
 export function registerLayeredWeather() {
   const W = CONFIG.weatherEffects;
@@ -134,20 +134,15 @@ export function registerLayeredWeather() {
   }
 }
 
-/** The weather layers a scene shows: core ids, fog + one precipitation at most. */
-export function weatherLayers(scene = canvas?.scene) {
-  const w = String(scene?.weather ?? "");
-  if (!w) return new Set();
-  if (w.startsWith(FOG_OVER)) return new Set(["fog", w.slice(FOG_OVER.length)]);
-  return new Set([w]);
+/** Does Animater draw this scene's sky? Outdoors only, see animater-seam.js; off, every branch below is the old path. */
+function animaterSky(scene = canvas?.scene) {
+  let mapOn = true;
+  try { mapOn = game.settings.get("animater", "weatherOnMap"); } catch { /* an Animater without that setting */ }
+  return animaterDrawsSky({ active: game.modules.get("animater")?.active, mapOn, scene });
 }
 
-export function weatherIdFor(layers) {
-  const precip = PRECIP.find((p) => layers.has(p));
-  if (layers.has("fog") && precip) return `${FOG_OVER}${precip}`;
-  if (layers.has("fog")) return "fog";
-  return precip ?? "";
-}
+/** The weather layers a scene shows: core ids or Animater's names, fog + one precipitation at most. */
+export function weatherLayers(scene = canvas?.scene) { return layersOfWeather(scene?.weather); }
 
 // One state source per kind: weather reads the SCENE's layers (authoritative — another module or the
 // scene config can change it under us; a weather key's sound follows its layer, see syncFx); other
@@ -159,8 +154,11 @@ export function fxIsOn(id) {
   if (def.weather !== undefined) {
     const layers = weatherLayers();
     if (def.weather === "fog") return layers.has("fog") && (id === "dust" ? !!fxActiveMap().dust : !fxActiveMap().dust);
+    if ((id === "rain" || id === "rainStorm") && canvas?.scene?.weather === ANIMATER_RAIN) return animaterRainKeyOn(id, fxActiveMap().rainStorm);
     return layers.has(def.weather);
   }
+  // Under Animater's sky the storm is the scene's weather; MC's rolling storm only counts where it can run.
+  if (id === "storm" && (animaterSky() || weatherLayers().has("storm"))) return weatherLayers().has("storm");
   if (def.filter || def.sound || def.state) return !!fxActiveMap()[id];
   // _source, not prepared: during the 5s animateDarkness fade the PREPARED level is the
   // animation's current frame (environment.mjs writes the canvas value back onto the scene),
@@ -207,6 +205,14 @@ export async function dmToggleFx(id) {
     }, { animateDarkness: 5000 });
     return;
   }
+  // The Storm key outdoors under Animater is its thunderstorm; MC's rolling storm never starts here.
+  // A thunderstorm left on an indoor scene (Animater shows nothing there) is cleared the same way.
+  if (id === "storm" && sc && (animaterSky(sc) || weatherLayers(sc).has("storm"))) {
+    const cur = { ...fxActiveMap() };
+    if (cur.storm) { delete cur.storm; await game.settings.set(MODULE_ID, "fxActive", cur); }
+    await sc.update({ weather: wantOn ? THUNDERSTORM : "" });
+    return;
+  }
   if (def.weather !== undefined) {
     // Layered weather: the atmosphere (fog or dust) and ONE precipitation. A key replaces the other
     // members of its own family and leaves the other family alone — fog joins the rain; snow replaces it.
@@ -214,6 +220,8 @@ export async function dmToggleFx(id) {
     const layers = weatherLayers(sc);
     const cur = { ...fxActiveMap() };
     const atmos = def.weather === "fog";
+    const sky = animaterSky(sc);
+    if (fogRefused({ sky, atmos, wantOn, layers })) { notifier.info(FOG_REFUSED); return { ok: false, reason: FOG_REFUSED }; }
     const sameFamily = (k) => FX_DEFS[k]?.weather !== undefined && (FX_DEFS[k].weather === "fog") === atmos;
     // The replaced members drop their sound/filter too, or Blizzard-after-Rain plays both loops over snow.
     for (const k of Object.keys(cur)) if (sameFamily(k)) delete cur[k];
@@ -222,7 +230,7 @@ export async function dmToggleFx(id) {
       layers.add(def.weather);
       if (def.filter || def.sound) cur[id] = true;
     }
-    await sc.update({ weather: weatherIdFor(layers) });
+    await sc.update({ weather: weatherIdOf(layers, sky) });
     await game.settings.set(MODULE_ID, "fxActive", cur);
     return;
   }
@@ -245,6 +253,17 @@ export function dmFireFx(id, extra = {}) {
   if (id === "lightning" && !payload.from) payload.from = strikeSide();
   if (socket) socket.executeForEveryone("fxOneShot", payload);
   else handleFxOneShot(payload); // socketlib missing — at least the DM's own screen fires
+}
+
+/**
+ * A one-shot KEY. Lightning is refused outdoors under Animater, whose storm owns that sky. The refusal lives
+ * here and not in dmFireFx: the rolling storm and a boss intro fire through dmFireFx too, and a toast per
+ * distant strike, or an intro that loses its lightning, is not what the ruling asked for.
+ */
+export function dmPressFx(id) {
+  const no = id === "lightning" ? lightningRefusal(animaterSky()) : null;
+  if (no) { notifier.info(no); return { ok: false, reason: no }; }
+  return dmFireFx(id);
 }
 
 /* -------------------------------------------- */
@@ -1051,7 +1070,7 @@ let stormTimer = null;
 function scheduleStormStrike(first = false) {
   clearTimeout(stormTimer);
   stormTimer = setTimeout(() => {
-    if (!fxActiveMap().storm || !isExecutor()) { stormTimer = null; return; }
+    if (!fxActiveMap().storm || !isExecutor() || animaterSky()) { stormTimer = null; return; }
     dmFireFx("lightning", { soft: Math.random() < 0.75 });
     scheduleStormStrike();
   }, first ? 3000 + Math.random() * 15000 : 40000 + Math.random() * 110000);
@@ -1068,13 +1087,14 @@ export function syncFx() {
   // A weather key's filter and loop follow its LAYER too: a weather the map no longer shows (changed
   // in the scene config, or by another module) must not leave its sound running.
   const wanted = (id, def) => !!active[id] && (def.weather === undefined || layers.has(def.weather));
+  const sky = animaterSky(); // its weather has its own sound: MC's weather loops stay silent, filters stay (§26.8)
   for (const [id, def] of Object.entries(FX_DEFS)) {
     if (def.filter) {
       if (wanted(id, def) && !phone && canvas?.ready) mountFilter(id, def);
       else unmountFilter(id);
     }
     if (def.sound) {
-      if (wanted(id, def) && !phone) startLoop(id, def);
+      if (wanted(id, def) && !phone && !(sky && def.weather !== undefined)) startLoop(id, def);
       else stopLoop(id);
     }
     if (def.player === "state") {
@@ -1087,7 +1107,7 @@ export function syncFx() {
     }
   }
   // Rolling storm: only the executor keeps the sky going.
-  if (active.storm && isExecutor()) { if (!stormTimer) scheduleStormStrike(true); }
+  if (active.storm && isExecutor() && !sky) { if (!stormTimer) scheduleStormStrike(true); }
   else { clearTimeout(stormTimer); stormTimer = null; }
   // §30 séance board: mounts on the display + the DM's client (seance.js gates itself).
   seanceSync(!!active.seance);

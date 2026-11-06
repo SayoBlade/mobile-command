@@ -9,7 +9,7 @@ import path from "node:path";
 
 import { installFakeFoundry } from "./fake-foundry.mjs";
 
-const { A, live, store, fired, chats, rolls, seq, brekka, gorbon, outsider, MOD } = await installFakeFoundry();
+const { A, live, store, fired, notes, chats, rolls, seq, brekka, gorbon, outsider, MOD } = await installFakeFoundry();
 
 /* ── the runner ───────────────────────────────────────────────────────────────────────────────── */
 let n = 0;
@@ -385,6 +385,48 @@ check("Spend takes the twist, posts the public fate card, and the request leaves
   scene.weather = "rain";
   check("keys read the map, not a stale memory: the scene says rain, so Rain is on and Blizzard is off",
     row("effects", "fx.rain").on === true && row("effects", "fx.blizzard").on === false);
+  scene.weather = "";
+  store.set("fxActive", {});
+}
+
+// ── §26.8 the same keys with Animater on: the real effects.js, end to end ───────────────────────────
+{
+  const scene = game.scenes.active;
+  store.set("fakeAnimaterOn", true);
+  await run("fx.rainStorm");
+  check("Animater, outdoors: Downpour writes animater.rain, and its own key lights, not Rain's",
+    scene.weather === "animater.rain" && row("effects", "fx.rainStorm").on === true && row("effects", "fx.rain").on === false, scene.weather);
+  await run("fx.rain");
+  check("Rain pressed over Downpour swaps the lit key on the same weather",
+    scene.weather === "animater.rain" && row("effects", "fx.rain").on === true && row("effects", "fx.rainStorm").on === false, JSON.stringify(store.get("fxActive")));
+  const before = notes.length;
+  const r = await run("fx.fog");
+  check("Fog in Animater's rain is refused in words and changes nothing",
+    scene.weather === "animater.rain" && notes.length === before + 1 && row("effects", "fx.fog").on === false, JSON.stringify(r));
+  await run("fx.rain");
+  check("Rain off clears the sky", scene.weather === "" && row("effects", "fx.rain").on === false, scene.weather);
+  store.set("fxActive", { storm: true });
+  check("a rolling storm left over from before does not read as on outdoors", row("effects", "fx.storm").on === false);
+  await run("fx.storm");
+  check("Storm outdoors is Animater's thunderstorm, and MC's rolling storm is dropped",
+    scene.weather === "animater.thunderstorm" && row("effects", "fx.storm").on === true && !store.get("fxActive").storm, `${scene.weather} · ${JSON.stringify(store.get("fxActive"))}`);
+  const shots = fired.length, said = notes.length;
+  const refused = await run("fx.lightning");
+  check("Lightning outdoors refuses once, in words, and nothing fires", fired.length === shots && notes.length === said + 1, JSON.stringify(refused));
+  await run("fx.storm");
+  check("Storm off clears it", scene.weather === "" && row("effects", "fx.storm").on === false, scene.weather);
+  scene.flags = { animater: { acoustics: "hall" } };
+  await run("fx.rainStorm");
+  check("Animater, on a Hall scene: Downpour stays the core id, with its loop", scene.weather === "rainStorm" && store.get("fxActive").rainStorm === true, scene.weather);
+  await run("fx.rainStorm");
+  await run("fx.storm");
+  check("on a Hall scene Storm is MC's rolling storm", scene.weather === "" && store.get("fxActive").storm === true, `${scene.weather} · ${JSON.stringify(store.get("fxActive"))}`);
+  await run("fx.storm");
+  const indoors = fired.length;
+  await run("fx.lightning");
+  check("on a Hall scene Lightning fires", fired.length === indoors + 1, String(fired.length - indoors));
+  scene.flags = {};
+  store.set("fakeAnimaterOn", false);
   scene.weather = "";
   store.set("fxActive", {});
 }

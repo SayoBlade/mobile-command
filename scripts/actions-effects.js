@@ -1,6 +1,6 @@
 import { MODULE_ID } from "./preset.js";
 import { defineActions } from "./actions.js";
-import { FX_DEFS, fxIsOn, fxIsOnFor, fxActiveMap, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js";
+import { FX_DEFS, fxIsOn, fxIsOnFor, fxActiveMap, dmToggleFx, dmToggleFxFor, dmFireFx, dmPressFx } from "./effects.js";
 
 /**
  * ── THE EFFECTS TAB, AS ACTIONS (deck-command ledger 151, area G) ────────────────────────────────
@@ -55,7 +55,7 @@ const toggle = (id, group, icon) => ({
 const shot = (id, group, icon) => ({
   id: `fx.${id}`, area: "effects", group, kind: "shot", icon, does: "scene", art: ART[id],
   label: FX_DEFS[id]?.label ?? id,
-  run: () => dmFireFx(id),
+  run: () => dmPressFx(id),
 });
 
 /** A player's key picture: their character's token art (as the deck's party pages show them). */

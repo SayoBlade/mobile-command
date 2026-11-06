@@ -9,7 +9,7 @@ import { runDmWizard } from "./dm-wizard.js";
 import { startCombatWithMusic, combatMusicMode } from "./combat-music.js";
 import { emberSky } from "./campaigns.js"; // §50 campaign recognition: Ember runs music/rests/calendar
 import { isOverworldScene, isExecutor, gridFeetPerCell, tvAudioState, tvSoftFogState, combatMusicPlaylist, isOnlineTable } from "./settings.js";
-import { FX_TABS, FX_DEFS, FX_VOLUME_KEYS, fxActiveMap, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js"; // §26 Effects tab (+ §26.5 loudness keys)
+import { FX_TABS, FX_DEFS, FX_VOLUME_KEYS, fxActiveMap, fxIsOn, fxIsOnFor, dmToggleFx, dmToggleFxFor, dmFireFx, dmPressFx } from "./effects.js"; // §26 Effects tab (+ §26.5 loudness keys)
 import { FATE_THREADS, FATE_STEPS } from "./fateweaving.js"; // §34 Fateweaving tracker
 import { CURSES, actorCurses, curseTableUuid } from "./cm-curses.js"; // §33 Chaotic Curses
 // §35 the Crooked Moon tab's state and verbs, shared with the deck (deck-command ledger 151).
@@ -4386,7 +4386,7 @@ async function onClick(ev) {
   // §26 Effects tab: toggles + one-shots. The await matters — fxIsOn reads the scene/setting the
   // toggle just wrote, so rendering before it lands would paint the stale state.
   const fxShot = ev.target.closest("[data-fx-shot]");
-  if (fxShot) { dmFireFx(fxShot.dataset.fxShot); return; }
+  if (fxShot) { dmPressFx(fxShot.dataset.fxShot); return; }
   // §26.6 per-player effects: shots carry the target's user id.
   const fxpShot = ev.target.closest("[data-fxp-shot]");
   if (fxpShot) { dmFireFx(fxpShot.dataset.fxpShot, { users: [fxPlayer] }); return; }
