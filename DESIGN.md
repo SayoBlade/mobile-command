@@ -386,6 +386,17 @@ Full-screen mobile UI replacing Foundry's interface for `phone`-role users. Bott
 One question, huge buttons: **Advantage / Normal / Disadvantage**, situational bonus field, slot picker where relevant. Replaces system roll dialogs entirely under Route B.
 
 ### 7.6 Prompt Restyler
+
+**2026-11-07 — PROPOSED, NOT BUILT: an authored boss death skips all of this (ledger 0ᵍ).** Confirmed: the Locomotive's
+"(dead)" pile is MC's auto-loot. `handleNpcDeath` → `maybeAutoLoot` calls `turnTokensIntoItemPiles` with the name
+`${corpseName} (dead)`; Item Piles has no such string and no death hook of its own. It got through because the token is
+unlinked and `noLoot` has no setter. Proposal: first line of `handleNpcDeath` (both routes, 0 HP and Defeated, come
+through it): `if (game.modules.get("deck-command")?.api?.deathFor?.(actor) === "own") return;`. Skip the WHOLE router,
+not just the pile: `markNpcDead` adds a skull, drops the boss from combat and forces it visible, which breaks a boss
+whose Phase 2 starts at 0 HP. Ask DC, don't read the flag: `flags.deck-command.death` is never written, the Locomotive's
+`own` is DERIVED from the pack's `onHp below 0`, so a flag test misses it. DC needs one line: add `deathFor` (bound to
+`ownIds`) to its `mod.api`. Without DC the call is undefined and every death runs as today. `plain` and `animater`
+are untouched, so a boss with loot still piles.
 Render-hooks on Dialog/DialogV2 (and midi's dialogs) → bottom-sheet conversion, thumb-sized buttons. Generic fallback for unknown dialogs: enlarge buttons, never block.
 
 **Design-language unification of foreign popups (2026-07-10).** Every app lifted over the shell (`.mc-phone-dialog`) is skinned to read as one app, not a foreign window. Rules, most-general first:
@@ -2353,6 +2364,12 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    (5) on a Hall scene Rain, Storm and Lightning all work as before; (6) a nothing-lootable NPC's knockout plays and the
    body hides about 4 s later; (7) a body healed in that window stays. **His call:** does a boss intro's lightning still
    fire outdoors under Animater's storm (it does now)?
+
+0ᵍ. **OPEN 2026-11-07 — two things from the deck's 6x dry run (§37, §7.6).** (a) Train follow yanked the table to
+   10.3 from 10.9: fixed in code, `tools/test-train-follow.mjs` 9, no live check (a world was active). **Owed:** in a
+   world with leftover PCs on a car, (1) "They arrive" on 10.9 stays on 10.9; (2) Group up off the train stays;
+   (3) walking the whole party through a car door still moves the table. (b) **The dead Locomotive turned loot pile IS
+   MC's auto-loot.** Proposed, not built: skip `own` deaths, §7.6. **His call:** can the Locomotive ever be looted?
 
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
    - **His batch of 2026-09-19 (the deck's FX boards, the flows, the intros — DC ledger 152):** MC's half is
@@ -5624,6 +5641,16 @@ the set after the check (fog down, wreckage re-activated); the mark stays for th
 ---
 
 ## 37. The Ghostlight ride — car doors + the rushing Shroud (DM ask 2026-08-04 — BUILT same day, bench-verified)
+
+**2026-11-07 — train follow only from a car (found live by the deck's 6x dry run, ledger 0ᵍ).** "They arrive" on 10.9
+creates the PCs hidden; 250 ms later `evaluateFollow` saw no visible PC on the active scene, found four leftover PC
+tokens on 10.3 and activated it, so every screen went to the Lounge Car. Group up off the train did the same, because
+packing deletes the PC tokens. Fixed: the follow returns unless the ACTIVE scene is a car, and a packed party token in
+the active car holds the shot. Changed from the deck's draft: the draft counted any group token, in both places; this
+counts only a `packed` one (the test `registerPartyTeleportActivation` uses) and only for holding, so a packed token
+left in another car never pulls the table. Packed arrivals stay that hook's job. **Remaining hole, left alone:** an
+EMPTY active car with leftover PCs on another still follows on any PC token created or deleted; moving a DM off an
+empty car he is setting up needs leftovers cleared, or `partyTeleportActivates` off.
 
 The DM loaded the ch10 train car scenes and asked for (a) a fog-of-war check, (b) a
 tile-scroll/parallax "train in motion" effect, (c) car-to-car teleports per the book's

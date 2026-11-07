@@ -27,7 +27,7 @@
 //    unhidden PC tokens left, the car with the party becomes active (TV follows, scene
 //    transition plays). Splits stay put: while any PC remains on the active car, the
 //    display doesn't move. Gated by the same partyTeleportActivates setting as the
-//    packed-party rule, primary-GM client only.
+//    packed-party rule, primary-GM client only. Only ever FROM a car (2026-11-07): see evaluateFollow.
 //
 // Everything is idempotent and touches only documents flagged mobile-command.trainDoor /
 // trainLand / trainMist — run Wire twice, get one set; nothing of the book's own scene
@@ -510,8 +510,16 @@ function evaluateFollow() {
     if (!game.settings.get(MODULE_ID, "partyTeleportActivates")) return;
     const active = game.scenes.active;
     if (!active) return;
+    // ⚠️ ONLY FROM A CAR (found live 2026-11-07, Deck Command's "They arrive" on 10.9). The follow means "the
+    // party walked through a door to the next car". Anywhere else the active scene can have no visible PC for a
+    // moment (arrivals created hidden, Group up deleting the tokens), and it jumped to whichever car still held
+    // leftover PC tokens, taking the whole table with it.
+    if (!trainScenes().some(s => s.id === active.id)) return;
     const pcTokens = (s) => s.tokens.filter(t => !t.hidden && t.actor?.type === "character" && t.actor.hasPlayerOwner);
-    if (pcTokens(active).length) return; // somebody is still in the active car — hold the shot
+    // A packed party token IS the party, so it holds the shot. It does not COUNT as a car to follow to, below:
+    // a packed token arriving is registerPartyTeleportActivation's job, and one left behind must not pull the table.
+    const packedHere = active.tokens.some(t => t.actor?.type === "group" && t.actor.getFlag?.(MODULE_ID, "packed"));
+    if (packedHere || pcTokens(active).length) return; // somebody is still in the active car — hold the shot
     let best = null;
     for (const s of trainScenes()) {
       if (s.active || !s.regions.some(r => r.flags[MODULE_ID]?.trainLand)) continue;
