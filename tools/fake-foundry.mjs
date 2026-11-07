@@ -14,6 +14,7 @@ export async function installFakeFoundry() {
   const MOD = "mobile-command";
   /* ── a fake Foundry, just rich enough ─────────────────────────────────────────────────────────── */
   const fired = [];   // one-shots broadcast (socketlib)
+  const hooks = {};   // what the module registered, by name: a test calls these to fire a hook for real
   const chats = [];   // chat cards + roll messages
   const notes = [];   // ui.notifications
   const rolls = [];   // queued Roll totals — push to set the next results
@@ -106,7 +107,7 @@ export async function installFakeFoundry() {
   };
   users.activeGM = users.get("gm");
   globalThis.canvas = { scene };
-  globalThis.Hooks = { on() {}, once() {}, callAll() {} };
+  globalThis.Hooks = { on(name, fn) { (hooks[name] ??= []).push(fn); }, once() {}, callAll() {} };
   globalThis.ui = { notifications: { info: (m) => notes.push(m), warn: (m) => notes.push(m), error: (m) => notes.push(m) } };
   globalThis.CONFIG = { Dice: { randomUniform: () => 0.005 } }; // the d100 comes up 1
   globalThis.Roll = class { constructor(f) { this.formula = f; } async evaluate() { this.total = rolls.shift() ?? 3; return this; } async toMessage(d, o) { chats.push({ ...d, rollMode: o?.rollMode }); } };
@@ -137,5 +138,5 @@ export async function installFakeFoundry() {
   const A = await import(url("scripts/actions.js"));
   const live = await import(url("scripts/cm-live.js"));
 
-  return { A, live, store, fired, chats, notes, rolls, seq, brekka, gorbon, outsider, users, MOD };
+  return { A, live, store, fired, chats, notes, rolls, seq, brekka, gorbon, outsider, users, MOD, hooks };
 }

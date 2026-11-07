@@ -1,6 +1,7 @@
 import { MODULE_ID } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { CORPSE_HIDE_DELAY_MS, corpseStillDown } from "./animater-seam.js"; // §26.8
+import { lootableItems, authoredDeath, isDeckEcho } from "./corpse-rules.js";
 import { clockLabel } from "./gametime.js"; // in-world date stamps on story entries (§38.4)
 import { recordExtraDamage } from "./deeds.js"; // §44: extra-instance darts bypass midi's damageList
 import { resolveExecutorId, isExecutor, reactionTimeoutMs, DISPLAY_LEVEL } from "./settings.js";
@@ -3648,6 +3649,14 @@ async function markNpcDead(actor) {
 // skull when markDeadNpcs is on (default). Either way a dead NPC is unmistakable on every screen.
 async function handleNpcDeath(actor) {
   if (!isExecutor() || actor?.type !== "npc") return;
+  // Deck Command's bodies are not ours (2026-11-07). Before everything below: the skull would pull a boss
+  // out of its Phase 2, and force an echo back into view that DC has just hidden.
+  if (authoredDeath(actor, game.modules.get("deck-command")?.api)) return;
+  const placed = actor.token ?? actor.getActiveTokens?.(false, true)?.[0] ?? null;
+  if (isDeckEcho(placed)) {
+    await game.combat?.combatants?.find(c => c.tokenId === placed.id)?.delete(); // DC hides it; a dead echo keeps no turn
+    return;
+  }
   let handled = false;
   if (game.settings.get(MODULE_ID, "autoLootNpcs") && itemPilesReady()) {
     handled = await maybeAutoLoot(actor);   // converts + marks; false if it wasn't pileable
@@ -3757,7 +3766,7 @@ function lootableOf(actor) {
   try {
     const API = game.itempiles?.API;
     if (!API || !actor) return [];
-    return API.getActorItems(actor, { itemFilters: corpseItemFilters() }) ?? [];
+    return lootableItems(API.getActorItems(actor), corpseItemFilters()); // it takes no filters: see corpse-rules.js
   } catch (e) { console.warn(`${MODULE_ID} | lootable read failed`, e); return []; }
 }
 

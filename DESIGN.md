@@ -414,16 +414,27 @@ Screen Wake Lock during combat; silent reconnect + state resync on `visibilitych
 
 **Away-timer escalation (feature idea — DM 2026-07-10, FOR LATER, not built):** a module setting *"let me know if a player is away for more than [N] seconds"* — default **90**, and **0 is a valid value** (escalate immediately). When a player stays backgrounded/away longer than N seconds, flip their online indicator from its idle colour (black) to **red** — a stronger "away too long" state layered on the amber "backgrounded". Reuses the existing `visibilitychange` timing; the per-player timer starts on background and resets on foreground. Threshold is DM-configurable in settings. Pairs with the presence dots above. **BUILT 2026-07-10, reverted 2026-07-11 (bundled), RE-ADDED 2026-07-12 standalone in v0.1.128:** setting `awayThresholdSeconds` (world, default 90, 0 valid = immediate). Transport (`rpc.js`): each phone's `visibilitychange` calls `reportPresence(hidden)` → `socket.executeForOthers("presence", {userId, hidden})`; the receiver stamps `since` with its OWN clock when the hidden state flips (skew-free) into the exported `presenceState` Map. DM panel (`dm-panel.js statusHTML`): a CONNECTED player whose app has been hidden ≥ threshold gets a red pulsing dot + "away Ns" (layers over green/amber; offline stays gray). A 5s `setInterval` re-renders while anyone is hidden (the threshold crossing fires no event), self-clearing when all foreground; also re-renders on the `mobile-command.presence` hook, and clears a user's state on disconnect.
 
-**2026-11-07 — PROPOSED, NOT BUILT: an authored boss death skips all of this (ledger 0ᵍ).** Confirmed: the Locomotive's
-"(dead)" pile is MC's auto-loot. `handleNpcDeath` → `maybeAutoLoot` calls `turnTokensIntoItemPiles` with the name
-`${corpseName} (dead)`; Item Piles has no such string and no death hook of its own. It got through because the token is
-unlinked and `noLoot` has no setter. Proposal: first line of `handleNpcDeath` (both routes, 0 HP and Defeated, come
-through it): `if (game.modules.get("deck-command")?.api?.deathFor?.(actor) === "own") return;`. Skip the WHOLE router,
-not just the pile: `markNpcDead` adds a skull, drops the boss from combat and forces it visible, which breaks a boss
-whose Phase 2 starts at 0 HP. Ask DC, don't read the flag: `flags.deck-command.death` is never written, the Locomotive's
-`own` is DERIVED from the pack's `onHp below 0`, so a flag test misses it. DC needs one line: add `deathFor` (bound to
-`ownIds`) to its `mod.api`. Without DC the call is undefined and every death runs as today. `plain` and `animater`
-are untouched, so a boss with loot still piles.
+**2026-11-07 — BUILT: why echoes and the Locomotive became "(dead)" piles, and what is skipped now (ledger 0ⁱ).** Seen 2 of 2
+in the 6x dry run. **Root cause: Item Piles' public `getActorItems(target)` takes one argument** (3.3.4: `static
+getActorItems(target) { return getActorItems(target); }`; only the inner function has `itemFilters`). So MC's
+`API.getActorItems(actor, { itemFilters: corpseItemFilters() })` silently ran on the global filters, whose natural-weapon
+test reads `system.weaponType`, a path dnd5e no longer has. The Haint Echo owns two features and Draining Regret, the
+Locomotive features and Rail Slam, all `natural`, no coins (read from a copy of 6x's actors): each counted as lootable.
+Every NPC with a natural weapon has been piled since the 2026-10-13 "nothing lootable" rule, so that rule never worked for
+them. Fixed in `scripts/corpse-rules.js`:
+- **`lootableItems`** applies `corpseItemFilters()` itself, by Item Piles' own matching rule, to `getActorItems`'s answer.
+  Coins unchanged. Nothing lootable goes to `retireEmptyCorpse`, which hides about 4 s later under Animater, at once without.
+- **`authoredDeath`**: D-0068's `flags.deck-command.death === "own"` on the actor or its `baseActor` (a synthetic actor
+  does not carry the base's flags). **⚠️ That flag is written nowhere and the Locomotive does not have it** (6x read
+  2026-11-07): its `own` is derived from the pack's `onHp below 0`. So unflagged, MC asks
+  `game.modules.get("deck-command").api.animater.deathFor(actor)`, and Deck Command's api now binds the pack's ids (it
+  answered without them before, so never `own`). **The two ship together:** with an older DC the Locomotive falls to the
+  nothing-lootable hide. `plain` and `animater` are not authored, so a boss with loot still piles.
+- **`isDeckEcho`**: `flags.deck-command.echo` on the TOKEN, read off `flags` because `getFlag` throws for a disabled module.
+- **Both run first in `handleNpcDeath`**, so the 0 HP and Defeated routes and the skull are all covered: `markNpcDead` adds a
+  skull, drops the boss from combat and forces it visible, which breaks a Phase 2 at 0 HP and un-hides what DC just hid.
+  **One thing is kept for an echo:** its combatant is deleted, as the pile path did, because DC hides it but leaves its
+  turn in the round. An authored death stays in the fight.
 
 **Dead-NPC marking (DM 2026-07-12) — decoupled from auto-loot.** Live test: a killed NPC left a blood splatter visible on the DM but NOT the shared TV, and its token was hidden with no marker on the TV. Two root causes: (1) blood-splatter modules (Blood 'n Guts et al.) draw on the *processing client's* canvas only — a per-client effect that doesn't broadcast, so it's not a reliable cross-screen death signal and is out of scope; (2) all dead-marking was bundled inside `maybeAutoLoot`, gated behind the `autoLootNpcs` opt-in + Item Piles — so with auto-loot off (or no Item Piles) a dying NPC got NO marker, and whatever hid the token won. **Fix (v0.1.137):** extracted `applyDeadMarker(tokenDoc)` (shared) — a **skull OVERLAY** (a token/actor status → renders on *every* client incl. the TV, unlike a splatter), **force `hidden:false`** (a hidden corpse is invisible to the TV's display user, so the skull wouldn't show; a diagnostic logs when a corpse arrived hidden so a still-hidden report proves a later automation re-hides it), and **remove from combat**. New standalone `markNpcDead(actor)` + a `handleNpcDeath(actor)` router: auto-loot (opt-in) converts to a pile AND marks; if it's off — or the NPC isn't pileable (linked boss / no-loot flag / IP absent) — the plain visible skull still lands via `markNpcDead`. New world setting `markDeadNpcs` (default ON). The dead status also keeps the corpse out of the attack picker (`isDeadCorpse`).
 
@@ -2369,12 +2380,18 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    10.3 from 10.9: fixed in code, `tools/test-train-follow.mjs` 9, no live check (a world was active). **Owed:** in a
    world with leftover PCs on a car, (1) "They arrive" on 10.9 stays on 10.9; (2) Group up off the train stays;
    (3) walking the whole party through a car door still moves the table. (b) **The dead Locomotive turned loot pile IS
-   MC's auto-loot.** Proposed, not built: skip `own` deaths, written above "Dead-NPC marking". **His call:** can the Locomotive ever be looted?
+   MC's auto-loot.** ~~Proposed~~ Built 2026-11-07, ledger 0ⁱ. **His call:** can the Locomotive ever be looted? It now never becomes a pile.
 
 0ʰ. **OPEN 2026-11-07 — the music dips under the deck's crit and fumble sting (§25.6).** Built on the channel's gain, not
    the draft's per-track dip, unit-tested only. **Owed, on the TV with a sting set:** (1) a natural 20 dips the music under
    the sting and it returns; (2) only the TV dips; (3) the same during an overlap hand-off, with no jump in the fades;
    (4) the same with an Animater card showing: the music ends at its full level. Is 30% the right depth to his ear?
+
+0ⁱ. **OPEN 2026-11-07 — echoes and the Locomotive turning into "(dead)" loot piles (above "Dead-NPC marking").** Fixed in code
+   with one line in Deck Command's api, `test-corpse` 29, no live check (a world was active). **Owed, 6x, GM reloaded:**
+   (1) an echo at 0 vanishes with its burst, no "(dead)", and leaves the round; (2) the Locomotive at 0 keeps its token, name
+   and seat, and its fall card and Phase 2 run; (3) a beast with only natural attacks hides about 4 s after its knockout;
+   (4) a body with real loot still piles. **Worth saying to him:** bodies with only natural weapons were piles until now.
 
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
    - **His batch of 2026-09-19 (the deck's FX boards, the flows, the intros — DC ledger 152):** MC's half is
