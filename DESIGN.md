@@ -2399,6 +2399,10 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    the notice says it starts on a car, and it does. **His call, not asked yet:** should 10.9 (on the Locomotive) carry the
    loop too? It is not one of the eight cars, so it is silent now.
 
+0ᵏ. **OPEN 2026-11-07 — the TV shows only the grid on a scene the party isn't on (§23.7).** Not a bug: token vision on,
+   no PC token there, so the TV has nothing to see through (10.9 before "They arrive"). **His call, not asked yet:** a
+   one-time note on the DM's screen when the TV sees no token on the viewed scene? Nothing built.
+
 0ᵏ. **OPEN 2026-11-06 — TO-DO, NOT BUILT: the multi-door pick is easy to miss (his words: *"I missed the list, which is a ui
    problem, we should probably work on that."*).** When Use finds two or more doors in reach, the phone lists them as rows
    under the D-pad (`shell.js`, `doorRows`, beside loot, tiles and travel) and waits for a pick. He did not see the list,
@@ -2911,6 +2915,20 @@ refresh runs after the last of them, with the state settled. It also costs one r
 instead of N+1, which matters — every refresh raycasts each ambient sound against every listener.
 
 Unverified by ear; it needs the display client and the DM's speakers.
+
+### 23.7 LIVE FINDING — "the TV shows a white grid on black" = the TV sees through no token (2026-11-07, NOT an MC bug)
+
+Reported twice on 2026-11-07, both times on **10.9 Ghostlight Wreckage** (crooked-moon-6x) while the
+GM screen showed the map. Cause, from the world data and a second TV client on the living-room PC:
+10.9 has **token vision ON**, darkness **0.8** (global light yields above 0.2), and **no PC token on
+it** until "They arrive" — so the TV account (a player, OBSERVER of the PCs) has **zero vision
+sources** and Foundry draws only the interface layer: the grid. The GM sees everything regardless.
+Ruled out: texture size (map 4620×2240; the TV's GPU, a Radeon 780M, allows 16384), image load (the
+TV drew 10.8's map fine, 1 vision source), MC's camera, Animater weather. **Not fixed in code — no
+code is wrong.** Any scene the party isn't on yet will do the same. Proposal, not built (his call):
+when the TV account has no vision source on the viewed scene, MC tells the DM's screen once ("the TV
+sees no token here — bring the party in"), rather than lighting the map for the TV, which would
+leak what the party hasn't seen. Ledger 0ᵏ.
 
 ---
 
