@@ -2399,6 +2399,15 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    the notice says it starts on a car, and it does. **His call, not asked yet:** should 10.9 (on the Locomotive) carry the
    loop too? It is not one of the eight cars, so it is silent now.
 
+0ᵏ. **OPEN 2026-11-06 — TO-DO, NOT BUILT: the multi-door pick is easy to miss (his words: *"I missed the list, which is a ui
+   problem, we should probably work on that."*).** When Use finds two or more doors in reach, the phone lists them as rows
+   under the D-pad (`shell.js`, `doorRows`, beside loot, tiles and travel) and waits for a pick. He did not see the list,
+   so Use looked like it did nothing. Worth knowing when it is built: the rows say only "Open door" / "Close door" and a
+   distance, so even once seen, two doors read the same. **Ideas, none decided:** (a) highlight the candidate doors on
+   the map (numbered, matching the rows); (b) put a clear prompt in place of the Use button ("2 doors: pick one"); (c) open
+   the nearest at once and offer "switch door". Follow UI-BIBLE before choosing; (c) is the only one that acts on a single
+   tap, so ask him whether a wrong door opening is acceptable.
+
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
    - **His batch of 2026-09-19 (the deck's FX boards, the flows, the intros — DC ledger 152):** MC's half is
      **built**: fog layers over rain/snow/leaves (§26.1), the intro camera centred and twice as close, the Crooked
