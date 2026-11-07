@@ -17,7 +17,7 @@ import { registerFog, refreshFog } from "./fog-soft.js";
 import { registerCombatMusic, combatTracks, setCombatTrack } from "./combat-music.js";
 import { registerCampaigns } from "./campaigns.js"; // §50 campaign recognition (Ember creation fit-shim)
 import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "./camera-frame.js";
-import { registerFxEngine, registerLayeredWeather, dmFireFx } from "./effects.js"; // §26 Effects tab engine
+import { registerFxEngine, registerLayeredWeather, dmFireFx, musicDuck } from "./effects.js"; // §26 Effects tab engine
 import { cardTableRefreshMode } from "./card-table.js"; // §39: re-lay the board when the table mode changes
 import { dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { dmPlayEntrance, dmStopEntrance, entranceList, registerEntranceShadow } from "./entrances.js"; // §40.6 the themed entrances ("Intros")
@@ -1052,7 +1052,7 @@ Hooks.once("ready", () => {
     // THE MUSIC LAYER, for any surface (the deck's Music key and drawer; a cue step `music:`).
     // state() answers what is playing and what is pinned; the verbs write the shared state the
     // primary GM acts on. Hook "mobile-command.music" fires with state() on every change.
-    music: { state: musicState, pick: musicPick, next: musicNext, cue: musicCue, roomOf: musicRoomOf, overlap: musicOverlap, moods: () => musicMoods().map((p) => ({ uuid: p.uuid, name: p.name })) },
+    music: { state: musicState, pick: musicPick, next: musicNext, cue: musicCue, roomOf: musicRoomOf, overlap: musicOverlap, duck: musicDuck, moods: () => musicMoods().map((p) => ({ uuid: p.uuid, name: p.name })) },
     frameParty: framePartyTokens,        // local canvas only
     focusParty: focusPartyAll,           // here + the display(s) + exit manual
     toggleTvManual,                      // DM drives the display by panning own view

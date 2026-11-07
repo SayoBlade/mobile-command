@@ -9,6 +9,7 @@ import { bossIntroPlay } from "./boss-intro.js"; // §40 the boss's entrance (on
 import { entrancePlay, entranceStop } from "./entrances.js"; // §40.6 the themed entrance banners ("Intros")
 import { initCurseSweep } from "./cm-curses.js"; // §33: one GM client lifts expired curses
 import { notifier } from "./notifier.js";
+import { createDuck, duckArgs } from "./music-core.js";
 import { PRECIP, FOG_OVER, THUNDERSTORM, ANIMATER_RAIN, FOG_REFUSED, animaterDrawsSky, layersOfWeather, weatherIdOf, fogRefused, animaterRainKeyOn, ANIMATER_SKY_FILE, playAnimaterFlash } from "./animater-seam.js"; // §26.8
 
 // §26 Effects tab (spike) — DM-triggered table ambience, three kinds under one catalog:
@@ -63,6 +64,8 @@ export const FX_DEFS = {
   // wants a file rather than a synthesized texture (the DM's rule: never synthesize anything but trivial foley).
   // Not a grid chip: it carries { src, volume, at, radius, fadeAfter, fadeMs } and is fired by whatever owns the beat.
   fxSound: { label: "Play a sound", icon: "fa-play", oneShot: true, hint: "One recording, on the table's speakers" },
+  // Not a grid chip either: MobileCommand.music.duck(), the music dipping under someone's sting (§25.6).
+  musicDuck: { label: "Dip the music", icon: "fa-volume-low", oneShot: true, hint: "The music dips, then comes back" },
   heartbeat: { label: "Heartbeat", icon: "fa-heart-pulse", player: "state", hint: "Their phone pulses red with a heartbeat only they get" },
   woozy: { label: "Woozy", icon: "fa-flask", player: "state", hint: "Drunk, poisoned, concussed — their phone wobbles and blurs" },
   static: { label: "Static", icon: "fa-wave-square", player: "shot", oneShot: true, hint: "A half-second cursed glitch on their phone" },
@@ -283,6 +286,7 @@ export function handleFxOneShot(payload = {}) {
   if (id === "lightning") { if (payload.animater) animaterLightningLocal(payload.from ?? null); else lightningLocal(!!soft, payload.from ?? null); }
   else if (id === "bell") bellLocal();
   else if (id === "fxSound") soundShot(payload);
+  else if (id === "musicDuck") musicDuckHere.hold(payload);
   else if (id === "static") staticLocal(level);
   else if (id === "seancePhrase") seancePhrase(text); // no-op on clients without the board
   else if (id === "cmWhistle") playTrainWhistle();    // §36 — canvas clients only, gates itself
@@ -294,6 +298,26 @@ export function handleFxOneShot(payload = {}) {
   // §40.6 carries only the entrance's key: every client resolves it from its own copy of the module.
   else if (id === "entrance") entrancePlay(payload);
   else if (id === "entranceStop") entranceStop();
+}
+
+// The music channel on THIS screen: local gain only, no document and no setting, so a reload mid-dip leaves
+// nothing behind (core rebuilds the channel at the slider's level). Rules and why: music-core.js createDuck.
+const musicDuckHere = createDuck({
+  channel: () => {
+    const ctx = game.audio?.music, param = ctx?.gainNode?.gain;
+    return param ? { param, time: () => ctx.currentTime } : null;
+  },
+  level: () => (game.audio?.globalMute ? 0 : Number(game.settings.get("core", "globalPlaylistVolume")) || 0),
+});
+
+/**
+ * Dip the music on the named users' screens (none named: every screen), hold, bring it back. For the deck's
+ * sting on the TV: `MobileCommand.music.duck({ ms, to, users })`. GM only.
+ */
+export async function musicDuck({ ms, to, users = null } = {}) {
+  if (!game.user?.isGM) return { ok: false, reason: "GM only" };
+  dmFireFx("musicDuck", { ...duckArgs({ ms, to }), ...(users ? { users } : {}) });
+  return { ok: true };
 }
 
 /**

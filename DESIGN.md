@@ -2371,6 +2371,11 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    (3) walking the whole party through a car door still moves the table. (b) **The dead Locomotive turned loot pile IS
    MC's auto-loot.** Proposed, not built: skip `own` deaths, written above "Dead-NPC marking". **His call:** can the Locomotive ever be looted?
 
+0ʰ. **OPEN 2026-11-07 — the music dips under the deck's crit and fumble sting (§25.6).** Built on the channel's gain, not
+   the draft's per-track dip, unit-tested only. **Owed, on the TV with a sting set:** (1) a natural 20 dips the music under
+   the sting and it returns; (2) only the TV dips; (3) the same during an overlap hand-off, with no jump in the fades;
+   (4) the same with an Animater card showing: the music ends at its full level. Is 30% the right depth to his ear?
+
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
    - **His batch of 2026-09-19 (the deck's FX boards, the flows, the intros — DC ledger 152):** MC's half is
      **built**: fog layers over rain/snow/leaves (§26.1), the intro camera centred and twice as close, the Crooked
@@ -3183,6 +3188,36 @@ Ledger 0ᵈ owes one live listen.
 - **Only Room playlists were measured live.** Fight and mood take the same path (role check unit-tested).
 
 ---
+
+### 25.6 The duck: the music dips under a sting (2026-11-07)
+
+**Status 2026-11-07: BUILT, unit-tested, NOT heard live** (a world was active). Ledger 0ʰ owes one listen.
+
+Deck Command plays a 2 to 3 s sting on the TV for a natural 20 or 1 and calls
+`MobileCommand.music.duck({ ms, to, users })`, which it already looks for. `music-core.js createDuck` holds the rules,
+`effects.js` the glue (`musicDuck`, the `musicDuck` one-shot). Down to `slider × to` in 150 ms, hold `ms` from the press,
+back in 400 ms. Defaults 2600 / 0.3; `ms` capped at 30 s. No document and no setting is written, so a reload mid-dip
+leaves nothing.
+
+**Changed from the deck's draft, which dipped each playing track's own gain:**
+- **It dips the CHANNEL's gain (`game.audio.music.gainNode`), never a track's.** Read in core 14 and Animater 3.0.2: a
+  track's fades run on its own gain node, upstream of the channel's, and the two multiply. On the track, three things go
+  wrong: Animater's card dip (`flash-combat.mjs duck()`) remembers `snd.volume` at its start, so a card starting
+  mid-duck remembers the dipped level and restores to it after our restore, leaving the music at 30%; a duck ending during
+  core's end-of-track fade-out (`_scheduleFadeOut`, still `playing`) raises a dying track back to full; and `Sound.fade`
+  cancels whatever ramp is running, so a track fading in loses its fade. On the channel none of these can happen, and the
+  overlap and crossfade need no special handling. This also covers an outgoing track, which the draft missed
+  (`playing` is already false while it fades out).
+- **`dmFireFx` drops an id without `FX_DEFS[id].oneShot`, so the draft would have done nothing.** `musicDuck` is now an
+  entry, and like `fxSound` it is not a grid chip.
+- **A second sting extends the first** (one restore; the deeper `to` wins until the music is back). The restore reads the
+  slider and `globalMute` when it fires, so a slider moved or a mute during the dip is honoured.
+
+**Lives in `effects.js`, not `music.js`** as the draft had it: `music.js` would otherwise have to import effects.js.
+
+**Limits:** everything on that screen's music channel dips, including anything other than a playlist playing there.
+Ambience and the sting itself are on other channels and do not dip. A slider moved during the dip jumps to the new level
+at once, because core writes the same gain; it ends right. With no `users` it dips every screen.
 
 ## 26. Effects tab (DM-idea 2026-07-26, SPIKE BUILT) — weather & magical ambience
 

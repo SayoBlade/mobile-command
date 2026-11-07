@@ -185,3 +185,58 @@ export function handOffUpdate(sounds, currentId, nextId, overlapMs) {
   const restore = [currentId, nextId].map((id) => ({ _id: id, fade: by.get(id).fade ?? null }));
   return { sounds: update, restore };
 }
+
+// ── the duck: the music dips under a sting (Deck Command's crit and fumble, 2026-11-07, DESIGN §25.6) ─
+
+export const DUCK_DEFAULTS = Object.freeze({ ms: 2600, to: 0.3 });
+export const DUCK_DOWN_MS = 150;
+export const DUCK_UP_MS = 400;
+export const DUCK_MAX_MS = 30000; // a wild `ms` from a caller must not leave a table's music low all night
+
+/** Whatever a caller sends, a duck that ends. */
+export function duckArgs({ ms, to } = {}) {
+  const m = ms === null || ms === undefined ? NaN : Number(ms), t = to === null || to === undefined ? NaN : Number(to);
+  return {
+    ms: Number.isFinite(m) ? Math.min(DUCK_MAX_MS, Math.max(0, m)) : DUCK_DEFAULTS.ms,
+    to: Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : DUCK_DEFAULTS.to,
+  };
+}
+
+/**
+ * ⚠️ THE CHANNEL'S GAIN, NEVER A SOUND'S. Every music track on a screen plays through one gain node, the
+ * music slider's, and a track's own fades live on its own node, upstream of that. Core's fade-in and
+ * fade-out, a crossfade, the overlap's hand-off and Animater's card dip all write those track nodes, and
+ * each remembers or assumes a level there. A dip on the channel multiplies all of them and disturbs none.
+ * Dipping the tracks instead lets a card remember the dipped level and restore to it, leaving the music
+ * low, and brings a track back up in the middle of its fade-out.
+ *
+ * @param {() => ({param: AudioParam, time: () => number}|null)} o.channel  the gain, or null: no audio here
+ * @param {() => number} o.level  the level the channel belongs at NOW (0 while muted), read at each end
+ * @returns {{hold: (o?: {ms?: number, to?: number}) => boolean}}
+ */
+export function createDuck({ channel, level, later = setTimeout, cancel = clearTimeout }) {
+  let timer = null, depth = 1;
+  const rampTo = (c, value, ms) => {
+    const t = c.time();
+    c.param.cancelScheduledValues(t);
+    c.param.setValueAtTime(c.param.value, t);
+    c.param.linearRampToValueAtTime(value, t + ms / 1000);
+  };
+  const release = () => {
+    timer = null; depth = 1;
+    const c = channel();
+    if (c) rampTo(c, level(), DUCK_UP_MS);
+  };
+  return {
+    hold(opts) {
+      const c = channel();
+      if (!c || !(level() > 0)) return false; // nothing to dip: no audio here yet, or this screen's music at zero
+      const { ms, to } = duckArgs(opts);
+      if (timer) cancel(timer);    // a second sting extends the first, and the music comes back once
+      depth = Math.min(depth, to);
+      rampTo(c, level() * depth, DUCK_DOWN_MS);
+      timer = later(release, ms);
+      return true;
+    },
+  };
+}
