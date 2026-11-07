@@ -2393,6 +2393,12 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    and seat, and its fall card and Phase 2 run; (3) a beast with only natural attacks hides about 4 s after its knockout;
    (4) a body with real loot still piles. **Worth saying to him:** bodies with only natural weapons were piles until now.
 
+0ʲ. **OPEN 2026-11-07 — the ride's loop and jolts only on a car (§37 top).** Built, `test-ride-scene` 19, no live check.
+   **Owed, 6x, with the ride on:** (1) GM load on the Crooked House: no Steam-Train, no shake; (2) activate a car: both
+   start; (3) car to car: the loop never restarts; (4) back to the house: both stop at once; (5) Start ride from the house:
+   the notice says it starts on a car, and it does. **His call, not asked yet:** should 10.9 (on the Locomotive) carry the
+   loop too? It is not one of the eight cars, so it is silent now.
+
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
    - **His batch of 2026-09-19 (the deck's FX boards, the flows, the intros — DC ledger 152):** MC's half is
      **built**: fog layers over rain/snow/leaves (§26.1), the intro camera centred and twice as close, the Crooked
@@ -5693,6 +5699,17 @@ the set after the check (fog down, wreckage re-activated); the mark stays for th
 ---
 
 ## 37. The Ghostlight ride — car doors + the rushing Shroud (DM ask 2026-08-04 — BUILT same day, bench-verified)
+
+**2026-11-07 — the ride is heard and felt only on a car (his ask; found live by the deck: the Steam-Train loop over
+the Crooked House, ledger 0ʲ).** The ride (the mist) is world state until Stop ride, and every GM load resumed its loop
+and jolts whatever scene was active; nothing stopped them on leaving the train. Now `followRideScene` (cm-train.js,
+primary GM) puts the loop and the jolts where the ride is: on while the ride runs AND the active scene is a car 10.1–10.8,
+off otherwise, on the GM load, on any `updateScene` changing `active` (debounced 300 ms, both scenes update) and on
+`canvasReady`. It acts only on a change, so the jolt cadence never restarts mid-car. The mist is untouched, so the deck's
+ride key still says "on" in the house, which is right. Changed from the deck's draft: `setRide` goes through
+`followRideScene({ force: true })` instead of calling the loop and jolts itself, because the draft left the follow's
+memory stale (Start ride on a car, then leave it: equal, the loop played on). Started from the house, the notice says
+"it starts when the table is on a car". 10.9 (the Locomotive) is not a car here: no loop there. `test-ride-scene` 19.
 
 **2026-11-07 — train follow only from a car (found live by the deck's 6x dry run, ledger 0ᵍ).** "They arrive" on 10.9
 creates the PCs hidden; 250 ms later `evaluateFollow` saw no visible PC on the active scene, found four leftover PC

@@ -10,7 +10,7 @@ import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneC
 import { registerDMPanel, refreshPanel, openDock } from "./dm-panel.js";
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
-import { registerTrainFollow, wireTrainDoors, setTrainMist, setTrainSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
+import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
 import { registerAoO } from "./aoo.js";
 import { setupCalendarSkin, applyCalendarSkinClass, redrawCalendarAfterSave } from "./gametime.js";
 import { registerFog, refreshFog } from "./fog-soft.js";
@@ -968,8 +968,10 @@ Hooks.once("ready", () => {
    *
    * The mist is the state of record (`trainMistOn` reads his tiles), so it is also the thing to
    * resume from. Primary-GM-gated inside each call, so the other clients ignore this.
+   * ⚠️ 2026-11-07: only where the train is. It resumed over the Crooked House on a GM load; now the loop and the
+   * jolts follow the active scene (`followRideScene`, cm-train.js), here and on every scene change after.
    */
-  try { if (trainMistOn()) { setTrainSound(true); setTrainJolt(true); } }
+  try { registerRideFollow(); followRideScene().catch((e) => console.warn(`${MODULE_ID} | the ride's effects`, e?.message)); }
   catch (e) { console.warn(`${MODULE_ID} | could not resume the ride's effects`, e?.message); }
   // ⚠️ ONE-SHOT, primary GM only, guarded by its own setting: take the weather suppression off the
   // train cars so the jolt is visible inside a carriage (his ruling 2026-10-13). See cm-train.js.

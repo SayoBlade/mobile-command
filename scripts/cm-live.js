@@ -5,7 +5,7 @@ import { rollCurse, pickCurse, applyCurse } from "./cm-curses.js";
 import { applyFateReward } from "./fateweaving.js";
 import { dealOne, setActorCard } from "./tarot.js";
 import { advanceToNextHour, isDruskScene, markDruskScene } from "./druskenvald.js";
-import { trainChains, wireTrainDoors, setTrainMist, setTrainSound, setTrainJolt } from "./cm-train.js";
+import { trainChains, wireTrainDoors, setTrainMist, followRideScene } from "./cm-train.js";
 import { scenePcs, pcUser, pcSeatRot } from "./roster.js";
 
 /**
@@ -486,10 +486,12 @@ export async function wireDoors() {
 /** §37 the Shroud rushing past every window, or still. */
 export async function setRide(on) {
   const n = await setTrainMist(on);
-  // The ride is what he can SEE and what he can HEAR, together — see setTrainSound's header.
-  const heard = await setTrainSound(on);
-  setTrainJolt(on); // the carriage lurches while it runs, and stops lurching when it stops
-  const sound = heard ? ` · ${heard}` : " · no train loop found in the playlists";
+  // The ride is what he can SEE and what he can HEAR, together — see setTrainSound's header. Heard and felt only
+  // while a car is the active scene (2026-11-07): started from the house, the mist runs and the loop waits.
+  const r = await followRideScene({ force: true });
+  const heard = r?.heard;
+  const sound = on && r && !r.here ? " · it starts when the table is on a car"
+    : heard ? ` · ${heard}` : " · no train loop found in the playlists";
   notifier.info(on
     ? `The Ghostlight Express runs — the Shroud rushes past ${n} cars${sound}.`
     : `The train rests — ${n} cars gone still${heard ? ` · ${heard} stopped` : ""}.`);

@@ -501,6 +501,43 @@ export async function setTrainSound(on) {
   }
 }
 
+/**
+ * ⚠️ THE RIDE IS HEARD AND FELT ONLY ON A CAR (DM 2026-11-07, found live: the Steam-Train loop over the Crooked
+ * House). The ride itself, the mist, stays world state until Stop ride; its loop and its jolts follow the ACTIVE
+ * scene: on while a car (10.1–10.8, `trainScenes`) is active, off the moment it is anything else. Before this the
+ * GM load resumed both wherever the table was, and nothing stopped them on leaving the train.
+ */
+export function rideHere() {
+  const id = game.scenes?.active?.id;
+  return Boolean(id) && trainMistOn() && trainScenes().some(s => s.id === id);
+}
+let rideHereWas = null;
+/**
+ * Primary GM: put the loop and the jolts where the ride is. Does nothing when unchanged, so a canvasReady or a
+ * repeated update never restarts the jolt cadence. `force` applies it anyway: Start/Stop ride has just changed the
+ * mist and must leave this cache telling the truth (the draft skipped that, so after Start ride pressed on a car,
+ * leaving it compared equal and never stopped the loop).
+ */
+export async function followRideScene({ force = false } = {}) {
+  if (!game.user?.isGM || game.users.activeGM?.id !== game.user.id) return null;
+  const here = rideHere();
+  if (!force && here === rideHereWas) return null;
+  rideHereWas = here;
+  const heard = await setTrainSound(here);
+  setTrainJolt(here);
+  return { here, heard };
+}
+let rideTimer = null;
+export function registerRideFollow() {
+  // Activating a scene updates two (the one leaving and the one arriving): one look at the settled state.
+  Hooks.on("updateScene", (scene, change) => {
+    if (!change || !("active" in change)) return;
+    if (rideTimer) clearTimeout(rideTimer);
+    rideTimer = setTimeout(() => { rideTimer = null; followRideScene().catch(() => {}); }, 300);
+  });
+  Hooks.on("canvasReady", () => { followRideScene().catch(() => {}); });
+}
+
 // The table follows the party car to car. Debounced because a cross-scene teleport is a
 // create + a delete whose order isn't ours to rely on — we evaluate the settled state.
 let followTimer = null;
