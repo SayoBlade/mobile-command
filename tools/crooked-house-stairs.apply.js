@@ -1,4 +1,5 @@
-// The Crooked House stairs — climb, then choose (mobile-command §53). TEST WORLD ONLY.
+// The Crooked House stairs — climb, then choose (mobile-command §53). The Crooked Moon worlds only: Offline test, and crooked-moon-6x since 2026-11-08.
+// (The module now does this by itself on the GM's next load in those worlds: scripts/cm-house.js.)
 //
 // DM 2026-09-20, first placement: "i just touched the bottom of the staircase and got teleported off, no question,
 // no[t] only are you confusing players your making them miss out of the creaking stairs, put the teleporter at the
@@ -22,7 +23,7 @@
 // The attic is still deliberately absent: it is the hidden pull-down ladder (action key A114), not a staircase.
 (async () => {
   const MOD = "mobile-command";
-  if (game.world?.id !== "offline-test") return ui.notifications.error("Stairs: TEST WORLD ONLY — this is not the Offline test world.");
+  if (!["offline-test", "crooked-moon-6x"].includes(game.world?.id)) return ui.notifications.error("Stairs: the Crooked Moon worlds only (Offline test, crooked-moon-6x).");
   if (!game.user?.isGM) return ui.notifications.error("Stairs: run this as a GM.");
   const G = 140;
   const sq = (c, r) => ({ type: "rectangle", x: c * G, y: r * G, width: G, height: G, rotation: 0, hole: false });
@@ -67,7 +68,7 @@
       transition: { type: null, duration: 1500 },
     };
     const b = region.behaviors.find((x) => x.type === "teleportToken");
-    if (b) await b.update({ disabled: false, system });
+    if (b) { if (game.world.id === "offline-test") await b.update({ disabled: false, system }); } // in 6x a stair already there is his
     else await region.createEmbeddedDocuments("RegionBehavior", [{ name: "Stairs", type: "teleportToken", system }]);
     report.asked++;
   }
