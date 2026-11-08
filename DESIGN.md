@@ -2407,6 +2407,18 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    screen; (2) a tap closes it; (3) leave and come back to 10.9: no card; (4) reload the TV on 10.9, then "They arrive":
    the card goes by itself once the PCs are revealed; (5) a scene with token vision off: no card.
 
+0ᵐ. **BUILT 2026-11-08 — the Crooked House's door sounds, stairs and fight music put back into 6x (§53 2026-11-08,
+   Lost Lore #17/#18).** Runs itself on the primary GM's next load. `test-house-restore` 21, no live check. **Owed, 6x,
+   after a GM reload:** (1) one "Crooked House: … put back" toast, the change list in the console; (2) the 12.1 front
+   door plays its own set, not the creak; (3) a PC on the last tread of the grand stair gets "Go up to the second
+   floor?", and only a yes moves them; (4) the same stair on 12.2 goes back down; (5) a second GM reload changes nothing.
+
+0ⁿ. **BUILT 2026-11-08 — the floor's rain plays on under room and fight music; house fights play their own music (§25.7).**
+   `test-music-house` 16, no live check. **Owed, 6x, after a GM reload:** (1) 12.1 Foyer: the rain bed plays; (2) the
+   party settles in a scored room: its music fades in and the rain keeps playing; (3) a fight on 12.1–12.3 plays
+   Combat Music Vol. 1, the rain still under it; (4) the Cauldron fight (12.4) plays "bbeg"; (5) Silence stops the rain
+   too; (6) up the stairs: 12.1's rain stops, 12.2's bed plays. **His ear (👁):** is the rain too loud under the music?
+
 0ᵏ. **OPEN 2026-11-06 — TO-DO, NOT BUILT: the multi-door pick is easy to miss (his words: *"I missed the list, which is a ui
    problem, we should probably work on that."*).** When Use finds two or more doors in reach, the phone lists them as rows
    under the D-pad (`shell.js`, `doorRows`, beside loot, tiles and travel) and waits for a pick. He did not see the list,
@@ -3277,6 +3289,31 @@ leaves nothing.
 **Limits:** everything on that screen's music channel dips, including anything other than a playlist playing there.
 Ambience and the sting itself are on other channels and do not dip. A slider moved during the dip jumps to the new level
 at once, because core writes the same gain; it ends right. With no `users` it dips every screen.
+
+### 25.7 The floor's bed plays on under the music; a scene names its own fight music (2026-11-08)
+
+**His rulings (WORKPLAN-2026-11-08 decisions 8 and 9):** *rain keeps playing under the room music* — it is the storm
+outside — and the house's fights play the old test world's battle pack (Combat Music Vol. 1 - MGS), with the Cauldron
+Room on a track of its own from his packs.
+
+**Why the rain stopped.** A floor's bed is the scene's own Playlist field, so `crossfade` counted it as "the scene
+default" and stopped it the moment a room, a fight or a mood took over. **Now:** a BED (`music-core.js isBed`: a
+PlaylistSound flagged `mobile-command.bed: true`, or the Crooked House's `cm: "<floor>:bed"` tracks) keeps playing under
+every layer at its own volume (his slider; we never write it). **Only Silence stops it.** ⚠️ Only the ACTIVE scene's bed is
+spared — the four floors share one "CM 12 — Beds" playlist, and the floor he left must still stop on a stair move.
+**Not ducked:** decision 8 allowed duck or continue; continue writes nothing to his mix. If the rain is too loud under
+the music on the TV, that is his ear's call (👁) and a duck is a small add.
+
+**A scene's own fight music.** `flags.mobile-command.music.battle` on a SCENE (a playlist uuid) is the fight's battle
+music when no foe names its own (`battleFor` fallback): a foe's flag > the scene's > the world default. A scene naming a
+playlist that is gone falls back to the world default. Written for the house by `cm-house.js` (§53, 2026-11-08 entry):
+12.1–12.3 → "Fight · Crooked House" (all ten Combat Music Vol. 1 pieces, as the test world had them), 12.4 → "Fight ·
+Cauldron Room" (`modules/house-divided/assets/audio/music/combat/bbeg.ogg`, looping — the audio catalogue's boss pick,
+from the pack the house's beds come from). **By scene, not by actor**, so the attic's "Weasel Hag" token that is really
+Adela's (deck WORKPLAN 5.3) can never pick the music wrong.
+
+**Tests:** `tools/test-music-house.mjs` 16 (beds, Silence, the scene fallback and its order, the active-bed-only guard,
+the Battle pick through music.js against a fake world). No live check yet — ledger 0ⁿ.
 
 ## 26. Effects tab (DM-idea 2026-07-26, SPIKE BUILT) — weather & magical ambience
 
@@ -9008,6 +9045,21 @@ their intro plays, his rule. A token he has re-pictured by hand is left alone.
 **Tests:** `tools/test-cues.mjs` — 19 checks (the rules incl. the DM's "3, 12" example restarting at 15 and 24,
 the takes never repeating, the cooldown, PC-only, the sets and door sets, every file on disk, the manifest's type
 declaration, the language keys, the API surface). Run with Foundry's node.
+
+**2026-11-08 — put back into crooked-moon-6x (Lost Lore #17 and #18, WORKPLAN decision 11).** The 21 doors' own sets
+and the 4 stairs only ever reached `offline-test`: the apply scripts refused every other world, and later worlds were
+built from Deck Command's capture, which leaves MC's content out (DC ledger 268). Read from 6x's disk 2026-11-08: the
+four Colored floors keep the same scene ids and the same 21 door ids at the same coordinates, every door on the
+adventure's `woodCreaky`, and no stair regions (only the two counted treads). **`scripts/cm-house.js
+restoreCrookedHouse` now does it by itself, once, on the primary GM's next load** (the Crooked Moon worlds only;
+`crookedHouseRestored` world setting; one toast, the list in the console). **Additive:** a door is set only while it is
+still `woodCreaky` or blank; a stair is made only where none of ours (`cm: stair:…`) exists, on the squares the test world
+ended on (12.1/12.2 at 9,13; 12.2/12.3 at 6,9), with core's own question to its twin; the two fight playlists (§25.7) are
+made only if missing and a floor's fight music is set only while it names none. Nothing is deleted. Stairs stay
+player-walked: core asks whoever moved the token, and in Basic a phone's tap on the square goes to the DM.
+`MobileCommand.house.plan()` shows what a run would do; `.restore()` runs it again. The two old apply scripts
+(`crooked-house-wiring`, `crooked-house-stairs`) now also accept 6x, made additive the same way. **Tests:**
+`tools/test-house-restore.mjs` 21. **No live check yet** — ledger 0ᵐ.
 
 ## 55. Basic / Complex — what phones may change (DM 2026-10-08; "complex" and "finish it" 2026-10-09)
 
