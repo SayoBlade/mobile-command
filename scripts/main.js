@@ -8,6 +8,7 @@ import { initPauseOverlay } from "./pause-overlay.js";
 import { initHeartbeat } from "./heartbeat.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient, isDisplayClient } from "./shell.js";
 import { registerDMPanel, refreshPanel, openDock } from "./dm-panel.js";
+import { setupTvVisionCard } from "./tv-vision-card.js"; // §23.7 "No PCs in scene" on the TV
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
@@ -949,6 +950,7 @@ Hooks.once("ready", () => {
   registerDialogWatchdog(); // executor alerts DM + pings phone when an action strands a dialog (self-gates)
   setupDisplayAudioListeners(); // the TV hears positional sound from the party (it controls nothing + is only an Observer)
   setupDisplayAudioUnlock();    // …and can actually play it: browsers need one tap before any audio starts
+  setupTvVisionCard({ isDisplayClient, moduleId: MODULE_ID }); // …and says "No PCs in scene" when it has no one to see through (§23.7)
   setupAudioResume();           // …and on iPad Safari the contexts core made can stay paused until a tap resumes them
   setupTvVolumes();             // the TV mirrors the DM's chosen volumes (its own are unreachable at the table)
   setupNoDoubleTapMinimize(); // no window collapses to a stranded title bar on an accidental double-tap
