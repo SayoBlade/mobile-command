@@ -328,6 +328,13 @@ corner**: amber (`--mc-warn`, "careful", not an error), speaker-off glyph, tap t
 once sound runs. It carries a title for a mouse, and the DM's Settings › Sound status line says the rest
 in words, so this one icon-only control has its explanation beside it (§4).
 
+**A state the TV can't show gets the sound card's form (2026-11-08, "No PCs in scene", `#mc-tv-nopc`):**
+when the shared screen is blank for a reason nobody at the table can see — no PC on a map with token
+vision draws only the grid — it says so with the sound card's exact form: centred card, gold glyph,
+one-line title, one plain sentence, any tap closes it, gone by itself when the cause is. Once per scene
+per load, never stacked into a second card, and never on the DM's screen (§22.7 rail). The title is
+the fact ("No PCs in scene"), not an instruction.
+
 **DM-only staging marks on the canvas (written down 2026-08-28; first use = §36.2's "Place the
 party here" zone):** a mark meant for the DM's eyes during setup is a **hidden Drawing** — core
 already renders hidden placeables to GMs only and faded, so no new visibility machinery, and it

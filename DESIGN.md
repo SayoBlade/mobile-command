@@ -2399,9 +2399,12 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    the notice says it starts on a car, and it does. **His call, not asked yet:** should 10.9 (on the Locomotive) carry the
    loop too? It is not one of the eight cars, so it is silent now.
 
-0ᵏ. **OPEN 2026-11-07 — the TV shows only the grid on a scene the party isn't on (§23.7).** Not a bug: token vision on,
-   no PC token there, so the TV has nothing to see through (10.9 before "They arrive"). **His call, not asked yet:** a
-   one-time note on the DM's screen when the TV sees no token on the viewed scene? Nothing built.
+0ˡ. **BUILT 2026-11-08 — "No PCs in scene" on the TV (§23.7; was numbered 0ᵏ by mistake, which the multi-door to-do below
+   already held).** His answer: *"Same popup as tv sound one saying no PCs in scene"*. The sound card's twin on the TV,
+   once per scene per load, a tap closes it, gone by itself when a PC the TV can see arrives. `test-tv-vision-card` 21,
+   no live check. **Owed, 6x, TV connected:** (1) activate 10.9 with no PCs: the card on the TV, nothing on the DM's
+   screen; (2) a tap closes it; (3) leave and come back to 10.9: no card; (4) reload the TV on 10.9, then "They arrive":
+   the card goes by itself once the PCs are revealed; (5) a scene with token vision off: no card.
 
 0ᵏ. **OPEN 2026-11-06 — TO-DO, NOT BUILT: the multi-door pick is easy to miss (his words: *"I missed the list, which is a ui
    problem, we should probably work on that."*).** When Use finds two or more doors in reach, the phone lists them as rows
@@ -2925,10 +2928,15 @@ it** until "They arrive" — so the TV account (a player, OBSERVER of the PCs) h
 sources** and Foundry draws only the interface layer: the grid. The GM sees everything regardless.
 Ruled out: texture size (map 4620×2240; the TV's GPU, a Radeon 780M, allows 16384), image load (the
 TV drew 10.8's map fine, 1 vision source), MC's camera, Animater weather. **Not fixed in code — no
-code is wrong.** Any scene the party isn't on yet will do the same. Proposal, not built (his call):
+code is wrong.** Any scene the party isn't on yet will do the same. ~~Proposal, not built (his call):
 when the TV account has no vision source on the viewed scene, MC tells the DM's screen once ("the TV
 sees no token here — bring the party in"), rather than lighting the map for the TV, which would
-leak what the party hasn't seen. Ledger 0ᵏ.
+leak what the party hasn't seen.~~ **BUILT 2026-11-08 on the TV, not the DM's screen** (his answer:
+"Same popup as tv sound one saying no PCs in scene"): `tv-vision-card.js`, the sound card's twin —
+same CSS rules, centred, any tap closes it, removes itself when a PC the TV observes is on the map and
+visible (or token vision goes off), once per scene per load. Not on the DM's screen: a full-screen card
+there breaks §22.7, so `#mc-tv-nopc` is on the rail like the sound card. Not a toast, so the notifier's
+five-a-burst cap is untouched. The map stays dark — nothing leaks. Ledger 0ˡ.
 
 ---
 

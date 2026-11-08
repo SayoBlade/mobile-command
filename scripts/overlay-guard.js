@@ -293,6 +293,7 @@ export const COVERING_SELECTORS = [
   "#mc-entrance",           // §40.6 (entrances.css, z 99500)
   "#mc-bossintro",          // §40 (shell.css, z 99500)
   "#mc-audio-unlock",       // §27 display audio (shell.css, z 95)
+  "#mc-tv-nopc",            // §23.7 "No PCs in scene", the sound card's twin (shell.css, z 95)
   ".mc-cmticket",           // §36 the ticket (shell.css, z 99000)
   ".mc-tarot-hand",         // §42 (shell.css, z 9998)
   ".mc-onboard",            // player onboarding (shell.css, z 10001)
