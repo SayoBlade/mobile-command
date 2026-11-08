@@ -2401,8 +2401,9 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
 
 0ˡ. **BUILT 2026-11-08 — "No PCs in scene" on the TV (§23.7; was numbered 0ᵏ by mistake, which the multi-door to-do below
    already held).** His answer: *"Same popup as tv sound one saying no PCs in scene"*. The sound card's twin on the TV,
-   once per scene per load, a tap closes it, gone by itself when a PC the TV can see arrives. `test-tv-vision-card` 21,
-   no live check. **Owed, 6x, TV connected:** (1) activate 10.9 with no PCs: the card on the TV, nothing on the DM's
+   once per scene per load, a tap closes it, gone by itself when a PC the TV can see arrives. `test-tv-vision-card` 21.
+   **Partly seen 2026-11-08 on a TV client (6x, nobody else in):** the module loads; on 12.2 (a PC there) no card; with a
+   stand-in empty scene the card showed in the sound card's form, and a tap closed it. **Owed, 6x, TV connected:** (1) activate 10.9 with no PCs: the card on the TV, nothing on the DM's
    screen; (2) a tap closes it; (3) leave and come back to 10.9: no card; (4) reload the TV on 10.9, then "They arrive":
    the card goes by itself once the PCs are revealed; (5) a scene with token vision off: no card.
 
