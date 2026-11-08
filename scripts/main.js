@@ -12,6 +12,7 @@ import { setupTvVisionCard } from "./tv-vision-card.js"; // §23.7 "No PCs in sc
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
+import { restoreCrookedHouse, planHouseNow } from "./cm-house.js"; // the Crooked House put back (Lost Lore #17/#18)
 import { registerAoO } from "./aoo.js";
 import { setupCalendarSkin, applyCalendarSkinClass, redrawCalendarAfterSave } from "./gametime.js";
 import { registerFog, refreshFog } from "./fog-soft.js";
@@ -978,6 +979,9 @@ Hooks.once("ready", () => {
   // ⚠️ ONE-SHOT, primary GM only, guarded by its own setting: take the weather suppression off the
   // train cars so the jolt is visible inside a carriage (his ruling 2026-10-13). See cm-train.js.
   freeTrainWeather().catch((e) => console.warn(`${MODULE_ID} | freeTrainWeather`, e?.message));
+  // ⚠️ ONE-SHOT, the same way: the Crooked House's door sounds, stairs and fight music put back into the
+  // Crooked Moon worlds (DM 2026-11-08, Lost Lore #17/#18). Additive only; see cm-house.js.
+  restoreCrookedHouse().catch((e) => console.warn(`${MODULE_ID} | restoreCrookedHouse`, e?.message));
   setupCalendarSkin(); // SC Reborn's popup = the table's "Calendar": retitle (tool column hidden in CSS)
   Hooks.on("updateSetting", redrawCalendarAfterSave); // §22.11: a player's calendar catches up when the GM's save lands
   registerAoO(); // opportunity-attack movement watcher (executor-gated inside; see aoo.js)
@@ -990,6 +994,7 @@ Hooks.once("ready", () => {
     ...api,
     enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, deactivate, reactivate, revert: deactivate, hasBackup },
     train: { wire: wireTrainDoors, ride: setTrainMist, sound: setTrainSound, jolt: setTrainJolt, joltNow, riding: trainMistOn, hasWindows: trainCarHasWindows, setWindows: setTrainWindows, freeWeather: (o) => freeTrainWeather({ force: true, ...o }) }, // §37 macro access (§8.1 manual triggers)
+    house: { restore: (o) => restoreCrookedHouse({ force: true, ...o }), plan: () => planHouseNow() }, // the Crooked House put-back (§8.1 manual trigger)
     /**
      * §18/§41 TRAVEL, READ-ONLY — what a second surface needs to draw its own travel keys
      * (deck-command D-0065). The VERBS are published as actions (`travel.*`), which is the

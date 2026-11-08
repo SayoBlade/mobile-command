@@ -629,6 +629,13 @@ export function registerSettings() {
     scope: "world", config: false, type: Boolean, default: false
   });
 
+  // One-shot marker: the Crooked House's door sounds, stairs and fight music have been put back into this
+  // world (DM 2026-11-08, Lost Lore #17/#18). A "this has been done" flag like the one above, so a door he
+  // changes by hand is never changed again on a reload. `cm-house.js restoreCrookedHouse`.
+  game.settings.register(MODULE_ID, "crookedHouseRestored", {
+    scope: "world", config: false, type: Boolean, default: false
+  });
+
   game.settings.register(MODULE_ID, "crookedMoonTools", {
     scope: "world",
     config: false,
