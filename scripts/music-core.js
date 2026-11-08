@@ -147,6 +147,36 @@ export class Dwell {
 // ── the overlap inside a playlist (ported from deck-command's overlap.js, 2026-11-06) ─────────────
 
 export const OVERLAP_SETTING = "musicOverlapSeconds";
+// ── the floor's bed plays on under the music (DM 2026-11-08, WORKPLAN decision 8) ───────────────────
+//
+// *"Rain keeps playing under the room music"* — it is the storm outside. A floor's ambience bed is the
+// scene's own Playlist field, so the layer counted it as "the scene default" and stopped it the moment a
+// room, a fight or a mood took over. A BED is not music: it is a PlaylistSound flagged `mobile-command.bed`
+// (or one of the Crooked House's `<floor>:bed` tracks, `cm` flag). It keeps playing under every layer, at
+// its own volume (his slider, never ours), and only an explicit Silence stops it.
+
+/** Is this PlaylistSound (its `flags`) an ambience bed? */
+export function isBed(flags) {
+  const m = flags?.["mobile-command"] ?? {};
+  return m.bed === true || /:bed$/.test(String(m.cm ?? ""));
+}
+
+/** Does the bed keep playing while the layer plays `target`? Everything but Silence. */
+export function bedStays(target) {
+  return Boolean(target) && target.kind !== "silence";
+}
+
+// ── a scene's own fight music (DM 2026-11-08, WORKPLAN decision 9) ─────────────────────────────────
+// The Crooked House's fights play its own battle pack, and the Cauldron Room its own track, without a flag
+// on every weasel: `flags.mobile-command.music.battle` on the SCENE, a playlist uuid. A foe that names its
+// own battle still wins (battleFor); the scene's beats the world default.
+
+/** The scene's battle playlist uuid from its `flags`, or null. */
+export function sceneBattleOf(flags) {
+  const b = flags?.["mobile-command"]?.music?.battle;
+  return typeof b === "string" && b ? b : null;
+}
+
 export const OVERLAP_DEFAULT = 5;
 export const OVERLAP_ROLES = new Set(["room", "battle", "mood"]);
 

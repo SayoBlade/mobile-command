@@ -32,7 +32,7 @@
  */
 import { MODULE_ID } from "./preset.js";
 import { combatMusicMode, configureForCombat, restoreTouched } from "./combat-music.js";
-import { resolveMusic, targetKey, battleFor, manualStillHolds, partyRoom, Dwell, OVERLAP_SETTING, OVERLAP_DEFAULT, overlapApplies, handOffIn, handOffUpdate } from "./music-core.js";
+import { resolveMusic, targetKey, battleFor, manualStillHolds, partyRoom, Dwell, OVERLAP_SETTING, OVERLAP_DEFAULT, overlapApplies, handOffIn, handOffUpdate, isBed, bedStays, sceneBattleOf } from "./music-core.js";
 
 export const MUSIC_BEHAVIOR_TYPE = `${MODULE_ID}.music`;
 const HOOK = `${MODULE_ID}.music`;
@@ -101,7 +101,9 @@ function combatTarget(combat) {
     if (theme && sync(theme)) return { kind: "sound", uuid: theme, anthem: true };
   }
   const phased = combat.getFlag?.(MODULE_ID, "musicPhased") ?? [];
-  const b = battleFor(combatantShapes(combat), null, phased);
+  // a foe's own battle first, then the scene's (the Crooked House, the Cauldron Room), then the world default
+  const own = sceneBattleOf((combat.scene ?? game.scenes?.active)?.flags);
+  const b = battleFor(combatantShapes(combat), own && sync(own) ? own : null, phased);
   if (b.uuid && sync(b.uuid)) return { kind: "playlist", uuid: b.uuid };
   return defaultBattle();
 }
@@ -188,6 +190,14 @@ function musicPlaylists() {
   return [...set].filter(Boolean);
 }
 
+/** The active scene's own ambience bed (its Playlist field's sound, flagged a bed), or null. */
+function activeBedId() {
+  const sc = game.scenes?.active;
+  const ps = sc?.playlistSound;
+  const s = ps && typeof ps === "object" ? ps : sc?.playlist?.sounds?.get?.(ps);
+  return s && isBed(s.flags) ? s.id : null;
+}
+
 async function stopSoundOf(pl, s) {
   _stopping.add(s.id);
   setTimeout(() => _stopping.delete(s.id), 5000);
@@ -210,11 +220,15 @@ async function crossfade(target) {
     if (!s.playing) await s.parent.playSound(s);
     keep = s;
   }
+  // the floor's bed (the rain) plays on under whatever comes in; only Silence stops it (music-core isBed).
+  // ⚠️ ONLY THIS FLOOR'S BED: the four floors share one beds playlist, and the one he left must still stop.
+  const bed = bedStays(target) ? activeBedId() : null;
   for (const pl of musicPlaylists()) {
     if (!pl.playing) continue;
     if (keep && (keep === pl)) continue;
     for (const s of pl.sounds) {
       if (!s.playing || s === keep) continue;
+      if (bed && s.id === bed) continue;
       try { await stopSoundOf(pl, s); } catch (e) { console.warn(`${MODULE_ID} | music: stop failed`, e?.message); }
     }
   }
