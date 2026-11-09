@@ -2484,6 +2484,13 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    asking one goes the whole square as a `displace` (core's teleporter ignores it) and the phone asks: Basic Stay / Go →
    the DM's Cancel / Move / Move group ask, Complex the alone/group question. Players on a canvas keep core's own dialog.
    Test `tools/test-house-stair-walk.mjs` (19, 6x's stair geometry). **Owed (seat):** steps below in the chunk-4 report.
+   ⚠️ **2026-11-09 rerun 4: did NOT hold live** (the phone asked, but the token stopped half a square in and core's
+   "Teleport Token" dialog held the move on the GM screen). The displace was in the update DATA, which Foundry 14 ignores:
+   TokenDocument#preUpdateMovement infers the waypoint from x/y (action walk). Fix: `rpc.phoneStepUpdate` puts it in
+   core's movement options (`options.movement[id].waypoints[].action = "displace"`), the path core's teleporter checks.
+   Test `tools/test-stair-displace-foundry.mjs` (9) runs the step through Foundry 14.370's own extracted code
+   (#preUpdateMovement, #inferMovementWaypoints, #cleanAndValiateMovementWaypoints, teleport #onTokenMoveIn) and
+   reproduces rerun 4 first. **Owed (seat):** step 103 again.
 0ʳ. **BUILT 2026-11-09 — tour R5 step 98: the séance planchette trembled in place and spelled nothing (§30).** Not
    6x data: the board's marks are constants in seance.js. `tick()` let one frame advance at most 50 ms, so a TV
    drawing fewer than 20 frames a second ran the séance in slow motion; at 1 frame/s (a throttled browser tab) the

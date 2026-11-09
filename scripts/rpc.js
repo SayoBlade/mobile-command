@@ -1892,6 +1892,25 @@ function partyTokensOn(scene) {
   });
 }
 
+/**
+ * The [changes, options] of a phone's one-square step. Onto a stair (a teleporter that asks), the step is a DISPLACEMENT
+ * so core's teleporter neither pauses it nor opens its "Teleport Token" dialog on this (the DM's) client; the phone's
+ * Stay / Go decides instead.
+ * ⚠️ FOUNDRY 14 READS THE ACTION FROM THE MOVEMENT OPTIONS, NOT THE DATA (R5 rerun 4 step 103, 2026-11-09). The first fix
+ * put `action: "displace"` in the update data; TokenDocument#preUpdateMovement infers its waypoint from x/y only
+ * (#inferMovementWaypoints: action = "displace" only for teleport/isUndo/isPaste), so the step went as a plain walk,
+ * stopped half a square in, and core's dialog held it on the GM screen. The waypoint itself must say displace:
+ * `options.movement[tokenId].waypoints[*].action` (core's own path; TeleportTokenRegionBehaviorType#onTokenMoveIn
+ * returns at once when the last passed waypoint is a displacement). tools/test-stair-displace-foundry.mjs runs this
+ * through core's own code.
+ */
+export function phoneStepUpdate(tokenDoc, to, displace) {
+  const changes = { x: to.x, y: to.y };
+  const options = { animate: false };
+  if (displace) options.movement = { [tokenDoc.id]: { waypoints: [{ x: to.x, y: to.y, action: "displace" }] } };
+  return [changes, options];
+}
+
 async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
@@ -1941,10 +1960,7 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
     landed = travelSquareAt(scene, { x: toRect.x + toRect.width / 2, y: toRect.y + toRect.height / 2 }, toRect);
     wasOn = travelSquareAt(scene, from, { x: tokenDoc.x, y: tokenDoc.y, width: toRect.width, height: toRect.height });
   } catch (e) { /* a hint only */ }
-  await tokenDoc.update(
-    { x: toRect.x, y: toRect.y, ...(landed?.ask ? { action: "displace" } : {}) },
-    { animate: false }
-  );
+  await tokenDoc.update(...phoneStepUpdate(tokenDoc, toRect, !!landed?.ask));
 
   // Follow (DM 2026-07-08): the player's OTHER owned tokens on the scene repeat
   // the move (familiar trails the PC). v1 is all-or-none per player (user flag

@@ -79,7 +79,8 @@ check("the stair reads as a travel square: core's own question, its twin as the 
 Object.assign(tok, { x: 1120, y: 1820 });
 let res = await asUser("u1", "moveRequest", { tokenId: tok.id, dxGrid: 1, dyGrid: 0 });
 check("the step lands the WHOLE square on the stair (1260,1820), not half", res?.ok && tok.x === 1260 && tok.y === 1820, `${JSON.stringify(res)} at ${tok.x},${tok.y}`);
-check("…as a displacement, so core's teleporter neither pauses it nor asks the DM's client", updates.at(-1)?.d?.action === "displace");
+check("…as a displacement in core's movement options (the waypoint, not the data: rerun 4), so core's teleporter neither pauses it nor asks the DM's client",
+  updates.at(-1)?.o?.movement?.[tok.id]?.waypoints?.[0]?.action === "displace" && !("action" in (updates.at(-1)?.d ?? {})), JSON.stringify(updates.at(-1)));
 check("…and the phone is told to ask: 'Go up to the second floor'", res.stepAsk?.regionId === "up12" && res.stepAsk.label === "Go up to the second floor", JSON.stringify(res));
 check("nothing crossed, nothing paused, no DM ask yet", scene.tokens.includes(tok) && !second.tokens.length && !game.paused && !(store.get("dmAsks") ?? []).length);
 
@@ -89,8 +90,8 @@ check("standing on it (a step that stays on it) does not ask twice; the hint sti
 Object.assign(tok, { x: 1120, y: 1680 });
 res = await asUser("u1", "moveRequest", { tokenId: tok.id, dxGrid: 0, dyGrid: 0 });
 check("a square that only shares a corner with the stair (1120,1680) is not on it", res?.ok && !res.stepAsk && res.travelHere == null, JSON.stringify(res));
-const last = updates.at(-1)?.d;
-check("…and an ordinary step stays an ordinary move (no displacement)", last && !("action" in last));
+const last = updates.at(-1);
+check("…and an ordinary step stays an ordinary move (no displacement)", last && !("action" in last.d) && !last.o?.movement);
 
 // ── half a square in: the token where R5 left it (1191,1820) ─────────────────────────────────────────────────
 check("any overlap counts: a token half a square onto the stair stands on it",
