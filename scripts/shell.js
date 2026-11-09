@@ -2,6 +2,7 @@ import { MODULE_ID, CREATION_BEATS, pcDisplayName, TABLE_SEATS } from "./preset.
 import { notifier } from "./notifier.js";
 import { isOnlineTable } from "./settings.js"; // §39 in person ⇄ online (settings.js imports nothing of ours but preset/enforcer — no cycle)
 import { api as rpc, actorTokenSight, reportPresence, remoteState, rollMessageFor, restoreRollSpeaker } from "./rpc.js";
+import { hm2Api, hm2LevelUpSent } from "./hm2.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
 import { toggleSimpleCalendar, clockLabel } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
@@ -683,7 +684,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       <header class="mc-header">
         <img class="mc-portrait" src="${img}" alt="" data-action="show-image" data-detail="bio" title="Tap for image · hold for bio">
         <div class="mc-id">
-          <div class="mc-name">${classIcons ? `<span class="mc-cls-run">${classIcons}</span>` : ""}${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""}" data-action="toggle-levels"><span class="mc-lvl-num">Lvl ${totalLevel}</span></button>` : ""}<span class="mc-name-text" data-action="show-summary" data-detail="bio" title="Tap for summary · hold for bio">${foundry.utils.escapeHTML(actor.name)}</span>
+          <div class="mc-name">${classIcons ? `<span class="mc-cls-run">${classIcons}</span>` : ""}${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""} ${hm2LevelUpSent(actor) ? "mc-lvl-ready" : ""}" data-action="toggle-levels"><span class="mc-lvl-num">Lvl ${totalLevel}</span></button>` : ""}<span class="mc-name-text" data-action="show-summary" data-detail="bio" title="Tap for summary · hold for bio">${foundry.utils.escapeHTML(actor.name)}</span>
             ${this.#pausedChipHTML()}
           </div>
           <div class="mc-stats">
@@ -5063,8 +5064,19 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>
       ${rows}
       ${xpBar}
-      ${classes.length ? `<button class="mc-lvlup-btn" data-action="level-up-open"><i class="fas fa-arrow-up-right-dots"></i> Level Up</button>` : ""}
+      ${this.#levelUpButtonHTML(actor, classes)}
     </div>`;
+  }
+  // Hero Mancer 2 (DM 2026-11-09: "Wouldn't the hm2 popup work in the phone?"). With HM2 on, levelling follows HM2's
+  // own rule: a player levels only when the GM has sent a level-up (its `levelUpReady` flag), and the button opens
+  // HM2's level-up window (api.openLevelUp, a framed ApplicationV2 the shell lifts above itself, like dnd5e's
+  // advancement window below; HM2 never touches the game canvas). Without HM2: dnd5e's own flow, as before.
+  #levelUpButtonHTML(actor, classes) {
+    if (hm2Api()) {
+      if (!hm2LevelUpSent(actor) || !actor.isOwner) return "";
+      return `<button class="mc-lvlup-btn" data-action="hm2-level-up"><i class="fas fa-angles-up"></i> Level up</button>`;
+    }
+    return classes.length ? `<button class="mc-lvlup-btn" data-action="level-up-open"><i class="fas fa-arrow-up-right-dots"></i> Level Up</button>` : "";
   }
   // Level-up flow (from the Lvl panel): pick which class to level — the actor's
   // existing classes are the highlighted primary choices (forLevelChange +1) — or
@@ -7515,6 +7527,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "toggle-levels":
         this.#showLevels = !this.#showLevels; this.#levelUp = null; return this.render();
       case "level-up-open": return this.#openLevelUp();
+      case "hm2-level-up": {
+        // own character only, and only while the GM's level-up is waiting (re-checked at the tap)
+        if (!actor?.isOwner || actor.type !== "character" || !hm2LevelUpSent(actor)) return this.render();
+        this.#showLevels = false; this.render();
+        try { hm2Api().openLevelUp(actor); } catch (e) { console.error(`${MODULE_ID} | HM2 level-up`, e); notifier.warn("Couldn't open the level-up — see console."); }
+        return;
+      }
       case "level-up-back": return this.#closeLevelUp();
       case "level-up-class": return this.#doLevelUp(el.dataset.classId);
       case "level-up-add": return this.#openMulticlass();
@@ -9412,8 +9431,10 @@ export function registerShellHooks() {
   // 3×3 editor appears on pack, updates live as cells move, and closes on deploy.
   const inMyParty = (a) => a?.type === "group" &&
     (a.system?.members ?? []).some(m => m.actor?.testUserPermission?.(game.user, "OWNER"));
-  Hooks.on("updateActor", (actor) => {
+  Hooks.on("updateActor", (actor, changes) => {
     if (!shellInstance?.rendered) return;
+    // HM2's own "level-up sent" announcement is a chat card the shell hides: say it here, once, where the eye is
+    if (changes?.flags?.["hero-mancer"]?.levelUpReady === true && controlsActor(actor) && hm2Api()) notifier.info(`${actor.name}: the DM sent a level-up. Tap Lvl.`);
     if (inMyParty(actor)) shellInstance.maybeFollowRelease(actor);
     if (controlsActor(actor) || inMyParty(actor)) shellInstance.render();
   });

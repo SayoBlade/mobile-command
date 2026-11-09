@@ -4031,6 +4031,10 @@ body.mc-theme-wizard .mc-frame {
   box-shadow: 0 2px 5px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .08);
 }
 .mc-name-lvl.mc-on { border-color: var(--mc-gold); }
+/* the GM sent a level-up (Hero Mancer 2): the attention dot on the Lvl button (UI-BIBLE §5, the tab-dot idiom) */
+.mc-name-lvl.mc-lvl-ready { position: relative; }
+.mc-name-lvl.mc-lvl-ready::after { content: ""; position: absolute; top: -3px; right: -3px; width: 9px; height: 9px;
+  border-radius: 50%; background: var(--mc-gold); box-shadow: 0 0 0 2px var(--mc-panel); }
 .mc-name-lvl:active { background: linear-gradient(var(--mc-primary-active), var(--mc-primary)); }
 .mc-lvl-num { flex: 0 0 auto; }
 /* Class/subclass badge icons before the level. Class = rounded square, subclass =
