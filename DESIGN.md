@@ -2448,7 +2448,11 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    `messageData.speaker = getSpeaker({ actor: this, token: this.token })`, dropping S1's token on the canvasless phone.
    Fix (ac79d01): the phone's `preCreateChatMessage` → `rpc.restoreRollSpeaker` puts the armed token back (only rolls
    MC armed via rollMessageFor, once, 2 min). Test now rolls through midi's wrapper (16, reproduces rerun 7 first).
-   Live probe: `tools/probe-phone-save.md`. **Still owed:** the probe's 6 results at the seat.
+   Live probe: `tools/probe-phone-save.md`. ~~Still owed: the probe's 6 results at the seat.~~ **CONFIRMED LIVE 2026-11-09**
+   (seat "Probe: phone save"): the phone's 14 was the save midi used; only the Cleric was rolled GM-side. **Finding:**
+   midi auto-rolls a PC whose owner is NOT online within seconds (~5 s after the ask), not at playerSaveTimeout (30 s);
+   only an online player's target waits the 30 s. Probe fixed the same day (actor-name lookup, `canvas.tokens.setTargets`,
+   the deck's no-template cast). Step 57's own rerun at the table is what remains.
 0ᵗ. **BUILT 2026-11-09 — tour R5 rerun 2 step 103: a phone stepped onto the 12.1 stair, the token stopped half a square
    in, nobody was asked, and the hand said "Nothing to use."** Two causes: the phone's move runs on the DM's client, so
    core's asking teleporter (`choice: true`) paused the token where its centre crossed in and asked THAT client; and the
