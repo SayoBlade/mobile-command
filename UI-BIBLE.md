@@ -113,6 +113,11 @@ table. If it means something, it doesn't move; if it's just a surface, it must.
 
 ## 3. Names and identity
 
+**Hidden creatures are the DM's, never a player's (DM 2026-11-09: "For DMs not players").** A token hidden on the map
+never appears on a phone: not in a target list, not as a pre-aimed target, not by name on a reaction card or a damage
+chip, not counted in an area spell's "N targets", not offered by Use. The DM's own surfaces (the deck, a GM client) may
+show and target it. Build every new phone list from `rpc.hiddenFromPlayers`.
+
 **Character names are always Ink (`#ece5d6`).** Never tint a name with the player colour — many
 player colours are unreadable on our dark surfaces (a real one in the test world is `#0001bf`).
 
@@ -308,6 +313,7 @@ lives in the two words plus the icon, and the tooltip carries any nuance.
 | Visible to the player | **`fa-eye`** icon | The *absence* of the eye means hidden — don't add a "hidden" icon |
 | Waiting on someone | Amber text + the word (`Waiting…`) | Never a spinner |
 | Progress | Gold bar + `count/target` | Bar always; numbers only if the player may see the rule |
+| A level-up is waiting (Hero Mancer 2) | **Gold dot** on the header's Lvl button (`.mc-lvl-ready`), the tab-dot idiom | Lit while the GM's Send Level Up waits for this character; the Lvl panel then offers **Level up** (DM 2026-11-09) |
 | Attention on another token | Gold-outlined **bell** in the header, gently pulsing (`.mc-bell-on`) | Lit when a save/reaction/AoO waits on a token you're **not** viewing; tap hops you there. Greyed + inert otherwise. Binary — no count (DM 2026-07-19) |
 | **A key whose next press does the OPPOSITE** | **The label changes to the undo verb, and the key is outlined** (a bright rim, not a new colour) | DM 2026-09-20, on the Crooked House action keys: *"this needs to be something used at a glance, so try to give cues like 'escape' state for intros look slightly different than others in some way (highlighted in some way)"*. A key that has fired and now reverses itself — an intro whose second press is **Escape**, a loop already running whose next press stops it — must be readable **without reading**: same picture, same place on the board, but rimmed, so the DM's eye finds the live ones in a grid of forty. The verb is the *next* action, never the state ("Escape", not "Escaped"). It is an OUTLINE and not a fill or a recolour because the board's colours already carry meaning — light-blue label = changes the map, gold ♫ = sound only (deck UI-BIBLE §1) — and a key must not change category just because it is armed. |
 
@@ -830,6 +836,10 @@ hard way:
 ---
 
 ## 12. Checklist before you ship UI
+
+(Sound has one rule that belongs beside the look: **one music track at a time**, DM 2026-11-09, *"No dual music tracks
+(not counting environmental sound), either or."* Environment beds (rain, wind) may layer under music; a bed that is
+itself music stops when other music starts. DESIGN §25.8.)
 
 1. Any colour outside §2? Justify it or drop it.
 2. Exactly one primary button in this view?

@@ -2453,6 +2453,23 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    midi auto-rolls a PC whose owner is NOT online within seconds (~5 s after the ask), not at playerSaveTimeout (30 s);
    only an online player's target waits the 30 s. Probe fixed the same day (actor-name lookup, `canvas.tokens.setTargets`,
    the deck's no-template cast). Step 57's own rerun at the table is what remains.
+0ᵘ. **BUILT 2026-11-09 — DM ruling "No dual music tracks (not counting environmental sound), either or."** §25.8.
+   Beds have a kind: 12.1 rain = environment (layers); 12.2 haunted house, 12.3 hall of horrors, 12.4 dark ritual =
+   music (stop under room/fight/cue/pick music, come back after). His flag `bedKind` overrides. Commit ecadae7.
+   **Owed (seat):** the Attic Cauldron fight → one track; a 12.1 fight → rain under it. **His ear:** 12.2/12.3's kind.
+0ᵛ. **BUILT 2026-11-09 — DM ruling on hidden creatures as targets: "For DMs not players."** A GM may target a hidden
+   token; a phone never lists, offers, aims at, or learns of one. `rpc.hiddenFromPlayers` / `playerTargetUuids` guard
+   itemUse / itemUseStart (a crafted or stale uuid is dropped), the live map preview, DM-assigned targets reaching a
+   phone, the reaction card (no attacker name, no pre-aim), the damage chip's source, AoO (a hidden mover goes to the
+   DM's chip, never an automatic swing), Use (hidden loot piles, hidden tiles) and an area spell's count. A GM
+   requester's target list includes hidden tokens. Test `tools/test-hidden-targets.mjs` 12. Commit de8b675.
+   **Owed (seat):** a hidden NPC next to the phone PC: not in the phone's target list; the DM can still target it.
+0ʷ. **BUILT 2026-11-09 — "Wouldn't the hm2 popup work in the phone?" Yes, for level-up.** HM2 3.3.3's
+   `api.openLevelUp(actor)` is one framed ApplicationV2 with no game-canvas use; the shell lifts it. With HM2 active the
+   phone's Lvl panel offers **Level up** only while the GM's Send Level Up is waiting (`flags.hero-mancer.levelUpReady`),
+   own character only; the Lvl button carries the attention dot and the phone says so once. Without HM2, dnd5e's own
+   Level Up stays. **No creation on the phone** (his scope). `scripts/hm2.js`, test `tools/test-hm2-level-up.mjs` 11.
+   Commit 9c2765c. **Owed (seat):** `tools/probe-hm2-phone.md`, 4 steps (touch-usability of HM2's window is the open part).
 0ᵗ. **BUILT 2026-11-09 — tour R5 rerun 2 step 103: a phone stepped onto the 12.1 stair, the token stopped half a square
    in, nobody was asked, and the hand said "Nothing to use."** Two causes: the phone's move runs on the DM's client, so
    core's asking teleporter (`choice: true`) paused the token where its centre crossed in and asked THAT client; and the
@@ -3372,6 +3389,33 @@ Adela's (deck WORKPLAN 5.3) can never pick the music wrong.
 
 **Tests:** `tools/test-music-house.mjs` 16 (beds, Silence, the scene fallback and its order, the active-bed-only guard,
 the Battle pick through music.js against a fake world). No live check yet — ledger 0ⁿ.
+
+### 25.8 Either or: one music track at a time (DM ruling 2026-11-09) — BUILT 2026-11-09 (commit ecadae7)
+
+**His ruling:** *"No dual music tracks (not counting environmental sound), either or."* Seen: the Attic's bed played under
+the Cauldron fight's music at the same level. §25.7's "a bed plays on under every layer" now holds only for ENVIRONMENT
+beds. A bed has a kind (`music-core.js bedKind`): `flags.mobile-command.bedKind` (`"music"` | `"environment"`, his to
+flip on any sound) wins, else MC's table `BED_KINDS`, else environment.
+- **environment** (rain, wind, creaks, drips): layers under any music; only Silence stops it (as §25.7).
+- **music** (a tonal mood bed): stops the moment room, fight, cue or a manual pick takes over (crossfade does not spare
+  it), and comes back by itself when that layer ends (the layer drops to the scene default, which is that bed).
+
+**6x's beds, classified 2026-11-09** (the only MC-flagged beds in the world; all four in "CM 12 — Beds"):
+
+| Floor | File | Kind | Why |
+|---|---|---|---|
+| 12.1 First Floor | house-divided `ambient/ruined/abandoned-mansion-rain.ogg` | environment | the storm outside (decision 8's rain) |
+| 12.2 Second Floor | house-divided `ambient/ruined/haunted-house.ogg` | music | an even, tonal haunted-house pad, no environment in it |
+| 12.3 Third Floor | Ghelfi Ambiences 6 `shortloops/Hall-of-Horrors.ogg` | music | a dark-tone piece |
+| 12.4 Attic | Ghelfi Ambiences 3 `shortloops/Dark-Ritual.ogg` | music | the ritual drone; he heard it as music under the fight |
+
+The audio catalogue files all four under ambience (folder and pack names), so the kind is by content, not by folder.
+**Not listened to by Claude**: if he hears 12.2 or 12.3 as environment, `bedKind: "environment"` on that sound flips it,
+no code. Other beds in 6x: the train's steam bed (Ghelfi Ambiences 6, unflagged): environment, MC never stops it.
+**Tests:** `tools/test-music-either-or.mjs` 6 (through music.js's own combat hooks: Attic fight stops Dark Ritual and
+brings it back; 12.1 rain stays; a 12.2 room pick stops the haunted house; fails on the old rule), `test-music-house` +6.
+**Owed (seat):** the Cauldron fight in the Attic → only the fight music; end it → Dark Ritual back; a 12.1 fight → rain
+under the fight music.
 
 ## 26. Effects tab (DM-idea 2026-07-26, SPIKE BUILT) — weather & magical ambience
 
