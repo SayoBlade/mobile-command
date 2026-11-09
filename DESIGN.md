@@ -2453,6 +2453,12 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    midi auto-rolls a PC whose owner is NOT online within seconds (~5 s after the ask), not at playerSaveTimeout (30 s);
    only an online player's target waits the 30 s. Probe fixed the same day (actor-name lookup, `canvas.tokens.setTargets`,
    the deck's no-template cast). Step 57's own rerun at the table is what remains.
+0ˣ. **BUILT 2026-11-09 — S2 (deck-command MC-PATCHES), tour R3 rerun 8 step 59: the phone's damage chip named the wrong
+   creature** ("5 damage from Haint echo · Soul Can 1" for the Locomotive's legendary Haunting Whistle). The relay named
+   whoever's turn it was. Now `rpc.damageSourceFor`: midi's unfinished workflow holding this actor in its damageList /
+   hit / save sets → its token; else the newest damage card (15 s) targeting it → its speaker; else no name, never the
+   current combatant. PC, self and hidden sources stay unnamed. Test `tools/test-damage-source.mjs` 6 (fails on the old
+   code). **Owed (seat):** step 59 again: the chip reads "from The Ghostlight Locomotive".
 0ᵘ. **BUILT 2026-11-09 — DM ruling "No dual music tracks (not counting environmental sound), either or."** §25.8.
    Beds have a kind: 12.1 rain = environment (layers); 12.2 haunted house, 12.3 hall of horrors, 12.4 dark ritual =
    music (stop under room/fight/cue/pick music, come back after). His flag `bedKind` overrides. Commit ecadae7.

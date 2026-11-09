@@ -343,6 +343,49 @@ function handleReactionPrompt(payload) {
 // controlled PC takes damage — but `preUpdateActor` only fires on the client that APPLIES the
 // damage (the executor/GM via midi), NOT on the phone. So compute the HP delta HERE (old from
 // the actor, new from the change) and relay it to the owner's phone. Combat only.
+/**
+ * Who dealt the damage now landing on `actor` (S2, tour R3 rerun 8 step 59, 2026-11-09). The chip used to name
+ * WHOEVER'S TURN IT IS, so the Locomotive's legendary Haunting Whistle at the end of the Barbarian's turn read "5
+ * damage from Haint echo · Soul Can 1" (the echo was current). Legendary actions, reactions and lair actions all deal
+ * damage on someone else's turn. In order:
+ *   1. midi's workflow applying it: the newest unfinished one (Workflow.workflows, values may be WeakRefs) whose
+ *      damageList, or hitTargets / failedSaves / saves, holds this actor → its token's (or actor's) name;
+ *   2. else the newest damage card in chat (last 15 s) that targets this actor → its speaker;
+ *   3. else nobody. NEVER the current combatant: a wrong name is worse than none.
+ * @returns {{name:string, actorId:string|null, tokenUuid:string|null}|null}
+ */
+export function damageSourceFor(actor, { now = Date.now(), windowMs = 15000 } = {}) {
+  if (!actor) return null;
+  const isMe = (x) => {
+    if (!x) return false;
+    const a = x.actor ?? x.document?.actor ?? null;
+    if (a?.id === actor.id || x.actorId === actor.id || x.actorUuid === actor.uuid || x.uuid === actor.uuid) return true;
+    const tu = x.tokenUuid ?? (typeof x.uuid === "string" && x.uuid.includes(".Token.") ? x.uuid : null);
+    if (tu) { try { const d = fromUuidSync(tu); return (d?.actor?.id ?? d?.actorId) === actor.id; } catch (e) { return false; } }
+    return false;
+  };
+  const sets = (wf) => [wf.hitTargets, wf.failedSaves, wf.saves];
+  const workflows = [...(globalThis.MidiQOL?.Workflow?.workflows?.values?.() ?? [])].map((w) => w?.deref?.() ?? w).filter(Boolean).reverse();
+  for (const wf of workflows) {
+    if (wf.currentAction?.name === "WorkflowState_Completed" || wf.aborted) continue;
+    const hit = (wf.damageList ?? []).some(isMe) || sets(wf).some((s) => [...(s ?? [])].some(isMe));
+    if (!hit) continue;
+    const tok = wf.token?.document ?? wf.token ?? null;
+    return { name: wf.token?.name ?? wf.actor?.name ?? "", actorId: wf.actor?.id ?? tok?.actorId ?? null, tokenUuid: tok?.uuid ?? wf.tokenUuid ?? null };
+  }
+  const msgs = [...(game.messages?.contents ?? [])].slice(-30).reverse();
+  for (const m of msgs) {
+    if (now - (m.timestamp ?? 0) > windowMs) break;
+    const isDamage = m.type === "damage" || m.flags?.dnd5e?.roll?.type === "damage" || (m.rolls ?? []).some((r) => r?.constructor?.name === "DamageRoll");
+    if (!isDamage) continue;
+    const targets = [...(m.system?.targets ?? []), ...(m.flags?.dnd5e?.targets ?? [])];
+    if (!targets.some(isMe)) continue;
+    const sp = m.speaker ?? {};
+    return { name: sp.alias ?? "", actorId: sp.actor ?? null, tokenUuid: sp.scene && sp.token ? `Scene.${sp.scene}.Token.${sp.token}` : null };
+  }
+  return null;
+}
+
 export function registerDamageRelay() {
   Hooks.on("preUpdateActor", (actor, changes) => {
     try {
@@ -355,8 +398,11 @@ export function registerDamageRelay() {
       const newTemp = foundry.utils.getProperty(changes, "system.attributes.hp.temp");
       const dmg = ((oldH.value ?? 0) - (newVal ?? oldH.value ?? 0)) + ((oldH.temp ?? 0) - (newTemp ?? oldH.temp ?? 0));
       if (dmg <= 0) return; // healing / temp gain
-      const c = game.combat?.combatant;
-      const src = (c && c.actor && c.actor.id !== actor.id && c.actor.type !== "character" && !c.hidden && !hiddenFromPlayers(c.token)) ? c.name : "";
+      // S2: the creature that dealt it (damageSourceFor), never "whoever's turn it is". Not the PC itself, not a PC,
+      // and not a hidden creature (chunk 5: a phone never learns of one).
+      const by = damageSourceFor(actor);
+      const byActor = by?.actorId ? game.actors.get(by.actorId) : null;
+      const src = (by?.name && by.actorId !== actor.id && byActor?.type !== "character" && !(by.tokenUuid && hiddenFromPlayers(by.tokenUuid))) ? by.name : "";
       const owners = game.users.filter(u => u.active && !u.isGM && actor.testUserPermission(u, "OWNER"));
       for (const u of owners) socket.executeAsUser("damageTaken", u.id, { actorId: actor.id, amount: dmg, source: src, ts: Date.now() });
       console.debug(`${MODULE_ID} | damage relay`, { actor: actor.name, dmg, src, owners: owners.map(u => u.name) });
