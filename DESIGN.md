@@ -2419,6 +2419,29 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    Combat Music Vol. 1, the rain still under it; (4) the Cauldron fight (12.4) plays "bbeg"; (5) Silence stops the rain
    too; (6) up the stairs: 12.1's rain stops, 12.2's bed plays. **His ear (👁):** is the rain too loud under the music?
 
+0ᵒ. **BUILT 2026-11-09 — tour R2 step 39: walking onto a car door "did nothing" (§37).** Not a fault in the ask:
+   walking never crosses or asks (his rule, 2026-08-07: crossing is a deliberate Use of the hand); the tour sheet
+   said "walks onto". The landing/door overlap the seat lane suspected is how every car is built (6x, read
+   2026-11-09: landing ≈ door square on 10.1/10.3/10.5–10.8 and the 10.4 back; one row below on 10.2 and the 10.4 front;
+   10.1's locked rear offers nothing) and blocks nothing. **Fix:** the step that lands on a door or its landing now
+   tells the phone (`travelSquareAt`, move answer `travelHere`) and the pad reads "Travel to next car: tap the hand."
+   Still no crossing on a walk. `test-train-door-walk` 16 (6x's real geometry, every car). **Owed, 6x, GM reload:**
+   (1) the phone walks onto 10.6's front door: the line appears over the arrows, nothing pauses; (2) the hand →
+   the DM's ask: pause, deck key 15 "1 waiting". The DC tour sheet's step 39/41 wording is DC's to correct.
+
+0ᵖ. **BUILT 2026-11-09 — tour R2 step 37: a requested Perception rolled a Wisdom ability check.** The deck has sent
+   `skill: "prc"` since 2026-10-05; `requestRolls` dropped it. Now a check naming a dnd5e skill rolls
+   `rollSkill({ skill })` on the phone and on the no-owner fallback (no ability passed: the actor's own skill ability
+   wins); an unknown key stays the ability check. `test-roll-request-skill` 10. **Owed, 6x, GM + phone reload:**
+   (1) Party → Ask a roll → Perception → the phone's card rolls a "Perception" check.
+
+0ᵠ. **OPEN 2026-11-09 — NEEDS HIS NUMBER: travel on Wickermoor Hollow reads "0 mi" (deck-command MC-PATCHES-2026-11-09
+   T1).** The Hollow (and Druskenvald) keep the default 100 px = 5 ft grid, so a Ch 10 → Ch 11 road measures ~0.002 mi
+   and the clock barely moves; `finishTravelRoute` is right for the grid as set, and the book gives no scale.
+   **Ask him:** how many miles is one square of the Hollow (or how far Ch 10 → Ch 11)? Then, recommended, a per-scene
+   `mobile-command.travelScale` (miles per square) read before `grid.distance`, rather than changing his map's grid.
+   Not built.
+
 0ᵏ. **OPEN 2026-11-06 — TO-DO, NOT BUILT: the multi-door pick is easy to miss (his words: *"I missed the list, which is a ui
    problem, we should probably work on that."*).** When Use finds two or more doors in reach, the phone lists them as rows
    under the D-pad (`shell.js`, `doorRows`, beside loot, tiles and travel) and waits for a pick. He did not see the list,
