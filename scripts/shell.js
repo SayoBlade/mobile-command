@@ -1,7 +1,7 @@
 import { MODULE_ID, CREATION_BEATS, pcDisplayName, TABLE_SEATS } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { isOnlineTable } from "./settings.js"; // §39 in person ⇄ online (settings.js imports nothing of ours but preset/enforcer — no cycle)
-import { api as rpc, actorTokenSight, reportPresence, remoteState, rollMessageFor } from "./rpc.js";
+import { api as rpc, actorTokenSight, reportPresence, remoteState, rollMessageFor, restoreRollSpeaker } from "./rpc.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
 import { toggleSimpleCalendar, clockLabel } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
@@ -9487,6 +9487,9 @@ export function registerShellHooks() {
     onItem(item);
   });
   Hooks.on("deleteItem", onItem);
+  // midi re-derives a roll's speaker without its token on a canvasless client; put back the one the phone's
+  // save/check named, or midi never counts it (rpc restoreRollSpeaker, tour R3 rerun 7 step 57).
+  Hooks.on("preCreateChatMessage", (doc, data) => { try { restoreRollSpeaker(doc, data); } catch (e) { console.warn(`${MODULE_ID} | roll speaker`, e); } });
   // Surface this user's/actor's roll results inside the shell (it covers chat).
   Hooks.on("createChatMessage", (message) => {
     if (!shellInstance) return;

@@ -455,6 +455,8 @@ async function handleDowntimeOp(payload = {}) {
  * `actor.rollSavingThrow({ ability }, {}, rollMessageFor(actor, tokenUuid))` — dnd5e merges it over its own.
  * @returns {{data?: {speaker: object}}}  {} when no token can be named (dnd5e's own speaker stands)
  */
+// actor id → { speaker, until }: the token an MC-started roll must name (see restoreRollSpeaker).
+const armedSpeakers = new Map();
 export function rollMessageFor(actor, tokenUuid = null) {
   let tok = null;
   try { tok = tokenUuid ? fromUuidSync(String(tokenUuid)) : null; } catch (e) { tok = null; }
@@ -465,7 +467,33 @@ export function rollMessageFor(actor, tokenUuid = null) {
     tok = here.find(t => !t.hidden) ?? here[0] ?? null;
   }
   if (!tok) return {};
-  try { return { data: { speaker: ChatMessage.getSpeaker({ token: tok }) } }; } catch (e) { return {}; }
+  let speaker;
+  try { speaker = ChatMessage.getSpeaker({ token: tok }); } catch (e) { return {}; }
+  if (speaker?.token && actor?.id) armedSpeakers.set(actor.id, { speaker, until: Date.now() + 120000 });
+  return { data: { speaker } };
+}
+
+/**
+ * preCreateChatMessage on a client with no canvas (the phone): put back the token an MC-started roll named.
+ * Tour R3 rerun 7 step 57 (2026-11-09): S1's speaker did not survive. midi-qol 14.6.8 wraps the actor's rolls on
+ * EVERY client and posts the message itself with `messageData.speaker = ChatMessage.getSpeaker({ actor: this,
+ * token: this.token })`, which, for a linked PC (`this.token` null) on a canvasless client, names no token, over
+ * whatever dnd5e's `message.data` carried. So midi's matcher still never saw the phone's save. Only a roll message
+ * that names this actor and no token, within 2 min of rollMessageFor arming it, is touched; once each.
+ * @returns {boolean} true when the speaker was filled
+ */
+export function restoreRollSpeaker(doc, data = {}) {
+  if (globalThis.canvas?.ready) return false; // a canvas client names its own token
+  const sp = doc?.speaker ?? data.speaker;
+  if (!sp?.actor || sp.token) return false;
+  if (!((doc?.rolls?.length ?? 0) || (data.rolls?.length ?? 0))) return false;
+  const armed = armedSpeakers.get(sp.actor);
+  if (!armed) return false;
+  armedSpeakers.delete(sp.actor);
+  if (armed.until < Date.now()) return false;
+  const speaker = { ...(sp.toObject?.() ?? sp), scene: armed.speaker.scene, token: armed.speaker.token };
+  doc.updateSource({ speaker });
+  return true;
 }
 
 export function registerSaveRelay() {

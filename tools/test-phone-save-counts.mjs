@@ -5,6 +5,9 @@
 // and answers it only from a roll message whose speaker.token is that id (processSaveRoll returns when it is empty).
 // dnd5e takes the speaker from actor.getActiveTokens(), which is [] without a canvas, so a phone's save never matched.
 // Fix: the relay carries the asked token's uuid and the phone names it as the roll's speaker (rpc rollMessageFor).
+// Rerun 7 (live) showed that was not enough: midi 14.6.8 wraps the actor's rolls on the PHONE too and posts the message
+// with `messageData.speaker = ChatMessage.getSpeaker({ actor: this, token: this.token })`, dropping the token again.
+// So the phone's preCreateChatMessage puts it back (rpc restoreRollSpeaker). The roll below goes through that wrapper.
 //
 // midi's matcher below is midi-qol 14.6.8's own logic, transcribed (saveRequests / saveTimeouts / processSaveRoll);
 // dnd5e's roll is 6.0.6's #rollD20Test message merge; ChatMessage.getSpeaker is core 14's cases 1 and 2.
@@ -78,13 +81,26 @@ function processSaveRoll(message) {
 }
 const advance = async (ms) => { clock += ms; for (const t of timers) if (!t.done && !t.cancelled && t.at <= clock) { t.done = true; t.fire(); } await null; await null; };
 
-// dnd5e 6.0.6 rollSavingThrow on the phone: its own speaker, then the caller's `message` merged over it
+// the phone's ChatMessage.create: Foundry runs preCreateChatMessage (where updateSource may change the data), then
+// the message reaches the DM's client, where midi's renderChatMessageHTML hook runs processSaveRoll.
+const preCreate = [];
 const posted = [];
+ChatMessage.create = async (data) => {
+  const doc = { ...data, speaker: { ...data.speaker }, updateSource(c) { Object.assign(this, c); } };
+  for (const fn of preCreate) fn(doc, data, {}, "u1");
+  posted.push(doc); processSaveRoll(doc);
+  return doc;
+};
+// dnd5e 6.0.6 + midi-qol 14.6.8's roll wrapper on the phone: dnd5e merges the caller's `message`, then midi posts the
+// message itself, re-deriving the speaker from the actor (`this.token` is null for a linked PC; no canvas → no token)
+brekka.token = null;
 brekka.rollSavingThrow = async (config, dialog = {}, message = {}) => {
   const messageConfig = merge({ create: true, data: { speaker: ChatMessage.getSpeaker({ actor: brekka }) } }, message);
-  const msg = { speaker: messageConfig.data.speaker, rolls: [{ total: 21, by: "phone", ability: config.ability }] };
-  posted.push(msg); processSaveRoll(msg); // midi's renderChatMessageHTML hook on the DM's client
-  return msg.rolls;
+  const messageData = merge({ sound: "dice" }, messageConfig.data);
+  messageData.speaker = ChatMessage.getSpeaker({ actor: brekka, token: brekka.token ?? undefined });
+  messageData.rolls = [{ total: 21, by: "phone", ability: config.ability }];
+  await ChatMessage.create(messageData);
+  return messageData.rolls;
 };
 
 // ── 1: the relay ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -107,9 +123,23 @@ check("the card fallback (no uuid) names the actor's token on the active scene",
 check("an actor with no token here gets {} (dnd5e's own speaker stands)", JSON.stringify(rpc.rollMessageFor({ id: "nobodyHere" })) === "{}");
 const shell = fs.readFileSync(new URL("scripts/shell.js", REPO), "utf8");
 check("the phone's save button rolls with it", /actor\?\.rollSavingThrow\?\.\(\{ ability \}, \{\}, rollMessageFor\(actor, s\?\.tokenUuid\)\)/.test(shell));
+check("the phone registers the speaker restore on preCreateChatMessage", shell.includes('Hooks.on("preCreateChatMessage", (doc, data) => { try { restoreRollSpeaker(doc, data);'));
 check("…and so do the roll-request card (skill, check, save) and downtime rolls",
   /a\.rollSkill\(\{ skill: p\.skill \}, \{\}, msg\)/.test(shell) && /a\.rollAbilityCheck\(\{ ability: p\.ability \}, \{\}, msg\)/.test(shell)
   && /a\.rollSavingThrow\(\{ ability: p\.ability \}, \{\}, msg\)/.test(shell) && /rollSkill\(\{ skill: r\.skill \}, \{\}, rollMessageFor\(actor\)\)/.test(shell));
+
+// ── 3a: rerun 7 as it happened: S1's speaker alone, through midi's wrapper → still re-rolled ──────────────────
+{
+  const gm7 = [];
+  const req7 = createPlayerChatSaveRequest(barbTok, () => { gm7.push("Test Barbarian"); return { total: 23, by: "gm" }; });
+  await advance(13000);
+  await brekka.rollSavingThrow({ ability: "con" }, {}, rpc.rollMessageFor(brekka, prompt.tokenUuid));
+  check("(rerun 7) without the restore, midi's wrapper drops the token: the phone's save has no speaker.token", posted.at(-1)?.speaker?.token == null, JSON.stringify(posted.at(-1)?.speaker));
+  await advance(17000); await req7;
+  check("(rerun 7) …and midi re-rolls it on the DM's side at 30 s, as the seat saw", results.barbTok?.by === "gm" && gm7[0] === "Test Barbarian", JSON.stringify(results));
+  delete results.barbTok;
+}
+preCreate.push((doc, data) => rpc.restoreRollSpeaker(doc, data)); // the phone's hook (shell.js)
 
 // ── 3: the live flow against midi's matcher ──────────────────────────────────────────────────────────────────
 const gmRolls = [];
@@ -118,6 +148,7 @@ const reqC = createPlayerChatSaveRequest(clerTok, () => { gmRolls.push("Test Cle
 await advance(12000); // the phone taps Roll at 12 s, as in R3
 await brekka.rollSavingThrow({ ability: "con" }, {}, rpc.rollMessageFor(brekka, prompt.tokenUuid));
 await null; await null;
+check("the posted save names the asked token again (restored before create)", posted.at(-1)?.speaker?.token === "barbTok" && posted.at(-1).speaker.actor === brekka.id, JSON.stringify(posted.at(-1)?.speaker));
 check("a phone save inside the window resolves its request: midi keeps the phone's 21", results.barbTok?.by === "phone" && results.barbTok.total === 21, JSON.stringify(results));
 check("…and cancels that request's 30 s timeout", timers.find(t => t.id === "barbTok")?.cancelled === true);
 await advance(18000); // 30 s
@@ -130,8 +161,8 @@ for (const k of Object.keys(results)) delete results[k];
 gmRolls.length = 0;
 const reqOld = createPlayerChatSaveRequest(barbTok, () => { gmRolls.push("Test Barbarian"); return { total: 7, by: "gm" }; });
 await advance(12000);
-await brekka.rollSavingThrow({ ability: "con" }); // the phone before the fix
+await brekka.rollSavingThrow({ ability: "con" }); // a roll MC did not start (no rollMessageFor): left alone
 await advance(18000); await reqOld;
-check("(control) the old phone roll is ignored and midi re-rolls it at 30 s, as R3 saw", results.barbTok?.by === "gm" && gmRolls[0] === "Test Barbarian", JSON.stringify(results));
+check("(control) a roll MC did not arm is not touched (the restore fires once per armed roll)", results.barbTok?.by === "gm" && gmRolls[0] === "Test Barbarian", JSON.stringify(results));
 
 console.log(`\nall ${n} passed`);
