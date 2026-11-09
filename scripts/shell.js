@@ -8065,6 +8065,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!res?.ok) this.#moveBudget = { text: res?.stage === "collision" ? "Blocked" : (res?.reason ?? "Blocked"), cls: "mc-move-note mc-move-red" };
     else if (res.speed) this.#moveBudget = { text: `${res.used} / ${res.speed} ft`, cls: `mc-move-note mc-move-${res.color}` };
     else this.#moveBudget = null;
+    // Standing on a travel square: walking there never crosses (§37), so say what does (R2 step 39).
+    if (res?.ok && res.travelHere) {
+      const hint = `${res.travelHere}: tap the hand.`;
+      this.#moveBudget = this.#moveBudget ? { ...this.#moveBudget, text: `${this.#moveBudget.text} · ${hint}` } : { text: hint, cls: "mc-move-note" };
+    }
     // Update the note in place so the readout is snappy (no full re-render needed).
     const note = this.element?.querySelector('[data-role="move-note"]');
     if (note) { note.textContent = this.#moveBudget?.text ?? ""; note.className = this.#moveBudget?.cls ?? "mc-move-note"; }

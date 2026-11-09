@@ -1708,6 +1708,31 @@ function travelPointsNear(scene, center, reach) {
   return out;
 }
 
+/**
+ * The travel square a point stands ON, or null: {id, label} of the travel point Use would offer.
+ * Walking never crosses (DM 2026-08-07, §37) — this only lets the phone SAY "tap the hand" when a step
+ * lands there (Rehearsal R2 step 39, 2026-11-09: a player walked onto 10.6's front door, nothing
+ * happened, and nothing told them why). A train car counts both its door square and its landing: the
+ * landing nearly covers the door on most cars (10.6: door 2112,420 · landing 2104,424, 140 vs 132) but
+ * sits a row below it on 10.2 and the 10.4 front, so a token on the door square must count too.
+ */
+export function travelSquareAt(scene, pt) {
+  const inside = (r) => { const sh = r?.shapes?.[0]; return !!sh && pt.x >= sh.x && pt.x <= sh.x + sh.width && pt.y >= sh.y && pt.y <= sh.y + sh.height; };
+  const regs = [...(scene?.regions ?? [])];
+  for (const r of regs) {
+    const tp = travelPointOf(scene, r);
+    if (tp && inside(r)) return { id: r.id, label: tp.label };
+  }
+  for (const door of regs) {
+    if (!door.getFlag(MODULE_ID, "trainDoor") || !inside(door)) continue;
+    const end = /back/i.test(door.name) ? "back" : "front";
+    const land = regs.find(r => r.getFlag(MODULE_ID, "trainLand") && new RegExp(end, "i").test(r.name));
+    const tp = land && travelPointOf(scene, land);
+    if (tp) return { id: land.id, label: tp.label };
+  }
+  return null;
+}
+
 /** Where a travel point lands you: {scene, x, y}. Accepts a Region or a Scene uuid. */
 function travelLanding(destUuid) {
   const doc = destUuid ? fromUuidSync(String(destUuid)) : null;
@@ -1805,9 +1830,12 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   // It's this token's turn if it's the active combatant. Match by tokenId, but fall back
   // to the ACTOR — a combatant added by actor (not by dropping its token) has a null
   // combatant.tokenId, and the budget would otherwise never count its movement.
+  // Landed on a travel square? Say so (it still does not cross — Use does). See travelSquareAt.
+  let travelHere = null;
+  try { travelHere = travelSquareAt(scene, { x: from.x + dxGrid * grid, y: from.y + dyGrid * grid })?.label ?? null; } catch (e) { /* a hint only */ }
   const cb = game.combat?.combatant;
   const onMyTurn = !!(game.combat?.started && cb && (cb.tokenId === tokenId || (cb.actor?.id && cb.actor.id === tokenDoc.actor?.id)));
-  if (!onMyTurn) return { ok: true, x: tokenDoc.x, y: tokenDoc.y };
+  if (!onMyTurn) return { ok: true, x: tokenDoc.x, y: tokenDoc.y, travelHere };
   let step = canvas.scene.grid.distance; // fallback: one square
   try { step = canvas.grid.measurePath([from, to]).distance ?? step; } catch (e) { /* keep fallback */ }
   const used = (turnMove.get(tokenId) ?? 0) + step;
@@ -1816,7 +1844,7 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   const action = tokenDoc.movementAction ?? "walk";
   const speed = Number(mv[action] ?? mv.walk ?? 0) || 0;
   const color = !speed ? "none" : used <= speed ? "green" : used <= speed * 2 ? "yellow" : "red";
-  return { ok: true, x: tokenDoc.x, y: tokenDoc.y, used: Math.round(used), speed, color };
+  return { ok: true, x: tokenDoc.x, y: tokenDoc.y, used: Math.round(used), speed, color, travelHere };
 }
 
 // Set the token's active movement action (walk/fly/swim/climb/burrow) so the
