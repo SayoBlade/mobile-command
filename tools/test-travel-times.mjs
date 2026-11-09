@@ -49,9 +49,19 @@ const from = (to) => T.routeOf(hollow, road("fp7SS6QSmuJKRUKt", to)).time;
 check("village → Ch 13 Foxwillow: 1–2 nights; → Ch 19 Maidenmist: 1–2 nights", J(from("uUEd2cmoalleiE91")) === '{"nights":[1,2]}' && J(from("uiuqih19BNSbMcWS")) === '{"nights":[1,2]}');
 check("village → Ch 16 Skitterdeep Mine: 3–5 nights (and every other valley area the book lumps in)",
   ["ZYMMZ0vJ3IkrWz1h", "atxNfGVTBDHcuekR", "haimRSHVS9MOVYJg", "Ti8GMcjUHag7Aicq", "WhdvDjPBO39Ul6GV", "4CGate3VkKrjuKq4", "cgOZbUXvfMdbYa6l", "F9mWZrE8nHKcjTJp"].every((p) => J(from(p)) === '{"nights":[3,5]}'));
-check("village → Ch 12 Crooked House (and 21, 22): null, the book gives no time", ["N4oqjvgh1JRR1por", "U4Rj4fYVfRJ8aVYS", "9ZxcQAzfIMns37Iv"].every((p) => from(p) === null));
+check("village → Ch 12 / 21 / 22 (the book gives none): an ESTIMATE on the wreck road's scale: 5 / 6 / 6 hours",
+  J(from("N4oqjvgh1JRR1por")) === '{"hours":5,"estimate":true}' && J(from("U4Rj4fYVfRJ8aVYS")) === '{"hours":6,"estimate":true}' && J(from("9ZxcQAzfIMns37Iv")) === '{"hours":6,"estimate":true}', J(["N4oqjvgh1JRR1por", "U4Rj4fYVfRJ8aVYS", "9ZxcQAzfIMns37Iv"].map(from)));
 check("back to the village takes the road-out time; Ch 10 ← village: 4 hours", J(T.routeOf(hollow, road("ZYMMZ0vJ3IkrWz1h", "fp7SS6QSmuJKRUKt")).time) === '{"nights":[3,5]}' && J(T.routeOf(hollow, road("fp7SS6QSmuJKRUKt", "GGOOtwS040uDV95D")).time) === '{"hours":4}');
-check("between two pins neither of which is the village: null (the book measures only from it)", T.routeOf(hollow, road("ZYMMZ0vJ3IkrWz1h", "atxNfGVTBDHcuekR")).time === null);
+check("between two valley pins (Ch 16 → Ch 14, 640 px): an estimate on the wilds' scale, whole nights: 3 nights",
+  J(T.routeOf(hollow, road("ZYMMZ0vJ3IkrWz1h", "atxNfGVTBDHcuekR")).time) === '{"nights":[3,3],"estimate":true}', J(T.routeOf(hollow, road("ZYMMZ0vJ3IkrWz1h", "atxNfGVTBDHcuekR")).time));
+const sc = T.estimateScales(PINS);
+check("the scales come from the book's routes: the wreck road 4 h (~46 px/h); the 3–5-night areas ÷ 3 (~233 px/night)",
+  Math.round(sc.pxPerHour) === 46 && Math.round(sc.pxPerNight) === 233, J(sc));
+check("the estate up the hill: Ch 12 ↔ Ch 22 (104 px) is 2 hours; Ch 10 ↔ Ch 12 (388 px) is 8 hours (road pins, hours)",
+  J(T.estimateTime("N4oqjvgh1JRR1por", "9ZxcQAzfIMns37Iv", PINS)) === '{"hours":2,"estimate":true}' && J(T.estimateTime("GGOOtwS040uDV95D", "N4oqjvgh1JRR1por", PINS)) === '{"hours":8,"estimate":true}');
+check("a short wild route is still at least 1 night (Ch 12 → Ch 23, 165 px)", J(T.estimateTime("N4oqjvgh1JRR1por", "cgOZbUXvfMdbYa6l", PINS)) === '{"nights":[1,1],"estimate":true}');
+check("the book's own times are never estimates", !from("ZYMMZ0vJ3IkrWz1h").estimate && !T.routeOf(hollow, road("GGOOtwS040uDV95D", "fp7SS6QSmuJKRUKt")).time.estimate);
+check("players' words carry no 'estimate': '5 hours', '2 nights'", T.travelTimeLabel({ hours: 5, estimate: true }) === "5 hours" && T.travelTimeLabel({ nights: [2, 2], estimate: true }) === "2 nights");
 // 3. no route / off the Hollow / too far from a pin
 check("a road off the Hollow, or ending far from any pin: no time", T.routeOf({ ...hollow, id: "elsewhere" }, road("GGOOtwS040uDV95D", "fp7SS6QSmuJKRUKt")).time === null
   && T.routeOf(hollow, [at("GGOOtwS040uDV95D", 50, 0), { x: 300, y: 300 }]).time === null);
@@ -61,7 +71,8 @@ check("a long winding line between the same two pins is still 4 hours (the route
 check("the two nearest pins (Ch 12 / Ch 22, 104 px apart) are told apart", T.pinAt(PINS, at("N4oqjvgh1JRR1por", 10, 5)) === "N4oqjvgh1JRR1por" && T.pinAt(PINS, at("9ZxcQAzfIMns37Iv", -10, 5)) === "9ZxcQAzfIMns37Iv");
 check("his scene flag overrides a row (Ch 12 set to 1 hour; Ch 16 set to null)",
   J(T.routeOf({ ...hollow, flags: { "mobile-command": { travelTimes: { N4oqjvgh1JRR1por: { hours: 1 }, ZYMMZ0vJ3IkrWz1h: null } } } }, road("fp7SS6QSmuJKRUKt", "N4oqjvgh1JRR1por")).time) === '{"hours":1}'
-  && T.routeOf({ ...hollow, flags: { "mobile-command": { travelTimes: { ZYMMZ0vJ3IkrWz1h: null } } } }, road("fp7SS6QSmuJKRUKt", "ZYMMZ0vJ3IkrWz1h")).time === null);
+  && T.routeOf({ ...hollow, flags: { "mobile-command": { travelTimes: { ZYMMZ0vJ3IkrWz1h: null } } } }, road("fp7SS6QSmuJKRUKt", "ZYMMZ0vJ3IkrWz1h")).time === null
+  && T.routeOf({ ...hollow, flags: { "mobile-command": { travelTimes: { N4oqjvgh1JRR1por: null } } } }, road("fp7SS6QSmuJKRUKt", "N4oqjvgh1JRR1por")).time === null);
 
 // ── the clock and the words ─────────────────────────────────────────────────────────────────────────────────
 check("the clock runs the book's time: 4 hours = 4 h; 1–2 nights = 24 h; 3–5 nights = 72 h (the low end, his to extend)",
@@ -82,6 +93,8 @@ Hooks.callAll = realCall;
 
 // ── the wiring (read from the source) ───────────────────────────────────────────────────────────────────────
 const panel = fs.readFileSync(new URL("scripts/dm-panel.js", REPO), "utf8"), keys = fs.readFileSync(new URL("scripts/actions-travel.js", REPO), "utf8"), shell = fs.readFileSync(new URL("scripts/shell.js", REPO), "utf8");
+check("the DM panel says 'estimate, from the map' for an estimate, 'the book's time' otherwise",
+  panel.includes(`travelRouteInfo?.time?.estimate ? "estimate, from the map" : "the book's time"`));
 check("a drawn road keeps its route and book time; travelState() carries `time` beside `miles`",
   panel.includes("travelRouteInfo = { miles, time: route.time, from: route.from, to: route.to };") && panel.includes("time: travelRouteInfo?.time ?? null,"));
 check("the walk's clock uses the book's hours when there are some (else the DM's pace, as before)",

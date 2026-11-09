@@ -64,13 +64,62 @@ export function pinAt(notes, pt, snap = PIN_SNAP_PX) {
   return bestD <= snap ? best : null;
 }
 
-/** {from, to, time} of a drawn road on a scene ({id, notes, flags}); time null off the Hollow or between unknown pins. */
+/**
+ * ── ESTIMATES FOR THE ROUTES THE BOOK DOESN'T TIME (DM 2026-11-09: "Give a guestimate based on the travel distances
+ * of the given times") ──────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ * The book's nights do NOT follow map distance (Ch 20 at 338 px is 3–5 nights; Foxwillow at 763 px is 1–2: the valley
+ * is wild, and the book's times include it), so ONE scale can't fit all of them. Two scales, both measured from the
+ * pins at run time (so a moved pin re-scales):
+ *  - ROAD: the wreck → village road, the book's "four hours" (183 px on 6x → ~46 px an hour). Used when both ends are
+ *    road pins: the wreck, the village and the estate up the hill (Ch 12 and the two chapters at it, 21 and 22).
+ *  - WILDS: the 3–5-night valley areas' average distance from the village ÷ 3 nights (the short end he keeps; ~233 px a
+ *    night). Used for every other route, at least 1 night.
+ * Rounded to whole hours under a day, whole nights above. Marked `estimate: true`: the DM's panel says "estimate";
+ * players see only the time. A scene-flag row (his edit) always wins, a null there included.
+ */
+export const ROAD_PINS = Object.freeze([VILLAGE_PIN, "GGOOtwS040uDV95D", "N4oqjvgh1JRR1por", "U4Rj4fYVfRJ8aVYS", "9ZxcQAzfIMns37Iv"]);
+const WRECK_PIN = "GGOOtwS040uDV95D";
+const FALLBACK = { pxPerHour: 183 / 4, pxPerNight: 700 / 3 }; // 6x's pins, if the scene lacks them
+
+/** {pxPerHour, pxPerNight} from the scene's pins (see above). */
+export function estimateScales(notes) {
+  const pos = new Map((notes ?? []).map((n) => [n.id ?? n._id, n]));
+  const d = (a, b) => (pos.has(a) && pos.has(b)) ? Math.hypot(pos.get(a).x - pos.get(b).x, pos.get(a).y - pos.get(b).y) : null;
+  const road = d(WRECK_PIN, VILLAGE_PIN);
+  const wild = Object.entries(BOOK_TIMES).filter(([, t]) => t?.nights?.[0] === 3).map(([id]) => d(id, VILLAGE_PIN)).filter((x) => x != null);
+  return {
+    pxPerHour: road ? road / BOOK_TIMES[WRECK_PIN].hours : FALLBACK.pxPerHour,
+    pxPerNight: wild.length ? wild.reduce((a, b) => a + b, 0) / wild.length / 3 : FALLBACK.pxPerNight,
+  };
+}
+
+/** The estimated time between two pins, `{hours|nights, estimate: true}`, or null if either pin is unknown. */
+export function estimateTime(fromPin, toPin, notes) {
+  if (!fromPin || !toPin || fromPin === toPin) return null;
+  const a = (notes ?? []).find((n) => (n.id ?? n._id) === fromPin), b = (notes ?? []).find((n) => (n.id ?? n._id) === toPin);
+  if (!a || !b) return null;
+  const px = Math.hypot(a.x - b.x, a.y - b.y), { pxPerHour, pxPerNight } = estimateScales(notes);
+  if (ROAD_PINS.includes(fromPin) && ROAD_PINS.includes(toPin)) {
+    const h = Math.max(1, Math.round(px / pxPerHour));
+    if (h < 24) return { hours: h, estimate: true };
+  }
+  const nights = Math.max(1, Math.round(px / pxPerNight));
+  return { nights: [nights, nights], estimate: true };
+}
+
+/** {from, to, time} of a drawn road on a scene ({id, notes, flags}); time null off the Hollow or between unknown pins.
+ *  The book's time (or his flag row) first; else an estimate between two known pins. */
 export function routeOf(scene, pts) {
   if (!scene || scene.id !== HOLLOW_SCENE || !pts?.length) return { from: null, to: null, time: null };
   const notes = [...(scene.notes ?? [])];
   const from = pinAt(notes, pts[0]), to = pinAt(notes, pts[pts.length - 1]);
   const overrides = scene.flags?.["mobile-command"]?.travelTimes ?? {};
-  return { from, to, time: routeTime(from, to, overrides) };
+  let time = routeTime(from, to, overrides);
+  const his = [from, to].some((p) => p !== VILLAGE_PIN && Object.prototype.hasOwnProperty.call(overrides, p))
+    && (from === VILLAGE_PIN || to === VILLAGE_PIN);
+  if (!time && !his) time = estimateTime(from, to, notes);
+  return { from, to, time };
 }
 
 /** The game hours the walk advances the clock by: hours as given; nights → the LOW end × 24 (his discretion above). */

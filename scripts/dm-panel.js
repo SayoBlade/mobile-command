@@ -2276,7 +2276,7 @@ function travelHTML() {
     const mi = ri.miles.toFixed(1), km = (ri.miles * KPH_PER_MPH).toFixed(1);
     const hrs = ri.miles * 8 / travelMilesPerDay(group); // live — recomputes when the pace changes
     const book = travelTimeLabel(ri.time); // T2: what the table is told and what the clock runs
-    readout = `<p class="mc-dmp-travel-hint">${book ? `<strong>${esc(book)}</strong> (the book's time)<br>` : ""}${ft} ft / ${mi} miles / ${km} km<br>${book ? "pace: " : ""}${fmtTravelTime(hrs)} at ${esc(travelPaceLabel(group))} speed</p>`;
+    readout = `<p class="mc-dmp-travel-hint">${book ? `<strong>${esc(book)}</strong> (${travelRouteInfo?.time?.estimate ? "estimate, from the map" : "the book's time"})<br>` : ""}${ft} ft / ${mi} miles / ${km} km<br>${book ? "pace: " : ""}${fmtTravelTime(hrs)} at ${esc(travelPaceLabel(group))} speed</p>`;
   }
   // ⚠️ Clear / Start / Stop were here. They are deck keys now — see the note on `goBody`.
   /**

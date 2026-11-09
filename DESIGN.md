@@ -2510,7 +2510,18 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    24 h, "up to your discretion"); `travelState().time` feeds the deck's Go key; MC's own deck keys say the time; the
    table hears it when the walk starts (phones "On the road: 4 hours.", the TV a 7-s caption), never miles; the DM
    panel keeps feet/miles/km under the book's time. Test `tools/test-travel-times.mjs` 19 (6x's real pins).
-   **Owed (seat):** R4 73–76 with the time. **His call:** nights → which end (built: low); Ch 12/21/22 times.
+   **Owed (seat):** R4 73–76 with the time. ~~**His call:** nights → which end (built: low); Ch 12/21/22 times.~~
+   **2026-11-09, his answers:** "Range, ok with 3 nights" (the low end stays). "Give a guestimate based on the travel
+   distances of the given times": every route the book doesn't time now gets an ESTIMATE (`estimateTime`), shown
+   to players as a plain time, "estimate, from the map" on the DM panel only. The book's nights don't follow map
+   distance (Ch 20 at 338 px = 3–5 nights; Foxwillow at 763 px = 1–2), so two scales, measured from the pins at run
+   time: ROAD (the wreck road, 183 px = 4 h) when both ends are road stops (Ch 10, 11, 12, 21, 22) → hours; else
+   WILDS (the 3–5-night areas' mean 700 px ÷ 3 nights) → whole nights, ≥ 1. Village → Ch 12 5 h, → Ch 21 6 h, →
+   Ch 22 6 h. A flag row (null too) still wins. Test now 25. Known oddity: a wild estimate between two valley pins
+   ignores the village (Ch 12 → Ch 23 = 1 night, though the village → Ch 23 is 3–5); his to override by flag.
+   **"How do I add?"** answered in chat: 6x has Simple Calendar Reborn, so its GM time controls; MC's own panel
+   clock (tap → day/hour steppers) shows only when SC is off. Proposed, not built: a "+1 night / +1 hour" pair on
+   the travel readout after arrival.
 0ᶻ. **BUILT 2026-11-09 — S3 (deck-command MC-PATCHES): no phone chip for an effect with no name of its own.**
    Seat R3 rerun 10 saw a "New Effect" chip on the Test Barbarian after the HM2 level-up to 3 (Zealot); the reset
    removed it before it was read, so its maker is NOT traced. "New Effect" is dnd5e's default (`DND5E.EFFECT.New`);
