@@ -166,7 +166,8 @@ async function dispatchAoO(attackerToken, moverDoc, activity, opts = {}) {
   // client with no shell (DM solo-test 2026-07-06: "nothing happened" — the card
   // went to the TV). No phone-capable owner online → fall through to the DM path.
   const displayUser = game.settings.get(MODULE_ID, "displayOwnerUser") || null;
-  const owners = game.users.filter(u => u.active && !u.isGM && u.id !== displayUser
+  // A hidden mover never reaches a phone (DM 2026-11-09, "for DMs not players"): it goes to the DM's path below.
+  const owners = moverDoc?.hidden ? [] : game.users.filter(u => u.active && !u.isGM && u.id !== displayUser
     && actor.testUserPermission(u, "OWNER"));
   if (owners.length) {
     for (const u of owners) aooPromptUser(u.id, payload);
@@ -180,7 +181,9 @@ async function dispatchAoO(attackerToken, moverDoc, activity, opts = {}) {
     game.users.filter(u => !u.isGM).map(u => ({ user: u.name, active: u.active, ownsReactor: actor.testUserPermission(u, "OWNER"), isDisplayAccount: u.id === displayUser })));
 
   // NPC attacker — or a PC with no player at the table → DM policy.
-  const mode = game.settings.get(MODULE_ID, "aooNpcMode");
+  // a hidden mover passing a PC: never an automatic swing (it would reveal it); the DM gets the chip and decides
+  const set = game.settings.get(MODULE_ID, "aooNpcMode");
+  const mode = moverDoc?.hidden && actor?.hasPlayerOwner && set !== "off" ? "prompt" : set;
   if (mode === "off") return;
   if (mode === "prompt") {
     // Non-modal by design (DM 2026-07-07: a dialog interrupts whatever the DM is

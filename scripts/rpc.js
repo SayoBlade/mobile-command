@@ -304,8 +304,10 @@ export function registerReactionRelay() {
         return; // let midi's native path handle it
       }
       const wf = options?.workflow;
-      const attackerTokenUuid = wf?.tokenUuid ?? wf?.token?.document?.uuid ?? wf?.token?.uuid ?? null;
-      const attackerName = wf?.token?.name ?? wf?.actor?.name ?? "";
+      // A hidden attacker stays unknown: no name on the card, and no pre-aim at it (hiddenFromPlayers)
+      const unseen = hiddenFromPlayers(wf?.token);
+      const attackerTokenUuid = unseen ? null : (wf?.tokenUuid ?? wf?.token?.document?.uuid ?? wf?.token?.uuid ?? null);
+      const attackerName = unseen ? "" : (wf?.token?.name ?? wf?.actor?.name ?? "");
       const reactionsOut = list.map(a => ({
         uuid: a.uuid,
         name: a.name ?? a.actionName ?? "Reaction",
@@ -354,7 +356,7 @@ export function registerDamageRelay() {
       const dmg = ((oldH.value ?? 0) - (newVal ?? oldH.value ?? 0)) + ((oldH.temp ?? 0) - (newTemp ?? oldH.temp ?? 0));
       if (dmg <= 0) return; // healing / temp gain
       const c = game.combat?.combatant;
-      const src = (c && c.actor && c.actor.id !== actor.id && c.actor.type !== "character") ? c.name : "";
+      const src = (c && c.actor && c.actor.id !== actor.id && c.actor.type !== "character" && !c.hidden && !hiddenFromPlayers(c.token)) ? c.name : "";
       const owners = game.users.filter(u => u.active && !u.isGM && actor.testUserPermission(u, "OWNER"));
       for (const u of owners) socket.executeAsUser("damageTaken", u.id, { actorId: actor.id, amount: dmg, source: src, ts: Date.now() });
       console.debug(`${MODULE_ID} | damage relay`, { actor: actor.name, dmg, src, owners: owners.map(u => u.name) });
@@ -539,7 +541,7 @@ export function registerSaveRelay() {
 function handleAssignTargets({ tokenUuids, fromName }) {
   // Phones have no canvas, so user.updateTokenTargets is unusable here —
   // assignments live in module state until the controller UI consumes them.
-  remoteState.assignedTargetUuids = tokenUuids ?? [];
+  remoteState.assignedTargetUuids = (tokenUuids ?? []).filter((u) => !hiddenFromPlayers(u)); // never a hidden token on a phone
   Hooks.callAll("mobile-command.assignTargets", remoteState.assignedTargetUuids, fromName);
   console.log(`mobile-command | targets assigned by ${fromName}:`, tokenUuids);
   return true;
@@ -859,7 +861,8 @@ async function handlePlacementConfirm() {
   const usage = { midiOptions: { workflowOptions: { autoRollAttack: true, fastForwardAttack: true, autoRollDamage: "always", fastForwardDamage: true, autoConsumeResource: "both", targetConfirmation: "none" } } };
   if (p.slotLevel) usage.spell = { slot: p.slotLevel };
   activity.use(usage, { configure: false }, {}).catch(e => console.warn(`${MODULE_ID} | AoE cast`, e));
-  return { ok: true, mode: "aoe", targets: targets.length, dmResolves: true };
+  // the DM resolves with every creature under it, hidden ones too; the phone hears only the ones it may know of
+  return { ok: true, mode: "aoe", targets: targets.filter(t => !hiddenFromPlayers(t)).length, dmResolves: true };
 }
 
 // --- executor-side helpers -------------------------------------------------
@@ -1111,7 +1114,8 @@ async function handleItemUse(payload) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
 
-  const { activityUuid, targetUuids = [], midiOptions = {}, consume = true, requesterId } = payload;
+  const { activityUuid, midiOptions = {}, consume = true, requesterId } = payload;
+  const targetUuids = playerTargetUuids(payload.targetUuids ?? [], requesterId); // never a hidden token from a phone
   const activity = await fromUuid(activityUuid);
   if (!activity) return { ok: false, stage: "resolve", reason: `activity not found: ${activityUuid}` };
   if (!requesterCanAct(requesterId, activity.item?.actor)) {
@@ -1321,7 +1325,7 @@ async function handleItemUseStart(payload) {
   // duplicate budget is the activity's `target.affects.count` (an upcast may scale it,
   // so a chosen slot lifts the budget to the hard ceiling — Magic Missile at 9th is 11).
   const MAX_INSTANCES = 12;
-  const cleanTargets = (Array.isArray(targetUuids) ? targetUuids : []).filter(u => typeof u === "string");
+  const cleanTargets = playerTargetUuids(targetUuids, requesterId); // strings only; never a hidden token from a phone
   const uniqueTargets = [...new Set(cleanTargets)];
   let countCap = Number(activity.target?.affects?.count);
   if (!Number.isFinite(countCap) || countCap < 1) countCap = 1;
@@ -2119,6 +2123,22 @@ async function handleMeasure({ fromTokenId, toTokenId }) {
   return { ok: true, distanceFt: MidiQOL.computeDistance(a, b, { wallsBlock: false }) };
 }
 
+// ── HIDDEN CREATURES ARE FOR THE DM, NOT PLAYERS (DM 2026-11-09) ────────────────────────────────────────────
+// *"For DMs not players."* The DM (the deck, a GM client) may target a hidden token; a player's phone must never
+// list it, offer it, aim at it, or learn it is there (no name, no count, no prompt it would cause). Every path
+// that hands a token to a phone, or takes one from it, goes through these two.
+/** Is this token (document, placeable, or uuid) hidden from players? */
+export function hiddenFromPlayers(t) {
+  const d = typeof t === "string" ? (() => { try { return fromUuidSync(t); } catch (e) { return null; } })() : t;
+  return !!(d?.document ?? d)?.hidden;
+}
+/** The target uuids a requester may aim at: all of them for a GM, the non-hidden ones for a player. */
+export function playerTargetUuids(uuids, requesterId) {
+  const list = (Array.isArray(uuids) ? uuids : []).filter((u) => typeof u === "string");
+  if (game.users.get(requesterId)?.isGM) return list;
+  return list.filter((u) => !hiddenFromPlayers(u));
+}
+
 // A dead corpse / loot pile isn't a valid attack target (DM 2026-07-12: a lootable "Goblin 2"
 // kept showing up in the attack picker). True for an Item Piles pile, a Defeated combatant, the
 // dead status, or an NPC at 0 HP.
@@ -2134,7 +2154,7 @@ function isDeadCorpse(token) {
     return false;
   } catch (e) { return false; }
 }
-async function handleTargetsList({ forTokenId }) {
+async function handleTargetsList({ forTokenId, requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
   if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
@@ -2148,7 +2168,8 @@ async function handleTargetsList({ forTokenId }) {
   for (const token of canvas.tokens.placeables) {
     if (token === origin) continue;
     if (!token.actor) { excluded.push({ name: token.document.name, why: "no-actor" }); continue; }
-    if (token.document.hidden) { excluded.push({ name: token.document.name, why: "hidden" }); continue; }
+    // hidden: the DM's to target, never a player's (hiddenFromPlayers)
+    if (token.document.hidden && !game.users.get(requesterId)?.isGM) { excluded.push({ name: token.document.name, why: "hidden" }); continue; }
     if (isDeadCorpse(token)) { excluded.push({ name: token.document.name, why: "dead/pile" }); continue; }
     if (!MidiQOL.canSense(origin, token)) {
       excluded.push({
@@ -2198,10 +2219,10 @@ async function handleTargetsList({ forTokenId }) {
 // (§5 broadcast trick) supersedes this once the TV client is in play. Empty
 // list clears. completeActivityUse passes ignoreUserTargets, so these preview
 // targets never interfere with the explicit targetUuids at fire time.
-function handlePreviewTargets({ tokenUuids = [] }) {
+function handlePreviewTargets({ tokenUuids = [], requesterId }) {
   if (!isExecutor()) return { ok: false, reason: "not the DM" };
   if (!onActiveScene()) return { ok: false, reason: "the DM isn't on the active scene" };
-  const ids = tokenUuids.map(u => fromUuidSync(u)?.object?.id).filter(Boolean);
+  const ids = playerTargetUuids(tokenUuids, requesterId).map(u => fromUuidSync(u)?.object?.id).filter(Boolean);
   // v14: TokenLayer#setTargets(ids, {mode}) — "replace" sets exactly these and
   // releases the rest; [] clears. (User#updateTokenTargets no longer exists.)
   canvas.tokens.setTargets(ids, { mode: "replace" });
@@ -2237,7 +2258,7 @@ async function handleListLoot({ forActorUuid } = {}) {
   const piles = [];
   for (const t of (canvas.tokens?.placeables ?? [])) {
     try {
-      if (!API.isValidItemPile(t)) continue;
+      if (!API.isValidItemPile(t) || hiddenFromPlayers(t)) continue;
       const merchant = API.isItemPileMerchant?.(t) ?? false;
       const lootable = API.isItemPileLootable?.(t) ?? false;
       if (!merchant && !lootable) continue;              // only loot piles or merchant shops
@@ -2332,7 +2353,7 @@ async function handleListInteractables({ forActorUuid } = {}) {
   if (game.modules.get("monks-active-tiles")?.active) {
     for (const d of scene.tiles) {
       const f = d.flags?.["monks-active-tiles"];
-      if (!f?.active || !(f.actions?.length)) continue;
+      if (!f?.active || !(f.actions?.length) || d.hidden) continue; // a hidden tile is the DM's
       const trig = Array.isArray(f.trigger) ? f.trigger : [f.trigger];
       if (!trig.some(m => ["click", "dblclick", "manual"].includes(m))) continue; // only player-operable
       const dist = rectDistPx(c.x, c.y, d.x, d.y, d.width, d.height);
