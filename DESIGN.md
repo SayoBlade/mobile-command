@@ -2435,6 +2435,15 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    wins); an unknown key stays the ability check. `test-roll-request-skill` 10. **Owed, 6x, GM + phone reload:**
    (1) Party → Ask a roll → Perception → the phone's card rolls a "Perception" check.
 
+0ʳ. **BUILT 2026-11-09 — tour R5 step 98: the séance planchette trembled in place and spelled nothing (§30).** Not
+   6x data: the board's marks are constants in seance.js. `tick()` let one frame advance at most 50 ms, so a TV
+   drawing fewer than 20 frames a second ran the séance in slow motion; at 1 frame/s (a throttled browser tab) the
+   2.6 s wake-up took 52 s, the observed "±3 px, no letter" exactly (reproduced headless). Now real time, capped at
+   1 s. `test-seance-pace` 6 (60 fps and 1 fps; fails on the old cap). ⚠️ The TV's real frame rate in R5 was not
+   measured, so the cause is the best fit, not traced live. **Owed, 6x, TV reload:** (1) Spirit board → Answer → YES:
+   the planchette stirs within ~3 s and lands on YES; (2) HAG: it rests on H, A, G in turn; (3) if it still only
+   trembles, count the TV tab's frames per second and record it here.
+
 0ᵠ. **OPEN 2026-11-09 — NEEDS HIS NUMBER: travel on Wickermoor Hollow reads "0 mi" (deck-command MC-PATCHES-2026-11-09
    T1).** The Hollow (and Druskenvald) keep the default 100 px = 5 ft grid, so a Ch 10 → Ch 11 road measures ~0.002 mi
    and the clock barely moves; `finishTravelRoute` is right for the grid as set, and the book gives no scale.
