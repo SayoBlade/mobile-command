@@ -161,9 +161,37 @@ export function isBed(flags) {
   return m.bed === true || /:bed$/.test(String(m.cm ?? ""));
 }
 
-/** Does the bed keep playing while the layer plays `target`? Everything but Silence. */
-export function bedStays(target) {
-  return Boolean(target) && target.kind !== "silence";
+// ── EITHER OR: one music track at a time (DM 2026-11-09) ────────────────────────────────────────────
+// *"No dual music tracks (not counting environmental sound), either or."* Seen: the Attic's bed (Dark Ritual)
+// played under the Cauldron fight's music at the same level. So a bed is one of two kinds:
+//   environment  rain, wind, creaks, drips: layers under any music, as decision 8 had it (only Silence stops it)
+//   music        a tonal mood bed: it IS the music while nothing else plays, and stops the moment room, fight,
+//                cue or a manual pick takes over. It comes back by itself: when that layer ends, the layer drops
+//                to the scene default, which is this bed, and plays it again.
+// The kind is `flags.mobile-command.bedKind` when set ("music" | "environment": his to flip on any sound), else
+// the table below for the beds MC put in the world, else environment (a bed flag is the ambience promise).
+// The table is by ear-and-file (2026-11-09, chunk 5): the catalogue files all four under ambience, but only the
+// first floor's is weather; the other three are sustained dark-tone pieces with no environment in them, and the
+// DM heard the Attic's as music under the fight.
+export const BED_KINDS = Object.freeze({
+  "12.1:bed": "environment", // house-divided ambient/ruined/abandoned-mansion-rain.ogg: the storm outside
+  "12.2:bed": "music",       // house-divided ambient/ruined/haunted-house.ogg: an even, tonal haunted-house pad
+  "12.3:bed": "music",       // Ghelfi Ambiences 6 shortloops/Hall-of-Horrors.ogg: a dark-tone piece
+  "12.4:bed": "music",       // Ghelfi Ambiences 3 shortloops/Dark-Ritual.ogg: the ritual drone (the Attic case)
+});
+
+/** "music" | "environment" for a bed's `flags`. */
+export function bedKind(flags) {
+  const m = flags?.["mobile-command"] ?? {};
+  if (m.bedKind === "music" || m.bedKind === "environment") return m.bedKind;
+  return BED_KINDS[String(m.cm ?? "")] ?? "environment";
+}
+
+/** Does the bed keep playing while the layer plays `target`? An environment bed: everything but Silence.
+ *  A music bed: never under other music (when the target is the bed itself, crossfade keeps it as the target). */
+export function bedStays(target, kind = "environment") {
+  if (!target || target.kind === "silence") return false;
+  return kind !== "music";
 }
 
 // ── a scene's own fight music (DM 2026-11-08, WORKPLAN decision 9) ─────────────────────────────────

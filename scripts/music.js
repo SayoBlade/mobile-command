@@ -32,7 +32,7 @@
  */
 import { MODULE_ID } from "./preset.js";
 import { combatMusicMode, configureForCombat, restoreTouched } from "./combat-music.js";
-import { resolveMusic, targetKey, battleFor, manualStillHolds, partyRoom, Dwell, OVERLAP_SETTING, OVERLAP_DEFAULT, overlapApplies, handOffIn, handOffUpdate, isBed, bedStays, sceneBattleOf } from "./music-core.js";
+import { resolveMusic, targetKey, battleFor, manualStillHolds, partyRoom, Dwell, OVERLAP_SETTING, OVERLAP_DEFAULT, overlapApplies, handOffIn, handOffUpdate, isBed, bedStays, bedKind, sceneBattleOf } from "./music-core.js";
 
 export const MUSIC_BEHAVIOR_TYPE = `${MODULE_ID}.music`;
 const HOOK = `${MODULE_ID}.music`;
@@ -190,12 +190,12 @@ function musicPlaylists() {
   return [...set].filter(Boolean);
 }
 
-/** The active scene's own ambience bed (its Playlist field's sound, flagged a bed), or null. */
-function activeBedId() {
+/** The active scene's own bed (its Playlist field's sound, flagged a bed): { id, kind }, or null. */
+function activeBed() {
   const sc = game.scenes?.active;
   const ps = sc?.playlistSound;
   const s = ps && typeof ps === "object" ? ps : sc?.playlist?.sounds?.get?.(ps);
-  return s && isBed(s.flags) ? s.id : null;
+  return s && isBed(s.flags) ? { id: s.id, kind: bedKind(s.flags) } : null;
 }
 
 async function stopSoundOf(pl, s) {
@@ -220,9 +220,11 @@ async function crossfade(target) {
     if (!s.playing) await s.parent.playSound(s);
     keep = s;
   }
-  // the floor's bed (the rain) plays on under whatever comes in; only Silence stops it (music-core isBed).
+  // the floor's ENVIRONMENT bed (the rain) plays on under whatever comes in; only Silence stops it. A MUSIC bed
+  // stops under other music, either or (DM 2026-11-09, music-core bedKind), and the scene layer brings it back.
   // ⚠️ ONLY THIS FLOOR'S BED: the four floors share one beds playlist, and the one he left must still stop.
-  const bed = bedStays(target) ? activeBedId() : null;
+  const here = activeBed();
+  const bed = here && bedStays(target, here.kind) ? here.id : null;
   for (const pl of musicPlaylists()) {
     if (!pl.playing) continue;
     if (keep && (keep === pl)) continue;

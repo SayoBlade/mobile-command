@@ -15,7 +15,7 @@ function check(label, ok, detail = "") {
 }
 
 const core = await import(pathToFileURL(path.join(ROOT, "scripts", "music-core.js")).href);
-const { isBed, bedStays, sceneBattleOf, battleFor } = core;
+const { isBed, bedStays, bedKind, BED_KINDS, sceneBattleOf, battleFor } = core;
 
 // ── which sounds are beds ─────────────────────────────────────────────────────────────────────────
 check("a Crooked House floor track (cm '12.1:bed') is a bed", isBed({ "mobile-command": { cm: "12.1:bed" } }));
@@ -37,8 +37,19 @@ check("a foe that names its own battle still beats the scene's", battleFor([pc, 
 
 // ── the glue: music.js plays only this floor's bed through, and reads the scene's fight music ───────
 const src = fs.readFileSync(path.join(ROOT, "scripts", "music.js"), "utf8");
-check("crossfade spares only the ACTIVE scene's bed (the four floors share one playlist)",
-  /const bed = bedStays\(target\) \? activeBedId\(\) : null;/.test(src) && /if \(bed && s\.id === bed\) continue;/.test(src));
+check("crossfade spares only the ACTIVE scene's bed, and only if its kind stays (the four floors share one playlist)",
+  src.includes("const bed = here && bedStays(target, here.kind) ? here.id : null;") && /if \(bed && s\.id === bed\) continue;/.test(src));
+
+// ── either or (DM 2026-11-09): one music track at a time; environment layers under it ──────────────
+const F = (cm, extra = {}) => ({ "mobile-command": { cm, ...extra } });
+check("6x's beds classified: 12.1 rain = environment; 12.2 haunted house, 12.3 hall of horrors, 12.4 dark ritual = music",
+  bedKind(F("12.1:bed")) === "environment" && ["12.2:bed", "12.3:bed", "12.4:bed"].every((k) => bedKind(F(k)) === "music") && Object.keys(BED_KINDS).length === 4);
+check("his flag wins either way (bedKind on the sound)", bedKind(F("12.1:bed", { bedKind: "music" })) === "music" && bedKind(F("12.4:bed", { bedKind: "environment" })) === "environment");
+check("an unknown bed (bed: true) is environment", bedKind({ "mobile-command": { bed: true } }) === "environment");
+const room = { kind: "playlist", uuid: "Playlist.room" }, fight = { kind: "playlist", uuid: "Playlist.fight" }, cue = { kind: "sound", uuid: "Playlist.c.PlaylistSound.x" };
+check("the Attic case: the Cauldron fight's music comes in → the Dark Ritual bed stops", !bedStays(fight, bedKind(F("12.4:bed"))));
+check("…and so for room music and a cue on the 2nd and 3rd floors", [room, cue].every((t) => !bedStays(t, "music")));
+check("the 1st floor's rain still plays under room, fight and cue music", [room, fight, cue].every((t) => bedStays(t, bedKind(F("12.1:bed")))));
 
 const MOD = "mobile-command";
 const store = new Map([["musicLayer", true], ["musicState", {}], ["combatMusicPlaylist", "Playlist.world"]]);
