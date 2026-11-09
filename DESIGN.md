@@ -2500,7 +2500,18 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    the planchette stirs within ~3 s and lands on YES; (2) HAG: it rests on H, A, G in turn; (3) if it still only
    trembles, count the TV tab's frames per second and record it here.
 
-0ᵠ. **OPEN 2026-11-09 — NEEDS HIS NUMBER: travel on Wickermoor Hollow reads "0 mi" (deck-command MC-PATCHES-2026-11-09
+0ʸ. **BUILT 2026-11-09 — T2 (deck-command MC-PATCHES): travel takes the BOOK's time by route; miles are the DM's only.**
+   His ruling: *"Let's go with time and not miles for travel (leave miles for dm) and let's set times based on the book
+   description."* `scripts/travel-times.js`: a road on Wickermoor Hollow is a route (the chapter pin nearest its start →
+   the one nearest its end, 150 px snap, nearest wins); its time is the book's, from the village: Ch 10 wreck ↔ village
+   4 hours (Ch 11); Foxwillow (Ch 13) and Maidenmist (Ch 19) 1–2 nights; Ch 14–18, 20, 23, 24 3–5 nights (Ch 9); Ch 12,
+   21, 22 and any route not touching the village: none (no time shown; the DM's pace and miles stand). His edits: scene
+   flag `mobile-command.travelTimes` (pin id → time | null). The walk advances the clock by it (nights → the LOW end ×
+   24 h, "up to your discretion"); `travelState().time` feeds the deck's Go key; MC's own deck keys say the time; the
+   table hears it when the walk starts (phones "On the road: 4 hours.", the TV a 7-s caption), never miles; the DM
+   panel keeps feet/miles/km under the book's time. Test `tools/test-travel-times.mjs` 19 (6x's real pins).
+   **Owed (seat):** R4 73–76 with the time. **His call:** nights → which end (built: low); Ch 12/21/22 times.
+~~0ᵠ. OPEN 2026-11-09 — NEEDS HIS NUMBER~~ **CLOSED 2026-11-09 by 0ʸ (time, not miles).** travel on Wickermoor Hollow reads "0 mi" (deck-command MC-PATCHES-2026-11-09
    T1).** The Hollow (and Druskenvald) keep the default 100 px = 5 ft grid, so a Ch 10 → Ch 11 road measures ~0.002 mi
    and the clock barely moves; `finishTravelRoute` is right for the grid as set, and the book gives no scale.
    **Ask him:** how many miles is one square of the Hollow (or how far Ch 10 → Ch 11)? Then, recommended, a per-scene

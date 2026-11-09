@@ -9070,6 +9070,20 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 
 let shellInstance = null;
 
+/** The TV's travel caption: "On the road · 4 hours", low centre, ~7 s, then gone. One at a time. */
+function showTravelCaption(label) {
+  try {
+    document.getElementById("mc-travel-caption")?.remove();
+    const el = document.createElement("div");
+    el.id = "mc-travel-caption";
+    el.className = "mc-travel-caption";
+    el.textContent = `On the road · ${label}`;
+    document.body.appendChild(el);
+    setTimeout(() => el.classList.add("mc-out"), 6500);
+    setTimeout(() => el.remove(), 7500);
+  } catch (e) { /* a caption only */ }
+}
+
 // The shell is frameless and pinned at z-index 9999 (CSS). Framed dialogs
 // (roll config, save/reaction prompts) get z = ++ApplicationV2._maxZ, which
 // starts ~100s — i.e. BELOW the shell, so they'd open hidden behind it. Raise
@@ -9528,6 +9542,12 @@ export function registerShellHooks() {
   Hooks.on("mobile-command.colorPick", () => { if (shellInstance) { shellInstance.openColorPick(); } });
   Hooks.on("mobile-command.savePrompt", (payload) => shellInstance?.noteSavePrompt(payload));
   Hooks.on("mobile-command.storyPrompt", () => shellInstance?.render()); // the pushed question card (§38.4)
+  // T2 (DM 2026-11-09): the party sets off. The table hears the TIME, never miles: the TV a caption, a phone a notice.
+  Hooks.on("mobile-command.travelNotice", ({ label } = {}) => {
+    if (!label) return;
+    if (isDisplayClient()) return showTravelCaption(label);
+    if (shellInstance) notifier.info(`On the road: ${label}.`);
+  });
   Hooks.on("mobile-command.reactionPrompt", (payload) => shellInstance?.noteReactionPrompt(payload));
   Hooks.on("mobile-command.rollRequest", (payload) => shellInstance?.noteRollRequest(payload));
   Hooks.on("mobile-command.aooPrompt", (payload) => shellInstance?.noteAoOPrompt(payload));

@@ -137,6 +137,7 @@ export function initSocket() {
   reg("storyEdit", handleStoryEdit);
   reg("storyDelete", handleStoryDelete);
   reg("storyPrompt", handleStoryPrompt);     // executor → phone: the pushed question
+  reg("travelNotice", handleTravelNotice);   // T2: executor → every player client: the journey's book time
   reg("storyAnswered", handleStoryAnswered); // phone → executor: quiet ✓ for the panel
   reg("szEvent", handleSzEvent);             // §38.4a lockstep: wizard → card table
   reg("portraitUpload", handlePortraitUpload);
@@ -2871,6 +2872,26 @@ export function pushStoryQuestion(q) {
   return { ok: true, sent: targets.length };
 }
 // Phone-side: a question arrived — park it in remoteState and let the shell paint the card.
+/**
+ * T2 (DM 2026-11-09): when the party sets off, every non-GM client hears the journey's TIME in the book's words
+ * ("4 hours", "3–5 nights"); miles are the DM's only. Phones show a notice, the TV a caption (shell.js). GM-sent only.
+ */
+export function broadcastTravelNotice({ label } = {}) {
+  if (!isExecutor() || !socket) return { ok: false, reason: "not the DM client" };
+  const said = String(label ?? "").trim().slice(0, 40);
+  if (!said) return { ok: false, reason: "no time to say" };
+  const payload = { label: said, ts: Date.now() };
+  for (const u of game.users.filter(u => u.active && !u.isGM)) {
+    try { socket.executeAsUser("travelNotice", u.id, payload); } catch (e) { console.warn(`${MODULE_ID} | travelNotice failed for ${u.name}`, e); }
+  }
+  return { ok: true };
+}
+function handleTravelNotice(payload) {
+  if (!game.users.get(payload?.requesterId)?.isGM) return false; // only the DM's client says it
+  Hooks.callAll("mobile-command.travelNotice", { label: String(payload.label ?? "").slice(0, 40) });
+  return true;
+}
+
 function handleStoryPrompt(payload) {
   console.debug(`${MODULE_ID} | storyPrompt received`, payload);
   remoteState.storyPrompt = payload ?? null;
@@ -4342,6 +4363,8 @@ function toExecutor(handler, payload) {
 }
 
 export const api = {
+  /** T2: tell the table the journey's book time (the walk calls it; miles never go out). */
+  travelNotice: (p) => broadcastTravelNotice(p),
   /**
    * REVIVE A CORPSE (DM 2026-10-13) — executor-local, so it is called rather than routed. Never
    * refuses over loot: anything already lifted off the body is named in a warning and the revive

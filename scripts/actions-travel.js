@@ -1,4 +1,7 @@
 import { defineActions } from "./actions.js";
+import { travelTimeLabel } from "./travel-times.js";
+// T2 (DM 2026-11-09): a route says its BOOK time; miles only when the book gives none (these are the DM's own keys)
+const routeWords = (s) => travelTimeLabel(s.time) ?? `${Math.round(s.miles)} mi`;
 import { beginTravel, armTravelRoute, runTravelJourney, stopTravelJourney, packedGroup, travelState }
   from "./dm-panel.js";
 
@@ -67,7 +70,7 @@ defineActions([
       const s = travelState();
       if (!s.packed) return "form up first";
       if (!s.canDraw) return "open the panel";
-      return s.routed ? `${Math.round(s.miles)} mi · draw again to replace` : "draw from the party";
+      return s.routed ? `${routeWords(s)} · draw again to replace` : "draw from the party";
     },
     run: () => { armTravelRoute(); },
   }),
@@ -86,7 +89,7 @@ defineActions([
       const s = travelState();
       if (s.walking) return "walking…";
       if (!s.routed) return "draw a road first";
-      return `${Math.round(s.miles)} mi · the clock runs`;
+      return `${routeWords(s)} · the clock runs`;
     },
     run: async () => {
       const g = packedGroup();

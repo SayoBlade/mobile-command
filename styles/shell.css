@@ -4035,6 +4035,13 @@ body.mc-theme-wizard .mc-frame {
 .mc-name-lvl.mc-lvl-ready { position: relative; }
 .mc-name-lvl.mc-lvl-ready::after { content: ""; position: absolute; top: -3px; right: -3px; width: 9px; height: 9px;
   border-radius: 50%; background: var(--mc-gold); box-shadow: 0 0 0 2px var(--mc-panel); }
+/* T2 (DM 2026-11-09): the TV's travel caption, the journey's time in the book's words (never miles). Low centre, read
+   from the couch, gone in ~7 s. Ink on the panel, a gold hairline: information, not a button (UI-BIBLE §2). */
+.mc-travel-caption { position: fixed; left: 50%; bottom: 9%; transform: translateX(-50%); z-index: 10000; pointer-events: none;
+  padding: 14px 28px; border-radius: calc(12px * var(--mc-round, 1)); background: var(--mc-panel); color: var(--mc-ink);
+  border: 1px solid var(--mc-gold); font-family: var(--mc-font-title, inherit); font-size: clamp(22px, 3.2vw, 44px);
+  letter-spacing: .02em; opacity: 1; transition: opacity 1s ease; }
+.mc-travel-caption.mc-out { opacity: 0; }
 .mc-name-lvl:active { background: linear-gradient(var(--mc-primary-active), var(--mc-primary)); }
 .mc-lvl-num { flex: 0 0 auto; }
 /* Class/subclass badge icons before the level. Class = rounded square, subclass =

@@ -1,5 +1,6 @@
 import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState } from "./rpc.js";
 import { notifier } from "./notifier.js";
+import { routeOf, bookHours, travelTimeLabel } from "./travel-times.js"; // T2: the book's time per route (DM 2026-11-09)
 import { fireAoO } from "./aoo.js";
 import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK, GLOBAL_LIGHT_NIGHT_THRESHOLD, STORY_QUESTIONS, TABLE_SEATS, CARD_THEMES, DEFAULT_CARD_THEME, DEFAULT_CARD_BACK } from "./preset.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine helpers
@@ -1982,7 +1983,11 @@ export async function runTravelJourney(group) {
   const pts = travelRoutePts;
   if (!gt || !pts || pts.length < 2 || !travelRouteInfo) { notifier.warn("Draw a route first."); return; }
   if (travelJourneyActive) return;
-  const totalHours = Math.max(1, Math.round(travelRouteInfo.miles * 8 / travelMilesPerDay(group)));
+  // T2 (DM 2026-11-09): the book's time for this route when it gives one; else the DM's pace over the measured miles
+  const totalHours = bookHours(travelRouteInfo.time) ?? Math.max(1, Math.round(travelRouteInfo.miles * 8 / travelMilesPerDay(group)));
+  // the table hears the TIME (never miles): phones as a notice, the TV as a caption (rpc broadcastTravelNotice)
+  const said = travelTimeLabel(travelRouteInfo.time);
+  if (said) { try { api.travelNotice?.({ label: said }); } catch (e) { /* a notice only */ } }
   const cum = travelCumLen(pts), total = cum[cum.length - 1];
   // Follow the DRAWN line: resample to closely-spaced waypoints (a single-jump animation goes
   // straight and would chord across the curves — DM 2026-07-18 "takes the shortest path"). Cap
@@ -2145,7 +2150,9 @@ async function finishTravelRoute(group, pts) {
   const units = (grid.units || "").trim();
   const miles = travelToMiles(dist, units);
   const mpd = travelMilesPerDay(group);
-  travelRouteInfo = { miles }; // time is derived live from the current pace (not frozen at draw)
+  // T2: the route's book time (pins at its two ends); miles stay for the DM's own readout. Pace-time is derived live.
+  const route = routeOf(scene, pts);
+  travelRouteInfo = { miles, time: route.time, from: route.from, to: route.to };
   travelRoutePts = pts.slice(); // §18 T3: the journey walks the token along these
   // Replace any prior route, then draw the new one (dashed, thick, white) for everyone. If Foundry
   // rejects the dash batch for any reason, fall back to the proven single solid polyline so a line
@@ -2268,7 +2275,8 @@ function travelHTML() {
     const ft = Math.round(ri.miles * 5280).toLocaleString();
     const mi = ri.miles.toFixed(1), km = (ri.miles * KPH_PER_MPH).toFixed(1);
     const hrs = ri.miles * 8 / travelMilesPerDay(group); // live — recomputes when the pace changes
-    readout = `<p class="mc-dmp-travel-hint">${ft} ft / ${mi} miles / ${km} km<br>${fmtTravelTime(hrs)} at ${esc(travelPaceLabel(group))} speed</p>`;
+    const book = travelTimeLabel(ri.time); // T2: what the table is told and what the clock runs
+    readout = `<p class="mc-dmp-travel-hint">${book ? `<strong>${esc(book)}</strong> (the book's time)<br>` : ""}${ft} ft / ${mi} miles / ${km} km<br>${book ? "pace: " : ""}${fmtTravelTime(hrs)} at ${esc(travelPaceLabel(group))} speed</p>`;
   }
   // ⚠️ Clear / Start / Stop were here. They are deck keys now — see the note on `goBody`.
   /**
@@ -5212,7 +5220,8 @@ export function travelState() {
     packed: Boolean(group),
     routed: Boolean(travelRoutePts && travelRoutePts.length > 1 && travelRouteInfo),
     walking: travelJourneyActive,
-    miles: travelRouteInfo?.miles ?? null,
+    miles: travelRouteInfo?.miles ?? null,              // the DM's own; never shown to the table (T2)
+    time: travelRouteInfo?.time ?? null,                // T2: { hours } | { nights: [min, max] } | null, the book's
     // ⚠️ `globalThis.document`, not `document`. The headless bench has no DOM, and a bare
     // reference threw a ReferenceError on EVERY read of the travel area — caught by the
     // registry's own guard, so the keys merely went dim while the console filled with errors.
