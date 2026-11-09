@@ -2435,6 +2435,22 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    wins); an unknown key stays the ability check. `test-roll-request-skill` 10. **Owed, 6x, GM + phone reload:**
    (1) Party → Ask a roll → Perception → the phone's card rolls a "Perception" check.
 
+0ˢ. **BUILT 2026-11-09 — S1 (deck-command MC-PATCHES), tour R3 rerun 3 step 57: a phone's save never counted; midi
+   re-rolled it on the DM's side at 30 s, breaking "players roll their own saves".** midi files a player's save under the
+   asked token's id and matches only a roll whose `speaker.token` is that id; dnd5e takes the speaker from
+   `actor.getActiveTokens()`, which is [] without a canvas. Fix (commit 94c7174): the save relay carries `tokenUuid`;
+   `rpc.rollMessageFor(actor, tokenUuid)` (else the actor's token on the active scene) is the third roll argument for the
+   save prompt, the roll-request card (skill/check/save; so the 0ᵖ skill fix names the token too) and downtime rolls.
+   Test `tools/test-phone-save-counts.mjs` (12, against midi 14.6.8's matcher logic). **Owed (seat):** a midi save at a
+   phone target inside 30 s is kept, and only an absent player's target is auto-rolled. Needs the DM/executor client reloaded.
+0ᵗ. **BUILT 2026-11-09 — tour R5 rerun 2 step 103: a phone stepped onto the 12.1 stair, the token stopped half a square
+   in, nobody was asked, and the hand said "Nothing to use."** Two causes: the phone's move runs on the DM's client, so
+   core's asking teleporter (`choice: true`) paused the token where its centre crossed in and asked THAT client; and the
+   hand knew only MC's own travel squares. Fix (commit 0f688a0): any enabled core teleporter is a travel square
+   (`rpc.teleporterOf`; train doors excepted, their landing stays the square); any overlap counts; a phone step onto an
+   asking one goes the whole square as a `displace` (core's teleporter ignores it) and the phone asks: Basic Stay / Go →
+   the DM's Cancel / Move / Move group ask, Complex the alone/group question. Players on a canvas keep core's own dialog.
+   Test `tools/test-house-stair-walk.mjs` (19, 6x's stair geometry). **Owed (seat):** steps below in the chunk-4 report.
 0ʳ. **BUILT 2026-11-09 — tour R5 step 98: the séance planchette trembled in place and spelled nothing (§30).** Not
    6x data: the board's marks are constants in seance.js. `tick()` let one frame advance at most 50 ms, so a TV
    drawing fewer than 20 frames a second ran the séance in slow motion; at 1 frame/s (a throttled browser tab) the
