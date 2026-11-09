@@ -25,6 +25,7 @@ import { mayCoverViewport } from "./overlay-guard.js"; // §22.7 the one full-sc
 const LETTER_R = 0.60;        // outer ring radius as a fraction of half the board
 const DIGIT_R = 0.42;         // digits arc radius
 const PLANCHETTE_FRAC = 0.30; // planchette width as a fraction of the board
+export const SEANCE_MAX_DT = 1000; // ms of real time one frame may advance the planchette (see tick)
 // Lens center within the processed sprite (626x653, lens at 315,338) — the landing point.
 const LENS_X = 315 / 626, LENS_Y = 338 / 653;
 
@@ -281,7 +282,11 @@ function angDiff(a, b) {
 
 function tick(t) {
   raf = requestAnimationFrame(tick);
-  const dt = Math.min(50, t - lastT);
+  // REAL elapsed time, capped at 1 s (2026-11-09, tour R5 step 98). The old 50 ms cap meant a TV whose
+  // frames came slower than 20 a second ran the séance in slow motion: at the 1 frame/s a throttled tab
+  // gets, the 2.6 s wake-up took 52 s and the planchette only trembled in place — "no letter lights".
+  // The 1 s cap still keeps a tab coming back from the background from skipping a whole phrase.
+  const dt = Math.max(0, Math.min(SEANCE_MAX_DT, t - lastT));
   lastT = t;
   phaseT += dt;
   const prev = { a: cur.a, r: cur.r };
