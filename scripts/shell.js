@@ -303,6 +303,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #nearbyTiles = null;    // active-tile interactables within reach: [{id, label, distance}]
   #nearbyTravel = null;   // 37 train travel squares within reach: [{id, label, distance}]
   #travelAsk = null;      // 37 the open travel question { regionId }
+  #stepAsk = null;        // Basic: stepped onto a stair (a teleporter that asks) { regionId, label }; Go asks the DM
   #lootBusy = false;      // a nearby-scan round-trip is in flight
   #journalDraft = "";     // entry composer text, kept across re-renders so typing isn't wiped
   #journalBusy = false;   // a journal write is in flight
@@ -4914,6 +4915,17 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // §37 The travel question replaces the pad while it's open — the answer is a scene change,
     // and leaving the arrows live invites a stray tap mid-decision. No destination name: which
     // car is next is something the party should find out by going there.
+    // Stepped onto a stair in Basic (R5 step 103): the player's own question first; Go hands it to the DM's ask
+    // (#chooseTravel), as the hand would. Complex never comes here: its step opens #travelAsk directly.
+    if (this.#stepAsk && !surfaceOn("travel")) {
+      return `<div class="mc-tp-ask">
+        <div class="mc-tp-ask-title"><i class="fas fa-person-walking-arrow-right"></i> ${foundry.utils.escapeHTML(this.#stepAsk.label ?? "Travel")}?</div>
+        <div class="mc-tp-ask-btns">
+          <button class="mc-jn-cancel" data-action="step-stay">Stay</button>
+          <button class="mc-jn-post" data-action="step-go">Go</button>
+        </div>
+      </div>`;
+    }
     if (this.#travelAsk && surfaceOn("travel")) {
       return `<div class="mc-tp-ask">
         <div class="mc-tp-ask-title"><i class="fas fa-person-walking-arrow-right"></i> ${foundry.utils.escapeHTML(this.#travelAsk.label ?? "Travel")}?</div>
@@ -7799,6 +7811,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "travel-open":
         this.#clearNearby();
         return this.#chooseTravel(el.dataset.id, el.dataset.label);
+      case "step-stay":
+        this.#stepAsk = null;
+        this.#useNote("You stay. Tap the hand to go.");
+        return this.render();
+      case "step-go": {
+        const ask = this.#stepAsk;
+        this.#stepAsk = null;
+        if (!ask) return this.render();
+        return this.#chooseTravel(ask.regionId, ask.label);
+      }
       case "travel-cancel":
         this.#travelAsk = null;
         return this.render();
@@ -8067,6 +8089,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!res?.ok) this.#moveBudget = { text: res?.stage === "collision" ? "Blocked" : (res?.reason ?? "Blocked"), cls: "mc-move-note mc-move-red" };
     else if (res.speed) this.#moveBudget = { text: `${res.used} / ${res.speed} ft`, cls: `mc-move-note mc-move-${res.color}` };
     else this.#moveBudget = null;
+    // Stepped onto a stair (a teleporter that asks, R5 step 103): ask now. Complex: the player's own
+    // alone/group question; Basic: Stay / Go, and Go asks the DM. Nothing moves until it is answered.
+    if (res?.ok && res.stepAsk?.regionId) {
+      this.#moveBudget = null;
+      if (surfaceOn("travel")) this.#travelAsk = { regionId: res.stepAsk.regionId, label: res.stepAsk.label };
+      else this.#stepAsk = { regionId: res.stepAsk.regionId, label: res.stepAsk.label };
+      return this.render();
+    }
     // Standing on a travel square: walking there never crosses (§37), so say what does (R2 step 39).
     if (res?.ok && res.travelHere) {
       const hint = `${res.travelHere}: tap the hand.`;

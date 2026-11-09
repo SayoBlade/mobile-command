@@ -1691,6 +1691,29 @@ function travelPointOf(scene, region) {
     const dest = b?.system?.destination ?? (dests ? [...dests][0] : undefined);
     if (dest) return { label: "Travel to next car", dest: String(dest) };
   }
+  // Any core teleporter is a travel square too (Rehearsal R5 step 103, 2026-11-09: the Crooked House stairs are plain
+  // teleportToken regions, so the hand said "Nothing to use."). A train door is skipped: its car's landing is the square.
+  const tq = teleporterOf(region);
+  if (tq && !region.getFlag(MODULE_ID, "trainDoor")) return { label: tq.label, dest: tq.dest, ask: tq.choice };
+  return null;
+}
+
+/**
+ * A region's first enabled core teleport behaviour, read as a travel square: {label, dest, choice} or null.
+ * The label is core's own question without its "?" ("Go up to the second floor") when it is revealed to players,
+ * else core's unrevealed text, else a plain "Step through" — never the destination's name unasked.
+ */
+export function teleporterOf(region) {
+  for (const b of region?.behaviors ?? []) {
+    if (b.type !== "teleportToken" || b.disabled) continue;
+    const sys = b.system ?? {};
+    const raw = sys.destinations ? [...sys.destinations][0] : sys.destination;
+    if (!raw) continue;
+    let dest = String(raw);
+    try { dest = fromUuidSync(dest, { relative: b })?.uuid ?? dest; } catch (e) { /* keep as written */ }
+    const said = sys.revealed ? (sys.dialog?.revealed || region.name) : (sys.dialog?.unrevealed || "Step through");
+    return { label: String(said ?? "Step through").trim().replace(/\?+$/, "") || "Step through", dest, choice: !!sys.choice };
+  }
   return null;
 }
 
@@ -1716,12 +1739,19 @@ function travelPointsNear(scene, center, reach) {
  * landing nearly covers the door on most cars (10.6: door 2112,420 · landing 2104,424, 140 vs 132) but
  * sits a row below it on 10.2 and the 10.4 front, so a token on the door square must count too.
  */
-export function travelSquareAt(scene, pt) {
-  const inside = (r) => { const sh = r?.shapes?.[0]; return !!sh && pt.x >= sh.x && pt.x <= sh.x + sh.width && pt.y >= sh.y && pt.y <= sh.y + sh.height; };
+export function travelSquareAt(scene, pt, rect = null) {
+  // With `rect` (the token's own square), ANY overlap counts: a token stopped half a square onto the 12.1 stair
+  // (R5 step 103) stands on it. A shared edge alone does not.
+  const inside = (r) => {
+    const sh = r?.shapes?.[0];
+    if (!sh) return false;
+    if (rect && rect.x < sh.x + sh.width && rect.x + rect.width > sh.x && rect.y < sh.y + sh.height && rect.y + rect.height > sh.y) return true;
+    return pt.x >= sh.x && pt.x <= sh.x + sh.width && pt.y >= sh.y && pt.y <= sh.y + sh.height;
+  };
   const regs = [...(scene?.regions ?? [])];
   for (const r of regs) {
     const tp = travelPointOf(scene, r);
-    if (tp && inside(r)) return { id: r.id, label: tp.label };
+    if (tp && inside(r)) return { id: r.id, label: tp.label, ask: !!tp.ask };
   }
   for (const door of regs) {
     if (!door.getFlag(MODULE_ID, "trainDoor") || !inside(door)) continue;
@@ -1798,8 +1828,18 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   // deliberate USE on the travel square, so there is nothing to intercept here any more — the
   // confirm-on-entry gate that lived at this point is gone with the entry trigger it guarded.
 
+  // A step onto a teleporter that asks (the house stairs: core's choice:true). Core would PAUSE the token where its
+  // centre crosses in and put its question to the user who moved it, and that is this GM client, never the phone
+  // (R5 step 103: half a square in, no ask anywhere). So the phone's step goes the whole square as a displacement,
+  // which core's teleporter ignores, and the PHONE asks (stepAsk below). Nothing crosses until it is answered.
+  const toRect = { x: tokenDoc.x + dxGrid * grid, y: tokenDoc.y + dyGrid * grid, width: (tokenDoc.width ?? 1) * grid, height: (tokenDoc.height ?? 1) * grid };
+  let landed = null, wasOn = null;
+  try {
+    landed = travelSquareAt(scene, { x: toRect.x + toRect.width / 2, y: toRect.y + toRect.height / 2 }, toRect);
+    wasOn = travelSquareAt(scene, from, { x: tokenDoc.x, y: tokenDoc.y, width: toRect.width, height: toRect.height });
+  } catch (e) { /* a hint only */ }
   await tokenDoc.update(
-    { x: tokenDoc.x + dxGrid * grid, y: tokenDoc.y + dyGrid * grid },
+    { x: toRect.x, y: toRect.y, ...(landed?.ask ? { action: "displace" } : {}) },
     { animate: false }
   );
 
@@ -1831,11 +1871,13 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   // to the ACTOR — a combatant added by actor (not by dropping its token) has a null
   // combatant.tokenId, and the budget would otherwise never count its movement.
   // Landed on a travel square? Say so (it still does not cross — Use does). See travelSquareAt.
-  let travelHere = null;
-  try { travelHere = travelSquareAt(scene, { x: from.x + dxGrid * grid, y: from.y + dyGrid * grid })?.label ?? null; } catch (e) { /* a hint only */ }
+  // An asking teleporter just stepped onto → stepAsk: the phone puts its question (once, on entry, not on every step
+  // inside it). Anything else → the plain "tap the hand" hint.
+  const travelHere = landed?.label ?? null;
+  const stepAsk = landed?.ask && landed.id !== wasOn?.id ? { regionId: landed.id, label: landed.label } : null;
   const cb = game.combat?.combatant;
   const onMyTurn = !!(game.combat?.started && cb && (cb.tokenId === tokenId || (cb.actor?.id && cb.actor.id === tokenDoc.actor?.id)));
-  if (!onMyTurn) return { ok: true, x: tokenDoc.x, y: tokenDoc.y, travelHere };
+  if (!onMyTurn) return { ok: true, x: tokenDoc.x, y: tokenDoc.y, travelHere, stepAsk };
   let step = canvas.scene.grid.distance; // fallback: one square
   try { step = canvas.grid.measurePath([from, to]).distance ?? step; } catch (e) { /* keep fallback */ }
   const used = (turnMove.get(tokenId) ?? 0) + step;
@@ -1844,7 +1886,7 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   const action = tokenDoc.movementAction ?? "walk";
   const speed = Number(mv[action] ?? mv.walk ?? 0) || 0;
   const color = !speed ? "none" : used <= speed ? "green" : used <= speed * 2 ? "yellow" : "red";
-  return { ok: true, x: tokenDoc.x, y: tokenDoc.y, used: Math.round(used), speed, color, travelHere };
+  return { ok: true, x: tokenDoc.x, y: tokenDoc.y, used: Math.round(used), speed, color, travelHere, stepAsk };
 }
 
 // Set the token's active movement action (walk/fly/swim/climb/burrow) so the
