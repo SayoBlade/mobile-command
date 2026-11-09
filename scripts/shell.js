@@ -1,7 +1,7 @@
 import { MODULE_ID, CREATION_BEATS, pcDisplayName, TABLE_SEATS } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { isOnlineTable } from "./settings.js"; // §39 in person ⇄ online (settings.js imports nothing of ours but preset/enforcer — no cycle)
-import { api as rpc, actorTokenSight, reportPresence, remoteState } from "./rpc.js";
+import { api as rpc, actorTokenSight, reportPresence, remoteState, rollMessageFor } from "./rpc.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
 import { toggleSimpleCalendar, clockLabel } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
@@ -6603,7 +6603,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     this.#resolve("save");
     this.render();
     const actor = s?.actorUuid ? await fromUuid(s.actorUuid) : this.actor;
-    actor?.rollSavingThrow?.({ ability });
+    // Named with the asked token, or midi never counts it and re-rolls it on the DM's side (rollMessageFor).
+    actor?.rollSavingThrow?.({ ability }, {}, rollMessageFor(actor, s?.tokenUuid));
   }
 
   // §11 DM-assign: the DM panel hands targets here (mobile-command.assignTargets
@@ -7533,8 +7534,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         // Initiative rolls the COMBATANT, never the actor — see #rollInitiativeFor.
         if (p.rollType === "initiative") return void this.#rollInitiativeFor(a);
         // A skill check rolls the SKILL (R2 step 37, 2026-11-09: a Perception ask rolled a Wisdom check).
-        if (p.rollType === "check" && p.skill) return void a.rollSkill({ skill: p.skill });
-        p.rollType === "check" ? a.rollAbilityCheck({ ability: p.ability }) : a.rollSavingThrow({ ability: p.ability });
+        // Every roll names the actor's token (rollMessageFor): a canvasless phone otherwise posts it token-less.
+        const msg = rollMessageFor(a, p.tokenUuid);
+        if (p.rollType === "check" && p.skill) return void a.rollSkill({ skill: p.skill }, {}, msg);
+        p.rollType === "check" ? a.rollAbilityCheck({ ability: p.ability }, {}, msg) : a.rollSavingThrow({ ability: p.ability }, {}, msg);
         return;
       }
       case "roll-request-x": this.#rollRequest = null; return this.render();
@@ -7919,9 +7922,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     let result;
     try {
       if (r.formula) { result = await new Roll(r.formula).evaluate(); await result.toMessage({ flavor: act.name, speaker: ChatMessage.getSpeaker({ actor }) }); }
-      else if (r.skill) result = await actor.rollSkill({ skill: r.skill });
-      else if (r.save) result = await actor.rollSavingThrow({ ability: r.save });
-      else if (r.ability) result = await actor.rollAbilityCheck({ ability: r.ability });
+      else if (r.skill) result = await actor.rollSkill({ skill: r.skill }, {}, rollMessageFor(actor));
+      else if (r.save) result = await actor.rollSavingThrow({ ability: r.save }, {}, rollMessageFor(actor));
+      else if (r.ability) result = await actor.rollAbilityCheck({ ability: r.ability }, {}, rollMessageFor(actor));
       else { result = await new Roll("1d20").evaluate(); await result.toMessage({ flavor: act.name, speaker: ChatMessage.getSpeaker({ actor }) }); }
     } catch (e) { return; } // dialog error
     const roll = Array.isArray(result) ? result[0] : result;

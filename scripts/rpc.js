@@ -445,6 +445,29 @@ async function handleDowntimeOp(payload = {}) {
   return { ok: true };
 }
 
+/**
+ * The chat `message` config a phone's roll needs so midi can match it (tour R3 rerun 3 step 57, 2026-11-09).
+ * midi files a player's save under the asked TOKEN's id and answers it only from a message whose
+ * `speaker.token` is that id. dnd5e takes the speaker from `actor.getActiveTokens()`, which is [] on a client
+ * with no canvas, so every phone save posted token-less, never matched, and midi re-rolled it GM-side at
+ * playerSaveTimeout. The asked token (relay `tokenUuid`) is used when given; else the actor's token on the active
+ * scene (the card fallback and the deck's roll requests carry no uuid). Pass as dnd5e's third roll argument:
+ * `actor.rollSavingThrow({ ability }, {}, rollMessageFor(actor, tokenUuid))` — dnd5e merges it over its own.
+ * @returns {{data?: {speaker: object}}}  {} when no token can be named (dnd5e's own speaker stands)
+ */
+export function rollMessageFor(actor, tokenUuid = null) {
+  let tok = null;
+  try { tok = tokenUuid ? fromUuidSync(String(tokenUuid)) : null; } catch (e) { tok = null; }
+  if (tok?.document) tok = tok.document; // a Token placeable → its document
+  if (tok?.documentName !== "Token") tok = null;
+  if (!tok && actor?.id) {
+    const here = [...(game.scenes?.active?.tokens ?? [])].filter(t => (t.actor?.id ?? t.actorId) === actor.id);
+    tok = here.find(t => !t.hidden) ?? here[0] ?? null;
+  }
+  if (!tok) return {};
+  try { return { data: { speaker: ChatMessage.getSpeaker({ token: tok }) } }; } catch (e) { return {}; }
+}
+
 export function registerSaveRelay() {
   Hooks.on("midi-qol.preTargetSave", (target, workflow, saveDetails) => {
     try {
@@ -467,6 +490,8 @@ export function registerSaveRelay() {
       const timeout = MidiQOL?.configSettings?.().playerSaveTimeout ?? 0;
       const payload = {
         actorUuid: actor.uuid,
+        // the token midi asked: its id is midi's request key, so the phone's roll must name it (rollMessageFor)
+        tokenUuid: target?.document?.uuid ?? target?.uuid ?? null,
         abilities,
         dc: saveDetails.rollDC ?? null,
         advantage: !!saveDetails.advantage,

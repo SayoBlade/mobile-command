@@ -72,6 +72,6 @@ check("rollSkillKey: check+known → the key; save, blank, unknown → null",
 // ── the phone's tap rolls the skill ─────────────────────────────────────────────────────────────────────────
 const shell = fs.readFileSync(new URL("scripts/shell.js", REPO), "utf8");
 check("the phone's Roll button rolls the skill when the request names one",
-  /if \(p\.rollType === "check" && p\.skill\) return void a\.rollSkill\(\{ skill: p\.skill \}\);/.test(shell));
+  /if \(p\.rollType === "check" && p\.skill\) return void a\.rollSkill\(\{ skill: p\.skill \}, \{\}, msg\);/.test(shell));
 
 console.log(`\nall ${n} passed`);
