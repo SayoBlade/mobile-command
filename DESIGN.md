@@ -2511,6 +2511,14 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    table hears it when the walk starts (phones "On the road: 4 hours.", the TV a 7-s caption), never miles; the DM
    panel keeps feet/miles/km under the book's time. Test `tools/test-travel-times.mjs` 19 (6x's real pins).
    **Owed (seat):** R4 73–76 with the time. **His call:** nights → which end (built: low); Ch 12/21/22 times.
+0ᶻ. **BUILT 2026-11-09 — S3 (deck-command MC-PATCHES): no phone chip for an effect with no name of its own.**
+   Seat R3 rerun 10 saw a "New Effect" chip on the Test Barbarian after the HM2 level-up to 3 (Zealot); the reset
+   removed it before it was read, so its maker is NOT traced. "New Effect" is dnd5e's default (`DND5E.EFFECT.New`);
+   core's is "Active Effect" (`DOCUMENT.ActiveEffect`, then " (2)"…). `scripts/effect-chips.js` `chipEffects`: the
+   condition strip skips an effect whose name is empty or a placeholder, unless it carries a status (then the chip reads
+   the status's name). The AC breakdown's "From effects" line still names it (it explains a real number). Test
+   `tools/test-effect-chips.mjs` 9. **Owed (seat):** if it shows again, the GM console line in MC-PATCHES S3 before any
+   reset, to find what makes it.
 ~~0ᵠ. OPEN 2026-11-09 — NEEDS HIS NUMBER~~ **CLOSED 2026-11-09 by 0ʸ (time, not miles).** travel on Wickermoor Hollow reads "0 mi" (deck-command MC-PATCHES-2026-11-09
    T1).** The Hollow (and Druskenvald) keep the default 100 px = 5 ft grid, so a Ch 10 → Ch 11 road measures ~0.002 mi
    and the clock barely moves; `finishTravelRoute` is right for the grid as set, and the book gives no scale.

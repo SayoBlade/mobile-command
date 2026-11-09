@@ -3,6 +3,7 @@ import { notifier } from "./notifier.js";
 import { isOnlineTable } from "./settings.js"; // §39 in person ⇄ online (settings.js imports nothing of ours but preset/enforcer — no cycle)
 import { api as rpc, actorTokenSight, reportPresence, remoteState, rollMessageFor, restoreRollSpeaker } from "./rpc.js";
 import { hm2Api, hm2LevelUpSent } from "./hm2.js";
+import { chipEffects } from "./effect-chips.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
 import { toggleSimpleCalendar, clockLabel } from "./gametime.js";
 import { pmIsPersonal, pmThread, pmSend, pmText, pmTime } from "./pm.js"; // §27 personal messages
@@ -626,7 +627,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Rage / Unarmored Defense / Danger Sense live on their feature item, not actor.effects, so
     // the old actor.effects read dropped them. appliedEffects is exactly the active set the
     // sheet shows. DM 2026-06-27: "any effect in the Foundry UI should show up on mobile."
-    const rawEffects = (actor.appliedEffects ?? []).filter(e => e.name);
+    // S3 (2026-11-09): an effect named only "New Effect" / "Active Effect" (or nothing) makes no chip unless it carries
+    // a status; its chip then reads the status's name (effect-chips.js).
+    const chipList = chipEffects(actor.appliedEffects ?? []);
+    const chipName = new Map(chipList.map(({ e, name }) => [e, name]));
+    const rawEffects = chipList.map(({ e }) => e);
     // Collapse EXACT duplicates to one chip with a ×N count (DM 2026-07-18). 5e RAW:
     // conditions are binary and the same spell never stacks — concentration is strictly
     // ONE — so identical chips are always redundant. But DAE defaults to "multi" stacking,
@@ -634,7 +639,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // than hide, so a real stack keeps its count AND a bug (×3 Concentrating) still reads as
     // wrong. "Exact" = same name + icon + changes + statuses; anything that differs (an
     // exhaustion LEVEL, a distinct source) stays its own chip — never collapse cumulative.
-    const effSig = (e) => `${e.name}|${e.img ?? ""}|${JSON.stringify(e.changes ?? [])}|${[...(e.statuses ?? [])].sort().join(",")}`;
+    const effSig = (e) => `${chipName.get(e)}|${e.img ?? ""}|${JSON.stringify(e.changes ?? [])}|${[...(e.statuses ?? [])].sort().join(",")}`;
     const effGroups = []; const effAt = new Map();
     for (const e of rawEffects) {
       const k = effSig(e);
@@ -661,7 +666,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Tap OR long-press opens the condition detail (DM 2026-07-04: "a tap should
     // open the condition too") — data-action for the tap, data-detail for the hold.
     const condsHTML = effGroups.map(({ e, count }) =>
-      `<span class="mc-chip mc-chip-tap${isEconEffect(e) ? " mc-chip-used" : ""}${e.flags?.[MODULE_ID]?.curse ? " mc-curse-chip" : ""}" data-action="cond-open" data-detail="cond" data-effect-id="${e.id}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(e.name)}${count > 1 ? `<span class="mc-chip-mult">×${count}</span>` : ""}</span>`
+      `<span class="mc-chip mc-chip-tap${isEconEffect(e) ? " mc-chip-used" : ""}${e.flags?.[MODULE_ID]?.curse ? " mc-curse-chip" : ""}" data-action="cond-open" data-detail="cond" data-effect-id="${e.id}">${e.img ? `<img class="mc-chip-icon" src="${e.img}" alt="">` : ""}${foundry.utils.escapeHTML(chipName.get(e))}${count > 1 ? `<span class="mc-chip-mult">×${count}</span>` : ""}</span>`
     ).join("");
     const condHTML = (actionChip + condsHTML) || `<span class="mc-chip mc-none">No active conditions</span>`;
 
