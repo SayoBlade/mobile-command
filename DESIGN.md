@@ -2443,6 +2443,12 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    save prompt, the roll-request card (skill/check/save; so the 0ᵖ skill fix names the token too) and downtime rolls.
    Test `tools/test-phone-save-counts.mjs` (12, against midi 14.6.8's matcher logic). **Owed (seat):** a midi save at a
    phone target inside 30 s is kept, and only an absent player's target is auto-rolled. Needs the DM/executor client reloaded.
+   ⚠️ **2026-11-09 rerun 7: did NOT hold live** (phone 16 at 13 s; midi re-rolled the Barbarian 23 at ~32 s). Second
+   cause, from midi's source: midi-qol 14.6.8 wraps actor rolls on EVERY client and posts the message itself with
+   `messageData.speaker = getSpeaker({ actor: this, token: this.token })`, dropping S1's token on the canvasless phone.
+   Fix (ac79d01): the phone's `preCreateChatMessage` → `rpc.restoreRollSpeaker` puts the armed token back (only rolls
+   MC armed via rollMessageFor, once, 2 min). Test now rolls through midi's wrapper (16, reproduces rerun 7 first).
+   Live probe: `tools/probe-phone-save.md`. **Still owed:** the probe's 6 results at the seat.
 0ᵗ. **BUILT 2026-11-09 — tour R5 rerun 2 step 103: a phone stepped onto the 12.1 stair, the token stopped half a square
    in, nobody was asked, and the hand said "Nothing to use."** Two causes: the phone's move runs on the DM's client, so
    core's asking teleporter (`choice: true`) paused the token where its centre crossed in and asked THAT client; and the
