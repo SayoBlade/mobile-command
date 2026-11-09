@@ -2981,16 +2981,31 @@ function applyPcVisuals(td, actor, { colorFrom = null, tokenDoc = null } = {}) {
 // the first place. The only initiative-shaped parts are: no ability (there is nothing to pick),
 // and the no-owner fallback rolls the COMBATANT rather than asking the actor — see
 // `rollInitiativeForActor` below for why that distinction matters.
-async function handleRequestRolls({ rollType, ability, actorIds, actorUuids, label, dc, requesterId }) {
+// 2026-11-09 (tour Rehearsal R2 step 37) — A SKILL CHECK IS A CHECK WITH A `skill`. The deck has sent
+// `skill: "prc"` beside `ability: "wis"` since 2026-10-05 and this handler dropped it, so a Perception ask
+// rolled a Wisdom ability check on the phone. A check that names a dnd5e skill key now travels as one and
+// rolls `actor.rollSkill({ skill })` — on the phone and on the no-owner fallback alike. No `ability` is
+// passed with it: dnd5e then uses the actor's OWN ability for that skill (a sheet can move a skill off its
+// default), exactly as a tap on the skill does. A skill key dnd5e does not know is dropped, and the
+// request stays the plain ability check it always was.
+export function rollSkillKey(rollType, skill) {
+  if (rollType !== "check" || !skill) return null;
+  const key = String(skill);
+  const known = CONFIG.DND5E?.skills;
+  return known ? (key in known ? key : null) : (/^[a-z]{3}$/.test(key) ? key : null);
+}
+async function handleRequestRolls({ rollType, ability, skill, actorIds, actorUuids, label, dc, requesterId }) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
   if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM requests rolls" };
   const kind = rollType === "check" ? "check" : rollType === "initiative" ? "initiative" : "save";
   if (kind === "initiative" && !game.combat) return { ok: false, reason: "no active encounter" };
+  const sk = rollSkillKey(kind, skill);
   // The caller's wording wins — it knows WHY it is asking ("Resist the lantern"); the ability
   // name is only the fallback for a caller that has nothing better to say. Initiative has no
   // ability at all, so its fallback is the word itself rather than `undefined`.
   const fallback = kind === "initiative"
     ? "Initiative"
+    : sk ? (CONFIG.DND5E?.skills?.[sk]?.label ?? sk)
     : (CONFIG.DND5E?.abilities?.[ability]?.label ?? ability);
   const text = String(label ?? "").trim() || fallback;
   // `!= null` first: `Number(null)` is 0 and 0 is finite, so a caller sending `dc: null` or `dc: ""`
@@ -3036,13 +3051,13 @@ async function handleRequestRolls({ rollType, ability, actorIds, actorUuids, lab
     if (kind === "initiative" && initiativeDoneFor(actor)) { skipped++; continue; }
     const owners = game.users.filter(u => u.active && !u.isGM && actor.testUserPermission(u, "OWNER"));
     if (owners.length) {
-      const payload = { actorUuid: actor.uuid, rollType: kind, ability, label: text, dc: target, ts: Date.now() };
+      const payload = { actorUuid: actor.uuid, rollType: kind, ability, skill: sk, label: text, dc: target, ts: Date.now() };
       for (const u of owners) socket.executeAsUser("rollRequest", u.id, payload);
       sent++;
     } else {
       try {
         if (kind === "initiative") { if (await rollInitiativeForActor(actor)) auto++; }
-        else { kind === "check" ? await actor.rollAbilityCheck({ ability }) : await actor.rollSavingThrow({ ability }); auto++; }
+        else { sk ? await actor.rollSkill({ skill: sk }) : kind === "check" ? await actor.rollAbilityCheck({ ability }) : await actor.rollSavingThrow({ ability }); auto++; }
       } catch (e) { /* skip */ }
     }
   }

@@ -7520,6 +7520,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         if (!p || a?.documentName !== "Actor") return; // same shape check the relay makes
         // Initiative rolls the COMBATANT, never the actor — see #rollInitiativeFor.
         if (p.rollType === "initiative") return void this.#rollInitiativeFor(a);
+        // A skill check rolls the SKILL (R2 step 37, 2026-11-09: a Perception ask rolled a Wisdom check).
+        if (p.rollType === "check" && p.skill) return void a.rollSkill({ skill: p.skill });
         p.rollType === "check" ? a.rollAbilityCheck({ ability: p.ability }) : a.rollSavingThrow({ ability: p.ability });
         return;
       }
