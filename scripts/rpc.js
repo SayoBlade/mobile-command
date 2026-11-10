@@ -369,7 +369,8 @@ export function damageSourceFor(actor, { now = Date.now(), windowMs = 15000 } = 
   const workflows = [...(globalThis.MidiQOL?.Workflow?.workflows?.values?.() ?? [])].map((w) => w?.deref?.() ?? w).filter(Boolean).reverse();
   for (const wf of workflows) {
     if (wf.currentAction?.name === "WorkflowState_Completed" || wf.aborted) continue;
-    const hit = (wf.damageList ?? []).some(isMe) || sets(wf).some((s) => [...(s ?? [])].some(isMe));
+    // midi 14.6.9: a set iterates only the DRAWN Tokens; `documents` is every target, drawn or not (MACROS.md, Token sets)
+    const hit = (wf.damageList ?? []).some(isMe) || sets(wf).some((s) => [...(s?.documents ?? s ?? [])].some(isMe));
     if (!hit) continue;
     const tok = wf.token?.document ?? wf.token ?? null;
     return { name: wf.token?.name ?? wf.actor?.name ?? "", actorId: wf.actor?.id ?? tok?.actorId ?? null, tokenUuid: tok?.uuid ?? wf.tokenUuid ?? null };

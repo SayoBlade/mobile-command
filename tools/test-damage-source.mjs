@@ -90,6 +90,13 @@ workflows.clear();
 locoTok.hidden = true;
 workflows.set("hiddenLoco", { actor: loco, token: locoTok, hitTargets: new Set([barbTok]), currentAction: { name: "x" } });
 check("a hidden creature's damage names nobody (a phone never learns of it)", hit(2)?.source === "");
+locoTok.hidden = false;
+
+// 7. midi 14.6.9 (2026-11-11): a target set iterates only DRAWN Tokens; an undrawn target is only in `documents`
+workflows.clear();
+const drawnOnly = Object.assign(new Set([]), { documents: [barbTok] }); // the Barbarian's token is not drawn on this client
+workflows.set("whistle14", { actor: loco, token: locoTok, failedSaves: drawnOnly, currentAction: { name: "x" } });
+check("an undrawn target (midi 14.6.9 token sets) still finds the Locomotive", hit(2)?.source === "The Ghostlight Locomotive", JSON.stringify(hit(2)));
 void keep;
 
 console.log(`\nall ${n} passed`);
