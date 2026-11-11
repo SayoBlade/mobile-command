@@ -261,6 +261,15 @@ export function registerSettings() {
     scope: "world", config: true, type: Boolean, default: false
   });
 
+  // SPELL BOOK ON THE PHONE — a seat test (DM 2026-11-11: "can't we use Spell Book for this as a popup in the phone?").
+  // On: a "Spell Book" button on the phone's Spells tab and after a long rest opens the Spell Book module's own window
+  // for the player's spellcaster, lifted full-screen (spellbook-phone.js). Needs the Spell Book module active.
+  game.settings.register(MODULE_ID, "phoneSpellBook", {
+    name: "Spell Book on phones (test)",
+    hint: "On: players open the Spell Book module's window from their phone (Spells tab, and after a long rest) to prepare and swap spells. Needs Spell Book active. Off by default while it is tested.",
+    scope: "world", config: true, type: Boolean, default: false
+  });
+
   game.settings.register(MODULE_ID, "playerTier", {
     name: "What phones can change",
     hint: "Basic: each player's phone changes only their own character. Complex adds the things that change it for everyone — marching order and party staging, the downtime board, the shared stash and offering items, and travel squares. You can switch at any time; nobody gets stuck on a screen that disappears.",

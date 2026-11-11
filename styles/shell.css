@@ -4068,6 +4068,9 @@ body.mc-theme-wizard .mc-frame {
 .mc-lvl-cls { font-size: 14px; color: var(--mc-ink); }
 .mc-lvl-num { font-size: 16px; font-weight: 800; color: var(--mc-gold); font-variant-numeric: tabular-nums; }
 /* Level-up flow (from the Lvl panel) */
+/* Spell Book's player window on a phone (spellbook-phone.js): full-screen above the shell, scrolling inside */
+.mc-phone-spellbook { position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100dvh !important;
+  max-width: 100vw !important; max-height: 100dvh !important; transform: none !important; overflow: auto !important; }
 .mc-lvlup-ask { margin-top: 12px; padding: 10px 12px; border-radius: calc(10px * var(--mc-round, 1)); font-size: 14px; line-height: 1.35; border: 1px dashed currentColor; opacity: 0.9; }
 .mc-lvlup-btn { width: 100%; min-height: 44px; margin-top: 12px; border-radius: calc(10px * var(--mc-round, 1)); font-weight: 700; font-size: 14px;
   display: flex; align-items: center; justify-content: center; gap: 8px;

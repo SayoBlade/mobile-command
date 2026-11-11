@@ -3,6 +3,7 @@ import { notifier } from "./notifier.js";
 import { isOnlineTable } from "./settings.js"; // §39 in person ⇄ online (settings.js imports nothing of ours but preset/enforcer — no cycle)
 import { api as rpc, actorTokenSight, reportPresence, remoteState, rollMessageFor, restoreRollSpeaker } from "./rpc.js";
 import { hm2Api, hm2LevelUpSent, phoneLevelUps, levelUpOffer } from "./hm2.js";
+import { spellBookApi, phoneSpellBookOn, spellBookOffer, isSpellcaster, isSpellBookApp, openSpellBookFor } from "./spellbook-phone.js";
 import { chipEffects } from "./effect-chips.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
 import { toggleSimpleCalendar, clockLabel } from "./gametime.js";
@@ -4002,8 +4003,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const learnBtn = this.#charGenSpellInfo(actor)
       ? `<button class="mc-learn-spells" data-action="learn-spells"><i class="fas fa-book-medical"></i> Learn Spells (class list)</button>`
       : "";
+    // Spell Book's own window, for preparing and swapping (the seat test, behind `phoneSpellBook`; spellbook-phone.js)
+    const sbBtn = this.#spellBookButtonHTML(actor);
     return `<div class="mc-actions-head"><span class="mc-section-label">Spells</span>${this.#searchToggleHTML()}</div>
-      ${this.#searchDrawerHTML()}${cards}${slotsRow}${sections}${learnBtn}`;
+      ${this.#searchDrawerHTML()}${cards}${slotsRow}${sections}${sbBtn}${learnBtn}`;
   }
 
   // Per-class spellcasting cards (ability mod · spell attack · save DC · prepared
@@ -5117,6 +5120,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       </div>`;
   }
   #openLevelUp() { this.#levelUp = { adding: false, options: null }; this.render(); }
+  /** The "Spell Book" button: the switch on, Spell Book active, the player's own spellcaster (spellbook-phone.js). */
+  #spellBookButtonHTML(actor, label = "Spell Book") {
+    if (!spellBookOffer({ on: phoneSpellBookOn(), api: spellBookApi(), owner: !!actor?.isOwner, caster: isSpellcaster(actor) })) return "";
+    return `<button class="mc-learn-spells mc-spellbook-open" data-action="spellbook-open"><i class="fas fa-book-open"></i> ${foundry.utils.escapeHTML(label)}</button>`;
+  }
   #closeLevelUp() {
     // Back from the multiclass list returns to the class choice; back from the class
     // choice closes the flow.
@@ -7534,6 +7542,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       case "toggle-levels":
         this.#showLevels = !this.#showLevels; this.#levelUp = null; return this.render();
       case "level-up-open": return phoneLevelUps() ? this.#openLevelUp() : this.render(); // PC-only (D-0105)
+      case "spellbook-open": {
+        // Spell Book's window for the player's own spellcaster (re-checked at the tap); shell.js lifts it full-screen
+        if (!spellBookOffer({ on: phoneSpellBookOn(), api: spellBookApi(), owner: !!actor?.isOwner, caster: isSpellcaster(actor) })) return this.render();
+        this.#detailCard = null; this.#detailStack = [];
+        openSpellBookFor(actor).then((ok) => { if (!ok) notifier.warn("Spell Book isn't available — ask the DM."); })
+          .catch((e) => { console.error(`${MODULE_ID} | Spell Book`, e); notifier.warn("Spell Book didn't open — see console."); });
+        return this.render();
+      }
       case "hm2-level-up": {
         // own character only, and only while the GM's level-up is waiting (re-checked at the tap)
         if (!phoneLevelUps() || !actor?.isOwner || actor.type !== "character" || !hm2LevelUpSent(actor)) return this.render();
@@ -8006,9 +8022,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const after = this.#restSnapshot(actor);
     const benefits = this.#restBenefits(before, after, actor);
     if (!result && !benefits.length) return; // dialog cancelled, nothing happened
-    const list = benefits.length
+    const list = (benefits.length
       ? `<ul class="mc-rest-benefits">${benefits.map((b) => `<li>${foundry.utils.escapeHTML(b)}</li>`).join("")}</ul>`
-      : `<div class="mc-rest-none">Nothing needed recovering.</div>`;
+      : `<div class="mc-rest-none">Nothing needed recovering.</div>`)
+      // after a LONG rest, a spellcaster changes prepared spells in Spell Book (the seat test, behind `phoneSpellBook`)
+      + (kind === "long" ? this.#spellBookButtonHTML(actor, "Change prepared spells") : "");
     this.#detailStack = [];
     this.#detailCard = {
       name: kind === "long" ? "Long Rest" : "Short Rest", glyph: kind === "long" ? "fa-bed" : "fa-campground",
@@ -9104,6 +9122,23 @@ function liftDialogAboveShell(app) {
   // shared map view stays clean (they pop on turn changes — DM-reported 2026-06-16).
   if (isDisplayClient()) { killCombatHUD(app); return; }
   if (!shellInstance?.rendered || app === shellInstance) return;
+  // ⚠️ SPELL BOOK'S PLAYER WINDOW IS FRAMELESS (Spell Book 2.5.5, 700×850) and would stay hidden under the shell, so it
+  // is the one frameless app lifted — full-screen, above the shell, with the usual backdrop (spellbook-phone.js; the
+  // seat test, behind `phoneSpellBook`, DM 2026-11-11).
+  if (isSpellBookApp(app)) {
+    const sbEl = app.element instanceof HTMLElement ? app.element : (app.element?.[0] ?? null);
+    if (!(sbEl instanceof HTMLElement)) return;
+    sbEl.classList.add("mc-phone-spellbook");
+    const AppV2 = foundry.applications.api.ApplicationV2;
+    AppV2._maxZ = Math.max(AppV2._maxZ + 1, SHELL_Z + 2);
+    sbEl.style.zIndex = String(AppV2._maxZ);
+    try { app.setPosition?.({ left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }); } catch (e) { /* its own size stands */ }
+    try { if (app.position && "zIndex" in app.position) app.position.zIndex = AppV2._maxZ; } catch (e) { /* not V2 */ }
+    liftedApps.set(app.id ?? app.appId ?? app, { app, el: sbEl });
+    syncShellBackdrop();
+    setTimeout(syncShellBackdrop, 150);
+    return;
+  }
   if (app.options?.window?.frame === false) return; // skip docked/frameless UI
   // V2 apps expose a raw DOM element; legacy V1 dialogs (some midi/dnd5e reaction &
   // config prompts still are) expose a jQuery wrapper — unwrap both, else a V1 prompt
