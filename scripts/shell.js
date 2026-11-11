@@ -547,7 +547,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // build — and #isBlankPC routes to it on its own. The only Ember-specific part is WHICH
     // creator opens after the actor exists, so the campaign test moved off the gate and onto the
     // route (#createNewHero). The permission test is the real gate and it was always there.
-    const canMake = !!game.user?.can?.("ACTOR_CREATE") && !isDisplayClient();
+    // ⚠️ CHARACTERS ARE MADE AT THE PC (DM 2026-11-11, deck-command D-0104): the phone offers no Create unless the world
+    // setting `phoneCreate` brings it back; Hero Mancer's approval keeps working for players at the PC either way.
+    let phoneCreate = false; try { phoneCreate = game.settings.get(MODULE_ID, "phoneCreate") === true; } catch (e) { /* unset */ }
+    const canMake = phoneCreate && !!game.user?.can?.("ACTOR_CREATE") && !isDisplayClient();
     const campaignCreator = isEmberWorld() && emberReady(); // the campaign owns creation here
     const makeDoor = canMake
       ? `<button class="mc-cg-create mc-nt-create" data-action="create-new-hero">
@@ -570,7 +573,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           // lands here: no characters, no door. Saying "the DM hasn't placed your token" would be
           // the lie the 2026-10-05 review caught — the token is not what is missing. Name the two
           // things that actually are, in the order the DM can act on them.
-          ? "You don't have a character yet, and this world doesn't let players make their own. Ask the DM to create one for you and give you ownership of it."
+          ? (phoneCreate
+            ? "You don't have a character yet, and this world doesn't let players make their own. Ask the DM to create one for you and give you ownership of it."
+            : "You don't have a character yet. Characters are made at the PC with your DM — ask them when you're ready.")
           : `The DM hasn't placed a token for you on <b>${foundry.utils.escapeHTML(scene)}</b> yet. This updates automatically the moment they do.`}</div>
       ${rows ? "" : makeDoor}
       ${rows ? `<div class="mc-nt-listhead">Your characters</div><div class="mc-nt-list">${rows}</div>${makeDoor}` : ""}

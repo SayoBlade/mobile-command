@@ -253,6 +253,14 @@ export function registerSettings() {
   // the deck through the action list, sees the same queue. Written only by the executor. Hidden.
   game.settings.register(MODULE_ID, "dmAsks", { scope: "world", config: false, type: Array, default: [] });
 
+  // CHARACTERS ARE MADE AT THE PC (DM 2026-11-11, deck-command D-0104): off, the phone offers no "Create your character"
+  // (it says to ask the DM at the PC). On brings the phone's own builder back (still needs players allowed to create).
+  game.settings.register(MODULE_ID, "phoneCreate", {
+    name: "Create characters on phones",
+    hint: "Off (the table's rule for now): characters are made at the PC with Hero Mancer, and a phone with no character says to ask the DM. On: the phone offers its own character builder again.",
+    scope: "world", config: true, type: Boolean, default: false
+  });
+
   // LEVEL-UPS ARE PC-ONLY (DM 2026-11-11, deck-command D-0105): off, the phone shows no Level up button, only "ask the
   // DM at the PC" when one has been sent. On brings the phone's button back (Hero Mancer's window, or dnd5e's flow).
   game.settings.register(MODULE_ID, "phoneLevelUp", {
