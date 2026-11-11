@@ -253,6 +253,14 @@ export function registerSettings() {
   // the deck through the action list, sees the same queue. Written only by the executor. Hidden.
   game.settings.register(MODULE_ID, "dmAsks", { scope: "world", config: false, type: Array, default: [] });
 
+  // LEVEL-UPS ARE PC-ONLY (DM 2026-11-11, deck-command D-0105): off, the phone shows no Level up button, only "ask the
+  // DM at the PC" when one has been sent. On brings the phone's button back (Hero Mancer's window, or dnd5e's flow).
+  game.settings.register(MODULE_ID, "phoneLevelUp", {
+    name: "Level up on phones",
+    hint: "Off (the table's rule for now): players level up at the PC with the DM, and the phone only says when a level-up is waiting. On: the phone's Lvl panel offers Level up again.",
+    scope: "world", config: true, type: Boolean, default: false
+  });
+
   game.settings.register(MODULE_ID, "playerTier", {
     name: "What phones can change",
     hint: "Basic: each player's phone changes only their own character. Complex adds the things that change it for everyone — marching order and party staging, the downtime board, the shared stash and offering items, and travel squares. You can switch at any time; nobody gets stuck on a screen that disappears.",

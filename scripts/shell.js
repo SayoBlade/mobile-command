@@ -2,7 +2,7 @@ import { MODULE_ID, CREATION_BEATS, pcDisplayName, TABLE_SEATS } from "./preset.
 import { notifier } from "./notifier.js";
 import { isOnlineTable } from "./settings.js"; // §39 in person ⇄ online (settings.js imports nothing of ours but preset/enforcer — no cycle)
 import { api as rpc, actorTokenSight, reportPresence, remoteState, rollMessageFor, restoreRollSpeaker } from "./rpc.js";
-import { hm2Api, hm2LevelUpSent } from "./hm2.js";
+import { hm2Api, hm2LevelUpSent, phoneLevelUps, levelUpOffer } from "./hm2.js";
 import { chipEffects } from "./effect-chips.js";
 import * as DT from "./downtime.js"; // §17.7 downtime v2 model/engine (pure helpers)
 import { toggleSimpleCalendar, clockLabel } from "./gametime.js";
@@ -5076,12 +5076,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // own rule: a player levels only when the GM has sent a level-up (its `levelUpReady` flag), and the button opens
   // HM2's level-up window (api.openLevelUp, a framed ApplicationV2 the shell lifts above itself, like dnd5e's
   // advancement window below; HM2 never touches the game canvas). Without HM2: dnd5e's own flow, as before.
+  // ⚠️ LEVEL-UPS ARE PC-ONLY (DM 2026-11-11, deck-command D-0105): no button on the phone unless the world setting
+  // `phoneLevelUp` brings it back; a level-up the DM has sent reads "ask them at the PC" (hm2.js levelUpOffer).
   #levelUpButtonHTML(actor, classes) {
-    if (hm2Api()) {
-      if (!hm2LevelUpSent(actor) || !actor.isOwner) return "";
-      return `<button class="mc-lvlup-btn" data-action="hm2-level-up"><i class="fas fa-angles-up"></i> Level up</button>`;
-    }
-    return classes.length ? `<button class="mc-lvlup-btn" data-action="level-up-open"><i class="fas fa-arrow-up-right-dots"></i> Level Up</button>` : "";
+    const offer = levelUpOffer({ phone: phoneLevelUps(), hm2: !!hm2Api(), sent: hm2LevelUpSent(actor), owner: !!actor.isOwner, classes: classes.length });
+    if (offer === "hm2") return `<button class="mc-lvlup-btn" data-action="hm2-level-up"><i class="fas fa-angles-up"></i> Level up</button>`;
+    if (offer === "dnd5e") return `<button class="mc-lvlup-btn" data-action="level-up-open"><i class="fas fa-arrow-up-right-dots"></i> Level Up</button>`;
+    if (offer === "ask") return `<div class="mc-lvlup-ask"><i class="fas fa-angles-up"></i> Your DM has a level-up for you — ask them at the PC.</div>`;
+    return "";
   }
   // Level-up flow (from the Lvl panel): pick which class to level — the actor's
   // existing classes are the highlighted primary choices (forLevelChange +1) — or
@@ -7531,10 +7533,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       }
       case "toggle-levels":
         this.#showLevels = !this.#showLevels; this.#levelUp = null; return this.render();
-      case "level-up-open": return this.#openLevelUp();
+      case "level-up-open": return phoneLevelUps() ? this.#openLevelUp() : this.render(); // PC-only (D-0105)
       case "hm2-level-up": {
         // own character only, and only while the GM's level-up is waiting (re-checked at the tap)
-        if (!actor?.isOwner || actor.type !== "character" || !hm2LevelUpSent(actor)) return this.render();
+        if (!phoneLevelUps() || !actor?.isOwner || actor.type !== "character" || !hm2LevelUpSent(actor)) return this.render();
         this.#showLevels = false; this.render();
         try { hm2Api().openLevelUp(actor); } catch (e) { console.error(`${MODULE_ID} | HM2 level-up`, e); notifier.warn("Couldn't open the level-up — see console."); }
         return;
@@ -9453,7 +9455,7 @@ export function registerShellHooks() {
   Hooks.on("updateActor", (actor, changes) => {
     if (!shellInstance?.rendered) return;
     // HM2's own "level-up sent" announcement is a chat card the shell hides: say it here, once, where the eye is
-    if (changes?.flags?.["hero-mancer"]?.levelUpReady === true && controlsActor(actor) && hm2Api()) notifier.info(`${actor.name}: the DM sent a level-up. Tap Lvl.`);
+    if (changes?.flags?.["hero-mancer"]?.levelUpReady === true && controlsActor(actor) && hm2Api()) notifier.info(phoneLevelUps() ? `${actor.name}: the DM sent a level-up. Tap Lvl.` : `${actor.name}: the DM has a level-up for you — ask them at the PC.`);
     if (inMyParty(actor)) shellInstance.maybeFollowRelease(actor);
     if (controlsActor(actor) || inMyParty(actor)) shellInstance.render();
   });

@@ -14,6 +14,24 @@ export function hm2Api() {
   return m?.active && typeof m.api?.openLevelUp === "function" ? m.api : null;
 }
 
+/**
+ * LEVEL-UPS ARE PC-ONLY (DM 2026-11-11, deck-command DECISIONS D-0105: "level-ups are PC-only too: Hero Mancer, plus
+ * Spell Book for spell learning"). The phone shows no Level up button; when the DM has sent one, it says to ask at the
+ * PC. The world setting `phoneLevelUp` (off by default) brings the phone's button back — "for now" stays reversible.
+ */
+export function phoneLevelUps() {
+  try { return game.settings.get("mobile-command", "phoneLevelUp") === true; } catch (e) { return false; }
+}
+/**
+ * What the Lvl panel offers, pure: "hm2" (HM2's window), "dnd5e" (dnd5e's own flow), "ask" (a note: ask the DM at the
+ * PC) or null. `phone` is phoneLevelUps(); `hm2` whether HM2 is on; `sent` HM2's levelUpReady; `owner`, `classes`.
+ */
+export function levelUpOffer({ phone = false, hm2 = false, sent = false, owner = false, classes = 0 } = {}) {
+  if (!phone) return hm2 && sent && owner ? "ask" : null;
+  if (hm2) return sent && owner ? "hm2" : null;
+  return classes ? "dnd5e" : null;
+}
+
 /** Has the GM sent this character a level-up through HM2 (its `levelUpReady` actor flag)? */
 export function hm2LevelUpSent(actor) {
   if (!hm2Api() || actor?.type !== "character") return false;
