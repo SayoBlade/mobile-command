@@ -24,7 +24,6 @@ const teeth = CUE_SETS.teeth.takes;
 check("the teeth set is crunching steps, several takes, and nothing that jingles (the glass read as keys, DM 2026-11-12)", teeth.filter((t) => /crunch/.test(t)).length >= 5 && teeth.every((t) => /crunch/.test(t)));
 const DATA = path.join(process.env.LOCALAPPDATA ?? "", "FoundryVTT", "Data");
 if (fs.existsSync(DATA)) check("every teeth take is on disk", teeth.every((t) => fs.existsSync(path.join(DATA, t))), teeth.filter((t) => !fs.existsSync(path.join(DATA, t))).join(", "));
-console.log(`\nall ${n} passed`);
 
 // ── the late crunch (DM 2026-11-12: "about a second after the token stops moving") ──
 {
