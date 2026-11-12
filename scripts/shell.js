@@ -9535,9 +9535,17 @@ export function registerShellHooks() {
   Hooks.on("createSetting", onTier);
   // Pack deletes member tokens / creates the party token; deploy reverses it —
   // either way our subject changes, so rebind and repaint.
+  // ⚠️ AND ONCE MORE WHEN THE PAIR HAS LANDED (seat R5 rerun 103, 2026-11-12): a crossing deletes the token on one map
+  // and creates it on the other, and a paint caught between the two finds the PC on NO scene — "No token on this scene
+  // yet" instead of "Waiting for the party" (the split-scene card, #pausedState). The same press read right the run
+  // before: a race, not a code change. A trailing paint after both edges settles it on the final state.
+  let partyTokenTail = null;
   const onPartyToken = (tok) => {
-    if (shellInstance?.rendered &&
-      (tok?.actor?.testUserPermission?.(game.user, "OWNER") || tok?.actor?.type === "group")) shellInstance.render();
+    if (!(shellInstance?.rendered &&
+      (tok?.actor?.testUserPermission?.(game.user, "OWNER") || tok?.actor?.type === "group"))) return;
+    shellInstance.render();
+    clearTimeout(partyTokenTail);
+    partyTokenTail = setTimeout(() => { if (shellInstance?.rendered) shellInstance.render(); }, 300);
   };
   Hooks.on("createToken", onPartyToken);
   Hooks.on("deleteToken", onPartyToken);
