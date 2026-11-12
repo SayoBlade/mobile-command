@@ -7,6 +7,7 @@ import { initPauseGuard } from "./pause-guard.js";
 import { initPauseOverlay } from "./pause-overlay.js";
 import { initHeartbeat } from "./heartbeat.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient, isDisplayClient } from "./shell.js";
+import { installSpellBookAfterLevelUp } from "./spellbook-phone.js";
 import { registerDMPanel, refreshPanel, openDock } from "./dm-panel.js";
 import { setupTvVisionCard } from "./tv-vision-card.js"; // §23.7 "No PCs in scene" on the TV
 import { maybePromptDmWizard } from "./dm-wizard.js";
@@ -934,6 +935,8 @@ Hooks.once("ready", () => {
   if (!isPhoneClient()) initHeartbeat();    // critical-HP heartbeat pulse on PC token rings (canvas only)
   startHeartbeat();
   registerShellHooks();
+  // Spell Book opens after a Hero Mancer level-up that raised a spell count (DM 2026-11-12; spellbook-phone.js)
+  try { installSpellBookAfterLevelUp({ isPhone: isPhoneClient }); } catch (e) { console.warn(`${MODULE_ID} | spell book after level-up`, e); }
   registerDMPanel(); // DM-assign panel (GM clients only; self-gates)
   maybePromptDmWizard(); // §16.3 first-run setup offer (GM only; once per world)
   suppressAutomatedAnimationsTips(); // one-time: quiet AA's "Persistent Effect" toast on sleeping tokens

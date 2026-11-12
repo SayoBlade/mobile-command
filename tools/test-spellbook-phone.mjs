@@ -54,6 +54,43 @@ check("the lift takes Spell Book's frameless window BEFORE the frameless skip, f
 const settings = fs.readFileSync(path.join(ROOT, "scripts", "settings.js"), "utf8");
 check("the switch is a world setting, off by default", /register\(MODULE_ID, "phoneSpellBook", \{[\s\S]{0,500}scope: "world", config: true, type: Boolean, default: false/.test(settings));
 
+// ── Spell Book after a Hero Mancer level-up that raised a spell count (DM 2026-11-12, "yes") ──
+const caster = (prepMax, cantrips, slots) => ({ isOwner: true, id: "wiz", name: "Wiz", type: "character",
+  items: [{ type: "class", system: { identifier: "wizard", spellcasting: { progression: "full", preparation: { max: prepMax } } } }],
+  system: { scale: { wizard: { "cantrips-known": { value: cantrips } } }, spells: Object.fromEntries(slots.map((m, i) => [`spell${i + 1}`, { max: m }])) } });
+check("counts: prepared, cantrips and the highest slot level are read off the character",
+  JSON.stringify(SB.spellCounts(caster(4, 3, [2]))) === JSON.stringify({ prepared: 4, known: 0, cantrips: 3, maxLevel: 1, casters: 1 }));
+check("1→2 for a Wizard (prepared 4 → 5, same slot level, same cantrips) counts as a rise — Hero Mancer's own check misses it",
+  SB.spellCountRose(SB.spellCounts(caster(4, 3, [2])), SB.spellCounts(caster(5, 3, [3]))) && !SB.spellCountRose(SB.spellCounts(caster(5, 3, [3])), SB.spellCounts(caster(5, 3, [3]))));
+{
+  const handlers = {}; const H = { on: (n, f) => { handlers[n] = f; } }; const opens = [];
+  const gx = { game: { modules: { get: () => ({ active: true }) }, settings: { get: () => false } }, SPELLBOOK: { api: { openSpellBookForActor: async (a) => { opens.push(a.name); } } } };
+  SB.installSpellBookAfterLevelUp({ H, g: gx });
+  const a = caster(4, 3, [2]);
+  handlers["heroMancer.LevelUpStarted"]({ actor: a });
+  a.items[0].system.spellcasting.preparation.max = 5;
+  handlers["heroMancer.LevelUpCompleted"]({ actor: a, spellcasting: { previousMaxSpellLevel: 1, newMaxSpellLevel: 1, previousCantrips: 3, newCantrips: 3 } });
+  await new Promise((r) => setTimeout(r, 0));
+  check("a level-up that raised the prepared count opens Spell Book for the owner", opens.join() === "Wiz");
+  const b = caster(5, 3, [3]);
+  handlers["heroMancer.LevelUpStarted"]({ actor: b });
+  handlers["heroMancer.LevelUpCompleted"]({ actor: b, spellcasting: {} });
+  await new Promise((r) => setTimeout(r, 0));
+  check("nothing rose: nothing opens", opens.length === 1);
+  const c = caster(4, 3, [2]); handlers["heroMancer.LevelUpStarted"]({ actor: c }); c.items[0].system.spellcasting.preparation.max = 5;
+  const gPhone = { ...gx }; const H2 = { on: (n, f) => { handlers["p" + n] = f; } };
+  SB.installSpellBookAfterLevelUp({ H: H2, g: gx, isPhone: () => true });
+  handlers["pheroMancer.LevelUpStarted"]({ actor: c }); c.items[0].system.spellcasting.preparation.max = 6;
+  handlers["pheroMancer.LevelUpCompleted"]({ actor: c, spellcasting: {} });
+  await new Promise((r) => setTimeout(r, 0));
+  check("on a phone it waits for the phone switch (off here)", opens.length === 1); void gPhone;
+  const gHm = { ...gx, game: { ...gx.game, settings: { get: (m, k) => m === "hero-mancer" && k === "autoOpenSpellBook" } } };
+  check("Hero Mancer's own auto-open, when on and its condition met, is left to it",
+    SB.heroMancerOpensItself({ newMaxSpellLevel: 2, previousMaxSpellLevel: 1 }, gHm) && !SB.heroMancerOpensItself({ newMaxSpellLevel: 1, previousMaxSpellLevel: 1 }, gHm));
+}
+const mainSrc = fs.readFileSync(path.join(ROOT, "scripts", "main.js"), "utf8");
+check("main.js installs it at ready, with the phone test", mainSrc.includes("installSpellBookAfterLevelUp({ isPhone: isPhoneClient })"));
+
 // what the path rests on, read from the installed Spell Book (skipped when it is not installed here)
 const sbFile = path.join(process.env.LOCALAPPDATA ?? "", "FoundryVTT", "Data", "modules", "spell-book", "spell-book.mjs");
 if (fs.existsSync(sbFile)) {

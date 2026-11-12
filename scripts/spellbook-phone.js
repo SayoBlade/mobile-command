@@ -59,3 +59,62 @@ export async function openSpellBookFor(actor, g = globalThis) {
   await api.openSpellBookForActor(actor);
   return true;
 }
+
+/**
+ * ── SPELL BOOK OPENS AFTER A LEVEL-UP THAT RAISED A SPELL COUNT (DM 2026-11-12, "yes") ─────────────────────────────
+ * Hero Mancer opens Spell Book after a level-up only when its own setting `autoOpenSpellBook` is on — a per-browser,
+ * hidden setting, off by default, so it never fired here — and only for a new spell LEVEL or new cantrips: a Cleric or
+ * Wizard going from 1 to 2 (more spells to prepare) never qualified (seat, 2026-11-12, spellbook-pc-11). So this client
+ * counts the character's spells when Hero Mancer's level-up opens (`heroMancer.LevelUpStarted`) and again when it ends
+ * (`heroMancer.LevelUpCompleted`), and opens Spell Book for the owner when any count rose. On a phone it opens only
+ * with the phone switch on, and the shell lifts it (above). Hero Mancer's own auto-open, when on, is left to it.
+ */
+const num = (v) => Number(v?.value ?? v) || 0;
+/** The counts a level-up can raise: prepared, known, cantrips, the highest slot level. Pure on the actor's data. */
+export function spellCounts(actor) {
+  const out = { prepared: 0, known: 0, cantrips: 0, maxLevel: 0, casters: 0 };
+  for (const c of [...(actor?.items ?? [])]) {
+    if (c?.type !== "class" || !c.system?.spellcasting?.progression || c.system.spellcasting.progression === "none") continue;
+    out.casters += 1;
+    out.prepared += num(c.system.spellcasting.preparation?.max);
+    const scale = actor.system?.scale?.[c.system.identifier] ?? {};
+    out.known += num(scale["spells-known"]);
+    out.cantrips += num(scale["cantrips-known"] ?? scale.cantrips);
+  }
+  for (const [k, s] of Object.entries(actor?.system?.spells ?? {})) {
+    if (!(Number(s?.max) > 0)) continue;
+    const lvl = k === "pact" ? Number(s.level ?? 0) : Number(String(k).replace("spell", "")) || 0;
+    if (lvl > out.maxLevel) out.maxLevel = lvl;
+  }
+  return out;
+}
+/** Did any count rise (or a first casting class arrive)? Pure. */
+export function spellCountRose(before, after) {
+  if (!after?.casters) return false;
+  if (!before) return true; // nothing seen at the start (a window opened before this loaded): a caster levelled, open it
+  return ["prepared", "known", "cantrips", "maxLevel", "casters"].some((k) => Number(after[k]) > Number(before[k] ?? 0));
+}
+/** Would Hero Mancer open Spell Book itself (its own setting on, and its own condition)? Then this stands down. */
+export function heroMancerOpensItself(spellcasting, g = globalThis) {
+  let on = false; try { on = g.game?.settings?.get?.("hero-mancer", "autoOpenSpellBook") === true; } catch (e) { on = false; }
+  const s = spellcasting ?? {};
+  return on && Boolean(s.firstCaster || Number(s.newMaxSpellLevel) > Number(s.previousMaxSpellLevel) || Number(s.newCantrips) > Number(s.previousCantrips));
+}
+
+const countsAtStart = new Map();
+/** Hook it up (main.js, at ready). `isPhone` decides the phone switch; returns whether it installed. */
+export function installSpellBookAfterLevelUp({ H = globalThis.Hooks, isPhone = () => false, g = globalThis } = {}) {
+  if (!H?.on) return false;
+  H.on("heroMancer.LevelUpStarted", ({ actor } = {}) => { if (actor?.id) countsAtStart.set(actor.id, spellCounts(actor)); });
+  H.on("heroMancer.LevelUpCompleted", ({ actor, spellcasting } = {}) => {
+    try {
+      if (!actor?.isOwner || !spellBookApi(g) || !isSpellcaster(actor)) return;
+      const before = countsAtStart.get(actor.id) ?? null; countsAtStart.delete(actor.id);
+      if (!spellCountRose(before, spellCounts(actor))) return;
+      if (heroMancerOpensItself(spellcasting, g)) return;
+      if (isPhone() && !phoneSpellBookOn(g)) return;
+      openSpellBookFor(actor, g).catch((e) => console.warn("mobile-command | Spell Book after level-up:", e?.message ?? e));
+    } catch (e) { console.warn("mobile-command | Spell Book after level-up:", e?.message ?? e); }
+  });
+  return true;
+}
