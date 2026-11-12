@@ -33,8 +33,18 @@ export const CUE_SETS = Object.freeze({
   },
   teeth: {
     // GAP in the library (catalogue 24: "human teeth crunching and skittering underfoot"); the plan's closest.
-    label: "Teeth underfoot (stand-in: small shards)",
-    takes: ["assets/Personal/SFX/Dark Fantasy Studio- Broken glass/Dark Fantasy Studio- Broken glass 4.wav"],
+    // 2026-11-12 (the lead: the teeth crunch in the Cauldron Room, "human teeth that crunch beneath your feet"): five
+    // footstep crunches from Animater's own surfaces library on disk, a different one each step (pickTake), in place
+    // of the one broken-glass take; the glass stays as a sixth for the brittle edge
+    label: "Teeth underfoot (crunching steps)",
+    takes: [
+      "modules/animater/assets/sounds/surfaces/freesound/crunch-192146-0.ogg",
+      "modules/animater/assets/sounds/surfaces/freesound/crunch-336633-0.ogg",
+      "modules/animater/assets/sounds/surfaces/freesound/crunch-630594-0.ogg",
+      "modules/animater/assets/sounds/surfaces/freesound/crunch-680329-0.ogg",
+      "modules/animater/assets/sounds/surfaces/freesound/crunch-784768-0.ogg",
+      "assets/Personal/SFX/Dark Fantasy Studio- Broken glass/Dark Fantasy Studio- Broken glass 4.wav",
+    ],
   },
   wall: {
     // The weasels in the walls (catalogue 33). NOT the insect swarm (DM 2026-09-19); the library has no weasel

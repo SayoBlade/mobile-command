@@ -107,6 +107,11 @@ function buildType() {
       if (withinCooldown(lastPlayed.get(uuid)?.at, now, this.cooldown)) return;
 
       const d = decide({ rule: this.rule, count: this.count, fired: this.fired, passes: this.passes, chance: this.chance });
+      // ⚠️ CLAIM THE COOLDOWN NOW, BEFORE ANY AWAIT (DM 2026-11-12: "a strange moan repeated several times, then
+      // nothing" in the Cauldron Room). One move raises several region events at once; each passed the cooldown
+      // check above while the first was still awaiting its count save, because the time was only written inside
+      // playCue — so a 1-in-5, once-per-25-s moan came out as a burst, then the cooldown silenced the room.
+      if (d.fire && this.rule !== "arm") lastPlayed.set(uuid, { at: now, take: lastPlayed.get(uuid)?.take ?? null });
       const changes = {};
       if (d.count !== this.count) changes["system.count"] = d.count;
       if (d.fired !== this.fired) changes["system.fired"] = d.fired;
