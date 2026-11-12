@@ -17,6 +17,7 @@ import { openFeedback } from "./feedback.js"; // §48 report a bug from the phon
 import { isEmberWorld, emberReady, EMBER_CREATION_SHEET, activeCampaign, emberSky, emberPartyStatus, emberAttunements, emberJournal } from "./campaigns.js"; // §50 Ember: creation door + rest copy + the Ember tab
 import { isSaveResult, acShape } from "./dnd5e-compat.js"; // the dnd5e 5.3 ⇄ 6.0 seam (chat subtypes, AC shape)
 import { surfaceOn, actionAllowed } from "./tier.js"; // Basic / Complex — the ONE gate for shared-state surfaces (tier.js imports only preset.js)
+import { canCastAsRitual, ritualSlotId } from "./ritual.js"; // a prepared ritual (or a wizard's book) casts with no slot (2026-11-12)
 import { splitState, splitCard } from "./split-state.js"; // a phone off the table's map: waiting, or calm on a stage (2026-11-12)
 import { shouldKeepGmClear, isHandheldDevice } from "./overlay-guard.js"; // §22.7/§22.10 — overlay-guard imports only preset.js, so no cycle
 
@@ -4056,7 +4057,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // tap, instead of warning after. Warnings, not walls: the row still opens normally.
     // At-will/innate/ritual-only casting spends no slot, so those never dim.
     const lvl = sp.system.level ?? 0;
-    const slotFree = lvl < 1 || ["atwill", "innate", "ritual"].includes(method);
+    const slotFree = lvl < 1 || ["atwill", "innate", "ritual"].includes(method) || canCastAsRitual(sp, sp.actor); // a ritual needs no slot
     const noSlots = !slotFree && !Object.values(sp.actor?.system?.spells ?? {})
       .some(s => (s?.max ?? 0) > 0 && s.level >= lvl && (s.value ?? 0) > 0);
     const activity = [...(sp.system.activities ?? [])][0];
@@ -6026,7 +6027,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Upcast: slot-level chips for leveled spells (badge = slots left at that level).
     const slotRow = (s.slotOptions?.length)
       ? `<div class="mc-slot-row"><span class="mc-slot-label">Cast at</span>${s.slotOptions.map(o =>
-          `<button class="mc-slot ${s.slot === o.id ? "mc-slot-on" : ""}" data-action="slot-pick" data-slot="${o.id}" title="Level ${o.level} — ${o.value} left">L${o.level}<span class="mc-slot-n">${o.value}</span></button>`
+          o.ritual
+            ? `<button class="mc-slot mc-slot-ritual ${s.slot === o.id ? "mc-slot-on" : ""}" data-action="slot-pick" data-slot="${o.id}" title="Cast as a ritual: no slot spent, 10 minutes longer">Ritual<span class="mc-slot-n">+10 min</span></button>`
+            : `<button class="mc-slot ${s.slot === o.id ? "mc-slot-on" : ""}" data-action="slot-pick" data-slot="${o.id}" title="Level ${o.level} — ${o.value} left">L${o.level}<span class="mc-slot-n">${o.value}</span></button>`
         ).join("")}</div>`
       : "";
     return `
@@ -6059,10 +6062,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const base = item.system?.level ?? 0;
     if (base < 1) return []; // cantrip — no slot
     const spells = this.actor?.system?.spells ?? {};
-    return Object.entries(spells)
+    const slots = Object.entries(spells)
       .filter(([, s]) => s?.max && s.level >= base && (s.value ?? 0) > 0)
       .map(([id, s]) => ({ id, level: s.level, value: s.value }))
       .sort((a, b) => a.level - b.level);
+    // CAST AS A RITUAL (seat LIVE TRY 2026-11-12: Detect Magic spent a slot): last, so a slot stays the default while
+    // there is one; with none left it is the only chip and the default. ritual.js says who may (2024 rules).
+    if (canCastAsRitual(item, this.actor)) slots.push({ id: ritualSlotId(base), level: base, value: null, ritual: true });
+    return slots;
   }
 
   async #pickAction(uuid) {
@@ -6330,7 +6337,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const slotRow = sc.slotOptions.length > 1 ? `
       <div class="mc-section-label">Cast at level</div>
       <div class="mc-sm-row">${sc.slotOptions.map(o => `
-        <button class="mc-sm-chip ${o.id === sc.slotId ? "mc-on" : ""}" data-action="summon-slot" data-slot="${o.id}">${ordinal(o.level)} <span class="mc-sm-sub">${o.value} left</span></button>`).join("")}</div>` : "";
+        <button class="mc-sm-chip ${o.id === sc.slotId ? "mc-on" : ""}" data-action="summon-slot" data-slot="${o.id}">${o.ritual ? "Ritual" : ordinal(o.level)} <span class="mc-sm-sub">${o.ritual ? "+10 min" : `${o.value} left`}</span></button>`).join("")}</div>` : "";
     const creatureSub = (p) => {
       const bits = [p.type ? p.type.replace(/^\w/, c => c.toUpperCase()) : "", (p.cr ?? "") !== "" ? `CR ${this.#wildShapeCR(p.cr)}` : ""].filter(Boolean);
       return bits.length ? bits.join(" · ") : "Tap to summon · hold for details";

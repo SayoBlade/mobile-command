@@ -1,3 +1,4 @@
+import { slotUsage } from "./ritual.js"; // the phone's slot pick as dnd5e usage; a ritual spends no slot (2026-11-12)
 import { placeName as placeNameOf } from "./crossing-name.js"; // where a crossing leads: "Second Floor", not the house
 import { landingSpots } from "./landing-spots.js"; // crossing heroes spread around the landing (section W)
 import { MODULE_ID } from "./preset.js";
@@ -666,7 +667,7 @@ export async function placeCast(id) {
   // 2026-06-23); an announce from a pre-slot-picker phone simply consumes dnd5e's default
   // (base) slot, which was this flow's documented v1 behavior anyway.
   const dialog = { configure: false };
-  if (pc.slotLevel) usage.spell = { slot: pc.slotLevel };
+  if (pc.slotLevel) Object.assign(usage, slotUsage(pc.slotLevel));
   if (pc.kind === "summon") {
     usage.create = { summons: true };
     if (pc.profileId) usage.summons = { profile: pc.profileId };
@@ -881,7 +882,7 @@ async function handlePlacementConfirm() {
     // Auto-roll keys live in workflowOptions (midi ignores them at the top level —
     // same trap the fireAoO fix hit, Round 32).
     const usage = { midiOptions: { workflowOptions: { autoRollAttack: true, fastForwardAttack: true, autoRollDamage: "always", fastForwardDamage: true, autoConsumeResource: "both", targetConfirmation: "none" } } };
-    if (p.slotLevel) usage.spell = { slot: p.slotLevel };
+    if (p.slotLevel) Object.assign(usage, slotUsage(p.slotLevel));
     try { await activity.use(usage, { configure: false }, {}); } catch (e) { console.warn(`${MODULE_ID} | teleport cast`, e); }
     const grid = canvas.scene.grid;
     // The marker's x,y is the aim ORIGIN; a token's x,y is its top-left — offset by
@@ -910,7 +911,7 @@ async function handlePlacementConfirm() {
   const targets = tokensUnderTemplate(tpl);
   try { game.user.updateTokenTargets(targets.map(t => t.id)); } catch (e) { /* best effort */ }
   const usage = { midiOptions: { workflowOptions: { autoRollAttack: true, fastForwardAttack: true, autoRollDamage: "always", fastForwardDamage: true, autoConsumeResource: "both", targetConfirmation: "none" } } };
-  if (p.slotLevel) usage.spell = { slot: p.slotLevel };
+  if (p.slotLevel) Object.assign(usage, slotUsage(p.slotLevel));
   activity.use(usage, { configure: false }, {}).catch(e => console.warn(`${MODULE_ID} | AoE cast`, e));
   // the DM resolves with every creature under it, hidden ones too; the phone hears only the ones it may know of
   return { ok: true, mode: "aoe", targets: targets.filter(t => !hiddenFromPlayers(t)).length, dmResolves: true };
@@ -1391,12 +1392,12 @@ async function handleItemUseStart(payload) {
   const extraInstances = Object.fromEntries(Object.entries(instanceCount).filter(([, n]) => n > 1).map(([u, n]) => [u, n - 1]));
   // Upcast: cast at the slot level the phone chose (dnd5e usage config field
   // `spell.slot`, e.g. "spell3"). Omitted → activity casts at its base level.
-  const spellCfg = spellSlot ? { spell: { slot: spellSlot } } : {};
+  const spellCfg = slotUsage(spellSlot); // a ritual pick: its base slot, consume.spellSlot false (ritual.js)
   if (spellSlot) console.debug(`${MODULE_ID} | upcast`, { name: activity.item?.name, slot: spellSlot });
   // skipConsume (phone fired a depleted item "anyway"): don't consume, so midi never opens
   // the executor-side "Consume?" dialog the phone can't reach (it would hang). Disable both
   // dnd5e usage consumption and midi's auto-consume. (DM 2026-06-25 out-of-resources flow.)
-  if (skipConsume) spellCfg.consume = { resources: false, spellSlot: false, action: false };
+  if (skipConsume) spellCfg.consume = { ...(spellCfg.consume ?? {}), resources: false, spellSlot: false, action: false };
   const consumeMode = skipConsume ? "none" : "both";
   if (skipConsume) console.debug(`${MODULE_ID} | skipConsume`, { name: activity.item?.name });
 
