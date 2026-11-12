@@ -19,7 +19,7 @@ import { isSaveResult, acShape } from "./dnd5e-compat.js"; // the dnd5e 5.3 ⇄ 
 import { surfaceOn, actionAllowed } from "./tier.js"; // Basic / Complex — the ONE gate for shared-state surfaces (tier.js imports only preset.js)
 import { view as prepView, canToggle as prepCanToggle, saveState as prepSaveState, planSave as prepPlan, hasChanges as prepHasChanges } from "./prepare-plan.js"; // Prepare spells (D-0106)
 import { canCastAsRitual, ritualSlotId } from "./ritual.js"; // a prepared ritual (or a wizard's book) casts with no slot (2026-11-12)
-import { splitState, splitCard } from "./split-state.js"; // a phone off the table's map: waiting, or calm on a stage (2026-11-12)
+import { splitState, splitCard, splitCardShown } from "./split-state.js"; // a phone off the table's map: waiting, or calm on a stage (2026-11-12)
 import { shouldKeepGmClear, isHandheldDevice } from "./overlay-guard.js"; // §22.7/§22.10 — overlay-guard imports only preset.js, so no cycle
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
@@ -853,7 +853,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
   #pausedHTML() {
     const st = this.#pausedState();
-    if (!st || this.#pausedDismissed === st.key) return "";
+    // a shared picture wins over the calm card on a stage (split-state.js splitCardShown; seat INTROS RERUN 16)
+    if (!splitCardShown(st, { dismissedKey: this.#pausedDismissed, picture: Boolean(this.#sharedImage?.src) })) return "";
     const card = splitCard(st), esc = foundry.utils.escapeHTML;
     // a split names the two maps in gold; a stage says one calm line (split-state.js splitCard)
     const sub = Array.isArray(card.sub) ? card.sub.map((part, i) => (i % 2 ? `<b>${esc(part)}</b>` : esc(part))).join("") : esc(card.sub);

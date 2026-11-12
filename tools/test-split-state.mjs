@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const { splitState, splitCard } = await import(pathToFileURL(path.join(ROOT, "scripts", "split-state.js")).href);
+const { splitState, splitCard, splitCardShown } = await import(pathToFileURL(path.join(ROOT, "scripts", "split-state.js")).href);
 let n = 0;
 function check(label, ok, detail = "") {
   n += 1;
@@ -38,4 +38,8 @@ check("each card has its own dismiss key (the two scenes), so 'Browse my sheet a
 
 const shell = fs.readFileSync(path.join(ROOT, "scripts", "shell.js"), "utf8");
 check("the phone shell draws its card from these two (no second copy of the rule)", shell.includes("return splitState({") && shell.includes("splitCard(st)") && !shell.includes("Waiting for the party</div>"));
+check("a shared picture on a stage: the calm card steps aside and the picture shows (seat INTROS RERUN 16, the conductor)",
+  splitCardShown(onStage, { picture: true }) === false && splitCardShown(onStage, { picture: false }) === true);
+check("…a real split keeps its card under a picture; a card browsed past stays away", splitCardShown(split, { picture: true }) === true && splitCardShown(split, { dismissedKey: split.key }) === false);
+check("the shell asks this before drawing the card", shell.includes("if (!splitCardShown(st, { dismissedKey: this.#pausedDismissed, picture: Boolean(this.#sharedImage?.src) })) return \"\";"));
 console.log(`\nall ${n} passed`);

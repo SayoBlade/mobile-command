@@ -33,3 +33,14 @@ export function splitCard(st) {
   return { calm: false, icon: "fa-hourglass-half", title: "Waiting for the party",
     sub: [`You're on `, st.hereName, ` — the action is on `, st.activeName, `. The DM will bring the scene to you.`] };
 }
+
+/**
+ * Is the card drawn at all? Not when the player browsed past it (its key), and on a STAGE not while a picture the DM
+ * shared is up (seat INTROS RERUN 2026-11-12, B0 16: the calm card covered the conductor's portrait). The picture wins
+ * and the calm card steps aside until it is closed. A real split keeps its card: the picture is not the party.
+ */
+export function splitCardShown(st, { dismissedKey = null, picture = false } = {}) {
+  if (!st || dismissedKey === st.key) return false;
+  if (st.stage && picture) return false;
+  return true;
+}
