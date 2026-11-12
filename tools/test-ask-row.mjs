@@ -114,7 +114,11 @@ await asUser("u1", "travelRequest", { regionId: "r1", forActorUuid: brekka.uuid 
 res = await A.runAction("table.ask", { choice: "alone", ref: row().ref });
 check("Move Brekka from the deck: only Brekka crosses", res.ok === true && far.tokens.map(t => t.actor.name).join() === "Brekka" && scene.tokens.map(t => t.actor.name).join() === "Gorbon", where());
 check("…the pause holds (he narrates — the DM's own rule: only Cancel unpauses)", game.paused === true);
-check("…and the row goes quiet", row().enabled === false && waiting() === 0);
+// ⚠️ SINCE 2026-11-12 (DM: "or the DM to choose to follow the lone player"): Gorbon is still on the car, so the
+// row now offers to follow Brekka (Stay · Follow Brekka) — Stay leaves everyone where they are and the row goes quiet
+check("…and the row offers Stay · Follow Brekka (the table waits unless he follows)", row().enabled !== false && /went ahead/.test(row().sub ?? "") && row().choices.map(c => c.label).join() === "Stay,Follow Brekka", JSON.stringify(row()));
+res = await A.runAction("table.ask", { choice: "cancel", ref: row().ref });
+check("…Stay: nobody moves, and the row goes quiet", res.ok === true && scene.tokens.map(t => t.actor.name).join() === "Gorbon" && row().enabled === false && waiting() === 0, where());
 
 /* ── the exact shape the deck's brief pins ─────────────────────────────────────────────────────────── */
 game.paused = false;
