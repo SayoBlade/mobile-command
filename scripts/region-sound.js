@@ -32,6 +32,8 @@ export const BEHAVIOR_TYPE = `${MODULE_ID}.sound`;
 
 /** What the deciding client remembers between plays: when, and which take (never twice running). */
 const lastPlayed = new Map();
+/** The extra step beats still queued per cue (cadenceBeats), so a new move can drop them. */
+const pendingBeats = new Map();
 
 function buildType() {
   const F = foundry.data.fields;
@@ -116,15 +118,66 @@ function buildType() {
       if (d.count !== this.count) changes["system.count"] = d.count;
       if (d.fired !== this.fired) changes["system.fired"] = d.fired;
       if (d.fire && this.rule === "arm" && !this.armed) changes["system.armed"] = true;
-      if (Object.keys(changes).length) {
-        try { await this.behavior.update(changes); } catch (e) { console.warn(`${MODULE_ID} | cue count not saved`, e); }
-      }
-      if (!d.fire) return;
-      if (this.rule === "arm") { Hooks.callAll(`${MODULE_ID}.cueArmed`, this.behavior); return; }
-      const position = event.data?.position ?? event.data?.movement?.destination ?? null;
-      await playCue(this, { token, position, now });
+      /**
+       * ⚠️ PLAY FIRST, SAVE AFTER (DM 2026-11-12: "the teeth crunch plays about a second after the token stops
+       * moving"). The count was saved — a round trip to the server — BEFORE the sound started; the decision above is
+       * already made, so the save no longer stands in front of the play. Foundry raises a move-within event the moment
+       * the move is saved (TokenDocument _onUpdate), i.e. as the token starts to slide, so this now plays then.
+       */
+      const save = Object.keys(changes).length
+        ? this.behavior.update(changes).catch((e) => console.warn(`${MODULE_ID} | cue count not saved`, e)) : null;
+      if (!d.fire) { await save; return; }
+      if (this.rule === "arm") { await save; Hooks.callAll(`${MODULE_ID}.cueArmed`, this.behavior); return; }
+      const movement = event.data?.movement ?? null;
+      const position = event.data?.position ?? movement?.origin ?? movement?.destination ?? null;
+      const played = playCue(this, { token, position, now });
+      // A LIGHT STEP CADENCE for a set that asks for one (the teeth): one more take every few squares of a longer move,
+      // spread along its path, capped — never stacked on one spot, never one per pixel
+      const beats = cadenceBeats(this.set && CUE_SETS[this.set]?.cadence, movement, this.scene);
+      // a new move drops what the last one still had queued: no stacking
+      for (const t of pendingBeats.get(uuid) ?? []) clearTimeout(t);
+      pendingBeats.set(uuid, beats.map((b) => setTimeout(() => { playCue(this, { token, position: b.at, now: Date.now() }).catch(() => {}); }, b.wait)));
+      await played; await save;
     }
   };
+}
+
+/**
+ * The extra beats of a longer move, for a set with `cadence: { every, max, gap }` (cue-sets.js): one more take per
+ * `every` squares past the first, at most `max` in all, `gap` ms apart, placed along the path from origin to
+ * destination. Pure apart from the scene's grid. Returns [{ wait, at }] (the first take is not in it).
+ */
+export function cadenceBeats(cadence, movement, scene) {
+  if (!cadence || !movement) return [];
+  const per = Number(scene?.grid?.distance) || 5;
+  const squares = Math.max(0, Number(movement.passed?.distance ?? 0) / per);
+  const extra = Math.min(Math.max(0, (cadence.max ?? 3) - 1), Math.floor(Math.max(0, squares - 1) / Math.max(1, cadence.every ?? 2)));
+  const a = movement.origin, z = movement.destination;
+  const out = [];
+  for (let i = 1; i <= extra; i++) {
+    const u = i / (extra + 1);
+    out.push({ wait: i * (cadence.gap ?? 250), at: a && z ? { x: a.x + (z.x - a.x) * u, y: a.y + (z.y - a.y) * u, elevation: z.elevation ?? 0 } : (z ?? null) });
+  }
+  return out;
+}
+
+/**
+ * ⚠️ EVERY SCREEN HAS THE FILES BEFORE THE FIRST STEP (DM 2026-11-12, the late crunch): core's positional play makes a
+ * fresh Sound and loads it on each client, so the first time a take played, every screen fetched and decoded it first.
+ * On a map opening, every cue take on that map with a radius goes into Foundry's buffer cache; core's `load()` then
+ * finds it there. Small sets only (a step cue, not a playlist).
+ */
+export function preloadSceneCues(scene = globalThis.canvas?.scene) {
+  try {
+    const files = new Set();
+    for (const r of scene?.regions ?? []) for (const b of r.behaviors ?? []) {
+      if (b.type !== BEHAVIOR_TYPE || b.disabled || b.system?.muted) continue;
+      const takes = b.system?.set && CUE_SETS[b.system.set] ? CUE_SETS[b.system.set].takes : (b.system?.src ? [b.system.src] : []);
+      if (takes.length <= 8) for (const t of takes) files.add(t);
+    }
+    for (const f of files) foundry.audio.AudioHelper.preloadSound(f).catch?.(() => {});
+    return [...files];
+  } catch (e) { return []; }
 }
 
 /** Play one take of a cue for everyone, from where it happened. Returns the take played (or null). */
@@ -232,4 +285,5 @@ export function registerSoundBehavior() {
   try {
     for (const [id, set] of Object.entries(CM_DOOR_SOUNDS)) CONFIG.Wall.doorSounds[id] = { ...set };
   } catch (e) { console.error(`${MODULE_ID} | could not register the door sound sets`, e); }
+  Hooks.on("canvasReady", () => { preloadSceneCues(); });
 }

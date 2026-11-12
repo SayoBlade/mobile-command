@@ -38,6 +38,8 @@ export const CUE_SETS = Object.freeze({
     // of the one broken-glass take. ⚠️ The glass is OUT (DM 2026-11-12, playing: "it seems like you added jingling keys"):
     // its tinkling shards read as keys
     label: "Teeth underfoot (crunching steps)",
+    // one more crunch every 2 squares of a longer move, 3 at most, 250 ms apart (region-sound.js cadenceBeats)
+    cadence: { every: 2, max: 3, gap: 250 },
     takes: [
       "modules/animater/assets/sounds/surfaces/freesound/crunch-192146-0.ogg",
       "modules/animater/assets/sounds/surfaces/freesound/crunch-336633-0.ogg",
