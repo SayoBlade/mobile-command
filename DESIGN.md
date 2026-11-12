@@ -9403,3 +9403,59 @@ both hooks, the rescue's clears, the three `#partyUI()` sites, the registration 
 confirm).
 
 > **2026-11-01 — the Answer pick offers the book's answers too** (DM: "look at the journal for suggestions, then fill them up, I'm guessing most will be written by dm"). `SEANCE_ANSWERS` in cm-live.js: Chapter 12 H3 Parlor's suggested answers in the book's order — PATRINI, UPSTAIRS, MURDER, EUSTACE LOCKWOOD, HAG, ATTIC, 6 MEMENTOS, GEM KEY CUP DOLL BEAR PIN, EVERY FLOOR, FIND MY SON HE LIVES — after the four printed words. Spelled by the planchette like any phrase. test-actions 42/42.
+
+## 56. Prepare spells on the phone (DM 2026-11-13, "BUILD option (b)"; deck-command D-0106) — BUILT 2026-11-13
+
+**Why.** Spell Book's own player window opens 512 px wide and pinned left, so its Close button, class tabs and prepare
+checkboxes sit off a 400 px phone (seat LIVE TRY 2026-11-12). The DM chose our own small screen that reads Spell Book's
+per-character setup over a re-layout of its window. The "Spell Book on phones (test)" setting (spellbook-phone.js)
+stays off.
+
+**What the player gets.** Renders: deck-command `renders-2026-11-13/prepare-1…6-*.png`.
+- **Spells tab:** a "Prepare Spells" row at the top, with the class and "x / max prepared".
+- **The long-rest card:** a "Change Prepared Spells" button. Spell Book's own 450 px long-rest prompt is closed on
+  phones (`isSpellBookRestPrompt`, `renderDialogV2`).
+- **The screen:**
+  - class chips when the character is multiclassed;
+  - one line on the source ("From your spellbook (n). Copying new spells: at the PC, in Spell Book." / "From the
+    Cleric list.") and, when it is shut, when swaps open;
+  - Rituals / Concentration chips;
+  - a "Prepared x / max" gold bar, amber when there are too many;
+  - cantrips, then each level, with 44 px rows: tap the name for the shell's own detail card, tap the toggle to
+    prepare;
+  - Cancel (tertiary, left) and Save (the CTA, right), which reads "Save Anyway" when there are too many.
+
+**The rules (`scripts/prepare-plan.js`, pure, `tools/test-prepare.mjs`).**
+- **Turning a spell on is always allowed:** it fills a free place, or goes over the limit, which warns. The world
+  setting `prepareOverLimit` ("warn" by default, or "block") decides.
+- **Turning off a spell that was prepared when the screen opened is a swap.** It needs the class's swap window open.
+  The window follows Spell Book's per-class swap rule: `longRest` opens after a long rest, `levelUp` at a new class
+  level, `none` never after the first setup. The window is ours, on the actor at `flags.mobile-command.prepare.<class>`
+  = { open, level }. A long rest opens it (the `dnd5e.restCompleted` hook), and a save that swapped something out
+  closes it.
+- **Cantrips can be added here but never removed:** removing one would mean deleting the item.
+- **Always-prepared spells are locked and do not count;** dnd5e doesn't count them either.
+- **Nothing changes during a fight.**
+
+**The data (`scripts/prepare-data.js`, on the executor through `prepareData` / `prepareSave`).** Spell Book 2.5.5's api
+exposes no read or save of preparation, and its managers are internal to one bundle, so this reads the same sources it
+reads:
+- **Class rules:** `flags.spell-book.classRules[<class>]`, or its defaults for the world's rule set (`ruleDefaults`, its
+  own table).
+- **The class list:** the spell-list pages those rules name.
+- **A wizard's book:** the actor's journal in `spell-book.custom-spell-lists`.
+- **The limit:** dnd5e's class preparation max, plus the rule's bonus.
+- **Cantrips:** the scale value named by `spell-book.cantripScaleValues`, plus its bonus.
+
+The save re-gathers and re-checks every rule from fresh data, so a phone can't save something the rules wouldn't allow.
+It then:
+- flips `system.prepared` on spells already on the sheet;
+- creates a ticked spell that isn't on the sheet from the compendium (`method: "spell"`, `sourceItem: "class:<id>"`);
+- writes Spell Book's `preparedSpellsByClass[<class>]` so its own window agrees;
+- **never deletes.**
+
+**Not here:** learning or copying spells into a wizard's book, filters beyond the two chips, loadouts, comparing
+spells. Those stay with Spell Book on the PC (deck-command D-0105).
+
+**Owed to the seat:** on a phone, prepare and save, then open Spell Book on the PC and check the two agree. Check the
+long-rest card's button, and that a swap is refused outside the window.

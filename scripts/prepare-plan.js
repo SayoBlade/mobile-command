@@ -1,5 +1,5 @@
 // PREPARE SPELLS ON THE PHONE — THE RULES (DM 2026-11-13: "BUILD option (b)", our own small screen instead of Spell
-// Book's 512 px window; deck-command DECISIONS D-0106, DESIGN §59). Pure: no `game`. The executor gathers what Spell
+// Book's 512 px window; deck-command DECISIONS D-0106, DESIGN §56). Pure: no `game`. The executor gathers what Spell
 // Book has set up for the character (prepare-data.js); this decides what the screen shows and what a save writes.
 //
 //   - only spells the character may prepare: the class list, or for a Wizard the spellbook alone
