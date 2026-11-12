@@ -1,4 +1,4 @@
-import { gatherPrepare, savePrepare } from "./prepare-data.js"; // the phone's Prepare spells screen, read and saved here (D-0106)
+import { gatherPrepare, savePrepare, phonePrepareOn } from "./prepare-data.js"; // the phone's Prepare spells screen, read and saved here (D-0106)
 import { slotUsage } from "./ritual.js"; // the phone's slot pick as dnd5e usage; a ritual spends no slot (2026-11-12)
 import { placeName as placeNameOf } from "./crossing-name.js"; // where a crossing leads: "Second Floor", not the house
 import { landingSpots } from "./landing-spots.js"; // crossing heroes spread around the landing (section W)
@@ -2640,6 +2640,7 @@ async function handleTravelFollow({ id, choice, requesterId } = {}) {
 // Spell Book's compendium (a wizard's book) and its flags; the rules are prepare-plan.js, the reading prepare-data.js.
 async function handlePrepareData({ actorUuid, requesterId } = {}) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!phonePrepareOn()) return { ok: false, reason: "Prepare spells on phones is off" };
   const actor = await fromUuid(actorUuid);
   if (!actor || actor.documentName !== "Actor") return { ok: false, reason: "that character is gone" };
   if (!requesterCanAct(requesterId, actor)) return { ok: false, reason: "not your character" };
@@ -2647,6 +2648,7 @@ async function handlePrepareData({ actorUuid, requesterId } = {}) {
 }
 async function handlePrepareSave({ actorUuid, classId, picks, requesterId } = {}) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!phonePrepareOn()) return { ok: false, reason: "Prepare spells on phones is off" };
   const actor = await fromUuid(actorUuid);
   if (!actor || actor.documentName !== "Actor") return { ok: false, reason: "that character is gone" };
   if (!requesterCanAct(requesterId, actor)) return { ok: false, reason: "not your character" };

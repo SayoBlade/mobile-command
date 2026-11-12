@@ -84,8 +84,9 @@ const actor = {
 };
 const index = new Map([["bless", { name: "Bless", img: "", system: { level: 1, properties: ["concentration"] } }], ["cure", { name: "Cure Wounds", img: "", system: { level: 1, properties: [] } }],
   ["command", { name: "Command", img: "", system: { level: 1, properties: [] } }], ["detect", { name: "Detect Magic", img: "", system: { level: 1, properties: ["ritual", "concentration"] } }]]);
+let switchOn = true;
 const g = {
-  game: { settings: { get: (m, k) => (k === "cantripScaleValues" ? "cantrips-known, cantrips" : k === "prepareOverLimit" ? "warn" : k === "spellcastingRuleSet" ? "modern" : undefined) },
+  game: { settings: { get: (m, k) => (k === "cantripScaleValues" ? "cantrips-known, cantrips" : k === "prepareOverLimit" ? "warn" : k === "spellcastingRuleSet" ? "modern" : k === "phonePrepareSpells" ? switchOn : undefined) },
     packs: { get: (id) => (id === "phb.spells" ? { getIndex: async () => index } : null) }, combat: null,
     items: { fromCompendium: async (src) => ({ name: src.name, system: { level: src.level } }) } },
   fromUuid: async (u) => (u === "JournalEntry.L.JournalEntryPage.list" ? { system: { spells: new Set(["bless", "cure", "command", "detect"].map((x) => `Compendium.phb.spells.Item.${x}`)) } }
@@ -108,6 +109,9 @@ check("Spell Book's preparedSpellsByClass is kept in step, and the swap window c
   && flags["flags.mobile-command.prepare.cleric"].open === false);
 check("a long rest opens the window again (the class's rule is the long rest)", await D.openWindowsAfterRest(actor, { longRest: true }, g) && writes.actor.at(-1)["flags.mobile-command.prepare.cleric"].open === true
   && !(await D.openWindowsAfterRest(actor, { longRest: false }, g)));
+switchOn = false; const before = writes.actor.length;
+check("OFF (the default, lead 2026-11-13): a long rest opens nothing", (await D.openWindowsAfterRest(actor, { longRest: true }, g)) === undefined && writes.actor.length === before && !D.phonePrepareOn(g));
+switchOn = true;
 
 // ── the wiring on the phone ────────────────────────────────────────────────────────────────────────────────────────
 const shell = fs.readFileSync(path.join(ROOT, "scripts", "shell.js"), "utf8");
@@ -120,5 +124,10 @@ check("tap a name to read it (the shell's own card, over the screen); ✕ and Ca
   && /if \(this\.#detailCard\) return this\.#detailCardHTML\(\);\r?\n {4}if \(this\.#prep\)/.test(shell) && shell.includes("rpc.prepareSave({ actorUuid: actor.uuid, classId: cls.id"));
 check("the executor checks the requester owns the character, both ways", (rpc.match(/requesterCanAct\(requesterId, actor\)\) return \{ ok: false, reason: "not your character" \}/g) ?? []).length === 2);
 check("a long rest opens the windows; on a phone Spell Book's own prompt is closed", main.includes('Hooks.on("dnd5e.restCompleted", (actor, result) => { openWindowsAfterRest(')
-  && main.includes("if (isSpellBookRestPrompt(app)) app.close();"));
+  && main.includes("if (phonePrepareOn() && isSpellBookRestPrompt(app)) app.close();"));
+const settings = fs.readFileSync(path.join(ROOT, "scripts", "settings.js"), "utf8");
+check("the switch: a world setting that starts OFF, until he has reviewed it", /register\(MODULE_ID, "phonePrepareSpells", \{[\s\S]{0,600}?type: Boolean, default: false/.test(settings));
+check("OFF hides the button (Spells tab and after a rest), keeps Spell Book's rest prompt, and the DM client refuses both ways",
+  /#prepareButtonHTML\(actor, \{ rest = false \} = \{\}\) \{\r?\n {4}if \(!phonePrepareOn\(\) \|\|/.test(shell)
+  && (rpc.match(/if \(!phonePrepareOn\(\)\) return \{ ok: false, reason: "Prepare spells on phones is off" \}/g) ?? []).length === 2);
 console.log(`\nall ${n} passed`);

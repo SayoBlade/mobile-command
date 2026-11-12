@@ -278,6 +278,13 @@ export function registerSettings() {
     scope: "world", config: true, type: Boolean, default: false
   });
 
+  // PREPARE SPELLS ON THE PHONE, THE SWITCH (lead 2026-11-13): OFF until he has reviewed it (prepare-data.js phonePrepareOn).
+  game.settings.register(MODULE_ID, "phonePrepareSpells", {
+    name: "Prepare spells on phones",
+    hint: "On: players prepare and swap spells on their phone with Mobile Command's own screen (Spells tab, and after a long rest), and Spell Book's rest prompt is not shown on phones. Off by default until it is reviewed.",
+    scope: "world", config: true, type: Boolean, default: false
+  });
+
   // PREPARE SPELLS ON THE PHONE (DM 2026-11-13, deck-command D-0106): too many picks warn, as Spell Book does; the
   // world may make it block instead (prepare-plan.js saveState). He asked for the setting to be left for later.
   game.settings.register(MODULE_ID, "prepareOverLimit", {

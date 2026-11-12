@@ -18,6 +18,7 @@ import { isEmberWorld, emberReady, EMBER_CREATION_SHEET, activeCampaign, emberSk
 import { isSaveResult, acShape } from "./dnd5e-compat.js"; // the dnd5e 5.3 ⇄ 6.0 seam (chat subtypes, AC shape)
 import { surfaceOn, actionAllowed } from "./tier.js"; // Basic / Complex — the ONE gate for shared-state surfaces (tier.js imports only preset.js)
 import { view as prepView, canToggle as prepCanToggle, saveState as prepSaveState, planSave as prepPlan, hasChanges as prepHasChanges } from "./prepare-plan.js"; // Prepare spells (D-0106)
+import { phonePrepareOn } from "./prepare-data.js"; // the switch: off until he has reviewed it (lead 2026-11-13)
 import { canCastAsRitual, ritualSlotId } from "./ritual.js"; // a prepared ritual (or a wizard's book) casts with no slot (2026-11-12)
 import { splitState, splitCard, splitCardShown } from "./split-state.js"; // a phone off the table's map: waiting, or calm on a stage (2026-11-12)
 import { shouldKeepGmClear, isHandheldDevice } from "./overlay-guard.js"; // §22.7/§22.10 — overlay-guard imports only preset.js, so no cycle
@@ -5134,7 +5135,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // (through the executor, prepare-data.js) and decides with prepare-plan.js. Opens from the Spells tab and after a long
   // rest. Learning and copying spells stay on the PC, in Spell Book.
   #prepareButtonHTML(actor, { rest = false } = {}) {
-    if (!actor?.isOwner || !isSpellcaster(actor)) return "";
+    if (!phonePrepareOn() || !actor?.isOwner || !isSpellcaster(actor)) return "";
     const classes = [...(actor.items ?? [])].filter((i) => i.type === "class" && i.system?.spellcasting?.progression && i.system.spellcasting.progression !== "none");
     const max = classes.reduce((n, c) => n + (Number(c.system?.spellcasting?.preparation?.max) || 0), 0);
     const cur = [...(actor.items ?? [])].filter((i) => i.type === "spell" && Number(i.system?.level) > 0 && Number(i.system?.prepared) === 1).length;

@@ -225,8 +225,18 @@ export async function applyPlan(actor, cls, plan, g = globalThis) {
   });
 }
 
+/**
+ * THE SWITCH (lead 2026-11-13: built behind a setting that starts OFF, so he reviews it before players see it).
+ * Off: no button on the Spells tab or after a long rest, Spell Book's own rest prompt is left to show as before, and
+ * the DM client refuses to read or save for a phone. On: all of it, as D-0106.
+ */
+export function phonePrepareOn(g = globalThis) {
+  try { return g.game?.settings?.get?.("mobile-command", "phonePrepareSpells") === true; } catch (e) { return false; }
+}
+
 /** After a long rest: open the window of every class whose swap rule is the long rest (dnd5e.restCompleted). */
 export async function openWindowsAfterRest(actor, result, g = globalThis) {
+  if (!phonePrepareOn(g)) return;
   if (!result?.longRest || !actor?.isOwner) return false;
   const patch = {};
   for (const cls of casterClasses(actor)) {
