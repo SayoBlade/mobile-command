@@ -1,6 +1,7 @@
 import { MODULE_ID } from "./preset.js";
 import { defineActions } from "./actions.js";
 import { api as rpc, pendingAsks } from "./rpc.js";
+import { crossingName, otherHeroNames } from "./crossing-name.js";
 
 /**
  * ── PLAYERS WAITING ON THE DM — ONE ROW, "table.ask" (§55.6, 2026-10-09) ─────────────────────────────
@@ -34,17 +35,19 @@ import { api as rpc, pendingAsks } from "./rpc.js";
  * key and the queue rule don't change. Opportunity attacks stay off this row: their window is seconds.
  */
 
-const first = (name) => String(name ?? "").trim().split(/\s+/)[0] || "Them";
+// who is crossing, unambiguously (section W, 2026-11-12): crossing-name.js
+const idOf = (uuid) => String(uuid ?? "").split(".").pop();
+const who = (e) => crossingName(e.actorName, otherHeroNames(idOf(e.forActorUuid)));
 const tokenArt = (uuid) => {
   try { const a = fromUuidSync(uuid); return a?.prototypeToken?.texture?.src || a?.img || undefined; } catch (e) { return undefined; }
 };
 
 const KINDS = {
   travel: {
-    sub: (e) => `${first(e.actorName)} · cross to ${e.dest || e.label || "the next place"}`,
+    sub: (e) => `${who(e)} · cross to ${e.dest || e.label || "the next place"}`,
     choices: (e) => [
       { id: "cancel", label: "Cancel" },
-      { id: "alone", label: `Move ${first(e.actorName)}`, img: tokenArt(e.forActorUuid) },
+      { id: "alone", label: `Move ${who(e)}`, img: tokenArt(e.forActorUuid), token: true },
       { id: "group", label: "Move Group" },
     ],
     answer: (e, choice) => rpc.travelDecide({ id: e.id, choice }),

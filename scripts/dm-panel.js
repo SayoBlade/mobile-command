@@ -1,3 +1,4 @@
+import { crossingName, otherHeroNames } from "./crossing-name.js";
 import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState } from "./rpc.js";
 import { notifier } from "./notifier.js";
 import { routeOf, bookHours, travelTimeLabel } from "./travel-times.js"; // T2: the book's time per route (DM 2026-11-09)
@@ -3012,7 +3013,7 @@ function reactionsHTML() {
     ? (() => {
         const esc = foundry.utils.escapeHTML;
         const who = esc(r.actorName ?? "Someone");
-        const first = esc(String(r.actorName ?? "Them").split(" ")[0]);
+        const first = esc(crossingName(r.actorName, otherHeroNames(String(r.actorUuid ?? "").split(".").pop()))); // who, unambiguously (section W)
         let col = "";
         try { const a = fromUuidSync(r.actorUuid); col = a ? pcColor(a) : ""; } catch (e) { /* stale uuid */ }
         return `<div class="mc-dmp-react mc-dmp-react-travel">

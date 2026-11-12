@@ -1,3 +1,4 @@
+import { landingSpots } from "./landing-spots.js"; // crossing heroes spread around the landing (section W)
 import { MODULE_ID } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { CORPSE_HIDE_DELAY_MS, corpseStillDown } from "./animater-seam.js"; // §26.8
@@ -2470,22 +2471,18 @@ async function handleTravelTo({ regionId, group, forActorUuid, requesterId } = {
   // a token is completely stuck — every move update is rejected (live 2026-08-07, and the same
   // trap cm-train's landing prober exists to avoid). Candidates are tried in rings around the
   // landing and each must be reachable from it in a straight line.
-  const taken = new Set();
-  const spot = (i) => {
-    if (i === 0) { taken.add(`${landing.x},${landing.y}`); return { x: landing.x, y: landing.y }; }
-    const ring = [[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1],[2,0],[0,2],[-2,0],[0,-2]];
-    for (const [ox, oy] of ring) {
-      const x = landing.x + ox * grid, y = landing.y + oy * grid;
-      if (taken.has(`${x},${y}`)) continue;
-      const c = { x: x + grid / 2, y: y + grid / 2 };
-      const lc = { x: landing.x + grid / 2, y: landing.y + grid / 2 };
-      if (wallsBlock(landing.scene, { x: x + 2, y: y + 2 }, { x: x + grid - 2, y: y + grid - 2 })) continue; // wall through the cell
-      if (wallsBlock(landing.scene, lc, c)) continue;                                                        // can't walk there from the landing
-      taken.add(`${x},${y}`);
-      return { x, y };
-    }
-    return { x: landing.x, y: landing.y }; // nowhere clear — stack rather than wall someone in
+  // ⚠️ AROUND WHOEVER IS ALREADY THERE (section W, 2026-11-12): one-at-a-time crossings stacked every hero on the
+  // landing, and a group following one who went ahead landed on top of him. Taken squares are the tokens already on
+  // the destination (not the movers themselves on a same-scene hop); landing-spots.js spreads the rest.
+  const moverIds = new Set(movers.map(t => t.id));
+  const occupied = [...(landing.scene.tokens ?? [])].filter(t => !(sameScene && moverIds.has(t.id))).map(t => ({ x: t.x, y: t.y }));
+  const blocked = (x, y) => {
+    const c = { x: x + grid / 2, y: y + grid / 2 }, lc = { x: landing.x + grid / 2, y: landing.y + grid / 2 };
+    return wallsBlock(landing.scene, { x: x + 2, y: y + 2 }, { x: x + grid - 2, y: y + grid - 2 }) // a wall through the cell
+      || wallsBlock(landing.scene, lc, c);                                                        // can't walk there from the landing
   };
+  const spots = landingSpots({ x: landing.x, y: landing.y }, grid, movers.length, { occupied, blocked });
+  const spot = (i) => spots[i];
   let moved = 0;
   for (const [i, t] of movers.entries()) {
     const { x, y } = spot(i);
