@@ -35,7 +35,8 @@ export const CUE_SETS = Object.freeze({
     // GAP in the library (catalogue 24: "human teeth crunching and skittering underfoot"); the plan's closest.
     // 2026-11-12 (the lead: the teeth crunch in the Cauldron Room, "human teeth that crunch beneath your feet"): five
     // footstep crunches from Animater's own surfaces library on disk, a different one each step (pickTake), in place
-    // of the one broken-glass take; the glass stays as a sixth for the brittle edge
+    // of the one broken-glass take. ⚠️ The glass is OUT (DM 2026-11-12, playing: "it seems like you added jingling keys"):
+    // its tinkling shards read as keys
     label: "Teeth underfoot (crunching steps)",
     takes: [
       "modules/animater/assets/sounds/surfaces/freesound/crunch-192146-0.ogg",
@@ -43,7 +44,6 @@ export const CUE_SETS = Object.freeze({
       "modules/animater/assets/sounds/surfaces/freesound/crunch-630594-0.ogg",
       "modules/animater/assets/sounds/surfaces/freesound/crunch-680329-0.ogg",
       "modules/animater/assets/sounds/surfaces/freesound/crunch-784768-0.ogg",
-      "assets/Personal/SFX/Dark Fantasy Studio- Broken glass/Dark Fantasy Studio- Broken glass 4.wav",
     ],
   },
   wall: {
