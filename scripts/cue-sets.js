@@ -77,14 +77,17 @@ export const CM_DOOR_SOUNDS = Object.freeze({
     unlock: [PSFX_DOOR("unlock")],
     test: [WOOD(29)],
   },
-  // 3 — the attic's little door sounds wrong on purpose: dry, high, splintering
+  // 3 — the Cauldron Room's door (the Secret Landing's little door, H16 → H17). ⚠️ DM 2026-11-12, playing: "Opening and
+  // closing the door to the Cauldron Room gives the multiple moans… not quite the vibe." The "dry, splintering" takes
+  // (Craking Wood 24/8/5, and 24/29 on close and test) are each a run of four or five groaning pulses — heard as moans.
+  // The book: "The door, now unlocked, creaks open" — so ONE heavy creak, the front door's own files.
   mcCrookedWrong: {
-    label: "Crooked House attic door (dry, splintering)",
-    open: [WOOD(24), WOOD(8), WOOD(5)],
-    close: [MF2("DoorSmallClose.mp3"), WOOD(24)],
+    label: "Crooked House attic door (one heavy creak)",
+    open: [MF2("DoorHugeOpen.mp3")],
+    close: [MF2("DoorHugeClose.mp3")],
     lock: [PSFX_DOOR("lock")],
     unlock: [PSFX_DOOR("unlock")],
-    test: [WOOD(24), WOOD(29)],
+    test: [PSFX_DOOR("test")],
   },
   // 7 — a door that should not be opened: trying the handle is wet and organic (the bathroom, H11 —
   // the kitchen oven is painted art, not a door wall, so it cannot carry a set)

@@ -93,8 +93,10 @@ check("four door sets, each with open/close/lock/unlock/test as arrays of takes"
   Object.keys(CM_DOOR_SOUNDS).length === 4 && Object.values(CM_DOOR_SOUNDS).every((d) => d.label
     && ["open", "close", "lock", "unlock", "test"].every((k) => Array.isArray(d[k]) && d[k].length >= 1)));
 
-check("the front door opens on the groans, the attic door on the cracks, the bathroom is wet when tried",
-  /WOOD 27/.test(CM_DOOR_SOUNDS.mcCrookedFront.open[0]) && /WOOD 24/.test(CM_DOOR_SOUNDS.mcCrookedWrong.open[0])
+// the attic (Cauldron Room) door: ONE heavy creak, never the groaning Craking Wood runs (DM 2026-11-12: "the multiple moans")
+check("the front door opens on the groans, the Cauldron Room door on one heavy creak with no groaning wood, the bathroom is wet when tried",
+  /WOOD 27/.test(CM_DOOR_SOUNDS.mcCrookedFront.open[0]) && /DoorHugeOpen/.test(CM_DOOR_SOUNDS.mcCrookedWrong.open[0])
+    && ["open", "close", "test"].every((k) => CM_DOOR_SOUNDS.mcCrookedWrong[k].every((t) => !/CRAKING WOOD/.test(t)))
     && /Smashed 34/.test(CM_DOOR_SOUNDS.mcCrookedWet.test[0]));
 
 {
