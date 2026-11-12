@@ -69,6 +69,30 @@ game.combat = null;
 await fire("deleteCombat", combat);
 check("the fight ends → the fight music stops and Dark Ritual comes back by itself", playing() === "Dark-Ritual", playing());
 
+// ── R6 (seat 2026-11-12): the fight runs on, the DM looks at the first floor, comes back, ends it ──────────────────
+// The combat lives on 12.4, so on 12.1 no fight is running there (game.combat is the viewed scene's). Core plays the
+// floor's bed on each activation (one beds playlist, sequential: one bed at a time).
+{
+  const attic = { ...scene }; const first = { ...scene, id: "first", name: "12.1 First Floor", flags: {}, playlistSound: beds.sounds.get("rain") };
+  for (const s of [...beds.sounds, ...fight.sounds]) s.playing = false;
+  game.scenes.active = attic; await fire("updateScene", attic, { active: true });
+  beds.sounds.get("ritual").playing = true;
+  game.combat = combat; await fire("combatStart", combat);
+  check("R6: the Cauldron fight plays its music, Dark Ritual stopped", playing() === "bbeg", playing());
+  game.combat = null; game.scenes.active = first;
+  beds.sounds.get("rain").playing = true; // core plays 12.1's bed
+  await fire("updateScene", first, { active: true });
+  check("R6: on the first floor (no fight there) the rain plays and the fight music stops", playing() === "abandoned-mansion-rain", playing());
+  game.combat = combat; game.scenes.active = attic;
+  beds.sounds.get("rain").playing = false; beds.sounds.get("ritual").playing = true; // core: back to the Attic's bed
+  await fire("updateScene", attic, { active: true });
+  check("R6: back in the Attic with the fight still on → its music again, Dark Ritual stopped", playing() === "bbeg", playing());
+  game.combat = null; await fire("deleteCombat", combat);
+  check("R6: End fight → the Attic's music (Dark Ritual) comes back", playing() === "Dark-Ritual", playing());
+  check("R6: …and the layer's state names it as a MUSIC bed (so the deck's Music key can read it, not \"silent\")", M.state().now === "Dark-Ritual" && M.state().nowBed === "music", JSON.stringify({ now: M.state().now, nowBed: M.state().nowBed }));
+  game.scenes.active = scene;
+}
+
 // ── the first floor: the rain is environment and stays under the fight ──────────────────────────────────────
 for (const s of [...beds.sounds, ...fight.sounds]) s.playing = false;
 Object.assign(scene, { id: "first", name: "12.1 First Floor", playlistSound: beds.sounds.get("rain") });

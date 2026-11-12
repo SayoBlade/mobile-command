@@ -457,7 +457,9 @@ function nowPlaying() {
   const t = _current?.target;
   if (t?.kind === "silence" && _layer !== "keep") return { name: "Silence", uuid: null };
   const d = t ? sync(t.uuid) : null;
-  if (d?.playing) return { name: d.documentName === "PlaylistSound" ? d.name : d.name, uuid: d.uuid };
+  // a bed says which kind it is, so a surface can tell the Attic's Dark Ritual (music: it IS the music while it plays,
+  // DM 2026-11-09 either-or) from the first floor's rain (environment, never "now playing", DM 2026-11-06) — seat R6
+  if (d?.playing) return { name: d.name, uuid: d.uuid, bed: d.documentName === "PlaylistSound" && isBed(d.flags) ? bedKind(d.flags) : null };
   const p = musicPlaylists().find((x) => x.playing) ?? game.playlists?.find?.((x) => x.playing && x.channel === "music");
   return p ? { name: p.name, uuid: p.uuid } : { name: "", uuid: null };
 }
@@ -473,7 +475,7 @@ export function state() {
   return {
     enabled: musicEnabled(),
     layer: _layer,
-    now: strip(now.name), nowUuid: now.uuid,
+    now: strip(now.name), nowUuid: now.uuid, nowBed: now.bed ?? null,
     auto: !holds,
     manual: holds ? (["silence", "battle", "room"].includes(holds.what) ? holds.what : "mood") : null,
     manualUuid: holds?.target?.uuid ?? null,
