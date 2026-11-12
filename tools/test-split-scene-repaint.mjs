@@ -14,5 +14,7 @@ check("the owned-token hook paints at once", /shellInstance\.render\(\);/.test(b
 check("and once more after a short tail, re-armed by each edge (delete then create = one trailing paint)",
   /clearTimeout\(partyTokenTail\);\s*partyTokenTail = setTimeout\(\(\) => \{ if \(shellInstance\?\.rendered\) shellInstance\.render\(\); \}, \d+\);/.test(body));
 check("both edges use it", shell.includes('Hooks.on("createToken", onPartyToken);') && shell.includes('Hooks.on("deleteToken", onPartyToken);'));
-check("the card itself still reads the token on another scene as a split", /const here = game\.scenes\.find\(s => s !== active && s\.tokens\.some\(t => t\.actorId === actor\.id\)\);/.test(shell));
+// the rule moved to split-state.js on 2026-11-12 (a stage is calm, tools/test-split-state.mjs); the shell still feeds it every scene
+check("the card itself still reads the token on another scene as a split", shell.includes("return splitState({ active: game.scenes.active ?? null, scenes: [...game.scenes]")
+  && /const here = scenes\.find\(\(sc\) => sc\?\.id !== active\.id && on\(sc\)\);/.test(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "scripts", "split-state.js"), "utf8")));
 console.log(`\nall ${n} passed`);
