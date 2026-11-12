@@ -1,3 +1,4 @@
+import { placeName as placeNameOf } from "./crossing-name.js"; // where a crossing leads: "Second Floor", not the house
 import { landingSpots } from "./landing-spots.js"; // crossing heroes spread around the landing (section W)
 import { MODULE_ID } from "./preset.js";
 import { notifier } from "./notifier.js";
@@ -2543,8 +2544,8 @@ export function onPauseGameForAsks(paused, options) {
   if (askToggling || options?.mcAsk) return; // our own toggle (local, or echoed back with our marker)
   askPauseOwned = false;
 }
-/** "10.2 Sleeper Car (Colored)" → "Sleeper Car": the DM-facing name of where a crossing leads. */
-const placeName = (scene) => String(scene?.name ?? "").replace(/^\d+(\.\d+)*\s+/, "").replace(/\s*\([^)]*\)\s*$/, "").trim() || String(scene?.name ?? "");
+/** Where a crossing leads, in the DM's words: crossing-name.js placeName ("Sleeper Car", "Second Floor"). */
+const placeName = (scene) => placeNameOf(scene?.name);
 
 async function handleTravelRequest({ regionId, forActorUuid, requesterId } = {}) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
