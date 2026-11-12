@@ -74,7 +74,18 @@ async function writeState(patch) {
 
 // ── reading the world into music-core's shapes ────────────────────────────────────────────────────
 
-const runningCombat = () => (game.combat?.started ? game.combat : null);
+// The fight on the TABLE's scene, read from the combats themselves (seat R6, 2026-11-12: the Attic fight ran on while the
+// DM looked at other cars; back on 12.4 the Music key read the Attic's Dark Ritual, not the fight). `game.combat` is the
+// GM's combat tracker's view (Foundry 14 game.mjs: `ui.combat.viewed`), which still shows the car he left when the
+// activation's updateScene arrives, and nothing re-applied once it caught up. A started fight on the active scene, else
+// a started fight tied to no scene, else the tracker's (a fake world without `game.combats`).
+function runningCombat() {
+  const all = game.combats ? [...game.combats].filter((c) => c?.started) : null;
+  if (!all) return game.combat?.started ? game.combat : null;
+  const active = game.scenes?.active?.id ?? null;
+  const sceneOf = (c) => c.scene?.id ?? c.scene ?? c._source?.scene ?? null;
+  return all.find((c) => active && sceneOf(c) === active) ?? all.find((c) => !sceneOf(c)) ?? null;
+}
 
 function defaultBattle() {
   const track = setting("combatBattleTrack", "");

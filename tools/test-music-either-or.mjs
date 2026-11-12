@@ -48,6 +48,9 @@ globalThis.game = {
   folders: [], combat: null, actors: [], modules: { get: () => null }, system: { id: "dnd5e" },
   settings: { get: (m, k) => store.get(k), set: async (m, k, v) => { store.set(k, v); return v; } },
 };
+// every combat in the world (music.js reads the fights themselves, not the tracker's view); `live` overrides
+let live = null;
+Object.defineProperty(game, "combats", { get: () => live ?? (game.combat ? [game.combat] : []) });
 globalThis.Hooks = { callAll: () => {}, on: (h, fn) => { (hooks[h] ??= []).push(fn); }, once: () => {} };
 globalThis.foundry = { utils: { fromUuidSync: (u) => docs[u] ?? null, randomID: () => "x" } };
 globalThis.fromUuid = async (u) => docs[u] ?? null;
@@ -90,6 +93,25 @@ check("the fight ends → the fight music stops and Dark Ritual comes back by it
   game.combat = null; await fire("deleteCombat", combat);
   check("R6: End fight → the Attic's music (Dark Ritual) comes back", playing() === "Dark-Ritual", playing());
   check("R6: …and the layer's state names it as a MUSIC bed (so the deck's Music key can read it, not \"silent\")", M.state().now === "Dark-Ritual" && M.state().nowBed === "music", JSON.stringify({ now: M.state().now, nowBed: M.state().nowBed }));
+
+  // R6 finish (seat 2026-11-12, 19:18): the same trip, as Foundry really orders it. The fight lives on in game.combats,
+  // but `game.combat` is the GM's tracker, which still shows the car he LEFT when the activation arrives.
+  for (const s of [...beds.sounds, ...fight.sounds]) s.playing = false;
+  game.scenes.active = attic; await fire("updateScene", attic, { active: true });
+  beds.sounds.get("ritual").playing = true;
+  game.combat = combat; live = [combat]; await fire("combatStart", combat);
+  check("R6 finish: the Cauldron fight's music plays", playing() === "bbeg", playing());
+  game.combat = null; game.scenes.active = first;           // the tracker shows 12.1 (no fight there)
+  beds.sounds.get("rain").playing = true;
+  await fire("updateScene", first, { active: true });
+  check("R6 finish: on the first floor the fight on 12.4 is not the table's: the rain plays", playing() === "abandoned-mansion-rain", playing());
+  game.scenes.active = attic;                                // back in the Attic, the tracker NOT yet caught up
+  beds.sounds.get("rain").playing = false; beds.sounds.get("ritual").playing = true;
+  await fire("updateScene", attic, { active: true });
+  check("R6 finish: back in the Attic with the fight on → the fight's music, though the tracker still shows 12.1", playing() === "bbeg", playing());
+  check("R6 finish: …and the Music key names the fight (Cauldron Room), not Dark Ritual", M.state().now === "Cauldron Room", JSON.stringify(M.state().now));
+  live = null; await fire("deleteCombat", combat);
+  check("R6 finish: End fight → Dark Ritual comes back", playing() === "Dark-Ritual", playing());
   game.scenes.active = scene;
 }
 
