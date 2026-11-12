@@ -1,6 +1,6 @@
 import { MODULE_ID } from "./preset.js";
 import { defineActions } from "./actions.js";
-import { api as rpc, pendingAsks } from "./rpc.js";
+import { api as rpc, pendingAsks, aheadLive } from "./rpc.js";
 import { crossingName, otherHeroNames } from "./crossing-name.js";
 
 /**
@@ -52,9 +52,23 @@ const KINDS = {
     ],
     answer: (e, choice) => rpc.travelDecide({ id: e.id, choice }),
   },
+  // ONE HERO WENT AHEAD (DM 2026-11-12): the table waits by default; Follow takes it to him (rpc.js noteAhead).
+  // "cancel" is Stay so the deck draws it as the way out (grey). Gone by itself once the table is with him.
+  ahead: {
+    rank: 1,
+    live: (e) => aheadLive(e),
+    sub: (e) => `${who(e)} · went ahead to ${e.dest || "the next car"}`,
+    choices: (e) => [
+      { id: "cancel", label: "Stay" },
+      { id: "follow", label: `Follow ${who(e)}`, img: tokenArt(e.forActorUuid), token: true },
+    ],
+    answer: (e, choice) => rpc.travelFollow({ id: e.id, choice }),
+  },
 };
 
-const queue = () => pendingAsks().filter((e) => KINDS[e.kind]).sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0));
+// a player waiting on a crossing comes before a notice that someone went ahead; then oldest first
+const queue = () => pendingAsks().filter((e) => KINDS[e.kind] && (KINDS[e.kind].live?.(e) ?? true))
+  .sort((a, b) => ((KINDS[a.kind].rank ?? 0) - (KINDS[b.kind].rank ?? 0)) || ((a.ts ?? 0) - (b.ts ?? 0)));
 const front = () => queue()[0] ?? null;
 
 defineActions([

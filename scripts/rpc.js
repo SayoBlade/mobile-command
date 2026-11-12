@@ -128,6 +128,7 @@ export function initSocket() {
   reg("travelTo", handleTravelTo);
   reg("travelRequest", handleTravelRequest);
   reg("travelDecide", handleTravelDecide);
+  reg("travelFollow", handleTravelFollow);
   reg("travelResult", handleTravelResult);
   reg("travelMark", handleTravelMark);
   reg("partyJournalEnsure", handlePartyJournalEnsure);
@@ -2501,7 +2502,7 @@ async function handleTravelTo({ regionId, group, forActorUuid, requesterId } = {
     }
   }
   if (!moved) return { ok: false, reason: "nobody could make the crossing" };
-  return { ok: true, moved, to: landing.scene.name };
+  return { ok: true, moved, to: landing.scene.name, toId: landing.scene.id };
 }
 
 // ── Basic: the DM decides a travel square (DM 2026-10-09) ─────────────────────────────────────
@@ -2585,10 +2586,49 @@ async function handleTravelDecide({ id, choice, requesterId } = {}) {
     return { ok: true, cancelled: true };
   }
   const res = await handleTravelTo({ regionId: entry.regionId, group: choice === "group", forActorUuid: entry.forActorUuid, requesterId });
+  if (res?.ok && choice === "alone") await noteAhead(entry, res);
   // A move means he is about to narrate (or arrange the party): the pause is his now, not ours.
   if (res?.ok) askPauseOwned = false;
   travelResultToUser(entry.userId, { moved: !!res?.ok, reason: res?.ok ? undefined : res?.reason });
   return res;
+}
+
+// ── ONE HERO AHEAD: THE DM MAY FOLLOW (DM 2026-11-12, via the lead: "DM will choose who to follow. The current behavior
+// allows players to follow, or the DM to choose to follow the lone player.") ─────────────────────────────────────────
+// Move <Name> keeps the table with the heroes left behind (they can walk after him). When that leaves the party split,
+// an "ahead" ask joins the queue: the deck's notice offers Stay (the table waits, nothing moves) or Follow <Name>
+// (his scene becomes the active one: the travel flow's own DM-confirmed move, the same thing the last crossing does by
+// itself). It goes away by itself once the table is with him again (actions-asks.js `live`). No pause of its own.
+async function noteAhead(entry, res) {
+  const active = game.scenes.active;
+  if (!res?.toId || !active || active.id === res.toId) return;
+  if (!partyTokensOn(active).length) return; // nobody left behind: the table follows on its own
+  const all = pendingAsks().filter(e => !(e.kind === "ahead" && (e.forActorUuid === entry.forActorUuid || !aheadLive(e))));
+  const dest = game.scenes.get(res.toId);
+  await writeAsks([...all, { id: foundry.utils.randomID(), kind: "ahead", ts: Date.now(), sceneId: res.toId,
+    forActorUuid: entry.forActorUuid, actorName: entry.actorName, dest: placeName(dest) }]);
+}
+/** Still split: the table is elsewhere and the hero still stands on the scene he crossed to. */
+export function aheadLive(e, g = globalThis.game) {
+  try {
+    if (!e?.sceneId || g.scenes.active?.id === e.sceneId) return false;
+    const id = String(e.forActorUuid ?? "").split(".").pop();
+    return [...(g.scenes.get(e.sceneId)?.tokens ?? [])].some(t => t.actorId === id);
+  } catch (err) { return false; }
+}
+async function handleTravelFollow({ id, choice, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM moves the table" };
+  if (!["cancel", "follow"].includes(choice)) return { ok: false, reason: "choose stay or follow" };
+  const all = pendingAsks();
+  const entry = all.find(e => e.id === id && e.kind === "ahead");
+  if (!entry) return { ok: false, reason: "that notice is gone" };
+  await writeAsks(all.filter(e => e.id !== id));
+  if (choice === "cancel") return { ok: true, stayed: true };
+  const scene = game.scenes.get(entry.sceneId);
+  if (!scene) return { ok: false, reason: "that car is gone" };
+  if (!scene.active) await scene.activate();
+  return { ok: true, followed: scene.name };
 }
 
 // The phone that asked hears how it ended (it shows "waiting for the DM" until then).
@@ -4335,7 +4375,7 @@ function toExecutor(handler, payload) {
       listLoot: handleListLoot, openLoot: handleOpenLoot,
       listInteractables: handleListInteractables, operateInteractable: handleOperateInteractable,
       travelTo: handleTravelTo, travelMark: handleTravelMark,
-      travelRequest: handleTravelRequest, travelDecide: handleTravelDecide,
+      travelRequest: handleTravelRequest, travelDecide: handleTravelDecide, travelFollow: handleTravelFollow,
       partyJournalEnsure: handlePartyJournalEnsure, partyJournalAdd: handlePartyJournalAdd, partyJournalEdit: handlePartyJournalEdit, partyJournalDelete: handlePartyJournalDelete, portraitUpload: handlePortraitUpload,
       storyAdd: handleStoryAdd, storyEdit: handleStoryEdit, storyDelete: handleStoryDelete,
       storyAnswered: handleStoryAnswered,
@@ -4396,6 +4436,7 @@ export const api = {
   travelTo: (payload = {}) => toExecutor("travelTo", payload),
   travelRequest: (payload = {}) => toExecutor("travelRequest", payload), // Basic: ask the DM (Cancel / Move X / Move group)
   travelDecide: (payload = {}) => toExecutor("travelDecide", payload),   // the DM panel's answer
+  travelFollow: (payload = {}) => toExecutor("travelFollow", payload),   // Stay / Follow the hero who went ahead
   travelMark: (payload = {}) => toExecutor("travelMark", payload),
   partyJournalEnsure: (payload = {}) => toExecutor("partyJournalEnsure", payload),
   partyJournalAdd: (payload = {}) => toExecutor("partyJournalAdd", payload),
