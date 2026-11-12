@@ -278,6 +278,15 @@ export function registerSettings() {
     scope: "world", config: true, type: Boolean, default: false
   });
 
+  // PREPARE SPELLS ON THE PHONE (DM 2026-11-13, deck-command D-0106): too many picks warn, as Spell Book does; the
+  // world may make it block instead (prepare-plan.js saveState). He asked for the setting to be left for later.
+  game.settings.register(MODULE_ID, "prepareOverLimit", {
+    name: "Prepare spells: too many picks",
+    hint: "Warn: a player may save more prepared spells than their limit, and it is marked (as Spell Book does). Block: the phone will not save until they untick one.",
+    scope: "world", config: true, type: String, default: "warn",
+    choices: { warn: "Warn", block: "Block" }
+  });
+
   game.settings.register(MODULE_ID, "playerTier", {
     name: "What phones can change",
     hint: "Basic: each player's phone changes only their own character. Complex adds the things that change it for everyone — marching order and party staging, the downtime board, the shared stash and offering items, and travel squares. You can switch at any time; nobody gets stuck on a screen that disappears.",

@@ -1,3 +1,4 @@
+import { gatherPrepare, savePrepare } from "./prepare-data.js"; // the phone's Prepare spells screen, read and saved here (D-0106)
 import { slotUsage } from "./ritual.js"; // the phone's slot pick as dnd5e usage; a ritual spends no slot (2026-11-12)
 import { placeName as placeNameOf } from "./crossing-name.js"; // where a crossing leads: "Second Floor", not the house
 import { landingSpots } from "./landing-spots.js"; // crossing heroes spread around the landing (section W)
@@ -131,6 +132,8 @@ export function initSocket() {
   reg("travelRequest", handleTravelRequest);
   reg("travelDecide", handleTravelDecide);
   reg("travelFollow", handleTravelFollow);
+  reg("prepareData", handlePrepareData);
+  reg("prepareSave", handlePrepareSave);
   reg("travelResult", handleTravelResult);
   reg("travelMark", handleTravelMark);
   reg("partyJournalEnsure", handlePartyJournalEnsure);
@@ -2633,6 +2636,23 @@ async function handleTravelFollow({ id, choice, requesterId } = {}) {
   return { ok: true, followed: scene.name };
 }
 
+// ── PREPARE SPELLS (DM 2026-11-13, D-0106): the phone's screen reads and saves through the executor, which can read
+// Spell Book's compendium (a wizard's book) and its flags; the rules are prepare-plan.js, the reading prepare-data.js.
+async function handlePrepareData({ actorUuid, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const actor = await fromUuid(actorUuid);
+  if (!actor || actor.documentName !== "Actor") return { ok: false, reason: "that character is gone" };
+  if (!requesterCanAct(requesterId, actor)) return { ok: false, reason: "not your character" };
+  try { return await gatherPrepare(actor); } catch (e) { console.warn(`${MODULE_ID} | prepareData`, e); return { ok: false, reason: "couldn't read the spells — see DM console" }; }
+}
+async function handlePrepareSave({ actorUuid, classId, picks, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const actor = await fromUuid(actorUuid);
+  if (!actor || actor.documentName !== "Actor") return { ok: false, reason: "that character is gone" };
+  if (!requesterCanAct(requesterId, actor)) return { ok: false, reason: "not your character" };
+  try { return await savePrepare(actor, String(classId ?? ""), picks ?? {}); } catch (e) { console.warn(`${MODULE_ID} | prepareSave`, e); return { ok: false, reason: "couldn't save — see DM console" }; }
+}
+
 // The phone that asked hears how it ended (it shows "waiting for the DM" until then).
 function travelResultToUser(userId, payload) {
   if (!userId) return;
@@ -4378,6 +4398,7 @@ function toExecutor(handler, payload) {
       listInteractables: handleListInteractables, operateInteractable: handleOperateInteractable,
       travelTo: handleTravelTo, travelMark: handleTravelMark,
       travelRequest: handleTravelRequest, travelDecide: handleTravelDecide, travelFollow: handleTravelFollow,
+      prepareData: handlePrepareData, prepareSave: handlePrepareSave,
       partyJournalEnsure: handlePartyJournalEnsure, partyJournalAdd: handlePartyJournalAdd, partyJournalEdit: handlePartyJournalEdit, partyJournalDelete: handlePartyJournalDelete, portraitUpload: handlePortraitUpload,
       storyAdd: handleStoryAdd, storyEdit: handleStoryEdit, storyDelete: handleStoryDelete,
       storyAnswered: handleStoryAnswered,
@@ -4438,6 +4459,8 @@ export const api = {
   travelTo: (payload = {}) => toExecutor("travelTo", payload),
   travelRequest: (payload = {}) => toExecutor("travelRequest", payload), // Basic: ask the DM (Cancel / Move X / Move group)
   travelDecide: (payload = {}) => toExecutor("travelDecide", payload),   // the DM panel's answer
+  prepareData: (payload = {}) => toExecutor("prepareData", payload),     // Prepare spells: what this character may prepare
+  prepareSave: (payload = {}) => toExecutor("prepareSave", payload),     // …and the player's picks, saved (never a delete)
   travelFollow: (payload = {}) => toExecutor("travelFollow", payload),   // Stay / Follow the hero who went ahead
   travelMark: (payload = {}) => toExecutor("travelMark", payload),
   partyJournalEnsure: (payload = {}) => toExecutor("partyJournalEnsure", payload),

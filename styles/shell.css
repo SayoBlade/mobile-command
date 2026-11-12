@@ -6720,3 +6720,40 @@ body.mc-skin-calendar:not(.mc-dm-clear) .app.simple-calendar .fsc-xf { display: 
 .mc-em-more { min-height: 44px; border-radius: calc(10px * var(--mc-round, 1));
   background: var(--mc-panel); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 13px; }
 .mc-em-more:active { border-color: var(--mc-gold); }
+
+/* ── PREPARE SPELLS (DM 2026-11-13, deck-command D-0106; renders-2026-11-13/prepare-*.png) ──────────────────────────
+   Our own phone screen instead of Spell Book's 512 px window. UI-BIBLE: 44 px rows; the one primary (Save) on the right
+   in the CTA token, Cancel tertiary on the left; progress a gold bar with its count; a warning amber; a lock says why. */
+.mc-prep-entry { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; margin: 4px 0 10px;
+  padding: 10px 14px; border-radius: calc(10px * var(--mc-round, 1)); background: var(--mc-panel-2); border: 1px solid var(--mc-edge);
+  border-left: 3px solid var(--mc-gold); color: var(--mc-ink); text-align: left; }
+.mc-prep-entry b { display: block; font-size: 16px; } .mc-prep-entry-sub { font-size: 12.5px; color: var(--mc-muted); } .mc-prep-entry > i { color: var(--mc-muted); }
+.mc-prep-rest { width: 100%; height: 44px; margin-top: 10px; border-radius: calc(10px * var(--mc-round, 1)); background: var(--mc-panel-2);
+  border: 1px solid var(--mc-edge); color: var(--mc-ink); font-weight: 700; }
+.mc-prep { display: flex; flex-direction: column; min-height: 100%; }
+.mc-prep-note { margin: 2px 4px 6px; font-size: 12.5px; color: var(--mc-muted); }
+.mc-prep-warn, .mc-prep-amber { color: var(--mc-warn); }
+.mc-prep-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 2px 8px; }
+.mc-prep-chips-lbl { font-size: 12px; color: var(--mc-muted); }
+.mc-prep-chip { min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--mc-edge); background: transparent; color: var(--mc-muted); font-size: 13px; }
+.mc-prep-chip.mc-on { border-color: var(--mc-gold); color: var(--mc-ink); background: var(--mc-panel-2); }
+.mc-prep-ctr { margin: 0 2px 6px; padding: 10px 12px; border-radius: calc(10px * var(--mc-round, 1)); background: var(--mc-panel-2); border: 1px solid var(--mc-edge); }
+.mc-prep-ctr-row { display: flex; justify-content: space-between; align-items: baseline; } .mc-prep-ctr-row span { font-size: 13px; color: var(--mc-muted); } .mc-prep-ctr-row b { font-size: 20px; }
+.mc-prep-bar { height: 5px; border-radius: 3px; background: var(--mc-sunken); margin-top: 7px; overflow: hidden; } .mc-prep-bar i { display: block; height: 100%; background: var(--mc-gold); }
+.mc-prep-over { border-color: var(--mc-warn); } .mc-prep-over b { color: var(--mc-warn); } .mc-prep-over .mc-prep-bar i { background: var(--mc-warn); } .mc-prep-over .mc-prep-warn { margin-top: 6px; font-size: 12.5px; }
+.mc-prep-lv { display: flex; justify-content: space-between; margin: 10px 6px 2px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--mc-gold); }
+.mc-prep-lv span + span { color: var(--mc-muted); letter-spacing: 0; } .mc-prep-lv span.mc-prep-amber { color: var(--mc-warn); }
+.mc-prep-row { display: flex; align-items: center; gap: 8px; min-height: 48px; border-bottom: 1px solid var(--mc-edge); }
+.mc-prep-name { flex: 1; display: flex; align-items: center; gap: 12px; min-height: 44px; background: none; border: 0; padding: 2px 4px; color: var(--mc-muted); text-align: left; font-size: 16px; font-weight: 600; }
+.mc-prep-row.mc-on .mc-prep-name { color: var(--mc-ink); }
+.mc-prep-name img { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--mc-edge); flex: none; }
+.mc-prep-tag { display: inline-block; margin-left: 6px; font-size: 10.5px; font-weight: 800; padding: 1px 5px; border-radius: 5px; border: 1px solid var(--mc-edge); color: var(--mc-muted); vertical-align: 2px; }
+.mc-prep-tog { position: relative; flex: none; width: 52px; height: 32px; margin-right: 4px; border-radius: 16px; background: var(--mc-sunken); border: 1px solid var(--mc-edge); padding: 0; }
+.mc-prep-tog i { position: absolute; top: 4px; left: 4px; width: 22px; height: 22px; border-radius: 50%; background: #77707f; transition: left .15s ease; }
+.mc-prep-tog.mc-on { background: var(--mc-ok); border-color: var(--mc-ok); } .mc-prep-tog.mc-on i { left: 24px; background: #fff; }
+.mc-prep-lock { flex: none; font-size: 12px; color: var(--mc-muted); margin-right: 4px; } .mc-prep-lock i { color: var(--mc-warn); font-size: 11px; }
+.mc-prep-foot { position: sticky; bottom: 0; display: flex; gap: 8px; margin-top: auto; padding: 12px 2px; background: var(--mc-panel); border-top: 1px solid var(--mc-edge); }
+.mc-prep-foot button { flex: 1 1 0; height: 48px; border-radius: calc(10px * var(--mc-round, 1)); font-weight: 800; font-size: 15px; }
+.mc-prep-cancel { background: transparent; border: 0; color: var(--mc-muted); }
+.mc-prep-save { background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge, var(--mc-gold)); color: var(--mc-cta-ink, var(--mc-ink)); }
+.mc-prep-save:disabled { opacity: .45; }

@@ -17,6 +17,7 @@ import { openFeedback } from "./feedback.js"; // §48 report a bug from the phon
 import { isEmberWorld, emberReady, EMBER_CREATION_SHEET, activeCampaign, emberSky, emberPartyStatus, emberAttunements, emberJournal } from "./campaigns.js"; // §50 Ember: creation door + rest copy + the Ember tab
 import { isSaveResult, acShape } from "./dnd5e-compat.js"; // the dnd5e 5.3 ⇄ 6.0 seam (chat subtypes, AC shape)
 import { surfaceOn, actionAllowed } from "./tier.js"; // Basic / Complex — the ONE gate for shared-state surfaces (tier.js imports only preset.js)
+import { view as prepView, canToggle as prepCanToggle, saveState as prepSaveState, planSave as prepPlan, hasChanges as prepHasChanges } from "./prepare-plan.js"; // Prepare spells (D-0106)
 import { canCastAsRitual, ritualSlotId } from "./ritual.js"; // a prepared ritual (or a wizard's book) casts with no slot (2026-11-12)
 import { splitState, splitCard } from "./split-state.js"; // a phone off the table's map: waiting, or calm on a stage (2026-11-12)
 import { shouldKeepGmClear, isHandheldDevice } from "./overlay-guard.js"; // §22.7/§22.10 — overlay-guard imports only preset.js, so no cycle
@@ -275,6 +276,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #lastReleased = null;   // scout release-follow: last-seen released member set
   #rollRequest = null;    // DM roll-request prompt {actorUuid, rollType, ability, label, dc}
   #colorPickOpen = false; // DM-triggered colour-picker overlay is showing
+  #prep = null; // Prepare spells (D-0106): { actorId, data, classIdx, picks: Map<classId, Map<uuid,bool>>, filters: Set, busy, error }
   #pausedDismissed = null; // §17.3 split-scene overlay: "activeId:hereId" the player browsed past
   #nightDismissed = null;  // §17.4 night overlays: "assign" | "watch:N" the player browsed past
   #nightSubjectId = null;  // §17.4 watch board: which of my owned actors (PC or a pet) I'm assigning
@@ -2643,6 +2645,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // An in-progress action/cast overlays the current tab — so casting from the
     // Spells tab (or using a favorite from Explore) stays put instead of jumping.
     if (this.#detailCard) return this.#detailCardHTML();
+    if (this.#prep) return this.#prepareHTML();
     if (this.#transferState && surfaceOn("sharedInventory")) return this.#transferComposerHTML(actor);
     if (this.#enchantState) return this.#enchantPickerHTML();
     if (this.#actionState) return this.#targetPickerHTML();
@@ -4008,8 +4011,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       : "";
     // Spell Book's own window, for preparing and swapping (the seat test, behind `phoneSpellBook`; spellbook-phone.js)
     const sbBtn = this.#spellBookButtonHTML(actor);
+    const prepBtn = this.#prepareButtonHTML(actor); // Prepare spells (D-0106): our own screen, at the top of the tab
     return `<div class="mc-actions-head"><span class="mc-section-label">Spells</span>${this.#searchToggleHTML()}</div>
-      ${this.#searchDrawerHTML()}${cards}${slotsRow}${sections}${sbBtn}${learnBtn}`;
+      ${this.#searchDrawerHTML()}${prepBtn}${cards}${slotsRow}${sections}${sbBtn}${learnBtn}`;
   }
 
   // Per-class spellcasting cards (ability mod · spell attack · save DC · prepared
@@ -5124,6 +5128,106 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   }
   #openLevelUp() { this.#levelUp = { adding: false, options: null }; this.render(); }
   /** The "Spell Book" button: the switch on, Spell Book active, the player's own spellcaster (spellbook-phone.js). */
+  // ── PREPARE SPELLS (DM 2026-11-13, deck-command D-0106; renders-2026-11-13/prepare-*.png) ─────────────────────────────
+  // Our own phone screen instead of Spell Book's 512 px window: it reads what Spell Book has set up for the character
+  // (through the executor, prepare-data.js) and decides with prepare-plan.js. Opens from the Spells tab and after a long
+  // rest. Learning and copying spells stay on the PC, in Spell Book.
+  #prepareButtonHTML(actor, { rest = false } = {}) {
+    if (!actor?.isOwner || !isSpellcaster(actor)) return "";
+    const classes = [...(actor.items ?? [])].filter((i) => i.type === "class" && i.system?.spellcasting?.progression && i.system.spellcasting.progression !== "none");
+    const max = classes.reduce((n, c) => n + (Number(c.system?.spellcasting?.preparation?.max) || 0), 0);
+    const cur = [...(actor.items ?? [])].filter((i) => i.type === "spell" && Number(i.system?.level) > 0 && Number(i.system?.prepared) === 1).length;
+    const who = classes.map((c) => c.name).join(" / ");
+    if (rest) return `<button class="mc-prep-rest" data-action="prep-open"><i class="fas fa-book-open"></i> Change Prepared Spells</button>`;
+    return `<button class="mc-prep-entry" data-action="prep-open"><span><b>Prepare Spells</b><span class="mc-prep-entry-sub">${foundry.utils.escapeHTML(who)}${max ? ` · ${cur} / ${max} prepared` : ""}</span></span><i class="fas fa-chevron-right"></i></button>`;
+  }
+  async #openPrepare(actor) {
+    if (!actor?.isOwner) return;
+    this.#detailCard = null; this.#detailStack = [];
+    this.#prep = { actorId: actor.id, data: null, classIdx: 0, picks: new Map(), filters: new Set(), busy: true, error: null };
+    this.render();
+    let data;
+    try { data = await rpc.prepareData({ actorUuid: actor.uuid }); } catch (e) { data = { ok: false, reason: e?.message ?? "no answer" }; }
+    if (!this.#prep || this.#prep.actorId !== actor.id) return;
+    this.#prep.busy = false;
+    if (!data?.ok) { this.#prep.error = data?.reason ?? "Couldn't read your spells — ask the DM."; return this.render(); }
+    this.#prep.data = data;
+    this.render();
+  }
+  #prepClass() { const p = this.#prep; return p?.data?.classes?.[p.classIdx] ?? null; }
+  #prepPicks(cls) { const p = this.#prep; if (!p.picks.has(cls.id)) p.picks.set(cls.id, new Map()); return p.picks.get(cls.id); }
+  #prepareHTML() {
+    const p = this.#prep, esc = foundry.utils.escapeHTML;
+    const head = (who) => `<div class="mc-picker-head">
+        <button class="mc-back mc-picker-x" data-action="prep-close" aria-label="Close"><i class="fas fa-xmark"></i></button>
+        <span class="mc-picker-title">Prepare Spells${who ? `<span class="mc-picker-range">${esc(who)}</span>` : ""}</span></div>`;
+    if (p.busy) return `${head("")}<div class="mc-prep"><div class="mc-prep-note">Reading your spells…</div></div>`;
+    if (p.error || !p.data) return `${head("")}<div class="mc-prep"><div class="mc-prep-note mc-prep-warn">${esc(p.error ?? "Nothing to prepare.")}</div></div>`;
+    const cls = this.#prepClass();
+    if (!cls) return `${head("")}<div class="mc-prep"><div class="mc-prep-note">This character prepares no spells.</div></div>`;
+    const picks = this.#prepPicks(cls);
+    const v = prepView(cls, picks, { filters: p.filters, inCombat: p.data.inCombat });
+    const st = prepSaveState(cls, picks, { over: p.data.over, inCombat: p.data.inCombat });
+    const classChips = p.data.classes.length > 1 ? `<div class="mc-prep-chips">${p.data.classes.map((c, i) =>
+      `<button class="mc-prep-chip ${i === p.classIdx ? "mc-on" : ""}" data-action="prep-class" data-idx="${i}">${esc(c.name)}</button>`).join("")}</div>` : "";
+    const plural = (n) => (/s$/i.test(n) ? n : `${n}s`);
+    const why = { longRest: "after a long rest", levelUp: "at a new level", none: "never" }[cls.spellSwap] ?? "after a long rest";
+    const lines = [
+      cls.wizard ? `From your spellbook (${cls.spells.filter((s) => s.level > 0).length}). Copying new spells: at the PC, in Spell Book.` : (cls.listSet ? `From the ${esc(cls.name)} list.` : ""),
+      !cls.swapsOpen ? `Swaps open ${why} (Spell Book's rule for ${esc(plural(cls.name))}).` : "",
+      p.data.inCombat ? "Not during a fight." : "",
+    ].filter(Boolean);
+    const sp = v.counts.spells, ca = v.counts.cantrips;
+    const pct = sp.max ? Math.min(100, Math.round((sp.cur / sp.max) * 100)) : 0;
+    const counter = sp.max ? `<div class="mc-prep-ctr ${sp.over ? "mc-prep-over" : ""}">
+        <div class="mc-prep-ctr-row"><span>Prepared</span><b>${sp.cur} / ${sp.max}</b></div>
+        <div class="mc-prep-bar"><i style="width:${pct}%"></i></div>
+        ${sp.over ? `<div class="mc-prep-warn">${p.data.over === "block" ? "Too many — untick one to save" : `${sp.cur - sp.max} more than you can prepare — the DM will see it`}</div>` : ""}</div>` : "";
+    const chip = (key, label) => `<button class="mc-prep-chip ${p.filters.has(key) ? "mc-on" : ""}" data-action="prep-filter" data-key="${key}">${label}</button>`;
+    const tags = (r) => `${r.ritual ? `<span class="mc-prep-tag" title="Ritual">R</span>` : ""}${r.concentration ? `<span class="mc-prep-tag" title="Concentration">C</span>` : ""}`;
+    const row = (r) => `<div class="mc-prep-row ${r.on ? "mc-on" : ""}">
+        <button class="mc-prep-name" data-action="prep-read" data-uuid="${esc(r.uuid)}"><img src="${esc(r.img || "icons/svg/book.svg")}" alt=""><span>${esc(r.name)}${tags(r)}</span></button>
+        ${r.locked ? `<span class="mc-prep-lock"><i class="fas fa-lock"></i> ${esc(r.why)}</span>`
+          : `<button class="mc-prep-tog ${r.on ? "mc-on" : ""}" data-action="prep-toggle" data-uuid="${esc(r.uuid)}" role="switch" aria-checked="${r.on}" aria-label="${r.on ? "Unprepare" : "Prepare"} ${esc(r.name)}"><i></i></button>`}</div>`;
+    const groups = v.groups.map((g) => `<div class="mc-prep-lv"><span>${esc(g.label)}</span>${g.level === 0 && ca.max ? `<span class="${ca.over ? "mc-prep-amber" : ""}">${ca.cur} / ${ca.max}</span>` : ""}</div>${g.rows.map(row).join("")}`).join("");
+    return `${head(`${cls.name}${cls.levels ? ` ${cls.levels}` : ""}`)}
+      <div class="mc-prep">
+        ${classChips}
+        ${lines.map((l) => `<div class="mc-prep-note">${l}</div>`).join("")}
+        <div class="mc-prep-chips"><span class="mc-prep-chips-lbl">Show</span>${chip("ritual", "Rituals")}${chip("concentration", "Concentration")}</div>
+        ${counter}
+        ${groups || `<div class="mc-prep-note">${esc(v.empty ?? "")}</div>`}
+        <div class="mc-prep-foot">
+          <button class="mc-prep-cancel" data-action="prep-close">Cancel</button>
+          <button class="mc-prep-save" data-action="prep-save" ${st.ok && !p.saving ? "" : "disabled"} title="${esc(st.why ?? "")}">${p.saving ? "Saving…" : esc(st.label)}</button>
+        </div>
+        ${!st.ok && st.why ? `<div class="mc-prep-note mc-prep-warn">${esc(st.why)}</div>` : ""}
+      </div>`;
+  }
+  #prepToggle(uuid) {
+    const cls = this.#prepClass(); if (!cls) return;
+    const s = cls.spells.find((x) => x.uuid === uuid); if (!s) return;
+    const picks = this.#prepPicks(cls);
+    const t = prepCanToggle(cls, s, picks, { inCombat: this.#prep.data.inCombat });
+    if (!t.ok) { notifier.info(`${s.name}: ${t.why}`); return; }
+    const was = Number(s.level) === 0 ? Boolean(s.itemId) : Number(s.prepared) >= 1;
+    const now = picks.has(uuid) ? picks.get(uuid) : was;
+    if (!now === was) picks.delete(uuid); else picks.set(uuid, !now);
+    this.render();
+  }
+  async #prepSave(actor) {
+    const p = this.#prep, cls = this.#prepClass(); if (!p || !cls || p.saving) return;
+    const picks = this.#prepPicks(cls);
+    if (!prepHasChanges(prepPlan(cls, picks))) { this.#prep = null; return this.render(); }
+    p.saving = true; this.render();
+    let res;
+    try { res = await rpc.prepareSave({ actorUuid: actor.uuid, classId: cls.id, picks: Object.fromEntries(picks) }); } catch (e) { res = { ok: false, reason: e?.message }; }
+    if (this.#prep !== p) return;
+    p.saving = false;
+    if (!res?.ok) { notifier.warn(`Prepare spells: ${res?.reason ?? "no answer from the DM"}`); return this.render(); }
+    notifier.info(`${cls.name}: ${res.prepared} prepared${res.warned ? " (more than your limit)" : ""}.`);
+    this.#prep = null; this.render();
+  }
   #spellBookButtonHTML(actor, label = "Spell Book") {
     if (!spellBookOffer({ on: phoneSpellBookOn(), api: spellBookApi(), owner: !!actor?.isOwner, caster: isSpellcaster(actor) })) return "";
     return `<button class="mc-learn-spells mc-spellbook-open" data-action="spellbook-open"><i class="fas fa-book-open"></i> ${foundry.utils.escapeHTML(label)}</button>`;
@@ -7559,6 +7663,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
           .catch((e) => { console.error(`${MODULE_ID} | Spell Book`, e); notifier.warn("Spell Book didn't open — see console."); });
         return this.render();
       }
+      case "prep-open": return this.#openPrepare(actor);
+      case "prep-close": this.#prep = null; return this.render();
+      case "prep-class": { if (this.#prep) this.#prep.classIdx = Number(el.dataset.idx) || 0; return this.render(); }
+      case "prep-filter": { const f = this.#prep?.filters; if (!f) return; const k = el.dataset.key; f.has(k) ? f.delete(k) : f.add(k); return this.render(); }
+      case "prep-toggle": return this.#prepToggle(el.dataset.uuid);
+      case "prep-read": return this.#openLinkDetails(el.dataset.uuid);
+      case "prep-save": return this.#prepSave(actor);
       case "hm2-level-up": {
         // own character only, and only while the GM's level-up is waiting (re-checked at the tap)
         if (!phoneLevelUps() || !actor?.isOwner || actor.type !== "character" || !hm2LevelUpSent(actor)) return this.render();
@@ -8035,7 +8146,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ? `<ul class="mc-rest-benefits">${benefits.map((b) => `<li>${foundry.utils.escapeHTML(b)}</li>`).join("")}</ul>`
       : `<div class="mc-rest-none">Nothing needed recovering.</div>`)
       // after a LONG rest, a spellcaster changes prepared spells in Spell Book (the seat test, behind `phoneSpellBook`)
-      + (kind === "long" ? this.#spellBookButtonHTML(actor, "Change prepared spells") : "");
+      + (kind === "long" ? this.#prepareButtonHTML(actor, { rest: true }) + this.#spellBookButtonHTML(actor, "Change prepared spells") : "");
     this.#detailStack = [];
     this.#detailCard = {
       name: kind === "long" ? "Long Rest" : "Short Rest", glyph: kind === "long" ? "fa-bed" : "fa-campground",
