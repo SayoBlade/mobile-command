@@ -12,10 +12,12 @@
  * the groans 27/28 — is a board under a foot. The sound plan (crooked-moon.md) named 2, 9, 17 and 27.
  */
 
-const WOOD = (n) => `assets/Personal/SFX/crackingwood_darkfantasystudio/NOISE ALCHEMY- CRAKING WOOD ${n}.wav`;
-const HORROR = (p) => `assets/Personal/Music/Horror Audio Bundle/MP3/FX/${p}`;
-const MF2 = (p) => `assets/Personal/Music/Medieval Fantasy 2 Audio Bundle/MP3/SFX (Mp3 320)/Misc/${p}`;
-const PSFX_DOOR = (p) => `modules/psfx/library/doors/clean/wooden/01/wooden-${p}-clean-01.ogg`;
+import { trimmed } from "./trimmed-sounds.js";
+// every take goes through `trimmed` (trimmed-sounds.js): the copy with its leading silence cut, where there is one
+const WOOD = (n) => trimmed(`assets/Personal/SFX/crackingwood_darkfantasystudio/NOISE ALCHEMY- CRAKING WOOD ${n}.wav`);
+const HORROR = (p) => trimmed(`assets/Personal/Music/Horror Audio Bundle/MP3/FX/${p}`);
+const MF2 = (p) => trimmed(`assets/Personal/Music/Medieval Fantasy 2 Audio Bundle/MP3/SFX (Mp3 320)/Misc/${p}`);
+const PSFX_DOOR = (p) => trimmed(`modules/psfx/library/doors/clean/wooden/01/wooden-${p}-clean-01.ogg`);
 
 /** The sets the region menu offers. `label` is what the DM reads; `takes` are the files. */
 export const CUE_SETS = Object.freeze({

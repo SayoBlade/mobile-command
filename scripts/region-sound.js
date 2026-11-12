@@ -175,6 +175,15 @@ export function preloadSceneCues(scene = globalThis.canvas?.scene) {
       const takes = b.system?.set && CUE_SETS[b.system.set] ? CUE_SETS[b.system.set].takes : (b.system?.src ? [b.system.src] : []);
       if (takes.length <= 8) for (const t of takes) files.add(t);
     }
+    // ⚠️ AND THE DOORS (DM 2026-11-12: "sounds seem to be delayed overall, also with the door"): Foundry plays a door's
+    // sound on each screen as the change arrives (Wall#_onUpdate → playAtPosition), but a take never heard before is
+    // fetched twice and decoded first. Every take of every door set used on this map, so the first open is as quick
+    // as the tenth.
+    for (const w of scene?.walls ?? []) {
+      const set = w.door ? globalThis.CONFIG?.Wall?.doorSounds?.[w.doorSound] : null;
+      if (!set) continue;
+      for (const k of ["open", "close", "lock", "unlock", "test"]) for (const t of [set[k] ?? []].flat()) if (t) files.add(t);
+    }
     for (const f of files) foundry.audio.AudioHelper.preloadSound(f).catch?.(() => {});
     return [...files];
   } catch (e) { return []; }

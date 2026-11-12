@@ -19,6 +19,7 @@ const last = new Map(); let plays = 0;
 const handle = async () => { const now = 1000; if (withinCooldown(last.get("u")?.at, now, 25)) return; last.set("u", { at: now }); await new Promise((r) => setTimeout(r, 5)); plays++; };
 await Promise.all([handle(), handle(), handle()]);
 check("three events from one move, claimed first: one play", plays === 1, String(plays));
+const CUE_SETS2 = await import(pathToFileURL(path.join(ROOT, "scripts", "cue-sets.js")).href);
 const { CUE_SETS } = await import(pathToFileURL(path.join(ROOT, "scripts", "cue-sets.js")).href);
 const teeth = CUE_SETS.teeth.takes;
 check("the teeth set is crunching steps, several takes, and nothing that jingles (the glass read as keys, DM 2026-11-12)", teeth.filter((t) => /crunch/.test(t)).length >= 5 && teeth.every((t) => /crunch/.test(t)));
@@ -46,5 +47,17 @@ if (fs.existsSync(DATA)) check("every teeth take is on disk", teeth.every((t) =>
   check("cadence: a six-square move → three crunches in all, 250 ms apart, spread along the path", six.length === 2 && six[0].wait === 250 && six[1].wait === 500 && six[0].at.x > 0 && six[1].at.x > six[0].at.x && six[1].at.x < 840, JSON.stringify(six));
   check("cadence: never more than three, however long the move", cadenceBeats(cad, mv(30), sc).length === 2);
   check("no cadence on a set that does not ask (a creak stays one per move)", cadenceBeats(CUE_SETS.creak.cadence, mv(6), sc).length === 0);
+  console.log(`\nall ${n} passed`);
+}
+// ── the leading silence (DM 2026-11-12: "Sounds seem to be delayed overall, also with the door") ──
+{
+  const { TRIMMED, trimmed } = await import(pathToFileURL(path.join(ROOT, "scripts", "trimmed-sounds.js")).href);
+  const pairs = Object.entries(TRIMMED);
+  check("the trimmed copies live in his Data folder's own trimmed folder, never over an original", pairs.length > 0 && pairs.every(([a, b]) => a !== b && b.startsWith("assets/Personal/SFX/_trimmed-deck-command/") && b.endsWith(".wav")));
+  if (fs.existsSync(DATA)) check("every original and every trimmed copy is on disk", pairs.every(([a, b]) => fs.existsSync(path.join(DATA, a)) && fs.existsSync(path.join(DATA, b))), pairs.filter(([a, b]) => !fs.existsSync(path.join(DATA, b))).map(([, b]) => b).join(", "));
+  const doorTakes = Object.values(CUE_SETS2.CM_DOOR_SOUNDS).flatMap((d) => ["open", "close", "test"].flatMap((k) => d[k]));
+  check("the door sets play the trimmed copies where one exists (the heavy close, the plain wooden close)", doorTakes.every((t) => !TRIMMED[t]) && doorTakes.some((t) => t.includes("_trimmed-deck-command/") && /DoorHugeClose/.test(t)));
+  check("a take with no copy is itself", trimmed("x.ogg") === "x.ogg");
+  check("the door sounds of a map are preloaded with its cues", /w\.door \? globalThis\.CONFIG\?\.Wall\?\.doorSounds\?\.\[w\.doorSound\]/.test(fs.readFileSync(path.join(ROOT, "scripts", "region-sound.js"), "utf8")));
   console.log(`\nall ${n} passed`);
 }
