@@ -17,6 +17,7 @@ import { openFeedback } from "./feedback.js"; // §48 report a bug from the phon
 import { isEmberWorld, emberReady, EMBER_CREATION_SHEET, activeCampaign, emberSky, emberPartyStatus, emberAttunements, emberJournal } from "./campaigns.js"; // §50 Ember: creation door + rest copy + the Ember tab
 import { isSaveResult, acShape } from "./dnd5e-compat.js"; // the dnd5e 5.3 ⇄ 6.0 seam (chat subtypes, AC shape)
 import { surfaceOn, actionAllowed } from "./tier.js"; // Basic / Complex — the ONE gate for shared-state surfaces (tier.js imports only preset.js)
+import { splitState, splitCard } from "./split-state.js"; // a phone off the table's map: waiting, or calm on a stage (2026-11-12)
 import { shouldKeepGmClear, isHandheldDevice } from "./overlay-guard.js"; // §22.7/§22.10 — overlay-guard imports only preset.js, so no cycle
 
 // Phase 2 — Controller Shell + read-only Touch Sheet.
@@ -750,19 +751,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // "Browse my sheet anyway" dismisses until either scene changes; the overlay
   // returns on the next split. Char-gen and packed party are exempt (no/soft token).
   #pausedState() {
-    if (this.#charGen) return null;
-    const active = game.scenes.active;
-    if (!active) return null;
+    // the decision is split-state.js's (pure, tested); this only reads the world into it. A STAGE (the landing
+    // room, `flags.mobile-command.stage`) gets the calm card, not "Waiting for the party" (seat LIVE TRY 2026-11-12)
     const actor = game.user.character ?? this.actor;
-    if (!actor || actor.type !== "character") return null;
-    if (active.tokens.some(t => t.actorId === actor.id)) return null; // on the action scene
-    const here = game.scenes.find(s => s !== active && s.tokens.some(t => t.actorId === actor.id));
-    if (!here) return null; // no token anywhere (char-gen/limbo) — not a split
-    // packed party: the PC rides inside the group token, not their own — exempt
-    const packed = game.actors.some(a => a.type === "group" && a.getFlag("mobile-command", "packed")
+    const packed = !!actor && game.actors.some(a => a.type === "group" && a.getFlag("mobile-command", "packed")
       && (a.system?.members ?? []).some(m => m.actor?.id === actor.id));
-    if (packed) return null;
-    return { key: `${active.id}:${here.id}`, hereName: here.name, activeName: active.name };
+    return splitState({ active: game.scenes.active ?? null, scenes: [...game.scenes], actorId: actor?.id ?? null,
+      isCharacter: actor?.type === "character", packed, charGen: !!this.#charGen });
   }
   // §17.4 guard duty: my party group's night flag drives two phone overlays —
   // the WATCH BOARD while assigning (tap a row to stand that watch, multi-duty
@@ -856,12 +851,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #pausedHTML() {
     const st = this.#pausedState();
     if (!st || this.#pausedDismissed === st.key) return "";
-    return `<div class="mc-paused">
+    const card = splitCard(st), esc = foundry.utils.escapeHTML;
+    // a split names the two maps in gold; a stage says one calm line (split-state.js splitCard)
+    const sub = Array.isArray(card.sub) ? card.sub.map((part, i) => (i % 2 ? `<b>${esc(part)}</b>` : esc(part))).join("") : esc(card.sub);
+    return `<div class="mc-paused${card.calm ? " mc-paused-calm" : ""}">
       <div class="mc-paused-card">
-        <i class="fas fa-hourglass-half mc-paused-ico"></i>
-        <div class="mc-paused-title">Waiting for the party</div>
-        <div class="mc-paused-sub">You're on <b>${foundry.utils.escapeHTML(st.hereName)}</b> — the action is on
-          <b>${foundry.utils.escapeHTML(st.activeName)}</b>. The DM will bring the scene to you.</div>
+        <i class="fas ${card.icon} mc-paused-ico"></i>
+        <div class="mc-paused-title">${esc(card.title)}</div>
+        <div class="mc-paused-sub">${sub}</div>
         <button class="mc-paused-browse" data-action="paused-dismiss" data-key="${foundry.utils.escapeHTML(st.key)}">
           <i class="fas fa-book-open"></i> Browse my sheet anyway</button>
       </div>

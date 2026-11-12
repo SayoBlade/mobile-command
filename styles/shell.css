@@ -3317,6 +3317,8 @@ body.mc-theme-wizard #mobile-command-shell { background: radial-gradient(120% 80
 .mc-paused { position: fixed; inset: 0; z-index: 10001; display: flex; align-items: center; justify-content: center; background: rgba(6, 8, 12, .82); padding: 20px; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
 .mc-paused-card { width: 100%; max-width: 340px; background: var(--mc-panel, #1c1922); border: 1px solid var(--mc-gold); border-radius: calc(16px * var(--mc-round, 1)); padding: 24px 20px; box-shadow: 0 12px 40px rgba(0,0,0,.6); text-align: center; }
 .mc-paused-ico { font-size: 34px; color: var(--mc-gold); margin-bottom: 12px; animation: mc-paused-flip 3s ease-in-out infinite; }
+/* A stage (the landing room during the intros) is not a wait: no flipping hourglass, a calmer veil (2026-11-12). */
+.mc-paused-calm { background: rgba(6, 8, 12, .7); } .mc-paused-calm .mc-paused-ico { animation: none; opacity: .85; }
 @keyframes mc-paused-flip { 0%, 80% { transform: rotate(0); } 90%, 100% { transform: rotate(180deg); } }
 .mc-paused-title { color: var(--mc-ink); margin-bottom: 8px; }
 .mc-paused-sub { font-size: 14px; line-height: 1.5; color: var(--mc-ink); opacity: .85; margin-bottom: 18px; }
