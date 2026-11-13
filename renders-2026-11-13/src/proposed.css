@@ -1,0 +1,213 @@
+/* PROPOSED — Mobile Command moved toward VE Mobile's dark look. Tokens, not hexes, below the fold.
+   Meanings kept from MC's UI-BIBLE: gold = accent/next, green = done/on/healthy, red = destructive/damage/bloodied,
+   violet = reactions, amber = careful, player colour = identity. Surfaces follow the theme; semantics do not. */
+@font-face { font-family: "FA"; src: url("file:///C:/Users/User/Documents/Claude/Code/deck-command/service/node_modules/@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2") format("woff2"); font-weight: 900; }
+@font-face { font-family: "Cinzel"; src: url("file:///C:/Users/User/Documents/Claude/Code/mobile-command/fonts/Cinzel.woff2") format("woff2"); }
+:root {
+  /* surfaces (theme) — VE's warm near-black family, one step darker than MC's today */
+  --mc-bg: #141214;
+  --mc-sunken: #0f0d0e;
+  --mc-panel: #1f1a1b;
+  --mc-panel-2: #2a2426;
+  --mc-edge: #3a3133;
+  --mc-edge-2: #5a4e49;          /* VE's dark-theme border, for cards that must separate */
+  --mc-ink: #f4ecdd;             /* VE paper warmth */
+  --mc-muted: #c3b399;
+  /* brand */
+  --mc-gold: #c8a44d;            /* MC's own gold, unchanged */
+  --mc-gilt: #c8a44d;
+  --mc-cta-edge: #8c3a33;        /* MC's burgundy CTA, unchanged meaning */
+  --mc-cta-fill: linear-gradient(180deg, rgba(140,58,51,.46), rgba(140,58,51,.26));
+  --mc-cta-ink: #f8e9e4;
+  --mc-primary: #2a3a52;         /* the Save blue family, kept as a fill */
+  --mc-primary-edge: #3e5a80;
+  /* semantics — unchanged */
+  --mc-ok: #3a6b4a; --mc-ok-ink: #8fd6a8; --mc-ok-dim: #1c2f22;
+  --mc-bad: #7a3a35; --mc-bad-ink: #ffb4a8; --mc-bad-dim: #2f1d1c;
+  --mc-react: #4a3f66; --mc-react-ink: #8a6fd8; --mc-react-dim: #241f33;
+  --mc-warn: #e0b24a;
+  --mc-user: #35c8d2;            /* the player's Foundry colour (identity) */
+  /* class tint (VE's character-theme glow) — here the cleric's gold-white, pulled from MC's cleric theme hue */
+  --mc-class: #c9a35a;
+  --mc-round: 1;
+  --r: calc(14px * var(--mc-round));
+  --r-s: calc(10px * var(--mc-round));
+  --hi: inset 0 1px 0 rgba(255,255,255,.07);              /* VE's top highlight */
+  --sh: 0 8px 22px rgba(0,0,0,.28);                        /* VE's card shadow */
+  --sh-sheet: 0 -18px 50px rgba(0,0,0,.55);
+  --font: "Segoe UI", system-ui, sans-serif;               /* stands in for Signika in this mockup */
+  --num: "Bahnschrift", "Segoe UI", sans-serif;            /* stands in for Modesto Condensed */
+  --title: "Cinzel", serif;                                /* the theme's title face (cleric) */
+}
+* { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+html, body { margin: 0; height: 100%; }
+body { width: 375px; height: 812px; overflow: hidden; background: var(--mc-bg); color: var(--mc-ink); font: 400 15px/1.35 var(--font); }
+.fa { font-family: "FA"; font-weight: 900; font-style: normal; display: inline-block; }
+.app { position: relative; width: 375px; height: 812px; overflow: hidden; display: flex; flex-direction: column;
+  background:
+    radial-gradient(circle at 88% -6%, color-mix(in srgb, var(--mc-class) 26%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--mc-class) 9%, var(--mc-bg)), var(--mc-bg) 52%); }
+.num { font-family: var(--num); font-variant-numeric: tabular-nums; }
+.kicker { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--mc-muted); }
+.kicker.gold { color: var(--mc-gold); }
+.scroll { flex: 1 1 auto; min-height: 0; overflow: hidden; padding: 0 14px 10px; display: flex; flex-direction: column; gap: 10px; }
+
+/* ── header: the character card (VE: artwork behind, portrait tile, big name; MC: player ring, Lvl chip, PAUSED) ── */
+.hdr { flex: 0 0 auto; position: relative; margin: 10px 14px 0; padding: 12px; border-radius: var(--r); border: 1px solid var(--mc-edge-2);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--mc-class) 18%, var(--mc-panel)), var(--mc-panel) 70%); box-shadow: var(--hi), var(--sh); overflow: hidden; }
+.hdr::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 80% 20%, color-mix(in srgb, var(--mc-class) 30%, transparent), transparent 55%); pointer-events: none; }
+.hdr-row { position: relative; display: flex; gap: 12px; align-items: center; }
+.portrait { width: 64px; height: 64px; border-radius: var(--r-s); background: #2b2a33 url("portrait.png") center/cover; border: 1px solid var(--mc-edge-2); box-shadow: 0 0 0 2px var(--mc-user); flex: 0 0 auto; }
+.who { flex: 1 1 auto; min-width: 0; }
+.name { font-family: var(--title); font-size: 21px; line-height: 1.1; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub { display: flex; gap: 10px; align-items: center; margin-top: 4px; color: var(--mc-muted); font-size: 13px; }
+.sub .fa { color: var(--mc-gold); font-size: 12px; }
+.lvl { width: 46px; height: 46px; border-radius: 50%; border: 2px solid var(--mc-gold); display: grid; place-items: center; font: 800 20px/1 var(--num); color: var(--mc-ink); background: var(--mc-sunken); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mc-gold) 18%, transparent); position: relative; flex: 0 0 auto; }
+.lvl small { position: absolute; bottom: -7px; font: 800 9px/1 var(--font); letter-spacing: .06em; padding: 2px 5px; border-radius: 999px; background: var(--mc-gold); color: #1a1408; }
+.lvl.ready::after { content: ""; position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: var(--mc-gold); box-shadow: 0 0 0 2px var(--mc-panel); }
+.paused { position: absolute; right: 10px; top: 10px; font: 800 10px/1 var(--font); letter-spacing: .1em; padding: 5px 8px; border-radius: 999px; border: 1px solid var(--mc-gold); color: var(--mc-gold); background: rgba(0,0,0,.35); }
+.econ { position: relative; display: flex; gap: 6px; margin-top: 10px; align-items: center; }
+.pip { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--mc-edge-2); background: var(--mc-sunken); }
+.pip.on { background: var(--mc-gold); border-color: var(--mc-gold); }
+.pip.react { border-color: var(--mc-react-ink); }
+.pip.react.on { background: var(--mc-react-ink); }
+.econ .lbl { margin-left: auto; font-size: 11px; color: var(--mc-muted); letter-spacing: .06em; text-transform: uppercase; font-weight: 700; }
+
+/* ── vitals card (VE: HIT POINTS / TEMP HP cells, giant numbers, a bar; MC: HP colour = state) ── */
+.vitals { flex: 0 0 auto; margin: 0 14px; border-radius: var(--r); border: 1px solid var(--mc-edge-2); background: var(--mc-panel); box-shadow: var(--hi), var(--sh); overflow: hidden; }
+.vit-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr; }
+.vit { padding: 10px 12px 8px; text-align: center; border-right: 1px solid var(--mc-edge); }
+.vit:last-child { border-right: 0; }
+.vit .kicker { margin-bottom: 4px; }
+.vit .v { font: 800 30px/1 var(--num); }
+.vit .v small { font: 600 15px/1 var(--num); color: var(--mc-muted); margin-left: 2px; }
+.vit .v.ok { color: var(--mc-ok-ink); } .vit .v.hurt { color: var(--mc-warn); } .vit .v.bad { color: var(--mc-bad-ink); }
+.vit .v .fa { font-size: 16px; margin-right: 6px; vertical-align: 4px; color: var(--mc-muted); }
+.hpbar { height: 7px; margin: 0 12px 10px; border-radius: 999px; background: var(--mc-sunken); overflow: hidden; }
+.hpbar i { display: block; height: 100%; border-radius: 999px; background: var(--mc-ok-ink); }
+.hpbar.hurt i { background: var(--mc-warn); } .hpbar.bad i { background: var(--mc-bad-ink); }
+.cond { flex: 0 0 auto; margin: 0 14px; display: flex; gap: 6px; align-items: center; min-height: 26px; }
+.cond .chip { font-size: 12px; color: var(--mc-muted); border: 1px dashed var(--mc-edge-2); border-radius: 999px; padding: 3px 10px; }
+
+/* ── tiles (VE's stat tiles: kicker + icon + number) ── */
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.tiles.three { grid-template-columns: repeat(3, 1fr); }
+.tile { background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: var(--r-s); padding: 9px 6px 8px; text-align: center; box-shadow: var(--hi); }
+.tile .kicker { font-size: 10px; }
+.tile .v { font: 800 22px/1.1 var(--num); margin-top: 3px; }
+.tile .v .fa { font-size: 13px; color: var(--mc-gold); margin-right: 4px; }
+
+/* ── sections: VE's gold kicker bar with a chevron, instead of MC's filled burgundy bar ── */
+.sec { display: flex; align-items: center; gap: 8px; padding: 8px 2px 2px; }
+.sec .kicker { color: var(--mc-gold); font-size: 12px; }
+.sec .count { margin-left: auto; font: 700 11px/1 var(--num); color: var(--mc-muted); border: 1px solid var(--mc-edge); border-radius: 999px; padding: 3px 8px; }
+.sec .chev { color: var(--mc-muted); font-size: 11px; margin-left: 6px; }
+.sec .count + .chev { margin-left: 2px; }
+.sec::before { content: ""; width: 3px; height: 14px; border-radius: 2px; background: var(--mc-gold); }
+
+/* ── rows / cards ── */
+.card { background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: var(--r); box-shadow: var(--hi), var(--sh); overflow: hidden; }
+.row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; min-height: 56px; border-top: 1px solid var(--mc-edge); }
+.row:first-child { border-top: 0; }
+.row .ico { width: 40px; height: 40px; border-radius: 9px; background: #2b2630; border: 1px solid var(--mc-edge-2); flex: 0 0 auto; display: grid; place-items: center; color: var(--mc-gold); font-size: 16px; overflow: hidden; }
+.row .ico img { width: 100%; height: 100%; object-fit: cover; }
+.row .txt { flex: 1 1 auto; min-width: 0; }
+.row .t { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .s { font-size: 12px; color: var(--mc-muted); margin-top: 1px; }
+.tag { display: inline-block; font: 800 10px/1 var(--font); border: 1px solid var(--mc-edge-2); color: var(--mc-muted); border-radius: 5px; padding: 2px 4px; margin-left: 6px; vertical-align: 1px; }
+.uses { font: 800 12px/1 var(--num); color: var(--mc-gold); border: 1px solid color-mix(in srgb, var(--mc-gold) 55%, var(--mc-edge)); border-radius: 999px; padding: 4px 8px; }
+.uses.spent { color: var(--mc-bad-ink); border-color: var(--mc-bad); }
+.star { color: var(--mc-muted); font-size: 13px; } .star.on { color: var(--mc-gold); }
+.rail { box-shadow: inset 3px 0 0 var(--mc-gold), var(--hi), var(--sh); }
+.rail.ok { box-shadow: inset 3px 0 0 var(--mc-ok-ink), var(--hi), var(--sh); }
+
+/* ── buttons: MC's four levels, VE's pill geometry ── */
+.btn { height: 44px; border-radius: var(--r-s); border: 1px solid var(--mc-edge-2); background: var(--mc-panel-2); color: var(--mc-ink); font: 700 14px/1 var(--font); display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; box-shadow: var(--hi); }
+.btn.cta { height: 48px; border-color: var(--mc-cta-edge); background: var(--mc-cta-fill); color: var(--mc-cta-ink); box-shadow: var(--hi), 0 6px 18px rgba(0,0,0,.3); }
+.btn.ter { border-color: transparent; background: transparent; color: var(--mc-muted); box-shadow: none; }
+.btn.primary { background: var(--mc-primary); border-color: var(--mc-primary-edge); }
+.btn.on { border-color: var(--mc-gold); color: var(--mc-gold); }
+.btn.sm { height: 36px; font-size: 13px; padding: 0 12px; }
+.pillrow { display: flex; gap: 8px; }
+.pillrow .btn { flex: 1 1 0; }
+.pill { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--mc-edge-2); background: var(--mc-panel-2); color: var(--mc-ink); font: 700 13px/1 var(--font); display: inline-flex; align-items: center; gap: 6px; box-shadow: var(--hi); }
+.pill.on { border-color: var(--mc-gold); color: var(--mc-gold); background: color-mix(in srgb, var(--mc-gold) 10%, var(--mc-panel-2)); }
+.pill .num { font-size: 14px; }
+.seg { display: flex; background: var(--mc-sunken); border: 1px solid var(--mc-edge); border-radius: var(--r-s); padding: 3px; gap: 3px; }
+.seg b { flex: 1 1 0; text-align: center; font: 700 12px/1 var(--font); padding: 8px 0; border-radius: 8px; color: var(--mc-muted); }
+.seg b.on { background: var(--mc-panel-2); color: var(--mc-gold); box-shadow: var(--hi); border: 1px solid color-mix(in srgb, var(--mc-gold) 40%, var(--mc-edge)); }
+.search { height: 40px; border-radius: var(--r-s); border: 1px solid var(--mc-edge); background: var(--mc-sunken); color: var(--mc-muted); display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 14px; }
+
+/* abilities (VE's attribute tiles) */
+.abil { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ab { background: var(--mc-panel); border: 1px solid var(--mc-edge); border-radius: var(--r-s); padding: 8px 6px 6px; text-align: center; box-shadow: var(--hi); }
+.ab .kicker { font-size: 10px; }
+.ab .v { font: 800 26px/1.1 var(--num); margin: 2px 0 6px; }
+.ab .pr { display: flex; gap: 4px; }
+.ab .pr b { flex: 1 1 0; height: 30px; border-radius: 7px; font: 700 11px/30px var(--font); text-align: center; border: 1px solid var(--mc-edge-2); background: var(--mc-panel-2); color: var(--mc-ink); }
+.ab .pr b.sv { background: var(--mc-primary); border-color: var(--mc-primary-edge); }
+.ab.prof { border-color: color-mix(in srgb, var(--mc-gold) 45%, var(--mc-edge)); }
+.ab.prof .kicker { color: var(--mc-gold); }
+
+/* toggles (VE's switch, MC's green = on) */
+.tog { width: 44px; height: 26px; border-radius: 999px; border: 1px solid var(--mc-edge-2); background: var(--mc-sunken); position: relative; flex: 0 0 auto; }
+.tog i { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--mc-muted); }
+.tog.on { background: var(--mc-ok); border-color: var(--mc-ok-ink); }
+.tog.on i { left: 21px; background: #eafbea; }
+.lock { color: var(--mc-muted); font-size: 12px; display: inline-flex; gap: 6px; align-items: center; }
+
+/* the prepared bar */
+.prep { border-radius: var(--r); border: 1px solid color-mix(in srgb, var(--mc-gold) 60%, var(--mc-edge)); background: var(--mc-panel); padding: 10px 12px; box-shadow: var(--hi); }
+.prep.over { border-color: var(--mc-warn); }
+.prep .line { display: flex; justify-content: space-between; align-items: baseline; }
+.prep .line b { font: 800 18px/1 var(--num); color: var(--mc-gold); }
+.prep.over .line b { color: var(--mc-warn); }
+.prep .bar { height: 6px; border-radius: 999px; background: var(--mc-sunken); margin-top: 8px; overflow: hidden; }
+.prep .bar i { display: block; height: 100%; background: var(--mc-gold); }
+.prep.over .bar i { background: var(--mc-warn); }
+.prep .warn { margin-top: 8px; font-size: 12px; color: var(--mc-warn); }
+
+/* ── the move pad: VE's big round directions, MC's hand in the middle ── */
+.pad { display: grid; grid-template-columns: repeat(3, 66px); gap: 8px; justify-content: center; margin: 4px auto; }
+.pad b { width: 66px; height: 66px; border-radius: 50%; border: 1px solid var(--mc-edge-2); background: radial-gradient(circle at 50% 35%, var(--mc-panel-2), var(--mc-panel)); display: grid; place-items: center; color: var(--mc-ink); font-size: 22px; box-shadow: var(--hi), 0 4px 12px rgba(0,0,0,.3); }
+.pad b.diag { color: var(--mc-muted); font-size: 18px; background: var(--mc-panel); }
+.pad b.hand { background: var(--mc-primary); border-color: var(--mc-primary-edge); color: var(--mc-ink); font-size: 26px; }
+.pad b.hand.live { border-color: var(--mc-gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mc-gold) 25%, transparent), var(--hi); }
+.movenote { text-align: center; font: 800 18px/1 var(--num); color: var(--mc-ok-ink); }
+.movenote small { display: block; font: 700 10px/1.6 var(--font); letter-spacing: .08em; color: var(--mc-muted); text-transform: uppercase; }
+
+/* ── tab bar: VE's icon+label tiles, MC's Explore in the centre and the attention dot ── */
+.tabs { flex: 0 0 auto; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 8px 8px 14px; border-top: 1px solid color-mix(in srgb, var(--mc-gold) 22%, var(--mc-edge)); background: color-mix(in srgb, var(--mc-panel) 92%, var(--mc-class) 8%); backdrop-filter: blur(8px); }
+.tab { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 0 5px; border-radius: 12px; color: var(--mc-muted); position: relative; }
+.tab .fa { font-size: 17px; }
+.tab span { font: 700 10px/1 var(--font); letter-spacing: .02em; }
+.tab.on { color: var(--mc-gold); background: color-mix(in srgb, var(--mc-gold) 12%, var(--mc-panel-2)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mc-gold) 40%, transparent), 0 0 14px color-mix(in srgb, var(--mc-gold) 18%, transparent); }
+.tab .dot { position: absolute; top: 6px; right: 14px; width: 7px; height: 7px; border-radius: 50%; background: var(--mc-gold); box-shadow: 0 0 0 2px var(--mc-panel); }
+
+/* ── bottom sheet + veil ── */
+.veil { position: absolute; inset: 0; background: rgba(8,7,7,.66); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 22px; }
+.veil.low { align-items: flex-end; padding: 0; }
+.modal { width: 100%; max-width: 330px; background: var(--mc-panel); border: 1px solid var(--mc-gold); border-radius: var(--r); padding: 24px 20px 20px; text-align: center; box-shadow: var(--hi), 0 22px 58px rgba(0,0,0,.55); }
+.modal .fa.big { font-size: 34px; color: var(--mc-gold); margin-bottom: 10px; }
+.modal h2 { margin: 0 0 8px; font: 700 20px/1.2 var(--font); }
+.modal p { margin: 0 0 18px; color: var(--mc-ink); opacity: .85; font-size: 14px; line-height: 1.5; }
+.modal p b { color: var(--mc-gold); font-weight: 700; }
+.sheet { width: 100%; background: var(--mc-panel); border-top: 1px solid var(--mc-gold); border-radius: var(--r) var(--r) 0 0; box-shadow: var(--sh-sheet); padding: 0 0 18px; }
+.sheet .bar { display: flex; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--mc-edge); }
+.sheet .bar .x { margin-left: auto; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: var(--mc-muted); }
+.sheet .body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.ask { display: flex; gap: 12px; align-items: center; }
+.ask .d20 { width: 54px; height: 54px; border-radius: 14px; display: grid; place-items: center; background: var(--mc-sunken); border: 1px solid var(--mc-edge-2); color: var(--mc-gold); font-size: 26px; }
+.ask .t { font: 800 22px/1.1 var(--num); } .ask .s { color: var(--mc-muted); font-size: 13px; margin-top: 3px; }
+.dc { display: inline-block; font: 800 11px/1 var(--font); letter-spacing: .06em; border: 1px solid var(--mc-edge-2); color: var(--mc-ink); border-radius: 999px; padding: 4px 8px; margin-left: 6px; vertical-align: 2px; }
+
+/* coins (Gear) */
+.coins { display: flex; gap: 6px; }
+.coin { flex: 1 1 0; display: flex; gap: 6px; align-items: center; justify-content: center; height: 34px; border-radius: 999px; border: 1px solid var(--mc-edge-2); background: var(--mc-panel-2); font: 800 12px/1 var(--num); }
+.coin i { width: 10px; height: 10px; border-radius: 50%; background: #d4a93a; } .coin.sp i { background: #b9bcc4; } .coin.cp i { background: #b56d3d; } .coin.pp i { background: #dfe3f2; }
+.weight { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--mc-muted); }
+.weight .bar { flex: 1 1 auto; height: 6px; border-radius: 999px; background: var(--mc-sunken); overflow: hidden; }
+.weight .bar i { display: block; height: 100%; width: 38%; background: var(--mc-gold); }
+.held { font: 800 10px/1 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--mc-ok-ink); border: 1px solid var(--mc-ok); border-radius: 999px; padding: 4px 8px; }
+.qty { font: 800 13px/1 var(--num); color: var(--mc-muted); min-width: 22px; text-align: right; }
+.hint { font-size: 12px; color: var(--mc-muted); line-height: 1.45; }
