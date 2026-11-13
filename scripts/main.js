@@ -26,7 +26,7 @@ import { cardTableRefreshMode } from "./card-table.js"; // §39: re-lay the boar
 import { dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
 import { dmPlayEntrance, dmStopEntrance, entranceList, registerEntranceShadow } from "./entrances.js"; // §40.6 the themed entrances ("Intros")
 import { tvHeld } from "./tv-hold.js"; // §40.6 an entrance holding the TV camera
-import { registerDaylight, applyDaylight } from "./daylight.js"; // §41 the clock drives scene darkness
+import { registerDaylight, applyDaylight, darknessNow } from "./daylight.js"; // §41 the clock drives scene darkness
 import { registerTwists } from "./twists.js"; // §31 v2: an armed twist forces the creature's next d20
 import { registerDruskenvald } from "./druskenvald.js"; // §43 eternal night, told in six named hours
 import { registerCharacterFiles, compileCharacterFiles } from "./character-file.js"; // §44 a book per PC
@@ -1101,6 +1101,8 @@ Hooks.once("ready", () => {
     // §41 put the CURRENT scene at the clock's darkness right now — the manual trigger beside the
     // automatic one (§8.1), and what the setting's onChange calls when you switch it back on.
     applyDaylightNow: () => applyDaylight(canvas?.scene ?? game.scenes?.active, { animate: 1200 }),
+    // the darkness the clock gives THIS scene now (a train car half of it, D-0108): Deck Command's Start ride fades to it
+    darknessFor: (scene) => darknessNow(scene ?? null),
     compileCharacterFiles,               // §44 rebuild every PC's file now (macro access)
     // §47: the same block the panel's "Message for dev" button produces, for anyone on any client —
     // a player on a phone can run this from a macro and paste the result.

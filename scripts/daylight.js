@@ -1,4 +1,4 @@
-import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK } from "./preset.js";
+import { MODULE_ID, darknessForHour, NIGHT_DARKNESS_PEAK, clockShare } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { readClock, sunTimes } from "./gametime.js";
 import { isExecutor } from "./settings.js";
@@ -63,7 +63,8 @@ export function daylightEnabled() {
 export function darknessNow(scene = null) {
   if (scene && isDruskScene(scene)) return druskDarkness();
   const c = readClock();
-  return darknessForHour((Number(c.hour) || 0) + (Number(c.minute) || 0) / 60, sunTimes());
+  const d = darknessForHour((Number(c.hour) || 0) + (Number(c.minute) || 0) / 60, sunTimes());
+  return Math.round(d * clockShare(scene?.name) * 1000) / 1000; // a train car takes half (D-0108)
 }
 
 // A scene whose Global Illumination never yields will not visibly change no matter what we write

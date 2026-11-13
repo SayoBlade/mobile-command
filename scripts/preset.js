@@ -284,6 +284,15 @@ export function dayFloor() {
   } catch (e) { return DAY_DARKNESS_FLOOR; }
 }
 
+/**
+ * ⚠️ THE TRAIN TAKES HALF THE CLOCK (DM 2026-11-13, deck-command D-0108): *"plus there are lights inside the train
+ * too"*. The cars 10.1–10.8 light their own interior, so the clock must not dim them on top of it: they follow the
+ * clock at HALF its darkness (his "if a partial follow is possible, do 50%"). The wreck (10.9) and everything after
+ * follow it whole. Matched by name, like trainChains. Pure.
+ */
+export const TRAIN_CLOCK_SHARE = 0.5;
+export function clockShare(sceneName) { return /^10\.[1-8] /.test(String(sceneName ?? "")) ? TRAIN_CLOCK_SHARE : 1; }
+
 export function darknessForHour(hour, opts = {}) {
   const sunrise = Number.isFinite(opts.sunrise) ? opts.sunrise : DEFAULT_SUNRISE_HOUR;
   const sunset = Number.isFinite(opts.sunset) ? opts.sunset : DEFAULT_SUNSET_HOUR;
