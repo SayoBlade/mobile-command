@@ -125,8 +125,8 @@ const shell = fs.readFileSync(new URL("scripts/shell.js", REPO), "utf8");
 check("the phone's save button rolls with it", /actor\?\.rollSavingThrow\?\.\(\{ ability \}, \{\}, rollMessageFor\(actor, s\?\.tokenUuid\)\)/.test(shell));
 check("the phone registers the speaker restore on preCreateChatMessage", shell.includes('Hooks.on("preCreateChatMessage", (doc, data) => { try { restoreRollSpeaker(doc, data);'));
 check("…and so do the roll-request card (skill, check, save) and downtime rolls",
-  /a\.rollSkill\(\{ skill: p\.skill \}, \{\}, msg\)/.test(shell) && /a\.rollAbilityCheck\(\{ ability: p\.ability \}, \{\}, msg\)/.test(shell)
-  && /a\.rollSavingThrow\(\{ ability: p\.ability \}, \{\}, msg\)/.test(shell) && /rollSkill\(\{ skill: r\.skill \}, \{\}, rollMessageFor\(actor\)\)/.test(shell));
+  /a\.rollSkill\(\{ skill: p\.skill(?:, \.\.\.mode)? \}, \{\}, msg\)/.test(shell) && /a\.rollAbilityCheck\(\{ ability: p\.ability(?:, \.\.\.mode)? \}, \{\}, msg\)/.test(shell)
+  && /a\.rollSavingThrow\(\{ ability: p\.ability(?:, \.\.\.mode)? \}, \{\}, msg\)/.test(shell) && /rollSkill\(\{ skill: r\.skill \}, \{\}, rollMessageFor\(actor\)\)/.test(shell));
 
 // ── 3a: rerun 7 as it happened: S1's speaker alone, through midi's wrapper → still re-rolled ──────────────────
 {

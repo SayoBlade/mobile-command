@@ -1,0 +1,152 @@
+/* ============================================================
+   THE VE MOBILE LOOK, A TRIAL (lead 2026-11-14; VE-MOBILE-STYLE-2026-11-13, Fable's picks)
+   Only the Act tab (`.mc-ve-act`) and the roll request sheet (`.mc-ve-sheet`), and only while the world setting
+   `veTrial` is on (scripts/ve-trial.js): off, none of these classes is ever drawn and this file does nothing.
+   ⚠️ TOKENS ONLY (the 2026-07-17 lesson, 134 pasted hexes): the trial's surfaces are tokens on `body`, below, and the
+   rules read them. Each surface mixes the theme's own token toward VE's warm value, so the 18 themes keep their hue.
+   Meaning is MC's and unchanged: gold = accent and rails, burgundy = the one committing button, red = harm only.
+   Blur budget: one (the veil). Radius: 14 on cards, 10 on buttons and tiles; pills and circles never scale.
+   ============================================================ */
+body {
+  --mc-ve-warm-panel: #1f1a1b;   /* VE's panel, warmer and a step darker (§3) */
+  --mc-ve-warm-raised: #2a2426;
+  --mc-ve-warm-sunken: #0f0d0e;
+  --mc-ve-warm-edge: #3a3133;
+  --mc-ve-warm-edge-2: #5a4e49;  /* card borders that must separate (VE's dark-theme border) */
+  --mc-ve-warm-ink: #f4ecdd;
+  --mc-ve-warm-muted: #c3b399;   /* 7.4:1 on panel */
+  --mc-ve-panel: color-mix(in srgb, var(--mc-panel) 35%, var(--mc-ve-warm-panel));
+  --mc-ve-raised: color-mix(in srgb, var(--mc-panel-2) 35%, var(--mc-ve-warm-raised));
+  --mc-ve-sunken: color-mix(in srgb, var(--mc-sunken) 35%, var(--mc-ve-warm-sunken));
+  --mc-ve-edge: color-mix(in srgb, var(--mc-edge) 35%, var(--mc-ve-warm-edge));
+  --mc-ve-edge-2: var(--mc-ve-warm-edge-2);
+  --mc-ve-ink: var(--mc-ve-warm-ink);
+  --mc-ve-muted: var(--mc-ve-warm-muted);
+  --mc-ve-hi: inset 0 1px 0 rgba(255, 255, 255, .07);         /* the top highlight on every card and button */
+  --mc-ve-shadow: 0 8px 22px rgba(0, 0, 0, .28);
+  --mc-ve-sheet-shadow: 0 -18px 50px rgba(0, 0, 0, .55);
+  --mc-ve-glow: color-mix(in srgb, var(--mc-gold) 22%, transparent);   /* the theme's hue bleeding in from the top */
+  --mc-ve-wash: color-mix(in srgb, var(--mc-gold) 7%, transparent);
+  --mc-ve-veil: rgba(8, 6, 7, .55);
+}
+
+/* ---- the Act tab ---- */
+.mc-content.mc-ve-act {
+  background:
+    radial-gradient(90% 50% at 88% -6%, var(--mc-ve-glow), transparent 70%),
+    linear-gradient(180deg, var(--mc-ve-wash), transparent 52%),
+    var(--mc-ve-sunken);
+  color: var(--mc-ve-ink);
+}
+/* the page title: a gold kicker with a short rail, not a filled bar */
+/* (the shell's burgundy title bar is `#mobile-command-shell .mc-section-label`, so the trial names the shell too) */
+#mobile-command-shell .mc-ve-act .mc-actions-head .mc-section-label {
+  display: inline-flex; align-items: center; gap: 8px; padding: 2px 0; margin: 0;
+  font-family: inherit; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--mc-gold); background: none; border: none; box-shadow: none;
+}
+#mobile-command-shell .mc-ve-act .mc-actions-head .mc-section-label::before {
+  content: ""; width: 3px; height: 14px; border-radius: 999px; background: var(--mc-gold);
+}
+/* the group headers (Actions, Bonus actions, Reactions…): kicker bars with a rail, a count pill and the chevron */
+.mc-ve-act .mc-actions-sub.mc-accordion {
+  background: none; border: none; box-shadow: none; border-radius: 0;
+  border-left: 3px solid var(--c, var(--mc-gold));
+  min-height: 32px; padding: 4px 4px 4px 10px; margin: 16px 0 8px;
+  font-size: 11px; font-weight: 800; letter-spacing: .08em;
+}
+.mc-ve-act .mc-actions-sub.mc-accordion > span:first-child { flex: 1 1 auto; }
+.mc-ve-act .mc-actions-sub.mc-accordion.mc-collapsed { opacity: .6; }
+.mc-ve-act .mc-ve-count {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 22px; padding: 0 7px;
+  border-radius: 999px; border: 1px solid var(--mc-ve-edge-2); color: var(--mc-ve-ink);
+  font-size: 11px; font-weight: 800; letter-spacing: 0; font-variant-numeric: tabular-nums;
+}
+/* the rows: cards that sit in the surface, lit from the top */
+.mc-ve-act .mc-action {
+  background: var(--mc-ve-panel); border: 1px solid var(--mc-ve-edge-2);
+  border-radius: calc(14px * var(--mc-round, 1));
+  box-shadow: var(--mc-ve-hi), var(--mc-ve-shadow);
+  color: var(--mc-ve-ink); padding: 12px 14px;
+  transition: transform 140ms ease;
+}
+.mc-ve-act .mc-action:active { background: var(--mc-ve-raised); transform: scale(.985); }
+.mc-ve-act .mc-action-icon {
+  border-radius: calc(10px * var(--mc-round, 1)); border: 1px solid var(--mc-ve-edge);
+  box-shadow: var(--mc-ve-hi);
+}
+.mc-ve-act .mc-action-name { font-size: 15px; font-weight: 600; color: var(--mc-ve-ink); }
+.mc-ve-act .mc-action-sub { font-size: 12px; color: var(--mc-ve-muted); }
+.mc-ve-act .mc-action-itemhead {
+  font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--mc-ve-muted);
+}
+/* the small counts and verbs: outlined pills (uses left; red at 0 stays MC's "can't afford") */
+.mc-ve-act .mc-pips-num {
+  display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px;
+  border: 1px solid var(--mc-ve-edge-2); background: none; color: var(--mc-ve-ink);
+  font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.mc-ve-act .mc-pips-num.mc-spent { border-color: var(--mc-bad); color: var(--mc-bad-ink); }
+.mc-ve-act .mc-action-fav.mc-on { color: var(--mc-gold); }
+/* the economy strip (combat): pills */
+.mc-ve-act .mc-econ-chip { border-radius: 999px; box-shadow: var(--mc-ve-hi); }
+/* search: a well */
+.mc-ve-act .mc-search-drawer {
+  background: var(--mc-ve-sunken); border: 1px solid var(--mc-ve-edge-2);
+  border-radius: calc(10px * var(--mc-round, 1)); box-shadow: inset 0 1px 3px rgba(0, 0, 0, .4);
+}
+
+/* ---- the roll request: a bottom sheet over a blurred veil ---- */
+.mc-ve-veil {
+  position: fixed; inset: 0; z-index: 8999; pointer-events: none;   /* a look, not a wall: the sheet below still scrolls */
+  background: var(--mc-ve-veil); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.mc-saveprompt.mc-ve-sheet {
+  background: linear-gradient(180deg, var(--mc-ve-raised), var(--mc-ve-panel));
+  border-top: 1px solid var(--mc-gold);
+  border-radius: calc(18px * var(--mc-round, 1)) calc(18px * var(--mc-round, 1)) 0 0;
+  box-shadow: var(--mc-ve-hi), var(--mc-ve-sheet-shadow);
+  color: var(--mc-ve-ink);
+}
+.mc-ve-sheet .mc-saveprompt-bar { border-bottom-color: var(--mc-ve-edge); padding: 14px 16px; }
+.mc-ve-sheet .mc-ve-kicker {
+  font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--mc-gold);
+}
+.mc-ve-sheet .mc-saveprompt-body { display: flex; flex-direction: column; gap: 14px; padding-top: 16px; }
+.mc-ve-sheet-head { display: flex; align-items: center; gap: 14px; }
+.mc-ve-tile {
+  flex: 0 0 auto; width: 54px; height: 54px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: calc(14px * var(--mc-round, 1)); border: 1px solid var(--mc-ve-edge-2);
+  background: var(--mc-ve-sunken); box-shadow: var(--mc-ve-hi); color: var(--mc-gold); font-size: 26px;
+}
+.mc-ve-sheet-what { min-width: 0; }
+.mc-ve-sheet-title { font-size: 24px; font-weight: 800; line-height: 1.15; color: var(--mc-ve-ink); }
+.mc-ve-sheet-src { margin-top: 4px; font-size: 14px; color: var(--mc-ve-muted); }
+.mc-ve-pill {
+  display: inline-flex; align-items: center; vertical-align: middle; height: 26px; padding: 0 10px; margin-left: 6px;
+  border-radius: 999px; border: 1px solid var(--mc-ve-edge-2); color: var(--mc-ve-ink);
+  font-size: 13px; font-weight: 800; letter-spacing: .02em; font-variant-numeric: tabular-nums;
+}
+/* the segment: one choice of three, the picked one a gold-edged tile (gold is ink and edge here, never a fill) */
+.mc-ve-seg {
+  display: flex; gap: 4px; padding: 4px; border-radius: calc(12px * var(--mc-round, 1));
+  background: var(--mc-ve-sunken); border: 1px solid var(--mc-ve-edge-2);
+}
+.mc-ve-seg-opt {
+  flex: 1 1 0; min-height: 44px; border-radius: calc(9px * var(--mc-round, 1));
+  background: none; border: 1px solid transparent; color: var(--mc-ve-ink);
+  font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; transition: transform 140ms ease;
+}
+.mc-ve-seg-opt.mc-on {
+  background: var(--mc-ve-raised); border-color: var(--mc-gold); color: var(--mc-gold); box-shadow: var(--mc-ve-hi);
+}
+.mc-ve-seg-opt:active { transform: scale(.97); }
+/* the one committing button: MC's CTA (burgundy outline + wash), the sheet's only one */
+.mc-ve-cta {
+  min-height: 52px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  border-radius: calc(10px * var(--mc-round, 1));
+  background: var(--mc-cta-fill); border: 1px solid var(--mc-cta-edge); color: var(--mc-cta-ink);
+  box-shadow: var(--mc-ve-hi); font: inherit; font-size: 17px; font-weight: 800; cursor: pointer;
+  transition: transform 140ms ease;
+}
+.mc-ve-cta:active { transform: scale(.98); }

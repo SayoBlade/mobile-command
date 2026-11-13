@@ -18,7 +18,8 @@ import { isEmberWorld, emberReady, EMBER_CREATION_SHEET, activeCampaign, emberSk
 import { isSaveResult, acShape } from "./dnd5e-compat.js"; // the dnd5e 5.3 ⇄ 6.0 seam (chat subtypes, AC shape)
 import { surfaceOn, actionAllowed } from "./tier.js"; // Basic / Complex — the ONE gate for shared-state surfaces (tier.js imports only preset.js)
 import { view as prepView, canToggle as prepCanToggle, saveState as prepSaveState, planSave as prepPlan, hasChanges as prepHasChanges } from "./prepare-plan.js"; // Prepare spells (D-0106)
-import { phonePrepareOn } from "./prepare-data.js"; // the switch: off until he has reviewed it (lead 2026-11-13)
+import { phonePrepareOn } from "./prepare-data.js";
+import { veOn, veRollSheetHTML, veRollConfig } from "./ve-trial.js"; // the VE Mobile look, a trial behind `veTrial` (2026-11-14) // the switch: off until he has reviewed it (lead 2026-11-13)
 import { canCastAsRitual, ritualSlotId } from "./ritual.js"; // a prepared ritual (or a wizard's book) casts with no slot (2026-11-12)
 import { splitState, splitCard, splitCardShown } from "./split-state.js"; // a phone off the table's map: waiting, or calm on a stage (2026-11-12)
 import { shouldKeepGmClear, isHandheldDevice } from "./overlay-guard.js"; // §22.7/§22.10 — overlay-guard imports only preset.js, so no cycle
@@ -276,6 +277,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #wasPacked = false;     // pack-transition latch: jump phones to the order tab once per pack
   #lastReleased = null;   // scout release-follow: last-seen released member set
   #rollRequest = null;    // DM roll-request prompt {actorUuid, rollType, ability, label, dc}
+  #veRollMode = "normal"; // the VE trial's Disadvantage · Normal · Advantage pick on that prompt (ve-trial.js)
   #colorPickOpen = false; // DM-triggered colour-picker overlay is showing
   #prep = null; // Prepare spells (D-0106): { actorId, data, classIdx, picks: Map<classId, Map<uuid,bool>>, filters: Set, busy, error }
   #pausedDismissed = null; // §17.3 split-scene overlay: "activeId:hereId" the player browsed past
@@ -725,7 +727,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#atZeroHP(actor) && this.#deathSaveDismissed
         ? `<button class="mc-death-reopen" data-action="death-reopen"><i class="fas fa-skull"></i> At 0 HP — death saves</button>` : ""}
       ${this.#downtimeBoardHTML(actor)}
-      <main class="mc-content">${this.#tabContent(actor)}</main>
+      <main class="mc-content${veOn() && this.#tab === "actions" ? " mc-ve-act" : ""}">${this.#tabContent(actor)}</main>
       ${this.#eventStripHTML()}
       ${this.#rollStripHTML()}
       ${this.#initPromptHTML()}
@@ -5867,12 +5869,13 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // Accordion: each group header is a drawer the user can open/close; using an
     // action auto-collapses its drawer (still reopenable). One group → no header.
     const searching = this.#searchOpen && !!this.#searchQuery.trim(); // a search opens every group
+    const ve = veOn(); // the VE trial: each group's kicker carries its count (ve-trial.js)
     const body = shown.length <= 1
       ? `<div class="mc-search-group"><div class="mc-actions">${rowsFor(shown[0].key)}</div></div>`
       : shown.map(g => {
           const collapsed = this.#collapsedActionGroups.has(g.key) && !searching;
           const header = `<button class="mc-actions-sub mc-econ-${g.key} mc-accordion ${collapsed ? "mc-collapsed" : ""}" data-action="agroup" data-group="${g.key}">
-            <span>${g.label}</span><i class="fas fa-chevron-${collapsed ? "right" : "down"}"></i></button>`;
+            <span>${g.label}</span>${ve ? `<span class="mc-ve-count">${bucket[g.key].length}</span>` : ""}<i class="fas fa-chevron-${collapsed ? "right" : "down"}"></i></button>`;
           return `<div class="mc-search-group">${header}${collapsed ? "" : `<div class="mc-actions">${rowsFor(g.key)}</div>`}</div>`;
         }).join("");
     return `<div class="mc-actions-head">
@@ -6656,6 +6659,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // or save — show a tappable card that rolls it natively (chat + on-screen dice).
   noteRollRequest(payload) {
     this.#rollRequest = payload || null;
+    this.#veRollMode = "normal"; // a new request starts at Normal
     if (payload) this.#sfx("prompt");
     if (this.rendered) this.render();
   }
@@ -6680,6 +6684,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // missing dc to `null`, that was every roll request the panel sends. Same idiom as the save
     // prompt's own `s.dc != null` a few thousand lines up.
     const dc = (p.dc != null && p.dc !== "" && Number.isFinite(Number(p.dc))) ? Number(p.dc) : null;
+    // THE VE TRIAL (2026-11-14): the mocked sheet instead, with its roll-mode segment; off, today's card below
+    if (veOn()) return veRollSheetHTML(p, { mode: this.#veRollMode, esc: foundry.utils.escapeHTML });
     // Same bottom-sheet chrome as every other incoming prompt (save/reaction/AoO) —
     // the old bare fixed bar floated over the sheet with no background (live 2026-07-18).
     return `<div class="mc-saveprompt mc-rollreq">
@@ -7700,11 +7706,14 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         // A skill check rolls the SKILL (R2 step 37, 2026-11-09: a Perception ask rolled a Wisdom check).
         // Every roll names the actor's token (rollMessageFor): a canvasless phone otherwise posts it token-less.
         const msg = rollMessageFor(a, p.tokenUuid);
-        if (p.rollType === "check" && p.skill) return void a.rollSkill({ skill: p.skill }, {}, msg);
-        p.rollType === "check" ? a.rollAbilityCheck({ ability: p.ability }, {}, msg) : a.rollSavingThrow({ ability: p.ability }, {}, msg);
+        // the VE trial's segment: advantage or disadvantage into the roll's own config; Normal (and off) adds nothing
+        const mode = veOn() ? veRollConfig(this.#veRollMode) : {};
+        if (p.rollType === "check" && p.skill) return void a.rollSkill({ skill: p.skill, ...mode }, {}, msg);
+        p.rollType === "check" ? a.rollAbilityCheck({ ability: p.ability, ...mode }, {}, msg) : a.rollSavingThrow({ ability: p.ability, ...mode }, {}, msg);
         return;
       }
       case "roll-request-x": this.#rollRequest = null; return this.render();
+      case "roll-request-mode": this.#veRollMode = ["dis", "normal", "adv"].includes(el.dataset.mode) ? el.dataset.mode : "normal"; return this.render();
       case "aoo-attack": {
         const p = this.#cur("aoo")?.payload;
         if (!p) return;
@@ -9585,6 +9594,8 @@ export function registerShellHooks() {
   // Keep the fullscreen button's label honest when the browser flips state
   // (its own gesture, Esc, the rotate-out-of-fullscreen Android quirk…).
   document.addEventListener("fullscreenchange", () => { if (shellInstance?.rendered) shellInstance.render(); });
+  // the VE trial switched (settings.js onChange, on every client): redraw in the other look at once
+  Hooks.on("mobile-command.veTrial", () => { if (shellInstance?.rendered) shellInstance.render(); });
   // Step lock teardown: drop the backdrop when the last lifted dialog closes
   // (V2 and legacy V1 apps both lift, so both close paths release).
   Hooks.on("closeApplicationV2", releaseShellBackdrop);

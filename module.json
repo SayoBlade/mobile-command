@@ -75,7 +75,8 @@
   ],
   "styles": [
     "styles/shell.css",
-    "styles/entrances.css"
+    "styles/entrances.css",
+    "styles/ve-trial.css"
   ],
   "languages": [
     {

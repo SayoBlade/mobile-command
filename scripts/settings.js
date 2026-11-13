@@ -278,6 +278,15 @@ export function registerSettings() {
     scope: "world", config: true, type: Boolean, default: false
   });
 
+  // THE VE MOBILE LOOK, A TRIAL (lead 2026-11-14, VE-MOBILE-STYLE-2026-11-13): the Act tab and the roll request only,
+  // OFF by default (ve-trial.js veOn). Every phone redraws at once when it is switched.
+  game.settings.register(MODULE_ID, "veTrial", {
+    name: "Trial: the VE Mobile look (Act tab and roll requests)",
+    hint: "On: the phone's Act tab and the DM's roll request use the darker VE Mobile-style look being tried, and a roll request offers Disadvantage, Normal or Advantage. Off (default): everything as before.",
+    scope: "world", config: true, type: Boolean, default: false,
+    onChange: () => { try { Hooks.callAll("mobile-command.veTrial"); } catch (e) { /* nothing drawn yet */ } }
+  });
+
   // PREPARE SPELLS ON THE PHONE, THE SWITCH (lead 2026-11-13): OFF until he has reviewed it (prepare-data.js phonePrepareOn).
   game.settings.register(MODULE_ID, "phonePrepareSpells", {
     name: "Prepare spells on phones",
