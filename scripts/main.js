@@ -23,7 +23,7 @@ import { registerCampaigns } from "./campaigns.js"; // §50 campaign recognition
 import { unionBox, measureClearancePx, clampClearanceFt, planPartyFrame } from "./camera-frame.js";
 import { registerFxEngine, registerLayeredWeather, dmFireFx, musicDuck } from "./effects.js"; // §26 Effects tab engine
 import { cardTableRefreshMode } from "./card-table.js"; // §39: re-lay the board when the table mode changes
-import { dmPlayBossIntro } from "./boss-intro.js"; // §40 the boss's entrance
+import { dmPlayBossIntro, bossList, bossImage } from "./boss-intro.js"; // §40 the boss's entrance
 import { dmPlayEntrance, dmStopEntrance, entranceList, registerEntranceShadow } from "./entrances.js"; // §40.6 the themed entrances ("Intros")
 import { tvHeld } from "./tv-hold.js"; // §40.6 an entrance holding the TV camera
 import { registerDaylight, applyDaylight, darknessNow } from "./daylight.js"; // §41 the clock drives scene darkness
@@ -1093,6 +1093,8 @@ Hooks.once("ready", () => {
     refreshPanel,                        // repaint the DM panel (used by the display's audio report)
     refreshTableMode: cardTableRefreshMode, // §39 in person ⇄ online: re-lay the card table's seats
     playBossIntro: dmPlayBossIntro,      // §40 macro/Stream Deck access to a boss's entrance (§8.1)
+    // the configured bosses, for Deck Command's Boss intro pick (2026-11-13): id, name and the art the entrance shows
+    bosses: () => bossList().map((b) => { const a = game.actors.get(b.actorId); return a ? { id: b.id, name: a.name, img: bossImage(a) } : null; }).filter(Boolean),
     // ONE RECORDING ON THE TABLE'S SPEAKERS, for a beat somebody else owns — deck-command's action keys call
     // this (DM 2026-09-18: a whole-room sound plays on every screen at a plain table, but only on the TV at an
     // MC table). It is §26's `fxSound` one-shot: broadcast to every client, and phones drop it because their
