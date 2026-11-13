@@ -486,8 +486,30 @@ export function setTrainJolt(on) {
 export function preloadRideSound() {
   const s = rideSound();
   if (!s?.path) return null;
-  try { game.audio.preload(s.path)?.catch?.(() => {}); return s.name; }
-  catch (e) { console.warn(`${MODULE_ID} | preloading the ride's sound:`, e?.message); return null; }
+  // ⚠️ NOT Foundry's preloadAudio (seat Start ride (3), 2026-11-13: after View car the TV's audio cache held no copy).
+  // That fills the buffer cache, and a long loop is never buffered: Foundry plays it from its own audio element, made
+  // when the sound first syncs. So every client readies the playlist sound ITSELF (primeRideSound), and the "playing"
+  // update only has to start what is already loaded.
+  try { game.socket?.emit(`module.${MODULE_ID}`, { cmd: "primeRide" }); } catch (e) { /* socket not ready */ }
+  primeRideSound();
+  return s.name;
+}
+
+/**
+ * This client loads the ride's loop into the playlist sound Foundry will play (PlaylistSound#load), once, after the
+ * first click has unlocked audio. Called on every client by View car's broadcast and when a stage scene (the landing
+ * room) is drawn, so the TV has it ready long before Start ride. Returns a promise of the sound's name, or null.
+ */
+export async function primeRideSound() {
+  const s = rideSound();
+  if (!s?.path) return null;
+  try {
+    await game.audio?.unlock;                       // a locked client loads after its first click, not never
+    if (s.sound?.loaded) return s.name;
+    await s.load();
+    console.log(`${MODULE_ID} | the ride's sound is ready here: ${s.name}`);
+    return s.name;
+  } catch (e) { console.warn(`${MODULE_ID} | readying the ride's sound:`, e?.message); return null; }
 }
 
 export async function setTrainSound(on) {

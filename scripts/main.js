@@ -13,7 +13,7 @@ import { registerDMPanel, refreshPanel, openDock } from "./dm-panel.js";
 import { setupTvVisionCard } from "./tv-vision-card.js"; // §23.7 "No PCs in scene" on the TV
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
-import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, preloadRideSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
+import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, preloadRideSound, primeRideSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
 import { restoreCrookedHouse, planHouseNow } from "./cm-house.js"; // the Crooked House put back (Lost Lore #17/#18)
 import { registerAoO } from "./aoo.js";
 import { setupCalendarSkin, applyCalendarSkinClass, redrawCalendarAfterSave } from "./gametime.js";
@@ -395,6 +395,8 @@ function onTvControl(payload) {
     try { globalThis.MobileCommand?.refreshPanel?.(); } catch (e) { /* panel may not exist */ }
     return;
   }
+  // Every client, not only the display: the ride's loop readied ahead of Start ride (deck-command D-0108)
+  if (payload.cmd === "primeRide") { primeRideSound().catch(() => {}); return; }
   if (!isDisplayClient()) return; // only the shared display reacts to the rest
   if (payload.cmd === "frameParty") { tvManual = false; framePartyTokens(); }
   else if (payload.cmd === "fitScene") { tvManual = false; fitSceneLocal(); } // §camera: show the whole map
@@ -982,6 +984,10 @@ Hooks.once("ready", () => {
    * ⚠️ 2026-11-07: only where the train is. It resumed over the Crooked House on a GM load; now the loop and the
    * jolts follow the active scene (`followRideScene`, cm-train.js), here and on every scene change after.
    */
+  // every client: a stage scene (the landing room, where Start ride is pressed) readies the ride's loop here, so the
+  // table hears the train the moment the press says play (deck-command D-0108; seat Start ride (3): the TV +2.1 s)
+  const primeOnStage = () => { try { if (canvas?.scene?.getFlag?.(MODULE_ID, "stage")) primeRideSound().catch(() => {}); } catch (e) { /* no canvas */ } };
+  Hooks.on("canvasReady", primeOnStage); primeOnStage();
   try { registerRideFollow(); followRideScene().catch((e) => console.warn(`${MODULE_ID} | the ride's effects`, e?.message)); }
   catch (e) { console.warn(`${MODULE_ID} | could not resume the ride's effects`, e?.message); }
   // ⚠️ ONE-SHOT, primary GM only, guarded by its own setting: take the weather suppression off the
