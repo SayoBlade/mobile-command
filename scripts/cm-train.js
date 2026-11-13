@@ -477,6 +477,19 @@ export function setTrainJolt(on) {
   return JOLT_GAPS_MS;
 }
 
+/**
+ * ⚠️ THE RIDE'S LOOP, FETCHED AHEAD ON EVERY SCREEN (seat INTROS 2026-11-13: Start ride's train sound reached the TV at
+ * +3.7 s, after the jolt and the lamps). The loop is a long recording; a client that first meets it as the scene
+ * switches decodes it while it draws the car. Deck Command's View car calls this seconds before Start ride, so every
+ * client (Foundry's own "preloadAudio" broadcast) has it decoded when the press comes. Returns the sound's name, or null.
+ */
+export function preloadRideSound() {
+  const s = rideSound();
+  if (!s?.path) return null;
+  try { game.audio.preload(s.path)?.catch?.(() => {}); return s.name; }
+  catch (e) { console.warn(`${MODULE_ID} | preloading the ride's sound:`, e?.message); return null; }
+}
+
 export async function setTrainSound(on) {
   if (!game.user?.isGM) return null;
   const s = rideSound();

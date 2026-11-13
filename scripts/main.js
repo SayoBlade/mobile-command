@@ -13,7 +13,7 @@ import { registerDMPanel, refreshPanel, openDock } from "./dm-panel.js";
 import { setupTvVisionCard } from "./tv-vision-card.js"; // §23.7 "No PCs in scene" on the TV
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
-import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
+import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, preloadRideSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
 import { restoreCrookedHouse, planHouseNow } from "./cm-house.js"; // the Crooked House put back (Lost Lore #17/#18)
 import { registerAoO } from "./aoo.js";
 import { setupCalendarSkin, applyCalendarSkinClass, redrawCalendarAfterSave } from "./gametime.js";
@@ -1001,7 +1001,7 @@ Hooks.once("ready", () => {
   globalThis.MobileCommand = {
     ...api,
     enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, deactivate, reactivate, revert: deactivate, hasBackup },
-    train: { wire: wireTrainDoors, ride: setTrainMist, sound: setTrainSound, jolt: setTrainJolt, joltNow, riding: trainMistOn, hasWindows: trainCarHasWindows, setWindows: setTrainWindows, freeWeather: (o) => freeTrainWeather({ force: true, ...o }) }, // §37 macro access (§8.1 manual triggers)
+    train: { wire: wireTrainDoors, ride: setTrainMist, sound: setTrainSound, preload: preloadRideSound, jolt: setTrainJolt, joltNow, riding: trainMistOn, hasWindows: trainCarHasWindows, setWindows: setTrainWindows, freeWeather: (o) => freeTrainWeather({ force: true, ...o }) }, // §37 macro access (§8.1 manual triggers)
     house: { restore: (o) => restoreCrookedHouse({ force: true, ...o }), plan: () => planHouseNow() }, // the Crooked House put-back (§8.1 manual trigger)
     /**
      * §18/§41 TRAVEL, READ-ONLY — what a second surface needs to draw its own travel keys
