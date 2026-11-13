@@ -1,6 +1,6 @@
 import { MODULE_ID } from "./preset.js";
 import { defineActions } from "./actions.js";
-import { api as rpc, pendingAsks, aheadLive } from "./rpc.js";
+import { api as rpc, pendingAsks, aheadLive, answerScribe, answerSummon, answerTrade } from "./rpc.js";
 import { crossingName, otherHeroNames } from "./crossing-name.js";
 
 /**
@@ -63,6 +63,26 @@ const KINDS = {
       { id: "follow", label: `Follow ${who(e)}`, img: tokenArt(e.forActorUuid), token: true },
     ],
     answer: (e, choice) => rpc.travelFollow({ id: e.id, choice }),
+  },
+  // THE PANEL'S CHIPS, NOW ON THE ROW (DM 2026-11-13, MC-ON-DECK-IDEAS #2): the answer is the one the panel's chip calls
+  // (rpc.js answerScribe / answerSummon / answerTrade), so answering at either door clears both. Ten minutes, as the chips.
+  scribe: {
+    live: (e) => !e.expiresAt || e.expiresAt > Date.now(),
+    sub: (e) => `${e.actorName ?? "A wizard"} · scribe ${e.spellName ?? "a spell"}${e.cost ? ` (${e.cost})` : ""}`,
+    choices: () => [{ id: "cancel", label: "Decline" }, { id: "ok", label: "Approve" }],
+    answer: (e, choice) => answerScribe(e, choice === "ok"),
+  },
+  summon: {
+    live: (e) => !e.expiresAt || e.expiresAt > Date.now(),
+    sub: (e) => `${e.summonerName ?? "A player"} summoned ${e.summonName ?? "a creature"} · give ${e.playerName ?? "them"} control?`,
+    choices: (e) => [{ id: "cancel", label: "Keep it" }, { id: "ok", label: "Give control", ...(e.img ? { img: e.img, token: true } : {}) }],
+    answer: (e, choice) => answerSummon(e, choice === "ok"),
+  },
+  trade: {
+    live: (e) => !e.expiresAt || e.expiresAt > Date.now(),
+    sub: (e) => `${e.fromName ?? "Someone"} → ${e.toName ?? "an absent player"} · ${e.what ?? "a trade"}`,
+    choices: () => [{ id: "cancel", label: "Decline" }, { id: "ok", label: "Accept" }],
+    answer: (e, choice) => answerTrade(e, choice === "ok"),
   },
 };
 

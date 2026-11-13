@@ -1,5 +1,5 @@
 import { crossingName, otherHeroNames } from "./crossing-name.js";
-import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState } from "./rpc.js";
+import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState, answerChip } from "./rpc.js";
 import { notifier } from "./notifier.js";
 import { routeOf, bookHours, travelTimeLabel } from "./travel-times.js"; // T2: the book's time per route (DM 2026-11-09)
 import { fireAoO } from "./aoo.js";
@@ -3576,31 +3576,7 @@ async function onNightClick(ev) {
 // §17.1 the approve itself (GM client): copy the spell in unprepared, consume
 // the scroll (the DM-approved game mechanic), post the suggested cost — never
 // deduct (DM 2026-07-08) — and tell the player.
-async function approveScribe(entry) {
-  const actor = game.actors.get(entry.actorId);
-  const spell = await fromUuid(entry.spellUuid);
-  if (!actor || !spell) throw new Error("the actor or spell is gone");
-  const scroll = actor.items.get(entry.itemId);
-  const data = spell.toObject();
-  // dnd5e 5.1+ fields (method + prepared 0/1/2); the old `preparation` object is dropped
-  // on write when these are present, which a compendium toObject() guarantees (QA 2026-09-04).
-  foundry.utils.setProperty(data, "system.method", "spell");
-  foundry.utils.setProperty(data, "system.prepared", 0);
-  delete data.system?.preparation;
-  const [created] = await actor.createEmbeddedDocuments("Item", [data]);
-  if (created?.system?.prepared) await created.update({ "system.prepared": 0 });
-  if (scroll) {
-    const q = scroll.system?.quantity ?? 1;
-    if (q > 1) await scroll.update({ "system.quantity": q - 1 });
-    else await scroll.delete();
-  }
-  await ChatMessage.create({
-    speaker: { alias: "Scribing" },
-    content: `<p><b>${foundry.utils.escapeHTML(actor.name)}</b> copies <b>${foundry.utils.escapeHTML(spell.name)}</b> into their spellbook. The scroll crumbles.</p>
-      <p><em>Suggested cost: ${foundry.utils.escapeHTML(entry.cost)} — DM adjudicates.</em></p>`
-  });
-  scribeResultToUser(entry.userId, { ok: true, spellName: spell.name });
-}
+// (approveScribe moved to rpc.js answerScribe, 2026-11-13: the deck's Requests row and this chip call the same answer)
 
 // Encounter during the night: OFFER the ambush mechanics (never auto). dnd5e's
 // Sleeping condition ALREADY carries the full 2024 sleep rules (unconscious +
@@ -4328,7 +4304,8 @@ async function onClick(ev) {
     dmReactions = dmReactions.filter(r => r.id !== sOk.dataset.dmscribeOk);
     render();
     if (entry) {
-      try { await approveScribe(entry); }
+      // the same answer the deck's Requests row calls (rpc.js answerScribe): answering here clears it there
+      try { const r = await answerChip(entry.id, true); if (r?.ok === false) notifier.warn(`Scribe failed: ${r.reason}`); }
       catch (e) { console.error(`${MODULE_ID} | scribe approve failed`, e); notifier.warn(`Scribe failed: ${e.message}`); }
     }
     return;
@@ -4338,7 +4315,7 @@ async function onClick(ev) {
     const entry = dmReactions.find(r => r.id === sNo.dataset.dmscribeX);
     dmReactions = dmReactions.filter(r => r.id !== sNo.dataset.dmscribeX);
     render();
-    if (entry) scribeResultToUser(entry.userId, { ok: false, spellName: entry.label });
+    if (entry) answerChip(entry.id, false).catch(() => {});
     return;
   }
   // Basic travel square: the DM's three answers (Cancel / Move X / Move Group) — rpc handleTravelDecide.
@@ -4359,7 +4336,7 @@ async function onClick(ev) {
     const entry = dmReactions.find(r => r.id === trOk.dataset.dmtradeOk);
     dmReactions = dmReactions.filter(r => r.id !== trOk.dataset.dmtradeOk);
     render();
-    if (entry) api.transferRespond({ offerId: entry.offerId, accept: true }).then(res => { if (res?.ok === false) notifier.warn(res.reason ?? "Transfer failed."); });
+    if (entry) answerChip(entry.id, true).catch(() => {});
     return;
   }
   const trNo = ev.target.closest("[data-dmtrade-x]");
@@ -4367,7 +4344,7 @@ async function onClick(ev) {
     const entry = dmReactions.find(r => r.id === trNo.dataset.dmtradeX);
     dmReactions = dmReactions.filter(r => r.id !== trNo.dataset.dmtradeX);
     render();
-    if (entry) api.transferRespond({ offerId: entry.offerId, accept: false });
+    if (entry) answerChip(entry.id, false).catch(() => {});
     return;
   }
   // Summon control (2026-07-09): ✓ grants the summoner's player OWNER on the
@@ -4379,15 +4356,13 @@ async function onClick(ev) {
     dmReactions = dmReactions.filter(r => r.id !== smOk.dataset.dmsummonOk);
     render();
     if (entry) {
-      try {
-        await game.actors.get(entry.actorId)?.update({ [`ownership.${entry.userId}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER });
-        notifier.info(`${game.users.get(entry.userId)?.name ?? "The player"} now controls ${game.actors.get(entry.actorId)?.name ?? "the summon"}.`);
-      } catch (e) { console.error(`${MODULE_ID} | summon grant failed`, e); notifier.warn(`Couldn't grant control: ${e.message}`); }
+      try { await answerChip(entry.id, true); }
+      catch (e) { console.error(`${MODULE_ID} | summon grant failed`, e); notifier.warn(`Couldn't grant control: ${e.message}`); }
     }
     return;
   }
   const smNo = ev.target.closest("[data-dmsummon-x]");
-  if (smNo) { dmReactions = dmReactions.filter(r => r.id !== smNo.dataset.dmsummonX); return render(); }
+  if (smNo) { const id = smNo.dataset.dmsummonX; dmReactions = dmReactions.filter(r => r.id !== id); answerChip(id, false).catch(() => {}); return render(); }
   // Right-side dock: tab toggle (tapping the active tab again closes it), target checkbox, send.
   const dockBtn = ev.target.closest("[data-dock]");
   if (dockBtn) { closeRtAssign(); dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }

@@ -1042,7 +1042,7 @@ async function handleTransferOffer({ actorId, toActorId, itemMoves, coins, reque
     return { ok: true, pending: true };
   }
   // Receiver offline → DM decides on their behalf (reaction-widget chip, scribe-style).
-  Hooks.callAll("mobile-command.dmReaction", { id: offer.id, kind: "trade", offerId: offer.id, label: `${from.name} → ${to.name}: ${summary.text}`, expiresAt: Date.now() + 10 * 60 * 1000 });
+  await raiseAsk({ id: offer.id, kind: "trade", offerId: offer.id, label: `${from.name} → ${to.name}: ${summary.text}`, fromName: from.name, toName: to.name, what: summary.text, expiresAt: Date.now() + 10 * 60 * 1000 });
   return { ok: true, pending: true, viaDM: true };
 }
 async function handleTransferRespond({ offerId, accept, requesterId }) {
@@ -2535,6 +2535,84 @@ async function writeAsks(list) {
   await game.settings.set(MODULE_ID, ASKS_SETTING, list);
   Hooks.callAll(`${MODULE_ID}.actionsChanged`); // a surface on THIS client repaints at once (others get updateSetting)
 }
+/**
+ * -- PANEL CHIPS INTO THE REQUESTS QUEUE (DM 2026-11-13, his yes to MC-ON-DECK-IDEAS-2026-11-09 #2) --
+ * Scribe a spell, give a player control of a summon, and a trade to an offline player used to live only in the panel's
+ * memory (dm-panel.js dmReactions), so the deck never saw them. Now each is raised HERE: written into `dmAsks` (the deck's
+ * Notifications row reads it, actions-asks.js "table.ask") AND handed to the panel as its chip, under ONE id. Each kind
+ * has one answer function below, and both doors call it, so answering at either clears both. They keep the chips' own
+ * ten-minute life (`expiresAt`). They do not pause the game: unlike a crossing, nobody is stuck waiting at a door.
+ */
+export async function raiseAsk(entry) {
+  const now = Date.now();
+  if (isExecutor()) {
+    const live = pendingAsks().filter((e) => !(e.expiresAt && e.expiresAt < now));
+    // one summon chip per (summoned actor, player): a pack of wolves is one question (the panel's own rule)
+    if (entry.kind === "summon" && live.some((e) => e.kind === "summon" && e.actorId === entry.actorId && e.userId === entry.userId)) return;
+    await writeAsks([...live, { ...entry, ts: now }]);
+  }
+  Hooks.callAll("mobile-command.dmReaction", entry);
+}
+async function settleAsk(id) {
+  const all = pendingAsks();
+  if (all.some((e) => e.id === id)) await writeAsks(all.filter((e) => e.id !== id));
+  Hooks.callAll("mobile-command.dmReactionGone", { id }); // the panel's chip goes too
+}
+const askById = (id) => pendingAsks().find((e) => e.id === id) ?? null;
+/** Scribe: yes copies the spell into the book (unprepared), uses up the scroll, posts the suggested cost; either way the player hears. */
+export async function answerScribe(entry, ok) {
+  entry = entry ?? null; if (!entry) return { ok: false, reason: "that request is gone" };
+  await settleAsk(entry.id);
+  if (!ok) { scribeResultToUser(entry.userId, { ok: false, spellName: entry.spellName ?? entry.label }); return { ok: true, declined: true }; }
+  const actor = game.actors.get(entry.actorId);
+  const spell = await fromUuid(entry.spellUuid);
+  if (!actor || !spell) return { ok: false, reason: "the actor or spell is gone" };
+  const scroll = actor.items.get(entry.itemId);
+  const data = spell.toObject();
+  // dnd5e 5.1+ fields (method + prepared 0/1/2); the old `preparation` object is dropped
+  // on write when these are present, which a compendium toObject() guarantees (QA 2026-09-04).
+  foundry.utils.setProperty(data, "system.method", "spell");
+  foundry.utils.setProperty(data, "system.prepared", 0);
+  delete data.system?.preparation;
+  const [created] = await actor.createEmbeddedDocuments("Item", [data]);
+  if (created?.system?.prepared) await created.update({ "system.prepared": 0 });
+  if (scroll) {
+    const q = scroll.system?.quantity ?? 1;
+    if (q > 1) await scroll.update({ "system.quantity": q - 1 });
+    else await scroll.delete();
+  }
+  await ChatMessage.create({
+    speaker: { alias: "Scribing" },
+    content: `<p><b>${foundry.utils.escapeHTML(actor.name)}</b> copies <b>${foundry.utils.escapeHTML(spell.name)}</b> into their spellbook. The scroll crumbles.</p>
+      <p><em>Suggested cost: ${foundry.utils.escapeHTML(entry.cost ?? "")} — DM adjudicates.</em></p>`
+  });
+  scribeResultToUser(entry.userId, { ok: true, spellName: spell.name });
+  return { ok: true };
+}
+/** Summon: yes gives the summoner's player OWNER on the summoned actor (their phone picks it up); no keeps it the DM's. */
+export async function answerSummon(entry, ok) {
+  if (!entry) return { ok: false, reason: "that request is gone" };
+  await settleAsk(entry.id);
+  if (!ok) return { ok: true, declined: true };
+  await game.actors.get(entry.actorId)?.update({ [`ownership.${entry.userId}`]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER });
+  notifier.info(`${game.users.get(entry.userId)?.name ?? "The player"} now controls ${game.actors.get(entry.actorId)?.name ?? "the summon"}.`);
+  return { ok: true };
+}
+/** A trade to an offline player: the DM accepts or declines on their behalf. */
+export async function answerTrade(entry, ok) {
+  if (!entry) return { ok: false, reason: "that request is gone" };
+  await settleAsk(entry.id);
+  const res = await handleTransferRespond({ offerId: entry.offerId, accept: Boolean(ok), requesterId: game.user?.id });
+  if (res?.ok === false) notifier.warn(res.reason ?? "Transfer failed.");
+  return res;
+}
+/** The panel's chip, answered by id: the same function the deck calls. */
+export async function answerChip(id, ok) {
+  const e = askById(id); if (!e) { Hooks.callAll("mobile-command.dmReactionGone", { id }); return { ok: false, reason: "that request is gone" }; }
+  const fn = { scribe: answerScribe, summon: answerSummon, trade: answerTrade }[e.kind];
+  return fn ? fn(e, ok) : { ok: false, reason: "not a chip" };
+}
+
 // PAUSE OWNERSHIP. Cancel may only lift a pause the ask itself put on — never one he set for his own reasons.
 // We own it from the moment the ask pauses until ANY pause change we didn't make (he resumes, or resumes and
 // pauses again for something else): the pauseGame hook sees those and drops our claim. An executor reload also
@@ -3611,10 +3689,11 @@ async function handleScribeRequest({ actorId, itemId, requesterId }) {
   if (spell?.type !== "spell" || (spell.system?.level ?? 0) < 1) return { ok: false, reason: "the scroll's spell can't be resolved" };
   if (actor.items.some(i => i.type === "spell" && i.name === spell.name)) return { ok: false, reason: `${actor.name} already knows ${spell.name}` };
   const lvl = spell.system.level;
-  Hooks.callAll("mobile-command.dmReaction", {
+  await raiseAsk({
     id: foundry.utils.randomID(),
     kind: "scribe",
     label: `${actor.name.split(" ")[0]} wants to scribe ${spell.name} (L${lvl})`,
+    actorName: actor.name, spellName: spell.name,
     cost: `${2 * lvl}h & ${50 * lvl} gp`,
     actorId, itemId, spellUuid: spell.uuid, userId: requesterId,
     expiresAt: Date.now() + 10 * 60 * 1000
@@ -3687,9 +3766,10 @@ export function registerSummonOwnership() {
         ?? game.users.find(u => u.active && !u.isGM && u.id !== displayUser && summoner.testUserPermission(u, "OWNER"));
       if (!player) return; // NPC summoner / no player at the table — stays DM-driven
       if (!baseActor || baseActor.testUserPermission(player, "OWNER")) return; // already theirs
-      Hooks.callAll("mobile-command.dmReaction", {
+      await raiseAsk({
         id: foundry.utils.randomID(),
         kind: "summon",
+        summonerName: summoner.name, summonName: tokenDoc.name, playerName: player.name, img: tokenDoc.texture?.src ?? null,
         label: `${summoner.name.split(" ")[0]} summoned ${tokenDoc.name} — give ${player.name} control?`,
         actorId: baseActor.id,
         userId: player.id,
