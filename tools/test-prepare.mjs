@@ -82,11 +82,11 @@ const actor = {
   async updateEmbeddedDocuments(_t, u) { writes.updates.push(...u); }, async createEmbeddedDocuments(_t, c) { writes.creates.push(...c); },
   async deleteEmbeddedDocuments() { writes.deletes += 1; }, async update(u) { writes.actor.push(u); },
 };
-const index = new Map([["bless", { name: "Bless", img: "", system: { level: 1, properties: ["concentration"] } }], ["cure", { name: "Cure Wounds", img: "", system: { level: 1, properties: [] } }],
-  ["command", { name: "Command", img: "", system: { level: 1, properties: [] } }], ["detect", { name: "Detect Magic", img: "", system: { level: 1, properties: ["ritual", "concentration"] } }]]);
+const index = new Map([["bless", { name: "Bless", img: "", system: { level: 1, properties: ["concentration"], source: { rules: "2024" } } }], ["cure", { name: "Cure Wounds", img: "", system: { level: 1, properties: [], source: { rules: "2024" } } }],
+  ["command", { name: "Command", img: "", system: { level: 1, properties: [], source: { rules: "2024" } } }], ["detect", { name: "Detect Magic", img: "", system: { level: 1, properties: ["ritual", "concentration"], source: { rules: "2024" } } }]]);
 let switchOn = true;
 const g = {
-  game: { settings: { get: (m, k) => (k === "cantripScaleValues" ? "cantrips-known, cantrips" : k === "prepareOverLimit" ? "warn" : k === "spellcastingRuleSet" ? "modern" : k === "phonePrepareSpells" ? switchOn : undefined) },
+  game: { settings: { get: (m, k) => (k === "cantripScaleValues" ? "cantrips-known, cantrips" : k === "prepareOverLimit" ? "warn" : k === "spellcastingRuleSet" ? "modern" : k === "phonePrepareSpells" ? switchOn : k === "prepareBooks" ? "any" : undefined) },
     packs: { get: (id) => (id === "phb.spells" ? { getIndex: async () => index } : null) }, combat: null,
     items: { fromCompendium: async (src) => ({ name: src.name, system: { level: src.level } }) } },
   fromUuid: async (u) => (u === "JournalEntry.L.JournalEntryPage.list" ? { system: { spells: new Set(["bless", "cure", "command", "detect"].map((x) => `Compendium.phb.spells.Item.${x}`)) } }
@@ -148,8 +148,23 @@ check("OFF hides the button (Spells tab and after a rest), keeps Spell Book's re
   check("a spell of another level with the same name is not merged", P.dedupeSpells([phb, lvl1]).length === 2);
   check("a 2024 copy outranks dnd5e's 2014 one when the PHB has none", P.spellRank({ rules: "2024", pack: "z.spells" }) < P.spellRank({ rules: "2014", pack: "dnd5e.spells" }));
   const data = fs.readFileSync(path.join(ROOT, "scripts", "prepare-data.js"), "utf8");
-  check("the executor dedupes what it sends, reading identifier and source from the index", data.includes("spells: dedupeSpells([...spells.values()])") && data.includes(`"system.identifier", "system.source"`));
+  check("the executor dedupes what it sends, reading identifier and source from the index", data.includes("spells: dedupeSpells([...spells.values()]") && data.includes(`"system.identifier", "system.source"`));
   check("the save names which limit is over (the toast said 'prepared' when it was the cantrips)", data.includes("overWhat") && shell.includes("over the limit: ${(res.overWhat ?? []).join"));
+}
+
+// ── which books (DM 2026-11-14: "Limit all 2014 sources") ─────────────────────────────────────────────────────────
+{
+  const s = (pack, rules, o = {}) => ({ pack, rules, itemId: null, ...o });
+  check("2014 copies are never offered (the adventure's, dnd5e's SRD)", !P.sourceAllowed(s("the-crooked-moon-2014.tcm2014-player-options", "2014")) && !P.sourceAllowed(s("dnd5e.spells", "2014")));
+  check("core: the 2024 Player's Handbook, dnd5e's 2024 rules and the adventure's 2024 copies", P.sourceAllowed(s("dnd-players-handbook.spells", "2024")) && P.sourceAllowed(s("dnd5e.spells24", "2024")) && P.sourceAllowed(s("the-crooked-moon-2014.tcm2014-player-options", "2024")));
+  check("core: no other book, official or third-party", !P.sourceAllowed(s("dnd-heroes-faerun.spells", "2024")) && !P.sourceAllowed(s("mcdm-class-bundle.spells", "2024")));
+  check("official adds the other Wizards of the Coast books, not third-party", P.sourceAllowed(s("dnd-heroes-faerun.spells", "2024"), "official") && !P.sourceAllowed(s("mcdm-class-bundle.spells", "2024"), "official"));
+  check("any: any 2024 book", P.sourceAllowed(s("mcdm-class-bundle.spells", "2024"), "any") && !P.sourceAllowed(s("mcdm-class-bundle.spells", "2014"), "any"));
+  check("a spell on the sheet always shows, whatever its book", P.sourceAllowed(s("ryokos.spells", "2014", { itemId: "i1" })));
+  const reg = fs.readFileSync(path.join(ROOT, "scripts", "settings.js"), "utf8");
+  check("the books are a world setting, Core by default", /register\(MODULE_ID, "prepareBooks", \{[\s\S]{0,700}?default: "core"/.test(reg));
+  const data2 = fs.readFileSync(path.join(ROOT, "scripts", "prepare-data.js"), "utf8");
+  check("the executor filters before it dedupes", data2.includes("dedupeSpells([...spells.values()].filter((s) => sourceAllowed(s, books)))"));
 }
 
 console.log(`\nall ${n} passed`);

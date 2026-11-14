@@ -303,6 +303,14 @@ export function registerSettings() {
     choices: { warn: "Warn", block: "Block" }
   });
 
+  // DM 2026-11-14: "Limit all 2014 sources" (deck-command D-0114). Only 2024-rules spells are offered; which books:
+  game.settings.register(MODULE_ID, "prepareBooks", {
+    name: "Prepare spells: which books",
+    hint: "Only 2024-rules spells are offered (no 2014 copies). Core: the 2024 Player's Handbook, D&D 5e's own 2024 rules and the adventure's own spells. Official: also every other Wizards of the Coast book you have installed (e.g. Heroes of Faerûn). Any 2024: also third-party books. Spells already on a character's sheet always show.",
+    scope: "world", config: true, type: String, default: "core",
+    choices: { core: "Core 2024 + the adventure", official: "All official 2024 books", any: "Any 2024 book" }
+  });
+
   game.settings.register(MODULE_ID, "playerTier", {
     name: "What phones can change",
     hint: "Basic: each player's phone changes only their own character. Complex adds the things that change it for everyone — marching order and party staging, the downtime board, the shared stash and offering items, and travel squares. You can switch at any time; nobody gets stuck on a screen that disappears.",

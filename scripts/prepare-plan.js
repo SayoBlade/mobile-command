@@ -48,6 +48,24 @@ export function dedupeSpells(list = []) {
   return (list ?? []).filter((s) => kept.has(s) || s?.itemId);
 }
 
+/**
+ * ⚠️ WHICH BOOKS (DM 2026-11-14: "Limit all 2014 sources"; deck-command D-0114). A spell NOT on the sheet is offered only
+ * when its rules are 2024 AND its book is in scope:
+ *   core      the 2024 Player's Handbook (its module), D&D 5e's own 2024 rules, the adventure's own packs
+ *   official  also any Wizards of the Coast module (its id starts "dnd-": Heroes of Faerûn, Arcana Unleashed…)
+ *   any       any 2024 book, third-party too
+ * A spell on the sheet always shows (the screen never hides what a character has). Pure.
+ */
+export const ADVENTURE_PACKS = /^the-crooked-moon-/;   // the campaign's own module(s); its 2024 copies are kept
+export function sourceAllowed(s, scope = "core") {
+  if (s?.itemId) return true;
+  if (String(s?.rules ?? "") !== "2024") return false;
+  const pack = String(s?.pack ?? ""), mod = pack.split(".")[0];
+  if (scope === "any") return true;
+  if (mod === "dnd-players-handbook" || mod === "dnd5e" || ADVENTURE_PACKS.test(mod)) return true;
+  return scope === "official" && mod.startsWith("dnd-");
+}
+
 /** Was this spell on (prepared, or for a cantrip: on the sheet) when the screen opened? */
 export function wasOn(s) {
   if (!s) return false;

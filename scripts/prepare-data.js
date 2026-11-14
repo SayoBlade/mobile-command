@@ -16,7 +16,7 @@
 // ⚠️ NEVER A DELETE (his ruling). Spell Book's own save removes an unprepared spell's item; ours sets `prepared: 0`.
 // The swap window (prepare-plan.js) is ours, per class on the actor: `flags.mobile-command.prepare.<class>` =
 // { open, level } — opened by a long rest or a new level per the class's swap rule, closed by a save that swapped out.
-import { planSave, SWAP, canToggle, saveState, isOn, wasOn, dedupeSpells, counts } from "./prepare-plan.js";
+import { planSave, SWAP, canToggle, saveState, isOn, wasOn, dedupeSpells, counts, sourceAllowed } from "./prepare-plan.js";
 
 export const SB = "spell-book";
 const SB_PACK = "spell-book.custom-spell-lists";
@@ -137,6 +137,7 @@ export async function gatherPrepare(actor, g = globalThis) {
   const game = g.game;
   const keysCsv = (() => { try { return game.settings.get(SB, "cantripScaleValues"); } catch (e) { return "cantrips-known, cantrips"; } })();
   const over = (() => { try { return game.settings.get(MC, "prepareOverLimit") === "block" ? "block" : "warn"; } catch (e) { return "warn"; } })();
+  const books = (() => { try { return game.settings.get(MC, "prepareBooks") ?? "core"; } catch (e) { return "core"; } })();
   const inCombat = Boolean(game.combat?.started && [...(game.combat.combatants ?? [])].some((c) => c.actorId === actor.id));
   const classes = casterClasses(actor);
   const spellsOnSheet = [...(actor.items ?? [])].filter((i) => i.type === "spell");
@@ -178,7 +179,7 @@ export async function gatherPrepare(actor, g = globalThis) {
       spellSwap: rules.spellSwapping ?? SWAP.NONE, cantripSwap: rules.cantripSwapping ?? SWAP.NONE,
       swapsOpen: swapOpen(rec, rules.spellSwapping, levels),
       listSet: wizard ? true : listUuids.size > 0,
-      spells: dedupeSpells([...spells.values()]) });
+      spells: dedupeSpells([...spells.values()].filter((s) => sourceAllowed(s, books))) });
   }
   return { ok: true, actorId: actor.id, inCombat, over, classes: out };
 }
