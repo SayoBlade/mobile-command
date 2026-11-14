@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const { tvSeesNoPc, noPcCard, NO_PC_ID } = await import(pathToFileURL(path.join(ROOT, "scripts", "tv-vision-card.js")).href);
+const { tvSeesNoPc, noPcCard, noPcPolicy, NO_PC_ID } = await import(pathToFileURL(path.join(ROOT, "scripts", "tv-vision-card.js")).href);
 
 let n = 0;
 function check(label, ok, detail = "") {
@@ -35,6 +35,17 @@ check("same scene again this load: nothing — it never repeats", noPcCard({ noP
 check("another scene with no PC: the card, once", noPcCard({ noPc: true, sceneId: "b", shown }) === "card");
 check("a scene with a PC: nothing", noPcCard({ noPc: false, sceneId: "c", shown }) === null);
 
+// a scene can say "not here" (DM 2026-11-14): the intros' room frames itself, a ride's black hold stays black
+check("no flag: the card, as before", noPcPolicy({}) === "card" && noPcPolicy(undefined) === "card" && noPcPolicy({ tvNoPc: "junk" }) === "card");
+check("\"fit\" and \"black\" read as themselves", noPcPolicy({ tvNoPc: "fit" }) === "fit" && noPcPolicy({ tvNoPc: "black" }) === "black");
+check("a \"fit\" scene never gets the card, even the first time", noPcCard({ noPc: true, sceneId: "landing", shown: new Set(), policy: "fit" }) === null);
+check("a \"black\" scene never gets the card", noPcCard({ noPc: true, sceneId: "car", shown: new Set(), policy: "black" }) === null);
+check("an unflagged scene keeps the card", noPcCard({ noPc: true, sceneId: "x", shown: new Set(), policy: "card" }) === "card");
+const src0 = fs.readFileSync(path.join(ROOT, "scripts", "tv-vision-card.js"), "utf8");
+check("a card already up goes when the scene says not here", src0.includes(`f.policy !== "card")) remove();`));
+check("\"fit\" frames the map once a canvas (his own reframes win after)", src0.includes(`f?.policy === "fit" && fitted !== f.sceneId`) && src0.includes(`Hooks.on("canvasReady", () => { fitted = null; soon(); });`));
+check("the flag is read from the module's own flags", src0.includes(`policy: noPcPolicy(scene.flags?.[moduleId])`));
+
 // the twin of the sound card
 const src = fs.readFileSync(path.join(ROOT, "scripts", "tv-vision-card.js"), "utf8");
 check("the card reads \"No PCs in scene\"", /<div class="mc-au-title">No PCs in scene<\/div>/.test(src));
@@ -49,5 +60,6 @@ check("never covers the DM's screen: on the rail in shell.css and overlay-guard.
   css.includes(`body.mc-dm-clear #${NO_PC_ID},`) && guard.includes(`"#${NO_PC_ID}",`));
 const main = fs.readFileSync(path.join(ROOT, "scripts", "main.js"), "utf8");
 check("started beside the sound card on load", /setupDisplayAudioUnlock\(\);[^\n]*\r?\n\s*setupTvVisionCard\(\{ isDisplayClient/.test(main));
+check("the TV's own fit-the-map is what \"fit\" calls", main.includes("fitScene: fitSceneLocal"));
 
 console.log(`\nall ${n} passed`);

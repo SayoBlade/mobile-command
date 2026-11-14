@@ -23,18 +23,34 @@ export function tvSeesNoPc({ tokenVision, tokens = [] } = {}) {
   return !tokens.some((t) => t && t.pc && t.observed && !t.hidden && t.sight !== false);
 }
 
+/**
+ * ⚠️ A SCENE CAN SAY "NOT HERE" (DM 2026-11-14, via the lead, watching the TV on the intros' scene): the card is right
+ * by its rule there (no party token), but wrong for a scene whose point is not the party. `flags.mobile-command.tvNoPc`:
+ *   absent / "card"  the card, as above;
+ *   "fit"            never the card: the TV frames the whole map instead (a room that is itself the picture);
+ *   "black"          never the card and nothing else: the screen stays as it is (a scene held dark on purpose, e.g.
+ *                    a ride's black hold before its lights come up).
+ * Pure.
+ */
+export const NO_PC_FLAG = "tvNoPc";
+export function noPcPolicy(flags = {}) {
+  const v = String(flags?.[NO_PC_FLAG] ?? "card");
+  return v === "fit" || v === "black" ? v : "card";
+}
+
 /** What to show now (pure): "card" or null. `shown` = the scene ids it has already been shown for. */
-export function noPcCard({ noPc, sceneId, shown }) {
-  if (!noPc || !sceneId) return null;
+export function noPcCard({ noPc, sceneId, shown, policy = "card" }) {
+  if (!noPc || !sceneId || policy !== "card") return null;
   return shown?.has?.(sceneId) ? null : "card";
 }
 
 export const NO_PC_ID = "mc-tv-nopc";
 
 /** Display clients only. `isDisplayClient` is passed in so this file needs nothing from the shell. */
-export function setupTvVisionCard({ isDisplayClient, moduleId = "mobile-command" } = {}) {
+export function setupTvVisionCard({ isDisplayClient, moduleId = "mobile-command", fitScene = () => false } = {}) {
   const shown = new Set();   // scene ids: shown once, never again this load
   let cardScene = null;      // the scene the card on screen is about
+  let fitted = null;         // the scene a "fit" has framed since its canvas came up
 
   const facts = () => {
     const scene = canvas?.scene;
@@ -48,7 +64,7 @@ export function setupTvVisionCard({ isDisplayClient, moduleId = "mobile-command"
         pc: actor?.type === "character" || actor?.hasPlayerOwner === true,
       };
     });
-    return { sceneId: scene.id, noPc: tvSeesNoPc({ tokenVision: !!scene.tokenVision, tokens }) };
+    return { sceneId: scene.id, noPc: tvSeesNoPc({ tokenVision: !!scene.tokenVision, tokens }), policy: noPcPolicy(scene.flags?.[moduleId]) };
   };
 
   const remove = () => { document.getElementById(NO_PC_ID)?.remove(); cardScene = null; };
@@ -59,7 +75,9 @@ export function setupTvVisionCard({ isDisplayClient, moduleId = "mobile-command"
       const f = facts();
       const card = document.getElementById(NO_PC_ID);
       // The cause is gone, or the TV is on another scene now: the card goes.
-      if (card && (!f || !f.noPc || f.sceneId !== cardScene)) remove();
+      if (card && (!f || !f.noPc || f.sceneId !== cardScene || f.policy !== "card")) remove();
+      // "fit": the map is the picture, so the TV frames it, once a canvas (his own reframes win after that)
+      if (f?.policy === "fit" && fitted !== f.sceneId) { fitted = f.sceneId; setTimeout(() => { try { fitScene(); } catch (e) { /* the next canvas */ } }, 300); }
       if (!f || document.getElementById(NO_PC_ID)) return;
       if (noPcCard({ ...f, shown }) !== "card") return;
       shown.add(f.sceneId);
@@ -82,11 +100,11 @@ export function setupTvVisionCard({ isDisplayClient, moduleId = "mobile-command"
 
   // Settle after the canvas has its tokens; a token arriving or being revealed clears it.
   const soon = () => setTimeout(show, 400);
-  Hooks.on("canvasReady", soon);
+  Hooks.on("canvasReady", () => { fitted = null; soon(); });
   Hooks.on("createToken", soon);
   Hooks.on("updateToken", soon);
   Hooks.on("deleteToken", soon);
-  Hooks.on("updateScene", (s, change) => { if (s?.id === canvas?.scene?.id && "tokenVision" in (change ?? {})) soon(); });
+  Hooks.on("updateScene", (s, change) => { if (s?.id === canvas?.scene?.id && ("tokenVision" in (change ?? {}) || change?.flags?.[moduleId] && NO_PC_FLAG in change.flags[moduleId])) soon(); });
   soon();
   return { show };
 }
