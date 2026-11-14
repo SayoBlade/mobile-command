@@ -2,7 +2,7 @@
 // the roll request's sheet with its Disadvantage · Normal · Advantage segment. Pure checks; stops at the first failure.
 //   node tools/test-ve-trial.mjs
 import fs from "node:fs";
-import { veOn, veRollConfig, veRollWords, veRollSheetHTML, VE_MODES } from "../scripts/ve-trial.js";
+import { veOn, veRollConfig, veRollWords, veRollSheetHTML, VE_MODES, veEnsureStyles, VE_CSS } from "../scripts/ve-trial.js";
 const REPO = new URL("..", import.meta.url);
 let n = 0;
 function check(what, cond, got = "") { n += 1; if (cond) { console.log(`PASS ${n}. ${what}`); return; } console.log(`FAIL ${n}. ${what}${got ? ` — got ${got}` : ""}`); console.log("Stopped at the first failure."); process.exit(1); }
@@ -12,6 +12,17 @@ const reg = /register\(MODULE_ID, "veTrial", \{[\s\S]*?\}\);/.exec(settings)?.[0
 check("the switch is a world setting, shown in the settings, OFF by default", /scope: "world"/.test(reg) && /config: true/.test(reg) && /default: false/.test(reg), reg.slice(0, 200));
 check("no setting read (a test rig, a client before ready) means off", veOn({}) === false && veOn({ game: { settings: { get: () => { throw new Error("not registered"); } } } }) === false);
 check("on only when the setting is true", veOn({ game: { settings: { get: (m, k) => m === "mobile-command" && k === "veTrial" } } }) === true);
+
+// the stylesheet loads itself (seat LIVE A11: a file added by an update is not linked until the world relaunches)
+const fakeDoc = () => { const head = { kids: [], appendChild(el) { this.kids.push(el); } }; return { head, getElementById: (id) => head.kids.find((k) => k.id === id) ?? null, querySelectorAll: () => head.kids.filter((k) => k.rel === "stylesheet").map((k) => ({ getAttribute: () => k.href })), createElement: () => ({}) }; };
+const d1 = fakeDoc();
+check("on: the trial links its own stylesheet once", veOn({ document: d1, game: { settings: { get: () => true } } }) === true && d1.head.kids.length === 1 && d1.head.kids[0].href === VE_CSS && d1.head.kids[0].rel === "stylesheet");
+veOn({ document: d1, game: { settings: { get: () => true } } });
+check("and never twice", d1.head.kids.length === 1);
+const d2 = fakeDoc(); veOn({ document: d2, game: { settings: { get: () => false } } });
+check("off: nothing is linked", d2.head.kids.length === 0);
+const d3 = fakeDoc(); d3.head.kids.push({ rel: "stylesheet", href: "modules/mobile-command/styles/ve-trial.css?v=1" });
+check("a page that already links it (after a relaunch) is left alone", veEnsureStyles(d3) === false && d3.head.kids.length === 1);
 
 check("the segment reads Disadvantage · Normal · Advantage, left to right", VE_MODES.map((m) => m[1]).join(" · ") === "Disadvantage · Normal · Advantage");
 check("Advantage and Disadvantage go into the roll's own config; Normal adds nothing",

@@ -10,7 +10,29 @@
 export const VE_SETTING = "veTrial";
 
 export function veOn(g = globalThis) {
-  try { return g.game?.settings?.get?.("mobile-command", VE_SETTING) === true; } catch (e) { return false; }
+  let on = false;
+  try { on = g.game?.settings?.get?.("mobile-command", VE_SETTING) === true; } catch (e) { return false; }
+  if (on) veEnsureStyles(g.document);
+  return on;
+}
+
+/**
+ * ⚠️ THE TRIAL LOADS ITS OWN STYLESHEET (seat LIVE A11, 2026-11-14: switched on, the phone kept the burgundy bar and
+ * the old cards; `ve-trial.css` was in module.json and game.modules, but NOT linked by the page). Foundry writes a
+ * page's module stylesheet links from what it read when the WORLD LAUNCHED, so a file added by an update is missing
+ * until a relaunch. entrances.js learned this on 2026-09-19 and loads its own; the trial does the same, the first
+ * time it is on in a page. Idempotent; a page that already links it (after a relaunch) is left alone.
+ */
+export const VE_CSS = "modules/mobile-command/styles/ve-trial.css";
+export function veEnsureStyles(doc = globalThis.document) {
+  try {
+    if (!doc?.head || doc.getElementById?.("mc-ve-trial-css")) return false;
+    if ([...(doc.querySelectorAll?.('link[rel="stylesheet"]') ?? [])].some((l) => (l.getAttribute?.("href") ?? "").includes("styles/ve-trial.css"))) return false;
+    const link = doc.createElement("link");
+    link.id = "mc-ve-trial-css"; link.rel = "stylesheet"; link.href = VE_CSS;
+    doc.head.appendChild(link);
+    return true;
+  } catch (e) { return false; }
 }
 
 /** The segment's three modes, left to right as the mockup and VE draw them. Normal is the default. */
