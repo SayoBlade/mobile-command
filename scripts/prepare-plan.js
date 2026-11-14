@@ -18,6 +18,36 @@
 export const SWAP = Object.freeze({ NONE: "none", LEVEL_UP: "levelUp", LONG_REST: "longRest" });
 export const OVER = Object.freeze({ WARN: "warn", BLOCK: "block" });
 
+/**
+ * ⚠️ ONE ROW PER SPELL (seat LIVE H 2026-11-14: Blood Bolt ×2, Dissolution ×2, Eye Burn ×2 in a Wizard's cantrips —
+ * Spell Book's class list pulls the same spell from several books). Rows with the same dnd5e identifier (else the same
+ * name) are one spell; the kept row is, in order: the one on the sheet; the 2024 Player's Handbook's; any other 2024
+ * rules copy; dnd5e's own; then the first. A row on the sheet is never dropped. Pure.
+ * A spell may carry { identifier, book, rules, pack } (prepare-data.js) besides its usual shape.
+ */
+const slug = (s) => String(s ?? "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+export function spellRank(s) {
+  if (s?.itemId) return 0;
+  const book = String(s?.book ?? ""), pack = String(s?.pack ?? "");
+  const phbBook = /^(PHB|Player'?s Handbook)\b/i.test(book) && (/2024/.test(book) || String(s?.rules ?? "") === "2024");
+  if (pack.startsWith("dnd-players-handbook.") || phbBook) return 1;
+  if (String(s?.rules ?? "") === "2024") return 2;
+  if (pack.startsWith("dnd5e.")) return 3;
+  return 4;
+}
+export function dedupeSpells(list = []) {
+  const best = new Map(), order = [];
+  for (const s of list ?? []) {
+    const key = `${Number(s?.level) || 0}|${slug(s?.identifier) || slug(s?.name)}`;
+    const cur = best.get(key);
+    if (!cur) { best.set(key, s); order.push(key); continue; }
+    if (spellRank(s) < spellRank(cur)) best.set(key, s);
+  }
+  const kept = new Set(order.map((k) => best.get(k)));
+  // two copies both on the sheet are both kept: the screen never hides what the character has
+  return (list ?? []).filter((s) => kept.has(s) || s?.itemId);
+}
+
 /** Was this spell on (prepared, or for a cantrip: on the sheet) when the screen opened? */
 export function wasOn(s) {
   if (!s) return false;

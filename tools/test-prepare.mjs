@@ -130,4 +130,26 @@ check("the switch: a world setting that starts OFF, until he has reviewed it", /
 check("OFF hides the button (Spells tab and after a rest), keeps Spell Book's rest prompt, and the DM client refuses both ways",
   /#prepareButtonHTML\(actor, \{ rest = false \} = \{\}\) \{\r?\n {4}if \(!phonePrepareOn\(\) \|\|/.test(shell)
   && (rpc.match(/if \(!phonePrepareOn\(\)\) return \{ ok: false, reason: "Prepare spells on phones is off" \}/g) ?? []).length === 2);
+
+// ── one row per spell (seat LIVE H 2026-11-14: Blood Bolt ×2, Dissolution ×2, Eye Burn ×2) ─────────────────────────
+{
+  const phb = sp("Compendium.dnd-players-handbook.spells.Item.a", 0, { name: "Fire Bolt", identifier: "fire-bolt", book: "PHB 2024", rules: "2024", pack: "dnd-players-handbook.spells" });
+  const srd = sp("Compendium.dnd5e.spells.Item.b", 0, { name: "Fire Bolt", identifier: "fire-bolt", book: "SRD 5.1", rules: "2014", pack: "dnd5e.spells" });
+  const other = sp("Compendium.some-book.spells.Item.c", 0, { name: "Fire Bolt", identifier: "fire-bolt", book: "Some Book", pack: "some-book.spells" });
+  const blood1 = sp("Compendium.x.spells.Item.d", 0, { name: "Blood Bolt", pack: "x.spells" });
+  const blood2 = sp("Compendium.y.spells.Item.e", 0, { name: "Blood Bolt", pack: "y.spells" });
+  const out = P.dedupeSpells([other, srd, phb, blood1, blood2]);
+  check("one Fire Bolt, and it is the 2024 Player's Handbook's", out.filter((s) => s.name === "Fire Bolt").length === 1 && out.includes(phb));
+  check("no identifier: the same name is the same spell (Blood Bolt once, the first)", out.filter((s) => s.name === "Blood Bolt").length === 1 && out.includes(blood1));
+  const mine = sp("Compendium.some-book.spells.Item.c", 0, { name: "Fire Bolt", identifier: "fire-bolt", itemId: "i99", pack: "some-book.spells" });
+  const out2 = P.dedupeSpells([phb, mine]);
+  check("the copy on the sheet always wins: the screen never hides what the character has", out2.length === 1 && out2[0] === mine);
+  const lvl1 = sp("Compendium.x.spells.Item.f", 1, { name: "Fire Bolt" });
+  check("a spell of another level with the same name is not merged", P.dedupeSpells([phb, lvl1]).length === 2);
+  check("a 2024 copy outranks dnd5e's 2014 one when the PHB has none", P.spellRank({ rules: "2024", pack: "z.spells" }) < P.spellRank({ rules: "2014", pack: "dnd5e.spells" }));
+  const data = fs.readFileSync(path.join(ROOT, "scripts", "prepare-data.js"), "utf8");
+  check("the executor dedupes what it sends, reading identifier and source from the index", data.includes("spells: dedupeSpells([...spells.values()])") && data.includes(`"system.identifier", "system.source"`));
+  check("the save names which limit is over (the toast said 'prepared' when it was the cantrips)", data.includes("overWhat") && shell.includes("over the limit: ${(res.overWhat ?? []).join"));
+}
+
 console.log(`\nall ${n} passed`);

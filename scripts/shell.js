@@ -5229,7 +5229,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#prep !== p) return;
     p.saving = false;
     if (!res?.ok) { notifier.warn(`Prepare spells: ${res?.reason ?? "no answer from the DM"}`); return this.render(); }
-    notifier.info(`${cls.name}: ${res.prepared} prepared${res.warned ? " (more than your limit)" : ""}.`);
+    notifier.info(`${cls.name}: ${res.prepared} prepared${res.warned ? ` (over the limit: ${(res.overWhat ?? []).join(", ") || "too many"})` : ""}.`);
     this.#prep = null; this.render();
   }
   #spellBookButtonHTML(actor, label = "Spell Book") {

@@ -16,7 +16,7 @@
 // ⚠️ NEVER A DELETE (his ruling). Spell Book's own save removes an unprepared spell's item; ours sets `prepared: 0`.
 // The swap window (prepare-plan.js) is ours, per class on the actor: `flags.mobile-command.prepare.<class>` =
 // { open, level } — opened by a long rest or a new level per the class's swap rule, closed by a save that swapped out.
-import { planSave, SWAP, canToggle, saveState, isOn, wasOn } from "./prepare-plan.js";
+import { planSave, SWAP, canToggle, saveState, isOn, wasOn, dedupeSpells, counts } from "./prepare-plan.js";
 
 export const SB = "spell-book";
 const SB_PACK = "spell-book.custom-spell-lists";
@@ -100,10 +100,11 @@ async function describe(uuids, g) {
   for (const [packId, list] of byPack) {
     const pack = g.game?.packs?.get?.(packId);
     if (!pack) continue;
-    let index; try { index = await pack.getIndex({ fields: ["system.level", "system.properties", "img"] }); } catch (e) { continue; }
+    let index; try { index = await pack.getIndex({ fields: ["system.level", "system.properties", "img", "system.identifier", "system.source"] }); } catch (e) { continue; }
     for (const [u, id] of list) {
       const e = index.get(id); if (!e) continue;
-      out.set(u, { name: e.name, img: e.img, level: Number(e.system?.level) || 0, properties: e.system?.properties ?? [] });
+      out.set(u, { name: e.name, img: e.img, level: Number(e.system?.level) || 0, properties: e.system?.properties ?? [],
+        identifier: e.system?.identifier ?? null, book: e.system?.source?.book ?? null, rules: e.system?.source?.rules ?? null, pack: packId });
     }
   }
   return out;
@@ -161,12 +162,14 @@ export async function gatherPrepare(actor, g = globalThis) {
     for (const it of mine) {
       const u = srcUuid(it);
       spells.set(u, { uuid: u, name: it.name, img: it.img, level: Number(it.system?.level) || 0, ritual: hasProp(it.system?.properties, "ritual"),
-        concentration: hasProp(it.system?.properties, "concentration"), itemId: it.id, prepared: Number(it.system?.prepared) || 0 });
+        concentration: hasProp(it.system?.properties, "concentration"), itemId: it.id, prepared: Number(it.system?.prepared) || 0,
+        identifier: it.system?.identifier ?? null, book: it.system?.source?.book ?? null, rules: it.system?.source?.rules ?? null });
     }
     for (const u of allowed) {
       if (spells.has(u)) continue;
       const m = meta.get(u); if (!m) continue;
-      spells.set(u, { uuid: u, name: m.name, img: m.img, level: m.level, ritual: hasProp(m.properties, "ritual"), concentration: hasProp(m.properties, "concentration"), itemId: null, prepared: 0 });
+      spells.set(u, { uuid: u, name: m.name, img: m.img, level: m.level, ritual: hasProp(m.properties, "ritual"), concentration: hasProp(m.properties, "concentration"), itemId: null, prepared: 0,
+        identifier: m.identifier, book: m.book, rules: m.rules, pack: m.pack });
     }
     const rec = actor.flags?.[MC]?.prepare?.[id];
     const levels = Number(cls.system?.levels) || 0;
@@ -175,7 +178,7 @@ export async function gatherPrepare(actor, g = globalThis) {
       spellSwap: rules.spellSwapping ?? SWAP.NONE, cantripSwap: rules.cantripSwapping ?? SWAP.NONE,
       swapsOpen: swapOpen(rec, rules.spellSwapping, levels),
       listSet: wizard ? true : listUuids.size > 0,
-      spells: [...spells.values()] });
+      spells: dedupeSpells([...spells.values()]) });
   }
   return { ok: true, actorId: actor.id, inCombat, over, classes: out };
 }
@@ -201,7 +204,10 @@ export async function savePrepare(actor, classId, picksObj, g = globalThis) {
   if (!st.ok) return { ok: false, reason: st.why };
   const plan = planSave(cls, picks);
   await applyPlan(actor, cls, plan, g);
-  return { ok: true, updated: plan.update.length, created: plan.create.length, warned: Boolean(st.warn), prepared: cls.spells.filter((s) => isOn(s, picks) && s.level > 0).length };
+  // which limit is over, so the toast names it (seat LIVE H: "4 prepared (more than your limit)" when it was the cantrips)
+  const c = counts(cls, picks);
+  const overWhat = [c.spells.over ? `spells ${c.spells.cur}/${c.spells.max}` : null, c.cantrips.over ? `cantrips ${c.cantrips.cur}/${c.cantrips.max}` : null].filter(Boolean);
+  return { ok: true, updated: plan.update.length, created: plan.create.length, warned: Boolean(st.warn), overWhat, prepared: cls.spells.filter((s) => isOn(s, picks) && s.level > 0).length };
 }
 
 /** Apply a plan: flip `prepared`, create from the compendium, keep Spell Book's flag in step, close the window. Never deletes. */
