@@ -32,6 +32,7 @@
 // Everything is idempotent and touches only documents flagged mobile-command.trainDoor /
 // trainLand / trainMist — run Wire twice, get one set; nothing of the book's own scene
 // content is ever modified or deleted.
+import { localNow } from "./syrinscape-bridge.js"; // the ride bed may be Syrinscape (D-0116)
 import { MODULE_ID } from "./preset.js";
 import { notifier } from "./notifier.js";
 
@@ -316,7 +317,23 @@ const RIDE_SOUND = [
   "Chugging",                      // Deck Command · Linked sounds — ditto
 ];
 
-function rideSound() {
+/**
+ * ⚠️ THE SYRINSCAPE RIDE BED WINS (deck-command D-0116, SOUND-PLAN-2026-11-16 §3.2/§3.3): a sound flagged
+ * `flags.mobile-command.rideBed` (the Doom Train's "On board the doom train", whose local twin is the Steam-Train
+ * loop) is the ride's bed. Without one, the local loop below, as before. `rideLocal` is always the local file: it is
+ * what every screen preloads, and it opens the ride for its first seconds while Syrinscape fades in.
+ */
+export function rideBed(playlists = game.playlists) {
+  for (const pl of playlists ?? []) {
+    const s = pl.sounds?.find?.((x) => x?.flags?.[MODULE_ID]?.rideBed);
+    if (s) return s;
+  }
+  return null;
+}
+/** How long our own loop opens the ride under a Syrinscape bed (D-0108's 3 s of sound alone, then the overlap). */
+export const RIDE_OPENER_MS = 8000;
+function rideSound() { return rideBed() ?? rideLocal(); }
+function rideLocal() {
   for (const name of RIDE_SOUND) {
     for (const pl of game.playlists ?? []) {
       const s = pl.sounds?.find?.((x) => x.name === name);
@@ -484,7 +501,7 @@ export function setTrainJolt(on) {
  * client (Foundry's own "preloadAudio" broadcast) has it decoded when the press comes. Returns the sound's name, or null.
  */
 export function preloadRideSound() {
-  const s = rideSound();
+  const s = rideLocal();
   if (!s?.path) return null;
   // ⚠️ NOT Foundry's preloadAudio (seat Start ride (3), 2026-11-13: after View car the TV's audio cache held no copy).
   // That fills the buffer cache, and a long loop is never buffered: Foundry plays it from its own audio element, made
@@ -501,7 +518,7 @@ export function preloadRideSound() {
  * room) is drawn, so the TV has it ready long before Start ride. Returns a promise of the sound's name, or null.
  */
 export async function primeRideSound() {
-  const s = rideSound();
+  const s = rideLocal();
   if (!s?.path) return null;
   try {
     await game.audio?.unlock;                       // a locked client loads after its first click, not never
@@ -512,6 +529,7 @@ export async function primeRideSound() {
   } catch (e) { console.warn(`${MODULE_ID} | readying the ride's sound:`, e?.message); return null; }
 }
 
+let rideOpenerTimer = null;
 export async function setTrainSound(on) {
   if (!game.user?.isGM) return null;
   const s = rideSound();
@@ -526,8 +544,18 @@ export async function setTrainSound(on) {
       if (!s.repeat) await s.update({ repeat: true });
       if (!s.volume) await s.update({ volume: 0.4 });
       if (!s.playing) await s.parent.playSound(s);
-    } else if (s.playing) {
-      await s.parent.stopSound(s);
+      // a Syrinscape bed takes ~0.5 s and fades in: our own loop carries the first seconds (D-0116 pick 4). Not when
+      // the bed plays local (its twin IS this loop) — that would double it.
+      const opener = rideLocal();
+      if (opener && opener !== s && !localNow() && !opener.playing) {
+        await opener.parent.playSound(opener);
+        if (rideOpenerTimer) clearTimeout(rideOpenerTimer);
+        rideOpenerTimer = setTimeout(() => { rideOpenerTimer = null; if (opener.playing) opener.parent.stopSound(opener).catch(() => {}); }, RIDE_OPENER_MS);
+      }
+    } else {
+      if (s.playing) await s.parent.stopSound(s);
+      const opener = rideLocal();
+      if (opener && opener !== s && opener.playing) await opener.parent.stopSound(opener);
     }
     return s.name;
   } catch (e) {

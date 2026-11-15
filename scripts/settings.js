@@ -1,6 +1,7 @@
 import { MODULE_ID, SAVE_TIMEOUT_SETTING, DEFAULT_CARD_THEME, DAY_DARKNESS_FLOOR } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { makeConfirmMenuClass, deactivate, reactivate, hasBackup, hasReactivateSnapshot } from "./enforcer.js";
+import { resyncSyrinscapeEntries } from "./syrinscape-bridge.js"; // sound scenes: Syrinscape or local (SOUND-PLAN §2.7)
 
 export function registerSettings() {
   // D7 role, per-client. Phase 1 uses it only to decide which client runs
@@ -500,6 +501,27 @@ export function registerSettings() {
   // Did WE zero this GM client's Environment? Claim-and-release, as `dmAudioSilenced`.
   game.settings.register(MODULE_ID, "dmEnvSilenced", {
     scope: "client", config: false, type: Boolean, default: false
+  });
+
+  /**
+   * SOUND SCENES: SYRINSCAPE OR LOCAL (deck-command D-0116, SOUND-PLAN-2026-11-16 §2.7; syrinscape-bridge.js). WORLD
+   * scope on purpose: Syrinscape plays in one shared room, so the choice is the table's, not a screen's. Local makes
+   * every Syrinscape entry play its local twin (today's file); the deck's Music drawer carries the switch.
+   */
+  game.settings.register(MODULE_ID, "soundScenes", {
+    name: "Sound scenes: Syrinscape or local files",
+    hint: "Syrinscape: playlist entries made from Syrinscape play their Syrinscape mood. Local: each plays the local sound it stands in for (today's file), so nothing at the table needs Syrinscape. Mobile Command also switches to local by itself while Syrinscape is offline.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: { syrinscape: "Syrinscape", local: "Local files" },
+    default: "syrinscape",
+    onChange: () => resyncSyrinscapeEntries()
+  });
+  // Written by the primary GM's watcher (syrinscape-bridge.js): true while Syrinscape's player is not connected.
+  game.settings.register(MODULE_ID, "syrinscapeOffline", {
+    scope: "world", config: false, type: Boolean, default: false,
+    onChange: () => resyncSyrinscapeEntries()
   });
 
   // §53 (catalogue 230, DM go 2026-09-20): Foundry gives a GM controlling no token NO ambient sound at
