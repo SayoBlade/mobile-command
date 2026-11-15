@@ -11,6 +11,7 @@ import { installSpellBookAfterLevelUp } from "./spellbook-phone.js";
 import { openWindowsAfterRest, isSpellBookRestPrompt, phonePrepareOn } from "./prepare-data.js"; // Prepare spells (D-0106)
 import { registerDMPanel, refreshPanel, openDock } from "./dm-panel.js";
 import { setupTvVisionCard } from "./tv-vision-card.js"; // §23.7 "No PCs in scene" on the TV
+import { planDmSilence } from "./dm-silence.js"; // the DM's music AND environment while the TV is connected
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, preloadRideSound, primeRideSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
@@ -1527,8 +1528,10 @@ async function suppressAutomatedAnimationsTips() {
 
 /**
  * The DM's own machine stops doubling the room — §39.5's rule, which until 2026-10-09 lived only
- * in the phone shell and so only ever covered phones. See `dmSilentMusic` in settings.js for why
- * this is the MUSIC channel alone and must not touch ambient.
+ * in the phone shell and so only ever covered phones. ~~See `dmSilentMusic` in settings.js for why
+ * this is the MUSIC channel alone and must not touch ambient.~~ 2026-11-16: ENVIRONMENT too, behind its own
+ * switch `dmSilentEnvironment` (Syrinscape plays on Environment, so it doubled out of the one PC; see settings.js
+ * and `dm-silence.js`). Each channel is claimed and released on its own.
  *
  * Claim-and-release, exactly as the phone rule does it: we restore only a volume WE zeroed, and we
  * restore it to Foundry's shipped 0.5 rather than to a remembered value, because we never recorded
@@ -1537,8 +1540,8 @@ async function suppressAutomatedAnimationsTips() {
 function applyDmMusicSilence() {
   try {
     if (!game.user?.isGM || isDisplayClient()) return;
-    let want = true;
-    try { want = !!game.settings.get(MODULE_ID, "dmSilentMusic"); } catch (e) { /* default on */ }
+    const flag = (k, d) => { try { return !!game.settings.get(MODULE_ID, k); } catch (e) { return d; } };
+    const want = { music: flag("dmSilentMusic", true), environment: flag("dmSilentEnvironment", true) };
     /**
      * ⚠️ IS THE DISPLAY **ON**, NOT IS IT CONFIGURED (DM 2026-10-09: *"if it's remote DMing and
      * I'm sharing the tv then it's in the same computer, if I'm not sharing it's probably not on,
@@ -1558,20 +1561,14 @@ function applyDmMusicSilence() {
      * sound back without him touching anything.
      */
     const tv = hasSharedScreen() ? game.users.get(displayUserId()) : null;
-    if (!tv?.active) want = false;
-    const KEY = "globalPlaylistVolume";
-    if (want) {
-      if (game.settings.get("core", KEY) !== 0) {
-        game.settings.set("core", KEY, 0);
-        game.settings.set(MODULE_ID, "dmAudioSilenced", true);
-        console.log(`${MODULE_ID} | DM client — music silenced (the shared screen is the room's speaker)`);
-      }
-    } else if (game.settings.get(MODULE_ID, "dmAudioSilenced")) {
-      if (game.settings.get("core", KEY) === 0) game.settings.set("core", KEY, 0.5);
-      game.settings.set(MODULE_ID, "dmAudioSilenced", false);
-      console.log(`${MODULE_ID} | DM client — music restored (no shared screen)`);
+    const level = { music: Number(game.settings.get("core", "globalPlaylistVolume")), environment: Number(game.settings.get("core", "globalAmbientVolume")) };
+    const claimed = { music: flag("dmAudioSilenced", false), environment: flag("dmEnvSilenced", false) };
+    for (const w of planDmSilence({ tvActive: Boolean(tv?.active), want, level, claimed })) {
+      if (w.set !== undefined) game.settings.set("core", w.key, w.set);
+      game.settings.set(MODULE_ID, w.flag, w.claim);
+      console.log(`${MODULE_ID} | DM client — ${w.channel} ${w.claim ? "silenced (the shared screen is the room's speaker)" : "restored (no shared screen)"}`);
     }
-  } catch (e) { console.warn(`${MODULE_ID} | could not set the DM's music volume`, e); }
+  } catch (e) { console.warn(`${MODULE_ID} | could not set the DM's music/environment volume`, e); }
 }
 
 function setupTvVolumes() {
@@ -1582,7 +1579,7 @@ function setupTvVolumes() {
     if (s?.key === `${MODULE_ID}.tvVolume`) applyTvVolumes();
     if (s?.key === `${MODULE_ID}.tvMuted`) { applyTvMute(); broadcastAudioState(); }
     // the rule depends on BOTH the preference and which account is the display
-    if (s?.key === `${MODULE_ID}.dmSilentMusic` || s?.key === `${MODULE_ID}.displayOwnerUser`) applyDmMusicSilence();
+    if (s?.key === `${MODULE_ID}.dmSilentMusic` || s?.key === `${MODULE_ID}.dmSilentEnvironment` || s?.key === `${MODULE_ID}.displayOwnerUser`) applyDmMusicSilence();
   });
   // ...and on whether that account is CONNECTED, which is the half that changes mid-session: the
   // TV tab opening or closing is exactly when the DM's own music should go quiet or come back.

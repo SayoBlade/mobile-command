@@ -464,7 +464,7 @@ export function registerSettings() {
    */
   game.settings.register(MODULE_ID, "dmSilentMusic", {
     name: "The DM's machine stays quiet",
-    hint: "While the shared screen is CONNECTED, your own client mutes the music channel so a track does not play twice out of the same PC. Close the display and your music comes straight back. Ambient sound (see below) and interface sounds are untouched.",
+    hint: "While the shared screen is CONNECTED, your own client mutes the music channel so a track does not play twice out of the same PC. Close the display and your music comes straight back. Ambient sound has its own switch below; interface sounds are untouched.",
     scope: "world",
     config: true,
     type: Boolean,
@@ -474,6 +474,31 @@ export function registerSettings() {
   // Did WE zero this GM client's music? Per-device, because the volume is a client setting, and
   // claim-and-release like the phone rule: a DM who slid his own music to zero keeps it there.
   game.settings.register(MODULE_ID, "dmAudioSilenced", {
+    scope: "client", config: false, type: Boolean, default: false
+  });
+
+  /**
+   * THE SAME RULE FOR THE ENVIRONMENT CHANNEL (2026-11-16, deck-command SOUND-PLAN-2026-11-16 §8; built on a branch,
+   * merged only on his yes). Syrinscape Controller plays every mood on Foundry's ENVIRONMENT channel, whatever the
+   * playlist says (the module's issue #37), so with the TV connected each mood played twice out of the one PC, a few
+   * hundred ms apart: the flam `dmSilentMusic` exists to stop, on the channel it deliberately left alone.
+   *
+   * ⚠️ THIS NARROWS THE 2026-10 DECISION ABOVE ("music only … silencing ambient would quietly revoke `dmHearsTable`"),
+   * it does not erase it. That reason assumed his seat was the only place he heard the self-playing cues. While the TV
+   * is CONNECTED it is the same PC (his correction, 2026-10-09), so he still hears every cue once, from the TV tab;
+   * `dmHearsTable` keeps its job whenever the TV is off. Its own switch, so he can keep the music rule without this.
+   */
+  game.settings.register(MODULE_ID, "dmSilentEnvironment", {
+    name: "The DM's machine stays quiet: ambient too",
+    hint: "While the shared screen is CONNECTED, your own client also mutes the Environment channel (ambient sounds, Mobile Command's room cues, and Syrinscape, which always plays there), so nothing plays twice out of the same PC; you hear it all from the shared screen. Close the display and it comes straight back.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
+  // Did WE zero this GM client's Environment? Claim-and-release, as `dmAudioSilenced`.
+  game.settings.register(MODULE_ID, "dmEnvSilenced", {
     scope: "client", config: false, type: Boolean, default: false
   });
 
