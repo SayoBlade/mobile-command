@@ -18,6 +18,8 @@ import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, preloadRideSound, primeRideSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
 import { restoreCrookedHouse, planHouseNow } from "./cm-house.js"; // the Crooked House put back (Lost Lore #17/#18)
+import { makeAtticRooms, planAtticNow } from "./cm-attic.js"; // the attic's rooms get music (§59)
+import { registerSoundZones, syncSoundZones } from "./sound-zones.js"; // the chanting lower outside the Cauldron Room (§59.6)
 import { registerAoO } from "./aoo.js";
 import { setupCalendarSkin, applyCalendarSkinClass, redrawCalendarAfterSave } from "./gametime.js";
 import { registerFog, refreshFog } from "./fog-soft.js";
@@ -45,7 +47,7 @@ import "./actions-travel.js"; // the travel area, which was declared and publish
 import "./actions-asks.js"; // §55.6 players waiting on the DM (a Basic travel square) — the deck's Notifications
 import { registerSoundBehavior, cues } from "./region-sound.js"; // §53 the "Sound" region behaviour + the house door sets
 import { audioPrompt, settleWithin } from "./audio-prompt.js"; // the display's sound prompt: card, icon or nothing
-import { registerMusicBehavior, registerMusic, state as musicState, pick as musicPick, next as musicNext, cue as musicCue, moods as musicMoods, roomOf as musicRoomOf, overlapState as musicOverlap } from "./music.js"; // the music layer (deck-command MUSIC-LAYER.md)
+import { registerMusicBehavior, registerMusic, state as musicState, pick as musicPick, next as musicNext, cue as musicCue, moods as musicMoods, roomOf as musicRoomOf, overlapState as musicOverlap, adoptSceneMusic as musicAdoptSceneMusic } from "./music.js"; // the music layer (deck-command MUSIC-LAYER.md)
 import { installOverlayGuard, sweepCoveringLayers, reapplyGuard, restoreCoreUi, forceRail, stuckOverlayStates, clearedLayers, shouldKeepGmClear, verifyRail } from "./overlay-guard.js"; // §22.7/§22.9 the DM is never covered or hidden
 
 Hooks.once("init", () => {
@@ -1003,6 +1005,8 @@ Hooks.once("ready", () => {
   // ⚠️ ONE-SHOT, the same way: the Crooked House's door sounds, stairs and fight music put back into the
   // Crooked Moon worlds (DM 2026-11-08, Lost Lore #17/#18). Additive only; see cm-house.js.
   restoreCrookedHouse().catch((e) => console.warn(`${MODULE_ID} | restoreCrookedHouse`, e?.message));
+  // ⚠️ ONE-SHOT, the same way: the attic's two book rooms get Music regions (DM 2026-11-17, §59). See cm-attic.js.
+  makeAtticRooms().catch((e) => console.warn(`${MODULE_ID} | makeAtticRooms`, e?.message));
   setupCalendarSkin(); // SC Reborn's popup = the table's "Calendar": retitle (tool column hidden in CSS)
   Hooks.on("updateSetting", redrawCalendarAfterSave); // §22.11: a player's calendar catches up when the GM's save lands
   registerAoO(); // opportunity-attack movement watcher (executor-gated inside; see aoo.js)
@@ -1010,6 +1014,7 @@ Hooks.once("ready", () => {
   registerMusic();       // rooms, battle, Phase 2, cues — crossfaded; the primary GM drives (music.js)
   registerSyrinscapeBridge(); // a Syrinscape entry plays its local twin while Local/offline, and stops at a fade's start
   registerSoundMix();         // the table's one mix: music / environment / cues layers after every screen's sliders (§58). AFTER the bridge: it wraps the bridge's seam
+  registerSoundZones();       // §59.6: a sound full in its room, lower outside it (the attic's chanting)
   registerCombatMusic(); // per-PC themes + battle track over combat turns (primary GM drives; see combat-music.js)
   registerCampaigns();   // §50: Ember's creation sheet gets the small-screen fit-shim (no-op elsewhere)
 
@@ -1017,7 +1022,7 @@ Hooks.once("ready", () => {
     ...api,
     enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, deactivate, reactivate, revert: deactivate, hasBackup },
     train: { wire: wireTrainDoors, ride: setTrainMist, sound: setTrainSound, preload: preloadRideSound, jolt: setTrainJolt, joltNow, riding: trainMistOn, hasWindows: trainCarHasWindows, setWindows: setTrainWindows, freeWeather: (o) => freeTrainWeather({ force: true, ...o }) }, // §37 macro access (§8.1 manual triggers)
-    house: { restore: (o) => restoreCrookedHouse({ force: true, ...o }), plan: () => planHouseNow() }, // the Crooked House put-back (§8.1 manual trigger)
+    house: { restore: (o) => restoreCrookedHouse({ force: true, ...o }), plan: () => planHouseNow(), atticRooms: (o) => makeAtticRooms({ force: true, ...o }), atticPlan: () => planAtticNow(), zones: () => { syncSoundZones(); return soundMixState().zones; } }, // the Crooked House put-back (§8.1 manual trigger)
     soundScenes: { state: soundScenesState, set: setSoundScenes, mix: setSoundMix, mixState: soundMixState, master: { get: getSoundMaster, set: setSoundMaster, step: stepSoundMaster }, trim: setSoundTrim, trims: getSoundTrims, levels: setSyrinscapeLevels, applyLevels: syncSyrinscapeLevels }, // Syrinscape or local (deck-command D-0116): the deck's Music drawer switch; mix = the table's layers (§58; levels is retired)
     /**
      * §18/§41 TRAVEL, READ-ONLY — what a second surface needs to draw its own travel keys
@@ -1085,7 +1090,7 @@ Hooks.once("ready", () => {
     // THE MUSIC LAYER, for any surface (the deck's Music key and drawer; a cue step `music:`).
     // state() answers what is playing and what is pinned; the verbs write the shared state the
     // primary GM acts on. Hook "mobile-command.music" fires with state() on every change.
-    music: { state: musicState, pick: musicPick, next: musicNext, cue: musicCue, roomOf: musicRoomOf, overlap: musicOverlap, duck: musicDuck, moods: () => musicMoods().map((p) => ({ uuid: p.uuid, name: p.name })) },
+    music: { state: musicState, pick: musicPick, next: musicNext, cue: musicCue, roomOf: musicRoomOf, overlap: musicOverlap, duck: musicDuck, adoptSceneMusic: musicAdoptSceneMusic, moods: () => musicMoods().map((p) => ({ uuid: p.uuid, name: p.name })) },
     frameParty: framePartyTokens,        // local canvas only
     focusParty: focusPartyAll,           // here + the display(s) + exit manual
     toggleTvManual,                      // DM drives the display by panning own view

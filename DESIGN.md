@@ -81,7 +81,7 @@ sections their cross-references always claimed).
 | 56 | Prepare spells on the phone | **BUILT 2026-11-13** — owed a seat check (prepare on a phone vs Spell Book on the PC) |
 | 57 | "The TV took a VERY long time to respond" | **MEASURED 2026-11-16, not ours** — dnd5e 6.0.5 / animater ready-time load; no code change |
 | 58 | **The table's one mix** — launch sliders, a set level at every play, music / environment / cues layers, one master; Syrinscape's scale fixed | **BUILT 2026-11-16** (`sound-mix.js`; world settings `soundMix`, `soundMaster`, `launchVolumes`, `soundTrims` §58.10); **§58.11 FIXED 2026-11-16 night: element trims relative, §53 levels kept, trims converted once; §58.12 the real 408 carried over, 168 element trims ready, a mood trim moves its one-shots**; **owed: §58.12's 10-step seat check** |
-| 59 | **A default soundtrack per scene; fight music in its place**: scene default music beside the environment bed, combat swaps it, music +6 dB, fight +3 dB | **BUILT 2026-11-17** (`music-core.js SCENE_MUSIC`, `music.js sceneDefault`, `sound-mix.js` MIX_DEFAULT.music 0.6 + COMBAT_LIFT_DB); **owed: his veto of five picks + a seat check (§59.5)** |
+| 59 | **Music by room; the attic's rooms; the chanting lower outside the Cauldron Room; fight music in its place** (DM 2026-11-17, revised the same day) | **BUILT 2026-11-17** (`cm-attic.js` two book rooms, `sound-zones.js` the duck, `music-core.js SCENE_MUSIC_PROPOSED` + `music.adoptSceneMusic`, `sound-mix.js` music 0.6 + fight +3 dB); **owed: his veto of the picks + the seat check (§59.7)** |
 
 ---
 
@@ -2550,12 +2550,14 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    the nearest at once and offer "switch door". Follow UI-BIBLE before choosing; (c) is the only one that acts on a single
    tap, so ask him whether a wrong door opening is acceptable.
 
-0ᵃ. **OPEN 2026-11-17 — a default soundtrack per scene, fight music in its place (§59).** His words: *"I want a quite
-   soundtrack default for each scene, the idea is to keep the environmental sound on and switch to combat music instead of
-   the default music during combat"*. BUILT: five scenes with no music of their own got one of his Room playlists (no new
-   files); combat already swapped it and kept the environment bed (§25.7/§25.8), now tested on the defaults; music layer
-   0.3 → 0.6 (+6 dB); fight playlists +3 dB over it. **Owed:** his veto of the five picks (§59.2) and the seat check in
-   §59.5 (numbered). Not done: a fight played as a Syrinscape mood (the wolves) gets the +6 but not the +3 (§59.4).
+0ᵃ. **OPEN 2026-11-17 — music by room; the attic's rooms; the chanting; fight music in its place (§59).** His first ask
+   (*"a quite soundtrack default for each scene"*) was corrected the same day: *"Wait, so music starts when the party
+   enters a room? I actually like that better"* and *"But I want music for the attic too, lower the chanting outside the
+   cauldron room"*. ~~A scene-wide default for five scenes (incl. 12.1 over its rooms), auto-playing~~ (b7fcfff,
+   replaced). BUILT: rooms stay the model; the attic gets its two book rooms (H16, H17) from its walls; the chanting is
+   12 dB lower while no PC is in the Cauldron Room; four no-room maps have a PROPOSED default that plays only once he
+   says yes; music layer +6 dB; fight playlists +3 dB. **Owed:** his veto of the attic's two tracks and the four
+   proposals (§59.2–59.3), and the seat check (§59.7). Not done: a fight played as a Syrinscape mood gets the +6, not +3.
 
 0ᵇ. **OPEN 2026-11-16 — the table's one mix (§58) is BUILT; its numbers are PREDICTED, not measured.** His words:
    *"music completely hides them … they all need to be at around 25-50% volume so the DM's voice is clearly heard"*, then
@@ -9813,72 +9815,96 @@ Read from a fresh read-only copy of the world after his reload (the module folde
 - **Tests:** `test-sound-mix.mjs` 86 (stage 2 adds only the untrimmed moved sound; converted trims and moods untouched;
   V1 kept; stage 3 inert; never overwrites a trim; stage 1 still does all in one go).
 
-## 59. A default soundtrack per scene; fight music in its place (DM 2026-11-17) — BUILT 2026-11-17, owed his veto + a seat check
+## 59. Music by room; the attic's rooms; the chanting lower outside the Cauldron Room; fight music in its place (DM 2026-11-17) — BUILT, owed his veto + a seat check
 
-**His words:** *"Don't we have music for scenes by default, and if not I want a quite soundtrack default for each scene,
-the idea is to keep the environmental sound on and switch to combat music instead of the default music during combat"*.
-SEAT 5 (deck-command SEAT-2026-11-09.md "SEAT 5 2026-11-17") found the scenes' music intact but 11–17 dB under the
-Syrinscape beds (room music ≈ −48 dBFS), so inaudible at the table, and five scenes in the timeline with no music at all.
+**His words, in order:** *"Don't we have music for scenes by default, and if not I want a quite soundtrack default for
+each scene, the idea is to keep the environmental sound on and switch to combat music instead of the default music
+during combat"*; then, told that music starts by room: *"Wait, so music starts when the party enters a room? I actually
+like that better"* and *"But I want music for the attic too, lower the chanting outside the cauldron room"*. SEAT 5
+(deck-command SEAT-2026-11-09.md "SEAT 5 2026-11-17") had found the scenes' music intact but 11–17 dB under the
+Syrinscape beds, so inaudible.
+~~**First build (b7fcfff, the same day): a scene-wide default soundtrack for five scenes, auto-playing, incl. 12.1's
+Druskenvald Estate over its rooms.**~~ Replaced by what follows.
 
-### 59.1 What a scene's default is now (`music.js sceneDefault`, `music-core.js sceneMusicOf`)
-1. `flags.mobile-command.music.default` on the scene: a playlist uuid (his pick), or `"none"` (no default from MC).
-2. Else MC's pick for The Crooked Moon (`SCENE_MUSIC`, world `crooked-moon-6x` only, scene id → playlist id).
-3. Else the scene's own Playlist field, as before (a room playlist, or a floor's bed).
+### 59.1 The model (`music.js sceneDefault`, `music-core.js sceneMusicOf`)
+- **Rooms are the model.** Music starts when the whole party stands in a room's Music region for the dwell (§25). A map
+  with Music regions gets its music ONLY from its rooms: no scene-wide default plays over them (even a flag of his).
+- **The scene's own Playlist field still plays as before** (his choice): 10.1–10.7, 10.9, 11.1, 11.2's room lists; a
+  floor's bed. Untouched.
+- **A default exists only for a map with no rooms, and only when he names it:** `flags.mobile-command.music.default` on
+  the scene (a playlist uuid; "none" = none). MC never plays one of its own. `SCENE_MUSIC_PROPOSED` is the list put to
+  him; `MobileCommand.music.adoptSceneMusic()` (all) or `adoptSceneMusic(["<scene id>"])` writes his yes, never over a
+  choice of his (a flag, a Playlist field, or rooms). A default naming an empty playlist is ignored.
 
-A default naming a playlist with no tracks is ignored (the field plays; nothing is silenced). It is the SCENE layer of
-§25 (`resolveMusic`): a cue, a pick, a fight and a room all still win over it. It starts on activation (the driver's
-`updateScene` apply), alongside core's playback of the Playlist field. An ENVIRONMENT bed in that field (12.1's rain)
-plays on under it, because crossfade spares the active environment bed (§25.7). Every default the driver has chosen is
-in the set it may stop, so the next scene's music replaces it. Nothing is written to the world.
-
-### 59.2 The picks (from his Music → Rooms playlists, by title; for his veto)
-| Scene | Had | Default now |
+### 59.2 The proposals (maps with no rooms and no music; from his Music → Rooms, by title; NOT playing until he says yes)
+| Map | Has | Proposed |
 |---|---|---|
-| The Crooked Moon (landing room, the intros) | nothing | **Room · Passenger Car** (Carriage Through Fog, Guest at the Gate, False Warmth). 10.1 plays the same list, so the train's start carries on unbroken |
-| 10.1–10.7, 10.9, 11.1, 11.2 | their Room playlist (field) | unchanged |
-| 10.8 Tender | nothing | **Room · Baggage Car** (Breathing Behind the Door, Hide and Seek Champion, The Unseen Host) |
+| The Crooked Moon (landing room, the intros) | nothing | **Room · Passenger Car** (Carriage Through Fog, Guest at the Gate, False Warmth); 10.1 plays the same list, so the train's start would carry on unbroken |
+| 10.8 Tender (the one car with no room music) | nothing | **Room · Baggage Car** (Breathing Behind the Door, Hide and Seek Champion, The Unseen Host) |
 | Druskenvald | nothing | **Room · Off the Spectral Rails** (Tides Move Inward, Sky Behind the Sky, Architecture That Watches) |
-| Wickermoor Hollow | nothing | **Room · Wickermoor Hollow** (10.9's list: Lanterns Between Trees, Hollow Oak, Wicker Gate, Blackwater Marsh) |
-| 12.1 First Floor | the rain bed (environment) | **Room · Druskenvald Estate** (The Ancestral Estate, Estate of Unrest, Blackthorn Manor) over the rain. The Foyer, Parlor and Music Room regions still switch to their own |
-| 12.2 / 12.3 / 12.4 | their music bed (haunted house / Hall of Horrors / Dark Ritual) | unchanged: that bed IS the floor's music (§25.8 either-or); a soundtrack would stop it |
-| Landing Page (not in the timeline) | nothing | none |
+| Wickermoor Hollow | nothing | **Room · Wickermoor Hollow** (10.9's: Lanterns Between Trees, Hollow Oak, Wicker Gate, Blackwater Marsh) |
+| 10.9 Ghostlight Wreckage | his Room · Wickermoor Hollow (field) | nothing: it has his |
 
-Not listened to by Claude. A veto is one flag: `flags.mobile-command.music.default` on the scene (another playlist uuid,
-or "none").
+### 59.3 The attic gets its rooms (`cm-attic.js`, one-shot on the primary GM's load, marker `atticRoomsMade`)
+The book's attic is two areas: **H16 Secret Landing** (the top of the ladder, the runes, the little door) and **H17
+Cauldron Room** (the cauldron, Vessla). 12.4 had no Music region, so two are made, **traced from the map's own walls**:
+the outer walls, cut in two by the one west–east wall with the little door in it (≈ y 1235–1278; the door 1255,1268 →
+1403,1252). North = H16, south = H17. Checked: the three Secret Landing creak squares and the runes' pin fall in H16;
+the cauldron (1610,1680) and Adela's sound in H17. Additive: nothing made if he has a Music region there of his own, a
+room made once (our `cm` key), nothing deleted. `MobileCommand.house.atticPlan()` shows what it would do.
+| Room | Music (his, for his veto) |
+|---|---|
+| H16 Secret Landing | **Room · Off the Spectral Rails** (eldritch, quiet: the runes) |
+| H17 Cauldron Room | **Room · Abandoned Church** (Bone Chapel, Cathedral Phantom, Monster in the Chapel) |
+The floor's Dark Ritual bed is a MUSIC bed (§25.8), so it yields to a room's music (one music track) and comes back
+when no room holds the party. Not listened to by Claude.
 
-### 59.3 Combat (§25, unchanged code, now tested on the defaults)
-A fight on the table's scene plays its fight music: a foe's flag (the wolves, the locomotive, the haints) > the scene's
-`music.battle` (the house) > the world's battle music (Fight · Haint Fight). The default (or room) music stops; the
-environment bed plays on. When the fight ends, the music crossfades back to whatever the layer below says: the room the
-party was in, else the scene's default. Leaving a room for an unscored spot still KEEPS the room's music (his 2026-10-31
-rule).
+### 59.4 Combat (§25, unchanged code; tested on rooms, the attic and an adopted default)
+A fight on the table's scene → its fight music (a foe's flag > the scene's `music.battle` > the world's Haint Fight).
+The room's (or default) music stops; the ENVIRONMENT bed plays on. The fight ends → the music crossfades back to what
+played before it (the room the party was in, else the default). Leaving a room for an unscored spot still KEEPS the
+room's music (his 2026-10-31 rule).
 
-### 59.4 The level (`sound-mix.js`)
-- **Music layer 0.3 → 0.6 (+6.0 dB)**, `MIX_DEFAULT.music`. The world has no stored `soundMix`, so nothing is written.
-  SEAT 5's gap of 11–17 dB under the Syrinscape beds becomes ≈ 5–11 dB (aim 6–8). The train's ride bed gap is ≈ 10
-  dB until its −7 dB element trim is applied, then ≈ 3–4: his ear decides. It moves everything on the music layer:
-  rooms, fights, moods, music stings, the music beds (12.2–12.4), and Syrinscape's music group (a mood's score; the
-  group's value goes 0.367 → 0.528).
-- **Fight music +3 dB** on top of that (`COMBAT_LIFT_DB`, `combatLiftDbOf`): every sound of a playlist with role battle,
-  or of the world's battle library, starts 3 dB over its set level (on top of any trim). ⚠️ Not on Syrinscape: a fight
-  played as a Syrinscape mood (the wolves' mood, SOUND-PLAN Q6) gets the +6 but not the +3.
-- The SEAT 4 trims are untouched (dB on top of the set level), so each sound keeps its place within its layer.
+### 59.5 The level (`sound-mix.js`)
+- **Music layer 0.3 → 0.6 (+6.0 dB)**, `MIX_DEFAULT.music` (the world stores no `soundMix`: no write). SEAT 5's 11–17 dB
+  under the Syrinscape beds → ≈ 5–11 dB (aim 6–8). Moves everything on the music layer, Syrinscape's music group
+  included (0.367 → 0.528).
+- **Fight music +3 dB** over it (`COMBAT_LIFT_DB`): every sound of a battle playlist or the world's battle library. ⚠️ A
+  fight played as a Syrinscape mood gets the +6 but not the +3.
 
-### 59.5 Seat check (numbered; stop at the first failure)
-1. His GM reloads, then the TV. `game.settings.get("mobile-command","soundMix")` is `{}` (nothing stored), so the
-   music layer is 0.6; `MobileCommand.soundScenes.mixState().mix.music` is 0.6.
-2. Activate the landing room → Room · Passenger Car starts within 2 s.
-3. Activate 10.1 → the same playlist keeps playing (no restart); the ride bed comes in.
-4. Activate 10.8 → Room · Baggage Car crossfades in and Passenger Car stops; the ride bed keeps playing.
-5. Meter on the TV-like tab: room music ≈ 6 dB louder than SEAT 5 (≈ −42 dBFS RMS against −48), still under the bed.
-6. Start a combat on 10.8 → Fight · Haint Fight replaces Baggage Car; the ride bed keeps playing; ≈ 3 dB over step 5.
-7. End it → Baggage Car crossfades back; the ride bed still plays.
-8. Activate 12.1 (no PC standing in a room) → the rain bed AND Room · Druskenvald Estate.
-9. A combat there → Fight · Crooked House over the rain; end it → Druskenvald Estate back over the rain.
-10. Activate Wickermoor Hollow, then Druskenvald → each starts its default (Wickermoor Hollow / Off the Spectral Rails).
+### 59.6 The chanting: full in the Cauldron Room, 12 dB lower outside it (`sound-zones.js`)
+**Which way, and why:** a REGION-BASED DUCK, not an ambient sound's radius/walls. The attic's chanting is not
+positional: Vessla's **Foul Ritual** (`syr:mood:44420`, SEAT 4's hot one) and her **solo chants** (`syr:element:244024`,
+`244025`) are Syrinscape (one shared player, no position), the **Dark Ritual** drone is the floor's bed (a playlist
+sound), and SEAT 4's **Cultist Mutter "Incanting"** (`syr:element:244009`, keyed on 11.1 today) is Syrinscape too. So:
+while **no** player character stands inside the H17 region, those five keys play **12 dB** lower; as soon as one does,
+they are full. It rides the trims on every screen (`setZoneOffsets` → `trimsNow()` = stored + zone): a local sound fades
+to its new level (250 ms), a mood's cut goes on Syrinscape's global volume (its whole output), a standalone element its
+own volume. Nothing is written; each screen works it out from the tokens. No PC on the map, another scene, or no H17
+region yet → no change. A trim as READ may now go to −64 dB so a cut can land on a trim at the −40 floor; written trims
+stay −40 … +24. `MobileCommand.house.zones()` shows the cut in force.
 
-### 59.6 Tests
-`tools/test-music-scene-default.mjs` 23 (the picks; the landing → 10.1 hand-on; the Tender; 12.1's rain + default; a
-room overriding it; a fight replacing it, the rain kept, and crossfading back; the battle library; his "none", his own
-pick, an empty pick; 12.4 untouched). `test-sound-mix.mjs` 90 (+4: the lift, the library, the lift on a trim, fight
-≈ 3 dB over room; the defaults at 0.6). `test-syrinscape-bridge.mjs` 79 (the music group's new values).
+### 59.7 Seat check (numbered; stop at the first failure)
+1. His GM reloads, then the TV. Console: `the attic's rooms: Secret Landing (H16) → Room · Off the Spectral Rails;
+   Cauldron Room (H17) → Room · Abandoned Church`; `MobileCommand.soundScenes.mixState().mix.music` is 0.6.
+2. Activate the landing room → no new music starts (the proposals wait for his yes).
+3. Activate 12.1 with the party in the hall → only the rain; walk a PC token into the Foyer (whole party) → Room · Foyer
+   within ≈ 5 s, the rain on.
+4. Meter on a TV-like tab: the Foyer's music ≈ 6 dB louder than SEAT 5 (≈ −42 dBFS RMS against −48).
+5. Start a combat on 12.1 → Fight · Crooked House replaces the Foyer's music, the rain on, ≈ 3 dB over step 4. End it →
+   the Foyer's music back, the rain on.
+6. Activate 12.4, party at the top of the ladder → Room · Off the Spectral Rails after ≈ 5 s.
+7. Play Vessla's Foul Ritual (deck key) with the party on the Secret Landing; `MobileCommand.house.zones()` shows
+   `syr:mood:44420: -12`; meter it.
+8. Walk one PC through the little door into the Cauldron Room → `zones()` is `{}`; Foul Ritual ≈ 12 dB louder than
+   step 7; the whole party in → Room · Abandoned Church.
+9. Start the Cauldron fight → Fight · Cauldron Room; end it → Room · Abandoned Church back.
+10. (Only if he says yes to the proposals) `MobileCommand.music.adoptSceneMusic()`, then activate the landing room →
+    Room · Passenger Car; 10.8 → Room · Baggage Car.
+
+### 59.8 Tests
+`tools/test-music-scene-default.mjs` 26 (no auto-play; his flag; never over rooms; adopt writes only where nothing of
+his is; a default + combat; 12.1 by room only, fight and back; the attic plan, its wall-traced rooms, the one-shot, music
+by room on 12.4, its fight and back). `tools/test-sound-zones.mjs` 14 (the rule; any PC inside = full; on the trims;
+−42 on the global; the drone −12; stored trims untouched; the runtime from tokens). `test-sound-mix.mjs` 90 (the
+lift; the defaults at 0.6). `test-syrinscape-bridge.mjs` 79.

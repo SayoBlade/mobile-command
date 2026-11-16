@@ -172,6 +172,8 @@ export function planTrimRebase(trims = {}, sounds = []) {
 
 // ── per-sound trims (§58.10) ──
 export const TRIM_MIN_DB = -40, TRIM_MAX_DB = 24;
+/** A trim as READ may go lower than one written: a sound zone's cut (§59.6) adds to a stored trim already at −40. */
+export const TRIM_READ_MIN_DB = -64;
 const SYR_FLAG = "syrinscape-control";
 /** Pure: the trim key of a PlaylistSound: `syr:<type>:<id>` for a Syrinscape entry (shared by every entry of that
  *  Syrinscape sound), else its uuid. A string that is already a key passes through. */
@@ -181,10 +183,22 @@ export function trimKeyOf(soundOrId) {
   if (f?.soundType && f?.soundId != null) return `syr:${f.soundType}:${f.soundId}`;
   return soundOrId?.uuid ?? null;
 }
-/** Pure: a stored trim → dB, clamped; anything else 0. */
+/** Pure: a trim → dB, clamped (−64 … +24 as read; a written one is −40 … +24); anything else 0. */
 export function trimDbOf(key, trims) {
   const v = num(trims?.[key]);
-  return Number.isFinite(v) ? Math.min(Math.max(v, TRIM_MIN_DB), TRIM_MAX_DB) : 0;
+  return Number.isFinite(v) ? Math.min(Math.max(v, TRIM_READ_MIN_DB), TRIM_MAX_DB) : 0;
+}
+/** Pure (§59.6): the trims as heard: each stored trim (clamped as written) plus any sound zone's dB for its key. */
+export function withZones(stored = {}, zones = {}) {
+  const keys = Object.keys(zones ?? {});
+  if (!keys.length) return stored;
+  const out = { ...stored };
+  for (const k of keys) {
+    const v = num(stored?.[k]);
+    const base = Number.isFinite(v) ? Math.min(Math.max(v, TRIM_MIN_DB), TRIM_MAX_DB) : 0;
+    out[k] = base + (Number(zones[k]) || 0);
+  }
+  return out;
 }
 export const dbToGain = (d) => Math.pow(10, d / 20);
 /** Pure: the Syrinscape mood playing now, from the playing Syrinscape entries: a moment wins over a waiting bed. */
@@ -324,7 +338,14 @@ export const TV_DEFAULT = Object.freeze({ music: SLIDER_DEFAULT.music, ambient: 
 const setting = (k, d) => { try { return game.settings.get(MODULE_ID, k); } catch (e) { return d; } };
 export function mixNow() { return mixOf(setting("soundMix", {})); }
 export function masterNow() { return masterOf(setting("soundMaster", MASTER_DEFAULT)); }
-export function trimsNow() { const t = setting("soundTrims", {}); return t && typeof t === "object" ? t : {}; }
+/** The trims as written (the world setting). Writers and the one-time conversion use these. */
+export function storedTrims() { const t = setting("soundTrims", {}); return t && typeof t === "object" ? t : {}; }
+// §59.6: what the sound zones add on this screen now (sound-zones.js keeps it), key → dB
+let zoneDb = {};
+export function setZoneOffsets(map) { zoneDb = map && typeof map === "object" ? { ...map } : {}; }
+export function zoneOffsetsNow() { return zoneDb; }
+/** The trims as heard: stored + the sound zones. Every level reads these. */
+export function trimsNow() { return withZones(storedTrims(), zoneDb); }
 /** This screen's two sliders that Syrinscape's music group follows. */
 export function slidersNow() {
   const g = (k) => { try { return Number(game.settings.get("core", k)); } catch (e) { return NaN; } };
@@ -528,7 +549,7 @@ function resolveTrimKey(id) {
 export async function setSoundTrim(idOrMap, db) {
   if (!game.user?.isGM) return { ok: false, reason: "GM only" };
   const pairs = idOrMap && typeof idOrMap === "object" ? Object.entries(idOrMap) : [[idOrMap, db]];
-  const out = { ...trimsNow() }, done = {}, refused = [];
+  const out = { ...storedTrims() }, done = {}, refused = [];
   for (const [id, d] of pairs) {
     const key = resolveTrimKey(id);
     if (!key) { refused.push(id); continue; }
@@ -541,15 +562,15 @@ export async function setSoundTrim(idOrMap, db) {
 }
 /** Every trim (a copy), or one: MobileCommand.soundScenes.trims() / trims(id) → dB (0 = none). */
 export function getSoundTrims(id) {
-  if (id === undefined) return { ...trimsNow() };
+  if (id === undefined) return { ...storedTrims() };
   const key = resolveTrimKey(id);
-  return key ? trimDbOf(key, trimsNow()) : null;
+  return key ? trimDbOf(key, storedTrims()) : null;
 }
 
 /** What plays where, for a console or the deck: the mix, the master and this screen's Syrinscape values. */
 export function soundMixState() {
   const s = slidersNow();
-  return { mix: mixNow(), master: masterNow(), sliders: s, syrinscape: { ...syrinscapeNodes(mixNow(), s), local: syrLocalOf(s.environment, masterNow()) }, levelled: levelled?.size ?? 0, trims: Object.keys(trimsNow()).length };
+  return { mix: mixNow(), master: masterNow(), sliders: s, syrinscape: { ...syrinscapeNodes(mixNow(), s), local: syrLocalOf(s.environment, masterNow()) }, levelled: levelled?.size ?? 0, trims: Object.keys(storedTrims()).length, zones: { ...zoneDb } };
 }
 
 /** The trimmed sounds (keys of `ref`) and every other sound of their playlists (SEAT 4 heard all 459 and left those
@@ -585,7 +606,7 @@ export async function rebaseTrimsOnce() {
   if (stage >= 3) return null;
   // without the deck's table every base would read wrong (a levelled sound's old base IS its table value): wait
   if (!levelled && game.modules?.get?.("deck-command")?.active) return null;
-  const trims = trimsNow();
+  const trims = storedTrims();
   let plan;
   if (stage < 2) {
     plan = planTrimRebase(trims, seatSounds(trims));

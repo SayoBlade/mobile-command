@@ -777,6 +777,10 @@ export function registerSettings() {
   game.settings.register(MODULE_ID, "crookedHouseRestored", {
     scope: "world", config: false, type: Boolean, default: false
   });
+  // One-shot marker (§59, DM 2026-11-17): the attic's two book rooms (H16, H17) got their Music regions. cm-attic.js.
+  game.settings.register(MODULE_ID, "atticRoomsMade", {
+    scope: "world", config: false, type: Boolean, default: false
+  });
 
   game.settings.register(MODULE_ID, "crookedMoonTools", {
     scope: "world",

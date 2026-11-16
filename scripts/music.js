@@ -32,7 +32,7 @@
  */
 import { MODULE_ID } from "./preset.js";
 import { combatMusicMode, configureForCombat, restoreTouched } from "./combat-music.js";
-import { resolveMusic, targetKey, battleFor, manualStillHolds, partyRoom, Dwell, OVERLAP_SETTING, OVERLAP_DEFAULT, overlapApplies, handOffIn, handOffUpdate, isBed, bedStays, bedKind, sceneBattleOf, sceneMusicOf } from "./music-core.js";
+import { resolveMusic, targetKey, battleFor, manualStillHolds, partyRoom, Dwell, OVERLAP_SETTING, OVERLAP_DEFAULT, overlapApplies, handOffIn, handOffUpdate, isBed, bedStays, bedKind, sceneBattleOf, sceneMusicOf, sceneMusicFlagOf, SCENE_MUSIC_PROPOSED, SCENE_MUSIC_WORLD } from "./music-core.js";
 
 export const MUSIC_BEHAVIOR_TYPE = `${MODULE_ID}.music`;
 const HOOK = `${MODULE_ID}.music`;
@@ -165,16 +165,16 @@ function roomTarget(scene) {
   return r && sync(r.playlist) ? { kind: "playlist", uuid: r.playlist, fade: r.fade } : null;
 }
 
-/** The scene's own default soundtrack (§59: his flag, else MC's pick), when that playlist exists and has tracks. */
+/** The scene's own default soundtrack (§59: his flag, on a map with no rooms), when that playlist exists and has tracks. */
 function sceneMusic(scene) {
   if (!scene) return null;
-  const uuid = sceneMusicOf({ id: scene.id, flags: scene.flags, worldId: game.world?.id });
+  const uuid = sceneMusicOf({ flags: scene.flags, hasRooms: scoredRooms(scene).length > 0 });
   const pl = uuid ? sync(uuid) : null;
   return pl?.documentName === "Playlist" && !hasNoTracks(pl) ? pl : null;
 }
 
 function sceneDefault(scene) {
-  // §59: a default soundtrack of its own wins; its environment bed (the scene's Playlist field) plays on under it
+  // §59: a default he named (a map with no rooms) wins; an environment bed in the Playlist field plays on under it
   const own = sceneMusic(scene);
   if (own) { _ownPlayed.add(own.uuid); return { kind: "playlist", uuid: own.uuid }; }
   if (!scene?.playlist) return null;
@@ -431,6 +431,29 @@ export async function cue(ref, { returns = true } = {}) {
 }
 
 // ── the deck's verbs ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * §59: write his yes. For each proposed scene (all of SCENE_MUSIC_PROPOSED, or the ids given) that has no rooms, no
+ * music in its Playlist field and no default of his, set `flags.mobile-command.music.default` to the proposal. GM
+ * only; The Crooked Moon only. Never over a choice of his. → { ok, set: [names], kept: [names + why] }
+ */
+export async function adoptSceneMusic(ids = null) {
+  if (!game.user?.isGM) return { ok: false, reason: "GM only" };
+  if (game.world?.id !== SCENE_MUSIC_WORLD) return { ok: false, reason: "these picks are The Crooked Moon's" };
+  const out = { ok: true, set: [], kept: [] };
+  for (const [id, plId] of Object.entries(SCENE_MUSIC_PROPOSED)) {
+    if (ids && !ids.includes(id)) continue;
+    const sc = game.scenes.get(id), pl = game.playlists.get(plId);
+    if (!sc || !pl) { out.kept.push(`${sc?.name ?? id}: ${sc ? "its playlist is gone" : "no such scene"}`); continue; }
+    if (sceneMusicFlagOf(sc.flags)) { out.kept.push(`${sc.name}: has his own`); continue; }
+    if (scoredRooms(sc).length) { out.kept.push(`${sc.name}: has rooms`); continue; }
+    if (sc.playlist) { out.kept.push(`${sc.name}: has its own playlist`); continue; }
+    await sc.setFlag(MODULE_ID, "music", { ...(sc.getFlag(MODULE_ID, "music") ?? {}), default: pl.uuid });
+    out.set.push(`${sc.name} → ${pl.name}`);
+  }
+  if (game.scenes.active && out.set.length) apply();
+  return out;
+}
 
 /** The four moods: the first four playlists, by sort order, in any playlist folder named "Moods". */
 export function moods() {

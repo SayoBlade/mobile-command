@@ -205,41 +205,34 @@ export function sceneBattleOf(flags) {
   return typeof b === "string" && b ? b : null;
 }
 
-// ── a scene's DEFAULT soundtrack (DM 2026-11-17, SEAT 5) ─────────────────────────────────────────────
-// *"I want a quiet soundtrack default for each scene, the idea is to keep the environmental sound on and switch to
-// combat music instead of the default music during combat."* A scene whose own Playlist field is a room playlist
-// (10.1–10.7, 10.9, 11.1, 11.2) already has one. A scene with no field, or only an ENVIRONMENT bed in it (12.1's rain),
-// gets a playlist of his own music: `flags.mobile-command.music.default` on the scene (a playlist uuid; "none" = no
-// default from MC), else MC's pick below for The Crooked Moon. It is the scene layer: a room, a fight, a pick or a cue
-// still wins over it, and the environment bed plays on under it (crossfade spares the active environment bed).
-// The picks are from his existing Music → Rooms playlists, by title (no new files), for his veto (DESIGN §59).
+// ── a scene's DEFAULT soundtrack (DM 2026-11-17, SEAT 5; revised the same day, DESIGN §59) ──────────────────
+// First ask: *"a quite soundtrack default for each scene"*. His correction: *"Wait, so music starts when the party
+// enters a room? I actually like that better"*. So: ROOMS stay the model. A map with Music regions gets its music from
+// its rooms only, never a scene-wide default over them. A default is only for a map with NO rooms, and only when HE
+// names it: `flags.mobile-command.music.default` on the scene, a playlist uuid ("none" = none). MC never auto-plays
+// one; SCENE_MUSIC_PROPOSED is the list put to him (from his Music → Rooms playlists, by title, no new files), and
+// `MobileCommand.music.adoptSceneMusic(ids?)` writes the flag for the ones he says yes to. The scene's own Playlist
+// field (his earlier choice, e.g. 10.9's) still plays as before.
 export const SCENE_MUSIC_WORLD = "crooked-moon-6x";
-export const SCENE_MUSIC = Object.freeze({
-  dcLandingRoom001: "cmron2HWl0FUr6gR", // The Crooked Moon (landing room, the intros) → Room · Passenger Car: hands on to 10.1 unbroken
-  rnp1No8kbQe8ejMU: "cmror6Nct8Pen2I3", // 10.8 Tender → Room · Baggage Car (Breathing Behind the Door, Hide and Seek Champion, The Unseen Host)
-  UbgWWsXfPSmO9dWu: "cmroM7sdO9ufQBvA", // Druskenvald → Room · Off the Spectral Rails (Tides Move Inward, Sky Behind the Sky, Architecture That Watches)
-  W1Kw4TXP0Mw9zVMw: "cmroAveP8tcNEzPe", // Wickermoor Hollow → Room · Wickermoor Hollow (10.9's: Lanterns Between Trees, Hollow Oak, Wicker Gate, Blackwater Marsh)
-  skzmyUz6MM2U4862: "cmro2nWH0lUFyjHW", // 12.1 First Floor (only the rain) → Room · Druskenvald Estate (The Ancestral Estate, Estate of Unrest, Blackthorn Manor)
+export const SCENE_MUSIC_PROPOSED = Object.freeze({
+  dcLandingRoom001: "cmron2HWl0FUr6gR", // The Crooked Moon (landing room, the intros) → Room · Passenger Car: 10.1 plays the same list
+  rnp1No8kbQe8ejMU: "cmror6Nct8Pen2I3", // 10.8 Tender (the one car with no room music) → Room · Baggage Car
+  UbgWWsXfPSmO9dWu: "cmroM7sdO9ufQBvA", // Druskenvald → Room · Off the Spectral Rails
+  W1Kw4TXP0Mw9zVMw: "cmroAveP8tcNEzPe", // Wickermoor Hollow → Room · Wickermoor Hollow (10.9's list)
 });
 
-/** The scene's own default-music flag: a playlist uuid, "none" (no MC default), or null (not set). */
+/** The scene's own default-music flag: a playlist uuid, "none", or null (not set). */
 export function sceneMusicFlagOf(flags) {
   const d = flags?.["mobile-command"]?.music?.default;
   if (d === "none" || d === false) return "none";
   return typeof d === "string" && d ? d : null;
 }
 
-/**
- * Pure: the playlist uuid of a scene's default soundtrack, or null (then the scene's own Playlist field is the default,
- * as before). His flag first; "none" turns MC's pick off; else MC's pick, in its world only.
- */
-export function sceneMusicOf({ id, flags, worldId } = {}) {
+/** Pure: the playlist uuid of a scene's default soundtrack, or null. Only his flag, and never on a map with rooms. */
+export function sceneMusicOf({ flags, hasRooms = false } = {}) {
+  if (hasRooms) return null;
   const f = sceneMusicFlagOf(flags);
-  if (f === "none") return null;
-  if (f) return f;
-  if (worldId !== SCENE_MUSIC_WORLD) return null;
-  const pl = SCENE_MUSIC[id];
-  return pl ? `Playlist.${pl}` : null;
+  return f && f !== "none" ? f : null;
 }
 
 export const OVERLAP_DEFAULT = 5;
