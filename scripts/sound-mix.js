@@ -18,6 +18,9 @@
  *    at that measured level; every other sound plays at its layer's SET_LEVEL. Nothing is written to the sound. A drag of
  *    that sound's own slider while it plays still works (only the start is set).
  * 4. MASTER (§58.8). One world gain `soundMaster` over every layer, Syrinscape included, ratios kept; 10% steps.
+ * 5. PER-SOUND TRIMS (§58.10, DM 2026-11-16: "go over all sounds and normalize them 'by ear'"). World setting
+ *    `soundTrims` = { key: dB }, on OUR side: no playlist volume and no Syrinscape entry is edited. Key = a PlaylistSound
+ *    uuid (a local sound), or `syr:mood:<id>` / `syr:element:<id>` (a Syrinscape sound, whichever entry plays it).
  * Syrinscape plays through its own player, so the layers are written to its three groups (ambience = its global volume,
  * its music group, its one-shot group), each with a fixed LIFT that makes Syrinscape at layer 1 as loud as ours at layer 1
  * (measured on the TV, seat 3 2026-11-16), and the master to its local volume (syrinscape-bridge.js).
@@ -106,10 +109,44 @@ export function layerOf(sound, { battleLibId = null } = {}) {
  * Pure: the level a sound starts at. A sound the deck levelled plays its measured level, as long as it still plays the
  * file that level was measured on; anything else plays its layer's set level. `levelled` = Map(uuid → { volume, path }).
  */
-export function setLevelOf(sound, layer, levelled = null) {
+export function setLevelOf(sound, layer, levelled = null, trims = null) {
   const t = levelled?.get?.(sound?.uuid);
-  if (t && Number.isFinite(t.volume) && (!t.path || t.path === sound?.path)) return t.volume;
-  return SET_LEVEL[layer] ?? SET_LEVEL.cues;
+  const base = t && Number.isFinite(t.volume) && (!t.path || t.path === sound?.path) ? t.volume : (SET_LEVEL[layer] ?? SET_LEVEL.cues);
+  const d = trims ? trimDbOf(trimKeyOf(sound), trims) : 0;
+  return d ? base * dbToGain(d) : base;
+}
+
+// ── per-sound trims (§58.10) ──
+export const TRIM_MIN_DB = -40, TRIM_MAX_DB = 24;
+const SYR_FLAG = "syrinscape-control";
+/** Pure: the trim key of a PlaylistSound: `syr:<type>:<id>` for a Syrinscape entry (shared by every entry of that
+ *  Syrinscape sound), else its uuid. A string that is already a key passes through. */
+export function trimKeyOf(soundOrId) {
+  if (typeof soundOrId === "string") return soundOrId;
+  const f = soundOrId?.flags?.[SYR_FLAG] ?? soundOrId?._source?.flags?.[SYR_FLAG];
+  if (f?.soundType && f?.soundId != null) return `syr:${f.soundType}:${f.soundId}`;
+  return soundOrId?.uuid ?? null;
+}
+/** Pure: a stored trim → dB, clamped; anything else 0. */
+export function trimDbOf(key, trims) {
+  const v = num(trims?.[key]);
+  return Number.isFinite(v) ? Math.min(Math.max(v, TRIM_MIN_DB), TRIM_MAX_DB) : 0;
+}
+export const dbToGain = (d) => Math.pow(10, d / 20);
+/** Pure: the Syrinscape mood playing now, from the playing Syrinscape entries: a moment wins over a waiting bed. */
+export function activeMood(entries = []) {
+  const moods = entries.filter((e) => e?.playing && e?.type === "mood");
+  return (moods.find((e) => !e.bed) ?? moods[0] ?? null);
+}
+/** Pure: Syrinscape's local value with a mood trim on top: { local, appliedDb }. The local tops out at 0 dB (value 1),
+ *  so a positive trim may be cut short; `appliedDb` is what landed (the one-shot group is compensated by it). */
+export function syrLocalWithTrim(env, master = MASTER_DEFAULT, trimDb = 0) {
+  const base = syrLocalOf(env, master);
+  if (base === null || base <= 0 || !trimDb) return { local: base, appliedDb: 0 };
+  const baseDb = (base - 1) * SYR_DB_RANGE;
+  const wantDb = Math.min(baseDb + trimDb, 0);
+  const local = Math.max(1 + wantDb / SYR_DB_RANGE, 0);
+  return { local, appliedDb: local <= 0 ? -Infinity : wantDb - baseDb };
 }
 
 /** Pure: the deck's loudness patches (its migrations pack) → Map(uuid → { volume, path }) for this world. */
@@ -199,6 +236,7 @@ export const TV_DEFAULT = Object.freeze({ music: SLIDER_DEFAULT.music, ambient: 
 const setting = (k, d) => { try { return game.settings.get(MODULE_ID, k); } catch (e) { return d; } };
 export function mixNow() { return mixOf(setting("soundMix", {})); }
 export function masterNow() { return masterOf(setting("soundMaster", MASTER_DEFAULT)); }
+export function trimsNow() { const t = setting("soundTrims", {}); return t && typeof t === "object" ? t : {}; }
 /** This screen's two sliders that Syrinscape's music group follows. */
 export function slidersNow() {
   const g = (k) => { try { return Number(game.settings.get("core", k)); } catch (e) { return NaN; } };
@@ -290,7 +328,8 @@ export function routeSound(doc, sound) {
   const layer = layerOf(from, { battleLibId: battleLibId() });
   sound.destination = rig.groups[layer];
   sound.mcMixLayer = layer;
-  const level = () => setLevelOf(from, layer, levelled);
+  const level = () => setLevelOf(from, layer, levelled, trimsNow());
+  sound.mcLevelOf = level;
   sound.mcSetLevel = level();
   if (typeof sound.load === "function" && !sound.__mcSetLevel) {
     const load = sound.load.bind(sound);
@@ -369,10 +408,60 @@ export async function stepSoundMaster(dir = 1) {
   return setSoundMaster(masterNow() + (Number(dir) < 0 ? -MASTER_STEP : MASTER_STEP));
 }
 
+/** Every client: a trim changed, so every playing local sound moves to its new level now (a 250 ms fade), so the seat
+ *  hears and measures it at once. Syrinscape follows through the bridge's sync, called beside this. */
+export function refreshTrims() {
+  for (const pl of game.playlists ?? []) for (const ps of pl.sounds ?? []) {
+    const snd = ps.sound;
+    if (!ps.playing || !snd?.playing || typeof snd.mcLevelOf !== "function") continue;
+    const next = snd.mcLevelOf();
+    if (Math.abs(next - (snd.mcSetLevel ?? next)) < 1e-6) continue;
+    snd.mcSetLevel = next;
+    try { snd.fade(next, { duration: 250 }); } catch (e) { /* stopping */ }
+  }
+}
+
+/** The key for whatever the caller names: a PlaylistSound uuid (a Syrinscape entry's uuid becomes its `syr:` key), or a
+ *  key as is. */
+function resolveTrimKey(id) {
+  if (typeof id !== "string" || !id) return null;
+  if (id.startsWith("syr:")) return /^syr:(mood|element):\S+$/.test(id) ? id : null;
+  let doc = null;
+  try { doc = fromUuidSync(id); } catch (e) { /* not a uuid */ }
+  return doc?.documentName === "PlaylistSound" ? trimKeyOf(doc) : null;
+}
+
+/**
+ * GM: write per-sound trims, in dB (null removes one). One id and a dB, or a map { id: dB } in ONE world write:
+ *   MobileCommand.soundScenes.trim("Playlist.x.PlaylistSound.y", -4)
+ *   MobileCommand.soundScenes.trim({ "syr:mood:861010": 3, "syr:element:4668915": -2 })
+ * → { ok, trims: { key: dB }, refused: [ids] } (an id that is not a playlist sound or a syr: key is refused, never guessed).
+ */
+export async function setSoundTrim(idOrMap, db) {
+  if (!game.user?.isGM) return { ok: false, reason: "GM only" };
+  const pairs = idOrMap && typeof idOrMap === "object" ? Object.entries(idOrMap) : [[idOrMap, db]];
+  const out = { ...trimsNow() }, done = {}, refused = [];
+  for (const [id, d] of pairs) {
+    const key = resolveTrimKey(id);
+    if (!key) { refused.push(id); continue; }
+    const v = num(d);
+    if (Number.isFinite(v)) { out[key] = Math.round(Math.min(Math.max(v, TRIM_MIN_DB), TRIM_MAX_DB) * 10) / 10; done[key] = out[key]; }
+    else { delete out[key]; done[key] = null; }
+  }
+  if (Object.keys(done).length) await game.settings.set(MODULE_ID, "soundTrims", out);
+  return { ok: refused.length === 0, trims: done, refused };
+}
+/** Every trim (a copy), or one: MobileCommand.soundScenes.trims() / trims(id) → dB (0 = none). */
+export function getSoundTrims(id) {
+  if (id === undefined) return { ...trimsNow() };
+  const key = resolveTrimKey(id);
+  return key ? trimDbOf(key, trimsNow()) : null;
+}
+
 /** What plays where, for a console or the deck: the mix, the master and this screen's Syrinscape values. */
 export function soundMixState() {
   const s = slidersNow();
-  return { mix: mixNow(), master: masterNow(), sliders: s, syrinscape: { ...syrinscapeNodes(mixNow(), s), local: syrLocalOf(s.environment, masterNow()) }, levelled: levelled?.size ?? 0 };
+  return { mix: mixNow(), master: masterNow(), sliders: s, syrinscape: { ...syrinscapeNodes(mixNow(), s), local: syrLocalOf(s.environment, masterNow()) }, levelled: levelled?.size ?? 0, trims: Object.keys(trimsNow()).length };
 }
 
 export function registerSoundMix() {

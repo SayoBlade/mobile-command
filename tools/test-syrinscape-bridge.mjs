@@ -176,7 +176,40 @@ check("mix: a lower environment lowers the global and lifts the groups under it 
 settings.soundMix = {};
 B.syncSyrinscapeLevels();
 check("mix: the old levels setting is no longer read", (settings.syrinscapeLevels = { moods: 0.2, oneshots: 0.2 }) && B.syncSyrinscapeLevels() === "same" && gnode.value === 1.5);
-check("mix: no element or entry volume is touched (only the three group nodes)", !/setElementIdVolume|setElementVolume/.test(fs.readFileSync(path.join(ROOT, "scripts", "syrinscape-bridge.js"), "utf8")));
+const bsrc = fs.readFileSync(path.join(ROOT, "scripts", "syrinscape-bridge.js"), "utf8");
+check("mix: no entry volume is touched; an element's volume is written only from a trim (§58.10)",
+  !/setElementVolume\b|\.update\(\{ volume/.test(bsrc) && (bsrc.match(/setElementIdVolume\(/g) ?? []).length === 1 && /syr:element:/.test(bsrc));
+// ---- per-sound trims on Syrinscape (§58.10) ----
+const elWrites = [];
+globalThis.syrinscape.player.elementSystem.setElementIdVolume = (id, v) => elWrites.push([id, v]);
+settings.soundTrims = { "syr:element:4668915": -6, "syr:mood:861010": 3 };
+B.syncSyrinscapeLevels();
+check("trim: an element's trim lands on Syrinscape's own element volume, by number, on its dB scale",
+  elWrites.some(([id, v]) => id === 4668915 && Math.abs(37.5 * (v - 1) + 6) < 1e-9));
+settings.soundTrims = {};
+elWrites.length = 0; B.syncSyrinscapeLevels();
+check("trim: a removed element trim goes back to 0 dB once", elWrites.length === 1 && elWrites[0][0] === 4668915 && elWrites[0][1] === 1);
+elWrites.length = 0; B.syncSyrinscapeLevels();
+check("…and is then left alone", elWrites.length === 0);
+// a mood trim rides the local volume while that mood plays, and the one-shot group takes it back off
+const moodDoc = { flags: { "syrinscape-control": { soundType: "mood", soundId: "861010" } }, playing: true, uuid: "P.m" };
+game.playlists = [{ sounds: [moodDoc] }];
+settings.soundTrims = { "syr:mood:861010": -4 };
+settings.globalAmbientVolume = 0.5;
+check("trim: the playing mood's trim is found (one mood at a time)", B.moodTrimNow() === -4);
+B.syncSyrinscapeVolume();
+const loc = globalThis.syrinscape.player.audioSystem.effectSystem.localVolume.value;
+check("trim: …and lowers this screen's Syrinscape local volume by it", Math.abs(37.5 * (loc - 1) - (20 * Math.log10(0.5) - 4)) < 1e-6, String(loc));
+shotWrites.length = 0; B.syncSyrinscapeLevels();
+check("trim: …while the one-shot group is lifted by the same 4 dB, so one-shots stay where they were",
+  Math.abs(37.5 * (shotWrites.at(-1) - 1) - (37.5 * (0.585 - 1) + 4)) < 0.05, String(shotWrites.at(-1)));
+settings.soundTrims = { "syr:mood:861010": 12 };
+B.syncSyrinscapeVolume();
+check("trim: a big positive mood trim stops at Syrinscape's top (local 1 = 0 dB), not past it",
+  globalThis.syrinscape.player.audioSystem.effectSystem.localVolume.value === 1);
+moodDoc.playing = false;
+check("trim: a mood that is not playing carries no trim", B.moodTrimNow() === 0);
+settings.soundTrims = {}; game.playlists = []; B.syncSyrinscapeVolume(); B.syncSyrinscapeLevels();
 check("mix: the keeper applies it on every client with the Environment level",
   /const keep = \(\) => \{ syncSyrinscapeVolume\(\); syncSyrinscapeLevels\(\); \};/.test(fs.readFileSync(path.join(ROOT, "scripts", "syrinscape-bridge.js"), "utf8")));
 check("mix: a WORLD setting that re-applies the channels and Syrinscape on change",
@@ -189,7 +222,7 @@ check("both settings are WORLD scope (one shared Syrinscape room) and resync on 
   /register\(MODULE_ID, "soundScenes", \{[\s\S]*?scope: "world"[\s\S]*?onChange: \(\) => resyncSyrinscapeEntries\(\)/.test(set)
   && /register\(MODULE_ID, "syrinscapeOffline", \{\s*scope: "world"[\s\S]*?onChange: \(\) => resyncSyrinscapeEntries\(\)/.test(set));
 const main = fs.readFileSync(path.join(ROOT, "scripts", "main.js"), "utf8");
-check("registered at ready and published for the deck", /registerSyrinscapeBridge\(\);/.test(main) && /soundScenes: \{ state: soundScenesState, set: setSoundScenes, mix: setSoundMix, mixState: soundMixState, master: \{ get: getSoundMaster, set: setSoundMaster, step: stepSoundMaster \}, levels: setSyrinscapeLevels, applyLevels: syncSyrinscapeLevels \}/.test(main));
+check("registered at ready and published for the deck", /registerSyrinscapeBridge\(\);/.test(main) && /soundScenes: \{ state: soundScenesState, set: setSoundScenes, mix: setSoundMix, mixState: soundMixState, master: \{ get: getSoundMaster, set: setSoundMaster, step: stepSoundMaster \}, trim: setSoundTrim, trims: getSoundTrims, levels: setSyrinscapeLevels, applyLevels: syncSyrinscapeLevels \}/.test(main));
 
 // the ride bed
 const T = fs.readFileSync(path.join(ROOT, "scripts", "cm-train.js"), "utf8");

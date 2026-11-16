@@ -23,7 +23,7 @@
  */
 import { MODULE_ID } from "./preset.js";
 import { notifier } from "./notifier.js";
-import { mixNow, masterNow, slidersNow, syrinscapeNodes, syrLocalOf } from "./sound-mix.js";
+import { mixNow, masterNow, slidersNow, syrinscapeNodes, syrLocalWithTrim, trimsNow, trimDbOf, activeMood, syrValueDb } from "./sound-mix.js";
 
 export const SYR = "syrinscape-control";
 export const OFFLINE_AFTER_MS = 30000;
@@ -279,8 +279,19 @@ export const VOLUME_CHECK_MS = 5000;
 
 /** The level this client's Syrinscape should have: its own Environment volume × the table's master, on Syrinscape's
  *  scale (§58.8: the master's top end is this local volume's room above the Environment slider). Pure. */
-export function wantedSyrinscapeLevel(env, master = 1) {
-  return syrLocalOf(env, master);
+export function wantedSyrinscapeLevel(env, master = 1, moodTrimDb = 0) {
+  return syrLocalWithTrim(env, master, moodTrimDb).local;
+}
+
+/** §58.10: the trim of the Syrinscape mood playing now (0 = none), from the playing entries (one mood at a time). */
+export function moodTrimNow() {
+  const entries = [];
+  for (const pl of game.playlists ?? []) for (const s of pl.sounds ?? []) {
+    const o = syrOf(s);
+    if (o && s.playing) entries.push({ playing: true, type: o.type, id: o.id, bed: isBed(s) });
+  }
+  const m = activeMood(entries);
+  return m ? trimDbOf(`syr:mood:${m.id}`, trimsNow()) : 0;
 }
 
 /** Write it if it differs (or is trapped at −∞). Returns what it did. */
@@ -288,7 +299,7 @@ export function syncSyrinscapeVolume() {
   const node = globalThis.syrinscape?.player?.audioSystem?.effectSystem?.localVolume;
   if (!node) return "no player";
   let env; try { env = game.settings.get("core", "globalAmbientVolume"); } catch (e) { return "no setting"; }
-  const want = wantedSyrinscapeLevel(env, masterNow());
+  const want = wantedSyrinscapeLevel(env, masterNow(), moodTrimNow());
   if (want === null) return "no level";
   const cur = Number(node.value);
   if (Number.isFinite(cur) && Math.abs(cur - want) < 0.001) return "same";
@@ -302,6 +313,10 @@ export function startVolumeKeeper() {
   volWatch = true;
   Hooks.on("globalAmbientVolumeChanged", () => setTimeout(() => { syncSyrinscapeVolume(); syncSyrinscapeLevels(); }, 50)); // after the module's own fade
   Hooks.on("globalPlaylistVolumeChanged", () => syncSyrinscapeLevels()); // a mood's score follows his Music slider (§58.7)
+  // §58.10: a mood starting or stopping changes which mood trim rides the local volume
+  const soon = () => setTimeout(keep, 150);
+  Hooks.on("updatePlaylist", soon);
+  Hooks.on("updatePlaylistSound", soon);
   const keep = () => { syncSyrinscapeVolume(); syncSyrinscapeLevels(); };
   game.audio?.unlock?.then?.(() => { keep(); volWatch = setInterval(keep, VOLUME_CHECK_MS); });
 }
@@ -323,6 +338,7 @@ export function startVolumeKeeper() {
 export const LEVEL_MAX = 1.5, LEVEL_FLOOR = 0.001;
 
 let lastGroups = null;
+let lastElementTrims = new Set();
 /** Write the three group levels if they differ (the music and one-shot groups have no getter: re-asserted each check,
  *  which is a no-op fade at the same value; reported only when new to us). Returns what it did. */
 export function syncSyrinscapeLevels() {
@@ -330,6 +346,10 @@ export function syncSyrinscapeLevels() {
   const node = p?.audioSystem?.effectSystem?.globalVolume;
   if (!node) return "no player";
   const want = syrinscapeNodes(mixNow(), slidersNow()); // its music group follows this screen's Music ÷ Environment
+  // §58.10: a mood's trim rides the local volume; the one-shot group takes it back off, so one-shots stay put
+  let env = NaN; try { env = Number(game.settings.get("core", "globalAmbientVolume")); } catch (e) { /* none */ }
+  const applied = syrLocalWithTrim(env, masterNow(), moodTrimNow()).appliedDb;
+  if (Number.isFinite(applied) && applied) want.oneshot = syrValueDb((want.oneshot - 1) * 37.5 - applied);
   const did = [];
   const cur = Number(node.value);
   if (!Number.isFinite(cur) || Math.abs(cur - want.global) >= 0.001) { try { node.value = want.global; did.push(`ambience ${r3(want.global)}`); } catch (e) { did.push("ambience refused"); } }
@@ -338,6 +358,15 @@ export function syncSyrinscapeLevels() {
   if (es?.setMusicVolume) { try { es.setMusicVolume(want.music); if (lastGroups !== key) did.push(`music ${r3(want.music)}`); } catch (e) { did.push("music refused"); } }
   if (es?.setOneshotVolume) { try { es.setOneshotVolume(want.oneshot); if (lastGroups !== key) did.push(`one-shots ${r3(want.oneshot)}`); } catch (e) { did.push("one-shots refused"); } }
   lastGroups = key;
+  // §58.10: an element's trim is Syrinscape's own per-element volume (its runtime map, keyed by number; a no-op when
+  // unchanged). A trim removed goes back to 0 dB once. No Foundry entry is touched.
+  if (es?.setElementIdVolume) {
+    const now = new Map();
+    for (const [k, d] of Object.entries(trimsNow())) { const m = /^syr:element:(\d+)$/.exec(k); if (m) now.set(Number(m[1]), trimDbOf(k, trimsNow())); }
+    for (const id of lastElementTrims) if (!now.has(id)) now.set(id, 0);
+    for (const [id, d] of now) { try { es.setElementIdVolume(id, syrValueDb(d)); } catch (e) { did.push(`element ${id} refused`); } }
+    lastElementTrims = new Set([...now].filter(([, d]) => d !== 0).map(([id]) => id));
+  }
   return did.length ? `set ${did.join(", ")}` : "same";
 }
 const r3 = (v) => Math.round(v * 1000) / 1000;

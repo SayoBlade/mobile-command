@@ -158,6 +158,36 @@ ts.load();
 check("a start at 0 and a plain preload pass through untouched", loaded.at(-2) === 0 && loaded.at(-1) === undefined);
 check("the stored volume is never written", turnedUp.volume === 1);
 
+// ---- per-sound trims (§58.10) ----
+check("trim key: a local sound by uuid; a Syrinscape entry by its Syrinscape sound (shared by all its entries)",
+  M.trimKeyOf({ uuid: "Playlist.A.PlaylistSound.b" }) === "Playlist.A.PlaylistSound.b" && M.trimKeyOf({ uuid: "x", flags: { "syrinscape-control": { soundType: "mood", soundId: 861010 } } }) === "syr:mood:861010" && M.trimKeyOf("syr:element:5") === "syr:element:5");
+check("trim: on top of the set level, in dB; clamped −40 … +24", near(M.setLevelOf({ uuid: "U.x" }, "music", null, { "U.x": -6 }), 0.8 * M.dbToGain(-6)) && M.trimDbOf("k", { k: 99 }) === 24 && M.trimDbOf("k", { k: "x" }) === 0);
+check("trim: on top of a levelled sound's measured level too", near(M.setLevelOf({ uuid: "U.fiddle", path: "f.ogg" }, "environment", lev, { "U.fiddle": 3 }), 0.51 * M.dbToGain(3)));
+check("the active mood: a moment wins over the waiting bed; nothing playing → none",
+  M.activeMood([{ playing: true, type: "mood", id: "bed", bed: true }, { playing: true, type: "mood", id: "car" }]).id === "car" && M.activeMood([{ playing: false, type: "mood", id: "x" }]) === null);
+const lw = M.syrLocalWithTrim(0.5, 1, -4);
+check("a mood trim on Syrinscape's local volume: −4 dB lands in full", near(lw.appliedDb, -4) && near(37.5 * (lw.local - 1), dB(0.5) - 4));
+const hi = M.syrLocalWithTrim(0.5, 1, 10);
+check("…+10 dB stops at the top (0 dB) and says how much landed", hi.local === 1 && near(hi.appliedDb, -dB(0.5)));
+// the API and live refresh
+const TS = S(room, { uuid: "Playlist.Room.PlaylistSound.t1", playing: true });
+globalThis.fromUuidSync = (u) => (u === TS.uuid ? Object.assign(TS, { documentName: "PlaylistSound" }) : (u === "Playlist.Syr.PlaylistSound.m" ? { documentName: "PlaylistSound", uuid: u, flags: { "syrinscape-control": { soundType: "mood", soundId: "777" } } } : twins[u] ?? null));
+const fades = [];
+TS.sound = { playing: true, mcSetLevel: 0.8, fade(v) { fades.push(v); } };
+TS.sound.mcLevelOf = () => M.setLevelOf(TS, "music", null, M.trimsNow());
+game.playlists = [{ sounds: [TS] }];
+let tr = await M.setSoundTrim(TS.uuid, -6);
+check("trim(uuid, dB): written under the sound's uuid", tr.ok && settings.soundTrims[TS.uuid] === -6);
+M.refreshTrims();
+check("a trim reaches a sound that is playing at once (a short fade to its new level)", near(fades.at(-1), 0.8 * M.dbToGain(-6)));
+tr = await M.setSoundTrim({ "Playlist.Syr.PlaylistSound.m": 2.04, "syr:element:4668915": -3, "not-a-sound": 1 });
+check("trim({…}): one write; a Syrinscape entry's uuid becomes its syr: key; rounded to 0.1 dB; a stranger is refused",
+  settings.soundTrims["syr:mood:777"] === 2 && settings.soundTrims["syr:element:4668915"] === -3 && tr.refused.length === 1 && tr.refused[0] === "not-a-sound");
+check("trims(): all, or one by id", M.getSoundTrims()["syr:mood:777"] === 2 && M.getSoundTrims(TS.uuid) === -6);
+await M.setSoundTrim(TS.uuid, null);
+check("trim(id, null) removes it", !(TS.uuid in settings.soundTrims) && M.getSoundTrims(TS.uuid) === 0);
+settings.soundTrims = {}; game.playlists = [];
+
 // ---- launch sliders (§58.7) ----
 check("launch: a screen at 1 / 1 / 1 is put back to 25 / 50 / 50",
   JSON.stringify(M.planLaunchSliders({ music: 1, environment: 1, interface: 1 })) === JSON.stringify([{ key: "globalPlaylistVolume", value: 0.25 }, { key: "globalAmbientVolume", value: 0.5 }, { key: "globalInterfaceVolume", value: 0.5 }]));
@@ -203,7 +233,9 @@ check("nothing in the mix writes a document or a sound's stored volume; the only
   !/\.update\(|\.volume\s*=/.test(src("sound-mix.js").replace(/^\s*(\/\/|\*).*$/gm, "")) && (src("sound-mix.js").match(/game\.settings\.set\("core"/g) ?? []).length === 1);
 check("launch volumes run first in ready, before the phone and DM-machine rules", /Hooks\.once\("ready", \(\) => \{[\s\S]{0,400}applyLaunchVolumes\(\{ isDisplay: isDisplayClient\(\) \}\)/.test(src("main.js")));
 check("a released silence comes back to the launch defaults, not 0.5", /restore: \{ music: SLIDER_DEFAULT\.music, environment: SLIDER_DEFAULT\.environment \}/.test(src("main.js")) && /back\[key\] \?\? 0\.5/.test(src("main.js")));
-check("master published for the deck: get / set / step", /master: \{ get: getSoundMaster, set: setSoundMaster, step: stepSoundMaster \}/.test(src("main.js")));
+check("master and trims published: master.get / set / step, trim, trims", /master: \{ get: getSoundMaster, set: setSoundMaster, step: stepSoundMaster \}, trim: setSoundTrim, trims: getSoundTrims/.test(src("main.js")));
+check("trims are a WORLD setting that re-levels what plays and Syrinscape on change",
+  /register\(MODULE_ID, "soundTrims", \{\s*scope: "world", config: false, type: Object, default: \{\},\s*onChange: \(\) => \{ refreshTrims\(\); syncSyrinscapeVolume\(\); syncSyrinscapeLevels\(\); \}/.test(fs.readFileSync(path.join(ROOT, "scripts", "settings.js"), "utf8")));
 check("registered after the bridge (it wraps the bridge's seam), published for the deck",
   /registerSyrinscapeBridge\(\);[^\n]*\n\s*registerSoundMix\(\);/.test(src("main.js")) && /mix: setSoundMix, mixState: soundMixState/.test(src("main.js")));
 check("the card table's own audio takes the cues layer", /\* cues;/.test(src("card-audio.js")) && /import \{ mixNow \} from "\.\/sound-mix\.js"/.test(src("card-audio.js")));

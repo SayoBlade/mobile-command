@@ -80,7 +80,7 @@ sections their cross-references always claimed).
 | 55 | **Basic / Complex** — what phones may change (DM 2026-10-08, finished 2026-10-09) | **BUILT 2026-10-09** — `tier.js` gate, `playerTier` world setting (default Basic), live rescue; Basic travel squares ask the DM (Cancel / Move X / Move Group, game paused, §55.5), published to the deck as action `table.ask` (§55.6); owed: a live flip on two phones, core teleporters (§55 c). (§54 left free for the parked Crooked Moon extraction) |
 | 56 | Prepare spells on the phone | **BUILT 2026-11-13** — owed a seat check (prepare on a phone vs Spell Book on the PC) |
 | 57 | "The TV took a VERY long time to respond" | **MEASURED 2026-11-16, not ours** — dnd5e 6.0.5 / animater ready-time load; no code change |
-| 58 | **The table's one mix** — launch sliders, a set level at every play, music / environment / cues layers, one master; Syrinscape's scale fixed | **BUILT 2026-11-16** (`sound-mix.js`; world settings `soundMix`, `soundMaster`, `launchVolumes`); **owed: the seat measurement on the TV (§58.6)** |
+| 58 | **The table's one mix** — launch sliders, a set level at every play, music / environment / cues layers, one master; Syrinscape's scale fixed | **BUILT 2026-11-16** (`sound-mix.js`; world settings `soundMix`, `soundMaster`, `launchVolumes`, `soundTrims` §58.10); **owed: the seat measurement on the TV (§58.6) and tonight's per-sound trims** |
 
 ---
 
@@ -2554,7 +2554,8 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    *"a set volume for everything that's defaulted on launch … and … every sound when playing it"* (§58.7) and *"set the
    overall volume music+sfx+env x% higher or lower"* (§58.8, MC side built; the deck keys are deck-command's, next).
    Owed: the TV-tab seat measurement in §58.6 (numbered results). Until it runs, the defaults are arithmetic on the seat 3
-   readings. Also filed: 12.1's local rain bed and other unlevelled beds (§58.5); the world is on **Local** sound scenes
+   readings. **Per-sound trims (§58.10) are built; tonight's seat run measures and writes them** (this also answers
+   §58.5's unlevelled beds, by trim). Also filed: the world is on **Local** sound scenes
    since this afternoon (§58.9), so Syrinscape is not playing at all until it is set back.
 
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
@@ -9646,6 +9647,10 @@ addition to sounds drawer."*
   rising (said, not hidden).
 - **API (GM):** `MobileCommand.soundScenes.master.get()` → `{ master, pct, atMin, atMax, step: 0.1, max: 2 }`;
   `.set(gain)` and `.step(+1 | -1)` → `{ ok, master, pct, atMin, atMax }`; at an end it stays and says so.
+- **The deck's keys (his pick, option A, 2026-11-16):** **Louder** = `MobileCommand.soundScenes.master.step(1)`,
+  **Quieter** = `MobileCommand.soundScenes.master.step(-1)`, 10% each; draw the label and the dim ends from
+  `master.get()` (`pct`, `atMax`, `atMin`). The setting is a world one, so every screen follows; no MC change is needed for
+  the keys (deck-command's lane).
 
 ### 58.9 What he changed in the world this afternoon (read 2026-11-16 ~19:00 from a scratch copy, against seat 3's 14:16 snapshot)
 His note: *"I turned up everything a lot now"*. Not a baseline. World-stored differences, sound-related:
@@ -9663,3 +9668,31 @@ panel volumes live on its server; the 5 s keeper overrides them.
 predicted TV levels, the rig end to end on a fake Web Audio graph, mute/duck still on the slider, nothing written; the
 set level and the deck's table, the launch sliders, the master and its top end);
 `tools/test-syrinscape-bridge.mjs` 58 (the Environment conversion; the three groups from the mix; the old setting unread).
+
+### 58.10 Per-sound trims, "normalize them by ear" (DM 2026-11-16 night) — BUILT (the mechanism; the seat writes the values)
+**His words:** *"go over all sounds and normalize them 'by ear' there's currently too loud and too soft sounds"*.
+- **World setting `soundTrims` = { key: dB }**, on our side only: no playlist volume and no Syrinscape entry is edited.
+  Keys: a **PlaylistSound uuid** (a local sound), `syr:mood:<id>` or `syr:element:<id>` (a Syrinscape sound, whichever
+  entry plays it: two entries of the same mood share one trim). Clamped −40 … +24 dB, stored to 0.1 dB.
+- **Applied at play, on top of the group level:** a local sound starts at its set level (§58.7: the deck's measured level
+  or its layer's) × the trim; a trim written while it plays reaches it at once (250 ms fade) on every screen, so the seat
+  can write and re-measure without restarting. A Syrinscape stand-in (Local / offline) takes the trim of its local twin.
+- **Syrinscape elements** (loops and one-shots played as elements): the trim is Syrinscape's own per-element volume
+  (`elementSystem.setElementIdVolume`, its runtime map, keyed by the element number; re-asserted every 5 s; a removed trim
+  goes back to 0 dB once).
+- **Syrinscape moods** have no volume of their own in Syrinscape. Since it plays one mood at a time, the playing mood's trim
+  (a moment over a waiting bed) rides that screen's Syrinscape LOCAL volume, and the one-shot group is lifted by the same
+  amount, so one-shots stay put. Limits: an element loop playing under the mood moves with it; a positive trim stops where
+  the local volume tops out (0 dB: +6 dB of room at Environment 50%, shared with the master above 100%). Mood changes are
+  picked up within 150 ms of the entry's playing flag.
+- **API (GM):** `MobileCommand.soundScenes.trim(id, dB)` (null removes) or `trim({ id: dB, … })` in ONE world write →
+  `{ ok, trims: { key: dB }, refused: [ids] }`; `id` = a PlaylistSound uuid (a Syrinscape entry's uuid becomes its `syr:`
+  key) or a `syr:mood:` / `syr:element:` key; anything else is refused, never guessed.
+  `MobileCommand.soundScenes.trims()` → every trim; `trims(id)` → one (0 = none). `mixState().trims` = how many.
+- **For the seat run tonight:** measure each in-scope sound on the TV against the reference (our Whistle, −37.3 on the TV
+  at the defaults; loops 2 dB under one-shots, as the 11-14 levelling did), write the difference as the trim, play it again
+  and confirm within ± 1 dB; write in batches with the map form. It only works once his GM and TV have reloaded onto this
+  build (`mixState()` has a `trims` field).
+- **Tests:** `tools/test-sound-mix.mjs` 72 (keys, clamps, trim on set and levelled levels, the active mood, the local-volume
+  ride and its top, the API's one write and refusals, the live refresh); `tools/test-syrinscape-bridge.mjs` 66 (element
+  trims and their removal, a mood trim on the local volume with the one-shot compensation, the cap, a stopped mood).

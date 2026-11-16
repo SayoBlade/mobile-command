@@ -2,7 +2,7 @@ import { MODULE_ID, SAVE_TIMEOUT_SETTING, DEFAULT_CARD_THEME, DAY_DARKNESS_FLOOR
 import { notifier } from "./notifier.js";
 import { makeConfirmMenuClass, deactivate, reactivate, hasBackup, hasReactivateSnapshot } from "./enforcer.js";
 import { resyncSyrinscapeEntries, syncSyrinscapeLevels, syncSyrinscapeVolume } from "./syrinscape-bridge.js"; // sound scenes: Syrinscape or local (SOUND-PLAN §2.7)
-import { applyMix, TV_DEFAULT, MASTER_DEFAULT } from "./sound-mix.js"; // the table's one mix (DESIGN §58)
+import { applyMix, refreshTrims, TV_DEFAULT, MASTER_DEFAULT } from "./sound-mix.js"; // the table's one mix (DESIGN §58)
 
 export function registerSettings() {
   // D7 role, per-client. Phase 1 uses it only to decide which client runs
@@ -543,6 +543,12 @@ export function registerSettings() {
   game.settings.register(MODULE_ID, "soundMaster", {
     scope: "world", config: false, type: Number, default: MASTER_DEFAULT,
     onChange: () => { applyMix(); syncSyrinscapeVolume(); }
+  });
+  // §58.10 PER-SOUND TRIMS (DM 2026-11-16: "normalize them 'by ear'"): { key: dB }, key = a PlaylistSound uuid or
+  // syr:mood:<id> / syr:element:<id>. On our side: no playlist volume, no Syrinscape entry is edited.
+  game.settings.register(MODULE_ID, "soundTrims", {
+    scope: "world", config: false, type: Object, default: {},
+    onChange: () => { refreshTrims(); syncSyrinscapeVolume(); syncSyrinscapeLevels(); }
   });
   // §58.7 (DM 2026-11-16: "a set volume for everything that's defaulted on launch"): every launch puts each screen's
   // Music / Environment / Interface sliders (and the TV's, through tvVolume) back to the mix's defaults.
