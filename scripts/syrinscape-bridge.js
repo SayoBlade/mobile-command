@@ -156,7 +156,149 @@ export function startOfflineWatcher() {
   });
 }
 
+/* ------------------------------------------------------------------------------------------------------------------
+ * ONE MOOD AT A TIME, AND THE BED UNDERNEATH (seat SOUND PHASE 2 B4/E4, 2026-11-16).
+ *
+ * Syrinscape plays ONE mood at a time: starting a mood replaces whatever mood was playing (it crossfades by itself).
+ * Foundry did not know, so a replaced mood's entry, and its deck key, still read "playing" (B4), and a car's mood
+ * wiped the ride bed: stopping it left silence while the deck and Foundry showed the ride playing (E4).
+ *
+ * The rule, on the primary GM, while Syrinscape is live (never in Local / offline: local files layer freely):
+ * - A BED is an entry flagged `mobile-command.syrBed` or `rideBed`: what a scene sits on (the ride, a backdrop, a
+ *   scene board's own ambience). Anything else is a MOMENT (a car, a room, "Run!").
+ * - A MOMENT mood starting: every other playing moment stops (Syrinscape already dropped it). A playing bed keeps
+ *   reading "playing": it is the scene's bed, waiting underneath.
+ * - A BED mood starting: every other playing mood stops, beds and moments alike (a new scene's bed).
+ * - A MOMENT mood ending, when no other moment is playing: every bed still marked playing is sent "play" again, so
+ *   the ride comes back after the car. A bed stopped by hand is simply not playing, so nothing comes back.
+ * - An element loop Syrinscape stops by itself (a mood swap can take it): its entry stops too; a bed waits.
+ * ------------------------------------------------------------------------------------------------------------------ */
+
+export const isBed = (doc) => {
+  const f = doc?.flags?.[MODULE_ID] ?? doc?._source?.flags?.[MODULE_ID] ?? {};
+  return Boolean(f.syrBed || f.rideBed);
+};
+export const syrOf = (doc) => {
+  const f = doc?.flags?.[SYR] ?? doc?._source?.flags?.[SYR] ?? {};
+  return f.soundType && f.soundId ? { type: f.soundType, id: String(f.soundId) } : null;
+};
+
+/** A mood entry started. `playing` = the other playing Syrinscape entries `{ id, mood, bed }`. Pure → ids to stop. */
+export function planMoodStart({ started, playing = [] }) {
+  if (!started?.mood) return [];
+  return playing.filter((o) => o.id !== started.id && o.mood && (started.bed || !o.bed)).map((o) => o.id);
+}
+
+/** A mood entry ended (not by us). Pure → ids of the beds to play again. */
+export function planMoodEnd({ ended, playing = [] }) {
+  if (!ended?.mood || ended.bed) return [];
+  if (playing.some((o) => o.id !== ended.id && o.mood && !o.bed)) return [];
+  return playing.filter((o) => o.bed).map((o) => o.id);
+}
+
+const allEntries = () => {
+  const out = [];
+  for (const pl of game.playlists ?? []) for (const s of pl.sounds ?? []) if (isSyrinscapeEntry(s)) out.push(s);
+  return out;
+};
+const keyOf = (s) => s.uuid ?? s.id;
+const view = (s) => ({ id: keyOf(s), mood: syrOf(s)?.type === "mood", bed: isBed(s) });
+const ours = new Set(); // entries this bridge stopped, so their end is not read as his
+const isPrimary = () => Boolean(game.user?.isGM && game.users?.activeGM?.id === game.user.id);
+
+async function stopEntries(docs) {
+  for (const d of docs) {
+    ours.add(keyOf(d));
+    try { await d.update({ playing: false }); } catch (e) { ours.delete(keyOf(d)); console.warn(`${MODULE_ID} | could not mark ${d.name} stopped`, e?.message); }
+  }
+}
+
+function replay(doc) {
+  const s = syrOf(doc), u = globalThis.syrinscapeControl?.utils;
+  if (!s || !u) return;
+  try { if (s.type === "mood") u.playMood(s.id); else u.playElement(s.id); } catch (e) { console.warn(`${MODULE_ID} | could not bring back ${doc.name}`, e?.message); }
+}
+
+/** A Syrinscape entry's playing changed (primary GM). Exported for the test. */
+export async function onSyrinscapePlaying(doc, nowPlaying) {
+  if (!isPrimary() || localNow() || !isSyrinscapeEntry(doc)) return;
+  const key = keyOf(doc);
+  const others = allEntries().filter((s) => s.playing && keyOf(s) !== key);
+  if (nowPlaying) {
+    const stop = new Set(planMoodStart({ started: view(doc), playing: others.map(view) }));
+    await stopEntries(others.filter((s) => stop.has(keyOf(s))));
+    return;
+  }
+  if (ours.delete(key)) return;
+  const back = new Set(planMoodEnd({ ended: view(doc), playing: others.map(view) }));
+  for (const s of others) if (back.has(keyOf(s))) replay(s);
+}
+
+/** Syrinscape stopped an element by itself (primary GM). Exported for the test. */
+export function onSyrinscapeElementStopped(elementId) {
+  if (!isPrimary() || localNow()) return [];
+  const id = String(elementId ?? "");
+  const hit = allEntries().filter((s) => s.playing && s.repeat && !isBed(s) && syrOf(s)?.type === "element" && syrOf(s).id === id);
+  if (hit.length) stopEntries(hit);
+  return hit;
+}
+
+let moodHooks = false;
+export function startMoodWatch() {
+  if (moodHooks) return;
+  moodHooks = true;
+  const fire = (doc, playing) => { onSyrinscapePlaying(doc, playing).catch((e) => console.warn(`${MODULE_ID} | mood watch`, e?.message)); };
+  // ⚠️ Foundry's play/stop/end update the PARENT playlist with an embedded sounds delta (updatePlaylist); a direct
+  // sound.update fires updatePlaylistSound. Both are read.
+  Hooks.on("updatePlaylistSound", (doc, chg) => { if (chg && "playing" in chg) fire(doc, Boolean(chg.playing)); });
+  Hooks.on("updatePlaylist", (pl, chg) => {
+    for (const d of chg?.sounds ?? []) if (d && "playing" in d) { const doc = pl.sounds?.get?.(d._id); if (doc) fire(doc, Boolean(d.playing)); }
+  });
+  globalThis.syrinscape?.events?.stopElement?.addListener?.((event) => { onSyrinscapeElementStopped(event?.detail?.elementId); });
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * HIS SYRINSCAPE FOLLOWS HIS ENVIRONMENT LEVEL (seat SOUND PHASE 2 D2, 2026-11-16).
+ *
+ * The module sets its player's level from Foundry's Environment volume only when the SLIDER moves (the
+ * `globalAmbientVolumeChanged` hook). A settings write (Mobile Command's TV rule) never reaches it, so with the TV on
+ * his PC still played every mood. ⚠️ THE −∞ TRAP: the module's level change is a FADE that starts from the current
+ * level in dB, so once 0 lands (the module itself sets it at load when Environment is 0) every later fade starts at
+ * −∞ and never comes back without a reload (Player1, seat D).
+ * So the level is written straight to the player's gain through its `value` setter (no fade: safe from 0, exact
+ * silence at 0), and re-checked every few seconds, which also rescues a trapped level.
+ * ------------------------------------------------------------------------------------------------------------------ */
+export const VOLUME_CHECK_MS = 5000;
+
+/** The level this client's Syrinscape should have: its own Environment volume. Pure. */
+export function wantedSyrinscapeLevel(env) {
+  const v = Number(env);
+  return Number.isFinite(v) ? Math.min(Math.max(v, 0), 1.5) : null;
+}
+
+/** Write it if it differs (or is trapped at −∞). Returns what it did. */
+export function syncSyrinscapeVolume() {
+  const node = globalThis.syrinscape?.player?.audioSystem?.effectSystem?.localVolume;
+  if (!node) return "no player";
+  let env; try { env = game.settings.get("core", "globalAmbientVolume"); } catch (e) { return "no setting"; }
+  const want = wantedSyrinscapeLevel(env);
+  if (want === null) return "no level";
+  const cur = Number(node.value);
+  if (Number.isFinite(cur) && Math.abs(cur - want) < 0.01) return "same";
+  try { node.value = want; } catch (e) { return "refused"; }
+  return `set ${want}`;
+}
+
+let volWatch = null;
+export function startVolumeKeeper() {
+  if (volWatch) return;
+  volWatch = true;
+  Hooks.on("globalAmbientVolumeChanged", () => setTimeout(syncSyrinscapeVolume, 50)); // after the module's own fade
+  game.audio?.unlock?.then?.(() => { syncSyrinscapeVolume(); volWatch = setInterval(syncSyrinscapeVolume, VOLUME_CHECK_MS); });
+}
+
 export function registerSyrinscapeBridge() {
   patchPlaylistSound();
   startOfflineWatcher();
+  if (moduleActive()) { startMoodWatch(); startVolumeKeeper(); }
 }

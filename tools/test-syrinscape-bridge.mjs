@@ -102,6 +102,62 @@ await B.setSoundScenes();
 check("…and back", settings.soundScenes === "syrinscape");
 check("the state the deck draws", JSON.stringify(B.soundScenesState()) === JSON.stringify({ mode: "syrinscape", offline: false, local: false, module: true }));
 
+// ---- one mood at a time, and the bed underneath (seat SOUND PHASE 2 B4/E4) ----
+const M = (id, bed = false) => ({ id, mood: true, bed });
+check("a moment mood starting stops the other moments, never the bed underneath",
+  JSON.stringify(B.planMoodStart({ started: M("car2"), playing: [M("ride", true), M("car1"), { id: "breath", mood: false, bed: false }] })) === JSON.stringify(["car1"]));
+check("a bed mood starting stops every other mood, beds too (a new scene's bed)",
+  JSON.stringify(B.planMoodStart({ started: M("town", true), playing: [M("forest", true), M("platform"), { id: "loop", mood: false }] })) === JSON.stringify(["forest", "platform"]));
+check("an element starting stops nothing (elements layer)", B.planMoodStart({ started: { id: "e", mood: false }, playing: [M("ride", true)] }).length === 0);
+check("a moment ending with no other moment playing brings the bed back", JSON.stringify(B.planMoodEnd({ ended: M("car1"), playing: [M("ride", true)] })) === JSON.stringify(["ride"]));
+check("…but not while another moment still plays", B.planMoodEnd({ ended: M("car1"), playing: [M("ride", true), M("car2")] }).length === 0);
+check("a bed ending brings nothing back", B.planMoodEnd({ ended: M("ride", true), playing: [M("forest", true)] }).length === 0);
+
+const played = [];
+globalThis.syrinscapeControl = { utils: { playMood: (id) => played.push(["mood", id]), playElement: (id) => played.push(["element", id]) } };
+const entryOf = (id, type, soundId, o = {}) => {
+  const d = new PlaylistSound({ id, uuid: `Playlist.T.PlaylistSound.${id}`, name: id, playing: false, repeat: true, ...o,
+    flags: { "syrinscape-control": { soundType: type, soundId }, "mobile-command": { ...(o.bed ? { syrBed: true } : {}), ...(o.ride ? { rideBed: true } : {}) } } });
+  d.update = async (u) => { Object.assign(d, u); await B.onSyrinscapePlaying(d, Boolean(u.playing)); };
+  return d;
+};
+const ride = entryOf("ride", "mood", "861010", { ride: true });
+const departing = entryOf("departing", "mood", "862586");
+const cards = entryOf("cards", "mood", "920");
+const breath = entryOf("breath", "element", "4669024");
+game.playlists = [{ sounds: [ride, departing, cards, breath] }];
+const press = async (d, on) => { d.playing = on; await B.onSyrinscapePlaying(d, on); };
+await press(ride, true); await press(breath, true); await press(departing, true);
+check("E4: a car's mood leaves the ride reading playing (it waits underneath), and the loop on top", ride.playing === true && departing.playing === true && breath.playing === true);
+await press(cards, true);
+check("B4: the replaced car mood's entry stops, so its key goes dark; no bed is replayed by OUR stop", departing.playing === false && cards.playing === true && played.length === 0, JSON.stringify(played));
+await press(cards, false);
+check("E4: stopping the car mood brings the ride bed back (play sent again)", JSON.stringify(played) === JSON.stringify([["mood", "861010"]]), JSON.stringify(played));
+await press(ride, false); await press(departing, true); await press(departing, false);
+check("a ride stopped by hand does not come back after a car", played.length === 1, JSON.stringify(played));
+settings.soundScenes = "local"; await press(ride, true); await press(cards, true);
+check("Local: local files layer, nothing is stopped", ride.playing === true && cards.playing === true);
+settings.soundScenes = "syrinscape"; cards.playing = false;
+check("Syrinscape stopping an element loop by itself stops its entry", B.onSyrinscapeElementStopped("4669024").length === 1);
+await new Promise((r) => setTimeout(r, 0));
+check("…its key goes dark", breath.playing === false);
+
+// ---- his Syrinscape follows his Environment level (seat D2) ----
+check("the wanted level is the Environment volume", B.wantedSyrinscapeLevel(0) === 0 && B.wantedSyrinscapeLevel(0.5) === 0.5 && B.wantedSyrinscapeLevel("x") === null);
+check("no Syrinscape player: nothing to do", B.syncSyrinscapeVolume() === "no player");
+const node = { value: -Infinity, writes: [] };
+Object.defineProperty(node, "v", { value: 0 });
+globalThis.syrinscape = { player: { audioSystem: { effectSystem: { localVolume: node } } } };
+settings.globalAmbientVolume = 0.5;
+check("D: a level trapped at −∞ is written straight back (no fade)", B.syncSyrinscapeVolume() === "set 0.5" && node.value === 0.5);
+settings.globalAmbientVolume = 0;
+check("D: the TV connects → his Environment 0 → Syrinscape exactly 0", B.syncSyrinscapeVolume() === "set 0" && node.value === 0);
+settings.globalAmbientVolume = 0.5;
+check("D: the TV leaves → back to 0.5, from 0", B.syncSyrinscapeVolume() === "set 0.5" && node.value === 0.5);
+check("an unchanged level is left alone", B.syncSyrinscapeVolume() === "same");
+const mainSrc = fs.readFileSync(path.join(ROOT, "scripts", "main.js"), "utf8");
+check("the TV rule hands Syrinscape the new level after it writes Environment", /applyDmMusicSilence\(\) \{[\s\S]*?setTimeout\(syncSyrinscapeVolume, 100\);[\s\S]*?\n\}/.test(mainSrc));
+
 // the glue
 const set = fs.readFileSync(path.join(ROOT, "scripts", "settings.js"), "utf8");
 check("both settings are WORLD scope (one shared Syrinscape room) and resync on change",

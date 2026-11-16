@@ -12,7 +12,7 @@ import { openWindowsAfterRest, isSpellBookRestPrompt, phonePrepareOn } from "./p
 import { registerDMPanel, refreshPanel, openDock } from "./dm-panel.js";
 import { setupTvVisionCard } from "./tv-vision-card.js"; // §23.7 "No PCs in scene" on the TV
 import { planDmSilence } from "./dm-silence.js"; // the DM's music AND environment while the TV is connected
-import { registerSyrinscapeBridge, soundScenesState, setSoundScenes } from "./syrinscape-bridge.js"; // Syrinscape or local (deck-command D-0116)
+import { registerSyrinscapeBridge, soundScenesState, setSoundScenes, syncSyrinscapeVolume } from "./syrinscape-bridge.js"; // Syrinscape or local (deck-command D-0116)
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, preloadRideSound, primeRideSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
@@ -1571,6 +1571,8 @@ function applyDmMusicSilence() {
       game.settings.set(MODULE_ID, w.flag, w.claim);
       console.log(`${MODULE_ID} | DM client — ${w.channel} ${w.claim ? "silenced (the shared screen is the room's speaker)" : "restored (no shared screen)"}`);
     }
+    // ⚠️ Syrinscape does not hear a settings write, only the slider: hand it the new level (seat SOUND PHASE 2 D2, 2026-11-16)
+    setTimeout(syncSyrinscapeVolume, 100);
   } catch (e) { console.warn(`${MODULE_ID} | could not set the DM's music/environment volume`, e); }
 }
 
