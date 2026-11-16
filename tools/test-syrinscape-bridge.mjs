@@ -164,6 +164,7 @@ const gnode = { value: 1 }; const shotWrites = [], musicWrites = [];
 globalThis.syrinscape.player.audioSystem.effectSystem.globalVolume = gnode;
 globalThis.syrinscape.player.elementSystem = { setOneshotVolume: (v) => shotWrites.push(v), setMusicVolume: (v) => musicWrites.push(v) };
 settings.soundMix = {};
+settings.globalPlaylistVolume = 0.25; // the launch default (§58.7): a mood's score follows Music ÷ Environment
 const r0 = B.syncSyrinscapeLevels();
 check("mix: the default mix writes all three groups", r0 === "set ambience 1.5, music 0.367, one-shots 0.585" && gnode.value === 1.5 && musicWrites.length === 1 && shotWrites.length === 1, r0);
 check("mix: kept — the next check reports nothing new but re-asserts both groups", B.syncSyrinscapeLevels() === "same" && musicWrites.length === 2 && shotWrites.length === 2);
@@ -188,7 +189,7 @@ check("both settings are WORLD scope (one shared Syrinscape room) and resync on 
   /register\(MODULE_ID, "soundScenes", \{[\s\S]*?scope: "world"[\s\S]*?onChange: \(\) => resyncSyrinscapeEntries\(\)/.test(set)
   && /register\(MODULE_ID, "syrinscapeOffline", \{\s*scope: "world"[\s\S]*?onChange: \(\) => resyncSyrinscapeEntries\(\)/.test(set));
 const main = fs.readFileSync(path.join(ROOT, "scripts", "main.js"), "utf8");
-check("registered at ready and published for the deck", /registerSyrinscapeBridge\(\);/.test(main) && /soundScenes: \{ state: soundScenesState, set: setSoundScenes, mix: setSoundMix, mixState: soundMixState, levels: setSyrinscapeLevels, applyLevels: syncSyrinscapeLevels \}/.test(main));
+check("registered at ready and published for the deck", /registerSyrinscapeBridge\(\);/.test(main) && /soundScenes: \{ state: soundScenesState, set: setSoundScenes, mix: setSoundMix, mixState: soundMixState, master: \{ get: getSoundMaster, set: setSoundMaster, step: stepSoundMaster \}, levels: setSyrinscapeLevels, applyLevels: syncSyrinscapeLevels \}/.test(main));
 
 // the ride bed
 const T = fs.readFileSync(path.join(ROOT, "scripts", "cm-train.js"), "utf8");

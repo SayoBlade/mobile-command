@@ -23,7 +23,7 @@
  */
 import { MODULE_ID } from "./preset.js";
 import { notifier } from "./notifier.js";
-import { mixNow, syrinscapeNodes, syrValueOfGain } from "./sound-mix.js";
+import { mixNow, masterNow, slidersNow, syrinscapeNodes, syrLocalOf } from "./sound-mix.js";
 
 export const SYR = "syrinscape-control";
 export const OFFLINE_AFTER_MS = 30000;
@@ -89,7 +89,8 @@ function makeFallbackSound(doc, fb) {
   sound.addEventListener("play", doc._onStart.bind(doc));
   sound.addEventListener("end", doc._onEnd.bind(doc));
   sound.addEventListener("stop", doc._onStop.bind(doc));
-  const lv = (v) => (Number(v) > 0 ? fb.volume : 0);
+  // the level it plays at: the mix's set level for it (sound-mix.js routeSound sets mcSetLevel), else the twin's own
+  const lv = (v) => (Number(v) > 0 ? (sound.mcSetLevel ?? fb.volume) : 0);
   const load = sound.load.bind(sound);
   sound.load = (o = {}) => load(o?.autoplayOptions ? { ...o, autoplayOptions: { ...o.autoplayOptions, volume: lv(o.autoplayOptions.volume ?? 1) } } : o);
   const fade = sound.fade.bind(sound);
@@ -276,9 +277,10 @@ export function startMoodWatch() {
  * ------------------------------------------------------------------------------------------------------------------ */
 export const VOLUME_CHECK_MS = 5000;
 
-/** The level this client's Syrinscape should have: its own Environment volume, on Syrinscape's scale. Pure. */
-export function wantedSyrinscapeLevel(env) {
-  return syrValueOfGain(env);
+/** The level this client's Syrinscape should have: its own Environment volume × the table's master, on Syrinscape's
+ *  scale (§58.8: the master's top end is this local volume's room above the Environment slider). Pure. */
+export function wantedSyrinscapeLevel(env, master = 1) {
+  return syrLocalOf(env, master);
 }
 
 /** Write it if it differs (or is trapped at −∞). Returns what it did. */
@@ -286,7 +288,7 @@ export function syncSyrinscapeVolume() {
   const node = globalThis.syrinscape?.player?.audioSystem?.effectSystem?.localVolume;
   if (!node) return "no player";
   let env; try { env = game.settings.get("core", "globalAmbientVolume"); } catch (e) { return "no setting"; }
-  const want = wantedSyrinscapeLevel(env);
+  const want = wantedSyrinscapeLevel(env, masterNow());
   if (want === null) return "no level";
   const cur = Number(node.value);
   if (Number.isFinite(cur) && Math.abs(cur - want) < 0.001) return "same";
@@ -298,7 +300,8 @@ let volWatch = null;
 export function startVolumeKeeper() {
   if (volWatch) return;
   volWatch = true;
-  Hooks.on("globalAmbientVolumeChanged", () => setTimeout(syncSyrinscapeVolume, 50)); // after the module's own fade
+  Hooks.on("globalAmbientVolumeChanged", () => setTimeout(() => { syncSyrinscapeVolume(); syncSyrinscapeLevels(); }, 50)); // after the module's own fade
+  Hooks.on("globalPlaylistVolumeChanged", () => syncSyrinscapeLevels()); // a mood's score follows his Music slider (§58.7)
   const keep = () => { syncSyrinscapeVolume(); syncSyrinscapeLevels(); };
   game.audio?.unlock?.then?.(() => { keep(); volWatch = setInterval(keep, VOLUME_CHECK_MS); });
 }
@@ -326,7 +329,7 @@ export function syncSyrinscapeLevels() {
   const p = globalThis.syrinscape?.player;
   const node = p?.audioSystem?.effectSystem?.globalVolume;
   if (!node) return "no player";
-  const want = syrinscapeNodes(mixNow());
+  const want = syrinscapeNodes(mixNow(), slidersNow()); // its music group follows this screen's Music ÷ Environment
   const did = [];
   const cur = Number(node.value);
   if (!Number.isFinite(cur) || Math.abs(cur - want.global) >= 0.001) { try { node.value = want.global; did.push(`ambience ${r3(want.global)}`); } catch (e) { did.push("ambience refused"); } }

@@ -80,7 +80,7 @@ sections their cross-references always claimed).
 | 55 | **Basic / Complex** — what phones may change (DM 2026-10-08, finished 2026-10-09) | **BUILT 2026-10-09** — `tier.js` gate, `playerTier` world setting (default Basic), live rescue; Basic travel squares ask the DM (Cancel / Move X / Move Group, game paused, §55.5), published to the deck as action `table.ask` (§55.6); owed: a live flip on two phones, core teleporters (§55 c). (§54 left free for the parked Crooked Moon extraction) |
 | 56 | Prepare spells on the phone | **BUILT 2026-11-13** — owed a seat check (prepare on a phone vs Spell Book on the PC) |
 | 57 | "The TV took a VERY long time to respond" | **MEASURED 2026-11-16, not ours** — dnd5e 6.0.5 / animater ready-time load; no code change |
-| 58 | **The table's one mix** — music / environment / cues layers on every screen; Syrinscape's scale fixed | **BUILT 2026-11-16** (`sound-mix.js`, world setting `soundMix`); **owed: the seat measurement on the TV (§58.6)** |
+| 58 | **The table's one mix** — launch sliders, a set level at every play, music / environment / cues layers, one master; Syrinscape's scale fixed | **BUILT 2026-11-16** (`sound-mix.js`; world settings `soundMix`, `soundMaster`, `launchVolumes`); **owed: the seat measurement on the TV (§58.6)** |
 
 ---
 
@@ -2549,11 +2549,13 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    the nearest at once and offer "switch door". Follow UI-BIBLE before choosing; (c) is the only one that acts on a single
    tap, so ask him whether a wrong door opening is acceptable.
 
-0ᵐ. **OPEN 2026-11-16 — the table's one mix (§58) is BUILT; its numbers are PREDICTED, not measured.** His words:
-   *"music completely hides them … they all need to be at around 25-50% volume so the DM's voice is clearly heard"*. Owed:
-   the TV-tab seat measurement in §58.6 (numbered results). Until it runs, the default mix (music 0.15, environment 1,
-   cues 1) and the Syrinscape lifts are arithmetic on the seat 3 readings. Also filed there: 12.1's local rain bed and the
-   other unlevelled beds (§58.5) need a per-sound level by the deck's rule, his call.
+0ᵇ. **OPEN 2026-11-16 — the table's one mix (§58) is BUILT; its numbers are PREDICTED, not measured.** His words:
+   *"music completely hides them … they all need to be at around 25-50% volume so the DM's voice is clearly heard"*, then
+   *"a set volume for everything that's defaulted on launch … and … every sound when playing it"* (§58.7) and *"set the
+   overall volume music+sfx+env x% higher or lower"* (§58.8, MC side built; the deck keys are deck-command's, next).
+   Owed: the TV-tab seat measurement in §58.6 (numbered results). Until it runs, the defaults are arithmetic on the seat 3
+   readings. Also filed: 12.1's local rain bed and other unlevelled beds (§58.5); the world is on **Local** sound scenes
+   since this afternoon (§58.9), so Syrinscape is not playing at all until it is set back.
 
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
    - **His batch of 2026-09-19 (the deck's FX boards, the flows, the intros — DC ledger 152):** MC's half is
@@ -9522,7 +9524,8 @@ voice is clearly heard and not drowned out."*
   `_createSound`, before the first play), so it plays at *its own volume × his slider × its layer* whatever channel its
   playlist is on. Everything else on a channel (ambient sounds on the map, our synth loops, dice, the region cues) takes
   the channel's layer (Music → music, Environment → environment, Interface → cues). The card table's own context
-  multiplies in the cues layer. **Nothing is written**: no document, no sound volume, no client setting; his sliders, the
+  multiplies in the cues layer. **Nothing is written** by the layers: no document, no sound volume ~~, no client setting~~
+  (2026-11-16 evening: the launch reset now sets the sliders, §58.7); his sliders, the
   TV's (`tvVolume`), the TV mute and the duck (§25.6) all still act on the slider node.
 - **Which layer** (`layerOf`, first match): a `mixLayer` flag on the sound, then its playlist (escape hatch, nothing sets
   it) · a bed by its kind (§25.8) · a Syrinscape bed → environment · a playlist with a music role (room/battle/mood/cue) or
@@ -9536,24 +9539,34 @@ voice is clearly heard and not drowned out."*
 - **`syrinscapeLevels` is superseded** (kept registered, no longer read; `soundScenes.levels()` answers "replaced"). Its
   {1.5, 1.4} was tuned against cause 1 and divided dB values as gains (seat 3's code-lane note 1, closed by this).
 
-### 58.3 The mix (defaults; layer → level)
-| Layer | Setting | What plays there | TV now (seat 3, dBFS RMS) | TV predicted |
-|---|---|---|---|---|
-| Environment (local) | 1 | beds, ambiences, the deck's loops, ambient sounds | deck loops ≈ −39 (inferred), rain bed −47 | unchanged |
-| Environment (Syrinscape) | lift +18.75 dB (its ceiling) | ambient moods | median ≈ −50 (−41 … −59) | **≈ −37 (−28 … −46)** |
-| Music (local) | **0.15 (−16.5 dB)** | room, fight, mood music, music stings, music beds | −29 | **≈ −45** |
-| Music (Syrinscape) | lift +11.5 dB | a mood's score | ≈ −34.5 | **≈ −45** |
-| Cues (local) | 1 | deck cues, room cues, dice, interface | Whistle −37.3 | unchanged |
-| Cues (Syrinscape) | lift +3.2 dB | one-shots | ≈ −37 | ≈ −37 (peaks as today: the door slam −7 … −13) |
+### 58.3 The mix (defaults; slider and group → level) — revised 2026-11-16 evening with §58.7
+**Launch sliders (every screen, every launch; §58.7):** Music **25%**, Environment **50%**, Interface **50%** (Foundry
+shows the stored gain × 100, so these read as typed). The TV's are `tvVolume` = the same three.
+**Layers (`soundMix`):** music **0.3**, environment **1**, cues **1**. Music in total = 25% × 0.3 = 0.075, exactly the
+first build's 50% × 0.15, so the predictions below did not move.
+**Set levels at play (§58.7):** a sound the deck levelled → its measured level; else music **0.8**, environment **0.5**,
+cues **0.6**. **Master (`soundMaster`, §58.8):** 100%.
+
+| Layer | Slider | Layer gain | Set level | What plays there | TV now (seat 3, dBFS RMS) | TV predicted |
+|---|---|---|---|---|---|---|
+| Music (local) | Music 25% | **0.3** | 0.8 | room, fight, mood music, music stings, music beds | −29 | **≈ −45** |
+| Music (Syrinscape) | Environment 50% (+ Music ÷ Environment) | lift +11.5 dB | — | a mood's score | ≈ −34.5 | **≈ −45** |
+| Environment (local) | Environment 50% | 1 | levelled, else 0.5 | beds, ambiences, the deck's loops, ambient sounds | deck loops ≈ −39 (inferred), rain bed −47 | ≈ unchanged (unlevelled beds move to 0.5) |
+| Environment (Syrinscape) | Environment 50% | lift +18.75 dB (its ceiling) | — | ambient moods | median ≈ −50 (−41 … −59) | **≈ −37 (−28 … −46)** |
+| Cues (local) | Environment / Interface 50% | 1 | levelled, else 0.6 | deck cues, room cues, dice, interface | Whistle −37.3 | unchanged |
+| Cues (Syrinscape) | Environment 50% | lift +3.2 dB | — | one-shots | ≈ −37 | ≈ −37 (peaks as today: the door slam −7 … −13) |
 
 Result: the loudest steady layer goes from −29 (music) to ≈ −37 (environment, level with the cues); music sits ≈ 8 dB
-under the environment. Syrinscape node values at the default: global 1.5, music 0.367, one-shot 0.585, local 0.84 (TV).
-**The environment cannot go higher on Syrinscape** (`capped` in `syrinscapeNodes`): raise it by lowering music and cues.
+under the environment. Syrinscape node values on the TV at the defaults: global 1.5, music 0.367, one-shot 0.585, local
+0.84. **The environment cannot go higher on Syrinscape** (`capped` in `syrinscapeNodes`): raise it by lowering music and
+cues, or with the master (its top is Syrinscape's local headroom, §58.8).
+**First build of the same day (superseded):** sliders untouched at 50%, music layer 0.15, no set level, no master.
 
 ### 58.4 Screens
-TV: his `tvVolume` (Music/Environment/Interface 0.5) untouched; the layers apply after it. His PC: its own sliders, silenced
-while the TV is up (unchanged). Players: phones stay silent at the table; online players hear the same layers after their
-own sliders, and Syrinscape at their own Environment on the corrected scale. No client slider is set by this.
+TV: `tvVolume` (25 / 50 / 50 after his GM's launch, §58.7); the layers apply after it. His PC: 25 / 50 / 50 at launch,
+then silenced while the TV is up (unchanged rule). Players: 25 / 50 / 50 at launch; phones then stay silent at the table;
+online players hear the same layers after their own sliders, and Syrinscape at their own Environment on the corrected
+scale. ~~No client slider is set by this.~~ (superseded the same evening by §58.7)
 
 ### 58.5 Not done, by the brief (no per-sound edits)
 **12.1's local rain bed (CM 12 — Beds, entry 0.5) is −47 on the TV**, under the new music (−45): it and the other floors'
@@ -9561,29 +9574,92 @@ beds were never levelled (m158 levelled the intros only). On Syrinscape, 12.1's 
 predicted), so this bites only in Local / offline. Fix = the deck's per-sound rule (level each to −27 LUFS), his call.
 The Ghelfi ambience playlists are unlevelled too (entry 0.25–1).
 
-### 58.6 Owed: the seat measurement (TV tab, seat 3's rig; numbered expected results)
+### 58.6 Owed: the seat measurement (TV tab, seat 3's rig; numbered expected results) — revised with §58.7/§58.8
 Rig: seat 3's (an analyser after Syrinscape's local volume, and on Foundry's Music and Environment outputs, RMS/peak per
-100 ms), TV at his levels (Music 0.5, Environment 0.5), **GM and TV reloaded first**. Never read the Syrinscape token.
-1. TV console `MobileCommand.soundScenes.mixState()` → `mix` {music 0.15, environment 1, cues 1}; `syrinscape` global 1.5,
-   music 0.367, oneshot 0.585, capped false.
-2. TV: `syrinscape.player.audioSystem.effectSystem.localVolume.value` ≈ 0.84 (not 0.5); `globalVolume.value` 1.5.
-3. TV: `game.audio.music.mcMix` and `game.audio.environment.mcMix` exist; `game.audio.music.mcMix.trim.gain.value` 0.15.
-4. Our Whistle cue: −37.3 ± 1 dB (unchanged from seat 3).
-5. A room-music track (e.g. Room · Foyer): ≈ −45 ± 3 (was −29); its Sound's `mcMixLayer` is "music".
+100 ms). **His GM and the TV reloaded first** (that reload IS the launch reset under test). Never read the Syrinscape
+token. If `soundScenes` is still Local (§58.9), the seat asks him before setting it back to Syrinscape.
+1. GM console, TV connected: core `globalPlaylistVolume` 0 and `globalAmbientVolume` 0 (the DM-machine rule silences
+   them after the launch reset), `globalInterfaceVolume` 0.5; `game.settings.get("mobile-command","tvVolume")` =
+   {music 0.25, ambient 0.5, interface 0.5}; the console shows "launch volumes: …" from this load.
+2. TV console: the three core sliders read 0.25 / 0.5 / 0.5; `MobileCommand.soundScenes.mixState()` → mix {music 0.3,
+   environment 1, cues 1}, master 1, syrinscape global 1.5, music 0.367, oneshot 0.585, local 0.839, capped false,
+   levelled 116 (the deck's table loaded; 0 = it did not, stop and report).
+3. TV: `game.audio.music.mcMix.trim.gain.value` 0.3, `game.audio.environment.mcMix.trim.gain.value` 1.
+4. Our Whistle cue: −37.3 ± 1 dB; its Sound's `mcSetLevel` equals the deck's levelled value for it.
+5. A room-music track (Room · Foyer): ≈ −45 ± 3 (was −29); its Sound's `mcMixLayer` "music", `mcSetLevel` 0.8.
 6. Syrinscape bed · 12.1 Rain · Gathering storm ≈ −41 ± 3 (was −54); Room · 12.1 Foyer mood ≈ −46 ± 3 (was −59); Forest ·
    Glen · The witchlight path ≈ −28 … −34 (was −41/−47).
 7. With the storm mood and Room · Foyer music playing together, the Syrinscape output reads ≥ 4 dB over the Music output.
 8. A Syrinscape music mood (Bardic harpist): ≈ −45 ± 3 (was −35.4).
 9. Syrinscape one-shots (Train whistle, Insane cackle, A door swings shut, 3 plays each): average ≈ −37 ± 3.
 10. Nothing on the TV peaks over −3 dBFS during 5–9.
-11. GM with the TV connected: GM Syrinscape output silent (Environment 0, local 0). TV logged out → GM local ≈ 0.84 at
-    Environment 0.5, and its Syrinscape bed within 1 dB of the TV's reading in 6.
-12. `MobileCommand.soundScenes.mix({ music: 0.3 })` on the GM → within 6 s the TV's Room · Foyer reads +6 ± 1 dB over 5,
-    the harpist likewise; `mix({ music: null })` puts both back.
-13. 12.1 in Local (`soundScenes.set("local")`): the local rain bed ≈ −47 (unchanged, §58.5); set back to Syrinscape.
-If 5–9 land outside their ranges, the fix is a number: `MIX_DEFAULT` / `SYR_LIFT_DB` in `sound-mix.js` (and the
-predictions in `tools/test-sound-mix.mjs` 18–20).
+11. Set level: set a room-music sound's own volume to 1.0 in its playlist, stop it, play it again → it reads the same as
+    in 5 (± 1 dB), `mcSetLevel` 0.8; put its volume back to 0.8.
+12. Master: `MobileCommand.soundScenes.master.step(-1)` ×5 on the GM → `get()` pct 50; within 6 s the TV's Foyer music,
+    the storm mood and the Whistle each read 6 ± 1 dB under 5 / 6 / 4 (ratios kept).
+13. `master.set(2)` → pct 200, atMax true; the TV's storm mood +6 ± 1 dB over 6 and TV Syrinscape local 1.0; one more
+    `step(+1)` stays at 200. `master.set(1)` puts all back.
+14. GM with the TV logged out: the GM's Music and Environment come back to 0.25 / 0.5 (not 0.5 / 0.5), its Syrinscape
+    local ≈ 0.84, and its storm bed within 1 dB of the TV's reading in 6.
+15. 12.1 in Local (`soundScenes.set("local")`): the local rain bed plays at 0.5 (its set level, ≈ −47); set back to
+    Syrinscape.
+16. Reload the TV mid-session after moving its Music slider in the DM panel: the TV keeps the panel's value (only his GM
+    launch resets the TV). Then reload the GM: the TV goes back to 25 / 50 / 50.
+If 5–9 land outside their ranges, the fix is a number: `MIX_DEFAULT` / `SYR_LIFT_DB` / `SLIDER_DEFAULT` in
+`sound-mix.js` (and the predictions in `tools/test-sound-mix.mjs`).
 
-**Tests:** `tools/test-sound-mix.mjs` 34 (classification on the world's own playlist shapes, Syrinscape's scale, the
-predicted TV levels, the rig end to end on a fake Web Audio graph, mute/duck still on the slider, nothing written);
+### 58.7 A set volume at launch and at every play (DM 2026-11-16 evening) — BUILT
+**His words:** *"We need a set volume for everything that's defaulted on launch fir foundry and fir every sound when
+playing it."* This overrides the first build's "don't fight his sliders".
+- **Launch (`applyLaunchVolumes`, first thing in `ready`, every client):** this screen's Music / Environment / Interface →
+  25 / 50 / 50. The TV cannot write a world setting, so the **primary GM's launch writes `tvVolume`** to the same and the
+  TV mirrors it as before (a TV reload mid-session keeps the panel's in-session value; a GM launch resets it). The phone
+  rule (§20.6) and the DM-machine rule (§39.5) run after it and still silence their channels; when they release a
+  channel it comes back to the launch default (was Foundry's 0.5). World setting `launchVolumes` (on; in the module's
+  settings) turns the reset off. He can move any slider in a session; the next launch resets it.
+- **At play (`routeSound` → `setLevelOf`):** Foundry starts a playlist sound through `load({ autoplayOptions: { volume }})`;
+  that one volume is replaced by the sound's set level, so a key, a playlist, a scene's playlist, the music layer or
+  another module all start it at the same level. **The deck's levelled sounds keep their measured level**: MC reads
+  deck-command's own loudness patches (`modules/deck-command/packs/migrations.json`, every patch with a `sound.volume`, this
+  world only: 116 today, all m158) and plays `volume.to`, while the sound still plays the file it was measured on.
+  Everything else: music 0.8, environment 0.5, cues 0.6. **Nothing is written to a sound.** A fade-in reaches the set
+  level; a stop, a duck, Animater's card dip and a drag of the sound's own slider while it plays are left alone.
+  A Syrinscape entry's local twin starts at the twin's set level (the bridge's fallback reads `mcSetLevel`).
+  Syrinscape moods and one-shots have no per-sound level (Syrinscape ignores the entry's volume): their level is the
+  three groups, re-asserted every 5 s and on every slider change. Its music group now also follows the screen's Music ÷
+  Environment, as our music does.
+- **Cost:** the deck's pack is 1.8 MB, fetched once per screen at ready (browser-cached), parsed once; nothing waits on it.
+  Before it lands (or without deck-command) every sound plays its layer's set level.
+- **Not covered:** ambient sounds placed on the map (AmbientSound documents) keep their own volume × the environment
+  layer; region Sound behaviours keep their own volume field (both are per-placement data, not playlist sounds).
+
+### 58.8 One master over the whole mix (DM 2026-11-16 evening) — BUILT (MC side; the deck keys are deck-command's)
+**His words:** *"Is there a way to let me set the overall volume music+sfx+env x% higher or lower? It would be a nice
+addition to sounds drawer."*
+- **World setting `soundMaster`**, a gain on a 10% grid, 0 … 200%, default 100%. Every screen: it multiplies every
+  channel's trim (all three layers, every local sound, ratios kept) and Syrinscape's LOCAL volume (Environment × master,
+  on its scale), so Syrinscape moods, scores and one-shots move with ours.
+- **The top end:** Syrinscape's ambience is already at its own ceiling, so the only room above 100% is its local volume,
+  which sits at the Environment slider (50% = −6 dB) and tops out at 0 dB: ×2. Hence **200% is the cap**: up to there
+  every layer, Syrinscape included, rises together; our layers could go higher but would then pass the moods. A screen
+  whose Environment slider he raised above 50% has less room: there Syrinscape stops at 0 dB first and our sounds keep
+  rising (said, not hidden).
+- **API (GM):** `MobileCommand.soundScenes.master.get()` → `{ master, pct, atMin, atMax, step: 0.1, max: 2 }`;
+  `.set(gain)` and `.step(+1 | -1)` → `{ ok, master, pct, atMin, atMax }`; at an end it stays and says so.
+
+### 58.9 What he changed in the world this afternoon (read 2026-11-16 ~19:00 from a scratch copy, against seat 3's 14:16 snapshot)
+His note: *"I turned up everything a lot now"*. Not a baseline. World-stored differences, sound-related:
+1. **`mobile-command.soundScenes` = "local"** (absent this morning = Syrinscape). Every Syrinscape entry plays its local twin
+   or nothing; Syrinscape itself is silent. The new defaults do not change this switch: it is his (the deck's Music
+   drawer "Syrinscape / Local"). Set it back with `MobileCommand.soundScenes.set("syrinscape")`.
+2. **Syrinscape · Train / "Ride · Onboard steam train (no music)": volume 0.4 → 1.** Syrinscape ignores an entry's volume, so
+   this changes nothing on Syrinscape; its local twin now starts at the twin's set level (§58.7), not this.
+3. `mobile-command.syrinscapeLevels` {1.5, 1.4} (seat 3's, superseded by §58, unread).
+Nothing else in playlists (49, every sound's volume / repeat / path / fade) or the sound settings differs. His slider
+turn-ups are client settings (his PC, the TV's browser) and are reset by the next launch (§58.7). Syrinscape's own control
+panel volumes live on its server; the 5 s keeper overrides them.
+
+**Tests:** `tools/test-sound-mix.mjs` 60 (classification on the world's own playlist shapes, Syrinscape's scale, the
+predicted TV levels, the rig end to end on a fake Web Audio graph, mute/duck still on the slider, nothing written; the
+set level and the deck's table, the launch sliders, the master and its top end);
 `tools/test-syrinscape-bridge.mjs` 58 (the Environment conversion; the three groups from the mix; the old setting unread).

@@ -37,6 +37,7 @@ import { DRUSK_HOURS, currentHour, isDruskScene, druskSceneIds, markDruskScene, 
 import { watchScroll, captureScrolls, restoreScrolls, sameHTML } from "./repaint.js"; // §46 don't jump
 import { openFeedback } from "./feedback.js"; // §48 the feedback window
 import { entranceList, dmPlayEntrance, dmStopEntrance, entranceShadowed, dmShadowEntrance } from "./entrances.js"; // §40.6 the themed entrances ("Intros")
+import { TV_DEFAULT } from "./sound-mix.js"; // §58.7 the TV sliders' launch defaults
 
 // DM-role panel (§11) — a small docked panel on the DM/executor client (GM,
 // canvas present). It wakes for two jobs:
@@ -209,7 +210,7 @@ function applyDmTheme() {
 // Artificer since 2026-07-18, so every swatch wrote a key nothing read. DM: "a failed experiment".)
 function settingsHTML() {
   const esc = foundry.utils.escapeHTML;
-  const v = { music: 0.5, ambient: 0.5, interface: 0.5, ...(tvVolume() || {}) };
+  const v = { ...TV_DEFAULT, ...(tvVolume() || {}) };
   // Foundry's own three channels, in Foundry's order and under Foundry's names (AUDIO.CHANNELS.*:
   // Music / Environment / Interface) — a DM who knows the core sidebar should not have to learn a
   // second vocabulary here. `ambient` stays the storage key so nothing has to migrate.
@@ -4240,7 +4241,7 @@ function onChange(ev) {
   // the panel mid-interaction would drop focus.
   const vol = ev.target.closest("[data-tv-vol]");
   if (vol) {
-    const next = { music: 0.5, ambient: 0.5, interface: 0.5, ...(tvVolume() || {}) };
+    const next = { ...TV_DEFAULT, ...(tvVolume() || {}) };
     next[vol.dataset.tvVol] = Math.max(0, Math.min(1, Number(vol.value) / 100));
     game.settings.set(MODULE_ID, "tvVolume", next);
     return;

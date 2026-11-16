@@ -1,49 +1,65 @@
 /**
- * ONE MIX FOR THE TABLE (DM 2026-11-16: "The syrinscape environmental loops are REALLLLLLLLY quite, music completely
- * hides them, music should be fairly quite with environmentals clearly heard over them, and they all need to be at
- * around 25-50% volume so the DM's voice is clearly heard"). DESIGN §58.
+ * ONE MIX FOR THE TABLE (DM 2026-11-16, DESIGN §58). His words, in order:
+ *   "The syrinscape environmental loops are REALLLLLLLLY quite, music completely hides them, music should be fairly quite
+ *    with environmentals clearly heard over them, and they all need to be at around 25-50% volume so the DM's voice is
+ *    clearly heard and not drowned out"
+ *   "We need a set volume for everything that's defaulted on launch fir foundry and fir every sound when playing it"
+ *   "Is there a way to let me set the overall volume music+sfx+env x% higher or lower?"
  *
- * Three LAYERS, each one gain for the whole table, applied on every screen that plays sound (TV, his PC, players):
- *   music        his room / fight / mood music and the music stings (playlists flagged a music role), music beds
- *   environment  every loop: beds, ambiences, the deck's loops, ambient sounds on the map
- *   cues         one-shots: the deck's cues, the rooms' cues, dice and the interface
- * Syrinscape plays through its own player, so the same three layers are written to its three groups (ambience =
- * its global volume, its music group, its one-shot group), each with a fixed LIFT that makes a Syrinscape sound at
- * layer 1 as loud as ours at layer 1 (measured on the TV, seat 3 2026-11-16).
- *
- * HOW, WITHOUT TOUCHING A SOUND OR HIS SLIDERS. Each Foundry channel (Music, Environment, Interface) is a context whose
- * gain node IS his slider. We add, after it, one TRIM per channel (its own layer) and, before it, one GROUP node per
- * layer; a playlist sound is routed into the group of its layer (its `destination`, set before it first plays), so it
- * ends up at  its own volume × his slider × its layer  whatever channel the playlist is on. Anything else on a channel
- * (ambient sounds, our synthesised loops, dice) takes that channel's layer through the trim. Nothing is written to a
- * document or a client setting; a reload rebuilds it. The duck (§25.6) and the TV mute still work on the slider node.
- *
- * World setting `soundMix` = { music, environment, cues } gains (1 = as it plays), absent = the defaults below.
+ * Four parts, all here:
+ * 1. LAUNCH SLIDERS (§58.7). Every launch or reload sets this screen's Music / Environment / Interface sliders to
+ *    SLIDER_DEFAULT (the TV's through `tvVolume`, written by the primary GM's launch). He can move them in a session.
+ * 2. LAYERS. Three gains for the whole table, world setting `soundMix` = { music, environment, cues }, applied on every
+ *    screen after its sliders: each channel context gets a TRIM after his slider node, and a GROUP node per layer before
+ *    it; a playlist sound is routed into its layer's group (`Sound#destination`), so it plays at
+ *    its level × his slider × its layer, whatever channel its playlist is on.
+ * 3. A SET LEVEL AT PLAY (§58.7). A playlist sound starts at a level decided here, never at whatever volume was left on
+ *    it: a sound the deck LEVELLED (deck-command's loudness patches, uuid → volume, read from its migrations pack) plays
+ *    at that measured level; every other sound plays at its layer's SET_LEVEL. Nothing is written to the sound. A drag of
+ *    that sound's own slider while it plays still works (only the start is set).
+ * 4. MASTER (§58.8). One world gain `soundMaster` over every layer, Syrinscape included, ratios kept; 10% steps.
+ * Syrinscape plays through its own player, so the layers are written to its three groups (ambience = its global volume,
+ * its music group, its one-shot group), each with a fixed LIFT that makes Syrinscape at layer 1 as loud as ours at layer 1
+ * (measured on the TV, seat 3 2026-11-16), and the master to its local volume (syrinscape-bridge.js).
+ * Nothing in here writes a document; the only settings written are the core sliders at launch and the GM's own settings.
  */
 import { MODULE_ID } from "./preset.js";
 import { isBed, bedKind } from "./music-core.js";
 
 export const LAYERS = Object.freeze(["music", "environment", "cues"]);
 export const CHANNEL_LAYER = Object.freeze({ music: "music", environment: "environment", interface: "cues" });
+const CORE_KEY = Object.freeze({ music: "globalPlaylistVolume", environment: "globalAmbientVolume", interface: "globalInterfaceVolume" });
 
 /**
  * THE DESIGNED MIX (2026-11-16, from the seat 3 measurements; owed a seat measurement before it is trusted).
- * - music 0.15 (−16.5 dB): his room music measured −29 dBFS on the TV, the loudest thing at the table; now ≈ −45,
- *   8 dB under the environment.
- * - environment 1, cues 1: the deck's loops and cues were already levelled (−27 / −25 LUFS, 11-14) and sit ≈ −39 /
- *   −37 on the TV. They stay; the Syrinscape scale fix (syrinscape-bridge.js) brings Syrinscape up to them.
- * Syrinscape lifts, in dB (what a Syrinscape group needs, before his Environment slider, to match ours at layer 1):
- * - ambience 18.75: the most Syrinscape allows (+18.75 dB = its 1.5). Ambient moods measured a median ≈ −50 at the old
- *   net 0 dB; +12.7 dB from the scale fix puts them at ≈ −37, level with our loops. Nothing higher is available.
- * - music 11.5: Syrinscape's music moods measured ≈ −34.5 at net 0; this puts them where his own music sits at the
- *   same layer (layer 1 → −29, the default 0.15 → ≈ −45).
- * - oneshots 3.2: Syrinscape one-shots measured ≈ −37 at net −2.5 dB; this keeps them on our Whistle (−37.3).
+ * Sliders, as Foundry shows them (it shows the stored gain × 100): Music 25%, Environment 50%, Interface 50%.
+ * Layers: music 0.3, environment 1, cues 1. Music in total = 25% × 0.3 = what 50% × 0.15 was: his room music, −29 dBFS on
+ * the TV at 50% and the loudest thing at the table, lands at ≈ −45, 8 dB under the environment.
+ * Environment and cues: the deck's loops and cues were levelled (−27 / −25 LUFS, 11-14) and sit ≈ −39 / −37 on the TV;
+ * they stay, and the Syrinscape scale fix (syrinscape-bridge.js) brings Syrinscape up to them.
+ * Syrinscape lifts, in dB (what a Syrinscape group needs, before the Environment slider, to match ours at layer 1 with
+ * both sliders equal; its music group also follows the screen's Music ÷ Environment sliders, as our music does):
+ * - ambience 18.75: the most Syrinscape allows (+18.75 dB = its 1.5). Ambient moods measured a median ≈ −50 at the old net
+ *   0 dB; +12.7 dB from the scale fix puts them at ≈ −37, level with our loops.
+ * - music 11.5: its music moods measured ≈ −34.5 at net 0; this puts them where his music sits at the same layer.
+ * - oneshots 3.2: its one-shots measured ≈ −37 at net −2.5 dB; this keeps them on our Whistle (−37.3).
+ * SET LEVELS (a sound's level when the deck did not level it): music 0.8 (his room/fight/mood playlists' own level),
+ * environment 0.5 (his beds), cues 0.6 (our cue default).
  */
-export const MIX_DEFAULT = Object.freeze({ music: 0.15, environment: 1, cues: 1 });
+export const SLIDER_DEFAULT = Object.freeze({ music: 0.25, environment: 0.5, interface: 0.5 });
+export const MIX_DEFAULT = Object.freeze({ music: 0.3, environment: 1, cues: 1 });
+export const SET_LEVEL = Object.freeze({ music: 0.8, environment: 0.5, cues: 0.6 });
 export const SYR_LIFT_DB = Object.freeze({ ambience: 18.75, music: 11.5, oneshots: 3.2 });
-export const LAYER_MIN = 0.001, LAYER_MAX = 4; // −60 dB … +12 dB: a layer never reaches 0 (the trim divides by it)
+export const LAYER_MIN = 0.001, LAYER_MAX = 4; // −60 dB … +12 dB: a layer never reaches 0 (the groups divide by it)
+/**
+ * MASTER: 0 … 200% in 10% steps. The top is where Syrinscape runs out: its ambience is already at its own ceiling, so
+ * above 100% the master lifts it through its LOCAL volume, which sits at the Environment slider (50% = −6 dB) and tops
+ * out at 0 dB: 6 dB of room = ×2. Our own layers could go further, but would then pass the moods, so 200% is the cap.
+ */
+export const MASTER_DEFAULT = 1, MASTER_STEP = 0.1, MASTER_MAX = 1 / SLIDER_DEFAULT.environment;
 
 const num = (v) => (v == null || v === "" ? NaN : Number(v));
+const r2 = (v) => Math.round(v * 100) / 100;
 /** Pure: whatever is stored → { music, environment, cues }, each clamped, absent = the default. */
 export function mixOf(raw) {
   const out = {};
@@ -52,6 +68,12 @@ export function mixOf(raw) {
     out[l] = Number.isFinite(v) ? Math.min(Math.max(v, LAYER_MIN), LAYER_MAX) : MIX_DEFAULT[l];
   }
   return out;
+}
+/** Pure: a stored master → a gain on the 10% grid, 0 … MASTER_MAX. */
+export function masterOf(raw) {
+  const v = num(raw);
+  if (!Number.isFinite(v)) return MASTER_DEFAULT;
+  return r2(Math.min(Math.max(Math.round(v / MASTER_STEP) * MASTER_STEP, 0), MASTER_MAX));
 }
 
 const ROLE_MUSIC = new Set(["room", "battle", "mood", "cue"]);
@@ -80,13 +102,35 @@ export function layerOf(sound, { battleLibId = null } = {}) {
   return "cues";
 }
 
-/** Pure: the gains of one channel's rig. trim = the channel's layer; each group = its layer ÷ the trim. */
-export function rigGains(mix, channel) {
+/**
+ * Pure: the level a sound starts at. A sound the deck levelled plays its measured level, as long as it still plays the
+ * file that level was measured on; anything else plays its layer's set level. `levelled` = Map(uuid → { volume, path }).
+ */
+export function setLevelOf(sound, layer, levelled = null) {
+  const t = levelled?.get?.(sound?.uuid);
+  if (t && Number.isFinite(t.volume) && (!t.path || t.path === sound?.path)) return t.volume;
+  return SET_LEVEL[layer] ?? SET_LEVEL.cues;
+}
+
+/** Pure: the deck's loudness patches (its migrations pack) → Map(uuid → { volume, path }) for this world. */
+export function levelledFromPatches(patches, worldId) {
+  const out = new Map();
+  for (const p of Array.isArray(patches) ? patches : []) {
+    const s = p?.sound;
+    if (!s?.uuid || !s.volume || typeof s.volume !== "object" || !Number.isFinite(Number(s.volume.to))) continue;
+    if (Array.isArray(p.worlds) && worldId && !p.worlds.includes(worldId)) continue;
+    out.set(s.uuid, { volume: Number(s.volume.to), path: s.path?.to ?? null });
+  }
+  return out;
+}
+
+/** Pure: the gains of one channel's rig. trim = the channel's layer × master; each group = its layer ÷ the channel's. */
+export function rigGains(mix, channel, master = MASTER_DEFAULT) {
   const m = mixOf(mix);
-  const trim = m[CHANNEL_LAYER[channel] ?? "cues"];
+  const ch = m[CHANNEL_LAYER[channel] ?? "cues"];
   const groups = {};
-  for (const l of LAYERS) groups[l] = m[l] / trim;
-  return { trim, groups };
+  for (const l of LAYERS) groups[l] = m[l] / ch;
+  return { trim: ch * masterOf(master), groups };
 }
 
 // ── Syrinscape ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -102,7 +146,7 @@ export function syrValueDb(db) {
 /**
  * Pure: a Foundry volume (a GAIN, 0–1: what his Environment slider stores) as Syrinscape's value, so the slider moves
  * Syrinscape exactly as it moves our own sounds. 0 → 0 (true silence; written through the node's setter, so no fade
- * trap), 0.5 → 0.84 (−6 dB, not Syrinscape's −18.75), 1 → 1.
+ * trap), 0.5 → 0.84 (−6 dB, not Syrinscape's −18.75), 1 → 1 (its local volume's top: a gain over 1 is clamped).
  */
 export function syrValueOfGain(g) {
   const v = Number(g);
@@ -114,11 +158,15 @@ export function syrValueOfGain(g) {
 /**
  * Pure: the three Syrinscape group values for a mix. Its music and one-shot groups feed its global volume, so they
  * carry their level MINUS the global one (dB subtract; the 2026-11-16 seat found the old ÷ was wrong on this scale).
+ * `sliders` = this screen's { music, environment } gains: Syrinscape plays after the Environment slider, so its music
+ * group also carries Music ÷ Environment, as our own music does (absent or a zero slider: no adjustment, it is silent).
  * → { global, music, oneshot } Syrinscape values, plus `capped` when the ambience wanted more than Syrinscape has.
  */
-export function syrinscapeNodes(mix, lift = SYR_LIFT_DB) {
+export function syrinscapeNodes(mix, sliders = null, lift = SYR_LIFT_DB) {
   const m = mixOf(mix);
-  const want = { ambience: dB(m.environment) + lift.ambience, music: dB(m.music) + lift.music, oneshots: dB(m.cues) + lift.oneshots };
+  const ms = Number(sliders?.music), es = Number(sliders?.environment);
+  const ratio = ms > 0 && es > 0 ? dB(ms / es) : 0;
+  const want = { ambience: dB(m.environment) + lift.ambience, music: dB(m.music) + lift.music + ratio, oneshots: dB(m.cues) + lift.oneshots };
   const maxDb = (SYR_MAX - 1) * SYR_DB_RANGE;
   const g = Math.min(want.ambience, maxDb);
   return {
@@ -129,9 +177,33 @@ export function syrinscapeNodes(mix, lift = SYR_LIFT_DB) {
   };
 }
 
+/** Pure: Syrinscape's LOCAL value on a screen: its Environment slider × the master, on Syrinscape's scale (tops at 1). */
+export function syrLocalOf(env, master = MASTER_DEFAULT) {
+  const e = Number(env);
+  if (!Number.isFinite(e)) return null;
+  return syrValueOfGain(e * masterOf(master));
+}
+
+/** Pure: the launch writes for one screen: current = { music, environment, interface } → [{ key, value }] to set. */
+export function planLaunchSliders(current = {}) {
+  const out = [];
+  for (const ch of Object.keys(SLIDER_DEFAULT)) {
+    if (Number(current?.[ch]) !== SLIDER_DEFAULT[ch]) out.push({ key: CORE_KEY[ch], value: SLIDER_DEFAULT[ch] });
+  }
+  return out;
+}
+/** The TV's three sliders, in `tvVolume`'s own keys. */
+export const TV_DEFAULT = Object.freeze({ music: SLIDER_DEFAULT.music, ambient: SLIDER_DEFAULT.environment, interface: SLIDER_DEFAULT.interface });
+
 // ── runtime ────────────────────────────────────────────────────────────────────────────────────────────────
 const setting = (k, d) => { try { return game.settings.get(MODULE_ID, k); } catch (e) { return d; } };
 export function mixNow() { return mixOf(setting("soundMix", {})); }
+export function masterNow() { return masterOf(setting("soundMaster", MASTER_DEFAULT)); }
+/** This screen's two sliders that Syrinscape's music group follows. */
+export function slidersNow() {
+  const g = (k) => { try { return Number(game.settings.get("core", k)); } catch (e) { return NaN; } };
+  return { music: g(CORE_KEY.music), environment: g(CORE_KEY.environment) };
+}
 
 function channelOf(ctx) {
   const a = game.audio;
@@ -167,16 +239,32 @@ export function rigOf(ctx) {
 function applyRig(ctx, smooth = true) {
   const r = ctx?.mcMix;
   if (!r) return;
-  const g = rigGains(mixNow(), r.channel);
+  const g = rigGains(mixNow(), r.channel, masterNow());
   setGain(r.trim.gain, g.trim, ctx, smooth);
   for (const l of LAYERS) setGain(r.groups[l].gain, g.groups[l], ctx, smooth);
 }
 
-/** Every channel on this screen takes the current mix (at unlock and on a setting change). Syrinscape's groups are
- *  the bridge's (syncSyrinscapeLevels), called beside this from the setting's onChange. */
+/** Every channel on this screen takes the current mix and master (at unlock and on a setting change). Syrinscape's
+ *  groups and local volume are the bridge's (syncSyrinscapeLevels / syncSyrinscapeVolume), called beside this. */
 export function applyMix() {
   const a = game.audio;
   if (a && !a.locked) for (const ch of Object.keys(CHANNEL_LAYER)) { if (a[ch]) { rigOf(a[ch]); applyRig(a[ch]); } }
+}
+
+// The deck's levelled sounds. Read once, at ready, from its own migrations pack (1.8 MB, one fetch per screen, after
+// the world is up; nothing waits on it). Without deck-command, or before it arrives, every sound plays its set level.
+let levelled = null;
+export function levelledNow() { return levelled; }
+export async function loadLevelled() {
+  const deck = game.modules?.get?.("deck-command");
+  if (!deck?.active) return null;
+  try {
+    const res = await fetch(`modules/deck-command/packs/migrations.json`, { cache: "force-cache" });
+    if (!res.ok) return null;
+    const j = await res.json();
+    levelled = levelledFromPatches(Array.isArray(j) ? j : (j?.patches ?? Object.values(j ?? {})), game.world?.id);
+  } catch (e) { console.warn(`${MODULE_ID} | mix: could not read the deck's levels`, e?.message); }
+  return levelled;
 }
 
 const battleLibId = () => setting("combatMusicPlaylist", "") || null;
@@ -186,7 +274,11 @@ const twinOf = (doc) => {
   try { return fromUuidSync(ref); } catch (e) { return null; }
 };
 
-/** Route a freshly made Sound of `doc` into its layer's group, before its first play. */
+/**
+ * A freshly made Sound of `doc`: into its layer's group, and set to start at its set level. Foundry starts a playlist
+ * sound through `load({ autoplayOptions: { volume } })` (PlaylistSound#sync), so that one volume is replaced; a fade-in
+ * goes to the set level; a stop or a later fade (a drag, a duck) is left as it is.
+ */
 export function routeSound(doc, sound) {
   if (!sound || sound.destination || typeof sound.addEventListener !== "function") return sound;
   const syr = doc?.flags?.["syrinscape-control"];
@@ -198,6 +290,18 @@ export function routeSound(doc, sound) {
   const layer = layerOf(from, { battleLibId: battleLibId() });
   sound.destination = rig.groups[layer];
   sound.mcMixLayer = layer;
+  const level = () => setLevelOf(from, layer, levelled);
+  sound.mcSetLevel = level();
+  if (typeof sound.load === "function" && !sound.__mcSetLevel) {
+    const load = sound.load.bind(sound);
+    sound.load = (o = {}) => {
+      const ap = o?.autoplayOptions;
+      if (!ap || !(Number(ap.volume) > 0)) return load(o);
+      sound.mcSetLevel = level();
+      return load({ ...o, autoplayOptions: { ...ap, volume: sound.mcSetLevel } });
+    };
+    sound.__mcSetLevel = true;
+  }
   return sound;
 }
 
@@ -215,6 +319,29 @@ export function patchMix() {
   return true;
 }
 
+/**
+ * LAUNCH: this screen's sliders to the defaults, before the phone and DM-machine rules run (they silence after it).
+ * The TV's sliders are `tvVolume` (the TV cannot write a world setting): the primary GM's launch puts them back, and
+ * the TV mirrors them as it always has. World setting `launchVolumes` (on by default) turns all of it off.
+ */
+export function applyLaunchVolumes({ isDisplay = false } = {}) {
+  if (setting("launchVolumes", true) === false) return [];
+  const did = [];
+  if (!isDisplay) {
+    const cur = {};
+    for (const ch of Object.keys(CORE_KEY)) { try { cur[ch] = Number(game.settings.get("core", CORE_KEY[ch])); } catch (e) { /* unset */ } }
+    for (const w of planLaunchSliders(cur)) { try { game.settings.set("core", w.key, w.value); did.push(w.key); } catch (e) { /* not ours */ } }
+  }
+  if (game.user?.isGM && game.users?.activeGM?.id === game.user.id) {
+    const tv = setting("tvVolume", {}) ?? {};
+    if (Object.keys(TV_DEFAULT).some((k) => Number(tv[k]) !== TV_DEFAULT[k])) {
+      try { game.settings.set(MODULE_ID, "tvVolume", { ...TV_DEFAULT }); did.push("tvVolume"); } catch (e) { /* later */ }
+    }
+  }
+  if (did.length) console.log(`${MODULE_ID} | launch volumes: ${did.join(", ")}`);
+  return did;
+}
+
 /** GM: set any layer (a gain; null hands it back to the default). MobileCommand.soundScenes.mix({ music: 0.2 }). */
 export async function setSoundMix(next = {}) {
   if (!game.user?.isGM) return { ok: false, reason: "GM only" };
@@ -225,12 +352,31 @@ export async function setSoundMix(next = {}) {
   return { ok: true, mix: mixOf(out), was: mixOf(was) };
 }
 
-/** What plays where, for a console or the deck: the mix and this screen's Syrinscape values. */
+/** The master as the deck draws it: { master (gain), pct, atMin, atMax, step }. */
+export function getSoundMaster() {
+  const m = masterNow();
+  return { master: m, pct: Math.round(m * 100), atMin: m <= 0, atMax: m >= MASTER_MAX - 1e-9, step: MASTER_STEP, max: MASTER_MAX };
+}
+/** GM: the master to a gain (1 = the mix as designed), snapped to 10%, clamped 0 … 200%. */
+export async function setSoundMaster(v) {
+  if (!game.user?.isGM) return { ok: false, reason: "GM only" };
+  const next = masterOf(v);
+  if (next !== masterNow()) await game.settings.set(MODULE_ID, "soundMaster", next);
+  return { ok: true, ...getSoundMaster(), master: next, pct: Math.round(next * 100), atMin: next <= 0, atMax: next >= MASTER_MAX - 1e-9 };
+}
+/** GM: one 10% step up (+1) or down (−1). At an end it stays there and says so. */
+export async function stepSoundMaster(dir = 1) {
+  return setSoundMaster(masterNow() + (Number(dir) < 0 ? -MASTER_STEP : MASTER_STEP));
+}
+
+/** What plays where, for a console or the deck: the mix, the master and this screen's Syrinscape values. */
 export function soundMixState() {
-  return { mix: mixNow(), syrinscape: syrinscapeNodes(mixNow()) };
+  const s = slidersNow();
+  return { mix: mixNow(), master: masterNow(), sliders: s, syrinscape: { ...syrinscapeNodes(mixNow(), s), local: syrLocalOf(s.environment, masterNow()) }, levelled: levelled?.size ?? 0 };
 }
 
 export function registerSoundMix() {
   patchMix();
+  loadLevelled();
   game.audio?.unlock?.then?.(() => applyMix());
 }

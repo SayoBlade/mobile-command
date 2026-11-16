@@ -1,8 +1,8 @@
 import { MODULE_ID, SAVE_TIMEOUT_SETTING, DEFAULT_CARD_THEME, DAY_DARKNESS_FLOOR } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { makeConfirmMenuClass, deactivate, reactivate, hasBackup, hasReactivateSnapshot } from "./enforcer.js";
-import { resyncSyrinscapeEntries, syncSyrinscapeLevels } from "./syrinscape-bridge.js"; // sound scenes: Syrinscape or local (SOUND-PLAN §2.7)
-import { applyMix } from "./sound-mix.js"; // the table's one mix (DESIGN §58)
+import { resyncSyrinscapeEntries, syncSyrinscapeLevels, syncSyrinscapeVolume } from "./syrinscape-bridge.js"; // sound scenes: Syrinscape or local (SOUND-PLAN §2.7)
+import { applyMix, TV_DEFAULT, MASTER_DEFAULT } from "./sound-mix.js"; // the table's one mix (DESIGN §58)
 
 export function registerSettings() {
   // D7 role, per-client. Phase 1 uses it only to decide which client runs
@@ -538,6 +538,19 @@ export function registerSettings() {
     scope: "world", config: false, type: Object, default: {},
     onChange: () => { applyMix(); syncSyrinscapeLevels(); }
   });
+  // §58.8 THE MASTER (DM 2026-11-16: "set the overall volume music+sfx+env x% higher or lower"): one gain over every
+  // layer and Syrinscape, 0 … 2 in 0.1 steps (sound-mix.js masterOf). MobileCommand.soundScenes.master.{get,set,step}.
+  game.settings.register(MODULE_ID, "soundMaster", {
+    scope: "world", config: false, type: Number, default: MASTER_DEFAULT,
+    onChange: () => { applyMix(); syncSyrinscapeVolume(); }
+  });
+  // §58.7 (DM 2026-11-16: "a set volume for everything that's defaulted on launch"): every launch puts each screen's
+  // Music / Environment / Interface sliders (and the TV's, through tvVolume) back to the mix's defaults.
+  game.settings.register(MODULE_ID, "launchVolumes", {
+    name: "Reset the volume sliders on every launch",
+    hint: "Each screen's Music, Environment and Interface sliders start at the table's mix (25%, 50%, 50%), the shared screen's too. You can still move them during a session. Off: every screen keeps the levels it was left at.",
+    scope: "world", config: true, type: Boolean, default: true
+  });
 
   // §53 (catalogue 230, DM go 2026-09-20): Foundry gives a GM controlling no token NO ambient sound at
   // all. With this on, the DM's own screen hears the scene from the party's tokens — the TV's rule —
@@ -669,7 +682,7 @@ export function registerSettings() {
     scope: "world",
     config: false,
     type: Object,
-    default: { music: 0.5, ambient: 0.5, interface: 0.5 }
+    default: { ...TV_DEFAULT } // §58.7: the mix's launch defaults (was 0.5 each)
   });
 
   // §25.2 combat music: repeat/fade values we changed on combat tracks, so a mid-combat DM

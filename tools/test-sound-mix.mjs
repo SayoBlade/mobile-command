@@ -53,9 +53,12 @@ globalThis.CONFIG = { PlaylistSound: { documentClass: PlaylistSound } };
 const M = await import(pathToFileURL(path.join(ROOT, "scripts", "sound-mix.js")).href);
 
 // ---- the defaults ----
-check("default mix: music 0.15, environment 1, cues 1", JSON.stringify(M.mixOf({})) === JSON.stringify({ music: 0.15, environment: 1, cues: 1 }));
-check("a stored layer wins, clamped, and nonsense falls back", M.mixOf({ music: 0.3 }).music === 0.3 && M.mixOf({ music: 0 }).music === M.LAYER_MIN && M.mixOf({ music: 99 }).music === M.LAYER_MAX && M.mixOf({ music: "x" }).music === 0.15);
-check("DESIGN: the music layer puts his music 6–12 dB under the environment layer (the brief's 'clearly heard over')", (() => { const d = dB(M.MIX_DEFAULT.environment) - dB(M.MIX_DEFAULT.music); return d >= 6 && d <= 20; })());
+check("default mix: music 0.3, environment 1, cues 1; sliders Music 25%, Environment 50%, Interface 50%",
+  JSON.stringify(M.mixOf({})) === JSON.stringify({ music: 0.3, environment: 1, cues: 1 }) && JSON.stringify(M.SLIDER_DEFAULT) === JSON.stringify({ music: 0.25, environment: 0.5, interface: 0.5 }));
+check("a stored layer wins, clamped, and nonsense falls back", M.mixOf({ music: 0.2 }).music === 0.2 && M.mixOf({ music: 0 }).music === M.LAYER_MIN && M.mixOf({ music: 99 }).music === M.LAYER_MAX && M.mixOf({ music: "x" }).music === 0.3);
+check("DESIGN: his music in total (slider × layer) is what seat 3's 50% × 0.15 predicted: 16.5 dB under today", near(M.SLIDER_DEFAULT.music * M.MIX_DEFAULT.music, 0.5 * 0.15));
+check("DESIGN: every default slider sits in the brief's 25–50%", Object.values(M.SLIDER_DEFAULT).every((v) => v >= 0.25 && v <= 0.5));
+check("DESIGN: the set levels: music 0.8 (his playlists' own), environment 0.5 (his beds), cues 0.6", JSON.stringify(M.SET_LEVEL) === JSON.stringify({ music: 0.8, environment: 0.5, cues: 0.6 }));
 
 // ---- what goes where: the world's own playlist shapes (crooked-moon-6x, seat 3 snapshot 2026-11-16) ----
 const PL = (name, channel, music = null, extra = {}) => ({ name, channel, id: name, uuid: `Playlist.${name}`, flags: music ? { "mobile-command": { music, ...extra } } : (Object.keys(extra).length ? { "mobile-command": extra } : {}) });
@@ -84,10 +87,12 @@ check("his escape hatch: a mixLayer flag on the sound, then on its playlist", L(
 check("Syrinscape value = 37.5 × (v − 1) dB: 0 dB → 1, +18.75 → 1.5 (its ceiling), floor above 0", M.syrValueDb(0) === 1 && M.syrValueDb(18.75) === 1.5 && M.syrValueDb(99) === 1.5 && M.syrValueDb(-999) === M.SYR_FLOOR);
 check("his Environment gain on Syrinscape's scale: 0 → 0, 0.5 → −6 dB (0.84), 1 → 1",
   M.syrValueOfGain(0) === 0 && near(37.5 * (M.syrValueOfGain(0.5) - 1), dB(0.5)) && M.syrValueOfGain(1) === 1 && M.syrValueOfGain("x") === null);
-const sy = M.syrinscapeNodes({});
+const TVS = { music: M.SLIDER_DEFAULT.music, environment: M.SLIDER_DEFAULT.environment };
+const sy = M.syrinscapeNodes({}, TVS);
 const totalDb = (node) => 37.5 * (node - 1);
 check("default: ambience at Syrinscape's ceiling (+18.75 dB), not marked capped", sy.global === 1.5 && sy.capped === false);
-check("default: a mood's score lands at its lift + the music layer (dB add through the global)", near(totalDb(sy.global) + totalDb(sy.music), M.SYR_LIFT_DB.music + dB(0.15), 1e-6));
+check("default: a mood's score lands at its lift + the music layer + Music ÷ Environment (as our music does)", near(totalDb(sy.global) + totalDb(sy.music), M.SYR_LIFT_DB.music + dB(0.3) + dB(0.25 / 0.5), 1e-6));
+check("a zero slider (a silenced screen) adds nothing to the score's group", near(M.syrinscapeNodes({}, { music: 0, environment: 0.5 }).music, M.syrinscapeNodes({}).music));
 check("default: one-shots at their lift + the cues layer", near(totalDb(sy.global) + totalDb(sy.oneshot), M.SYR_LIFT_DB.oneshots, 1e-6));
 check("an environment layer above 1 cannot lift Syrinscape past its ceiling: said, not hidden", M.syrinscapeNodes({ environment: 2 }).capped === true && M.syrinscapeNodes({ environment: 2 }).global === 1.5);
 // The SEAT 3 arithmetic, so a change to a lift is a change to these predictions (DESIGN §58 table)
@@ -97,7 +102,7 @@ const newLocal = totalDb(M.syrValueOfGain(TV_ENV));
 const newNet = { ambience: totalDb(sy.global) + newLocal, music: totalDb(sy.global) + totalDb(sy.music) + newLocal, oneshots: totalDb(sy.global) + totalDb(sy.oneshot) + newLocal };
 const pred = { ambience: -50 + newNet.ambience - oldNet.ambience, music: -34.5 + newNet.music - oldNet.music, oneshots: -37 + newNet.oneshots - oldNet.oneshots };
 check(`predicted on the TV: Syrinscape ambience ≈ −37 dBFS (was ≈ −50), level with our loops`, near(pred.ambience, -37.3, 0.3), pred.ambience.toFixed(1));
-check(`predicted: a Syrinscape score ≈ his own music at the new layer (−29 + ${dB(0.15).toFixed(1)} dB)`, near(pred.music, -29 + dB(0.15), 0.1), `${pred.music.toFixed(1)}`);
+check(`predicted: a Syrinscape score ≈ his own music at the new mix (−29 + ${dB(0.15).toFixed(1)} dB)`, near(pred.music, -29 + dB(0.15), 0.1), `${pred.music.toFixed(1)}`);
 check(`predicted: Syrinscape one-shots stay on our Whistle (≈ −37.3)`, near(pred.oneshots, -37.3, 0.1), pred.oneshots.toFixed(1));
 
 // ---- the rig, end to end ----
@@ -108,13 +113,13 @@ check("rig: built on first use; the slider still feeds the speakers (through the
 check("a room-music sound is routed into the music group", roomSound.destination === audio.music.mcMix.groups.music && roomSound.mcMixLayer === "music");
 // a sound's own volume × his slider × its layer, whatever channel it is on
 audio.music.gainNode.gain.value = 0.5; audio.environment.gainNode.gain.value = 0.5;
-check("music on the Music channel: slider × 0.15", near(pathGain(roomSound.destination, audio.music), 0.5 * 0.15));
+check("music on the Music channel: slider × 0.3", near(pathGain(roomSound.destination, audio.music), 0.5 * 0.3));
 const ghelfiSound = play(S(ghelfi, { repeat: true }));
 check("an ambience on the MUSIC channel plays at the environment layer, not the music one", near(pathGain(ghelfiSound.destination, audio.music), 0.5 * 1));
 const deckLoop = play(S(deck, { repeat: true })), deckShot = play(S(deck));
 check("the deck's loop and cue on the Environment channel: slider × 1", near(pathGain(deckLoop.destination, audio.environment), 0.5) && near(pathGain(deckShot.destination, audio.environment), 0.5));
 check("anything else on a channel (ambient sounds, our synth, dice) takes the channel's layer through the trim",
-  near(pathGain(audio.music.gainNode, audio.music), 0.5 * 0.15) && near(pathGain(audio.environment.gainNode, audio.environment), 0.5));
+  near(pathGain(audio.music.gainNode, audio.music), 0.5 * 0.3) && near(pathGain(audio.environment.gainNode, audio.environment), 0.5));
 // Syrinscape entries play through Syrinscape; their local twins are routed by the twin
 const syrDoc = S(syrPl, { flags: { "syrinscape-control": { soundType: "mood", soundId: "1" } } });
 check("a live Syrinscape entry is left alone (its sound is Syrinscape's)", play(syrDoc).destination === undefined);
@@ -123,17 +128,82 @@ const fbDoc = S(syrPl, { flags: { "syrinscape-control": { soundType: "mood", sou
 fbDoc._createSound = function () { return { mcLocalFallback: "x.ogg", destination: undefined, addEventListener() {} }; };
 check("a local twin (Syrinscape offline) plays at its twin's layer", M.routeSound(fbDoc, fbDoc._createSound()).mcMixLayer === "environment");
 // the setting moves every rig, live
-settings.soundMix = { music: 0.3 };
+settings.soundMix = { music: 0.6 };
 M.applyMix();
-check("a new mix re-gains every rig at once (music 0.3)", near(pathGain(roomSound.destination, audio.music), 0.5 * 0.3) && near(pathGain(ghelfiSound.destination, audio.music), 0.5));
+check("a new mix re-gains every rig at once (music 0.6)", near(pathGain(roomSound.destination, audio.music), 0.5 * 0.6) && near(pathGain(ghelfiSound.destination, audio.music), 0.5));
 // the duck and the mute still ride his slider node
 audio.music.gainNode.gain.value = 0;
 check("the TV mute / duck (his slider node) still silences everything on the channel", pathGain(roomSound.destination, audio.music) === 0 && pathGain(ghelfiSound.destination, audio.music) === 0);
-audio.music.gainNode.gain.value = 0.5; settings.soundMix = {}; M.applyMix();
+audio.music.gainNode.gain.value = 0.5; settings.soundMix = { music: 0.6 }; M.applyMix();
+
+// ---- a set level at the moment it plays (§58.7) ----
+const loaded = [];
+const mk = (doc) => { const snd = { destination: undefined, addEventListener() {}, load(o) { loaded.push(o?.autoplayOptions?.volume); } }; return M.routeSound(doc, snd); };
+const lev = M.levelledFromPatches([
+  { id: "m158-a", worlds: ["w1"], sound: { uuid: "U.fiddle", volume: { from: 0.43, to: 0.51 } } },
+  { id: "m158-b", worlds: ["w1"], sound: { uuid: "U.village", volume: { from: 0.35, to: 1 }, path: { from: "a.ogg", to: "norm/a.ogg" } } },
+  { id: "m158-c", worlds: ["other"], sound: { uuid: "U.elsewhere", volume: { from: 0.2, to: 0.9 } } },
+  { id: "x", sound: { uuid: "U.no-volume" } },
+], "w1");
+check("the deck's levelled table: this world's volume patches only", lev.size === 2 && lev.get("U.fiddle").volume === 0.51 && !lev.has("U.elsewhere"));
+check("a levelled sound plays its measured level, not what was left on it", M.setLevelOf({ uuid: "U.fiddle", volume: 1, path: "f.ogg" }, "environment", lev) === 0.51);
+check("…only while it still plays the file that level was measured on", M.setLevelOf({ uuid: "U.village", path: "norm/a.ogg" }, "environment", lev) === 1 && M.setLevelOf({ uuid: "U.village", path: "his-swap.ogg" }, "environment", lev) === 0.5);
+check("anything else plays its layer's set level, whatever its stored volume", M.setLevelOf({ uuid: "U.x", volume: 1 }, "music") === 0.8 && M.setLevelOf({ uuid: "U.x", volume: 0.06 }, "environment") === 0.5 && M.setLevelOf({}, "cues") === 0.6);
+const turnedUp = S(fight, { volume: 1, uuid: "Playlist.F.PlaylistSound.1" });
+const ts = mk(turnedUp);
+ts.load({ autoplay: true, autoplayOptions: { volume: 1, loop: true, fade: 1000 } });
+check("start: Foundry's autoplay volume (his turned-up 1.0) is replaced by the set level 0.8", loaded.at(-1) === 0.8 && ts.mcSetLevel === 0.8);
+ts.load({ autoplay: true, autoplayOptions: { volume: 0 } });
+ts.load();
+check("a start at 0 and a plain preload pass through untouched", loaded.at(-2) === 0 && loaded.at(-1) === undefined);
+check("the stored volume is never written", turnedUp.volume === 1);
+
+// ---- launch sliders (§58.7) ----
+check("launch: a screen at 1 / 1 / 1 is put back to 25 / 50 / 50",
+  JSON.stringify(M.planLaunchSliders({ music: 1, environment: 1, interface: 1 })) === JSON.stringify([{ key: "globalPlaylistVolume", value: 0.25 }, { key: "globalAmbientVolume", value: 0.5 }, { key: "globalInterfaceVolume", value: 0.5 }]));
+check("launch: a screen already there is not written", M.planLaunchSliders({ music: 0.25, environment: 0.5, interface: 0.5 }).length === 0);
+const coreSet = [];
+const gget = game.settings.get, gset = game.settings.set;
+const core = { globalPlaylistVolume: 1, globalAmbientVolume: 1, globalInterfaceVolume: 1 };
+game.settings.get = (m, k) => (m === "core" ? core[k] : settings[k]);
+game.settings.set = (m, k, v) => { if (m === "core") { core[k] = v; coreSet.push(k); } else settings[k] = v; };
+game.user = { isGM: true, id: "gm" }; game.users = { activeGM: { id: "gm" } };
+settings.tvVolume = { music: 1, ambient: 1, interface: 1 };
+const did = M.applyLaunchVolumes({ isDisplay: false });
+check("launch, the primary GM: its own sliders AND the TV's (tvVolume) to the defaults",
+  core.globalPlaylistVolume === 0.25 && core.globalAmbientVolume === 0.5 && core.globalInterfaceVolume === 0.5 && JSON.stringify(settings.tvVolume) === JSON.stringify(M.TV_DEFAULT), did.join());
+core.globalPlaylistVolume = 1; coreSet.length = 0;
+M.applyLaunchVolumes({ isDisplay: true });
+check("launch, the TV: its own sliders are left to tvVolume (the mirror it always had)", coreSet.length === 0);
+settings.launchVolumes = false;
+check("launch: the world switch off writes nothing", M.applyLaunchVolumes({}).length === 0);
+settings.launchVolumes = true;
+game.settings.get = gget; game.settings.set = gset;
+
+// ---- the master (§58.8) ----
+check("master: 10% grid, 0 … 200%, default 100%", M.masterOf(undefined) === 1 && M.masterOf(1.04) === 1 && M.masterOf(1.26) === 1.3 && M.masterOf(9) === 2 && M.masterOf(-1) === 0 && M.MASTER_MAX === 2);
+check("master: scales every channel's trim, so every layer moves together (ratios kept)",
+  near(M.rigGains({}, "music", 0.5).trim, 0.3 * 0.5) && near(M.rigGains({}, "environment", 0.5).trim, 0.5) && M.rigGains({}, "music", 0.5).groups.environment === M.rigGains({}, "music", 1).groups.environment);
+check("master: Syrinscape follows through its local volume (Environment × master)", near(37.5 * (M.syrLocalOf(0.5, 0.5) - 1), dB(0.25)) && M.syrLocalOf(0.5, 0) === 0);
+check("master: the top end is where Syrinscape's local volume runs out: 200% at Environment 50% = 0 dB", M.syrLocalOf(0.5, 2) === 1 && M.syrLocalOf(0.5, 3) === 1);
+settings.soundMaster = 1;
+let rr = await M.stepSoundMaster(+1);
+check("step +: 100% → 110%", rr.ok && rr.pct === 110 && settings.soundMaster === 1.1);
+await M.setSoundMaster(1.95); rr = await M.stepSoundMaster(+1);
+check("step + at the top stays at 200% and says so", rr.pct === 200 && rr.atMax === true);
+await M.setSoundMaster(0.05); rr = await M.stepSoundMaster(-1);
+check("step − at the bottom stays at 0% and says so", rr.pct === 0 && rr.atMin === true);
+settings.soundMaster = 0.5; M.applyMix();
+check("master: applied to the live rigs", near(pathGain(roomSound.destination, audio.music), 0.5 * 0.6 * 0.5));
+settings.soundMaster = 1; settings.soundMix = {}; M.applyMix();
 
 // ---- the glue ----
 const src = (f) => fs.readFileSync(path.join(ROOT, "scripts", f), "utf8");
-check("nothing in the mix writes a document, a sound volume or a client setting", !/\.update\(|game\.settings\.set\("core"|\.volume\s*=/.test(src("sound-mix.js").replace(/^\s*(\/\/|\*).*$/gm, "")));
+check("nothing in the mix writes a document or a sound's stored volume; the only core write is the launch sliders",
+  !/\.update\(|\.volume\s*=/.test(src("sound-mix.js").replace(/^\s*(\/\/|\*).*$/gm, "")) && (src("sound-mix.js").match(/game\.settings\.set\("core"/g) ?? []).length === 1);
+check("launch volumes run first in ready, before the phone and DM-machine rules", /Hooks\.once\("ready", \(\) => \{[\s\S]{0,400}applyLaunchVolumes\(\{ isDisplay: isDisplayClient\(\) \}\)/.test(src("main.js")));
+check("a released silence comes back to the launch defaults, not 0.5", /restore: \{ music: SLIDER_DEFAULT\.music, environment: SLIDER_DEFAULT\.environment \}/.test(src("main.js")) && /back\[key\] \?\? 0\.5/.test(src("main.js")));
+check("master published for the deck: get / set / step", /master: \{ get: getSoundMaster, set: setSoundMaster, step: stepSoundMaster \}/.test(src("main.js")));
 check("registered after the bridge (it wraps the bridge's seam), published for the deck",
   /registerSyrinscapeBridge\(\);[^\n]*\n\s*registerSoundMix\(\);/.test(src("main.js")) && /mix: setSoundMix, mixState: soundMixState/.test(src("main.js")));
 check("the card table's own audio takes the cues layer", /\* cues;/.test(src("card-audio.js")) && /import \{ mixNow \} from "\.\/sound-mix\.js"/.test(src("card-audio.js")));

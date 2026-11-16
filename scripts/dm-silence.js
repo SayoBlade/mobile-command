@@ -18,7 +18,8 @@ export const DM_SILENCE_CHANNELS = [
   { channel: "environment", key: "globalAmbientVolume", flag: "dmEnvSilenced" },
 ];
 
-export function planDmSilence({ tvActive, want, level, claimed }) {
+/* 2026-11-16 (§58.7): `restore` = the level a released channel comes back to (main.js passes the launch defaults). */
+export function planDmSilence({ tvActive, want, level, claimed, restore = { music: 0.5, environment: 0.5 } }) {
   const out = [];
   for (const c of DM_SILENCE_CHANNELS) {
     const on = Boolean(tvActive && want?.[c.channel]);
@@ -26,7 +27,7 @@ export function planDmSilence({ tvActive, want, level, claimed }) {
       if (Number(level?.[c.channel]) !== 0) out.push({ ...c, set: 0, claim: true });
     } else if (claimed?.[c.channel]) {
       // his own zero (he slid it down himself after we gave it back) is never touched: only OUR zero comes back
-      out.push(Number(level?.[c.channel]) === 0 ? { ...c, set: 0.5, claim: false } : { ...c, claim: false });
+      out.push(Number(level?.[c.channel]) === 0 ? { ...c, set: restore?.[c.channel] ?? 0.5, claim: false } : { ...c, claim: false });
     }
   }
   return out;
