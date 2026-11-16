@@ -1115,7 +1115,7 @@ Hooks.once("ready", () => {
     // §40.6 the themed entrances ("Intros"): play one by key (see entrances()), or cut the running one short.
     playEntrance: dmPlayEntrance,
     stopEntrance: dmStopEntrance,
-    entrances: () => entranceList().map(e => ({ key: e.key, name: e.name, sub: e.sub, chapter: e.chapter, portrait: e.portrait })),
+    entrances: () => entranceList().map(e => ({ key: e.key, name: e.name, sub: e.sub, chapter: e.chapter, portrait: e.portrait, hold: e.hold, outMs: 1200 })), // hold/outMs: how long the banner holds the screen (deck-command D-0129 plays a group's entrances one after another)
     // §41 put the CURRENT scene at the clock's darkness right now — the manual trigger beside the
     // automatic one (§8.1), and what the setting's onChange calls when you switch it back on.
     applyDaylightNow: () => applyDaylight(canvas?.scene ?? game.scenes?.active, { animate: 1200 }),
