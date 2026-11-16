@@ -538,35 +538,56 @@ export function soundMixState() {
   return { mix: mixNow(), master: masterNow(), sliders: s, syrinscape: { ...syrinscapeNodes(mixNow(), s), local: syrLocalOf(s.environment, masterNow()) }, levelled: levelled?.size ?? 0, trims: Object.keys(trimsNow()).length };
 }
 
-/**
- * Primary GM, once per world (§58.11): trims written on the first build's bases (before this fix) are converted, so
- * nothing anyone hears changes. The map as it was is kept in `soundTrimsV1`; `soundTrimsBase` marks it done.
- */
-export async function rebaseTrimsOnce() {
-  if (!game.user?.isGM || game.users?.activeGM?.id !== game.user.id) return null;
-  if (setting("soundTrimsBase", 1) >= 2) return null;
-  const trims = trimsNow(), sounds = [], docs = new Map();
-  // the trimmed sounds, and every other sound of the playlists the seat trimmed (SEAT 4 heard all 459 of them and left
-  // those within 1 dB untrimmed: they keep tonight's loudness too)
-  for (const key of Object.keys(trims)) {
+/** The trimmed sounds (keys of `ref`) and every other sound of their playlists (SEAT 4 heard all 459 and left those
+ *  within 1 dB untrimmed), as { key, layer-resolved old base, new base, measured } for planTrimRebase. */
+function seatSounds(ref) {
+  const docs = new Map();
+  for (const key of Object.keys(ref)) {
     if (key.startsWith("syr:")) continue;
     let doc = null; try { doc = fromUuidSync(key); } catch (e) { /* gone */ }
     if (doc?.documentName !== "PlaylistSound") continue;
     docs.set(key, doc);
     for (const sib of doc.parent?.sounds ?? []) if (sib?.uuid && !docs.has(sib.uuid) && !sib.flags?.["syrinscape-control"]?.soundType) docs.set(sib.uuid, sib);
   }
-  for (const [key, doc] of docs) {
+  return [...docs].map(([key, doc]) => {
     const layer = layerOf(doc, { battleLibId: battleLibId() });
-    sounds.push({ key, measured: !(key in trims), old: firstBuildBaseOf(doc, layer, levelled), now: baseLevelOf(doc, layer, levelled) });
+    return { key, measured: !(key in ref), old: firstBuildBaseOf(doc, layer, levelled), now: baseLevelOf(doc, layer, levelled) };
+  });
+}
+
+/**
+ * Primary GM, once per world: trims written on the first build's bases are converted so nothing anyone hears changes.
+ * `soundTrimsBase` says how far this world has come:
+ *   1 → the full conversion (§58.11 + §58.12): the trims moved and the heard-but-untrimmed sounds given theirs; the map as
+ *       it was kept in `soundTrimsV1`; → 3.
+ *   2 → acccf7e's conversion already ran (his GM load 2026-11-16 22:29: 317 moved, correct, V1 = the 472 kept) but it did
+ *       not cover the heard-but-untrimmed sounds. FILL-IN only (§58.13): those sounds (21 there), measured against V1,
+ *       never a key that already has a trim, never a second conversion of a trim; → 3.
+ *   3 → done.
+ */
+export async function rebaseTrimsOnce() {
+  if (!game.user?.isGM || game.users?.activeGM?.id !== game.user.id) return null;
+  const stage = Number(setting("soundTrimsBase", 1)) || 1;
+  if (stage >= 3) return null;
+  // without the deck's table every base would read wrong (a levelled sound's old base IS its table value): wait
+  if (!levelled && game.modules?.get?.("deck-command")?.active) return null;
+  const trims = trimsNow();
+  let plan;
+  if (stage < 2) {
+    plan = planTrimRebase(trims, seatSounds(trims));
+  } else {
+    const v1 = setting("soundTrimsV1", {});
+    const ref = v1 && typeof v1 === "object" && Object.keys(v1).length ? v1 : trims;
+    const fill = seatSounds(ref).filter((x) => x.measured && !(x.key in trims));
+    plan = planTrimRebase(trims, fill);
   }
-  const plan = planTrimRebase(trims, sounds);
   try {
     if (plan.moved.length) {
-      await game.settings.set(MODULE_ID, "soundTrimsV1", trims);
+      if (stage < 2) await game.settings.set(MODULE_ID, "soundTrimsV1", trims);
       await game.settings.set(MODULE_ID, "soundTrims", plan.trims);
     }
-    await game.settings.set(MODULE_ID, "soundTrimsBase", 2);
-    console.log(`${MODULE_ID} | trims converted to the levelled bases: ${plan.moved.length} moved, ${plan.clamped.length} clamped`, plan.clamped);
+    await game.settings.set(MODULE_ID, "soundTrimsBase", 3);
+    console.log(`${MODULE_ID} | trims ${stage < 2 ? "converted to the levelled bases" : "filled in for the sounds heard untrimmed"}: ${plan.moved.length} ${stage < 2 ? "moved" : "added"}, ${plan.clamped.length} clamped`, plan.clamped);
   } catch (e) { console.warn(`${MODULE_ID} | trims: could not convert`, e?.message); }
   return plan;
 }

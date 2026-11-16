@@ -9768,8 +9768,10 @@ moods), the Whistle cut −6.6 to its own level as the anchor; the 168 element t
   no-level element from 0 dB, restore on stop and on removal; mood: the cut on the global with no one-shot lift, −40 in
   full, the spill, a key's one-shot compensated, the lift's top), `test-token-any-scene.mjs` 7. All 61 suites.
 - **Tomorrow's short seat check (TV tab; numbered expected results; stop at the first failure):**
-  1. His GM reloads first, then the TV. GM console: `trims converted to the levelled bases: 338 moved, 0 clamped`;
-     `game.settings.get("mobile-command","soundTrimsBase")` = 2; `…"soundTrimsV1"` has 472 keys.
+  1. ~~His GM reloads first, then the TV. GM console: `trims converted to the levelled bases: 338 moved, 0 clamped`;
+     `soundTrimsBase` = 2~~ (his 22:29 load ran acccf7e's version, §58.13). His GM reloads onto 4a0a8cb's successor, then
+     the TV. GM console: `trims filled in for the sounds heard untrimmed: 21 added, 0 clamped`;
+     `game.settings.get("mobile-command","soundTrimsBase")` = 3; `…"soundTrimsV1"` has 472 keys (the Whistle −6.6).
   2. `Object.keys(MobileCommand.soundScenes.trims()).length` = 493 (472 + 21); the Whistle's trim reads 0.
   3. Our Whistle on the TV: −37.3 ± 1 dB RMS (the seat's metric: −34.4 ± 1); `mcSetLevel` 0.28.
   4. Five sounds from SEAT 4's re-measure sample (Iron Crash, Heavy Hit, Stone Beak, Oak Answers, Chorus Hiss) land
@@ -9784,3 +9786,21 @@ moods), the Whistle cut −6.6 to its own level as the anchor; the 168 element t
   9. During the Foul Ritual mood, a key's one-shot (Train whistle) reads within ± 2 dB of its level with no mood playing.
   10. Intros: landing room active, the stage Barbarian on 10.1, Player1's phone moves it one square, sets fly, opens
       targets → the move and fly land; targets say "that hero is on 10.1 …" while the GM screen is on the landing room.
+
+### 58.13 What his reload actually did (2026-11-16 22:29) — checked; fixed forward
+Read from a fresh read-only copy of the world after his reload (the module folder is a junction to this repo):
+- **The one-time conversion ran ONCE, at 22:29:47–55, on the real setting:** `soundTrimsV1` = the 472 as SEAT 4 left them
+  (kept), `soundTrims` = 472 keys, **317 changed, 155 the same, 0 added, 0 dropped**; the Whistle −6.6 → 0; the 64 mood
+  trims unchanged; `soundTrimsBase` = 2, so it cannot run again. **Every one of the 408 file trims keeps tonight's
+  loudness** (re-computed against V1 and the current bases: worst 0.05 dB, rounding).
+- **It was acccf7e's version** (0 added: no heard-but-untrimmed fill-in; his screen had the earlier script, cached or
+  loaded before 22:28). So the **21 sounds SEAT 4 heard and left at 0 dB now play 2–6 dB louder than tonight** (Séance
+  Backlash, House Groans, Psychic Pulse, Roots Grip, Coin Purse, Splash, Couplings, Countdown, Raving, Chatter, Cork In,
+  Arrow Hits, Bear Ripped, Parting Coins, Goat Devoured, Blood Splash, Fire Hit, Doors Slide, Gulls, Food Splats, Timber
+  Groan: trims −2.1 … −6.0).
+- **Fix forward (`rebaseTrimsOnce`, staged by `soundTrimsBase`):** 1 → the full conversion → 3; **2 → fill-in only**: the
+  sounds of the trimmed playlists that had no trim in V1 and have none now, whose base moved, get the trim that keeps
+  tonight's loudness; no existing trim is touched, nothing is converted twice, V1 is left as is → 3; 3 → nothing. It waits
+  while the deck's table has not loaded (a wrong base otherwise). `tools/seat4-element-trims.apply.js` now waits for 3.
+- **Tests:** `test-sound-mix.mjs` 86 (stage 2 adds only the untrimmed moved sound; converted trims and moods untouched;
+  V1 kept; stage 3 inert; never overwrites a trim; stage 1 still does all in one go).

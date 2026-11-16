@@ -204,7 +204,7 @@ check("rebase: a sound the seat heard and left untrimmed (within 1 dB) gets the 
 check("rebase covers the trimmed sounds' whole playlists (the seat heard all of them)", /for \(const sib of doc\.parent\?\.sounds/.test(fs.readFileSync(path.join(ROOT, "scripts", "sound-mix.js"), "utf8")));
 check("rebase: a result past +24 dB is clamped and reported", rc.trims.k === 24 && rc.clamped[0] === "k");
 check("rebase runs once, primary GM, after the deck's table, keeping the old map",
-  /loadLevelled\(\)\.then\(\(\) => rebaseTrimsOnce\(\)\)/.test(fs.readFileSync(path.join(ROOT, "scripts", "sound-mix.js"), "utf8")) && /soundTrimsV1", trims/.test(fs.readFileSync(path.join(ROOT, "scripts", "sound-mix.js"), "utf8")) && /"soundTrimsBase", \{ scope: "world"/.test(fs.readFileSync(path.join(ROOT, "scripts", "settings.js"), "utf8")));
+  /loadLevelled\(\)\.then\(\(\) => rebaseTrimsOnce\(\)\)/.test(fs.readFileSync(path.join(ROOT, "scripts", "sound-mix.js"), "utf8")) && /"soundTrimsV1", trims\)/.test(fs.readFileSync(path.join(ROOT, "scripts", "sound-mix.js"), "utf8")) && /"soundTrimsBase", \{ scope: "world"/.test(fs.readFileSync(path.join(ROOT, "scripts", "settings.js"), "utf8")));
 
 // ---- launch sliders (§58.7) ----
 check("launch: a screen at 1 / 1 / 1 is put back to 25 / 50 / 50",
@@ -216,6 +216,36 @@ const core = { globalPlaylistVolume: 1, globalAmbientVolume: 1, globalInterfaceV
 game.settings.get = (m, k) => (m === "core" ? core[k] : settings[k]);
 game.settings.set = (m, k, v) => { if (m === "core") { core[k] = v; coreSet.push(k); } else settings[k] = v; };
 game.user = { isGM: true, id: "gm" }; game.users = { activeGM: { id: "gm" } };
+// ---- the staged conversion on HIS world (§58.13): stage 2 = acccf7e already converted; only the fill-in may run ----
+{
+  const pl = { sounds: [] };
+  const mk = (id, vol, was) => ({ documentName: "PlaylistSound", uuid: `Playlist.L.PlaylistSound.${id}`, path: `${id}.ogg`, volume: vol, parent: pl, flags: was == null ? {} : { "mobile-command": { volumeWas: was } } });
+  const W = mk("whistle", 0.28, 0.5), B = mk("bear", 0.3, 0.5), U = mk("plain", 0.6, null);
+  pl.sounds.push(W, B, U);
+  const byU = { [W.uuid]: W, [B.uuid]: B, [U.uuid]: U };
+  const oldFU = globalThis.fromUuidSync; globalThis.fromUuidSync = (u) => byU[u] ?? null;
+  settings.soundTrimsV1 = { [W.uuid]: -6.6, "syr:mood:9": -5 };
+  settings.soundTrims = { [W.uuid]: 0, "syr:mood:9": -5 };   // what his 22:29 load left
+  settings.soundTrimsBase = 2;
+  const r1 = await M.rebaseTrimsOnce();
+  check("stage 2: the fill-in adds ONLY the heard-but-untrimmed sound whose base moved (Bear Ripped 0.6 → 0.3: +6 dB)",
+    settings.soundTrims[B.uuid] === 6 && !(U.uuid in settings.soundTrims) && r1.moved.length === 1, JSON.stringify(settings.soundTrims));
+  check("stage 2: the trims acccf7e already converted are NOT converted again (the Whistle stays 0; moods as they were)",
+    settings.soundTrims[W.uuid] === 0 && settings.soundTrims["syr:mood:9"] === -5);
+  check("stage 2: the kept original map (soundTrimsV1) is left as it was; the world is marked 3",
+    settings.soundTrimsV1[W.uuid] === -6.6 && settings.soundTrimsBase === 3);
+  const snap = JSON.stringify(settings.soundTrims);
+  check("stage 3: a later load does nothing", (await M.rebaseTrimsOnce()) === null && JSON.stringify(settings.soundTrims) === snap);
+  settings.soundTrims[B.uuid] = -1; settings.soundTrimsBase = 2;
+  await M.rebaseTrimsOnce();
+  check("stage 2 never overwrites a trim a sound already has", settings.soundTrims[B.uuid] === -1);
+  // a world that never converted (stage 1) gets the whole thing in one go, straight to 3
+  settings.soundTrims = { [W.uuid]: -6.6 }; settings.soundTrimsV1 = {}; settings.soundTrimsBase = 1;
+  await M.rebaseTrimsOnce();
+  check("stage 1: the full conversion (Whistle −6.6 → 0, Bear +6), the old map kept, marked 3",
+    settings.soundTrims[W.uuid] === 0 && settings.soundTrims[B.uuid] === 6 && settings.soundTrimsV1[W.uuid] === -6.6 && settings.soundTrimsBase === 3);
+  globalThis.fromUuidSync = oldFU; settings.soundTrims = {}; settings.soundTrimsV1 = {}; delete settings.soundTrimsBase;
+}
 settings.tvVolume = { music: 1, ambient: 1, interface: 1 };
 const did = M.applyLaunchVolumes({ isDisplay: false });
 check("launch, the primary GM: its own sliders AND the TV's (tvVolume) to the defaults",
