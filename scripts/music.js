@@ -32,7 +32,7 @@
  */
 import { MODULE_ID } from "./preset.js";
 import { combatMusicMode, configureForCombat, restoreTouched } from "./combat-music.js";
-import { resolveMusic, targetKey, battleFor, manualStillHolds, partyRoom, Dwell, OVERLAP_SETTING, OVERLAP_DEFAULT, overlapApplies, handOffIn, handOffUpdate, isBed, bedStays, bedKind, sceneBattleOf } from "./music-core.js";
+import { resolveMusic, targetKey, battleFor, manualStillHolds, partyRoom, Dwell, OVERLAP_SETTING, OVERLAP_DEFAULT, overlapApplies, handOffIn, handOffUpdate, isBed, bedStays, bedKind, sceneBattleOf, sceneMusicOf } from "./music-core.js";
 
 export const MUSIC_BEHAVIOR_TYPE = `${MODULE_ID}.music`;
 const HOOK = `${MODULE_ID}.music`;
@@ -46,6 +46,7 @@ let _lock = Promise.resolve();
 let _cueTimer = null;
 let _stopping = new Set(); // sound ids WE are stopping, so their playing:false is not read as a cue ending
 let _tick = null;
+const _ownPlayed = new Set(); // §59: every scene default soundtrack this driver has chosen, so a later scene stops it
 
 const isDriver = () => game.user === game.users.activeGM;
 const serialize = (fn) => { const p = _lock.then(fn, fn); _lock = p.catch(() => {}); return p; };
@@ -164,7 +165,18 @@ function roomTarget(scene) {
   return r && sync(r.playlist) ? { kind: "playlist", uuid: r.playlist, fade: r.fade } : null;
 }
 
+/** The scene's own default soundtrack (§59: his flag, else MC's pick), when that playlist exists and has tracks. */
+function sceneMusic(scene) {
+  if (!scene) return null;
+  const uuid = sceneMusicOf({ id: scene.id, flags: scene.flags, worldId: game.world?.id });
+  const pl = uuid ? sync(uuid) : null;
+  return pl?.documentName === "Playlist" && !hasNoTracks(pl) ? pl : null;
+}
+
 function sceneDefault(scene) {
+  // §59: a default soundtrack of its own wins; its environment bed (the scene's Playlist field) plays on under it
+  const own = sceneMusic(scene);
+  if (own) { _ownPlayed.add(own.uuid); return { kind: "playlist", uuid: own.uuid }; }
   if (!scene?.playlist) return null;
   if (scene.playlistSound) return { kind: "sound", uuid: scene.playlistSound.uuid ?? `${scene.playlist.uuid}.PlaylistSound.${scene.playlistSound.id ?? scene.playlistSound}` };
   return { kind: "playlist", uuid: scene.playlist.uuid };
@@ -195,6 +207,8 @@ function musicPlaylists() {
   const set = new Set();
   for (const p of game.playlists ?? []) if (p.getFlag?.(MODULE_ID, "music")) set.add(p);
   const sc = game.scenes?.active?.playlist; if (sc) set.add(sc);
+  const own = sceneMusic(game.scenes?.active); if (own) set.add(own);
+  for (const u of _ownPlayed) { const p = sync(u); if (p) set.add(p); }
   const lib = sync(setting("combatMusicPlaylist", "")); if (lib) set.add(lib);
   const cur = _current?.target ? sync(_current.target.uuid) : null;
   if (cur) set.add(cur.documentName === "PlaylistSound" ? cur.parent : cur);

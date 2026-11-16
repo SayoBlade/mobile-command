@@ -50,7 +50,11 @@ const CORE_KEY = Object.freeze({ music: "globalPlaylistVolume", environment: "gl
  * environment 0.5 (his beds), cues 0.6 (our cue default).
  */
 export const SLIDER_DEFAULT = Object.freeze({ music: 0.25, environment: 0.5, interface: 0.5 });
-export const MIX_DEFAULT = Object.freeze({ music: 0.3, environment: 1, cues: 1 });
+// music 0.3 → 0.6 (+6 dB, DM 2026-11-17 after SEAT 5 measured room music ≈ −48 dBFS, 11–17 dB under the Syrinscape beds,
+// inaudible at the table; ≈ 5–11 dB under now, aiming at 6–8). DESIGN §59.
+export const MIX_DEFAULT = Object.freeze({ music: 0.6, environment: 1, cues: 1 });
+/** Fight music sits this many dB over the scene's default music (DM 2026-11-17, §59): a battle playlist's sounds. */
+export const COMBAT_LIFT_DB = 3;
 export const SET_LEVEL = Object.freeze({ music: 0.8, environment: 0.5, cues: 0.6 });
 export const SYR_LIFT_DB = Object.freeze({ ambience: 18.75, music: 11.5, oneshots: 3.2 });
 export const LAYER_MIN = 0.001, LAYER_MAX = 4; // −60 dB … +12 dB: a layer never reaches 0 (the groups divide by it)
@@ -109,10 +113,20 @@ export function layerOf(sound, { battleLibId = null } = {}) {
  * Pure: the level a sound starts at. A sound the deck levelled plays its measured level, as long as it still plays the
  * file that level was measured on; anything else plays its layer's set level. `levelled` = Map(uuid → { volume, path }).
  */
-export function setLevelOf(sound, layer, levelled = null, trims = null) {
+export function setLevelOf(sound, layer, levelled = null, trims = null, { battleLibId = null } = {}) {
   const base = baseLevelOf(sound, layer, levelled);
-  const d = trims ? trimDbOf(trimKeyOf(sound), trims) : 0;
+  const d = (trims ? trimDbOf(trimKeyOf(sound), trims) : 0) + combatLiftDbOf(sound, { battleLibId });
   return d ? base * dbToGain(d) : base;
+}
+
+/** Pure (§59): the lift a sound gets as fight music: COMBAT_LIFT_DB for a sound of a battle playlist (role battle, or
+ *  the world's battle library), else 0. A `mixLayer` flag putting it outside music turns it off. */
+export function combatLiftDbOf(sound, { battleLibId = null } = {}) {
+  const pl = sound?.parent ?? sound?.playlist ?? null;
+  const role = pl?.flags?.[MODULE_ID]?.music?.role;
+  const isLib = battleLibId && pl && (pl.uuid === battleLibId || pl.id === battleLibId);
+  if (role !== "battle" && !isLib) return 0;
+  return layerOf(sound, { battleLibId }) === "music" ? COMBAT_LIFT_DB : 0;
 }
 
 /**
@@ -402,7 +416,7 @@ export function routeSound(doc, sound) {
   const layer = layerOf(from, { battleLibId: battleLibId() });
   sound.destination = rig.groups[layer];
   sound.mcMixLayer = layer;
-  const level = () => setLevelOf(from, layer, levelled, trimsNow());
+  const level = () => setLevelOf(from, layer, levelled, trimsNow(), { battleLibId: battleLibId() });
   sound.mcLevelOf = level;
   sound.mcSetLevel = level();
   if (typeof sound.load === "function" && !sound.__mcSetLevel) {

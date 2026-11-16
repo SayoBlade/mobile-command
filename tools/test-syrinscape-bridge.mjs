@@ -166,13 +166,13 @@ globalThis.syrinscape.player.elementSystem = { setOneshotVolume: (v) => shotWrit
 settings.soundMix = {};
 settings.globalPlaylistVolume = 0.25; // the launch default (§58.7): a mood's score follows Music ÷ Environment
 const r0 = B.syncSyrinscapeLevels();
-check("mix: the default mix writes all three groups", r0 === "set ambience 1.5, music 0.367, one-shots 0.585" && gnode.value === 1.5 && musicWrites.length === 1 && shotWrites.length === 1, r0);
+check("mix: the default mix writes all three groups (music 0.528 = 0.367 + 6 dB, §59)", r0 === "set ambience 1.5, music 0.528, one-shots 0.585" && gnode.value === 1.5 && musicWrites.length === 1 && shotWrites.length === 1, r0);
 check("mix: kept — the next check reports nothing new but re-asserts both groups", B.syncSyrinscapeLevels() === "same" && musicWrites.length === 2 && shotWrites.length === 2);
 gnode.value = 0.4; // Syrinscape's server pushed its own global volume
 check("mix: a server reset of the global volume is put back", B.syncSyrinscapeLevels() === "set ambience 1.5" && gnode.value === 1.5);
 settings.soundMix = { environment: 0.5 };
 check("mix: a lower environment lowers the global and lifts the groups under it to keep them where they were",
-  B.syncSyrinscapeLevels() === "set ambience 1.339, music 0.528, one-shots 0.746");
+  B.syncSyrinscapeLevels() === "set ambience 1.339, music 0.688, one-shots 0.746");
 settings.soundMix = {};
 B.syncSyrinscapeLevels();
 check("mix: the old levels setting is no longer read", (settings.syrinscapeLevels = { moods: 0.2, oneshots: 0.2 }) && B.syncSyrinscapeLevels() === "same" && gnode.value === 1.5);
