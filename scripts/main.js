@@ -12,7 +12,7 @@ import { openWindowsAfterRest, isSpellBookRestPrompt, phonePrepareOn } from "./p
 import { registerDMPanel, refreshPanel, openDock } from "./dm-panel.js";
 import { setupTvVisionCard } from "./tv-vision-card.js"; // §23.7 "No PCs in scene" on the TV
 import { planDmSilence } from "./dm-silence.js"; // the DM's music AND environment while the TV is connected
-import { registerSyrinscapeBridge, soundScenesState, setSoundScenes, syncSyrinscapeVolume } from "./syrinscape-bridge.js"; // Syrinscape or local (deck-command D-0116)
+import { registerSyrinscapeBridge, soundScenesState, setSoundScenes, syncSyrinscapeVolume, setSyrinscapeLevels, syncSyrinscapeLevels } from "./syrinscape-bridge.js"; // Syrinscape or local (deck-command D-0116)
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, preloadRideSound, primeRideSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
@@ -1012,7 +1012,7 @@ Hooks.once("ready", () => {
     enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, deactivate, reactivate, revert: deactivate, hasBackup },
     train: { wire: wireTrainDoors, ride: setTrainMist, sound: setTrainSound, preload: preloadRideSound, jolt: setTrainJolt, joltNow, riding: trainMistOn, hasWindows: trainCarHasWindows, setWindows: setTrainWindows, freeWeather: (o) => freeTrainWeather({ force: true, ...o }) }, // §37 macro access (§8.1 manual triggers)
     house: { restore: (o) => restoreCrookedHouse({ force: true, ...o }), plan: () => planHouseNow() }, // the Crooked House put-back (§8.1 manual trigger)
-    soundScenes: { state: soundScenesState, set: setSoundScenes }, // Syrinscape or local (deck-command D-0116): the deck's Music drawer switch
+    soundScenes: { state: soundScenesState, set: setSoundScenes, levels: setSyrinscapeLevels, applyLevels: syncSyrinscapeLevels }, // Syrinscape or local (deck-command D-0116): the deck's Music drawer switch
     /**
      * §18/§41 TRAVEL, READ-ONLY — what a second surface needs to draw its own travel keys
      * (deck-command D-0065). The VERBS are published as actions (`travel.*`), which is the

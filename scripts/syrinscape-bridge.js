@@ -294,7 +294,60 @@ export function startVolumeKeeper() {
   if (volWatch) return;
   volWatch = true;
   Hooks.on("globalAmbientVolumeChanged", () => setTimeout(syncSyrinscapeVolume, 50)); // after the module's own fade
-  game.audio?.unlock?.then?.(() => { syncSyrinscapeVolume(); volWatch = setInterval(syncSyrinscapeVolume, VOLUME_CHECK_MS); });
+  const keep = () => { syncSyrinscapeVolume(); syncSyrinscapeLevels(); };
+  game.audio?.unlock?.then?.(() => { keep(); volWatch = setInterval(keep, VOLUME_CHECK_MS); });
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * TWO GROUP LEVELS, SET ONCE AND KEPT (DM 2026-11-16: one level for Syrinscape moods, one for Syrinscape one-shots;
+ * "don't mess with Syrinscape items too much"). World setting `syrinscapeLevels` = { moods, oneshots }, each a gain on
+ * Syrinscape's own scale (0–1.5, 1 = as Syrinscape plays it), or absent = leave Syrinscape's own. No entry or element
+ * volume is touched. Syrinscape's player has a ONE-SHOT group but no mood group: mood loops go straight into its GLOBAL
+ * volume, and one-shots go through the one-shot group and then global too. So moods → global, and the one-shot group
+ * carries oneshots ÷ moods so a one-shot lands at exactly `oneshots`. Local volume stays the Environment/TV mute (above).
+ * Every client that plays Syrinscape keeps it (the keeper's 5 s check), because Syrinscape's server pushes its own
+ * global/one-shot volume on connect and from its control panel. Floors keep clear of the −∞ fade trap at 0.
+ * ------------------------------------------------------------------------------------------------------------------ */
+export const LEVEL_MAX = 1.5, LEVEL_FLOOR = 0.001;
+const gain = (v) => { const n = Number(v); return v == null || v === "" || !Number.isFinite(n) ? null : Math.min(Math.max(n, LEVEL_FLOOR), LEVEL_MAX); };
+
+/** Pure: { moods, oneshots } (gains or absent) → the two Syrinscape nodes to write: { global, oneshot } (null = leave). */
+export function syrinscapeGroupLevels(levels) {
+  const moods = gain(levels?.moods), shots = gain(levels?.oneshots);
+  const global = moods;
+  const oneshot = shots === null ? null : Math.min(Math.max(shots / (moods ?? 1), LEVEL_FLOOR), LEVEL_MAX);
+  return { global, oneshot };
+}
+
+let lastOneshot = null;
+/** Write the two group levels if they differ. Returns what it did. */
+export function syncSyrinscapeLevels() {
+  const p = globalThis.syrinscape?.player;
+  const node = p?.audioSystem?.effectSystem?.globalVolume;
+  if (!node) return "no player";
+  let levels; try { levels = game.settings.get(MODULE_ID, "syrinscapeLevels"); } catch (e) { return "no setting"; }
+  const want = syrinscapeGroupLevels(levels);
+  const did = [];
+  if (want.global !== null) {
+    const cur = Number(node.value);
+    if (!Number.isFinite(cur) || Math.abs(cur - want.global) >= 0.001) { try { node.value = want.global; did.push(`moods ${want.global}`); } catch (e) { did.push("moods refused"); } }
+  }
+  if (want.oneshot !== null && p?.elementSystem?.setOneshotVolume) {
+    // the one-shot group has no getter, and the server can reset it at any time: re-assert it on every check (writing
+    // the same value is a no-op fade); report it only when it is new to us
+    try { p.elementSystem.setOneshotVolume(want.oneshot); if (lastOneshot !== want.oneshot) did.push(`one-shots ${want.oneshot}`); lastOneshot = want.oneshot; } catch (e) { did.push("one-shots refused"); }
+  }
+  return did.length ? `set ${did.join(", ")}` : "same";
+}
+
+/** GM: set either level (a gain, or null to hand it back to Syrinscape). MobileCommand.soundScenes.levels({ moods, oneshots }). */
+export async function setSyrinscapeLevels(next = {}) {
+  if (!game.user?.isGM) return { ok: false, reason: "GM only" };
+  const was = game.settings.get(MODULE_ID, "syrinscapeLevels") ?? {};
+  const out = { ...was };
+  for (const k of ["moods", "oneshots"]) if (k in next) { const g = gain(next[k]); if (g === null) delete out[k]; else out[k] = g; }
+  await game.settings.set(MODULE_ID, "syrinscapeLevels", out);
+  return { ok: true, levels: out, was };
 }
 
 export function registerSyrinscapeBridge() {

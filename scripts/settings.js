@@ -1,7 +1,7 @@
 import { MODULE_ID, SAVE_TIMEOUT_SETTING, DEFAULT_CARD_THEME, DAY_DARKNESS_FLOOR } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { makeConfirmMenuClass, deactivate, reactivate, hasBackup, hasReactivateSnapshot } from "./enforcer.js";
-import { resyncSyrinscapeEntries } from "./syrinscape-bridge.js"; // sound scenes: Syrinscape or local (SOUND-PLAN §2.7)
+import { resyncSyrinscapeEntries, syncSyrinscapeLevels } from "./syrinscape-bridge.js"; // sound scenes: Syrinscape or local (SOUND-PLAN §2.7)
 
 export function registerSettings() {
   // D7 role, per-client. Phase 1 uses it only to decide which client runs
@@ -522,6 +522,13 @@ export function registerSettings() {
   game.settings.register(MODULE_ID, "syrinscapeOffline", {
     scope: "world", config: false, type: Boolean, default: false,
     onChange: () => resyncSyrinscapeEntries()
+  });
+
+  // Two group levels for Syrinscape, set once and kept (DM 2026-11-16): { moods, oneshots } gains, absent = Syrinscape's
+  // own. Applied by every client that plays Syrinscape (syrinscape-bridge.js syncSyrinscapeLevels).
+  game.settings.register(MODULE_ID, "syrinscapeLevels", {
+    scope: "world", config: false, type: Object, default: {},
+    onChange: () => syncSyrinscapeLevels()
   });
 
   // §53 (catalogue 230, DM go 2026-09-20): Foundry gives a GM controlling no token NO ambient sound at
