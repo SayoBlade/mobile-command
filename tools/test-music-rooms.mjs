@@ -99,6 +99,16 @@ check("roomOf answers the room under a point (a surface's own pin), or null", M.
 check("a pick of this scene's room is accepted", (await M.pick("Playlist.dining")).ok === true && store.get("musicState").manual.what === "room");
 check("a pick of a mood is accepted", (await M.pick("Playlist.mood")).ok === true && store.get("musicState").manual.what === "mood");
 check("a pick of ANOTHER scene's playlist is refused (rooms only)", (await M.pick("Playlist.elsewhere")).ok === false);
+// SEAT 5 (2026-11-17): an empty mood (Calm after deck m171) is shown as empty and its pick refused — the room's music
+// must not stop for a playlist that starts nothing
+const calm = { uuid: "Playlist.calm", documentName: "Playlist", name: "Mood · Calm", sort: 1, folder: { id: "F" }, sounds: new Map() };
+PL.set(calm.uuid, calm); game.playlists.push(calm);
+const before = JSON.stringify(store.get("musicState"));
+const r = await M.pick("Playlist.calm");
+check("a pick of an EMPTY mood is refused, says so, and changes nothing", r.ok === false && /Calm has no tracks/.test(r.reason) && JSON.stringify(store.get("musicState")) === before, JSON.stringify(r));
+check("state marks the empty mood (and only it) empty", M.state().moods.find((m) => m.uuid === "Playlist.calm")?.empty === true && M.state().moods.find((m) => m.uuid === "Playlist.mood")?.empty === false);
+calm.sounds.set("s1", {});
+check("…and accepts it once it has a track", (await M.pick("Playlist.calm")).ok === true);
 scene.regions = [];
 check("a scene with no Music regions (a train car) offers no rooms at all", M.state().rooms.length === 0);
 

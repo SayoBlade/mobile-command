@@ -426,6 +426,16 @@ export function moods() {
 }
 
 /**
+ * A playlist with no tracks (SEAT 5, 2026-11-17: deck-command m171 moved "Calm"'s two tracks to Tension and left it
+ * empty). Picking it would stop the room's music and start nothing — the music "goes" on a press. true only when the
+ * playlist's sounds are known and there are none.
+ */
+function hasNoTracks(p) {
+  const n = p?.sounds?.size ?? p?.sounds?.length;
+  return n === 0;
+}
+
+/**
  * The DM's pick from the drawer: "auto" clears it; "silence"; "battle" (the fight's music, or the
  * world's battle music outside a fight); or a playlist uuid (a mood). GM only.
  */
@@ -442,7 +452,10 @@ export async function pick(what) {
     const p = sync(what);
     const isMood = moods().some((m) => m.uuid === p?.uuid);
     const isRoom = scoredRooms(game.scenes?.active).some((r) => r.playlist === p?.uuid);
-    if (p?.documentName === "Playlist" && (isMood || isRoom)) { target = { kind: "playlist", uuid: p.uuid }; what = isRoom && !isMood ? "room" : "mood"; }
+    if (p?.documentName === "Playlist" && (isMood || isRoom)) {
+      if (hasNoTracks(p)) return { ok: false, reason: `${String(p.name ?? "").replace(/^(Room|Mood)\s·\s/, "")} has no tracks` };
+      target = { kind: "playlist", uuid: p.uuid }; what = isRoom && !isMood ? "room" : "mood";
+    }
   }
   if (!target) return { ok: false, reason: what === "battle" ? "No battle music set" : "Not a mood or a room here" };
   if (target.anthem) { const b = battleFor(combatantShapes(combat), null, combat?.getFlag?.(MODULE_ID, "musicPhased") ?? []); target = b.uuid ? { kind: "playlist", uuid: b.uuid } : defaultBattle(); }
@@ -492,7 +505,7 @@ export function state() {
     manualUuid: holds?.target?.uuid ?? null,
     cue: Boolean(c),
     inCombat: Boolean(combat),
-    moods: moods().map((p) => ({ uuid: p.uuid, name: strip(p.name), current: holds?.target?.uuid === p.uuid })),
+    moods: moods().map((p) => ({ uuid: p.uuid, name: strip(p.name), current: holds?.target?.uuid === p.uuid, empty: hasNoTracks(p) })),
     battle: Boolean(combatTarget(combat) ?? defaultBattle()),
     // THIS SCENE'S scored rooms only — never another scene's (DM 2026-10-31). Empty on a scene with
     // no Music regions (every train car), so a surface offers no room choices there at all.
