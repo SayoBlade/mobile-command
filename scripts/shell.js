@@ -19,6 +19,7 @@ import { isSaveResult, acShape } from "./dnd5e-compat.js"; // the dnd5e 5.3 ⇄ 
 import { surfaceOn, actionAllowed } from "./tier.js"; // Basic / Complex — the ONE gate for shared-state surfaces (tier.js imports only preset.js)
 import { view as prepView, canToggle as prepCanToggle, saveState as prepSaveState, planSave as prepPlan, hasChanges as prepHasChanges } from "./prepare-plan.js"; // Prepare spells (D-0106)
 import { phonePrepareOn } from "./prepare-data.js";
+import { messageForRequest, hiddenFromMe, requestIsBlind } from "./blind-roll.js"; // a blind ask (deck-command D-0118)
 import { veOn, veRollSheetHTML, veRollConfig } from "./ve-trial.js"; // the VE Mobile look, a trial behind `veTrial` (2026-11-14) // the switch: off until he has reviewed it (lead 2026-11-13)
 import { canCastAsRitual, ritualSlotId } from "./ritual.js"; // a prepared ritual (or a wizard's book) casts with no slot (2026-11-12)
 import { splitState, splitCard, splitCardShown } from "./split-state.js"; // a phone off the table's map: waiting, or calm on a stage (2026-11-12)
@@ -6690,10 +6691,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     // the old bare fixed bar floated over the sheet with no background (live 2026-07-18).
     return `<div class="mc-saveprompt mc-rollreq">
       <div class="mc-saveprompt-bar">
-        <span class="mc-saveprompt-title"><i class="fas fa-dice-d20"></i> ${init ? "Roll for initiative" : "The DM asks for a roll"}</span>
+        <span class="mc-saveprompt-title"><i class="fas ${requestIsBlind(p) ? "fa-eye-slash" : "fa-dice-d20"}"></i> ${init ? "Roll for initiative" : requestIsBlind(p) ? "The DM asks for a blind roll" : "The DM asks for a roll"}</span>
         <button class="mc-saveprompt-x" data-action="roll-request-x" aria-label="Dismiss"><i class="fas fa-xmark"></i></button>
       </div>
       <div class="mc-saveprompt-body">
+        ${requestIsBlind(p) ? `<div class="mc-saveprompt-sub"><i class="fas fa-eye-slash"></i> Only the DM will see the result.</div>` : ""}
         <div class="mc-saveprompt-btns">
           <button class="mc-save-roll" data-action="roll-request">Roll ${foundry.utils.escapeHTML(p.label ?? p.ability)}${verb}${dc === null ? "" : ` (DC ${dc})`}</button>
         </div>
@@ -7705,7 +7707,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         if (p.rollType === "initiative") return void this.#rollInitiativeFor(a);
         // A skill check rolls the SKILL (R2 step 37, 2026-11-09: a Perception ask rolled a Wisdom check).
         // Every roll names the actor's token (rollMessageFor): a canvasless phone otherwise posts it token-less.
-        const msg = rollMessageFor(a, p.tokenUuid);
+        // a BLIND ask (D-0118) rolls in Foundry's blind mode: whispered to the GMs, "???" for the roller
+        const msg = messageForRequest(p, rollMessageFor(a, p.tokenUuid));
         // the VE trial's segment: advantage or disadvantage into the roll's own config; Normal (and off) adds nothing
         const mode = veOn() ? veRollConfig(this.#veRollMode) : {};
         if (p.rollType === "check" && p.skill) return void a.rollSkill({ skill: p.skill, ...mode }, {}, msg);
@@ -9090,6 +9093,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const tmp = document.createElement("div");
     tmp.innerHTML = message.flavor ?? "";
     const label = tmp.textContent.trim() || "Roll";
+    // ⚠️ A BLIND ROLL KEEPS ITS NUMBER (D-0118): the message still carries the roll on its author's client, so the phone
+    // must not read it out. The mark stands where the number goes; no natural 20/1 either (that is a result too).
+    if (hiddenFromMe(message)) return { id: message.id, label, total: null, formula: "", outcome: "", hidden: true };
 
     // Natural 20 / 1 on the kept d20 — system-agnostic, no dnd5e internals.
     const d20 = roll.dice?.find(d => d.faces === 20);
@@ -9139,7 +9145,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #stripPills() {
     return this.#recentRolls.map((r, i) => `
       <div class="mc-roll-pill ${r.outcome} ${i === 0 ? "mc-latest" : ""}">
-        <span class="mc-roll-pill-total">${r.total}</span>
+        <span class="mc-roll-pill-total">${r.hidden ? `<i class="fas fa-eye-slash" aria-label="only the DM sees it"></i>` : r.total}</span>
         <span class="mc-roll-pill-label">${foundry.utils.escapeHTML(r.label)}</span>
       </div>`).join("");
   }
@@ -9175,10 +9181,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (entry.kind === "damage") toast.classList.add("mc-toast-damage");
     else if (entry.kind === "save") toast.classList.add("mc-toast-save");
     toast.innerHTML = `
-      <div class="mc-roll-toast-total">${entry.total}</div>
+      <div class="mc-roll-toast-total">${entry.hidden ? `<i class="fas fa-eye-slash"></i>` : entry.total}</div>
       <div class="mc-roll-toast-meta">
-        <div class="mc-roll-toast-label">${foundry.utils.escapeHTML(entry.label)}</div>
-        <div class="mc-roll-toast-formula">${foundry.utils.escapeHTML(entry.formula ?? "")}</div>
+        <div class="mc-roll-toast-label">${foundry.utils.escapeHTML(entry.label)}${entry.hidden ? " · rolled" : ""}</div>
+        <div class="mc-roll-toast-formula">${entry.hidden ? "The DM sees the result." : foundry.utils.escapeHTML(entry.formula ?? "")}</div>
         ${tag ? `<span class="mc-roll-tag">${tag}</span>` : ""}
       </div>`;
     toast.classList.add("mc-show");

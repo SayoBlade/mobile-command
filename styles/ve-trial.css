@@ -150,3 +150,9 @@ body {
   transition: transform 140ms ease;
 }
 .mc-ve-cta:active { transform: scale(.98); }
+/* a blind ask (deck-command D-0118): one quiet line, the gold mark the kicker wears */
+.mc-ve-blind {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: calc(10px * var(--mc-round, 1));
+  background: var(--mc-ve-sunken); border: 1px solid var(--mc-ve-edge-2); color: var(--mc-ve-muted); font-size: 14px;
+}
+.mc-ve-blind i { color: var(--mc-gold); }

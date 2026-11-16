@@ -13,6 +13,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime data model + Rule engine
 // Pure-data wall test: works on scenes the DM isn't looking at, where the canvas collision
 // backends only know the VIEWED scene. Used by movement and by travel-point landings.
 import { wallsBlock } from "./cm-train.js";
+import { messageForRequest } from "./blind-roll.js"; // a blind ask (deck-command D-0118)
 import { surfaceOn } from "./tier.js"; // Basic / Complex: who decides a travel square (tier.js imports only preset.js)
 
 // §5 Service RPC contract, Phase 1 subset, running on the executor client
@@ -3333,7 +3334,7 @@ export function rollSkillKey(rollType, skill) {
   const known = CONFIG.DND5E?.skills;
   return known ? (key in known ? key : null) : (/^[a-z]{3}$/.test(key) ? key : null);
 }
-async function handleRequestRolls({ rollType, ability, skill, actorIds, actorUuids, label, dc, requesterId }) {
+async function handleRequestRolls({ rollType, ability, skill, actorIds, actorUuids, label, dc, requesterId, blind }) {
   if (!isExecutor()) return { ok: false, reason: "not the DM client" };
   if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM requests rolls" };
   const kind = rollType === "check" ? "check" : rollType === "initiative" ? "initiative" : "save";
@@ -3390,13 +3391,17 @@ async function handleRequestRolls({ rollType, ability, skill, actorIds, actorUui
     if (kind === "initiative" && initiativeDoneFor(actor)) { skipped++; continue; }
     const owners = game.users.filter(u => u.active && !u.isGM && actor.testUserPermission(u, "OWNER"));
     if (owners.length) {
-      const payload = { actorUuid: actor.uuid, rollType: kind, ability, skill: sk, label: text, dc: target, ts: Date.now() };
+      // BLIND (deck-command D-0118): the phone rolls it in the blind mode, so only the GMs see the number
+      const payload = { actorUuid: actor.uuid, rollType: kind, ability, skill: sk, label: text, dc: target, ts: Date.now(), ...(blind === true ? { blind: true } : {}) };
       for (const u of owners) socket.executeAsUser("rollRequest", u.id, payload);
       sent++;
     } else {
       try {
         if (kind === "initiative") { if (await rollInitiativeForActor(actor)) auto++; }
-        else { sk ? await actor.rollSkill({ skill: sk }) : kind === "check" ? await actor.rollAbilityCheck({ ability }) : await actor.rollSavingThrow({ ability }); auto++; }
+        else {
+          const msg = messageForRequest({ blind: blind === true }, {}); // nobody holds the phone: the DM rolls it, still blind
+          sk ? await actor.rollSkill({ skill: sk }, {}, msg) : kind === "check" ? await actor.rollAbilityCheck({ ability }, {}, msg) : await actor.rollSavingThrow({ ability }, {}, msg); auto++;
+        }
       } catch (e) { /* skip */ }
     }
   }

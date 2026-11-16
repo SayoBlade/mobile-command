@@ -69,7 +69,7 @@ export function veRollSheetHTML(p, { mode = "normal", esc = plainEsc } = {}) {
   return `<div class="mc-ve-veil" aria-hidden="true"></div>
     <div class="mc-saveprompt mc-rollreq mc-ve-sheet">
       <div class="mc-saveprompt-bar">
-        <span class="mc-ve-kicker"><i class="fas fa-dice-d20"></i> ${w.init ? "Roll for initiative" : "The DM asks for a roll"}</span>
+        <span class="mc-ve-kicker"><i class="fas ${p.blind === true ? "fa-eye-slash" : "fa-dice-d20"}"></i> ${w.init ? "Roll for initiative" : p.blind === true ? "The DM asks for a blind roll" : "The DM asks for a roll"}</span>
         <button class="mc-saveprompt-x" data-action="roll-request-x" aria-label="Dismiss"><i class="fas fa-xmark"></i></button>
       </div>
       <div class="mc-saveprompt-body">
@@ -80,6 +80,7 @@ export function veRollSheetHTML(p, { mode = "normal", esc = plainEsc } = {}) {
             ${source}
           </div>
         </div>
+        ${p.blind === true ? `<div class="mc-ve-blind"><i class="fas fa-eye-slash"></i> Only the DM will see the result.</div>` : ""}
         ${seg}
         <button class="mc-ve-cta" data-action="roll-request"><i class="fas fa-dice-d20"></i> ${esc(w.cta)}</button>
       </div>
