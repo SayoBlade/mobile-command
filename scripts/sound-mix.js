@@ -138,13 +138,15 @@ export function firstBuildBaseOf(sound, layer, levelled = null) {
 }
 /**
  * Pure: convert trims written on the first build's bases so every sound plays exactly as loud as when it was trimmed:
- * t' = t + 20·log10(old base ÷ new base). `sounds` = [{ key, old, now }]. → { trims, moved: [{key, from, to}], clamped }.
+ * t' = t + 20·log10(old base ÷ new base). `sounds` = [{ key, old, now, measured }]; `measured` = heard at the old base
+ * and left untrimmed (within 1 dB), so it gets a trim too. → { trims, moved: [{key, from, to}], clamped }.
  */
 export function planTrimRebase(trims = {}, sounds = []) {
   const out = { ...trims }, moved = [], clamped = [];
-  for (const { key, old, now } of sounds) {
-    if (!(key in out) || !(old > 0) || !(now > 0) || Math.abs(old - now) < 1e-9) continue;
-    const from = Number(out[key]);
+  for (const { key, old, now, measured } of sounds) {
+    if (!(key in out) && !measured) continue;
+    if (!(old > 0) || !(now > 0) || Math.abs(old - now) < 1e-9) continue;
+    const from = key in out ? Number(out[key]) : 0; // `measured`: judged right at the old base, so no trim was written
     if (!Number.isFinite(from)) continue;
     const want = from + 20 * Math.log10(old / now);
     const to = Math.round(Math.min(Math.max(want, TRIM_MIN_DB), TRIM_MAX_DB) * 10) / 10;
@@ -178,6 +180,31 @@ export function activeMood(entries = []) {
 }
 /** Pure: Syrinscape's local value with a mood trim on top: { local, appliedDb }. The local tops out at 0 dB (value 1),
  *  so a positive trim may be cut short; `appliedDb` is what landed (the one-shot group is compensated by it). */
+/**
+ * Pure (§58.12): where a mood's trim lands. The mood's whole output (its loops, its score AND its one-shots) moves by it,
+ * so nothing is compensated inside Syrinscape. A CUT goes on Syrinscape's GLOBAL volume (every element; ≈ 56 dB of room
+ * above its floor at the default mix), the rest, if any, on the local; a LIFT goes on the local (the global is at its
+ * 1.5 ceiling), up to its 0 dB top. `globalValue` = the mix's global value before the trim.
+ * → { localDb, globalDb, appliedDb } (appliedDb = what landed; standalone elements are compensated by it, §58.12).
+ */
+export function moodTrimSplit(env, master, globalValue, trimDb = 0) {
+  const t = Number(trimDb);
+  if (!t || !Number.isFinite(t)) return { localDb: 0, globalDb: 0, appliedDb: 0 };
+  if (t > 0) {
+    const l = syrLocalWithTrim(env, master, t);
+    const d = Number.isFinite(l.appliedDb) ? l.appliedDb : 0;
+    return { localDb: d, globalDb: 0, appliedDb: d };
+  }
+  const g = Number(globalValue);
+  const gDb = Number.isFinite(g) ? (g - 1) * SYR_DB_RANGE : 0;
+  const room = (SYR_FLOOR - 1) * SYR_DB_RANGE - gDb; // ≤ 0: how far the global can still go down
+  const globalDb = Math.max(t, Math.min(room, 0));
+  let localDb = 0;
+  const rest = t - globalDb;
+  if (rest < 0) { const l = syrLocalWithTrim(env, master, rest); localDb = Number.isFinite(l.appliedDb) ? l.appliedDb : rest; }
+  return { localDb, globalDb, appliedDb: globalDb + localDb };
+}
+
 /** Pure (§58.11): an element's value with its trim, RELATIVE to the element's own Syrinscape volume (`base`, what its
  *  mood or the server set), on Syrinscape's dB scale. Base 0 (silenced in Syrinscape) stays 0. */
 export function syrElementValue(base, trimDb = 0) {
@@ -518,13 +545,19 @@ export function soundMixState() {
 export async function rebaseTrimsOnce() {
   if (!game.user?.isGM || game.users?.activeGM?.id !== game.user.id) return null;
   if (setting("soundTrimsBase", 1) >= 2) return null;
-  const trims = trimsNow(), sounds = [];
+  const trims = trimsNow(), sounds = [], docs = new Map();
+  // the trimmed sounds, and every other sound of the playlists the seat trimmed (SEAT 4 heard all 459 of them and left
+  // those within 1 dB untrimmed: they keep tonight's loudness too)
   for (const key of Object.keys(trims)) {
     if (key.startsWith("syr:")) continue;
     let doc = null; try { doc = fromUuidSync(key); } catch (e) { /* gone */ }
     if (doc?.documentName !== "PlaylistSound") continue;
+    docs.set(key, doc);
+    for (const sib of doc.parent?.sounds ?? []) if (sib?.uuid && !docs.has(sib.uuid) && !sib.flags?.["syrinscape-control"]?.soundType) docs.set(sib.uuid, sib);
+  }
+  for (const [key, doc] of docs) {
     const layer = layerOf(doc, { battleLibId: battleLibId() });
-    sounds.push({ key, old: firstBuildBaseOf(doc, layer, levelled), now: baseLevelOf(doc, layer, levelled) });
+    sounds.push({ key, measured: !(key in trims), old: firstBuildBaseOf(doc, layer, levelled), now: baseLevelOf(doc, layer, levelled) });
   }
   const plan = planTrimRebase(trims, sounds);
   try {

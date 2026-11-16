@@ -179,58 +179,85 @@ check("mix: the old levels setting is no longer read", (settings.syrinscapeLevel
 const bsrc = fs.readFileSync(path.join(ROOT, "scripts", "syrinscape-bridge.js"), "utf8");
 check("mix: no entry volume is touched; an element's volume is written only by syncElementTrims, never as an absolute trim (§58.11)",
   !/\.setElementVolume\(|\.update\(\{ volume/.test(bsrc) && !/setElementIdVolume\(id, syrValueDb\(/.test(bsrc) && /export function syncElementTrims/.test(bsrc));
-// ---- per-sound trims on Syrinscape ELEMENTS (§58.10, fixed §58.11: relative to the element's own volume) ----
+// ---- per-sound trims on Syrinscape ELEMENTS (§58.10; fixed §58.11 relative to the element's own volume; §58.12 only
+// while the element plays on its own, from a Foundry entry) ----
 // A fake of Syrinscape's inner element-volume map: a write that changes the value fires its setElementVolume event.
 const elWrites = [], elMap = new Map(), playingEls = new Map();
 const es0 = globalThis.syrinscape.player.elementSystem;
 es0.setElementIdVolume = (id, v) => { if (elMap.get(id) !== v) { elMap.set(id, v); elWrites.push([id, v]); B.onSyrinscapeElementVolume({ elementId: id, volume: v }); } };
 es0.getElementsWithElementId = (id) => (playingEls.has(id) ? [["uuid-" + id, { volume: playingEls.get(id) }]] : []);
 const dbOf = (v) => 37.5 * (v - 1);
-// SEAT 4's case: the element's own level in its mood is 0.6 (−15 dB); the seat asked for −6 dB on top
+const sEntry = (type, id, playing = true) => ({ flags: { "syrinscape-control": { soundType: type, soundId: String(id) } }, playing, uuid: `P.${type}.${id}` });
+const eA = sEntry("element", 4668915), eB = sEntry("element", 777);
+game.playlists = [{ sounds: [eA, eB] }];
+// SEAT 4's case: the element's own level is 0.6 (−15 dB); the seat measured it there and asked for −6 dB
 playingEls.set(4668915, 0.6); elMap.set(4668915, 0.6);
 settings.soundTrims = { "syr:element:4668915": -6, "syr:element:777": -3 };
 B.syncSyrinscapeLevels();
 const w1 = elWrites.find(([id]) => id === 4668915);
 check("element trim: −6 dB lands 6 dB under the element's OWN volume (0.6), not at an absolute −6 dB (the old 0.84, +9 dB louder)",
   w1 && Math.abs(dbOf(w1[1]) - (dbOf(0.6) - 6)) < 1e-9 && Math.abs(w1[1] - 0.84) > 0.1, String(w1?.[1]));
-check("element trim: an element that is not playing (own volume unknown) is not written", !elWrites.some(([id]) => id === 777));
+check("element trim: an element whose own volume is unknown (not started yet) is not written", !elWrites.some(([id]) => id === 777));
 elWrites.length = 0; B.syncSyrinscapeLevels();
 check("element trim: our own write echoing back is not taken as the element's own volume (the next check writes nothing)", elWrites.length === 0);
-// Syrinscape's server (a mood state, the control panel) sets a new own volume: the trim goes back on top, at once
 elMap.set(4668915, 0.8); B.onSyrinscapeElementVolume({ elementId: 4668915, volume: 0.8 });
 check("element trim: a new own volume from Syrinscape gets the trim on top at once (0.8 − 6 dB)",
   elWrites.length === 1 && Math.abs(dbOf(elWrites[0][1]) - (dbOf(0.8) - 6)) < 1e-9, JSON.stringify(elWrites));
-// an element spawning later (its own volume arrives by the event) is trimmed then
 elMap.set(777, 0.5); B.onSyrinscapeElementVolume({ elementId: 777, volume: 0.5 });
 check("element trim: an element that starts later is trimmed when its own volume arrives",
   elWrites.some(([id, v]) => id === 777 && Math.abs(dbOf(v) - (dbOf(0.5) - 3)) < 1e-9));
-settings.soundTrims = {};
+// an element with no level of its own (Syrinscape's default 0 dB) is trimmed from 0 dB
+const eC = sEntry("element", 31); game.playlists[0].sounds.push(eC);
+playingEls.set(31, undefined); settings.soundTrims = { ...settings.soundTrims, "syr:element:31": -10 };
 elWrites.length = 0; B.syncSyrinscapeLevels();
-check("element trim: a removed trim puts the element's OWN volume back (0.8, 0.5), not 0 dB",
-  elWrites.length === 2 && elWrites.some(([id, v]) => id === 4668915 && v === 0.8) && elWrites.some(([id, v]) => id === 777 && v === 0.5), JSON.stringify(elWrites));
+check("element trim: a playing element with no level of its own is trimmed from Syrinscape's 0 dB", elWrites.some(([id, v]) => id === 31 && Math.abs(dbOf(v) + 10) < 1e-9), JSON.stringify(elWrites));
+// the same element inside a MOOD (no entry of its own playing) plays at the mood's level: its own trim comes off
+eA.playing = false; elWrites.length = 0; B.syncSyrinscapeLevels();
+check("element trim: when its entry stops (the element now only plays inside a mood), its own volume is put back",
+  elWrites.some(([id, v]) => id === 4668915 && v === 0.8) && !elWrites.some(([id]) => id === 777 || id === 31), JSON.stringify(elWrites));
+eA.playing = true;
+settings.soundTrims = {}; eA.playing = eB.playing = eC.playing = false;
+elWrites.length = 0; B.syncSyrinscapeLevels();
+check("element trim: a removed trim puts each element's OWN volume back (0.5; 1 for the one with none), not a guess",
+  elWrites.some(([id, v]) => id === 777 && v === 0.5) && elWrites.some(([id, v]) => id === 31 && v === 1), JSON.stringify(elWrites));
 elWrites.length = 0; B.syncSyrinscapeLevels();
 check("…and is then left alone", elWrites.length === 0);
-const { syrElementValue } = await import(pathToFileURL(path.join(ROOT, "scripts", "sound-mix.js")).href);
-check("element trim: an element Syrinscape silenced (own 0) stays silent; no trim = its own value", syrElementValue(0, 6) === 0 && syrElementValue(0.7, 0) === 0.7);
-// a mood trim rides the local volume while that mood plays, and the one-shot group takes it back off
-const moodDoc = { flags: { "syrinscape-control": { soundType: "mood", soundId: "861010" } }, playing: true, uuid: "P.m" };
+const SM = await import(pathToFileURL(path.join(ROOT, "scripts", "sound-mix.js")).href);
+check("element trim: an element Syrinscape silenced (own 0) stays silent; no trim = its own value", SM.syrElementValue(0, 6) === 0 && SM.syrElementValue(0.7, 0) === 0.7);
+check("element trims are re-checked when an element starts a sample", /startElementSample\?\.addListener/.test(bsrc));
+
+// ---- a MOOD's trim moves the whole mood, one-shots included (§58.12, SEAT 4: the wolves fight, Foul Ritual, Run!, the brawl) ----
+const moodDoc = sEntry("mood", 861010);
 game.playlists = [{ sounds: [moodDoc] }];
-settings.soundTrims = { "syr:mood:861010": -4 };
 settings.globalAmbientVolume = 0.5;
-check("trim: the playing mood's trim is found (one mood at a time)", B.moodTrimNow() === -4);
+settings.soundTrims = { "syr:mood:861010": -4 };
+check("mood trim: the playing mood's trim is found (one mood at a time)", B.moodTrimNow() === -4);
 B.syncSyrinscapeVolume();
-const loc = globalThis.syrinscape.player.audioSystem.effectSystem.localVolume.value;
-check("trim: …and lowers this screen's Syrinscape local volume by it", Math.abs(37.5 * (loc - 1) - (20 * Math.log10(0.5) - 4)) < 1e-6, String(loc));
+const loc0 = globalThis.syrinscape.player.audioSystem.effectSystem.localVolume.value;
+check("mood trim: a cut leaves the local volume at the Environment level", Math.abs(dbOf(loc0) - 20 * Math.log10(0.5)) < 1e-6, String(loc0));
 shotWrites.length = 0; B.syncSyrinscapeLevels();
-check("trim: …while the one-shot group is lifted by the same 4 dB, so one-shots stay where they were",
-  Math.abs(37.5 * (shotWrites.at(-1) - 1) - (37.5 * (0.585 - 1) + 4)) < 0.05, String(shotWrites.at(-1)));
+check("mood trim: …and goes on Syrinscape's GLOBAL volume, 4 dB under the mix's 1.5", Math.abs(dbOf(gnode.value) - (dbOf(1.5) - 4)) < 1e-6, String(gnode.value));
+check("mood trim: …with the one-shot group NOT lifted back (its one-shots come down with it)", Math.abs(shotWrites.at(-1) - 0.585) < 0.002, String(shotWrites.at(-1)));
+settings.soundTrims = { "syr:mood:861010": -40 };
+B.syncSyrinscapeVolume(); B.syncSyrinscapeLevels();
+check("mood trim: Foul Ritual's cut (−40, the floor of a trim; it asked for −48) lands in full on the global, far past the local's ~31 dB",
+  Math.abs(dbOf(gnode.value) - (dbOf(1.5) - 40)) < 1e-6 && Math.abs(dbOf(globalThis.syrinscape.player.audioSystem.effectSystem.localVolume.value) - 20 * Math.log10(0.5)) < 1e-6);
+check("mood split: a cut deeper than the global's room spills onto the local", (() => { const x = SM.moodTrimSplit(0.5, 1, 0.2, -40); return x.globalDb < 0 && x.localDb < 0 && Math.abs(x.appliedDb + 40) < 1e-6; })());
+// a key's one-shot (a standalone element) played under that cut mood keeps its level, as far as Syrinscape's range allows
+const shot = sEntry("element", 555); game.playlists[0].sounds.push(shot);
+playingEls.set(555, 0.8); elMap.set(555, 0.8);
+settings.soundTrims = { "syr:mood:861010": -6, "syr:element:555": -2 };
+elWrites.length = 0; B.syncSyrinscapeLevels();
+check("mood trim: a standalone one-shot under a −6 mood plays at its own −2 trim (written +4 over its own volume)",
+  elWrites.some(([id, v]) => id === 555 && Math.abs(dbOf(v) - (dbOf(0.8) + 4)) < 1e-9), JSON.stringify(elWrites));
 settings.soundTrims = { "syr:mood:861010": 12 };
 B.syncSyrinscapeVolume();
-check("trim: a big positive mood trim stops at Syrinscape's top (local 1 = 0 dB), not past it",
+check("mood trim: a big positive trim lifts the local and stops at Syrinscape's top (local 1 = 0 dB)",
   globalThis.syrinscape.player.audioSystem.effectSystem.localVolume.value === 1);
-moodDoc.playing = false;
-check("trim: a mood that is not playing carries no trim", B.moodTrimNow() === 0);
+moodDoc.playing = false; shot.playing = false;
+check("mood trim: a mood that is not playing carries no trim", B.moodTrimNow() === 0);
 settings.soundTrims = {}; game.playlists = []; B.syncSyrinscapeVolume(); B.syncSyrinscapeLevels();
+check("mood trim: with no mood playing the global is back at the mix's 1.5", Math.abs(gnode.value - 1.5) < 1e-9);
 check("mix: the keeper applies it on every client with the Environment level",
   /const keep = \(\) => \{ syncSyrinscapeVolume\(\); syncSyrinscapeLevels\(\); \};/.test(fs.readFileSync(path.join(ROOT, "scripts", "syrinscape-bridge.js"), "utf8")));
 check("mix: a WORLD setting that re-applies the channels and Syrinscape on change",

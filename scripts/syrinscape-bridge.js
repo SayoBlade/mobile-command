@@ -23,7 +23,7 @@
  */
 import { MODULE_ID } from "./preset.js";
 import { notifier } from "./notifier.js";
-import { mixNow, masterNow, slidersNow, syrinscapeNodes, syrLocalWithTrim, trimsNow, trimDbOf, activeMood, syrValueDb, syrElementValue } from "./sound-mix.js";
+import { mixNow, masterNow, slidersNow, syrinscapeNodes, syrLocalWithTrim, trimsNow, trimDbOf, activeMood, syrValueDb, syrElementValue, moodTrimSplit } from "./sound-mix.js";
 
 export const SYR = "syrinscape-control";
 export const OFFLINE_AFTER_MS = 30000;
@@ -258,6 +258,8 @@ export function startMoodWatch() {
   });
   globalThis.syrinscape?.events?.stopElement?.addListener?.((event) => { onSyrinscapeElementStopped(event?.detail?.elementId); });
   globalThis.syrinscape?.events?.setElementVolume?.addListener?.((event) => { onSyrinscapeElementVolume(event?.detail); });
+  // an element starting a sample: a standalone one gets its trim before it is heard much (no level event when it has none)
+  globalThis.syrinscape?.events?.startElementSample?.addListener?.(() => { syncElementTrims(); });
 }
 
 /* ------------------------------------------------------------------------------------------------------------------
@@ -295,12 +297,30 @@ export function moodTrimNow() {
   return m ? trimDbOf(`syr:mood:${m.id}`, trimsNow()) : 0;
 }
 
+/** §58.12: where the playing mood's trim lands on this screen now ({ localDb, globalDb, appliedDb }). */
+export function moodSplitNow() {
+  let env = NaN; try { env = Number(game.settings.get("core", "globalAmbientVolume")); } catch (e) { /* none */ }
+  const g = syrinscapeNodes(mixNow(), slidersNow()).global;
+  return moodTrimSplit(env, masterNow(), g, moodTrimNow());
+}
+
+/** §58.12: the Syrinscape ELEMENTS played on their own right now (a playing Foundry entry of type element), by number.
+ *  Only these carry element trims: an element inside a mood plays at the mood's own level (the mood has its trim). */
+export function standaloneElementsNow() {
+  const out = new Set();
+  for (const pl of game.playlists ?? []) for (const s of pl.sounds ?? []) {
+    const o = syrOf(s);
+    if (o?.type === "element" && s.playing && Number.isFinite(Number(o.id))) out.add(Number(o.id));
+  }
+  return out;
+}
+
 /** Write it if it differs (or is trapped at −∞). Returns what it did. */
 export function syncSyrinscapeVolume() {
   const node = globalThis.syrinscape?.player?.audioSystem?.effectSystem?.localVolume;
   if (!node) return "no player";
   let env; try { env = game.settings.get("core", "globalAmbientVolume"); } catch (e) { return "no setting"; }
-  const want = wantedSyrinscapeLevel(env, masterNow(), moodTrimNow());
+  const want = wantedSyrinscapeLevel(env, masterNow(), moodSplitNow().localDb);
   if (want === null) return "no level";
   const cur = Number(node.value);
   if (Number.isFinite(cur) && Math.abs(cur - want) < 0.001) return "same";
@@ -351,13 +371,15 @@ export function onSyrinscapeElementVolume(detail) {
   if (w !== undefined && Math.abs(w - v) < 1e-9) return; // our own write echoing back
   elementBase.set(id, v);
   elementWritten.delete(id);
-  if (trimDbOf(`syr:element:${id}`, trimsNow())) syncElementTrims();
+  if (standaloneElementsNow().has(id) || elementWritten.has(id)) syncElementTrims();
 }
 /** The element's own volume: what Syrinscape last set, else a playing element's spawn volume; unknown → null. */
 function elementBaseOf(es, id) {
   if (elementBase.has(id)) return elementBase.get(id);
   try {
-    for (const [, el] of es.getElementsWithElementId?.(id) ?? []) { const v = Number(el?.volume); if (Number.isFinite(v)) return v; }
+    const els = es.getElementsWithElementId?.(id) ?? [];
+    for (const [, el] of els) { const v = Number(el?.volume); if (el?.volume != null && Number.isFinite(v)) return v; }
+    if (els.length) return 1; // playing with no level of its own: Syrinscape's default, 0 dB
   } catch (e) { /* none */ }
   return null;
 }
@@ -366,8 +388,11 @@ function elementBaseOf(es, id) {
 export function syncElementTrims() {
   const es = globalThis.syrinscape?.player?.elementSystem;
   if (!es?.setElementIdVolume) return [];
-  const want = new Map();
-  for (const k of Object.keys(trimsNow())) { const m = /^syr:element:(\d+)$/.exec(k); if (m) want.set(Number(m[1]), trimDbOf(k, trimsNow())); }
+  // §58.12: only an element played on its own carries its trim, less whatever the playing mood's trim did to all of
+  // Syrinscape (so a key's one-shot keeps its level under a cut mood, as far as Syrinscape's range allows).
+  const want = new Map(), trims = trimsNow();
+  const comp = moodSplitNow().appliedDb;
+  for (const id of standaloneElementsNow()) want.set(id, trimDbOf(`syr:element:${id}`, trims) - (Number.isFinite(comp) ? comp : 0));
   for (const id of elementWritten.keys()) if (!want.has(id)) want.set(id, 0);
   const did = [];
   for (const [id, d] of want) {
@@ -388,10 +413,10 @@ export function syncSyrinscapeLevels() {
   const node = p?.audioSystem?.effectSystem?.globalVolume;
   if (!node) return "no player";
   const want = syrinscapeNodes(mixNow(), slidersNow()); // its music group follows this screen's Music ÷ Environment
-  // §58.10: a mood's trim rides the local volume; the one-shot group takes it back off, so one-shots stay put
-  let env = NaN; try { env = Number(game.settings.get("core", "globalAmbientVolume")); } catch (e) { /* none */ }
-  const applied = syrLocalWithTrim(env, masterNow(), moodTrimNow()).appliedDb;
-  if (Number.isFinite(applied) && applied) want.oneshot = syrValueDb((want.oneshot - 1) * 37.5 - applied);
+  // §58.12: a mood's CUT rides the global volume (its lift the local one); its one-shots move with it, no compensation
+  // (the first build lifted the one-shot group back, so a one-shot-heavy mood could not come down: SEAT 4).
+  const split = moodSplitNow();
+  if (split.globalDb) want.global = syrValueDb((want.global - 1) * 37.5 + split.globalDb);
   const did = [];
   const cur = Number(node.value);
   if (!Number.isFinite(cur) || Math.abs(cur - want.global) >= 0.001) { try { node.value = want.global; did.push(`ambience ${r3(want.global)}`); } catch (e) { did.push("ambience refused"); } }

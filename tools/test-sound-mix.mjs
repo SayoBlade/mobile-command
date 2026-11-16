@@ -198,6 +198,10 @@ check("rebase: tonight's −6.6 on the Whistle becomes 0.0, so it plays exactly 
   rb.trims[whistle.uuid] === 0 && near(0.6 * M.dbToGain(-6.6), 0.28 * M.dbToGain(rb.trims[whistle.uuid]), 0.002) && rb.moved.length === 1);
 check("rebase: a trim whose base did not change and Syrinscape trims are left as they are", rb.trims["U.other"] === 2 && rb.trims["syr:mood:1"] === 3);
 const rc = M.planTrimRebase({ k: 20 }, [{ key: "k", old: 0.6, now: 0.07 }]);
+const rm = M.planTrimRebase({}, [{ key: "U.bear", old: 0.6, now: 0.3, measured: true }, { key: "U.unheard", old: 0.6, now: 0.3 }]);
+check("rebase: a sound the seat heard and left untrimmed (within 1 dB) gets the trim that keeps it as loud (+6 dB); one never heard is left to its level",
+  rm.trims["U.bear"] === 6 && !("U.unheard" in rm.trims));
+check("rebase covers the trimmed sounds' whole playlists (the seat heard all of them)", /for \(const sib of doc\.parent\?\.sounds/.test(fs.readFileSync(path.join(ROOT, "scripts", "sound-mix.js"), "utf8")));
 check("rebase: a result past +24 dB is clamped and reported", rc.trims.k === 24 && rc.clamped[0] === "k");
 check("rebase runs once, primary GM, after the deck's table, keeping the old map",
   /loadLevelled\(\)\.then\(\(\) => rebaseTrimsOnce\(\)\)/.test(fs.readFileSync(path.join(ROOT, "scripts", "sound-mix.js"), "utf8")) && /soundTrimsV1", trims/.test(fs.readFileSync(path.join(ROOT, "scripts", "sound-mix.js"), "utf8")) && /"soundTrimsBase", \{ scope: "world"/.test(fs.readFileSync(path.join(ROOT, "scripts", "settings.js"), "utf8")));

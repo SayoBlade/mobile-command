@@ -933,6 +933,22 @@ function onActiveScene() {
   return canvas?.ready && canvas.scene?.id === game.scenes.active?.id;
 }
 
+/**
+ * A token by id on WHICHEVER scene it is on (SEAT 4 2026-11-16, "token not found: dcStageBarb00001": during the intros
+ * the landing room is active and the hero's token sits on 10.1). Looks on the asking user's viewed scene, then the
+ * active scene, then the DM's canvas, then every scene. → the TokenDocument (its scene is `.parent`) or null.
+ */
+export function findTokenDoc(tokenId, requesterId = null) {
+  if (!tokenId) return null;
+  const on = (sc) => { const ts = sc?.tokens; return ts?.get?.(tokenId) ?? ts?.find?.((t) => t?.id === tokenId) ?? null; };
+  const viewed = requesterId ? game.users?.get?.(requesterId)?.viewedScene : null;
+  const first = [viewed ? game.scenes?.get?.(viewed) : null, game.scenes?.active, canvas?.scene];
+  for (const sc of first) { const t = on(sc); if (t) return t.parent ? t : Object.assign(t, { parent: sc }); }
+  for (const sc of game.scenes ?? []) { const t = on(sc); if (t) return t.parent ? t : Object.assign(t, { parent: sc }); }
+  const placed = canvas?.tokens?.get?.(tokenId)?.document; // the canvas's own copy (the same scene's token)
+  return placed ? (placed.parent ? placed : Object.assign(placed, { parent: canvas.scene })) : null;
+}
+
 function requesterCanAct(requesterId, actorOrToken) {
   const user = game.users.get(requesterId);
   if (!user) return false;
@@ -1928,7 +1944,7 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   // to walk while the DM's camera is on another scene, and the canvas-based collision backend
   // only knows the VIEWED scene's walls, so this falls back to the pure-data wall test that
   // cm-train already uses for exactly this situation.
-  const tokenDoc = game.scenes.active.tokens.get(tokenId);
+  const tokenDoc = findTokenDoc(tokenId, requesterId); // on whichever scene it is (the intros: 10.1, not the active room)
   if (!tokenDoc) return { ok: false, stage: "resolve", reason: `token not found: ${tokenId}` };
   if (!requesterCanAct(requesterId, tokenDoc)) {
     // Party Mode (§15): players don't own the GROUP actor, but any member-owner
@@ -1941,7 +1957,7 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
     if (!memberOwner) return { ok: false, stage: "permission", reason: "requester does not own the token" };
   }
 
-  const scene = game.scenes.active;
+  const scene = tokenDoc.parent ?? game.scenes.active; // the token's own scene: its walls, its grid
   const grid = scene.grid.size;
   // The token's CENTRE from document data. `tokenDoc.object` only exists while that scene is the
   // one on canvas; the old fallback used the token's top-left CORNER, which sits on the cell
@@ -1982,13 +1998,13 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   try {
     const user = game.users.get(requesterId);
     if (user?.getFlag(MODULE_ID, "followAll") && tokenDoc.actor?.type !== "group") {
-      for (const t of game.scenes.active.tokens) {
+      for (const t of scene.tokens) {
         if (t.id === tokenDoc.id || !t.actor) continue;
         if (t.actor.type === "group" || t.actor.flags?.["item-piles"]) continue;
         if (!t.actor.testUserPermission(user, "OWNER")) continue;
         const fFrom = t.object?.center ?? { x: t.x, y: t.y };
         const fTo = { x: fFrom.x + dxGrid * grid, y: fFrom.y + dyGrid * grid };
-        if (CONFIG.Canvas.polygonBackends.move.testCollision(fFrom, fTo, { type: "move", mode: "any" })) continue;
+        if (viewing ? CONFIG.Canvas.polygonBackends.move.testCollision(fFrom, fTo, { type: "move", mode: "any" }) : wallsBlock(scene, fFrom, fTo)) continue;
         await t.update({ x: t.x + dxGrid * grid, y: t.y + dyGrid * grid }, { animate: false });
       }
     }
@@ -2007,8 +2023,8 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
   const cb = game.combat?.combatant;
   const onMyTurn = !!(game.combat?.started && cb && (cb.tokenId === tokenId || (cb.actor?.id && cb.actor.id === tokenDoc.actor?.id)));
   if (!onMyTurn) return { ok: true, x: tokenDoc.x, y: tokenDoc.y, travelHere, stepAsk };
-  let step = canvas.scene.grid.distance; // fallback: one square
-  try { step = canvas.grid.measurePath([from, to]).distance ?? step; } catch (e) { /* keep fallback */ }
+  let step = scene.grid.distance ?? canvas?.scene?.grid?.distance ?? 5; // fallback: one square
+  if (viewing) { try { step = canvas.grid.measurePath([from, to]).distance ?? step; } catch (e) { /* keep fallback */ } }
   const used = (turnMove.get(tokenId) ?? 0) + step;
   turnMove.set(tokenId, used);
   const mv = tokenDoc.actor?.system?.attributes?.movement ?? {};
@@ -2024,9 +2040,8 @@ async function handleMoveRequest({ tokenId, dxGrid, dyGrid, requesterId }) {
 async function handleSetMovementAction({ tokenId, action, requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
-  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
-
-  const tokenDoc = game.scenes.active.tokens.get(tokenId);
+  // No scene guard (SEAT 4): it is a data update, right on whichever scene the token stands.
+  const tokenDoc = findTokenDoc(tokenId, requesterId);
   if (!tokenDoc) return { ok: false, stage: "resolve", reason: `token not found: ${tokenId}` };
   if (!requesterCanAct(requesterId, tokenDoc)) {
     return { ok: false, stage: "permission", reason: "requester does not own the token" };
@@ -2229,9 +2244,15 @@ function isDeadCorpse(token) {
 async function handleTargetsList({ forTokenId, requesterId }) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
-  if (!onActiveScene()) return { ok: false, stage: "scene", reason: "the DM isn't on the active scene" };
-
-  const origin = canvas.tokens.get(forTokenId);
+  // SEAT 4: the token is found on whichever scene it is. Who it can see is measured on the DM's canvas, so that canvas
+  // must show the token's scene; otherwise say so plainly (it was "token not found").
+  const originDoc = findTokenDoc(forTokenId, requesterId);
+  if (!originDoc) return { ok: false, stage: "resolve", reason: `token not found: ${forTokenId}` };
+  const originScene = originDoc.parent;
+  if (!canvas?.ready || (originScene && canvas.scene?.id !== originScene.id)) {
+    return { ok: false, stage: "scene", reason: `that hero is on ${originScene?.name ?? "another scene"}, and the DM's screen is not`, sceneId: originScene?.id ?? null };
+  }
+  const origin = originDoc.object ?? canvas.tokens.get(forTokenId);
   if (!origin) return { ok: false, stage: "resolve", reason: `token not found: ${forTokenId}` };
 
   const candidates = [];
