@@ -187,6 +187,20 @@ check("trims(): all, or one by id", M.getSoundTrims()["syr:mood:777"] === 2 && M
 await M.setSoundTrim(TS.uuid, null);
 check("trim(id, null) removes it", !(TS.uuid in settings.soundTrims) && M.getSoundTrims(TS.uuid) === 0);
 settings.soundTrims = {}; game.playlists = [];
+// ---- §58.11: a sound MC already levelled keeps its level (the Whistle: 0.28, not 0.6) ----
+const whistle = { uuid: "Playlist.BZ.PlaylistSound.ySu0", path: "Train Whistle.mp3", volume: 0.28, flags: { "mobile-command": { volumeWas: 0.5 } } };
+check("base: a sound MC levelled by its measured loudness (§53, volumeWas) plays its stored volume, 0.28 (the first build gave 0.6: +6.6 dB, SEAT 4's step 4)",
+  near(M.baseLevelOf(whistle, "cues", null), 0.28) && near(M.firstBuildBaseOf(whistle, "cues", null), 0.6));
+check("base: the deck's measured level still wins; an unlevelled sound still plays its layer's set level",
+  near(M.baseLevelOf({ ...whistle, uuid: "U.fiddle", path: "f.ogg" }, "environment", lev), 0.51) && near(M.baseLevelOf({ uuid: "U.n", volume: 0.9 }, "cues", null), 0.6));
+const rb = M.planTrimRebase({ [whistle.uuid]: -6.6, "U.other": 2, "syr:mood:1": 3 }, [{ key: whistle.uuid, old: 0.6, now: 0.28 }, { key: "U.other", old: 0.6, now: 0.6 }]);
+check("rebase: tonight's −6.6 on the Whistle becomes 0.0, so it plays exactly as loud as the seat set it (0.6·−6.6 dB = 0.28·0 dB)",
+  rb.trims[whistle.uuid] === 0 && near(0.6 * M.dbToGain(-6.6), 0.28 * M.dbToGain(rb.trims[whistle.uuid]), 0.002) && rb.moved.length === 1);
+check("rebase: a trim whose base did not change and Syrinscape trims are left as they are", rb.trims["U.other"] === 2 && rb.trims["syr:mood:1"] === 3);
+const rc = M.planTrimRebase({ k: 20 }, [{ key: "k", old: 0.6, now: 0.07 }]);
+check("rebase: a result past +24 dB is clamped and reported", rc.trims.k === 24 && rc.clamped[0] === "k");
+check("rebase runs once, primary GM, after the deck's table, keeping the old map",
+  /loadLevelled\(\)\.then\(\(\) => rebaseTrimsOnce\(\)\)/.test(fs.readFileSync(path.join(ROOT, "scripts", "sound-mix.js"), "utf8")) && /soundTrimsV1", trims/.test(fs.readFileSync(path.join(ROOT, "scripts", "sound-mix.js"), "utf8")) && /"soundTrimsBase", \{ scope: "world"/.test(fs.readFileSync(path.join(ROOT, "scripts", "settings.js"), "utf8")));
 
 // ---- launch sliders (§58.7) ----
 check("launch: a screen at 1 / 1 / 1 is put back to 25 / 50 / 50",

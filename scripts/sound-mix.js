@@ -110,10 +110,48 @@ export function layerOf(sound, { battleLibId = null } = {}) {
  * file that level was measured on; anything else plays its layer's set level. `levelled` = Map(uuid → { volume, path }).
  */
 export function setLevelOf(sound, layer, levelled = null, trims = null) {
-  const t = levelled?.get?.(sound?.uuid);
-  const base = t && Number.isFinite(t.volume) && (!t.path || t.path === sound?.path) ? t.volume : (SET_LEVEL[layer] ?? SET_LEVEL.cues);
+  const base = baseLevelOf(sound, layer, levelled);
   const d = trims ? trimDbOf(trimKeyOf(sound), trims) : 0;
   return d ? base * dbToGain(d) : base;
+}
+
+/**
+ * Pure: a sound's base level, before its trim. 1. The deck's measured level (its loudness patches), while the sound still
+ * plays that file. 2. FIX 2026-11-16 night (§58.11): a sound MC already levelled by its measured loudness (§53, the
+ * 361-sound board; it carries `flags.mobile-command.volumeWas`) keeps its stored volume: that IS a measured level. The
+ * first build gave those the layer's set level, which threw the §53 levelling away (the Whistle 0.28 → 0.6, +6.6 dB).
+ * 3. Anything else: its layer's set level.
+ */
+export function baseLevelOf(sound, layer, levelled = null) {
+  const t = levelled?.get?.(sound?.uuid);
+  if (t && Number.isFinite(t.volume) && (!t.path || t.path === sound?.path)) return t.volume;
+  const v = Number(sound?.volume);
+  if (mcLevelled(sound) && Number.isFinite(v) && v > 0) return v;
+  return SET_LEVEL[layer] ?? SET_LEVEL.cues;
+}
+const mcLevelled = (sound) => (sound?.flags?.["mobile-command"]?.volumeWas ?? sound?._source?.flags?.["mobile-command"]?.volumeWas) != null;
+/** Pure: the base the first build used (table, else the layer's set level), kept only to convert trims measured on it. */
+export function firstBuildBaseOf(sound, layer, levelled = null) {
+  const t = levelled?.get?.(sound?.uuid);
+  if (t && Number.isFinite(t.volume) && (!t.path || t.path === sound?.path)) return t.volume;
+  return SET_LEVEL[layer] ?? SET_LEVEL.cues;
+}
+/**
+ * Pure: convert trims written on the first build's bases so every sound plays exactly as loud as when it was trimmed:
+ * t' = t + 20·log10(old base ÷ new base). `sounds` = [{ key, old, now }]. → { trims, moved: [{key, from, to}], clamped }.
+ */
+export function planTrimRebase(trims = {}, sounds = []) {
+  const out = { ...trims }, moved = [], clamped = [];
+  for (const { key, old, now } of sounds) {
+    if (!(key in out) || !(old > 0) || !(now > 0) || Math.abs(old - now) < 1e-9) continue;
+    const from = Number(out[key]);
+    if (!Number.isFinite(from)) continue;
+    const want = from + 20 * Math.log10(old / now);
+    const to = Math.round(Math.min(Math.max(want, TRIM_MIN_DB), TRIM_MAX_DB) * 10) / 10;
+    if (Math.abs(to - want) > 0.05) clamped.push(key);
+    out[key] = to; moved.push({ key, from, to });
+  }
+  return { trims: out, moved, clamped };
 }
 
 // ── per-sound trims (§58.10) ──
@@ -140,6 +178,15 @@ export function activeMood(entries = []) {
 }
 /** Pure: Syrinscape's local value with a mood trim on top: { local, appliedDb }. The local tops out at 0 dB (value 1),
  *  so a positive trim may be cut short; `appliedDb` is what landed (the one-shot group is compensated by it). */
+/** Pure (§58.11): an element's value with its trim, RELATIVE to the element's own Syrinscape volume (`base`, what its
+ *  mood or the server set), on Syrinscape's dB scale. Base 0 (silenced in Syrinscape) stays 0. */
+export function syrElementValue(base, trimDb = 0) {
+  const b = Number(base);
+  if (!Number.isFinite(b)) return null;
+  if (b <= 0) return 0;
+  if (!trimDb) return b;
+  return syrValueDb((b - 1) * SYR_DB_RANGE + trimDb);
+}
 export function syrLocalWithTrim(env, master = MASTER_DEFAULT, trimDb = 0) {
   const base = syrLocalOf(env, master);
   if (base === null || base <= 0 || !trimDb) return { local: base, appliedDb: 0 };
@@ -464,8 +511,35 @@ export function soundMixState() {
   return { mix: mixNow(), master: masterNow(), sliders: s, syrinscape: { ...syrinscapeNodes(mixNow(), s), local: syrLocalOf(s.environment, masterNow()) }, levelled: levelled?.size ?? 0, trims: Object.keys(trimsNow()).length };
 }
 
+/**
+ * Primary GM, once per world (§58.11): trims written on the first build's bases (before this fix) are converted, so
+ * nothing anyone hears changes. The map as it was is kept in `soundTrimsV1`; `soundTrimsBase` marks it done.
+ */
+export async function rebaseTrimsOnce() {
+  if (!game.user?.isGM || game.users?.activeGM?.id !== game.user.id) return null;
+  if (setting("soundTrimsBase", 1) >= 2) return null;
+  const trims = trimsNow(), sounds = [];
+  for (const key of Object.keys(trims)) {
+    if (key.startsWith("syr:")) continue;
+    let doc = null; try { doc = fromUuidSync(key); } catch (e) { /* gone */ }
+    if (doc?.documentName !== "PlaylistSound") continue;
+    const layer = layerOf(doc, { battleLibId: battleLibId() });
+    sounds.push({ key, old: firstBuildBaseOf(doc, layer, levelled), now: baseLevelOf(doc, layer, levelled) });
+  }
+  const plan = planTrimRebase(trims, sounds);
+  try {
+    if (plan.moved.length) {
+      await game.settings.set(MODULE_ID, "soundTrimsV1", trims);
+      await game.settings.set(MODULE_ID, "soundTrims", plan.trims);
+    }
+    await game.settings.set(MODULE_ID, "soundTrimsBase", 2);
+    console.log(`${MODULE_ID} | trims converted to the levelled bases: ${plan.moved.length} moved, ${plan.clamped.length} clamped`, plan.clamped);
+  } catch (e) { console.warn(`${MODULE_ID} | trims: could not convert`, e?.message); }
+  return plan;
+}
+
 export function registerSoundMix() {
   patchMix();
-  loadLevelled();
+  loadLevelled().then(() => rebaseTrimsOnce());
   game.audio?.unlock?.then?.(() => applyMix());
 }

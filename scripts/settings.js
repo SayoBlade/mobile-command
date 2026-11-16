@@ -550,6 +550,9 @@ export function registerSettings() {
     scope: "world", config: false, type: Object, default: {},
     onChange: () => { refreshTrims(); syncSyrinscapeVolume(); syncSyrinscapeLevels(); }
   });
+  // §58.11: 2 = trims are on the levelled bases (the first build's trims converted once); soundTrimsV1 = the map before.
+  game.settings.register(MODULE_ID, "soundTrimsBase", { scope: "world", config: false, type: Number, default: 1 });
+  game.settings.register(MODULE_ID, "soundTrimsV1", { scope: "world", config: false, type: Object, default: {} });
   // §58.7 (DM 2026-11-16: "a set volume for everything that's defaulted on launch"): every launch puts each screen's
   // Music / Environment / Interface sliders (and the TV's, through tvVolume) back to the mix's defaults.
   game.settings.register(MODULE_ID, "launchVolumes", {

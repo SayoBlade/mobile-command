@@ -80,7 +80,7 @@ sections their cross-references always claimed).
 | 55 | **Basic / Complex** — what phones may change (DM 2026-10-08, finished 2026-10-09) | **BUILT 2026-10-09** — `tier.js` gate, `playerTier` world setting (default Basic), live rescue; Basic travel squares ask the DM (Cancel / Move X / Move Group, game paused, §55.5), published to the deck as action `table.ask` (§55.6); owed: a live flip on two phones, core teleporters (§55 c). (§54 left free for the parked Crooked Moon extraction) |
 | 56 | Prepare spells on the phone | **BUILT 2026-11-13** — owed a seat check (prepare on a phone vs Spell Book on the PC) |
 | 57 | "The TV took a VERY long time to respond" | **MEASURED 2026-11-16, not ours** — dnd5e 6.0.5 / animater ready-time load; no code change |
-| 58 | **The table's one mix** — launch sliders, a set level at every play, music / environment / cues layers, one master; Syrinscape's scale fixed | **BUILT 2026-11-16** (`sound-mix.js`; world settings `soundMix`, `soundMaster`, `launchVolumes`, `soundTrims` §58.10); **owed: the seat measurement on the TV (§58.6) and tonight's per-sound trims** |
+| 58 | **The table's one mix** — launch sliders, a set level at every play, music / environment / cues layers, one master; Syrinscape's scale fixed | **BUILT 2026-11-16** (`sound-mix.js`; world settings `soundMix`, `soundMaster`, `launchVolumes`, `soundTrims` §58.10); **§58.11 FIXED 2026-11-16 night: element trims relative, §53 levels kept, trims converted once**; **owed: §58.6 re-run from step 4, and the element trims re-written** |
 
 ---
 
@@ -2556,7 +2556,10 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    Owed: the TV-tab seat measurement in §58.6 (numbered results). Until it runs, the defaults are arithmetic on the seat 3
    readings. **Per-sound trims (§58.10) are built; tonight's seat run measures and writes them** (this also answers
    §58.5's unlevelled beds, by trim). Also filed: the world is on **Local** sound scenes
-   since this afternoon (§58.9), so Syrinscape is not playing at all until it is set back.
+   since this afternoon (§58.9), so Syrinscape is not playing at all until it is set back. ~~(the world was back on
+   Syrinscape by the night run.)~~ **2026-11-16 night, SEAT 4: two bugs FIXED (§58.11)** — element trims replaced the
+   element's own volume (up to 30 dB off; the seat removed its 168) and §53-levelled sounds lost their level (§58.6 step
+   4, the Whistle +6.6 dB). Owed: the seat re-writes the element trims after his GM and TV reload, and re-runs step 4.
 
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
    - **His batch of 2026-09-19 (the deck's FX boards, the flows, the intros — DC ledger 152):** MC's half is
@@ -9586,7 +9589,9 @@ token. If `soundScenes` is still Local (§58.9), the seat asks him before settin
    environment 1, cues 1}, master 1, syrinscape global 1.5, music 0.367, oneshot 0.585, local 0.839, capped false,
    levelled 116 (the deck's table loaded; 0 = it did not, stop and report).
 3. TV: `game.audio.music.mcMix.trim.gain.value` 0.3, `game.audio.environment.mcMix.trim.gain.value` 1.
-4. Our Whistle cue: −37.3 ± 1 dB; its Sound's `mcSetLevel` equals the deck's levelled value for it.
+4. Our Whistle cue: −37.3 ± 1 dB; its Sound's `mcSetLevel` equals ~~the deck's levelled value for it~~ its stored 0.28
+   (§58.11: it is not in the deck's table; it is §53-levelled) × its trim (0 dB after the one-time conversion). FAILED
+   2026-11-16 night (SEAT 4: ≈ 7 dB loud) on the first build; fixed in §58.11, re-run owed.
 5. A room-music track (Room · Foyer): ≈ −45 ± 3 (was −29); its Sound's `mcMixLayer` "music", `mcSetLevel` 0.8.
 6. Syrinscape bed · 12.1 Rain · Gathering storm ≈ −41 ± 3 (was −54); Room · 12.1 Foyer mood ≈ −46 ± 3 (was −59); Forest ·
    Glen · The witchlight path ≈ −28 … −34 (was −41/−47).
@@ -9623,7 +9628,9 @@ playing it."* This overrides the first build's "don't fight his sliders".
   another module all start it at the same level. **The deck's levelled sounds keep their measured level**: MC reads
   deck-command's own loudness patches (`modules/deck-command/packs/migrations.json`, every patch with a `sound.volume`, this
   world only: 116 today, all m158) and plays `volume.to`, while the sound still plays the file it was measured on.
-  Everything else: music 0.8, environment 0.5, cues 0.6. **Nothing is written to a sound.** A fade-in reaches the set
+  ~~Everything else: music 0.8, environment 0.5, cues 0.6.~~ **Then (§58.11) a sound MC levelled by its measured loudness
+  (§53, `volumeWas` flag, 356 sounds) keeps its stored volume; only the rest play music 0.8, environment 0.5, cues 0.6.**
+  **Nothing is written to a sound.** A fade-in reaches the set
   level; a stop, a duck, Animater's card dip and a drag of the sound's own slider while it plays are left alone.
   A Syrinscape entry's local twin starts at the twin's set level (the bridge's fallback reads `mcSetLevel`).
   Syrinscape moods and one-shots have no per-sound level (Syrinscape ignores the entry's volume): their level is the
@@ -9679,7 +9686,8 @@ set level and the deck's table, the launch sliders, the master and its top end);
   can write and re-measure without restarting. A Syrinscape stand-in (Local / offline) takes the trim of its local twin.
 - **Syrinscape elements** (loops and one-shots played as elements): the trim is Syrinscape's own per-element volume
   (`elementSystem.setElementIdVolume`, its runtime map, keyed by the element number; re-asserted every 5 s; a removed trim
-  goes back to 0 dB once).
+  goes back to 0 dB once). **WRONG, fixed in §58.11:** that wrote the trim as an ABSOLUTE level over the element's own
+  volume; the trim now rides on top of it.
 - **Syrinscape moods** have no volume of their own in Syrinscape. Since it plays one mood at a time, the playing mood's trim
   (a moment over a waiting bed) rides that screen's Syrinscape LOCAL volume, and the one-shot group is lifted by the same
   amount, so one-shots stay put. Limits: an element loop playing under the mood moves with it; a positive trim stops where
@@ -9696,3 +9704,33 @@ set level and the deck's table, the launch sliders, the master and its top end);
 - **Tests:** `tools/test-sound-mix.mjs` 72 (keys, clamps, trim on set and levelled levels, the active mood, the local-volume
   ride and its top, the API's one write and refusals, the live refresh); `tools/test-syrinscape-bridge.mjs` 66 (element
   trims and their removal, a mood trim on the local volume with the one-shot compensation, the cap, a stopped mood).
+
+### 58.11 SEAT 4's bugs (2026-11-16 night) — FIXED: element trims are relative; levelled sounds keep their level
+**Reported by SEAT 4** (notes due in deck-command SEAT-2026-11-09.md): element trims (`syr:element:<id>`) landed up to
+30 dB off, sometimes louder (it removed all 168); §58.6 step 4 failed, the Whistle ≈ 7 dB over the mix's assumption.
+- **Element trims — cause (read in syrinscape-control `lib/player.js`):** every element carries its OWN volume, set by
+  Syrinscape (its mood's per-element level, pushed in the server's state, at each spawn and from the control panel) into
+  the same `elementVolumeMap` that `setElementIdVolume` writes, on its dB scale. §58.10 wrote `1 + trim/37.5`, i.e. the
+  trim as an absolute level, REPLACING the element's own: an element its mood keeps at 0.2 (−30 dB) trimmed −6 came out at
+  −6 dB, 24 dB louder. And a removed trim wrote 1 (0 dB, full), so the seat's removal left those elements at full volume
+  on the screens that were running then, until Syrinscape re-sends their volume (a reload or a mood restart).
+- **Fix (`syrinscape-bridge.js syncElementTrims`, `sound-mix.js syrElementValue`):** the bridge listens to Syrinscape's
+  own `setElementVolume` event (all three paths fire it); a value we did not write is the element's own volume, and the
+  trim goes on top at once, in dB (`own dB + trim`). Before any event, a playing element's spawn volume is the own volume;
+  an element whose own volume is unknown (not playing) is not written. A removed trim writes the OWN volume back.
+  Own volume 0 (silenced in Syrinscape) stays 0.
+- **The Whistle — cause:** the §58.7 set level used the deck's table (116 m158 sounds) and otherwise the layer's
+  number, which threw away MC's own §53 levelling of the board (361 sounds levelled by measured loudness 2026-09-20,
+  each with a `volumeWas` flag). Our Whistle is §53-levelled at 0.28 and not in the deck's table, so it played at the cues'
+  0.6: 20·log10(0.6/0.28) = +6.6 dB, exactly what SEAT 4 heard (it had trimmed it −6.6 to put it back).
+- **Fix (`baseLevelOf`):** deck table → else a `volumeWas` sound plays its stored volume → else the layer's number.
+- **Tonight's trims are converted once, so nothing anyone hears changes:** 317 of the 408 local trims sat on a base that
+  moved; on his first GM load of this build `rebaseTrimsOnce` adds 20·log10(old base ÷ new base) to each (the Whistle's
+  −6.6 → 0.0), keeps the map as it was in `soundTrimsV1`, marks `soundTrimsBase` = 2. Simulated on a copy of the world
+  2026-11-16 night: 317 moved, 0 clamped, new range −10.3 … +16 dB. Mood trims (64) are untouched (that path was right).
+- **The seat can re-write the element trims** after his GM and the TV reload onto this build (the reload also clears the
+  full-volume elements left by the removal): same API, same keys, measured against the element as it plays now.
+- **Tests:** `tools/test-syrinscape-bridge.mjs` 71 (own volume 0.6 − 6 dB, not the old 0.84; echo not taken as own; a new
+  own volume re-trimmed at once; a late spawn trimmed on its event; removal puts the own volume back, not 0 dB; silenced
+  stays silent); `tools/test-sound-mix.mjs` 78 (the Whistle's base 0.28; the deck table still wins; the conversion keeps the
+  loudness, leaves Syrinscape trims, clamps and reports; runs once, primary GM, after the table, keeping the old map).

@@ -23,7 +23,7 @@
  */
 import { MODULE_ID } from "./preset.js";
 import { notifier } from "./notifier.js";
-import { mixNow, masterNow, slidersNow, syrinscapeNodes, syrLocalWithTrim, trimsNow, trimDbOf, activeMood, syrValueDb } from "./sound-mix.js";
+import { mixNow, masterNow, slidersNow, syrinscapeNodes, syrLocalWithTrim, trimsNow, trimDbOf, activeMood, syrValueDb, syrElementValue } from "./sound-mix.js";
 
 export const SYR = "syrinscape-control";
 export const OFFLINE_AFTER_MS = 30000;
@@ -257,6 +257,7 @@ export function startMoodWatch() {
     for (const d of chg?.sounds ?? []) if (d && "playing" in d) { const doc = pl.sounds?.get?.(d._id); if (doc) fire(doc, Boolean(d.playing)); }
   });
   globalThis.syrinscape?.events?.stopElement?.addListener?.((event) => { onSyrinscapeElementStopped(event?.detail?.elementId); });
+  globalThis.syrinscape?.events?.setElementVolume?.addListener?.((event) => { onSyrinscapeElementVolume(event?.detail); });
 }
 
 /* ------------------------------------------------------------------------------------------------------------------
@@ -338,7 +339,48 @@ export function startVolumeKeeper() {
 export const LEVEL_MAX = 1.5, LEVEL_FLOOR = 0.001;
 
 let lastGroups = null;
-let lastElementTrims = new Set();
+// §58.11 FIX: an element's volume is ITS OWN (its mood's per-element level, pushed by Syrinscape's server). A trim is
+// relative to it. elementBase = the last value Syrinscape itself set; elementWritten = the last value we wrote.
+const elementBase = new Map(), elementWritten = new Map();
+/** Syrinscape's own `setElementVolume` event (every path: a mood's state, an element spawning, the control panel). One
+ *  we did not write is the element's new base, and its trim is put back on top at once. */
+export function onSyrinscapeElementVolume(detail) {
+  const id = Number(detail?.elementId), v = Number(detail?.volume);
+  if (!Number.isFinite(id) || !Number.isFinite(v)) return;
+  const w = elementWritten.get(id);
+  if (w !== undefined && Math.abs(w - v) < 1e-9) return; // our own write echoing back
+  elementBase.set(id, v);
+  elementWritten.delete(id);
+  if (trimDbOf(`syr:element:${id}`, trimsNow())) syncElementTrims();
+}
+/** The element's own volume: what Syrinscape last set, else a playing element's spawn volume; unknown → null. */
+function elementBaseOf(es, id) {
+  if (elementBase.has(id)) return elementBase.get(id);
+  try {
+    for (const [, el] of es.getElementsWithElementId?.(id) ?? []) { const v = Number(el?.volume); if (Number.isFinite(v)) return v; }
+  } catch (e) { /* none */ }
+  return null;
+}
+/** Write every element trim on top of the element's own volume; a removed trim puts the own volume back. An element
+ *  whose own volume is not known yet (not playing) is left alone: its spawn fires the event above. */
+export function syncElementTrims() {
+  const es = globalThis.syrinscape?.player?.elementSystem;
+  if (!es?.setElementIdVolume) return [];
+  const want = new Map();
+  for (const k of Object.keys(trimsNow())) { const m = /^syr:element:(\d+)$/.exec(k); if (m) want.set(Number(m[1]), trimDbOf(k, trimsNow())); }
+  for (const id of elementWritten.keys()) if (!want.has(id)) want.set(id, 0);
+  const did = [];
+  for (const [id, d] of want) {
+    const base = elementBaseOf(es, id);
+    if (base === null) continue;
+    const v = syrElementValue(base, d);
+    if (!d) { if (elementWritten.has(id)) { elementWritten.delete(id); try { es.setElementIdVolume(id, base); } catch (e) { did.push(`element ${id} refused`); } } continue; }
+    if (elementWritten.get(id) === v) continue;
+    elementWritten.set(id, v);
+    try { es.setElementIdVolume(id, v); } catch (e) { did.push(`element ${id} refused`); }
+  }
+  return did;
+}
 /** Write the three group levels if they differ (the music and one-shot groups have no getter: re-asserted each check,
  *  which is a no-op fade at the same value; reported only when new to us). Returns what it did. */
 export function syncSyrinscapeLevels() {
@@ -358,15 +400,8 @@ export function syncSyrinscapeLevels() {
   if (es?.setMusicVolume) { try { es.setMusicVolume(want.music); if (lastGroups !== key) did.push(`music ${r3(want.music)}`); } catch (e) { did.push("music refused"); } }
   if (es?.setOneshotVolume) { try { es.setOneshotVolume(want.oneshot); if (lastGroups !== key) did.push(`one-shots ${r3(want.oneshot)}`); } catch (e) { did.push("one-shots refused"); } }
   lastGroups = key;
-  // §58.10: an element's trim is Syrinscape's own per-element volume (its runtime map, keyed by number; a no-op when
-  // unchanged). A trim removed goes back to 0 dB once. No Foundry entry is touched.
-  if (es?.setElementIdVolume) {
-    const now = new Map();
-    for (const [k, d] of Object.entries(trimsNow())) { const m = /^syr:element:(\d+)$/.exec(k); if (m) now.set(Number(m[1]), trimDbOf(k, trimsNow())); }
-    for (const id of lastElementTrims) if (!now.has(id)) now.set(id, 0);
-    for (const [id, d] of now) { try { es.setElementIdVolume(id, syrValueDb(d)); } catch (e) { did.push(`element ${id} refused`); } }
-    lastElementTrims = new Set([...now].filter(([, d]) => d !== 0).map(([id]) => id));
-  }
+  // §58.10/§58.11: an element's trim rides on top of the element's OWN Syrinscape volume (never replaces it).
+  did.push(...syncElementTrims());
   return did.length ? `set ${did.join(", ")}` : "same";
 }
 const r3 = (v) => Math.round(v * 1000) / 1000;
