@@ -525,7 +525,8 @@ export function registerSettings() {
   });
 
   // Two group levels for Syrinscape, set once and kept (DM 2026-11-16): { moods, oneshots } gains, absent = Syrinscape's
-  // own. Applied by every client that plays Syrinscape (syrinscape-bridge.js syncSyrinscapeLevels).
+  // own. Applied by every client that plays Syrinscape (syrinscape-bridge.js syncSyrinscapeLevels). ⚠️ A pair: his
+  // { moods 1.5, oneshots 1.4 } (seat 3, 2026-11-16) — one-shots was measured WITH moods at 1.5; change moods, re-measure.
   game.settings.register(MODULE_ID, "syrinscapeLevels", {
     scope: "world", config: false, type: Object, default: {},
     onChange: () => syncSyrinscapeLevels()

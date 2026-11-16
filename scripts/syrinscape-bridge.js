@@ -304,7 +304,12 @@ export function startVolumeKeeper() {
  * Syrinscape's own scale (0–1.5, 1 = as Syrinscape plays it), or absent = leave Syrinscape's own. No entry or element
  * volume is touched. Syrinscape's player has a ONE-SHOT group but no mood group: mood loops go straight into its GLOBAL
  * volume, and one-shots go through the one-shot group and then global too. So moods → global, and the one-shot group
- * carries oneshots ÷ moods so a one-shot lands at exactly `oneshots`. Local volume stays the Environment/TV mute (above).
+ * carries oneshots ÷ moods. Local volume stays the Environment/TV mute (above).
+ * ⚠️ THE TWO NUMBERS ARE A PAIR, NOT TWO LEVELS (seat 3, 2026-11-16). Syrinscape's scale is in dB, not gain (value v
+ * = 37.5 × (v − 1) dB, read off the node), so the ÷ does not make a one-shot land "at" `oneshots`: what a one-shot
+ * sounds like depends on BOTH values. His setting, measured on the TV at Music 0.5 / Environment 0.5: moods 1.5 (the
+ * ceiling, +18.7 dB) and one-shots 1.4, which centres one-shots on our own Whistle cue. **One-shots 1.4 was measured
+ * with moods at 1.5: if moods ever changes, re-measure one-shots** (SEAT-2026-11-09.md "SEAT 3", E).
  * Every client that plays Syrinscape keeps it (the keeper's 5 s check), because Syrinscape's server pushes its own
  * global/one-shot volume on connect and from its control panel. Floors keep clear of the −∞ fade trap at 0.
  * ------------------------------------------------------------------------------------------------------------------ */
