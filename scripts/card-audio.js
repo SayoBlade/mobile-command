@@ -10,6 +10,7 @@
 // If the DM would rather have real recordings, `SAMPLES` below is the whole hook: point each
 // kind at a file under the module and it wins over the synth.
 import { MODULE_ID } from "./preset.js";
+import { mixNow } from "./sound-mix.js"; // the cues layer (DESIGN §58)
 
 const SAMPLES = { deal: null, flip: null, place: null }; // e.g. "modules/mobile-command/sounds/deal.ogg"
 
@@ -50,7 +51,10 @@ function volume() {
   // Ride Foundry's own interface slider so the DM's master control still means something.
   let iface = 1;
   try { iface = Number(game.settings.get("core", "globalInterfaceVolume")); } catch (e) { /* 1 */ }
-  return Math.max(0, Math.min(1, v)) * (Number.isFinite(iface) ? iface : 1);
+  // …and the table's cues layer (DESIGN §58): this deck plays on its own context, outside the channel rigs
+  let cues = 1;
+  try { cues = mixNow().cues; } catch (e) { /* 1 */ }
+  return Math.max(0, Math.min(1, v)) * (Number.isFinite(iface) ? iface : 1) * cues;
 }
 
 // Brightness multiplier for the deck in play. Ash reads as heavier stock, Hoarfrost as thinner.

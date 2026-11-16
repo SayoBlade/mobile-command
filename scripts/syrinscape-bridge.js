@@ -23,6 +23,7 @@
  */
 import { MODULE_ID } from "./preset.js";
 import { notifier } from "./notifier.js";
+import { mixNow, syrinscapeNodes, syrValueOfGain } from "./sound-mix.js";
 
 export const SYR = "syrinscape-control";
 export const OFFLINE_AFTER_MS = 30000;
@@ -267,13 +268,17 @@ export function startMoodWatch() {
  * −∞ and never comes back without a reload (Player1, seat D).
  * So the level is written straight to the player's gain through its `value` setter (no fade: safe from 0, exact
  * silence at 0), and re-checked every few seconds, which also rescues a trapped level.
+ * ⚠️ 2026-11-16 (DESIGN §58): THE MODULE READS FOUNDRY'S VOLUME AS ITS OWN DECIBEL SCALE. Foundry stores a GAIN (0.5 =
+ * −6 dB); Syrinscape's value v is 37.5 × (v − 1) dB, so handing it 0.5 cut Syrinscape by 18.75 dB, 12.7 dB more than
+ * the same slider cuts our own sounds. That, under the music, is why his moods were "REALLY quiet". The level is now
+ * converted (sound-mix.js syrValueOfGain): 0.5 → 0.84 (−6 dB), so his Environment slider moves Syrinscape exactly as
+ * it moves our files. The module's own slider-move fade still writes the raw value; the keeper corrects it 50 ms later.
  * ------------------------------------------------------------------------------------------------------------------ */
 export const VOLUME_CHECK_MS = 5000;
 
-/** The level this client's Syrinscape should have: its own Environment volume. Pure. */
+/** The level this client's Syrinscape should have: its own Environment volume, on Syrinscape's scale. Pure. */
 export function wantedSyrinscapeLevel(env) {
-  const v = Number(env);
-  return Number.isFinite(v) ? Math.min(Math.max(v, 0), 1.5) : null;
+  return syrValueOfGain(env);
 }
 
 /** Write it if it differs (or is trapped at −∞). Returns what it did. */
@@ -284,9 +289,9 @@ export function syncSyrinscapeVolume() {
   const want = wantedSyrinscapeLevel(env);
   if (want === null) return "no level";
   const cur = Number(node.value);
-  if (Number.isFinite(cur) && Math.abs(cur - want) < 0.01) return "same";
+  if (Number.isFinite(cur) && Math.abs(cur - want) < 0.001) return "same";
   try { node.value = want; } catch (e) { return "refused"; }
-  return `set ${want}`;
+  return `set ${Math.round(want * 1000) / 1000}`;
 }
 
 let volWatch = null;
@@ -299,60 +304,44 @@ export function startVolumeKeeper() {
 }
 
 /* ------------------------------------------------------------------------------------------------------------------
- * TWO GROUP LEVELS, SET ONCE AND KEPT (DM 2026-11-16: one level for Syrinscape moods, one for Syrinscape one-shots;
- * "don't mess with Syrinscape items too much"). World setting `syrinscapeLevels` = { moods, oneshots }, each a gain on
- * Syrinscape's own scale (0–1.5, 1 = as Syrinscape plays it), or absent = leave Syrinscape's own. No entry or element
- * volume is touched. Syrinscape's player has a ONE-SHOT group but no mood group: mood loops go straight into its GLOBAL
- * volume, and one-shots go through the one-shot group and then global too. So moods → global, and the one-shot group
- * carries oneshots ÷ moods. Local volume stays the Environment/TV mute (above).
- * ⚠️ THE TWO NUMBERS ARE A PAIR, NOT TWO LEVELS (seat 3, 2026-11-16). Syrinscape's scale is in dB, not gain (value v
- * = 37.5 × (v − 1) dB, read off the node), so the ÷ does not make a one-shot land "at" `oneshots`: what a one-shot
- * sounds like depends on BOTH values. His setting, measured on the TV at Music 0.5 / Environment 0.5: moods 1.5 (the
- * ceiling, +18.7 dB) and one-shots 1.4, which centres one-shots on our own Whistle cue. **One-shots 1.4 was measured
- * with moods at 1.5: if moods ever changes, re-measure one-shots** (SEAT-2026-11-09.md "SEAT 3", E).
- * Every client that plays Syrinscape keeps it (the keeper's 5 s check), because Syrinscape's server pushes its own
- * global/one-shot volume on connect and from its control panel. Floors keep clear of the −∞ fade trap at 0.
+ * ~~TWO GROUP LEVELS, SET ONCE AND KEPT (DM 2026-11-16, world setting `syrinscapeLevels` = { moods, oneshots } in
+ * Syrinscape's own values; seat 3 set moods 1.5 / one-shots 1.4).~~ SUPERSEDED 2026-11-16 (DESIGN §58) by THE TABLE'S
+ * MIX (sound-mix.js, world setting `soundMix`): the old pair was tuned against the scale bug above (moods at the 1.5
+ * ceiling only made up for the Environment cut) and divided dB values as if they were gains. `syrinscapeLevels` is
+ * kept registered and is no longer read.
+ *
+ * Syrinscape's player has three groups: its GLOBAL volume (every element; mood loops go straight into it), a MUSIC
+ * group (a mood's score) and a ONE-SHOT group, both of which feed the global one. The mix's three layers land on them:
+ * environment → global, music → music group, cues → one-shot group (sound-mix.js syrinscapeNodes, dB-correct). No entry
+ * or element volume is touched. Local volume stays his Environment slider (above).
+ * Every client that plays Syrinscape keeps them (the keeper's 5 s check), because Syrinscape's server pushes its own
+ * global/music/one-shot volume on connect and from its control panel. Floors keep clear of the −∞ fade trap at 0.
  * ------------------------------------------------------------------------------------------------------------------ */
 export const LEVEL_MAX = 1.5, LEVEL_FLOOR = 0.001;
-const gain = (v) => { const n = Number(v); return v == null || v === "" || !Number.isFinite(n) ? null : Math.min(Math.max(n, LEVEL_FLOOR), LEVEL_MAX); };
 
-/** Pure: { moods, oneshots } (gains or absent) → the two Syrinscape nodes to write: { global, oneshot } (null = leave). */
-export function syrinscapeGroupLevels(levels) {
-  const moods = gain(levels?.moods), shots = gain(levels?.oneshots);
-  const global = moods;
-  const oneshot = shots === null ? null : Math.min(Math.max(shots / (moods ?? 1), LEVEL_FLOOR), LEVEL_MAX);
-  return { global, oneshot };
-}
-
-let lastOneshot = null;
-/** Write the two group levels if they differ. Returns what it did. */
+let lastGroups = null;
+/** Write the three group levels if they differ (the music and one-shot groups have no getter: re-asserted each check,
+ *  which is a no-op fade at the same value; reported only when new to us). Returns what it did. */
 export function syncSyrinscapeLevels() {
   const p = globalThis.syrinscape?.player;
   const node = p?.audioSystem?.effectSystem?.globalVolume;
   if (!node) return "no player";
-  let levels; try { levels = game.settings.get(MODULE_ID, "syrinscapeLevels"); } catch (e) { return "no setting"; }
-  const want = syrinscapeGroupLevels(levels);
+  const want = syrinscapeNodes(mixNow());
   const did = [];
-  if (want.global !== null) {
-    const cur = Number(node.value);
-    if (!Number.isFinite(cur) || Math.abs(cur - want.global) >= 0.001) { try { node.value = want.global; did.push(`moods ${want.global}`); } catch (e) { did.push("moods refused"); } }
-  }
-  if (want.oneshot !== null && p?.elementSystem?.setOneshotVolume) {
-    // the one-shot group has no getter, and the server can reset it at any time: re-assert it on every check (writing
-    // the same value is a no-op fade); report it only when it is new to us
-    try { p.elementSystem.setOneshotVolume(want.oneshot); if (lastOneshot !== want.oneshot) did.push(`one-shots ${want.oneshot}`); lastOneshot = want.oneshot; } catch (e) { did.push("one-shots refused"); }
-  }
+  const cur = Number(node.value);
+  if (!Number.isFinite(cur) || Math.abs(cur - want.global) >= 0.001) { try { node.value = want.global; did.push(`ambience ${r3(want.global)}`); } catch (e) { did.push("ambience refused"); } }
+  const es = p?.elementSystem;
+  const key = `${want.music}|${want.oneshot}`;
+  if (es?.setMusicVolume) { try { es.setMusicVolume(want.music); if (lastGroups !== key) did.push(`music ${r3(want.music)}`); } catch (e) { did.push("music refused"); } }
+  if (es?.setOneshotVolume) { try { es.setOneshotVolume(want.oneshot); if (lastGroups !== key) did.push(`one-shots ${r3(want.oneshot)}`); } catch (e) { did.push("one-shots refused"); } }
+  lastGroups = key;
   return did.length ? `set ${did.join(", ")}` : "same";
 }
+const r3 = (v) => Math.round(v * 1000) / 1000;
 
-/** GM: set either level (a gain, or null to hand it back to Syrinscape). MobileCommand.soundScenes.levels({ moods, oneshots }). */
-export async function setSyrinscapeLevels(next = {}) {
-  if (!game.user?.isGM) return { ok: false, reason: "GM only" };
-  const was = game.settings.get(MODULE_ID, "syrinscapeLevels") ?? {};
-  const out = { ...was };
-  for (const k of ["moods", "oneshots"]) if (k in next) { const g = gain(next[k]); if (g === null) delete out[k]; else out[k] = g; }
-  await game.settings.set(MODULE_ID, "syrinscapeLevels", out);
-  return { ok: true, levels: out, was };
+/** ~~GM: set either level. MobileCommand.soundScenes.levels({ moods, oneshots }).~~ Replaced by soundScenes.mix. */
+export async function setSyrinscapeLevels() {
+  return { ok: false, reason: "replaced by MobileCommand.soundScenes.mix({ music, environment, cues }) (2026-11-16)" };
 }
 
 export function registerSyrinscapeBridge() {

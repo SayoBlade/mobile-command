@@ -2,6 +2,7 @@ import { MODULE_ID, SAVE_TIMEOUT_SETTING, DEFAULT_CARD_THEME, DAY_DARKNESS_FLOOR
 import { notifier } from "./notifier.js";
 import { makeConfirmMenuClass, deactivate, reactivate, hasBackup, hasReactivateSnapshot } from "./enforcer.js";
 import { resyncSyrinscapeEntries, syncSyrinscapeLevels } from "./syrinscape-bridge.js"; // sound scenes: Syrinscape or local (SOUND-PLAN §2.7)
+import { applyMix } from "./sound-mix.js"; // the table's one mix (DESIGN §58)
 
 export function registerSettings() {
   // D7 role, per-client. Phase 1 uses it only to decide which client runs
@@ -524,12 +525,18 @@ export function registerSettings() {
     onChange: () => resyncSyrinscapeEntries()
   });
 
-  // Two group levels for Syrinscape, set once and kept (DM 2026-11-16): { moods, oneshots } gains, absent = Syrinscape's
-  // own. Applied by every client that plays Syrinscape (syrinscape-bridge.js syncSyrinscapeLevels). ⚠️ A pair: his
-  // { moods 1.5, oneshots 1.4 } (seat 3, 2026-11-16) — one-shots was measured WITH moods at 1.5; change moods, re-measure.
+  // ~~Two group levels for Syrinscape (DM 2026-11-16): { moods, oneshots }; seat 3 set { 1.5, 1.4 }.~~ SUPERSEDED the same
+  // day by `soundMix` (DESIGN §58): kept registered so his stored value stays readable; nothing reads it any more.
   game.settings.register(MODULE_ID, "syrinscapeLevels", {
+    scope: "world", config: false, type: Object, default: {}
+  });
+
+  // THE TABLE'S ONE MIX (DM 2026-11-16, DESIGN §58): { music, environment, cues } gains, 1 = as it plays, absent = the
+  // designed default (sound-mix.js MIX_DEFAULT). Every client applies it after its own sliders, and to Syrinscape's
+  // three groups. Set with MobileCommand.soundScenes.mix({ music: 0.2 }).
+  game.settings.register(MODULE_ID, "soundMix", {
     scope: "world", config: false, type: Object, default: {},
-    onChange: () => syncSyrinscapeLevels()
+    onChange: () => { applyMix(); syncSyrinscapeLevels(); }
   });
 
   // §53 (catalogue 230, DM go 2026-09-20): Foundry gives a GM controlling no token NO ambient sound at

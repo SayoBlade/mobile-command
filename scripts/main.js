@@ -13,6 +13,7 @@ import { registerDMPanel, refreshPanel, openDock } from "./dm-panel.js";
 import { setupTvVisionCard } from "./tv-vision-card.js"; // §23.7 "No PCs in scene" on the TV
 import { planDmSilence } from "./dm-silence.js"; // the DM's music AND environment while the TV is connected
 import { registerSyrinscapeBridge, soundScenesState, setSoundScenes, syncSyrinscapeVolume, setSyrinscapeLevels, syncSyrinscapeLevels } from "./syrinscape-bridge.js"; // Syrinscape or local (deck-command D-0116)
+import { registerSoundMix, setSoundMix, soundMixState } from "./sound-mix.js"; // the table's one mix (DESIGN §58)
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, preloadRideSound, primeRideSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
@@ -1004,6 +1005,7 @@ Hooks.once("ready", () => {
   registerFog(); // fog-of-war edge styles on the display (off/soft/gpu via `fogStyle`; see fog-soft.js)
   registerMusic();       // rooms, battle, Phase 2, cues — crossfaded; the primary GM drives (music.js)
   registerSyrinscapeBridge(); // a Syrinscape entry plays its local twin while Local/offline, and stops at a fade's start
+  registerSoundMix();         // the table's one mix: music / environment / cues layers after every screen's sliders (§58). AFTER the bridge: it wraps the bridge's seam
   registerCombatMusic(); // per-PC themes + battle track over combat turns (primary GM drives; see combat-music.js)
   registerCampaigns();   // §50: Ember's creation sheet gets the small-screen fit-shim (no-op elsewhere)
 
@@ -1012,7 +1014,7 @@ Hooks.once("ready", () => {
     enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, deactivate, reactivate, revert: deactivate, hasBackup },
     train: { wire: wireTrainDoors, ride: setTrainMist, sound: setTrainSound, preload: preloadRideSound, jolt: setTrainJolt, joltNow, riding: trainMistOn, hasWindows: trainCarHasWindows, setWindows: setTrainWindows, freeWeather: (o) => freeTrainWeather({ force: true, ...o }) }, // §37 macro access (§8.1 manual triggers)
     house: { restore: (o) => restoreCrookedHouse({ force: true, ...o }), plan: () => planHouseNow() }, // the Crooked House put-back (§8.1 manual trigger)
-    soundScenes: { state: soundScenesState, set: setSoundScenes, levels: setSyrinscapeLevels, applyLevels: syncSyrinscapeLevels }, // Syrinscape or local (deck-command D-0116): the deck's Music drawer switch
+    soundScenes: { state: soundScenesState, set: setSoundScenes, mix: setSoundMix, mixState: soundMixState, levels: setSyrinscapeLevels, applyLevels: syncSyrinscapeLevels }, // Syrinscape or local (deck-command D-0116): the deck's Music drawer switch; mix = the table's layers (§58; levels is retired)
     /**
      * §18/§41 TRAVEL, READ-ONLY — what a second surface needs to draw its own travel keys
      * (deck-command D-0065). The VERBS are published as actions (`travel.*`), which is the

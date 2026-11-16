@@ -143,43 +143,44 @@ await new Promise((r) => setTimeout(r, 0));
 check("…its key goes dark", breath.playing === false);
 
 // ---- his Syrinscape follows his Environment level (seat D2) ----
-check("the wanted level is the Environment volume", B.wantedSyrinscapeLevel(0) === 0 && B.wantedSyrinscapeLevel(0.5) === 0.5 && B.wantedSyrinscapeLevel("x") === null);
+const HALF = 1 + 20 * Math.log10(0.5) / 37.5; // 0.8395: Environment 0.5 (−6 dB) on Syrinscape's dB scale (§58)
+check("the wanted level is the Environment volume ON SYRINSCAPE'S SCALE (0.5 → −6 dB, not −18.75)", B.wantedSyrinscapeLevel(0) === 0 && Math.abs(B.wantedSyrinscapeLevel(0.5) - HALF) < 1e-9 && B.wantedSyrinscapeLevel(1) === 1 && B.wantedSyrinscapeLevel("x") === null);
 check("no Syrinscape player: nothing to do", B.syncSyrinscapeVolume() === "no player");
 const node = { value: -Infinity, writes: [] };
 Object.defineProperty(node, "v", { value: 0 });
 globalThis.syrinscape = { player: { audioSystem: { effectSystem: { localVolume: node } } } };
 settings.globalAmbientVolume = 0.5;
-check("D: a level trapped at −∞ is written straight back (no fade)", B.syncSyrinscapeVolume() === "set 0.5" && node.value === 0.5);
+check("D: a level trapped at −∞ is written straight back (no fade)", B.syncSyrinscapeVolume() === "set 0.839" && node.value === HALF);
 settings.globalAmbientVolume = 0;
 check("D: the TV connects → his Environment 0 → Syrinscape exactly 0", B.syncSyrinscapeVolume() === "set 0" && node.value === 0);
 settings.globalAmbientVolume = 0.5;
-check("D: the TV leaves → back to 0.5, from 0", B.syncSyrinscapeVolume() === "set 0.5" && node.value === 0.5);
+check("D: the TV leaves → back to 0.5 (0.84 on its scale), from 0", B.syncSyrinscapeVolume() === "set 0.839" && node.value === HALF);
 check("an unchanged level is left alone", B.syncSyrinscapeVolume() === "same");
 const mainSrc = fs.readFileSync(path.join(ROOT, "scripts", "main.js"), "utf8");
 check("the TV rule hands Syrinscape the new level after it writes Environment", /applyDmMusicSilence\(\) \{[\s\S]*?setTimeout\(syncSyrinscapeVolume, 100\);[\s\S]*?\n\}/.test(mainSrc));
 
-// ---- two group levels, set once and kept (DM 2026-11-16) ----
-const L = B.syrinscapeGroupLevels;
-check("no levels set: Syrinscape's own are left alone", L({}).global === null && L({}).oneshot === null && L(null).global === null);
-check("moods only: global carries it, one-shots untouched", L({ moods: 0.8 }).global === 0.8 && L({ moods: 0.8 }).oneshot === null);
-check("one-shots land at exactly their level (group = one-shots ÷ moods)", Math.abs(L({ moods: 0.8, oneshots: 0.2 }).oneshot * 0.8 - 0.2) < 1e-9);
-check("one-shots only: the group is the level itself", L({ oneshots: 0.3 }).oneshot === 0.3 && L({ oneshots: 0.3 }).global === null);
-check("clamped to Syrinscape's 0–1.5 and kept off 0 (the −∞ fade trap)", L({ moods: 9 }).global === 1.5 && L({ moods: 0 }).global === B.LEVEL_FLOOR && L({ moods: 1, oneshots: 0 }).oneshot === B.LEVEL_FLOOR && L({ moods: 0.01, oneshots: 1.5 }).oneshot === 1.5);
-const gnode = { value: 1 }; const shotWrites = [];
+// ---- the table's mix on Syrinscape's three groups (DESIGN §58, superseding the two levels) ----
+const gnode = { value: 1 }; const shotWrites = [], musicWrites = [];
 globalThis.syrinscape.player.audioSystem.effectSystem.globalVolume = gnode;
-globalThis.syrinscape.player.elementSystem = { setOneshotVolume: (v) => shotWrites.push(v) };
-settings.syrinscapeLevels = {};
-check("levels: nothing set → nothing written", B.syncSyrinscapeLevels() === "same" && gnode.value === 1 && shotWrites.length === 0);
-settings.syrinscapeLevels = { moods: 1.2, oneshots: 0.3 };
-check("levels: both written once", B.syncSyrinscapeLevels() === "set moods 1.2, one-shots 0.25" && gnode.value === 1.2 && shotWrites.at(-1) === 0.25);
-check("levels: kept — the next check reports nothing new but re-asserts the one-shot group", B.syncSyrinscapeLevels() === "same" && shotWrites.length === 2);
+globalThis.syrinscape.player.elementSystem = { setOneshotVolume: (v) => shotWrites.push(v), setMusicVolume: (v) => musicWrites.push(v) };
+settings.soundMix = {};
+const r0 = B.syncSyrinscapeLevels();
+check("mix: the default mix writes all three groups", r0 === "set ambience 1.5, music 0.367, one-shots 0.585" && gnode.value === 1.5 && musicWrites.length === 1 && shotWrites.length === 1, r0);
+check("mix: kept — the next check reports nothing new but re-asserts both groups", B.syncSyrinscapeLevels() === "same" && musicWrites.length === 2 && shotWrites.length === 2);
 gnode.value = 0.4; // Syrinscape's server pushed its own global volume
-check("levels: a server reset of the mood level is put back", B.syncSyrinscapeLevels() === "set moods 1.2" && gnode.value === 1.2);
-check("levels: no element or entry volume is touched (only the two group nodes)", !/setElementIdVolume|setElementVolume/.test(fs.readFileSync(path.join(ROOT, "scripts", "syrinscape-bridge.js"), "utf8")));
-check("levels: the keeper applies them on every client with the Environment level",
+check("mix: a server reset of the global volume is put back", B.syncSyrinscapeLevels() === "set ambience 1.5" && gnode.value === 1.5);
+settings.soundMix = { environment: 0.5 };
+check("mix: a lower environment lowers the global and lifts the groups under it to keep them where they were",
+  B.syncSyrinscapeLevels() === "set ambience 1.339, music 0.528, one-shots 0.746");
+settings.soundMix = {};
+B.syncSyrinscapeLevels();
+check("mix: the old levels setting is no longer read", (settings.syrinscapeLevels = { moods: 0.2, oneshots: 0.2 }) && B.syncSyrinscapeLevels() === "same" && gnode.value === 1.5);
+check("mix: no element or entry volume is touched (only the three group nodes)", !/setElementIdVolume|setElementVolume/.test(fs.readFileSync(path.join(ROOT, "scripts", "syrinscape-bridge.js"), "utf8")));
+check("mix: the keeper applies it on every client with the Environment level",
   /const keep = \(\) => \{ syncSyrinscapeVolume\(\); syncSyrinscapeLevels\(\); \};/.test(fs.readFileSync(path.join(ROOT, "scripts", "syrinscape-bridge.js"), "utf8")));
-check("levels: a WORLD setting that re-applies on change",
-  /register\(MODULE_ID, "syrinscapeLevels", \{\s*scope: "world", config: false, type: Object, default: \{\},\s*onChange: \(\) => syncSyrinscapeLevels\(\)/.test(fs.readFileSync(path.join(ROOT, "scripts", "settings.js"), "utf8")));
+check("mix: a WORLD setting that re-applies the channels and Syrinscape on change",
+  /register\(MODULE_ID, "soundMix", \{\s*scope: "world", config: false, type: Object, default: \{\},\s*onChange: \(\) => \{ applyMix\(\); syncSyrinscapeLevels\(\); \}/.test(fs.readFileSync(path.join(ROOT, "scripts", "settings.js"), "utf8")));
+check("levels(): retired, says where to go", (await B.setSyrinscapeLevels({ moods: 1 })).ok === false);
 
 // the glue
 const set = fs.readFileSync(path.join(ROOT, "scripts", "settings.js"), "utf8");
@@ -187,7 +188,7 @@ check("both settings are WORLD scope (one shared Syrinscape room) and resync on 
   /register\(MODULE_ID, "soundScenes", \{[\s\S]*?scope: "world"[\s\S]*?onChange: \(\) => resyncSyrinscapeEntries\(\)/.test(set)
   && /register\(MODULE_ID, "syrinscapeOffline", \{\s*scope: "world"[\s\S]*?onChange: \(\) => resyncSyrinscapeEntries\(\)/.test(set));
 const main = fs.readFileSync(path.join(ROOT, "scripts", "main.js"), "utf8");
-check("registered at ready and published for the deck", /registerSyrinscapeBridge\(\);/.test(main) && /soundScenes: \{ state: soundScenesState, set: setSoundScenes, levels: setSyrinscapeLevels, applyLevels: syncSyrinscapeLevels \}/.test(main));
+check("registered at ready and published for the deck", /registerSyrinscapeBridge\(\);/.test(main) && /soundScenes: \{ state: soundScenesState, set: setSoundScenes, mix: setSoundMix, mixState: soundMixState, levels: setSyrinscapeLevels, applyLevels: syncSyrinscapeLevels \}/.test(main));
 
 // the ride bed
 const T = fs.readFileSync(path.join(ROOT, "scripts", "cm-train.js"), "utf8");
