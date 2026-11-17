@@ -47,7 +47,7 @@ const fight = playlist("vxiJygkc1EJ4Wv2p", "Fight · Crooked House", { [MOD]: { 
 const cauldronFight = playlist("gszxbhYuogCcgm51", "Fight · Cauldron Room", { [MOD]: { music: { role: "battle", key: "cauldron-room" } } }, [track("bbeg", "bbeg")]);
 const haint = playlist("cmbaaL6rYJ4pWHl0", "Fight · Haint Fight", { [MOD]: { music: { role: "battle", key: "haint-fight" } } }, [track("blood", "Blood In The Hall")]);
 
-const store = new Map([["musicLayer", true], ["musicState", {}], ["combatMusicPlaylist", haint.uuid], ["musicDwellSeconds", 0], ["atticRoomsMade", false]]);
+const store = new Map([["musicLayer", true], ["musicState", {}], ["combatMusicPlaylist", haint.uuid], ["musicDwellSeconds", 0], ["atticRoomsMade", false], ["sceneMusicAdopted", false]]);
 const GM = { id: "gm", isGM: true };
 const P1 = { id: "p1", isGM: false };
 const users = [GM, P1];
@@ -55,6 +55,16 @@ const mkScene = (id, name, o = {}) => {
   const sc = { id, name, flags: {}, tokens: [], regions: [], grid: { size: 100 }, playlist: null, playlistSound: null, ...o };
   sc.getFlag = (m, k) => sc.flags?.[m]?.[k];
   sc.setFlag = async (m, k, v) => { ((sc.flags[m] ??= {}))[k] = v; return sc; };
+  sc.update = async (data) => { // dotted keys, then the hook as Foundry fires it (the change nested)
+    const ch = {};
+    for (const [k, v] of Object.entries(data)) {
+      const parts = k.split("."); let o = sc, c = ch;
+      for (const q of parts.slice(0, -1)) { o = (o[q] ??= {}); c = (c[q] ??= {}); }
+      o[parts.at(-1)] = v; c[parts.at(-1)] = v;
+    }
+    await fire("updateScene", sc, ch);
+    return sc;
+  };
   sc.createEmbeddedDocuments = async (type, data) => data.map((d) => {
     const r = { ...d, behaviors: (d.behaviors ?? []).map((b, i) => ({ ...b, uuid: `Scene.${id}.Region.${d.flags[MOD].cm}.RegionBehavior.${i}`, disabled: false })) };
     sc.regions.push(r); return r;
@@ -94,15 +104,25 @@ globalThis.setInterval = () => 0; globalThis.clearInterval = () => {};
 const M = await import(pathToFileURL(path.join(ROOT, "scripts", "music.js")).href);
 const C = await import(pathToFileURL(path.join(ROOT, "scripts", "music-core.js")).href);
 const A = await import(pathToFileURL(path.join(ROOT, "scripts", "cm-attic.js")).href);
-M.registerMusic();
 const tickOnce = () => new Promise((r) => setTimeout(r, 0));
 const fire = async (h, ...a) => { for (const fn of hooks[h] ?? []) await fn(...a); await tickOnce(); await tickOnce(); };
+// core's own start of a scene's Playlist field on activation (PlaylistCollection#_onChangeScene, Foundry 14), faithfully
+let coreState = { playlistId: null, soundId: null }, starts = 0;
+game.playlists._onChangeScene = async function (scene) {
+  const pid = scene?.playlist?.id ?? null, sid = scene?.playlistSound?.id ?? null;
+  if (pid === coreState.playlistId && sid === coreState.soundId) return;
+  const prior = all.find((x) => x.id === coreState.playlistId);
+  if (prior) { const ps = prior.sounds.get(coreState.soundId); if (ps) ps.playing = false; else if (!coreState.soundId) for (const x of prior.sounds) x.playing = false; }
+  coreState = { playlistId: pid, soundId: sid };
+  if (scene?.playlistSound) { scene.playlistSound.playing = true; starts += 1; } else if (scene?.playlist) { await scene.playlist.playAll(); starts += 1; }
+};
 const playing = () => all.flatMap((p) => p.sounds).filter((s) => s.playing).map((s) => s.name).sort().join(", ");
 const activate = async (sc) => {
-  game.scenes.active = sc;
-  if (sc.playlistSound) sc.playlistSound.playing = true; else if (sc.playlist) await sc.playlist.playAll(); // core plays the field
+  game.scenes.active = sc; for (const x of scenes) x.active = x === sc;
+  await game.playlists._onChangeScene(sc); // core plays the field (wrapped by music.js for a held scene)
   await fire("updateScene", sc, { active: true });
 };
+M.registerMusic(); // after the fake core, so its _onChangeScene is the one wrapped
 const stopAll = () => { for (const s of all.flatMap((p) => p.sounds)) s.playing = false; };
 const standAt = async (sc, x, y, t = 0) => {
   for (const s of scenes) s.tokens = s.tokens.filter((tk) => tk !== hero);
@@ -112,39 +132,51 @@ const standAt = async (sc, x, y, t = 0) => {
 };
 
 // ── 1–4: the rules, pure ─────────────────────────────────────────────────────────────────────────────────
-check("pure: MC never plays a default of its own — a proposed scene with no flag has none", C.sceneMusicOf({ flags: {} }) === null && tender.id in C.SCENE_MUSIC_PROPOSED);
-check("pure: his flag is the default; \"none\" is none", C.sceneMusicOf({ flags: { [MOD]: { music: { default: eerie.uuid } } } }) === eerie.uuid && C.sceneMusicOf({ flags: { [MOD]: { music: { default: "none" } } } }) === null);
+check("pure: his yes — Druskenvald and Wickermoor Hollow only; the Tender declined (a little buildup); no default on the landing",
+  Object.keys(C.SCENE_MUSIC_APPROVED).sort().join() === [drusk.id, hollow.id].sort().join() && tender.id in C.SCENE_MUSIC_DECLINED
+  && !(landing.id in C.SCENE_MUSIC_APPROVED) && Object.values(C.SCENE_MUSIC_APPROVED).every((id) => docs[`Playlist.${id}`]) && C.sceneMusicOf({ flags: {} }) === null);
+check("pure: his flag is the default; 'none' is none", C.sceneMusicOf({ flags: { [MOD]: { music: { default: eerie.uuid } } } }) === eerie.uuid && C.sceneMusicOf({ flags: { [MOD]: { music: { default: "none" } } } }) === null);
 check("pure: a map with ROOMS never gets a default, even one he flagged (music there comes only from rooms)", C.sceneMusicOf({ flags: { [MOD]: { music: { default: eerie.uuid } } }, hasRooms: true }) === null);
-check("pure: the four proposals are maps with no rooms and no music of their own, each naming one of his playlists",
-  Object.keys(C.SCENE_MUSIC_PROPOSED).sort().join() === [landing.id, tender.id, drusk.id, hollow.id].sort().join() && Object.values(C.SCENE_MUSIC_PROPOSED).every((id) => docs[`Playlist.${id}`]));
+check("pure: a music hold holds until its time, and never past it (a ride that never lets go cannot silence the car)",
+  C.musicHoldOf({ [MOD]: { musicHold: { until: 5000 } } }, 4000) === 5000 && C.musicHoldOf({ [MOD]: { musicHold: { until: 5000 } } }, 5000) === 0
+  && C.musicHoldOf({ [MOD]: { musicHold: { until: 0 } } }, 1) === 0 && C.musicHoldOf({}, 1) === 0 && C.MUSIC_HOLD_MAX_MS === 20000);
 
-// ── 5–8: before his yes, nothing new plays; adopting writes only where nothing of his is ─────────────────────
+// ── 5–8: his yes, written once on his GM load, never over a choice of his ───────────────────────────────────
 await activate(landing);
-check("the landing room activates before his yes → nothing new starts (no auto-play)", playing() === "", playing());
-tender.flags[MOD] = { music: { default: eerie.uuid } }; // the Tender already carries a choice of his
-const ad = await M.adoptSceneMusic();
-check("adoptSceneMusic(): the landing room, Druskenvald and Wickermoor Hollow get their proposal",
-  ad.ok && ad.set.length === 3 && landing.flags[MOD].music.default === passenger.uuid && drusk.flags[MOD].music.default.endsWith("cmroM7sdO9ufQBvA") && hollow.flags[MOD].music.default.endsWith("cmroAveP8tcNEzPe"), JSON.stringify(ad));
-check("…and a scene that has his own default (the Tender) is left as he has it", tender.flags[MOD].music.default === eerie.uuid && ad.kept.some((k) => /Tender: has his own/.test(k)), JSON.stringify(ad.kept));
-delete tender.flags[MOD].music.default;
-const ad2 = await M.adoptSceneMusic([tender.id]);
-check("adoptSceneMusic([the Tender]) once he says yes to it alone → Room · Baggage Car", ad2.set.length === 1 && tender.flags[MOD].music.default === baggage.uuid, JSON.stringify(ad2));
+check("the landing room → no music starts (the ride brings it)", playing() === "", playing());
+hollow.flags[MOD] = { music: { default: eerie.uuid } }; // as if Wickermoor Hollow already carried a choice of his
+const once = await M.adoptApprovedOnce();
+check("the one-time step: Druskenvald → Room · Off the Spectral Rails; a scene with his own choice left as he has it; the landing and the Tender untouched",
+  once?.ok && once.set.length === 1 && drusk.flags[MOD].music.default.endsWith("cmroM7sdO9ufQBvA") && hollow.flags[MOD].music.default === eerie.uuid
+  && once.kept.some((k) => /Hollow: has his own/.test(k)) && !landing.flags[MOD]?.music && !tender.flags[MOD]?.music, JSON.stringify(once));
+check("…its marker is set, and a second load writes nothing", store.get("sceneMusicAdopted") === true && (await M.adoptApprovedOnce()) === null);
+delete hollow.flags[MOD].music.default;
+const ad = await M.adoptSceneMusic([hollow.id]);
+check("on a clean Wickermoor Hollow the same step gives it its own list (Room · Wickermoor Hollow)", ad.set.length === 1 && hollow.flags[MOD].music.default.endsWith("cmroAveP8tcNEzPe"), JSON.stringify(ad));
 
-// ── 9–14: the defaults he adopted, on maps with no rooms; combat in their place ─────────────────────────────
-stopAll(); await activate(landing);
-check("the landing room → its default (Room · Passenger Car) starts on activation", playing() === "Carriage Through Fog", playing());
+// ── 9–16: Start ride — the train, the lights, THEN the music (2 s after the lamps; deck-command ride.js) ─────
+stopAll(); starts = 0;
+const h = await M.holdMusic(car1, 9000);
 await activate(car1);
-check("the train starts on 10.1 → the same playlist plays on, unbroken (10.1's own field is that list)", playing() === "Carriage Through Fog", playing());
+check("held, the dark car activates → core's start of 10.1's own list is deferred and the layer starts nothing: silence but the train",
+  h.ok && playing() === "" && starts === 0 && C.musicHoldOf(car1.flags) === h.until, `${playing()} starts=${starts}`);
+const rel = await M.releaseMusic(car1);
+check("let go (2 s after the lamps) → Room · Passenger Car starts, once (core's own start; the layer finds it playing)",
+  rel.ok && rel.started && playing() === "Carriage Through Fog" && starts === 1 && C.musicHoldOf(car1.flags) === 0, `${playing()} starts=${starts} ${JSON.stringify(rel)}`);
 await activate(tender);
-check("the Tender → Room · Baggage Car crossfades in; the Passenger Car stops", playing() === "Breathing Behind the Door", playing());
+check("on to the Tender → the Passenger Car stops and nothing replaces it (no music there, on purpose)", playing() === "", playing());
+stopAll(); car1.flags[MOD].musicHold = { until: Date.now() - 1 }; await activate(car1);
+check("a hold that has run out holds nothing: the car's list starts on activation", playing() === "Carriage Through Fog", playing());
+await activate(drusk);
+check("Druskenvald → its default (Room · Off the Spectral Rails) crossfades in; the Passenger Car stops", playing() === "Tides Move Inward", playing());
 const foe = { actor: { id: "haint", type: "npc", getFlag: () => undefined, hasPlayerOwner: false } };
-const c2 = { id: "c2", started: true, scene: tender, combatant: foe, combatants: [foe], getFlag: () => [] };
+const c2 = { id: "c2", started: true, scene: drusk, combatant: foe, combatants: [foe], getFlag: () => [] };
 game.combat = c2; await fire("combatStart", c2);
-check("a fight in the Tender → the world's battle music (Haint Fight) replaces the default", playing() === "Blood In The Hall", playing());
+check("a fight in Druskenvald → the world's battle music (Haint Fight) replaces the default", playing() === "Blood In The Hall", playing());
 game.combat = null; await fire("deleteCombat", c2);
-check("…and the Tender's default crossfades back after it", playing() === "Breathing Behind the Door", playing());
-stopAll(); tender.flags[MOD].music.default = empty.uuid; await activate(tender);
-check("a default naming a playlist with no tracks (Calm) is ignored: nothing starts, nothing goes silent by it", playing() === "", playing());
+check("…and the default crossfades back after it", playing() === "Tides Move Inward", playing());
+stopAll(); drusk.flags[MOD].music.default = empty.uuid; await activate(landing); await activate(drusk);
+check("a default naming a playlist with no tracks (Calm) is ignored: nothing starts", playing() === "", playing());
 
 // ── 15–19: a map WITH rooms: music only from its rooms ───────────────────────────────────────────────────
 stopAll(); house.flags[MOD].music.default = eerie.uuid; // even a flag of his does not play over a map with rooms

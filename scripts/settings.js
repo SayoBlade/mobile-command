@@ -781,6 +781,10 @@ export function registerSettings() {
   game.settings.register(MODULE_ID, "atticRoomsMade", {
     scope: "world", config: false, type: Boolean, default: false
   });
+  // One-shot marker (§59, DM 2026-11-17): his approved default soundtracks (Druskenvald, Wickermoor Hollow) written. music.js.
+  game.settings.register(MODULE_ID, "sceneMusicAdopted", {
+    scope: "world", config: false, type: Boolean, default: false
+  });
 
   game.settings.register(MODULE_ID, "crookedMoonTools", {
     scope: "world",

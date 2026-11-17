@@ -32,7 +32,7 @@
  */
 import { MODULE_ID } from "./preset.js";
 import { combatMusicMode, configureForCombat, restoreTouched } from "./combat-music.js";
-import { resolveMusic, targetKey, battleFor, manualStillHolds, partyRoom, Dwell, OVERLAP_SETTING, OVERLAP_DEFAULT, overlapApplies, handOffIn, handOffUpdate, isBed, bedStays, bedKind, sceneBattleOf, sceneMusicOf, sceneMusicFlagOf, SCENE_MUSIC_PROPOSED, SCENE_MUSIC_WORLD } from "./music-core.js";
+import { resolveMusic, targetKey, battleFor, manualStillHolds, partyRoom, Dwell, OVERLAP_SETTING, OVERLAP_DEFAULT, overlapApplies, handOffIn, handOffUpdate, isBed, bedStays, bedKind, sceneBattleOf, sceneMusicOf, sceneMusicFlagOf, SCENE_MUSIC_APPROVED, SCENE_MUSIC_WORLD, musicHoldOf, MUSIC_HOLD_FLAG, MUSIC_HOLD_MAX_MS } from "./music-core.js";
 
 export const MUSIC_BEHAVIOR_TYPE = `${MODULE_ID}.music`;
 const HOOK = `${MODULE_ID}.music`;
@@ -186,10 +186,12 @@ function resolveNow() {
   const scene = game.scenes?.active ?? null;
   const combat = runningCombat();
   const { manual, cue } = readState();
+  // §59.9: a ride holds the car's music until 2 s after its lamps (the train first, then the light, then the music)
+  const held = Boolean(scene && musicHoldOf(scene.flags));
   return resolveMusic({
     cue, manual: manualStillHolds(manual, combat?.id ?? null) ? manual : null,
     combatId: combat?.id ?? null, combatTarget: combatTarget(combat),
-    room: roomTarget(scene), sceneDefault: sceneDefault(scene),
+    room: held ? null : roomTarget(scene), sceneDefault: held ? null : sceneDefault(scene),
   });
 }
 
@@ -433,7 +435,7 @@ export async function cue(ref, { returns = true } = {}) {
 // ── the deck's verbs ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * §59: write his yes. For each proposed scene (all of SCENE_MUSIC_PROPOSED, or the ids given) that has no rooms, no
+ * §59: write his yes. For each approved scene (all of SCENE_MUSIC_APPROVED, or the ids given) that has no rooms, no
  * music in its Playlist field and no default of his, set `flags.mobile-command.music.default` to the proposal. GM
  * only; The Crooked Moon only. Never over a choice of his. → { ok, set: [names], kept: [names + why] }
  */
@@ -441,7 +443,7 @@ export async function adoptSceneMusic(ids = null) {
   if (!game.user?.isGM) return { ok: false, reason: "GM only" };
   if (game.world?.id !== SCENE_MUSIC_WORLD) return { ok: false, reason: "these picks are The Crooked Moon's" };
   const out = { ok: true, set: [], kept: [] };
-  for (const [id, plId] of Object.entries(SCENE_MUSIC_PROPOSED)) {
+  for (const [id, plId] of Object.entries(SCENE_MUSIC_APPROVED)) {
     if (ids && !ids.includes(id)) continue;
     const sc = game.scenes.get(id), pl = game.playlists.get(plId);
     if (!sc || !pl) { out.kept.push(`${sc?.name ?? id}: ${sc ? "its playlist is gone" : "no such scene"}`); continue; }
@@ -453,6 +455,71 @@ export async function adoptSceneMusic(ids = null) {
   }
   if (game.scenes.active && out.set.length) apply();
   return out;
+}
+
+/**
+ * ⚠️ ONE-SHOT (DM 2026-11-17, his yes to Druskenvald and Wickermoor Hollow): on the primary GM's load, write the approved
+ * defaults once (marker `sceneMusicAdopted`), never over a choice of his (adoptSceneMusic's own guards).
+ */
+export async function adoptApprovedOnce() {
+  if (!game.user?.isGM || game.users.activeGM?.id !== game.user.id) return null;
+  if (game.world?.id !== SCENE_MUSIC_WORLD) return null;
+  try {
+    if (game.settings.get(MODULE_ID, "sceneMusicAdopted")) return null;
+    const out = await adoptSceneMusic();
+    if (out?.ok) {
+      await game.settings.set(MODULE_ID, "sceneMusicAdopted", true);
+      console.log(`${MODULE_ID} | default music: ${out.set.join("; ") || "nothing set"}${out.kept.length ? ` (left as he has them: ${out.kept.join("; ")})` : ""}`);
+    }
+    return out;
+  } catch (e) { console.warn(`${MODULE_ID} | default music`, e); return null; }
+}
+
+// ── the ride's hold (§59.9, DM 2026-11-17): *"Music should start 2 seconds after lights go on, so the train sounds
+// first, visual than music."* deck-command's Start ride holds the car's music before it activates the dark car and lets
+// go 2 s after the lamps. Two things would start it early and both wait: Mobile Command's own layer (resolveNow, held →
+// keep) and CORE, which plays the scene's Playlist field on activation on the activating client
+// (PlaylistCollection#_onChangeScene). The latter is wrapped: on a held scene it stops the old scene's music as usual and
+// starts nothing; the release then runs core's own start on this client, before the hold is lifted (so the layer finds it
+// already playing and starts nothing twice).
+const _deferredScene = new Set();
+const _holdTimers = new Map();
+let _coreChangeScene = null;
+export function wrapSceneChange() {
+  const c = game.playlists;
+  if (!c || _coreChangeScene || typeof c._onChangeScene !== "function") return;
+  _coreChangeScene = c._onChangeScene;
+  c._onChangeScene = function (scene) {
+    if (scene && musicHoldOf(scene.flags)) { _deferredScene.add(scene.id); return _coreChangeScene.call(this, null); }
+    _deferredScene.clear();
+    return _coreChangeScene.call(this, scene);
+  };
+}
+const sceneOf = (ref) => (typeof ref === "string" ? game.scenes?.get(ref) : ref) ?? null;
+
+/** Hold this scene's music (GM; before activating it). Lets go by itself after `ms` (at most 20 s). → { ok, until } */
+export async function holdMusic(ref, ms = MUSIC_HOLD_MAX_MS) {
+  if (!game.user?.isGM) return { ok: false, reason: "GM only" };
+  const sc = sceneOf(ref); if (!sc) return { ok: false, reason: "no such scene" };
+  const span = Math.min(Math.max(Number(ms) || 0, 0), MUSIC_HOLD_MAX_MS);
+  const until = Date.now() + span;
+  await sc.update({ [`flags.${MODULE_ID}.${MUSIC_HOLD_FLAG}`]: { until } });
+  clearTimeout(_holdTimers.get(sc.id));
+  _holdTimers.set(sc.id, setTimeout(() => releaseMusic(sc.id).catch(() => {}), span + 250));
+  return { ok: true, until };
+}
+
+/** Let the scene's music start: core's deferred start (on this client), then the hold lifted. → { ok, started } */
+export async function releaseMusic(ref) {
+  if (!game.user?.isGM) return { ok: false, reason: "GM only" };
+  const sc = sceneOf(ref); if (!sc) return { ok: false, reason: "no such scene" };
+  clearTimeout(_holdTimers.get(sc.id)); _holdTimers.delete(sc.id);
+  let started = false;
+  if (_deferredScene.delete(sc.id) && sc.active && _coreChangeScene) {
+    try { await _coreChangeScene.call(game.playlists, sc); started = true; } catch (e) { console.warn(`${MODULE_ID} | music hold: core start`, e?.message); }
+  }
+  if (sc.flags?.[MODULE_ID]?.[MUSIC_HOLD_FLAG]?.until) await sc.update({ [`flags.${MODULE_ID}.${MUSIC_HOLD_FLAG}`]: { until: 0 } });
+  return { ok: true, started };
 }
 
 /** The four moods: the first four playlists, by sort order, in any playlist folder named "Moods". */
@@ -689,6 +756,14 @@ export function registerMusic() {
   Hooks.on("updatePlaylist", (_p, ch) => { if (Array.isArray(ch.sounds)) for (const s of ch.sounds) if (s.playing === false) cueEnded(s._id); });
   Hooks.on("updatePlaylistSound", (doc, ch) => { if (ch.playing === false) cueEnded(doc.id); });
   Hooks.on("updateScene", (scene, ch) => { if (ch.active && isDriver()) { _dwell.reset(); _sceneId = scene.id; _current = null; apply(); } });
+  // §59.9: a hold set or let go on the table's scene; and the safety, if it only runs out
+  Hooks.on("updateScene", (scene, ch) => {
+    if (!isDriver() || !scene.active || !(ch?.flags?.[MODULE_ID] && MUSIC_HOLD_FLAG in ch.flags[MODULE_ID])) return;
+    apply();
+    const until = musicHoldOf(scene.flags);
+    if (until) setTimeout(() => apply(), until - Date.now() + 100);
+  });
+  wrapSceneChange();
   clearInterval(_tick);
   _tick = setInterval(tick, TICK_MS);
   apply({ adoptOnly: true });

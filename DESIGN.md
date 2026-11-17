@@ -81,7 +81,7 @@ sections their cross-references always claimed).
 | 56 | Prepare spells on the phone | **BUILT 2026-11-13** — owed a seat check (prepare on a phone vs Spell Book on the PC) |
 | 57 | "The TV took a VERY long time to respond" | **MEASURED 2026-11-16, not ours** — dnd5e 6.0.5 / animater ready-time load; no code change |
 | 58 | **The table's one mix** — launch sliders, a set level at every play, music / environment / cues layers, one master; Syrinscape's scale fixed | **BUILT 2026-11-16** (`sound-mix.js`; world settings `soundMix`, `soundMaster`, `launchVolumes`, `soundTrims` §58.10); **§58.11 FIXED 2026-11-16 night: element trims relative, §53 levels kept, trims converted once; §58.12 the real 408 carried over, 168 element trims ready, a mood trim moves its one-shots**; **owed: §58.12's 10-step seat check** |
-| 59 | **Music by room; the attic's rooms; the chanting lower outside the Cauldron Room; fight music in its place** (DM 2026-11-17, revised the same day) | **BUILT 2026-11-17** (`cm-attic.js` two book rooms, `sound-zones.js` the duck, `music-core.js SCENE_MUSIC_PROPOSED` + `music.adoptSceneMusic`, `sound-mix.js` music 0.6 + fight +3 dB); **owed: his veto of the picks + the seat check (§59.7)** |
+| 59 | **Music by room; the attic's rooms; the chanting lower outside the Cauldron Room; fight music in its place** (DM 2026-11-17, revised the same day) | **BUILT 2026-11-17** (`cm-attic.js` two book rooms, `sound-zones.js` the duck, `music-core.js SCENE_MUSIC_APPROVED` written once (`sceneMusicAdopted`), the ride's music hold (§59.9, deck-command D-0131), `sound-mix.js` music 0.6 + fight +3 dB); **his answers in 2026-11-17; owed: his veto of the attic's two tracks + the seat check (§59.7)** |
 
 ---
 
@@ -2556,8 +2556,11 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    cauldron room"*. ~~A scene-wide default for five scenes (incl. 12.1 over its rooms), auto-playing~~ (b7fcfff,
    replaced). BUILT: rooms stay the model; the attic gets its two book rooms (H16, H17) from its walls; the chanting is
    12 dB lower while no PC is in the Cauldron Room; four no-room maps have a PROPOSED default that plays only once he
-   says yes; music layer +6 dB; fight playlists +3 dB. **Owed:** his veto of the attic's two tracks and the four
-   proposals (§59.2–59.3), and the seat check (§59.7). Not done: a fight played as a Syrinscape mood gets the +6, not +3.
+   says yes; music layer +6 dB; fight playlists +3 dB. **His answers (2026-11-17, later), BUILT:** Druskenvald YES,
+   Wickermoor Hollow YES (written once on his GM load); 10.8 Tender NO (*"a little buildup"*); the landing YES to the
+   Passenger Car list BUT *"Music should start 2 seconds after lights go on"*, so Start ride holds 10.1's music until 2 s
+   after the lamps (§59.9; deck-command D-0131). **Owed:** his veto of the attic's two tracks (§59.3) and the seat check
+   (§59.7). Not done: a fight played as a Syrinscape mood gets the +6, not +3.
 
 0ᵇ. **OPEN 2026-11-16 — the table's one mix (§58) is BUILT; its numbers are PREDICTED, not measured.** His words:
    *"music completely hides them … they all need to be at around 25-50% volume so the DM's voice is clearly heard"*, then
@@ -9836,7 +9839,13 @@ Druskenvald Estate over its rooms.**~~ Replaced by what follows.
   him; `MobileCommand.music.adoptSceneMusic()` (all) or `adoptSceneMusic(["<scene id>"])` writes his yes, never over a
   choice of his (a flag, a Playlist field, or rooms). A default naming an empty playlist is ignored.
 
-### 59.2 The proposals (maps with no rooms and no music; from his Music → Rooms, by title; NOT playing until he says yes)
+### 59.2 The proposals (maps with no rooms and no music; from his Music → Rooms, by title) — HIS ANSWERS 2026-11-17
+**Answered the same evening:** landing **YES but timed** (*"Music should start 2 seconds after lights go on, so the
+train sounds first, visual than music"*) → no default on the landing at all; 10.1's own list starts 2 s after the
+ride's lamps (§59.9). Tender **NO**, on purpose (*"a little buildup"*; `SCENE_MUSIC_DECLINED`). Druskenvald **YES**.
+Wickermoor Hollow **YES**. The two yeses are `SCENE_MUSIC_APPROVED`, written ONCE on the primary GM's load
+(`music.js adoptApprovedOnce`, marker `sceneMusicAdopted`), through adoptSceneMusic's guards (never over a flag, a
+Playlist field or rooms of his). The table as proposed:
 | Map | Has | Proposed |
 |---|---|---|
 | The Crooked Moon (landing room, the intros) | nothing | **Room · Passenger Car** (Carriage Through Fog, Guest at the Gate, False Warmth); 10.1 plays the same list, so the train's start would carry on unbroken |
@@ -9899,11 +9908,31 @@ stay −40 … +24. `MobileCommand.house.zones()` shows the cut in force.
 8. Walk one PC through the little door into the Cauldron Room → `zones()` is `{}`; Foul Ritual ≈ 12 dB louder than
    step 7; the whole party in → Room · Abandoned Church.
 9. Start the Cauldron fight → Fight · Cauldron Room; end it → Room · Abandoned Church back.
-10. (Only if he says yes to the proposals) `MobileCommand.music.adoptSceneMusic()`, then activate the landing room →
-    Room · Passenger Car; 10.8 → Room · Baggage Car.
+10. ~~(Only if he says yes to the proposals) adoptSceneMusic, landing → Passenger Car; 10.8 → Baggage Car.~~
+    Answered (§59.2). Instead: step 1's console also shows `default music: Druskenvald → Room · Off the Spectral Rails;
+    Wickermoor Hollow → Room · Wickermoor Hollow`. On the landing, press **Start ride**: the train is heard at once; the
+    lamps come up ≈ 3 s later; **Room · Passenger Car begins ≈ 2 s after the lamps (≈ 5 s after the train)**, not before;
+    one track, not started twice (the Music key names one). Stopwatch from the train.
+11. Activate 10.8 Tender → the Passenger Car music stops and nothing replaces it.
+12. Activate Druskenvald → Room · Off the Spectral Rails; Wickermoor Hollow → Room · Wickermoor Hollow.
+
+### 59.9 Start ride: the train, the lights, THEN the music (DM 2026-11-17; deck-command ride.js, D-0131)
+*"Music should start 2 seconds after lights go on, so the train sounds first, visual than music."* With the train
+3 s before the lights (D-0108), the order is train → lamps (+3 s) → music (+5 s). Two things started the car's music at
+the activation: **core** (PlaylistCollection#_onChangeScene plays a scene's Playlist field on the activating client) and
+**this layer** (activation → apply → the field). So on a car still dark, deck-command's ride calls
+`MobileCommand.music.hold(car, ms)` before `scene.activate()` and `music.release(car)` at light + 2 s:
+- the hold is a scene flag `flags.mobile-command.musicHold = { until }` (self-expiring, capped 20 s; the ride asks
+  light + music + 5 s): while it holds, resolveNow gives the room and scene layers nothing (cue and combat still win);
+- core's start is wrapped (`wrapSceneChange`, every client): a held scene stops the old scene's music as core does and
+  starts nothing, remembering it deferred; `release` runs core's own start on that client FIRST, then lifts the flag
+  (`until: 0`, never deleted), so the driver finds the list playing and starts nothing twice;
+- a hold that only runs out lets go on its own (the driver re-applies at `until`; the holder's timer releases).
+Without Mobile Command, or with an older one (no `music.hold`), nothing is held and the music starts with the car.
 
 ### 59.8 Tests
-`tools/test-music-scene-default.mjs` 26 (no auto-play; his flag; never over rooms; adopt writes only where nothing of
+`tools/test-music-scene-default.mjs` 28 (his answers; the one-time step, once, never over his; the ride's hold: held
+→ silence, released → one start, a run-out hold holds nothing; the Tender silent; Druskenvald and its fight; no auto-play; his flag; never over rooms; adopt writes only where nothing of
 his is; a default + combat; 12.1 by room only, fight and back; the attic plan, its wall-traced rooms, the one-shot, music
 by room on 12.4, its fight and back). `tools/test-sound-zones.mjs` 14 (the rule; any PC inside = full; on the trims;
 −42 on the global; the drone −12; stored trims untouched; the runtime from tokens). `test-sound-mix.mjs` 90 (the

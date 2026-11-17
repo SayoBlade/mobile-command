@@ -210,16 +210,34 @@ export function sceneBattleOf(flags) {
 // enters a room? I actually like that better"*. So: ROOMS stay the model. A map with Music regions gets its music from
 // its rooms only, never a scene-wide default over them. A default is only for a map with NO rooms, and only when HE
 // names it: `flags.mobile-command.music.default` on the scene, a playlist uuid ("none" = none). MC never auto-plays
-// one; SCENE_MUSIC_PROPOSED is the list put to him (from his Music → Rooms playlists, by title, no new files), and
+// one; SCENE_MUSIC_APPROVED is what he said yes to (from his Music → Rooms playlists, by title, no new files), and
 // `MobileCommand.music.adoptSceneMusic(ids?)` writes the flag for the ones he says yes to. The scene's own Playlist
 // field (his earlier choice, e.g. 10.9's) still plays as before.
 export const SCENE_MUSIC_WORLD = "crooked-moon-6x";
-export const SCENE_MUSIC_PROPOSED = Object.freeze({
-  dcLandingRoom001: "cmron2HWl0FUr6gR", // The Crooked Moon (landing room, the intros) → Room · Passenger Car: 10.1 plays the same list
-  rnp1No8kbQe8ejMU: "cmror6Nct8Pen2I3", // 10.8 Tender (the one car with no room music) → Room · Baggage Car
+// HIS ANSWERS (DM 2026-11-17, later): Druskenvald YES, Wickermoor Hollow YES (written once on his GM load, cm-scene-music
+// one-shot in music.js `adoptApprovedOnce`). 10.8 Tender NO, on purpose (*"a little buildup"*): nothing. The landing
+// YES to the Passenger Car list BUT *"Music should start 2 seconds after lights go on, so the train sounds first,
+// visual than music"*: so no default on the landing at all; 10.1's own Playlist field (the same list) is HELD during
+// Start ride and starts 2 s after the lamps (musicHoldOf below; deck-command ride.js releases it).
+export const SCENE_MUSIC_APPROVED = Object.freeze({
   UbgWWsXfPSmO9dWu: "cmroM7sdO9ufQBvA", // Druskenvald → Room · Off the Spectral Rails
   W1Kw4TXP0Mw9zVMw: "cmroAveP8tcNEzPe", // Wickermoor Hollow → Room · Wickermoor Hollow (10.9's list)
 });
+export const SCENE_MUSIC_DECLINED = Object.freeze({ rnp1No8kbQe8ejMU: "10.8 Tender: no music on purpose (a little buildup)" });
+
+/**
+ * Pure: is this scene's music HELD right now (§59.9)? `flags.mobile-command.musicHold = { until: ms }`, written by a
+ * ride before it activates a dark car and let go 2 s after its lamps. While held, neither the scene's own Playlist field
+ * (core's activation start is deferred) nor its rooms nor a default start; cue and combat still win. `until` is a safety:
+ * a ride that never lets go cannot silence the car past it.
+ */
+export const MUSIC_HOLD_FLAG = "musicHold";
+export const MUSIC_HOLD_MAX_MS = 20000;
+export function musicHoldOf(flags, now = Date.now()) {
+  const h = flags?.["mobile-command"]?.[MUSIC_HOLD_FLAG];
+  const until = Number(h?.until);
+  return Number.isFinite(until) && until > now ? until : 0;
+}
 
 /** The scene's own default-music flag: a playlist uuid, "none", or null (not set). */
 export function sceneMusicFlagOf(flags) {
