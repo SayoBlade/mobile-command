@@ -450,6 +450,26 @@ export function routeSound(doc, sound) {
     };
     sound.__mcSetLevel = true;
   }
+  /**
+   * ⚠️ AND CORE'S TWO FADES (SEAT 6 2026-11-17: the fight track played at its own volume 0.5, not its set level 1.13,
+   * ≈ 5 dB under the room's music instead of 3 over). A playlist with a fade starts its sound at the set level above
+   * and then FADES IT IN to the document's volume (PlaylistSound#_onStart: `fade(this.volume, { from: 0 })`); and any
+   * update of a playing sound or its playlist (the overlap's hand-off, a fade written) re-fades it to the document's
+   * volume (#sync, 500 ms). Both name the document's volume; both go to the set level instead. A drag that CHANGES the
+   * document's volume is his, and is left as it is (and from then on is what this sound plays).
+   */
+  if (typeof sound.fade === "function" && !sound.__mcFade) {
+    const fade = sound.fade.bind(sound);
+    let docVol = Number(doc?.volume);
+    sound.fade = (volume, o = {}) => {
+      const v = Number(volume), now = Number(doc?.volume);
+      const isDocs = Number.isFinite(v) && v > 0 && Number.isFinite(now) && Math.abs(v - now) < 1e-6;
+      if (isDocs && Math.abs(now - docVol) < 1e-6 && !sound.mcDragged) { sound.mcSetLevel = level(); return fade(sound.mcSetLevel, o); }
+      if (isDocs && Math.abs(now - docVol) >= 1e-6) { docVol = now; sound.mcDragged = true; }
+      return fade(volume, o);
+    };
+    sound.__mcFade = true;
+  }
   return sound;
 }
 
@@ -522,7 +542,7 @@ export async function stepSoundMaster(dir = 1) {
 export function refreshTrims() {
   for (const pl of game.playlists ?? []) for (const ps of pl.sounds ?? []) {
     const snd = ps.sound;
-    if (!ps.playing || !snd?.playing || typeof snd.mcLevelOf !== "function") continue;
+    if (!ps.playing || !snd?.playing || typeof snd.mcLevelOf !== "function" || snd.mcDragged) continue; // his drag stays
     const next = snd.mcLevelOf();
     if (Math.abs(next - (snd.mcSetLevel ?? next)) < 1e-6) continue;
     snd.mcSetLevel = next;
@@ -627,8 +647,40 @@ export async function rebaseTrimsOnce() {
   return plan;
 }
 
+/**
+ * Measured corrections to a trim, each applied ONCE (marker `soundTrimFixes`, the ids done) and only while the trim is
+ * still exactly what it was written as: a later change of his (or a removal) is never touched.
+ *   secret-door-25 (SEAT 6 2026-11-17): 12.4 · Secret door read 6.2 dB quiet at −31; untrimmed it reads −9.5 (peak
+ *   +5.2 dBFS), so −25 lands it on the −34.4 target. SEAT 4's single-play −3.5 baseline was what was off.
+ */
+export const TRIM_FIXES = Object.freeze([
+  { id: "secret-door-25", key: "syr:element:244016", from: -31, to: -25, why: "12.4 · Secret door (SEAT 6: 6 dB quiet at −31)" },
+]);
+/** Pure: which fixes apply to these trims now, given the ids already done. → { trims, applied: [ids], skipped: [ids] } */
+export function planTrimFixes(trims = {}, done = [], fixes = TRIM_FIXES) {
+  const out = { ...trims }, applied = [], skipped = [];
+  for (const f of fixes) {
+    if (done.includes(f.id)) continue;
+    if (Number(out[f.key]) === f.from) { out[f.key] = f.to; applied.push(f.id); } else skipped.push(f.id);
+  }
+  return { trims: out, applied, skipped };
+}
+export async function fixTrimsOnce() {
+  if (!game.user?.isGM || game.users?.activeGM?.id !== game.user.id) return null;
+  const done = Array.isArray(setting("soundTrimFixes", [])) ? setting("soundTrimFixes", []) : [];
+  const plan = planTrimFixes(storedTrims(), done);
+  if (!plan.applied.length && !plan.skipped.length) return null;
+  try {
+    if (plan.applied.length) await game.settings.set(MODULE_ID, "soundTrims", plan.trims);
+    await game.settings.set(MODULE_ID, "soundTrimFixes", [...done, ...plan.applied, ...plan.skipped]);
+    const say = (ids) => ids.map((id) => { const f = TRIM_FIXES.find((x) => x.id === id); return `${f.why}: ${f.from} → ${f.to} dB`; }).join("; ");
+    console.log(`${MODULE_ID} | trim fixes: ${say(plan.applied) || "none applied"}${plan.skipped.length ? ` (left as he has it, not ${plan.skipped.map((id) => TRIM_FIXES.find((x) => x.id === id).from).join(", ")} dB any more: ${plan.skipped.join(", ")})` : ""}`);
+  } catch (e) { console.warn(`${MODULE_ID} | trim fixes`, e?.message); }
+  return plan;
+}
+
 export function registerSoundMix() {
   patchMix();
-  loadLevelled().then(() => rebaseTrimsOnce());
+  loadLevelled().then(() => rebaseTrimsOnce()).then(() => fixTrimsOnce());
   game.audio?.unlock?.then?.(() => applyMix());
 }

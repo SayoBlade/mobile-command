@@ -236,13 +236,18 @@ function checkTeleportRegions() {
 // (The silent 14.0.8→14.0.11 drift is what caused the 2026-07-26 bug wave to land mid-week
 // with no warning — this check exists so an update is always a DECISION, never a surprise.)
 const TESTED = {
-  // AC5E 14.533.19: attack path byte-identical to .18 by diff; preview + legs 3/4/8 rerun on the
+  // ⚠️ PARTIAL 2026-11-17 (SEAT 6 on his crooked-moon-6x, DESIGN §28.5.16): dnd5e 6.0.6, midi 14.6.13, AC5E 14.611.1,
+  // DAE 14.6.10 passed a real smoke fight: §28.4 leg 3 (phone two-tap attack, hit + damage applied), leg 12 (this check
+  // named all five), leg 10 in part (battle music on start, back to the room on end), plus deck saves normal + blind,
+  // AC5E's Poisoned/adv cancel, a DAE +2 AC effect expiring after one attack. OWED: legs 1, 2, 4–9, 11 and the rest of 10.
+  // wm5e (Automated Masteries) 14.610.2 was NOT exercised: its pin stays, so it still reads untested.
+  // Before that, AC5E 14.533.19: attack path byte-identical to .18 by diff; preview + legs 3/4/8 rerun on the
   // bench 2026-09-15 (DESIGN §28.5.14, PARTIAL — leg 6 had no vehicle). Earlier: 14.533.15.6 was
   // validated on the overnight bench 2026-08-28/29 (DESIGN §28.5.10): the full
   // §28.4 run, 12/12 — two-tap, MM darts, save spell, AoE via panel Place, AoO chip, target
   // hygiene (that leg CAUGHT the placeCast stray-target gap, fixed same night), music matrix
   // incl. mid-combat reload re-arm, turn HUD, this very check naming the version under test.
-  "dnd5e": "5.3.3", "midi-qol": "14.0.12", "automated-conditions-5e": "14.533.19",
+  "dnd5e": "6.0.6", "midi-qol": "14.6.13", "automated-conditions-5e": "14.611.1",
   // The automation-ecosystem pair, deep-dived together 2026-07-26 (§28.6): versions move
   // weekly (CAT is 0.0.x), so any bump gets the same validation treatment as midi's.
   "cat": "0.0.7", "midi-item-showcase-community": "2.0.2",
@@ -253,7 +258,8 @@ const TESTED = {
   "wm5e": "14.533.6", "simplecover5e": "2.2.1",
   // DAE: the effects engine under every midi workflow; never watched before the 2026-09-04 QA pass
   // (a DAE bump could not be flagged). Validated 14.0.14 on the 2026-09-10 run (§28.5.12).
-  "dae": "14.0.14"
+  // 14.6.10: PARTIAL 2026-11-17 (above).
+  "dae": "14.6.10"
 };
 
 // The DM reads this at the table, so it says the plain thing in plain words (UI-BIBLE §7.2): what

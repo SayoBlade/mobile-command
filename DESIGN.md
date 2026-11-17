@@ -53,7 +53,7 @@ sections their cross-references always claimed).
 | 25 | DM panel restructure + combat music | Built; §25.4 leftovers pruned by DM 2026-08-09; §25.5 the overlap between tracks, moved in from Deck Command 2026-11-06 |
 | 26, 26.6, 26.7 | Effects tab; targeted effects; deathbeat | Built; extras APPROVED 2026-08-09 (stop-all done; volume/surround/looks queued) |
 | 27 | Personal messages | Built (+ pmToast 2026-08-10/11) |
-| 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records; **§28.5.13 = the dnd5e 6.0 gate (2026-09-11): our code ready, midi not; §28.5.14 = AC5E .19 audit + the no-roll advantage route PROVEN and BUILT (2026-09-15; §28.8 retired)** |
+| 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records; **§28.5.13 = the dnd5e 6.0 gate (2026-09-11): our code ready, midi not; §28.5.14 = AC5E .19 audit + the no-roll advantage route PROVEN and BUILT (2026-09-15; §28.8 retired)** **§28.5.16 = SEAT 6's 6.x smoke fight (2026-11-17): pins bumped PARTIAL, legs owed** |
 | 29 | Settings mini-app | Built + bench-verified 12/12 (2026-08-01) |
 | 30, 30.1, 30.2 | Séance board + the bite | Built — the quality bar |
 | 31 | Twists of Fate (book RAW) | Built; **v3 2026-09-05 = DM popup + by-hand die (DM call), v2 auto-apply retired from the panel** (hooks kept for leftovers); the cancelled-dialog consume bug closed with it (§28.5.11) |
@@ -2560,7 +2560,9 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    Wickermoor Hollow YES (written once on his GM load); 10.8 Tender NO (*"a little buildup"*); the landing YES to the
    Passenger Car list BUT *"Music should start 2 seconds after lights go on"*, so Start ride holds 10.1's music until 2 s
    after the lamps (§59.9; deck-command D-0131). **Owed:** his veto of the attic's two tracks (§59.3) and the seat check
-   (§59.7). Not done: a fight played as a Syrinscape mood gets the +6, not +3.
+   (§59.7). Not done: a fight played as a Syrinscape mood gets the +6, not +3. **SEAT 6 2026-11-17:** §59.7 steps 1–4 ✅,
+   step 5 ❌ (fight music at its own volume, ~5 dB under the room) → FIXED (§59.4a); owed: step 5 re-run, then 6–12.
+   Same seat: the 6.x stack passed a smoke fight, pins bumped PARTIAL (§28.5.16); full §28.4 legs still owed (listed there).
 
 0ᵇ. **OPEN 2026-11-16 — the table's one mix (§58) is BUILT; its numbers are PREDICTED, not measured.** His words:
    *"music completely hides them … they all need to be at around 25-50% volume so the DM's voice is clearly heard"*, then
@@ -2577,6 +2579,10 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    conversion covers the real setting (408 file trims; 338 sounds move, incl. 21 it heard and left untrimmed; 0.05 dB worst);
    the 168 element trims are ready in `tools/seat4-element-trims.apply.js`; mood trims now move the whole mood; the token
    lookups are cross-scene. Owed: tomorrow's short seat check (§58.12, numbered).
+   **2026-11-17, SEAT 6 (§58.14):** rig calibrated; §58.12 steps 1–5 ✅ (element trims applied, 661 keys), step 6 ❌ the
+   Secret door 6 dB quiet → its trim −31 → −25 once on his next GM load (FIXED). ~~SEAT 5's "Whistle 1.5 dB low"~~ was the
+   meter (an AnalyserNode reads stereo as mono, ≈ 1.5 dB under per-channel power): the Whistle and 5 samples land within
+   0.5 dB. Owed: §58.12 steps 7–10.
 
 0. **QA pass 2026-09-04 (§28.5.11) — what is still OPEN after the 2026-09-05 fix round:**
    - **His batch of 2026-09-19 (the deck's FX boards, the flows, the intros — DC ledger 152):** MC's half is
@@ -4750,6 +4756,25 @@ environment-update + KTX2 performance · Firefox zero-angle light/sight crash fi
 on a fresh bench copy under 14.368 → bump module.json `verified`, the CLAUDE.md stack line and this
 record. Watch legs 7 (AoE template placement — canvas code moved) and the Ghostlight doors (relative
 UUIDs) specifically.
+
+### 28.5.16 SEAT 6 smoke fight on the 6.x stack (2026-11-17, his crooked-moon-6x) — PARTIAL, pins bumped
+**Versions:** Foundry 14.370 · dnd5e 6.0.6 · midi-qol 14.6.13 (declares dnd5e 6.0.6 … 6.0.999) · DAE 14.6.10 · AC5E
+14.611.1 · Automated Masteries (wm5e) 14.610.2. System health flagged all five untested (warn), as it should.
+**Passed (deck-command SEAT-2026-11-09.md "SEAT 6 2026-11-17" C):** combat created, initiative, started (fight music
+on); **leg 3** phone two-tap attack (`useActivityStart` / `useActivityDamage` from a Player1 tab) — Greataxe 15 vs AC 15
+hit, 7 damage applied, Goblin dead; deck saves, normal (public `[[/save dex]]`) and blind (whispered, the phone's blind
+prompt, the deck key "1 of 1 in"); AC5E on a Poisoned attacker (DIS Poisoned + Cannot See vs ADV Target Cannot See →
+normal); DAE AC +2 with `specialDuration: 1Attack` expired after one attack; combat ended, music back to the room
+(**leg 10 in part**); **leg 12** the stack check named every version under test.
+**Pins:** `TESTED` → dnd5e 6.0.6, midi-qol 14.6.13, AC5E 14.611.1, DAE 14.6.10, marked PARTIAL (as §28.5.14 did).
+wm5e stays 14.533.6: no mastery was exercised, so it still reads untested.
+**Owed for the full §28.4 run:** legs **1** (Roll NPCs only NPCs), **2** (phone initiative), **4** (parked workflow at
+WaitForDamageRoll with an attackRoll), **5** (Magic Missile darts), **6** (Mind Sliver save spell), **7** (Burning Hands via
+Place), **8** (no stray targets), **9** (AoO chip), **11** (turn HUD), and the rest of **10** (anthem turns, self-heal,
+mid-combat reload re-arm, repeat/fade restored); plus a mastery leg for wm5e.
+**Seen, not a leg:** MC's one-call `useActivity` hung at midi's WaitForAttackRoll (players roll their own); the phone
+uses the two-tap pair. Not yet diagnosed: whether the one-call path is still used by any surface.
+**Found by the same seat, fixed (§59.4a):** the fight track played at its own document volume, not the set level.
 
 ### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
 
@@ -9818,6 +9843,24 @@ Read from a fresh read-only copy of the world after his reload (the module folde
 - **Tests:** `test-sound-mix.mjs` 86 (stage 2 adds only the untrimmed moved sound; converted trims and moods untouched;
   V1 kept; stage 3 inert; never overwrites a trim; stage 1 still does all in one go).
 
+### 58.14 SEAT 6 (2026-11-17): the meter fixed, the trims hold, the Secret door corrected
+- **The Whistle was never 1.5 dB low.** ~~SEAT 5: the Whistle reads 1.5 dB under its target (a rig offset, re-run on a
+  calibrated rig).~~ SEAT 6 decoded the Whistle's own file in the page and predicted the tap from the live gains: −38.9
+  predicted, −38.9 read. **An AnalyserNode down-mixes stereo to mono, ≈ 1.5 dB under the per-channel power SEAT 4 measured
+  with** (this file: L −18.4, R −17.8, mono −19.6). Re-metered per channel: the Whistle −37.3 RMS / −34.4 gated ×3, and
+  Iron Crash, Heavy Hit, Stone Beak, Oak Answers, Chorus Hiss each within 0.5 dB of SEAT 4's reference. **Meter rule for
+  every later seat:** per-channel power, and one-shots on a SILENT map (12.1's own ambient sounds, ≈ −56, pass the gate
+  under a short one-shot and pull it 1–5 dB down).
+- **§58.12 steps 1–5 ✅:** `soundTrimsBase` 3, V1 472 keys; the element trims applied (`seat4-element-trims.apply.js`:
+  168 written, 661 keys).
+- **Step 6 ❌ → FIXED: 12.4 · Secret door** (`syr:element:244016`) read −40.6 gated against −34.4: 6.2 dB quiet. Untrimmed
+  it reads −9.5 (peak +5.2 dBFS), so the −31 landed exactly; SEAT 4's one-play −3.5 baseline was what was off (one-play
+  baselines are suspect for other one-shot elements too). **`sound-mix.js TRIM_FIXES` / `fixTrimsOnce`:** on the primary
+  GM's load, once (marker `soundTrimFixes`), −31 → **−25**, and only while it still reads −31: a later change of his is
+  never touched. Cultist Mutter · Incanting read −38.7 / −40.2 vs −36.4 (Syrinscape still loading on one play): not
+  changed, re-measure.
+- Owed: §58.12 steps 7–10 (not run).
+
 ## 59. Music by room; the attic's rooms; the chanting lower outside the Cauldron Room; fight music in its place (DM 2026-11-17) — BUILT, owed his veto + a seat check
 
 **His words, in order:** *"Don't we have music for scenes by default, and if not I want a quite soundtrack default for
@@ -9873,6 +9916,18 @@ A fight on the table's scene → its fight music (a foe's flag > the scene's `mu
 The room's (or default) music stops; the ENVIRONMENT bed plays on. The fight ends → the music crossfades back to what
 played before it (the room the party was in, else the default). Leaving a room for an unscored spot still KEEPS the
 room's music (his 2026-10-31 rule).
+
+### 59.4a SEAT 6: the fight music played at its own volume — FIXED 2026-11-17
+SEAT 6 step 5: Fight · Crooked House read −45.1, **4.7 dB UNDER** the Foyer's music, not 3 over. Read live: its sound's
+gain was **0.5, its own document volume**, while MC had computed `mcSetLevel` 1.13 (0.8 + 3 dB). Cause (Foundry 14
+playlist-sound.mjs): our set level replaces the volume `load()` starts at, but a playlist with a fade then **fades the
+sound in to the document's volume** (`_onStart`: `fade(this.volume, { from: 0 })`), and any update of a playing sound or
+its playlist re-fades it there (`sync`, 500 ms: the overlap's hand-off writes one). The room's track hid it (its own
+volume 0.8 = its set level). **Fix (`sound-mix.js routeSound`):** both of core's fades to the document's volume go to the
+set level; a fade to 0 passes; a drag that CHANGES the document's volume is his, kept from then on (and refreshTrims
+leaves that sound alone). So fight music now starts and stays at its set level, as room music does. Tests:
+`test-sound-mix.mjs` (the fade-in, the re-fade, a stop, a drag kept, a room's track the same path). Owed: SEAT 6's §59.7
+step 5 re-run (the fight ≈ 3 dB over the room), then steps 6–12.
 
 ### 59.5 The level (`sound-mix.js`)
 - **Music layer 0.3 → 0.6 (+6.0 dB)**, `MIX_DEFAULT.music` (the world stores no `soundMix`: no write). SEAT 5's 11–17 dB

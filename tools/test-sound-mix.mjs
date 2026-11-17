@@ -166,6 +166,25 @@ ts.load({ autoplay: true, autoplayOptions: { volume: 0 } });
 ts.load();
 check("a start at 0 and a plain preload pass through untouched", loaded.at(-2) === 0 && loaded.at(-1) === undefined);
 check("the stored volume is never written", turnedUp.volume === 1);
+// SEAT 6 2026-11-17: a fight track at its own 0.5 played at 0.5, not 1.13: core f6s a started sound IN to the
+// document's volume (PlaylistSound#_onStart) and re-f6s a playing one to it on any update (#sync)
+const f6s = [];
+const fightDoc = S(fight, { volume: 0.5, uuid: "Playlist.F.PlaylistSound.2" });
+const fs6 = M.routeSound(fightDoc, { destination: undefined, addEventListener() {}, load() {}, fade(v, o) { f6s.push([v, o?.from ?? null]); } });
+fs6.fade(0.5, { duration: 1000, from: 0 });
+check("SEAT 6: core's fade-in to the document's volume (0.5) goes to the fight's set level (0.8 + 3 dB ≈ 1.13) instead",
+  near(f6s.at(-1)[0], fightLevel) && f6s.at(-1)[1] === 0, JSON.stringify(f6s));
+fs6.fade(0.5, { duration: 500 });
+check("…and so does core's re-fade on an update of the playing sound (the overlap's hand-off, a fade written)", near(f6s.at(-1)[0], fightLevel));
+fs6.fade(0, { duration: 1000 });
+check("a fade to 0 (a stop, the fade-out at the end) passes through", f6s.at(-1)[0] === 0);
+fightDoc.volume = 0.3; fs6.fade(0.3, { duration: 500 });
+check("a drag that changes the document's volume is his: it plays (and stays) as dragged", f6s.at(-1)[0] === 0.3 && fs6.mcDragged === true);
+fs6.fade(0.3, { duration: 500 });
+check("…a later re-fade keeps his drag", f6s.at(-1)[0] === 0.3);
+const roomDoc = S(room, { volume: 0.8, uuid: "Playlist.R.PlaylistSound.2" }); const rf = [];
+M.routeSound(roomDoc, { destination: undefined, addEventListener() {}, load() {}, fade(v) { rf.push(v); } }).fade(0.8, { duration: 3000, from: 0 });
+check("a room's track takes the same path (its set level 0.8)", near(rf.at(-1), 0.8));
 
 // ---- per-sound trims (§58.10) ----
 check("trim key: a local sound by uuid; a Syrinscape entry by its Syrinscape sound (shared by all its entries)",
@@ -254,6 +273,20 @@ game.user = { isGM: true, id: "gm" }; game.users = { activeGM: { id: "gm" } };
   check("stage 1: the full conversion (Whistle −6.6 → 0, Bear +6), the old map kept, marked 3",
     settings.soundTrims[W.uuid] === 0 && settings.soundTrims[B.uuid] === 6 && settings.soundTrimsV1[W.uuid] === -6.6 && settings.soundTrimsBase === 3);
   globalThis.fromUuidSync = oldFU; settings.soundTrims = {}; settings.soundTrimsV1 = {}; delete settings.soundTrimsBase;
+  // SEAT 6 2026-11-17: the Secret door's −31 was 6 dB too deep; −25, once, only while it still reads −31
+  const door = "syr:element:244016";
+  settings.soundTrims = { [door]: -31, "syr:element:244009": -32 }; settings.soundTrimFixes = [];
+  const fx = await M.fixTrimsOnce();
+  check("SEAT 6: the Secret door's trim −31 → −25 on the GM's load; nothing else moves; marked done",
+    settings.soundTrims[door] === -25 && settings.soundTrims["syr:element:244009"] === -32 && settings.soundTrimFixes.includes("secret-door-25") && fx.applied.length === 1, JSON.stringify(settings.soundTrims));
+  settings.soundTrims[door] = -20;
+  check("…a later load does nothing, and never touches a change of his", (await M.fixTrimsOnce()) === null && settings.soundTrims[door] === -20);
+  settings.soundTrims = { [door]: -28 }; settings.soundTrimFixes = [];
+  await M.fixTrimsOnce();
+  check("a trim he had already changed (not −31) is left as he has it, and the fix is not tried again",
+    settings.soundTrims[door] === -28 && settings.soundTrimFixes.includes("secret-door-25"));
+  check("pure: planTrimFixes skips done ids", M.planTrimFixes({ [door]: -31 }, ["secret-door-25"]).applied.length === 0);
+  settings.soundTrims = {}; delete settings.soundTrimFixes;
 }
 settings.tvVolume = { music: 1, ambient: 1, interface: 1 };
 const did = M.applyLaunchVolumes({ isDisplay: false });
