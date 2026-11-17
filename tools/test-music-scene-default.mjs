@@ -220,4 +220,30 @@ check("the Cauldron fight → Fight · Cauldron Room replaces the room's music",
 game.combat = null; await fire("deleteCombat", c4);
 check("…and the Cauldron Room's music comes back after it", playing() === "Bone Chapel", playing());
 
+// SEAT 7 (2026-11-17): after a fight ≈ 1.5 s of near-silence, then the room faded in. The incoming file LOADS before it
+// sounds; the fight must keep playing until it does (a crossfade, not a gap).
+const events = [];
+const loading = (s) => { s.sound = { playing: false }; setTimeout(() => { s.sound.playing = true; events.push(`${s.name} sounding`); }, 120); };
+for (const pl of all) {
+  const ps = pl.playSound, pa = pl.playAll, st = pl.stopSound;
+  pl.playSound = async (s) => { await ps(s); loading(s); };
+  pl.playAll = async () => { await pa(); if (pl.sounds[0]) loading(pl.sounds[0]); };
+  pl.stopSound = async (s) => { events.push(`${s.name} stopped`); await st(s); };
+}
+const c5 = { id: "c5", started: true, scene: attic, combatant: foe, combatants: [foe], getFlag: () => [] };
+game.combat = c5; await fire("combatStart", c5);
+const atFight = events.join(" | ");
+check("a fight begins: the room's music is stopped only once the fight track is sounding",
+  atFight.indexOf("bbeg sounding") >= 0 && atFight.indexOf("bbeg sounding") < atFight.indexOf("Bone Chapel stopped"), atFight);
+events.length = 0;
+game.combat = null; await fire("deleteCombat", c5);
+const atEnd = events.join(" | ");
+check("the fight ends: the fight plays on until the room's music is SOUNDING, then fades out under it (no gap)",
+  atEnd.indexOf("Bone Chapel sounding") >= 0 && atEnd.indexOf("Bone Chapel sounding") < atEnd.indexOf("bbeg stopped") && playing() === "Bone Chapel", atEnd);
+const W = await import(pathToFileURL(path.join(ROOT, "scripts", "music.js")).href);
+const stuck = { documentName: "PlaylistSound", playing: true, sound: { playing: false } };
+let clock = 0;
+const gaveUp = await W.waitAudible(stuck, { timeoutMs: 6000, step: 50, now: () => clock, wait: async (ms) => { clock += ms; } });
+check("a file that never loads holds the old music at most 6 s, then lets go", gaveUp === false && clock >= 6000 && clock < 6100, String(clock));
+
 console.log(`\nall ${n} passed`);

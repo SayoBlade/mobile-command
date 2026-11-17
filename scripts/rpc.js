@@ -1365,6 +1365,66 @@ function suppressAc5eAttackDialog() {
   return () => Hooks.off("dnd5e.preRollAttackV2", id);
 }
 
+// Multi-instance targets (Magic Missile darts, DM 2026-07-05): midi applies the damage once per
+// UNIQUE target; each duplicate the phone sent gets a fresh roll of the same formula, applied directly
+// (applyDamage → calculateDamage, so resistances still count). A GM-whispered line keeps the math
+// auditable.
+// ⚠️ SEAT 7 (2026-11-17, §28.4 leg 5 FAILED): three darts on one goblin, the phone said 12, the goblin
+// lost 7. `rollDamage` returns BEFORE midi applies its own dart: the workflow goes on to AllRollsComplete
+// (processDamageRoll), which reads the target's HP and writes an ABSOLUTE `hp.value - delta`. Our darts
+// were applied in that window, so one write was computed from HP the other had not landed yet: a dart lost.
+// So the extras wait until midi is past its apply (or the workflow is done/aborted), then go one at a time.
+const MIDI_APPLIED = /ApplyDynamicEffects|RollFinished|Cleanup|Completed|Abort|Cancel/i;
+export async function waitMidiDamageApplied(wf, { timeoutMs = 8000, step = 50, now = () => Date.now(),
+  wait = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+  const stateOf = () => String(wf?.currentAction?.name ?? wf?.stateName ?? wf?.currentState ?? "");
+  const start = now();
+  while (!(wf?.aborted || MIDI_APPLIED.test(stateOf()))) {
+    if (now() - start >= timeoutMs) return false;
+    await wait(step);
+  }
+  return true;
+}
+export async function applyExtraInstances(wf, { resolve = (u) => fromUuid(u), roll = null, record = recordExtraDamage,
+  whisper = null, waitOpts = {} } = {}) {
+  const extras = wf?.mcExtraInstances ?? {};
+  if (!Object.values(extras).some((n) => n > 0)) return 0;
+  if (!(await waitMidiDamageApplied(wf, waitOpts))) console.warn(`${MODULE_ID} | extra darts: midi's own apply not seen in time; applying anyway`);
+  let extraTotal = 0;
+  const lines = [];
+  const type = wf.damageDetail?.[0]?.type ?? wf.defaultDamageType ?? "";
+  const formula = wf.damageRolls?.[0]?.formula ?? null;
+  const rollOne = roll ?? (async () => {
+    if (!formula) return wf.damageTotal ?? 0;
+    return (await (new Roll(formula, wf.actor?.getRollData() ?? {})).evaluate()).total;
+  });
+  for (const [uuid, n] of Object.entries(extras)) {
+    const td = await resolve(uuid);
+    const target = td?.actor;
+    if (!target) continue;
+    for (let i = 0; i < n; i++) {
+      const total = await rollOne();
+      await target.applyDamage([{ value: total, type }]); // awaited: the next dart reads the HP this one wrote
+      extraTotal += total;
+      lines.push(`${td.name} ${total}`);
+      // §44: this application bypasses midi's damageList, so the Deeds book never saw
+      // extra darts (one dart of a three-dart volley recorded — caught 2026-08-25/26).
+      record(wf.actor, target, total)?.catch?.(() => {});
+    }
+  }
+  if (lines.length) {
+    const msg = {
+      content: `<b>${foundry.utils.escapeHTML(wf.item?.name ?? "Attack")}</b> — extra instance${lines.length > 1 ? "s" : ""}: ${foundry.utils.escapeHTML(lines.join(", "))}`,
+      whisper: ChatMessage.getWhisperRecipients("GM").map(u => u.id),
+      // Machinery, not a note: pm.js skips flagged cards (the solo-rig GM shell read this
+      // whisper as "A note from the DM" — 2026-09-10). Names escaped while here (QA H-Medium).
+      flags: { [MODULE_ID]: { system: "extraInstances" } }
+    };
+    (whisper ? whisper(msg) : ChatMessage.create(msg))?.catch?.(() => {});
+  }
+  return extraTotal;
+}
+
 async function handleItemUseStart(payload) {
   const refused = requireExecutor("preflight");
   if (refused) return refused;
@@ -1688,36 +1748,8 @@ async function handleItemUseDamage({ requestId }) {
     // of the same formula applied directly (applyDamage → calculateDamage, so
     // resistances still count). A GM-whispered line keeps the math auditable.
     let extraTotal = 0;
-    try {
-      const extras = wf.mcExtraInstances ?? {};
-      const lines = [];
-      const type = wf.damageDetail?.[0]?.type ?? wf.defaultDamageType ?? "";
-      const formula = wf.damageRolls?.[0]?.formula ?? null;
-      for (const [uuid, n] of Object.entries(extras)) {
-        const td = await fromUuid(uuid);
-        const target = td?.actor;
-        if (!target) continue;
-        for (let i = 0; i < n; i++) {
-          let total = wf.damageTotal ?? 0;
-          if (formula) { const r = await (new Roll(formula, wf.actor?.getRollData() ?? {})).evaluate(); total = r.total; }
-          await target.applyDamage([{ value: total, type }]);
-          extraTotal += total;
-          lines.push(`${td.name} ${total}`);
-          // §44: this application bypasses midi's damageList, so the Deeds book never saw
-          // extra darts (one dart of a three-dart volley recorded — caught 2026-08-25/26).
-          recordExtraDamage(wf.actor, target, total).catch(() => {});
-        }
-      }
-      if (lines.length) {
-        ChatMessage.create({
-          content: `<b>${foundry.utils.escapeHTML(wf.item?.name ?? "Attack")}</b> — extra instance${lines.length > 1 ? "s" : ""}: ${foundry.utils.escapeHTML(lines.join(", "))}`,
-          whisper: ChatMessage.getWhisperRecipients("GM").map(u => u.id),
-          // Machinery, not a note: pm.js skips flagged cards (the solo-rig GM shell read this
-          // whisper as "A note from the DM" — 2026-09-10). Names escaped while here (QA H-Medium).
-          flags: { [MODULE_ID]: { system: "extraInstances" } }
-        }).catch(() => {});
-      }
-    } catch (e) { console.warn(`${MODULE_ID} | extra-instance damage failed`, e); }
+    try { extraTotal = await applyExtraInstances(wf); }
+    catch (e) { console.warn(`${MODULE_ID} | extra-instance damage failed`, e); }
     // Save outcomes ride along so the phone can EXPLAIN a zero: a save-negates cantrip (Mind
     // Sliver) rolls its die and correctly applies nothing when the target saved — which read
     // as "it rolled the damage but did no damage!?" (DM 2026-07-26) with no one saying why.

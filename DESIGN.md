@@ -53,7 +53,7 @@ sections their cross-references always claimed).
 | 25 | DM panel restructure + combat music | Built; §25.4 leftovers pruned by DM 2026-08-09; §25.5 the overlap between tracks, moved in from Deck Command 2026-11-06 |
 | 26, 26.6, 26.7 | Effects tab; targeted effects; deathbeat | Built; extras APPROVED 2026-08-09 (stop-all done; volume/surround/looks queued) |
 | 27 | Personal messages | Built (+ pmToast 2026-08-10/11) |
-| 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records; **§28.5.13 = the dnd5e 6.0 gate (2026-09-11): our code ready, midi not; §28.5.14 = AC5E .19 audit + the no-roll advantage route PROVEN and BUILT (2026-09-15; §28.8 retired)** **§28.5.16 = SEAT 6's 6.x smoke fight (2026-11-17): pins bumped PARTIAL, legs owed** |
+| 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records; **§28.5.13 = the dnd5e 6.0 gate (2026-09-11): our code ready, midi not; §28.5.14 = AC5E .19 audit + the no-roll advantage route PROVEN and BUILT (2026-09-15; §28.8 retired)** **§28.5.16 = SEAT 6's 6.x smoke fight (2026-11-17): pins bumped PARTIAL, legs owed; §28.5.17 = SEAT 7: leg 5 Magic Missile lost a dart → FIXED** |
 | 29 | Settings mini-app | Built + bench-verified 12/12 (2026-08-01) |
 | 30, 30.1, 30.2 | Séance board + the bite | Built — the quality bar |
 | 31 | Twists of Fate (book RAW) | Built; **v3 2026-09-05 = DM popup + by-hand die (DM call), v2 auto-apply retired from the panel** (hooks kept for leftovers); the cancelled-dialog consume bug closed with it (§28.5.11) |
@@ -2563,6 +2563,10 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    (§59.7). Not done: a fight played as a Syrinscape mood gets the +6, not +3. **SEAT 6 2026-11-17:** §59.7 steps 1–4 ✅,
    step 5 ❌ (fight music at its own volume, ~5 dB under the room) → FIXED (§59.4a); owed: step 5 re-run, then 6–12.
    Same seat: the 6.x stack passed a smoke fight, pins bumped PARTIAL (§28.5.16); full §28.4 legs still owed (listed there).
+   **SEAT 7 2026-11-17:** the fight sits level with the room, not 3 dB over: Fight · Crooked House is MASTERED ≈ 3 dB
+   quieter than the room tracks, so +3 lands level (the set-level fix works). Numbers NOT changed: he is deciding whether
+   to replace that list (§59.4a). The way back from a fight had ≈ 1.5 s of near-silence → FIXED, a real crossfade
+   (§59.4b). Owed: step 5's verdict once he decides the list, then 6–12.
 
 0ᵇ. **OPEN 2026-11-16 — the table's one mix (§58) is BUILT; its numbers are PREDICTED, not measured.** His words:
    *"music completely hides them … they all need to be at around 25-50% volume so the DM's voice is clearly heard"*, then
@@ -4775,6 +4779,21 @@ mid-combat reload re-arm, repeat/fade restored); plus a mastery leg for wm5e.
 **Seen, not a leg:** MC's one-call `useActivity` hung at midi's WaitForAttackRoll (players roll their own); the phone
 uses the two-tap pair. Not yet diagnosed: whether the one-call path is still used by any surface.
 **Found by the same seat, fixed (§59.4a):** the fight track played at its own document volume, not the set level.
+
+### 28.5.17 SEAT 7 (2026-11-17): §28.4 leg 5 FAILED, a Magic Missile dart lost — FIXED
+**Seen:** three darts on one goblin; the phone said 12 damage; the goblin lost 7, so one dart (5) never landed.
+**Cause (read in midi-qol 14.6.13's source, not guessed):** the phone's darts go [A, A, A]; midi applies ONE per unique
+target and we apply the duplicates ourselves (§44, `rpc.js`). `activity.rollDamage({ workflow })` returns as soon as the
+damage is ROLLED; midi then moves on to `WorkflowState_AllRollsComplete` → `processDamageRoll`, which reads the target's
+HP and writes an ABSOLUTE `hp.value - delta` (`prepareDamageListItems`). Our extra darts went in in that window, so one of
+the two writes was computed from HP the other had not landed yet: a lost update. (The seat's "two darts at the same
+moment" guess was right in shape: midi's dart against ours.)
+**Fix (`rpc.js applyExtraInstances` / `waitMidiDamageApplied`):** the extras wait until midi is past its own apply
+(`ApplyDynamicEffects | RollFinished | Cleanup | Completed`, or the workflow aborted; at most 8 s, then applied anyway
+with a console warning), then go one at a time, each awaited. The phone's 20 s timeout covers the wait. Tests:
+`tools/test-magic-missile.mjs` (9: the volley adds up and nothing is overwritten; midi's dart first; the no-wait way
+loses a dart, the proof the fake sees the race; a stalled workflow; an aborted one; no duplicates → no wait).
+**Owed:** leg 5 re-run on the seat. Still owed from §28.5.16: legs 1, 2, 4, 6, 7, 8, 9, 11, the rest of 10, a mastery leg.
 
 ### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
 
@@ -9929,6 +9948,22 @@ leaves that sound alone). So fight music now starts and stays at its set level, 
 `test-sound-mix.mjs` (the fade-in, the re-fade, a stop, a drag kept, a room's track the same path). Owed: SEAT 6's §59.7
 step 5 re-run (the fight ≈ 3 dB over the room), then steps 6–12.
 
+**SEAT 7 (2026-11-17):** the fight now sits LEVEL with the room, not 3 dB over: Fight · Crooked House is mastered ≈ 3 dB
+quieter than the room tracks, so the +3 only brings it level. Not changed: he is deciding whether to replace that list;
+if he keeps it, the fight offset (or the list's own trim) is the knob.
+
+### 59.4b SEAT 7: the way back from a fight had a gap — FIXED 2026-11-17, a real crossfade
+SEAT 7: after combat ≈ 1.5 s of near-silence, then the room's music faded in. Cause: `crossfade()` started the incoming
+(`playAll` / `playSound`, which only WRITE the document) and stopped the rest in the same breath; each client then loads
+the incoming file (fetch + decode) before core fades it in, so the fight faded out under a room still loading. **Fix
+(`music.js waitAudible`):** after starting the incoming, the driver waits until it is SOUNDING on its own client
+(`PlaylistSound.sound.playing`), at most 6 s (`CROSSFADE_WAIT_MS`, then it stops the rest anyway), and only then stops
+the rest, so the outgoing fades out over its fade while the incoming fades in over its own: an overlap. Skipped when the
+GM tab's audio is still locked (it plays nothing itself). Same path for a fight starting. Limit: the overlap is as long
+as the shorter of the two playlists' fades; the TV loads at its own speed (the GM's load stands in for it). Tests:
+`test-music-scene-default.mjs` 29–31 (a fight in: the room stops only once the fight sounds; a fight out: the fight
+plays on until the room sounds; a file that never loads holds the old music ≤ 6 s). Owed: heard on the seat.
+
 ### 59.5 The level (`sound-mix.js`)
 - **Music layer 0.3 → 0.6 (+6.0 dB)**, `MIX_DEFAULT.music` (the world stores no `soundMix`: no write). SEAT 5's 11–17 dB
   under the Syrinscape beds → ≈ 5–11 dB (aim 6–8). Moves everything on the music layer, Syrinscape's music group
@@ -9986,7 +10021,7 @@ the activation: **core** (PlaylistCollection#_onChangeScene plays a scene's Play
 Without Mobile Command, or with an older one (no `music.hold`), nothing is held and the music starts with the car.
 
 ### 59.8 Tests
-`tools/test-music-scene-default.mjs` 28 (his answers; the one-time step, once, never over his; the ride's hold: held
+`tools/test-music-scene-default.mjs` 31 (the crossfade waits for the incoming, §59.4b; his answers; the one-time step, once, never over his; the ride's hold: held
 → silence, released → one start, a run-out hold holds nothing; the Tender silent; Druskenvald and its fight; no auto-play; his flag; never over rooms; adopt writes only where nothing of
 his is; a default + combat; 12.1 by room only, fight and back; the attic plan, its wall-traced rooms, the one-shot, music
 by room on 12.4, its fight and back). `tools/test-sound-zones.mjs` 14 (the rule; any PC inside = full; on the trims;

@@ -231,8 +231,33 @@ async function stopSoundOf(pl, s) {
   await pl.stopSound(s);
 }
 
-/** Crossfade: start the incoming first (fading in over its own fade), THEN stop the rest (fading out over theirs). */
-async function crossfade(target) {
+/**
+ * Is the incoming actually SOUNDING on this client? A playlist: any of its sounds; a sound: itself.
+ * ⚠️ SEAT 7 (2026-11-17): after combat ≈ 1.5 s of near-silence, then the room faded in. `playAll` / `playSound` only
+ * write the document; each client then LOADS the file (fetch + decode) and only then fades in. The rest were stopped in
+ * the same breath, so the fight faded out under a room still loading: a gap, not a crossfade.
+ */
+export function audibleOf(keep) {
+  if (!keep) return true;
+  const sounds = keep.documentName === "Playlist" || keep.sounds ? [...(keep.sounds ?? [])] : [keep];
+  const on = sounds.filter((s) => s?.playing);
+  // core makes the Sound object as the start is synced; a client that made none plays nothing here: nothing to wait for
+  if (!on.some((s) => s.sound)) return true;
+  return on.some((s) => s.sound?.playing);
+}
+export const CROSSFADE_WAIT_MS = 6000;   // never hold the old music longer than this for a file that will not load
+export async function waitAudible(keep, { timeoutMs = CROSSFADE_WAIT_MS, step = 50, now = () => Date.now(),
+  wait = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+  // a GM tab whose audio is not unlocked yet never plays anything itself: nothing to wait for (the TV's is what's heard)
+  if (globalThis.game?.audio?.locked) return true;
+  const start = now();
+  while (!audibleOf(keep)) { if (now() - start >= timeoutMs) return false; await wait(step); }
+  return true;
+}
+
+/** Crossfade: start the incoming first, WAIT until it is sounding (fading in over its own fade), THEN stop the rest
+ *  (fading out over theirs), so the two overlap instead of leaving a gap while the new file loads. */
+export async function crossfade(target, { waitOpts = {} } = {}) {
   let keep = null;     // the playlist (or sound) that must keep playing
   if (target.kind === "playlist") {
     const pl = sync(target.uuid);
@@ -247,6 +272,7 @@ async function crossfade(target) {
     if (!s.playing) await s.parent.playSound(s);
     keep = s;
   }
+  if (keep && !(await waitAudible(keep, waitOpts))) console.warn(`${MODULE_ID} | music: the incoming did not start in time; stopping the rest anyway`);
   // the floor's ENVIRONMENT bed (the rain) plays on under whatever comes in; only Silence stops it. A MUSIC bed
   // stops under other music, either or (DM 2026-11-09, music-core bedKind), and the scene layer brings it back.
   // ⚠️ ONLY THIS FLOOR'S BED: the four floors share one beds playlist, and the one he left must still stop.
