@@ -50,10 +50,13 @@ import { audioPrompt, settleWithin } from "./audio-prompt.js"; // the display's 
 import { registerMusicBehavior, registerMusic, state as musicState, pick as musicPick, next as musicNext, cue as musicCue, moods as musicMoods, roomOf as musicRoomOf, overlapState as musicOverlap, adoptSceneMusic as musicAdoptSceneMusic, adoptApprovedOnce as musicAdoptApprovedOnce, holdMusic as musicHold, releaseMusic as musicRelease } from "./music.js"; // the music layer (deck-command MUSIC-LAYER.md)
 import { installOverlayGuard, sweepCoveringLayers, reapplyGuard, restoreCoreUi, forceRail, stuckOverlayStates, clearedLayers, shouldKeepGmClear, verifyRail } from "./overlay-guard.js"; // §22.7/§22.9 the DM is never covered or hidden
 
+import { registerDicerMidiBridge, applyPhoneDice } from "./dicer-midi.js"; // Dicer dice on midi's rolls (deck-command SEAT 9)
+
 Hooks.once("init", () => {
   // FIRST thing, before anything of ours can throw: the errors worth having are the ones nobody was
   // watching the console for, and a report is only useful if it caught the start of the session.
   installErrorCapture();
+  registerDicerMidiBridge(); // Dicer's dice on midi's rolls; must run before "setup" (deck-command SEAT 9)
   registerSettings();
   registerSettingsMenu(); // §29: registered from here, not settings.js — the app imports preflight, which imports settings.js (cycle)
   registerFeedbackMenu(); // §48: unrestricted — the people who hit bugs are mostly not the GM
@@ -767,6 +770,8 @@ Hooks.once("ready", () => {
   // §58.7 LAUNCH VOLUMES FIRST (DM 2026-11-16: "a set volume for everything that's defaulted on launch"): this screen's
   // Music / Environment / Interface to the mix's defaults, BEFORE the phone and DM-machine rules below silence theirs.
   try { applyLaunchVolumes({ isDisplay: isDisplayClient() }); } catch (e) { console.warn(`${MODULE_ID} | launch volumes`, e); }
+  // Dicer's 3D dice off on a phone, back on if this browser stops being one (his requirement, deck-command SEAT 9)
+  applyPhoneDice(isPhoneClient()).catch((e) => console.warn(`${MODULE_ID} | phone dice`, e));
   // Phones get nagged that the window is too small (core #validateResolution).
   // Nothing actually breaks for a DOM-only client; keep the suppression narrow.
   if (isPhoneClient()) {

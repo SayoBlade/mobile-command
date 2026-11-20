@@ -10027,3 +10027,39 @@ his is; a default + combat; 12.1 by room only, fight and back; the attic plan, i
 by room on 12.4, its fight and back). `tools/test-sound-zones.mjs` 14 (the rule; any PC inside = full; on the trims;
 −42 on the global; the drone −12; stored trims untouched; the runtime from tokens). `test-sound-mix.mjs` 90 (the
 lift; the defaults at 0.6). `test-syrinscape-bridge.mjs` 79.
+
+## 60. Dicer's dice on midi's rolls; Dicer off on phones (DM 2026-11-20) — BUILT 2026-11-20, proven on his seat
+
+**His words:** *"posting the result only after the die is rolled sounds like an advantage to me, it build a little
+suspense, lets try the bridge and see how it works, set it up"*. Relayed requirements: result after the dice with a ~5 s
+fallback; blind rolls GM-only; stand down under Dice So Nice or if Dicer takes midi on itself; Dicer off on phones; no
+double dice on plain rolls.
+
+**Cause (read from midi-qol 14.6.13, 2026-11-20):** midi throws and awaits dice only when `dice3dEnabled()`, which asks
+midi's private `installedModules` Map for `"dice-so-nice"`. That Map is filled once, in midi's own `setup` callback, from
+`game.modules.get("dice-so-nice").active`. Dicer 1.3.14 provides a DSN-shaped `game.dice3d` (`showForRoll`, `isEnabled`)
+but is not that module, so midi never calls it, and still marks every die `hidden` so Dicer's chat path skips them too.
+
+**Built — `scripts/dicer-midi.js`, registered first in `init`:** wraps midi's setup callback (found by its
+`setupModules()` call) so the FIRST `.active` read of dice-so-nice inside it answers true, then the real `get` is back;
+answers midi's two direct DSN settings reads (`hideNpcRolls` false, `showGhostDice` = Dicer's); caps `showForRoll` at 5 s.
+Midi then does the rest by its own rules (awaits the dice, blind/whisper/GM visibility). Stands down when DSN is active,
+Dicer or midi is off, or a Dicer setting/API member names midi; tells the GM once if midi's setup cannot be found.
+Phones: Dicer's client `enabled` set false when `isPhoneClient()`, remembered in localStorage
+`mobile-command.dicerOffForPhone`, and restored only if WE turned it off and the browser stops being a phone.
+
+⚠️ **The stand-in for the DSN module must be a plain object, not a Proxy.** Foundry's `Module.active` is read-only and
+non-configurable; a Proxy answering `true` for it throws a JS invariant error. First seat run: that throw landed inside
+midi's setup callback and skipped the rest of it (socket, patching…) for the session. Caught by `test-dicer-midi` #14 now.
+
+**Seat, his world, 2026-11-20 (Player1 tab + GM, Dicer on, DSN off):** 1 ✅ bridge on both screens, capped. 2 ✅ phone
+attack: one `showForRoll` on the GM, dice on the player's screen, the card's result 3.9 s later; no chat-path dice. 3 ✅
+damage: card 3.3 s after the dice; 15 applied. 4 ✅ a plain roll: one set of dice on both screens, bridge not involved.
+5 ✅ a blind save asked by the DM: the player saw no dice and no number; the GM saw the result. ⚠️ the GM saw no dice for
+it either — Dicer's own blind handling, not this bridge. 6 ✅ role phone → Dicer's dice off, a GM roll showed no dice
+there; back to its old role → on again. With DSN on, the bridge reported "Dice So Nice is on" and did nothing.
+Not run: a midi-requested save (spell save), the 5 s fallback actually firing (no timeouts seen), the TV.
+`tools/test-dicer-midi.mjs` 34.
+
+⚠️ `scripts/dicer-bridge.js` (untracked) is ANOTHER lane's abandoned approach (dnd5e `buildPost` + midi's visibility rules
+re-implemented); nothing imports it. Not committed. Delete when convenient.
