@@ -390,8 +390,20 @@ const JOLT = {
 
 let joltTimer = null;
 
+/**
+ * ⚠️ THE JOLT IS ANIMATER'S NOW (DM 2026-11-23, deck-command D-0172: *"Moments seems to be MUCH better and I don't think the
+ * jolt even works!"* … *"Ok, switch them out"*). Animater's Shake Moment (`api.moment`, "one jolt, and it dies away") is
+ * drawn on every screen with a map from one socket message: no scene write, nothing left in a flag, no weather region to
+ * mask it. Sized as a lurch, not its default: strength 0.22 of 1, 600 ms (its own is 0.6, 900 ms). Its own sound off
+ * (`heard: ""`): the ride's loop is the train's voice. FXMaster's screen shake (below) is only the fallback while
+ * Animater is not active, so the world can turn FXMaster off once the seat has seen this on the TV.
+ */
+export const JOLT_MOMENT = Object.freeze({ kind: "shake", strength: 0.22, ms: 600, heard: "" });
+function animaterMoment() {
+  try { const m = game.modules?.get?.("animater"); return m?.active && typeof m.api?.moment === "function" ? m.api : null; } catch (e) { return null; }
+}
 function fxReady() {
-  try { return Boolean(globalThis.FXMASTER?.api?.effects?.filters?.toggle); } catch (e) { return false; }
+  try { return Boolean(animaterMoment() || globalThis.FXMASTER?.api?.effects?.filters?.toggle); } catch (e) { return false; }
 }
 
 /**
@@ -406,6 +418,11 @@ function fxReady() {
  */
 async function oneJolt() {
   if (!fxReady()) return false;
+  const an = animaterMoment();
+  if (an) {
+    try { an.moment({ ...JOLT_MOMENT }); console.log(`${MODULE_ID} | jolt`); return true; }
+    catch (e) { console.warn(`${MODULE_ID} | the carriage jolt (Animater):`, e?.message); return false; }
+  }
   const fx = globalThis.FXMASTER.api.effects.filters;
   try {
     await fx.stop([{ type: "screenShake" }], { toggleKey: JOLT_KEY }).catch(() => {}); // clear any leftover
@@ -469,7 +486,7 @@ export async function freeTrainWeather({ force = false } = {}) {
 }
 
 /** Fire ONE jolt now — `MobileCommand.train.joltNow()`. For judging the strength without waiting. */
-export async function joltNow() { const did = await oneJolt(); return did ? "jolted" : "FXMaster not reachable — nothing fired"; }
+export async function joltNow() { const did = await oneJolt(); return did ? "jolted" : "neither Animater nor FXMaster reachable — nothing fired"; }
 
 /** The ride's tremor: on while the train runs, off the moment it stops. Primary GM only. */
 export function setTrainJolt(on) {
@@ -482,7 +499,7 @@ export function setTrainJolt(on) {
     console.warn(`${MODULE_ID} | NOT the primary GM, so the jolt is someone else's job — if nothing shakes, close the other Foundry tab`);
     return null;
   }
-  if (!fxReady()) { console.warn(`${MODULE_ID} | FXMaster's filter api is not reachable, so the train cannot jolt`); return null; }
+  if (!fxReady()) { console.warn(`${MODULE_ID} | neither Animater's Moments nor FXMaster's filter api is reachable, so the train cannot jolt`); return null; }
   let step = 0;
   const next = () => {
     const wait = JOLT_GAPS_MS[step++ % JOLT_GAPS_MS.length];
