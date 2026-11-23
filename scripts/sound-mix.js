@@ -679,7 +679,30 @@ export async function fixTrimsOnce() {
   return plan;
 }
 
+/**
+ * No non-finite volume ever reaches Web Audio (SEAT 13, 2026-11-23: `Sound.fade → linearRampToValueAtTime … non-finite`
+ * on a token delete). A fade to NaN/Infinity is dropped — the sound keeps the level it has — and named once in the
+ * console; a non-finite `from` is left out (the fade starts where the sound is). Everything finite passes untouched.
+ */
+export function guardFade(proto, warn = (m) => console.warn(m)) {
+  if (!proto || typeof proto.fade !== "function" || proto.fade.__mcFinite) return false;
+  const orig = proto.fade;
+  let told = false;
+  const guarded = function (volume, options = {}) {
+    if (!Number.isFinite(Number(volume))) {
+      if (!told) { told = true; warn(`${MODULE_ID} | a sound was asked to fade to a non-finite volume (${volume}); left at its level`); }
+      return Promise.resolve();
+    }
+    if (options && "from" in options && !Number.isFinite(Number(options.from))) { const { from, ...rest } = options; options = rest; }
+    return orig.call(this, volume, options);
+  };
+  guarded.__mcFinite = true;
+  proto.fade = guarded;
+  return true;
+}
+
 export function registerSoundMix() {
+  try { guardFade(foundry.audio?.Sound?.prototype); } catch (e) { /* best effort */ }
   patchMix();
   loadLevelled().then(() => rebaseTrimsOnce()).then(() => fixTrimsOnce());
   game.audio?.unlock?.then?.(() => applyMix());

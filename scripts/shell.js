@@ -5623,11 +5623,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const label = isSubjectTurn ? "Your turn"
       : isMyOtherTurn ? `Your turn — ${foundry.utils.escapeHTML(cur.name)}`
       : `Up: ${foundry.utils.escapeHTML(cur?.name ?? "—")}`;
+    // SEAT 13 (2026-11-23): "Up: Goblin A · End turn" — the button was there, greyed, on a foe's turn. Only on your own.
     const hop = isMyOtherTurn ? `<button class="mc-endturn mc-turnhop" data-action="turn-hop">Go</button>` : "";
     return `<div class="mc-turnhud ${isSubjectTurn || isMyOtherTurn ? "mc-myturn" : ""}">
       <span class="mc-turn-label">${label}</span>
       ${hop}
-      <button class="mc-endturn" data-action="end-turn" ${isSubjectTurn || isMyOtherTurn ? "" : "disabled"}>End turn</button>
+      ${isSubjectTurn || isMyOtherTurn ? `<button class="mc-endturn" data-action="end-turn">End turn</button>` : ""}
     </div>`;
   }
 

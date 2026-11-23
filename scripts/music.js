@@ -46,6 +46,8 @@ let _lock = Promise.resolve();
 let _cueTimer = null;
 let _stopping = new Set(); // sound ids WE are stopping, so their playing:false is not read as a cue ending
 let _tick = null;
+export const HEAL_DELAY_MS = 400;
+let _anthemDropped = null; // { key, uuid }: an anthem that stopped mid-turn, not by us (SEAT 13): the fight music for the rest of that turn
 const _ownPlayed = new Set(); // §59: every scene default soundtrack this driver has chosen, so a later scene stops it
 
 const isDriver = () => game.user === game.users.activeGM;
@@ -104,13 +106,17 @@ function combatantShapes(combat) {
   });
 }
 
+/** One turn of one fight, as a key: an anthem dropped on it gives way for that turn only. */
+export const turnKey = (combat) => (combat ? `${combat.id}:${combat.round ?? 0}:${combat.turn ?? 0}` : "");
+
 /** What combat should play right now: the active PC's anthem, else the encounter's battle music. */
 function combatTarget(combat) {
   if (!combat || !musicOwnsCombat()) return null;
   const actor = combat.combatant?.actor;
   if (actor?.type === "character") {
     const theme = actor.getFlag(MODULE_ID, "combatTheme");
-    if (theme && sync(theme)) return { kind: "sound", uuid: theme, anthem: true };
+    const dropped = _anthemDropped && _anthemDropped.key === turnKey(combat) && _anthemDropped.uuid === theme;
+    if (theme && sync(theme) && !dropped) return { kind: "sound", uuid: theme, anthem: true };
   }
   const phased = combat.getFlag?.(MODULE_ID, "musicPhased") ?? [];
   // a foe's own battle first, then the scene's (the Crooked House, the Cauldron Room), then the world default
@@ -272,6 +278,8 @@ export async function crossfade(target, { waitOpts = {} } = {}) {
     if (!s.playing) await s.parent.playSound(s);
     keep = s;
   }
+  // what we start is no longer "being stopped by us": a stop of it from now on is someone else's, and is healed (SEAT 13)
+  if (keep) for (const x of (keep.sounds ? [...keep.sounds] : [keep])) _stopping.delete(x.id);
   if (keep && !(await waitAudible(keep, waitOpts))) console.warn(`${MODULE_ID} | music: the incoming did not start in time; stopping the rest anyway`);
   // the floor's ENVIRONMENT bed (the rain) plays on under whatever comes in; only Silence stops it. A MUSIC bed
   // stops under other music, either or (DM 2026-11-09, music-core bedKind), and the scene layer brings it back.
@@ -384,9 +392,28 @@ export function overlapState() {
   })));
 }
 
-async function applyNow({ silenceIfKeep = false, adoptOnly = false } = {}) {
+/** Stop what an earlier target was playing (a playlist's sounds, or the one sound), never this floor's bed. */
+async function stopTarget(t) {
+  const d = t ? sync(t.uuid) : null;
+  if (!d) return;
+  const bed = activeBed()?.id ?? null;
+  const pl = d.documentName === "PlaylistSound" ? d.parent : d;
+  const sounds = d.documentName === "PlaylistSound" ? [d] : [...(d.sounds ?? [])];
+  for (const s of sounds) {
+    if (!s.playing || s.id === bed) continue;
+    try { await stopSoundOf(pl, s); } catch (e) { console.warn(`${MODULE_ID} | music: stop failed`, e?.message); }
+  }
+}
+
+async function applyNow({ silenceIfKeep = false, adoptOnly = false, endPrev = null } = {}) {
   if (!isDriver() || !musicEnabled()) return;
   let { layer, target } = resolveNow();
+  // ⚠️ SEAT 13 (2026-11-23): 12.1 Foyer → the First Sacrifice map left the Foyer's room music playing. A scene change
+  // forgot what the layer was playing, and a map with no music of its own resolves to "keep", so nothing stopped it.
+  // A room's or a scene default's music belongs to ITS scene: on a scene change with nothing to play, it ends.
+  if (!target && endPrev && ["room", "scene"].includes(endPrev.layer)) {
+    _layer = layer; await stopTarget(endPrev.target); emit(); return;
+  }
   if (!target && silenceIfKeep) target = { kind: "silence" };
   _layer = layer;
   if (!target) { emit(); return; }
@@ -781,7 +808,27 @@ export function registerMusic() {
   };
   Hooks.on("updatePlaylist", (_p, ch) => { if (Array.isArray(ch.sounds)) for (const s of ch.sounds) if (s.playing === false) cueEnded(s._id); });
   Hooks.on("updatePlaylistSound", (doc, ch) => { if (ch.playing === false) cueEnded(doc.id); });
-  Hooks.on("updateScene", (scene, ch) => { if (ch.active && isDriver()) { _dwell.reset(); _sceneId = scene.id; _current = null; apply(); } });
+  Hooks.on("updateScene", (scene, ch) => {
+    if (!ch.active || !isDriver()) return;
+    const prev = _current ? { ...(_current), layer: _layer } : null;
+    _dwell.reset(); _sceneId = scene.id; _current = null; apply({ endPrev: prev });
+  });
+  // ⚠️ SEAT 13 (2026-11-23, §28.4 leg 10 FAILED): the DM stopped a PC's anthem mid-turn and nothing restarted the fight
+  // music (30 s+ of silence). The old combat-music self-heal stands down when this layer owns combat, and this layer had
+  // no heal of its own. Now: a combat track of ours that stops, and we did not stop it, is healed: an anthem gives way
+  // to the fight music for the rest of that turn (he stopped it; the next turn decides afresh), a fight playlist that
+  // went silent is started again. A playlist moving to its next track stays playing, so nothing is done for that.
+  const combatTrackStopped = (soundId) => {
+    if (!isDriver() || !musicEnabled() || _layer !== "combat" || _stopping.has(soundId)) return;
+    const t = _current?.target; const d = t ? sync(t.uuid) : null;
+    if (!d) return;
+    const ours = d.documentName === "PlaylistSound" ? d.id === soundId : Boolean(d.sounds?.get?.(soundId));
+    if (!ours) return;
+    if (t.anthem) _anthemDropped = { key: turnKey(runningCombat()), uuid: t.uuid };
+    setTimeout(() => apply(), HEAL_DELAY_MS); // after core's own next-track hand-off, which keeps a playlist alive
+  };
+  Hooks.on("updatePlaylist", (_p, ch) => { if (Array.isArray(ch.sounds)) for (const s of ch.sounds) if (s.playing === false) combatTrackStopped(s._id); });
+  Hooks.on("updatePlaylistSound", (doc, ch) => { if (ch.playing === false) combatTrackStopped(doc.id); });
   // §59.9: a hold set or let go on the table's scene; and the safety, if it only runs out
   Hooks.on("updateScene", (scene, ch) => {
     if (!isDriver() || !scene.active || !(ch?.flags?.[MODULE_ID] && MUSIC_HOLD_FLAG in ch.flags[MODULE_ID])) return;

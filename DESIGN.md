@@ -53,7 +53,7 @@ sections their cross-references always claimed).
 | 25 | DM panel restructure + combat music | Built; §25.4 leftovers pruned by DM 2026-08-09; §25.5 the overlap between tracks, moved in from Deck Command 2026-11-06 |
 | 26, 26.6, 26.7 | Effects tab; targeted effects; deathbeat | Built; extras APPROVED 2026-08-09 (stop-all done; volume/surround/looks queued) |
 | 27 | Personal messages | Built (+ pmToast 2026-08-10/11) |
-| 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records; **§28.5.13 = the dnd5e 6.0 gate (2026-09-11): our code ready, midi not; §28.5.14 = AC5E .19 audit + the no-roll advantage route PROVEN and BUILT (2026-09-15; §28.8 retired)** **§28.5.16 = SEAT 6's 6.x smoke fight (2026-11-17): pins bumped PARTIAL, legs owed; §28.5.17 = SEAT 7: leg 5 Magic Missile lost a dart → FIXED** |
+| 28, 28.1–28.12 | Combat hardening; **stack policy §28.4**; ecosystem watch | **Current policy** + fix records; **§28.5.13 = the dnd5e 6.0 gate (2026-09-11): our code ready, midi not; §28.5.14 = AC5E .19 audit + the no-roll advantage route PROVEN and BUILT (2026-09-15; §28.8 retired)** **§28.5.16 = SEAT 6's 6.x smoke fight (2026-11-17): pins bumped PARTIAL, legs owed; §28.5.17 = SEAT 7: leg 5 Magic Missile lost a dart → FIXED; §28.5.18 = SEAT 13: the dnd5e 6.1 run, pins PARTIAL** |
 | 29 | Settings mini-app | Built + bench-verified 12/12 (2026-08-01) |
 | 30, 30.1, 30.2 | Séance board + the bite | Built — the quality bar |
 | 31 | Twists of Fate (book RAW) | Built; **v3 2026-09-05 = DM popup + by-hand die (DM call), v2 auto-apply retired from the panel** (hooks kept for leftovers); the cancelled-dialog consume bug closed with it (§28.5.11) |
@@ -2567,6 +2567,8 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    quieter than the room tracks, so +3 lands level (the set-level fix works). Numbers NOT changed: he is deciding whether
    to replace that list (§59.4a). The way back from a fight had ≈ 1.5 s of near-silence → FIXED, a real crossfade
    (§59.4b). Owed: step 5's verdict once he decides the list, then 6–12.
+   **SEAT 13 2026-11-23:** §28.4 leg 10 FAILED (an anthem stopped mid-turn: 30 s+ of silence) → FIXED, the layer's own
+   heal (§59.4c); 12.1 Foyer → First Sacrifice left the Foyer's room music playing → FIXED (§59.4c). Owed: leg 10 re-run.
 
 0ᵇ. **OPEN 2026-11-16 — the table's one mix (§58) is BUILT; its numbers are PREDICTED, not measured.** His words:
    *"music completely hides them … they all need to be at around 25-50% volume so the DM's voice is clearly heard"*, then
@@ -4794,6 +4796,31 @@ with a console warning), then go one at a time, each awaited. The phone's 20 s t
 `tools/test-magic-missile.mjs` (9: the volley adds up and nothing is overwritten; midi's dart first; the no-wait way
 loses a dart, the proof the fake sees the race; a stalled workflow; an aborted one; no duplicates → no wait).
 **Owed:** leg 5 re-run on the seat. Still owed from §28.5.16: legs 1, 2, 4, 6, 7, 8, 9, 11, the rest of 10, a mastery leg.
+
+### 28.5.18 SEAT 13 (2026-11-23, his crooked-moon-6x): the dnd5e 6.1 run — PARTIAL, pins bumped
+**Stack:** Foundry 14.370 · dnd5e 6.1.1 · midi-qol 14.7.1 · DAE 14.6.10 · AC5E 14.611.2.2 · wm5e 14.610.2 · Spell Book
+2.6.4 · Hero Mancer 3.4.3 · Dicer 1.4.7 · Animater 4.9.0 (Gambit's Premades 3.0.8 installed, off). Source: deck-command
+SEAT-2026-11-09.md "SEAT 13".
+**§28.4:** legs **1–9 ✅** (leg 5 Magic Missile included: the §28.5.17 fix holds); **11 ✅** (seen: "Your turn —
+Barbarian", Go, End turn); **10 ❌** an anthem stopped mid-turn (GM stopSound) left 30 s+ of silence: `combat-music.js`'s
+heal stands down when the music layer owns combat and `music.js` had none → **FIXED (§59.4c), re-run owed**; **12 not
+run**. Dicer dice before results ✅ (show → 2.9 s → HP/card). NOT confirmed on 6.1: the 5 s dice fallback, the AC5E /
+DAE legs (conditions, effects), the blind save.
+**Pins:** `TESTED` → dnd5e 6.1.1, midi-qol 14.7.1, AC5E 14.611.2.2, DAE 14.6.10, wm5e 14.610.2 (a mastery WAS exercised
+this time), marked PARTIAL. `test-hm2-level-up.mjs` 14 pinned Hero Mancer's minified callee name (3.4.3 renamed it):
+now matches the shape, not the name.
+**Also fixed from the same seat:** the phone's turn bar offered "End turn" (greyed) on a foe's turn ("Up: Goblin A · End
+turn") → only rendered on the player's own turn (`shell.js #turnHudHTML`). Core `Sound.fade → linearRampToValueAtTime …
+non-finite` from the display's listener refresh (`main.js`) on a token delete: the token on its way out can still be in
+`placeables` with no real position, and one NaN listener makes every ambient sound's volume NaN (so not necessarily the
+no-gesture rig) → only finite listener points, destroyed tokens skipped, and `sound-mix.js guardFade` drops any
+non-finite fade on `foundry.audio.Sound` (named once in the console). Tests: `test-sound-mix.mjs` 101–106. Not
+reproduced live: the exact NaN source on the seat is inferred from the stack (`main.js` refresh), not instrumented.
+**Third party, NOT patched (watch):** wm5e Cleave: the second attack throws in `wm5e-main.mjs doCleave`
+(`dnd5e.preRollDamage`, "Cannot read properties of undefined (reading 'find')") and its damage needs the GM's dialog and
+is not auto-applied; Animater 4.9.0 uses a midi API removed in midi 14.9.0 (hold midi at 14.7/14.8 until Animater
+follows); Tome of Intangible Treasures uses something removed in dnd5e 6.2 (hold dnd5e below 6.2 until it follows);
+Spell Book warns 28 spell-list entries are missing.
 
 ### 28.6 MISC + CAT deep dive (2026-07-26, both installed on the test bench) — VERDICT: adopt, eyes open
 
@@ -9964,6 +9991,20 @@ as the shorter of the two playlists' fades; the TV loads at its own speed (the G
 `test-music-scene-default.mjs` 29–31 (a fight in: the room stops only once the fight sounds; a fight out: the fight
 plays on until the room sounds; a file that never loads holds the old music ≤ 6 s). Owed: heard on the seat.
 
+### 59.4c SEAT 13: the layer heals its own fight music; a room's music ends with its scene — FIXED 2026-11-23
+**Leg 10:** the DM stopped the Barbarian's anthem mid-turn and nothing restarted the music (30 s+). `combat-music.js`'s
+self-heal stands down while this layer owns combat (`layerOwnsCombat()`), and the layer had no heal. Now (`music.js
+combatTrackStopped`): while the layer is in combat, a stop of ITS current track that it did not make (`_stopping`) is
+healed ~0.4 s later (`HEAL_DELAY_MS`, after core's next-track hand-off, which keeps a playlist alive and so needs
+nothing): **an anthem gives way to the fight music for the rest of that turn** (he stopped it; `_anthemDropped`, keyed
+`combat:round:turn`), and the PC's next turn has the anthem again; **a fight playlist killed mid-combat starts again**.
+The layer's own `_stopping` mark is cleared for whatever it starts, so a track restarted within 5 s of our own stop is
+still healed when someone else kills it.
+**Scene change:** 12.1 Foyer → First Sacrifice left Room · Foyer playing. The scene hook forgot `_current`, and a map with
+no music of its own resolves to "keep". Now a room's or a scene default's music ends with its scene (`applyNow({ endPrev
+})` → `stopTarget`, never the new floor's bed); a manual pick or a cue is not touched.
+Tests: `test-music-scene-default.mjs` 32–40. Owed: §28.4 leg 10 re-run on the seat.
+
 ### 59.5 The level (`sound-mix.js`)
 - **Music layer 0.3 → 0.6 (+6.0 dB)**, `MIX_DEFAULT.music` (the world stores no `soundMix`: no write). SEAT 5's 11–17 dB
   under the Syrinscape beds → ≈ 5–11 dB (aim 6–8). Moves everything on the music layer, Syrinscape's music group
@@ -10021,7 +10062,7 @@ the activation: **core** (PlaylistCollection#_onChangeScene plays a scene's Play
 Without Mobile Command, or with an older one (no `music.hold`), nothing is held and the music starts with the car.
 
 ### 59.8 Tests
-`tools/test-music-scene-default.mjs` 31 (the crossfade waits for the incoming, §59.4b; his answers; the one-time step, once, never over his; the ride's hold: held
+`tools/test-music-scene-default.mjs` 40 (the layer's heal and a room's music ending with its scene, §59.4c; the crossfade waits for the incoming, §59.4b; his answers; the one-time step, once, never over his; the ride's hold: held
 → silence, released → one start, a run-out hold holds nothing; the Tender silent; Druskenvald and its fight; no auto-play; his flag; never over rooms; adopt writes only where nothing of
 his is; a default + combat; 12.1 by room only, fight and back; the attic plan, its wall-traced rooms, the one-shot, music
 by room on 12.4, its fight and back). `tools/test-sound-zones.mjs` 14 (the rule; any PC inside = full; on the trims;

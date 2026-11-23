@@ -246,4 +246,35 @@ let clock = 0;
 const gaveUp = await W.waitAudible(stuck, { timeoutMs: 6000, step: 50, now: () => clock, wait: async (ms) => { clock += ms; } });
 check("a file that never loads holds the old music at most 6 s, then lets go", gaveUp === false && clock >= 6000 && clock < 6100, String(clock));
 
+// ── SEAT 13 (2026-11-23): §28.4 leg 10 — an anthem stopped mid-turn; a fight track killed; a scene change ────────
+const anthems = playlist("anthemsPL", "PC Anthems", {}, [track("howl", "Howl at the Moon")]);
+const howl = anthems.sounds.get("howl");
+const barbC = { actor: { id: "barbA", type: "character", hasPlayerOwner: true, getFlag: (m, k) => (k === "combatTheme" ? howl.uuid : undefined) } };
+const goblinC = { actor: { id: "gobA", type: "npc", getFlag: () => undefined, hasPlayerOwner: false } };
+const healWait = () => new Promise((r) => setTimeout(r, M.HEAL_DELAY_MS + 400));
+await activate(house); await standAt(house, 250, 250);
+const c6 = { id: "c6", started: true, round: 1, turn: 0, scene: house, combatant: barbC, combatants: [barbC, goblinC], getFlag: () => [] };
+game.combat = c6; await fire("combatStart", c6);
+check("leg 10: the Barbarian's turn plays his anthem (the rain plays on)", playing() === "Howl at the Moon, rain", playing());
+howl.playing = false; await fire("updatePlaylistSound", howl, { playing: false }); // the GM stops it, as on the seat
+await healWait();
+check("leg 10: the anthem stopped mid-turn by the GM → the fight music comes back within a moment (no 30 s silence)", playing() === "The Last Dragonlord, rain", playing());
+await fire("updateScene", house, {}); await healWait(); // an unrelated re-apply in the same turn
+check("…and for the rest of that turn it stays the fight (the anthem he stopped does not come straight back)", playing() === "The Last Dragonlord, rain", playing());
+const dragon = fight.sounds.get("lastdragon");
+dragon.playing = false; await fire("updatePlaylist", fight, { sounds: [{ _id: dragon.id, playing: false }] }); // the fight track killed
+await healWait();
+check("leg 10: the fight track killed mid-combat → it self-heals", playing() === "The Last Dragonlord, rain", playing());
+Object.assign(c6, { turn: 1, combatant: goblinC }); await fire("updateCombat", c6, { turn: 1 }); await healWait();
+check("the Goblin's turn → the fight music", playing() === "The Last Dragonlord, rain", playing());
+Object.assign(c6, { round: 2, turn: 0, combatant: barbC }); await fire("updateCombat", c6, { round: 2, turn: 0 }); await healWait();
+check("the Barbarian's NEXT turn → his anthem again (a stop holds for one turn only)", playing() === "Howl at the Moon, rain", playing());
+const ours = fight.sounds.get("lastdragon"); // a stop WE make (the turn change) is never healed: no fight under the anthem
+check("…and the layer's own stop of the fight track was not 'healed' back over it", !ours.playing, playing());
+game.combat = null; await fire("deleteCombat", c6); await healWait();
+check("the fight ends → the Foyer's music is back", playing() === "Guest at the Gate, rain", playing());
+const firstSac = mkScene("firstSacrifice01", "First Sacrafice"); scenes.push(firstSac);
+await activate(firstSac); await healWait();
+check("SEAT 13: 12.1 Foyer → First Sacrifice (no music of its own) → the Foyer's room music ENDS with its scene", playing() === "", playing());
+
 console.log(`\nall ${n} passed`);

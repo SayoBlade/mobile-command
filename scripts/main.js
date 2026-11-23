@@ -1218,6 +1218,13 @@ function setupNoDoubleTapMinimize() {
 // GM's client too (world setting `dmHearsTable`, on by default): with nothing selected he hears the
 // scene from the party's tokens, exactly as the TV does; select a token and core's own answer is back.
 // Only the LISTENERS are shared — the combat POV and the follow filter stay the display's.
+// SEAT 13 (2026-11-23): core's `Sound.fade → linearRampToValueAtTime … non-finite` from this refresh on a token delete —
+// the token on its way out can still be in `placeables` with no real position, and one NaN listener makes every
+// ambient sound's volume NaN. Only finite points listen.
+function finitePoint(p) {
+  return !!p && Number.isFinite(p.x) && Number.isFinite(p.y) && (p.elevation === undefined || Number.isFinite(p.elevation));
+}
+
 function setupDisplayAudioListeners() {
   const dmHears = () => {
     try { return !!game.user?.isGM && !isDisplayClient() && !isPhoneClient() && !!game.settings.get(MODULE_ID, "dmHearsTable"); } catch (e) { return false; }
@@ -1240,12 +1247,12 @@ function setupDisplayAudioListeners() {
           const active = game.combat.combatant?.token?.object;
           if (active && isAudioListener(active.actor) && !active.document?.hidden
               && !active.actor?.getFlag?.(MODULE_ID, "muteListener")) {
-            try { return [active.document.getListenerPosition()]; } catch (e) { /* fall through */ }
+            try { const p = active.document.getListenerPosition(); if (finitePoint(p)) return [p]; } catch (e) { /* fall through */ }
           }
         }
         const out = [];
         for (const t of canvas.tokens?.placeables ?? []) {
-          if (t.document?.hidden || !isAudioListener(t.actor)) continue;
+          if (t.destroyed || !t.document || t.document.hidden || !isAudioListener(t.actor)) continue;
           // Deafened by the DM (Settings › Sound). Loudness is NEAREST-listener-wins, not an
           // average, so one scout beside a waterfall drives the whole room's audio on its own —
           // this is the opt-out for exactly that (DM 2026-07-22).
@@ -1254,7 +1261,7 @@ function setupDisplayAudioListeners() {
           // subset, the story is on those tokens, so we hear their room, not the one left behind. A
           // no-op when everyone is followed (no token carries noFollow).
           if (t.document?.getFlag?.(MODULE_ID, "noFollow")) continue;
-          try { out.push(t.document.getListenerPosition()); } catch (e) { /* skip a bad token */ }
+          try { const p = t.document.getListenerPosition(); if (finitePoint(p)) out.push(p); } catch (e) { /* skip a bad token */ }
         }
         return out.length ? out : base;
       };

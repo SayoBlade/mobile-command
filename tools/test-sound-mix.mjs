@@ -330,4 +330,22 @@ check("registered after the bridge (it wraps the bridge's seam), published for t
   /registerSyrinscapeBridge\(\);[^\n]*\n\s*registerSoundMix\(\);/.test(src("main.js")) && /mix: setSoundMix, mixState: soundMixState/.test(src("main.js")));
 check("the card table's own audio takes the cues layer", /\* cues;/.test(src("card-audio.js")) && /import \{ mixNow \} from "\.\/sound-mix\.js"/.test(src("card-audio.js")));
 
+// SEAT 13 (2026-11-23): a non-finite volume reached core's Sound.fade on a token delete (linearRampToValueAtTime threw)
+{
+  const calls = []; const warns = [];
+  const proto = { fade(v, o) { calls.push([v, o]); return Promise.resolve("faded"); } };
+  check("guardFade wraps a Sound prototype once", M.guardFade(proto, (m) => warns.push(m)) === true && M.guardFade(proto) === false);
+  await proto.fade(NaN, { duration: 250 }); await proto.fade(Infinity); await proto.fade(undefined);
+  check("a fade to NaN / Infinity / undefined is dropped (the sound keeps its level), named once", calls.length === 0 && warns.length === 1, JSON.stringify({ calls, warns }));
+  await proto.fade(0.4, { duration: 250, from: NaN });
+  check("a finite fade passes; a non-finite `from` is left out", calls.length === 1 && calls[0][0] === 0.4 && !("from" in calls[0][1]) && calls[0][1].duration === 250, JSON.stringify(calls));
+  await proto.fade(0, { duration: 500, from: 0.8 });
+  check("a fade to 0 with a real `from` passes untouched", calls.length === 2 && calls[1][0] === 0 && calls[1][1].from === 0.8, JSON.stringify(calls));
+  check("the display's listeners: only finite points listen, a token on its way out never does",
+    /function finitePoint\(p\)/.test(src("main.js")) && /if \(finitePoint\(p\)\) out\.push\(p\)/.test(src("main.js")) && /t\.destroyed \|\| !t\.document/.test(src("main.js")));
+  check("the phone's turn bar: End turn only on your own turn (not rendered, not just greyed, on a foe's)",
+    /\$\{isSubjectTurn \|\| isMyOtherTurn \? `<button class="mc-endturn" data-action="end-turn">End turn<\/button>` : ""\}/.test(src("shell.js"))
+    && !/data-action="end-turn" \$\{/.test(src("shell.js")));
+}
+
 console.log(`\nall ${n} passed`);

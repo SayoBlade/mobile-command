@@ -55,7 +55,7 @@ check("no character creation on the phone: nothing calls HM2's wizard or openWiz
 const hmFile = path.join(process.env.LOCALAPPDATA ?? "", "FoundryVTT", "Data", "modules", "hero-mancer", "hero-mancer.mjs");
 if (fs.existsSync(hmFile)) {
   const src = fs.readFileSync(hmFile, "utf8");
-  check("installed HM2 exposes api.openLevelUp, and its flag is levelUpReady", src.includes("openLevelUp:e=>Js(e)") && src.includes('LEVEL_UP_READY:"levelUpReady"'));
+  check("installed HM2 exposes api.openLevelUp, and its flag is levelUpReady", /openLevelUp:\s*\(?(\w+)\)?\s*=>\s*\w+\(\1\)/.test(src) /* the minified callee's name changes per build (3.4.3: vo) */ && src.includes('LEVEL_UP_READY:"levelUpReady"'));
   check("installed HM2 never touches the game canvas (only a DOM <canvas> for image colours)",
     !/\bcanvas\.(ready|scene|tokens|stage|app|grid|dimensions)\b/.test(src) && !/game\.canvas/.test(src));
 } else console.log("(HM2 not installed here: its two source checks skipped)");
