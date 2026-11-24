@@ -50,7 +50,11 @@ import { audioPrompt, settleWithin } from "./audio-prompt.js"; // the display's 
 import { registerMusicBehavior, registerMusic, state as musicState, pick as musicPick, next as musicNext, cue as musicCue, moods as musicMoods, roomOf as musicRoomOf, overlapState as musicOverlap, adoptSceneMusic as musicAdoptSceneMusic, adoptApprovedOnce as musicAdoptApprovedOnce, holdMusic as musicHold, releaseMusic as musicRelease } from "./music.js"; // the music layer (deck-command MUSIC-LAYER.md)
 import { installOverlayGuard, sweepCoveringLayers, reapplyGuard, restoreCoreUi, forceRail, stuckOverlayStates, clearedLayers, shouldKeepGmClear, verifyRail } from "./overlay-guard.js"; // §22.7/§22.9 the DM is never covered or hidden
 
-import { registerDicerMidiBridge, applyPhoneDice } from "./dicer-midi.js"; // Dicer dice on midi's rolls (deck-command SEAT 9)
+import { registerTvCarousel } from "./tv-carousel.js"; // the fight carousel on the TV (DM 2026-11-24)
+import { registerDicerMidiBridge, applyPhoneDice, hideGhostDice } from "./dicer-midi.js"; // Dicer dice on midi's rolls (deck-command SEAT 9)
+// Blind / GM-only dice on the GM only (SEAT 16): Dicer caches a setting on its first read, so turn its ghost dice off
+// now, before any module's init can read it.
+try { if (globalThis.game?.settings) hideGhostDice(game.settings); } catch (e) { console.warn("mobile-command | ghost dice", e); }
 
 Hooks.once("init", () => {
   // FIRST thing, before anything of ours can throw: the errors worth having are the ones nobody was
@@ -858,6 +862,7 @@ Hooks.once("ready", () => {
     if (clean) { document.body.classList.add("mc-clean"); showCleanHint(); }
     else console.warn(`${MODULE_ID} | display role, but the no-cover escape hatch is set on this client — leaving the Foundry UI visible (§22.9). Clear ?mcNoCover=1 / localStorage["mc.noCover"] and reload to let the TV go clean again.`);
     warnDisplayGM(); suppressMcdCamera(); mountTvCompass();
+    registerTvCarousel(); // the fight carousel fades in on the TV while a fight is on (shell.css, tv-carousel.js)
     // The TV is the screen that SHOULD show spell/attack VFX. Sequencer's effectsEnabled is
     // client-scoped and STICKY — if this browser was ever a phone (we disable it there), it stays off,
     // so animations vanish on the TV while the DM still sees them (DM 2026-07-20). Force it back on.

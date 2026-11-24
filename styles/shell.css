@@ -40,7 +40,7 @@ body.mc-dm-clear .mc-paused {
    are kept — players at the table should see when the DM pauses. Toggle with the
    "Toggle clean display" keybinding (default: `) to reach settings. The mobile-command
    shell (#mobile-command-shell) is exempt, so a phone is unaffected. */
-body.mc-clean #ui-top, body.mc-clean #ui-left, body.mc-clean #ui-right, body.mc-clean #ui-bottom,
+body.mc-clean #ui-left, body.mc-clean #ui-right, body.mc-clean #ui-bottom,
 body.mc-clean #navigation, body.mc-clean #scene-navigation, body.mc-clean #nav-toggle,
 body.mc-clean #controls, body.mc-clean #scene-controls,
 body.mc-clean #sidebar, body.mc-clean #sidebar-tabs,
@@ -53,8 +53,23 @@ body.mc-clean #fps, body.mc-clean #tooltip, body.mc-clean #context-menu,
    renders #ape-app, a bare div appended to the UI — so the .app/.application rule
    and the render-hook HUD-killer both miss it). */
 body.mc-clean #ape-app, body.mc-clean .enhancedcombathud, body.mc-clean #argon-hud, body.mc-clean #mc-dm-panel,
-body.mc-clean .app, body.mc-clean .application:not(#mobile-command-shell) {
+body.mc-clean .app, body.mc-clean .application:not(#mobile-command-shell):not(#combat-dock),
+/* #ui-top stays laid out but empty: the fight carousel lives in it (below) */
+body.mc-clean #ui-top > :not(#combat-dock) {
   display: none !important;
+}
+/* The fight carousel on the TV (DM 2026-11-24: "I'm also missing the combat carousel on tv"). Carousel Combat Tracker
+   docks #combat-dock inside #ui-top and sizes its portraits from #ui-top's width, so #ui-top is never display:none
+   here; the dock itself fades in only while a fight has started (mc-tv-fight, tv-carousel.js) and out when it ends
+   (UI-BIBLE: fade, never cut). Nobody touches the TV: no pointer. */
+body.mc-clean #combat-dock * { pointer-events: none !important; }
+body.mc-clean #combat-dock {
+  opacity: 0; visibility: hidden; pointer-events: none !important;
+  transition: opacity .6s ease, visibility 0s linear .6s;
+}
+body.mc-clean.mc-tv-fight #combat-dock {
+  opacity: 1; visibility: visible;
+  transition: opacity .6s ease, visibility 0s;
 }
 body.mc-clean #board, body.mc-clean canvas#board { display: block !important; visibility: visible !important; }
 /* Dice So Nice 3D dice must stay visible on the clean TV. DSN appends

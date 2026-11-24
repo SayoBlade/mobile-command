@@ -76,7 +76,7 @@ check("Dice So Nice not installed: the stand-in still has a version midi accepts
 
 // settings midi reads directly
 check("hideNpcRolls answers false (DSN's default: NPC dice shown)", B.dsnAnswer("hideNpcRolls", () => true) === false);
-check("showGhostDice follows Dicer's own setting", B.dsnAnswer("showGhostDice", () => true) === true && B.dsnAnswer("showGhostDice", () => false) === false);
+check("showGhostDice is always false (blind dice GM-only, SEAT 16), whatever Dicer's own setting says", B.dsnAnswer("showGhostDice", () => true) === false && B.dsnAnswer("showGhostDice", () => false) === false);
 check("a Dicer read that throws answers false", B.dsnAnswer("showGhostDice", () => { throw new Error("no"); }) === false);
 check("only those two keys are answered", B.DSN_KEYS.size === 2 && B.dsnAnswer("other", () => 1) === undefined);
 
@@ -91,7 +91,7 @@ check("capping twice does nothing", B.capped(quick) === quick);
 
 // the glue
 const main = fs.readFileSync(path.join(ROOT, "scripts", "main.js"), "utf8");
-check("main.js imports the bridge", /import \{ registerDicerMidiBridge, applyPhoneDice \} from "\.\/dicer-midi\.js";/.test(main));
+check("main.js imports the bridge", /import \{ registerDicerMidiBridge, applyPhoneDice(, hideGhostDice)? \} from "\.\/dicer-midi\.js";/.test(main));
 check("…and registers it in init, before anything that could throw", /Hooks\.once\("init", \(\) => \{\s*\/\/[^\n]*\n[^\n]*\n\s*installErrorCapture\(\);\s*registerDicerMidiBridge\(\);/.test(main));
 check("…and decides the phone's dice at ready, with MC's own phone test", /Hooks\.once\("ready", \(\) => \{[\s\S]{0,600}applyPhoneDice\(isPhoneClient\(\)\)/.test(main));
 

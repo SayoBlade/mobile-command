@@ -92,8 +92,27 @@ export function isMidiSetup(fn) {
 /** The answers for Dice So Nice settings midi reads directly. `dicerGet(key)` reads a Dicer setting. */
 export function dsnAnswer(key, dicerGet) {
   if (key === "hideNpcRolls") return false;
-  if (key === "showGhostDice") { try { return dicerGet("showGhostDice") === true; } catch { return false; } }
+  // Never: a blind or GM-only roll's dice show on the GM's screen only (DM rule; SEAT 16 2026-11-24 saw midi's ghost
+  // throw, sent to every player, put a blank d20 on the TV for a blind save). See hideGhostDice.
+  if (key === "showGhostDice") return false;
   return undefined;
+}
+
+/**
+ * Dicer's own "Show ghost dice" (a world setting, on in his world) does the same thing from Dicer's side: blank dice
+ * for a roll you may not see. Read as off on every screen, so hidden rolls stay hidden; the GM sees the real dice.
+ * Returns true if installed.
+ */
+export function hideGhostDice(settings) {
+  if (!settings || typeof settings.get !== "function" || settings.get.__mcNoGhost) return false;
+  const realGet = settings.get;
+  const get = function (namespace, key, ...rest) {
+    if (namespace === "dicer" && key === "showGhostDice") return false;
+    return realGet.call(this, namespace, key, ...rest);
+  };
+  get.__mcNoGhost = true;
+  settings.get = get;
+  return settings.get === get;
 }
 export const DSN_KEYS = new Set(["hideNpcRolls", "showGhostDice"]);
 
@@ -191,6 +210,8 @@ export const dicerMidiState = { wanted: false, hooked: false, ran: false, served
 /** Call from MC's init hook (before "setup" fires). */
 export function registerDicerMidiBridge() {
   const active = (id) => globalThis.game?.modules?.get(id)?.active === true;
+  // main.js installs hideGhostDice when it loads (before Dicer can cache the setting); this only reports it
+  dicerMidiState.noGhost = globalThis.game?.settings?.get?.__mcNoGhost === true || hideGhostDice(globalThis.game?.settings);
   dicerMidiState.wanted = bridgeWanted(active);
   if (!dicerMidiState.wanted) {
     dicerMidiState.reason = active(DSN) ? "Dice So Nice is on" : "Dicer or midi is off";

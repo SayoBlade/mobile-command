@@ -250,8 +250,9 @@ A per-user setting selects behavior: `phone` / `service` / `display` / `dm`. The
 
 > **HISTORICAL (2026-06).** The living authority on module versions/health is preflight.js
 > (`TESTED` map + the module-stack check) and §28.5's ecosystem watch. Standing corrections to
-> this table: the "carousel initiative tracker" was never adopted (the DM panel's combat strip +
-> the TV carry turn order); Monk's Common Display runs on the display account with its camera
+> this table: the "carousel initiative tracker" was never adopted by us (the DM panel's combat strip +
+> the TV carry turn order) — but the DM runs Carousel Combat Tracker himself, and since 2026-11-24 the TV shows it in a
+> started fight (§60.3); Monk's Common Display runs on the display account with its camera
 > methods suppressed by us (§12 Round 60); AC5E/CAT/MISC joined the stack later (§28.5/§28.6).
 
 | Module | Why | Notes |
@@ -10125,3 +10126,26 @@ or GM-only roll goes to the GM alone. Not a phone, or a phone whose Dicer is on:
 `dicerMidiState.isPhone`, read at roll time. `tools/test-dicer-phone-tv.mjs` 13.
 **Seat check owed:** a phone skill check and an attack → dice on the TV, none on the phone, the card ~2.5 s later; a
 blind save from the phone → GM only.
+
+### 60.2 A blind roll put a blank die on the TV — FIXED 2026-11-24 (SEAT 16 4d)
+**Seen:** Player1's blind CON save from the phone: GM dice ✅, phone none ✅, the TV-like client a plain white d20 for
+~8 s (its card rightly "privately rolled"). **Cause:** a ghost die. midi 14.7.1 on a blind roll throws the real dice to
+the GMs and then, when `dice-so-nice.showGhostDice`, a ghost throw to `game.users.players` (the TV among them). §60's
+bridge answered that read from Dicer's own world "Show ghost dice", which is ON in his world; Dicer's chat path draws a
+ghost for a whispered/blind card on the same setting. **Rule (his):** blind and GM-only dice show on the GM only.
+**Fix:** `dsnAnswer("showGhostDice")` is always false; `hideGhostDice` reads `dicer.showGhostDice` as false on every
+screen, installed when `main.js` loads (Dicer caches a setting on its first read, so it must be in place before any
+init). His Dicer setting is left as stored, just not obeyed. Tests: `test-dicer-phone-tv.mjs` 14–17,
+`test-dicer-midi.mjs` 23/(ghost) updated.
+
+### 60.3 The fight carousel on the TV — BUILT 2026-11-24
+**His words:** *"I'm also missing the combat carousel on tv"*. **Found (SEAT 16 + code):** Carousel Combat Tracker
+(`combat-tracker-dock` 5.0.5, `direction: rowDocked` since the world was made, 2026-10-06) prepends `#combat-dock`
+(an ApplicationV2) into core's `#ui-top`. The clean TV view has hidden `#ui-top` AND every `.application` since
+bdbe36a (2026-06-19), so **not a regression**: as far as the record shows it never appeared on an MC TV.
+**Now:** `#ui-top` is laid out but empty (every child but the dock hidden — the dock sizes its portraits from
+`#ui-top`'s width, so never `display:none`); the window rule spares `#combat-dock`; the dock fades in (.6 s) only while
+a fight has STARTED (`mc-tv-fight` on body, `tv-carousel.js`, re-checked on create/update/delete/start/canvasReady)
+and fades out when it ends; nothing on it takes the pointer. What it shows is the carousel's own player view (its
+hidden-combatant and enemy-initiative settings). `tools/test-tv-carousel.mjs` 11.
+**Seat check owed (both):** see the 2026-11-24 report steps.

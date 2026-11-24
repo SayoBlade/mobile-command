@@ -109,5 +109,26 @@ const noWait = { calls: [], fn: async (ms) => { noWait.calls.push(ms); } };
   const a = src.indexOf("sharePhoneDice(d3,"), b = src.indexOf("d3.showForRoll = capped(");
   check("capWhenThere: sharePhoneDice runs before the cap, and the hold fits inside it", a > 0 && b > a && B.PHONE_HOLD_MS < B.CAP_MS, `${a} ${b}`);
 }
+// ── 14–17. SEAT 16: a blind save from a phone put a blank white d20 on the TV (a ghost die) ────────────
+// midi 14.7.1 on a blind roll: a real throw to the GMs, then — if dice-so-nice.showGhostDice — a ghost throw to every
+// player (game.users.players). The bridge answers that read; Dicer's own world "Show ghost dice" is read as off too.
+{
+  const settingsGet = (ns, key) => B.DSN_KEYS.has(key) && ns === "dice-so-nice" ? B.dsnAnswer(key, () => true) : undefined;
+  const phone = dicer(false);
+  B.sharePhoneDice(phone, { isPhone: () => true, wait: noWait.fn });
+  // midi's blind branch, cut down
+  await phone.showForRoll({}, null, true, ["gm"], true);
+  if (settingsGet("dice-so-nice", "showGhostDice")) await phone.showForRoll({ ghost: true }, null, true, ["player1", "tv"], false);
+  check("a blind save from a phone: one throw, to the GM only — no ghost throw to the players (the TV)", phone.sent.length === 1 && JSON.stringify(phone.sent[0].to) === '["gm"]', JSON.stringify(phone.sent));
+  const store = { "dicer.showGhostDice": true, "dicer.maxDice": 20 };
+  const settings = { get(ns, key) { return store[`${ns}.${key}`]; } };
+  const took = B.hideGhostDice(settings);
+  check("Dicer's own Show ghost dice reads as off (his world has it on)", took === true && settings.get("dicer", "showGhostDice") === false, String(settings.get("dicer", "showGhostDice")));
+  check("…and every other setting reads through untouched; installed once only", settings.get("dicer", "maxDice") === 20 && B.hideGhostDice(settings) === false);
+  const fs = await import("node:fs");
+  const main = fs.readFileSync(path.join(ROOT, "scripts", "main.js"), "utf8");
+  const at = main.indexOf("hideGhostDice(game.settings)"), init = main.indexOf('Hooks.once("init"');
+  check("main.js turns ghost dice off when it loads, before any init (Dicer caches a setting on first read)", at > 0 && at < init, `${at} ${init}`);
+}
 console.log(`All ${n} passed.`);
 process.exit(0);
