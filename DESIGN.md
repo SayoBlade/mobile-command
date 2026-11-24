@@ -10104,3 +10104,24 @@ Not run: a midi-requested save (spell save), the 5 s fallback actually firing (n
 
 ⚠️ `scripts/dicer-bridge.js` (untracked) is ANOTHER lane's abandoned approach (dnd5e `buildPost` + midi's visibility rules
 re-implemented); nothing imports it. Not committed. Delete when convenient.
+
+### 60.1 A phone's rolls never reached the TV — FIXED 2026-11-24 (live check owed)
+**His words (2026-11-24):** *"the dice rolls weren't showing up on tv yesterday … that needs a fix too"*.
+**Cause (code + world data, no seat):** midi throws dice only when `game.dice3d.isEnabled()` answers yes on the ROLLING
+screen (`dice3dEnabled`, midi-qol 14.7.1), and `DSNMarkDiceDisplayed` then marks the roll's dice `hidden` whether it
+threw or not, so the other screens' Dicer skips them in the chat card. Since §60 a phone's Dicer is off → a roll made ON
+the phone (checks, saves, initiative, anything not run by the executor) was thrown on no screen. In the
+crooked-moon-6x messages: Test Barbarian's 2026-11-23 Animal Handling check, author Player1, d20 marked hidden, public.
+Ruled out: the TV is not taken for a phone (`isPhoneClient` → the TV account returns false before the handheld test);
+the TV account's Dicer settings are defaults (only pets off); no roll filters; the clean-TV hide list does not touch
+`#dicer-layer`; Dicer's receive path checks only the TV's own switch, filters and visibility. Executor-run rolls (the
+DM's machine, Dicer on) are sent to everyone unless the roll is private — the DM's own rolls in the DB are GM rolls
+(whispered), which by Foundry's rules never reach the TV.
+**Fix (`dicer-midi.js sharePhoneDice`, wired in `capWhenThere` before the cap):** on a phone whose Dicer is off,
+`isEnabled()` answers yes, so midi calls `showForRoll(…, synchronize)`; Dicer 1.4.11 sends the throw to the other screens
+BEFORE it checks its own (off) switch, and draws nothing on the phone. The phone then holds midi `PHONE_HOLD_MS` 2.5 s
+(inside the 5 s cap) so the result does not reach the TV before the dice land. Recipients stay Dicer's/midi's: a blind
+or GM-only roll goes to the GM alone. Not a phone, or a phone whose Dicer is on: untouched. `applyPhoneDice` records
+`dicerMidiState.isPhone`, read at roll time. `tools/test-dicer-phone-tv.mjs` 13.
+**Seat check owed:** a phone skill check and an attack → dice on the TV, none on the phone, the card ~2.5 s later; a
+blind save from the phone → GM only.

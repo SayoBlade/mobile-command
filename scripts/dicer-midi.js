@@ -31,6 +31,13 @@
  * ALSO (his requirement, relayed 2026-11-20): Dicer's 3D dice are OFF on a phone. "Enable 3D dice" is Dicer's per-
  * browser setting; on a device Mobile Command runs as a phone it is turned off, and turned back on only if we were the
  * ones who turned it off and the device stops being a phone.
+ *
+ * …BUT A PHONE STILL SENDS ITS DICE TO THE TV (DM 2026-11-24: "the dice rolls weren't showing up on tv"). midi throws
+ * only when `game.dice3d.isEnabled()` says yes on the ROLLING screen, and it marks the roll's dice "shown" either way,
+ * so every other screen's Dicer then skips them in the chat card. With Dicer off on the phone no screen threw a phone
+ * roll at all. On a phone `sharePhoneDice` answers isEnabled() with yes: midi calls showForRoll(…, synchronize), Dicer
+ * sends the throw to the other screens BEFORE it checks its own (off) switch and draws nothing on the phone. Who gets
+ * the throw is still Dicer's and midi's call: a blind or GM-only roll goes to the GM alone, never the TV.
  */
 
 import { notifier } from "./notifier.js";
@@ -57,6 +64,7 @@ export const PHONE_MARK = "mobile-command.dicerOffForPhone";
 
 /** Apply phoneDicePlan on this browser. Call at "ready" with MC's own isPhoneClient(). */
 export async function applyPhoneDice(isPhone) {
+  dicerMidiState.isPhone = Boolean(isPhone); // read by sharePhoneDice at roll time
   if (!globalThis.game?.modules?.get("dicer")?.active) return null;
   let enabled; try { enabled = game.settings.get("dicer", "enabled"); } catch { return null; }
   let markedByUs = false; try { markedByUs = localStorage.getItem(PHONE_MARK) === "1"; } catch { /* storage off */ }
@@ -153,6 +161,30 @@ export function capped(fn, ms = CAP_MS, onTimeout) {
   return out;
 }
 
+/** How long a phone holds midi after it sends a throw, so the result card does not reach the TV before the dice land
+ *  (the seat measured about 2.9 s from throw to card on the DM's screen). Inside the 5 s cap. */
+export const PHONE_HOLD_MS = 2500;
+
+/**
+ * On a phone with Dicer off: isEnabled() answers yes (so midi throws), and a synchronized showForRoll waits
+ * PHONE_HOLD_MS after Dicer has sent it. A screen that is not a phone, or a phone whose Dicer is on, is untouched.
+ * `isPhone()` is read at call time. Returns true if both wraps took.
+ */
+export function sharePhoneDice(d3, { isPhone = () => false, hold = PHONE_HOLD_MS, wait = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+  if (!d3 || typeof d3.isEnabled !== "function" || typeof d3.showForRoll !== "function" || d3.isEnabled.__mcPhone) return false;
+  const realEnabled = d3.isEnabled;
+  const realShow = d3.showForRoll;
+  const phoneOff = () => { try { return isPhone() === true && !realEnabled.call(d3); } catch { return false; } };
+  const isEnabled = function (...args) { return phoneOff() ? true : realEnabled.apply(d3, args); };
+  isEnabled.__mcPhone = true;
+  const showForRoll = function (...args) {
+    const held = phoneOff() && args[2] === true; // args[2] = synchronize: Dicer sent it to the other screens
+    return Promise.resolve(realShow.apply(d3, args)).then(async (r) => { if (held) await wait(hold); return r; });
+  };
+  try { d3.isEnabled = isEnabled; d3.showForRoll = showForRoll; } catch { /* refused */ }
+  return d3.isEnabled === isEnabled && d3.showForRoll === showForRoll;
+}
+
 /** What happened this session — for the console, the deck and a seat test. */
 export const dicerMidiState = { wanted: false, hooked: false, ran: false, served: false, settings: false, capped: false, timeouts: 0, reason: "" };
 
@@ -205,6 +237,8 @@ export function registerDicerMidiBridge() {
       if (tries < 120) setTimeout(() => capWhenThere(tries + 1), 500);
       return;
     }
+    // a phone sends its throws to the TV (before the cap, so the cap also bounds the phone's hold)
+    try { dicerMidiState.phoneShare = sharePhoneDice(d3, { isPhone: () => dicerMidiState.isPhone === true }); } catch { dicerMidiState.phoneShare = false; }
     {
       // Dicer's game.dice3d may refuse a write (it guards some properties), so check that it took.
       try {
