@@ -10148,4 +10148,17 @@ bdbe36a (2026-06-19), so **not a regression**: as far as the record shows it nev
 a fight has STARTED (`mc-tv-fight` on body, `tv-carousel.js`, re-checked on create/update/delete/start/canvasReady)
 and fades out when it ends; nothing on it takes the pointer. What it shows is the carousel's own player view (its
 hidden-combatant and enemy-initiative settings). `tools/test-tv-carousel.mjs` 11.
+**SEAT 17 (2026-11-24) ❌ → FIXED in MC (live check owed):** with the CSS right, the carousel never drew on the TV-like
+client (`ui.combatDock` not rendered, not in the page; forcing `render(true)` left it in `#ui-top` with its own `hidden`,
+0×0; the hidden wolf's portrait correctly hidden). Not one of its settings (world values read: hideFirstRound false,
+hideDefeated false, playerPlayerPermission false, direction rowDocked), not the display role, not our CSS. From its
+source: it opens a dock only on createCombat when `game.combat === combat`, on updateCombat with `active`, or on
+canvasReady → the next renderCombatTracker → `ui.combat.viewed`; on a player screen `game.combat` is the sidebar
+tracker's `viewed`, which core moves to a new fight only if it had none (`Combat#_onCreate`), and the TV never shows
+its sidebar. Its dock loses `hidden` ONCE, at the end of the first render's intro (`_playAnimation`); a re-render does
+not replay it. *Not pinned live:* which of the two bit first on the seat. **Fix (`tv-carousel.js`):** the TV's fight is
+the started one on its map (`tvFight`, not core's `viewed`); on every fight change MC opens a FRESH dock with the
+carousel's own constructor when none shows that fight (`ensureDock`, never twice within 2 s), and 3 s later, if the
+dock still carries `hidden`, does what its intro ends with (`unhideDock`: remove `hidden`, body `ctd-dock-visible`,
+center). `globalThis.mcTvCarousel` = { last, opened, unhid } for a seat. `tools/test-tv-carousel.mjs` 20.
 **Seat check owed (both):** see the 2026-11-24 report steps.

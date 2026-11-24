@@ -36,7 +36,7 @@ check("a fight still being set up, or none, does not", T.tvFightOn({ started: fa
 {
   const seen = [];
   globalThis.document = { body: { classList: { toggle() {} } } }; globalThis.game = { combat: null };
-  T.registerTvCarousel({ on: (h) => seen.push(h) });
+  T.registerTvCarousel({ on: (h) => seen.push(h) }, { later: () => {} });
   check("start, update, delete, create and a scene change all re-check it", ["combatStart", "updateCombat", "deleteCombat", "createCombat", "canvasReady"].every((h) => seen.includes(h)), seen.join(","));
 }
 // ── 5–9. the TV's clean view ────────────────────────────────────────────────────────────────────────
@@ -49,5 +49,32 @@ check("in a fight it fades in, and fades out again (fade, never cut)", /opacity:
 // ── 10–11. the rest of the clean view is unchanged ──────────────────────────────────────────────────
 check("the rest of Foundry's chrome is still hidden on the TV", ["#ui-left", "#ui-right", "#ui-bottom", "#sidebar", "#hotbar", "#players", "#scene-navigation"].every((id) => rules.includes(`body.mc-clean ${id}`)));
 check("main.js starts it on the TV only, inside the display block", /if \(isDisplayClient\(\)\) \{[\s\S]{0,1500}registerTvCarousel\(\);/.test(main) && /import \{ registerTvCarousel \} from "\.\/tv-carousel\.js";/.test(main));
+// ── 12–14. SEAT 17: which fight is the TV's (core's game.combat follows a sidebar the TV never shows) ──
+{
+  const fs1 = { id: "a", started: true, active: true, scene: { id: "FS" } };
+  const other = { id: "b", started: true, active: true, scene: { id: "10.6" } };
+  const setup = { id: "c", started: false, active: true, scene: { id: "FS" } };
+  check("the started fight on the TV's map, even when core's current fight is a stale one elsewhere", T.tvFight([other, fs1], "FS", other) === fs1);
+  check("a fight on another map, or one still being set up, is not the TV's", T.tvFight([other, setup], "FS", null) === null);
+  check("a scene-less started fight counts; core's own pick is the fallback when it has started", T.tvFight([{ id: "d", started: true, scene: null }], "FS")?.id === "d" && T.tvFight([], "FS", fs1) === fs1);
+}
+// ── 15–19. the carousel's own open path, driven on the TV ─────────────────────────────────────────────
+{
+  const made = [];
+  class CombatDock { constructor(c) { this.combat = c; this.rendered = false; made.push(this); fakeUi.combatDock = this; } render() { this.rendered = true; this.element = el(["hidden"]); } }
+  const el = (cls) => { const set = new Set(cls); return { classList: { contains: (c) => set.has(c), remove: (c) => set.delete(c), add: (c) => set.add(c) } }; };
+  const fakeUi = { combatDock: null };
+  const ctd = { CombatDock };
+  const fight = { id: "f1", started: true };
+  check("no carousel on the TV: a fresh one is opened for the fight (its own constructor, so its own intro)", T.ensureDock(fight, { ctd, uiRef: fakeUi, now: 10000 }) === "opened" && made.length === 1 && made[0].combat === fight);
+  check("…already showing that fight: left alone", T.ensureDock(fight, { ctd, uiRef: fakeUi, now: 10100 }) === "open" && made.length === 1);
+  fakeUi.combatDock = { combat: fight, rendered: false, _closed: false };     // the seat's dock: made, never drawn
+  check("a dock that never drew is replaced, but not twice within the gap (a render in flight)", T.ensureDock(fight, { ctd, uiRef: fakeUi, now: 10200 }) === "wait" && T.ensureDock(fight, { ctd, uiRef: fakeUi, now: 10000 + T.REOPEN_GAP_MS + 1 }) === "opened" && made.length === 2);
+  const bodyCls = new Set(); const body = { classList: { add: (c) => bodyCls.add(c) } };
+  check("still `hidden` after its intro should have run: unhidden the way its intro ends", T.unhideDock(fight, { uiRef: fakeUi, body }) === true && !fakeUi.combatDock.element.classList.contains("hidden") && bodyCls.has("ctd-dock-visible"));
+  check("not hidden, a closed dock, another fight, no fight, no carousel: nothing touched", T.unhideDock(fight, { uiRef: fakeUi, body }) === false && T.unhideDock({ id: "x", started: true }, { uiRef: fakeUi, body }) === false && T.ensureDock(null, { ctd, uiRef: fakeUi }) === "no fight" && T.ensureDock(fight, { ctd: null, uiRef: fakeUi }) === "no carousel");
+}
+// ── 20. the seat can read what it did ─────────────────────────────────────────────────────────────────
+check("globalThis.mcTvCarousel reports opens and unhides", globalThis.mcTvCarousel === T.tvCarouselState && T.tvCarouselState.opened >= 2 && T.tvCarouselState.unhid >= 1);
 console.log(`All ${n} passed.`);
 process.exit(0);
