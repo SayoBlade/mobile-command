@@ -501,7 +501,8 @@ after the panel comes back on top. Whichever was clicked last is in front.
 **The floor, since the redesign (DM 2026-11-26, MC-REDESIGN-2026-11-26.md):** presence + the deck pill (right end) ·
 **Waiting** (the one queue: everything that waits on the DM, the first in full, the rest behind "+N", fixed height,
 "Nothing waiting" when empty) · **On now** (music · weather · hour · TV camera; tap for the sheet with the reasons
-and Resume) · Focus · Manual · the selected-token strip. The clock moved to Time › Clock; the Display shortcut went
+and Resume) · Focus · Manual (folded away while the deck drives: the deck's Camera key has them; Stage › Camera
+says so with Show) · the selected-token strip. The clock moved to Time › Clock; the Display shortcut went
 (the Stage section is the same thing).
 
 **Six sections on the rail, the same in both modes (DM 2026-11-26):** Fight · Party · Stage · Time · Story · Setup,

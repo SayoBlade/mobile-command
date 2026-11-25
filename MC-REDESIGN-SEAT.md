@@ -75,3 +75,10 @@ behaviour). Test world or a clean scene; the test party. Each step is one thing 
 3. Press Draw road and drag the road on the map; press Go: the party walks and the clock runs. Press Stop: it halts,
    the game stays paused.
 4. Tap the pill to "Deck": the row is gone and the line reads "Driven from the deck: Travel, Draw road, Go, Stop."
+
+## The camera folds away with the deck
+
+1. Pill on "Deck": the floor has no Frame / Manual buttons. Press P and M on the keyboard: they still work.
+2. Open Stage › Camera: who the TV follows is there; at the foot one line "On the deck: Frame, Manual, Fit, Zoom"
+   with Show. Press Show: Fit and Zoom appear there and Frame / Manual on the floor.
+3. Tap the pill to "No deck": everything is back without Show. Tap it to "Deck" again: folded again.

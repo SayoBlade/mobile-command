@@ -403,9 +403,12 @@ function displayTabHTML() {
   </div>`;
   // Follow list scrolls in the MID; the bare zoom/fit buttons are pinned to the FOOT — nearest the
   // seam, close to the floor's Focus/Manual for one-handed control (DM 2026-07-25).
+  const foot = camFolded()
+    ? `<div class="mc-dmp-stub"><i class="fas fa-table-cells"></i><span>On the deck: Frame, Manual, Fit, Zoom</span><button data-cam-show>Show</button></div>`
+    : camControls;
   return `<div class="mc-dmp-tabfill">
-    <div class="mc-dmp-tabmid">${dtDrawer("dispFollow", "Who the display follows", "", followListBody())}</div>
-    <div class="mc-dmp-tabfoot">${camControls}</div>
+    <div class="mc-dmp-tabmid">${dtDrawer("dispFollow", "Who the TV follows", "", followListBody())}</div>
+    <div class="mc-dmp-tabfoot">${foot}</div>
   </div>`;
 }
 
@@ -785,7 +788,13 @@ function fxPlayerBody() {
 
 // --- Floor camera strip (§25 2b): only the reflexive controls — Focus, Manual, and a shortcut into
 // the Display tab for the rest (Fit/zoom/follow/fog).
+// MC redesign (DM 2026-11-26, 3A): while the deck drives, the camera's buttons fold away (Frame and Manual from the
+// floor, Fit and Zoom from Stage › Camera): the deck's Camera key covers them. "Who the TV follows" stays. Stage ›
+// Camera says so in one line with Show, which brings them all back for this session. The keys P and M still work.
+let camShow = false;
+const camFolded = () => panelCompact() && !camShow;
 function cameraFloorHTML() {
+  if (camFolded()) return "";
   const manualOn = globalThis.MobileCommand?.tvManualActive?.() ? "mc-active" : "";
   return `<div class="mc-dmp-cam">
     <button class="mc-dmp-cam-btn" data-cam="focus" title="Focus the display on the party (P)" aria-label="Focus on party"><i class="fas fa-bullseye"></i></button>
@@ -5262,7 +5271,8 @@ async function onClick(ev) {
     if (res?.ok === false) notifier.warn(res.reason);
     return render();
   }
-  if (ev.target.closest("[data-deck-pill]")) { tapPill(runFrom()); return render(); }
+  if (ev.target.closest("[data-deck-pill]")) { tapPill(runFrom()); camShow = false; return render(); }
+  if (ev.target.closest("[data-cam-show]")) { camShow = true; return render(); }
   if (ev.target.closest("[data-now-resume]")) { if (game.paused) game.togglePause(false, { broadcast: true }); return render(); }
   const waitBtn = ev.target.closest("[data-wait-choice]");
   if (waitBtn) {

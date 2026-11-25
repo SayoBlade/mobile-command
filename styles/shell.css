@@ -4236,6 +4236,13 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-actbtn:hover:not(:disabled) { border-color: var(--mc-gold); }
 .mc-dmp-actbtn:disabled { opacity: .45; cursor: default; }
 .mc-dmp-actbtn.mc-on { border-color: var(--mc-gold); color: var(--mc-gold); }
+/* A group the deck covers (MC redesign): one line, what the deck holds, and Show. */
+.mc-dmp-stub { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 4px 0 8px; font-size: 11.5px; color: var(--mc-muted);
+  border: 1px dashed var(--mc-edge); border-radius: calc(8px * var(--mc-round, 1)); }
+.mc-dmp-stub > i { color: var(--mc-ok); }
+.mc-dmp-stub > span { flex: 1 1 auto; min-width: 0; }
+.mc-dmp-stub > button { height: 28px; padding: 0 10px; cursor: pointer; border-radius: calc(6px * var(--mc-round, 1)); background: var(--mc-panel-2); border: 1px solid var(--mc-edge); color: var(--mc-ink); font-size: 11.5px; }
+.mc-dmp-stub > button:hover { border-color: var(--mc-gold); }
 /* A section's view switch (MC redesign phase 3): Stage, Time, Story and Setup each hold more than one view. */
 .mc-dmp-views { display: flex; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--mc-edge); }
 .mc-dmp-view { flex: 1 1 0; min-width: 0; height: 30px; padding: 0 6px; cursor: pointer; border-radius: calc(7px * var(--mc-round, 1));

@@ -167,3 +167,13 @@ without the deck, camera fold-away with the deck.
 2. They are the deck's own four actions, drawn from the same rows: dim with the same reason when they cannot run
    (Draw road: "form up first"), Stop only while the party walks. A press does exactly what the deck's key does.
 3. Tests: new `test-nodeck-travel` (6 checks); 79 suites pass.
+
+## 2026-11-26, night 1: the camera folds away with the deck (built)
+
+1. While the pill reads "Deck", Frame and Manual leave the floor and Fit and Zoom leave Stage › Camera (your 3A);
+   the deck's Camera key has them. "Who the TV follows" stays.
+2. Stage › Camera says so in one line, "On the deck: Frame, Manual, Fit, Zoom", with Show, which brings them back
+   for the session. The keys P and M still work either way.
+3. Tests: new `test-camera-fold` (4 checks); 80 suites pass.
+4. That ends tonight's ordered list in Mobile Command. Next: the Rest sub-drawer in Deck Command's Party drawer
+   (your 9), if it fits; the campaign deck page (8A) is left for last, as you said.
