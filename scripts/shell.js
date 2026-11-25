@@ -1,4 +1,4 @@
-import { raceWithPrompts, dropAnsweredSaves, gpsAttackActivity, playerRollWorkflowOptions, playerRollAnswer, OA_DAMAGE_WAIT_MS } from "./gps-bridge.js"; // a Gambit's question mid-attack extends the wait (SEAT 22)
+import { oaMissResolvesNow, raceWithPrompts, dropAnsweredSaves, gpsAttackActivity, playerRollWorkflowOptions, playerRollAnswer, OA_DAMAGE_WAIT_MS } from "./gps-bridge.js"; // a Gambit's question mid-attack extends the wait (SEAT 22)
 import { MODULE_ID, CREATION_BEATS, pcDisplayName, TABLE_SEATS } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { isOnlineTable } from "./settings.js"; // §39 in person ⇄ online (settings.js imports nothing of ours but preset/enforcer — no cycle)
@@ -6953,6 +6953,16 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!res?.ok) {
       this.#actionState = null; this.render();
       return notifier.warn(`${s.name}: ${res?.reason ?? "could not use"}`);
+    }
+    // SEAT 35: an opportunity attack that missed is done: cancel the parked damage step, close the card, say "miss".
+    // A Gambit's attack then answers at once (completed, no hit), so the mover's step finishes.
+    if (oaMissResolvesNow(s.assignedByDM, res)) {
+      if (res.requestId) { try { await rpc.useActivityCancel({ requestId: res.requestId }); } catch (e) { /* gone already */ } }
+      s.requestId = null; s.busy = false; s.hit = false;
+      if (this.#actionState === s) { this.#actionState = null; this.render(); }
+      const tot = res.attackTotal != null && res.attackTotal !== -100 ? ` (${res.attackTotal})` : "";
+      notifier.info(`${s.name}: miss${tot}`);
+      return;
     }
     // Used → auto-collapse its Actions drawer (the action is committed now;
     // resource consumed). Reopenable; takes effect when the list re-renders.

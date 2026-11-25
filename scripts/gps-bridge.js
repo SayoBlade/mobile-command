@@ -98,6 +98,15 @@ export function playerRollWorkflowOptions(data = {}) {
   return wo;
 }
 
+/**
+ * SEAT 35: an opportunity attack (Gambit's or ours: the card's targets were set by "Opportunity") that MISSED (a crit
+ * miss and no target read the same) resolves at once: no damage step, no 30 s timer. The executor still parks a miss
+ * at WaitForDamageRoll, so the phone read it as owing damage, held Gambit's move, and rolled the miss's damage later.
+ */
+export function oaMissResolvesNow(assignedBy, res) {
+  return assignedBy === "Opportunity" && !!res?.ok && !!res.hasAttack && res.hit === false;
+}
+
 /** GPS's answer from the phone's card: fired / hit / reaction counted. Pure. */
 export function playerRollAnswer(res, { hit = null, reactionUsed = false } = {}) {
   if (!res?.ok) return { completed: false, checkHits: false, reactionUsed: false };

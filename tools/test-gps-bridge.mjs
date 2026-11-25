@@ -230,5 +230,26 @@ check("main.js: prompts tracked, the guard on, and the GM's sweep at load, at a 
   check("gpsPlayerRoll takes over only a resolved card, clearing it first",
     /if \(this\.#actionState && !actionCardResolved\(this\.#actionState\)\) return null;\s*if \(this\.#actionState\) \{ this\.#actionState = null; this\.render\(\); \}/.test(shell));
 }
+// SEAT 35: an opportunity attack that misses resolves at once: miss, then hit, in sequence
+{
+  const miss = { ok: true, hasAttack: true, hit: false, needsDamage: true, requestId: "r-miss", attackTotal: 7 };
+  const hit = { ok: true, hasAttack: true, hit: true, needsDamage: true, requestId: "r-hit", attackTotal: 18 };
+  check("a missed opportunity attack (Gambit's or ours) resolves now; a hit, an unknown result, a plain attack and a failed fire do not",
+    G.oaMissResolvesNow("Opportunity", miss) === true && G.oaMissResolvesNow("Opportunity", hit) === false
+    && G.oaMissResolvesNow("Opportunity", { ...hit, hit: null }) === false && G.oaMissResolvesNow(null, miss) === false
+    && G.oaMissResolvesNow("Opportunity", { ok: false }) === false);
+  check("…Gambit's hears 'completed, no hit' for the miss (its move finishes), and the following hit's answer is a hit",
+    JSON.stringify(G.playerRollAnswer(miss, { hit: false, reactionUsed: true })) === '{"completed":true,"checkHits":false,"reactionUsed":true}'
+    && G.playerRollAnswer(hit, { hit: true, reactionUsed: true }).checkHits === true);
+  const shell = src("shell.js");
+  const fire = shell.slice(shell.indexOf("async #fireAction() {"), shell.indexOf("async #fireAction() {") + 9000);
+  check("the card cancels the miss's parked damage, closes, and returns before the damage step; so gpsPlayerRoll skips the 30 s wait",
+    /if \(oaMissResolvesNow\(s\.assignedByDM, res\)\) \{\s*if \(res\.requestId\) \{ try \{ await rpc\.useActivityCancel\(\{ requestId: res\.requestId \}\); \}/.test(fire)
+    && /s\.requestId = null; s\.busy = false; s\.hit = false;\s*if \(this\.#actionState === s\) \{ this\.#actionState = null; this\.render\(\); \}/.test(fire)
+    && fire.indexOf("oaMissResolvesNow(") < fire.indexOf('s.busy = false; s.phase = "attacked";')
+    && /if \(res\?\.ok && s\.requestId\) \{/.test(shell));
+  check("both paths are marked Opportunity: Gambit's (gpsPlayerRoll) and ours (the Attack card)",
+    (shell.match(/this\.#assignedBy = "Opportunity";/g) ?? []).length === 2);
+}
 console.log(`All ${n} passed.`);
 process.exit(0);
