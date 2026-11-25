@@ -12,6 +12,7 @@
 import { MODULE_ID } from "./preset.js";
 import { isExecutor, reactionTimeoutMs } from "./settings.js";
 import { aooPromptUser } from "./rpc.js";
+import { oursHandles } from "./gps-bridge.js"; // one owner per reaction when Gambit's Premades is on
 
 const INCAPACITATED = ["incapacitated", "stunned", "paralyzed", "unconscious", "petrified", "dead"];
 const prompted = new Set(); // "attacker:mover:round:turn" — one prompt per pair per turn
@@ -25,6 +26,7 @@ export function registerAoO() {
       if (!isExecutor()) return; // one deciding client — the one performing moves
       if (!game.combat?.started) return;
       if (!game.settings.get(MODULE_ID, "aooEnabled")) return;
+      if (!oursHandles("oa")) return; // Gambit's Premades has it (gps-bridge.js reactionOwner)
       const from = { x: doc.x, y: doc.y };
       const to = { x: changes.x ?? doc.x, y: changes.y ?? doc.y };
       checkAoO(doc, from, to).catch(e => console.warn(`${MODULE_ID} | AoO check failed`, e));
@@ -214,6 +216,7 @@ function registerSentinel() {
       if (!isExecutor()) return;
       if (!game.combat?.started) return;
       if (!game.settings.get(MODULE_ID, "aooEnabled")) return;
+      if (!oursHandles("sentinel")) return; // Gambit's Premades has it
       checkSentinel(wf).catch(e => console.warn(`${MODULE_ID} | Sentinel check failed`, e));
     } catch (e) { /* never break an attack workflow */ }
   });

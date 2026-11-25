@@ -10162,3 +10162,20 @@ carousel's own constructor when none shows that fight (`ensureDock`, never twice
 dock still carries `hidden`, does what its intro ends with (`unhideDock`: remove `hidden`, body `ctd-dock-visible`,
 center). `globalThis.mcTvCarousel` = { last, opened, unhid } for a seat. `tools/test-tv-carousel.mjs` 20.
 **Seat check owed (both):** see the 2026-11-24 report steps.
+
+### 60.4 Gambit's Premades on the table — BUILT 2026-11-25 (seat owed)
+DM 2026-11-25: *"It's a module with years of experience, doing something that's a tiny part of ours I say give it a
+chance"*. GPS 3.0.8 (Foundry 14.369+, dnd5e 6.1.1, midi 14.7.0+, DAE 14.6.10+, Aura Effects, Sequencer — all on in
+crooked-moon-6x) goes ON. Read from its source: a reaction prompt is `process3rdPartyReactionDialog`, a core
+`User#query` to `MidiQOL.playerForActor` (the assigned character's player; the primary GM if not connected), drawn as
+a framed ApplicationV2 (`AutomationDialog`) — on a phone `liftDialogAboveShell` already makes it the bottom sheet.
+After Yes, GPS asks that same client to run the item (`remoteCompleteItemUse`, `gpsActivityUse`, `useRegionEscape`):
+on a phone (no canvas) `gps-bridge.js forwardGpsWorkflows` hands those to the executor, which runs GPS's own handler
+(as GPS's own NPC path does). One owner per reaction: `gpsReactions` (Automatic | Mobile Command | Gambit's
+Premades); Automatic = GPS's when its own "Enable Opportunity Attack" / "Enable Sentinel" is on (`aoo.js` stands down),
+else ours. Legendary Resistance: deck-command's key rim stands down while GPS's `enableLegendaryResistance` is on
+(`legres.js gpsOwnsLegres`, D-0195). Nothing of ours wraps what GPS wraps (midi checkHits/displayHits/
+processCriticalFlags/triggerTargetMacros, D20Roll.buildPost, applyActiveEffects…; GPS acts there only for its own items
+and switches); AC5E's verdict is read without a roll. `tools/test-gps-bridge.mjs` 12. `globalThis.mcGps` for a seat.
+Not covered: GPS's prompt timers run on the phone (15–30 s; midi's 10 s × our 120% = 12 s for midi's own); a GPS dialog
+asking for a pick on the map would have no map on a phone.

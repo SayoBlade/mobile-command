@@ -855,6 +855,16 @@ export function registerSettings() {
     default: "prompt",
     choices: { prompt: "Ask the DM", auto: "Roll automatically", off: "NPCs don't react" }
   });
+  // Gambit's Premades does opportunity attacks and Sentinel too (gps-bridge.js): only one of the two acts.
+  game.settings.register(MODULE_ID, "gpsReactions", {
+    name: "Opportunity attacks and Sentinel: who handles them",
+    hint: "Automatic: Gambit's Premades when it is on and its own Opportunity Attack (or Sentinel) switch is on, otherwise Mobile Command. Mobile Command: always ours (turn Gambit's switches off). Gambit's Premades: ours stays quiet whenever Gambit's Premades is on.",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "auto",
+    choices: { auto: "Automatic", ours: "Mobile Command", gambit: "Gambit's Premades" }
+  });
 
   // Reaction time for phone players (DM 2026-07-19). midi's reactionTimeout is tuned for a desktop
   // where the reaction dialog is already on screen; a phone player must first NOTICE the prompt light

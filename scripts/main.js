@@ -50,6 +50,7 @@ import { audioPrompt, settleWithin } from "./audio-prompt.js"; // the display's 
 import { registerMusicBehavior, registerMusic, state as musicState, pick as musicPick, next as musicNext, cue as musicCue, moods as musicMoods, roomOf as musicRoomOf, overlapState as musicOverlap, adoptSceneMusic as musicAdoptSceneMusic, adoptApprovedOnce as musicAdoptApprovedOnce, holdMusic as musicHold, releaseMusic as musicRelease } from "./music.js"; // the music layer (deck-command MUSIC-LAYER.md)
 import { installOverlayGuard, sweepCoveringLayers, reapplyGuard, restoreCoreUi, forceRail, stuckOverlayStates, clearedLayers, shouldKeepGmClear, verifyRail } from "./overlay-guard.js"; // §22.7/§22.9 the DM is never covered or hidden
 
+import { forwardGpsWorkflows } from "./gps-bridge.js"; // Gambit's Premades: a phone's reaction item-use runs on the executor (DM 2026-11-25)
 import { registerTvCarousel } from "./tv-carousel.js"; // the fight carousel on the TV (DM 2026-11-24)
 import { registerDicerMidiBridge, applyPhoneDice, hideGhostDice } from "./dicer-midi.js"; // Dicer dice on midi's rolls (deck-command SEAT 9)
 // Blind / GM-only dice on the GM only (SEAT 16): Dicer caches a setting on its first read, so turn its ghost dice off
@@ -1022,6 +1023,9 @@ Hooks.once("ready", () => {
   setupCalendarSkin(); // SC Reborn's popup = the table's "Calendar": retitle (tool column hidden in CSS)
   Hooks.on("updateSetting", redrawCalendarAfterSave); // §22.11: a player's calendar catches up when the GM's save lands
   registerAoO(); // opportunity-attack movement watcher (executor-gated inside; see aoo.js)
+  // GPS asks a phone to run a reaction's item use; a phone has no canvas, so the executor runs it (gps-bridge.js)
+  try { if (isPhoneClient()) forwardGpsWorkflows({ isPhone: () => isPhoneClient(), executor: () => game.users.get(resolveExecutorId()) ?? null }); }
+  catch (e) { console.warn(`${MODULE_ID} | gps bridge`, e?.message ?? e); }
   registerFog(); // fog-of-war edge styles on the display (off/soft/gpu via `fogStyle`; see fog-soft.js)
   registerMusic();       // rooms, battle, Phase 2, cues — crossfaded; the primary GM drives (music.js)
   registerSyrinscapeBridge(); // a Syrinscape entry plays its local twin while Local/offline, and stops at a fade's start
