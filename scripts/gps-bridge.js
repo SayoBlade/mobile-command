@@ -56,11 +56,37 @@ export function oursHandles(kind, { g = globalThis.game, moduleId = "mobile-comm
   return owner === "ours";
 }
 
+// SEAT 24: GPS's opportunity attack (opportunityAttack.js) asks for `autoRollAttack` and `autoRollDamage: "always"` but
+// not fast-forward, so on the executor midi stopped at the attack roll's configuration (WaitForAttackRoll, an empty card)
+// and GPS's region held the mover mid-step. A forwarded item use is a reaction the player already chose on the phone:
+// it goes fast-forwarded, aimed at GPS's own targets (as our own fireAoO does). And it never waits for ever: after
+// FORWARD_TIMEOUT_MS GPS gets "not completed" back, so its region lets the move finish.
+export const FORWARD_TIMEOUT_MS = 45000;
+
+/** The forwarded data, fast-forwarded. Pure (returns a copy). */
+export function fastForwarded(name, data) {
+  if (name !== "remoteCompleteItemUse" || !data?.options) return data;
+  const options = { ...data.options, ignoreUserTargets: true, fastForwardAttack: true, fastForwardDamage: true };
+  options.workflowOptions = { ...(data.options.workflowOptions ?? {}), autoRollAttack: true, fastForwardAttack: true, fastForwardDamage: true };
+  return { ...data, options };
+}
+
+/** What GPS gets back from a forward that timed out. */
+export const timedOutAnswer = (name) => (name === "remoteCompleteItemUse" ? { completed: false, checkHits: false, reactionUsed: false, timedOut: true } : null);
+
+/** p, or `fallback()` after ms. */
+export function withFallback(p, ms, fallback) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => resolve(fallback()), ms);
+    Promise.resolve(p).then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
 /**
  * On a phone, hand GPS's workflow queries to the executor. `queries` = CONFIG.queries; `isPhone()` and `executor()`
  * (a User) are read at call time. Returns how many were wrapped; a second call wraps nothing.
  */
-export function forwardGpsWorkflows({ queries = globalThis.CONFIG?.queries, isPhone = () => false, executor = () => null } = {}) {
+export function forwardGpsWorkflows({ queries = globalThis.CONFIG?.queries, isPhone = () => false, executor = () => null, timeoutMs = FORWARD_TIMEOUT_MS } = {}) {
   if (!queries) return 0;
   let n = 0;
   for (const name of GPS_WORKFLOW_QUERIES) {
@@ -72,7 +98,12 @@ export function forwardGpsWorkflows({ queries = globalThis.CONFIG?.queries, isPh
       try { ex = isPhone() ? executor() : null; } catch (e) { ex = null; }
       if (ex && ex.active && !ex.isSelf && typeof ex.query === "function") {
         gpsBridgeState.forwarded += 1; gpsBridgeState.last = name;
-        return ex.query(key, data);                    // GPS's own handler, on the client with the map
+        // GPS's own handler, on the client with the map; fast-forwarded, and never longer than timeoutMs
+        return withFallback(ex.query(key, fastForwarded(name, data)), timeoutMs, () => {
+          gpsBridgeState.timedOut = (gpsBridgeState.timedOut ?? 0) + 1;
+          console.warn(`mobile-command | Gambit's ${name} on the DM's screen did not finish in ${Math.round(timeoutMs / 1000)} s; released`);
+          return timedOutAnswer(name);
+        });
       }
       return orig.call(this, data, ctx);
     };
@@ -254,3 +285,11 @@ export async function clearGpsOa(g = globalThis.game, { moduleId = "mobile-comma
   return n;
 }
 gpsBridgeState.clearOa = () => clearGpsOa();
+
+/**
+ * The phone's event strip after a save result: drop the "DC n Ability save" note asked of that creature (or one whose
+ * creature was never resolved). Pure. (Lives here only because shell.js already imports this file.)
+ */
+export function dropAnsweredSaves(events, actorId) {
+  return (events ?? []).filter((e) => !(e?.kind === "save" && (e.actorId == null || e.actorId === actorId)));
+}

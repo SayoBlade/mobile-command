@@ -42,7 +42,7 @@ check("Mobile Command / Gambit's Premades force it either way", G.reactionOwner(
   check("the three workflow queries are wrapped (item use, activity use, region escape); a plain roll is not", took === 3 && !queries["gambits-premades.rollAsUser"].__mcForward);
   const data = { itemUuid: "Actor.a.Item.w", actorUuid: "Actor.a", options: { midiOptions: { targetUuids: ["Scene.s.Token.t"] } }, isWeapon: true };
   const r = await queries["gambits-premades.remoteCompleteItemUse"](data, { user: { id: "gm" } });
-  check("on a phone: sent to the executor with the same data, and its answer returned to GPS", sent.length === 1 && sent[0][0] === "gambits-premades.remoteCompleteItemUse" && sent[0][1] === data && r.where === "executor" && ran.length === 0, JSON.stringify(sent));
+  check("on a phone: sent to the executor (the same item, actor and targets, fast-forwarded — SEAT 24), and its answer returned to GPS", sent.length === 1 && sent[0][0] === "gambits-premades.remoteCompleteItemUse" && sent[0][1].itemUuid === data.itemUuid && sent[0][1].actorUuid === data.actorUuid && sent[0][1].options.midiOptions === data.options.midiOptions && sent[0][1].options.fastForwardAttack === true && r.where === "executor" && ran.length === 0, JSON.stringify(sent));
   phone = false;
   const r2 = await queries["gambits-premades.gpsActivityUse"]({ x: 1 }, {});
   check("not a phone: GPS's own handler runs here", r2.where === "local" && ran.length === 1 && sent.length === 1);
@@ -138,6 +138,43 @@ check("the wait's deadline: while a question is open it is now + the WHOLE windo
   check("SEAT 23 (b): the GM's sweep is wired outside the 'GPS is on' block", (() => { const i = main.indexOf("if (gpsActive()) {"); const j = main.indexOf("setTimeout(sweep, 5000)"); const close = main.indexOf("\n  }\n", i); return i > 0 && j > close; })());
 check("main.js: prompts tracked, the guard on, and the GM's sweep at load, at a fight's end and on its delete",
     /trackGpsPrompts\(\)/.test(main) && /guardGpsOa\(\)/.test(main) && /setTimeout\(sweep, 5000\)/.test(main) && /Hooks\.on\("deleteCombat", \(\) => setTimeout\(sweep/.test(main));
+}
+// ── 28–32. SEAT 24: GPS's opportunity attack, forwarded, rolls by itself and never holds the move for ever ───────────
+{
+  // GPS 3.0.8 opportunityAttack.js: the options it sends to remoteCompleteItemUse
+  const gpsOptions = { showFullCard: false, createWorkflow: true, versatile: false, configureDialog: false, targetUuids: ["Scene.s.Token.goblin"],
+    workflowOptions: { autoRollDamage: "always", autoRollAttack: true, autoFastDamage: true, disadvantage: true } };
+  const data = { itemUuid: "Actor.b.Item.axe", actorUuid: "Actor.b", options: gpsOptions, isWeapon: true };
+  const ff = G.fastForwarded("remoteCompleteItemUse", data);
+  check("the forwarded opportunity attack is fast-forwarded (attack and damage) and aimed at GPS's targets only; GPS's own choices kept",
+    ff.options.workflowOptions.fastForwardAttack === true && ff.options.workflowOptions.fastForwardDamage === true && ff.options.fastForwardAttack === true
+    && ff.options.ignoreUserTargets === true && ff.options.workflowOptions.disadvantage === true && ff.options.workflowOptions.autoRollDamage === "always"
+    && JSON.stringify(ff.options.targetUuids) === '["Scene.s.Token.goblin"]' && gpsOptions.workflowOptions.fastForwardAttack === undefined);
+  check("other queries pass through as sent", G.fastForwarded("gpsActivityUse", { x: 1 }).x === 1 && G.fastForwarded("useRegionEscape", data) === data);
+  const queries = { "gambits-premades.remoteCompleteItemUse": async () => "local", "gambits-premades.gpsActivityUse": async () => "local" };
+  const sent = [];
+  const never = { active: true, isSelf: false, query: (k, d) => { sent.push([k, d]); return new Promise(() => {}); } };
+  G.forwardGpsWorkflows({ queries, isPhone: () => true, executor: () => never, timeoutMs: 40 });
+  const t0 = Date.now();
+  const r = await queries["gambits-premades.remoteCompleteItemUse"](data, {});
+  check("a forward that never finishes answers GPS 'not completed' after the timeout, so its region releases the move",
+    r.completed === false && r.timedOut === true && Date.now() - t0 < 1000 && sent[0][1].options.workflowOptions.fastForwardAttack === true, JSON.stringify(r));
+  const r2 = await queries["gambits-premades.gpsActivityUse"]({ y: 1 }, {});
+  check("…and any other forwarded use answers nothing (GPS's own 'no result')", r2 === null);
+  const ok = { active: true, isSelf: false, query: async () => ({ completed: true, checkHits: true }) };
+  const q2 = { "gambits-premades.remoteCompleteItemUse": async () => "local" };
+  G.forwardGpsWorkflows({ queries: q2, isPhone: () => true, executor: () => ok, timeoutMs: 40 });
+  check("a forward that finishes returns its real answer", (await q2["gambits-premades.remoteCompleteItemUse"](data, {})).checkHits === true);
+}
+// ── 33–34. SEAT 24: the save's "DC n Ability save" note leaves the strip once that save is rolled ─────────────────────
+{
+  const events = [{ kind: "save", text: "DC 20 Wisdom save", actorId: "barb" }, { kind: "save", text: "DC 13 Dex save", actorId: "pet" }, { kind: "damage", text: "17 damage" }, { kind: "save", text: "DC 12 Con save", actorId: null }];
+  const kept = G.dropAnsweredSaves(events, "barb");
+  check("the barbarian's rolled save drops its own note (and an unresolved one); the pet's still-owed save and the damage stay",
+    JSON.stringify(kept.map((e) => e.text)) === '["DC 13 Dex save","17 damage"]');
+  const shell = src("shell.js");
+  check("shell.js: the note carries its creature, and a save result drops it",
+    /kind: "save", text: .*, actorId: askedFor \}\);/.test(shell) && /dropAnsweredSaves\(this\.#combatEvents, rolledActorId\)/.test(shell));
 }
 console.log(`All ${n} passed.`);
 process.exit(0);

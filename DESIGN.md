@@ -10228,3 +10228,16 @@ inactive module's scope).
 **(c)** His fight not coming back after the test fight's delete is core: `Combat#_onDelete` only re-activates the
 deleting screen's viewed combat, and the sidebar view is cleared first. Not ours; nothing changed.
 `tools/test-gps-bridge.mjs` 27.
+
+### 60.4c SEAT 24: GPS's opportunity attack forwarded but never rolled; the save note that stayed — FIXED 2026-11-25
+**OA:** the prompt reached the phone, Yes was honoured and forwarded (`forwarded` 1), but midi sat at WaitForAttackRoll
+with an empty card and the goblin froze mid-move. GPS's opportunity attack sends `autoRollAttack` and
+`autoRollDamage: "always"` but no fast-forward, so on the executor midi stopped at the roll's configuration, and GPS's
+move-restricting region held the mover until the item use answered. `forwardGpsWorkflows` now forwards
+`remoteCompleteItemUse` fast-forwarded (attack and damage, `ignoreUserTargets`, GPS's own targets and choices kept, as our
+`fireAoO`), and a forward never waits longer than `FORWARD_TIMEOUT_MS` (45 s): GPS then gets "not completed"
+(`mcGps.timedOut`) and its region lets the move finish.
+**Save note:** the strip's "DC 20 Wisdom save" (the ask, logged when the prompt arrives) stayed beside its result. It now
+carries its creature and is dropped when that creature's save rolls (`dropAnsweredSaves`).
+**Cleanup timing:** 7–20 s after the GM's ready with GPS off (the 5 s timer, then serial deletes): noted, unchanged.
+`tools/test-gps-bridge.mjs` 28–34.

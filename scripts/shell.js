@@ -1,4 +1,4 @@
-import { raceWithPrompts } from "./gps-bridge.js"; // a Gambit's question mid-attack extends the wait (SEAT 22)
+import { raceWithPrompts, dropAnsweredSaves } from "./gps-bridge.js"; // a Gambit's question mid-attack extends the wait (SEAT 22)
 import { MODULE_ID, CREATION_BEATS, pcDisplayName, TABLE_SEATS } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { isOnlineTable } from "./settings.js"; // §39 in person ⇄ online (settings.js imports nothing of ours but preset/enforcer — no cycle)
@@ -6711,7 +6711,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (!this.#pending.some(e => e.kind === "save" && e.payload?.actorUuid === payload.actorUuid)) {
       const abil = payload.abilities?.[0];
       const label = CONFIG.DND5E?.abilities?.[abil]?.label ?? (abil ? abil.toUpperCase() : "");
-      this.#pushEvent({ kind: "save", text: `${payload.dc ? `DC ${payload.dc} ` : ""}${label} save`.trim() });
+      let askedFor = null;
+      try { askedFor = payload.actorUuid ? fromUuidSync(payload.actorUuid)?.id ?? null : null; } catch (e) { /* stale uuid */ }
+      this.#pushEvent({ kind: "save", text: `${payload.dc ? `DC ${payload.dc} ` : ""}${label} save`.trim(), actorId: askedFor });
     }
     this.#enqueue("save", payload, payload.actorUuid);
   }
@@ -9072,6 +9074,9 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return true;
       });
       if (this.#pending.length !== before && this.rendered) this.render();
+      // …and the "DC n Ability save" note it left in the strip: the result chip takes its place (SEAT 24)
+      const kept = dropAnsweredSaves(this.#combatEvents, rolledActorId);
+      if (kept.length !== this.#combatEvents.length) { this.#combatEvents = kept; this.#refreshEvents(); }
     }
     const entry = this.#describeRoll(message);
     if (!entry) return;
