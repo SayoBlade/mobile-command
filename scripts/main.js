@@ -45,6 +45,7 @@ import "./actions-effects.js"; // §52 area G — each area file registers its r
 import "./actions-cm.js"; // §52 area H — the Crooked Moon tab (and its requests)
 import { travelState } from "./dm-panel.js"; // §18 travel state for the public API (read-only)
 import "./actions-travel.js"; // the travel area, which was declared and published nothing (2026-10-18)
+import "./actions-rest.js"; // Start rest · Pass watch · Finish, for the deck's Rest drawer (DM 2026-11-26, redesign question 9)
 import { registerAskKind } from "./actions-asks.js"; // §55.6 players waiting on the DM (a Basic travel square) — the deck's Notifications
 import { registerSoundBehavior, cues } from "./region-sound.js"; // §53 the "Sound" region behaviour + the house door sets
 import { audioPrompt, settleWithin } from "./audio-prompt.js"; // the display's sound prompt: card, icon or nothing

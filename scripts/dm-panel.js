@@ -1258,6 +1258,10 @@ let dtGiveFor = null; // actorId whose "give a task" template picker is open
 // is now a SIZE (short/long) with optional Downtime (activities) and/or Watches phases — either, both
 // or neither; Downtime runs BEFORE watches. Neither ticked ⇒ a plain dnd5e rest. DM-local until Start.
 let restDraft = { size: "long", downtime: false, watches: true };
+/** The rest the panel's Start Rest would begin now (its Short/Long and phase picks), for the deck's sub-line. */
+export function restDraftPlan() { return restPlan(restDraft); }
+/** Can a rest start: a party group with members. */
+export function restCanStart() { const g = restGroup(); return !!g && nightMembers(g).length > 0; }
 // A short rest is ONE watch; a long rest up to three (existence driven by assignment).
 function watchCount(size) { return size === "short" ? 1 : 3; }
 function restPlan(d) {
@@ -3307,11 +3311,11 @@ function watchMembers(group) {
 // mechanisms instead of replacing them: the downtime window (a world setting) and the watch board
 // (the group's `night` flag). The envelope itself lives on the party group's `rest` flag —
 // { size:"short"|"long", phases:{downtime,watches}, startedAt }. No flag = not resting.
-function restGroup() {
+export function restGroup() {
   return game.actors.find(a => a.type === "group" && a.getFlag(MODULE_ID, "rest"))
     ?? nightGroup();
 }
-function restState() { return restGroup()?.getFlag(MODULE_ID, "rest") ?? null; }
+export function restState() { return restGroup()?.getFlag(MODULE_ID, "rest") ?? null; }
 function isResting() { return !!restState(); }
 
 function restSetupCard(group) {
@@ -3455,7 +3459,7 @@ async function applyPartyRest(group, size) {
   notifier.info(`${size === "long" ? "Long" : "Short"} rest — ${n} character${n === 1 ? "" : "s"} rested.`);
 }
 // Begin a rest from the setup draft. Neither phase → a plain dnd5e rest applied now (no ceremony).
-async function startRest() {
+export async function startRest() {
   const group = restGroup();
   if (!group) return;
   const { size, downtime, watches } = restPlan(restDraft);
@@ -3484,7 +3488,7 @@ async function beginWatchRun(group) {
   return true;
 }
 // Move the rest to its next stage, opening/closing the mechanisms each stage owns.
-async function advanceRest() {
+export async function advanceRest() {
   const group = restGroup();
   const rest = group?.getFlag(MODULE_ID, "rest");
   if (!rest) return;
@@ -3508,7 +3512,7 @@ async function advanceRest() {
 // Pass the current watch: advance the real world clock by its share of the rest, then step to the
 // next filled watch — or to morning after the last one. Time-based effects listen to worldTime, so
 // this really passes time (§19.5-2).
-async function passWatch() {
+export async function passWatch() {
   const group = restGroup();
   const rest = group?.getFlag(MODULE_ID, "rest");
   const night = group?.getFlag(MODULE_ID, "night");
@@ -3532,7 +3536,7 @@ async function passWatch() {
 }
 // End (or call off) the rest. This is the ONE place a dnd5e rest applies (§19). Tears down both
 // mechanisms either way; only `apply` lands the actual rest.
-async function endRest(apply) {
+export async function endRest(apply) {
   const group = restGroup();
   if (!group) return;
   const rest = group.getFlag(MODULE_ID, "rest");

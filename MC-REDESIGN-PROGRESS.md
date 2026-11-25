@@ -177,3 +177,13 @@ without the deck, camera fold-away with the deck.
 3. Tests: new `test-camera-fold` (4 checks); 80 suites pass.
 4. That ends tonight's ordered list in Mobile Command. Next: the Rest sub-drawer in Deck Command's Party drawer
    (your 9), if it fits; the campaign deck page (8A) is left for last, as you said.
+
+## 2026-11-26, night 1: rest keys published for the deck (built, MC side)
+
+1. Mobile Command now publishes three rest actions the deck can press: **Start rest · Pass watch · Finish**. Each
+   is the panel's own rest step, so the deck and Time › Rest run one rest.
+2. The watch grid stays on the panel (your 9). A rest with watches stops at "set the watches"; the same Start key
+   then begins it, so three keys cover the whole rest. The size and phases are the panel's picks (long, watches by
+   default); the key's sub-line says which. Cancel stays on the panel.
+3. Tests: new `test-rest-actions` (9 checks); 81 suites pass.
+4. Next: the Rest drawer itself, inside the deck's Party drawer (Deck Command).
