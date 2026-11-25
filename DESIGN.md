@@ -10179,3 +10179,22 @@ processCriticalFlags/triggerTargetMacros, D20Roll.buildPost, applyActiveEffects�
 and switches); AC5E's verdict is read without a roll. `tools/test-gps-bridge.mjs` 12. `globalThis.mcGps` for a seat.
 Not covered: GPS's prompt timers run on the phone (15–30 s; midi's 10 s × our 120% = 12 s for midi's own); a GPS dialog
 asking for a pick on the map would have no map on a phone.
+
+### 60.5 A phone loads quietly — BUILT 2026-11-25 (seat owed)
+DM 2026-11-25: *"Make sure as few popups open on mobile view on loading"*. `scripts/phone-quiet.js`, phones only (the TV
+already hides every notice and window, body.mc-clean; the DM's screen is unchanged):
+- **Notices:** core's `Notifications#notify` is wrapped at MC's load (before any init). On a phone, until 20 s after
+  ready, any notice not from Mobile Command is held (console + `mcPhoneQuiet.held`); kept: ours (notifier.js →
+  `asOurs`; its five-a-burst rule unchanged), connection lost/back, the world shutting down. This covers the book
+  modules' "no permission" errors when a player's client tries to write their world `lastVersion`, Hero Mancer's /
+  Spell Book's / any module's ready toasts, and whatever a later module adds. Core's small-screen error was already
+  removed (`suppressResolutionWarning`).
+- **Windows closed while loading:** the changelog journals of dnd-players-handbook, -dungeon-masters-guide,
+  -monster-manual, -forge-artificer, -heroes-faerun, -ravenloft-horrors-within, -arcana-unleashed and The Crooked
+  Moon's intro journal (all open on every screen at ready while the world `lastVersion` is behind, which a player can
+  never update); Hero Mancer's welcome; Dicer's "Pick one dice tray" (marked seen for its version when closed).
+- **Settings:** Hero Mancer `showWelcome` (client) = false on phones.
+GM-only, so no change: Item Piles' and Combat Tracker Dock's welcome chat cards, Gambit's release message, 3ds-atlas's
+changelogger, Automated Animations' tips (already off). Not stopped: The Crooked Moon's version chat card, posted by
+whichever client loads first after an update (a chat message, not a popup; the phone shows no Foundry chat).
+`tools/test-phone-quiet.mjs` 15. `globalThis.mcPhoneQuiet` = { held, closed, set } for a seat.

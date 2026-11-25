@@ -50,12 +50,17 @@ import { audioPrompt, settleWithin } from "./audio-prompt.js"; // the display's 
 import { registerMusicBehavior, registerMusic, state as musicState, pick as musicPick, next as musicNext, cue as musicCue, moods as musicMoods, roomOf as musicRoomOf, overlapState as musicOverlap, adoptSceneMusic as musicAdoptSceneMusic, adoptApprovedOnce as musicAdoptApprovedOnce, holdMusic as musicHold, releaseMusic as musicRelease } from "./music.js"; // the music layer (deck-command MUSIC-LAYER.md)
 import { installOverlayGuard, sweepCoveringLayers, reapplyGuard, restoreCoreUi, forceRail, stuckOverlayStates, clearedLayers, shouldKeepGmClear, verifyRail } from "./overlay-guard.js"; // §22.7/§22.9 the DM is never covered or hidden
 
+import { installNoticeFilter, closeLoadWindow, applyPhoneSettings, phoneQuietState } from "./phone-quiet.js"; // a phone loads quietly (DM 2026-11-25)
 import { forwardGpsWorkflows } from "./gps-bridge.js"; // Gambit's Premades: a phone's reaction item-use runs on the executor (DM 2026-11-25)
 import { registerTvCarousel } from "./tv-carousel.js"; // the fight carousel on the TV (DM 2026-11-24)
 import { registerDicerMidiBridge, applyPhoneDice, hideGhostDice } from "./dicer-midi.js"; // Dicer dice on midi's rolls (deck-command SEAT 9)
 // Blind / GM-only dice on the GM only (SEAT 16): Dicer caches a setting on its first read, so turn its ghost dice off
 // now, before any module's init can read it.
 try { if (globalThis.game?.settings) hideGhostDice(game.settings); } catch (e) { console.warn("mobile-command | ghost dice", e); }
+// A phone loads quietly (DM 2026-11-25, phone-quiet.js): notices held and module welcome windows closed while it loads.
+// Installed at load, ahead of every module's init/ready, so the earliest notice is caught too.
+try { installNoticeFilter(); } catch (e) { console.warn("mobile-command | phone quiet", e); }
+for (const h of ["renderApplicationV2", "renderApplication"]) Hooks.on(h, (app) => { try { closeLoadWindow(app); } catch (e) { /* never break a render */ } });
 
 Hooks.once("init", () => {
   // FIRST thing, before anything of ours can throw: the errors worth having are the ones nobody was
@@ -64,6 +69,7 @@ Hooks.once("init", () => {
   registerDicerMidiBridge(); // Dicer's dice on midi's rolls; must run before "setup" (deck-command SEAT 9)
   registerSettings();
   registerSettingsMenu(); // §29: registered from here, not settings.js — the app imports preflight, which imports settings.js (cycle)
+  try { phoneQuietState.phone = isPhoneClient(); } catch (e) { /* role unreadable: the noCanvas guess stands */ }
   registerFeedbackMenu(); // §48: unrestricted — the people who hit bugs are mostly not the GM
   registerSceneTransitions(); // zoom in/out entries in CONFIG.Canvas.sceneTransitions (scene config + teleport pickers)
   registerLayeredWeather(); // §26: fog over rain/snow/leaves as one weather id, on every client (DM 2026-09-19)
@@ -779,7 +785,9 @@ Hooks.once("ready", () => {
   applyPhoneDice(isPhoneClient()).catch((e) => console.warn(`${MODULE_ID} | phone dice`, e));
   // Phones get nagged that the window is too small (core #validateResolution).
   // Nothing actually breaks for a DOM-only client; keep the suppression narrow.
+  phoneQuietState.readyAt = Date.now();
   if (isPhoneClient()) {
+    applyPhoneSettings().catch((e) => console.warn(`${MODULE_ID} | phone quiet settings`, e));
     suppressResolutionWarning();
     document.body.classList.add("mc-phone"); // scopes phone-only CSS (e.g. roll-dialog spacing)
     enableSafeAreaInsets(); // so env(safe-area-inset-*) is non-zero on iOS (B1 tab clearance)

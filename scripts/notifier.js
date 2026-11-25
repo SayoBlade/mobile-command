@@ -16,6 +16,8 @@
  * `onHeld` is how rpc.js's captureNotifications still hears a refusal that never reached the screen.
  * Never throws: a missing `ui` is a headless test or a very early load.
  */
+import { asOurs } from "./phone-quiet.js";
+
 const WINDOW_MS = 5000;
 const MAX_TOASTS = 5;
 const RANK = { info: 0, warn: 1, error: 2 };
@@ -35,7 +37,7 @@ export function createNotifier(label, { windowMs = WINDOW_MS } = {}) {
     const text = one
       ? `${held[0].text} (×${held.length + (shown.has(`${held[0].level}|${held[0].text}`) ? 1 : 0)})`
       : `${label}: ${held.length} more messages (details in console)`;
-    try { target[level]?.(text, permanent ? { permanent } : undefined); } catch { /* headless */ }
+    try { asOurs(() => target[level]?.(text, permanent ? { permanent } : undefined)); } catch { /* headless */ }
   };
 
   const open = (target) => {
@@ -55,7 +57,7 @@ export function createNotifier(label, { windowMs = WINDOW_MS } = {}) {
       const key = `${level}|${text}`;
       if (!burst.shown.has(key) && burst.shown.size < MAX_TOASTS - 1) {
         burst.shown.add(key);
-        return target[level]?.(text, options) ?? null;
+        return asOurs(() => target[level]?.(text, options)) ?? null;   // never held back on a loading phone (phone-quiet.js)
       }
       burst.held.push({ level, text, permanent: !!options?.permanent });
       console.debug(`${label} | toast held back: ${text}`);
