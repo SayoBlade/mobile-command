@@ -474,6 +474,14 @@ Tabs are icon-led; tapping the active tab again collapses the workspace (the cal
 a second tap closes). *(An active-tab label was speced when the rail was horizontal; on a narrow
 vertical rail it doesn't fit cleanly — revisit only if icon-only tabs prove hard to read.)*
 
+**The panel comes to the front the way a Foundry window does (DM 2026-11-25, SEAT 26).** Foundry gives each window it
+opens the next stacking level (`ApplicationV2._maxZ`, from ~100 up); the panel sat at a fixed 70, so a window open
+at load — Simple Calendar, top-left on every GM load — drew over the Crooked Moon tab and its phrase box, and the
+tab looked like it never opened. Now the panel takes the next level itself whenever the DM uses it: a press or tap
+anywhere on it, a tab opening, a deck press opening a tab. A window or dialog opened AFTER that still lands on top
+(Foundry's own order: the last thing touched is in front), so a roll dialog is never hidden under the panel. The
+panel never moves to dodge a window, and never stays pinned above everything.
+
 **The selected-token strip obeys §6.3 hard.** It is **always present at a fixed height**, showing a
 neutral resting state when nothing is selected — selecting/deselecting a token must never grow or
 shrink the floor (DM 2026-07-24: "you know my feeling on jumpy UIs"). The strip updates silently; it

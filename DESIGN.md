@@ -10257,3 +10257,10 @@ let him down, all fixed:
 Ruled out: today's phone-quiet filter (phones only; the panel is not a Foundry window), the TV clean view (the TV only),
 Animater/Dicer key listeners (scoped to their own windows or a pick in progress), the board overlay over the DM's
 screen (opt-in only, §22.7). `tools/test-seance-panel.mjs` 11.
+**SEAT 26 (2026-11-25): the real cause.** The tab DID open — behind Simple Calendar, which opens top-left on every GM
+load; only the tab's title strip showed, and the phrase box sat under the calendar. The panel had a fixed CSS
+z-index 70 while every Foundry window (ApplicationV2 and v1 alike) takes `++ApplicationV2._maxZ` from ~100. Now the
+panel comes forward the way a Foundry window does (UI-BIBLE §6.5): any press on it (capture pointerdown) and a deck
+press opening a tab put it one level above every window and move Foundry's counter with it, so a dialog opened
+afterwards still lands on top. One panel element carries every tab, so every tab is covered.
+`panel-safe.js frontZ / bringToFront`; `tools/test-panel-front.mjs` 10.

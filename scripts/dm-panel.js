@@ -1,4 +1,4 @@
-import { safeBody, drawerForPress, lastRun } from "./panel-safe.js"; // one broken drawer never stops a tab; a deck press opens its drawer (DM 2026-11-25)
+import { safeBody, drawerForPress, lastRun, bringToFront } from "./panel-safe.js"; // one broken drawer never stops a tab; a deck press opens its drawer (DM 2026-11-25)
 import { crossingName, otherHeroNames } from "./crossing-name.js";
 import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState, answerChip } from "./rpc.js";
 import { notifier } from "./notifier.js";
@@ -2435,6 +2435,8 @@ function ensureEl() {
   panelEl = document.createElement("div");
   panelEl.id = "mc-dm-panel";
   panelEl.addEventListener("click", onClick);
+  // UI-BIBLE §6.5: used → in front, the way a Foundry window comes forward (SEAT 26: Simple Calendar covered the tab)
+  panelEl.addEventListener("pointerdown", () => { try { bringToFront(panelEl); } catch (e) { /* stacking only */ } }, true);
   panelEl.addEventListener("change", onChange); // Rolls-tool dropdowns + token player
   panelEl.addEventListener("input", onInput);   // live MPH↔KPH auto-fill in the custom-pace form
   // §30: Enter in the séance input = Send (DM 2026-07-27, "an enter would be nice").
@@ -5225,6 +5227,7 @@ export function openDock(tab, drawer = undefined) {
     const k = drawer === undefined ? drawerForPress(lastRun, Date.now()) : drawer;
     if (k) dtDrawers[k] = true;
     render();
+    if (dockTab) bringToFront(panelEl); // a deck press opening a tab: the tab must not open under a window
     if (k) requestAnimationFrame(() => { try { panelEl?.querySelector(`[data-dt-drawer="${k}"]`)?.closest(".mc-dt-drawer")?.scrollIntoView({ block: "nearest" }); } catch (e) { /* layout */ } });
     return dockTab;
   } catch (e) { console.warn(`${MODULE_ID} | openDock:`, e?.message); return null; }

@@ -29,3 +29,27 @@ export function drawerForPress(last, now, withinMs = 5000) {
   if (!last?.group || !(now - (last.at ?? 0) <= withinMs)) return null;
   return DRAWER_FOR_GROUP[last.group] ?? null;
 }
+
+/**
+ * The DM panel comes to the front the way a Foundry window does (UI-BIBLE §6.5, SEAT 26: the Crooked Moon tab opened
+ * BEHIND Simple Calendar). The next stacking level above every Foundry window: one more than the highest of the
+ * ApplicationV2 and v1 Application counters, and those counters move up with it so the next window still lands on top.
+ * Returns the level it set, or the panel's own when it is already in front. Pure over its inputs.
+ */
+export function frontZ(current, counters, floor = 70) {
+  const top = Math.max(floor, ...counters.map((c) => Number(c) || 0));
+  const cur = Number(current) || 0;
+  return cur > top ? cur : top + 1;
+}
+
+export function bringToFront(el, { V2 = globalThis.foundry?.applications?.api?.ApplicationV2, V1 = globalThis.foundry?.appv1?.api?.Application } = {}) {
+  if (!el?.style) return null;
+  const counters = [V2?._maxZ, V1?._maxZ].filter((v) => v !== undefined);
+  const cur = Number(el.style.zIndex) || 0;
+  const z = frontZ(cur, counters);
+  if (z === cur) return z;
+  el.style.zIndex = String(z);
+  try { if (V2 && V2._maxZ < z) V2._maxZ = z; } catch (e) { /* read-only counter */ }
+  try { if (V1 && V1._maxZ < z) V1._maxZ = z; } catch (e) { /* read-only counter */ }
+  return z;
+}
