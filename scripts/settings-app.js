@@ -150,7 +150,7 @@ export class MCSettingsApp extends ApplicationV2 {
       + this.#sec("After the fight")
       + this.#toggle("autoLootNpcs", "Dead NPCs become lootable piles")
       + this.#sec("Table control")
-      + this.#toggle("pauseGuard", "Pause guard (players can't act while paused)");
+      + this.#toggle("pauseGuard", "Pause when you leave the active scene");
   }
 
   #travelPane() {
@@ -161,7 +161,7 @@ export class MCSettingsApp extends ApplicationV2 {
       + this.#sec("Travel maps")
       + this.#hintRow("Overworld scenes", marked ? `Marked: ${marked}` : "None marked — mark scenes from the DM panel's Travel tab.")
       + this.#toggle("travelAutoLight", "Auto-set overworld lighting on load")
-      + this.#toggle("travelDaylight", "Daylight follows the clock")
+      + this.#toggle("travelDaylight", "Travel: daylight follows the clock")
       + this.#toggle("partyTeleportActivates", "Activate scene when the party arrives")
       + this.#hintRow("Custom travel paces", "Edit from the DM panel's Travel tab.")
       + this.#sec("Players")

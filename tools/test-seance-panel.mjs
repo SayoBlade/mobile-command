@@ -30,7 +30,8 @@ check("…logged once, not on every repaint", logs.length === 1);
 {
   const tab = panel.slice(panel.indexOf("function crookedTabHTML()"), panel.indexOf("function entrancesBody()"));
   const drawers = tab.match(/dtDrawer\("/g)?.length ?? 0, safe = tab.match(/safeBody\("/g)?.length ?? 0;
-  check("the Crooked Moon tab builds each of its drawers on its own (all nine)", drawers === 9 && safe === 9, `${drawers} drawers, ${safe} safe`);
+  // eight since the regroup (MC redesign phase 3): Intros moved to the Story view, still built on its own there
+  check("the Crooked Moon view builds each of its drawers on its own (all eight; Intros is in Story)", drawers === 8 && safe === 8 && /dtDrawer\("cmIntros", "Intros", "", safeBody\("Intros", entrancesBody\)/.test(panel), `${drawers} drawers, ${safe} safe`);
 }
 // ── 5–7. the phrase box takes typing with the board off; Send waits for the board ─────────────────────
 {

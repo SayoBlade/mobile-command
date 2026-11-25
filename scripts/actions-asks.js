@@ -1,4 +1,5 @@
 import { MODULE_ID } from "./preset.js";
+import { notifier } from "./notifier.js";
 import { defineActions, cmToolsOn } from "./actions.js";
 import { api as rpc, pendingAsks, aheadLive, answerScribe, answerSummon, answerTrade, settleOutsideAsk, listPendingCasts, placeCast, dismissCast } from "./rpc.js";
 import { twistRequests, spendTwist, refundTwist, bargainRequests, strikeBargain, declineBargain, curseState, acceptStagedCurse, cancelStagedCurse } from "./cm-live.js";
@@ -51,7 +52,12 @@ const KINDS = {
       { id: "alone", label: `Move ${who(e)}`, img: tokenArt(e.forActorUuid), token: true },
       { id: "group", label: "Move Group" },
     ],
-    answer: (e, choice) => rpc.travelDecide({ id: e.id, choice }),
+    answer: async (e, choice) => {
+      const r = await rpc.travelDecide({ id: e.id, choice });
+      // the panel's old chip said this; the queue says it at every door now
+      if (r?.ok !== false && choice === "group" && r?.moved) notifier.info(`${r.moved} crossed together: arrange them, then unpause.`);
+      return r;
+    },
   },
   // ONE HERO WENT AHEAD (DM 2026-11-12): the table waits by default; Follow takes it to him (rpc.js noteAhead).
   // "cancel" is Stay so the deck draws it as the way out (grey). Gone by itself once the table is with him.

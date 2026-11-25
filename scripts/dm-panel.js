@@ -6,7 +6,7 @@ import { state as musicNowState } from "./music.js";
 import { tvHeld } from "./tv-hold.js";
 import { soundScenesState } from "./syrinscape-bridge.js";
 import { gpsActive } from "./gps-bridge.js";
-import { api, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState, answerChip } from "./rpc.js";
+import { api, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState } from "./rpc.js";
 import { notifier } from "./notifier.js";
 import { routeOf, bookHours, travelTimeLabel } from "./travel-times.js"; // T2: the book's time per route (DM 2026-11-09)
 import { fireAoO } from "./aoo.js";
@@ -218,7 +218,7 @@ function applyDmTheme() {
 //
 // (The widget theme picker that used to live here is gone for good — dmTheme() has been pinned to
 // Artificer since 2026-07-18, so every swatch wrote a key nothing read. DM: "a failed experiment".)
-function settingsHTML() {
+function settingsHTML({ soundOnly = false } = {}) {
   const esc = foundry.utils.escapeHTML;
   const v = { ...TV_DEFAULT, ...(tvVolume() || {}) };
   // Foundry's own three channels, in Foundry's order and under Foundry's names (AUDIO.CHANNELS.*:
@@ -292,15 +292,25 @@ function settingsHTML() {
     </button>
     <p class="mc-dmp-set-note">Adds <b>The Crooked Moon</b> tab to the panel — séance board and the
       campaign's other table tools. Leave it off for other campaigns.</p>`;
+  // MC redesign phase 3: the table's sound (volumes, mute, who the TV hears through) is Stage › Sound; the rest is
+  // Setup › Table, with Players & seats (from Party) and "Run from" (which instrument this screen drives from).
+  if (soundOnly) return `<div class="mc-dmp-settings">
+    ${dtDrawer("setSound", "Sound", "", sliders, true)}
+    ${dtDrawer("setEars", "Who the TV hears through", "", earsBody, true)}
+  </div>`;
+  let rf = "auto"; try { rf = game.settings.get(MODULE_ID, "runFrom") || "auto"; } catch (e) { /* */ }
+  const runFromBody = `<div class="mc-dmp-travel-segs">${[["auto", "Auto"], ["deck", "Deck"], ["panel", "Panel"]].map(([k, l]) => `<button class="mc-dmp-travel-seg ${rf === k ? "mc-on" : ""}" data-run-from="${k}">${l}</button>`).join("")}</div>
+    <p class="mc-dmp-set-note">Auto: compact while the deck is reachable, full the moment it drops. The pill on the floor switches it for this session.</p>`;
   return `<div class="mc-dmp-settings">
     <button class="mc-dmp-place mc-dmp-allset" data-open-settings-app><i class="fas fa-sliders"></i> All Settings</button>
-    ${dtDrawer("setSound", "Sound", "", sliders, true)}
-    ${dtDrawer("setEars", "Who the display hears through", "", earsBody, true)}
+    ${dtDrawer("setRunFrom", "Run from", "", runFromBody, true)}
+    ${dtDrawer("players", isOnlineTable() ? "Players" : "Players & seats", "", playersBody(), true)}
     ${dtDrawer("setMusic", "Combat music", "", combatMusicBody(), true)}
     ${dtDrawer("setFog", "Fog", "", softFogBody(), true)}
     ${dtDrawer("setCampaign", "Campaign", "", campaignBody, true)}
   </div>`;
 }
+function soundTabHTML() { return settingsHTML({ soundOnly: true }); }
 
 // --- Display tab (§25 2b, DM 2026-07-24): everything about the TV's look in one place — the camera
 // controls that don't live on the floor (Fit + zoom), who the camera follows, and the fog. Focus +
@@ -502,6 +512,32 @@ async function bossPickSound(bossId) {
   }).browse();
 }
 
+// --- Story (MC redesign phase 3): intros, session zero, story questions, character files. For every table; the
+// Crooked Moon's own drawers are the section's second view (Moon), still behind the campaign switch.
+function storyTabHTML() {
+  return `<div class="mc-dmp-tabfill"><div class="mc-dmp-tabmid">
+    ${dtDrawer("cmIntros", "Intros", "", safeBody("Intros", entrancesBody), true)}
+    ${dtDrawer("cardTable", "Session zero", "", safeBody("Session zero", cardTableBody), true)}
+    ${dtDrawer("storyQs", "Story questions", "", safeBody("Story questions", storyQsBody), true)}
+    ${dtDrawer("charFiles", "Character files", "", safeBody("Character files", charFilesBody), true)}
+  </div></div>`;
+}
+
+// --- Time › Clock (MC redesign phase 3): the clock that sat on the floor (set the time, ±10 minutes); its hour now
+// shows in On now. With Simple Calendar running, its calendar keeps the time: one button opens it.
+function clockTabHTML() {
+  const esc = foundry.utils.escapeHTML;
+  if (hasSimpleCalendar()) return `<div class="mc-dmp-col"><p class="mc-dmp-set-note">Simple Calendar keeps the time. It is ${esc(clockLabel())}.</p>
+    <button class="mc-dmp-place" data-dm-clock><i class="fas fa-calendar-days"></i> Open the calendar</button></div>`;
+  const night = isNight();
+  return `<div class="mc-dmp-col"><div class="mc-dmp-clockgroup">
+    <button class="mc-dmp-clock-step" data-dm-clock-nudge="-600" title="10 minutes earlier"><i class="fas fa-minus"></i></button>
+    <button class="mc-dmp-clock ${night ? "mc-night" : ""}" data-dm-clock title="Tap to set the game time">
+      <i class="fas fa-${night ? "moon" : "sun"}"></i> ${esc(clockLabel())}</button>
+    <button class="mc-dmp-clock-step" data-dm-clock-nudge="600" title="10 minutes later"><i class="fas fa-plus"></i></button>
+  </div></div>`;
+}
+
 // --- Party tab (§25 2b): the roster grid + marching order (while packed) + Form Up pinned at the foot.
 function partyTabFull() {
   const marching = packedGroup() ? partyTabHTML() : "";
@@ -509,7 +545,7 @@ function partyTabFull() {
   // the FOOT like the Combat send button (DM 2026-07-25). The Story-questions drawer (§38.4)
   // renders regardless of packing — questions don't need a group.
   return `<div class="mc-dmp-tabfill">
-    <div class="mc-dmp-tabmid">${dtDrawer("players", isOnlineTable() ? "Players" : "Players & seats", "", playersBody(), true)}${dtDrawer("cardTable", "Session zero", "", cardTableBody(), true)}${dtDrawer("storyQs", "Story questions", "", storyQsBody(), true)}${dtDrawer("charFiles", "Character files", "", charFilesBody(), true)}${ownedTokensHTML()}${marching}</div>
+    <div class="mc-dmp-tabmid">${ownedTokensHTML()}${marching}</div>
     <div class="mc-dmp-tabfoot">${partyMainHTML()}</div>
   </div>`;
 }
@@ -753,7 +789,6 @@ function cameraFloorHTML() {
   return `<div class="mc-dmp-cam">
     <button class="mc-dmp-cam-btn" data-cam="focus" title="Focus the display on the party (P)" aria-label="Focus on party"><i class="fas fa-bullseye"></i></button>
     <button class="mc-dmp-cam-btn ${manualOn}" data-cam="manual" title="Manual TV control: your pan/zoom drives the display (M)" aria-label="Manual TV control"><i class="fas fa-arrows-up-down-left-right"></i></button>
-    <button class="mc-dmp-cam-btn ${dockTab === "display" ? "mc-active" : ""}" data-dock="display" title="Display controls — fit, zoom, follow, fog" aria-label="Display controls"><i class="fas fa-sliders"></i></button>
   </div>`;
 }
 
@@ -772,22 +807,54 @@ function cameraFollowTokens() {
   return out;
 }
 
+/**
+ * SIX SECTIONS (MC redesign phase 3, DM 2026-11-26: 1A, 4A "Stage", 10A). The rail went from nine tabs to six, the
+ * same six in both modes: Fight · Party · Stage · Time · Story · Setup. Grouped by the moment, not the feature. A
+ * section with more than one view has a small switch at its top (Stage: Camera · Sound · Effects; Time: Clock · Travel
+ * · Rest; Story: Story · Moon; Setup: Health · Table) and remembers the last view opened. The views are today's tab
+ * bodies, unchanged, so every control is where its drawer always was, one level down. `dockTab` still names the VIEW
+ * (combat, display, sound, effects, clock, travel, rest, story, crooked, preflight, settings, party): every hook and
+ * every caller of openDock(tab) keeps working. The Moon view only while the Crooked Moon tools are on.
+ */
+export const SECTIONS = Object.freeze([
+  { id: "fight", icon: "fa-dice-d20", label: "Fight", views: [["combat", "Fight"]] },
+  { id: "party", icon: "fa-users", label: "Party", views: [["party", "Party"]] },
+  { id: "stage", icon: "fa-masks-theater", label: "Stage", views: [["display", "Camera"], ["sound", "Sound"], ["effects", "Effects"]] },
+  { id: "time", icon: "fa-hourglass-half", label: "Time", views: [["clock", "Clock"], ["travel", "Travel"], ["rest", "Rest"]] },
+  { id: "story", icon: "fa-feather-pointed", label: "Story", views: [["story", "Story"], ["crooked", "Moon"]] },
+  { id: "setup", icon: "fa-gear", label: "Setup", views: [["preflight", "Health"], ["settings", "Table"]] },
+]);
+export function sectionOf(view) { return SECTIONS.find(s => s.views.some(([v]) => v === view)) ?? null; }
+function viewsOf(sec) { return sec.views.filter(([v]) => v !== "crooked" || cmToolsOn()); }
+const lastView = {}; // section id → the view last open in it (this session)
+/** A section's view to open: the last one used, else its first. */
+function openViewOf(secId) {
+  const sec = SECTIONS.find(s => s.id === secId);
+  if (!sec) return null;
+  const vs = viewsOf(sec).map(([v]) => v);
+  return vs.includes(lastView[secId]) ? lastView[secId] : vs[0];
+}
+function viewSwitchHTML() {
+  const sec = sectionOf(dockTab);
+  const vs = sec ? viewsOf(sec) : [];
+  if (vs.length < 2) return "";
+  return `<div class="mc-dmp-views">${vs.map(([v, l]) => `<button class="mc-dmp-view ${dockTab === v ? "mc-on" : ""}" data-dock-view="${v}">${l}</button>`).join("")}</div>`;
+}
+
 function tabRailHTML() {
-  const tab = (id, icon, title, show = true, badge = 0) => show ? `<button class="mc-dmp-tab ${dockTab === id ? "mc-on" : ""}" data-dock="${id}" title="${title}" aria-label="${title}"><i class="fas ${icon}"></i>${badge ? `<span class="mc-dmp-tab-badge">${badge}</span>` : ""}</button>` : "";
+  const cur = sectionOf(dockTab)?.id ?? null;
+  const tab = (id, icon, title, show = true, badge = 0) => show ? `<button class="mc-dmp-tab ${cur === id ? "mc-on" : ""}" data-dock-section="${id}" title="${title}" aria-label="${title}"><i class="fas ${icon}"></i>${badge ? `<span class="mc-dmp-tab-badge">${badge}</span>` : ""}</button>` : "";
   // §25 2b tab set. Combat absorbs the old Rolls; Party absorbs the old Players + marching order; the
   // new Display tab carries the camera config that left the floor.
   // (A spell waiting to be placed used to badge this tab; it waits on the floor's Waiting queue now, MC redesign phase 1.)
   const combatBadge = (game.user.targets?.size ?? 0) || (game.combat?.started ? "•" : 0);
   return `<div class="mc-dmp-tabrail ${dockTab ? "mc-open" : ""}">
-    ${tab("combat", "fa-dice-d20", "Combat — rolls, targeting, the encounter", true, combatBadge)}
-    ${tab("party", "fa-users", "Party — roster, form up, marching order")}
-    ${tab("display", "fa-tv", "Display — fit, zoom, follow, fog")}
-    ${tab("rest", "fa-campground", "Rest", true, (isResting() || downtimeOpen()) ? "•" : 0)}
-    ${tab("travel", "fa-route", "Travel")}
-    ${tab("effects", "fa-cloud-bolt", "Effects — weather, ambience, screen magic")}
-    ${tab("crooked", "mc-icon-cmoon", "The Crooked Moon — campaign tools", cmToolsOn())}
-    ${tab("preflight", "fa-clipboard-check", "System health", true, preflightFailCount())}
-    ${tab("settings", "fa-gear", "Settings")}
+    ${tab("fight", "fa-dice-d20", "Fight: ask rolls, targets, the encounter, boss intro", true, combatBadge)}
+    ${tab("party", "fa-users", "Party: form up, marching order, a player's tokens, messages")}
+    ${tab("stage", "fa-masks-theater", "Stage: the TV's camera, sound and effects")}
+    ${tab("time", "fa-hourglass-half", "Time: the clock, travel, rest", true, (isResting() || downtimeOpen()) ? "•" : 0)}
+    ${tab("story", "fa-feather-pointed", "Story: intros, session zero, story questions, character files, campaign tools")}
+    ${tab("setup", "fa-gear", "Setup: health, this table, players and seats, settings", true, preflightFailCount())}
   </div>`;
 }
 
@@ -801,7 +868,6 @@ function crookedTabHTML() {
   // had to scroll past to reach the one you wanted; opening the one you're using is one tap, and
   // the choice sticks for the session (dtDrawers remembers per key).
   return `<div class="mc-dmp-tabfill"><div class="mc-dmp-tabmid">
-    ${dtDrawer("cmIntros", "Intros", "", safeBody("Intros", entrancesBody), true)}
     ${dtDrawer("cmCurses", "Chaotic curses", "", safeBody("Chaotic curses", curseBody), true)}
     ${dtDrawer("cmFate", "Fateweaving", "", safeBody("Fateweaving", fateBody), true)}
     ${dtDrawer("cmTwists", "Twists of fate", "", safeBody("Twists of fate", twistsBody), true)}
@@ -2336,15 +2402,21 @@ function travelHTML() {
 
 function flyoutHTML() {
   let title = "", body = "";
-  if (dockTab === "crooked" && !cmToolsOn()) dockTab = null; // gate flipped off under an open tab
-  if (dockTab === "combat") { title = "Combat"; body = combatTabHTML(); }
-  else if (dockTab === "display") { title = "Display"; body = displayTabHTML(); }
-  else if (dockTab === "travel") { title = "Travel"; body = travelHTML(); }
-  else if (dockTab === "effects") { title = "Effects"; body = effectsTabHTML(); }
-  else if (dockTab === "rest") { title = "Rest"; body = restHTML(); }
-  else if (dockTab === "crooked") { title = "The Crooked Moon"; body = crookedTabHTML(); }
-  else if (dockTab === "preflight") { title = "System health"; body = preflightHTML(); }
-  else if (dockTab === "settings") { title = "Settings"; body = settingsHTML(); }
+  if (dockTab === "crooked" && !cmToolsOn()) dockTab = "story"; // gate flipped off under an open view
+  const sec = sectionOf(dockTab);
+  if (sec) lastView[sec.id] = dockTab;
+  title = sec?.label ?? "";
+  if (dockTab === "combat") { body = combatTabHTML(); }
+  else if (dockTab === "display") { body = displayTabHTML(); }
+  else if (dockTab === "sound") { body = soundTabHTML(); }
+  else if (dockTab === "travel") { body = travelHTML(); }
+  else if (dockTab === "effects") { body = effectsTabHTML(); }
+  else if (dockTab === "clock") { body = clockTabHTML(); }
+  else if (dockTab === "rest") { body = restHTML(); }
+  else if (dockTab === "story") { body = storyTabHTML(); }
+  else if (dockTab === "crooked") { body = crookedTabHTML(); }
+  else if (dockTab === "preflight") { body = preflightHTML(); }
+  else if (dockTab === "settings") { body = settingsHTML(); }
   else if (dockTab === "party") {
     const g = packedGroup();
     const f = g?.getFlag(MODULE_ID, "formation") ?? {};
@@ -2366,7 +2438,7 @@ function flyoutHTML() {
   const style = flyMaxH != null ? ` style="height:${Math.max(flyMaxH, WORKSPACE_MIN_H)}px"` : "";
   return `<div class="mc-dmp-flyout mc-fly-${dockTab}"${style}>
     ${grabTop}${head}
-    <div class="mc-dmp-fly-body">${body}</div>
+    ${viewSwitchHTML()}<div class="mc-dmp-fly-body">${body}</div>
   </div>`;
 }
 
@@ -2791,23 +2863,11 @@ function statusHTML() {
     // "who's online", so the user's name is what matters, not which PC they're playing.
     return `<span class="mc-dmp-pres ${cls}" title="${esc(u.name)} — ${state}"><i class="fas fa-circle"></i> ${esc(u.name)}</span>`;
   }).join("") || `<span class="mc-dmp-pres mc-off">No players</span>`;
-  // Clock chip: our own clock, ONLY when Simple Calendar isn't running. When SC is present it owns
-  // time-of-day and shows its own calendar, so the panel's clock is pure duplication — drop it
-  // entirely rather than show a locked read-only copy (DM 2026-07-24: "SC handles the time passing…
-  // there's just no need for it"). Without SC the panel is the only clock, so it stays — tappable to
-  // set the game time, with ±10-minute nudges.
-  const sc = hasSimpleCalendar();
-  const night = isNight();
-  const clock = sc ? "" : `<div class="mc-dmp-clockgroup">
-    <button class="mc-dmp-clock-step" data-dm-clock-nudge="-600" title="10 minutes earlier"><i class="fas fa-minus"></i></button>
-    <button class="mc-dmp-clock ${night ? "mc-night" : ""}" data-dm-clock title="Tap to set the game time">
-      <i class="fas fa-${night ? "moon" : "sun"}"></i> ${esc(clockLabel())}</button>
-    <button class="mc-dmp-clock-step" data-dm-clock-nudge="600" title="10 minutes later"><i class="fas fa-plus"></i></button>
-  </div>`;
+  // (The clock chip moved to Time › Clock, MC redesign phase 3; the hour shows in On now.)
   const pill = pillOf(runFrom());
   const pillIcon = { live: "table-cells", held: "table-cells", offer: "table-cells", lost: "triangle-exclamation", none: "table-cells" }[pill.state];
   const deckPill = `<button class="mc-dmp-deckpill mc-${pill.state}" data-deck-pill title="${esc(pill.title)}"><i class="fas fa-${pillIcon}"></i>${esc(pill.label)}</button>`;
-  return `<div class="mc-dmp-status">${clock}<div class="mc-dmp-pres-row">${chips}</div>${deckPill}</div>`;
+  return `<div class="mc-dmp-status"><div class="mc-dmp-pres-row">${chips}</div>${deckPill}</div>`;
 }
 
 /** Combat control strip — run the encounter from the panel. Pre-start: Roll NPCs +
@@ -2847,7 +2907,8 @@ function combatHTML() {
     }
     // Roll NPCs, not Roll All (DM 2026-07-26): rollAll would roll over the players' own
     // initiative — on this table the PCs roll from their phones; the DM only owns the foes.
-    btns = `<button data-combat="rollNPC" title="Roll initiative for the NPCs — players roll their own"><i class="fas fa-dice-d20"></i> Roll NPCs</button>
+    // Once, not twice (redesign §7.7): with Initiative picked in Ask rolls, its "Roll all NPCs" sits just above.
+    btns = `${rollTool.type === "initiative" ? "" : `<button data-combat="rollNPC" title="Roll initiative for the NPCs — players roll their own"><i class="fas fa-dice-d20"></i> Roll NPCs</button>`}
       <button class="mc-dmp-party-deploy" data-combat="start-music" title="Begin combat and start the music"><i class="fas fa-play"></i> Start Combat</button>`;
   } else {
     btns = `<button data-combat="prev" title="Previous turn"><i class="fas fa-backward-step"></i></button>
@@ -3139,7 +3200,7 @@ function partyMainHTML() {
         <i class="fas fa-list-check"></i></button></div>`;
   }
   const arranging = ((group.getFlag(MODULE_ID, "formation") ?? {}).stage ?? "arrange") === "arrange";
-  if (arranging) return `<button class="mc-dmp-party-mini" data-dock="party"><i class="fas fa-border-all"></i> Arrange &amp; lock in</button>`;
+  if (arranging) return `<button class="mc-dmp-party-mini" data-dock-view="party"><i class="fas fa-border-all"></i> Arrange &amp; lock in</button>`; // opens Party, never closes it (it was the tab's own toggle)
   return `<div class="mc-dmp-party-btns">
     <button class="mc-dmp-party-deploy ${partyForce ? "mc-warn" : ""} ${game.combat?.combatants.some(cb => cb.actorId === group.id) ? "mc-nudge" : ""}" data-party="deploy">
       <i class="fas ${partyForce ? "fa-triangle-exclamation" : "fa-people-arrows"}"></i> ${partyForce ? "Disperse anyway" : "Disperse"}</button></div>`;
@@ -4366,74 +4427,14 @@ async function onClick(ev) {
   }
   const rX = ev.target.closest("[data-dmreact-x]");
   if (rX) { dmReactions = dmReactions.filter(r => r.id !== rX.dataset.dmreactX); return render(); }
-  // §17.1 scribe request: ✓ = spell into the book (unprepared) + scroll consumed
-  // + suggested-cost chat card; ✕ = nothing changes. Either way the player hears.
-  const sOk = ev.target.closest("[data-dmscribe-ok]");
-  if (sOk) {
-    const entry = dmReactions.find(r => r.id === sOk.dataset.dmscribeOk);
-    dmReactions = dmReactions.filter(r => r.id !== sOk.dataset.dmscribeOk);
-    render();
-    if (entry) {
-      // the same answer the deck's Requests row calls (rpc.js answerScribe): answering here clears it there
-      try { const r = await answerChip(entry.id, true); if (r?.ok === false) notifier.warn(`Scribe failed: ${r.reason}`); }
-      catch (e) { console.error(`${MODULE_ID} | scribe approve failed`, e); notifier.warn(`Scribe failed: ${e.message}`); }
-    }
-    return;
-  }
-  const sNo = ev.target.closest("[data-dmscribe-x]");
-  if (sNo) {
-    const entry = dmReactions.find(r => r.id === sNo.dataset.dmscribeX);
-    dmReactions = dmReactions.filter(r => r.id !== sNo.dataset.dmscribeX);
-    render();
-    if (entry) answerChip(entry.id, false).catch(() => {});
-    return;
-  }
-  // Basic travel square: the DM's three answers (Cancel / Move X / Move Group) — rpc handleTravelDecide.
-  const tvBtn = ev.target.closest("[data-dmtravel]");
-  if (tvBtn) {
-    const id = tvBtn.dataset.id, choice = tvBtn.dataset.dmtravel;
-    dmReactions = dmReactions.filter(r => r.id !== id);
-    render();
-    api.travelDecide({ id, choice }).then(res => {
-      if (res?.ok === false) notifier.warn(`Travel: ${res.reason ?? "failed"}`);
-      else if (choice === "group" && res?.moved) notifier.info(`${res.moved} crossed together — arrange them, then unpause.`);
-    });
-    return;
-  }
-  // §20 T-p2p: receiver offline → the DM accepts/declines the give on their behalf.
-  const trOk = ev.target.closest("[data-dmtrade-ok]");
-  if (trOk) {
-    const entry = dmReactions.find(r => r.id === trOk.dataset.dmtradeOk);
-    dmReactions = dmReactions.filter(r => r.id !== trOk.dataset.dmtradeOk);
-    render();
-    if (entry) answerChip(entry.id, true).catch(() => {});
-    return;
-  }
-  const trNo = ev.target.closest("[data-dmtrade-x]");
-  if (trNo) {
-    const entry = dmReactions.find(r => r.id === trNo.dataset.dmtradeX);
-    dmReactions = dmReactions.filter(r => r.id !== trNo.dataset.dmtradeX);
-    render();
-    if (entry) answerChip(entry.id, false).catch(() => {});
-    return;
-  }
-  // Summon control (2026-07-09): ✓ grants the summoner's player OWNER on the
-  // summoned world actor — their phone's switcher picks it up on the ownership
-  // change; ✕ keeps the summon DM-driven.
-  const smOk = ev.target.closest("[data-dmsummon-ok]");
-  if (smOk) {
-    const entry = dmReactions.find(r => r.id === smOk.dataset.dmsummonOk);
-    dmReactions = dmReactions.filter(r => r.id !== smOk.dataset.dmsummonOk);
-    render();
-    if (entry) {
-      try { await answerChip(entry.id, true); }
-      catch (e) { console.error(`${MODULE_ID} | summon grant failed`, e); notifier.warn(`Couldn't grant control: ${e.message}`); }
-    }
-    return;
-  }
-  const smNo = ev.target.closest("[data-dmsummon-x]");
-  if (smNo) { const id = smNo.dataset.dmsummonX; dmReactions = dmReactions.filter(r => r.id !== id); answerChip(id, false).catch(() => {}); return render(); }
+  // (The scribe, crossing, offline-trade and summon chips are answered through Waiting now: data-wait-choice, further down.)
   // Right-side dock: tab toggle (tapping the active tab again closes it), target checkbox, send.
+  const secBtn = ev.target.closest("[data-dock-section]");
+  if (secBtn) { closeRtAssign(); const id = secBtn.dataset.dockSection; dockTab = sectionOf(dockTab)?.id === id ? null : openViewOf(id); return render(); }
+  const viewBtn = ev.target.closest("[data-dock-view]");
+  if (viewBtn) { closeRtAssign(); dockTab = viewBtn.dataset.dockView; return render(); }
+  const runFromBtn = ev.target.closest("[data-run-from]");
+  if (runFromBtn) { await game.settings.set(MODULE_ID, "runFrom", runFromBtn.dataset.runFrom); return render(); }
   const dockBtn = ev.target.closest("[data-dock]");
   if (dockBtn) { closeRtAssign(); dockTab = dockTab === dockBtn.dataset.dock ? null : dockBtn.dataset.dock; return render(); }
   if (ev.target.closest("[data-open-settings-app]")) { MCSettingsApp.open(); return; } // §29
@@ -5245,16 +5246,6 @@ async function onClick(ev) {
     if (res && res.ok === false) notifier.warn(res.reason);
     return render();
   }
-  const place = ev.target.closest("[data-place]");
-  if (place) {
-    const res = await placeCast(place.dataset.place);
-    if (res && !res.ok) notifier.warn(`Place: ${res.reason}`);
-    return render();
-  }
-  if (ev.target.closest("[data-dismiss]")) {
-    dismissCast(ev.target.closest("[data-dismiss]").dataset.dismiss);
-    return render();
-  }
   const asn = ev.target.closest("[data-rt-assign]");
   if (asn) {
     const actorId = asn.dataset.rtAssign;
@@ -5302,11 +5293,14 @@ export function refreshPanel() { try { if (panelEl) render(); } catch (e) { /* n
  * general verb, not a deck verb: any caller may open any tab. Returns the tab shown, or null when
  * the panel is not mounted (MC's own UI mounts it; this never creates it).
  */
+/** Drawers that moved in the regroup (MC redesign phase 3) → the view that holds them now. */
+const DRAWER_VIEW = Object.freeze({ cmIntros: "story", cardTable: "story", storyQs: "story", charFiles: "story", players: "settings", setSound: "sound", setEars: "sound" });
 export function openDock(tab, drawer = undefined) {
   try {
     if (!panelEl) return null;
-    dockTab = tab ?? null;
+    dockTab = SECTIONS.some(s => s.id === tab) ? openViewOf(tab) : (tab ?? null);
     const k = drawer === undefined ? drawerForPress(lastRun, Date.now()) : drawer;
+    if (k && DRAWER_VIEW[k]) dockTab = DRAWER_VIEW[k];
     if (k) dtDrawers[k] = true;
     render();
     if (dockTab) bringToFront(panelEl); // a deck press opening a tab: the tab must not open under a window
@@ -5420,7 +5414,7 @@ export function registerDMPanel() {
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive` && (dockTab === "effects" || dockTab === "crooked")) render(); }); // §26/§35: fx toggles follow the world state (séance lives on the Crooked Moon tab)
   // §35/§52: the Crooked Moon tab's own state — a press on the deck lands here as a setting write,
   // so the open drawer follows it (sitters, the staged curse, fiddle/engine, bargains on/off).
-  Hooks.on("updateSetting", (s) => { if ((s?.key === `${MODULE_ID}.cmLiveState` || s?.key === `${MODULE_ID}.bargainMode`) && dockTab === "crooked") render(); });
+  Hooks.on("updateSetting", (s) => { if ((s?.key === `${MODULE_ID}.cmLiveState` || s?.key === `${MODULE_ID}.bargainMode`) && (dockTab === "crooked" || dockTab === "story")) render(); });
   // §26.5: loudness pressed on the deck moves the Effects tab's sliders too.
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxVolumes` && dockTab === "effects") render(); });
   Hooks.on("updateActor", (_a, ch) => { if (dockTab === "crooked" && ch.flags?.[MODULE_ID]) render(); }); // §31: a phone's twist spend/withdraw lands as a chip live

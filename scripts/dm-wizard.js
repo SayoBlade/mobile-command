@@ -218,7 +218,7 @@ async function stepCombatMusic(n) {
     content: `<p><b>Which playlist holds your battle music?</b></p>
       <p>When you start a combat you'll pick one track from it to loop for that fight — played on foe
       turns and for any hero without their own theme. Give a PC a personal <b>anthem</b> later by
-      dragging a track onto their name in the panel's <em>Sound</em> settings. Optional; skip if you
+      dragging a track onto their name in the panel's <em>Setup › Table › Combat music</em>. Optional; skip if you
       don't use combat music.</p>
       <select name="pl" style="width:100%">${opts.join("")}</select>`,
     buttons: [

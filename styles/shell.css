@@ -4229,6 +4229,12 @@ body.mc-theme-wizard .mc-frame {
 /* Workspace header — title + drag only (no X; closing is re-tapping the active tab). Shorter than the
    old 36px (DM 2026-07-24: "make the top panel shorter"). Left-aligned now the X is gone. */
 .mc-dmp-fly-head { display: flex; align-items: center; padding: 4px 10px; min-height: 26px; box-sizing: border-box; border-bottom: 1px solid var(--mc-edge); font-weight: 800; font-size: 14px; }
+/* A section's view switch (MC redesign phase 3): Stage, Time, Story and Setup each hold more than one view. */
+.mc-dmp-views { display: flex; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--mc-edge); }
+.mc-dmp-view { flex: 1 1 0; min-width: 0; height: 30px; padding: 0 6px; cursor: pointer; border-radius: calc(7px * var(--mc-round, 1));
+  background: transparent; border: 1px solid var(--mc-edge); color: var(--mc-muted); font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-dmp-view.mc-on { background: var(--mc-panel-2); border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-dmp-view:hover { border-color: var(--mc-gold); }
 .mc-dmp-fly-body > * { flex-shrink: 0; }   /* never squash a row into the one below it */
 .mc-dmp-travel, .mc-dmp-rt-scroll { flex-shrink: 1 !important; }   /* these two are meant to take the slack */
 .mc-dmp-fly-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 10px; display: flex; flex-direction: column; gap: 8px; }

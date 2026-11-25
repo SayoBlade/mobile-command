@@ -498,6 +498,18 @@ front, the panel also clears Foundry's front-window marker (`ui.activeWindow`), 
 Simple Calendar included — skips its own raise when it still counts as the front one; so the window clicked
 after the panel comes back on top. Whichever was clicked last is in front.
 
+**The floor, since the redesign (DM 2026-11-26, MC-REDESIGN-2026-11-26.md):** presence + the deck pill (right end) ·
+**Waiting** (the one queue: everything that waits on the DM, the first in full, the rest behind "+N", fixed height,
+"Nothing waiting" when empty) · **On now** (music · weather · hour · TV camera; tap for the sheet with the reasons
+and Resume) · Focus · Manual · the selected-token strip. The clock moved to Time › Clock; the Display shortcut went
+(the Stage section is the same thing).
+
+**Six sections on the rail, the same in both modes (DM 2026-11-26):** Fight · Party · Stage · Time · Story · Setup,
+grouped by the moment, not the feature. A section with more than one view has a small switch at its top (Stage:
+Camera · Sound · Effects; Time: Clock · Travel · Rest; Story: Story · Moon; Setup: Health · Table) and reopens on the
+view last used. The Moon view is the campaign tab of §6.7, behind the same switch. Nothing was removed: every drawer
+of the old nine tabs is drawn in its new home.
+
 **The selected-token strip obeys §6.3 hard.** It is **always present at a fixed height**, showing a
 neutral resting state when nothing is selected — selecting/deselecting a token must never grow or
 shrink the floor (DM 2026-07-24: "you know my feeling on jumpy UIs"). The strip updates silently; it
@@ -508,8 +520,8 @@ does **not** auto-open any tab.
 
 | Trigger | Opens |
 |---|---|
-| A combatant is added to combat | **Combat tab** (its pre-start staging: battle-music pick + Start Combat) |
-| The DM switches Manual → Focus | **Display tab** |
+| A combatant is added to combat | **Fight** (its pre-start staging: battle-music pick + Start Combat) |
+| The DM switches Manual → Focus | **Stage › Camera** |
 
 Everything else is DM-driven. Badges on tab icons (a count, a `•`) are how a tab *asks* for attention
 without stealing it (§5) — the DM decides whether to look.

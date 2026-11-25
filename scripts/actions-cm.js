@@ -171,7 +171,7 @@ defineActions([
     id: "cm.teddy", group: "The house", label: "Teddy returned", ...scene("teddy"),
     kind: "toggle",
     when: () => Boolean(nursery().hum),
-    value: () => nursery().atPeace,
+    on: () => nursery().atPeace, // a toggle reads on(); `value` (a step page's number) left the key never lit (redesign §7.5)
     sub: () => (nursery().atPeace ? "at peace" : undefined),
     run: () => setNurseryPeace(!nursery().atPeace),
   }),

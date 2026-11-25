@@ -135,3 +135,27 @@ without the deck, camera fold-away with the deck.
 3. Growing is automatic (one notice), shrinking is only offered, as proposed.
 4. What compact hides comes with the later steps tonight (camera fold-away); on its own the pill only switches.
 5. Tests: new `test-panel-mode` (15 checks); 77 suites pass.
+
+## 2026-11-26, night 1: phase 3, the six sections, and the clean-up (built)
+
+1. **The rail now has six sections, not nine tabs:** Fight · Party · Stage · Time · Story · Setup.
+2. A section with more than one view has a small switch at its top and reopens where you left it:
+   Stage = Camera · Sound · Effects; Time = Clock · Travel · Rest; Story = Story · Moon; Setup = Health · Table.
+   My call, noted for him: a switch inside the section rather than one long list of drawers. It keeps each old
+   tab's layout exactly as it was (the pinned buttons at the foot of Party, Rest and Camera), so nothing he knows
+   moved inside its own page.
+3. Moves: Players & seats → Setup › Table. Session zero, Story questions, Character files and Intros → Story
+   (for every table; the Crooked Moon's own drawers are Story › Moon, behind the same switch). The table's sound
+   (mute, TV volumes, who the TV hears through) → Stage › Sound. The clock (set the time, ±10 minutes) → Time ›
+   Clock; its hour is in On now. New in Setup › Table: "Run from: Auto · Deck · Panel".
+4. Nothing removed: all 27 drawers of the old nine tabs are still drawn, and the deck still opens any old tab or
+   drawer by its old name (a moved drawer opens where it lives now).
+5. Clean-up (10A): "Arrange & lock in" no longer closes the Party tab it sits in; the "Teddy returned" key now
+   lights; the auto-pause setting says what it does ("Pause when you leave the active scene"); the two
+   "Daylight follows the clock" switches are told apart; the setup wizard points to where per-hero themes really
+   are; Roll NPCs shows once; the floor's Display button (a duplicate) and the old chip handlers with no button
+   are gone.
+6. Not done from the clean-up list: the phone's My Story typing being saved into the party-journal draft (a
+   phone change, left for the phone phase), the unused content-pack registry, the untracked dicer-bridge.js
+   (not ours to touch), and the boss list's move to Setup (it stays in Fight › Boss intro for now).
+7. Tests: new `test-sections` (22 checks); 78 suites pass.

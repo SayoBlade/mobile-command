@@ -47,3 +47,22 @@ behaviour). Test world or a clean scene; the test party. Each step is one thing 
 2. Tap it: it reads "Deck" (green). Tap again: "No deck".
 3. Configure Settings › Mobile Command › "Run from": set Deck. The pill reads "Deck" at once. Set it back to Auto.
 4. Players' phones and the TV show no pill and nothing new.
+
+## Phase 3: the six sections
+
+1. The rail shows six icons: dice (Fight), people (Party), masks (Stage), hourglass (Time), quill (Story),
+   gear (Setup). Hover each: the tooltip names it.
+2. Fight: ask rolls, the encounter, boss intro, as the old Combat tab. Pick Initiative in Ask rolls: "Roll all
+   NPCs" shows there, and the encounter's own "Roll NPCs" is gone until you pick Save or Check again.
+3. Party: the hero tokens, Form Up at the foot; while packed, the marching order. "Arrange & lock in" (while
+   arranging) opens Party and leaves it open.
+4. Stage: a switch reads Camera · Sound · Effects. Camera = who the TV follows + Fit and Zoom at the foot. Sound =
+   mute, the three TV volumes, who the TV hears through. Effects = as before.
+5. Time: Clock · Travel · Rest. Clock: ±10 minutes and set the time (with Simple Calendar: "Open the calendar").
+6. Story: Intros, Session zero, Story questions, Character files. With the Crooked Moon tools on, a second view
+   "Moon" holds curses, fate, twists, Druskenvald, tarot, all aboard, the ride, séance.
+7. Setup: Health · Table. Table: All Settings, Run from, Players & seats, Combat music, Fog, Campaign.
+8. Open Stage, switch to Effects, close it, open Time, then Stage again: it reopens on Effects.
+9. Press the séance key on the deck: Story › Moon opens at the Séance drawer.
+10. The floor has no clock and no sliders button any more.
+11. In the Crooked House, press "Teddy returned" on the deck: the key lights. Press again: it goes dark.
