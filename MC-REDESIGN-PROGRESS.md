@@ -77,3 +77,17 @@ Still running: the phone inventory. Next: the old-home to new-home table, then t
 4. Still unverified: that the live world runs the deck's tree layout (section 2 of the document).
 5. Resume here: read his answers, then start the phase he picks (my pick was phase 1, the one
    waiting queue). No further work is to be done on this until he says so.
+
+## 2026-11-26: BUILD STARTED (DM's answers in)
+
+Answers: 1A, 2A, 3A, 4A (the tab is "Stage"), 5A plus the Maim offer (a hero at 0 HP) joins the queue, 6A, 7
+"explore sub-tabs, not sure names are needed", 8A (last), 9 "a Rest sub-drawer inside the deck's Party drawer",
+10A. Tonight's order: the phone mock, the one queue and On now, the mode pill, the six sections, travel buttons
+without the deck, camera fold-away with the deck.
+
+## 2026-11-26, night 1: the phone sub-tab mock
+
+1. New sheet `renders-redesign-2026-11-26/11-phone-act-subtabs.png`: the Act tab with an Actions / Spells
+   switch at the top, shown with names and with icons only, each with the five-tab bar named and icon-only.
+2. My pick, written on the sheet: names on the bottom bar, icons only on the two-way switch.
+3. Nothing on the phone was changed. The phone tabs wait for his pick.
