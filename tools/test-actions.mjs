@@ -162,7 +162,7 @@ await brekka.setFlag(MOD, "twistPending", { die: 20, note: "the goblin's save" }
 {
   const req = A.actionSnapshot({ area: "requests" });
   check("one twist request counts ONE waiting, though Spend and Keep are both offered",
-    areaOf("requests").waiting === 1 && req.map((r) => r.id).join() === "cm.twistSpend,cm.twistKeep",
+    areaOf("requests").waiting === 1 && req.map((r) => r.id).join() === "cm.twistSpend,cm.twistKeep,table.ask", // table.ask: the one queue (redesign phase 1)
     `${areaOf("requests").waiting} · ${req.map((r) => r.id)}`);
 }
 await run("cm.twistSpend", { choice: "a1" });

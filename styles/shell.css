@@ -5574,6 +5574,17 @@ body.mc-skin-calendar:not(.mc-dm-clear) .app.simple-calendar .fsc-xf { display: 
   background: var(--mc-panel-2); border: 1px solid var(--mc-react); color: var(--mc-react-ink);
 }
 .mc-dmp-react button:hover { border-color: var(--mc-react-ink); background: var(--mc-react-dim); }
+/* Waiting (MC redesign phase 1): the one queue on the floor. The first in full, the rest behind "+N"; a fixed
+   minimum so the floor does not jump when an ask arrives; violet = a player is waiting. */
+.mc-dmp-wait { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; min-height: 34px; }
+.mc-dmp-wait-none { justify-content: center; padding: 0 8px; font-size: 11.5px; color: var(--mc-muted); border: 1px dashed var(--mc-edge); border-radius: calc(8px * var(--mc-round, 1)); }
+.mc-dmp-wait-ask { flex-wrap: wrap; }
+.mc-dmp-wait-ask .mc-dmp-react-txt { flex: 1 1 100%; white-space: normal; }
+.mc-dmp-wait-btns { display: flex; gap: 6px; flex: 1 1 100%; }
+.mc-dmp-wait-btns button { flex: 1 1 0; min-width: 0; height: 30px; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--mc-ink); font-size: 12px; }
+.mc-dmp-wait-btns .mc-dmp-wait-cancel { background: transparent; border-color: var(--mc-edge); color: var(--mc-muted); }
+.mc-dmp-wait-more { align-self: flex-end; height: 24px; padding: 0 10px; border-radius: calc(12px * var(--mc-round, 1)); cursor: pointer;
+  background: var(--mc-react-dim); border: 1px solid var(--mc-react); color: var(--mc-react-ink); font-size: 11.5px; font-weight: 700; }
 .mc-dmp-party-deploy:hover { border-color: var(--mc-gold) !important; --mc-cta-a: 0.6; }
 .mc-dmp-party-deploy.mc-warn { color: var(--mc-bad-ink) !important; background: linear-gradient(rgba(192,85,85,.42), rgba(156,61,61,.42)) !important; border-color: var(--mc-bad-ink) !important; }
 /* Combat nudge: the packed group joined the tracker — a fight as a blob makes no

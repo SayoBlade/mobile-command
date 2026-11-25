@@ -1,6 +1,6 @@
 import { safeBody, drawerForPress, lastRun, bringToFront } from "./panel-safe.js"; // one broken drawer never stops a tab; a deck press opens its drawer (DM 2026-11-25)
-import { crossingName, otherHeroNames } from "./crossing-name.js";
-import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState, answerChip } from "./rpc.js";
+import { waitingQueue, answerWaiting, waitingItems } from "./actions-asks.js";
+import { api, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState, answerChip } from "./rpc.js";
 import { notifier } from "./notifier.js";
 import { routeOf, bookHours, travelTimeLabel } from "./travel-times.js"; // T2: the book's time per route (DM 2026-11-09)
 import { fireAoO } from "./aoo.js";
@@ -394,13 +394,10 @@ function displayTabHTML() {
 
 // --- Combat tab (§25 2b): request rolls / targeting + the encounter controls + pending casts.
 function combatTabHTML() {
-  const pending = listPendingCasts();
   return `<div class="mc-dmp-col">`
     + rollsToolHTML()
     + combatHTML()
-    + splitPartyHTML()
     + dtDrawer("bossIntro", "Boss intro", "", bossBody(), true)
-    + (pending.length ? pendingHTML(pending) : "")
     + `</div>`;
 }
 
@@ -773,11 +770,8 @@ function tabRailHTML() {
   const tab = (id, icon, title, show = true, badge = 0) => show ? `<button class="mc-dmp-tab ${dockTab === id ? "mc-on" : ""}" data-dock="${id}" title="${title}" aria-label="${title}"><i class="fas ${icon}"></i>${badge ? `<span class="mc-dmp-tab-badge">${badge}</span>` : ""}</button>` : "";
   // §25 2b tab set. Combat absorbs the old Rolls; Party absorbs the old Players + marching order; the
   // new Display tab carries the camera config that left the floor.
-  // Pending casts count FIRST (2026-08-26): a phone AoE announce renders only inside this tab,
-  // so with the dock closed the player was waiting on a Place the DM had no way to see —
-  // nothing on the floor, nothing on the rail. A live count on the rail is the §6.5 badge idiom
-  // doing its actual job: business waiting behind a closed door.
-  const combatBadge = listPendingCasts().length || (game.user.targets?.size ?? 0) || (game.combat?.started ? "•" : 0);
+  // (A spell waiting to be placed used to badge this tab; it waits on the floor's Waiting queue now, MC redesign phase 1.)
+  const combatBadge = (game.user.targets?.size ?? 0) || (game.combat?.started ? "•" : 0);
   return `<div class="mc-dmp-tabrail ${dockTab ? "mc-open" : ""}">
     ${tab("combat", "fa-dice-d20", "Combat — rolls, targeting, the encounter", true, combatBadge)}
     ${tab("party", "fa-users", "Party — roster, form up, marching order")}
@@ -890,8 +884,8 @@ function curseBody() {
       <button class="mc-cmb-ticket mc-on" data-bargain-strike="${a.id}" title="Strike the bargain — roll the curse it costs"><i class="fas fa-dice"></i></button>
       <button class="mc-cmb-ticket" data-bargain-decline="${a.id}" title="Decline — the roll stands"><i class="fas fa-xmark"></i></button>
     </div>`).join("");
+  void requests; // a bargain waits in the floor's Waiting queue now (MC redesign phase 1)
   return `
-    ${requests}
     <div class="mc-seance-party">${targets || `<div class="mc-dmp-empty">No player characters.</div>`}</div>
     <div class="mc-fx-voicerow">
       <button class="mc-fx-btn" data-curse-roll style="flex:1" ${curseTarget ? "" : "disabled"}
@@ -987,8 +981,8 @@ function twistsBody() {
       <button class="mc-cmb-ticket" data-twist-adj="${a.id}:1" title="Grant ${esc(a.name)} a Twist of Fate">+</button>
     </div>`;
   }).join("");
-  const pending = pcs.filter(a => a.getFlag(MODULE_ID, "twistPending"));
-  const chips = pending.map(a => {
+  // a twist a player wants to spend waits in the floor's Waiting queue now (MC redesign phase 1), not here
+  const chips = [].map(a => {
     const p = a.getFlag(MODULE_ID, "twistPending");
     const face = p.die === 1 ? "1" : "20";
     const head = `<div class="mc-twist-reqtext"><i class="fas fa-shuffle"></i> <b>${esc(a.name)}</b> twists fate —
@@ -2925,28 +2919,6 @@ function quickHpHTML() {
     </div>`;
 }
 
-/** AoE-push / summon section: a Place (or Summon) button per pending cast. */
-function pendingHTML(pending) {
-  const esc = foundry.utils.escapeHTML;
-  // §28.5.6: show the level the player picked — the DM is about to spend THEIR slot.
-  const slotTag = (s) => {
-    if (!s) return "";
-    if (s === "pact") return " · pact";
-    const m = /^spell(\d)$/.exec(s);
-    return m ? ` · ${["", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"][Number(m[1])]}` : "";
-  };
-  const rows = pending.map(pc => `
-    <div class="mc-dmp-cast" data-cast="${pc.id}">
-      <span class="mc-dmp-cast-info"><b>${esc(pc.casterName)}</b> — ${esc(pc.spellName)}${esc(slotTag(pc.slotLevel))}</span>
-      <button class="mc-dmp-place" data-place="${pc.id}">${pc.kind === "summon" ? "Summon" : "Place"}</button>
-      <button class="mc-dmp-cast-x" data-dismiss="${pc.id}" aria-label="Dismiss">✕</button>
-    </div>`).join("");
-  const head = pending.every(p => p.kind === "summon") ? "Place summon" : "Place spell";
-  return `
-    <div class="mc-dmp-head"><span>${head}${pending.length === 1 ? "" : "s"}</span></div>
-    <div class="mc-dmp-casts">${rows}</div>`;
-}
-
 // --- Party Mode (DESIGN §15): the DM's live view of the marching-order grid ----
 // Mirrors the phones' 3×3 while a group is packed. Red cell = that spot is
 // problematic at the CURRENT group-token position + facing (wall/occupied/stacked,
@@ -2993,73 +2965,22 @@ function scenePartyActors() {
 // MAIN area (DM 2026-07-03): only Form up / Disperse live here — stable width.
 // The marching-order grid + rotate + lock-in + release/combine moved to the
 // "Party order" dock tab (auto-opens on pack, closes on disperse).
-// Reaction widget (DM 2026-07-07): non-modal chips instead of dialogs/toasts.
-// "aoo" chips are ACTIONABLE (an NPC could take an opportunity attack — ⚔ fires
-// it, ✕ declines); "window" chips are passive awareness that a PLAYER is deciding
-// a reaction on their phone. Every chip expires with its reaction window.
-function reactionsHTML() {
-  const now = Date.now();
-  dmReactions = dmReactions.filter(r => r.expiresAt > now);
-  if (!dmReactions.length) return "";
-  const chips = dmReactions.map(r => r.kind === "aoo"
-    ? `<div class="mc-dmp-react mc-dmp-react-aoo">
-        <span class="mc-dmp-react-txt"><i class="fas fa-bolt"></i> ${foundry.utils.escapeHTML(r.label)}</span>
-        <button data-dmreact-fire="${r.id}" title="Take the opportunity attack (${foundry.utils.escapeHTML(r.weapon)})"><i class="fas fa-hand-fist"></i></button>
-        <button data-dmreact-x="${r.id}" title="Let them go"><i class="fas fa-xmark"></i></button>
-      </div>`
-    : r.kind === "scribe"
-    ? `<div class="mc-dmp-react mc-dmp-react-scribe">
-        <span class="mc-dmp-react-txt"><i class="fas fa-feather-pointed"></i> ${foundry.utils.escapeHTML(r.label)}<br><em>suggested: ${foundry.utils.escapeHTML(r.cost)}</em></span>
-        <button data-dmscribe-ok="${r.id}" title="Approve — the spell lands unprepared, the scroll is spent (cost is yours to collect)"><i class="fas fa-check"></i></button>
-        <button data-dmscribe-x="${r.id}" title="Decline — nothing changes"><i class="fas fa-xmark"></i></button>
-      </div>`
-    : r.kind === "summon"
-    ? `<div class="mc-dmp-react mc-dmp-react-summon">
-        <span class="mc-dmp-react-txt"><i class="fas fa-ghost"></i> ${foundry.utils.escapeHTML(r.label)}</span>
-        <button data-dmsummon-ok="${r.id}" title="Grant control — the summon appears in their phone's token switcher"><i class="fas fa-check"></i></button>
-        <button data-dmsummon-x="${r.id}" title="Keep it DM-driven"><i class="fas fa-xmark"></i></button>
-      </div>`
-    : r.kind === "travel"
-    // Basic travel square (DM 2026-10-09): WHO asked leads the chip, in the §3 identity form, because
-    // "Move <name>" means nothing without it. Cancel left, the two moves right (UI-BIBLE §4.1.1).
-    ? (() => {
-        const esc = foundry.utils.escapeHTML;
-        const who = esc(r.actorName ?? "Someone");
-        const first = esc(crossingName(r.actorName, otherHeroNames(String(r.actorUuid ?? "").split(".").pop()))); // who, unambiguously (section W)
-        let col = "";
-        try { const a = fromUuidSync(r.actorUuid); col = a ? pcColor(a) : ""; } catch (e) { /* stale uuid */ }
-        return `<div class="mc-dmp-react mc-dmp-react-travel">
-        <span class="mc-dmp-react-txt"><i class="fas fa-circle-user" style="color:${col}"></i>${who} wants to cross<br><em>${esc(r.travelLabel ?? "Travel")}${r.destName ? ` → ${esc(r.destName)}` : ""} · game paused</em></span>
-        <span class="mc-dmp-travel-btns">
-          <button class="mc-dmp-travel-cancel" data-dmtravel="cancel" data-id="${r.id}" title="Nobody moves, and the game unpauses">Cancel</button>
-          <button data-dmtravel="alone" data-id="${r.id}" title="Move ${first} only — the game stays paused">Move ${first}</button>
-          <button data-dmtravel="group" data-id="${r.id}" title="Move the whole party — the game stays paused while you arrange the marching order">Move Group</button>
-        </span>
-      </div>`;
-      })()
-    : r.kind === "trade"
-    ? `<div class="mc-dmp-react mc-dmp-react-trade">
-        <span class="mc-dmp-react-txt"><i class="fas fa-hand-holding-heart"></i> ${foundry.utils.escapeHTML(r.label)}<br><em>receiver offline — accept for them?</em></span>
-        <button data-dmtrade-ok="${r.id}" title="Accept — hand the items over"><i class="fas fa-check"></i></button>
-        <button data-dmtrade-x="${r.id}" title="Decline"><i class="fas fa-xmark"></i></button>
-      </div>`
-    : `<div class="mc-dmp-react mc-dmp-react-win">
-        <span class="mc-dmp-react-txt"><i class="fas fa-hourglass-half"></i> ${foundry.utils.escapeHTML(r.label)}${r.weapon ? ` — ${foundry.utils.escapeHTML(r.weapon)}` : ""}</span>
-      </div>`);
-  return `<div class="mc-dmp-reactions">${chips.join("")}</div>`;
-}
-
-// §17.3 split-party awareness: PCs whose only token sits on a NON-active scene
-// (ran ahead through a teleporter / left behind). Their phones show the paused
-// overlay; the DM gets one chip per scene with a one-tap Activate — the ONLY
-// automatic thing here is the awareness (DM 2026-07-08: the DM alone moves the
-// active scene).
-function splitPartyHTML() {
+// Reaction widget (DM 2026-07-07): non-modal chips instead of dialogs/toasts. "aoo" is ACTIONABLE (an NPC could take an
+// opportunity attack: the fist fires it, the cross declines); "window" is passive awareness that a PLAYER is deciding a
+// reaction on their phone. Each expires with its reaction window. §17.3 split party: PCs whose only token sits on a
+// NON-active scene get one line per scene with a one-tap Activate (DM 2026-07-08: the DM alone moves the active scene).
+/**
+ * WAITING (MC redesign phase 1, DM 2026-11-26): everything that waits on the DM, in ONE place on the floor, in one
+ * order. An opportunity attack first (seconds to answer; never on the deck), then the one queue the deck's
+ * Notifications key also reads (actions-asks.js waitingQueue: a crossing, one who went ahead, scribe, summon, an
+ * offline trade, a twist, a bargain, a spell to place, other modules' asks such as the Maim offer), then a party split
+ * across scenes (panel only: it changes the active scene), then the quiet "a player is choosing a reaction" lines.
+ * The first in full; the rest behind "+N". Fixed height, so the floor never jumps; empty reads "Nothing waiting".
+ */
+let waitOpen = false;
+function splitPartyList() {
   const active = game.scenes.active;
-  if (!active) return "";
-  // Scope to the CURRENT party — group members + users' assigned characters —
-  // not every player-owned PC in the world (first live run surfaced years of
-  // demo PCs stranded on retired scenes as permanent chips).
+  if (!active) return [];
   const party = new Set();
   for (const g of game.actors.filter(a => a.type === "group"))
     for (const m of (g.system?.members ?? [])) if (m.actor) party.add(m.actor.id);
@@ -3075,14 +2996,52 @@ function splitPartyHTML() {
       byScene.get(scene.id).names.add(a.name);
     }
   }
-  if (!byScene.size) return "";
-  const esc = foundry.utils.escapeHTML;
-  const chips = [...byScene.values()].map(({ scene, names }) => `<div class="mc-dmp-react mc-dmp-split">
-      <span class="mc-dmp-react-txt"><i class="fas fa-person-hiking"></i> ${names.size} PC${names.size > 1 ? "s" : ""} on ${esc(scene.name)} (${esc([...names].map(n => n.split(" ")[0]).join(", "))})</span>
-      <button data-activate-scene="${scene.id}" title="Activate ${esc(scene.name)} — the split PCs play, everyone else's phone pauses"><i class="fas fa-tv"></i></button>
-    </div>`);
-  return `<div class="mc-dmp-reactions">${chips.join("")}</div>`;
+  return [...byScene.values()];
 }
+function waitingItemHTML(it) {
+  const esc = foundry.utils.escapeHTML;
+  if (it.type === "aoo") {
+    const r = it.r;
+    return `<div class="mc-dmp-react mc-dmp-react-aoo">
+        <span class="mc-dmp-react-txt"><i class="fas fa-bolt"></i> ${esc(r.label)}</span>
+        <button data-dmreact-fire="${r.id}" title="Take the opportunity attack (${esc(r.weapon ?? "")})"><i class="fas fa-hand-fist"></i></button>
+        <button data-dmreact-x="${r.id}" title="Let them go"><i class="fas fa-xmark"></i></button>
+      </div>`;
+  }
+  if (it.type === "window") {
+    const r = it.r;
+    return `<div class="mc-dmp-react mc-dmp-react-win">
+        <span class="mc-dmp-react-txt"><i class="fas fa-hourglass-half"></i> ${esc(r.label)}${r.weapon ? ` — ${esc(r.weapon)}` : ""}</span>
+      </div>`;
+  }
+  if (it.type === "split") {
+    const { scene, names } = it.x;
+    return `<div class="mc-dmp-react mc-dmp-split">
+      <span class="mc-dmp-react-txt"><i class="fas fa-person-hiking"></i> ${esc([...names].map(n => n.split(" ")[0]).join(", "))} on ${esc(scene.name)}</span>
+      <button data-activate-scene="${scene.id}" title="Activate ${esc(scene.name)} — the split PCs play, everyone else's phone pauses"><i class="fas fa-tv"></i></button>
+    </div>`;
+  }
+  const q = it.q;
+  const btns = q.choices.map(c => `<button class="${c.id === "cancel" ? "mc-dmp-wait-cancel" : ""}" data-wait-id="${esc(q.id)}" data-wait-choice="${esc(c.id)}">${esc(c.label ?? c.id)}</button>`).join("");
+  return `<div class="mc-dmp-react mc-dmp-wait-ask" data-wait-kind="${esc(q.kind)}">
+      <span class="mc-dmp-react-txt"><i class="fas fa-${esc(q.icon)}"></i> ${esc(q.sub)}</span>
+      <span class="mc-dmp-wait-btns">${btns}</span>
+    </div>`;
+}
+function waitingHTML() {
+  let queue = [];
+  try { queue = waitingQueue(); } catch (e) { /* the queue's sources not ready */ }
+  let split = [];
+  try { split = splitPartyList(); } catch (e) { /* no scenes yet */ }
+  const items = waitingItems({ reactions: dmReactions, queue, split });
+  dmReactions = dmReactions.filter(r => (r.expiresAt ?? Infinity) > Date.now());
+  if (!items.length) { waitOpen = false; return `<div class="mc-dmp-wait mc-dmp-wait-none"><span>Nothing waiting</span></div>`; }
+  const more = items.length - 1;
+  const shown = waitOpen ? items : items.slice(0, 1);
+  const tog = more ? `<button class="mc-dmp-wait-more" data-wait-more title="${waitOpen ? "Show only the first" : "Show everything waiting"}">${waitOpen ? "Less" : `+${more}`}</button>` : "";
+  return `<div class="mc-dmp-wait ${waitOpen ? "mc-open" : ""}">${shown.map(waitingItemHTML).join("")}${tog}</div>`;
+}
+
 
 function partyMainHTML() {
   const group = packedGroup();
@@ -4125,7 +4084,7 @@ function renderNow() {
   // attention/reaction signal, and the always-present selected-token strip. Everything else moved to
   // a tab (combat/rolls → Combat, roster/form-up → Party, fit/zoom/follow/fog → Display).
   const main = `<div class="mc-dmp-col">`
-    + statusHTML() + cameraFloorHTML() + reactionsHTML() + quickHpHTML()
+    + statusHTML() + waitingHTML() + cameraFloorHTML() + quickHpHTML()
     + `</div>`;
   // Grow the flyout UP (anchored to the panel's bottom) when the panel sits in the lower half of
   // the screen, so a bottom-docked panel's second window opens into visible space instead of off
@@ -5218,6 +5177,15 @@ async function onClick(ev) {
     }
     return render();
   }
+  if (ev.target.closest("[data-wait-more]")) { waitOpen = !waitOpen; return render(); }
+  const waitBtn = ev.target.closest("[data-wait-choice]");
+  if (waitBtn) {
+    if (waitBtn.disabled) return;
+    waitBtn.disabled = true;
+    const res = await answerWaiting(waitBtn.dataset.waitId, waitBtn.dataset.waitChoice);
+    if (res && res.ok === false) notifier.warn(res.reason);
+    return render();
+  }
   const place = ev.target.closest("[data-place]");
   if (place) {
     const res = await placeCast(place.dataset.place);
@@ -5380,6 +5348,11 @@ export function registerDMPanel() {
   Hooks.on("updateWorldTime", () => render());                     // the clock chip follows the world time
   Hooks.on("mobile-command.presence", () => render());             // away-timer: a phone reported fg/bg
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.downtimeState`) render(); }); // §17.7: activities/window changed
+  // Waiting (MC redesign phase 1): the floor follows the queue wherever it changed — an ask raised or answered (any
+  // door), a staged curse, a twist or bargain asked or withdrawn on a phone.
+  Hooks.on("updateSetting", (s) => { if ([`${MODULE_ID}.dmAsks`, `${MODULE_ID}.cmLiveState`].includes(s?.key)) render(); });
+  Hooks.on(`${MODULE_ID}.actionsChanged`, () => render());
+  Hooks.on("updateActor", (_a, ch) => { const f = ch?.flags?.[MODULE_ID]; if (f && ["twistPending", "-=twistPending", "bargainPending", "-=bargainPending"].some(k => k in f)) render(); });
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive` && (dockTab === "effects" || dockTab === "crooked")) render(); }); // §26/§35: fx toggles follow the world state (séance lives on the Crooked Moon tab)
   // §35/§52: the Crooked Moon tab's own state — a press on the deck lands here as a setting write,
   // so the open drawer follows it (sitters, the staged curse, fiddle/engine, bargains on/off).

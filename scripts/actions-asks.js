@@ -1,6 +1,7 @@
 import { MODULE_ID } from "./preset.js";
-import { defineActions } from "./actions.js";
-import { api as rpc, pendingAsks, aheadLive, answerScribe, answerSummon, answerTrade, settleOutsideAsk } from "./rpc.js";
+import { defineActions, cmToolsOn } from "./actions.js";
+import { api as rpc, pendingAsks, aheadLive, answerScribe, answerSummon, answerTrade, settleOutsideAsk, listPendingCasts, placeCast, dismissCast } from "./rpc.js";
+import { twistRequests, spendTwist, refundTwist, bargainRequests, strikeBargain, declineBargain, curseState, acceptStagedCurse, cancelStagedCurse } from "./cm-live.js";
 import { crossingName, otherHeroNames } from "./crossing-name.js";
 
 /**
@@ -100,10 +101,118 @@ export function registerAskKind(kind, def) {
 }
 const kindOf = (k) => KINDS[k] ?? OUTSIDE.get(k) ?? null;
 
+/**
+ * -- THE ONE QUEUE (MC redesign phase 1, DM 2026-11-26: 5A, "don't forget pc dropping to 0hp") --------------------
+ * Everything that waits on the DM, in one order, read by BOTH doors: the panel floor's Waiting block and the deck's
+ * Notifications key (this row). Besides the stored asks above (a crossing, one who went ahead, scribe, summon, an
+ * offline trade, and other modules' asks such as the Maim offer when a hero drops to 0 HP), three kinds are read live
+ * from where they already live, never copied: a twist a player wants to spend, a bargain (and the curse it struck,
+ * waiting on Accept), and a spell a phone asked the DM to place. Each answer is the function the old popup, drawer or
+ * Combat-tab row calls, so answering at any door clears the others. Twists and bargains only while the Crooked Moon
+ * tools are on. Opportunity attacks stay off (their window is seconds; the panel shows them first, above this queue).
+ */
+const firstSeen = new Map(); // a live entry's id -> when this client first saw it (its place in line)
+const seen = (id) => { if (!firstSeen.has(id)) firstSeen.set(id, Date.now()); return firstSeen.get(id); };
+const LIVE = {
+  twist: () => (cmToolsOn() ? twistRequests() : []).map((a) => {
+    const p = a.getFlag?.(MODULE_ID, "twistPending") ?? {};
+    return { id: `twist.${a.id}`, kind: "twist", ts: p.ts ?? seen(`twist.${a.id}`), actorId: a.id, name: a.name, die: p.die === 1 ? 1 : 20 };
+  }),
+  bargain: () => {
+    if (!cmToolsOn()) return [];
+    const s = curseState();
+    const staged = s.pick && game.actors.get(s.target)?.getFlag?.(MODULE_ID, "bargainPending") ? s.target : null;
+    return bargainRequests().map((a) => a.id === staged
+      ? { id: `curse.${a.id}`, kind: "curse", ts: seen(`bargain.${a.id}`), actorId: a.id, name: a.name, curse: s.pick?.name ?? "a curse" }
+      : { id: `bargain.${a.id}`, kind: "bargain", ts: seen(`bargain.${a.id}`), actorId: a.id, name: a.name });
+  },
+  cast: () => listPendingCasts().map((c) => ({ id: `cast.${c.id}`, kind: "cast", ts: c.ts ?? seen(`cast.${c.id}`), castId: c.id,
+    name: c.casterName, spell: c.spellName, summon: c.kind === "summon" })),
+};
+const first = (n) => String(n ?? "").trim().split(/\s+/)[0] || "Someone";
+const LIVE_KINDS = {
+  twist: {
+    icon: "shuffle",
+    sub: (e) => `${first(e.name)} · twist: natural ${e.die}`,
+    choices: () => [{ id: "cancel", label: "Keep" }, { id: "spend", label: "Spend" }],
+    answer: async (e, choice) => {
+      const a = game.actors.get(e.actorId);
+      const r = choice === "spend" ? await spendTwist(a) : await refundTwist(a);
+      return r === false ? { ok: false, reason: "that twist is gone" } : undefined;
+    },
+  },
+  bargain: {
+    icon: "scale-unbalanced",
+    sub: (e) => `${first(e.name)} · bargain for a reroll`,
+    choices: () => [{ id: "cancel", label: "Decline" }, { id: "strike", label: "Strike" }],
+    answer: async (e, choice) => { if (choice === "strike") await strikeBargain(e.actorId); else await declineBargain(e.actorId); },
+  },
+  curse: {
+    icon: "eye",
+    sub: (e) => `${first(e.name)} · curse: ${e.curse}`,
+    choices: () => [{ id: "cancel", label: "Never mind" }, { id: "reroll", label: "Roll again" }, { id: "accept", label: "Accept" }],
+    answer: async (e, choice) => {
+      if (choice === "accept") await acceptStagedCurse();
+      else if (choice === "reroll") await strikeBargain(e.actorId);
+      else await cancelStagedCurse();
+    },
+  },
+  cast: {
+    icon: "wand-magic-sparkles",
+    sub: (e) => `${first(e.name)} · ${e.summon ? "summon" : "place"} ${e.spell ?? "a spell"}`,
+    choices: (e) => [{ id: "cancel", label: "Dismiss" }, { id: "place", label: e.summon ? "Summon" : "Place" }],
+    answer: async (e, choice) => {
+      if (choice !== "place") { dismissCast(e.castId); return undefined; }
+      const r = await placeCast(e.castId);
+      return r?.ok === false ? { ok: false, reason: r.reason } : undefined;
+    },
+  },
+};
+const KIND_ICONS = { travel: "route", ahead: "person-hiking", scribe: "feather-pointed", summon: "ghost", trade: "hand-holding-heart" };
+
 // a player waiting on a crossing comes before a notice that someone went ahead; then oldest first
-const queue = () => pendingAsks().filter((e) => kindOf(e.kind) && (kindOf(e.kind).live?.(e) ?? true))
-  .sort((a, b) => ((kindOf(a.kind).rank ?? 0) - (kindOf(b.kind).rank ?? 0)) || ((a.ts ?? 0) - (b.ts ?? 0)));
+const stored = () => pendingAsks().filter((e) => kindOf(e.kind) && (kindOf(e.kind).live?.(e) ?? true));
+const liveEntries = () => { const out = []; for (const f of Object.values(LIVE)) { try { out.push(...f()); } catch (e) { /* a source not ready */ } } return out; };
+const defOf = (e) => LIVE_KINDS[e.kind] ?? kindOf(e.kind);
+const queue = () => [...stored(), ...liveEntries()]
+  .sort((a, b) => ((defOf(a).rank ?? 0) - (defOf(b).rank ?? 0)) || ((a.ts ?? 0) - (b.ts ?? 0)));
 const front = () => queue()[0] ?? null;
+
+/** The one queue, drawn: [{ id, kind, icon, sub, choices }] in order (the panel's Waiting block reads this). */
+export function waitingQueue() {
+  return queue().map((e) => {
+    const d = defOf(e);
+    let sub = "", choices = [];
+    try { sub = d.sub(e); choices = d.choices(e); } catch (err) { /* a stale entry */ }
+    return { id: e.id, kind: e.kind, icon: d.icon ?? KIND_ICONS[e.kind] ?? "bell", sub, choices };
+  });
+}
+/**
+ * The panel floor's Waiting order (pure): an opportunity attack first (the panel's own chips, seconds to answer), then
+ * this queue, then a party split across scenes, then the quiet "a player is choosing a reaction" lines. Expired
+ * reaction chips are left out.
+ */
+export function waitingItems({ reactions = [], queue = [], split = [] } = {}, now = Date.now()) {
+  const live = reactions.filter((r) => (r.expiresAt ?? Infinity) > now);
+  return [
+    ...live.filter((r) => r.kind === "aoo").map((r) => ({ type: "aoo", r })),
+    ...queue.map((q) => ({ type: "ask", q })),
+    ...split.map((x) => ({ type: "split", x })),
+    ...live.filter((r) => r.kind === "window").map((r) => ({ type: "window", r })),
+  ];
+}
+/** Answer any entry in the queue by id (not only the front): the same answer every door calls. */
+export async function answerWaiting(id, choice) {
+  const e = queue().find((x) => x.id === id);
+  if (!e) return { ok: false, reason: "that ask was already answered — look again" };
+  const d = defOf(e);
+  if (!d.choices(e).some((c) => c.id === String(choice))) return { ok: false, reason: "pick one of the answers" };
+  const r = await d.answer(e, String(choice));
+  if (r?.ok === false) return { ok: false, reason: r.reason ?? "couldn't answer" };
+  if (d.outside) await settleOutsideAsk(e.id);
+  try { Hooks.callAll(`${MODULE_ID}.actionsChanged`); } catch (err) { /* headless */ }
+  return undefined;
+}
 
 defineActions([
   {
@@ -114,20 +223,15 @@ defineActions([
     sub: () => {
       const q = queue();
       if (!q.length) return undefined;
-      return kindOf(q[0].kind).sub(q[0]) + (q.length > 1 ? ` · +${q.length - 1} waiting` : "");
+      return defOf(q[0]).sub(q[0]) + (q.length > 1 ? ` · +${q.length - 1} waiting` : "");
     },
-    choices: () => { const e = front(); return e ? kindOf(e.kind).choices(e) : []; },
+    choices: () => { const e = front(); return e ? defOf(e).choices(e) : []; },
     ref: () => front()?.id,
     run: async ({ choice, ref } = {}) => {
       const e = front();
       if (!e) return { ok: false, reason: "nobody is waiting" };
       if (ref && ref !== e.id) return { ok: false, reason: "that ask was already answered — look again" };
-      const kind = kindOf(e.kind);
-      if (!kind.choices(e).some((c) => c.id === String(choice))) return { ok: false, reason: "pick one of the answers" };
-      const r = await kind.answer(e, String(choice));
-      if (r?.ok === false) return { ok: false, reason: r.reason ?? "couldn't answer" };
-      if (kind.outside) await settleOutsideAsk(e.id);
-      return undefined;
+      return answerWaiting(e.id, choice);
     },
   },
 ]);

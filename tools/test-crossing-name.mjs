@@ -17,7 +17,9 @@ check("the others are the player-owned characters but this one", JSON.stringify(
 const asks = fs.readFileSync(path.join(ROOT, "scripts", "actions-asks.js"), "utf8");
 check("the deck's answer and the sub-line both name the hero this way, with the token art marked as token",
   asks.includes("label: `Move ${who(e)}`, img: tokenArt(e.forActorUuid), token: true") && asks.includes("sub: (e) => `${who(e)} · cross to"));
-check("the DM panel's chip says the same", fs.readFileSync(path.join(ROOT, "scripts", "dm-panel.js"), "utf8").includes("crossingName(r.actorName, otherHeroNames("));
+// MC redesign phase 1: the panel's crossing line is the queue's own sub-line (actions-asks.js waitingQueue), so it names
+// the hero exactly as the deck does.
+check("the DM panel's Waiting line says the same (it draws the queue's sub-line)", /waitingQueue\(\)/.test(fs.readFileSync(path.join(ROOT, "scripts", "dm-panel.js"), "utf8")) && asks.includes("sub = d.sub(e)"));
 // where a crossing leads (seat R6 finish 2026-11-12: "cross to The Crooked House" on the stairs), the world's real names
 check("a train car: its name, no number, no style word", placeName("10.2 Sleeper Car (Colored)") === "Sleeper Car", placeName("10.2 Sleeper Car (Colored)"));
 check("the stairs name the FLOOR, not the house", placeName("12.2 The Crooked House (Second Floor, Colored)") === "Second Floor"

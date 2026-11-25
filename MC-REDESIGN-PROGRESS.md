@@ -91,3 +91,22 @@ without the deck, camera fold-away with the deck.
    switch at the top, shown with names and with icons only, each with the five-tab bar named and icon-only.
 2. My pick, written on the sheet: names on the bottom bar, icons only on the two-way switch.
 3. Nothing on the phone was changed. The phone tabs wait for his pick.
+
+## 2026-11-26, night 1: phase 1, the one waiting queue (built)
+
+1. **Waiting** sits on the panel floor, right under who is here. Everything that waits on you is there, in one
+   order: an opportunity attack first, then crossings, "one hero went ahead", scribe, summon, an offline trade, a
+   twist, a bargain (and the curse it struck, waiting on Accept), a spell a phone asked you to place, other
+   modules' asks such as the Maim offer when a hero drops to 0 HP, then a party split across scenes, then the quiet
+   "a player is choosing a reaction" line.
+2. The first ask shows in full with its answers; the rest sit behind a "+N" button. Empty reads "Nothing waiting".
+3. **The deck's Notifications key reads the same queue.** Twists, bargains and spells to place now reach it too
+   (your 5A); the Maim offer was already there and is now on the panel as well. Answer at either door and both
+   clear.
+4. Moved out of the tabs: the Combat tab's "place spell" list and split-party line, the Twists drawer's spend
+   requests, the Curses drawer's bargain requests. The twist popup still appears (as the proposal said).
+5. Each ask is counted once on the deck now (twists and bargains were counted twice).
+6. Tests: new `test-waiting` (20 checks); 75 suites pass.
+7. For you to judge at the seat: a twist, bargain or spell now makes the deck shout for six seconds like a
+   crossing does. My pick: keep it and see; if it is too loud, those three can take the quiet form.
+8. Not done: the night-ambush "mark sleepers Surprised?" question is still a popup.

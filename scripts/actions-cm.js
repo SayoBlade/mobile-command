@@ -417,7 +417,7 @@ defineActions([
   /* ── Requests: players waiting on the DM ───────────────────────────────────────────────────── */
   req({
     id: "cm.twistSpend", group: "Twists of fate", kind: "pick", icon: "ok", label: "Spend twist",
-    when: () => twistRequests().length > 0, waiting: () => twistRequests().length,
+    when: () => twistRequests().length > 0, waiting: () => 0, // counted once, on table.ask (the one queue)
     choices: () => twistRequests().map((a) => {
       const p = a.getFlag(MODULE_ID, "twistPending");
       return pcChoice(a, { sub: `natural ${p?.die === 1 ? "1" : "20"}` });
@@ -432,7 +432,7 @@ defineActions([
   }),
   req({
     id: "cm.bargainStrike", group: "Bargains", kind: "pick", icon: "dice", label: "Strike bargain",
-    when: () => bargainRequests().length > 0, waiting: () => bargainRequests().length,
+    when: () => bargainRequests().length > 0, waiting: () => 0, // counted once, on table.ask (the one queue)
     choices: () => bargainRequests().map((a) => pcChoice(a)),
     run: ({ choice }) => (choice ? strikeBargain(choice) : { ok: false, reason: "pick a character" }),
   }),
