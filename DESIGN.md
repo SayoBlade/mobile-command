@@ -10275,3 +10275,10 @@ field (`noteFieldPress`) hands focus and caret back after the repaint (`repaint.
 3 s window; value never restored — the draft owns it). (3) Enter empties the phrase box in place (the typing guard
 holds the repaint). (4) The panel's Next Hour takes two taps within 4 s (`druskArmAt`); the deck key stays one press.
 UI-BIBLE §6.3 rules 3–4. `tools/test-panel-keep.mjs` 13.
+
+**SEAT 27 re-run: Off left the button lit.** Typing held a repaint (the typing guard); the press's focusout released
+it while `toggleSeanceBoard` was still awaiting, that repaint ran with the old state and `returnFocusIfDue` put focus
+back in the box — so the toggle's own repaint was held by the guard until a blur that never came. Now for 3 s after
+any press in the panel (not in a text field, `pressRenderUntil`) or a deck press (`lastRun.at`), a focused field no
+longer holds the repaint: it goes through and the field is rebuilt with its live text, focus and caret
+(`restoreField` with `value`). Background ticks still wait. Covers every toggle in every tab. test-panel-keep 17.

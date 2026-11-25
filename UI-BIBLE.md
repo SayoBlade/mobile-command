@@ -434,6 +434,10 @@ top"*):
    drawer). A press on a button in the same drawer as the field the DM is typing in (the Spirit
    Board toggle beside the séance phrase) hands focus back to that field, caret where it was; the
    field's text comes from its own draft, never from the old box, so a sent phrase stays cleared.
+   A press never leaves its own button stale: for 3 s after a press in the panel (or a deck press)
+   the repaint goes through even with a field focused, keeping that field's live text, focus and
+   caret; only background ticks wait for the DM to stop typing (SEAT 27 re-run: Spirit Board Off
+   left the button lit).
 4. **A button that moves world time takes two taps** when a stray click can reach it (the
    Druskenvald clock's Next Hour: the first tap arms it for 4 s and says so). The ±10-minute nudges
    stay one tap; a deck key stays one press.

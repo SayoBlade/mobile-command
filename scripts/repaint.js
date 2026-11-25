@@ -121,6 +121,8 @@ export function restoreField(root, saved) {
   let el;
   try { el = root.querySelectorAll(saved.key.slice(0, cut))[Number(saved.key.slice(cut + 1))]; } catch (e) { return null; }
   if (!el || el.disabled) return null;
+  // `value` only when the caller kept the LIVE text of a field rebuilt while focused (what the DM sees).
+  if (saved.value !== undefined && el.value !== saved.value) el.value = saved.value;
   try { el.focus({ preventScroll: true }); } catch (e) { return null; }
   const len = String(el.value ?? "").length;
   if (saved.start != null) { try { el.setSelectionRange(Math.min(saved.start, len), Math.min(saved.end ?? saved.start, len)); } catch (e) { /* no caret */ } }

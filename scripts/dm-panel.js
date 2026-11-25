@@ -4097,7 +4097,17 @@ function renderNow() {
   // dropdowns can't drive a re-render ("can't set rules"). Deferred, not dropped: the repaint runs
   // when the field blurs (focusout below), so a change that landed mid-typing still shows.
   const ae = document.activeElement;
-  if (isPanelTextField(ae)) { pendingRender = true; return; }
+  // SEAT 27 re-run: right after the DM's own press in the panel, the repaint goes through even with
+  // a field focused — keeping that field's live text, focus and caret. Otherwise a press whose field
+  // got its focus back (returnFocusIfDue) left the button it pressed stale until a blur that never
+  // came (the Spirit Board read "on" after being turned off). Background ticks still wait.
+  let keepField = null;
+  if (isPanelTextField(ae)) {
+    // …or a deck press (an MC action run a moment ago: the board toggled from the deck).
+    if (Date.now() > pressRenderUntil && !(Date.now() - (lastRun.at ?? 0) < 3000)) { pendingRender = true; return; }
+    keepField = captureField(ae, el);
+    if (keepField) keepField.value = ae.value;
+  }
   // …and never while a dropdown is actually open: rebuilding the DOM destroys the element that
   // owns the popup, so the list vanishes under the DM's cursor. Deferred, not dropped — whatever
   // wanted to repaint runs the moment they're done choosing (see noteSelectOpen).
@@ -4150,8 +4160,12 @@ function renderNow() {
   // inline max-height until applyWorkspaceBounds, so restoring before it met a tab too tall to
   // scroll, the browser clamped scrollTop to 0, and every toggle or drawer threw the DM to the top.
   restoreScrolls(el, prevScrolls);
+  if (keepField) { restoreField(el, keepField); pendingRender = false; }
   returnFocusIfDue();
 }
+
+// The moment after a press in the panel (not in a text field): repaints then may rebuild a focused field.
+let pressRenderUntil = 0;
 
 // SEAT 27: a press on a button in the same drawer as the text field the DM is in (the Spirit Board
 // toggle beside the phrase) hands focus back to that field, caret and all, after the repaint.
@@ -4159,6 +4173,7 @@ function renderNow() {
 let returnField = null;
 function noteFieldPress(ev) {
   returnField = null;
+  if (!isPanelTextField(ev.target)) pressRenderUntil = Date.now() + 3000;
   const ae = document.activeElement;
   if (!isPanelTextField(ae)) return;
   const t = ev.target;

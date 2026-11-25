@@ -78,7 +78,7 @@ function field(root, value = "") {
 check("dm-panel: a press on a button in the same drawer as the focused field hands focus back after the repaint, both repaint paths",
   /try \{ noteFieldPress\(ev\); \}/.test(panel)
   && /const box = ae\.closest\("\.mc-dt-drawer"\) \?\? ae\.parentElement;\s*if \(!btn \|\| !box\?\.contains\(btn\)\) return;/.test(panel)
-  && /clampPos\(el\); returnFocusIfDue\(\); return; \}/.test(panel) && /restoreScrolls\(el, prevScrolls\);\s*returnFocusIfDue\(\);/.test(panel));
+  && /clampPos\(el\); returnFocusIfDue\(\); return; \}/.test(panel) && /restoreScrolls\(el, prevScrolls\);\s*if \(keepField\)[^\n]*\n\s*returnFocusIfDue\(\);/.test(panel));
 check("…only for a moment (3 s), and never over a field the DM has since moved to", /Date\.now\(\) - r\.at > 3000/.test(panel) && /if \(isPanelTextField\(document\.activeElement\)\) \{ returnField = null; return; \}/.test(panel));
 check("Enter sends and empties the box in place (the panel holds repaints while the box has focus)",
   /seanceDraft = "";[\s\S]{0,300}querySelector\("\[data-seance-text\]"\); if \(box\) box\.value = "";/.test(panel));
@@ -88,6 +88,24 @@ check("Enter sends and empties the box in place (the panel holds repaints while 
   check("the panel's Next Hour: the first tap only arms it; the second, within 4 s, moves the clock",
     /if \(!druskArmed\(\)\) \{ druskArmAt = Date\.now\(\);[^\n]*return render\(\); \}\s*druskArmAt = 0; await druskNextHour\(\);/.test(h) && /const DRUSK_ARM_MS = 4000;/.test(panel));
   check("…and while armed it says so", /druskArmed\(\) \? "Tap Again: Next Hour" : "Next Hour"/.test(panel));
+}
+// ── 13–16. SEAT 27 re-run: a toggle pressed beside the focused box still repaints (the board read "on" after Off) ──
+{
+  const root = fakeRoot();
+  const f = field(root, "GOODB"); f.selectionStart = 5; f.selectionEnd = 5;
+  const keep = { ...R.captureField(f, root), value: f.value };
+  root.kids = []; const g = field(root, "GOOD");      // rebuilt from a draft one keystroke behind
+  R.restoreField(root, keep);
+  check("a field rebuilt while focused keeps the DM's live text, focus and caret", g.value === "GOODB" && g.focused && g.selectionStart === 5);
+}
+{
+  const body = panel.slice(panel.indexOf("function renderNow()"), panel.indexOf("let returnField = null;"));
+  check("right after a press in the panel, or a deck press, a focused field no longer holds the repaint back",
+    /if \(Date\.now\(\) > pressRenderUntil && !\(Date\.now\(\) - \(lastRun\.at \?\? 0\) < 3000\)\) \{ pendingRender = true; return; \}/.test(body)
+    && /keepField = captureField\(ae, el\);\s*if \(keepField\) keepField\.value = ae\.value;/.test(body)
+    && /if \(keepField\) \{ restoreField\(el, keepField\); pendingRender = false; \}/.test(body));
+  check("…background ticks still wait while the DM types (the guard stays for them)", /pendingRender = true; return; \}/.test(body));
+  check("any press in the panel outside a text field opens that moment (3 s)", /if \(!isPanelTextField\(ev\.target\)\) pressRenderUntil = Date\.now\(\) \+ 3000;/.test(panel));
 }
 check("UI-BIBLE §6.3 carries the rule", /A repaint keeps the DM's place/.test(bible));
 console.log(`All ${n} passed.`);
