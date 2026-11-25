@@ -57,9 +57,19 @@ check("our movement watcher and Sentinel each ask who handles them", /if \(!ours
 check("main.js forwards on phones only, inside ready (GPS registers its queries at init)", /if \(isPhoneClient\(\)\) forwardGpsWorkflows\(/.test(main) && main.indexOf("forwardGpsWorkflows({") > main.indexOf('Hooks.once("ready"'));
 check("the world setting exists, default Automatic", /register\(MODULE_ID, "gpsReactions"[\s\S]{0,700}default: "auto"/.test(settings));
 // ── 13–17. SEAT 22: a GPS question asked mid-roll is waited out, not aborted ─────────────────────────────────────────
-check("the wait's deadline: pushed out while a question is open, never past the cap; untouched when none is",
-  G.extendDeadline(15000, 14000, 0, true) === 16000 && G.extendDeadline(15000, 14000, 0, false) === 15000
-  && G.extendDeadline(15000, 119000, 0, true) === G.PROMPT_MAX_MS && G.extendDeadline(30000, 1000, 0, true) === 30000);
+check("the wait's deadline: while a question is open it is now + the WHOLE window (SEAT 23: the answer is followed by the roll, the dice and the park); untouched when none is, or past the cap",
+  G.extendDeadline(15000, 20000, 0, true, undefined, 15000) === 35000 && G.extendDeadline(15000, 14000, 0, false, undefined, 15000) === 15000
+  && G.extendDeadline(15000, G.PROMPT_MAX_MS + 1, 0, true, undefined, 15000) === 15000 && G.extendDeadline(30000, 1000, 0, true, undefined, 15000) === 30000);
+{
+  // SEAT 23 replayed: the question is answered at 20 s; midi parks at WaitForDamageRoll 6 s later (roll + Dicer's dice)
+  let deadline = 15000, parkedSeen = false;
+  for (let t = 0; t < 60000; t += 150) {
+    deadline = G.extendDeadline(deadline, t, 0, t < 20000, undefined, 15000);
+    if (t >= deadline) break;
+    if (t >= 26000) { parkedSeen = true; break; }
+  }
+  check("…so a park 6 s after the answer is still seen (it was missed with 2 s of slack)", parkedSeen === true);
+}
 {
   let t = 0, open = true;
   const slow = new Promise((r) => setTimeout(() => r("attack rolled"), 120));
@@ -82,7 +92,7 @@ check("the wait's deadline: pushed out while a question is open, never past the 
 {
   const rpc = src("rpc.js"), shell = src("shell.js");
   check("the executor's park wait and the phone's attack wait both use it",
-    /while \(\(deadline = extendDeadline\(deadline, Date\.now\(\), start, gpsPromptOpen\(\)\)\) > Date\.now\(\)\)/.test(rpc)
+    /while \(\(deadline = extendDeadline\(deadline, Date\.now\(\), start, gpsPromptOpen\(\), undefined, timeoutMs\)\) > Date\.now\(\)\)/.test(rpc)
     && /res = await raceWithPrompts\(rpc\.useActivityStart\(/.test(shell));
 }
 // ── 18–22. SEAT 22: GPS's opportunity attacks touch only a fight that starts while it is on ───────────────────────────
@@ -112,10 +122,21 @@ check("the wait's deadline: pushed out while a question is open, never past the 
   const L = G.oaLeftovers(scenes, combats);
   check("leftovers: GPS regions no allowed running fight points at, and the flags pointing at them; never other regions",
     JSON.stringify(L.regions.map((r) => r.id)) === '["his","orphan"]' && JSON.stringify(L.flags.map((f) => f.combatantId)) === '["w","z"]', JSON.stringify(L));
+  const off = G.oaLeftovers(scenes, combats.map((c) => ({ ...c, ok: false, marks: c.id === "his106" ? ["startProcessed-his106"] : [] })));
+  check("SEAT 23 (b): with GPS off (ok false everywhere) every GPS region and flag goes, and GPS's mark on his fight too",
+    off.regions.length === 3 && off.flags.length === 3 && JSON.stringify(off.marks) === '[{"combatId":"his106","key":"startProcessed-his106"}]', JSON.stringify(off));
+  class Combat { constructor(id, flags) { this.id = id; this.flags = flags; } getFlag(scope, key) { return this.flags?.[scope]?.[key]; } }
+  const gps2 = { enableOpportunityAttack: async () => "set up" };
+  G.guardGpsOa({ gps: gps2, hooks: { on() {} }, started: new Set(["mine"]), combatProto: () => Combat.prototype });
+  const his = new Combat("his106", {}), mine = new Combat("mine", {});
+  check("SEAT 23 (a): GPS reads its 'already handled' mark as set on his fight (so it never writes it), and as it really is on the fight that started",
+    his.getFlag("gambits-premades", "startProcessed-his106") === true && mine.getFlag("gambits-premades", "startProcessed-mine") === undefined
+    && his.getFlag("gambits-premades", "opportunityAttackRegion") === undefined && his.getFlag("dnd5e", "x") === undefined);
 }
 {
   const main = src("main.js");
-  check("main.js: prompts tracked, the guard on, and the GM's sweep at load, at a fight's end and on its delete",
+  check("SEAT 23 (b): the GM's sweep is wired outside the 'GPS is on' block", (() => { const i = main.indexOf("if (gpsActive()) {"); const j = main.indexOf("setTimeout(sweep, 5000)"); const close = main.indexOf("\n  }\n", i); return i > 0 && j > close; })());
+check("main.js: prompts tracked, the guard on, and the GM's sweep at load, at a fight's end and on its delete",
     /trackGpsPrompts\(\)/.test(main) && /guardGpsOa\(\)/.test(main) && /setTimeout\(sweep, 5000\)/.test(main) && /Hooks\.on\("deleteCombat", \(\) => setTimeout\(sweep/.test(main));
 }
 console.log(`All ${n} passed.`);

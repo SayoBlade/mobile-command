@@ -92,6 +92,8 @@ export function forwardGpsWorkflows({ queries = globalThis.CONFIG?.queries, isPh
 // question is open (a `process3rdPartyReactionDialog` query in flight from this client, or a GPS dialog on this screen),
 // up to PROMPT_MAX_MS, and their usual windows run on from the answer.
 export const PROMPT_MAX_MS = 120000;
+// SEAT 23: the answer must give the wait its WHOLE window again (the roll, Dicer's dice, the park all come after it);
+// 2 s of slack after Yes let the park wait end before midi parked, and the phone got "hit, no damage step".
 export const PROMPT_SLACK_MS = 2000;
 const pendingPrompts = new Set();
 export const _pendingPrompts = pendingPrompts; // tests
@@ -117,9 +119,13 @@ export function trackGpsPrompts(proto = globalThis.CONFIG?.User?.documentClass?.
   return true;
 }
 
-/** The wait's new deadline: pushed out while a question is open, never past start + maxMs. Pure. */
-export function extendDeadline(deadline, now, start, open, maxMs = PROMPT_MAX_MS) {
-  return open ? Math.min(start + maxMs, Math.max(deadline, now + PROMPT_SLACK_MS)) : deadline;
+/**
+ * The wait's new deadline. While a question is open (for at most maxMs from the start) it is pushed to now + window, so
+ * the moment it is answered the wait has its full usual window ahead of it. Pure.
+ */
+export function extendDeadline(deadline, now, start, open, maxMs = PROMPT_MAX_MS, window = PROMPT_SLACK_MS) {
+  if (!open || now - start > maxMs) return deadline;
+  return Math.max(deadline, now + Math.max(window, PROMPT_SLACK_MS));
 }
 
 /** promise, or "request timed out" after ms — longer while a GPS question is open. */
@@ -130,7 +136,7 @@ export function raceWithPrompts(promise, ms, { open = () => gpsPromptOpen(), max
     let done = false;
     const timer = setInterval(() => {
       if (done) return;
-      deadline = extendDeadline(deadline, now(), start, open(), maxMs);
+      deadline = extendDeadline(deadline, now(), start, open(), maxMs, ms);
       if (now() >= deadline) { done = true; clearInterval(timer); reject(new Error("request timed out")); }
     }, tick);
     Promise.resolve(promise).then(
@@ -160,7 +166,7 @@ export function gpsMayTouch(combat, { started = startedHere, moduleId = "mobile-
 
 /** Wrap game.gps.enableOpportunityAttack and mark fights that start. Once only. */
 export function guardGpsOa({ gps = globalThis.game?.gps, hooks = globalThis.Hooks, isGM = () => globalThis.game?.user?.isGM === true,
-  moduleId = "mobile-command", started = startedHere } = {}) {
+  moduleId = "mobile-command", started = startedHere, combatProto = () => globalThis.CONFIG?.Combat?.documentClass?.prototype } = {}) {
   if (!gps || typeof gps.enableOpportunityAttack !== "function" || gps.enableOpportunityAttack.__mcGuard) return false;
   const orig = gps.enableOpportunityAttack;
   const guarded = async function (target, event, ...rest) {
@@ -170,6 +176,22 @@ export function guardGpsOa({ gps = globalThis.game?.gps, hooks = globalThis.Hook
   };
   guarded.__mcGuard = true;
   gps.enableOpportunityAttack = guarded;
+  // SEAT 23 (a): Foundry's server switches the old fight off when another is activated; that update never passes a
+  // client's preUpdateCombat, so GPS's own "was already started" option is missing and its updateCombat wrote
+  // `startProcessed-<id>` onto his fight. GPS reads that mark first (utils/hooks.js): for a fight it may not touch the
+  // mark reads as set, so GPS neither writes it nor goes on.
+  try {
+    const proto = combatProto?.();
+    if (proto && typeof proto.getFlag === "function" && !proto.getFlag.__mcGpsMark) {
+      const getFlag = proto.getFlag;
+      const wrapped = function (scope, key) {
+        if (scope === GPS_ID && String(key).startsWith("startProcessed-") && !gpsMayTouch(this, { started, moduleId })) return true;
+        return getFlag.call(this, scope, key);
+      };
+      wrapped.__mcGpsMark = true;
+      proto.getFlag = wrapped;
+    }
+  } catch (e) { /* the mark is GPS's; the regions are refused above regardless */ }
   hooks?.on?.("combatStart", (combat) => {
     try {
       started.add(combat?.id);
@@ -187,6 +209,7 @@ const isGpsOaRegion = (r) => r?.flags?.[GPS_ID]?.opportunityAttackRegionMaxRange
  */
 export function oaLeftovers(scenes, combats) {
   const keep = new Set();
+  // combats: ok = GPS is on AND it may touch this fight; with GPS off nothing is kept
   for (const c of combats ?? []) if (c.started && c.ok) for (const cb of c.combatants ?? []) if (cb.regionUuid) keep.add(cb.regionUuid);
   const regions = [];
   for (const s of scenes ?? []) for (const r of s.regions ?? []) {
@@ -196,19 +219,24 @@ export function oaLeftovers(scenes, combats) {
   for (const c of combats ?? []) for (const cb of c.combatants ?? []) {
     if (cb.regionUuid && !keep.has(cb.regionUuid)) flags.push({ combatId: c.id, combatantId: cb.id });
   }
-  return { regions, flags };
+  // GPS's own "handled" marks on fights it may not touch (or on any fight once GPS is off)
+  const marks = [];
+  for (const c of combats ?? []) if (!c.ok) for (const k of c.marks ?? []) marks.push({ combatId: c.id, key: k });
+  return { regions, flags, marks };
 }
 
 /** The active GM clears GPS OA leftovers. Returns how many documents it touched. */
 export async function clearGpsOa(g = globalThis.game, { moduleId = "mobile-command" } = {}) {
   if (!g?.user?.isGM) return 0;
   if (g.users?.activeGM && g.users.activeGM.id !== g.user.id) return 0;
+  const on = gpsActive(g);   // SEAT 23 (b): with GPS off every one of its regions and marks is a leftover
   const scenes = [...(g.scenes ?? [])].map((s) => ({ id: s.id, regions: [...(s.regions ?? [])].map((r) => ({ id: r.id, uuid: r.uuid, flags: r.flags })) }));
   const combats = [...(g.combats ?? [])].map((c) => ({
-    id: c.id, started: c.started === true, ok: gpsMayTouch(c, { moduleId }),
+    id: c.id, started: c.started === true, ok: on && gpsMayTouch(c, { moduleId }),
+    marks: Object.keys(c.flags?.[GPS_ID] ?? {}).filter((k) => k.startsWith("startProcessed-")),
     combatants: [...(c.combatants ?? [])].map((cb) => ({ id: cb.id, regionUuid: cb.flags?.[GPS_ID]?.opportunityAttackRegion ?? null })),
   }));
-  const { regions, flags } = oaLeftovers(scenes, combats);
+  const { regions, flags, marks } = oaLeftovers(scenes, combats);
   let n = 0;
   const byScene = new Map();
   for (const r of regions) { if (!byScene.has(r.sceneId)) byScene.set(r.sceneId, []); byScene.get(r.sceneId).push(r.id); }
@@ -216,10 +244,13 @@ export async function clearGpsOa(g = globalThis.game, { moduleId = "mobile-comma
     try { await g.scenes.get(sid)?.deleteEmbeddedDocuments("Region", ids); n += ids.length; } catch (e) { console.warn("mobile-command | GPS OA regions", e); }
   }
   for (const f of flags) {
-    try { await g.combats.get(f.combatId)?.combatants?.get(f.combatantId)?.unsetFlag(GPS_ID, "opportunityAttackRegion"); n += 1; } catch (e) { /* gone */ }
+    try { await g.combats.get(f.combatId)?.combatants?.get(f.combatantId)?.update({ [`flags.${GPS_ID}.-=opportunityAttackRegion`]: null }); n += 1; } catch (e) { /* gone */ }
+  }
+  for (const m of marks) {
+    try { await g.combats.get(m.combatId)?.update({ [`flags.${GPS_ID}.-=${m.key}`]: null }); n += 1; } catch (e) { /* gone */ }
   }
   gpsBridgeState.cleared += n;
-  if (n) console.log(`mobile-command | cleared ${regions.length} Gambit's opportunity-attack region(s) and ${flags.length} flag(s) from fights it should not touch`);
+  if (n) console.log(`mobile-command | cleared ${regions.length} Gambit's opportunity-attack region(s), ${flags.length} combatant flag(s) and ${marks.length} fight mark(s) it should not have left`);
   return n;
 }
 gpsBridgeState.clearOa = () => clearGpsOa();

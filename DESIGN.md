@@ -10212,3 +10212,19 @@ regions and combatant flags. `guardGpsOa`: GPS may only set up a fight that star
 end, on its delete; `mcGps.clearOa()` by hand) deletes GPS OA regions no allowed running fight points at and unsets the
 combatant flags pointing at them. GPS's own one-time `startProcessed-<id>` mark on an old fight remains (harmless).
 `tools/test-gps-bridge.mjs` 13–23.
+
+### 60.4b SEAT 23: the damage step after Reckless Attack; GPS's mark on his fight; cleanup with GPS off — FIXED 2026-11-25
+**Damage:** the attack rolled with advantage and hit, but the phone never offered "Roll damage". 60.4a gave the park
+wait only 2 s after the answer; the roll, Dicer's dice and midi's park came later, so the wait ended first and the
+phone was told "hit, no damage step" while midi sat at WaitForDamageRoll. `extendDeadline` now puts the wait's whole
+window (15 s on the executor, 30 s on the phone) after the moment the question is answered.
+**(a)** Foundry's server switches the old fight off when another is activated; that update never passes a client's
+preUpdateCombat, so GPS's own "was already started" option is missing and it wrote `startProcessed-<id>` on his fight.
+GPS reads that mark before writing it: for a fight it may not touch, `getFlag` answers "set" (Combat prototype, scope
+gambits-premades, keys `startProcessed-*` only), so GPS writes nothing there.
+**(b)** `clearGpsOa` runs on the GM whether GPS is on or not (load, fight end, delete); with GPS off every GPS OA
+region, combatant flag and `startProcessed-*` mark is a leftover; flags go by plain update (`unsetFlag` refuses an
+inactive module's scope).
+**(c)** His fight not coming back after the test fight's delete is core: `Combat#_onDelete` only re-activates the
+deleting screen's viewed combat, and the sidebar view is cleared first. Not ours; nothing changed.
+`tools/test-gps-bridge.mjs` 27.

@@ -1040,12 +1040,14 @@ Hooks.once("ready", () => {
     try { trackGpsPrompts(); } catch (e) { console.warn(`${MODULE_ID} | gps prompts`, e?.message ?? e); }
     const guard = () => { try { guardGpsOa(); } catch (e) { console.warn(`${MODULE_ID} | gps oa guard`, e?.message ?? e); } };
     guard(); setTimeout(guard, 1000);
-    if (game.user.isGM) {
-      const sweep = () => clearGpsOa().catch((e) => console.warn(`${MODULE_ID} | gps oa sweep`, e?.message ?? e));
-      setTimeout(sweep, 5000);
-      Hooks.on("deleteCombat", () => setTimeout(sweep, 1500));
-      Hooks.on("updateCombat", (c, chg) => { if (chg && "round" in chg && Number(chg.round) === 0) setTimeout(sweep, 1500); });
-    }
+  }
+  // SEAT 23 (b): the sweep runs on the GM whether GPS is on or not — disabling GPS first, cleaning later, is the
+  // seat's own path, and a load with GPS off clears everything it left.
+  if (game.user.isGM) {
+    const sweep = () => clearGpsOa().catch((e) => console.warn(`${MODULE_ID} | gps oa sweep`, e?.message ?? e));
+    setTimeout(sweep, 5000);
+    Hooks.on("deleteCombat", () => setTimeout(sweep, 1500));
+    Hooks.on("updateCombat", (c, chg) => { if (chg && "round" in chg && Number(chg.round) === 0) setTimeout(sweep, 1500); });
   }
   registerFog(); // fog-of-war edge styles on the display (off/soft/gpu via `fogStyle`; see fog-soft.js)
   registerMusic();       // rooms, battle, Phase 2, cues — crossfaded; the primary GM drives (music.js)

@@ -1253,7 +1253,7 @@ async function findParkedWorkflow(activityUuid, itemUuid, preIds = new Set(), ti
   // SEAT 22: a Gambit's Premades question asked mid-roll (Reckless Attack at preAttackRollConfig) holds the workflow at
   // WaitForAttackRoll for as long as it is open; it is waited out, not aborted (gps-bridge.js extendDeadline).
   let deadline = start + timeoutMs;
-  while ((deadline = extendDeadline(deadline, Date.now(), start, gpsPromptOpen())) > Date.now()) {
+  while ((deadline = extendDeadline(deadline, Date.now(), start, gpsPromptOpen(), undefined, timeoutMs)) > Date.now()) {
     // midi 14 keeps workflows in a Map keyed by id, stored optionally as WeakRefs
     // (useWeakReferences; midi-qol.js 24336/24347). `Object.values()` on a Map is
     // ALWAYS [], which previously made this scan see nothing and the two-tap fail
