@@ -10264,6 +10264,11 @@ panel comes forward the way a Foundry window does (UI-BIBLE §6.5): any press on
 press opening a tab put it one level above every window and move Foundry's counter with it, so a dialog opened
 afterwards still lands on top. One panel element carries every tab, so every tab is covered.
 `panel-safe.js frontZ / bringToFront`; `tools/test-panel-front.mjs` 10.
+SEAT 28: the calendar clicked after the panel stayed under it. Foundry v14 skips a window's raise when it is already
+the front one — V2 `bringToFront` keeps its z when `#frontApp === this && ui.activeWindow === this`; V1 `bringToTop`
+returns when `ui.activeWindow === this` (reached via Draggable's capture pointerdown). Simple Calendar Reborn 2.6.1's
+MainApp is a v1 FormApplication and was the active window from load. `bringToFront` now sets `ui.activeWindow = null`
+(Foundry's own start state), so the next window pressed raises itself past the panel. test-panel-front 15.
 
 **SEAT 27 (2026-11-25): the "input doesn't work", for good.** The panel-in-front fix held. The rest: turning the
 board on or opening a drawer threw the tab to the top, the phrase box fell below the fold and had lost focus, so

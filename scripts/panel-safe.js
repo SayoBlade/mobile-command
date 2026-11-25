@@ -42,8 +42,15 @@ export function frontZ(current, counters, floor = 70) {
   return cur > top ? cur : top + 1;
 }
 
-export function bringToFront(el, { V2 = globalThis.foundry?.applications?.api?.ApplicationV2, V1 = globalThis.foundry?.appv1?.api?.Application } = {}) {
+export function bringToFront(el, { V2 = globalThis.foundry?.applications?.api?.ApplicationV2, V1 = globalThis.foundry?.appv1?.api?.Application, ui = globalThis.ui } = {}) {
   if (!el?.style) return null;
+  // SEAT 28: and the window the DM clicks next must come back over the panel. Both window kinds skip
+  // their own raise when Foundry still counts them as the front window (V2 bringToFront: frontApp and
+  // ui.activeWindow both this; V1 bringToTop: ui.activeWindow === this, reached through Draggable's
+  // pointerdown) — so the window touched before the panel (Simple Calendar, a v1 FormApplication)
+  // stayed under it. The panel taking the front means no Foundry window holds it: clear the marker.
+  // Foundry starts with it null, so null is a state it already handles.
+  try { if (ui && "activeWindow" in ui) ui.activeWindow = null; } catch (e) { /* read-only */ }
   const counters = [V2?._maxZ, V1?._maxZ].filter((v) => v !== undefined);
   const cur = Number(el.style.zIndex) || 0;
   const z = frontZ(cur, counters);

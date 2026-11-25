@@ -34,6 +34,28 @@ check("already in front: left where it is (no climb on every click)", P.frontZ(3
   check("…and the next use of the panel brings it forward again", P.bringToFront(el, { V2 }) === 104 && el.style.zIndex === "104");
   check("no element: nothing happens", P.bringToFront(null, { V2 }) === null);
 }
+{
+  // SEAT 28: Foundry's own raise logic, as in v14 (application.mjs bringToFront; application-v1.mjs bringToTop)
+  const ui = { activeWindow: null };
+  class V2 { static _maxZ = 100; static front = null;
+    constructor() { this.z = 0; }
+    bringToFront() { if (!(V2.front === this && ui.activeWindow === this)) this.z = ++V2._maxZ; V2.front = this; ui.activeWindow = this; } }
+  class V1 { constructor() { this.z = 0; }
+    bringToTop() { if (ui.activeWindow === this) return; if (this.z < V2._maxZ) { this.z = ++V2._maxZ; ui.activeWindow = this; } } }
+  const panelEl = { style: { zIndex: "" } };
+  const cal = new V1(); cal.bringToTop(); cal.z = cal.z || ++V2._maxZ; ui.activeWindow = cal;   // Simple Calendar opens at load
+  P.bringToFront(panelEl, { V2, ui });
+  check("the panel clicked → above Simple Calendar, and Foundry no longer counts the calendar as the front window",
+    Number(panelEl.style.zIndex) > cal.z && ui.activeWindow === null);
+  cal.bringToTop();                                                                               // the DM clicks the calendar
+  check("the calendar (a v1 window) clicked next → back above the panel", cal.z > Number(panelEl.style.zIndex), `${cal.z} vs ${panelEl.style.zIndex}`);
+  P.bringToFront(panelEl, { V2, ui });
+  check("…the panel clicked again → in front again", Number(panelEl.style.zIndex) > cal.z);
+  const sheet = new V2(); sheet.bringToFront(); P.bringToFront(panelEl, { V2, ui }); sheet.bringToFront();
+  check("the same both ways for a v2 window (a sheet touched last before the panel comes back over it)", sheet.z > Number(panelEl.style.zIndex));
+  const dlg = new V2(); dlg.bringToFront();
+  check("a roll dialog opened after using the panel still opens on top", dlg.z > Number(panelEl.style.zIndex));
+}
 check("any press on the panel brings it forward (capture, so every tab and drawer is covered)",
   /panelEl\.addEventListener\("pointerdown", \(\) => \{ try \{ bringToFront\(panelEl\); \}/.test(panel) && /"pointerdown", [^\n]*, true\);/.test(panel));
 check("a deck press opening a tab brings it forward too", /if \(dockTab\) bringToFront\(panelEl\);/.test(panel));

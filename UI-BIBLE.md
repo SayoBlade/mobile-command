@@ -493,7 +493,10 @@ at load — Simple Calendar, top-left on every GM load — drew over the Crooked
 tab looked like it never opened. Now the panel takes the next level itself whenever the DM uses it: a press or tap
 anywhere on it, a tab opening, a deck press opening a tab. A window or dialog opened AFTER that still lands on top
 (Foundry's own order: the last thing touched is in front), so a roll dialog is never hidden under the panel. The
-panel never moves to dodge a window, and never stays pinned above everything.
+panel never moves to dodge a window, and never stays pinned above everything. Both ways (SEAT 28): taking the
+front, the panel also clears Foundry's front-window marker (`ui.activeWindow`), because a Foundry window — v1 or v2,
+Simple Calendar included — skips its own raise when it still counts as the front one; so the window clicked
+after the panel comes back on top. Whichever was clicked last is in front.
 
 **The selected-token strip obeys §6.3 hard.** It is **always present at a fixed height**, showing a
 neutral resting state when nothing is selected — selecting/deselecting a token must never grow or
