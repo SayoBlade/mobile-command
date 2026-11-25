@@ -39,7 +39,8 @@ export const remoteState = {
   savePrompt: null,
   rollRequest: null,
   reactionPrompt: null,
-  storyPrompt: null
+  storyPrompt: null,
+  choiceOffer: null // deck-command D-0197: a choice the DM offered this player
 };
 
 // Executor-side state: area spells the phone has asked the DM to place (AoE push,
@@ -179,6 +180,10 @@ export function initSocket() {
   reg("fixPcTokens", handleFixPcTokens);
   reg("requestRolls", handleRequestRolls);
   reg("rollRequest", handleRollRequest);
+  reg("offerChoice", handleOfferChoice);     // deck-command D-0197: a choice on one player's phone
+  reg("withdrawChoice", handleWithdrawChoice);
+  reg("choiceOffer", handleChoiceOffer);
+  reg("answerChoice", handleAnswerChoice);
   reg("requestColorPick", handleRequestColorPick);
   reg("colorPick", handleColorPick);
   reg("aooPrompt", handleAoOPromptClient);
@@ -2617,6 +2622,26 @@ async function settleAsk(id) {
   Hooks.callAll("mobile-command.dmReactionGone", { id }); // the panel's chip goes too
 }
 const askById = (id) => pendingAsks().find((e) => e.id === id) ?? null;
+/**
+ * -- ANOTHER MODULE'S ASK ON THE ROW (deck-command D-0197, 2026-11-25: the Maim offer when a PC goes down) --
+ * A module with its own question for the DM puts it in the same queue the deck's Notifications key reads, without the
+ * panel's chip (the panel draws only the kinds it knows). Its kind is registered with actions-asks.js
+ * (`registerAskKind`), which also settles it once answered; the module can settle it earlier (the PC healed). Written
+ * only by the executor, like every ask. One entry per id: raising an id again replaces it.
+ */
+export async function raiseOutsideAsk(entry = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!entry.id || !entry.kind) return { ok: false, reason: "an ask needs an id and a kind" };
+  const now = Date.now();
+  const live = pendingAsks().filter((e) => e.id !== entry.id && !(e.expiresAt && e.expiresAt < now));
+  await writeAsks([...live, { ...entry, ts: now }]);
+  return { ok: true };
+}
+export async function settleOutsideAsk(id) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  await settleAsk(id);
+  return { ok: true };
+}
 /** Scribe: yes copies the spell into the book (unprepared), uses up the scroll, posts the suggested cost; either way the player hears. */
 export async function answerScribe(entry, ok) {
   entry = entry ?? null; if (!entry) return { ok: false, reason: "that request is gone" };
@@ -3509,6 +3534,53 @@ function handleRollRequest(payload) {
   remoteState.rollRequest = payload ?? null;
   Hooks.callAll("mobile-command.rollRequest", payload ?? null);
   return true;
+}
+
+// ── A CHOICE ON ONE PLAYER'S PHONE (deck-command D-0197, 2026-11-25: "Roll Maim / Take death saves") ──────────────
+// The DM's side offers a short choice to the players who own an actor; their phone shows it as a card (shell.js
+// #choiceOfferHTML), and the pick comes back to the executor as the hook "mobile-command.choiceAnswer"
+// { ref, choice, actorUuid, total?, messageId?, userId }. A choice that carries `roll` ("1d100") is ROLLED ON THE
+// PHONE (players roll their own dice, DM 2026-10-30): a public roll in chat as that actor, and its total and message id
+// travel with the pick. MC keeps no meaning of its own: what a choice does is the asker's.
+//   offerChoice({ actorUuid, ref, title, sub?, choices: [{ id, label, roll?, flavor?, primary? }] }) → { ok, sent }
+//   sent 0: no owner is online, and the asker decides (deck-command rolls on the DM's side and says so).
+export function choiceList(choices) {
+  return (Array.isArray(choices) ? choices : []).filter((c) => c && c.id != null && String(c.label ?? "").trim()).slice(0, 3)
+    .map((c) => ({ id: String(c.id), label: String(c.label).trim(), ...(c.roll ? { roll: String(c.roll) } : {}), ...(c.flavor ? { flavor: String(c.flavor) } : {}), ...(c.primary ? { primary: true } : {}) }));
+}
+const choiceOwners = (actor) => game.users.filter((u) => u.active && !u.isGM && actor?.testUserPermission?.(u, "OWNER"));
+const actorOf = (uuid) => { try { const d = fromUuidSync(String(uuid)); const a = d?.documentName === "Token" ? d.actor : d; return a?.documentName === "Actor" ? a : null; } catch (e) { return null; } };
+async function handleOfferChoice({ actorUuid, ref, title, sub, choices, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM offers a choice" };
+  const actor = actorOf(actorUuid), list = choiceList(choices);
+  if (!actor || !ref || !list.length) return { ok: false, reason: "a choice needs an actor, a ref and its choices" };
+  const owners = choiceOwners(actor);
+  const payload = { actorUuid: actor.uuid, ref: String(ref), title: String(title ?? "The DM asks"), ...(sub ? { sub: String(sub) } : {}), choices: list, ts: Date.now() };
+  for (const u of owners) socket?.executeAsUser("choiceOffer", u.id, payload);
+  return { ok: true, sent: owners.length };
+}
+async function handleWithdrawChoice({ actorUuid, ref, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  if (!game.users.get(requesterId)?.isGM) return { ok: false, reason: "only the DM withdraws a choice" };
+  for (const u of choiceOwners(actorOf(actorUuid))) socket?.executeAsUser("choiceOffer", u.id, { withdraw: String(ref) });
+  return { ok: true };
+}
+function handleChoiceOffer(payload) {
+  if (payload?.withdraw) { if (remoteState.choiceOffer?.ref === payload.withdraw) remoteState.choiceOffer = null; }
+  else remoteState.choiceOffer = payload ?? null;
+  Hooks.callAll("mobile-command.choiceOffer", remoteState.choiceOffer);
+  return true;
+}
+async function handleAnswerChoice({ ref, choice, actorUuid, total, messageId, requesterId } = {}) {
+  if (!isExecutor()) return { ok: false, reason: "not the DM client" };
+  const user = game.users.get(requesterId), actor = actorOf(actorUuid);
+  if (!user || !actor?.testUserPermission?.(user, "OWNER")) return { ok: false, reason: "not your character" };
+  const n = Number(total);
+  Hooks.callAll("mobile-command.choiceAnswer", { ref: String(ref), choice: String(choice), actorUuid: actor.uuid, ...(Number.isFinite(n) ? { total: n } : {}), ...(messageId ? { messageId: String(messageId) } : {}), userId: user.id });
+  // the card goes from every other owner's phone too
+  for (const u of choiceOwners(actor)) if (u.id !== user.id) socket?.executeAsUser("choiceOffer", u.id, { withdraw: String(ref) });
+  return { ok: true };
 }
 
 // Colour pick (task #18): the DM taps the palette by a player in the Players tab →
@@ -4559,6 +4631,7 @@ function toExecutor(handler, payload) {
       partyDeploy: handlePartyDeploy, partyRelease: handlePartyRelease,
       partyCombine: handlePartyCombine, fixPcTokens: handleFixPcTokens,
       requestRolls: handleRequestRolls, requestColorPick: handleRequestColorPick,
+      offerChoice: handleOfferChoice, withdrawChoice: handleWithdrawChoice, answerChoice: handleAnswerChoice,
       downtimePick: handleDowntimePick, downtimeOp: handleDowntimeOp
     };
     return handlers[handler](payload);
@@ -4646,6 +4719,9 @@ export const api = {
   partyCombine: (payload = {}) => toExecutor("partyCombine", payload),
   fixPcTokens: (payload = {}) => toExecutor("fixPcTokens", payload),
   requestRolls: (payload = {}) => toExecutor("requestRolls", payload),
+  offerChoice: (payload = {}) => toExecutor("offerChoice", payload),       // deck-command D-0197
+  withdrawChoice: (payload = {}) => toExecutor("withdrawChoice", payload),
+  answerChoice: (payload = {}) => toExecutor("answerChoice", payload),
   requestColorPick: (payload = {}) => toExecutor("requestColorPick", payload),
   downtimePick: (payload = {}) => toExecutor("downtimePick", payload),
   // §17.7 downtime v2: one entry, dispatched by payload.op (see handleDowntimeOp). The DM panel

@@ -27,5 +27,5 @@ check("reachable: registered on the executor and on the api", rpc.includes('reg(
 check("the deck's notice: Stay (drawn as the way out) · Follow <Name> with his token art",
   asks.includes('{ id: "cancel", label: "Stay" }') && asks.includes('{ id: "follow", label: `Follow ${who(e)}`, img: tokenArt(e.forActorUuid), token: true }') && asks.includes("went ahead to"));
 check("a crossing question comes before an 'ahead' notice; stale notices are filtered out",
-  /KINDS\[e\.kind\]\.live\?\.\(e\) \?\? true/.test(asks) && /rank: 1/.test(asks));
+  /kindOf\(e\.kind\)\.live\?\.\(e\) \?\? true/.test(asks) && /rank: 1/.test(asks));
 console.log(`\nall ${n} passed`);

@@ -2,7 +2,7 @@ import { MODULE_ID } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { registerSettings, resolveExecutorId, isExecutor, displayUserId, isDisplayShared, syncDisplayObserver, DISPLAY_LEVEL, setTvAudioState, setTvSoftFogState, isOnlineTable, hasSharedScreen } from "./settings.js";
 import { diffPreset, applyPreset, checkAndPrompt, deactivate, reactivate, hasBackup } from "./enforcer.js";
-import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, registerReactionNotifier, registerSummonOwnership, api, actorTokenSight } from "./rpc.js";
+import { initSocket, startHeartbeat, registerSaveRelay, registerDialogWatchdog, registerReactionNotifier, registerSummonOwnership, api, actorTokenSight, raiseOutsideAsk, settleOutsideAsk, pendingAsks } from "./rpc.js";
 import { initPauseGuard } from "./pause-guard.js";
 import { initPauseOverlay } from "./pause-overlay.js";
 import { initHeartbeat } from "./heartbeat.js";
@@ -44,7 +44,7 @@ import "./actions-effects.js"; // §52 area G — each area file registers its r
 import "./actions-cm.js"; // §52 area H — the Crooked Moon tab (and its requests)
 import { travelState } from "./dm-panel.js"; // §18 travel state for the public API (read-only)
 import "./actions-travel.js"; // the travel area, which was declared and published nothing (2026-10-18)
-import "./actions-asks.js"; // §55.6 players waiting on the DM (a Basic travel square) — the deck's Notifications
+import { registerAskKind } from "./actions-asks.js"; // §55.6 players waiting on the DM (a Basic travel square) — the deck's Notifications
 import { registerSoundBehavior, cues } from "./region-sound.js"; // §53 the "Sound" region behaviour + the house door sets
 import { audioPrompt, settleWithin } from "./audio-prompt.js"; // the display's sound prompt: card, icon or nothing
 import { registerMusicBehavior, registerMusic, state as musicState, pick as musicPick, next as musicNext, cue as musicCue, moods as musicMoods, roomOf as musicRoomOf, overlapState as musicOverlap, adoptSceneMusic as musicAdoptSceneMusic, adoptApprovedOnce as musicAdoptApprovedOnce, holdMusic as musicHold, releaseMusic as musicRelease } from "./music.js"; // the music layer (deck-command MUSIC-LAYER.md)
@@ -1059,6 +1059,9 @@ Hooks.once("ready", () => {
 
   globalThis.MobileCommand = {
     ...api,
+    // ANOTHER MODULE'S QUESTION FOR THE DM, on the deck's Notifications row (deck-command D-0197, the Maim offer):
+    // register its kind once, raise and settle its asks (executor only). See actions-asks.js and rpc.js raiseOutsideAsk.
+    asks: { register: registerAskKind, raise: raiseOutsideAsk, settle: settleOutsideAsk, pending: () => pendingAsks() },
     enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, deactivate, reactivate, revert: deactivate, hasBackup },
     train: { wire: wireTrainDoors, ride: setTrainMist, sound: setTrainSound, preload: preloadRideSound, jolt: setTrainJolt, joltNow, riding: trainMistOn, hasWindows: trainCarHasWindows, setWindows: setTrainWindows, freeWeather: (o) => freeTrainWeather({ force: true, ...o }) }, // §37 macro access (§8.1 manual triggers)
     house: { restore: (o) => restoreCrookedHouse({ force: true, ...o }), plan: () => planHouseNow(), atticRooms: (o) => makeAtticRooms({ force: true, ...o }), atticPlan: () => planAtticNow(), zones: () => { syncSoundZones(); return soundMixState().zones; } }, // the Crooked House put-back (§8.1 manual trigger)

@@ -279,6 +279,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   #wasPacked = false;     // pack-transition latch: jump phones to the order tab once per pack
   #lastReleased = null;   // scout release-follow: last-seen released member set
   #rollRequest = null;    // DM roll-request prompt {actorUuid, rollType, ability, label, dc}
+  #choiceOffer = null;    // a choice the DM offered (deck-command D-0197: "Roll Maim / Take death saves") {ref, actorUuid, title, sub, choices}
   #veRollMode = "normal"; // the VE trial's Disadvantage · Normal · Advantage pick on that prompt (ve-trial.js)
   #colorPickOpen = false; // DM-triggered colour-picker overlay is showing
   #prep = null; // Prepare spells (D-0106): { actorId, data, classIdx, picks: Map<classId, Map<uuid,bool>>, filters: Set, busy, error }
@@ -743,6 +744,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       ${this.#savePromptHTML()}
       ${this.#reactionPromptHTML()}
       ${this.#rollRequestHTML()}
+      ${this.#choiceOfferHTML()}
       ${this.#storyPromptHTML()}
       ${this.#aooPromptHTML()}
       ${this.#tradePromptHTML()}
@@ -6666,6 +6668,52 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (payload) this.#sfx("prompt");
     if (this.rendered) this.render();
   }
+  // A CHOICE THE DM OFFERED (deck-command D-0197): one card, one tap answers it. A choice with `roll` rolls it here,
+  // on this phone, as this character (players roll their own dice), and the total goes back with the pick.
+  // No ✕: the card is a question the table is paused for; one of its own answers is the way out.
+  noteChoiceOffer(payload) {
+    this.#choiceOffer = payload?.ref ? payload : null;
+    if (this.#choiceOffer) this.#sfx("prompt");
+    if (this.rendered) this.render();
+  }
+  #choiceOfferHTML() {
+    const p = this.#choiceOffer;
+    if (!p) return "";
+    let a = null;
+    try { a = p.actorUuid ? fromUuidSync(p.actorUuid) : null; } catch (e) { a = null; }
+    if (!a?.testUserPermission?.(game.user, "OWNER")) return "";
+    const esc = foundry.utils.escapeHTML;
+    const btns = (p.choices ?? []).map((c) => `<button class="mc-save-roll" data-action="choice-pick" data-id="${esc(String(c.id))}">${c.roll ? '<i class="fas fa-dice-d20"></i> ' : ""}${esc(String(c.label))}</button>`).join("");
+    return `<div class="mc-saveprompt mc-choiceoffer">
+      <div class="mc-saveprompt-bar">
+        <span class="mc-saveprompt-title"><i class="fas fa-circle-question"></i> ${esc(String(p.title ?? "The DM asks"))}</span>
+      </div>
+      <div class="mc-saveprompt-body">
+        ${p.sub ? `<div class="mc-saveprompt-sub">${esc(String(p.sub))}</div>` : ""}
+        <div class="mc-saveprompt-btns">${btns}</div>
+      </div>
+    </div>`;
+  }
+  async #pickChoice(id) {
+    const p = this.#choiceOffer;
+    const c = p?.choices?.find((x) => String(x.id) === String(id));
+    if (!c) return;
+    this.#choiceOffer = null; this.render();
+    let a = null;
+    try { a = fromUuidSync(p.actorUuid); } catch (e) { a = null; }
+    if (a?.documentName !== "Actor") return;
+    let total, messageId;
+    if (c.roll) {
+      try {
+        const roll = await new Roll(c.roll).evaluate();
+        const speaker = rollMessageFor(a).data?.speaker ?? ChatMessage.getSpeaker({ actor: a });
+        const msg = await roll.toMessage({ speaker, flavor: c.flavor ?? c.label });
+        total = roll.total; messageId = msg?.id;
+      } catch (e) { notifier.warn(`Couldn't roll ${c.label}.`); this.#choiceOffer = p; return this.render(); }
+    }
+    const r = await rpc.answerChoice({ ref: p.ref, choice: c.id, actorUuid: p.actorUuid, total, messageId });
+    if (r?.ok === false) notifier.warn(r.reason ?? "The DM didn't get that.");
+  }
   openColorPick() { this.#colorPickOpen = true; this.#sfx("prompt"); if (this.rendered) this.render(); }
   #rollRequestHTML() {
     const p = this.#rollRequest;
@@ -7721,6 +7769,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         return;
       }
       case "roll-request-x": this.#rollRequest = null; return this.render();
+      case "choice-pick": return void this.#pickChoice(el.dataset.id);
       case "roll-request-mode": this.#veRollMode = ["dis", "normal", "adv"].includes(el.dataset.mode) ? el.dataset.mode : "normal"; return this.render();
       case "aoo-attack": {
         const p = this.#cur("aoo")?.payload;
@@ -9747,6 +9796,7 @@ export function registerShellHooks() {
   });
   Hooks.on("mobile-command.reactionPrompt", (payload) => shellInstance?.noteReactionPrompt(payload));
   Hooks.on("mobile-command.rollRequest", (payload) => shellInstance?.noteRollRequest(payload));
+  Hooks.on("mobile-command.choiceOffer", (payload) => shellInstance?.noteChoiceOffer(payload)); // deck-command D-0197
   Hooks.on("mobile-command.aooPrompt", (payload) => shellInstance?.noteAoOPrompt(payload));
   Hooks.on("mobile-command.transferOffer", (payload) => shellInstance?.noteTradeOffer(payload)); // §20 T-p2p incoming give
   // "Show Players" image → the phone. The shell hides native windows, so Foundry's

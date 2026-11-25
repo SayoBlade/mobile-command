@@ -2571,6 +2571,10 @@ question, the collect-gear nudge) count as BASE work, not Ember work.
    **SEAT 13 2026-11-23:** §28.4 leg 10 FAILED (an anthem stopped mid-turn: 30 s+ of silence) → FIXED, the layer's own
    heal (§59.4c); 12.1 Foyer → First Sacrifice left the Foyer's room music playing → FIXED (§59.4c). Owed: leg 10 re-run.
 
+0ᶜ. **OPEN 2026-11-25 — another module's ask and a choice on one phone (§55.7) are BUILT for deck-command's Maim table,
+   not yet seen on a phone.** Owed: deck-command MAIM-SEAT-2026-11-25.md steps 8–17 (the row, the card, Roll Maim's d100
+   on the phone, Take death saves, no phone).
+
 0ᵇ. **OPEN 2026-11-16 — the table's one mix (§58) is BUILT; its numbers are PREDICTED, not measured.** His words:
    *"music completely hides them … they all need to be at around 25-50% volume so the DM's voice is clearly heard"*, then
    *"a set volume for everything that's defaulted on launch … and … every sound when playing it"* (§58.7) and *"set the
@@ -9507,6 +9511,27 @@ both hooks, the rescue's clears, the three `#partyUI()` sites, the registration 
 confirm).
 
 > **2026-11-01 — the Answer pick offers the book's answers too** (DM: "look at the journal for suggestions, then fill them up, I'm guessing most will be written by dm"). `SEANCE_ANSWERS` in cm-live.js: Chapter 12 H3 Parlor's suggested answers in the book's order — PATRINI, UPSTAIRS, MURDER, EUSTACE LOCKWOOD, HAG, ATTIC, 6 MEMENTOS, GEM KEY CUP DOLL BEAR PIN, EVERY FLOOR, FIND MY SON HE LIVES — after the four printed words. Spelled by the planchette like any phrase. test-actions 42/42.
+
+### 55.7 Another module's ask, and a choice on one phone (deck-command D-0197, 2026-11-25) — BUILT, owed a seat
+
+**Why:** the DM's Maim table (deck-command D-0197): *"it would be nice if I could send a roll request based on a choice
+(via deck notifications) when a player goes down"*. Deck Command owns the rule and the table; MC owns the row and the
+phone. MC learns nothing about Maim.
+
+- **Another module's ask on `table.ask`:** `MobileCommand.asks.register(kind, { sub, choices, answer, live?, rank? })`
+  (actions-asks.js `registerAskKind`; a built-in kind can't be replaced), `asks.raise(entry)` / `asks.settle(id)`
+  (rpc.js `raiseOutsideAsk` / `settleOutsideAsk`, executor only; raising an id again replaces it), `asks.pending()`.
+  Such an ask has no panel chip (the panel draws only its own kinds). When it is answered from the row, MC settles it
+  after the module's `answer`. MC neither pauses nor unpauses for it.
+- **A choice on one player's phone:** `MobileCommand.offerChoice({ actorUuid, ref, title, sub?, choices })` (DM only;
+  at most three choices, each `{ id, label, roll?, flavor? }`) goes to the actor's online owners as `choiceOffer`.
+  The phone shows a card in the prompt chrome with no ✕ (the table is waiting on it; one of its answers is the way
+  out). A choice with `roll` is rolled on the phone, publicly, as that character: players roll their own dice. The
+  pick, with its total and message id, comes back to the executor as the hook `mobile-command.choiceAnswer`
+  `{ ref, choice, actorUuid, total?, messageId?, userId }`. Only an owner can answer, and the card leaves the other
+  owners' phones. `withdrawChoice({ actorUuid, ref })` takes it back. `sent: 0` means no owner is online, and the asker
+  decides what to do.
+- Test: tools/test-outside-ask.mjs (19). Owed: the seat (deck-command MAIM-SEAT-2026-11-25.md steps 8–17).
 
 ## 56. Prepare spells on the phone (DM 2026-11-13, "BUILD option (b)"; deck-command D-0106) — BUILT 2026-11-13
 

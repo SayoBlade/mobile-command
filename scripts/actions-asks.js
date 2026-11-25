@@ -1,6 +1,6 @@
 import { MODULE_ID } from "./preset.js";
 import { defineActions } from "./actions.js";
-import { api as rpc, pendingAsks, aheadLive, answerScribe, answerSummon, answerTrade } from "./rpc.js";
+import { api as rpc, pendingAsks, aheadLive, answerScribe, answerSummon, answerTrade, settleOutsideAsk } from "./rpc.js";
 import { crossingName, otherHeroNames } from "./crossing-name.js";
 
 /**
@@ -86,9 +86,23 @@ const KINDS = {
   },
 };
 
+/**
+ * ANOTHER MODULE'S KINDS (deck-command D-0197, the Maim offer). `registerAskKind(kind, { sub, choices, answer, live?, rank? })`
+ * — the same shape as a kind above; its asks are raised with rpc.js `raiseOutsideAsk`. Answered here, the ask is settled
+ * here too (the module's answer does its own work and need not touch the queue). A built-in kind can't be replaced.
+ */
+const OUTSIDE = new Map();
+export function registerAskKind(kind, def) {
+  const k = String(kind ?? "");
+  if (!k || KINDS[k] || typeof def?.sub !== "function" || typeof def?.choices !== "function" || typeof def?.answer !== "function") return false;
+  OUTSIDE.set(k, { ...def, outside: true });
+  return true;
+}
+const kindOf = (k) => KINDS[k] ?? OUTSIDE.get(k) ?? null;
+
 // a player waiting on a crossing comes before a notice that someone went ahead; then oldest first
-const queue = () => pendingAsks().filter((e) => KINDS[e.kind] && (KINDS[e.kind].live?.(e) ?? true))
-  .sort((a, b) => ((KINDS[a.kind].rank ?? 0) - (KINDS[b.kind].rank ?? 0)) || ((a.ts ?? 0) - (b.ts ?? 0)));
+const queue = () => pendingAsks().filter((e) => kindOf(e.kind) && (kindOf(e.kind).live?.(e) ?? true))
+  .sort((a, b) => ((kindOf(a.kind).rank ?? 0) - (kindOf(b.kind).rank ?? 0)) || ((a.ts ?? 0) - (b.ts ?? 0)));
 const front = () => queue()[0] ?? null;
 
 defineActions([
@@ -100,21 +114,23 @@ defineActions([
     sub: () => {
       const q = queue();
       if (!q.length) return undefined;
-      return KINDS[q[0].kind].sub(q[0]) + (q.length > 1 ? ` · +${q.length - 1} waiting` : "");
+      return kindOf(q[0].kind).sub(q[0]) + (q.length > 1 ? ` · +${q.length - 1} waiting` : "");
     },
-    choices: () => { const e = front(); return e ? KINDS[e.kind].choices(e) : []; },
+    choices: () => { const e = front(); return e ? kindOf(e.kind).choices(e) : []; },
     ref: () => front()?.id,
     run: async ({ choice, ref } = {}) => {
       const e = front();
       if (!e) return { ok: false, reason: "nobody is waiting" };
       if (ref && ref !== e.id) return { ok: false, reason: "that ask was already answered — look again" };
-      const kind = KINDS[e.kind];
+      const kind = kindOf(e.kind);
       if (!kind.choices(e).some((c) => c.id === String(choice))) return { ok: false, reason: "pick one of the answers" };
       const r = await kind.answer(e, String(choice));
-      return r?.ok === false ? { ok: false, reason: r.reason ?? "couldn't answer" } : undefined;
+      if (r?.ok === false) return { ok: false, reason: r.reason ?? "couldn't answer" };
+      if (kind.outside) await settleOutsideAsk(e.id);
+      return undefined;
     },
   },
 ]);
 
-export const _askKindsForTests = Object.keys(KINDS); // which kinds the row answers — the test pins it
+export const _askKindsForTests = Object.keys(KINDS); // the built-in kinds (outside ones: registerAskKind) // which kinds the row answers — the test pins it
 void MODULE_ID;
