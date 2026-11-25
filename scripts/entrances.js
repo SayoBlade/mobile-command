@@ -6,6 +6,7 @@ import { mayCoverViewport } from "./overlay-guard.js"; // §22.7 the one full-sc
 import { socket } from "./rpc.js"; // the one-shot channel effects.js fires on (importing effects.js would close a cycle)
 import { CM_ENTRANCES } from "./cm-entrances.js";
 import { holdTv, releaseTv } from "./tv-hold.js";
+import { notePause } from "./on-now.js"; // MC redesign phase 2: On now names who paused
 
 // §40.6 ENTRANCES — the themed banner ("Intros" in the DM panel; DM 2026-09-19).
 //
@@ -570,7 +571,7 @@ export async function dmPlayEntrance(key) {
   if (!game.user?.isGM) return false;
   const e = entranceByKey(key);
   if (!e) { notifier.warn(`Mobile Command: there's no intro called "${key}".`); return false; }
-  if (e.pause && !game.paused) game.togglePause(true, { broadcast: true });
+  if (e.pause && !game.paused) { notePause("an intro"); game.togglePause(true, { broadcast: true }); }
 
   const scene = stageScene();
   const { known, form } = resolveForm(e, scene);

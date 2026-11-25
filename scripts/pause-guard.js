@@ -1,6 +1,7 @@
 import { MODULE_ID } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { isExecutor } from "./settings.js";
+import { notePause } from "./on-now.js"; // MC redesign phase 2: On now names who paused
 
 // §2.1 (DECIDED 2026-06-12): pause-based freeze. When the executor client
 // stops viewing the active scene, midi workflows and spatial answers would
@@ -21,6 +22,7 @@ function evaluate() {
 
   if (offScene && !game.paused) {
     pausedByGuard = true;
+    notePause("you leaving the active scene");
     game.togglePause(true, { broadcast: true });
     notifier.info("Mobile Command: paused — DM left the active scene");
   } else if (!offScene && game.paused && pausedByGuard) {

@@ -110,3 +110,16 @@ without the deck, camera fold-away with the deck.
 7. For you to judge at the seat: a twist, bargain or spell now makes the deck shout for six seconds like a
    crossing does. My pick: keep it and see; if it is too loud, those three can take the quiet form.
 8. Not done: the night-ambush "mark sleepers Surprised?" question is still a popup.
+
+## 2026-11-26, night 1: phase 2, "On now" (built)
+
+1. One line on the panel floor, under Waiting: **music · weather · hour · TV camera**. Tap it for the sheet.
+2. The sheet says why, one line each: the music and the reason (the room the party is in, the fight, a cue, your
+   own pick, silence), the weather, the time, the TV camera (follows the party, follows 3 of 4, spotlight in a
+   fight, manual, or held by an intro), the TV's sound (live, muted, "tap the TV", or no TV reporting),
+   Syrinscape (online, local files, or offline), and who handles reactions (Mobile Command or Gambit's).
+3. **When the game is paused, the sheet says by what** (a boss intro, an intro, a player's ask, travel, or you
+   leaving the active scene; otherwise "by you") with a Resume button. A warning that is not on the line (paused,
+   TV sound, Syrinscape offline) puts a red mark on the line.
+4. Nothing it reports was changed; it only reads.
+5. Tests: new `test-on-now` (27 checks); 76 suites pass.

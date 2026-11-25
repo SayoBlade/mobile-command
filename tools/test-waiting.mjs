@@ -116,7 +116,7 @@ check("an expired chip and the panel's old travel/scribe chips are not drawn twi
 /* ── 18–20. the panel, by source ─────────────────────────────────────────────────────────────────────── */
 const panel = fs.readFileSync(new URL("scripts/dm-panel.js", REPO), "utf8");
 check("the floor draws Waiting right under who is here, above the camera buttons",
-  /statusHTML\(\) \+ waitingHTML\(\) \+ cameraFloorHTML\(\) \+ quickHpHTML\(\)/.test(panel));
+  /statusHTML\(\) \+ waitingHTML\(\) \+ onNowHTML\(\) \+ cameraFloorHTML\(\)/.test(panel));
 const combat = panel.slice(panel.indexOf("function combatTabHTML()"), panel.indexOf("// --- §40 Boss intro"));
 check("the Combat tab no longer holds the split-party chip or the spell-placing list", !/splitParty|pendingHTML|listPendingCasts/.test(combat), combat.slice(0, 300));
 check("the floor repaints when the queue changes in any tab (asks, staged curse, twist or bargain flags)",

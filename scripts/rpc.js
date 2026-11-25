@@ -16,6 +16,7 @@ import * as DT from "./downtime.js"; // §17.7 downtime data model + Rule engine
 import { wallsBlock } from "./cm-train.js";
 import { messageForRequest } from "./blind-roll.js"; // a blind ask (deck-command D-0118)
 import { surfaceOn } from "./tier.js"; // Basic / Complex: who decides a travel square (tier.js imports only preset.js)
+import { notePause } from "./on-now.js"; // MC redesign phase 2: On now names who paused
 
 // §5 Service RPC contract, Phase 1 subset, running on the executor client
 // (§2.1: the DM Screen GM client). All Spike 3 findings are baked in:
@@ -2705,6 +2706,7 @@ export async function answerChip(id, ok) {
 let askPauseOwned = false, askToggling = false;
 function askTogglePause(on) {
   askToggling = true;
+  if (on) notePause("a player's ask (see Waiting)");
   try { game.togglePause(on, { broadcast: true, mcAsk: true }); } finally { askToggling = false; }
 }
 export function onPauseGameForAsks(paused, options) {

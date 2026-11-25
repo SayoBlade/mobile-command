@@ -3,6 +3,7 @@ import { notifier } from "./notifier.js";
 import { isOnlineTable } from "./settings.js"; // the §39.5 audience question now lives in overlay-guard
 import { mayCoverViewport } from "./overlay-guard.js"; // §22.7 the one full-screen gate
 import { socket } from "./rpc.js"; // the same one-shot channel effects.js fires on — importing
+import { notePause } from "./on-now.js"; // MC redesign phase 2: On now names who paused
                                    // effects.js instead would close a cycle (it imports this file)
 
 // §40 THE BOSS INTRO — an entrance, on the table's own screen (DM 2026-08-09).
@@ -227,7 +228,7 @@ export async function dmPlayBossIntro(bossId) {
   // they're ready to roll initiative. So this only ever pauses; nothing here gives the game back,
   // which also means there is no claim to track and no timer that could fire over a DM who
   // already resumed.
-  if (!game.paused) game.togglePause(true, { broadcast: true });
+  if (!game.paused) { notePause(`${actor.name}'s boss intro`); game.togglePause(true, { broadcast: true }); }
 
   const payload = { id: "bossIntro", img, name: actor.name, sound: boss?.sound ?? null };
   if (socket) socket.executeForEveryone("fxOneShot", payload);

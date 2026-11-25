@@ -26,3 +26,17 @@ behaviour). Test world or a clean scene; the test party. Each step is one thing 
 9. Open the Combat tab: no "place spell" list, no split-party line there any more. Move one hero's token to another
    scene: the floor shows "<Name> on <scene>" with the activate button.
 10. Judge: does the deck's six-second shout for a twist, bargain or spell feel right, or too loud?
+
+## Phase 2: On now
+
+1. Under Waiting, one line: the music name, the weather (or "clear"), the time, and the TV camera ("follows party").
+2. Tap the line. A sheet opens: Music (with why), Weather, Time, TV camera, TV sound, Syrinscape (if installed),
+   Reactions. Tap the line again: it closes.
+3. Walk the party into a scored room of the Crooked House. Music reads the room's track · "the party is in <room>".
+4. Pick Silence on the deck's Music key. Music reads "silence · you chose silence". Back to Auto.
+5. Play a boss intro. The line gets a red mark; the sheet shows "Game · paused · by <boss>'s boss intro" with
+   Resume. Press Resume: the game resumes and the Game line goes.
+6. Pause with the spacebar. The sheet reads "paused · by you".
+7. Turn on Manual (M). TV camera reads "manual". Turn it off. Turn following off for everyone in Display: TV camera
+   reads "follows nobody" in red.
+8. Reload the TV and do not tap it. TV sound reads "tap the TV" in red, and the line gets the red mark.

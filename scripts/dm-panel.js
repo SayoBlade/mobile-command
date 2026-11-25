@@ -1,5 +1,10 @@
 import { safeBody, drawerForPress, lastRun, bringToFront } from "./panel-safe.js"; // one broken drawer never stops a tab; a deck press opens its drawer (DM 2026-11-25)
 import { waitingQueue, answerWaiting, waitingItems } from "./actions-asks.js";
+import { onNowLines, pauseReason, onPauseGameForWhy, notePause as notePauseWhy } from "./on-now.js"; // MC redesign phase 2: On now
+import { state as musicNowState } from "./music.js";
+import { tvHeld } from "./tv-hold.js";
+import { soundScenesState } from "./syrinscape-bridge.js";
+import { gpsActive } from "./gps-bridge.js";
 import { api, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState, answerChip } from "./rpc.js";
 import { notifier } from "./notifier.js";
 import { routeOf, bookHours, travelTimeLabel } from "./travel-times.js"; // T2: the book's time per route (DM 2026-11-09)
@@ -2008,7 +2013,7 @@ export async function runTravelJourney(group) {
   const darknessOn = game.settings.get(MODULE_ID, "travelDaylight") && !env.darknessLock;
   const sun = sunTimes(); // read once for the journey — sunrise/sunset don't move mid-trip
   const wePaused = !game.paused;
-  if (wePaused) game.togglePause(true);
+  if (wePaused) { notePauseWhy("travel"); game.togglePause(true); }
   // §41 the journey drives darkness itself, waypoint by waypoint, with its animation timed to the
   // walk — so the clock loop stands down for the trip rather than animating the same field at a
   // different duration underneath it (that reads as a stutter on the map).
@@ -3028,6 +3033,47 @@ function waitingItemHTML(it) {
       <span class="mc-dmp-wait-btns">${btns}</span>
     </div>`;
 }
+/**
+ * ON NOW (MC redesign phase 2, DM 2026-11-26): one line under Waiting, four facts (music · weather · hour · TV); tap it
+ * for the sheet that says why, plus the game's pause (with Resume), the TV's sound, Syrinscape and who handles
+ * reactions (on-now.js). A warning that is not on the line (paused, TV sound, Syrinscape offline) marks the line.
+ */
+let nowOpen = false;
+function readOnNow() {
+  const safe = (fn, d) => { try { return fn(); } catch (e) { return d; } };
+  const scene = game.scenes?.active ?? null;
+  const fxWeather = safe(() => FX_TABS.weather.filter(id => FX_DEFS[id]?.weather && fxIsOn(id)).map(id => FX_DEFS[id].label), []);
+  const coreWeather = safe(() => { const w = scene?.weather; return w ? game.i18n.localize(CONFIG.weatherEffects?.[w]?.label ?? w) : ""; }, "");
+  const cam = safe(() => cameraFollowTokens(), []);
+  return {
+    music: safe(() => musicNowState(), {}),
+    weather: fxWeather.join(", ") || coreWeather,
+    clock: safe(() => clockLabel(game.time?.worldTime ?? 0), ""),
+    tv: { manual: !!safe(() => globalThis.MobileCommand?.tvManualActive?.(), false), held: safe(() => tvHeld(), false),
+      combat: !!game.combat?.started, of: cam.length, followed: cam.filter(t => !t.document.getFlag(MODULE_ID, "noFollow")).length },
+    paused: !!game.paused, pauseWhy: pauseReason(),
+    tvSound: tvAudioState, tvMuted: safe(() => !!tvMuted(), false),
+    syr: safe(() => soundScenesState(), null),
+    reactions: safe(() => (gpsActive() ? "Gambit's Premades" : (game.settings.get(MODULE_ID, "aooEnabled") ? "Mobile Command" : "")), ""),
+    now: Date.now(),
+  };
+}
+function onNowHTML() {
+  const esc = foundry.utils.escapeHTML;
+  let lines = [];
+  try { lines = onNowLines(readOnNow()); } catch (e) { return ""; }
+  const head = lines.filter(l => ["music", "weather", "hour", "tv"].includes(l.key));
+  const offLine = lines.some(l => l.warn && !["music", "weather", "hour", "tv"].includes(l.key));
+  const fact = (l) => `<span class="mc-dmp-now-f ${l.warn ? "mc-warn" : ""}"><i class="fas fa-${l.icon}"></i>${esc(l.text)}</span>`;
+  const line = `<button class="mc-dmp-now ${nowOpen ? "mc-open" : ""} ${offLine ? "mc-warn" : ""}" data-now-toggle title="On now: what is playing, showing and paused, and why">
+      ${head.map(fact).join("")}${offLine ? `<i class="fas fa-circle-exclamation mc-dmp-now-alert"></i>` : ""}</button>`;
+  if (!nowOpen) return line;
+  const row = (l) => `<div class="mc-dmp-now-row ${l.warn ? "mc-warn" : ""}"><i class="fas fa-${l.icon}"></i><span class="mc-dmp-now-k">${esc(l.label)}</span>
+      <span class="mc-dmp-now-v"><b>${esc(l.text)}</b>${l.why ? ` · ${esc(l.why)}` : ""}</span>
+      ${l.act === "resume" ? `<button class="mc-dmp-now-act" data-now-resume>Resume</button>` : ""}</div>`;
+  return `${line}<div class="mc-dmp-now-sheet">${lines.map(row).join("")}</div>`;
+}
+
 function waitingHTML() {
   let queue = [];
   try { queue = waitingQueue(); } catch (e) { /* the queue's sources not ready */ }
@@ -4084,7 +4130,7 @@ function renderNow() {
   // attention/reaction signal, and the always-present selected-token strip. Everything else moved to
   // a tab (combat/rolls → Combat, roster/form-up → Party, fit/zoom/follow/fog → Display).
   const main = `<div class="mc-dmp-col">`
-    + statusHTML() + waitingHTML() + cameraFloorHTML() + quickHpHTML()
+    + statusHTML() + waitingHTML() + onNowHTML() + cameraFloorHTML() + quickHpHTML()
     + `</div>`;
   // Grow the flyout UP (anchored to the panel's bottom) when the panel sits in the lower half of
   // the screen, so a bottom-docked panel's second window opens into visible space instead of off
@@ -5178,6 +5224,8 @@ async function onClick(ev) {
     return render();
   }
   if (ev.target.closest("[data-wait-more]")) { waitOpen = !waitOpen; return render(); }
+  if (ev.target.closest("[data-now-toggle]")) { nowOpen = !nowOpen; return render(); }
+  if (ev.target.closest("[data-now-resume]")) { if (game.paused) game.togglePause(false, { broadcast: true }); return render(); }
   const waitBtn = ev.target.closest("[data-wait-choice]");
   if (waitBtn) {
     if (waitBtn.disabled) return;
@@ -5352,6 +5400,11 @@ export function registerDMPanel() {
   // door), a staged curse, a twist or bargain asked or withdrawn on a phone.
   Hooks.on("updateSetting", (s) => { if ([`${MODULE_ID}.dmAsks`, `${MODULE_ID}.cmLiveState`].includes(s?.key)) render(); });
   Hooks.on(`${MODULE_ID}.actionsChanged`, () => render());
+  // On now (MC redesign phase 2): the line follows the music, the pause, the weather and the camera wherever they change.
+  Hooks.on("pauseGame", (p) => { onPauseGameForWhy(p); render(); });
+  Hooks.on("updatePlaylist", () => render());
+  Hooks.on("updatePlaylistSound", () => render());
+  Hooks.on("updateSetting", (s) => { if ([`${MODULE_ID}.soundScenes`, `${MODULE_ID}.syrinscapeOffline`, `${MODULE_ID}.fxActive`].includes(s?.key)) render(); });
   Hooks.on("updateActor", (_a, ch) => { const f = ch?.flags?.[MODULE_ID]; if (f && ["twistPending", "-=twistPending", "bargainPending", "-=bargainPending"].some(k => k in f)) render(); });
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive` && (dockTab === "effects" || dockTab === "crooked")) render(); }); // §26/§35: fx toggles follow the world state (séance lives on the Crooked Moon tab)
   // §35/§52: the Crooked Moon tab's own state — a press on the deck lands here as a setting write,
