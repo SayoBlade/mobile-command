@@ -9,7 +9,8 @@ import { initHeartbeat } from "./heartbeat.js";
 import { openShell, closeShell, maybeAutoOpenShell, registerShellHooks, isPhoneClient, isDisplayClient } from "./shell.js";
 import { installSpellBookAfterLevelUp } from "./spellbook-phone.js";
 import { openWindowsAfterRest, isSpellBookRestPrompt, phonePrepareOn } from "./prepare-data.js"; // Prepare spells (D-0106)
-import { registerDMPanel, refreshPanel, openDock } from "./dm-panel.js";
+import { registerDMPanel, refreshPanel, openDock, panelCompact } from "./dm-panel.js";
+import { reportDeck } from "./panel-mode.js"; // MC redesign phase 4.1: the deck reports its reach
 import { setupTvVisionCard } from "./tv-vision-card.js"; // §23.7 "No PCs in scene" on the TV
 import { planDmSilence } from "./dm-silence.js"; // the DM's music AND environment while the TV is connected
 import { registerSyrinscapeBridge, soundScenesState, setSoundScenes, syncSyrinscapeVolume, setSyrinscapeLevels, syncSyrinscapeLevels } from "./syrinscape-bridge.js"; // Syrinscape or local (deck-command D-0116)
@@ -1059,6 +1060,19 @@ Hooks.once("ready", () => {
 
   globalThis.MobileCommand = {
     ...api,
+    // THE DECK'S REACH (MC redesign phase 4.1, DM 2026-11-26): Deck Command reports whether the deck is reachable (service
+    // up, deck plugged in, this screen drives it); MC's "Run from: Auto" goes compact while it is, and grows back at
+    // once when it drops (one notice). Shrinking back is offered on the panel's pill, never done under the DM's hand.
+    deck: {
+      report: (reachable) => {
+        let rf = "auto"; try { rf = game.settings.get(MODULE_ID, "runFrom") || "auto"; } catch (e) { /* pre-ready */ }
+        const what = reportDeck(reachable, rf);
+        if (what === "lost") notifier.info("Deck lost: the full panel is back.");
+        refreshPanel();
+        return what;
+      },
+      compact: () => panelCompact(),
+    },
     // ANOTHER MODULE'S QUESTION FOR THE DM, on the deck's Notifications row (deck-command D-0197, the Maim offer):
     // register its kind once, raise and settle its asks (executor only). See actions-asks.js and rpc.js raiseOutsideAsk.
     asks: { register: registerAskKind, raise: raiseOutsideAsk, settle: settleOutsideAsk, pending: () => pendingAsks() },

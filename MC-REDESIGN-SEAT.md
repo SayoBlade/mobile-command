@@ -40,3 +40,10 @@ behaviour). Test world or a clean scene; the test party. Each step is one thing 
 7. Turn on Manual (M). TV camera reads "manual". Turn it off. Turn following off for everyone in Display: TV camera
    reads "follows nobody" in red.
 8. Reload the TV and do not tap it. TV sound reads "tap the TV" in red, and the line gets the red mark.
+
+## The mode pill
+
+1. Reload the DM screen. At the right end of the presence row the pill reads "No deck" (grey).
+2. Tap it: it reads "Deck" (green). Tap again: "No deck".
+3. Configure Settings › Mobile Command › "Run from": set Deck. The pill reads "Deck" at once. Set it back to Auto.
+4. Players' phones and the TV show no pill and nothing new.

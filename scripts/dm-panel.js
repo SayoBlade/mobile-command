@@ -1,6 +1,7 @@
 import { safeBody, drawerForPress, lastRun, bringToFront } from "./panel-safe.js"; // one broken drawer never stops a tab; a deck press opens its drawer (DM 2026-11-25)
 import { waitingQueue, answerWaiting, waitingItems } from "./actions-asks.js";
-import { onNowLines, pauseReason, onPauseGameForWhy, notePause as notePauseWhy } from "./on-now.js"; // MC redesign phase 2: On now
+import { onNowLines, pauseReason, onPauseGameForWhy, notePause as notePauseWhy } from "./on-now.js";
+import { isCompact, pillOf, tapPill } from "./panel-mode.js"; // MC redesign phase 4.1: the deck pill // MC redesign phase 2: On now
 import { state as musicNowState } from "./music.js";
 import { tvHeld } from "./tv-hold.js";
 import { soundScenesState } from "./syrinscape-bridge.js";
@@ -2749,6 +2750,11 @@ function nameTag(actor, name) {
        + `<span class="mc-nt-name">${esc(name ?? actor?.name ?? "")}</span>`;
 }
 
+/** This screen's "Run from" (client setting): auto · deck · panel. */
+function runFrom() { try { return game.settings.get(MODULE_ID, "runFrom") || "auto"; } catch (e) { return "auto"; } }
+/** Is the panel compact right now (the deck drives)? */
+export function panelCompact() { return isCompact(runFrom()); }
+
 function statusHTML() {
   const esc = foundry.utils.escapeHTML;
   // Pause + Show removed from this window (DM 2026-07-16). Both already live in Foundry's own UI,
@@ -2798,7 +2804,10 @@ function statusHTML() {
       <i class="fas fa-${night ? "moon" : "sun"}"></i> ${esc(clockLabel())}</button>
     <button class="mc-dmp-clock-step" data-dm-clock-nudge="600" title="10 minutes later"><i class="fas fa-plus"></i></button>
   </div>`;
-  return `<div class="mc-dmp-status">${clock}<div class="mc-dmp-pres-row">${chips}</div></div>`;
+  const pill = pillOf(runFrom());
+  const pillIcon = { live: "table-cells", held: "table-cells", offer: "table-cells", lost: "triangle-exclamation", none: "table-cells" }[pill.state];
+  const deckPill = `<button class="mc-dmp-deckpill mc-${pill.state}" data-deck-pill title="${esc(pill.title)}"><i class="fas fa-${pillIcon}"></i>${esc(pill.label)}</button>`;
+  return `<div class="mc-dmp-status">${clock}<div class="mc-dmp-pres-row">${chips}</div>${deckPill}</div>`;
 }
 
 /** Combat control strip — run the encounter from the panel. Pre-start: Roll NPCs +
@@ -4147,6 +4156,7 @@ function renderNow() {
   // Geometry still runs on the skip path: it reads the WINDOW, not the markup, so a resize must
   // still re-clamp a panel that would otherwise sit off the edge.
   watchScroll(el);
+  el.classList.toggle("mc-deck-mode", panelCompact()); // MC redesign phase 4.1: compact while the deck drives
   if (sameHTML(el, html)) { el.classList.add("mc-show"); applyWorkspaceBounds(); clampPos(el); returnFocusIfDue(); return; }
   // Preserve scroll across the innerHTML rebuild — background hooks re-render often, and losing
   // the flyout/main scroll to the top mid-interaction is maddening (DM 2026-07-13: "the scroll bar
@@ -5225,6 +5235,7 @@ async function onClick(ev) {
   }
   if (ev.target.closest("[data-wait-more]")) { waitOpen = !waitOpen; return render(); }
   if (ev.target.closest("[data-now-toggle]")) { nowOpen = !nowOpen; return render(); }
+  if (ev.target.closest("[data-deck-pill]")) { tapPill(runFrom()); return render(); }
   if (ev.target.closest("[data-now-resume]")) { if (game.paused) game.togglePause(false, { broadcast: true }); return render(); }
   const waitBtn = ev.target.closest("[data-wait-choice]");
   if (waitBtn) {

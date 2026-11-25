@@ -996,6 +996,19 @@ export function registerSettings() {
 
   // Away-timer escalation (DESIGN §7.8): flip a player's presence dot to RED once their phone
   // has been backgrounded/away longer than this many seconds. 0 = escalate immediately.
+  // MC redesign phase 4.1 (DM 2026-11-26, 2A): which instrument this screen runs from. Auto = compact while the deck
+  // reports itself reachable (panel-mode.js), else full. The floor's pill flips it for the session.
+  game.settings.register(MODULE_ID, "runFrom", {
+    name: "Run from",
+    hint: "Auto: the panel goes compact while the deck is reachable, and comes back full the moment it drops. Deck: always compact. Panel: always full. The pill on the panel's floor switches it for this session.",
+    scope: "client",
+    config: true,
+    type: String,
+    choices: { auto: "Auto", deck: "Deck", panel: "Panel" },
+    default: "auto",
+    onChange: () => { try { globalThis.MobileCommand?.refreshPanel?.(); } catch (e) { /* not mounted */ } }
+  });
+
   game.settings.register(MODULE_ID, "awayThresholdSeconds", {
     name: "Away alert: seconds before a player reads as “away”",
     hint: "If a player backgrounds the app (or their phone sleeps) for longer than this many seconds during play, their presence dot on the DM panel turns red. Default 90. Set 0 to flag them the moment they leave the app.",

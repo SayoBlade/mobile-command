@@ -4501,6 +4501,14 @@ body.mc-theme-wizard .mc-frame {
 .mc-dmp-hp-empty .mc-dmp-note { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .mc-dmp-note { font-size: 11px; color: var(--mc-muted); padding: 2px; }
 .mc-dmp-pres-row { display: flex; flex-wrap: wrap; gap: 3px 8px; min-width: 0; }
+/* The deck pill (MC redesign phase 4.1): which instrument drives. Green = compact (the deck drives); amber = an offer
+   or your hold; grey = no deck. Pushed to the end of the presence row. */
+.mc-dmp-deckpill { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 10px; cursor: pointer; white-space: nowrap;
+  border-radius: 12px; font-size: 11px; font-weight: 700; background: transparent; border: 1px solid var(--mc-edge); color: var(--mc-muted); }
+.mc-dmp-deckpill.mc-live { background: var(--mc-ok-dim); border-color: var(--mc-ok); color: var(--mc-ink); }
+.mc-dmp-deckpill.mc-offer, .mc-dmp-deckpill.mc-held { border-color: var(--mc-gold); color: var(--mc-gold); }
+.mc-dmp-deckpill.mc-lost { border-color: var(--mc-bad-ink); color: var(--mc-bad-ink); }
+.mc-dmp-deckpill:hover { border-color: var(--mc-gold); }
 .mc-dmp-pres { font-size: 11px; color: var(--mc-ink); display: inline-flex; align-items: center; gap: 4px; }
 .mc-dmp-pres i { font-size: 8px; }
 .mc-dmp-pres.mc-on i { color: var(--mc-ok-ink); }

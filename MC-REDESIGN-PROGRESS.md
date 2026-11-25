@@ -123,3 +123,15 @@ without the deck, camera fold-away with the deck.
    TV sound, Syrinscape offline) puts a red mark on the line.
 4. Nothing it reports was changed; it only reads.
 5. Tests: new `test-on-now` (27 checks); 76 suites pass.
+
+## 2026-11-26, night 1: the mode pill (built; phase 4.1, first part)
+
+1. A pill at the right end of the presence row: **Deck** (green, compact), **No deck** (grey, full),
+   **Full panel** (you opened the full panel while the deck drives), **Shrink?** (the deck came back; tap when
+   your hand is free), **Deck lost** (the deck dropped; the full panel came back by itself).
+2. Tap it to switch for this session. A new per-screen setting, "Run from: Auto · Deck · Panel", sets where each
+   session starts. Auto stays "No deck" until Deck Command says whether the deck is reachable; the hook for that
+   is ready (`MobileCommand.deck.report`), Deck Command does not call it yet.
+3. Growing is automatic (one notice), shrinking is only offered, as proposed.
+4. What compact hides comes with the later steps tonight (camera fold-away); on its own the pill only switches.
+5. Tests: new `test-panel-mode` (15 checks); 77 suites pass.
