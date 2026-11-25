@@ -94,3 +94,15 @@ behaviour). Test world or a clean scene; the test party. Each step is one thing 
 4. Pass watch is live: press it; the clock moves on by the watch and the next watch starts (or the morning).
 5. Press Finish: the rest is applied to the party (as the panel's Finish does) and the Rest key reads
    "start, watch, finish" again.
+
+## The phone's named tabs
+
+1. Reload a player's phone. The bottom bar reads Act · Sheet · Play · Bag · Story (and Moon at the right with the
+   Crooked Moon tools on), each with its glyph above the word. Play is in the middle.
+2. Open Act on the Cleric: a switch at the top, Actions · Spells. Tap Spells: the spellbook (slots, prepare,
+   learn) as the old Spells tab. Go to Bag, come back to Act: it opens on Spells.
+3. Open Act on the Barbarian or the Rogue (no spells): no switch, just the actions.
+4. Cast a spell from Spells and from Actions: both still work as before (the card, targets, Roll damage).
+5. Form the party up (Complex). A player taps "Mine" on the party bar: their own bar shows Party at the left edge,
+   Play still in the middle. Tap Party: back to the party bar (Party · Order · Play · Stash · Story · Mine).
+6. Check the words are readable at arm's length and nothing is cut off on the smallest phone at the table.

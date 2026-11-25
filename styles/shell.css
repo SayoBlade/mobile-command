@@ -5131,7 +5131,16 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 }
 
 /* Explore is the centered "home" tab — give its icon a little more presence. */
-#mobile-command-shell .mc-tab[data-tab="sheet"] i { font-size: 24px; }
+#mobile-command-shell .mc-tab[data-tab="sheet"] i { font-size: 22px; }
+
+/* NAMED TABS (MC redesign, DM 2026-11-26 on sheet 11: "names work"): the word under every glyph. */
+#mobile-command-shell .mc-tab { flex-direction: column; gap: 3px; padding: 9px 0 7px; min-height: 52px; }
+#mobile-command-shell .mc-tab .mc-tab-name { font-size: 10px; font-weight: 700; letter-spacing: .02em; line-height: 1; color: inherit; white-space: nowrap; }
+/* Act's Actions / Spells switch (sheet 11): two halves, glyph and word, 44px for the thumb. */
+#mobile-command-shell .mc-actsw { display: flex; margin: 0 0 10px; border: 1px solid var(--mc-edge); border-radius: calc(9px * var(--mc-round, 1)); overflow: hidden; }
+#mobile-command-shell .mc-actsw-btn { flex: 1 1 0; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 7px;
+  background: none; border: none; color: var(--mc-muted); font-size: 13px; font-weight: 700; }
+#mobile-command-shell .mc-actsw-btn.mc-active { background: var(--mc-panel-2); color: var(--mc-gold); box-shadow: inset 0 -2px 0 var(--mc-gold); }
 
 /* ============================================================
    Death saves (§7.4): at 0 HP the content collapses to 3 success /

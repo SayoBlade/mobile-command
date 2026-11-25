@@ -222,3 +222,22 @@ Not started, next in line:
 5. The campaign drawer on the deck (his 8A, last).
 6. Left from the clean-up list: the phone's My Story typing landing in the party-journal draft; the night-ambush
    question still a popup; the boss list's move to Setup.
+
+## 2026-11-26, night 1: the phone's named tabs (built; his pick on sheet 11)
+
+His answer on sheet 11: "Ok, names work, I'm convinced". (Asked to slot in before the camera fold-away; that one
+was already built and pushed, so this lands after it. Nothing depends on the order.)
+
+1. The bottom bar is named, a word under every glyph: **Act · Sheet · Play · Bag · Story**, then the campaign tab
+   (Moon or Ember) at the right edge. Explore is now called Play and sits dead-centre.
+2. **Spells left the bar.** It is Act's second view: a switch at the top of Act, **Actions · Spells**. Act reopens
+   on the view last used. A hero who casts nothing sees no switch.
+3. My call, noted: the switch carries the words as well as the glyphs (my sheet-11 pick was glyphs only). At phone
+   size the two halves are wide enough that the words cost nothing, and they read at a glance; that matches his
+   "names work".
+4. When the party is packed and a player flips to their own sheet, the Party switch now joins at the LEFT edge
+   (it used to be at the right), so Play stays centred with the campaign tab on too. The packed party bar is
+   named as well: Party · Order · Play · Stash · Story · Mine.
+5. Nothing else on the phone changed: every roll flow, Basic and Complex, the VE trial look.
+6. Not yet seen on a real phone: the seat run is the first look.
+7. Tests: new `test-phone-tabs` (10 checks); 82 suites pass. UI-BIBLE §6.9 updated.

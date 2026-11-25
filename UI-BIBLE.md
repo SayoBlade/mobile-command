@@ -561,6 +561,14 @@ EDGES of the bar, never inside it**, so the core never shifts under muscle memor
 flips. The packed party bar already complies (Exploration 3rd of 6, tied-closest). A future
 tab that would break the balance re-opens this section before it ships.
 
+**Since 2026-11-26 (MC redesign, sheet 11; DM: "Ok, names work, I'm convinced"):** the bar is **named** (a word under
+every glyph) and has five core tabs, **Act · Sheet · Play · Bag · Story**. Explore is now called **Play** and sits
+3rd, dead-centre of the five. Spells left the bar: it is Act's second view, behind an Actions / Spells switch at the
+top of Act (glyph and word, 44px; no switch for a hero who casts nothing), and Act reopens on the view last used.
+The edges: the **campaign tab joins at the RIGHT** (Moon / Ember), the **Party switch at the LEFT**, so Play stays
+centred with either or both (3rd of 5, tied-closest at 6, 4th of 7). The packed party bar is named too: Party ·
+Order · Play · Stash · Story · Mine.
+
 ---
 
 ## 7. Copy

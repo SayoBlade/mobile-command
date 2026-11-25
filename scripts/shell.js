@@ -249,6 +249,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   };
 
   #tab = "sheet";
+  #actLast = "actions"; // MC redesign, phone tabs: Act reopens on the view last used in it (Actions or Spells)
   #recentRolls = [];   // newest-first cache backing the recent-rolls strip
   #combatEvents = [];  // newest-first combat events (damage taken, save required) → bottom chips
   #toastEl = null;     // transient roll toast; overlay node kept across re-renders
@@ -2596,8 +2597,27 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     img.ondblclick = () => { z.scale = 1; z.x = 0; z.y = 0; apply(); };
   }
 
-  #tabButton(id, icon, label) {
-    return `<button class="mc-tab ${this.#tab === id ? "mc-active" : ""}" data-action="tab" data-tab="${id}" title="${label}" aria-label="${label}"><i class="fas ${icon}"></i></button>`;
+  // NAMED TABS (MC redesign, DM 2026-11-26 on sheet 11: "Ok, names work, I'm convinced"): every tab carries its word
+  // under the glyph; a touch screen never shows a tooltip. Icons all or none, and now names all or none (UI-BIBLE §6.9).
+  #tabButton(id, icon, label, { active = this.#tab === id, tab = id, extra = "" } = {}) {
+    return `<button class="mc-tab ${active ? "mc-active" : ""}" data-action="tab" data-tab="${tab}" title="${label}" aria-label="${label}"><i class="fas ${icon}"></i><small class="mc-tab-name">${label}</small>${extra}</button>`;
+  }
+
+  /** Does this hero cast? (the Spells view's own test: spells of their own, or spell slots). */
+  #casts(actor) {
+    if (!actor) return false;
+    const own = actor.items?.some?.(i => i.type === "spell" && !i.getFlag?.("dnd5e", "cachedFor"));
+    const slots = Object.values(actor.system?.spells ?? {}).some(sl => (sl?.max ?? 0) > 0);
+    return !!(own || slots);
+  }
+
+  // ACT = ACTIONS + SPELLS (MC redesign, DM 2026-11-26, sheet 11): Spells left the bottom bar and became Act's second
+  // view, behind a two-way switch at the top. A hero who casts nothing sees no switch: Act is just Actions. The switch
+  // carries names as well as glyphs (they read clearer at phone size; his "names work" on sheet 11).
+  #actSwitchHTML(actor) {
+    if (!this.#casts(actor)) return "";
+    const b = (id, icon, label) => `<button class="mc-actsw-btn ${this.#tab === id ? "mc-active" : ""}" data-action="tab" data-tab="${id}" aria-label="${label}"><i class="fas ${icon}"></i><span>${label}</span></button>`;
+    return `<div class="mc-actsw" role="tablist">${b("actions", "fa-hand-fist", "Actions")}${b("spells", "fa-wand-sparkles", "Spells")}</div>`;
   }
 
   // Bottom bar. Packed party view gets its own tab set (Party OS, DESIGN §15
@@ -2608,15 +2628,15 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // tabs (Crooked Moon, Party) may only join at the EDGES, never inside.
   #tabBarHTML() {
     const packed = this.#partyUI();
-    const pbtn = (id, icon, label) =>
-      `<button class="mc-tab ${this.#partyTab === id ? "mc-active" : ""}" data-action="ptab" data-ptab="${id}" title="${label}" aria-label="${label}"><i class="fas ${icon}"></i></button>`;
+    const pbtn = (id, icon, label, name = label) =>
+      `<button class="mc-tab ${this.#partyTab === id ? "mc-active" : ""}" data-action="ptab" data-ptab="${id}" title="${label}" aria-label="${label}"><i class="fas ${icon}"></i><small class="mc-tab-name">${name}</small></button>`;
     if (packed && this.#partyView) {
       return `${pbtn("view", "fa-people-group", "Party")}
-        ${pbtn("order", "fa-border-all", "Party order")}
-        ${pbtn("explore", "fa-compass", "Exploration")}
-        ${pbtn("inventory", "fa-box-open", "Shared inventory")}
-        ${pbtn("journal", "fa-feather", "Journal")}
-        <button class="mc-tab" data-action="party-view-toggle" data-on="0" title="My sheet" aria-label="My sheet"><i class="fas fa-user"></i></button>`;
+        ${pbtn("order", "fa-border-all", "Party order", "Order")}
+        ${pbtn("explore", "fa-compass", "Exploration", "Play")}
+        ${pbtn("inventory", "fa-box-open", "Shared inventory", "Stash")}
+        ${pbtn("journal", "fa-feather", "Journal", "Story")}
+        <button class="mc-tab" data-action="party-view-toggle" data-on="0" title="My sheet" aria-label="My sheet"><i class="fas fa-user"></i><small class="mc-tab-name">Mine</small></button>`;
     }
     // §35.1 + §50.8: ONE campaign-tab slot at the edge (DM 2026-08-21: "the ember tab replaces
     // the CM tab"). campaigns.js's activeCampaign() decides who wears it — Ember's flame in an
@@ -2627,18 +2647,25 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     const cmDot = campaign === "crooked-moon"
       && (this.actor?.getFlag(MODULE_ID, "twistPending") || this.actor?.getFlag(MODULE_ID, "bargainResult"));
     const cmTab = campaign === "ember"
-      ? `<button class="mc-tab ${this.#tab === "ember" ? "mc-active" : ""}" data-action="tab" data-tab="ember" title="Ember" aria-label="Ember"><i class="fas fa-fire"></i></button>`
+      ? this.#tabButton("ember", "fa-fire", "Ember")
       : campaign === "crooked-moon"
-        ? `<button class="mc-tab ${this.#tab === "crooked" ? "mc-active" : ""}" data-action="tab" data-tab="crooked" title="The Crooked Moon" aria-label="The Crooked Moon"><i class="fas mc-icon-cmoon"></i>${cmDot ? `<span class="mc-tab-dot"></span>` : ""}</button>`
+        ? `<button class="mc-tab ${this.#tab === "crooked" ? "mc-active" : ""}" data-action="tab" data-tab="crooked" title="The Crooked Moon" aria-label="The Crooked Moon"><i class="fas mc-icon-cmoon"></i><small class="mc-tab-name">Moon</small>${cmDot ? `<span class="mc-tab-dot"></span>` : ""}</button>`
         : "";
-    return `${this.#tabButton("actions", "fa-hand-fist", "Actions")}
-      ${this.#tabButton("details", "fa-user", "Details")}
-      ${this.#tabButton("spells", "fa-wand-sparkles", "Spells")}
-      ${this.#tabButton("sheet", "fa-compass", "Explore")}
-      ${this.#tabButton("equipment", "fa-suitcase", "Equipment")}
-      ${this.#tabButton("journal", "fa-feather", "Journal")}
-      ${cmTab}
-      ${packed ? `<button class="mc-tab mc-tab-party" data-action="party-view-toggle" data-on="1" title="Party" aria-label="Party"><i class="fas fa-people-group"></i></button>` : ""}`;
+    // Act · Sheet · Play · Bag · Story (sheet 11). Play (the move pad, today's Explore) keeps the centre of the five;
+    // the campaign tab and the Party switch join only at the edge (UI-BIBLE §6.9). Act is lit on either of its views
+    // and reopens on the last one.
+    const actOn = this.#tab === "actions" || this.#tab === "spells";
+    const actTab = this.#casts(this.actor) && this.#actLast === "spells" ? "spells" : "actions";
+    // The Party switch joins at the LEFT edge and the campaign tab at the right, so Play stays centred: 3rd of 5,
+    // tied-closest at 6, 4th of 7 with both (UI-BIBLE §6.9).
+    const partyBtn = packed ? `<button class="mc-tab mc-tab-party" data-action="party-view-toggle" data-on="1" title="Party" aria-label="Party"><i class="fas fa-people-group"></i><small class="mc-tab-name">Party</small></button>` : "";
+    return `${partyBtn}
+      ${this.#tabButton("actions", "fa-hand-fist", "Act", { active: actOn, tab: actTab })}
+      ${this.#tabButton("details", "fa-user", "Sheet")}
+      ${this.#tabButton("sheet", "fa-compass", "Play")}
+      ${this.#tabButton("equipment", "fa-suitcase", "Bag")}
+      ${this.#tabButton("journal", "fa-feather", "Story")}
+      ${cmTab}`;
   }
 
   // §35.1: same gate as the DM tab — flip the setting off and the tab never existed.
@@ -2701,9 +2728,11 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     if (this.#wildShape?.open) return this.#wildShapeBrowserHTML();
     if (this.#summonConfig) return this.#summonConfigHTML();
     if (this.#portraitGen) return this.#portraitGenHTML();
-    if (this.#tab === "actions") return this.#actionsHTML(actor);
+    // Act's two views (sheet 11): the switch on top; a hero who casts nothing never lands on Spells.
+    if (this.#tab === "spells" && !this.#casts(actor)) this.#tab = "actions";
+    if (this.#tab === "actions") return this.#actSwitchHTML(actor) + this.#actionsHTML(actor);
     if (this.#tab === "details") return this.#detailsHTML(actor);
-    if (this.#tab === "spells") return this.#spellsHTML(actor);
+    if (this.#tab === "spells") return this.#actSwitchHTML(actor) + this.#spellsHTML(actor);
     if (this.#tab === "equipment") return this.#equipmentHTML(actor);
     if (this.#tab === "journal") return this.#journalHTML();
     // §35.1: the gate can flip live — a stranded "crooked" tab falls back to the sheet.
@@ -7245,6 +7274,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#colorPickOpen = false; return this.render();
       case "tab":
         this.#tab = el.dataset.tab;
+        if (this.#tab === "actions" || this.#tab === "spells") this.#actLast = this.#tab;
         this.#searchOpen = false; this.#searchQuery = ""; // each tab's search starts closed/clear
         this.#newItemOpen = false;                        // close the inline new-item field
         this.#bioOpen = false; this.#bioEditing = false;  // leave the biography overlay
