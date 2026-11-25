@@ -187,3 +187,38 @@ without the deck, camera fold-away with the deck.
    default); the key's sub-line says which. Cancel stays on the panel.
 3. Tests: new `test-rest-actions` (9 checks); 81 suites pass.
 4. Next: the Rest drawer itself, inside the deck's Party drawer (Deck Command).
+
+## 2026-11-26, night 1: the Rest drawer on the deck (built, Deck Command)
+
+1. The deck's Party drawer has a new door, **Rest**, after Boss intro and before the heroes (it reads
+   "under way" while a rest runs). The heroes move one key along.
+2. Inside: **Start rest · Pass watch · Finish**, Mobile Command's three new rest keys, each with its sub-line and
+   dim with the reason when it cannot run. Start rest also brings the panel forward at Time › Rest, where the
+   watch grid stays.
+3. Deck Command now has a GitHub home (someone set it up since yesterday), so this was pushed there too.
+4. Tests: Deck Command's new `test-rest-drawer` (4); its module suite 1671/1671.
+
+## 2026-11-26, night 1: where it stands
+
+Built and pushed tonight, in order: the phone sub-tab mock (sheet 11); the one Waiting queue; On now; the mode pill;
+the six sections with the clean-up; travel buttons without the deck; the camera folding away with the deck; the
+rest keys and the deck's Rest drawer.
+
+Waiting on him:
+1. Sheet 11: names or icons for the phone's Act switch and its bottom bar (my pick: names on the bar, icons on the
+   switch). The phone tabs are not built until he picks.
+2. Whether the deck's six-second shout for a twist, bargain or spell is too loud.
+3. My call to put a small view switch inside Stage, Time, Story and Setup (rather than one long list of drawers).
+
+Not started, next in line:
+1. Auto for the pill: Deck Command reporting whether the deck is reachable (`MobileCommand.deck.report`). Small on
+   the deck's side; left alone tonight because another session has uncommitted work in the deck's world and
+   service files.
+2. The deck opening the panel for every key that needs the keyboard or the map (place a spell, message a player,
+   pick a curse, draw the road, marching order), and the "On the deck" stubs for the other covered groups.
+3. The no-deck music picks, overall volume, time steps and the two house keys on the panel (only travel came back
+   tonight, as ordered).
+4. The phone (labelled tabs, Asked, Spells into Act) after his pick on sheet 11.
+5. The campaign drawer on the deck (his 8A, last).
+6. Left from the clean-up list: the phone's My Story typing landing in the party-journal draft; the night-ambush
+   question still a popup; the boss list's move to Setup.

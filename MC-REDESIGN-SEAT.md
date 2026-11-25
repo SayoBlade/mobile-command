@@ -82,3 +82,15 @@ behaviour). Test world or a clean scene; the test party. Each step is one thing 
 2. Open Stage › Camera: who the TV follows is there; at the foot one line "On the deck: Frame, Manual, Fit, Zoom"
    with Show. Press Show: Fit and Zoom appear there and Frame / Manual on the floor.
 3. Tap the pill to "No deck": everything is back without Show. Tap it to "Deck" again: folded again.
+
+## Rest on the deck
+
+1. Reload the DM screen and the deck's Foundry module. Open the deck's Party drawer: after Boss intro there is a
+   "Rest" key ("start, watch, finish"); the heroes follow it.
+2. Open it: Start rest · Pass watch · Finish. Start rest reads "long · watches" (the panel's picks); the other two
+   are dim with their reason.
+3. Press Start rest: the panel comes forward at Time › Rest with the watch grid. Start rest now reads "set the
+   watches, then press to begin". Set a watch on the panel; press Start rest again: the watches begin.
+4. Pass watch is live: press it; the clock moves on by the watch and the next watch starts (or the morning).
+5. Press Finish: the rest is applied to the party (as the panel's Finish does) and the Rest key reads
+   "start, watch, finish" again.
