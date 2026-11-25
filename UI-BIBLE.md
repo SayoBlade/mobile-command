@@ -428,6 +428,15 @@ top"*):
    (`repaint.js`), never from a hand-written list of selectors. The list version shipped naming two
    containers and missed the one that actually scrolls inside a tab, so the fix read as no fix at
    all. Only a genuine *navigation* — a new tab, a detail card, a picker — resets to the top.
+3. **A repaint keeps the DM's place: scroll, focus and caret** (DM 2026-11-25, SEAT 27). Scroll goes
+   back only AFTER the workspace has its height cap — restored earlier, the rebuilt tab is too tall
+   to scroll and the browser drops it to the top (the Crooked Moon tab jumped on every toggle and
+   drawer). A press on a button in the same drawer as the field the DM is typing in (the Spirit
+   Board toggle beside the séance phrase) hands focus back to that field, caret where it was; the
+   field's text comes from its own draft, never from the old box, so a sent phrase stays cleared.
+4. **A button that moves world time takes two taps** when a stray click can reach it (the
+   Druskenvald clock's Next Hour: the first tap arms it for 4 s and says so). The ±10-minute nudges
+   stay one tap; a deck key stays one press.
 
 ### 6.8 Fade, never cut (DM 2026-08-19)
 

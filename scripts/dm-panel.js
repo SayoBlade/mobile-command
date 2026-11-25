@@ -35,7 +35,7 @@ import { setDaylightSuspended } from "./daylight.js"; // §41 travel owns the li
 import { compileCharacterFiles, lastCompile } from "./character-file.js"; // §44 a book per PC
 import { dealOne, actorCard, revealActorCard, setActorCard, ARCANA, hasBookArt } from "./tarot.js"; // §42 the Fated Tarot
 import { DRUSK_HOURS, currentHour, isDruskScene, druskSceneIds, markDruskScene, advanceToNextHour } from "./druskenvald.js"; // §43 the clock
-import { watchScroll, captureScrolls, restoreScrolls, sameHTML } from "./repaint.js"; // §46 don't jump
+import { watchScroll, captureScrolls, restoreScrolls, sameHTML, captureField, restoreField } from "./repaint.js"; // §46 don't jump
 import { openFeedback } from "./feedback.js"; // §48 the feedback window
 import { entranceList, dmPlayEntrance, dmStopEntrance, entranceShadowed, dmShadowEntrance } from "./entrances.js"; // §40.6 the themed entrances ("Intros")
 import { TV_DEFAULT } from "./sound-mix.js"; // §58.7 the TV sliders' launch defaults
@@ -60,6 +60,9 @@ let tokensPlayer = "";       // owned-tokens: which player's tokens are shown
 let dmMsgOpen = false;       // §27: the selected player's message thread is open (Party tab)
 let dmMsgDraft = "";         // §27: composer text, kept across the panel's frequent re-renders
 let fxPlayer = "";           // §26.6: which player the Effects tab's Player drawer targets
+let druskArmAt = 0;            // SEAT 27: Next Hour takes two taps within DRUSK_ARM_MS
+const DRUSK_ARM_MS = 4000;
+const druskArmed = () => Date.now() - druskArmAt < DRUSK_ARM_MS;
 let seanceDraft = "";        // §30: the phrase the planchette will spell, kept across re-renders
 // (§30.1's sitters, escalation step, armed bite and last d10 moved to the cmLiveState setting —
 //  cm-live.js — 2026-09-18, so the deck reads and presses the same séance.)
@@ -590,6 +593,9 @@ function seanceSend() {
   if (!fxIsOn("seance")) { notifier.info("Turn the Spirit Board on first — your phrase is kept."); return; }
   if (!seanceSay(seanceDraft)) { notifier.warn("Write what the spirits say — letters and numbers only."); return; }
   seanceDraft = "";
+  // Enter keeps focus in the box, and the panel holds its repaint while a field has focus — so the
+  // sent phrase would sit there until the DM clicked away. Clear it in place; the box stays ready.
+  try { const box = panelEl?.querySelector("[data-seance-text]"); if (box) box.value = ""; } catch (e) { /* DOM */ }
   render();
 }
 
@@ -612,9 +618,9 @@ function druskBody() {
       <span class="mc-drusk-nowname">${esc(here.name)}</span>
       <span class="mc-drusk-dial">${dial}</span>
     </div>
-    <button class="mc-dmp-pf-fix mc-dmp-story-random" data-drusk-next
-      title="Push the clock to the start of the next named hour">
-      <i class="fas fa-forward"></i> Next Hour</button>
+    <button class="mc-dmp-pf-fix mc-dmp-story-random ${druskArmed() ? "mc-armed" : ""}" data-drusk-next
+      title="${druskArmed() ? "Tap again to push the clock to the next named hour" : "Push the clock to the start of the next named hour (two taps, so a stray click can't move time)"}">
+      <i class="fas fa-forward"></i> ${druskArmed() ? "Tap Again: Next Hour" : "Next Hour"}</button>
     <button class="mc-dmp-pf-fix ${marked ? "mc-on" : ""}" data-drusk-mark
       title="${scene ? (marked ? `“${esc(scene.name)}” is under the eternal night — tap to release it` : `Put “${esc(scene.name)}” under the eternal night`) : "No scene"}"
       ${scene ? "" : "disabled"}>
@@ -2464,6 +2470,7 @@ function ensureEl() {
   panelEl.addEventListener("pointerdown", (ev) => {
     if (openSelect && !ev.target?.closest?.("select")) releaseSelect();
     noteSelectOpen(ev);
+    try { noteFieldPress(ev); } catch (e) { /* focus return only */ }
   }, true);
   panelEl.addEventListener("keydown", (ev) => { if (ev.key === "Escape" || ev.key === "Enter") releaseSelect(); });
   panelEl.addEventListener("pointerdown", onPointerDown); // drag from the grip handle
@@ -4125,7 +4132,7 @@ function renderNow() {
   // Geometry still runs on the skip path: it reads the WINDOW, not the markup, so a resize must
   // still re-clamp a panel that would otherwise sit off the edge.
   watchScroll(el);
-  if (sameHTML(el, html)) { el.classList.add("mc-show"); applyWorkspaceBounds(); clampPos(el); return; }
+  if (sameHTML(el, html)) { el.classList.add("mc-show"); applyWorkspaceBounds(); clampPos(el); returnFocusIfDue(); return; }
   // Preserve scroll across the innerHTML rebuild — background hooks re-render often, and losing
   // the flyout/main scroll to the top mid-interaction is maddening (DM 2026-07-13: "the scroll bar
   // jumps to the top").
@@ -4136,10 +4143,38 @@ function renderNow() {
   // pane. A hand-kept list of scrollers is a list someone forgets to extend.
   const prevScrolls = captureScrolls(el);
   el.innerHTML = html;
-  restoreScrolls(el, prevScrolls);
   el.classList.add("mc-show");
   applyWorkspaceBounds(); // cap the workspace to 95% of the window BEFORE clamping (stops the DC loop)
   clampPos(el);
+  // Scroll goes back AFTER the workspace has its height cap (SEAT 27): the rebuilt flyout has no
+  // inline max-height until applyWorkspaceBounds, so restoring before it met a tab too tall to
+  // scroll, the browser clamped scrollTop to 0, and every toggle or drawer threw the DM to the top.
+  restoreScrolls(el, prevScrolls);
+  returnFocusIfDue();
+}
+
+// SEAT 27: a press on a button in the same drawer as the text field the DM is in (the Spirit Board
+// toggle beside the phrase) hands focus back to that field, caret and all, after the repaint.
+// Only a press inside the panel, only for a moment; any other click leaves focus where it went.
+let returnField = null;
+function noteFieldPress(ev) {
+  returnField = null;
+  const ae = document.activeElement;
+  if (!isPanelTextField(ae)) return;
+  const t = ev.target;
+  if (!t?.closest || isPanelTextField(t) || t.closest("select")) return;
+  const btn = t.closest("button");
+  const box = ae.closest(".mc-dt-drawer") ?? ae.parentElement;
+  if (!btn || !box?.contains(btn)) return;
+  const saved = captureField(ae, panelEl);
+  if (saved) returnField = { ...saved, at: Date.now() };
+}
+function returnFocusIfDue() {
+  const r = returnField;
+  if (!r) return;
+  if (Date.now() - r.at > 3000) { returnField = null; return; }
+  if (isPanelTextField(document.activeElement)) { returnField = null; return; }
+  if (restoreField(panelEl, r)) returnField = null;
 }
 
 // Owned-tokens grid: set Foundry Actor drag data so a drop on the canvas spawns a
@@ -4947,7 +4982,12 @@ async function onClick(ev) {
   if (cfOpen) { game.journal.get(cfOpen.dataset.cfOpen)?.sheet?.render(true); return; }
 
   // §43 Druskenvald clock: push the hour on, or put this map under the eternal night.
-  if (ev.target.closest("[data-drusk-next]")) { await druskNextHour(); return render(); }
+  // SEAT 27: two taps — a stray click after a jump moved the world clock an hour. The deck's
+  // Next Hour key stays one press (a deliberate key, not a click landing where a jump left it).
+  if (ev.target.closest("[data-drusk-next]")) {
+    if (!druskArmed()) { druskArmAt = Date.now(); setTimeout(() => render(), DRUSK_ARM_MS + 50); return render(); }
+    druskArmAt = 0; await druskNextHour(); return render();
+  }
   // Re-lights the map immediately on the new curve rather than waiting for the clock to move.
   if (ev.target.closest("[data-drusk-mark]")) { if (await toggleDruskMap()) render(); return; }
 

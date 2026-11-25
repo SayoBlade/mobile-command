@@ -79,8 +79,52 @@ export function restoreScrolls(root, saved) {
     const idx = Number(key.slice(cut + 1));
     let el;
     try { el = root.querySelectorAll(sel)[idx]; } catch (e) { continue; }
-    if (el) el.scrollTop = top;
+    if (!el) continue;
+    el.scrollTop = top;
+    // Track the NEW node now: its scroll event only arrives a frame later, and a second repaint
+    // before then (a click's render plus a focusout's) would find nothing tracked and drop to the top.
+    const seen = tracked.get(root);
+    if (seen && !seen.includes(el)) { seen.unshift(el); if (seen.length > MAX_TRACKED) seen.length = MAX_TRACKED; }
   }
+}
+
+// ── Focus across a repaint (SEAT 27, 2026-11-25) ────────────────────────────
+// A press on a button beside a text field (the Spirit Board toggle beside the séance phrase) takes
+// focus off the field, and the repaint then replaces the field — so the DM's Enter goes nowhere.
+// `captureField` snapshots a field's identity (data-* names, else class + index) and caret;
+// `restoreField` focuses the rebuilt field and puts the caret back. The VALUE is never restored:
+// the field's own draft drives that, and a Send that cleared it must stay cleared.
+function fieldKey(el, root) {
+  const attrs = Array.from(el.attributes ?? []).map((a) => a.name).filter((n) => n.startsWith("data-")).sort();
+  const sel = el.tagName.toLowerCase() + attrs.map((n) => `[${n}]`).join("");
+  if (attrs.length) {
+    let peers;
+    try { peers = root.querySelectorAll(sel); } catch (e) { return null; }
+    const idx = Array.prototype.indexOf.call(peers, el);
+    return idx < 0 ? null : `${sel}|${idx}`;
+  }
+  return scrollKey(el, root);
+}
+
+export function captureField(el, root) {
+  if (!el || !root?.contains?.(el)) return null;
+  const key = fieldKey(el, root);
+  if (!key) return null;
+  let start = null, end = null;
+  try { start = el.selectionStart; end = el.selectionEnd; } catch (e) { /* number inputs have no caret */ }
+  return { key, start, end };
+}
+
+export function restoreField(root, saved) {
+  if (!saved?.key || !root) return null;
+  const cut = saved.key.lastIndexOf("|");
+  let el;
+  try { el = root.querySelectorAll(saved.key.slice(0, cut))[Number(saved.key.slice(cut + 1))]; } catch (e) { return null; }
+  if (!el || el.disabled) return null;
+  try { el.focus({ preventScroll: true }); } catch (e) { return null; }
+  const len = String(el.value ?? "").length;
+  if (saved.start != null) { try { el.setSelectionRange(Math.min(saved.start, len), Math.min(saved.end ?? saved.start, len)); } catch (e) { /* no caret */ } }
+  return el;
 }
 
 // Last HTML produced per root, for the no-op check. WeakMap so a closed app's markup isn't held.

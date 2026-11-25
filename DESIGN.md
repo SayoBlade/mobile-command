@@ -10264,3 +10264,14 @@ panel comes forward the way a Foundry window does (UI-BIBLE §6.5): any press on
 press opening a tab put it one level above every window and move Foundry's counter with it, so a dialog opened
 afterwards still lands on top. One panel element carries every tab, so every tab is covered.
 `panel-safe.js frontZ / bringToFront`; `tools/test-panel-front.mjs` 10.
+
+**SEAT 27 (2026-11-25): the "input doesn't work", for good.** The panel-in-front fix held. The rest: turning the
+board on or opening a drawer threw the tab to the top, the phrase box fell below the fold and had lost focus, so
+Enter went nowhere. (1) `renderNow` restored scroll before `applyWorkspaceBounds` — the rebuilt flyout had no inline
+max-height yet, the tab body was too tall to scroll, and the browser clamped scrollTop to 0. Restore now runs after
+the bounds and the clamp, in every tab; `restoreScrolls` also tracks the rebuilt scroller at once, so a second
+repaint before its scroll event still keeps the place. (2) A press on a button in the same drawer as the focused
+field (`noteFieldPress`) hands focus and caret back after the repaint (`repaint.js captureField / restoreField`,
+3 s window; value never restored — the draft owns it). (3) Enter empties the phrase box in place (the typing guard
+holds the repaint). (4) The panel's Next Hour takes two taps within 4 s (`druskArmAt`); the deck key stays one press.
+UI-BIBLE §6.3 rules 3–4. `tools/test-panel-keep.mjs` 13.

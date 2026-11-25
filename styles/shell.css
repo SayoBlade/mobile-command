@@ -2470,6 +2470,7 @@ body {
 .mc-dmp-cardupload { padding: 4px; font-size: 11px; }
 /* DM panel: the Story-questions drawer. */
 .mc-dmp-story-random { width: 100%; margin-bottom: 8px; }
+.mc-dmp-story-random.mc-armed { color: #fff; background: rgba(180, 120, 40, 0.55); } /* SEAT 27: Next Hour waits for its second tap */
 .mc-dmp-story-status { font-size: 12px; color: var(--mc-muted); margin: 2px 0 8px; }
 .mc-dmp-story-tick { display: inline-block; min-width: 18px; text-align: center; margin-left: 4px;
   color: var(--mc-muted); }
