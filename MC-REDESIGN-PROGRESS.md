@@ -64,3 +64,16 @@ Still running: the phone inventory. Next: the old-home to new-home table, then t
    inventory). Nothing was run in Foundry; no world, setting or module code was touched.
 5. Waiting on the DM: the ten questions in section 8. The first one (build order) decides what
    happens next.
+
+## 2026-11-25: PARKED (DM: "Park this after the screenshots for a more token-free time")
+
+1. The park order arrived after milestone 4. The renders (with both size tweaks) AND the written
+   proposal were already finished and committed: 6116cfa (document), da6525a (renders and PDF).
+2. So nothing is left to write. All sections of `MC-REDESIGN-2026-11-26.md` exist: summary, what the
+   code says, principles, each surface per mode, the old-home to new-home table, phases, risks,
+   questions, render list.
+3. What is left is the DM's: the ten questions in section 8 of that document. Question 1 (build
+   order) decides the next step.
+4. Still unverified: that the live world runs the deck's tree layout (section 2 of the document).
+5. Resume here: read his answers, then start the phase he picks (my pick was phase 1, the one
+   waiting queue). No further work is to be done on this until he says so.
