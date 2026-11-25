@@ -214,5 +214,21 @@ check("main.js: prompts tracked, the guard on, and the GM's sweep at load, at a 
   check("the DM's screen merges those options, keeping its consume mode and no-target-dialog setting",
     /workflowOptions: \{ autoConsumeResource: consumeMode, targetConfirmation: "none", \.\.\.\(midiOptions\.workflowOptions \?\? \{\}\) \}/.test(src("rpc.js")));
 }
+// SEAT 34: a finished miss card left on the phone no longer sends the next Gambit's attack to the DM's screen
+{
+  const shell = src("shell.js");
+  const at = shell.indexOf("export function actionCardResolved(s) {");
+  const fnSrc = shell.slice(at, shell.indexOf("\n}\n", at) + 2).replace("export function", "function");
+  const actionCardResolved = new Function(`${fnSrc}; return actionCardResolved;`)();
+  check("a resolved card (a miss or a hit with nothing left to roll; a heal's total) gives way; one choosing, rolling or awaiting damage does not",
+    actionCardResolved({ phase: "attacked", requestId: null, busy: false }) === true
+    && actionCardResolved({ phase: "healed", busy: false }) === true
+    && actionCardResolved({ phase: "attacked", requestId: "r1", busy: false }) === false
+    && actionCardResolved({ phase: "rolling", busy: true }) === false
+    && actionCardResolved({ phase: undefined, busy: false }) === false
+    && actionCardResolved(null) === false);
+  check("gpsPlayerRoll takes over only a resolved card, clearing it first",
+    /if \(this\.#actionState && !actionCardResolved\(this\.#actionState\)\) return null;\s*if \(this\.#actionState\) \{ this\.#actionState = null; this\.render\(\); \}/.test(shell));
+}
 console.log(`All ${n} passed.`);
 process.exit(0);

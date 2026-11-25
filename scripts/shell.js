@@ -2463,7 +2463,10 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // by itself. Returns GPS's answer, or null to let the bridge send it to the DM's screen as before (no attack in the
   // item, or the player is mid-action).
   async gpsPlayerRoll(data) {
-    if (this.#actionState) return null;
+    // SEAT 34: a card that has already RESOLVED (a miss or hit shown, nothing left to roll; a heal's result) is only
+    // a result on screen; it gives way to the new attack. A card still choosing, rolling or waiting for damage keeps it.
+    if (this.#actionState && !actionCardResolved(this.#actionState)) return null;
+    if (this.#actionState) { this.#actionState = null; this.render(); }
     const item = await fromUuid(data?.itemUuid ?? "");
     const activity = gpsAttackActivity(item, data);
     if (!activity?.uuid) return null;
@@ -9327,6 +9330,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 }
 
 let shellInstance = null;
+/** SEAT 34: an action card that only shows a finished result (Hit/Miss with no damage step left, or a heal's total). */
+export function actionCardResolved(s) {
+  if (!s || s.busy) return false;
+  if (s.phase === "healed") return true;
+  return s.phase === "attacked" && !s.requestId;
+}
 // SEAT 32: Gambit's attacks a player rolls their own damage for run on this phone's card (gps-bridge forwardGpsWorkflows)
 try { globalThis.mcGpsPlayerRoll = (data) => shellInstance?.gpsPlayerRoll(data) ?? null; } catch (e) { /* no global */ }
 
