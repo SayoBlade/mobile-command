@@ -10198,3 +10198,17 @@ GM-only, so no change: Item Piles' and Combat Tracker Dock's welcome chat cards,
 changelogger, Automated Animations' tips (already off). Not stopped: The Crooked Moon's version chat card, posted by
 whichever client loads first after an update (a chat message, not a popup; the phone shows no Foundry chat).
 `tools/test-phone-quiet.mjs` 15. `globalThis.mcPhoneQuiet` = { held, closed, set } for a seat.
+
+### 60.4a SEAT 22: Reckless Attack's Yes lost the attack; GPS's OA regions on his other fight — FIXED 2026-11-25 (seat owed)
+**The attack:** GPS 3.0.8 `recklessAttack2024` asks at midi's `preAttackRollConfig`, INSIDE the attack roll, and waits
+up to 30 s (plus its Pause). The executor's two-tap park wait (`rpc.js findParkedWorkflow`, 15 s) read a workflow still
+at WaitForAttackRoll as "the roll died" and aborted it, so the Yes came back to a dead workflow; the phone's own wait
+was 30 s. Read from the code, not traced live (the seat saw no error line). Now both wait while a GPS question is open
+(`gps-bridge.js`: a `process3rdPartyReactionDialog` query in flight from this client, counted by `trackGpsPrompts` on
+core `User#query`, or a `.gps-automation-dialog` on this screen), up to 120 s; then their usual windows run on.
+**The regions:** GPS sets up OA regions on the first update it sees of ANY started fight, so his live 10.6 fight got
+regions and combatant flags. `guardGpsOa`: GPS may only set up a fight that started while it was on (core
+`combatStart`, kept across a reload by `flags.mobile-command.gpsOa`). `clearGpsOa` (active GM: at load, at a fight's
+end, on its delete; `mcGps.clearOa()` by hand) deletes GPS OA regions no allowed running fight points at and unsets the
+combatant flags pointing at them. GPS's own one-time `startProcessed-<id>` mark on an old fight remains (harmless).
+`tools/test-gps-bridge.mjs` 13–23.

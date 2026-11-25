@@ -83,3 +83,143 @@ export function forwardGpsWorkflows({ queries = globalThis.CONFIG?.queries, isPh
   }
   return n;
 }
+
+// ── SEAT 22 (2026-11-25): Reckless Attack's "Yes" and then no attack ──────────────────────────────────────────────────
+// GPS 3.0.8 recklessAttack2024 asks its question at midi's preAttackRollConfig, i.e. INSIDE the attack roll, and waits up
+// to 30 s (+ its Pause button). Our two-tap flow on the executor gave the workflow 15 s to park (rpc.js
+// findParkedWorkflow); a workflow still at WaitForAttackRoll after that is read as "the roll died" and ABORTED, so the
+// answer came back to a dead workflow: no card, no roll. The phone itself gave up at 30 s. Now both wait while a GPS
+// question is open (a `process3rdPartyReactionDialog` query in flight from this client, or a GPS dialog on this screen),
+// up to PROMPT_MAX_MS, and their usual windows run on from the answer.
+export const PROMPT_MAX_MS = 120000;
+export const PROMPT_SLACK_MS = 2000;
+const pendingPrompts = new Set();
+export const _pendingPrompts = pendingPrompts; // tests
+
+/** Is a GPS question open right now (asked from here, or shown here)? */
+export function gpsPromptOpen(doc = globalThis.document) {
+  if (pendingPrompts.size) return true;
+  try { return !!doc?.querySelector?.(".gps-automation-dialog"); } catch (e) { return false; }
+}
+
+/** Count GPS's reaction-dialog queries in flight (core `User#query`). Once only. */
+export function trackGpsPrompts(proto = globalThis.CONFIG?.User?.documentClass?.prototype) {
+  if (!proto || typeof proto.query !== "function" || proto.query.__mcGpsTrack) return false;
+  const orig = proto.query;
+  const query = async function (name, ...rest) {
+    if (!String(name).startsWith(`${GPS_ID}.process3rdPartyReactionDialog`)) return orig.call(this, name, ...rest);
+    const token = {};
+    pendingPrompts.add(token);
+    try { return await orig.call(this, name, ...rest); } finally { pendingPrompts.delete(token); }
+  };
+  query.__mcGpsTrack = true;
+  proto.query = query;
+  return true;
+}
+
+/** The wait's new deadline: pushed out while a question is open, never past start + maxMs. Pure. */
+export function extendDeadline(deadline, now, start, open, maxMs = PROMPT_MAX_MS) {
+  return open ? Math.min(start + maxMs, Math.max(deadline, now + PROMPT_SLACK_MS)) : deadline;
+}
+
+/** promise, or "request timed out" after ms — longer while a GPS question is open. */
+export function raceWithPrompts(promise, ms, { open = () => gpsPromptOpen(), maxMs = PROMPT_MAX_MS, now = () => Date.now(), tick = 250 } = {}) {
+  const start = now();
+  let deadline = start + ms;
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const timer = setInterval(() => {
+      if (done) return;
+      deadline = extendDeadline(deadline, now(), start, open(), maxMs);
+      if (now() >= deadline) { done = true; clearInterval(timer); reject(new Error("request timed out")); }
+    }, tick);
+    Promise.resolve(promise).then(
+      (v) => { done = true; clearInterval(timer); resolve(v); },
+      (e) => { done = true; clearInterval(timer); reject(e); });
+  });
+}
+
+// ── SEAT 22: GPS's opportunity attacks reached into the DM's other fights ──────────────────────────────────────────────
+// GPS processes the first update it sees of ANY started combat (utils/hooks.js updateCombat → enableOpportunityAttack),
+// so switching fights put "<name> OA Region" regions and combatant flags on his live 10.6 fight. Now GPS may only set up a
+// fight that STARTED while GPS was on (core's combatStart fires before the update GPS reacts to; the mark
+// `flags.mobile-command.gpsOa` keeps it across a reload). Leftovers — a GPS OA region no allowed, started fight points at,
+// and combatant flags pointing at one — are cleared by the active GM at load, when a fight ends and when one is deleted
+// (`clearGpsOa`, also `mcGps.clearOa()`). GPS still writes its own one-time `startProcessed-<id>` mark on an old fight it
+// sees; nothing else of it lands there.
+export const OA_FLAG = "gpsOa";
+const startedHere = new Set();
+gpsBridgeState.refused = 0;
+gpsBridgeState.cleared = 0;
+
+export function gpsMayTouch(combat, { started = startedHere, moduleId = "mobile-command" } = {}) {
+  if (!combat) return false;
+  if (started.has(combat.id)) return true;
+  try { return combat.flags?.[moduleId]?.[OA_FLAG] === true; } catch (e) { return false; }
+}
+
+/** Wrap game.gps.enableOpportunityAttack and mark fights that start. Once only. */
+export function guardGpsOa({ gps = globalThis.game?.gps, hooks = globalThis.Hooks, isGM = () => globalThis.game?.user?.isGM === true,
+  moduleId = "mobile-command", started = startedHere } = {}) {
+  if (!gps || typeof gps.enableOpportunityAttack !== "function" || gps.enableOpportunityAttack.__mcGuard) return false;
+  const orig = gps.enableOpportunityAttack;
+  const guarded = async function (target, event, ...rest) {
+    const combat = event === "enterCombat" ? target?.parent : target;
+    if (!gpsMayTouch(combat, { started, moduleId })) { gpsBridgeState.refused += 1; return undefined; }
+    return orig.call(this, target, event, ...rest);
+  };
+  guarded.__mcGuard = true;
+  gps.enableOpportunityAttack = guarded;
+  hooks?.on?.("combatStart", (combat) => {
+    try {
+      started.add(combat?.id);
+      if (isGM()) combat?.setFlag?.(moduleId, OA_FLAG, true)?.catch?.(() => {});
+    } catch (e) { /* a mark only */ }
+  });
+  return true;
+}
+
+const isGpsOaRegion = (r) => r?.flags?.[GPS_ID]?.opportunityAttackRegionMaxRange !== undefined;
+
+/**
+ * What to clear. Pure over plain data: scenes [{ id, regions: [{ id, uuid, flags }] }],
+ * combats [{ id, started, ok, combatants: [{ id, regionUuid }] }].
+ */
+export function oaLeftovers(scenes, combats) {
+  const keep = new Set();
+  for (const c of combats ?? []) if (c.started && c.ok) for (const cb of c.combatants ?? []) if (cb.regionUuid) keep.add(cb.regionUuid);
+  const regions = [];
+  for (const s of scenes ?? []) for (const r of s.regions ?? []) {
+    if (isGpsOaRegion(r) && !keep.has(r.uuid)) regions.push({ sceneId: s.id, id: r.id, uuid: r.uuid });
+  }
+  const flags = [];
+  for (const c of combats ?? []) for (const cb of c.combatants ?? []) {
+    if (cb.regionUuid && !keep.has(cb.regionUuid)) flags.push({ combatId: c.id, combatantId: cb.id });
+  }
+  return { regions, flags };
+}
+
+/** The active GM clears GPS OA leftovers. Returns how many documents it touched. */
+export async function clearGpsOa(g = globalThis.game, { moduleId = "mobile-command" } = {}) {
+  if (!g?.user?.isGM) return 0;
+  if (g.users?.activeGM && g.users.activeGM.id !== g.user.id) return 0;
+  const scenes = [...(g.scenes ?? [])].map((s) => ({ id: s.id, regions: [...(s.regions ?? [])].map((r) => ({ id: r.id, uuid: r.uuid, flags: r.flags })) }));
+  const combats = [...(g.combats ?? [])].map((c) => ({
+    id: c.id, started: c.started === true, ok: gpsMayTouch(c, { moduleId }),
+    combatants: [...(c.combatants ?? [])].map((cb) => ({ id: cb.id, regionUuid: cb.flags?.[GPS_ID]?.opportunityAttackRegion ?? null })),
+  }));
+  const { regions, flags } = oaLeftovers(scenes, combats);
+  let n = 0;
+  const byScene = new Map();
+  for (const r of regions) { if (!byScene.has(r.sceneId)) byScene.set(r.sceneId, []); byScene.get(r.sceneId).push(r.id); }
+  for (const [sid, ids] of byScene) {
+    try { await g.scenes.get(sid)?.deleteEmbeddedDocuments("Region", ids); n += ids.length; } catch (e) { console.warn("mobile-command | GPS OA regions", e); }
+  }
+  for (const f of flags) {
+    try { await g.combats.get(f.combatId)?.combatants?.get(f.combatantId)?.unsetFlag(GPS_ID, "opportunityAttackRegion"); n += 1; } catch (e) { /* gone */ }
+  }
+  gpsBridgeState.cleared += n;
+  if (n) console.log(`mobile-command | cleared ${regions.length} Gambit's opportunity-attack region(s) and ${flags.length} flag(s) from fights it should not touch`);
+  return n;
+}
+gpsBridgeState.clearOa = () => clearGpsOa();

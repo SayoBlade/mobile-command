@@ -9,6 +9,7 @@ import { lootableItems, authoredDeath, isDeckEcho } from "./corpse-rules.js";
 import { clockLabel } from "./gametime.js"; // in-world date stamps on story entries (§38.4)
 import { recordExtraDamage } from "./deeds.js"; // §44: extra-instance darts bypass midi's damageList
 import { resolveExecutorId, isExecutor, reactionTimeoutMs, DISPLAY_LEVEL } from "./settings.js";
+import { extendDeadline, gpsPromptOpen } from "./gps-bridge.js"; // a GPS question mid-roll is waited out (SEAT 22)
 import * as DT from "./downtime.js"; // §17.7 downtime data model + Rule engine (pure, unit-tested)
 // Pure-data wall test: works on scenes the DM isn't looking at, where the canvas collision
 // backends only know the VIEWED scene. Used by movement and by travel-point landings.
@@ -1249,7 +1250,10 @@ const parkedWorkflows = new Map();
 async function findParkedWorkflow(activityUuid, itemUuid, preIds = new Set(), timeoutMs = 15000) {
   const start = Date.now();
   let lastSeen = null; // the freshest matching workflow, whatever state it's in (for stuck diagnosis)
-  while (Date.now() - start < timeoutMs) {
+  // SEAT 22: a Gambit's Premades question asked mid-roll (Reckless Attack at preAttackRollConfig) holds the workflow at
+  // WaitForAttackRoll for as long as it is open; it is waited out, not aborted (gps-bridge.js extendDeadline).
+  let deadline = start + timeoutMs;
+  while ((deadline = extendDeadline(deadline, Date.now(), start, gpsPromptOpen())) > Date.now()) {
     // midi 14 keeps workflows in a Map keyed by id, stored optionally as WeakRefs
     // (useWeakReferences; midi-qol.js 24336/24347). `Object.values()` on a Map is
     // ALWAYS [], which previously made this scan see nothing and the two-tap fail

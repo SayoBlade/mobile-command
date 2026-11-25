@@ -1,3 +1,4 @@
+import { raceWithPrompts } from "./gps-bridge.js"; // a Gambit's question mid-attack extends the wait (SEAT 22)
 import { MODULE_ID, CREATION_BEATS, pcDisplayName, TABLE_SEATS } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { isOnlineTable } from "./settings.js"; // §39 in person ⇄ online (settings.js imports nothing of ours but preset/enforcer — no cycle)
@@ -6842,7 +6843,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       // midi awaits the dice animation BEFORE the park, and the park scan allows 15s
       // (findParkedWorkflow; a hidden client's AttackRollComplete measured ~10s). At 12s
       // the phone gave up on attacks the executor then finished into orphans.
-      res = await this.#withTimeout(rpc.useActivityStart({
+      // …and longer while a Gambit's Premades question is open (SEAT 22: Reckless Attack asks mid-roll).
+      res = await raceWithPrompts(rpc.useActivityStart({
         activityUuid: s.uuid,
         targetUuids: expanded,
         midiOptions,

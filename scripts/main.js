@@ -51,7 +51,7 @@ import { registerMusicBehavior, registerMusic, state as musicState, pick as musi
 import { installOverlayGuard, sweepCoveringLayers, reapplyGuard, restoreCoreUi, forceRail, stuckOverlayStates, clearedLayers, shouldKeepGmClear, verifyRail } from "./overlay-guard.js"; // §22.7/§22.9 the DM is never covered or hidden
 
 import { installNoticeFilter, closeLoadWindow, applyPhoneSettings, phoneQuietState } from "./phone-quiet.js"; // a phone loads quietly (DM 2026-11-25)
-import { forwardGpsWorkflows } from "./gps-bridge.js"; // Gambit's Premades: a phone's reaction item-use runs on the executor (DM 2026-11-25)
+import { forwardGpsWorkflows, trackGpsPrompts, guardGpsOa, clearGpsOa, gpsActive } from "./gps-bridge.js"; // Gambit's Premades: a phone's reaction item-use runs on the executor (DM 2026-11-25)
 import { registerTvCarousel } from "./tv-carousel.js"; // the fight carousel on the TV (DM 2026-11-24)
 import { registerDicerMidiBridge, applyPhoneDice, hideGhostDice } from "./dicer-midi.js"; // Dicer dice on midi's rolls (deck-command SEAT 9)
 // Blind / GM-only dice on the GM only (SEAT 16): Dicer caches a setting on its first read, so turn its ghost dice off
@@ -1034,6 +1034,19 @@ Hooks.once("ready", () => {
   // GPS asks a phone to run a reaction's item use; a phone has no canvas, so the executor runs it (gps-bridge.js)
   try { if (isPhoneClient()) forwardGpsWorkflows({ isPhone: () => isPhoneClient(), executor: () => game.users.get(resolveExecutorId()) ?? null }); }
   catch (e) { console.warn(`${MODULE_ID} | gps bridge`, e?.message ?? e); }
+  // SEAT 22: a GPS question mid-roll is waited out (every client); GPS sets up only fights that start while it is on,
+  // and the active GM clears its leftovers at load, when a fight ends and when one is deleted (gps-bridge.js).
+  if (gpsActive()) {
+    try { trackGpsPrompts(); } catch (e) { console.warn(`${MODULE_ID} | gps prompts`, e?.message ?? e); }
+    const guard = () => { try { guardGpsOa(); } catch (e) { console.warn(`${MODULE_ID} | gps oa guard`, e?.message ?? e); } };
+    guard(); setTimeout(guard, 1000);
+    if (game.user.isGM) {
+      const sweep = () => clearGpsOa().catch((e) => console.warn(`${MODULE_ID} | gps oa sweep`, e?.message ?? e));
+      setTimeout(sweep, 5000);
+      Hooks.on("deleteCombat", () => setTimeout(sweep, 1500));
+      Hooks.on("updateCombat", (c, chg) => { if (chg && "round" in chg && Number(chg.round) === 0) setTimeout(sweep, 1500); });
+    }
+  }
   registerFog(); // fog-of-war edge styles on the display (off/soft/gpu via `fogStyle`; see fog-soft.js)
   registerMusic();       // rooms, battle, Phase 2, cues — crossfaded; the primary GM drives (music.js)
   registerSyrinscapeBridge(); // a Syrinscape entry plays its local twin while Local/offline, and stops at a fade's start
