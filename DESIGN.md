@@ -10241,3 +10241,19 @@ move-restricting region held the mover until the item use answered. `forwardGpsW
 carries its creature and is dropped when that creature's save rolls (`dropAnsweredSaves`).
 **Cleanup timing:** 7–20 s after the GM's ready with GPS off (the 5 s timer, then serial deletes): noted, unchanged.
 `tools/test-gps-bridge.mjs` 28–34.
+
+### 30.9 The séance on the DM panel: the tab, the drawer, the phrase box — FIXED 2026-11-25 (seat owed)
+DM 2026-11-25: *"when trying the seance table I noticed the mc tab doesn't open and the input doesn't work"*. Not
+reproduced live (a seat lane held the world; the bench must not start then). From the code, three ways the panel
+let him down, all fixed:
+- **The phrase box was `disabled` whenever the board was off**, so typing the phrase first did nothing at all. It now
+  always takes typing; Send/Enter with the board off keeps the phrase and says "Turn the Spirit Board on first".
+- **A deck press brought the Crooked tab forward with every drawer closed** (all nine start closed): the séance was
+  not where he looked. `runAction` records the action's group (`panel-safe.js lastRun`); `openDock` opens that group's
+  drawer (Séance → `fxSeance`, …) and scrolls it into view.
+- **The Crooked tab builds all nine drawer bodies in one render**: a throw in any of them (a campaign helper meeting a
+  Foundry/dnd5e change) failed the whole render, so the tab button changed nothing. Each body is now built on its own
+  (`safeBody`): a broken drawer shows one line and logs once; the rest of the tab opens.
+Ruled out: today's phone-quiet filter (phones only; the panel is not a Foundry window), the TV clean view (the TV only),
+Animater/Dicer key listeners (scoped to their own windows or a pick in progress), the board overlay over the DM's
+screen (opt-in only, §22.7). `tools/test-seance-panel.mjs` 11.

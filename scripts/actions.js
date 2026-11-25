@@ -1,3 +1,4 @@
+import { lastRun } from "./panel-safe.js"; // which drawer a deck press opens (DM 2026-11-25)
 import { MODULE_ID } from "./preset.js";
 
 /**
@@ -164,6 +165,7 @@ export async function runAction(id, params = {}) {
   if (safe(d.hidden, false)) return { ok: false, reason: `${d.label} is not part of this table` };
   if (safe(d.when, true) === false) return { ok: false, reason: `${d.label} is not available right now` };
   try {
+    lastRun.group = d.group ?? null; lastRun.id = id; lastRun.at = Date.now();
     const r = await d.run(params ?? {});
     notifyActionsChanged();
     return r?.ok === false ? r : { ok: true };

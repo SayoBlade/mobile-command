@@ -1,3 +1,4 @@
+import { safeBody, drawerForPress, lastRun } from "./panel-safe.js"; // one broken drawer never stops a tab; a deck press opens its drawer (DM 2026-11-25)
 import { crossingName, otherHeroNames } from "./crossing-name.js";
 import { api, listPendingCasts, placeCast, dismissCast, partyDeployPreview, scribeResultToUser, presenceState, pushStoryQuestion, storyPushState, answerChip } from "./rpc.js";
 import { notifier } from "./notifier.js";
@@ -577,7 +578,7 @@ function seanceBody() {
     <button class="mc-fx-btn ${on ? "mc-on" : ""}" data-fx="seance" title="${FX_DEFS.seance.hint}" style="width:100%"><i class="fas ${FX_DEFS.seance.icon}"></i><span>Spirit Board</span></button>
     <div class="mc-seance-party">${rows || `<div class="mc-dmp-empty">No player characters.</div>`}</div>
     <div class="mc-fx-voicerow">
-      <input type="text" class="mc-fx-voice" data-seance-text maxlength="120" placeholder="What the spirits say… (YES, NO, HELLO, GOODBYE land whole)" value="${esc(seanceDraft)}" ${on ? "" : "disabled"}>
+      <input type="text" class="mc-fx-voice" data-seance-text maxlength="120" placeholder="${on ? "What the spirits say… (YES, NO, HELLO, GOODBYE land whole)" : "Write the phrase now; turn the Spirit Board on to send it"}" value="${esc(seanceDraft)}">
       <button class="mc-fx-btn mc-fx-voicebtn" data-seance-send title="The planchette spells it out (Enter works too)" ${on ? "" : "disabled"}><i class="fas fa-hand-point-up"></i></button>
       ${rollBtn}
     </div>
@@ -586,6 +587,7 @@ function seanceBody() {
 
 // §30 shared by the Send button and Enter in the input.
 function seanceSend() {
+  if (!fxIsOn("seance")) { notifier.info("Turn the Spirit Board on first — your phrase is kept."); return; }
   if (!seanceSay(seanceDraft)) { notifier.warn("Write what the spirits say — letters and numbers only."); return; }
   seanceDraft = "";
   render();
@@ -793,15 +795,15 @@ function crookedTabHTML() {
   // had to scroll past to reach the one you wanted; opening the one you're using is one tap, and
   // the choice sticks for the session (dtDrawers remembers per key).
   return `<div class="mc-dmp-tabfill"><div class="mc-dmp-tabmid">
-    ${dtDrawer("cmIntros", "Intros", "", entrancesBody(), true)}
-    ${dtDrawer("cmCurses", "Chaotic curses", "", curseBody(), true)}
-    ${dtDrawer("cmFate", "Fateweaving", "", fateBody(), true)}
-    ${dtDrawer("cmTwists", "Twists of fate", "", twistsBody(), true)}
-    ${dtDrawer("cmClock", "Druskenvald clock", "", druskBody(), true)}
-    ${dtDrawer("cmTarot", "Fated tarot", "", tarotBody(), true)}
-    ${dtDrawer("cmBoard", "All aboard", "", allAboardBody(), true)}
-    ${dtDrawer("cmRide", "The Ghostlight ride", "", trainRideBody(), true)}
-    ${dtDrawer("fxSeance", "Séance", "", seanceBody(), true)}
+    ${dtDrawer("cmIntros", "Intros", "", safeBody("Intros", entrancesBody), true)}
+    ${dtDrawer("cmCurses", "Chaotic curses", "", safeBody("Chaotic curses", curseBody), true)}
+    ${dtDrawer("cmFate", "Fateweaving", "", safeBody("Fateweaving", fateBody), true)}
+    ${dtDrawer("cmTwists", "Twists of fate", "", safeBody("Twists of fate", twistsBody), true)}
+    ${dtDrawer("cmClock", "Druskenvald clock", "", safeBody("Druskenvald clock", druskBody), true)}
+    ${dtDrawer("cmTarot", "Fated tarot", "", safeBody("Fated tarot", tarotBody), true)}
+    ${dtDrawer("cmBoard", "All aboard", "", safeBody("All aboard", allAboardBody), true)}
+    ${dtDrawer("cmRide", "The Ghostlight ride", "", safeBody("The Ghostlight ride", trainRideBody), true)}
+    ${dtDrawer("fxSeance", "Séance", "", safeBody("Séance", seanceBody), true)}
   </div></div>`;
 }
 
@@ -5216,11 +5218,14 @@ export function refreshPanel() { try { if (panelEl) render(); } catch (e) { /* n
  * general verb, not a deck verb: any caller may open any tab. Returns the tab shown, or null when
  * the panel is not mounted (MC's own UI mounts it; this never creates it).
  */
-export function openDock(tab) {
+export function openDock(tab, drawer = undefined) {
   try {
     if (!panelEl) return null;
     dockTab = tab ?? null;
+    const k = drawer === undefined ? drawerForPress(lastRun, Date.now()) : drawer;
+    if (k) dtDrawers[k] = true;
     render();
+    if (k) requestAnimationFrame(() => { try { panelEl?.querySelector(`[data-dt-drawer="${k}"]`)?.closest(".mc-dt-drawer")?.scrollIntoView({ block: "nearest" }); } catch (e) { /* layout */ } });
     return dockTab;
   } catch (e) { console.warn(`${MODULE_ID} | openDock:`, e?.message); return null; }
 }
