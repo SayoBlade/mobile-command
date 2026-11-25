@@ -85,9 +85,14 @@ check("MC's own toasts pass through asOurs (the five-a-burst rule is still notif
   const sc = Q.PHONE_SETTINGS.find((e) => e.module === "foundryvtt-simple-calendar-reborn");
   check("Simple Calendar's own open-on-load switch is turned off on phones", sc?.key === "open-on-load" && sc.value === false);
   const st = { phone: true, readyAt: 0, held: [], closed: [], set: [] };
-  const win = { id: "fsc-if", options: { id: "fsc-if" }, element: [{ style: {} }], close() {} };
+  const win = { id: "fsc-if", options: { id: "fsc-if" }, element: [{ style: { setProperty(k, v, pr) { this[k] = v; this.pri = pr; } }, classList: { set: new Set(), add(c) { this.set.add(c); } } }], close() {} };
   check("…and its calendar window (fsc-if) is closed if it opens during a phone's load, hidden first (no flash)",
-    Q.closeLoadWindow(win, { state: st }) === true && st.closed.includes("Simple Calendar's calendar window") && win.element[0].style.display === "none");
+    Q.closeLoadWindow(win, { state: st }) === true && st.closed.includes("Simple Calendar's calendar window") && win.element[0].style.display === "none"
+    && win.element[0].style.pri === "important" && win.element[0].classList.set.has("mc-load-hidden"));
+  const css = fs.readFileSync(path.join(ROOT, "styles", "shell.css"), "utf8");
+  check("SEAT 33: the hide beats the phone's bottom-sheet rule (display:flex !important): !important inline, and a stylesheet rule that outranks it",
+    /body\.mc-phone \.mc-phone-dialog\.mc-load-hidden \{ display: none !important;/.test(css)
+    && css.indexOf("body.mc-phone .mc-phone-dialog.mc-load-hidden") > css.indexOf("body.mc-phone .mc-phone-dialog {"));
   check("…never on the DM's screen, nor once the phone has loaded",
     Q.closeLoadWindow(win, { state: { phone: false, readyAt: 0, held: [], closed: [], set: [] } }) === false
     && Q.closeLoadWindow(win, { state: { phone: true, readyAt: Date.now() - Q.QUIET_MS - 1, held: [], closed: [], set: [] } }) === false);

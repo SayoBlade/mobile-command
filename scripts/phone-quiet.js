@@ -103,7 +103,9 @@ export function closeLoadWindow(app, { state = phoneQuietState, now = () => Date
   state.closed.push(why);
   try {
     const el = app.element?.style ? app.element : app.element?.[0];   // a v2 HTMLElement, or a v1 jQuery set
-    if (el?.style) el.style.display = "none";          // no flash before it closes
+    // no flash before it closes. With !important, and a class the stylesheet backs: the phone's bottom-sheet rule
+    // (.mc-phone-dialog, display:flex !important) beat a plain inline hide, so the calendar still showed (SEAT 33).
+    if (el?.style) { el.style.setProperty("display", "none", "important"); el.classList?.add?.("mc-load-hidden"); }
   } catch (e) { /* headless */ }
   setTimeout(() => { try { app.close(); } catch (e) { /* already gone */ } }, 0);
   return true;

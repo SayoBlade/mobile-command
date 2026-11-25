@@ -2609,6 +2609,9 @@ body.mc-phone .mc-phone-dialog {
   border-radius: calc(16px * var(--mc-round, 1)) 16px 0 0 !important;
   display: flex !important; flex-direction: column !important;
 }
+/* SEAT 33: a window MC closes during a phone's load (phone-quiet.js LOAD_WINDOWS: Simple Calendar, a book's
+   changelog...) must not flash as a sheet first; this outranks the bottom-sheet rule above. */
+body.mc-phone .mc-load-hidden, body.mc-phone .mc-phone-dialog.mc-load-hidden { display: none !important; visibility: hidden !important; }
 body.mc-phone .mc-phone-dialog .window-content {
   flex: 1 1 auto; overflow-y: auto; max-height: none; -webkit-overflow-scrolling: touch;
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
