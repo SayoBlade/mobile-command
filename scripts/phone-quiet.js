@@ -85,6 +85,9 @@ export const LOAD_WINDOWS = [
   // Dicer 1.4.12 tray-pick: a DialogV2 at ready while its chat tray is on and another tray module (dice-calculator,
   // daggerdice) is active; closed unanswered it is marked seen for this version and does not come back
   { why: "Dicer's \"Pick one dice tray\"", test: (app) => app?.constructor?.name === "DialogV2" && titleOf(app) === loc("DICER.TrayPick.Title") },
+  // Simple Calendar Reborn 2.6.1: its calendar window (v1 FormApplication MainApp, id "fsc-if") opens at its ready on every
+  // screen while the client setting open-on-load is on (SEAT 32: a full-width calendar flashed ~1 s on each phone load)
+  { why: "Simple Calendar's calendar window", test: (app) => app?.id === "fsc-if" || app?.options?.id === "fsc-if" },
 ];
 
 /** Close this app on a phone during the load? Returns the matching entry's `why`, or null. Pure over the app. */
@@ -99,7 +102,7 @@ export function closeLoadWindow(app, { state = phoneQuietState, now = () => Date
   if (!why) return false;
   state.closed.push(why);
   try {
-    const el = app.element instanceof HTMLElement ? app.element : app.element?.[0];
+    const el = app.element?.style ? app.element : app.element?.[0];   // a v2 HTMLElement, or a v1 jQuery set
     if (el?.style) el.style.display = "none";          // no flash before it closes
   } catch (e) { /* headless */ }
   setTimeout(() => { try { app.close(); } catch (e) { /* already gone */ } }, 0);
@@ -109,6 +112,8 @@ export function closeLoadWindow(app, { state = phoneQuietState, now = () => Date
 /** Client settings that switch a load-time popup off. Each: { module, key, value, why }. */
 export const PHONE_SETTINGS = [
   { module: "hero-mancer", key: "showWelcome", value: false, why: "Hero Mancer's welcome (its own per-screen switch)" },
+  // Simple Calendar Reborn registers its settings under its own id; "open-on-load" is a client setting (SEAT 32)
+  { module: "foundryvtt-simple-calendar-reborn", key: "open-on-load", value: false, why: "Simple Calendar's open-on-load (its own per-screen switch)" },
 ];
 
 /** On a phone: set each switch once (only if registered and different). Returns how many it set. */

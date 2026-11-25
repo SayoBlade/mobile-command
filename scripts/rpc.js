@@ -1571,8 +1571,10 @@ async function handleItemUseStart(payload) {
           targetUuids: uniqueTargets, ignoreUserTargets: true,
           autoRollAttack: true, fastForwardAttack: true,
           autoRollDamage: "none", fastForwardDamage: false,
-          workflowOptions: { autoConsumeResource: consumeMode, targetConfirmation: "none" },
-          ...midiOptions
+          ...midiOptions,
+          // merged, never replaced: a caller's workflowOptions (SEAT 32: Gambit's opportunity-attack mark and
+          // disadvantage) must not drop the consume mode or the no-target-dialog setting
+          workflowOptions: { autoConsumeResource: consumeMode, targetConfirmation: "none", ...(midiOptions.workflowOptions ?? {}) }
         }
       }, { configure: false }, {});
       return true;

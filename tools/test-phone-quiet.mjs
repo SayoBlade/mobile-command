@@ -80,5 +80,17 @@ check("held: another module's notice on a loading phone; kept: ours, the connect
 check("main.js installs the filter at load, before any init hook", main.indexOf("installNoticeFilter();") > 0 && main.indexOf("installNoticeFilter();") < main.indexOf('Hooks.once("init"'));
 check("…knows the phone after its settings, marks ready, and sets the switches on phones only", /phoneQuietState\.phone = isPhoneClient\(\)/.test(main) && /phoneQuietState\.readyAt = Date\.now\(\);\s*if \(isPhoneClient\(\)\) \{\s*applyPhoneSettings\(\)/.test(main));
 check("MC's own toasts pass through asOurs (the five-a-burst rule is still notifier.js's)", (notifierSrc.match(/asOurs\(\(\) => target\[level\]/g) ?? []).length === 2 && /const MAX_TOASTS = 5;/.test(notifierSrc));
+// SEAT 32: Simple Calendar Reborn's calendar flashed full-width ~1 s on every phone load
+{
+  const sc = Q.PHONE_SETTINGS.find((e) => e.module === "foundryvtt-simple-calendar-reborn");
+  check("Simple Calendar's own open-on-load switch is turned off on phones", sc?.key === "open-on-load" && sc.value === false);
+  const st = { phone: true, readyAt: 0, held: [], closed: [], set: [] };
+  const win = { id: "fsc-if", options: { id: "fsc-if" }, element: [{ style: {} }], close() {} };
+  check("…and its calendar window (fsc-if) is closed if it opens during a phone's load, hidden first (no flash)",
+    Q.closeLoadWindow(win, { state: st }) === true && st.closed.includes("Simple Calendar's calendar window") && win.element[0].style.display === "none");
+  check("…never on the DM's screen, nor once the phone has loaded",
+    Q.closeLoadWindow(win, { state: { phone: false, readyAt: 0, held: [], closed: [], set: [] } }) === false
+    && Q.closeLoadWindow(win, { state: { phone: true, readyAt: Date.now() - Q.QUIET_MS - 1, held: [], closed: [], set: [] } }) === false);
+}
 console.log(`All ${n} passed.`);
 process.exit(0);

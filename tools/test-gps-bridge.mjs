@@ -176,5 +176,43 @@ check("main.js: prompts tracked, the guard on, and the GM's sweep at load, at a 
   check("shell.js: the note carries its creature, and a save result drops it",
     /kind: "save", text: .*, actorId: askedFor \}\);/.test(shell) && /dropAnsweredSaves\(this\.#combatEvents, rolledActorId\)/.test(shell));
 }
+// SEAT 32: a Gambit's attack that HITS offers the player "Roll damage" (players roll their own)
+{
+  const gpsData = { itemUuid: "Actor.b.Item.axe", actorUuid: "Actor.b", isWeapon: true,
+    options: { targetUuids: ["Scene.s.Token.goblin"], workflowOptions: { autoRollDamage: "always", autoRollAttack: true, autoFastDamage: true, disadvantage: true } } };
+  const wo = G.playerRollWorkflowOptions(gpsData);
+  check("the phone's fire keeps GPS's opportunity-attack mark and disadvantage, and drops its auto-rolled damage",
+    wo.gps?.opportunityAttack === true && wo.disadvantage === true && !("autoRollDamage" in wo) && !("autoFastDamage" in wo)
+    && gpsData.options.workflowOptions.autoRollDamage === "always");
+  const atk = { type: "attack", uuid: "A.atk" }, ss = { type: "attack", identifier: "shieldStrike", uuid: "A.ss" };
+  const item = { system: { activities: new Map([["u", { type: "utility" }], ["a", atk], ["s", ss]]) }, flags: {}, actor: { getFlag: () => false } };
+  check("the attack GPS would run: the item's attack, or the shield strike when GPS marks one",
+    G.gpsAttackActivity(item, gpsData) === atk
+    && G.gpsAttackActivity({ ...item, flags: { "gambits-premades": { shieldStrike: true } }, actor: { getFlag: () => true } }, gpsData) === ss
+    && G.gpsAttackActivity({ system: { activities: new Map() } }) === null);
+  check("GPS's answer from the card: a hit is a hit, a miss a miss, a failed fire 'not completed' (its region lets the move go)",
+    JSON.stringify(G.playerRollAnswer({ ok: true, hit: true }, { hit: true, reactionUsed: true })) === '{"completed":true,"checkHits":true,"reactionUsed":true}'
+    && G.playerRollAnswer({ ok: true, hit: false }, { hit: false }).checkHits === false
+    && G.playerRollAnswer({ ok: false }).completed === false);
+  const sent = [];
+  const ex = { active: true, isSelf: false, query: async (k, d) => { sent.push(k); return { completed: true, checkHits: false }; } };
+  const q = { "gambits-premades.remoteCompleteItemUse": async () => "local", "gambits-premades.gpsActivityUse": async () => "local" };
+  G.forwardGpsWorkflows({ queries: q, isPhone: () => true, executor: () => ex, timeoutMs: 40, playerRoll: () => async () => ({ completed: true, checkHits: true, reactionUsed: true }) });
+  const a1 = await q["gambits-premades.remoteCompleteItemUse"](gpsData, {});
+  check("on a phone, GPS's attack goes to the phone's own card, not the DM's screen", a1.checkHits === true && sent.length === 0);
+  const q2 = { "gambits-premades.remoteCompleteItemUse": async () => "local" };
+  G.forwardGpsWorkflows({ queries: q2, isPhone: () => true, executor: () => ex, timeoutMs: 40, playerRoll: () => async () => null });
+  await q2["gambits-premades.remoteCompleteItemUse"](gpsData, {});
+  check("…and when the card can't take it (no attack, the player mid-action) it is sent to the DM's screen as before", sent.length === 1);
+  const shell = src("shell.js");
+  const body = shell.slice(shell.indexOf("async gpsPlayerRoll(data) {"), shell.indexOf("noteAoOPrompt(payload) {"));
+  check("the card fires at once at GPS's targets as a reaction; a hit waits for the player's Roll damage, then rolls it for them after 30 s",
+    /this\.#assignedTargets = \[\.\.\.\(data\.options\?\.targetUuids \?\? \[\]\)\];/.test(body) && /this\.#reactionFiring = true;/.test(body)
+    && /await this\.#fireAction\(\);/.test(body) && /Date\.now\(\) \+ OA_DAMAGE_WAIT_MS/.test(body) && /await this\.#rollDamage\(\);/.test(body)
+    && G.OA_DAMAGE_WAIT_MS === 30000 && /globalThis\.mcGpsPlayerRoll = \(data\) => shellInstance\?\.gpsPlayerRoll\(data\) \?\? null;/.test(shell)
+    && /if \(s\.gpsWorkflowOptions\) midiOptions\.workflowOptions = s\.gpsWorkflowOptions;/.test(shell));
+  check("the DM's screen merges those options, keeping its consume mode and no-target-dialog setting",
+    /workflowOptions: \{ autoConsumeResource: consumeMode, targetConfirmation: "none", \.\.\.\(midiOptions\.workflowOptions \?\? \{\}\) \}/.test(src("rpc.js")));
+}
 console.log(`All ${n} passed.`);
 process.exit(0);

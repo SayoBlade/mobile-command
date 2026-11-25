@@ -10224,6 +10224,12 @@ changelogger, Automated Animations' tips (already off). Not stopped: The Crooked
 whichever client loads first after an update (a chat message, not a popup; the phone shows no Foundry chat).
 `tools/test-phone-quiet.mjs` 15. `globalThis.mcPhoneQuiet` = { held, closed, set } for a seat.
 
+**SEAT 32: Simple Calendar.** Simple Calendar Reborn 2.6.1 opens its calendar (v1 FormApplication MainApp, id
+`fsc-if`) at its ready on every screen while the client setting `foundryvtt-simple-calendar-reborn.open-on-load` is
+on: a full-width sheet flashed ~1 s on each phone load. The setting is in `PHONE_SETTINGS` (off on phones) and the
+window in `LOAD_WINDOWS` (hidden then closed during a phone's load, for the load where the setting is still on).
+`closeLoadWindow` no longer names `HTMLElement` (reads `.style`, else the jQuery set's first node). test-phone-quiet 18.
+
 ### 60.4a SEAT 22: Reckless Attack's Yes lost the attack; GPS's OA regions on his other fight — FIXED 2026-11-25 (seat owed)
 **The attack:** GPS 3.0.8 `recklessAttack2024` asks at midi's `preAttackRollConfig`, INSIDE the attack roll, and waits
 up to 30 s (plus its Pause). The executor's two-tap park wait (`rpc.js findParkedWorkflow`, 15 s) read a workflow still
@@ -10266,6 +10272,20 @@ move-restricting region held the mover until the item use answered. `forwardGpsW
 carries its creature and is dropped when that creature's save rolls (`dropAnsweredSaves`).
 **Cleanup timing:** 7–20 s after the GM's ready with GPS off (the 5 s timer, then serial deletes): noted, unchanged.
 `tools/test-gps-bridge.mjs` 28–34.
+
+### 60.4d SEAT 32: a Gambit's attack that hits — the player rolls their own damage — FIXED 2026-11-25 (seat owed)
+
+The forwarded `remoteCompleteItemUse` ran GPS's attack on the DM's screen with damage auto-rolled (GPS asks
+`autoRollDamage: "always"`), so a hit never offered the phone "Roll damage"; the damage landed on the GM ~10 s later.
+His standing rule: players roll their own. Now, on a phone, the bridge first offers the query to the phone's own card
+(`globalThis.mcGpsPlayerRoll` → `ControllerShell#gpsPlayerRoll`): GPS's attack activity (`gpsAttackActivity`: the
+shield strike GPS marks, else the item's attack), GPS's targets preloaded, as a reaction, GPS's marks and disadvantage
+kept and its auto-rolls dropped (`playerRollWorkflowOptions`). The attack fires at once (the player said yes in GPS's
+dialog); a hit parks for the two-tap "Roll damage"; untouched for `OA_DAMAGE_WAIT_MS` (30 s) the damage rolls for
+them ("damage rolled for you"). GPS gets its own answer shape (`playerRollAnswer`), so its region lets the move go.
+The card returns null (mid-action, no attack in the item) → forwarded to the DM's screen as before. The executor's
+two-tap start now MERGES a caller's `workflowOptions` (it replaced them, which would drop the consume mode and
+`targetConfirmation: "none"`) — rpc.js, so the DM screen must reload. test-gps-bridge 41.
 
 ### 30.9 The séance on the DM panel: the tab, the drawer, the phrase box — FIXED 2026-11-25 (seat owed)
 DM 2026-11-25: *"when trying the seance table I noticed the mc tab doesn't open and the input doesn't work"*. Not

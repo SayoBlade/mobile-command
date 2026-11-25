@@ -71,6 +71,39 @@ export function fastForwarded(name, data) {
   return { ...data, options };
 }
 
+// -- SEAT 32 (2026-11-25): players roll their own damage on a Gambit's attack -------------------------------------------
+// The forward above ran GPS's attack on the DM's screen with damage auto-rolled, so a HIT never offered the player
+// "Roll damage" (the damage landed on the GM ~10 s later). The DM's standing rule: players roll their own. Now the
+// phone runs it on its own attack card, exactly as our own opportunity attack does: the attack fires at once (the
+// player already said yes in GPS's dialog), a hit parks for the two-tap "Roll damage", and after OA_DAMAGE_WAIT_MS
+// untouched the damage rolls by itself, so GPS's region never holds the move for good. GPS gets its own answer shape.
+export const OA_DAMAGE_WAIT_MS = 30000;
+
+/** The activity GPS's remoteCompleteItemUse would run (GPS helpers.js: shield strike, else the item's attack). */
+export function gpsAttackActivity(item, data = {}) {
+  const raw = item?.system?.activities;
+  const acts = raw ? Array.from(typeof raw.values === "function" ? raw.values() : raw) : [];
+  if (data.isWeapon && item?.flags?.[GPS_ID]?.shieldStrike && item?.actor?.getFlag?.(GPS_ID, "dragonTurtleShieldOA")) {
+    const ss = acts.find((a) => a.identifier === "shieldStrike");
+    if (ss) return ss;
+  }
+  return acts.find((a) => a.type === "attack") ?? null;
+}
+
+/** GPS's workflow options for the phone's fire: its marks and disadvantage kept; its auto-rolls dropped. Pure. */
+export function playerRollWorkflowOptions(data = {}) {
+  const wo = { ...(data.options?.workflowOptions ?? {}) };
+  for (const k of ["autoRollDamage", "autoFastDamage", "fastForwardDamage", "autoRollAttack", "fastForwardAttack"]) delete wo[k];
+  if (data.isWeapon) wo.gps = { ...(wo.gps ?? {}), opportunityAttack: true };
+  return wo;
+}
+
+/** GPS's answer from the phone's card: fired / hit / reaction counted. Pure. */
+export function playerRollAnswer(res, { hit = null, reactionUsed = false } = {}) {
+  if (!res?.ok) return { completed: false, checkHits: false, reactionUsed: false };
+  return { completed: true, checkHits: !!(hit ?? res.hit), reactionUsed: !!reactionUsed };
+}
+
 /** What GPS gets back from a forward that timed out. */
 export const timedOutAnswer = (name) => (name === "remoteCompleteItemUse" ? { completed: false, checkHits: false, reactionUsed: false, timedOut: true } : null);
 
@@ -86,7 +119,8 @@ export function withFallback(p, ms, fallback) {
  * On a phone, hand GPS's workflow queries to the executor. `queries` = CONFIG.queries; `isPhone()` and `executor()`
  * (a User) are read at call time. Returns how many were wrapped; a second call wraps nothing.
  */
-export function forwardGpsWorkflows({ queries = globalThis.CONFIG?.queries, isPhone = () => false, executor = () => null, timeoutMs = FORWARD_TIMEOUT_MS } = {}) {
+export function forwardGpsWorkflows({ queries = globalThis.CONFIG?.queries, isPhone = () => false, executor = () => null, timeoutMs = FORWARD_TIMEOUT_MS,
+  playerRoll = () => globalThis.mcGpsPlayerRoll ?? null } = {}) {
   if (!queries) return 0;
   let n = 0;
   for (const name of GPS_WORKFLOW_QUERIES) {
@@ -96,6 +130,18 @@ export function forwardGpsWorkflows({ queries = globalThis.CONFIG?.queries, isPh
     const wrapped = async function (data, ctx) {
       let ex = null;
       try { ex = isPhone() ? executor() : null; } catch (e) { ex = null; }
+      // SEAT 32: a Gambit's attack (the opportunity attack, Sentinel...) the player rolls their own damage for: the
+      // phone's own attack card answers it (attack, then the two-tap "Roll damage"). null -> forwarded as before.
+      if (name === "remoteCompleteItemUse" && isPhone()) {
+        let own = null;
+        try { own = playerRoll?.(); } catch (e) { own = null; }
+        if (typeof own === "function") {
+          try {
+            const ans = await own(data);
+            if (ans) { gpsBridgeState.playerRolled = (gpsBridgeState.playerRolled ?? 0) + 1; gpsBridgeState.last = name; return ans; }
+          } catch (e) { console.warn("mobile-command | Gambit's attack on the phone's card failed; sent to the DM's screen", e); }
+        }
+      }
       if (ex && ex.active && !ex.isSelf && typeof ex.query === "function") {
         gpsBridgeState.forwarded += 1; gpsBridgeState.last = name;
         // GPS's own handler, on the client with the map; fast-forwarded, and never longer than timeoutMs

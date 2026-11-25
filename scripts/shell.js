@@ -1,4 +1,4 @@
-import { raceWithPrompts, dropAnsweredSaves } from "./gps-bridge.js"; // a Gambit's question mid-attack extends the wait (SEAT 22)
+import { raceWithPrompts, dropAnsweredSaves, gpsAttackActivity, playerRollWorkflowOptions, playerRollAnswer, OA_DAMAGE_WAIT_MS } from "./gps-bridge.js"; // a Gambit's question mid-attack extends the wait (SEAT 22)
 import { MODULE_ID, CREATION_BEATS, pcDisplayName, TABLE_SEATS } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { isOnlineTable } from "./settings.js"; // §39 in person ⇄ online (settings.js imports nothing of ours but preset/enforcer — no cycle)
@@ -2455,6 +2455,43 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         </div>
       </div>
     </div>`;
+  }
+
+  // SEAT 32: Gambit's Premades asks this phone to run an attack (its opportunity attack, Sentinel...). The player said
+  // yes in GPS's dialog, so the attack fires at once on this phone's own card, at GPS's targets, as a reaction; a hit
+  // offers the two-tap "Roll damage" (players roll their own), and after OA_DAMAGE_WAIT_MS untouched the damage rolls
+  // by itself. Returns GPS's answer, or null to let the bridge send it to the DM's screen as before (no attack in the
+  // item, or the player is mid-action).
+  async gpsPlayerRoll(data) {
+    if (this.#actionState) return null;
+    const item = await fromUuid(data?.itemUuid ?? "");
+    const activity = gpsAttackActivity(item, data);
+    if (!activity?.uuid) return null;
+    const actor = item.actor;
+    const reactionsBefore = actor?.getFlag?.("midi-qol", "actions")?.reactionsUsed ?? 0;
+    this.#assignedTargets = [...(data.options?.targetUuids ?? [])];
+    this.#assignedBy = "Opportunity";
+    this.#reactionFiring = true;
+    await this.#pickAction(activity.uuid);
+    const s = this.#actionState;
+    if (!s || s.uuid !== activity.uuid) return null;
+    s.gpsWorkflowOptions = playerRollWorkflowOptions(data);
+    if (data.options?.workflowOptions?.disadvantage) s.adv = "disadvantage";
+    await this.#fireAction();
+    const res = s.lastRes;
+    if (res?.ok && s.requestId) {
+      // a hit, parked: wait for the player's "Roll damage" (or their close), then roll it for them
+      const until = Date.now() + OA_DAMAGE_WAIT_MS;
+      while (this.#actionState === s && s.requestId && !s.busy && Date.now() < until) await new Promise((r) => setTimeout(r, 250));
+      if (this.#actionState === s && s.requestId && !s.busy) {
+        notifier.info(`${s.name}: damage rolled for you`);
+        await this.#rollDamage();
+      }
+      while (this.#actionState === s && s.busy) await new Promise((r) => setTimeout(r, 250));
+    }
+    await new Promise((r) => setTimeout(r, 300)); // midi's reaction count reaches this phone
+    const reactionUsed = (actor?.getFlag?.("midi-qol", "actions")?.reactionsUsed ?? 0) > reactionsBefore || !!res?.ok;
+    return playerRollAnswer(res, { hit: s.hit, reactionUsed });
   }
 
   noteAoOPrompt(payload) {
@@ -6875,6 +6912,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     s.busy = true; s.phase = "rolling"; this.render();
     this.#sfx("roll");
     const midiOptions = {};
+    if (s.gpsWorkflowOptions) midiOptions.workflowOptions = s.gpsWorkflowOptions; // SEAT 32: GPS's marks ride along
     if (s.adv === "advantage") midiOptions.advantage = true;
     if (s.adv === "disadvantage") midiOptions.disadvantage = true;
     // Auto-resolve non player-rolled activities on the executor (see autoResolve
@@ -6906,6 +6944,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
       console.error("mobile-command | useActivityStart failed", err);
       res = { ok: false, reason: err?.message ?? "error — see DM console" };
     }
+    s.lastRes = res; // SEAT 32: a Gambit's attack reads its outcome from here
     if (this.#actionState !== s) return; // navigated away mid-roll
     this.#clearPreview(); // attack fired — the workflow owns its targets now
     if (!res?.ok) {
@@ -9288,6 +9327,8 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
 }
 
 let shellInstance = null;
+// SEAT 32: Gambit's attacks a player rolls their own damage for run on this phone's card (gps-bridge forwardGpsWorkflows)
+try { globalThis.mcGpsPlayerRoll = (data) => shellInstance?.gpsPlayerRoll(data) ?? null; } catch (e) { /* no global */ }
 
 /** The TV's travel caption: "On the road · 4 hours", low centre, ~7 s, then gone. One at a time. */
 function showTravelCaption(label) {
