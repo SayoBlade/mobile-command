@@ -66,3 +66,12 @@ behaviour). Test world or a clean scene; the test party. Each step is one thing 
 9. Press the séance key on the deck: Story › Moon opens at the Séance drawer.
 10. The floor has no clock and no sliders button any more.
 11. In the Crooked House, press "Teddy returned" on the deck: the key lights. Press again: it goes dark.
+
+## Travel buttons without the deck
+
+1. Pill on "No deck". Open Time › Travel: a row Travel · Draw road · Go · Stop sits at the top (Stop only while
+   walking; Draw road dim until the party is formed up, its reason on hover).
+2. Choose the travel map, press Travel: the party packs and you place it on the map, as the deck's Travel key does.
+3. Press Draw road and drag the road on the map; press Go: the party walks and the clock runs. Press Stop: it halts,
+   the game stays paused.
+4. Tap the pill to "Deck": the row is gone and the line reads "Driven from the deck: Travel, Draw road, Go, Stop."

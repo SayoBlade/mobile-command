@@ -1,5 +1,6 @@
 import { safeBody, drawerForPress, lastRun, bringToFront } from "./panel-safe.js"; // one broken drawer never stops a tab; a deck press opens its drawer (DM 2026-11-25)
 import { waitingQueue, answerWaiting, waitingItems } from "./actions-asks.js";
+import { actionSnapshot, runAction } from "./actions.js"; // MC redesign: no-deck buttons call the deck's own actions
 import { onNowLines, pauseReason, onPauseGameForWhy, notePause as notePauseWhy } from "./on-now.js";
 import { isCompact, pillOf, tapPill } from "./panel-mode.js"; // MC redesign phase 4.1: the deck pill // MC redesign phase 2: On now
 import { state as musicNowState } from "./music.js";
@@ -2306,6 +2307,20 @@ function travelPaceEditorHTML(customs) {
     </div>
   </div>`;
 }
+/**
+ * A row of the deck's own actions as panel buttons (MC redesign: what exists only on the deck comes back to the panel
+ * while no deck drives). Each button is the action's row: its label, dim with its sub-line as the reason when it
+ * cannot run now, a hidden action left out. A press runs it exactly as a deck press does (actions.js runAction).
+ */
+function actionButtonsHTML(ids, area) {
+  const esc = foundry.utils.escapeHTML;
+  let rows = [];
+  try { rows = actionSnapshot({ area }); } catch (e) { return ""; }
+  const btns = ids.map((id) => rows.find((r) => r.id === id)).filter(Boolean).map((r) =>
+    `<button class="mc-dmp-actbtn ${r.on ? "mc-on" : ""}" data-run-action="${esc(r.id)}" ${r.enabled ? "" : "disabled"} title="${esc(r.sub ?? r.label)}">${esc(r.label)}</button>`).join("");
+  return btns ? `<div class="mc-dmp-actrow">${btns}</div>` : "";
+}
+
 function travelHTML() {
   const esc = foundry.utils.escapeHTML;
   const chosenId = game.settings.get(MODULE_ID, "travelOverworldSceneId");
@@ -2328,7 +2343,7 @@ function travelHTML() {
       ${scenes.map(s => `<option value="${s.id}" ${s.id === chosenId ? "selected" : ""}>${esc(s.name)}</option>`).join("")}
     </select>
     <p class="mc-dmp-travel-hint">${esc(state)}</p>
-    <p class="mc-dmp-travel-hint">${ready ? "Press Travel on the deck to go." : "Choose the map above first."}</p>`;
+    <p class="mc-dmp-travel-hint">${ready ? (panelCompact() ? "Press Travel on the deck to go." : "Press Travel to go.") : "Choose the map above first."}</p>`;
 
   // Accordion 2 — Travel to…: pace (built-ins + custom transports) + freeform route.
   const customs = travelCustomPaces();
@@ -2376,7 +2391,10 @@ function travelHTML() {
    *     widget."* The deck ARMS it (`travel.route`); the dragging happens here, because the deck
    *     has no touch surface. That is the one place travel still needs the phone, by physics.
    */
-  const onDeck = `<p class="mc-dmp-travel-hint">Driven from the deck — Travel, Draw road, Go, Stop.</p>`;
+  // MC redesign (DM 2026-11-26, 6A): with no deck driving, the four travel keys come back here, ONLY then. Each is the
+  // deck's own action (actions-travel.js), drawn from its row: same sub-line, same dim-with-a-reason.
+  const noDeck = !panelCompact();
+  const onDeck = noDeck ? "" : `<p class="mc-dmp-travel-hint">Driven from the deck: Travel, Draw road, Go, Stop.</p>`;
   const goBody = !group ? `<p class="mc-dmp-travel-hint">No party group — set one up first.</p>`
     : (packed && onOver)
       ? `${paceRow}${readout}${travelJourneyActive ? `<p class="mc-dmp-travel-hint">Walking…</p>` : onDeck}`
@@ -2394,6 +2412,7 @@ function travelHTML() {
 
   // All three flow together — "Travel to…" is NOT pinned to the floor (DM 2026-07-25: unstick it).
   return `<div class="mc-dmp-travel">
+    ${noDeck ? actionButtonsHTML(["travel.begin", "travel.route", "travel.go", "travel.stop"], "travel") : ""}
     ${mapToggle}
     ${travelDrawer("switch", "Switch scene to…", switchBody)}
     ${travelDrawer("go", "Travel to…", goBody, !!packed)}
@@ -5236,6 +5255,13 @@ async function onClick(ev) {
   }
   if (ev.target.closest("[data-wait-more]")) { waitOpen = !waitOpen; return render(); }
   if (ev.target.closest("[data-now-toggle]")) { nowOpen = !nowOpen; return render(); }
+  const actBtn = ev.target.closest("[data-run-action]");
+  if (actBtn) {
+    if (actBtn.disabled) return;
+    const res = await runAction(actBtn.dataset.runAction);
+    if (res?.ok === false) notifier.warn(res.reason);
+    return render();
+  }
   if (ev.target.closest("[data-deck-pill]")) { tapPill(runFrom()); return render(); }
   if (ev.target.closest("[data-now-resume]")) { if (game.paused) game.togglePause(false, { broadcast: true }); return render(); }
   const waitBtn = ev.target.closest("[data-wait-choice]");

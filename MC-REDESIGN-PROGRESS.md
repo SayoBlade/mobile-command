@@ -159,3 +159,11 @@ without the deck, camera fold-away with the deck.
    phone change, left for the phone phase), the unused content-pack registry, the untracked dicer-bridge.js
    (not ours to touch), and the boss list's move to Setup (it stays in Fight › Boss intro for now).
 7. Tests: new `test-sections` (22 checks); 78 suites pass.
+
+## 2026-11-26, night 1: travel buttons without the deck (built)
+
+1. Time › Travel shows **Travel · Draw road · Go · Stop** while the panel is full (no deck driving), and only
+   then (your 6A). With the deck driving it keeps the line "Driven from the deck".
+2. They are the deck's own four actions, drawn from the same rows: dim with the same reason when they cannot run
+   (Draw road: "form up first"), Stop only while the party walks. A press does exactly what the deck's key does.
+3. Tests: new `test-nodeck-travel` (6 checks); 79 suites pass.
