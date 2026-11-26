@@ -161,3 +161,9 @@ Reload the DM screen and the deck's Foundry module (Hero Mancer's change applies
    "1 waiting", beside Decline / Strike. Ask a twist too: "2 waiting". Answer both: "none".
 3. Hero Mancer (a player's Create Character): none of the five Demigods species (Warrior, Trickster, Genius, Seer,
    Savior) is offered. Battlezoo Ancestries: Demigods is still on in Manage Modules. A second GM reload changes nothing.
+
+## SEAT 39 fix (2026-11-27)
+
+Reload the DM screen (a full reload: the right-click menu is built once, as the chat log first draws).
+1. Roll a fresh NPC damage roll. Right-click its chat card: "Reroll: the Moon's Due" is in the menu (with a token
+   banked). Pick it: one token is spent and the roll is rerolled. Then run The Moon's Due steps 6–10 above.

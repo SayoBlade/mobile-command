@@ -280,6 +280,12 @@ Built to the DM's approval; the full ruling is deck-command D-0205, and the desi
    - A hidden new target is "someone unseen" in chat.
 7. Tests: MC test-moons-due (37), and 2 older tests updated; 84 suites pass. Deck test-moon-drawer (5); 1676 pass.
 
+## 2026-11-27 · SEAT 39 fix
+
+- The Moon's Due Reroll was missing from the chat card's right-click. Foundry 14 builds the chat log's menu once, as
+  the log first draws (before "ready"); the entry was hooked at "ready", so it never joined. Now hooked at "init"
+  (`registerMoonMenu`), in Foundry 14's entry shape (label / visible / onClick). test-moons-due 41–44.
+
 ## 2026-11-26 · SEAT 38 fixes
 
 1. The Moon's Due: the deck's Reroll names a midi card's roll (attack / damage / save / check). midi's item card carries
