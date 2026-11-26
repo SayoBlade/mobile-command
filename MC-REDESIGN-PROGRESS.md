@@ -241,3 +241,21 @@ was already built and pushed, so this lands after it. Nothing depends on the ord
 5. Nothing else on the phone changed: every roll flow, Basic and Complex, the VE trial look.
 6. Not yet seen on a real phone: the seat run is the first look.
 7. Tests: new `test-phone-tabs` (10 checks); 82 suites pass. UI-BIBLE §6.9 updated.
+
+## 2026-11-26 · SEAT 37 fixes
+
+1. **Twist popup re-opened after Keep on the deck.** Foundry 14 sends a cleared flag as a deletion marker, which the
+   panel took for a new ask. The panel now reads the hero's flag as it stands after the change. Bargains have no
+   popup, so they could not re-open; their line already cleared.
+2. **On now.** It now refreshes the moment the music layer changes what is playing (Silence → Auto no longer sticks).
+   The line is shorter so nothing is cut: the music by name, then a weather glyph and a TV-camera glyph (a short word
+   only when the camera is not simply following the party: manual, nobody, 2/4, turns, held). The hour moved to the
+   sheet, in minutes.
+3. **Lost first clicks (pill, Form Up).** On now showed the time with seconds, so the whole panel rebuilt itself
+   every second, and a click landing across a rebuild was lost. Minutes only now; with item 2 the line no longer
+   changes each tick. This is the likely reason Form Up "showed nothing": its refusal notice was already wired.
+4. **Form Up says why.** A member missing from the map is named under the button in one line; the refusal notice
+   now reads "Can't form up: X isn't on this map."
+5. **Phone at 364 px.** On a narrow phone, PAUSED moves onto the foot of the portrait, so the name keeps its row.
+6. Deleted the rig's leftover `renders-redesign-2026-11-26/live/test-flyout.png`.
+7. Tests: new `test-seat37` (7), plus 3 in test-waiting and 5 in test-on-now; 83 suites pass.

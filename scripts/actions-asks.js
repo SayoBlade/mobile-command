@@ -185,6 +185,17 @@ const queue = () => [...stored(), ...liveEntries()]
 const front = () => queue()[0] ?? null;
 
 /** The one queue, drawn: [{ id, kind, icon, sub, choices }] in order (the panel's Waiting block reads this). */
+/**
+ * Is this flag value a live twist ask? (SEAT 37) A phone's ask is a plain object with its own fields. Foundry 14 sends
+ * an unset as {"__$OPERATOR$__":"ForcedDeletion"} — also an object — so a hook reading the CHANGE took the clear for a
+ * new ask and re-opened the popup. Read the actor's flag as it now stands and test it with this.
+ */
+export function pendingAsk(v) {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return false;
+  const keys = Object.keys(v);
+  return keys.length > 0 && !keys.some(k => k.startsWith("__$"));
+}
+
 export function waitingQueue() {
   return queue().map((e) => {
     const d = defOf(e);

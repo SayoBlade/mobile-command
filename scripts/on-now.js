@@ -30,12 +30,13 @@ export function musicWhy(m = {}) {
 
 /** The TV's camera, in a word or two. */
 export function tvCameraWhat({ manual = false, held = false, combat = false, followed = 0, of = 0 } = {}) {
-  if (held) return { text: "held", why: "an intro holds the picture" };
-  if (manual) return { text: "manual", why: "your pan and zoom drive it" };
-  if (combat) return { text: "spotlight", why: "it follows whose turn it is" };
+  // `short`: the word the floor line shows beside the TV glyph; none when the camera does its usual thing
+  if (held) return { text: "held", short: "held", why: "an intro holds the picture" };
+  if (manual) return { text: "manual", short: "manual", why: "your pan and zoom drive it" };
+  if (combat) return { text: "spotlight", short: "turns", why: "it follows whose turn it is" };
   if (!of) return { text: "party", why: "no party tokens on this scene" };
-  if (followed === 0) return { text: "follows nobody", why: "you turned off following everyone", warn: true };
-  if (followed < of) return { text: `follows ${followed}/${of}`, why: "some heroes are not followed" };
+  if (followed === 0) return { text: "follows nobody", short: "nobody", why: "you turned off following everyone", warn: true };
+  if (followed < of) return { text: `follows ${followed}/${of}`, short: `${followed}/${of}`, why: "some heroes are not followed" };
   return { text: "follows party", why: "it frames every hero" };
 }
 
@@ -49,8 +50,23 @@ export function tvSoundWhat(rep, muted, now = Date.now()) {
 }
 
 /**
+ * The floor line (SEAT 37: four facts cut to a few letters each at the panel's width). The line now carries the
+ * music by name and two glyphs: the weather (its kind as the glyph; the name on hover and in the sheet) and the TV
+ * camera (a short word only when it is not simply following the party). The hour lives in the sheet. A warning
+ * line that is not on the floor line marks it. Each: { key, icon, text?, title, warn? }.
+ */
+export function onNowFloor(lines = []) {
+  const by = (k) => lines.find((l) => l.key === k);
+  const out = [];
+  const m = by("music"); if (m) out.push({ key: "music", icon: m.icon, text: m.text, title: `Music: ${m.text}${m.why ? ` · ${m.why}` : ""}`, warn: m.warn });
+  const w = by("weather"); if (w) out.push({ key: "weather", icon: w.icon, title: `Weather: ${w.text}` });
+  const t = by("tv"); if (t) out.push({ key: "tv", icon: t.icon, ...(t.short ? { text: t.short } : {}), title: `TV camera: ${t.text}${t.why ? ` · ${t.why}` : ""}`, warn: t.warn });
+  return out;
+}
+
+/**
  * The floor line and the sheet, from plain state. Each line: { key, icon, label, text, why?, warn?, act? }.
- * The floor shows the first four (music, weather, hour, TV); the sheet shows them all.
+ * The floor line shows music, weather and TV (onNowFloor); the sheet shows them all.
  */
 export function onNowLines(s = {}) {
   const lines = [];
@@ -59,7 +75,7 @@ export function onNowLines(s = {}) {
   lines.push({ key: "weather", icon: s.weather ? "cloud-rain" : "sun", label: "Weather", text: s.weather || "clear" });
   lines.push({ key: "hour", icon: "clock", label: "Time", text: s.clock || "—" });
   const cam = tvCameraWhat(s.tv ?? {});
-  lines.push({ key: "tv", icon: "tv", label: "TV camera", text: cam.text, why: cam.why, warn: cam.warn });
+  lines.push({ key: "tv", icon: "tv", label: "TV camera", text: cam.text, short: cam.short, why: cam.why, warn: cam.warn });
   if (s.paused) lines.push({ key: "pause", icon: "pause", label: "Game", text: "paused", why: s.pauseWhy ? `by ${s.pauseWhy}` : "by you", warn: true, act: "resume" });
   const snd = tvSoundWhat(s.tvSound, s.tvMuted, s.now);
   lines.push({ key: "sound", icon: "volume-high", label: "TV sound", text: snd.text, why: snd.why, warn: snd.warn });

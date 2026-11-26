@@ -705,6 +705,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
     return `
       <header class="mc-header">
         <img class="mc-portrait" src="${img}" alt="" data-action="show-image" data-detail="bio" title="Tap for image · hold for bio">
+        ${this.#pausedChipHTML("portrait")}
         <div class="mc-id">
           <div class="mc-name">${classIcons ? `<span class="mc-cls-run">${classIcons}</span>` : ""}${totalLevel ? `<button class="mc-name-lvl ${this.#showLevels ? "mc-on" : ""} ${hm2LevelUpSent(actor) ? "mc-lvl-ready" : ""}" data-action="toggle-levels"><span class="mc-lvl-num">Lvl ${totalLevel}</span></button>` : ""}<span class="mc-name-text" data-action="show-summary" data-detail="bio" title="Tap for summary · hold for bio">${foundry.utils.escapeHTML(actor.name)}</span>
             ${this.#pausedChipHTML()}
@@ -2247,9 +2248,12 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
   // gates actions (pause-guard) and the DM/TV get the desaturate+edge cue, but the phone had no
   // indicator at all. It rides the NAME row, not the stats row, so the controls beside it never
   // shift when it appears. Not a button — players can't unpause (registerShellHooks repaints it).
-  #pausedChipHTML() {
+  // SEAT 37: on a narrow phone (364 px) the chip beside the name clipped the hero's name ("Test Cleri…"). The chip is
+  // drawn twice and the CSS shows one: beside the name on a wide screen, as a band across the foot of the portrait on a
+  // narrow one. The word stays either way; nothing moves when it comes and goes.
+  #pausedChipHTML(where = "name") {
     if (!game.paused) return "";
-    return `<span class="mc-paused-chip" title="The DM has paused the game"><i class="fas fa-pause"></i> Paused</span>`;
+    return `<span class="mc-paused-chip mc-paused-on${where}" title="The DM has paused the game"${where === "portrait" ? ` aria-hidden="true"` : ""}><i class="fas fa-pause"></i> Paused</span>`;
   }
   // Hop to the next token that needs you; switching subject makes its popup / initiative prompt show.
   #attentionNext() {

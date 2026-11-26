@@ -106,3 +106,21 @@ behaviour). Test world or a clean scene; the test party. Each step is one thing 
 5. Form the party up (Complex). A player taps "Mine" on the party bar: their own bar shows Party at the left edge,
    Play still in the middle. Tap Party: back to the party bar (Party · Order · Play · Stash · Story · Mine).
 6. Check the words are readable at arm's length and nothing is cut off on the smallest phone at the table.
+
+## SEAT 37 fixes (2026-11-26)
+
+1. Reload the DM screen and a player's phone. Grant the Barbarian a twist; on the phone, Moon › 20 › Twist Fate.
+   The popup opens on the DM screen. Press **Keep** on the deck: the Waiting line, the deck's Notifications and the
+   **popup** all go away, and the popup does not come back. Repeat with Spend from the popup itself.
+2. On the phone, ask the Barbarian's bargain; on the deck, Waiting shows it. Press Keep (decline): the line goes and
+   nothing re-opens.
+3. On now reads music by name, then two glyphs: weather and the TV camera. Hover each: its name. No fact is cut to a
+   few letters at the panel's width. Turn Manual on: the camera glyph says "manual"; Follow None: "nobody", red.
+4. Deck Music → Silence: On now reads "silence". Back to **Auto**: within a second or two On now names the music
+   that came back (no stale "Silence").
+5. With Simple Calendar's clock running, click the deck pill once and Stage › Party › Form Up once: each answers on
+   the **first** click.
+6. With a group member missing from the map: under Form Up, one line "Not on this map: <names>". Press Form Up: a
+   notice "Can't form up: <names> aren't on this map."
+7. Phone at 364 px, game paused: the hero's whole name shows; PAUSED sits as a band across the foot of the portrait.
+   On a wider phone (or the DM's browser) PAUSED is beside the name as before.

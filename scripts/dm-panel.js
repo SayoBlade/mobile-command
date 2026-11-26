@@ -1,7 +1,7 @@
 import { safeBody, drawerForPress, lastRun, bringToFront } from "./panel-safe.js"; // one broken drawer never stops a tab; a deck press opens its drawer (DM 2026-11-25)
-import { waitingQueue, answerWaiting, waitingItems } from "./actions-asks.js";
+import { waitingQueue, answerWaiting, waitingItems, pendingAsk } from "./actions-asks.js";
 import { actionSnapshot, runAction } from "./actions.js"; // MC redesign: no-deck buttons call the deck's own actions
-import { onNowLines, pauseReason, onPauseGameForWhy, notePause as notePauseWhy } from "./on-now.js";
+import { onNowLines, onNowFloor, pauseReason, onPauseGameForWhy, notePause as notePauseWhy } from "./on-now.js";
 import { isCompact, pillOf, tapPill } from "./panel-mode.js"; // MC redesign phase 4.1: the deck pill // MC redesign phase 2: On now
 import { state as musicNowState } from "./music.js";
 import { tvHeld } from "./tv-hold.js";
@@ -3150,7 +3150,9 @@ function readOnNow() {
   return {
     music: safe(() => musicNowState(), {}),
     weather: fxWeather.join(", ") || coreWeather,
-    clock: safe(() => clockLabel(game.time?.worldTime ?? 0), ""),
+    // minutes, never seconds: a clock that changes every tick rebuilt the whole panel each second and a click landing
+    // across a rebuild was lost (SEAT 37: Form Up and the pill each "did nothing" on a first click)
+    clock: safe(() => String(clockLabel(game.time?.worldTime ?? 0)).replace(/(\d{1,2}:\d{2}):\d{2}\b/, "$1"), ""),
     tv: { manual: !!safe(() => globalThis.MobileCommand?.tvManualActive?.(), false), held: safe(() => tvHeld(), false),
       combat: !!game.combat?.started, of: cam.length, followed: cam.filter(t => !t.document.getFlag(MODULE_ID, "noFollow")).length },
     paused: !!game.paused, pauseWhy: pauseReason(),
@@ -3164,9 +3166,9 @@ function onNowHTML() {
   const esc = foundry.utils.escapeHTML;
   let lines = [];
   try { lines = onNowLines(readOnNow()); } catch (e) { return ""; }
-  const head = lines.filter(l => ["music", "weather", "hour", "tv"].includes(l.key));
-  const offLine = lines.some(l => l.warn && !["music", "weather", "hour", "tv"].includes(l.key));
-  const fact = (l) => `<span class="mc-dmp-now-f ${l.warn ? "mc-warn" : ""}"><i class="fas fa-${l.icon}"></i>${esc(l.text)}</span>`;
+  const head = onNowFloor(lines);
+  const offLine = lines.some(l => l.warn && !["music", "weather", "tv"].includes(l.key));
+  const fact = (l) => `<span class="mc-dmp-now-f mc-dmp-now-${l.key} ${l.warn ? "mc-warn" : ""}" title="${esc(l.title)}"><i class="fas fa-${l.icon}"></i>${l.text ? `<span>${esc(l.text)}</span>` : ""}</span>`;
   const line = `<button class="mc-dmp-now ${nowOpen ? "mc-open" : ""} ${offLine ? "mc-warn" : ""}" data-now-toggle title="On now: what is playing, showing and paused, and why">
       ${head.map(fact).join("")}${offLine ? `<i class="fas fa-circle-exclamation mc-dmp-now-alert"></i>` : ""}</button>`;
   if (!nowOpen) return line;
@@ -3205,7 +3207,8 @@ function partyMainHTML() {
       // Stale in EITHER direction: a party-worthy token isn't a member (new PC,
       // fresh summon), or a member has no token here (unsummoned beast, old party).
       const sceneActorIds = new Set((game.scenes.active?.tokens ?? []).map(t => t.actor?.id).filter(Boolean));
-      const memberGone = (cand.system?.members ?? []).some(m => m.actor && !sceneActorIds.has(m.actor.id));
+      const gone = (cand.system?.members ?? []).filter(m => m.actor && !sceneActorIds.has(m.actor.id)).map(m => m.actor.name);
+      const memberGone = gone.length > 0;
       const stale = (scenePCs.length > 0 && scenePCs.some(a => !memberIds.has(a.id))) || memberGone;
       const rebuild = stale ? `<button class="mc-dmp-party-rebuild" data-party="rebuild" data-group="${cand.id}"
         title="${foundry.utils.escapeHTML(cand.name)}'s members don't match this scene — rebuild from the ${scenePCs.length} party tokens here">
@@ -3215,7 +3218,9 @@ function partyMainHTML() {
         <i class="fas fa-list-check"></i></button>`;
       return `<div class="mc-dmp-party-btns">
       <button class="mc-dmp-party-deploy" data-party="pack" data-group="${cand.id}" title="Collapse the clustered party into the ${foundry.utils.escapeHTML(cand.name)} token">
-        <i class="fas fa-people-group"></i> Form Up</button>${rebuild}${roster}</div>`;
+        <i class="fas fa-people-group"></i> Form Up</button>${rebuild}${roster}</div>${gone.length
+        // SEAT 37: Form Up refused ("not on this scene") and the DM saw nothing. The reason is said up front, one line.
+        ? `<div class="mc-dmp-note mc-dmp-party-why"><i class="fas fa-circle-info"></i> Not on this map: ${foundry.utils.escapeHTML(gone.join(", "))}</div>` : ""}`;
     }
     // No usable group → say WHY instead of rendering nothing (playtest 2026-07-05:
     // an empty group meant no Form up, no hint, and a very confused DM). One tap
@@ -5417,8 +5422,12 @@ export function registerDMPanel() {
   Hooks.on("updateActor", (a, ch) => {
     const f = ch?.flags?.[MODULE_ID];
     if (!f || a?.type !== "character") return;
-    if (f.twistPending && typeof f.twistPending === "object") twistPopup(a, f.twistPending);
-    else if ("-=twistPending" in f || ("twistPending" in f && !f.twistPending)) {
+    // SEAT 37: read the actor's flag as it now stands, never the change's shape. Foundry 14 sends an unset as
+    // {"__$OPERATOR$__":"ForcedDeletion"}, an object, which re-opened the popup instead of closing it.
+    if (!("twistPending" in f || "-=twistPending" in f)) return;
+    const now = a.getFlag?.(MODULE_ID, "twistPending");
+    if (pendingAsk(now)) twistPopup(a, now);
+    else {
       try { twistDialogs.get(a.id)?.close(); } catch (e) { /* already gone */ }
       twistDialogs.delete(a.id);
     }
@@ -5449,6 +5458,10 @@ export function registerDMPanel() {
   Hooks.on("pauseGame", (p) => { onPauseGameForWhy(p); render(); });
   Hooks.on("updatePlaylist", () => render());
   Hooks.on("updatePlaylistSound", () => render());
+  // SEAT 37: Silence → Auto left "Silence" on the line ≥7 s; the music layer says what it made audible once it has
+  // (its own hook), and its picks land in musicState before that.
+  Hooks.on(`${MODULE_ID}.music`, () => render());
+  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.musicState`) render(); });
   Hooks.on("updateSetting", (s) => { if ([`${MODULE_ID}.soundScenes`, `${MODULE_ID}.syrinscapeOffline`, `${MODULE_ID}.fxActive`].includes(s?.key)) render(); });
   Hooks.on("updateActor", (_a, ch) => { const f = ch?.flags?.[MODULE_ID]; if (f && ["twistPending", "-=twistPending", "bargainPending", "-=bargainPending"].some(k => k in f)) render(); });
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive` && (dockTab === "effects" || dockTab === "crooked")) render(); }); // §26/§35: fx toggles follow the world state (séance lives on the Crooked Moon tab)

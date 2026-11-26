@@ -3648,7 +3648,7 @@ async function handlePartyPack({ groupId, requesterId, force = false }) {
   const mem = partyMembers(group);
   if (!mem.length) return refuse("no members", "the group has no members");
   const missing = mem.filter(m => !m.token).map(m => m.actor.name);
-  if (missing.length) return refuse("not on scene", `not on this scene: ${missing.join(", ")}`);
+  if (missing.length) return refuse("not on scene", `Can't form up: ${missing.join(", ")} ${missing.length > 1 ? "aren't" : "isn't"} on this map.`);
 
   // In combat (2026-09-23): packing deletes the member tokens, and Foundry drops their combatants with
   // them — the encounter would silently lose the party. The panel only ever nudged (§15.2 #6); a key

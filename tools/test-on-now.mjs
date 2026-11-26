@@ -42,7 +42,7 @@ check("playing: 'live', no warning", J(O.tvSoundWhat({ at: now }, false, now)) =
 
 /* ── 16–20. the lines ───────────────────────────────────────────────────────────────────────────────── */
 let L = O.onNowLines({ music: { enabled: true, auto: true, now: "Crooked House" }, weather: "Rain", clock: "21:40", tv: { of: 4, followed: 4 }, tvSound: { at: now }, now });
-check("the four floor facts come first, in order: music, weather, hour, TV", L.slice(0, 4).map((l) => l.key).join() === "music,weather,hour,tv", L.map((l) => l.key).join());
+check("the first four lines, in order: music, weather, hour, TV", L.slice(0, 4).map((l) => l.key).join() === "music,weather,hour,tv", L.map((l) => l.key).join());
 check("…reading 'Crooked House', 'Rain', '21:40', 'follows party'", L.slice(0, 4).map((l) => l.text).join("|") === "Crooked House|Rain|21:40|follows party");
 check("not paused: no Game line", !L.some((l) => l.key === "pause"));
 L = O.onNowLines({ paused: true, pauseWhy: "Gorbon's boss intro", tvSound: { at: now }, now });
@@ -67,4 +67,17 @@ check("every automatic pause names itself: boss intro, intro, leaving the scene,
 const panel = src("dm-panel.js");
 check("the floor draws On now under Waiting, above the camera buttons", /waitingHTML\(\) \+ onNowHTML\(\) \+ cameraFloorHTML\(\)/.test(panel));
 check("the line opens the sheet, and Resume lifts the pause", /\[data-now-toggle\]"\)\) \{ nowOpen = !nowOpen/.test(panel) && /\[data-now-resume\]"\)\) \{ if \(game\.paused\) game\.togglePause\(false/.test(panel));
+
+/* ── SEAT 37 ────────────────────────────────────────────────────────────────────────────────────────── */
+const F = O.onNowFloor(O.onNowLines({ music: { enabled: true, auto: true, now: "Tension" }, weather: "Thunderstorm", clock: "7 October 2026 · 00:02:13", tv: { of: 4, followed: 4 }, tvSound: { at: now }, now }));
+check("SEAT 37: the floor line is music · weather · TV, no hour", F.map((f) => f.key).join() === "music,weather,tv", J(F));
+check("…the music by name; weather and a following camera are glyphs only, named on hover",
+  F[0].text === "Tension" && !("text" in F[1]) && F[1].title === "Weather: Thunderstorm" && !("text" in F[2]) && /^TV camera: follows party/.test(F[2].title), J(F));
+const short = (tv) => O.onNowFloor(O.onNowLines({ tv })).find((f) => f.key === "tv").text;
+check("…a camera doing something else says so in one short word",
+  short({ manual: true }) === "manual" && short({ of: 4, followed: 0 }) === "nobody" && short({ of: 4, followed: 2 }) === "2/4" && short({ combat: true, of: 4, followed: 4 }) === "turns");
+const css = fs.readFileSync(new URL("styles/shell.css", REPO), "utf8");
+check("…only the music's name may shorten (CSS)", /\.mc-dmp-now-f \{[^}]*flex: 0 0 auto;/.test(css) && /\.mc-dmp-now-f\.mc-dmp-now-music \{ flex: 1 1 auto; min-width: 0; \}/.test(css));
+check("SEAT 37: the line repaints when the music layer says what it made audible, and when a pick is stored",
+  /Hooks\.on\(`\$\{MODULE_ID\}\.music`, \(\) => render\(\)\)/.test(panel) && /s\?\.key === `\$\{MODULE_ID\}\.musicState`\) render\(\)/.test(panel));
 console.log(`\nAll ${n} passed.`);

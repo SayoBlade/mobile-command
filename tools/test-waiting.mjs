@@ -121,4 +121,13 @@ const combat = panel.slice(panel.indexOf("function combatTabHTML()"), panel.inde
 check("the Combat tab no longer holds the split-party chip or the spell-placing list", !/splitParty|pendingHTML|listPendingCasts/.test(combat), combat.slice(0, 300));
 check("the floor repaints when the queue changes in any tab (asks, staged curse, twist or bargain flags)",
   /\$\{MODULE_ID\}\.dmAsks`, `\$\{MODULE_ID\}\.cmLiveState`\]\.includes/.test(panel) && /"twistPending", "-=twistPending", "bargainPending", "-=bargainPending"/.test(panel));
+
+/* ── SEAT 37: Keep on the deck closed the line but the popup re-opened ─────────────────────────────────── */
+check("SEAT 37: Foundry 14's deletion marker is not an ask; a phone's ask is",
+  !asks.pendingAsk({ "__$OPERATOR$__": "ForcedDeletion" }) && !asks.pendingAsk(null) && !asks.pendingAsk({}) && !asks.pendingAsk(true)
+  && asks.pendingAsk({ die: 20, note: "", ts: 1 }));
+const hook = panel.slice(panel.indexOf("// §31 v3: a phone asking to twist fate"), panel.indexOf("Hooks.on(\"closeDialogV2\""));
+check("…the popup hook reads the actor's flag as it now stands, never the change: open on an ask, close otherwise",
+  /const now = a\.getFlag\?\.\(MODULE_ID, "twistPending"\);\s*if \(pendingAsk\(now\)\) twistPopup\(a, now\);\s*else \{/.test(hook) && !/f\.twistPending &&/.test(hook), hook);
+check("…bargains have no popup of their own: their flag only repaints the floor (nothing to re-open)", !/bargainPopup|bargainDialogs/.test(panel));
 console.log(`\nAll ${n} passed.`);
