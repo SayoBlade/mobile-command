@@ -5463,6 +5463,12 @@ body.mc-phone .item-piles-merchant-sheet .merchant-bottom-row { display: none !i
 /* TV compass — fixed top-right on the display client, hovering above the map;
    never intercepts input. North = the top of the TV, anchoring "forward ↑". */
 #mc-tv-compass { position: fixed; bottom: 60px; right: 60px; width: 46px; height: 46px; z-index: 60; pointer-events: none; opacity: .9; filter: drop-shadow(0 3px 8px rgba(0,0,0,.6)); }
+/* THE MOON'S DUE on the TV (DM 2026-11-26): the DM's bank as a crescent that fills a third per token. The compass's
+   mirror, bottom-left; quiet (no word, no count, no motion but a fade when it fills); Crooked Moon tools only. */
+#mc-moons-due { position: fixed; bottom: 60px; left: 60px; width: 46px; height: 46px; z-index: 60; pointer-events: none;
+  opacity: 0; transition: opacity .6s ease; filter: drop-shadow(0 3px 8px rgba(0,0,0,.6)); }
+#mc-moons-due.mc-on { opacity: .85; }
+#mc-moons-due img { display: block; width: 100%; height: 100%; }
 /* Reserve the move readout's line height so "Blocked"/"12/30 ft" appearing never
    shifts the pad below it (DM 2026-07-03: avoid layout jumps from small text). */
 .mc-move-note { min-height: 1.2em; }

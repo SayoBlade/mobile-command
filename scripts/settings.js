@@ -819,6 +819,15 @@ export function registerSettings() {
   // target/minutes/staged card, the tarot cheat, the fiddle and engine beds. It lived in the panel's
   // memory until 2026-09-18; a world setting lets the deck read and press the same state, and a
   // reload of the DM's browser no longer forgets it. Read and written only through cm-live.js.
+  // THE MOON'S DUE (DM 2026-11-26): the DM's bank, a token per twist a player spends, cap 3, kept between sessions;
+  // plus the open Redirect offer (a player's natural 1 on a weapon attack). moons-due.js.
+  game.settings.register(MODULE_ID, "moonsDue", {
+    scope: "world",
+    config: false,
+    type: Object,
+    default: { count: 0, offer: null }
+  });
+
   game.settings.register(MODULE_ID, "cmLiveState", {
     scope: "world",
     config: false,

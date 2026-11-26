@@ -1,3 +1,4 @@
+import { redirectOffer, startRedirectPick, dropRedirectOffer } from "./moons-due.js";
 import { MODULE_ID } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { defineActions, cmToolsOn } from "./actions.js";
@@ -132,6 +133,8 @@ const LIVE = {
       ? { id: `curse.${a.id}`, kind: "curse", ts: seen(`bargain.${a.id}`), actorId: a.id, name: a.name, curse: s.pick?.name ?? "a curse" }
       : { id: `bargain.${a.id}`, kind: "bargain", ts: seen(`bargain.${a.id}`), actorId: a.id, name: a.name });
   },
+  // THE MOON'S DUE (DM 2026-11-26): a player's natural 1 on a weapon attack, while the DM holds a token
+  redirect: () => { const o = redirectOffer(); return o ? [{ id: `redirect.${o.id}`, kind: "redirect", ts: o.at, name: o.name, item: o.itemName }] : []; },
   cast: () => listPendingCasts().map((c) => ({ id: `cast.${c.id}`, kind: "cast", ts: c.ts ?? seen(`cast.${c.id}`), castId: c.id,
     name: c.casterName, spell: c.spellName, summon: c.kind === "summon" })),
 };
@@ -162,6 +165,12 @@ const LIVE_KINDS = {
       else if (choice === "reroll") await strikeBargain(e.actorId);
       else await cancelStagedCurse();
     },
+  },
+  redirect: {
+    icon: "moon",
+    sub: (e) => `${first(e.name)} rolled a 1 · Moon's Due`,
+    choices: () => [{ id: "cancel", label: "Let it be" }, { id: "redirect", label: "Redirect" }],
+    answer: async (e, choice) => (choice === "redirect" ? startRedirectPick() : dropRedirectOffer()),
   },
   cast: {
     icon: "wand-magic-sparkles",

@@ -10332,3 +10332,21 @@ back in the box — so the toggle's own repaint was held by the guard until a bl
 any press in the panel (not in a text field, `pressRenderUntil`) or a deck press (`lastRun.at`), a focused field no
 longer holds the repaint: it goes through and the field is rebuilt with its live text, focus and caret
 (`restoreField` with `value`). Background ticks still wait. Covers every toggle in every tab. test-panel-keep 17.
+
+
+## 61. The Moon's Due (DM 2026-11-26, approved) — BUILT 2026-11-26, owed a seat check
+
+The DM's answer to the players' Twists of Fate. Each twist spent banks one token (cap 3, world setting `moonsDue`, kept
+between sessions). The TV shows a quiet crescent at the bottom-left (`#mc-moons-due`, `art/moons-due-0..3.svg`), and
+On now shows the count, with − / + in its sheet.
+
+The DM spends a token in one of two ways:
+- **Reroll an NPC roll.** The new result stands. A roll is rerolled once, never a reroll, never a death save, Maim roll
+  or player's roll. It runs from the deck or from the chat log's right-click.
+- **Redirect a player's natural 1 on a weapon attack.** The offer goes through the one queue. The DM clicks the new
+  target, which must be within reach or range and above 0 HP. The player rolls again on their phone, and that roll
+  cannot crit.
+
+Code: `scripts/moons-due.js` (pure deciders + Foundry glue), `scripts/actions-moon.js` (the deck's keys), the queue
+kind in `actions-asks.js`, and the gain in `cm-live.js spendTwist`. The full ruling and my calls are in deck-command
+D-0205. Tests: `tools/test-moons-due.mjs`.

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- The Moon's Due: 1 of 3. A crescent that fills from the bottom, a third per token (mobile-command moons-due.js). -->
+  <defs>
+    <mask id="c"><rect width="64" height="64" fill="#000"/><circle cx="30" cy="32" r="27" fill="#fff"/><circle cx="42" cy="25" r="22" fill="#000"/></mask>
+    <clipPath id="f"><rect x="0" y="42" width="64" height="18"/></clipPath>
+  </defs>
+  <rect width="64" height="64" fill="#14121a" fill-opacity="0.55" mask="url(#c)"/>
+  <rect width="64" height="64" fill="#e2bf63" mask="url(#c)" clip-path="url(#f)"/>
+  <path fill="none" stroke="#e2bf63" stroke-width="2" stroke-linejoin="round" d="M32.57 5.12A27 27 0 1 0 54.66 42.99A22 22 0 1 1 32.57 5.12Z"/>
+</svg>

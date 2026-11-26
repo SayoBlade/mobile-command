@@ -1,5 +1,6 @@
 import { safeBody, drawerForPress, lastRun, bringToFront } from "./panel-safe.js"; // one broken drawer never stops a tab; a deck press opens its drawer (DM 2026-11-25)
 import { waitingQueue, answerWaiting, waitingItems, pendingAsk } from "./actions-asks.js";
+import { moonsDue, setMoonsDue } from "./moons-due.js"; // the Moon's Due in On now (DM 2026-11-26)
 import { actionSnapshot, runAction } from "./actions.js"; // MC redesign: no-deck buttons call the deck's own actions
 import { onNowLines, onNowFloor, pauseReason, onPauseGameForWhy, notePause as notePauseWhy } from "./on-now.js";
 import { isCompact, pillOf, tapPill } from "./panel-mode.js"; // MC redesign phase 4.1: the deck pill // MC redesign phase 2: On now
@@ -3158,6 +3159,7 @@ function readOnNow() {
     paused: !!game.paused, pauseWhy: pauseReason(),
     tvSound: tvAudioState, tvMuted: safe(() => !!tvMuted(), false),
     syr: safe(() => soundScenesState(), null),
+    moon: safe(() => (cmToolsOn() ? moonsDue() : null), null),
     reactions: safe(() => (gpsActive() ? "Gambit's Premades" : (game.settings.get(MODULE_ID, "aooEnabled") ? "Mobile Command" : "")), ""),
     now: Date.now(),
   };
@@ -3174,7 +3176,8 @@ function onNowHTML() {
   if (!nowOpen) return line;
   const row = (l) => `<div class="mc-dmp-now-row ${l.warn ? "mc-warn" : ""}"><i class="fas fa-${l.icon}"></i><span class="mc-dmp-now-k">${esc(l.label)}</span>
       <span class="mc-dmp-now-v"><b>${esc(l.text)}</b>${l.why ? ` · ${esc(l.why)}` : ""}</span>
-      ${l.act === "resume" ? `<button class="mc-dmp-now-act" data-now-resume>Resume</button>` : ""}</div>`;
+      ${l.act === "resume" ? `<button class="mc-dmp-now-act" data-now-resume>Resume</button>` : ""}${l.act === "moon"
+        ? `<button class="mc-dmp-now-act" data-moon-adj="-1" title="Take one back">−</button><button class="mc-dmp-now-act" data-moon-adj="1" title="Add one">+</button>` : ""}</div>`;
   return `${line}<div class="mc-dmp-now-sheet">${lines.map(row).join("")}</div>`;
 }
 
@@ -5283,6 +5286,8 @@ async function onClick(ev) {
   if (ev.target.closest("[data-deck-pill]")) { tapPill(runFrom()); camShow = false; return render(); }
   if (ev.target.closest("[data-cam-show]")) { camShow = true; return render(); }
   if (ev.target.closest("[data-now-resume]")) { if (game.paused) game.togglePause(false, { broadcast: true }); return render(); }
+  const moonAdj = ev.target.closest("[data-moon-adj]");
+  if (moonAdj) { await setMoonsDue(moonsDue() + Number(moonAdj.dataset.moonAdj)); return render(); }
   const waitBtn = ev.target.closest("[data-wait-choice]");
   if (waitBtn) {
     if (waitBtn.disabled) return;
@@ -5461,7 +5466,7 @@ export function registerDMPanel() {
   // SEAT 37: Silence → Auto left "Silence" on the line ≥7 s; the music layer says what it made audible once it has
   // (its own hook), and its picks land in musicState before that.
   Hooks.on(`${MODULE_ID}.music`, () => render());
-  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.musicState`) render(); });
+  Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.musicState` || s?.key === `${MODULE_ID}.moonsDue`) render(); });
   Hooks.on("updateSetting", (s) => { if ([`${MODULE_ID}.soundScenes`, `${MODULE_ID}.syrinscapeOffline`, `${MODULE_ID}.fxActive`].includes(s?.key)) render(); });
   Hooks.on("updateActor", (_a, ch) => { const f = ch?.flags?.[MODULE_ID]; if (f && ["twistPending", "-=twistPending", "bargainPending", "-=bargainPending"].some(k => k in f)) render(); });
   Hooks.on("updateSetting", (s) => { if (s?.key === `${MODULE_ID}.fxActive` && (dockTab === "effects" || dockTab === "crooked")) render(); }); // §26/§35: fx toggles follow the world state (séance lives on the Crooked Moon tab)

@@ -124,3 +124,30 @@ behaviour). Test world or a clean scene; the test party. Each step is one thing 
    notice "Can't form up: <names> aren't on this map."
 7. Phone at 364 px, game paused: the hero's whole name shows; PAUSED sits as a band across the foot of the portrait.
    On a wider phone (or the DM's browser) PAUSED is beside the name as before.
+
+
+## The Moon's Due (2026-11-26)
+
+Reload the DM screen, the TV, a player's phone and the deck's Foundry module. The Crooked Moon tools must be on.
+1. TV: an empty crescent at the bottom-left. On now: a crescent with 0 on the line; in its sheet,
+   "Moon's Due · 0 of 3" with − / +.
+2. Grant the Barbarian two twists. On the phone, ask a twist and **Spend** it (popup, Waiting line or deck): the
+   crescent fills a third, and On now reads 1. Spend the second from another door: 2. Press + twice in On now: it
+   stops at 3. Reload the DM screen: still 3.
+3. Make an NPC attack (any monster's attack from its sheet). On the deck, open the room's fight drawer: after Start
+   fight, "Moon's Due · 3 of 3" wears a full crescent. Open it: Reroll reads "<NPC> · attack N"; Redirect is dim,
+   "on a hero's natural 1".
+4. Press Reroll: a new card posts ("… · rerolled, the Moon's Due"), and the count drops to 2. In chat, right-click the
+   OLD card: no "Reroll: the Moon's Due" entry. Right-click the NEW one: none either.
+5. Roll a death save for an NPC and a hero's attack: neither offers the right-click reroll. Right-click an NPC damage
+   roll: it offers the reroll; the new damage card keeps its Apply buttons.
+6. Redirect, with the game unpaused. On the Barbarian's phone, attack with a weapon until a natural 1 (or twist to 1
+   first). The panel's Waiting line and the deck's Notifications show "Barbarian rolled a 1 · Moon's Due"; the
+   Moon's Due key is rimmed.
+7. Press Redirect. Click a creature out of reach: "Not that one: out of reach …". Click one at 0 HP: "… at 0 HP".
+   Click a creature in reach: one token goes, and the chat says the blow turns toward it.
+8. The Barbarian's phone shows "The Moon's Due · Attack with <weapon>", aimed at the new target. Attack: the roll
+   cannot crit (a natural 20 shows as a plain 20), and no ammunition or use is spent a second time.
+9. Press Redirect again on a new natural 1 and click nothing for a minute: "no target picked; the offer is back in
+   Waiting". Press **Let it be**: the line goes.
+10. Turn the Crooked Moon tools off: the crescent leaves the TV, and the deck drawer has no Moon's Due key.

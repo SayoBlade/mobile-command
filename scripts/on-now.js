@@ -61,6 +61,7 @@ export function onNowFloor(lines = []) {
   const m = by("music"); if (m) out.push({ key: "music", icon: m.icon, text: m.text, title: `Music: ${m.text}${m.why ? ` · ${m.why}` : ""}`, warn: m.warn });
   const w = by("weather"); if (w) out.push({ key: "weather", icon: w.icon, title: `Weather: ${w.text}` });
   const t = by("tv"); if (t) out.push({ key: "tv", icon: t.icon, ...(t.short ? { text: t.short } : {}), title: `TV camera: ${t.text}${t.why ? ` · ${t.why}` : ""}`, warn: t.warn });
+  const mo = by("moon"); if (mo) out.push({ key: "moon", icon: mo.icon, text: mo.text.split(" ")[0], title: `Moon's Due: ${mo.text}` });
   return out;
 }
 
@@ -86,5 +87,7 @@ export function onNowLines(s = {}) {
       why: s.syr.offline ? "playing the local copies instead" : local ? "you chose local files" : undefined, warn: !!s.syr.offline });
   }
   if (s.reactions) lines.push({ key: "reactions", icon: "bolt", label: "Reactions", text: s.reactions });
+  // the Moon's Due (DM 2026-11-26): the DM's bank, Crooked Moon only; − / + beside it (the DM can always cheat)
+  if (s.moon != null) lines.push({ key: "moon", icon: "moon", label: "Moon's Due", text: `${s.moon} of 3`, why: "a token per twist spent", act: "moon" });
   return lines;
 }

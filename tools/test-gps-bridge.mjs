@@ -249,7 +249,7 @@ check("main.js: prompts tracked, the guard on, and the GM's sweep at load, at a 
     && fire.indexOf("oaMissResolvesNow(") < fire.indexOf('s.busy = false; s.phase = "attacked";')
     && /if \(res\?\.ok && s\.requestId\) \{/.test(shell));
   check("both paths are marked Opportunity: Gambit's (gpsPlayerRoll) and ours (the Attack card)",
-    (shell.match(/this\.#assignedBy = "Opportunity";/g) ?? []).length === 2);
+    (shell.match(/this\.#assignedBy = "Opportunity";/g) ?? []).length === 1 && /this\.#assignedBy = p\.moon \? "The Moon" : "Opportunity";/.test(shell)); // the Attack card also carries the Moon's Due redirect
 }
 console.log(`All ${n} passed.`);
 process.exit(0);

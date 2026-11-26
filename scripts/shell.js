@@ -6973,7 +6973,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         targetUuids: expanded,
         midiOptions,
         spellSlot: s.slot ?? null, // upcast: cast at the chosen slot level
-        skipConsume: !!s.depleted,  // out of charges: fire WITHOUT consuming so midi never opens the executor "Consume?" dialog
+        skipConsume: !!s.depleted || !!s.moon,  // the Moon's Due's second swing spends nothing again; out of charges: fire WITHOUT consuming so midi never opens the executor "Consume?" dialog
         mastery: s.masteryChoices ? s.mastery : undefined // §45.5 swap pick — only sent when the weapon offers a real choice
       }), 30000);
     } catch (err) {
@@ -7863,12 +7863,21 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         this.#resolve("aoo");
         // Pre-target the escaping enemy via the assigned-targets path — the picker
         // opens with them selected; Use → the normal attack → damage two-tap.
+        // THE MOON'S DUE (DM 2026-11-26) rides the same card: the DM redirected this hero's natural 1, so the attack
+        // goes again at the new target. It spends no ammunition or use a second time, and the DM's client keeps it
+        // from critting (moons-due.js). The player rolls it, as every attack.
         this.#assignedTargets = [p.targetUuid];
-        this.#assignedBy = "Opportunity";
-        return this.#pickAction(p.activityUuid);
+        this.#assignedBy = p.moon ? "The Moon" : "Opportunity";
+        return void this.#pickAction(p.activityUuid).then(() => {
+          if (p.moon && this.#actionState?.uuid === p.activityUuid) this.#actionState.moon = true;
+        });
       }
-      case "aoo-dismiss":
+      case "aoo-dismiss": {
+        const p = this.#cur("aoo")?.payload;
+        // a redirected attack the player lets go: its no-crit mark goes with it
+        if (p?.moon) fromUuid(p.reactorUuid).then((a) => a?.unsetFlag(MODULE_ID, "moonRedirect")).catch(() => null);
         this.#resolve("aoo"); return this.render();
+      }
       case "party-move": return this.#partyMove(Number(el.dataset.dx), Number(el.dataset.dy));
       case "party-stage": return this.#partyStage(el.dataset.stage);
       case "ptab":

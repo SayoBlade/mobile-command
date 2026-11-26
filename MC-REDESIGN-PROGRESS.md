@@ -259,3 +259,23 @@ was already built and pushed, so this lands after it. Nothing depends on the ord
 5. **Phone at 364 px.** On a narrow phone, PAUSED moves onto the foot of the portrait, so the name keeps its row.
 6. Deleted the rig's leftover `renders-redesign-2026-11-26/live/test-flyout.png`.
 7. Tests: new `test-seat37` (7), plus 3 in test-waiting and 5 in test-on-now; 83 suites pass.
+
+
+## 2026-11-26 · The Moon's Due
+
+Built to the DM's approval; the full ruling is deck-command D-0205, and the design is DESIGN §61.
+1. Each twist spent banks the DM one token. Cap 3, kept on the world between sessions.
+2. The TV shows a quiet crescent at the bottom-left, opposite the compass, that fills by thirds. On now shows the
+   count on its line, and its sheet has − / + to set it by hand.
+3. Reroll: a picked NPC roll, from the deck or from the chat log's right-click. The new card stands. A roll is
+   rerolled once; never a death save, Maim roll or player roll.
+4. Redirect: a player's natural 1 on a weapon attack joins the one queue. The DM clicks the new target (in reach,
+   above 0 HP). The player's phone gets the attack card aimed there, and that roll can't crit and spends nothing
+   again.
+5. Deck: a Moon's Due key in the fight drawer (Reroll · Earlier · Redirect), with the crescent of the count.
+6. My calls, noted in D-0205:
+   - What the first roll already did stays the DM's to adjust.
+   - No Redirect offer while the bank is empty.
+   - An offer lapses after 5 minutes.
+   - A hidden new target is "someone unseen" in chat.
+7. Tests: MC test-moons-due (37), and 2 older tests updated; 84 suites pass. Deck test-moon-drawer (5); 1676 pass.

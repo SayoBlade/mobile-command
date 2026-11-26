@@ -45,6 +45,8 @@ import "./actions-effects.js"; // §52 area G — each area file registers its r
 import "./actions-cm.js"; // §52 area H — the Crooked Moon tab (and its requests)
 import { travelState } from "./dm-panel.js"; // §18 travel state for the public API (read-only)
 import "./actions-travel.js"; // the travel area, which was declared and published nothing (2026-10-18)
+import "./actions-moon.js"; // the Moon's Due: Reroll · Redirect for the deck (DM 2026-11-26)
+import { registerMoonsDue, initMoonTv, moonsDue, setMoonsDue, moonArt, MOON_CAP } from "./moons-due.js";
 import "./actions-rest.js"; // Start rest · Pass watch · Finish, for the deck's Rest drawer (DM 2026-11-26, redesign question 9)
 import { registerAskKind } from "./actions-asks.js"; // §55.6 players waiting on the DM (a Basic travel square) — the deck's Notifications
 import { registerSoundBehavior, cues } from "./region-sound.js"; // §53 the "Sound" region behaviour + the house door sets
@@ -961,6 +963,8 @@ Hooks.once("ready", () => {
   initPauseGuard();
   registerDaylight(); // §41: scene darkness follows the world clock (executor-gated inside)
   registerTwists(); // §31 v2: armed twists land on the next d20 (all clients — the roller forces its own die)
+  registerMoonsDue(initSocket()); // the Moon's Due: a player's natural 1 offers Redirect; a redirected roll can't crit (all clients)
+  if (isDisplayClient()) initMoonTv(); // …and the table sees the bank as a crescent on the TV
   registerDruskenvald(); // §43: the named hour + sky on the shared screen (gates itself)
   registerCharacterFiles(); // §44: compile each PC's book on a timer (executor-only, dirty-checked)
   registerDeeds(); // §44.4: the Deeds recorder — event-driven, bounded flag per PC (chapter 8 reads it)
@@ -1077,6 +1081,8 @@ Hooks.once("ready", () => {
     // ANOTHER MODULE'S QUESTION FOR THE DM, on the deck's Notifications row (deck-command D-0197, the Maim offer):
     // register its kind once, raise and settle its asks (executor only). See actions-asks.js and rpc.js raiseOutsideAsk.
     asks: { register: registerAskKind, raise: raiseOutsideAsk, settle: settleOutsideAsk, pending: () => pendingAsks() },
+    // THE MOON'S DUE (DM 2026-11-26): the deck's key reads the count and wears the crescent of that count
+    moon: { due: () => moonsDue(), cap: MOON_CAP, art: (n = moonsDue()) => moonArt(n), set: (n) => setMoonsDue(n) },
     enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, deactivate, reactivate, revert: deactivate, hasBackup },
     train: { wire: wireTrainDoors, ride: setTrainMist, sound: setTrainSound, preload: preloadRideSound, jolt: setTrainJolt, joltNow, riding: trainMistOn, hasWindows: trainCarHasWindows, setWindows: setTrainWindows, freeWeather: (o) => freeTrainWeather({ force: true, ...o }) }, // §37 macro access (§8.1 manual triggers)
     house: { restore: (o) => restoreCrookedHouse({ force: true, ...o }), plan: () => planHouseNow(), atticRooms: (o) => makeAtticRooms({ force: true, ...o }), atticPlan: () => planAtticNow(), zones: () => { syncSoundZones(); return soundMixState().zones; } }, // the Crooked House put-back (§8.1 manual trigger)

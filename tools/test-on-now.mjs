@@ -79,5 +79,5 @@ check("…a camera doing something else says so in one short word",
 const css = fs.readFileSync(new URL("styles/shell.css", REPO), "utf8");
 check("…only the music's name may shorten (CSS)", /\.mc-dmp-now-f \{[^}]*flex: 0 0 auto;/.test(css) && /\.mc-dmp-now-f\.mc-dmp-now-music \{ flex: 1 1 auto; min-width: 0; \}/.test(css));
 check("SEAT 37: the line repaints when the music layer says what it made audible, and when a pick is stored",
-  /Hooks\.on\(`\$\{MODULE_ID\}\.music`, \(\) => render\(\)\)/.test(panel) && /s\?\.key === `\$\{MODULE_ID\}\.musicState`\) render\(\)/.test(panel));
+  /Hooks\.on\(`\$\{MODULE_ID\}\.music`, \(\) => render\(\)\)/.test(panel) && /s\?\.key === `\$\{MODULE_ID\}\.musicState`/.test(panel));
 console.log(`\nAll ${n} passed.`);

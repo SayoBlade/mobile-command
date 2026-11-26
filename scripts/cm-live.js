@@ -1,3 +1,4 @@
+import { gainMoonsDue } from "./moons-due.js";
 import { MODULE_ID } from "./preset.js";
 import { notifier } from "./notifier.js";
 import { fxIsOn, fxIsOnFor, fxActiveMap, dmToggleFx, dmToggleFxFor, dmFireFx } from "./effects.js";
@@ -278,6 +279,7 @@ export async function spendTwist(a) {
   const esc = foundry.utils.escapeHTML;
   await a.setFlag(MODULE_ID, "twists", Math.max(0, Number(a.getFlag(MODULE_ID, "twists") ?? 0) - 1));
   await a.unsetFlag(MODULE_ID, "twistPending");
+  await gainMoonsDue(1); // the Moon's Due (DM 2026-11-26): every twist spent banks the DM one, cap 3
   await ChatMessage.create({
     speaker: { alias: "Fate" },
     content: `<p><b>${esc(a.name)}</b> twists fate — the die comes up a <b>natural ${p.die === 1 ? "1" : "20"}</b>${p.note ? ` <em>(${esc(p.note)})</em>` : ""}.</p>`
