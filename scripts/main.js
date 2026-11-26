@@ -46,7 +46,7 @@ import "./actions-cm.js"; // §52 area H — the Crooked Moon tab (and its reque
 import { travelState } from "./dm-panel.js"; // §18 travel state for the public API (read-only)
 import "./actions-travel.js"; // the travel area, which was declared and published nothing (2026-10-18)
 import "./actions-moon.js"; // the Moon's Due: Reroll · Redirect for the deck (DM 2026-11-26)
-import { registerMoonsDue, initMoonTv, moonsDue, setMoonsDue, moonArt, MOON_CAP } from "./moons-due.js";
+import { registerMoonsDue, registerMoonMenu, initMoonTv, moonsDue, setMoonsDue, moonArt, MOON_CAP } from "./moons-due.js";
 import "./actions-rest.js"; // Start rest · Pass watch · Finish, for the deck's Rest drawer (DM 2026-11-26, redesign question 9)
 import { registerAskKind } from "./actions-asks.js"; // §55.6 players waiting on the DM (a Basic travel square) — the deck's Notifications
 import { registerSoundBehavior, cues } from "./region-sound.js"; // §53 the "Sound" region behaviour + the house door sets
@@ -72,6 +72,7 @@ Hooks.once("init", () => {
   installErrorCapture();
   registerDicerMidiBridge(); // Dicer's dice on midi's rolls; must run before "setup" (deck-command SEAT 9)
   registerSettings();
+  registerMoonMenu(); // the chat log asks for its right-click entries once, as it first draws (before "ready"), SEAT 39
   registerSettingsMenu(); // §29: registered from here, not settings.js — the app imports preflight, which imports settings.js (cycle)
   try { phoneQuietState.phone = isPhoneClient(); } catch (e) { /* role unreadable: the noCanvas guess stands */ }
   registerFeedbackMenu(); // §48: unrestricted — the people who hit bugs are mostly not the GM

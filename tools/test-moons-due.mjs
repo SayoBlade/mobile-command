@@ -104,7 +104,10 @@ check("the redirected roll can't crit: set before the dialog and on the built ro
 check("a natural 1 on a player's own client reaches the DM over the socket, checked against the real sender",
   /moonSocket\?\.executeAsGM\?\.\("moonNat1", payload\)/.test(hooks) && /this\?\.socketdata\?\.userId/.test(hooks) && /testUserPermission\?\.\(from, "OWNER"\)/.test(hooks));
 check("both of dnd5e's attack hooks, one offer per roll", /Hooks\.on\("dnd5e\.rollAttack", onAttackRolled\);\s*Hooks\.on\("dnd5e\.rollAttackV2", onAttackRolled\);/.test(hooks) && /seenRolls\.has\(roll\)/.test(hooks));
-check("a picked roll: the chat log's right-click on the DM's screen", /getChatMessageContextOptions/.test(hooks) && /condition: \(li\) => \{ try \{ return game\.user\.isGM && toolsOn\(\) && moonsDue\(\) > 0 && !rerollRefusal/.test(hooks));
+check("a picked roll: the chat log's right-click on the DM's screen, in Foundry 14's entry shape",
+  /Hooks\.on\("getChatMessageContextOptions", \(_app, options\) => \{ options\.push\(moonMenuEntry\(\)\); \}\)/.test(src)
+  && /visible: \(li\) => \{ try \{ return game\.user\.isGM && toolsOn\(\) && moonsDue\(\) > 0 && !rerollRefusal/.test(src) && /onClick: \(_event, li\) =>/.test(src)
+  && !/getChatLogEntryContext|condition: \(li\)|callback: \(li\)/.test(src));
 
 /* ── the queue, the deck, the phone, the TV, On now ───────────────────────────────────────────────────── */
 const asks = read("scripts/actions-asks.js");
@@ -153,5 +156,25 @@ check("a card's kind: dnd5e's own word first; else damage/healing by the roll; a
     && M.rerollLabel({ speaker: "ZZ Goblin", kind: M.rollKindOf(midiCard), total: 14 }) === "ZZ Goblin · attack 14", J([M.rollKindOf(midiCard), M.rollKindOf(plainMidi), M.rollKindOf(dmgCard)]));
   check("the list and the refusal read the same kind (a midi death save still refuses)", /kind: rollKindOf\(msg\),/.test(src) && /kind: rollKindOf\(msg\), total:/.test(src));
   delete globalThis.MidiQOL; delete globalThis.CONFIG;
+}
+
+/* ── SEAT 39: the right-click entry joins the menu ────────────────────────────────────────────────── */
+{
+  const mainSrc = read("scripts/main.js");
+  const init = mainSrc.slice(mainSrc.indexOf('Hooks.once("init"'), mainSrc.indexOf('Hooks.once("setup"'));
+  check("SEAT 39: the menu hook is set at init (Foundry 14 builds the chat log's menu once, before ready), not at ready",
+    /registerMoonMenu\(\);/.test(init) && !/registerMoonMenu\(\)/.test(mainSrc.slice(mainSrc.indexOf('Hooks.once("ready"'))));
+  const e = M.moonMenuEntry();
+  check("SEAT 39: the entry is { label, icon, visible(li), onClick(event, li) }, like Foundry 14's own chat entries",
+    typeof e.label === "string" && typeof e.visible === "function" && typeof e.onClick === "function" && !("name" in e) && !("condition" in e) && !("callback" in e));
+  // Foundry 14's menu calls visible(li) with the message's bare element (jQuery off)
+  const prevMsgs = game.messages; game.messages = { get: () => null };
+  check("SEAT 39: visible(li) takes the bare element and never throws (no message: hidden)", e.visible({ dataset: { messageId: "x" } }) === false);
+  game.messages = prevMsgs;
+  const pushed = []; const prevOn = Hooks.on; let hooked = null;
+  Hooks.on = (h, fn) => { hooked = h; fn(null, pushed); return 1; };
+  M.registerMoonMenu(); Hooks.on = prevOn;
+  check("SEAT 39: registering pushes one entry onto the chat message menu",
+    hooked === "getChatMessageContextOptions" && pushed.length === 1 && pushed[0].label === "Reroll: the Moon's Due");
 }
 console.log(`\nAll ${n} passed.`);

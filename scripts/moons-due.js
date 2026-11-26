@@ -369,17 +369,24 @@ export function registerMoonsDue(socket) {
     for (const r of rolls) noCrit(r);
     actor.unsetFlag(MODULE_ID, REDIRECT_FLAG).catch(() => null); // one roll, then it's spent
   });
-  // the chat log's right-click: reroll a picked NPC roll
-  const menu = (_app, options) => {
-    const msgOf = (li) => game.messages.get(li?.dataset?.messageId ?? li?.[0]?.dataset?.messageId ?? li?.data?.("messageId"));
-    options.push({
-      name: "Reroll: the Moon's Due", icon: '<i class="fas fa-moon"></i>',
-      condition: (li) => { try { return game.user.isGM && toolsOn() && moonsDue() > 0 && !rerollRefusal(messageShape(msgOf(li))); } catch (e) { return false; } },
-      callback: (li) => { const m = msgOf(li); if (m) moonReroll(m.id).then((r) => { if (r?.ok === false) notifier.warn(`Moon's Due: ${r.reason}.`); }); },
-    });
+}
+
+/**
+ * The chat log's right-click: reroll a picked NPC roll (DM only).
+ * ⚠️ SEAT 39: Foundry 14 asks for the chat log's menu entries ONCE, as the log first draws — before
+ * "ready". Hooked from "ready" this entry never joined the menu (its check alone said yes). So it is
+ * hooked from "init" (main.js), in Foundry 14's entry shape: label / visible(li) / onClick(event, li).
+ */
+export function moonMenuEntry() {
+  const msgOf = (li) => game.messages.get(li?.dataset?.messageId ?? li?.[0]?.dataset?.messageId ?? "");
+  return {
+    label: "Reroll: the Moon's Due", icon: '<i class="fas fa-moon"></i>',
+    visible: (li) => { try { return game.user.isGM && toolsOn() && moonsDue() > 0 && !rerollRefusal(messageShape(msgOf(li))); } catch (e) { return false; } },
+    onClick: (_event, li) => { const m = msgOf(li); if (m) moonReroll(m.id).then((r) => { if (r?.ok === false) notifier.warn(`Moon's Due: ${r.reason}.`); }); },
   };
-  Hooks.on("getChatMessageContextOptions", menu);
-  Hooks.on("getChatLogEntryContext", menu);
+}
+export function registerMoonMenu() {
+  Hooks.on("getChatMessageContextOptions", (_app, options) => { options.push(moonMenuEntry()); });
 }
 
 /* ── the TV's crescent ────────────────────────────────────────────────────────────────────────────────────── */
