@@ -137,6 +137,8 @@ export function actionSnapshot({ area } = {}) {
     if (d.does) row.does = d.does;
     if (d.art) row.art = d.art;
     if (enabled && safe(d.alert, false)) row.alert = true;
+    // how many this key answers (the deck's Notifications count reads it: the same queue as its answers, SEAT 38)
+    if (typeof d.waiting === "function") row.waiting = waitingOf(d);
     if (d.kind === "toggle") row.on = Boolean(safe(d.on, false));
     const sub = safe(d.sub, undefined);
     if (sub) row.sub = String(sub);

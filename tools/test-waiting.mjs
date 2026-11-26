@@ -37,6 +37,7 @@ globalThis.fromUuidSync = (u) => game.actors.find((a) => a.uuid === u) ?? null;
 const row = () => A.actionSnapshot({ area: "requests" }).find((r) => r.id === "table.ask");
 const areaCount = () => A.actionAreas().find((a) => a.id === "requests")?.waiting;
 const kinds = () => asks.waitingQueue().map((e) => e.kind).join();
+const J = JSON.stringify;
 const tick = () => new Promise((r) => setTimeout(r, 5));
 game.paused = false;
 
@@ -130,4 +131,16 @@ const hook = panel.slice(panel.indexOf("// §31 v3: a phone asking to twist fate
 check("…the popup hook reads the actor's flag as it now stands, never the change: open on an ask, close otherwise",
   /const now = a\.getFlag\?\.\(MODULE_ID, "twistPending"\);\s*if \(pendingAsk\(now\)\) twistPopup\(a, now\);\s*else \{/.test(hook) && !/f\.twistPending &&/.test(hook), hook);
 check("…bargains have no popup of their own: their flag only repaints the floor (nothing to re-open)", !/bargainPopup|bargainDialogs/.test(panel));
+// SEAT 38: the deck's Notifications key read "none" while a bargain waited
+await gorbon.setFlag("mobile-command", "bargainPending", true);
+check("SEAT 38: the row publishes the queue's length as `waiting`, the same queue its answers come from",
+  row().waiting === asks.waitingQueue().length && row().waiting >= 1 && asks.waitingQueue().some((e) => e.kind === "bargain"), J(row()));
+await gorbon.unsetFlag("mobile-command", "bargainPending");
+check("…and the queue's own sources announce a change: a twist, a bargain or its answer (set or unset), not other flags",
+  asks.touchesQueue({ flags: { "mobile-command": { bargainPending: { ts: 1 } } } }) && asks.touchesQueue({ flags: { "mobile-command": { "-=twistPending": null } } })
+  && asks.touchesQueue({ flags: { "mobile-command": { bargainResult: "declined" } } }) && !asks.touchesQueue({ flags: { "mobile-command": { twists: 2 } } }) && !asks.touchesQueue({ system: {} }));
+const asksSrc = fs.readFileSync(new URL("scripts/actions-asks.js", REPO), "utf8");
+check("…on the one hook every door repaints on (the deck, the panel): actor flags and the executor's cast list",
+  /Hooks\.on\("updateActor", \(_a, change\) => \{ if \(touchesQueue\(change\)\) say\(\); \}\);/.test(asksSrc)
+  && /Hooks\.on\(`\$\{MODULE_ID\}\.pendingCast`, say\);/.test(asksSrc) && /Hooks\.on\(`\$\{MODULE_ID\}\.pendingCastResolved`, say\);/.test(asksSrc));
 console.log(`\nAll ${n} passed.`);

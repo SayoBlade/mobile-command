@@ -262,5 +262,24 @@ defineActions([
   },
 ]);
 
+/**
+ * SEAT 38: the deck's Notifications key read "none" while a bargain waited. The queue's live entries sit on actor flags
+ * (a twist, a bargain and its answer) and in the executor's cast list. Foundry's hooks for those never told the other
+ * doors, so the deck repainted only when something else did. Any change to a source says so on the one hook every
+ * door repaints on.
+ */
+export const QUEUE_FLAGS = ["twistPending", "bargainPending", "bargainResult"];
+export function touchesQueue(change) {
+  const f = change?.flags?.[MODULE_ID];
+  if (!f || typeof f !== "object") return false;
+  return Object.keys(f).some((k) => QUEUE_FLAGS.includes(k.replace(/^-=/, "")));
+}
+try {
+  const say = () => { try { Hooks.callAll(`${MODULE_ID}.actionsChanged`); } catch (err) { /* headless */ } };
+  Hooks.on("updateActor", (_a, change) => { if (touchesQueue(change)) say(); });
+  Hooks.on(`${MODULE_ID}.pendingCast`, say);
+  Hooks.on(`${MODULE_ID}.pendingCastResolved`, say);
+} catch (err) { /* headless */ }
+
 export const _askKindsForTests = Object.keys(KINDS); // the built-in kinds (outside ones: registerAskKind) // which kinds the row answers — the test pins it
 void MODULE_ID;

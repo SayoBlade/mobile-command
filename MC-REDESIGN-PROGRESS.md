@@ -279,3 +279,12 @@ Built to the DM's approval; the full ruling is deck-command D-0205, and the desi
    - An offer lapses after 5 minutes.
    - A hidden new target is "someone unseen" in chat.
 7. Tests: MC test-moons-due (37), and 2 older tests updated; 84 suites pass. Deck test-moon-drawer (5); 1676 pass.
+
+## 2026-11-26 · SEAT 38 fixes
+
+1. The Moon's Due: the deck's Reroll names a midi card's roll (attack / damage / save / check). midi's item card carries
+   no dnd5e roll type, so the kind is read from the roll itself, midi's workflow, then the activity that made it.
+2. The deck's Notifications key: its count and lit state read the one Waiting queue (MC's row now publishes its length),
+   and a twist, a bargain or a spell waiting to be placed repaints the deck the moment it lands. A bargain read "none".
+3. Hero Mancer: the five Battlezoo Demigods species hidden (deck-command m208, D-0208); the module stays on.
+4. Tests: MC test-moons-due 38–40, test-waiting 24–26, test-ask-row; DC test-seat38 1–3. MC 84 suites, DC 1697 pass.

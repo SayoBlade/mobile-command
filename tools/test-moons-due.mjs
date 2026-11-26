@@ -132,4 +132,26 @@ check("On now: 'Moon's Due · 2 of 3' in the sheet, with − / + (the DM can alw
   ml?.text === "2 of 3" && ml.act === "moon" && O.onNowFloor(L).find((f) => f.key === "moon")?.text === "2" && !O.onNowLines({}).some((l) => l.key === "moon")
   && /data-moon-adj="-1"/.test(read("scripts/dm-panel.js")) && /await setMoonsDue\(moonsDue\(\) \+ Number\(moonAdj\.dataset\.moonAdj\)\)/.test(read("scripts/dm-panel.js")));
 check("toasts go through the one notifier (max five)", !/ui\.notifications/.test(src) && /import \{ notifier \} from "\.\/notifier\.js";/.test(src));
+// SEAT 38: midi's item card carries no dnd5e roll type ("ZZ Goblin · roll 14"); read the kind from midi / the roll / the activity
+check("a card's kind: dnd5e's own word first; else damage/healing by the roll; a d20 is an attack (midi's workflow or an attack activity), a save, a check",
+  M.cardRollKind({ kind: "save" }) === "save" && M.cardRollKind({ kind: "generic", firstRoll: "damage" }) === "damage"
+  && M.cardRollKind({ firstRoll: "d20", midiAttack: true }) === "attack" && M.cardRollKind({ firstRoll: "d20", activityType: "attack" }) === "attack"
+  && M.cardRollKind({ firstRoll: "d20", activityType: "save" }) === "save" && M.cardRollKind({ firstRoll: "d20", activityType: "check" }) === "ability"
+  && M.cardRollKind({ firstRoll: "healing" }) === "healing" && M.cardRollKind({ activityType: "damage" }) === "damage" && M.cardRollKind({}) === null);
+{
+  class D20Roll { constructor(t) { this.total = t; this.options = {}; } }
+  class DamageRoll { constructor(t, type) { this.total = t; this.options = { type }; } }
+  globalThis.CONFIG = { Dice: { D20Roll, DamageRoll } };
+  const atk = new D20Roll(14), dmg = new DamageRoll(6, "slashing");
+  globalThis.MidiQOL = { Workflow: { getWorkflow: (u) => (u === "ChatMessage.m1" ? { attackRoll: atk } : null) } };
+  globalThis.fromUuidSync = () => null;
+  const midiCard = { uuid: "ChatMessage.m1", type: "usage", flags: { "midi-qol": {} }, rolls: [atk, dmg], speaker: { alias: "ZZ Goblin" } };
+  const plainMidi = { uuid: "ChatMessage.m2", type: "usage", flags: { "midi-qol": {}, dnd5e: { activity: { type: "attack" } } }, rolls: [new D20Roll(11)] };
+  const dmgCard = { uuid: "ChatMessage.m3", type: "usage", flags: { "midi-qol": {} }, rolls: [new DamageRoll(9, "fire")] };
+  check("midi's goblin card reads 'attack 14' (midi's workflow), 'attack' from the activity when the workflow is gone, 'damage' for a damage-only card",
+    M.rollKindOf(midiCard) === "attack" && M.rollKindOf(plainMidi) === "attack" && M.rollKindOf(dmgCard) === "damage"
+    && M.rerollLabel({ speaker: "ZZ Goblin", kind: M.rollKindOf(midiCard), total: 14 }) === "ZZ Goblin · attack 14", J([M.rollKindOf(midiCard), M.rollKindOf(plainMidi), M.rollKindOf(dmgCard)]));
+  check("the list and the refusal read the same kind (a midi death save still refuses)", /kind: rollKindOf\(msg\),/.test(src) && /kind: rollKindOf\(msg\), total:/.test(src));
+  delete globalThis.MidiQOL; delete globalThis.CONFIG;
+}
 console.log(`\nAll ${n} passed.`);

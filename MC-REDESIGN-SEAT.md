@@ -151,3 +151,13 @@ Reload the DM screen, the TV, a player's phone and the deck's Foundry module. Th
 9. Press Redirect again on a new natural 1 and click nothing for a minute: "no target picked; the offer is back in
    Waiting". Press **Let it be**: the line goes.
 10. Turn the Crooked Moon tools off: the crescent leaves the TV, and the deck drawer has no Moon's Due key.
+
+## SEAT 38 fixes (2026-11-26)
+
+Reload the DM screen and the deck's Foundry module (Hero Mancer's change applies on the GM reload).
+1. The Moon's Due step 3 again: make a goblin's attack (its sheet, with midi's card). The deck's Reroll reads
+   "<goblin> · attack N", and a damage roll reads "· damage N". Then run The Moon's Due steps 4–10 above.
+2. Bargain mode on. On the phone, Moon › Request Reroll. The deck's Notifications key lights at once and reads
+   "1 waiting", beside Decline / Strike. Ask a twist too: "2 waiting". Answer both: "none".
+3. Hero Mancer (a player's Create Character): none of the five Demigods species (Warrior, Trickster, Genius, Seer,
+   Savior) is offered. Battlezoo Ancestries: Demigods is still on in Manage Modules. A second GM reload changes nothing.

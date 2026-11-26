@@ -101,6 +101,25 @@ export function rerollLabel({ speaker = "", kind = null, total = null } = {}) {
   return `${who} · ${what}${total != null ? ` ${total}` : ""}`;
 }
 
+/**
+ * What a roll card holds, when the card itself doesn't say (SEAT 38: midi's item card is a "usage" card, so dnd5e's
+ * own roll type is absent and it read "roll 14"). `kind` is dnd5e's word (messageRollKind) when it has one; otherwise
+ * the first roll's class (damage / healing / d20), midi's workflow for the card (an attack roll present), then the
+ * activity that made it (attack / save / check / damage / heal).
+ */
+export function cardRollKind({ kind = null, firstRoll = null, midiAttack = false, activityType = null } = {}) {
+  if (kind && kind !== "generic") return kind;
+  if (firstRoll === "damage" || firstRoll === "healing") return firstRoll;
+  if (firstRoll === "d20") {
+    if (midiAttack || activityType === "attack") return "attack";
+    if (activityType === "save") return "save";
+    if (activityType === "check") return "ability";
+  }
+  if (activityType === "damage") return "damage";
+  if (activityType === "heal") return "healing";
+  return kind;
+}
+
 /* ── the bank ─────────────────────────────────────────────────────────────────────────────────────────────── */
 
 export function moonState() { try { return game.settings.get(MODULE_ID, MOON_KEY) ?? {}; } catch (e) { return {}; } }
@@ -131,6 +150,32 @@ async function spendMoon() {
 
 /* ── (a) reroll ───────────────────────────────────────────────────────────────────────────────────────────── */
 
+function rollClassOf(r) {
+  try {
+    const D = CONFIG?.Dice ?? {};
+    if (D.DamageRoll && r instanceof D.DamageRoll) return r.options?.type === "healing" ? "healing" : "damage";
+    if (D.D20Roll && r instanceof D.D20Roll) return "d20";
+  } catch (e) { /* headless */ }
+  return null;
+}
+/** The roll's kind, reading midi's workflow and the activity when the card is midi's item card. */
+export function rollKindOf(msg) {
+  const kind = messageRollKind(msg);
+  if (kind && kind !== "generic") return kind;
+  const first = msg?.rolls?.[0] ?? null;
+  let midiAttack = false, activityType = null;
+  try {
+    if (msg?.flags?.["midi-qol"]) {
+      const wf = globalThis.MidiQOL?.Workflow?.getWorkflow?.(msg.uuid);
+      midiAttack = !!wf?.attackRoll && (wf.attackRoll === first || wf.attackRoll.total === first?.total);
+    }
+  } catch (e) { /* midi absent or changed */ }
+  try {
+    const au = msg?.system?.activity?.uuid ?? msg?.flags?.dnd5e?.activity?.uuid;
+    activityType = (au ? fromUuidSync(au)?.type : null) ?? msg?.flags?.dnd5e?.activity?.type ?? null;
+  } catch (e) { /* headless */ }
+  return cardRollKind({ kind, firstRoll: first ? rollClassOf(first) : null, midiAttack, activityType });
+}
 function speakerActor(msg) {
   try { return ChatMessage.getSpeakerActor(msg.speaker) ?? null; } catch (e) { return null; }
 }
@@ -140,14 +185,14 @@ export function messageShape(msg) {
   return {
     hasRolls: (msg?.rolls?.length ?? 0) > 0,
     npc: !!actor && !actor.hasPlayerOwner,
-    kind: messageRollKind(msg),
+    kind: rollKindOf(msg),
     maim: /\bmaim\b/i.test(String(msg?.flavor ?? "")) || !!msg?.flags?.["deck-command"]?.maim,
     table: !!msg?.flags?.core?.RollTable,
     rerolled: !!f.moonRerolled,
     isReroll: !!f.moonReroll,
   };
 }
-const labelOf = (msg) => rerollLabel({ speaker: msg.speaker?.alias ?? speakerActor(msg)?.name, kind: messageRollKind(msg), total: msg.rolls?.[0]?.total ?? null });
+const labelOf = (msg) => rerollLabel({ speaker: msg.speaker?.alias ?? speakerActor(msg)?.name, kind: rollKindOf(msg), total: msg.rolls?.[0]?.total ?? null });
 
 /** The last few NPC rolls that may be rerolled, newest first: [{ id, label }]. */
 export function rerollCandidates(limit = 4) {

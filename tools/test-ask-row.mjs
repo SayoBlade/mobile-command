@@ -124,8 +124,8 @@ check("…Stay: nobody moves, and the row goes quiet", res.ok === true && scene.
 game.paused = false;
 await asUser("u2", "travelRequest", { regionId: "r1", forActorUuid: gorbon.uuid });
 r = row();
-check("row keys are exactly: id area group label icon kind enabled danger alert sub ref multi steps choices",
-  Object.keys(r).join() === "id,area,group,label,icon,kind,enabled,danger,alert,sub,ref,multi,steps,choices", Object.keys(r).join());
+check("row keys are exactly: id area group label icon kind enabled danger alert waiting (the queue's length, SEAT 38) sub ref multi steps choices",
+  Object.keys(r).join() === "id,area,group,label,icon,kind,enabled,danger,alert,waiting,sub,ref,multi,steps,choices", Object.keys(r).join()); check("…waiting is the one queue's length: one traveller, 1", r.waiting === 1, String(r.waiting));
 check("choice keys: id label (+ img on the alone choice); no on/sub/value",
   r.choices.every(c => Object.entries(c).filter(([, v]) => v !== undefined).map(([k]) => k).join() === (c.id === "alone" ? "id,label,img" : "id,label")));
 console.log(`All ${n} passed.`);
