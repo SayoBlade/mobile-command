@@ -15,21 +15,28 @@ function check(label, ok, detail = "") {
 }
 globalThis.Hooks = { on: () => 0 };
 const H = await import(pathToFileURL(path.join(ROOT, "scripts", "cm-house.js")).href);
-const { planAtticLadder, ladderRegion, isAtticClimb, ladderUuid, ATTIC_LADDER, ATTIC_TRAP, LADDER_TOP, LADDER_CLIMB, HOUSE_STAIRS, onAtticClimb } = H;
+const { planAtticLadder, ladderRegion, isAtticClimb, ladderUuid, ATTIC_LADDER, ATTIC_TRAP, LADDER_TOP, LADDER_CLIMB, HOUSE_STAIRS, onAtticClimb, tellMove, TRAP_TELL } = H;
 const S3 = "gl3mouQf0eAdouY5", S4 = "N7rxbhvGMk3cs6k5";
 const world = (regions = {}) => ({ scenes: { [S3]: { regions: regions[S3] ?? [] }, [S4]: { regions: regions[S4] ?? [] } } });
 const J = JSON.stringify;
 
-// ── the square is a placeholder until Seat 41 reads it off the map ───────────────────────────────────────────────
-check("the trap door's square is a placeholder (null) until the seat reads it", ATTIC_TRAP === null);
+// ── the squares (Seat 41b, the real map) ─────────────────────────────────────────────────────────────────────────
+check("the trap door is 12.3 (11, 8), the first open ceiling square under the attic's ladder", JSON.stringify(ATTIC_TRAP) === JSON.stringify({ col: 11, row: 8 }));
+check("the ladder's top stays at 12.4 (10, 8), the square the drawn ladder fills", JSON.stringify(LADDER_TOP) === JSON.stringify({ col: 10, row: 8 }));
 const none = planAtticLadder({ trap: null, ...world() });
-check("…and while it is unknown NOTHING is made (no half ladder)", none.make.length === 0 && /not set yet/.test(none.skipped[0] ?? ""), J(none));
+check("a world without the square still makes nothing (no half ladder)", none.make.length === 0 && /not set yet/.test(none.skipped[0] ?? ""), J(none));
 const src = read("scripts/cm-house.js");
-check("…and the run-once marker is not set then, so the ladder appears on the first GM load after the square is filled in",
-  /if \(plan\.skipped\.some\(\(s\) => s\.startsWith\("the trap door"\)\)\) return null;/.test(src));
+check("…and its run-once marker stays unset then", /if \(plan\.skipped\.some\(\(s\) => s\.startsWith\("the trap door"\)\)\) return null;/.test(src));
+// the tell: "two squares from the trap door" (catalogue 39) was one square off at (11, 9)
+const sq = (c, r) => [{ type: "rectangle", x: c * 140, y: r * 140, width: 140, height: 140, rotation: 0, hole: false, anchorX: 0, anchorY: 0, gridBased: false }];
+const mv = tellMove(sq(11, 9));
+check("the creak at (11, 9) moves to (11, 10): two squares south of the trap door, its other fields kept",
+  mv && mv[0].x === 1540 && mv[0].y === 1400 && mv[0].width === 140 && mv[0].gridBased === false && Math.max(Math.abs(11 - 11), Math.abs(10 - ATTIC_TRAP.row)) === 2, J(mv));
+check("…only from its old square: one he moved, or reshaped, is his", tellMove(sq(12, 9)) === null && tellMove([...sq(11, 9), ...sq(11, 9)]) === null && tellMove([]) === null);
+check("…in the ladder's run, by its stable key", /const tell = game\.scenes\.get\(S3\)\?\.regions\.find\(\(r\) => flagKey\(r\) === TRAP_TELL\.key\);/.test(src) && TRAP_TELL.key === "12.3:cue:W21:11,9");
 
 // ── the two ends ─────────────────────────────────────────────────────────────────────────────────────────────────
-const plan = planAtticLadder({ trap: { col: 11, row: 8 }, ...world() });
+const plan = planAtticLadder({ trap: ATTIC_TRAP, ...world() });
 check("with a square: both ends are made, up on 12.3 and down on 12.4", J(plan.make.map((m) => m.end)) === J(["up", "down"]), J(plan));
 const up = plan.make[0].region, down = plan.make[1].region;
 check("up: 'Climb up to the attic?', on the trap door's square, our key and fixed id", up._id === "mcAtticTrapUp001" && up.flags["mobile-command"].cm === "stair:12.3:attic"

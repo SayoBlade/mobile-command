@@ -129,13 +129,20 @@ export function stairBehavior(ask, destUuid) {
  *        Deck Command's "Trap door found" key (a `gate`, deck-command D-0225) gives it its destination, and a reset seals it again.
  *   DOWN 12.4, the ladder's top beside the little door: "Climb down to the third floor?", always open.
  * Fixed ids, so the deck's key can name them before they exist (it reads "no such door" until then).
- * ⚠️ THE TRAP DOOR'S SQUARE IS NOT KNOWN YET (a seat run is finding it on the real map): while ATTIC_TRAP is null nothing is
- * made, and the run-once marker is not set, so the ladder appears on the first GM load after the square is filled in.
- * The ladder's top is read off the attic's art: the ladder is drawn at (10, 8), beside the little door.
+ * THE SQUARES (Seat 41b on the real map, 2026-11-27; same 140 px grid and origin on both floors): the attic's painted ladder hole
+ * spans (10, 8) and the left half of (11, 8); on 12.3, (10, 8) is the Trophy Room's west wall with the mounted heads, so the
+ * first open ceiling square under the ladder, the trap door, is (11, 8). The ladder's top stays at (10, 8): the square the
+ * drawn ladder fills, and off the attic's (11, 8), where the "by the runes" creak would sound on every arrival.
+ * (While ATTIC_TRAP is null nothing is made and the marker stays unset, so a world without the square waits for it.)
+ * THE TELL MOVES WITH IT: the Trophy Room's "two squares from the trap door" creak (house wiring, catalogue 39, always: a warning
+ * two squares before a hidden thing, like the Nursery door's) was placed at (11, 9) before the trap door's square was known,
+ * one square off. The same run moves it two squares south, to (11, 10), on the way in from the room's door — only while it
+ * still sits on (11, 9); a square he moved it to is his.
  * The climb itself plays the deck's own "Ladder Climb" sound once, for the table (see onAtticClimb).
  */
 export const ATTIC_LADDER_MADE = "atticLadderMade";
-export const ATTIC_TRAP = null; // { col, row } on 12.3 — PLACEHOLDER until Seat 41 reads the trap door's square off the map
+export const ATTIC_TRAP = Object.freeze({ col: 11, row: 8 }); // 12.3, the Trophy Room's trap door (Seat 41b, the real map)
+export const TRAP_TELL = Object.freeze({ key: "12.3:cue:W21:11,9", from: { col: 11, row: 9 }, to: { col: 11, row: 10 } }); // the creak, two squares off
 export const LADDER_TOP = Object.freeze({ col: 10, row: 8 }); // 12.4, the drawn ladder beside the little door
 export const ATTIC_LADDER = Object.freeze({
   up: { key: "stair:12.3:attic", id: "mcAtticTrapUp001", scene: S3, name: "Trap door — up to the attic", ask: "Climb up to the attic?", sealed: true },
@@ -172,6 +179,12 @@ export function ladderRegion(end, { col, row }, g = 140) {
     behaviors: [{ ...b, name: "Ladder", system: { ...b.system, destinations: e.sealed ? [] : [ladderUuid(other)] } }],
   };
 }
+/** The tell's move: the creak region's new shapes, only while it still sits exactly on its old square (his move wins). Pure. */
+export function tellMove(shapes = [], g = 140) {
+  const s = shapes?.[0];
+  if (!s || shapes.length !== 1 || s.type !== "rectangle" || s.x !== TRAP_TELL.from.col * g || s.y !== TRAP_TELL.from.row * g) return null;
+  return [{ ...s, x: TRAP_TELL.to.col * g, y: TRAP_TELL.to.row * g }];
+}
 /** Was this deleted token climbing the attic ladder? Core's teleport deletes the old token with `replacements`. Pure. */
 export function isAtticClimb(fromScene, toUuid) {
   const to = String(toUuid ?? "").match(/^Scene\.([^.]+)\./)?.[1];
@@ -194,6 +207,9 @@ export async function makeAtticLadder({ force = false, trap = ATTIC_TRAP } = {})
       await sc.createEmbeddedDocuments("Region", [{ ...region, visibility: CONST.REGION_VISIBILITY.LAYER_UNLOCKED }], { keepId: true });
       made.push(`${sc.name} · ${region.name}${ATTIC_LADDER[end].sealed ? " (sealed until the trap door is found)" : ""}`);
     }
+    const tell = game.scenes.get(S3)?.regions.find((r) => flagKey(r) === TRAP_TELL.key);
+    const moved = tell ? tellMove(tell.shapes.map((x) => x.toObject?.() ?? { ...x })) : null;
+    if (moved) { await tell.update({ shapes: moved }); made.push(`${tell.parent.name} · "${tell.name}" moved to (${TRAP_TELL.to.col}, ${TRAP_TELL.to.row}), two squares from the trap door`); }
     if (scenes[S3] && scenes[S4]) await game.settings.set(MODULE_ID, ATTIC_LADDER_MADE, true);
     console.log(`${MODULE_ID} | the attic ladder: ${made.join("; ") || "nothing made"}`
       + (plan.kept.length ? `\n  left as he has them: ${plan.kept.join("; ")}` : "") + (plan.skipped.length ? `\n  skipped: ${plan.skipped.join("; ")}` : ""));

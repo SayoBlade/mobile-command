@@ -285,8 +285,8 @@ Built to the DM's approval; the full ruling is deck-command D-0205, and the desi
 - **The attic ladder** (DM: "Is there currently a way to climb to the attic via Foundry as a player?", then yes): cm-house.js
   `makeAtticLadder` makes the Trophy Room's trap door on 12.3 ("Climb up to the attic?", SEALED: no destination, GM layer only)
   and the ladder's top on 12.4 at (10, 8) ("Climb down to the third floor?"), fixed ids `mcAtticTrapUp001` / `mcAtticLadderDn1`,
-  primary GM, its own run-once marker `atticLadderMade`. ⚠️ `ATTIC_TRAP` is a placeholder (null) until Seat 41 reads the trap
-  door's square; nothing is made until then. The climb plays his "Ladder Climb" once (primary GM, environment channel).
+  primary GM, its own run-once marker `atticLadderMade`. Trap door at (11, 8) (Seat 41b, the real map; filled in the same
+  day); the ladder top stays (10, 8). The same run moves the "two squares from the trap door" creak from (11, 9) to (11, 10). The climb plays his "Ladder Climb" once (primary GM, environment channel).
   Deck Command's "Trap door found" (deck-command D-0225, m225) opens and seals it; its resets seal it again (`sealOnReset`).
   Test: test-attic-ladder 1–20.
 - **Two GMs** (he added "Claude" as a GM): the first-run preset (enforcer.js `checkAndPrompt`) now runs on the active GM only;
