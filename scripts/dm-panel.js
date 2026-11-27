@@ -1,3 +1,4 @@
+import { activePC, seatActors } from "./active-pc.js"; // §38.4b the one active-PC lookup (deck-command D-0241)
 import { safeBody, drawerForPress, lastRun, bringToFront } from "./panel-safe.js"; // one broken drawer never stops a tab; a deck press opens its drawer (DM 2026-11-25)
 import { waitingQueue, answerWaiting, waitingItems, pendingAsk } from "./actions-asks.js";
 import { moonsDue, setMoonsDue } from "./moons-due.js"; // the Moon's Due in On now (DM 2026-11-26)
@@ -3759,21 +3760,11 @@ async function setSeat(seatId, userId) {
   await game.settings.set(MODULE_ID, "tableSeats", seats);
 }
 
-// §38.4b the active PC. Empty for nearly everyone — see the `seatActors` note in settings.js.
-function seatActors() {
-  try { return foundry.utils.deepClone(game.settings.get(MODULE_ID, "seatActors") ?? {}); } catch (e) { return {}; }
-}
+// §38.4b the active PC. Empty for nearly everyone — see the `seatActors` note in settings.js. The lookup is active-pc.js's,
+// shared with the Tarot and Deck Command's landing table (deck-command D-0241).
 function ownedPCs(user) {
   return game.actors.filter(a => a.type === "character" && a.testUserPermission(user, "OWNER"))
     .sort((a, b) => a.name.localeCompare(b.name));
-}
-function activePC(user) {
-  const picked = seatActors()[user.id];
-  if (picked) {
-    const a = game.actors.get(picked);
-    if (a?.type === "character" && a.testUserPermission(user, "OWNER")) return a;
-  }
-  return user.character?.type === "character" ? user.character : null;
 }
 async function setActivePC(userId, actorId) {
   const map = seatActors();

@@ -20,6 +20,7 @@ import { registerSceneTransitions, registerPartyTeleportActivation } from "./tra
 import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, preloadRideSound, primeRideSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
 import { restoreCrookedHouse, planHouseNow, makeAtticLadder, registerAtticLadder, keepSealsInert } from "./cm-house.js"; // the Crooked House put back (Lost Lore #17/#18)
 import { figurines } from "./cm-bargains.js"; // MobileCommand.figurines: the Dark Bargains for the deck's landing table (deck-command D-0235)
+import { activePC } from "./active-pc.js"; // MobileCommand.activePC: the deck's landing table follows the DM's pick (deck-command D-0241)
 import { actorCard, cardFace } from "./tarot.js"; // MobileCommand.cardFace: the deck's landing table turns a character's card (deck-command D-0231)
 import { makeAtticRooms, planAtticNow } from "./cm-attic.js"; // the attic's rooms get music (§59)
 import { registerSoundZones, syncSoundZones } from "./sound-zones.js"; // the chanting lower outside the Cauldron Room (§59.6)
@@ -1097,6 +1098,9 @@ Hooks.once("ready", () => {
     // Command's landing table (deck-command D-0231): the card on the table turns when Adela's does.
     figurines: () => figurines(), // the 13 Dark Bargains' figurines, for the deck's Bargain key (deck-command D-0235)
     cardFace: (actor) => { const c = actorCard(actor); return c?.shown ? cardFace(c) : null; },
+    // A player's active PC (§38.4b): the DM's pick, else their assigned character. Deck Command's landing table drops, turns and
+    // names by it, and swaps the cage's token when the pick changes (deck-command D-0241).
+    activePC: (user) => activePC(user),
     house: { restore: (o) => restoreCrookedHouse({ force: true, ...o }), plan: () => planHouseNow(), atticRooms: (o) => makeAtticRooms({ force: true, ...o }), atticLadder: (o) => makeAtticLadder({ force: true, ...o }), atticPlan: () => planAtticNow(), zones: () => { syncSoundZones(); return soundMixState().zones; } }, // the Crooked House put-back (§8.1 manual trigger)
     soundScenes: { state: soundScenesState, set: setSoundScenes, mix: setSoundMix, mixState: soundMixState, master: { get: getSoundMaster, set: setSoundMaster, step: stepSoundMaster }, trim: setSoundTrim, trims: getSoundTrims, levels: setSyrinscapeLevels, applyLevels: syncSyrinscapeLevels }, // Syrinscape or local (deck-command D-0116): the deck's Music drawer switch; mix = the table's layers (§58; levels is retired)
     /**

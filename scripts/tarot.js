@@ -1,4 +1,5 @@
 import { MODULE_ID, DEFAULT_CARD_BACK } from "./preset.js";
+import { activePC } from "./active-pc.js";
 
 // §42 THE FATED TAROT — one Major Arcana per character, kept for the campaign.
 //
@@ -155,15 +156,7 @@ export function cmRewardTableUuid() {
 /** The character a player is playing tonight — the DM's explicit pick if there is one (§38.4b),
  *  else their assigned character. Seats and readings both key to USERS, so this is the bridge. */
 export function userActor(user) {
-  if (!user) return null;
-  try {
-    const picked = (game.settings.get(MODULE_ID, "seatActors") ?? {})[user.id];
-    if (picked) {
-      const a = game.actors.get(picked);
-      if (a?.type === "character") return a;
-    }
-  } catch (e) { /* no seating in play */ }
-  return user.character ?? null;
+  return activePC(user); // one lookup for everyone: active-pc.js (deck-command D-0241)
 }
 
 /* -------------------------------------------- */
