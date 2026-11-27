@@ -15,6 +15,8 @@ import { mountFaded, unmountFaded } from "./repaint.js"; // §6.8 fade, never cu
 import { isOnlineTable, hasSharedScreen } from "./settings.js";
 import { mayCoverViewport } from "./overlay-guard.js"; // §22.7 the one full-screen gate (replaces the local shell.js role checks)
 import { cardSound, dealSound } from "./card-audio.js";
+import { activePC } from "./active-pc.js"; // the one active-PC lookup (deck-command D-0241)
+import { faceKey, planTurns, builtElsewhere, scoresSet } from "./card-turns.js"; // §38.4c the cards turn one at a time (deck-command D-0245)
 
 // Our own art is the default now (DM's set, 2026-08-04): the crescent-moon back and the wide
 // rune table. The picker can still choose any of the Crooked Moon backs, or a custom upload.
@@ -52,9 +54,6 @@ export function cardTableIsUp() { return !!root; }
 function seatMap() {
   try { return game.settings.get(MODULE_ID, "tableSeats") ?? {}; } catch (e) { return {}; }
 }
-function seatActors() {
-  try { return game.settings.get(MODULE_ID, "seatActors") ?? {}; } catch (e) { return {}; }
-}
 function cardBack() {
   let p = DEFAULT_BACK;
   try { p = game.settings.get(MODULE_ID, "cardBackImage") || DEFAULT_BACK; } catch (e) { /* default */ }
@@ -66,14 +65,10 @@ function cardBack() {
 function actorForUser(userId) {
   const u = game.users.get(userId);
   if (!u) return null;
-  const picked = seatActors()[userId];
-  if (picked) {
-    const a = game.actors.get(picked);
-    // A stale id (the actor was deleted, or ownership moved) falls through to the default rather
-    // than blanking the seat — the pick is a preference, never a requirement.
-    if (a?.type === "character" && a.testUserPermission(u, "OWNER")) return a;
-  }
-  if (u.character?.type === "character") return u.character;
+  // The pick, else the assigned character: the one lookup every surface reads (active-pc.js, deck-command D-0241). A stale
+  // pick (the actor was deleted, or ownership moved) falls through to the default rather than blanking the seat.
+  const pc = activePC(u);
+  if (pc) return pc;
   return game.actors.find(a => a.type === "character" && a.testUserPermission(u, "OWNER")
     && a.getFlag(MODULE_ID, "charGen")) ?? null;
 }
@@ -83,7 +78,7 @@ function isCaster(actor) {
 }
 // What a seat's cards should show RIGHT NOW, read from the actor — the szEvent stream is the
 // live narration, this is the truth it converges on (a reload rebuilds from here alone).
-function readCards(actor) {
+export function readCards(actor) {
   const out = {};
   if (!actor) return out;
   const byType = t => actor.items.find(i => i.type === t);
@@ -91,7 +86,11 @@ function readCards(actor) {
   if (race) out.species = { name: race.name, img: race.img };
   if (bg) out.background = { name: bg.name, img: bg.img };
   if (cls) out.class = { name: cls.name, img: cls.img };
-  if (actor.getFlag(MODULE_ID, "wizAbilitiesDone")) {
+  // A character finished outside this module's wizard (Hero Mancer's approval, the sheet) never sets the wizard's two flags,
+  // so its Abilities and Gear stayed face down for good (SEAT 51). Its sheet already holds both: show them when they are
+  // really there (scores off the blank 10s; a weapon or armour), never a guess (§38.4c, deck-command D-0245).
+  const elsewhere = builtElsewhere({ building: !!actor.getFlag(MODULE_ID, "charGen"), hasClass: !!cls });
+  if (actor.getFlag(MODULE_ID, "wizAbilitiesDone") || (elsewhere && scoresSet(actor.system?.abilities))) {
     // The TOP ability, and every ability tied with it — a 16/16/16 character is three things at
     // once and the card should say so. No score (DM 2026-08-05): the number is a sheet fact, the
     // table wants "this one is STRONG". Icon comes from dnd5e's own set.
@@ -105,7 +104,8 @@ function readCards(actor) {
   }
   const spell = actor.items.find(i => i.type === "spell");
   if (spell) out.spells = { name: spell.name, img: spell.img };
-  if (actor.getFlag(MODULE_ID, "wizGearDone")) {
+  const kit = elsewhere ? (actor.items.find(i => i.type === "weapon") ?? actor.items.find(i => i.type === "equipment")) : null;
+  if (actor.getFlag(MODULE_ID, "wizGearDone") || kit) {
     // The player NAMES their main weapon on the gear step (DM 2026-08-05) — "the first weapon in
     // the bag" was arbitrary, and this card is the one the table reads as "who they fight with".
     const main = actor.getFlag(MODULE_ID, "mainWeapon");
@@ -159,8 +159,11 @@ function dropDeadActors() {
 
 function cardHTML(seat, def, s, i = 0) {
   const face = s.cards[def.step];
-  const flipped = !!face;
   const esc = foundry.utils.escapeHTML;
+  // §38.4c a face that has just arrived is drawn face DOWN until its turn comes (turnCards flips it in place, so it turns)
+  const fk = face ? faceKey(seat?.id, s.actorId, def.step, face.name) : null;
+  const pending = !!fk && (turnAt.get(fk) ?? 0) > Date.now();
+  const flipped = !!face && !pending;
   // The abilities card is the one card whose "name" is a stack of short words, so it gets its
   // own treatment: dnd5e's icon up top, the ability names beneath it, one per line.
   const art = face?.abilities
@@ -175,7 +178,7 @@ function cardHTML(seat, def, s, i = 0) {
   const nameHTML = face?.abilities
     ? label.split("\n").map(l => `<span>${esc(l)}</span>`).join("")
     : esc(label);
-  const nameStrip = flipped && !face?.img ? "" : `<div class="mc-ct-name ${face?.abilities ? "mc-ct-name-stack" : ""}">${nameHTML}</div>`;
+  const nameStrip = face && !face?.img ? "" : `<div class="mc-ct-name ${face?.abilities ? "mc-ct-name-stack" : ""}">${nameHTML}</div>`;
   // --i drives the deal: each card leaves the middle of the table a beat after the last.
   // A card that has already landed renders LANDED: repaint() rewrites the whole board on every
   // event, and without this every wizard step replayed the fly-in for all 22 cards (QA 2026-09-04
@@ -183,11 +186,11 @@ function cardHTML(seat, def, s, i = 0) {
   // lands, never again.
   const key = `${seat?.id ?? "?"}:${def.step}`;
   const landed = dealt.has(key) ? "mc-ct-landed" : "";
-  return `<div class="mc-ct-card ${flipped ? "mc-ct-flipped" : ""} ${s.active === def.step ? "mc-ct-active" : ""} ${landed}" data-step="${def.step}" data-deal="${esc(key)}" style="--i:${i}">
+  return `<div class="mc-ct-card ${flipped ? "mc-ct-flipped" : ""} ${s.active === def.step ? "mc-ct-active" : ""} ${landed}" data-step="${def.step}" data-deal="${esc(key)}"${fk ? ` data-face="${esc(fk)}"` : ""} style="--i:${i}">
     <div class="mc-ct-inner">
       <div class="mc-ct-back" style="background-image:url('${esc(cardBack())}')"></div>
       <div class="mc-ct-face">
-        ${flipped ? art : ""}
+        ${face ? art : ""}
         ${nameStrip}
       </div>
     </div>
@@ -206,10 +209,48 @@ const dropped = new Set();
 const dealt = new Set();
 // Foundry's placeholders are not a face. A portrait counts only once the player has actually
 // made one, which is what the wizard's last step is for.
-const PLACEHOLDER_IMG = /(mystery-man|^$)/i;
-function hasPortrait(actor) {
+// Any svg is a placeholder too (SEAT 51): a Hero Mancer character with no portrait wears dnd5e's grey `character.svg`, which
+// dropped onto the table as the hero's token. A portrait a player chose is a picture, never an svg icon.
+const PLACEHOLDER_IMG = /(mystery-man|^$|\.svg($|\?))/i;
+export function hasPortrait(actor) {
   const img = String(actor?.img ?? "").trim();
   return !!img && !PLACEHOLDER_IMG.test(img) && !img.endsWith("/icons/svg/mystery-man.svg");
+}
+
+// §38.4c THE CARDS TURN ONE AT A TIME (card-turns.js). What is face up when the board goes up is simply shown (`primed`);
+// a face that arrives later turns on its seat's next beat, in the hand's order, with its own flip sound.
+const seenFaces = new Set();
+const seatNext = new Map();
+const turnAt = new Map();   // faceKey → when it turns (ms)
+const turnTimers = new Map();
+let primed = false;
+function facesNow() {
+  const out = [];
+  for (const [seat, s] of state) for (const [step, f] of Object.entries(s.cards ?? {})) if (f) out.push({ seat, step, key: faceKey(seat, s.actorId, step, f.name) });
+  return out;
+}
+function planCardTurns() {
+  const now = Date.now();
+  for (const t of planTurns({ faces: facesNow(), seen: seenFaces, seatNext, now, primed })) turnAt.set(t.key, t.at);
+  primed = true;
+  for (const [k, at] of turnAt) if (at <= now - 5000) turnAt.delete(k);
+}
+function turnCards() {
+  const now = Date.now();
+  for (const [k, at] of turnAt) {
+    if (at <= now || turnTimers.has(k)) continue;
+    turnTimers.set(k, setTimeout(() => {
+      turnTimers.delete(k);
+      const el = root?.querySelector(`[data-face="${CSS.escape(k)}"]`);
+      if (!el || el.classList.contains("mc-ct-flipped")) return;
+      el.classList.add("mc-ct-flipped");
+      cardSound("flip");
+    }, at - now));
+  }
+}
+function clearCardTurns() {
+  for (const t of turnTimers.values()) clearTimeout(t);
+  turnTimers.clear(); turnAt.clear(); seenFaces.clear(); seatNext.clear(); primed = false;
 }
 
 function seatHTML(def) {
@@ -386,6 +427,7 @@ function repaint() {
   // The candles are three autoplaying webm decoders; a full rewrite re-created them on every
   // repaint. Keep the live element when the fresh markup would be identical (QA 2026-09-04 H12).
   const oldCandles = root.querySelector(".mc-ct-candles");
+  planCardTurns();
   root.innerHTML = boardHTML();
   if (oldCandles) {
     const fresh = root.querySelector(".mc-ct-candles");
@@ -400,6 +442,7 @@ function repaint() {
   }
   markEmblems();
   soundNewTokens();
+  turnCards();
 }
 
 // §38.5 THE OPENING — the first thing a table ever sees of this system (DM 2026-08-05).
@@ -496,6 +539,7 @@ export function cardTableSync(on) {
     if (ran) settleOpening(); else root.classList.add("mc-ct-dark");
   } else if (!on && root) {
     clearOpening();
+    clearCardTurns();
     dealt.clear();
     unmountFaded(root); root = null; state = new Map();
   }
@@ -523,9 +567,8 @@ export function cardTableEvent(p = {}) {
     s.cards = readCards(actor); s.caster = isCaster(actor);
   }
   if (p.kind === "flip" && p.step) {
-    // Only when the card actually TURNS. A repeat flip for a card already showing that item is
-    // a re-render, and the room shouldn't hear the same card twice (§38.4a).
-    if (s.cards[p.step]?.name !== (p.itemName ?? "")) cardSound("flip");
+    // The flip sound plays when the card actually TURNS (§38.4c turnCards), once per new face: a repeat flip for a card
+    // already showing that item is a re-render, and the room shouldn't hear the same card twice (§38.4a).
     s.cards[p.step] = { name: p.itemName ?? "", img: p.img ?? null };
     s.active = null; s.question = null;
   } else if (p.kind === "writing") {
@@ -573,6 +616,11 @@ export function registerCardTable() {
   // kept dealing a character that no longer existed (live 2026-08-06).
   Hooks.on("deleteActor", () => { if (!root) return; rebuild(); dropDeadActors(); repaint(); });
   Hooks.on("createActor", () => { if (!root) return; rebuild(); repaint(); });
+  // A PLAYER GIVEN THEIR CHARACTER (SEAT 51, deck-command D-0245): Hero Mancer creates the actor on approval and assigns it
+  // to the player ~6 s later. The board rebuilt on the create (no one's character yet) and never heard the assignment, so
+  // the seat kept the player's name and five backs until the board was lowered and raised. Any change of a user's
+  // `character` re-seats the board; its new faces turn one at a time (§38.4c).
+  Hooks.on("updateUser", (u, ch) => { if (!root || !ch || !("character" in ch)) return; rebuild(); repaint(); });
   // BOTH create and update: a setting that has never been written has no Setting document, so
   // its FIRST write fires createSetting — listening only for updates means the first card-back
   // pick (or the first seating) silently doesn't repaint (bench 2026-08-04).

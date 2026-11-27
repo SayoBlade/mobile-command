@@ -6584,6 +6584,26 @@ pre-filled with scaffolding to edit. On the board there are two guards, since ei
 alone: mid-creation (`charGen` flag) or a finished PC the DM never renamed (the name test).
 
 
+### 38.4c A hero made in Hero Mancer: picked up on the spot, its cards turn one at a time (2026-11-28, deck-command D-0245) — BUILT
+
+SEAT 51 (Hero Mancer 3.4.4): a hero created and approved in Hero Mancer did not reach the board. The actor exists only from
+the DM's approval, and Hero Mancer assigns it to the player ~6 s later; the board rebuilt on `createActor` (no one's character
+yet) and never heard the assignment, so the seat kept the player's name and five backs until lowered and raised.
+
+- **Re-seat on assignment:** `updateUser` with a `character` change rebuilds the board. The seat's character is the one
+  active-PC lookup (`active-pc.js activePC`: the DM's pick, else the assigned character), then a character mid-build in the
+  wizard (`charGen`) as before.
+- **One card at a time** (`card-turns.js`): a face that arrives on a board already up is drawn face down and turns on its
+  seat's next beat, in the hand's order (species → background → class → abilities → spells → gear), 650 ms apart, the first
+  250 ms after it arrives, each with its flip sound. What is face up when the board goes up (a raise, a reload) is shown as
+  it is. The wizard's own `flip` events go through the same turn (their sound now plays as the card turns).
+- **Abilities and Gear for a character built elsewhere** (no `charGen`, a class taken): Abilities from its scores when any is
+  off the blank 10; Gear from its first weapon, else armour. Nothing there → the card stays down (no guess, no "Packed").
+  The wizard's own flags still rule a character mid-build.
+- **No portrait = no token:** any `.svg` (dnd5e's grey `character.svg` on a Hero Mancer hero) is a placeholder, not a face.
+
+Test: `tools/test-card-turns.mjs` 1–11.
+
 ### 38.5 The opening — session zero's first minute (DM 2026-08-05, BUILT + verified in the DM's own world)
 
 > DM: *"I want this to be an amazing moment, the first encounter with the system. The table starts
