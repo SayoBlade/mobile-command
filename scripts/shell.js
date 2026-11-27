@@ -5538,6 +5538,7 @@ export class ControllerShell extends foundry.applications.api.ApplicationV2 {
         <div class="mc-cm-label">Your thread</div>
         <div class="mc-cm-thread"><i class="fas fa-scroll"></i> ${esc(thread.name)}</div>
         <p class="mc-cm-goal"><em>${esc(thread.goal)}</em></p>
+        ${thread.board ? `<p class="mc-cm-board">Why you're on the train: ${esc(thread.board)}</p>` : ""}
         <ol class="mc-fate-steps">${steps}</ol>
       </div>`);
     }

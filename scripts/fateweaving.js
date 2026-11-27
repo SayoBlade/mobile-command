@@ -2,22 +2,40 @@ import { MODULE_ID } from "./preset.js";
 import { aeKey } from "./dnd5e-compat.js"; // 6.0 renamed the roll-bonus keys the blessing targets
 
 // §34 Fateweaving — the book's per-PC story-arc system as a TRACKER, not automation. Thread
-// NAMES are the book's (titles, like the tarot card names); every goal line below is our own
-// original one-line summary — the book's thread prose stays in the book.
+// NAMES are the book's (titles, like the tarot card names); every goal and board line below is our
+// own original one-line summary — the book's thread prose stays in the book.
+// 2026-11-27 (DM: "we kind of forgot about threads of fate", then GO on "the corrected Thread
+// descriptions"): the goal lines re-read against ch9 and rewritten where they missed the book's goal
+// (Kindred, Deliverance and Immortality had another story; Apocalypse, Ascendancy, Duality, Evolution,
+// Malediction, Pilgrimage, Rapture, Slaughter drifted). `board` is new: the Thread's own reason to be at
+// the ghost train when it comes (the book's Call to Adventure, in a line), shown on the player's card.
 export const FATE_THREADS = {
-  apocalypse: { name: "Apocalypse", goal: "You have seen how it ends. Stop it — or finish it." },
-  ascendancy: { name: "Ascendancy", goal: "Power was promised to you. Collect." },
-  deliverance: { name: "Deliverance", goal: "Someone you lost is here, somewhere. Bring them home." },
-  duality: { name: "Duality", goal: "Something wears your face. Only one of you leaves." },
-  evolution: { name: "Evolution", goal: "You are becoming something new. Choose what." },
-  immortality: { name: "Immortality", goal: "Death touched you once. Never again." },
-  kindred: { name: "Kindred", goal: "Find where you truly belong." },
-  liberation: { name: "Liberation", goal: "A debt binds you. Break it." },
-  malediction: { name: "Malediction", goal: "Your curse has an author. Find them." },
-  pilgrimage: { name: "Pilgrimage", goal: "Carry your burden to the holy end of the road." },
-  rapture: { name: "Rapture", goal: "The voice that calls you is real. Answer it." },
-  rejuvenation: { name: "Rejuvenation", goal: "Heal what the rot has taken." },
-  slaughter: { name: "Slaughter", goal: "Something must die by your hand. It knows you're coming." }
+  apocalypse: { name: "Apocalypse", goal: "Your past is gone, but a half-familiar song shows you the end of a world. Learn who you were, and stop it.",
+    board: "The song played, and the vision ended with a ghost train coming out of the fog. Here it is." },
+  ascendancy: { name: "Ascendancy", goal: "A fool's ghost only you can hear rhymes of your rebirth as something greater than mortal. Decode it, and rise.",
+    board: "The fool's strangest rhyme named this gloomy night and this place." },
+  deliverance: { name: "Deliverance", goal: "Your family heirloom was stolen on this very train and broken in three. Find the pieces and make it whole.",
+    board: "Your broken compass woke tonight, its needle pointing down the misty rails." },
+  duality: { name: "Duality", goal: "You cut the sin out of your soul, and it walked off wearing your face. Stop your double and mend yourself.",
+    board: "Your reflection taunted you about catching a train, and its clues led here." },
+  evolution: { name: "Evolution", goal: "Experiments made you more than you were, but not enough. Finish what your idol's research began.",
+    board: "Your idol's ruined notes pointed to this place." },
+  immortality: { name: "Immortality", goal: "A magical sickness no healer can cure. Master the alchemy of life itself and brew the remedy, and maybe more.",
+    board: "The strange thing in the flask spoke of this time and place." },
+  kindred: { name: "Kindred", goal: "A relative haunted by nightmares of a crooked-grinned man has vanished. Find them and save them.",
+    board: "The dream journal they left behind showed exactly where to wait." },
+  liberation: { name: "Liberation", goal: "You sold your soul, and the deal has gone bad. Outwit its owner and take your fate back.",
+    board: "Your shadow won you a game of chance, then led you here." },
+  malediction: { name: "Malediction", goal: "A curse hangs over your whole bloodline. Find the forbidden lore that breaks it.",
+    board: "The page you stole from a secret library led you here." },
+  pilgrimage: { name: "Pilgrimage", goal: "You feel the torment of the dead. Raise sacred markers where the restless gather, and lay them to rest.",
+    board: "Your augury, cast amid a flood of suffering souls, named this time and place." },
+  rapture: { name: "Rapture", goal: "Your god brought you back from death to win them a foothold in a godless land. Preach, gather the faithful, make way for a miracle.",
+    board: "Your god's own voice sent you here." },
+  rejuvenation: { name: "Rejuvenation", goal: "A land beyond the seasons is rotting. Find the corruption, learn the cure, and bring the regrowth.",
+    board: "The oldest trees begged for help and showed you the way here." },
+  slaughter: { name: "Slaughter", goal: "Your spirit-beast showed you deadlier hunting grounds. Hunt the worst of the night and become its apex predator.",
+    board: "After your greatest hunt you simply knew: here, tonight." }
 };
 
 // The six touchpoints, in order (index 1..6), with each step's FIXED book reward.

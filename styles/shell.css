@@ -6769,6 +6769,8 @@ body.mc-skin-calendar:not(.mc-dm-clear) .app.simple-calendar .fsc-xf { display: 
 .mc-cm-thread { font-size: 15px; font-weight: 700; color: var(--mc-gold); }
 .mc-cm-thread .fa-scroll { margin-right: 6px; }
 .mc-cm-goal { margin: 6px 0 0; font-size: 13px; line-height: 1.45; color: var(--mc-ink); }
+/* §34 the Thread's reason to be at the train (2026-11-27): a hint under the goal, muted per UI-BIBLE */
+.mc-cm-board { margin: 4px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--mc-muted); }
 .mc-cm-curse {
   min-height: 44px; padding: 9px 10px; margin-top: 8px;
   border: 1px dashed var(--mc-edge); border-radius: calc(8px * var(--mc-round, 1));

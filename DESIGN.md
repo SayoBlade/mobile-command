@@ -5684,6 +5684,17 @@ retract ✓, shell chip + card ✓. BENCH TRAP (cost 20 min): Foundry sessions a
 logging a second pane tab in as another user overwrites the cookie, and the next reload of the
 first tab rejoins as THAT user; the "vanished" DM panel was just a Player 2 login.
 
+**2026-11-27 — the Threads re-read against the book; a reason to board on each card** (DM: "we kind of forgot about threads
+of fate, do a check", then GO on "the corrected Thread descriptions"). Read from his world's Crooked Moon compendium
+(ch9 Fateweaving, a COPY). The goal lines had drifted: Kindred ("find where you belong") is a relative haunted by
+crooked-man nightmares who vanished; Deliverance ("someone you lost") is the family heirloom stolen on the Ghostlight Express
+and split in three; Immortality ("death touched you once") is a magical sickness and the alchemy of life; Apocalypse lost its
+"or finish it"; Ascendancy, Duality, Evolution, Malediction, Pilgrimage, Rapture, Slaughter tightened to the book's goal.
+All 13 rewritten, still our own words. New `board` per Thread: why the character is at the ghost train (the book's Call to
+Adventure, one line), shown under the goal on the player's thread card as a muted hint (`.mc-cm-board`). The deck-command
+repo carries the players' handout and the session-0 step (THREADS-HANDOUT-2026-11-27.md). Test: tools/test-fate-threads.mjs
+1–10 (PASS); test-actions 54/54, phone-tabs, effect-chips, blind-roll, moons-due, phone-create unchanged. Not seat-checked.
+
 ## 35. The Crooked Moon tab (DM-requested 2026-07-27 — **BUILT**: slice A 2026-07-27; the whole §§30–36 suite is in)
 
 A campaign-tools tab on the **DM panel**, gated behind a module setting ("Campaign tools: The
