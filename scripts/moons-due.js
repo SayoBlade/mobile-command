@@ -25,7 +25,7 @@ import { messageRollKind } from "./dnd5e-compat.js";
 export const MOON_CAP = 3;
 export const MOON_KEY = "moonsDue";
 export const REDIRECT_FLAG = "moonRedirect";
-export const OFFER_TTL_MS = 5 * 60 * 1000;     // a natural 1 left unanswered this long is history
+export const OFFER_TTL_MS = 60 * 1000;         // a natural 1 left unanswered one minute is history (DM 2026-11-27: one, not five)
 export const REDIRECT_TTL_MS = 10 * 60 * 1000; // the redirected roll is owed within this long, then the no-crit lapses
 export const PICK_MS = 60 * 1000;               // the DM's map click
 export const moonArt = (n) => `modules/${MODULE_ID}/art/moons-due-${clampDue(n)}.svg`;

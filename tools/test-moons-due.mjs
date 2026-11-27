@@ -80,7 +80,7 @@ check("…measured nearest square to nearest square: a Large ogre beside the her
   M.nearestDistance({ x: 0, y: 0 }, { x: 100, y: 0, width: 2, height: 2 }, 100, cheb) === 5 && M.nearestDistance({ x: 0, y: 0 }, { x: 200, y: 0, width: 2, height: 2 }, 100, cheb) === 10
   && M.tokenCells({ x: 0, y: 0, width: 2, height: 2 }, 100).length === 4);
 const now = 1e12;
-check("an offer lives 5 minutes, and not while the DM is picking", M.offerLive({ at: now }, now + 1000) && !M.offerLive({ at: now }, now + M.OFFER_TTL_MS + 1) && !M.offerLive({ at: now, picking: true }, now));
+check("an offer lives ONE minute (DM 2026-11-27), and not while the DM is picking", M.OFFER_TTL_MS === 60000 && !M.offerLive({ at: now }, now + 61000) && M.offerLive({ at: now }, now + 1000) && !M.offerLive({ at: now }, now + M.OFFER_TTL_MS + 1) && !M.offerLive({ at: now, picking: true }, now));
 check("the no-crit mark fits only that attack, and lapses", M.redirectArmed({ activityUuid: "A", ts: now }, "A", now) && !M.redirectArmed({ activityUuid: "A", ts: now }, "B", now)
   && !M.redirectArmed({ activityUuid: "A", ts: now }, "A", now + M.REDIRECT_TTL_MS + 1));
 

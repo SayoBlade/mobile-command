@@ -276,7 +276,7 @@ Built to the DM's approval; the full ruling is deck-command D-0205, and the desi
 6. My calls, noted in D-0205:
    - What the first roll already did stays the DM's to adjust.
    - No Redirect offer while the bank is empty.
-   - An offer lapses after 5 minutes.
+   - An offer lapses after one minute (DM 2026-11-27; was 5).
    - A hidden new target is "someone unseen" in chat.
 7. Tests: MC test-moons-due (37), and 2 older tests updated; 84 suites pass. Deck test-moon-drawer (5); 1676 pass.
 
