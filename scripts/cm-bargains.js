@@ -6,8 +6,9 @@
  * The bargains are the book's, so their names live here (Mobile Command carries the Crooked Moon); the pictures are Deck
  * Command's keepsake art (deck-command foundry-module/assets/keepsakes/bargains/<id>.webp, his generated images, or placeholders
  * until his arrive: a new image replaces the file, the id never changes). Deck Command reads this list through
- * `MobileCommand.figurines()` and places / removes the figurine itself (deck-command D-0235): its "Bargain" key in the Party
- * drawer. Offered only while the Crooked Moon tools are on.
+ * `MobileCommand.figurines()` and places / removes the figurine itself, by hand from the console (deck-command D-0236; no deck key,
+ * DM: "I'll let you know what to add, no need to build UI"): `DeckCommand.bargains.place("Archer", "Wings of Whispers")`.
+ * Offered only while the Crooked Moon tools are on.
  */
 import { MODULE_ID } from "./preset.js";
 
