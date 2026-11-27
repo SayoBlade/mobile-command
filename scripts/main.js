@@ -19,6 +19,7 @@ import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, preloadRideSound, primeRideSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
 import { restoreCrookedHouse, planHouseNow, makeAtticLadder, registerAtticLadder, keepSealsInert } from "./cm-house.js"; // the Crooked House put back (Lost Lore #17/#18)
+import { bossToys } from "./cm-bosses.js"; // MobileCommand.bossToys: a defeated boss as a toy on the deck's landing desk (deck-command D-0243)
 import { figurines } from "./cm-bargains.js"; // MobileCommand.figurines: the Dark Bargains for the deck's landing table (deck-command D-0235)
 import { activePC } from "./active-pc.js"; // MobileCommand.activePC: the deck's landing table follows the DM's pick (deck-command D-0241)
 import { actorCard, cardFace } from "./tarot.js"; // MobileCommand.cardFace: the deck's landing table turns a character's card (deck-command D-0231)
@@ -1096,6 +1097,7 @@ Hooks.once("ready", () => {
     train: { wire: wireTrainDoors, ride: setTrainMist, sound: setTrainSound, preload: preloadRideSound, jolt: setTrainJolt, joltNow, riding: trainMistOn, hasWindows: trainCarHasWindows, setWindows: setTrainWindows, freeWeather: (o) => freeTrainWeather({ force: true, ...o }) }, // §37 macro access (§8.1 manual triggers)
     // A character's Fated Tarot face, only once it has been turned (`shown`); null while face down or undrawn. Read by Deck
     // Command's landing table (deck-command D-0231): the card on the table turns when Adela's does.
+    bossToys: () => bossToys(), // the bosses that become toys on the deck's landing desk (deck-command D-0243)
     figurines: () => figurines(), // the 13 Dark Bargains' figurines, for the deck's Bargain key (deck-command D-0235)
     cardFace: (actor) => { const c = actorCard(actor); return c?.shown ? cardFace(c) : null; },
     // A player's active PC (§38.4b): the DM's pick, else their assigned character. Deck Command's landing table drops, turns and
