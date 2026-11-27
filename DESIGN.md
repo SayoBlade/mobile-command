@@ -81,6 +81,7 @@ sections their cross-references always claimed).
 | 56 | Prepare spells on the phone | **BUILT 2026-11-13** — owed a seat check (prepare on a phone vs Spell Book on the PC) |
 | 57 | "The TV took a VERY long time to respond" | **MEASURED 2026-11-16, not ours** — dnd5e 6.0.5 / animater ready-time load; no code change |
 | 58 | **The table's one mix** — launch sliders, a set level at every play, music / environment / cues layers, one master; Syrinscape's scale fixed | **BUILT 2026-11-16** (`sound-mix.js`; world settings `soundMix`, `soundMaster`, `launchVolumes`, `soundTrims` §58.10); **§58.11 FIXED 2026-11-16 night: element trims relative, §53 levels kept, trims converted once; §58.12 the real 408 carried over, 168 element trims ready, a mood trim moves its one-shots**; **owed: §58.12's 10-step seat check** |
+| 62 | **The deck's Session 0 drawer** — Card table (up / down, the opening the first time) and Clear all (every overlay off) (DM 2026-11-27, deck-command D-0242) | **BUILT 2026-11-27, run on SEAT 43** (`actions-effects.js` sz.table, tv.clearAll; `effects.js dmClearOverlays`) |
 | 59 | **Music by room; the attic's rooms; the chanting lower outside the Cauldron Room; fight music in its place** (DM 2026-11-17, revised the same day) | **BUILT 2026-11-17** (`cm-attic.js` two book rooms, `sound-zones.js` the duck, `music-core.js SCENE_MUSIC_APPROVED` written once (`sceneMusicAdopted`), the ride's music hold (§59.9, deck-command D-0131), `sound-mix.js` music 0.6 + fight +3 dB); **his answers in 2026-11-17; owed: his veto of the attic's two tracks + the seat check (§59.7)** |
 
 ---
@@ -10361,3 +10362,18 @@ The DM spends a token in one of two ways:
 Code: `scripts/moons-due.js` (pure deciders + Foundry glue), `scripts/actions-moon.js` (the deck's keys), the queue
 kind in `actions-asks.js`, and the gain in `cm-live.js spendTwist`. The full ruling and my calls are in deck-command
 D-0205. Tests: `tools/test-moons-due.mjs`.
+
+## 62. The deck's Session 0 drawer: the card table, and Clear all (DM 2026-11-27) — BUILT 2026-11-27, run on SEAT 43
+
+His words: *"Add a button for it in the deck for the landing in a session 0 drawer along with "remove all banners" in case I
+get stuck and test"*. Two rows on the TV area (group "Session zero"), drawn by the deck on the landing scene's page:
+
+- **`sz.table`** (toggle, lit while `cardTableOn`): down and `szOpened` unset → `beginSessionZero()`, exactly the panel's
+  "Begin session zero" (the board up, `szOpened`, `szEvent {kind: "opening"}` to every screen); down after → a plain raise,
+  no replay; up → down (card-table.js fades it). Sub-line "begin" until the opening has run.
+- **`tv.clearAll`** (one press, no confirm: it is for getting unstuck) → `effects.js dmClearOverlays()`: `cardTableOn` off;
+  `fxActive` loses the boards (séance, station, intro card, train) and every player-state phone overlay (ticket, heartbeat,
+  woozy); the Moon's Due offer dropped; then the `clearOverlays` one-shot on every screen stops a running intro banner or boss
+  intro and clears Foundry's notifications. Weather, filters, the scene, `szOpened` and every document are left alone.
+- SEAT 43 (deck-command D-0242): lower, raise without replay, and Clear all passed on the Claude client; the TV was logged in,
+  so not watched directly. Test: `tools/test-session-zero-keys.mjs` 1–10.

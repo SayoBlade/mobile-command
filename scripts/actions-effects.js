@@ -1,6 +1,8 @@
 import { MODULE_ID } from "./preset.js";
 import { defineActions } from "./actions.js";
-import { FX_DEFS, fxIsOn, fxIsOnFor, fxActiveMap, dmToggleFx, dmToggleFxFor, dmFireFx, dmPressFx } from "./effects.js";
+import { FX_DEFS, fxIsOn, fxIsOnFor, fxActiveMap, dmToggleFx, dmToggleFxFor, dmFireFx, dmPressFx, dmClearOverlays, overlaysUp } from "./effects.js";
+import { api as rpc } from "./rpc.js"; // §62 the opening's cue to every screen, as the panel sends it
+import { DEFAULT_CARD_BACK } from "./preset.js";
 
 /**
  * ── THE EFFECTS TAB, AS ACTIONS (deck-command ledger 151, area G) ────────────────────────────────
@@ -123,4 +125,42 @@ defineActions([
   },
 
   // (§26.5 Loudness is panel-only — DM 2026-09-18: "loudness is too much for the deck".)
+]);
+
+/**
+ * §62 THE DECK'S SESSION 0 DRAWER (DM 2026-11-27, deck-command D-0242: *"Add a button for it in the deck for the landing in a
+ * session 0 drawer along with "remove all banners" in case I get stuck and test"*). Two rows on the TV area:
+ *   sz.table   the card table: up → down (the board fades back to the map); down → up, and the first time the opening
+ *              (the candle and the deal), exactly as the panel's "Begin session zero" does; lit while up.
+ *   tv.clearAll  every overlay switch off and every screen's banners gone (effects.js dmClearOverlays). One press.
+ */
+const setting = (k, d) => { try { return game.settings.get(MODULE_ID, k) ?? d; } catch (e) { return d; } };
+export const cardTableOn = () => setting("cardTableOn", false) === true;
+export const szOpened = () => setting("szOpened", false) === true;
+/** The panel's "Begin session zero" (dm-panel.js data-sz-open): the board up, the show marked run, every screen cued. */
+export async function beginSessionZero() {
+  if (!game.user?.isGM) return { ok: false, reason: "GM only" };
+  if (!cardTableOn()) await game.settings.set(MODULE_ID, "cardTableOn", true);
+  await game.settings.set(MODULE_ID, "szOpened", true);
+  rpc.szEvent({ kind: "opening" }); // every other screen, and this one (rpc.js szEvent calls the hook here too)
+  return { ok: true };
+}
+/** The key's press: what it does from where it stands. Pure. */
+export const tableStep = (on, opened) => (on ? "lower" : opened ? "raise" : "begin");
+export async function toggleCardTable() {
+  const step = tableStep(cardTableOn(), szOpened());
+  if (step === "begin") return beginSessionZero();
+  await game.settings.set(MODULE_ID, "cardTableOn", step === "raise");
+}
+export function overlaysUpNow() {
+  let offer = null; try { offer = game.settings.get(MODULE_ID, "moonsDue")?.offer ?? null; } catch (e) { /* unregistered */ }
+  return overlaysUp({ fx: fxActiveMap(), cardTable: cardTableOn(), offer });
+}
+defineActions([
+  { id: "sz.table", area: "tv", group: "Session zero", kind: "toggle", icon: "cards", does: "scene", art: DEFAULT_CARD_BACK,
+    label: "Card table", on: cardTableOn, sub: () => (!cardTableOn() && !szOpened() ? "begin" : ""),
+    run: () => toggleCardTable() },
+  { id: "tv.clearAll", area: "tv", group: "Session zero", kind: "shot", icon: "stop", does: "scene", art: "icons/svg/cancel.svg",
+    label: "Clear all", sub: () => "banners",
+    run: async () => { await dmClearOverlays(); } },
 ]);

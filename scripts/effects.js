@@ -5,8 +5,9 @@ import { isExecutor } from "./settings.js";
 import { seanceSync, seancePhrase } from "./seance.js"; // §30 séance board (TV overlay)
 import { cardTableSync, registerCardTable } from "./card-table.js"; // §38.4a session-zero card table
 import { cmStationSync, cmTicketFx, playTrainWhistle, playTrainApproach, stopTrainApproach, playTrainStop, playTrainFiddle, stopTrainFiddle } from "./cm-boarding.js"; // §36 All aboard
-import { bossIntroPlay } from "./boss-intro.js"; // §40 the boss's entrance (one-shot, no state)
-import { entrancePlay, entranceStop } from "./entrances.js"; // §40.6 the themed entrance banners ("Intros")
+import { bossIntroPlay, bossIntroStop } from "./boss-intro.js"; // §40 the boss's entrance (one-shot, no state)
+import { entrancePlay, entranceStop } from "./entrances.js";
+import { moonState, dropRedirectOffer } from "./moons-due.js"; // §62 clear-all: the Moon's Due offer is an overlay switch // §40.6 the themed entrance banners ("Intros")
 import { initCurseSweep } from "./cm-curses.js"; // §33: one GM client lifts expired curses
 import { notifier } from "./notifier.js";
 import { createDuck, duckArgs } from "./music-core.js";
@@ -275,6 +276,44 @@ export function dmPressFx(id) {
   return dmFireFx(id, id === "lightning" && animaterLightning() ? { animater: true } : {});
 }
 
+/**
+ * §62 CLEAR EVERY OVERLAY — the panic key (DM 2026-11-27, deck-command D-0242: *"remove all banners" in case I get stuck*).
+ * One press, no confirm: it is for getting unstuck. It turns OFF the overlay switches and nothing else — the scene, the
+ * weather and filters (the map's own look), the clock, the party and every document are left as they are.
+ *   - world switches: the session-zero card table (`cardTableOn`), the boards in `fxActive` (CLEAR_BOARDS), every
+ *     player-state phone overlay (the ticket, the heartbeat vignette, woozy), and the Moon's Due offer on the TV;
+ *   - on every screen (the `clearOverlays` one-shot): a running intro banner or boss intro, and Foundry's notifications.
+ * `szOpened` is left as it is: raising the table again later does not replay the opening. Returns what it turned off. GM only.
+ */
+export const CLEAR_BOARDS = ["seance", "cmStation", "cmIntro", "cmTrain"];
+/** What is up now and would be cleared. Pure over its inputs. */
+export function overlaysUp({ fx = {}, cardTable = false, offer = null, defs = FX_DEFS } = {}) {
+  const boards = CLEAR_BOARDS.filter((id) => fx[id]);
+  const players = Object.keys(fx).filter((id) => defs[id]?.player === "state" && fx[id]);
+  return { cardTable: cardTable === true, boards, players, offer: !!offer };
+}
+export async function dmClearOverlays() {
+  if (!game.user?.isGM) return { ok: false, reason: "GM only" };
+  const fx = { ...fxActiveMap() };
+  let cardTable = false; try { cardTable = game.settings.get(MODULE_ID, "cardTableOn") === true; } catch (e) { /* unregistered */ }
+  const up = overlaysUp({ fx, cardTable, offer: moonState().offer ?? null });
+  if (up.cardTable) await game.settings.set(MODULE_ID, "cardTableOn", false);
+  if (up.boards.length || up.players.length) {
+    for (const id of [...up.boards, ...up.players]) delete fx[id];
+    await game.settings.set(MODULE_ID, "fxActive", fx);
+  }
+  if (up.offer) await dropRedirectOffer();
+  const payload = { id: "clearOverlays" };
+  if (socket) socket.executeForEveryone("fxOneShot", payload); else handleFxOneShot(payload);
+  return up;
+}
+/** This screen's share: the transient layers no world switch holds. */
+function clearOverlaysHere() {
+  try { entranceStop(); } catch (e) { /* none running */ }
+  try { bossIntroStop(); } catch (e) { /* none running */ }
+  try { ui?.notifications?.clear?.(); } catch (e) { /* pre-ready */ }
+}
+
 /* -------------------------------------------- */
 /*  One-shots                                   */
 /* -------------------------------------------- */
@@ -298,6 +337,7 @@ export function handleFxOneShot(payload = {}) {
   // §40.6 carries only the entrance's key: every client resolves it from its own copy of the module.
   else if (id === "entrance") entrancePlay(payload);
   else if (id === "entranceStop") entranceStop();
+  else if (id === "clearOverlays") clearOverlaysHere(); // §62
 }
 
 // The music channel on THIS screen: local gain only, no document and no setting, so a reload mid-dip leaves
