@@ -168,6 +168,9 @@ export function makeConfirmMenuClass(buildConfig) {
 // per-load drift prompt, which nagged even when the DM had deviated on purpose.
 export async function checkAndPrompt() {
   if (!game.user?.isGM) return;
+  // ⚠️ ONE GM ONLY (DM 2026-11-27: a second GM user, "Claude", can be logged in beside him): two GMs both found no backup
+  // and both wrote the snapshot and the preset. The active GM alone applies it; the other reads the result.
+  if (game.users?.activeGM && game.users.activeGM.id !== game.user.id) return;
   if (hasBackup()) {
     console.log("mobile-command | preset already applied once — not policing; the DM owns their settings.");
     return;

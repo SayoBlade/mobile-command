@@ -280,6 +280,18 @@ Built to the DM's approval; the full ruling is deck-command D-0205, and the desi
    - A hidden new target is "someone unseen" in chat.
 7. Tests: MC test-moons-due (37), and 2 older tests updated; 84 suites pass. Deck test-moon-drawer (5); 1676 pass.
 
+## 2026-11-27 · The attic ladder; two GMs, one writer
+
+- **The attic ladder** (DM: "Is there currently a way to climb to the attic via Foundry as a player?", then yes): cm-house.js
+  `makeAtticLadder` makes the Trophy Room's trap door on 12.3 ("Climb up to the attic?", SEALED: no destination, GM layer only)
+  and the ladder's top on 12.4 at (10, 8) ("Climb down to the third floor?"), fixed ids `mcAtticTrapUp001` / `mcAtticLadderDn1`,
+  primary GM, its own run-once marker `atticLadderMade`. ⚠️ `ATTIC_TRAP` is a placeholder (null) until Seat 41 reads the trap
+  door's square; nothing is made until then. The climb plays his "Ladder Climb" once (primary GM, environment channel).
+  Deck Command's "Trap door found" (deck-command D-0225, m225) opens and seals it; its resets seal it again (`sealOnReset`).
+  Test: test-attic-ladder 1–20.
+- **Two GMs** (he added "Claude" as a GM): the first-run preset (enforcer.js `checkAndPrompt`) now runs on the active GM only;
+  the rest of MC's automatic writes were already on the active GM or the executor. Test: test-two-gm 1–5.
+
 ## 2026-11-27 · SEAT 39 fix
 
 - The Moon's Due Reroll was missing from the chat card's right-click. Foundry 14 builds the chat log's menu once, as

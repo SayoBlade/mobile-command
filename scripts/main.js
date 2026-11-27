@@ -18,7 +18,7 @@ import { registerSoundMix, setSoundMix, soundMixState, applyLaunchVolumes, SLIDE
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, preloadRideSound, primeRideSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
-import { restoreCrookedHouse, planHouseNow } from "./cm-house.js"; // the Crooked House put back (Lost Lore #17/#18)
+import { restoreCrookedHouse, planHouseNow, makeAtticLadder, registerAtticLadder } from "./cm-house.js"; // the Crooked House put back (Lost Lore #17/#18)
 import { makeAtticRooms, planAtticNow } from "./cm-attic.js"; // the attic's rooms get music (§59)
 import { registerSoundZones, syncSoundZones } from "./sound-zones.js"; // the chanting lower outside the Cauldron Room (§59.6)
 import { registerAoO } from "./aoo.js";
@@ -72,6 +72,7 @@ Hooks.once("init", () => {
   installErrorCapture();
   registerDicerMidiBridge(); // Dicer's dice on midi's rolls; must run before "setup" (deck-command SEAT 9)
   registerSettings();
+  registerAtticLadder(); // every client listens; only the primary GM plays the climb (cm-house.js onAtticClimb)
   registerMoonMenu(); // the chat log asks for its right-click entries once, as it first draws (before "ready"), SEAT 39
   registerSettingsMenu(); // §29: registered from here, not settings.js — the app imports preflight, which imports settings.js (cycle)
   try { phoneQuietState.phone = isPhoneClient(); } catch (e) { /* role unreadable: the noCanvas guess stands */ }
@@ -1033,6 +1034,8 @@ Hooks.once("ready", () => {
   restoreCrookedHouse().catch((e) => console.warn(`${MODULE_ID} | restoreCrookedHouse`, e?.message));
   // ⚠️ ONE-SHOT, the same way: the attic's two book rooms get Music regions (DM 2026-11-17, §59). See cm-attic.js.
   makeAtticRooms().catch((e) => console.warn(`${MODULE_ID} | makeAtticRooms`, e?.message));
+  // ⚠️ ONE-SHOT, the same way, once the trap door's square is known: the attic ladder's two ends (DM 2026-11-27). cm-house.js.
+  makeAtticLadder().catch((e) => console.warn(`${MODULE_ID} | makeAtticLadder`, e?.message));
   // ⚠️ ONE-SHOT, the same way: his approved default soundtracks (Druskenvald, Wickermoor Hollow; DM 2026-11-17, §59).
   musicAdoptApprovedOnce().catch((e) => console.warn(`${MODULE_ID} | default music`, e?.message));
   setupCalendarSkin(); // SC Reborn's popup = the table's "Calendar": retitle (tool column hidden in CSS)
@@ -1086,7 +1089,7 @@ Hooks.once("ready", () => {
     moon: { due: () => moonsDue(), cap: MOON_CAP, art: (n = moonsDue()) => moonArt(n), set: (n) => setMoonsDue(n) },
     enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, deactivate, reactivate, revert: deactivate, hasBackup },
     train: { wire: wireTrainDoors, ride: setTrainMist, sound: setTrainSound, preload: preloadRideSound, jolt: setTrainJolt, joltNow, riding: trainMistOn, hasWindows: trainCarHasWindows, setWindows: setTrainWindows, freeWeather: (o) => freeTrainWeather({ force: true, ...o }) }, // §37 macro access (§8.1 manual triggers)
-    house: { restore: (o) => restoreCrookedHouse({ force: true, ...o }), plan: () => planHouseNow(), atticRooms: (o) => makeAtticRooms({ force: true, ...o }), atticPlan: () => planAtticNow(), zones: () => { syncSoundZones(); return soundMixState().zones; } }, // the Crooked House put-back (§8.1 manual trigger)
+    house: { restore: (o) => restoreCrookedHouse({ force: true, ...o }), plan: () => planHouseNow(), atticRooms: (o) => makeAtticRooms({ force: true, ...o }), atticLadder: (o) => makeAtticLadder({ force: true, ...o }), atticPlan: () => planAtticNow(), zones: () => { syncSoundZones(); return soundMixState().zones; } }, // the Crooked House put-back (§8.1 manual trigger)
     soundScenes: { state: soundScenesState, set: setSoundScenes, mix: setSoundMix, mixState: soundMixState, master: { get: getSoundMaster, set: setSoundMaster, step: stepSoundMaster }, trim: setSoundTrim, trims: getSoundTrims, levels: setSyrinscapeLevels, applyLevels: syncSyrinscapeLevels }, // Syrinscape or local (deck-command D-0116): the deck's Music drawer switch; mix = the table's layers (§58; levels is retired)
     /**
      * §18/§41 TRAVEL, READ-ONLY — what a second surface needs to draw its own travel keys

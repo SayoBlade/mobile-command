@@ -783,6 +783,11 @@ export function registerSettings() {
   game.settings.register(MODULE_ID, "atticRoomsMade", {
     scope: "world", config: false, type: Boolean, default: false
   });
+  // One-shot marker (DM 2026-11-27): the attic ladder's two ends were made (cm-house.js makeAtticLadder). Set only once the
+  // trap door's square is known, so the ladder appears on the first GM load after it is.
+  game.settings.register(MODULE_ID, "atticLadderMade", {
+    scope: "world", config: false, type: Boolean, default: false
+  });
   // One-shot marker (§59, DM 2026-11-17): his approved default soundtracks (Druskenvald, Wickermoor Hollow) written. music.js.
   game.settings.register(MODULE_ID, "sceneMusicAdopted", {
     scope: "world", config: false, type: Boolean, default: false

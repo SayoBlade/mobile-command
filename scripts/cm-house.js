@@ -118,6 +118,109 @@ export function stairBehavior(ask, destUuid) {
   };
 }
 
+/**
+ * ── THE ATTIC LADDER (DM 2026-11-27: "Is there currently a way to climb to the attic via Foundry as a player? (I'm ok with a
+ * 'travel' button that will transfer them there)", then yes to the pair) ───────────────────────────────────────────────────
+ * The attic is the book's hidden pull-down ladder, not a staircase, so the stairs above left it out. Two more ends, the same
+ * core teleport-with-a-question as the stairs:
+ *   UP   12.3, the Trophy Room's trap door: "Climb up to the attic?" — made SEALED (no destination). Core's teleport does
+ *        nothing at all without one (no question, no pause), the region is drawn only on the GM's region layer, and MC's phone
+ *        offers a crossing only while one exists (rpc.js travelPointOf): until he reveals it, players cannot tell it is there.
+ *        Deck Command's "Trap door found" key (a `gate`, deck-command D-0225) gives it its destination, and a reset seals it again.
+ *   DOWN 12.4, the ladder's top beside the little door: "Climb down to the third floor?", always open.
+ * Fixed ids, so the deck's key can name them before they exist (it reads "no such door" until then).
+ * ⚠️ THE TRAP DOOR'S SQUARE IS NOT KNOWN YET (a seat run is finding it on the real map): while ATTIC_TRAP is null nothing is
+ * made, and the run-once marker is not set, so the ladder appears on the first GM load after the square is filled in.
+ * The ladder's top is read off the attic's art: the ladder is drawn at (10, 8), beside the little door.
+ * The climb itself plays the deck's own "Ladder Climb" sound once, for the table (see onAtticClimb).
+ */
+export const ATTIC_LADDER_MADE = "atticLadderMade";
+export const ATTIC_TRAP = null; // { col, row } on 12.3 — PLACEHOLDER until Seat 41 reads the trap door's square off the map
+export const LADDER_TOP = Object.freeze({ col: 10, row: 8 }); // 12.4, the drawn ladder beside the little door
+export const ATTIC_LADDER = Object.freeze({
+  up: { key: "stair:12.3:attic", id: "mcAtticTrapUp001", scene: S3, name: "Trap door — up to the attic", ask: "Climb up to the attic?", sealed: true },
+  down: { key: "stair:12.4:down", id: "mcAtticLadderDn1", scene: S4, name: "Ladder — down to the Third Floor", ask: "Climb down to the third floor?", sealed: false },
+});
+export const ladderUuid = (end) => `Scene.${ATTIC_LADDER[end].scene}.Region.${ATTIC_LADDER[end].id}`;
+/** The climb's sound: the deck's linked "Ladder Climb" by name (his path wins), else its file. */
+export const LADDER_CLIMB = Object.freeze({ name: "Ladder Climb", src: "modules/multilevel-tokens/sfx/sfx_mlt_climb_1.ogg", volume: 0.8 });
+
+/**
+ * Pure: which ends a run would make. `w` = { trap: {col,row}|null, scenes: { [id]: { regions: [{ id, cm }] } } }.
+ * → { make: [{ end, region }], kept: [why], skipped: [why] }; nothing at all while the trap door's square is unknown.
+ */
+export function planAtticLadder(w) {
+  const out = { make: [], kept: [], skipped: [] };
+  const trap = w?.trap;
+  if (!trap || !Number.isInteger(trap.col) || !Number.isInteger(trap.row)) { out.skipped.push("the trap door's square is not set yet"); return out; }
+  for (const [end, at] of [["up", trap], ["down", LADDER_TOP]]) {
+    const e = ATTIC_LADDER[end], sc = w.scenes?.[e.scene];
+    if (!sc) { out.skipped.push(`${e.key}: no scene`); continue; }
+    if ((sc.regions ?? []).some((r) => r.id === e.id || r.cm === e.key)) { out.kept.push(`${e.key} (already there)`); continue; }
+    out.make.push({ end, region: ladderRegion(end, at, 140) });
+  }
+  return out;
+}
+/** One end's Region data: a grid square, GM-layer only, our key on it, and core's teleport with its question. Pure. */
+export function ladderRegion(end, { col, row }, g = 140) {
+  const e = ATTIC_LADDER[end], other = end === "up" ? "down" : "up";
+  const b = stairBehavior(e.ask, ladderUuid(other));
+  return {
+    _id: e.id, name: e.name, color: "#2fbd9c", visibility: 0, // CONST.REGION_VISIBILITY.LAYER_UNLOCKED: the GM's region layer only
+    shapes: [{ type: "rectangle", x: col * g, y: row * g, width: g, height: g, rotation: 0, hole: false }],
+    flags: { [MODULE_ID]: { cm: e.key, ...(e.sealed ? { sealOnReset: true } : {}) } }, // the deck's restage and scene reset seal it again
+    behaviors: [{ ...b, name: "Ladder", system: { ...b.system, destinations: e.sealed ? [] : [ladderUuid(other)] } }],
+  };
+}
+/** Was this deleted token climbing the attic ladder? Core's teleport deletes the old token with `replacements`. Pure. */
+export function isAtticClimb(fromScene, toUuid) {
+  const to = String(toUuid ?? "").match(/^Scene\.([^.]+)\./)?.[1];
+  return (fromScene === S3 && to === S4) || (fromScene === S4 && to === S3);
+}
+
+/** Make the ladder. Primary GM, the Crooked Moon worlds, once the trap door's square is known (unless `force`). */
+export async function makeAtticLadder({ force = false, trap = ATTIC_TRAP } = {}) {
+  if (!game.user?.isGM || game.users.activeGM?.id !== game.user.id) return null;
+  if (!HOUSE_WORLDS.has(game.world?.id)) return null;
+  try {
+    if (!force && game.settings.get(MODULE_ID, ATTIC_LADDER_MADE)) return null;
+    const scenes = {};
+    for (const id of [S3, S4]) { const sc = game.scenes.get(id); if (sc) scenes[id] = { regions: sc.regions.map((r) => ({ id: r.id, cm: flagKey(r) })) }; }
+    const plan = planAtticLadder({ trap, scenes });
+    if (plan.skipped.some((s) => s.startsWith("the trap door"))) return null; // not yet: no marker, so it runs once the square is set
+    const made = [];
+    for (const { end, region } of plan.make) {
+      const sc = game.scenes.get(ATTIC_LADDER[end].scene);
+      await sc.createEmbeddedDocuments("Region", [{ ...region, visibility: CONST.REGION_VISIBILITY.LAYER_UNLOCKED }], { keepId: true });
+      made.push(`${sc.name} · ${region.name}${ATTIC_LADDER[end].sealed ? " (sealed until the trap door is found)" : ""}`);
+    }
+    if (scenes[S3] && scenes[S4]) await game.settings.set(MODULE_ID, ATTIC_LADDER_MADE, true);
+    console.log(`${MODULE_ID} | the attic ladder: ${made.join("; ") || "nothing made"}`
+      + (plan.kept.length ? `\n  left as he has them: ${plan.kept.join("; ")}` : "") + (plan.skipped.length ? `\n  skipped: ${plan.skipped.join("; ")}` : ""));
+    if (made.length) notifier.info("Attic: the ladder is in (its trap door stays hidden until found).");
+    return made;
+  } catch (e) {
+    console.warn(`${MODULE_ID} | could not make the attic ladder`, e);
+    return null;
+  }
+}
+
+/**
+ * The climb's sound, once, for the table: on the primary GM's client, the moment core's teleport swaps the token between 12.3 and
+ * 12.4, played for everyone on the environment channel (the TV and the DM hear it; phones keep that channel at zero, §14).
+ */
+export function onAtticClimb(doc, options) {
+  const to = options?.replacements?.[doc?.id];
+  if (!to || !isAtticClimb(doc?.parent?.id, to)) return false;
+  if (!game.user?.isGM || game.users.activeGM?.id !== game.user.id) return false;
+  const his = game.playlists?.contents?.flatMap((p) => p.sounds?.contents ?? []).find((s) => s.name === LADDER_CLIMB.name);
+  foundry.audio.AudioHelper.play({ src: his?.path || LADDER_CLIMB.src, volume: LADDER_CLIMB.volume, loop: false, channel: "environment" }, true);
+  return true;
+}
+export function registerAtticLadder() {
+  Hooks.on("deleteToken", (doc, options) => { try { onAtticClimb(doc, options); } catch (e) { console.warn(`${MODULE_ID} | ladder climb sound`, e?.message ?? e); } });
+}
+
 const flagKey = (d) => d?.flags?.[MODULE_ID]?.cm ?? null;
 const fightKey = (p) => p?.flags?.[MODULE_ID]?.music?.role === "battle" ? p.flags[MODULE_ID].music.key : null;
 
