@@ -19,6 +19,7 @@ import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, preloadRideSound, primeRideSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
 import { restoreCrookedHouse, planHouseNow, makeAtticLadder, registerAtticLadder } from "./cm-house.js"; // the Crooked House put back (Lost Lore #17/#18)
+import { actorCard, cardFace } from "./tarot.js"; // MobileCommand.cardFace: the deck's landing table turns a character's card (deck-command D-0231)
 import { makeAtticRooms, planAtticNow } from "./cm-attic.js"; // the attic's rooms get music (§59)
 import { registerSoundZones, syncSoundZones } from "./sound-zones.js"; // the chanting lower outside the Cauldron Room (§59.6)
 import { registerAoO } from "./aoo.js";
@@ -1089,6 +1090,9 @@ Hooks.once("ready", () => {
     moon: { due: () => moonsDue(), cap: MOON_CAP, art: (n = moonsDue()) => moonArt(n), set: (n) => setMoonsDue(n) },
     enforcer: { diff: diffPreset, apply: applyPreset, prompt: checkAndPrompt, deactivate, reactivate, revert: deactivate, hasBackup },
     train: { wire: wireTrainDoors, ride: setTrainMist, sound: setTrainSound, preload: preloadRideSound, jolt: setTrainJolt, joltNow, riding: trainMistOn, hasWindows: trainCarHasWindows, setWindows: setTrainWindows, freeWeather: (o) => freeTrainWeather({ force: true, ...o }) }, // §37 macro access (§8.1 manual triggers)
+    // A character's Fated Tarot face, only once it has been turned (`shown`); null while face down or undrawn. Read by Deck
+    // Command's landing table (deck-command D-0231): the card on the table turns when Adela's does.
+    cardFace: (actor) => { const c = actorCard(actor); return c?.shown ? cardFace(c) : null; },
     house: { restore: (o) => restoreCrookedHouse({ force: true, ...o }), plan: () => planHouseNow(), atticRooms: (o) => makeAtticRooms({ force: true, ...o }), atticLadder: (o) => makeAtticLadder({ force: true, ...o }), atticPlan: () => planAtticNow(), zones: () => { syncSoundZones(); return soundMixState().zones; } }, // the Crooked House put-back (§8.1 manual trigger)
     soundScenes: { state: soundScenesState, set: setSoundScenes, mix: setSoundMix, mixState: soundMixState, master: { get: getSoundMaster, set: setSoundMaster, step: stepSoundMaster }, trim: setSoundTrim, trims: getSoundTrims, levels: setSyrinscapeLevels, applyLevels: syncSyrinscapeLevels }, // Syrinscape or local (deck-command D-0116): the deck's Music drawer switch; mix = the table's layers (§58; levels is retired)
     /**
