@@ -123,10 +123,14 @@ export function stairBehavior(ask, destUuid) {
  * 'travel' button that will transfer them there)", then yes to the pair) ───────────────────────────────────────────────────
  * The attic is the book's hidden pull-down ladder, not a staircase, so the stairs above left it out. Two more ends, the same
  * core teleport-with-a-question as the stairs:
- *   UP   12.3, the Trophy Room's trap door: "Climb up to the attic?" — made SEALED (no destination). Core's teleport does
- *        nothing at all without one (no question, no pause), the region is drawn only on the GM's region layer, and MC's phone
- *        offers a crossing only while one exists (rpc.js travelPointOf): until he reveals it, players cannot tell it is there.
- *        Deck Command's "Trap door found" key (a `gate`, deck-command D-0225) gives it its destination, and a reset seals it again.
+ *   UP   12.3, the Trophy Room's trap door: "Climb up to the attic?" — made SEALED: its teleport DISABLED and with no
+ *        destination, the region drawn only on the GM's region layer, and MC's phone offers no crossing (rpc.js travelPointOf):
+ *        until he reveals it, players cannot tell it is there. Deck Command's "Trap door found" (a `gate`, deck-command D-0225,
+ *        D-0240) switches it on with its destination, and a reset seals it again.
+ *        ⚠️ DISABLED, NOT MERELY EMPTY (Seat 43, 2026-11-27: the system check's HARD FAIL, "teleports to a destination that
+ *        doesn't exist, which silently blocks token movement on that floor"). Foundry 14.371's own teleport returns at once with
+ *        no destination, but an ENABLED teleport with none is the check's Cave A landmine (preflight.js checkTeleportRegions)
+ *        and has blocked movement before; a disabled one is never in the way. keepSealsInert() mends one already made enabled.
  *   DOWN 12.4, the ladder's top beside the little door: "Climb down to the third floor?", always open.
  * Fixed ids, so the deck's key can name them before they exist (it reads "no such door" until then).
  * THE SQUARES (Seat 41b on the real map, 2026-11-27; same 140 px grid and origin on both floors): the attic's painted ladder hole
@@ -176,7 +180,7 @@ export function ladderRegion(end, { col, row }, g = 140) {
     _id: e.id, name: e.name, color: "#2fbd9c", visibility: 0, // CONST.REGION_VISIBILITY.LAYER_UNLOCKED: the GM's region layer only
     shapes: [{ type: "rectangle", x: col * g, y: row * g, width: g, height: g, rotation: 0, hole: false }],
     flags: { [MODULE_ID]: { cm: e.key, ...(e.sealed ? { sealOnReset: true } : {}) } }, // the deck's restage and scene reset seal it again
-    behaviors: [{ ...b, name: "Ladder", system: { ...b.system, destinations: e.sealed ? [] : [ladderUuid(other)] } }],
+    behaviors: [{ ...b, name: "Ladder", disabled: e.sealed, system: { ...b.system, destinations: e.sealed ? [] : [ladderUuid(other)] } }],
   };
 }
 /** The tell's move: the creak region's new shapes, only while it still sits exactly on its old square (his move wins). Pure. */
@@ -184,6 +188,30 @@ export function tellMove(shapes = [], g = 140) {
   const s = shapes?.[0];
   if (!s || shapes.length !== 1 || s.type !== "rectangle" || s.x !== TRAP_TELL.from.col * g || s.y !== TRAP_TELL.from.row * g) return null;
   return [{ ...s, x: TRAP_TELL.to.col * g, y: TRAP_TELL.to.row * g }];
+}
+/**
+ * The sealed crossings that are not inert (D-0240): a region of ours marked `sealOnReset` whose teleport is ENABLED with no
+ * destination — the system check's HARD FAIL. → [{ region, behavior }] to switch off. Pure: `regions` [{ id, flags, behaviors:
+ * [{ id, type, disabled, system: { destinations } }] }].
+ */
+export function liveEmptySeals(regions = []) {
+  const out = [];
+  for (const r of regions ?? []) {
+    if (r?.flags?.[MODULE_ID]?.sealOnReset !== true) continue;
+    for (const b of r.behaviors ?? []) if (b?.type === "teleportToken" && !b.disabled && ![...(b.system?.destinations ?? [])].length) out.push({ region: r.id, behavior: b.id });
+  }
+  return out;
+}
+/** Mend them, on the primary GM's every load (idempotent: nothing to do once they are off). → how many. */
+export async function keepSealsInert() {
+  if (!game.user?.isGM || game.users.activeGM?.id !== game.user.id) return 0;
+  let n = 0;
+  for (const sc of game.scenes ?? []) {
+    const plain = sc.regions.map((r) => ({ id: r.id, flags: r.flags, behaviors: r.behaviors.map((b) => ({ id: b.id, type: b.type, disabled: b.disabled, system: { destinations: b.system?.destinations } })) }));
+    for (const x of liveEmptySeals(plain)) { await sc.regions.get(x.region)?.behaviors.get(x.behavior)?.update({ disabled: true }); n += 1; }
+  }
+  if (n) console.log(`${MODULE_ID} | sealed crossing${n === 1 ? "" : "s"} switched off (an enabled teleport with no destination): ${n}`);
+  return n;
 }
 /** Was this deleted token climbing the attic ladder? Core's teleport deletes the old token with `replacements`. Pure. */
 export function isAtticClimb(fromScene, toUuid) {

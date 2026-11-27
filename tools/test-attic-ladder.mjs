@@ -44,6 +44,25 @@ check("up: 'Climb up to the attic?', on the trap door's square, our key and fixe
 check("up ships SEALED: no destination, so core's teleport neither asks nor pauses, and MC's phone offers no crossing",
   up.behaviors[0].type === "teleportToken" && up.behaviors[0].system.destinations.length === 0 && up.behaviors[0].system.choice === true);
 check("…and drawn on the GM's region layer only (invisible to players)", up.visibility === 0);
+check("…and its teleport DISABLED while sealed (Seat 43's HARD FAIL: an enabled teleport with no destination), the down end enabled",
+  up.behaviors[0].disabled === true && down.behaviors[0].disabled === false);
+// the system check skips a disabled teleport: the sealed trap door passes it
+const pre = read("scripts/preflight.js");
+check("the system check skips a disabled teleport, so the sealed trap door passes it", /if \(b\.type !== "teleportToken" \|\| b\.disabled\) continue;/.test(pre));
+const { liveEmptySeals } = H;
+const reg = (flags, behaviors) => ({ id: "r", flags: { "mobile-command": flags }, behaviors });
+check("the repair: one of ours, sealOnReset, ENABLED with no destination is switched off; disabled, open, or not ours is left alone",
+  J(liveEmptySeals([reg({ sealOnReset: true }, [{ id: "b", type: "teleportToken", disabled: false, system: { destinations: [] } }])])) === J([{ region: "r", behavior: "b" }])
+  && liveEmptySeals([reg({ sealOnReset: true }, [{ id: "b", type: "teleportToken", disabled: true, system: { destinations: [] } }])]).length === 0
+  && liveEmptySeals([reg({ sealOnReset: true }, [{ id: "b", type: "teleportToken", disabled: false, system: { destinations: ["Scene.x.Region.y"] } }])]).length === 0
+  && liveEmptySeals([reg({}, [{ id: "b", type: "teleportToken", disabled: false, system: { destinations: [] } }])]).length === 0);
+check("…run on the primary GM's every load, after the ladder", /makeAtticLadder\(\)\.then\(\(\) => keepSealsInert\(\)\)/.test(read("scripts/main.js"))
+  && /export async function keepSealsInert\(\) \{\s*if \(!game\.user\?\.isGM \|\| game\.users\.activeGM\?\.id !== game\.user\.id\) return 0;/.test(src));
+const FT = "C:/Program Files/Foundry Virtual Tabletop 14/resources/app/client/data/region-behaviors/teleport-token.mjs";
+if (fs.existsSync(FT)) {
+  const t = fs.readFileSync(FT, "utf8");
+  check("Foundry 14 (installed): its teleport returns at once with no destination; a disabled behaviour is not run at all", /if \( destinations\.length === 0 \) return;/.test(t));
+}
 check("…and marked for the deck's resets to seal again (our own flag; the down end is not)", up.flags["mobile-command"].sealOnReset === true && !down.flags["mobile-command"].sealOnReset);
 check("down: 'Climb down to the third floor?', at the ladder drawn on the attic (10, 8), open, to the trap door",
   down._id === "mcAtticLadderDn1" && down.behaviors[0].system.dialog.revealed === "Climb down to the third floor?"

@@ -18,7 +18,7 @@ import { registerSoundMix, setSoundMix, soundMixState, applyLaunchVolumes, SLIDE
 import { maybePromptDmWizard } from "./dm-wizard.js";
 import { registerSceneTransitions, registerPartyTeleportActivation } from "./transitions.js";
 import { registerTrainFollow, registerRideFollow, followRideScene, wireTrainDoors, setTrainMist, setTrainSound, preloadRideSound, primeRideSound, setTrainJolt, joltNow, trainMistOn, trainCarHasWindows, setTrainWindows, freeTrainWeather } from "./cm-train.js"; // §37 the Ghostlight ride
-import { restoreCrookedHouse, planHouseNow, makeAtticLadder, registerAtticLadder } from "./cm-house.js"; // the Crooked House put back (Lost Lore #17/#18)
+import { restoreCrookedHouse, planHouseNow, makeAtticLadder, registerAtticLadder, keepSealsInert } from "./cm-house.js"; // the Crooked House put back (Lost Lore #17/#18)
 import { figurines } from "./cm-bargains.js"; // MobileCommand.figurines: the Dark Bargains for the deck's landing table (deck-command D-0235)
 import { actorCard, cardFace } from "./tarot.js"; // MobileCommand.cardFace: the deck's landing table turns a character's card (deck-command D-0231)
 import { makeAtticRooms, planAtticNow } from "./cm-attic.js"; // the attic's rooms get music (§59)
@@ -1038,6 +1038,8 @@ Hooks.once("ready", () => {
   makeAtticRooms().catch((e) => console.warn(`${MODULE_ID} | makeAtticRooms`, e?.message));
   // ⚠️ ONE-SHOT, the same way, once the trap door's square is known: the attic ladder's two ends (DM 2026-11-27). cm-house.js.
   makeAtticLadder().catch((e) => console.warn(`${MODULE_ID} | makeAtticLadder`, e?.message));
+  // a sealed crossing (the trap door) must be a DISABLED teleport, never an enabled empty one (D-0240; the system check's HARD FAIL)
+  makeAtticLadder().then(() => keepSealsInert()).catch((e) => console.warn(`${MODULE_ID} | keepSealsInert`, e?.message));
   // ⚠️ ONE-SHOT, the same way: his approved default soundtracks (Druskenvald, Wickermoor Hollow; DM 2026-11-17, §59).
   musicAdoptApprovedOnce().catch((e) => console.warn(`${MODULE_ID} | default music`, e?.message));
   setupCalendarSkin(); // SC Reborn's popup = the table's "Calendar": retitle (tool column hidden in CSS)

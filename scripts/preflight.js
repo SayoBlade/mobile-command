@@ -236,6 +236,9 @@ function checkTeleportRegions() {
 // (The silent 14.0.8→14.0.11 drift is what caused the 2026-07-26 bug wave to land mid-week
 // with no warning — this check exists so an update is always a DECISION, never a surprise.)
 const TESTED = {
+  // ⚠️ PARTIAL 2026-11-27 (Seat 43 on his crooked-moon-6x, Foundry 14.371): dnd5e 6.1.2 and AC5E 14.611.2.3 passed a smoke —
+  // a sheet check and a save, a midi attack, and Creeping Dark. Gambit's Premades flagged as built for Foundry 13. The full
+  // §28.4 run is still owed on 6.1.x.
   // ⚠️ PARTIAL 2026-11-23 (SEAT 13 on his crooked-moon-6x, DESIGN §28.5.18): Foundry 14.370, dnd5e 6.1.1, midi 14.7.1,
   // AC5E 14.611.2.2, DAE 14.6.10, wm5e 14.610.2 (Cleave reached the card; its second attack throws in wm5e's own
   // doCleave and its damage is not auto-applied: theirs, not patched). §28.4 legs 1–9 and 11 PASS; leg 10 FAILED (the
@@ -252,7 +255,7 @@ const TESTED = {
   // §28.4 run, 12/12 — two-tap, MM darts, save spell, AoE via panel Place, AoO chip, target
   // hygiene (that leg CAUGHT the placeCast stray-target gap, fixed same night), music matrix
   // incl. mid-combat reload re-arm, turn HUD, this very check naming the version under test.
-  "dnd5e": "6.1.1", "midi-qol": "14.7.1", "automated-conditions-5e": "14.611.2.2",
+  "dnd5e": "6.1.2", "midi-qol": "14.7.1", "automated-conditions-5e": "14.611.2.3",
   // The automation-ecosystem pair, deep-dived together 2026-07-26 (§28.6): versions move
   // weekly (CAT is 0.0.x), so any bump gets the same validation treatment as midi's.
   "cat": "0.0.7", "midi-item-showcase-community": "2.0.2",
